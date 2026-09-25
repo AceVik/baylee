@@ -393,6 +393,9 @@ impl EngineRunner {
             }
             return out;
         }
+        // A socket that just opened holds none of the game log, and whatever
+        // went to this seat while nobody was on it was dropped in `route`.
+        session.retell_log(player);
         let routed = session.pump();
         out.extend(self.route(&routed));
         out.extend(self.ending());
@@ -472,21 +475,18 @@ impl EngineRunner {
     /// decision clock runs out the house agent plays that seat's turn — which
     /// looks, from the table, like the phase advancing on its own.
     ///
-    /// Re-asking is safe because `Session::snapshot` is read-only: it never
+    /// Re-asking is safe because `Session::reask` is read-only: it never
     /// pumps, so it cannot take a turn on an AI seat's behalf. It also sends
     /// the choice only to the seat actually being awaited, so a refusal from a
     /// seat that does not hold the decision gets the error and nothing more.
+    /// It sends no log: a refusal lost no frame, and the whole log for each
+    /// refused action would be a large answer to a small request.
     fn refused(&self, player: PlayerId, reason: &str) -> Vec<Envelope> {
         let Some(session) = self.session.as_ref() else {
             return Vec::new();
         };
         let mut frames = vec![(player, error(reason))];
-        frames.extend(
-            session
-                .snapshot(player)
-                .into_iter()
-                .map(|env| (player, env)),
-        );
+        frames.extend(session.reask(player).into_iter().map(|env| (player, env)));
         self.route(&frames)
     }
 

@@ -40,7 +40,7 @@ const fn phase(p: EnginePhase) -> Phase {
 }
 
 /// Translates the engine's reason a seat lost into the wire enum.
-const fn loss_cause(reason: LossReason) -> LossCause {
+pub(crate) const fn loss_cause(reason: LossReason) -> LossCause {
     match reason {
         LossReason::Life => LossCause::Life,
         LossReason::EmptyDraw => LossCause::EmptyDraw,
@@ -52,7 +52,7 @@ const fn loss_cause(reason: LossReason) -> LossCause {
 }
 
 /// Translates the engine's day/night designation into the wire enum.
-const fn day_night(d: EngineDayNight) -> DayNight {
+pub(crate) const fn day_night(d: EngineDayNight) -> DayNight {
     match d {
         EngineDayNight::Day => DayNight::Day,
         EngineDayNight::Night => DayNight::Night,
@@ -78,7 +78,7 @@ const fn step(s: EngineStep) -> Step {
 }
 
 /// Translates a counter kind into the wire enum.
-const fn counter(kind: baylee_cards_dsl::CounterKind) -> CounterKind {
+pub(crate) const fn counter(kind: baylee_cards_dsl::CounterKind) -> CounterKind {
     use baylee_cards_dsl::CounterKind as K;
     match kind {
         K::Plus { power, toughness } => CounterKind::Plus { power, toughness },
@@ -103,7 +103,7 @@ const fn counter(kind: baylee_cards_dsl::CounterKind) -> CounterKind {
 /// knows what they played, everyone else sees a blank. Returning `None` for
 /// the card identity — rather than sending it and trusting the client to hide
 /// it — is what makes the leak unrepresentable.
-fn may_know_card(obj: &GameObject, seat: PlayerId) -> bool {
+pub(crate) fn may_know_card(obj: &GameObject, seat: PlayerId) -> bool {
     !obj.status
         .contains(baylee_engine::object::Status::FACE_DOWN)
         || obj.controller == seat
@@ -515,7 +515,7 @@ fn stack_item(obj: &GameObject) -> Option<baylee_view::StackItem> {
 }
 
 /// The view's spelling of the engine's [`PrintedFace`].
-fn rules_face(face: PrintedFace) -> RulesFace {
+pub(crate) fn rules_face(face: PrintedFace) -> RulesFace {
     RulesFace {
         card: face.card(),
         face: face.face(),
@@ -539,7 +539,7 @@ fn rules_face(face: PrintedFace) -> RulesFace {
 /// a printed one no sentence fits — which is the whole point of it being
 /// an `Option` on the wire. `docs/client.md` §"Which ability is on the
 /// stack" is normative.
-fn stack_text(printed: PrintedFace, index: u32) -> Option<baylee_view::StackText> {
+pub(crate) fn stack_text(printed: PrintedFace, index: u32) -> Option<baylee_view::StackText> {
     let line =
         baylee_cards::lines::ability_line(printed.card(), usize::from(printed.face()), index)?;
     Some(baylee_view::StackText {
@@ -3607,5 +3607,310 @@ mod tests {
             !uncounterable_to(&engine, me, eagle),
             "the rider belongs to the spell, and the permanent it became is not a spell"
         );
+    }
+
+    // ---- the game log names an object as the view would have (#262)
+
+    use crate::log::GameLog;
+    use baylee_engine::event::{Cause, GameEvent};
+    use baylee_engine::zone::ZonePosition;
+    use baylee_view::{LogEvent, LogObject, LogZone};
+
+    /// A table past its mulligans, and its log so far.
+    fn a_logged_table() -> (Engine<Registry>, GameLog) {
+        let mut engine = Engine::new(&mixed_print_preset(), Registry).expect("game starts");
+        while let Pending::Mulligan { player, .. } = engine.pending().clone() {
+            engine
+                .apply(player, baylee_engine::choice::PlayerAction::MulliganKeep)
+                .expect("keeps");
+        }
+        let log = GameLog::new(engine.state());
+        (engine, log)
+    }
+
+    /// What `seat` is told of the lines from `from` on.
+    fn told_since(log: &GameLog, seat: PlayerId, from: usize) -> Vec<LogEvent> {
+        log.told(seat, from, log.len())
+            .into_iter()
+            .map(|line| line.event)
+            .collect()
+    }
+
+    /// The handle of a name the seat may know, if it may.
+    fn handle(object: &LogObject) -> Option<ObjectId> {
+        match object {
+            LogObject::Known { id, .. } | LogObject::FaceDown { id } => Some(*id),
+            LogObject::Hidden => None,
+        }
+    }
+
+    /// Cards drawn are named to the seat that drew them, and to every other
+    /// seat they are "a card": no handle, so a card cannot be followed from
+    /// the draw to the cast that shows it.
+    #[test]
+    fn a_draw_names_its_cards_to_the_drawer_and_to_nobody_else() {
+        let (mut engine, mut log) = a_logged_table();
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let from = log.len();
+        let drawn = engine
+            .dev_state_mut(me)
+            .expect("dev commands")
+            .draw_cards(me, 2);
+        log.consume(engine.state());
+
+        let [LogEvent::Drew { player, cards }] = &told_since(&log, me, from)[..] else {
+            panic!("{:?}", told_since(&log, me, from))
+        };
+        assert_eq!(*player, me);
+        assert!(
+            cards
+                .iter()
+                .all(|card| matches!(card, LogObject::Known { card: Some(_), .. })),
+            "the drawer knows what it drew"
+        );
+        assert_eq!(cards.iter().filter_map(handle).collect::<Vec<_>>(), drawn);
+        assert_eq!(
+            told_since(&log, them, from),
+            [LogEvent::Drew {
+                player: me,
+                cards: vec![LogObject::Hidden, LogObject::Hidden]
+            }]
+        );
+    }
+
+    /// A card taken from a library to a hand is the searcher's to know. Once
+    /// revealed on the way, as a search for anything narrower than "a card"
+    /// has to be, it is everyone's.
+    #[test]
+    fn a_card_found_in_a_library_is_named_to_the_table_only_once_revealed() {
+        let (mut engine, mut log) = a_logged_table();
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let found = library(&engine, me, 2);
+        let from = log.len();
+        let state = engine.dev_state_mut(me).expect("dev commands");
+        state
+            .move_object(
+                found[0],
+                ZoneLocation::Hand(me),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("found");
+        // The engine's own order: shown from the library, then moved.
+        state.journal.record(GameEvent::Revealed {
+            player: me,
+            cards: vec![found[1]],
+        });
+        state
+            .move_object(
+                found[1],
+                ZoneLocation::Hand(me),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("found");
+        log.consume(engine.state());
+
+        let theirs = told_since(&log, them, from);
+        assert_eq!(
+            theirs[0],
+            LogEvent::Moved {
+                object: LogObject::Hidden,
+                owner: me,
+                from: LogZone::Library,
+                to: LogZone::Hand
+            }
+        );
+        assert!(
+            matches!(&theirs[1], LogEvent::Revealed { cards, .. } if cards.iter().filter_map(handle).eq([found[1]])),
+            "{:?}",
+            theirs[1]
+        );
+        assert!(
+            matches!(&theirs[2], LogEvent::Moved { object: LogObject::Known { id, card: Some(_), .. }, .. } if *id == found[1]),
+            "{:?}",
+            theirs[2]
+        );
+        assert!(
+            told_since(&log, me, from).iter().all(|event| event
+                .objects()
+                .all(|o| matches!(o, LogObject::Known { .. }))),
+            "the searcher knows both"
+        );
+    }
+
+    /// A card put from a hand into a library (a Brainstorm's put-back) is
+    /// its owner's to know and nobody else's.
+    #[test]
+    fn a_card_put_back_into_a_library_is_its_owners_to_know() {
+        let (mut engine, mut log) = a_logged_table();
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let card = engine.state().zones.list(ZoneLocation::Hand(me))[0];
+        let from = log.len();
+        engine
+            .dev_state_mut(me)
+            .expect("dev commands")
+            .move_object(
+                card,
+                ZoneLocation::Library(me),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("put back");
+        log.consume(engine.state());
+
+        assert!(matches!(
+            &told_since(&log, me, from)[..],
+            [LogEvent::Moved { object: LogObject::Known { id, .. }, .. }] if *id == card
+        ));
+        assert_eq!(
+            told_since(&log, them, from),
+            [LogEvent::Moved {
+                object: LogObject::Hidden,
+                owner: me,
+                from: LogZone::Hand,
+                to: LogZone::Library
+            }]
+        );
+    }
+
+    /// A face-down permanent is named to its controller, and to everyone else
+    /// is the blank the view shows them, with the same handle and no card.
+    #[test]
+    fn a_face_down_permanent_is_named_as_the_view_shows_it() {
+        let (mut engine, mut log) = a_logged_table();
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let land = engine.state().zones.list(ZoneLocation::Battlefield)[0];
+        let from = log.len();
+        let state = engine.dev_state_mut(me).expect("dev commands");
+        state
+            .object_mut(land)
+            .expect("the permanent is there")
+            .status
+            .insert(baylee_engine::object::Status::FACE_DOWN);
+        state.journal.record(GameEvent::CounterChanged {
+            object: land,
+            kind: baylee_cards_dsl::CounterKind::Charge,
+            old: 0,
+            new: 1,
+        });
+        log.consume(engine.state());
+
+        let named = |seat| match told_since(&log, seat, from).pop() {
+            Some(LogEvent::Counters { object, .. }) => object,
+            other => panic!("{other:?}"),
+        };
+        assert!(matches!(named(me), LogObject::Known { id, card: Some(_), .. } if id == land));
+        assert_eq!(named(them), LogObject::FaceDown { id: land });
+        let shown = player_view(engine.state(), them, 1, None, &SeatContext::default(), &[])
+            .battlefield
+            .into_iter()
+            .find(|o| o.id == land)
+            .expect("on the battlefield");
+        assert!(shown.card.is_none(), "and the view agrees");
+    }
+
+    /// Face down in exile, the same: the view shows the other seats a blank
+    /// with a handle, and the log names it the same way.
+    #[test]
+    fn a_face_down_card_in_exile_is_named_as_the_view_shows_it() {
+        let (mut engine, mut log) = a_logged_table();
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let card = engine.state().zones.list(ZoneLocation::Hand(me))[0];
+        let from = log.len();
+        let state = engine.dev_state_mut(me).expect("dev commands");
+        state
+            .move_object(
+                card,
+                ZoneLocation::Exile(me),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("exiled");
+        state
+            .object_mut(card)
+            .expect("in exile")
+            .status
+            .insert(baylee_engine::object::Status::FACE_DOWN);
+        log.consume(engine.state());
+
+        assert_eq!(
+            told_since(&log, them, from),
+            [LogEvent::Moved {
+                object: LogObject::FaceDown { id: card },
+                owner: me,
+                from: LogZone::Hand,
+                to: LogZone::Exile
+            }]
+        );
+        assert!(matches!(
+            &told_since(&log, me, from)[..],
+            [LogEvent::Moved {
+                object: LogObject::Known { card: Some(_), .. },
+                ..
+            }]
+        ));
+        let shown = player_view(engine.state(), them, 1, None, &SeatContext::default(), &[])
+            .exile
+            .concat()
+            .into_iter()
+            .find(|o| o.id == card)
+            .expect("the view shows the exiled card");
+        assert!(shown.card.is_none(), "and the view agrees");
+    }
+
+    /// A permanent no line has named yet is still named as every seat saw
+    /// it once it is gone: the log remembers what stood in a public zone.
+    #[test]
+    fn a_permanent_gone_before_a_line_named_it_is_named_as_it_stood() {
+        let (mut engine, mut log) = a_logged_table();
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        // Laid out by the preset, which is no line of the log's.
+        let land = engine.state().zones.list(ZoneLocation::Battlefield)[0];
+        let from = log.len();
+        let state = engine.dev_state_mut(me).expect("dev commands");
+        state
+            .zones
+            .list_mut(ZoneLocation::Battlefield)
+            .retain(|id| *id != land);
+        state.arena.remove(land).expect("it was there");
+        state.journal.record(GameEvent::DamageDealt {
+            source: Some(land),
+            target: baylee_engine::event::DamageTarget::Player(them),
+            amount: 1,
+            is_combat: false,
+        });
+        log.consume(engine.state());
+
+        assert!(
+            matches!(
+                &told_since(&log, them, from)[..],
+                [LogEvent::Damage { source: Some(LogObject::Known { id, name, .. }), .. }]
+                    if *id == land && name == "Island"
+            ),
+            "{:?}",
+            told_since(&log, them, from)
+        );
+    }
+
+    /// The monarch's abilities have no source (CR 724.2): there is nothing
+    /// to name one by, and no line says an unknown object did something.
+    #[test]
+    fn a_trigger_with_no_source_gets_no_line() {
+        let (mut engine, mut log) = a_logged_table();
+        let me = PlayerId::new(0);
+        let from = log.len();
+        engine
+            .dev_state_mut(me)
+            .expect("dev commands")
+            .journal
+            .record(GameEvent::AbilityTriggered {
+                object: ObjectId::new(9_999, 0),
+                source: ObjectId::NO_SOURCE,
+                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                controller: me,
+            });
+        log.consume(engine.state());
+        assert_eq!(told_since(&log, me, from), []);
     }
 }

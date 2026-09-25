@@ -130,6 +130,12 @@ Searches, bottoming,
 and surveils at the skilled levels evaluate only identities actually visible
 in `PlayerView`, including `looking_at` while a search is open.
 
+An agent is never handed the game log (#262). The host sends log lines only
+to a seat answered over a socket, never to an AI chair or to a chair the house
+holds for an absent player
+(`session::tests::a_seat_the_house_answers_is_never_told_the_log`). What an
+agent knows of the past is what its view shows now.
+
 **A mode is chosen by what it reaches, not by where it is printed.** A modal
 spell whose every effect sits under a mode is offered no normal cast
 (CR 700.2a), and the answer to a cast question used to be the position of a

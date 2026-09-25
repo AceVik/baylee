@@ -426,6 +426,8 @@ async fn serve(
                                     state.game_id = Some(join.game_id.clone());
                                     table.session.describe(join.game_id.clone(), seat_names());
                                     let out = vec![table.session.game_static_envelope(seat)];
+                                    // A fresh client holds none of the log.
+                                    table.session.retell_log(seat);
                                     let pumped = table.session.pump();
                                     publish(table, pumped);
                                     out

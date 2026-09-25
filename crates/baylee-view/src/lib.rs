@@ -1687,9 +1687,11 @@ pub const LOG_TAIL_CAP: usize = 256;
 ///
 /// `from` is the index in this seat's log of the first entry here. A client
 /// appends when `from` is the length of what it holds, skips the overlap when
-/// it is less, and marks a gap it cannot fill when it is more. A socket's
-/// first tail starts at 0, so a client that reconnects is sent the whole log
-/// again.
+/// it is less, and marks a gap it cannot fill when it is more, so a line
+/// received twice changes nothing. A socket's first tail starts at 0, so a
+/// client that reconnects is sent the whole log again. A seat with more than
+/// [`LOG_TAIL_CAP`] lines waiting is sent several frames with the same view
+/// and `seq`, and reads the tail in every one of them.
 #[derive(Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
 pub struct LogTail {
     /// Index of the first entry in this seat's log.
@@ -1720,9 +1722,11 @@ pub struct LogEntry {
     /// The turn it happened in. The opening mulligans are turn 1 too, before
     /// its [`LogEvent::TurnStarted`].
     pub turn: u32,
-    /// How many times in a row it happened, at least 1. Consecutive identical
-    /// lines fold into one, so a long automated loop is one line and not
-    /// thousands.
+    /// How many times it happened, at least 1. A run of lines that says again
+    /// what the run before it said folds into it, each line counting its
+    /// repeats, so a long automated loop is a few lines and not thousands. A
+    /// life total or counters changing the same way again fold into one line
+    /// whose `old` and `new` span every change.
     pub repeat: u32,
     /// What happened.
     pub event: LogEvent,
@@ -1753,7 +1757,9 @@ pub enum LogObject {
         /// Engine object handle, as the view names it.
         id: ObjectId,
     },
-    /// A card the seat may not see: "a card".
+    /// A card the seat may not see: "a card". Also, to every seat, an object
+    /// the host never saw at all because it was made and gone within one
+    /// action.
     Hidden,
 }
 

@@ -8,6 +8,7 @@
 #![warn(missing_docs)]
 
 pub mod harness;
+mod log;
 pub mod preset;
 mod scouting;
 pub mod session;

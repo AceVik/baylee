@@ -831,23 +831,45 @@ than as a sentence of its own.
 Each seat gets its own game log: what happened, as far as that seat may know
 it. It travels in `StateDelta.log_json` as a `baylee_view::LogTail`, **beside**
 the view and never inside it. `PlayerView` stays a snapshot, and an agent that
-answers from a view never sees a log line (`gamehost` pins that).
+answers from a view never sees a log line: the host sends a log only to a
+seat answered over a socket (`gamehost` pins that, a chair the house holds
+for an absent player included).
 
 - **Built by the host, from the journal.** `Session` reads the engine journal
   after every action it applies and turns it into log lines. A line carries
   players and cards, never text: the client writes the sentence in its own
   language, with card names from its card text.
-- **`from` is an index into the seat's log.** A client appends a tail whose
-  `from` equals the length of what it holds, skips the overlap when `from` is
-  less, and marks a gap when `from` is more (and does not guess what was in
-  it). A socket's first tail starts at 0, so a client that reconnects gets the
-  whole log again.
-- **At most `LOG_TAIL_CAP` entries in one tail.** When there are more, the
-  host sends them in several `StateDelta` frames in one go. Every frame but
-  the last has an empty `view_json` and carries only log. A client reads
-  `log_json` whether or not the frame has a view in it.
-- **Consecutive identical lines fold** into one with `repeat` counting them,
-  so an automated loop is one line.
+- **Every `StateDelta` carries a view.** There is no frame with only log in
+  it. `log_json` is empty when there is nothing new.
+- **A seat may receive several frames with the same `seq`.** A tail holds at
+  most `LOG_TAIL_CAP` lines. When more are waiting, the host sends them in
+  several `StateDelta` frames in one go, each repeating the same view and the
+  same `seq` with the next part of the log. That happens at the end of a game
+  too, where no later view could carry what is left.
+- **A client reads `log_json` from every frame**, including one whose view it
+  drops as not newer than the one it holds. The lines in a repeated frame are
+  not a repeat.
+- **Appending by `from` is idempotent.** `from` is an index into the seat's
+  log. A client appends a tail whose `from` equals the length of what it
+  holds, skips the lines it already holds when `from` is less, and marks a gap
+  when `from` is more (and does not guess what was in it). Receiving a line
+  twice therefore changes nothing, and the host relies on that:
+  - a socket that attaches is sent the whole log from 0 with its first view
+    (`Session::retell_log`);
+  - a snapshot (a lagging socket's resync, `ResumeGame`) carries every line
+    the seat has been sent, from 0, and marks nothing;
+  - a refused answer is handed its question back with no log at all
+    (`Session::reask`): a refusal lost no frame.
+- **A line never changes once it may have been sent**, so every seat is told
+  the same line at the same index.
+- **Repeats fold.** A run of up to eight lines that says again what the run
+  before it said folds into it, each line counting its `repeat`; a life total
+  or a counter changing the same way again, from where the line ended, folds
+  into one line spanning the change. Only lines every seat is told in full
+  fold: whether two private lines were the same is itself private. The
+  engine's own endless loop runs thousands of times before it is broken, and
+  `log::tests::an_endless_loop_is_a_few_lines_long` holds that game's whole
+  log to 16 lines.
 
 ### What a line may say to a seat
 
@@ -863,10 +885,15 @@ shapes:
   from the draw that hid it to the cast that shows it. How many cards were
   drawn is still public.
 
-Whether a seat may know is decided once, when the line is built, and a line
-is only ever made *less* specific for a seat, never more. A face-down card's
-entitlement is the view's own `may_know_card`. `gamehost/src/view.rs` tests
-each rule.
+Whether a seat may know is decided once, when the line is built, from the
+zones the object was in: a move is known to whoever either zone showed it to,
+and a card revealed on the way (a search for anything narrower than "a card")
+to everyone. A line is only ever made *less* specific for a seat, never more,
+and a line that names an ability names it only to a seat that may know its
+source. A face-down card's entitlement is the view's own `may_know_card`.
+`gamehost/src/view.rs` tests each rule. A printing a seat first meets in its
+log is earned as one met in its view: `GameStatic` goes out before the frame
+that names it.
 
 ### What gets a line
 
@@ -878,20 +905,47 @@ losses and their reason, the end of the game, loops, and day/night.
 
 The host adds what the journal does not know: a seat taking a mulligan and
 keeping (counts only, which are public), what a seat's decision clock
-answered when it ran out, and a seat's player leaving the house to answer for
-them and coming back.
+answered when it ran out (the answer that does nothing by name, or "chosen
+for them" where there was none), and a seat's player leaving the house to
+answer for them and coming back.
 
-Left out as noise: mana produced, tapping and untapping, steps, phasing, and a
-spell moving to the graveyard as it resolves.
+Left out as noise: mana produced, tapping and untapping, steps, phasing, a
+spell moving to the graveyard as it resolves, the table as the preset laid it
+out, and cards moving between libraries and hands before the first turn (the
+mulligan lines count those).
 
-### What a line cannot name yet
+### What a line cannot name
 
-The host reads identities just after each action. A token or spell copy that
-was created and gone within that one action has no identity left, and is
-named "a token". An object the log has named once is remembered, so a token
-that dies later is still named. How often the fallback happens is measured,
-and the engine only records a dying token's identity if it turns out to
-matter.
+The host reads identities just after each action. It remembers every object
+a line has named and every object that stood in a public zone after any
+action, so a token that dies later, or a permanent that leaves the game with
+its owner, is still named as every seat saw it. What it never saw at all is
+lost:
+
+- an object made and gone within one action (a token, a spell copy) is told
+  to every seat as `Hidden`, with no handle, the same as a card nobody may
+  see;
+- a line that needs such an object's owner or controller (its creation, its
+  move) is left out. A draw still counts every card drawn;
+- an ability that has left the stack before the log read it is named by its
+  source alone (`ability: None`).
+
+A triggered ability with no source, the monarch's two (CR 724.2), gets no
+line of its own; what it does has its lines.
+
+Measured over self-play on 2026-09-25
+(`session::tests::the_log_measured_over_self_play`, release, one seat played
+by the house's own answers and sent a view after every pump as a socket is):
+
+| | acceptance decks, 20 games | one game per implemented card, 2,231 games |
+|---|---|---|
+| objects named | 6,706 | 296,576 |
+| told as `Hidden` for want of a name | 0 | 0 |
+| lines left out for want of an owner | 0 | 12 |
+| abilities named by their source alone | 0 of 994 | 0 of 2,875 |
+| views sent to the seat | 10,138 | 798,055 |
+| of those, with more lines than one frame carries | 0 | 0 |
+| most lines in one pump | 90 | 62 |
 
 ## Client preferences (`/settings`)
 
