@@ -529,7 +529,9 @@ fn table(
     }
 
     // A guest is told what a guest is, for as long as it plays as one (#269):
-    // the account and its decks go thirty days after it last plays.
+    // the account and its decks go when its session lapses, about thirty
+    // days after its last visit (the expiry slides on every request, not
+    // only on a game), or at once when it signs out.
     if lobby.guest() {
         let banner = commands
             .spawn((
