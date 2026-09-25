@@ -907,6 +907,20 @@ impl CardLook {
         self
     }
 
+    /// This look with its text face standing in the window in place of its
+    /// art (#259): no picture, `tint` under the face, and the face's `word`.
+    /// Its finish, glows, plate and sweep are the card's still, as they are
+    /// a print's.
+    #[must_use]
+    pub fn faced(self, tint: Color, word: u32) -> Self {
+        Self {
+            art: None,
+            tint: quantise(tint),
+            face: word,
+            ..self
+        }
+    }
+
     /// The same look with its reserved corner filled in.
     ///
     /// A builder rather than a sixth argument on all three constructors: a

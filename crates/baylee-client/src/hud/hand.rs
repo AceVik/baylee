@@ -254,7 +254,11 @@ pub(super) fn spawn_hand_zone(
             built.as_ref(),
             HAND_CARD_W,
             HAND_CARD_H,
-            crate::face::Detail::Full,
+            // Name, cost, type line and body, and no rules text: at this
+            // width it would be six pixels, under the ten a sentence is read
+            // at, and hovering the card opens the preview, which is where it
+            // is read (#259).
+            crate::face::Detail::Compact,
             fonts,
             // A card in hand is not on a battlefield, so no keyword glow: the
             // border tells a player what is protected *there*, and a hand
@@ -281,6 +285,7 @@ pub(super) fn spawn_hand_zone(
             )
             .with_sweep(sheen.of(card.id, crate::sheen::Surface::Hand)),
             cards.as_deref_mut(),
+            &faces.widths,
         );
         // Positioned by the layout rule; the strip's margin carries the
         // scroll offset (applied per frame, not rebuilt).

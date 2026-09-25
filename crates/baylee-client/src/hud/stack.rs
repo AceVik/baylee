@@ -1255,6 +1255,7 @@ fn spawn_stack_entry(
         assets,
         fonts,
         cards.as_deref_mut(),
+        &faces.widths,
     );
     // The light that says the pending question would take this spell as its
     // answer, and the brighter one that says it already has. It replaces the
@@ -1667,6 +1668,7 @@ fn spawn_stack_card(
     assets: &AssetServer,
     fonts: &UiFonts,
     cards: Option<&mut UiCards<'_>>,
+    widths: &crate::face::Widths<'_>,
 ) -> Entity {
     let slot = commands
         .spawn((
@@ -1722,6 +1724,7 @@ fn spawn_stack_card(
             // spell wearing one would be claiming something untrue.
             CardLook::art(key, finish_of(statics, Some(key)), 0),
             cards,
+            widths,
         );
         commands.entity(slot).add_child(visual);
     }
@@ -1785,6 +1788,7 @@ fn spawn_stack_target(
             assets,
             fonts,
             cards,
+            &faces.widths,
         );
     }
     // A player is a name and a heart, not a rectangle pretending to be a
@@ -2356,6 +2360,7 @@ mod tests {
             mode: &mode,
             settings: &settings,
             view: Some(&view),
+            widths: crate::face::Widths::of(None),
         };
         assert_eq!(board.stack.len(), 2, "two abilities are on the stack");
 
@@ -2417,6 +2422,7 @@ mod tests {
             mode: &mode,
             settings: &settings,
             view: Some(&view),
+            widths: crate::face::Widths::of(None),
         };
         assert!(queued_ability_line(&board.stack[0], &faces).is_none());
         assert_eq!(
@@ -2487,6 +2493,7 @@ mod tests {
             mode: &mode,
             settings: &settings,
             view: Some(&view),
+            widths: crate::face::Widths::of(None),
         };
         assert_eq!(
             queued_ability_line(&board.stack[0], &faces).as_deref(),

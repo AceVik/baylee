@@ -1286,7 +1286,15 @@ fn add_present_systems(app: &mut App) {
                 // The same ordering, and the same reason: the slip under
                 // the hover preview is spawned written, and this is what
                 // takes the ink back off and washes it on.
-                hud::wash_the_slip_in.after(hud::sync_overlay),
+                // And after the rebuild too: a preview rebuilt this frame is
+                // stood back where its text had been scrolled to, and its
+                // scrollbar shown if the text runs over (#259).
+                (
+                    hud::wash_the_slip_in,
+                    hud::keep_the_preview_scrolled,
+                    face::show_scrollbars,
+                )
+                    .after(hud::sync_overlay),
                 // After the rebuild for the reason `ease_the_stack_in` is:
                 // a hand card spawned this frame is spawned where the card
                 // already was, and this is what moves it from there.
@@ -1490,6 +1498,11 @@ fn add_input_systems(app: &mut App) {
             // so nothing a hand does reaches the rig any more.
             // `hud::scrolls` no longer shares the wheel with anything
             // and there is no order left to get wrong.
+            // Before the wheel, so a wheel over a card the pointer has just
+            // reached scrolls that card's preview from its top (#259).
+            hud::follow_the_hover
+                .after(input::pointer_hover)
+                .before(hud::scrolls),
             hud::scrolls,
             input::preview_resize,
             input::tray_drag,
@@ -1557,6 +1570,7 @@ impl Plugin for DuelPlugin {
             .insert_resource(self.config.clone())
             .insert_resource(settings::ClientSettings::load())
             .init_resource::<Duel>()
+            .init_resource::<hud::PreviewScroll>()
             // Both are written by systems that run every frame; a missing
             // resource here is a panic at the table, not a compile error.
             .init_resource::<table::SceneIndex>()

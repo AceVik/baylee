@@ -1934,6 +1934,70 @@ word and state: a mono-green board is still one material.
   numbers to `textface`'s, the hues to `Hue::tone`, and the word's shifts to
   `face_word`'s.
 
+**The overlay draws the same face at its own em.** The hand, the preview,
+the stack and the tray draw a card with no art through `CardUiMaterial` and
+the same `text_face`, and lay their text out by the same rule
+(`face::UiFace::lay`, then `face::spawn_ui`). Only the sizes differ:
+`textface::Sizes::overlay` takes each as a share of the card's width in
+pixels held between two sizes in pixels (`UI_NAME`, `UI_TYPE`, `UI_BODY`),
+so a 92-pixel hand card and a 308-pixel preview keep a print's proportions
+without a second table of constants, and the word carries the bars' depths
+that fit makes. The overlay is near, so its cost stands where a print's
+does, at the name bar's right end, and the name gives up the room the pips
+take (`Sizes::name_room`). The text is placed by `Regions` from the same
+depths the shader draws by; every node is `Pickable::IGNORE`, so the face
+takes no hover from the card it is drawn on.
+
+- **Rules text steps down, then scrolls.** It starts at its own size (15 px
+  in a preview at the default scale) and steps a pixel at a time down to
+  `BODY_FLOOR_PX`, 10 px, where a sentence stops being read
+  (`textface::fit_body`). Past the floor the text box scrolls, with a thin
+  bar in the bars' colour in its right margin (`face::FaceScrollbar`); the
+  margin is kept whether the bar shows or not, so the text never reflows
+  when it appears (`SCROLL_MARGIN`). Laid out by bevy over the pool's 2716
+  cards in English, the text still runs over at 10 px on 3.2% of them in a
+  308-pixel preview, on 26.8% at a preview scale of 0.75 (231 pixels), and
+  on one card at 372 (`how_much_of_the_pool_runs_over_at_the_floor`,
+  ignored; run it by name). German runs longer.
+- **The fit is a model of the layout, held to the layout.** It cannot wait
+  for bevy to lay the text out, because the material is keyed before
+  anything is spawned. So `manaui::rich_depth` models how `rich` sets a
+  line: a flex row that wraps, whose items are runs of words and marks, so
+  a run that will not fit beside a mark takes a line of its own, whole; and
+  bevy measures a run up to the whole pixel. The body is drawn by
+  `manaui::spawn_rich_in` in the face's own font at exactly the fitted
+  size. Drawn through `hud::tf`, as it first was, it came out 1.2 times
+  larger and a weight up, and a text fitted to its box ran over it
+  (`the_rules_text_is_drawn_as_it_was_fitted`).
+  `a_face_fitted_to_its_box_fits_it_in_bevy_s_layout` lays the forty pool
+  cards hardest to model out in a headless bevy with the shipped fonts, at
+  three widths, and none the fit says fits shows its bar. Over the whole
+  pool none does either.
+- **The wheel scrolls what is under the pointer, and on the table a card's
+  readable surface is its preview.** The preview is a tooltip that follows
+  the hovered card and is never under the pointer, so a wheel over the
+  hovered table card scrolls its preview's text (`hud::scrolls`). The offset
+  belongs to that preview (`hud::PreviewScroll`): it survives the overlay
+  rebuilding the preview (`keep_the_preview_scrolled`) and starts at the top
+  again when the hover moves to another card or off every card
+  (`follow_the_hover`). A card whose text fits leaves the wheel inert; it
+  nudges nothing else. The hand keeps its wheel
+  (§"Table presentation", `hud::scroll`).
+- **Known limit:** a hovered *hand* card whose text still runs over at 10 px
+  shows its scrollbar in the preview and cannot be scrolled there, because
+  the wheel over the hand scrolls the hand. The ways out are a larger preview
+  (`preview_scale` in the settings) or the same card on the table.
+- **A card in hand draws the short face** (`Detail::Compact`): name, cost
+  and type line, no rules text. At the hand's 92 pixels that text would be
+  six pixels, under the ten-pixel floor, and hovering the card opens the
+  preview, which is where it is read (`a_card_in_hand_draws_no_rules_text`).
+- **Not yet:** dragging the scrollbar's thumb; the bar only shows how much is
+  hidden and where the box stands. And the overlay fits a face when it
+  rebuilds, not when the font arrives: a face drawn before Alegreya Sans
+  loaded (a web client's first frames) keeps the average width's fit until
+  the next rebuild. The table re-fits on the font's arrival
+  (`table::ShownFace::is`); the overlay does not yet.
+
 Foil and etched finishes share `print_finish` in `card_common.wgsl` (#198).
 The existing artwork sample supplies luminance, pigment and screen-space
 contours, with no extra texture fetches. Foil uses a restrained, pigment-shifted

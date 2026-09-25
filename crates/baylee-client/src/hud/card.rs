@@ -21,6 +21,9 @@ pub(super) struct FaceCtx<'a> {
     /// source permanent's and the source is found through here. `None` before
     /// the first view arrives, which is also when there is nothing to draw.
     pub(super) view: Option<&'a baylee_view::PlayerView>,
+    /// What a text face's lines are fitted by: the shipped font's widths,
+    /// or the average until it has arrived.
+    pub(super) widths: crate::face::Widths<'a>,
 }
 
 impl FaceCtx<'_> {
@@ -76,7 +79,9 @@ impl FaceCtx<'_> {
 /// The art goes through [`CardUiMaterial`] rather than a plain `ImageNode`, so
 /// a foil in a player's hand looks like the foil that will land on the table.
 /// One shader, one set of constants, two pipelines — two that disagreed about
-/// what "foil" means would be worse than one that only ran on the table.
+/// what "foil" means would be worse than one that only ran on the table. A
+/// face goes through the same material (#259): the shader draws its bars and
+/// `face::spawn_ui` stands the text on them, fitted by `widths`.
 #[allow(clippy::too_many_arguments)] // a slot, a card, and the material store
 pub(super) fn spawn_card_art(
     commands: &mut Commands,
@@ -89,6 +94,7 @@ pub(super) fn spawn_card_art(
     fonts: &UiFonts,
     surface: CardLook,
     cards: Option<&mut UiCards<'_>>,
+    widths: &crate::face::Widths<'_>,
 ) -> Entity {
     let slot = commands
         .spawn(Node {
@@ -99,7 +105,33 @@ pub(super) fn spawn_card_art(
         })
         .id();
     let child = if let Some(face) = built {
-        crate::face::spawn_ui(commands, lang, face, width, detail, fonts)
+        // Laid out before the card is made, because the material is keyed
+        // by the face's word, and the word carries the depths of the bars
+        // the fit chose.
+        let laid = crate::face::UiFace::lay(face, lang, width, detail, widths, surface.plate);
+        let tint = crate::face::table_color(face.colors);
+        let card = commands
+            .spawn(Node {
+                width: percent(100),
+                height: percent(100),
+                ..default()
+            })
+            .id();
+        match cards {
+            Some(cards) => {
+                let look = surface.faced(tint, laid.word);
+                commands
+                    .entity(card)
+                    .insert(MaterialNode(cards.get(look, None)));
+            }
+            // No material store in a headless test: the card's colour stands
+            // in for the bars the shader would draw.
+            None => {
+                commands.entity(card).insert(BackgroundColor(tint));
+            }
+        }
+        crate::face::spawn_ui(commands, card, lang, face, &laid, fonts);
+        card
     } else if let Some(cards) = cards {
         commands
             .spawn((

@@ -2036,7 +2036,9 @@ pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;
 pub use rail::{DesignationFlash, flash_the_designation, light_the_current_step};
 pub(crate) use scroll::scrolled;
-pub use scroll::{HandScroll, Scrolls, scrolls};
+pub use scroll::{
+    HandScroll, PreviewScroll, Scrolls, follow_the_hover, keep_the_preview_scrolled, scrolls,
+};
 pub use seatbar::{
     BarRevision, LifeCell, SeatBar, SeatBarRoot, SeatInk, SeatStep, SeatTile, Shelf, Shelves,
     measure_shelves, place_seat_bars, stretch_step_tiles, sync_seat_bars,

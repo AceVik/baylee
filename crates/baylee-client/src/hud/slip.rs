@@ -795,6 +795,7 @@ mod tests {
             mode,
             settings,
             view: Some(view),
+            widths: crate::face::Widths::of(None),
         }
     }
 

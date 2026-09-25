@@ -190,7 +190,9 @@ pub fn sync_overlay(
     mut textures: ResMut<CardTextures>,
     assets: Res<AssetServer>,
     windows: Query<&Window>,
-    fonts: Res<UiFonts>,
+    // With the font's own asset, which the text faces are fitted by: in one
+    // parameter, because the system is at its limit of sixteen.
+    (fonts, font_assets): (Res<UiFonts>, Option<Res<Assets<Font>>>),
     settings: Res<crate::settings::ClientSettings>,
     prefs: Res<crate::prefs::Prefs>,
     texts: Res<crate::cardtext::CardTexts>,
@@ -218,6 +220,7 @@ pub fn sync_overlay(
         mode: &mode,
         settings: &settings,
         view: duel.view.as_ref(),
+        widths: crate::face::Widths::of(font_assets.as_deref().and_then(|a| a.get(&fonts.text))),
     };
     let lang = Lang::of(&settings.lang);
     let seq = duel.board.as_ref().map(|b| b.seq);
@@ -676,6 +679,7 @@ pub fn sync_overlay(
                     }
                 },
                 cards.as_mut(),
+                &faces.widths,
             );
             // The keyword strip, lying on the art where it lies on the table
             // (#274): an object of its own over the card, at the same place
@@ -803,6 +807,7 @@ pub fn sync_overlay(
                 &fonts,
                 look,
                 cards.as_mut(),
+                &faces.widths,
             );
             commands.entity(far).insert((
                 crate::flip::Side::Back,
@@ -933,6 +938,7 @@ pub fn sync_overlay(
                     // picture of a printing.
                     CardLook::art(under, finish_of(statics, Some(under)), 0),
                     cards.as_mut(),
+                    &faces.widths,
                 );
                 commands.entity(card).insert(upward_shadow());
                 let beside = commands
@@ -1822,6 +1828,48 @@ mod tests {
         duel.statics = Some(baylee_client_core::test_support::statics(8));
         crate::rebuild_board(&mut duel);
         duel
+    }
+
+    /// A card in hand draws its name, cost and type line and no box of rules
+    /// text: at the hand's width that text would be six pixels, under the ten
+    /// a sentence is read at, and hovering the card opens the preview (#259).
+    ///
+    /// No art arrives in a headless test, so the card draws its face; the
+    /// first half proves it did, which is what keeps the second from passing
+    /// on a hand that drew nothing at all.
+    #[test]
+    fn a_card_in_hand_draws_no_rules_text() {
+        use baylee_client_core::test_support::{ViewBuilder, statics};
+        let mut duel = duel_saying(false, false);
+        duel.view = Some(ViewBuilder::new(2).with_hand(vec![("Fire", 2, 4)]).build());
+        duel.statics = Some(statics(8));
+        crate::rebuild_board(&mut duel);
+        let mut app = bar_of(duel);
+        let world = app.world_mut();
+        let cards: Vec<Entity> = world
+            .query_filtered::<Entity, With<crate::hud::HandRowCard>>()
+            .iter(world)
+            .collect();
+        assert_eq!(cards.len(), 1, "the one card in hand is in the row");
+        let under: Vec<Entity> = {
+            let mut children = world.query::<&Children>();
+            let children = children.query(world);
+            children.iter_descendants(cards[0]).collect()
+        };
+        let mut words = world.query::<&TextSpan>();
+        let mut texts = world.query::<&Text>();
+        assert!(
+            under.iter().any(|e| {
+                words.get(world, *e).is_ok_and(|s| !s.0.is_empty())
+                    || texts.get(world, *e).is_ok_and(|t| !t.0.is_empty())
+            }),
+            "the card drew its face, and a face has a name"
+        );
+        let mut boxes = world.query_filtered::<(), With<crate::face::FaceTextBox>>();
+        assert!(
+            !under.iter().any(|e| boxes.get(world, *e).is_ok()),
+            "and no box of rules text under it"
+        );
     }
 
     /// A seat that is not being asked, because it said not to ask.

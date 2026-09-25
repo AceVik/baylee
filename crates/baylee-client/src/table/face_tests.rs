@@ -42,6 +42,8 @@ fn outpost() -> CardFace {
         body: Vec::new(),
         stats: None,
         colors: ColorSet::EMPTY,
+        types: TypeSet::LAND,
+        subtypes: SubtypeSet::EMPTY,
         text_pending: false,
     }
 }

@@ -132,6 +132,11 @@ pub struct CardFace {
     pub stats: Option<Stats>,
     /// Projected colors, for the frame.
     pub colors: ColorSet,
+    /// Projected card types: with the subtypes, what colours a land's text
+    /// face (`textface::face_word`).
+    pub types: TypeSet,
+    /// Projected subtypes.
+    pub subtypes: SubtypeSet,
     /// Whether the rules text is still missing.
     ///
     /// True when no catalog text was available — the face is still drawable
@@ -332,6 +337,8 @@ impl CardFace {
                 .unwrap_or_default(),
             stats: stats(object),
             colors: object.colors,
+            types: object.types,
+            subtypes: object.subtypes,
             text_pending: text.is_none(),
         }
     }

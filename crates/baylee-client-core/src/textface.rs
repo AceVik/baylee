@@ -200,7 +200,7 @@ impl Depths {
     /// The table's, for a name on `lines` lines.
     #[must_use]
     pub fn table(lines: usize) -> Self {
-        Self::of(name_bar(lines), bar(SMALL_EM))
+        Sizes::TABLE.depths(lines)
     }
 
     /// The name bar's depth, in card widths.
@@ -216,15 +216,127 @@ impl Depths {
     }
 }
 
-/// The table's name bar for a name on `lines` lines: one line holds the name
-/// at its own size, two hold it at the smaller one.
+/// The table's name bar for a name on `lines` lines ([`Sizes::name_bar`]).
 #[must_use]
 pub fn name_bar(lines: usize) -> f32 {
-    if lines > 1 {
-        2.0 * LINE_BOX * SMALL_EM + 2.0 * BAR_PAD
-    } else {
-        bar(NAME_EM)
+    Sizes::TABLE.name_bar(lines)
+}
+
+/// The overlay's name, as a share of the card's width in pixels, held
+/// between two sizes in pixels.
+pub const UI_NAME: (f32, [f32; 2]) = (0.082, [7.0, 22.0]);
+
+/// The overlay's type line and its name stepped down, likewise.
+pub const UI_TYPE: (f32, [f32; 2]) = (0.062, [6.0, 16.0]);
+
+/// The overlay's rules text at its own size, likewise.
+pub const UI_BODY: (f32, [f32; 2]) = (0.058, [6.0, 15.0]);
+
+/// The smallest the rules text is stepped down to, in pixels. Past it the
+/// text box scrolls: ten pixels is where a sentence stops being read.
+pub const BODY_FLOOR_PX: f32 = 10.0;
+
+/// The gap between two blocks of rules text, in lines of it.
+pub const BLOCK_GAP: f32 = 0.3;
+
+/// The text box's right margin, in card widths: where its scrollbar stands,
+/// kept whether or not the bar is shown, so the text never reflows when it
+/// appears.
+pub const SCROLL_MARGIN: f32 = 0.024;
+
+/// The sizes a face sets its lines at, and how long a name may run, in card
+/// widths.
+///
+/// The table's are [`Sizes::TABLE`], large because the felt is far. The
+/// overlay's follow the card's width in pixels ([`Sizes::overlay`]): the
+/// same rule at its own em, which keeps a 92-pixel hand card and a
+/// 308-pixel preview in a print's proportions without a second table of
+/// constants.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Sizes {
+    /// The name, on one line.
+    pub name: f32,
+    /// The name stepped down, on one line or two, and the type line.
+    pub small: f32,
+    /// The smallest the type line is set.
+    pub type_floor: f32,
+    /// How long a line of the name may run: the line, less whatever shares
+    /// its bar.
+    pub name_room: f32,
+}
+
+impl Sizes {
+    /// The table's: [`NAME_EM`], [`SMALL_EM`], [`TYPE_FLOOR_EM`], and the
+    /// whole line for the name, since its cost stands on the art box.
+    pub const TABLE: Self = Self {
+        name: NAME_EM,
+        small: SMALL_EM,
+        type_floor: TYPE_FLOOR_EM,
+        name_room: line_width(),
+    };
+
+    /// The overlay's, on a card `card_px` pixels wide whose cost takes
+    /// `cost` card widths at the name bar's right end, as on a print.
+    #[must_use]
+    pub fn overlay(card_px: f32, cost: f32) -> Self {
+        let small = ui_em(UI_TYPE, card_px);
+        Self {
+            name: ui_em(UI_NAME, card_px),
+            small,
+            type_floor: small * TYPE_FLOOR_EM / SMALL_EM,
+            name_room: line_width() - if cost > 0.0 { cost + TEXT_INSET } else { 0.0 },
+        }
     }
+
+    /// The name bar for a name on `lines` lines: one line holds the name at
+    /// its own size, two hold it at the smaller one.
+    #[must_use]
+    pub fn name_bar(&self, lines: usize) -> f32 {
+        if lines > 1 {
+            2.0 * LINE_BOX * self.small + 2.0 * BAR_PAD
+        } else {
+            bar(self.name)
+        }
+    }
+
+    /// The bars' depths for a name on `lines` lines.
+    #[must_use]
+    pub fn depths(&self, lines: usize) -> Depths {
+        Depths::of(self.name_bar(lines), bar(self.small))
+    }
+}
+
+/// One of the overlay's sizes on a card `card_px` pixels wide, as an em in
+/// card widths.
+#[must_use]
+pub fn ui_em((share, [lo, hi]): (f32, [f32; 2]), card_px: f32) -> f32 {
+    (card_px * share).clamp(lo, hi) / card_px
+}
+
+/// How wide the rules text's column is, in card widths: the face's inside
+/// less [`TEXT_INSET`] on the left and [`SCROLL_MARGIN`] on the right.
+#[must_use]
+pub const fn column() -> f32 {
+    let [x0, x1] = content_x();
+    x1 - x0 - TEXT_INSET - SCROLL_MARGIN
+}
+
+/// The size the rules text is set at in a box `height` card widths deep, as
+/// an em: its own size if all of it fits, else a pixel smaller at a time
+/// down to [`BODY_FLOOR_PX`], and there it stays and the box scrolls. A card
+/// too small for its own size to reach the floor keeps its own size.
+///
+/// `depth` says how deep the text stands at an em, in card widths: the
+/// renderer's model of its own layout, since only the renderer knows how it
+/// sets a line (`manaui::rich_depth` in the client).
+#[must_use]
+pub fn fit_body(card_px: f32, height: f32, depth: impl Fn(f32) -> f32) -> f32 {
+    let own = ui_em(UI_BODY, card_px) * card_px;
+    let mut px = own;
+    while px - 1.0 >= BODY_FLOOR_PX && depth(px / card_px) > height {
+        px -= 1.0;
+    }
+    px / card_px
 }
 
 /// A string set to fit: the em it is set at and its lines, top first.
@@ -262,15 +374,21 @@ pub fn average_width(text: &str) -> f32 {
 /// smaller: a second line that still runs over is cut with an ellipsis.
 #[must_use]
 pub fn fit_name(name: &str, width: impl Fn(&str) -> f32) -> Fitted {
-    let room = line_width();
+    fit_name_in(&Sizes::TABLE, name, width)
+}
+
+/// A name set to fit its bar by [`fit_name`]'s rule, at `sizes`.
+#[must_use]
+pub fn fit_name_in(sizes: &Sizes, name: &str, width: impl Fn(&str) -> f32) -> Fitted {
+    let room = sizes.name_room;
     let natural = width(name);
-    if natural * NAME_EM <= room {
-        return Fitted::one(NAME_EM, name);
+    if natural * sizes.name <= room {
+        return Fitted::one(sizes.name, name);
     }
-    if natural * SMALL_EM <= room {
-        return Fitted::one(SMALL_EM, name);
+    if natural * sizes.small <= room {
+        return Fitted::one(sizes.small, name);
     }
-    let fits = |s: &str| width(s) * SMALL_EM <= room;
+    let fits = |s: &str| width(s) * sizes.small <= room;
     let (first, rest) = break_line(name, &fits);
     let second = if fits(rest) {
         rest.to_owned()
@@ -278,7 +396,7 @@ pub fn fit_name(name: &str, width: impl Fn(&str) -> f32) -> Fitted {
         cut(rest, &fits)
     };
     Fitted {
-        em: SMALL_EM,
+        em: sizes.small,
         lines: vec![first.to_owned(), second],
     }
 }
@@ -300,15 +418,22 @@ pub fn fit_name(name: &str, width: impl Fn(&str) -> f32) -> Fitted {
 /// tell apart, so it goes from the whole line straight to its subtypes.
 #[must_use]
 pub fn fit_type(type_line: &str, width: impl Fn(&str) -> f32) -> Fitted {
+    fit_type_in(&Sizes::TABLE, type_line, width)
+}
+
+/// A type line set to fit its bar by [`fit_type`]'s rule, at `sizes`.
+#[must_use]
+pub fn fit_type_in(sizes: &Sizes, type_line: &str, width: impl Fn(&str) -> f32) -> Fitted {
     let room = line_width();
+    let floor = sizes.type_floor;
     let natural = width(type_line);
-    if natural * SMALL_EM <= room {
-        return Fitted::one(SMALL_EM, type_line);
+    if natural * sizes.small <= room {
+        return Fitted::one(sizes.small, type_line);
     }
-    if natural * TYPE_FLOOR_EM <= room {
-        return Fitted::one(TYPE_FLOOR_EM, type_line);
+    if natural * floor <= room {
+        return Fitted::one(floor, type_line);
     }
-    let fits = |s: &str| width(s) * TYPE_FLOOR_EM <= room;
+    let fits = |s: &str| width(s) * floor <= room;
     let (types, subtypes) = match type_line.split_once(TYPE_DASH) {
         Some((types, subtypes)) => (types, Some(subtypes)),
         None => (type_line, None),
@@ -324,20 +449,20 @@ pub fn fit_type(type_line: &str, width: impl Fn(&str) -> f32) -> Fitted {
         None => plain.to_owned(),
     };
     if fits(&unsuper) {
-        return Fitted::one(TYPE_FLOOR_EM, &unsuper);
+        return Fitted::one(floor, &unsuper);
     }
     let Some(subtypes) = subtypes else {
-        return Fitted::one(TYPE_FLOOR_EM, &cut(plain, &fits));
+        return Fitted::one(floor, &cut(plain, &fits));
     };
     if fits(subtypes) {
-        return Fitted::one(TYPE_FLOOR_EM, subtypes);
+        return Fitted::one(floor, subtypes);
     }
     let words: Vec<&str> = subtypes.split(' ').collect();
     let kept = (1..words.len()).rev().find_map(|keep| {
         let line = format!("{}{ELLIPSIS}", words[..keep].join(" "));
         fits(&line).then_some(line)
     });
-    Fitted::one(TYPE_FLOOR_EM, &kept.unwrap_or_else(|| cut(subtypes, &fits)))
+    Fitted::one(floor, &kept.unwrap_or_else(|| cut(subtypes, &fits)))
 }
 
 // ------------------------------------------------------------- the colours
@@ -450,6 +575,18 @@ pub const BEVEL: f32 = 0.06;
 /// The bar it stands off least is black's, at 4.7:1 (WCAG asks 4.5 of body
 /// text); the paper is over 11:1 whatever its colour.
 pub const INK: [f32; 3] = [0.09, 0.10, 0.12];
+
+/// The ink of reminder text and of a placeholder, in sRGB: quieter than
+/// [`INK`], and still 4.5:1 off every paper.
+pub const MUTED_INK: [f32; 3] = [0.32, 0.33, 0.36];
+
+/// The text box's paper under bars of `hue`, in linear light: the bars'
+/// colour [`PAPER_MIX`] of the way to [`PAPER_WHITE`].
+#[must_use]
+pub fn paper(hue: Hue) -> [f32; 3] {
+    let bar = hue.tone();
+    std::array::from_fn(|i| bar[i] + (PAPER_WHITE[i] - bar[i]) * PAPER_MIX)
+}
 
 /// The cost's other ink, in sRGB, for an art box too dark for [`INK`]
 /// ([`cost_ink`]).
@@ -926,6 +1063,71 @@ mod tests {
         assert_eq!(hues(word), (grey, grey, grey));
     }
 
+    /// The overlay keeps the table's rule at its own em: its bars follow
+    /// the card's width in pixels, its name gives up the room its cost
+    /// takes beside it, and the text box takes what the thinner bars leave.
+    #[test]
+    fn the_overlay_sets_the_table_s_rule_at_its_own_em() {
+        assert_eq!(Sizes::TABLE.depths(2), Depths::table(2));
+
+        let hand = Sizes::overlay(92.0, 0.0);
+        assert!((hand.name - 0.082).abs() < 1e-3, "{hand:?}");
+        assert!((hand.small - 6.0 / 92.0).abs() < 1e-4, "held at 6 px");
+        assert!(hand.type_floor < hand.small);
+        let preview = Sizes::overlay(308.0, 0.2);
+        assert!((preview.name - 22.0 / 308.0).abs() < 1e-5, "held at 22 px");
+        assert!((preview.name_room - (line_width() - 0.2 - TEXT_INSET)).abs() < 1e-6);
+        assert!((Sizes::overlay(308.0, 0.0).name_room - line_width()).abs() < 1e-6);
+
+        let table = Regions::new(Sizes::TABLE.depths(1));
+        let ui = Regions::new(preview.depths(1));
+        assert!(ui.name_bar[3] < table.name_bar[3], "a thinner name bar");
+        assert!(ui.text_box[1] < table.text_box[1], "and a deeper text box");
+        assert!(
+            (ui.type_bar[1] - table.type_bar[1]).abs() < f32::EPSILON,
+            "both on the seam"
+        );
+
+        // The name steps down, then breaks, inside the room the cost left.
+        let room = preview.name_room;
+        let long = "A".repeat(40);
+        let fitted = fit_name_in(&preview, &long, mono);
+        assert_eq!(fitted.lines.len(), 2);
+        for line in &fitted.lines {
+            assert!(mono(line) * preview.small <= room + 1e-6, "{line}");
+        }
+    }
+
+    /// The rules text keeps its own size if it fits, steps down a pixel at a
+    /// time to the floor if it does not, and stops there; a card too small
+    /// to reach the floor keeps its own size.
+    #[test]
+    fn rules_text_steps_down_to_the_floor_and_no_further() {
+        let px = |em: f32| em * 308.0;
+        let height = 0.3;
+        // `n` lines of text, and nothing else, at an em.
+        let lines = |n: f32| move |em: f32| n * LINE_BOX * em;
+        assert!(
+            lines(1.0)(15.0 / 308.0) <= height,
+            "one line fits at its own size"
+        );
+        assert!((px(fit_body(308.0, height, lines(1.0))) - 15.0).abs() < 1e-3);
+
+        // A box just deep enough for six lines at 13 px, and so too shallow
+        // at 15 and at 14: set at 13.
+        let snug = lines(6.0)(13.0 / 308.0) + 1e-6;
+        let got = px(fit_body(308.0, snug, lines(6.0)));
+        assert!((got - 13.0).abs() < 1e-3, "set at {got} px");
+
+        // Too deep for the floor: set at the floor, and the box scrolls.
+        let got = px(fit_body(308.0, height, lines(59.0)));
+        assert!((got - BODY_FLOOR_PX).abs() < 1e-3, "set at {got} px");
+
+        // A hand card's own 6 px is under the floor already.
+        let tiny = fit_body(92.0, height, lines(59.0)) * 92.0;
+        assert!((tiny - 6.0).abs() < 1e-3, "set at {tiny} px");
+    }
+
     /// Every hue the word can carry, in its code's order.
     const HUES: [Hue; 7] = [
         Hue::White,
@@ -939,7 +1141,7 @@ mod tests {
 
     /// The face's words read on whatever the shader draws under them: the
     /// ink on every bar at WCAG's 4.5:1 for body text and on every paper at
-    /// its 7:1, and the lethal red on every paper at 4.5:1. The light ink
+    /// its 7:1, and the lethal red and the muted ink on every paper at 4.5:1. The light ink
     /// the table wrote in before the bars were drawn stood at 1.1:1 on a
     /// white bar.
     #[test]
@@ -947,14 +1149,15 @@ mod tests {
         let ink = linear(INK);
         for hue in HUES {
             let bar = hue.tone();
-            let paper: [f32; 3] =
-                std::array::from_fn(|i| bar[i] + (PAPER_WHITE[i] - bar[i]) * PAPER_MIX);
+            let paper = paper(hue);
             let on_bar = contrast(ink, bar);
             assert!(on_bar >= 4.5, "{hue:?}'s bar: {on_bar}");
             let on_paper = contrast(ink, paper);
             assert!(on_paper >= 7.0, "{hue:?}'s paper: {on_paper}");
             let lethal = contrast(linear(LETHAL_INK), paper);
             assert!(lethal >= 4.5, "lethal on {hue:?}'s paper: {lethal}");
+            let muted = contrast(linear(MUTED_INK), paper);
+            assert!(muted >= 4.5, "muted on {hue:?}'s paper: {muted}");
         }
     }
 

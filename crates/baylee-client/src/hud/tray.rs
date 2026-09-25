@@ -695,6 +695,8 @@ pub fn sync_tray(
         mode: &mode,
         settings: &settings,
         view: duel.view.as_ref(),
+        // The browser's thumbnails are always the art, so nothing is fitted.
+        widths: crate::face::Widths::of(None),
     };
     let faces_always = faces.always();
     // `!drawn` is this gate's `!tree.root.is_empty()`: the overlay can take
@@ -3050,6 +3052,8 @@ fn spawn_thumb(
             // would be claiming something the rules do not say.
             CardLook::art(key, finish_of(statics, Some(key)), 0),
             cards.as_deref_mut(),
+            // No face is drawn here, so nothing is fitted.
+            &crate::face::Widths::of(None),
         )
     } else {
         // A token in a graveyard, or a card this seat may not identify.

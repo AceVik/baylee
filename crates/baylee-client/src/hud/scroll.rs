@@ -73,13 +73,64 @@ pub struct Scrolls;
 #[derive(Component, Clone, Copy, Default, Debug)]
 pub struct HandScroll;
 
-/// Turns a wheel into scrolling on whatever panel is under the pointer.
+/// How far the preview's rules text has been scrolled, and whose it is.
+///
+/// The preview is a tooltip that follows the hovered card and is never under
+/// the pointer itself, so no wheel reaches its text box by the walk in
+/// [`scrolls`]. The rule for it (#259): the wheel scrolls what is under the
+/// pointer, and on the table a card's readable surface is its preview. So a
+/// wheel over the hovered table card scrolls that card's preview. The offset
+/// is kept here because the overlay rebuilds the preview on its own schedule,
+/// and a rebuilt text box would start at its top.
+///
+/// The hand keeps its wheel: a hovered hand card's preview does not scroll,
+/// and a text that still runs over at ten pixels shows its scrollbar there
+/// and is read larger, on the table or in the deckbuilder.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq)]
+pub struct PreviewScroll {
+    /// The card whose preview it is.
+    pub object: Option<ObjectId>,
+    /// How far it has scrolled, in logical pixels.
+    pub offset: f32,
+}
+
+/// Starts a preview's text at its top again whenever the hover moves to
+/// another card, or off every card.
+pub fn follow_the_hover(duel: Res<Duel>, mut preview: ResMut<PreviewScroll>) {
+    if preview.object != duel.hovered {
+        *preview = PreviewScroll {
+            object: duel.hovered,
+            offset: 0.0,
+        };
+    }
+}
+
+/// Stands a rebuilt preview's text where it had been scrolled to.
+pub fn keep_the_preview_scrolled(
+    preview: Res<PreviewScroll>,
+    mut boxes: Query<&mut ScrollPosition, Added<crate::face::FaceTextBox>>,
+) {
+    for mut position in &mut boxes {
+        position.y = preview.offset;
+    }
+}
+
+/// A box a wheel moves: how far it has scrolled, and how big it and its
+/// contents are.
+type Scrolled = (&'static mut ScrollPosition, &'static ComputedNode);
+
+/// Turns a wheel into scrolling on whatever panel is under the pointer, or on
+/// the preview of the table card under it ([`PreviewScroll`]).
+#[allow(clippy::too_many_arguments)] // two targets a wheel can have, and their stores
 pub fn scrolls(
     mut wheels: MessageReader<Pointer<Scroll>>,
     parents: Query<&ChildOf>,
-    mut panels: Query<(&mut ScrollPosition, &ComputedNode), With<Scrolls>>,
+    mut panels: Query<Scrolled, (With<Scrolls>, Without<crate::face::FaceTextBox>)>,
     hand: Query<(), With<HandScroll>>,
+    table: Query<&crate::table::CardVisual>,
+    mut previews: Query<Scrolled, With<crate::face::FaceTextBox>>,
     mut duel: ResMut<Duel>,
+    mut preview: ResMut<PreviewScroll>,
 ) {
     for wheel in wheels.read() {
         let travel = match wheel.unit {
@@ -92,6 +143,28 @@ pub fn scrolls(
         // bound would follow a cycle if one ever existed.
         for _ in 0..8 {
             let Some(entity) = current else { break };
+            if let Ok(card) = table.get(entity) {
+                // A card on the felt: what a wheel over it scrolls is its
+                // preview's text, and only while it is the card previewed.
+                // Text that fits is left where it is, and nothing else takes
+                // the wheel instead.
+                if duel.hovered == Some(card.object) {
+                    for (mut position, computed) in &mut previews {
+                        position.y = scrolled(
+                            position.y,
+                            -travel,
+                            computed.size().y,
+                            computed.content_size().y,
+                            computed.inverse_scale_factor(),
+                        );
+                        *preview = PreviewScroll {
+                            object: Some(card.object),
+                            offset: position.y,
+                        };
+                    }
+                }
+                break;
+            }
             if let Ok((mut position, computed)) = panels.get_mut(entity) {
                 // A wheel pushed away from the reader moves the content up,
                 // which is an *increase* in the offset.
@@ -179,12 +252,17 @@ mod tests {
         )
     }
 
-    /// An app with the one system and the one resource it writes.
+    /// An app with the wheel's systems and the resources they write, in the
+    /// client's order.
     fn app() -> App {
         let mut app = App::new();
         app.add_message::<Pointer<Scroll>>();
         app.init_resource::<Duel>();
-        app.add_systems(Update, scrolls);
+        app.init_resource::<PreviewScroll>();
+        app.add_systems(
+            Update,
+            (follow_the_hover, scrolls, keep_the_preview_scrolled).chain(),
+        );
         app
     }
 
@@ -272,6 +350,135 @@ mod tests {
             app.world().resource::<Duel>().hand_scroll > 0.0,
             "the card's own bar took the wheel"
         );
+    }
+
+    /// A table card, hovered, and the text box of its preview: `content`
+    /// pixels of text in a box 100 deep. Layout never runs in a test, so the
+    /// box is told both.
+    fn previewed(app: &mut App, content: f32) -> (Entity, Entity) {
+        let object = ObjectId::new(7, 0);
+        let card = app
+            .world_mut()
+            .spawn(crate::table::CardVisual { object, count: 1 })
+            .id();
+        let text = preview_text(app, content);
+        app.world_mut().resource_mut::<Duel>().hovered = Some(object);
+        // A frame with the preview up before any wheel, as in the client. On
+        // its first frame the box is `Added` and `keep_the_preview_scrolled`
+        // stands it at the kept offset, which would undo a wheel that moved
+        // it without being kept and let a test pass on it.
+        app.update();
+        (card, text)
+    }
+
+    fn preview_text(app: &mut App, content: f32) -> Entity {
+        app.world_mut()
+            .spawn((
+                Node::default(),
+                crate::face::FaceTextBox,
+                ScrollPosition::default(),
+                ComputedNode {
+                    size: Vec2::new(200.0, 100.0),
+                    content_size: Vec2::new(200.0, content),
+                    ..default()
+                },
+            ))
+            .id()
+    }
+
+    fn offset(app: &App, text: Entity) -> f32 {
+        app.world()
+            .entity(text)
+            .get::<ScrollPosition>()
+            .expect("the box keeps its offset")
+            .y
+    }
+
+    /// A hand bar with one card in it.
+    fn hand_card(app: &mut App) -> Entity {
+        let bar = app.world_mut().spawn((Node::default(), HandScroll)).id();
+        app.world_mut().spawn((Node::default(), ChildOf(bar))).id()
+    }
+
+    /// (a) The preview is never under the pointer, so the card it previews
+    /// takes the wheel for it: on the table a card's readable surface is its
+    /// preview (#259). The hand does not move.
+    #[test]
+    fn a_wheel_over_a_previewed_table_card_scrolls_its_text() {
+        let mut app = app();
+        let (card, text) = previewed(&mut app, 400.0);
+        wheel(&mut app, card, -1.0);
+        let at = offset(&app, text);
+        assert!(at > 0.0, "the preview's text moved");
+        assert!(
+            (app.world().resource::<PreviewScroll>().offset - at).abs() < f32::EPSILON,
+            "and the offset is kept for a rebuilt preview"
+        );
+        assert!(
+            app.world().resource::<Duel>().hand_scroll.abs() < f32::EPSILON,
+            "the hand did not move"
+        );
+    }
+
+    /// (b) The hand keeps its wheel, whatever the preview beside it holds.
+    #[test]
+    fn a_wheel_over_a_hand_card_scrolls_the_hand_and_not_the_text() {
+        let mut app = app();
+        let (_, text) = previewed(&mut app, 400.0);
+        let card = hand_card(&mut app);
+        wheel(&mut app, card, -1.0);
+        assert!(app.world().resource::<Duel>().hand_scroll > 0.0);
+        assert!(offset(&app, text).abs() < f32::EPSILON, "the text stayed");
+    }
+
+    /// (c) A card whose text fits leaves the wheel inert: nothing moves,
+    /// and nothing else takes it.
+    #[test]
+    fn a_wheel_over_a_table_card_whose_text_fits_changes_nothing() {
+        let mut app = app();
+        let (card, text) = previewed(&mut app, 100.0);
+        hand_card(&mut app);
+        wheel(&mut app, card, -1.0);
+        assert!(offset(&app, text).abs() < f32::EPSILON);
+        assert!(app.world().resource::<PreviewScroll>().offset.abs() < f32::EPSILON);
+        assert!(app.world().resource::<Duel>().hand_scroll.abs() < f32::EPSILON);
+    }
+
+    /// (d) The offset is the previewed card's: a rebuilt preview of the same
+    /// card stands where it was scrolled to, and the preview of the next card
+    /// starts at its top.
+    #[test]
+    fn the_offset_resets_when_the_hover_changes() {
+        let mut app = app();
+        let (card, _) = previewed(&mut app, 400.0);
+        wheel(&mut app, card, -1.0);
+        let kept = app.world().resource::<PreviewScroll>().offset;
+        assert!(kept > 0.0);
+
+        let rebuilt = preview_text(&mut app, 400.0);
+        app.update();
+        assert!(
+            (offset(&app, rebuilt) - kept).abs() < f32::EPSILON,
+            "a rebuilt preview of the same card"
+        );
+
+        app.world_mut().resource_mut::<Duel>().hovered = Some(ObjectId::new(8, 0));
+        app.update();
+        assert!(app.world().resource::<PreviewScroll>().offset.abs() < f32::EPSILON);
+        let next = preview_text(&mut app, 400.0);
+        app.update();
+        assert!(offset(&app, next).abs() < f32::EPSILON, "the next card's");
+    }
+
+    /// And a card the pointer is on but whose preview is not up — hovered
+    /// elsewhere, or not yet — scrolls nothing.
+    #[test]
+    fn a_wheel_over_a_card_that_is_not_previewed_scrolls_nothing() {
+        let mut app = app();
+        let (card, text) = previewed(&mut app, 400.0);
+        app.world_mut().resource_mut::<Duel>().hovered = None;
+        wheel(&mut app, card, -1.0);
+        assert!(offset(&app, text).abs() < f32::EPSILON);
     }
 
     /// The counter-test, and the whole point of the change: a wheel that

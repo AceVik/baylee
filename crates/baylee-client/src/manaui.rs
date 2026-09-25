@@ -517,6 +517,143 @@ pub fn spawn_rich_label(
     )
 }
 
+/// The same line, set in `face` at exactly `size`.
+///
+/// For a caller that fitted the line itself: a card's text face measures its
+/// rules text in the face's own font at the size it chose
+/// ([`rich_depth`]), and has to be drawn in that font at that size — not at
+/// [`crate::hud::tf`]'s nominal size, which is [`crate::hud::UI_SCALE`]
+/// larger and a weight up when small (#259).
+pub fn spawn_rich_in(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    text: &str,
+    size: f32,
+    color: Color,
+    face: fn(&UiFonts, f32) -> TextFont,
+) -> Entity {
+    rich(commands, fonts, text, size, size * MARK_SHARE, color, face)
+}
+
+/// How deep [`spawn_rich_in`] stands `text` at `size` in a column `room`
+/// pixels wide, in pixels. `width` measures a run of words at `size`, in
+/// pixels.
+///
+/// A model of [`rich`]'s layout, not the layout: its row is a flex row that
+/// wraps, and its items are the runs of words and the marks. So a run that
+/// does not fit beside the items before it starts a line of its own, whole,
+/// and wraps there at the column's width, and the item after a wrapped run
+/// starts the next line. A mark with the punctuation it holds on to is one
+/// item. Lines of text are bevy's 1.2 em ([`textface::LINE_BOX`]), and bevy
+/// measures a run of text up to whole pixels, so a line of 13.2 stands 14
+/// deep and three stand 40. Flex lines are [`air`] apart.
+///
+/// Where it cannot know, it errs deep: a run is measured with its spaces and
+/// without kerning, and a word wider than the column is taken to break. A
+/// face that this says fits must fit when laid out, which
+/// `face::tests::a_face_fitted_to_its_box_fits_it_in_bevy_s_layout` holds it
+/// to over cards whose text is hardest to model.
+///
+/// [`textface::LINE_BOX`]: baylee_client_core::textface::LINE_BOX
+pub(crate) fn rich_depth(text: &str, size: f32, room: f32, width: impl Fn(&str) -> f32) -> f32 {
+    use baylee_client_core::manapip::{self, Segment};
+    use baylee_client_core::textface::LINE_BOX;
+
+    // A run of `n` lines, as bevy measures it: up to the whole pixel.
+    let lines = |n: f32| (n * LINE_BOX * size).ceil();
+    let marks = size * MARK_SHARE;
+    let gap = air(size);
+    let segments = manapip::segments(text);
+    // The flex line being filled: how far it runs and how deep it is.
+    let mut open: Option<(f32, f32)> = None;
+    let mut depth = 0.0;
+    let mut place = |w: f32, h: f32| {
+        open = Some(match open {
+            Some((run, deep)) if run + gap + w <= room => (run + gap + w, deep.max(h)),
+            Some((_, deep)) => {
+                depth += deep + gap;
+                (w, h)
+            }
+            None => (w, h),
+        });
+    };
+    let mut taken = 0usize;
+    for (at, segment) in segments.iter().enumerate() {
+        match segment {
+            Segment::Text(words) => {
+                let words = &words[taken.min(words.len())..];
+                taken = 0;
+                if words.is_empty() {
+                    continue;
+                }
+                let run = width(words).ceil();
+                if run <= room {
+                    place(run, lines(1.0));
+                } else {
+                    place(room, lines(wrapped(words, room, &width)));
+                }
+            }
+            Segment::Symbol(pip) => {
+                let (mark, deep) = match pip {
+                    manapip::Pip::Loyalty(_) => {
+                        let span = marks * BADGE_SPAN;
+                        (span, span * manapip::LOYALTY_BOX)
+                    }
+                    // `spawn_number`'s disc grows with its digits; half the
+                    // disc a digit, which is more than one takes.
+                    manapip::Pip::Number { value } => {
+                        #[allow(clippy::cast_precision_loss)] // a handful of digits
+                        let digits = value.to_string().len() as f32;
+                        (marks.max(marks * (0.4 + 0.5 * digits)), marks)
+                    }
+                    manapip::Pip::Solid { .. } | manapip::Pip::Split { .. } => (marks, marks),
+                };
+                let glued = match segments.get(at + 1) {
+                    Some(Segment::Text(next)) => manapip::clings(next),
+                    _ => 0,
+                };
+                taken = glued;
+                if glued == 0 {
+                    place(mark, deep);
+                } else {
+                    let Some(Segment::Text(next)) = segments.get(at + 1) else {
+                        unreachable!("`glued` is non-zero only for a text segment")
+                    };
+                    place(mark + width(&next[..glued]).ceil(), deep.max(lines(1.0)));
+                }
+            }
+        }
+    }
+    open.map_or(0.0, |(_, deep)| depth + deep)
+}
+
+/// How many lines `words` wrap to in a column `room` wide, broken after the
+/// last word that fits; a word wider than the column breaks inside itself.
+fn wrapped(words: &str, room: f32, width: impl Fn(&str) -> f32) -> f32 {
+    let space = width(" ");
+    let mut lines = 1.0_f32;
+    // How far the current line runs; `None` before its first word.
+    let mut run: Option<f32> = None;
+    for word in words.split(' ') {
+        let w = width(word);
+        let mut now = match run {
+            Some(r) if r + space + w <= room => r + space + w,
+            Some(_) => {
+                lines += 1.0;
+                w
+            }
+            None => w,
+        };
+        if now > room {
+            let over = (now / room).ceil();
+            lines += over - 1.0;
+            now -= (over - 1.0) * room;
+        }
+        run = Some(now);
+    }
+    lines
+}
+
 /// The air between two marks in a line, measured against the **words**.
 ///
 /// This gap is the space in a line of writing, and a line does not open up
@@ -940,5 +1077,48 @@ mod tests {
         // A badge lives behind its token, the way every other mark does.
         // `+2` with no braces is prose and is measured as prose: refused.
         assert_eq!(marks_span("+2", 13.0, 16.0), None);
+    }
+
+    /// The model of a rich line counts it as [`rich`] lays it out: words
+    /// broken after the last that fits, a word wider than the column broken
+    /// inside itself, a run that will not fit beside a mark moved to a line
+    /// of its own, whole, and every line measured up to the whole pixel.
+    #[test]
+    fn a_rich_line_is_counted_as_it_is_laid_out() {
+        // Ten pixels a line of 1.2 em; five pixels a character, so twenty to
+        // a line of a hundred.
+        let (size, room) = (10.0, 100.0);
+        #[allow(clippy::cast_precision_loss)]
+        let depth = |text: &str| rich_depth(text, size, room, |s| s.chars().count() as f32 * 5.0);
+        let near = |got: f32, want: f32| (got - want).abs() < 1e-4;
+
+        assert!(near(depth("aaaa bbbb"), 12.0), "one line");
+        assert!(
+            near(depth("aaaa bbbb cccc dddd eeee"), 24.0),
+            "two, broken after dddd"
+        );
+        assert!(near(depth(&"a".repeat(45)), 36.0), "a word of 45 is three");
+        // `{T}:` is one item and the run after it another; twenty characters
+        // fill a line, so they cannot stand beside the mark.
+        let run = format!("{{T}}: {}", "b".repeat(19));
+        assert!(
+            near(depth(&run), 12.0 + air(size) + 12.0),
+            "{}",
+            depth(&run)
+        );
+        // Nineteen can: one line.
+        let run = format!("{{T}}: {}", "b".repeat(15));
+        assert!(near(depth(&run), 12.0), "{}", depth(&run));
+        // Marks alone stand a mark deep.
+        assert!(near(depth("{W}{U}"), size * MARK_SHARE));
+        // 13.2 is measured as 14.
+        assert!(near(rich_depth("a", 11.0, room, |_| 5.0), 14.0));
+        // And a run's width is measured up too: 90.495 is 91, which will
+        // not stand beside a mark in 90.5 of the line.
+        #[allow(clippy::cast_precision_loss)]
+        let run = rich_depth("{W} bbbbbbbbbbbbbbbbb", size, 100.5, |s| {
+            s.chars().count() as f32 * 5.0275
+        });
+        assert!(near(run, size * MARK_SHARE + air(size) + 12.0), "{run}");
     }
 }
