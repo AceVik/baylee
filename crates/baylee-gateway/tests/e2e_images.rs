@@ -27,7 +27,7 @@
 
 mod common;
 
-use common::{http_bytes, json_field, login, spawn_gateway_with};
+use common::{http, http_bytes, json_field, login, spawn_gateway_with};
 
 /// A picture of a given shape, as JPEG bytes — deliberately not of the shape
 /// it is being uploaded for.
@@ -178,6 +178,136 @@ fn an_upload_records_its_owner_once_per_player() {
     assert_eq!(upload(&second), id, "the same picture is the same file");
     assert_eq!(owners(&id, "copier"), 1, "and a second owner of it");
     assert_eq!(gw.scalar("SELECT count(*) FROM upload"), 2);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// #292: a deck names only pictures its player uploaded, so that an
+/// account's pictures leave with the account instead of living on in
+/// somebody else's deck.
+///
+/// Asked at every door a deck's picture comes in through: a new deck, a
+/// saved one, and a copy. A copy starts without the picture, so copying a
+/// sleeved deck still works; a save may keep the picture the deck already
+/// wears; and a player who uploads the same picture owns it too.
+#[test]
+#[allow(clippy::too_many_lines)] // e2e scenario script
+fn a_deck_wears_only_its_players_pictures() {
+    let dir = std::env::temp_dir().join(format!("baylee-wearers-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let gw = spawn_gateway_with(
+        "image-wearers",
+        &[("BAYLEE_DECK_IMAGE_PATH", dir.to_string_lossy().into_owned())],
+    );
+    let upload = |token: &str, kind: &str, picture: &[u8]| {
+        let (status, body) = http_bytes(
+            gw.port,
+            "POST",
+            &format!("/images?kind={kind}"),
+            Some(token),
+            "image/jpeg",
+            picture,
+        );
+        let body = String::from_utf8_lossy(&body).to_string();
+        assert_eq!(status, 200, "upload: {body}");
+        json_field(&body, "id").to_string()
+    };
+    let wearing = |sleeve: &str, playmat: &str| {
+        format!(
+            "{{\"name\":\"Sleeved\",\"cards\":[\"60 Forest\"],\
+             \"sleeve\":{sleeve},\"playmat\":{playmat}}}"
+        )
+    };
+    let quoted = |id: &str| format!("\"{id}\"");
+
+    let painter = login(gw.port, "painter", "Painter");
+    let other = login(gw.port, "other", "Other");
+    let sleeve = upload(&painter, "sleeve", &a_picture(600, 800));
+    let playmat = upload(&painter, "playmat", &a_picture(900, 500));
+    let made_up = "c".repeat(64);
+
+    let (status, body) = http(
+        gw.port,
+        "POST",
+        "/decks",
+        Some(&painter),
+        &wearing(&quoted(&sleeve), &quoted(&playmat)),
+    );
+    assert_eq!(status, 200, "the uploader's own pictures: {body}");
+    let deck = json_field(&body, "deck_id").to_string();
+
+    for (what, body) in [
+        ("somebody else's sleeve", wearing(&quoted(&sleeve), "null")),
+        (
+            "somebody else's playmat",
+            wearing("null", &quoted(&playmat)),
+        ),
+        (
+            "a sleeve nobody uploaded",
+            wearing(&quoted(&made_up), "null"),
+        ),
+    ] {
+        let (status, answer) = http(gw.port, "POST", "/decks", Some(&other), &body);
+        assert_eq!(status, 403, "{what}: {answer}");
+    }
+    assert_eq!(
+        gw.scalar(
+            "SELECT count(*) FROM deck d JOIN account a ON a.id = d.account_id \
+             WHERE a.username = 'other'"
+        ),
+        0,
+        "a refused deck is not written"
+    );
+
+    // A save names what the deck already wears, or less, or its player's own.
+    let path = format!("/decks/{deck}");
+    for (what, body) in [
+        (
+            "the same pictures",
+            wearing(&quoted(&sleeve), &quoted(&playmat)),
+        ),
+        ("none", wearing("null", "null")),
+        ("its own again", wearing(&quoted(&sleeve), "null")),
+    ] {
+        let (status, answer) = http(gw.port, "PUT", &path, Some(&painter), &body);
+        assert_eq!(status, 204, "{what}: {answer}");
+    }
+    let (status, answer) = http(
+        gw.port,
+        "PUT",
+        &path,
+        Some(&painter),
+        &wearing(&quoted(&made_up), "null"),
+    );
+    assert_eq!(
+        status, 403,
+        "a save naming a picture nobody uploaded: {answer}"
+    );
+
+    // A copy of a sleeved deck starts with the generated back.
+    let (status, answer) = http(gw.port, "POST", &format!("{path}/copy"), Some(&painter), "");
+    assert_eq!(status, 200, "{answer}");
+    let copy = json_field(&answer, "deck_id").to_string();
+    let (status, answer) = http(
+        gw.port,
+        "GET",
+        &format!("/decks/{copy}"),
+        Some(&painter),
+        "",
+    );
+    assert_eq!(status, 200, "{answer}");
+    assert!(answer.contains("\"sleeve\":null"), "{answer}");
+
+    // Uploading the same picture makes it the other player's as well.
+    assert_eq!(upload(&other, "sleeve", &a_picture(600, 800)), sleeve);
+    let (status, answer) = http(
+        gw.port,
+        "POST",
+        "/decks",
+        Some(&other),
+        &wearing(&quoted(&sleeve), "null"),
+    );
+    assert_eq!(status, 200, "{answer}");
 
     let _ = std::fs::remove_dir_all(&dir);
 }

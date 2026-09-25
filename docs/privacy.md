@@ -126,7 +126,8 @@ the pointers, because line numbers move.
   - name, format, `description` (free text), card rows (a row may carry a
     note of up to 500 characters, `baylee_core::deckrow`), sideboard,
     commanders;
-  - the ids of the sleeve and mat images;
+  - the ids of the sleeve and mat images, only ones the player uploaded
+    (#292);
   - `copied_from`/`copied_version`, version and `updated_at`.
   - Each change to the lists keeps the previous lists in `deck_version`,
     with a `summary`. The migration's words: "History only ever grows, and

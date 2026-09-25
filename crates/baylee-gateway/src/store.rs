@@ -637,6 +637,27 @@ pub async fn own_upload(
     Ok(())
 }
 
+/// Whether `account_id` uploaded the picture `image_id` (#292).
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn claims_upload(
+    db: &DatabaseConnection,
+    image_id: &str,
+    account_id: &str,
+) -> Result<bool> {
+    let Some(account) = uuid(account_id) else {
+        return Ok(false);
+    };
+    Ok(Uploads::find()
+        .filter(upload::Column::ImageId.eq(image_id))
+        .filter(upload::Column::AccountId.eq(account))
+        .count(db)
+        .await?
+        > 0)
+}
+
 /// Whether a write failed because something unique already exists.
 fn is_taken(e: &sea_orm::DbErr) -> bool {
     matches!(e, sea_orm::DbErr::RecordNotInserted) || e.to_string().contains("duplicate key value")

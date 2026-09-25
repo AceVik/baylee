@@ -1625,7 +1625,7 @@ from a curl recipe into a contract:
 | who is that | `GET /players/{handle}` | `{id, display_name, tag, handle}`, `400` without a `#`, `404` for nobody |
 | decks | `GET /decks` | `[{id, name, format, cards, sideboard, copies, side_copies, identity, commanders, leaders, sleeve, playmat}]` |
 | one deck | `GET /decks/{id}` | `{id, kind, name, format, description, cards:[…], sideboard:[…], commanders:[…], version}` |
-| save a deck | `POST /decks` `{name, cards:["N Card Name"], sideboard, commanders, format?, description?, summary?}` | `{deck_id}` |
+| save a deck | `POST /decks` `{name, cards:["N Card Name"], sideboard, commanders, format?, description?, summary?, sleeve?, playmat?}` | `{deck_id}`; `403` for a sleeve or mat the caller did not upload |
 | edit one | `PUT /decks/{id}` — same body | `204` |
 | throw one away | `DELETE /decks/{id}` | `204` |
 | what anybody may play | `GET /decks/shared` | `[{id, kind, name, format, description, cards, sideboard, commanders, version}]` |
@@ -1687,8 +1687,8 @@ rather than one filtered list. `POST /decks/{id}/copy` is how the second
 becomes the first: the copy is an ordinary deck of the caller's own, naming
 what it came from as `copied_from` plus `copied_version` — the *state* that
 was copied, so it still says what it came from after the original has moved
-on. A copy starts with the generated card back, because a sleeve and a mat
-are pictures the image store hands out by account.
+on. A copy starts with the generated card back and is dressed like any
+other deck (§"Sleeves and playmats").
 
 **A deck's history is what it no longer holds.** The deck row is the
 present and carries `version`; `deck_version` holds only states that have
@@ -1843,6 +1843,13 @@ forever. An image is stored at exactly one size per kind (a sleeve at 488×680,
 the same pixels as a card face; a mat at 1024×512), re-encoded on the way in
 rather than served as it arrived — an upload is otherwise a way to hand every
 other player at the table an arbitrary file to decode.
+
+A deck wears only pictures its player uploaded: `POST /decks` and
+`PUT /decks/{id}` answer `403` `that picture is not yours` for any other id
+(#292). The ids are no secret, since every seat at a table is told them, and
+without the check having seen a picture would be enough to wear it. Uploading
+the same picture makes it the uploader's too. Whether the file is still there
+is not asked: a sleeve that is not there draws the generated back.
 
 The shape is settled **twice**, on purpose. The client's crop tool
 (`client-core::crop`) is where a player chooses which part of their picture is

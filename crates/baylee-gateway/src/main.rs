@@ -1617,13 +1617,14 @@ struct DeckBody {
     summary: Option<String>,
     /// Image id of the deck's sleeve, from `POST /images?kind=sleeve`.
     ///
-    /// Not validated against the image store: a sleeve that is not there is a
-    /// deck that draws the generated back, which is what a deck with no sleeve
-    /// does anyway. Refusing the whole deck over a decoration would be a much
-    /// worse failure than losing the decoration.
+    /// The caller must have uploaded it ([`check_pictures`]). Whether its
+    /// file is still there is not asked: a sleeve that is not there is a deck
+    /// that draws the generated back, which is what a deck with no sleeve
+    /// does anyway.
     #[serde(default)]
     sleeve: Option<String>,
-    /// Image id of the deck's playmat.
+    /// Image id of the deck's playmat, from `POST /images?kind=playmat`,
+    /// under the same rule as the sleeve.
     #[serde(default)]
     playmat: Option<String>,
 }
@@ -1845,6 +1846,29 @@ fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<ErrorBody>)> {
     Ok(())
 }
 
+/// Refuses a sleeve or playmat the caller did not upload, 403 (#292).
+///
+/// Everybody at a table is told the deck's picture ids
+/// (`GET /games/{id}/cosmetics`), and without this, having seen a picture
+/// would be enough to wear it at one's own tables. Uploading the same
+/// picture makes it one's own too, which asks for no more than having the
+/// picture.
+async fn check_pictures(
+    state: &Shared,
+    account_id: &str,
+    body: &DeckBody,
+) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+    for id in [&body.sleeve, &body.playmat].into_iter().flatten() {
+        let claimed = store::claims_upload(&state.db, id, account_id)
+            .await
+            .map_err(|e| db_down(&e))?;
+        if !claimed {
+            return Err(err(StatusCode::FORBIDDEN, "that picture is not yours"));
+        }
+    }
+    Ok(())
+}
+
 async fn list_decks(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -1908,6 +1932,7 @@ async fn create_deck(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     validate_deck(&body)?;
+    check_pictures(&state, &account_id, &body).await?;
     let commanders = body.commander_names();
     let format = body
         .format
@@ -1950,6 +1975,7 @@ async fn update_deck(
     if deck.account_id != account_id {
         return Err(err(StatusCode::FORBIDDEN, "not your deck"));
     }
+    check_pictures(&state, &account_id, &body).await?;
     let commanders = body.commander_names();
     let format = body.format.clone().unwrap_or_else(|| deck.format.clone());
     let description = match body.description {
@@ -2171,10 +2197,8 @@ async fn copy_deck(
             cards: source.cards.clone(),
             sideboard: source.sideboard.clone(),
             commanders: source.commanders.clone(),
-            // The sleeve and the mat are pictures somebody uploaded, and the
-            // image store hands them out by account. A copy starts with the
-            // generated back rather than a reference it may not be able to
-            // read.
+            // A copy starts with the generated back and is dressed like any
+            // other deck ([`check_pictures`]).
             sleeve: None,
             playmat: None,
             updated_at: auth::now_secs(),
