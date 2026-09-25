@@ -5043,6 +5043,52 @@ reading and would probably not have needed to be; it is left where it is,
 because the tables were tuned there and a shelf's depth is a look rather than
 an arithmetic.
 
+## The players' strip, and the bar's right end (#264)
+
+On 25.09.2026 the owner rearranged the bar's two ends: *"At time the Manazone
+is placed at the left side over the actions bar, put it to the right. On the
+right there are the log and zones dialog buttons, put them left from the menu
+button at the right side (sticked to right) into the actions bar AND finally:
+Put the player ettiketes there where the Manazone was above the actions bar at
+the left side."*
+
+- **The mana pool** hangs off the shelf's right end (`ledge::pool`, still
+  `strip_node`, now `StripSide::Right`, grown from its bottom-right corner).
+  The game log's panel stands on that strip's top edge, as it stood on the
+  tray's, so a log left open never covers the mana a player is spending.
+- **The log's and the zones' doors** stand in the bar's own row, directly left
+  of the burger and its size (`ledge::tray::root_node`; the right column
+  reserves `tray::WIDTH` for them). They are still a retained node of their
+  own and not the shelf's children, because the shelf is rebuilt on every
+  sentence and the doors must always be there.
+- **The players' strip** (`ledge::players`) hangs off the left end: one button
+  per seat, the reader's first, then the table's order with each team
+  together (4 px inside a team, 10 px between sides). A button is its seat's
+  spine in the colour the rim and the log name it by (`seat_colour`), a mark
+  for a house chair, an away one or a lost one, the name as the rim writes it
+  (`seatbar::called`), life, hand, library, and poison and the largest single
+  commander's damage when either is not zero. The design is Fable's, keyed to
+  the lobby's blue hour.
+- **Three edges for three states**, so they can all show at once: whose turn
+  it is is a candle line along the top (wiped in from the left in 240 ms,
+  faded in 120), who the table is waiting on breathes in the border (1.6 s),
+  and the seat the camera is on has a bar along the bottom (grown from the
+  middle in 160 ms). `glow_the_players` runs them; under `reduce_motion` each
+  stands at its end. A changed life is lit green or red for 300 ms.
+- **A press is the rim's press**: every button is a `PlayerTab`, so your own
+  seat or the one the camera is on brings the camera home, any other glides to
+  that seat (`navigate_to_player`, eased by `ShownRig`), and while a question
+  can target a player the press points at that player instead.
+- **Narrow windows lose words, not height** (`players::Tier`): full, middle
+  (no library), compact (badges without numbers), initials and life. The row
+  keeps 300 px free for the pool whether or not mana floats, so it does not
+  change tier when a mana arrives.
+- **The drawer stands over it.** The strip is at the shelf's rung and spawned
+  before the drawer, which grows out of the same edge, centred; at eight seats
+  the row reaches past the window's middle, and a question is read over the
+  roster. A maximised zone dialog covers it too, while the pool's strip stays
+  at `Z_TRAY` over both, because mana is read while it is spent.
+
 ## The bar's hinge says which turn and what the game is
 
 The day/night designation (CR 731) is drawn beside the turn number, on the
@@ -5884,11 +5930,13 @@ voll, aber an der Actions Bar hängt manchmal so ein Info text. Auf eine
 rechtsbündig und kleiner von der Höhe her"*, and then the rule that gives it
 its job: *"Er wird aber nicht mehr geschlossen sondern in den Tray minimiert.
 Demnach ist der Button im Tray immer sichtbar und öffnet beim Klick den Zonen
-Dialog."* `hud::ledge::tray` is that strip — the **third** retained
+Dialog."* `hud::ledge::tray` was that strip — the **third** retained
 attachment on this ledge after the drawer and the mana pool, hanging off the
 same top edge with the same one pixel of overlap, right-aligned where the
 drawer is centred, and shorter than the shelf by the four pixels the shelf
-spends on breathing room around its own button row.
+spends on breathing room around its own button row. Since #264 its two doors
+stand in the bar itself, left of the burger, and the mana pool has its strip
+(§"The players' strip, and the bar's right end (#264)").
 
 What changed to make "minimised" true is **nothing about the state**.
 `Browser::close` has always kept the ticks, the filter and the placement; the
@@ -6896,12 +6944,14 @@ A `LogLine` carries:
   into one line say 1, because their "was" already spans every change.
   `plain()` adds "(×N)" for a reader that draws plain text.
 
-**The panel** (`hud::ledge::log`) is the tray's scroll button, `L`, and a
-column that stands on the tray strip against the right margin, 360 by 420
+**The panel** (`hud::ledge::log`) is the scroll button in the bar, `L`, and
+a column that stands on the right strip against the right margin, 360 by 420
 where the window has room and the room there is where it has not. It stands
 on the strip's top edge and not over the strip the way the game menu does:
 the menu goes away on the next press, and the log stays up while the game
-goes on, so it must not bury the zones button or its own. It is the shelf's
+goes on. The strip was the tray's when this was written, and the panel must
+not bury the zones button or its own; since #264 the doors are in the bar and
+the strip is the mana pool's, which the panel must not bury either. It is the shelf's
 z-rung (`Z_LOG`), under a zone dialog answering a question and under the
 menu. `Esc` shuts it after the menu and before the browser; a question never
 does, and neither does a press outside it. The game's end shuts it, because

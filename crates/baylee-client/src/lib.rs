@@ -1446,13 +1446,20 @@ fn add_present_systems(app: &mut App) {
                     hud::follow_the_log.after(hud::sync_log),
                     hud::hover_log_links.after(hud::sync_log),
                 ),
-                // The tray hangs off the shelf's edge and not out of its
-                // layout, so it needs nothing the shelf worked out — but it
-                // is ordered after it anyway, because it is spawned by the
-                // same rebuild the shelf is and a frame where the strip
-                // exists and the shelf does not would draw a button standing
-                // on air.
-                hud::sync_tray_strip.after(hud::sync_ledge),
+                // The tray's doors stand in the shelf's row but not in its
+                // layout, so they need nothing the shelf worked out — but
+                // they are ordered after it anyway, because they are spawned
+                // by the same rebuild the shelf is and a frame where they
+                // exist and the shelf does not would draw buttons standing
+                // on air. The players' strip (#264) hangs off the same shelf
+                // for the same reason, and its three edges move after it is
+                // filled. Nested with the doors, because the tuple around
+                // them is at bevy's twenty.
+                (
+                    hud::sync_tray_strip.after(hud::sync_ledge),
+                    hud::sync_players.after(hud::sync_ledge),
+                    hud::glow_the_players.after(hud::sync_players),
+                ),
                 // The zone dialog, on a revision of its own for the same
                 // reason as the shelf and with a louder symptom: the dialog
                 // is a hundred rows, and a tree rebuilt on every pointer move
@@ -1646,6 +1653,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<hud::LedgeLayout>()
             .init_resource::<hud::DrawerRevision>()
             .init_resource::<hud::PoolRevision>()
+            .init_resource::<hud::PlayersRevision>()
             .init_resource::<hud::StripRevision>()
             .init_resource::<hud::TrayRevision>()
             .init_resource::<hud::SheetRevision>()

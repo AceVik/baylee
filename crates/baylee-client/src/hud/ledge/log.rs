@@ -1,4 +1,4 @@
-//! The game log (#262): the panel the tray's scroll button opens.
+//! The game log (#262): the panel the scroll button in the bar opens.
 //!
 //! The owner asked for a Logs button beside the zone button, a chat-like
 //! panel with a scrollbar, and the whole log on the game-over screen. This is
@@ -8,11 +8,14 @@
 //! # Where it stands
 //!
 //! Hard against the right margin, like the game menu, but its bottom is the
-//! **strip's top** and not the strip's bottom. The menu may cover the zones
-//! button because the next press dismisses it (the owner's gloss beside
-//! [`Z_TRAY`]). This panel stays up while the game goes on under it, and a
-//! standing panel over the two doors on the strip would bury the zones and
-//! its own way back. So it stands on the strip and covers none of it.
+//! **right strip's top** and not the strip's bottom. The strip was the tray
+//! when this was written: the menu may cover the zones button because the
+//! next press dismisses it (the owner's gloss beside [`Z_TRAY`]), but this
+//! panel stays up while the game goes on under it, and a standing panel over
+//! the two doors would have buried the zones and its own way back. Since #264
+//! the doors are in the bar and the strip is the mana pool's, and the rule
+//! holds for the pool on its own terms: the mana a player is holding is read
+//! while they spend it, and a log left open must not stand over it.
 //!
 //! It is the shelf's rung ([`Z_LOG`]): a zone dialog answering a question
 //! stands over it, and so does the menu.
@@ -1066,14 +1069,14 @@ mod tests {
         }
     }
 
-    /// The panel stands on the strip and covers none of it: the zones and
-    /// its own door stay reachable while it is up, because it stays up.
+    /// The panel stands on the right strip and covers none of it: the mana
+    /// pool stays readable while it is up, because it stays up (#264).
     ///
-    /// Read out of the two `root_node`s, as the menu's test reads its own:
-    /// the claim is about where two nodes are drawn.
+    /// Read out of the two nodes, as the menu's test reads its own: the
+    /// claim is about where two nodes are drawn.
     #[test]
     fn the_panel_stands_on_the_strip_and_covers_none_of_it() {
-        let strip = super::super::tray::root_node();
+        let strip = super::super::strip_node(super::super::StripSide::Right);
         let panel = root_node();
         let (Val::Px(strip_bottom), Val::Px(strip_h), Val::Px(bottom)) =
             (strip.bottom, strip.height, panel.bottom)

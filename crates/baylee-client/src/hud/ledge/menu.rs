@@ -28,8 +28,10 @@
 //! Hard against the window's right margin, growing **up** out of the shelf
 //! with its bottom-right corner pinned — [`motion::from_bottom_right`], the
 //! function `motion.rs` predicted would be wanted one day. Its bottom edge is
-//! the strip's bottom edge, so an open menu covers [`super::tray`]'s archive
-//! box entirely.
+//! the strip's bottom edge, so an open menu covered [`super::tray`]'s archive
+//! box entirely while the tray was a strip. Since #264 the box stands in the
+//! bar beside the burger, under the panel's edge, and what an open menu
+//! covers is the mana pool's strip.
 //!
 //! That is allowed, and it is worth writing down why, because the sentence
 //! next to `Z_TRAY` reads the other way at a glance. *"Demnach ist der Button
@@ -116,8 +118,8 @@ const VERSION_PT: f32 = POOL_LABEL_PT;
 /// The burger, in the shelf's row.
 ///
 /// Square and a row button's own height, so it stands in the row rather than
-/// beside it. [`super::tray`]'s buttons are four pixels shorter because they
-/// stand inside a strip that has its own padding; this one has the column's.
+/// beside it. [`super::tray`]'s two doors stand in the same row since #264
+/// and take this size, so the three at the bar's right end are one set.
 pub(super) const BURGER: f32 = BUTTON_H;
 
 /// The glyph's size in it, the tray button's.
@@ -504,15 +506,17 @@ mod tests {
         );
     }
 
-    /// The panel covers the strip rather than standing on it.
+    /// The panel covers the right strip rather than standing on it. That
+    /// strip was the tray's and is the mana pool's since #264; the tray's
+    /// doors are in the bar, under the panel's bottom edge.
     ///
-    /// Both are read out of the two `root_node`s rather than out of the
-    /// constants, because what the claim is about is where two nodes are
-    /// drawn: the strip and the panel share a bottom edge, and the panel is
-    /// the taller of the two at every size it is ever drawn.
+    /// Both are read out of the two nodes rather than out of the constants,
+    /// because what the claim is about is where two nodes are drawn: the
+    /// strip and the panel share a bottom edge, and the panel is the taller
+    /// of the two at every size it is ever drawn.
     #[test]
     fn the_panel_and_the_strip_stand_on_one_edge() {
-        let strip = super::super::tray::root_node();
+        let strip = super::super::strip_node(super::super::StripSide::Right);
         let menu = root_node();
         assert_eq!(
             strip.bottom, menu.bottom,

@@ -275,7 +275,7 @@ impl Shelves {
 /// A board this client has not built yet seats a present player, which is the
 /// same answer an empty roster gives and for the same reason: nobody has been
 /// introduced.
-fn role_of(duel: &Duel, player: PlayerId) -> SeatRole {
+pub(in crate::hud) fn role_of(duel: &Duel, player: PlayerId) -> SeatRole {
     duel.board
         .as_ref()
         .and_then(|board| board.pod(player))
@@ -917,6 +917,38 @@ fn swatch(
         .id()
 }
 
+/// What a seat is called, on its bar and on its button in the players' strip
+/// ([`crate::hud::ledge`]'s `players`, #264): one function, so the two never
+/// name one seat two ways.
+pub(in crate::hud) fn called(
+    lang: Lang,
+    view: &PlayerView,
+    statics: Option<&GameStatic>,
+    player: PlayerId,
+    role: SeatRole,
+) -> String {
+    let printed = statics.map_or_else(
+        || Phrase::SeatNumbered.fill(lang, &[&player.to_string()]),
+        |s| s.seat_name(player).to_string(),
+    );
+    // A chair the house plays is called the house in the player's own
+    // language. Off the **flag** and never by matching the string, for the
+    // reason `Phrase::SeatHouse` gives: neither host has another name for such
+    // a chair, so there is nothing here to hide — only an English word a
+    // German player was being shown. A chair that is merely *held* keeps its
+    // player's name, which is the whole reason `away` is not `is_ai`.
+    let printed = if role == SeatRole::House {
+        Phrase::SeatHouse.text(lang).to_string()
+    } else {
+        printed
+    };
+    if player == view.seat {
+        baylee_client_core::i18n::own_seat_name(lang, &printed)
+    } else {
+        printed
+    }
+}
+
 /// The seat's name, and the cell a player clicks to frame that seat.
 ///
 /// It is also the whole of where a seat's **role** is said, and the reason
@@ -946,26 +978,7 @@ fn name(
     height: f32,
 ) -> Entity {
     let player = seat.player;
-    let printed = statics.map_or_else(
-        || Phrase::SeatNumbered.fill(lang, &[&player.to_string()]),
-        |s| s.seat_name(player).to_string(),
-    );
-    // A chair the house plays is called the house in the player's own
-    // language. Off the **flag** and never by matching the string, for the
-    // reason `Phrase::SeatHouse` gives: neither host has another name for such
-    // a chair, so there is nothing here to hide — only an English word a
-    // German player was being shown. A chair that is merely *held* keeps its
-    // player's name, which is the whole reason `away` is not `is_ai`.
-    let printed = if role == SeatRole::House {
-        Phrase::SeatHouse.text(lang).to_string()
-    } else {
-        printed
-    };
-    let display = if player == view.seat {
-        baylee_client_core::i18n::own_seat_name(lang, &printed)
-    } else {
-        printed
-    };
+    let display = called(lang, view, statics, player, role);
     let mut node = cell_node(width, height);
     node.justify_content = JustifyContent::FlexStart;
     node.overflow = Overflow::clip_x();

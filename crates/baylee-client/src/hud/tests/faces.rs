@@ -250,6 +250,8 @@ fn every_mark_the_overlay_names_is_in_the_icon_face() {
         ("CARET_DOWN", glyph::CARET_DOWN),
         ("EXPAND", glyph::EXPAND),
         ("COMMAND", glyph::COMMAND),
+        ("HOUSE", glyph::HOUSE),
+        ("AWAY", glyph::AWAY),
         ("CLOSE", glyph::CLOSE),
         ("CHECK", glyph::CHECK),
         ("VIEW_ROWS", glyph::VIEW_ROWS),

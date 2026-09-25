@@ -124,33 +124,22 @@ pub(super) fn from_bottom(scale: f32) -> Val2 {
     Val2::new(Val::ZERO, Val::Percent(50.0 * (1.0 - scale)))
 }
 
-/// The same, for a node pinned at the window's **left** margin rather than
-/// centred on the shelf.
+/// The same, for a node pinned at the window's **right** margin rather than
+/// centred on the shelf: the game menu, and the mana pool since #264.
 ///
 /// [`from_bottom`] lets a node shrink toward its own horizontal middle, which
 /// is right for the drawer: it is centred, so its middle is where it came
 /// from. A strip is fixed at one margin, and a node that scales about its
 /// centre while one edge is pinned by the layout appears to *slide* inward as
 /// it grows — a second movement, in a direction nothing is going. Pinning the
-/// bottom-left corner is the same arithmetic on the other axis, with the sign
-/// the other way because the correction is leftwards.
+/// bottom-right corner is the same arithmetic on the other axis: the corner
+/// that stays still while it grows is the one it hangs off.
 ///
-/// [`from_bottom_right`] is its mirror, and the two are written out rather
-/// than sharing a signed parameter so that neither can be handed the wrong
-/// corner: a sign is a thing a caller gets backwards, a name is not.
-pub(super) fn from_bottom_left(scale: f32) -> Val2 {
-    Val2::new(
-        Val::Percent(-50.0 * (1.0 - scale)),
-        Val::Percent(50.0 * (1.0 - scale)),
-    )
-}
-
-/// And for a node pinned at the window's **right** margin.
-///
-/// [`from_bottom_left`] with the horizontal sign flipped, which is what this
-/// file predicted would be needed one day and what the game menu needed: it
-/// hangs off the shelf's right end, so the corner that stays still while it
-/// grows is the one its own button is under.
+/// Its left-hand twin went when the pool moved to this side and nothing at
+/// the left margin grew any more. A node that does again takes this with
+/// the horizontal sign flipped, written out as a function of its own rather
+/// than as a signed parameter here: a sign is a thing a caller gets
+/// backwards, a name is not.
 pub(super) fn from_bottom_right(scale: f32) -> Val2 {
     Val2::new(
         Val::Percent(50.0 * (1.0 - scale)),

@@ -21,10 +21,11 @@ use super::*;
 pub(super) mod drawer;
 pub(super) mod log;
 pub(super) mod menu;
+pub(super) mod players;
 pub(super) mod pool;
-// Not `hud::tray`, which is the zone dialog. This is the strip the
-// dialog is put away into; the collision and why it stands are in the
-// module's own doc.
+// Not `hud::tray`, which is the zone dialog. These are the two doors in the
+// bar the dialog is put away into; the collision and why it stands are in
+// the module's own doc.
 pub(super) mod tray;
 
 /// Where the shelf put the middle of itself, for the drawer to stand over.
@@ -385,14 +386,15 @@ const _: () = assert!(LEDGE_PAD_Y * 2.0 + BUTTON_H == hand::LEDGE_H);
 
 // ------------------------------------------------------ the two attachments
 //
-// [`tray`] hangs off the shelf's right end and [`pool`] off its left, and the
-// owner asked for the second in terms of the first: *"Es soll symetrisch zum
-// Tray aussehen nur auf der linken Seite"* (19.09.2026). Symmetry is a
-// property of two things, so the four numbers that decide the shape of a
-// strip are here rather than in either of them — a copy in the second file
-// would be symmetric on the day it was typed and only then. They were
-// [`tray`]'s own until the second strip existed, which is why their reasons
-// are written in the tray's terms.
+// [`players`] hangs off the shelf's left end and [`pool`] off its right
+// (#264). The pair were the tray and the pool until the owner put the tray's
+// doors into the bar on 25.09.2026, and the owner had asked for the pool in
+// terms of the tray: *"Es soll symetrisch zum Tray aussehen nur auf der
+// linken Seite"* (19.09.2026). Symmetry is a property of two things, so the
+// numbers that decide the shape of a strip are here rather than in either of
+// them — a copy in the second file would be symmetric on the day it was
+// typed and only then. They were [`tray`]'s own until the second strip
+// existed, which is why their reasons are written in the tray's terms.
 
 /// A strip's height.
 ///
@@ -411,10 +413,9 @@ const STRIP_PAD: f32 = 3.0;
 ///
 /// One pixel, so the strip's bottom border and the shelf's lip are one line
 /// rather than two — the drawer overlaps by exactly the same amount and for
-/// the same reason. It is a constant rather than a literal because
-/// [`tray::zones_button_centre`] has to count it: the sheet flies to a point
-/// this far below the band's own bottom edge, and a `- 1.0` written twice is
-/// a point that is right until somebody changes one of them.
+/// the same reason. It is a constant rather than a literal because the game
+/// menu's panel hangs off the same edge ([`menu::root_node`]), and a `- 1.0`
+/// written twice is a line that is right until somebody changes one of them.
 const STRIP_LIP: f32 = 1.0;
 
 /// A strip's corner.
@@ -426,11 +427,15 @@ const STRIP_LIP: f32 = 1.0;
 const STRIP_R: f32 = 4.0;
 
 /// Which end of the shelf a strip hangs off.
+///
+/// Since #264 (the owner, 25.09.2026) the players stand at the left end and
+/// the mana pool at the right, where the tray hung before its two doors went
+/// into the bar.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum StripSide {
-    /// The mana pool's.
+    /// The players' ([`players`]).
     Left,
-    /// The tray's.
+    /// The mana pool's.
     Right,
 }
 
@@ -726,13 +731,17 @@ const TOOL_PT: f32 = 10.0;
 /// And its mark, which is a picture and carries the smaller of the two.
 const TOOL_MARK_PT: f32 = 9.0;
 
-/// The same for the right column, which is now one square button.
+/// The same for the right column: the burger, and the log's and the zones'
+/// doors beside it.
 ///
 /// **Measured** like [`TOOLS_WIDE`] and for the same reason — `arrange`
 /// slides the question to clear what it is told the neighbours take, so a
 /// column wider than it says crowds the question by the difference. Here the
-/// measurement is short, because a burger has no label: [`EDGE`] and
-/// [`menu::BURGER`], 40 px against the 222 the pair took.
+/// measurement is short, because no button in it has a label: [`EDGE`],
+/// [`menu::BURGER`] and [`tray::WIDTH`], 108 px against the 222 the pair
+/// took. The doors are not the shelf's children ([`tray`] says why), but
+/// they stand in its row, so their room is reserved here all the same
+/// (#264).
 ///
 /// What the 222 was, kept because it is what the number is *against*: the
 /// shipped Bold at 13 points put "Remis anbieten" at 119.1 as a button,
@@ -755,7 +764,7 @@ const TOOL_MARK_PT: f32 = 9.0;
 /// over and no reason to take its neighbour away — and the draw offer keeps
 /// its place as a dead row, which is what stops the confirm row sliding up
 /// under a pointer that is about to press it.
-const RIGHT_RESERVED: f32 = EDGE + menu::BURGER;
+const RIGHT_RESERVED: f32 = EDGE + menu::BURGER + tray::WIDTH;
 
 /// What the left column calls itself, set quietly.
 ///
@@ -2611,11 +2620,12 @@ mod tests {
         );
     }
 
-    /// The two attachments are one shape, and the *only* thing that differs
-    /// is which end they hang off.
+    /// The two strips are one shape, and the *only* thing that differs is
+    /// which end they hang off.
     ///
     /// The owner asked for the mana pool as the tray — *"Es soll symetrisch
-    /// zum Tray aussehen nur auf der linken Seite"* — and symmetry is the
+    /// zum Tray aussehen nur auf der linken Seite"* — and since #264 the
+    /// players' strip and the pool are the pair it holds. Symmetry is the
     /// kind of claim that is true on the day it is typed and quietly stops
     /// being true afterwards: a strip a pixel taller or a corner rounder than
     /// its twin reads as a mistake and fails nothing. Both sides of the
@@ -2638,10 +2648,14 @@ mod tests {
             "one strip is rounder"
         );
 
-        assert_eq!(left.left, px(EDGE), "the pool is not against its margin");
-        assert_eq!(left.right, Val::Auto, "the pool is pinned at both ends");
-        assert_eq!(right.right, px(EDGE), "the tray is not against its margin");
-        assert_eq!(right.left, Val::Auto, "the tray is pinned at both ends");
+        assert_eq!(
+            left.left,
+            px(EDGE),
+            "the players are not against their margin"
+        );
+        assert_eq!(left.right, Val::Auto, "the players are pinned at both ends");
+        assert_eq!(right.right, px(EDGE), "the pool is not against its margin");
+        assert_eq!(right.left, Val::Auto, "the pool is pinned at both ends");
     }
 
     /// The left column reserves at least what it draws, in either language.

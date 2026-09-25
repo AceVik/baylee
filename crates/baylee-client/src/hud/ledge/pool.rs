@@ -1,8 +1,12 @@
-//! The mana pool: the strip on the shelf's left end, and the one row here
+//! The mana pool: the strip on the shelf's right end, and the one row here
 //! whose contents arrive and leave.
 //!
-//! It is [`super::tray`]'s mirror — the same [`super::strip_node`] with its
-//! own end of the shelf — and it is **hidden while nothing is floating**:
+//! It hangs off the shelf from [`super::strip_node`], at the right end since
+//! the owner's word of 25.09.2026 (#264): *"At time the Manazone is placed
+//! at the left side over the actions bar, put it to the right"*. The left end
+//! is the players' now ([`super::players`]), and the right end was free for
+//! it because the tray's two doors went into the bar itself. And it is
+//! **hidden while nothing is floating**:
 //! *"Es ist hidden, wenn kein Mana im Mana Pool ist und ist nur dann
 //! sichtbar, wenn dort Mana drin ist"* (the owner, 19.09.2026). That
 //! overturns this file's own rule for the second time, and the turn is worth
@@ -52,7 +56,7 @@ use super::*;
 use baylee_client_core::manapool::Floating;
 use baylee_core::mana::ManaColor;
 
-/// The retained left strip.
+/// The retained right strip.
 ///
 /// A marker on the strip and not on a row inside it, because there is no row
 /// inside it: the label and the entries are both children of this one node,
@@ -186,12 +190,14 @@ pub struct PoolRevision {
 
 /// Spawns the strip, once, beside the shelf.
 ///
-/// What this seat has floating, hanging off the shelf's **left** end — the
-/// mirror of [`super::tray`], which the owner asked for in those words:
-/// *"Der Manavorrat soll auch ein repositioneng bekommen. Es soll symetrisch
-/// zum Tray aussehen nur auf der linken Seite"* (19.09.2026). Both strips
-/// spawn [`super::strip_node`], so the symmetry is one function rather than
-/// two files that agree today.
+/// What this seat has floating, hanging off the shelf's **right** end (#264).
+/// It was the left, as the mirror of the tray the owner asked for on
+/// 19.09.2026 — *"Der Manavorrat soll auch ein repositioneng bekommen. Es
+/// soll symetrisch zum Tray aussehen nur auf der linken Seite"* — until the
+/// owner moved it to the tray's side and the tray into the bar. It still
+/// spawns [`super::strip_node`], and so does the players' strip at the other
+/// end, so the two ends are one function rather than two files that agree
+/// today.
 ///
 /// It was a *column on* the shelf before that, and the one zone with no card
 /// in it before that. That first absence hid a defect rather than merely
@@ -215,7 +221,7 @@ pub(in crate::hud) fn spawn_pool_strip(commands: &mut Commands) -> Entity {
             StripZoom::default(),
             Node {
                 column_gap: px(POOL_ENTRY_GAP),
-                ..strip_node(StripSide::Left)
+                ..strip_node(StripSide::Right)
             },
             BackgroundColor(palette::DIALOG_LIT),
             BorderColor::all(palette::DIALOG_LINE),
@@ -417,8 +423,8 @@ pub fn sync_pool(
 /// because the two are the same kind of thing: a lip of the shelf that is
 /// sometimes there. What differs is the corner it is pinned at — the drawer
 /// is centred and shrinks toward its own middle, this is fixed at the
-/// window's left margin and would appear to *slide* inward if it did the
-/// same, so [`motion::from_bottom_left`] holds the corner it grows out of.
+/// window's right margin and would appear to *slide* inward if it did the
+/// same, so [`motion::from_bottom_right`] holds the corner it grows out of.
 ///
 /// And what differs more usefully: the drawer is despawned at the end of its
 /// close and this is only **hidden**. The strip is spawned once with the
@@ -465,7 +471,7 @@ pub fn grow_the_pool(
             motion::opening(fold.t)
         };
         transform.scale = Vec2::splat(scale);
-        transform.translation = motion::from_bottom_left(scale);
+        transform.translation = motion::from_bottom_right(scale);
     }
 }
 

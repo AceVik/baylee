@@ -23,34 +23,32 @@
 //! question above it could not be *always visible*, which is the one thing
 //! the owner asked of it.
 //!
-//! The drawer is the shape it was asked to be *like*, and the likeness is
-//! exact where it matters and deliberate where it is not. Both hang off the
-//! shelf's top edge with one pixel of overlap, so the attachment's bottom and
-//! the shelf's lip are one line and not two; both are `Pickable::IGNORE` at
-//! the root, because a node that answered the pointer across its whole width
-//! would take every click aimed at the table under it. What differs is what
-//! the owner named: the drawer is **centred** and grows as wide as its
-//! sentence, the tray is **right-aligned** and does not grow at all, and the
-//! tray is shorter — [`STRIP_H`] against a drawer that is as tall as what is
-//! in it.
+//! # Where it stands: in the bar, beside the menu (#264)
 //!
-//! There are two of these strips now. [`super::pool`] is the same node with
-//! `left` where this one has `right`, because the owner asked for the mana
-//! pool *as* this — *"Es soll symetrisch zum Tray aussehen nur auf der
-//! linken Seite"* — so [`super::strip_node`] is what both of them spawn and
-//! the four numbers that decide a strip's shape live one level up. This file
-//! keeps only what is the tray's own: the gap between its buttons, the
-//! button's own side, and the icon in it.
+//! It was a strip hanging off the shelf's right end, the drawer's shorter
+//! and right-aligned cousin. On 25.09.2026 the owner took the strips'
+//! places for other things — *"On the right there are the log and zones
+//! dialog buttons, put them left from the menu button at the right side
+//! (sticked to right) into the actions bar"* — so the two buttons now stand
+//! **on** the shelf, in its button row, directly left of the burger
+//! ([`super::menu::burger`]) and the same size and ground as it: three doors
+//! at the bar's right end that read as one set. The mana pool took the
+//! right-hand strip ([`super::pool`]) and the players the left.
 //!
-//! And it differs in one rung of the z-ladder, which is the only place the
-//! likeness had to be broken. The drawer sits at [`Z_LEDGE`], under the
-//! sheet; the tray sits at [`Z_TRAY`], over it. A sheet is placed in a band
-//! that stops [`EDGE`] above the hand zone and this strip is seventeen
-//! pixels taller than that gap, so a maximised sheet covers most of the
-//! button — and *"Demnach ist der Button im Tray immer sichtbar"* is the one
-//! thing the owner asked of it. Lifting the strip costs nothing; shortening
-//! the band would cost every sheet the height of a strip standing at one end
-//! of it.
+//! It is still its own retained node and not a child the shelf rebuilds, for
+//! the reason above: an absolute node in the HUD root, laid over the shelf's
+//! row, whose box is exactly its two buttons. The shelf keeps the room for
+//! it free — [`WIDTH`] is counted into the right column's reserve — so the
+//! question in the middle cannot slide under it.
+//!
+//! It stands one rung up the z-ladder, at [`Z_TRAY`], over the sheet. As a
+//! strip that was what kept it visible: a sheet is placed in a band that
+//! stops [`EDGE`] above the hand zone, the strip stood seventeen pixels
+//! taller than that gap, and *"Demnach ist der Button im Tray immer
+//! sichtbar"* is the one thing the owner asked of it. In the bar no sheet
+//! reaches it at all, so the rung is now a margin rather than the guard; it
+//! stays, because a node over the sheet cannot be covered by one whatever
+//! the band does next.
 //!
 //! **That sentence is about a sheet and about nothing else**, and it stood
 //! here without its scope long enough to be read the other way: as a claim
@@ -89,15 +87,21 @@
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 
-/// The gap between two buttons in the strip.
+/// The gap between two buttons in the row, and between the row and the
+/// burger to its right.
 ///
 /// There are two now: the game log's scroll (#262) and, at the right end,
 /// the zones. The row was a row from the start, for the owner's *"hier kommen
 /// noch mehr Buttons rein"*, so the second needed no change to the strip.
 const TRAY_GAP: f32 = 6.0;
 
-/// A button in the strip: square, and the same height as the strip's inside.
-const TRAY_BTN: f32 = BUTTON_H - 4.0;
+/// A button in the row: square, and the burger's size, so the three doors at
+/// the bar's right end are one set.
+const TRAY_BTN: f32 = menu::BURGER;
+
+/// How much of the shelf's right end the row takes, with the gap that parts
+/// it from the burger: what the right column reserves for it.
+pub(super) const WIDTH: f32 = 2.0 * TRAY_BTN + 2.0 * TRAY_GAP;
 
 /// The icon in a tray button.
 const TRAY_ICON_PT: f32 = 12.0;
@@ -145,14 +149,23 @@ pub struct StripRevision {
     log: bool,
 }
 
-/// Where the strip stands: on the shelf's top edge, against the right margin.
+/// Where the row stands: in the shelf's button row, directly left of the
+/// burger.
 ///
 /// Its own function so a test can read it without an app, which is what
 /// [`super::drawer::root_node`] has for the same reason.
 pub(in crate::hud) fn root_node() -> Node {
     Node {
+        position_type: PositionType::Absolute,
+        // The shelf's own row: its bottom padding up from the shelf's
+        // bottom, which is the hand zone's height less the shelf's.
+        bottom: px(hand::HAND_ZONE_H - hand::LEDGE_H + LEDGE_PAD_Y),
+        right: px(EDGE + menu::BURGER + TRAY_GAP),
+        height: px(BUTTON_H),
+        flex_direction: FlexDirection::Row,
+        align_items: AlignItems::Center,
         column_gap: px(TRAY_GAP),
-        ..strip_node(StripSide::Right)
+        ..default()
     }
 }
 
@@ -161,20 +174,20 @@ pub(in crate::hud) fn root_node() -> Node {
 /// This is where the dialog goes when it is put away and where it comes back
 /// from — see `hud::tray::reveal_tray`. It is derived from [`root_node`]'s
 /// own numbers rather than stated again, because the two have to agree about
-/// one point on the screen and a second copy of `STRIP_PAD` is exactly how
-/// they would stop agreeing.
+/// one point on the screen and a second copy of the burger's width is
+/// exactly how they would stop agreeing.
 ///
 /// The band is the rectangle `hud::band_of` returns: the window, less
-/// [`EDGE`] at the top and the hand zone at the bottom. So the strip's height
-/// is measured **up from the band's bottom edge**, which is the same edge the
-/// shelf's lip stands on — the strip overlaps it by a pixel and the button
-/// sits [`STRIP_PAD`] inside that. Horizontally the band *is* the window, so
-/// the button's centre is its own inset from the right.
+/// [`EDGE`] at the top and the hand zone at the bottom. So the button is
+/// measured **down from the band's bottom edge**, which is the same edge the
+/// shelf's lip stands on: the shelf's top padding (the lip in it) and half a
+/// button. Horizontally the band *is* the window, so the button's centre is
+/// its own inset from the right, past the burger.
 ///
-/// It is the button's middle and not the strip's, because the strip is a row
-/// of buttons and the sheet belongs to this one. The zones are the row's
-/// right end, which is what lets this count from the right margin; the log's
-/// scroll stands to their left for that reason.
+/// It is the button's middle and not the row's, because the row holds two
+/// buttons and the sheet belongs to this one. The zones are the row's right
+/// end, which is what lets this count from the burger; the log's scroll
+/// stands to their left for that reason.
 ///
 /// The one place it is wrong is a window too short for `Placement::MIN_H`,
 /// where `band_of` clamps the height it returns and the band no longer ends
@@ -183,8 +196,8 @@ pub(in crate::hud) fn root_node() -> Node {
 /// slightly crooked flight and nothing else.
 pub(in crate::hud) fn zones_button_centre(band: (f32, f32)) -> Vec2 {
     Vec2::new(
-        band.0 - EDGE - STRIP_PAD - TRAY_BTN / 2.0,
-        band.1 - (STRIP_H - STRIP_LIP) + STRIP_PAD + TRAY_BTN / 2.0,
+        band.0 - EDGE - menu::BURGER - TRAY_GAP - TRAY_BTN / 2.0,
+        band.1 + LEDGE_PAD_Y + BUTTON_H / 2.0,
     )
 }
 
@@ -194,8 +207,6 @@ pub(in crate::hud) fn spawn_tray_strip(commands: &mut Commands) -> Entity {
         .spawn((
             TrayStrip,
             root_node(),
-            BackgroundColor(palette::DIALOG_LIT),
-            BorderColor::all(palette::DIALOG_LINE),
             ZIndex(Z_TRAY),
             // Unlike the drawer's root this node is exactly as wide as what
             // is in it, so it could answer the pointer without stealing
@@ -366,38 +377,47 @@ mod tests {
         }
     }
 
-    /// The likeness the owner asked for is one number, and it is this one:
-    /// both attachments hang off the same edge of the same shelf. A pixel
-    /// between them would draw as a step in the lip they share.
+    /// *"put them left from the menu button at the right side (sticked to
+    /// right) into the actions bar"* (the owner, 25.09.2026), as the three
+    /// things it says: in the bar's own row, against the burger, and the
+    /// burger's size.
     #[test]
-    fn the_tray_hangs_off_the_same_edge_as_the_drawer() {
-        assert_eq!(
-            root_node().bottom,
-            super::super::drawer::root_node().bottom,
-            "the tray and the drawer would meet the shelf on two lines"
-        );
-    }
-
-    /// *"nur rechtsbündig und kleiner von der Höhe her"*, as two assertions.
-    #[test]
-    fn the_tray_is_right_aligned_and_shorter_than_the_shelf() {
+    fn the_doors_stand_in_the_bar_directly_left_of_the_burger() {
         let node = root_node();
-        assert_eq!(node.right, px(EDGE), "the tray is not against the margin");
-        assert_eq!(node.left, Val::Auto, "a left edge would stretch it wide");
-        let Val::Px(h) = node.height else {
-            panic!("the strip's height is not a pixel count");
+        let (Val::Px(bottom), Val::Px(h)) = (node.bottom, node.height) else {
+            panic!("the row is placed in pixels or this test reads nothing");
         };
+        // Inside the shelf: its bottom over the shelf's bottom and its top
+        // under the shelf's lip, which is where every answer on it stands.
+        let shelf_bottom = hand::HAND_ZONE_H - hand::LEDGE_H;
         assert!(
-            h < hand::LEDGE_H,
-            "the tray is {h} tall against a shelf of {}, which is not smaller",
-            hand::LEDGE_H
+            bottom >= shelf_bottom && bottom + h <= hand::HAND_ZONE_H - LIP,
+            "the row runs {bottom}..{} against a shelf of {shelf_bottom}..{}",
+            bottom + h,
+            hand::HAND_ZONE_H
         );
-        // And not so much smaller that the button inside it is clipped: the
-        // strip is drawn *around* a control, so the bound is two-sided for
-        // the reason every measurement in this client is.
-        assert!(
-            h >= TRAY_BTN + 2.0 * STRIP_PAD,
-            "a {TRAY_BTN}px button does not fit in {h}px of strip"
+        assert_eq!(
+            node.bottom,
+            px(hand::HAND_ZONE_H - hand::LEDGE_H + LEDGE_PAD_Y),
+            "the doors are not on the shelf's own row"
+        );
+        // Against the burger, one gap from it, and not against the margin
+        // where the burger is.
+        assert_eq!(
+            node.right,
+            px(EDGE + menu::BURGER + TRAY_GAP),
+            "the doors are not beside the burger"
+        );
+        assert_eq!(node.left, Val::Auto, "a left edge would stretch it wide");
+        assert_eq!(
+            px(TRAY_BTN),
+            px(menu::BURGER),
+            "three doors of two sizes are not a set"
+        );
+        assert_eq!(
+            node.height,
+            px(TRAY_BTN),
+            "the row is its buttons and nothing round them"
         );
     }
 
@@ -533,13 +553,14 @@ mod tests {
             panic!("the strip is placed in pixels or this test reads nothing");
         };
 
-        // Where the layout puts the button, from the window's own edges.
-        let want_x = BAND.0 - right - STRIP_PAD - TRAY_BTN / 2.0;
+        // Where the layout puts the button, from the window's own edges: the
+        // zones are the row's right end.
+        let want_x = BAND.0 - right - TRAY_BTN / 2.0;
         // `bottom` is measured up from the window's bottom edge and the band
-        // stops `hand::HAND_ZONE_H` above it, so the strip's own top is this
-        // far down the band.
-        let strip_top = BAND.1 - (bottom - hand::HAND_ZONE_H) - height;
-        let want_y = strip_top + STRIP_PAD + TRAY_BTN / 2.0;
+        // stops `hand::HAND_ZONE_H` above it, so the row's own top is this
+        // far below the band's bottom, down in the shelf.
+        let row_top = BAND.1 + (hand::HAND_ZONE_H - bottom) - height;
+        let want_y = row_top + height / 2.0;
 
         let got = zones_button_centre(BAND);
         assert!(
@@ -549,12 +570,12 @@ mod tests {
         );
 
         // And the counter-test, which is what says the agreement above is
-        // about this strip and not about two constants that happen to be
-        // zero: the button is inside the band, near its bottom-right corner,
-        // and not at the origin a defaulted `Vec2` would give.
+        // about this row and not about two constants that happen to be
+        // zero: the button is on the shelf, under the band's bottom-right
+        // corner, and not at the origin a defaulted `Vec2` would give.
         assert!(
-            got.x > BAND.0 * 0.9 && got.y > BAND.1 - STRIP_H,
-            "the tray is bottom-right and this is {got:?} in a {BAND:?} band"
+            got.x > BAND.0 * 0.9 && got.y > BAND.1 && got.y < BAND.1 + hand::LEDGE_H,
+            "the doors are on the shelf's right end and this is {got:?} under a {BAND:?} band"
         );
     }
 }

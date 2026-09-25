@@ -300,17 +300,13 @@ pub(crate) mod glyph {
     pub const SKULL: char = '\u{f54c}';
     /// Ban (exile).
     pub const EXILE: char = '\u{f05e}';
-    /// Skull and crossbones (poison counters).
-    ///
-    /// Drawn by nothing between the commit that took the seat tab off the top
-    /// of the window and the one that gives the seat sheet its body: poison
-    /// and energy are two of the things the sheet says and the bar has no
-    /// room for.
-    // Used by `hud::tests`, which is where the icon face is read, so the
-    // expectation only holds in a build that is not the test one.
-    #[cfg_attr(not(test), expect(dead_code, reason = "the seat sheet says it next"))]
+    /// Skull and crossbones (poison counters), on a player's button (#264).
     pub const POISON: char = '\u{f714}';
-    /// Bolt (energy counters). See [`POISON`].
+    /// Bolt (energy counters).
+    ///
+    /// Drawn by nothing since the commit that took the seat tab off the top
+    /// of the window: energy is one of the things the seat sheet will say
+    /// and neither the bar nor a player's button has room for.
     // Used by `hud::tests`, which is where the icon face is read, so the
     // expectation only holds in a build that is not the test one.
     #[cfg_attr(not(test), expect(dead_code, reason = "the seat sheet says it next"))]
@@ -319,11 +315,13 @@ pub(crate) mod glyph {
     pub const CARET_DOWN: char = '\u{f0d7}';
     /// Expand (resize handle).
     pub const EXPAND: char = '\u{f065}';
-    /// Crown (the command zone). See [`POISON`].
-    // Used by `hud::tests`, which is where the icon face is read, so the
-    // expectation only holds in a build that is not the test one.
-    #[cfg_attr(not(test), expect(dead_code, reason = "the seat sheet says it next"))]
+    /// Crown (the command zone, and a commander's damage on a player's
+    /// button, #264).
     pub const COMMAND: char = '\u{f521}';
+    /// Robot (a chair the house plays, on a player's button, #264).
+    pub const HOUSE: char = '\u{f544}';
+    /// Person walking (a player who stepped away, whose chair is held).
+    pub const AWAY: char = '\u{f554}';
     /// Times (close a panel). The text font has no U+2715, so the cross has
     /// to come from here or it draws as a missing glyph.
     pub const CLOSE: char = '\u{f00d}';
@@ -1974,6 +1972,10 @@ pub struct OverlayTree<'w, 's> {
     /// has to survive. A mana that arrives is drawn arriving, which takes an
     /// entity that outlives the question it arrived during.
     pub(crate) pool: Query<'w, 's, Entity, With<ledge::pool::PoolStrip>>,
+    /// The players' strip (#264), on the pool's argument: its buttons hold
+    /// the pointer's warmth and three movements each, and a sweep on every
+    /// pointer move would start all of them again.
+    pub(crate) players: Query<'w, 's, Entity, With<ledge::players::PlayersStrip>>,
     /// The game menu's panel, on an argument that is neither the tray's nor
     /// the pool's. Those two are always there; this one is there only while a
     /// player holds it open — and what it has to survive is the *rebuild the
@@ -2074,6 +2076,7 @@ pub use ledge::log::{
     sync_log,
 };
 pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, sync_menu};
+pub use ledge::players::{PlayersRevision, glow_the_players, sync_players};
 pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool, zoom_the_pool};
 pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};
 pub use ledge::{

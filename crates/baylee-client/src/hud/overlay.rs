@@ -418,6 +418,7 @@ pub fn sync_overlay(
                 && !tree.panel.contains(*child)
                 && !tree.tray.contains(*child)
                 && !tree.pool.contains(*child)
+                && !tree.players.contains(*child)
                 && !tree.menu.contains(*child)
                 && !tree.log.contains(*child)
             {
@@ -449,6 +450,12 @@ pub fn sync_overlay(
         // is that the zone's height never changes.
         let ledge = ledge::spawn_ledge(&mut commands, rail);
         commands.entity(root).add_child(ledge);
+        // The players' strip (#264), at the shelf's rung and spawned before
+        // the drawer so that the drawer, growing out of the same edge,
+        // stands over it: a question is read over the roster. See
+        // [`ledge::players`].
+        let players = ledge::players::spawn_players_strip(&mut commands);
+        commands.entity(root).add_child(players);
         // The drawer's node, which outlives every
         // rebuild this system does, and what fills it is not any of this
         // system's business. See [`ledge::drawer`].
@@ -1591,6 +1598,7 @@ mod tests {
             .init_resource::<ledge::LedgeLayout>()
             .init_resource::<ledge::drawer::DrawerRevision>()
             .init_resource::<ledge::pool::PoolRevision>()
+            .init_resource::<ledge::players::PlayersRevision>()
             .init_resource::<ledge::menu::MenuRevision>()
             .init_resource::<tray::TrayRevision>()
             .init_resource::<tray::TrayReveal>()
@@ -1620,6 +1628,8 @@ mod tests {
                     ledge::pool::sync_pool,
                     ledge::pool::zoom_the_pool,
                     ledge::pool::grow_the_pool,
+                    ledge::players::sync_players,
+                    ledge::players::glow_the_players,
                     ledge::menu::sync_menu,
                     ledge::menu::grow_the_menu,
                     tray::sync_tray,
@@ -2558,6 +2568,7 @@ mod tests {
                 With<TrayBand>,
                 With<ledge::tray::TrayStrip>,
                 With<ledge::pool::PoolStrip>,
+                With<ledge::players::PlayersStrip>,
                 With<ledge::menu::MenuPanel>,
                 With<ledge::log::LogPanel>,
             )>>();
@@ -2695,6 +2706,10 @@ mod tests {
                 .world_mut()
                 .query_filtered::<Entity, With<ledge::pool::PoolStrip>>();
             let pool = pool.iter(app.world()).collect::<Vec<_>>();
+            let mut players = app
+                .world_mut()
+                .query_filtered::<Entity, With<ledge::players::PlayersStrip>>();
+            let players = players.iter(app.world()).collect::<Vec<_>>();
             let mut menu = app
                 .world_mut()
                 .query_filtered::<Entity, With<ledge::menu::MenuPanel>>();
@@ -2706,6 +2721,7 @@ mod tests {
             [
                 ("tray", tray),
                 ("mana pool", pool),
+                ("players' strip", players),
                 ("game menu", menu),
                 ("game log", log),
             ]
@@ -3821,6 +3837,119 @@ mod tests {
         duel
     }
 
+    /// One of a player's button's edge lights, among `children`: how wide it
+    /// is drawn and at what alpha.
+    fn players_edge<M: Component>(app: &mut App, children: &[Entity]) -> (Val, f32) {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(&Node, &BackgroundColor), With<M>>();
+        children
+            .iter()
+            .find_map(|c| q.get(app.world(), *c).ok())
+            .map(|(node, ink)| (node.width, ink.0.alpha()))
+            .expect("the edge is on the button")
+    }
+
+    /// The players' strip (#264): one button per seat, the reader's first,
+    /// each a [`PlayerTab`] so a press is the rim's press; and the three
+    /// edges on the seats they belong to — the turn's line on the active
+    /// seat, the breath on the awaited one, the camera's bar on the seat the
+    /// camera is on, which with no seat focused is the reader's own.
+    ///
+    /// Then a life changes, and the buttons are the **same entities**: the
+    /// writing on them is rebuilt and the button is not, which is what keeps
+    /// a hover's warmth and the edges' movements running through it.
+    #[test]
+    fn the_players_strip_lists_every_seat_and_lights_the_three_edges() {
+        let mut duel = duel_watching();
+        {
+            let view = duel.view.as_mut().expect("a view");
+            view.active = PlayerId::new(1);
+            view.awaiting = Some(PlayerId::new(1));
+        }
+        let mut app = bar_of(duel);
+        app.update();
+
+        let buttons = |app: &mut App| {
+            let mut strips = app
+                .world_mut()
+                .query_filtered::<(&Children, &Visibility), With<ledge::players::PlayersStrip>>();
+            let (kids, seen) = strips.single(app.world()).expect("one players' strip");
+            assert_eq!(*seen, Visibility::Inherited, "the strip is up at a table");
+            let kids: Vec<Entity> = kids.iter().collect();
+            let mut q = app.world_mut().query::<(
+                &ledge::players::PlayerButton,
+                &PlayerTab,
+                &BorderColor,
+                &Children,
+            )>();
+            kids.into_iter()
+                .filter_map(|kid| {
+                    q.get(app.world(), kid)
+                        .ok()
+                        .map(|(button, tab, border, children)| {
+                            assert_eq!(
+                                button.player, tab.player,
+                                "a press frames the seat it names"
+                            );
+                            (
+                                kid,
+                                button.player,
+                                *border,
+                                children.iter().collect::<Vec<_>>(),
+                            )
+                        })
+                })
+                .collect::<Vec<_>>()
+        };
+        let was = buttons(&mut app);
+        let seats: Vec<PlayerId> = was.iter().map(|(_, p, _, _)| *p).collect();
+        assert_eq!(
+            seats,
+            vec![PlayerId::new(0), PlayerId::new(1)],
+            "every seat, the reader first"
+        );
+
+        // Each edge on its seat, at its end: the harness asks for less
+        // motion, so every movement stands where it arrives.
+        let (mine, theirs) = (&was[0].3, &was[1].3);
+        assert_eq!(
+            players_edge::<ledge::players::TurnLine>(&mut app, theirs),
+            (percent(100), 1.0),
+            "their turn, their line"
+        );
+        assert!(
+            players_edge::<ledge::players::TurnLine>(&mut app, mine).1 < f32::EPSILON,
+            "and no line on mine"
+        );
+        assert!(
+            players_edge::<ledge::players::CameraBar>(&mut app, mine).1 > 0.5,
+            "the camera is on my seat"
+        );
+        assert!(
+            players_edge::<ledge::players::CameraBar>(&mut app, theirs).1 < f32::EPSILON,
+            "and not on theirs"
+        );
+        assert_ne!(
+            was[1].2, was[0].2,
+            "the awaited seat's border is not at rest"
+        );
+
+        // A life changes: written again, on the same buttons.
+        {
+            let mut duel = app.world_mut().resource_mut::<Duel>();
+            let view = duel.view.as_mut().expect("a view");
+            view.seats[1].life -= 3;
+        }
+        app.update();
+        let now = buttons(&mut app);
+        assert_eq!(
+            now.iter().map(|(e, _, _, _)| *e).collect::<Vec<_>>(),
+            was.iter().map(|(e, _, _, _)| *e).collect::<Vec<_>>(),
+            "a life total rebuilt the buttons, and the pointer's warmth went with them"
+        );
+    }
+
     fn pool_entries(app: &mut App) -> Vec<Entity> {
         let mut q = app.world_mut().query::<(Entity, &ledge::pool::PoolEntry)>();
         q.iter(app.world()).map(|(e, _)| e).collect::<Vec<_>>()
@@ -3831,9 +3960,9 @@ mod tests {
     /// Three claims, and the first two are what a plain `from_bottom` would
     /// break. On the frame the first mana arrives the strip is drawn at
     /// [`motion::ZOOM_FROM`] — the start of the arrival, not the end of it —
-    /// and it is pinned at the **bottom-left** corner, because a node fixed
-    /// at the left margin that shrinks toward its own middle slides right as
-    /// it grows. Then the movement ends: the clock is advanced past
+    /// and it is pinned at the **bottom-right** corner (the right end since
+    /// #264), because a node fixed at the right margin that shrinks toward
+    /// its own middle slides left as it grows. Then the movement ends: the clock is advanced past
     /// [`motion::ZOOM_IN`] and the strip is at full size, which is what makes
     /// the first two an arrival rather than a strip permanently drawn 12%
     /// short.
@@ -3866,7 +3995,7 @@ mod tests {
             if !still {
                 assert_eq!(
                     shift,
-                    motion::from_bottom_left(want),
+                    motion::from_bottom_right(want),
                     "the strip grows out of the corner it is pinned at"
                 );
 
@@ -3878,7 +4007,7 @@ mod tests {
                 );
                 assert_eq!(
                     shift,
-                    motion::from_bottom_left(1.0),
+                    motion::from_bottom_right(1.0),
                     "with nothing left to correct for"
                 );
             }
