@@ -899,6 +899,8 @@ mod tests {
 
     fn line(text: &str, names: &[(usize, usize)], times: u32) -> LogLine {
         LogLine {
+            at: 0,
+            players: Vec::new(),
             index: 0,
             turn: 1,
             times,
@@ -907,6 +909,7 @@ mod tests {
             names: names
                 .iter()
                 .map(|&(start, end)| NameSpan {
+                    token: None,
                     range: start..end,
                     id: ObjectId::new(5, 0),
                     card: None,
@@ -964,6 +967,7 @@ mod tests {
             from,
             entries: (from..from + count)
                 .map(|i| LogEntry {
+                    at: 0,
                     turn: 1,
                     repeat: 1,
                     event: LogEvent::Mulliganed {
@@ -1011,6 +1015,7 @@ mod tests {
             entries: events
                 .into_iter()
                 .map(|event| LogEntry {
+                    at: 0,
                     turn: 1,
                     repeat: 1,
                     event,

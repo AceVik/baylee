@@ -3672,8 +3672,8 @@ mod tests {
 
     use crate::log::GameLog;
     use baylee_engine::event::{Cause, GameEvent};
-    use baylee_engine::zone::ZonePosition;
-    use baylee_view::{LogEvent, LogObject, LogZone};
+    use baylee_engine::zone::{Zone, ZonePosition};
+    use baylee_view::{LogEvent, LogFrom, LogObject, LogPlace, LogZone};
 
     /// A table past its mulligans, and its log so far.
     fn a_logged_table() -> (Engine<Registry>, GameLog) {
@@ -3774,6 +3774,7 @@ mod tests {
         assert_eq!(
             theirs[0],
             LogEvent::Moved {
+                place: None,
                 object: LogObject::Hidden,
                 owner: me,
                 from: LogZone::Library,
@@ -3799,7 +3800,8 @@ mod tests {
     }
 
     /// A card put from a hand into a library (a Brainstorm's put-back) is
-    /// its owner's to know and nobody else's.
+    /// its owner's to know and nobody else's; where in the library it went
+    /// is everyone's (#300).
     #[test]
     fn a_card_put_back_into_a_library_is_its_owners_to_know() {
         let (mut engine, mut log) = a_logged_table();
@@ -3820,11 +3822,12 @@ mod tests {
 
         assert!(matches!(
             &told_since(&log, me, from)[..],
-            [LogEvent::Moved { object: LogObject::Known { id, .. }, .. }] if *id == card
+            [LogEvent::Moved { object: LogObject::Known { id, .. }, place: Some(LogPlace::Top), .. }] if *id == card
         ));
         assert_eq!(
             told_since(&log, them, from),
             [LogEvent::Moved {
+                place: Some(LogPlace::Top),
                 object: LogObject::Hidden,
                 owner: me,
                 from: LogZone::Hand,
@@ -3864,7 +3867,7 @@ mod tests {
             assert!(
                 matches!(
                     &told[..],
-                    [LogEvent::LandPlayed { player, land: LogObject::Known { id, .. } }]
+                    [LogEvent::LandPlayed { player, land: LogObject::Known { id, .. }, .. }]
                         if *player == me && *id == land
                 ),
                 "{told:?}"
@@ -3872,10 +3875,10 @@ mod tests {
         }
     }
 
-    /// A land played from anywhere but a hand keeps its move, which says
-    /// where it came from; "plays" does not.
+    /// A land played from a graveyard is one line too, which says where it
+    /// came from (#300): the move before it is not told again.
     #[test]
-    fn a_land_played_from_a_graveyard_keeps_its_move() {
+    fn a_land_played_from_a_graveyard_says_so_in_one_line() {
         let (mut engine, mut log) = a_logged_table();
         let me = PlayerId::new(0);
         let land = engine.state().zones.list(ZoneLocation::Hand(me))[0];
@@ -3910,18 +3913,159 @@ mod tests {
         assert!(
             matches!(
                 &told[..],
-                [
-                    LogEvent::Moved {
-                        object: LogObject::Known { id: moved, .. },
-                        from: LogZone::Graveyard,
-                        to: LogZone::Battlefield,
-                        ..
-                    },
-                    LogEvent::LandPlayed { land: LogObject::Known { id: played, .. }, .. },
-                ] if *moved == land && *played == land
+                [LogEvent::LandPlayed {
+                    land: LogObject::Known { id: played, .. },
+                    from: Some(LogFrom { zone: LogZone::Graveyard, owner }),
+                    ..
+                }] if *played == land && *owner == me
             ),
             "{told:?}"
         );
+    }
+
+    /// A spell says where it was cast from, which the log reads off the move
+    /// onto the stack that comes first in the same action (CR 601.2a).
+    #[test]
+    fn a_cast_says_where_the_spell_came_from() {
+        let (mut engine, mut log) = a_logged_table();
+        let me = PlayerId::new(0);
+        let spell = engine.state().zones.list(ZoneLocation::Hand(me))[0];
+        let from = log.len();
+        // The engine's own order (`cast_wizard`): moved, then cast.
+        let state = engine.dev_state_mut(me).expect("dev commands");
+        state
+            .move_object(spell, ZoneLocation::Stack, ZonePosition::Top, Cause::Spell)
+            .expect("cast");
+        state.journal.record(GameEvent::SpellCast {
+            object: spell,
+            player: me,
+        });
+        log.consume(engine.state());
+
+        for seat in [me, PlayerId::new(1)] {
+            let told = told_since(&log, seat, from);
+            assert!(
+                matches!(
+                    &told[..],
+                    [LogEvent::Cast {
+                        from: Some(LogFrom { zone: LogZone::Hand, owner }),
+                        ..
+                    }] if *owner == me
+                ),
+                "{told:?}"
+            );
+        }
+    }
+
+    /// Cards put into a library that is then shuffled in the same action are
+    /// said to be shuffled in, and the shuffle is not a line of its own. A
+    /// search that takes a card out and shuffles keeps its shuffle line:
+    /// nothing went in.
+    #[test]
+    fn a_card_shuffled_into_a_library_is_one_line() {
+        let (mut engine, mut log) = a_logged_table();
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let cards: Vec<ObjectId> = engine.state().zones.list(ZoneLocation::Hand(me))[..2].to_vec();
+        let state = engine.dev_state_mut(me).expect("dev commands");
+        for card in &cards {
+            state
+                .move_object(
+                    *card,
+                    ZoneLocation::Graveyard(me),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .expect("milled");
+        }
+        log.consume(engine.state());
+        let from = log.len();
+        let state = engine.dev_state_mut(me).expect("dev commands");
+        for card in &cards {
+            state
+                .move_object(
+                    *card,
+                    ZoneLocation::Library(me),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .expect("put in");
+        }
+        state.journal.record(GameEvent::Shuffled {
+            player: me,
+            zone: Zone::Library,
+        });
+        log.consume(engine.state());
+        let told = told_since(&log, them, from);
+        assert_eq!(told.len(), 2, "{told:?}");
+        assert!(
+            told.iter().all(|event| matches!(
+                event,
+                LogEvent::Moved {
+                    from: LogZone::Graveyard,
+                    to: LogZone::Library,
+                    place: Some(LogPlace::Shuffled),
+                    ..
+                }
+            )),
+            "{told:?}"
+        );
+
+        let from = log.len();
+        let found = engine.state().zones.list(ZoneLocation::Library(me))[0];
+        let state = engine.dev_state_mut(me).expect("dev commands");
+        state
+            .move_object(
+                found,
+                ZoneLocation::Hand(me),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("found");
+        state.journal.record(GameEvent::Shuffled {
+            player: me,
+            zone: Zone::Library,
+        });
+        log.consume(engine.state());
+        let told = told_since(&log, them, from);
+        assert!(
+            matches!(
+                &told[..],
+                [
+                    LogEvent::Moved { to: LogZone::Hand, place: None, .. },
+                    LogEvent::Shuffled { player },
+                ] if *player == me
+            ),
+            "{told:?}"
+        );
+    }
+
+    /// Every line is stamped with the time the log was last told (#300).
+    #[test]
+    fn a_line_is_stamped_with_the_time_it_was_written() {
+        let (mut engine, mut log) = a_logged_table();
+        let me = PlayerId::new(0);
+        let hand = engine.state().zones.list(ZoneLocation::Hand(me)).clone();
+        let from = log.len();
+        for (card, at) in hand[..2].iter().zip([1_000, 2_000]) {
+            log.tell_time(at);
+            engine
+                .dev_state_mut(me)
+                .expect("dev commands")
+                .move_object(
+                    *card,
+                    ZoneLocation::Graveyard(me),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .expect("milled");
+            log.consume(engine.state());
+        }
+        let stamps: Vec<u64> = log
+            .told(me, from, log.len())
+            .iter()
+            .map(|line| line.at)
+            .collect();
+        assert_eq!(stamps, [1_000, 2_000]);
     }
 
     /// A face-down permanent is named to its controller, and to everyone else
@@ -3987,6 +4131,7 @@ mod tests {
         assert_eq!(
             told_since(&log, them, from),
             [LogEvent::Moved {
+                place: None,
                 object: LogObject::FaceDown { id: card },
                 owner: me,
                 from: LogZone::Hand,

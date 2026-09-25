@@ -226,6 +226,16 @@ impl LocalHost {
     }
 }
 
+/// The wall time the game log stamps its lines with (#300), through
+/// `web_time`, because `std::time::SystemTime::now` panics in a browser.
+fn wall_ms() -> u64 {
+    web_time::SystemTime::now()
+        .duration_since(web_time::UNIX_EPOCH)
+        .map_or(0, |since| {
+            u64::try_from(since.as_millis()).unwrap_or(u64::MAX)
+        })
+}
+
 impl DuelHost for LocalHost {
     fn poll(&mut self) -> Vec<HostMessage> {
         let mut out = Vec::new();
@@ -233,6 +243,7 @@ impl DuelHost for LocalHost {
         let opens = opening.is_some();
         if let Some(statics) = opening {
             out.extend(host_message(statics));
+            self.session.tell_time(wall_ms());
             let routed = self.session.pump();
             self.absorb(routed);
         }
@@ -247,6 +258,7 @@ impl DuelHost for LocalHost {
     }
 
     fn submit(&mut self, action: PlayerAction) {
+        self.session.tell_time(wall_ms());
         match self.session.act(self.seat, action) {
             Ok(routed) => self.absorb(routed),
             // A refusal must cost the seat the action and nothing else. The
@@ -606,6 +618,7 @@ pub(crate) mod tests {
         let told = LogTail {
             from: 3,
             entries: vec![LogEntry {
+                at: 0,
                 turn: 2,
                 repeat: 1,
                 event: LogEvent::TurnStarted {

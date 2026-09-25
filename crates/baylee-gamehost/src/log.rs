@@ -22,11 +22,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use baylee_core::ids::{AbilityRef, ObjectId, PlayerId, SeatSet};
-use baylee_engine::event::{Cause, DamageTarget, GameEvent};
+use baylee_engine::event::{Cause, DamageTarget, GameEvent, LibraryPlace};
 use baylee_engine::object::{GameObject, ObjectKind};
 use baylee_engine::state::GameState;
 use baylee_engine::zone::{Zone, ZoneLocation};
-use baylee_view::{CardIdentity, LogAbility, LogEntry, LogEvent, LogObject, LogTarget, LogZone};
+use baylee_view::{
+    CardIdentity, LogAbility, LogEntry, LogEvent, LogFrom, LogObject, LogPlace, LogTarget, LogZone,
+};
 
 use crate::view::{counter, day_night, loss_cause, may_know_card, rules_face, stack_text};
 
@@ -91,6 +93,8 @@ impl Sees {
 struct Line {
     turn: u32,
     repeat: u32,
+    /// When it was written ([`LogEntry::at`]).
+    at: u64,
     event: LogEvent,
     /// One per object the event names, in [`LogEvent::objects`] order.
     sees: Vec<Sees>,
@@ -178,6 +182,7 @@ impl Line {
         LogEntry {
             turn: self.turn,
             repeat: self.repeat,
+            at: self.at,
             event,
         }
     }
@@ -229,6 +234,8 @@ pub struct GameLog {
     /// already count.
     started: bool,
     turn: u32,
+    /// The time as the caller last told it ([`Self::tell_time`]).
+    now: u64,
     naming: Naming,
 }
 
@@ -243,6 +250,7 @@ impl GameLog {
             seen: BTreeMap::new(),
             started: false,
             turn: state.turn.number,
+            now: 0,
             naming: Naming::default(),
         };
         log.consume(state);
@@ -273,6 +281,14 @@ impl GameLog {
             .collect()
     }
 
+    /// The time, in milliseconds since the Unix epoch, that every line from
+    /// here on is stamped with ([`LogEntry::at`]) until the caller tells it
+    /// another. The log never reads a clock: it is linked into a browser,
+    /// where the standard library has none.
+    pub fn tell_time(&mut self, unix_ms: u64) {
+        self.now = unix_ms;
+    }
+
     /// The first `upto` lines may have been sent: they never change again.
     pub fn seal(&mut self, upto: usize) {
         self.sealed = self.sealed.max(upto.min(self.lines.len()));
@@ -292,8 +308,21 @@ impl GameLog {
         let mut shown: BTreeSet<ObjectId> = BTreeSet::new();
         // Cards whose discard is already a line of its own.
         let mut discarded: BTreeSet<ObjectId> = BTreeSet::new();
+        // Where each object moved from last in this batch, for the play or
+        // the cast that follows its move and says where it came from.
+        let mut came: BTreeMap<ObjectId, Zone> = BTreeMap::new();
         for entry in entries.get(self.read..).unwrap_or_default() {
-            self.read_event(state, &entry.event, batch, &mut shown, &mut discarded);
+            if let GameEvent::ZoneChanged { object, from, .. } = &entry.event {
+                came.insert(*object, *from);
+            }
+            self.read_event(
+                state,
+                &entry.event,
+                batch,
+                &mut shown,
+                &mut discarded,
+                &came,
+            );
         }
         self.read = entries.len();
         self.look_around(state);
@@ -330,6 +359,7 @@ impl GameLog {
         batch: usize,
         shown: &mut BTreeSet<ObjectId>,
         discarded: &mut BTreeSet<ObjectId>,
+        came: &BTreeMap<ObjectId, Zone>,
     ) {
         match event {
             GameEvent::GameStarted { .. }
@@ -370,13 +400,20 @@ impl GameLog {
                 );
             }
             GameEvent::Shuffled { player, zone } => {
-                if self.started && *zone == Zone::Library {
+                if self.started
+                    && *zone == Zone::Library
+                    && !self.shuffled_in(*player, batch)
+                {
                     self.push(LogEvent::Shuffled { player: *player }, Vec::new());
                 }
             }
             GameEvent::ZoneChanged {
-                object, from, to, ..
-            } => self.moved(state, *object, *from, *to, shown, discarded),
+                object,
+                from,
+                to,
+                place,
+                ..
+            } => self.moved(state, *object, (*from, *to), *place, shown, discarded),
             GameEvent::CardsDrawn { player, count } => {
                 if self.started {
                     self.drew(*player, usize::from(*count), batch);
@@ -453,25 +490,28 @@ impl GameLog {
             ),
             GameEvent::LandPlayed { object, player } => {
                 // The engine moves the land before it records the play, so
-                // the move from the hand is already a line, and this one says
-                // it again. A land played from anywhere else keeps its move:
-                // "plays" does not say where from.
-                self.unwrite_move(*object, LogZone::Hand, LogZone::Battlefield, batch);
+                // the move is already a line, and this one says it again
+                // with where from.
+                self.unwrite_move(*object, LogZone::Battlefield, batch);
+                let from = came_from(state, *object, came);
                 let (land, sees) = self.refer(state, *object);
                 self.push(
                     LogEvent::LandPlayed {
                         player: *player,
                         land,
+                        from,
                     },
                     vec![sees],
                 );
             }
             GameEvent::SpellCast { object, player } => {
+                let from = came_from(state, *object, came);
                 let (spell, sees) = self.refer(state, *object);
                 self.push(
                     LogEvent::Cast {
                         player: *player,
                         spell,
+                        from,
                     },
                     vec![sees],
                 );
@@ -578,8 +618,8 @@ impl GameLog {
         &mut self,
         state: &GameState,
         id: ObjectId,
-        from: Zone,
-        to: Zone,
+        (from, to): (Zone, Zone),
+        place: Option<LibraryPlace>,
         shown: &mut BTreeSet<ObjectId>,
         discarded: &mut BTreeSet<ObjectId>,
     ) {
@@ -628,15 +668,42 @@ impl GameLog {
                 owner,
                 from: from_zone,
                 to: to_zone,
+                place: place.map(|place| match place {
+                    LibraryPlace::Top => LogPlace::Top,
+                    LibraryPlace::Bottom => LogPlace::Bottom,
+                    LibraryPlace::FromTop(n) => LogPlace::FromTop(n),
+                }),
             },
             vec![sees],
         );
     }
 
-    /// Takes back this batch's line moving `id` from `from` to `to`, which a
-    /// later line of the same action says better. Only a line nobody has been
-    /// sent is taken back.
-    fn unwrite_move(&mut self, id: ObjectId, from: LogZone, to: LogZone, batch: usize) {
+    /// `player`'s library was shuffled: this batch's lines putting cards into
+    /// it say they were shuffled in, and a line of its own would say it
+    /// twice. Whether there were any.
+    fn shuffled_in(&mut self, player: PlayerId, batch: usize) -> bool {
+        let first = batch.max(self.sealed);
+        let mut any = false;
+        for line in self.lines.get_mut(first..).unwrap_or_default() {
+            if let LogEvent::Moved {
+                owner,
+                to: LogZone::Library,
+                place,
+                ..
+            } = &mut line.event
+                && *owner == player
+            {
+                *place = Some(LogPlace::Shuffled);
+                any = true;
+            }
+        }
+        any
+    }
+
+    /// Takes back this batch's line moving `id` to `to`, which a later line
+    /// of the same action says better. Only a line nobody has been sent is
+    /// taken back.
+    fn unwrite_move(&mut self, id: ObjectId, to: LogZone, batch: usize) {
         let first = batch.max(self.sealed);
         let moved = self
             .lines
@@ -649,10 +716,9 @@ impl GameLog {
                         &line.event,
                         LogEvent::Moved {
                             object: LogObject::Known { id: moved, .. },
-                            from: was,
                             to: now,
                             ..
-                        } if *moved == id && *was == from && *now == to
+                        } if *moved == id && *now == to
                     )
             });
         if let Some(at) = moved {
@@ -793,6 +859,7 @@ impl GameLog {
                 print: card.print,
                 face: obj.face_index,
             }),
+            token: obj.token.map(baylee_cards::tokens::token_id),
             name: state.names.get(obj.characteristics().name).to_string(),
         };
         self.seen.insert(
@@ -813,6 +880,7 @@ impl GameLog {
         let line = Line {
             turn: self.turn,
             repeat: 1,
+            at: self.now,
             event,
             sees,
         };
@@ -937,6 +1005,14 @@ pub(crate) fn policy_ability(
         ability: Some(ability),
         ..full
     })
+}
+
+/// Where `id` came from before this batch put it where it is, as a play or
+/// a cast line names it.
+fn came_from(state: &GameState, id: ObjectId, came: &BTreeMap<ObjectId, Zone>) -> Option<LogFrom> {
+    let zone = log_zone(*came.get(&id)?)?;
+    let owner = state.object(id)?.owner;
+    Some(LogFrom { zone, owner })
 }
 
 /// The zone a log line names, where there is one.
@@ -1217,6 +1293,7 @@ mod tests {
         LogObject::Known {
             id: ObjectId::new(id, 0),
             card: None,
+            token: None,
             name: format!("object {id}"),
         }
     }
@@ -1225,6 +1302,7 @@ mod tests {
         Line {
             turn: 1,
             repeat: 1,
+            at: 0,
             event,
             sees,
         }
@@ -1286,6 +1364,7 @@ mod tests {
 
     fn a_log() -> GameLog {
         GameLog {
+            now: 0,
             read: 0,
             lines: Vec::new(),
             sealed: 0,
@@ -1298,6 +1377,25 @@ mod tests {
 
     /// Only lines every seat is told in full fold: whether two private lines
     /// were the same is itself something only their audience may know.
+    /// A run folded into one line is dated by its first line: the time a
+    /// panel shows is when it began.
+    #[test]
+    fn a_folded_line_keeps_the_time_it_began() {
+        let mut log = a_log();
+        let life = |old, new| LogEvent::Life {
+            player: PlayerId::new(0),
+            old,
+            new,
+        };
+        log.tell_time(5);
+        log.push(life(20, 18), Vec::new());
+        log.tell_time(9);
+        log.push(life(18, 16), Vec::new());
+        let told = log.told(PlayerId::new(0), 0, log.len());
+        assert_eq!(told.len(), 1, "{told:?}");
+        assert_eq!((told[0].at, told[0].repeat), (5, 2));
+    }
+
     #[test]
     fn a_line_some_seat_may_not_know_never_folds() {
         let mut log = a_log();
@@ -1307,6 +1405,7 @@ mod tests {
             owner: PlayerId::new(0),
             from: LogZone::Hand,
             to: LogZone::Library,
+            place: Some(LogPlace::Top),
         };
         log.push(put_back(), mine.clone());
         log.push(put_back(), mine);

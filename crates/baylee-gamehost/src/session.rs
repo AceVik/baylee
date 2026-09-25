@@ -870,6 +870,16 @@ impl Session {
         }
     }
 
+    /// Tells the session the time, in milliseconds since the Unix epoch: the
+    /// game log stamps every line it writes from here on with it (#300),
+    /// until it is told another. The session never reads a clock of its own,
+    /// because it runs in a browser too, where the standard library has
+    /// none; whoever drives it tells it the time before each call that can
+    /// write a line.
+    pub fn tell_time(&mut self, unix_ms: u64) {
+        self.log.tell_time(unix_ms);
+    }
+
     /// Read-only state access (views).
     #[must_use]
     pub fn state(&self) -> &baylee_engine::state::GameState {

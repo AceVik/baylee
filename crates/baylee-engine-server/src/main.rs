@@ -341,6 +341,7 @@ async fn handle_connection(
     {
         let mut games = games.lock().await;
         if let Some(table) = games.get_mut(id) {
+            table.session.tell_time(wall_ms());
             table.session.release(state.seat);
             let out = table.session.pump();
             publish(table, out);
@@ -416,6 +417,7 @@ async fn serve(
                                 // first: a client has no preset to build them
                                 // from, and every view after this one refers
                                 // to them.
+                                table.session.tell_time(wall_ms());
                                 table.session.describe(id.clone(), seat_names());
                                 out.push(table.session.game_static_envelope(SEAT));
                                 let pumped = table.session.pump();
@@ -445,6 +447,7 @@ async fn serve(
                                     let out = vec![table.session.game_static_envelope(seat)];
                                     // A fresh client holds none of the log.
                                     table.session.retell_log(seat);
+                                    table.session.tell_time(wall_ms());
                                     let pumped = table.session.pump();
                                     publish(table, pumped);
                                     publish_curtain(table, seat);
@@ -494,6 +497,9 @@ async fn serve(
                             continue;
                         };
                         let mut games = games.lock().await;
+                        if let Some(table) = games.get_mut(&id) {
+                            table.session.tell_time(wall_ms());
+                        }
                         match games.get_mut(&id) {
                             Some(table) => match table.session.act(state.seat, action) {
                                 Ok(out) => {
@@ -518,6 +524,9 @@ async fn serve(
                             continue;
                         };
                         let mut games = games.lock().await;
+                        if let Some(table) = games.get_mut(&id) {
+                            table.session.tell_time(wall_ms());
+                        }
                         match games.get_mut(&id) {
                             Some(table) => match table.session.seat_setting(state.seat, setting) {
                                 Ok(out) => {
@@ -583,6 +592,16 @@ fn now_ms() -> u64 {
     0
 }
 
+/// The wall time the game log stamps its lines with (#300). It reaches the
+/// session, never the engine, which reads no clock.
+fn wall_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| {
+            u64::try_from(since.as_millis()).unwrap_or(u64::MAX)
+        })
+}
+
 /// The dev duel: Allytifact vs Victory, human on seat 0, AI on seat 1.
 fn acceptance_duel_preset() -> GamePreset {
     let text = std::fs::read_to_string(
@@ -599,7 +618,7 @@ fn acceptance_duel_preset() -> GamePreset {
 
 /// The attached engine: one socket to the gateway, one game, then exit.
 mod attached {
-    use super::{Attach, ws_config};
+    use super::{Attach, wall_ms, ws_config};
     use baylee_engine_server::EngineRunner;
     use baylee_protocol::v1::{self, Envelope};
     use futures_util::{SinkExt, StreamExt};
@@ -653,6 +672,7 @@ mod attached {
             tokio::select! {
                 () = deadline(curtain_at) => {
                     tracing::info!(game_id = attach.game_id, "the curtain went up on its deadline");
+                    runner.tell_time(wall_ms());
                     for envelope in runner.raise_curtain() {
                         send(&mut ws, &envelope).await?;
                     }
@@ -663,6 +683,7 @@ mod attached {
                     let Some((clock, _)) = next else { continue };
                     tracing::info!(seat = clock.seat.get(), "decision timed out");
                     armed.fired(clock);
+                    runner.tell_time(wall_ms());
                     for envelope in runner.timeout(clock) {
                         send(&mut ws, &envelope).await?;
                     }
@@ -689,6 +710,7 @@ mod attached {
                         u32::try_from(at.saturating_duration_since(read).as_millis())
                             .unwrap_or(u32::MAX)
                     });
+                    runner.tell_time(wall_ms());
                     for out in runner.handle(envelope, &remaining) {
                         send(&mut ws, &out).await?;
                     }

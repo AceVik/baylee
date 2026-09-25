@@ -6653,16 +6653,28 @@ already lets it. No line prints a handle.
 **The reading seat is "you"**, in the verb's own form. Every sentence about a
 player is written twice, the `…You` phrase and the other with the seat's name
 as `{0}` (`i18n::seat_name`), because the verb agrees with its subject in both
-languages. A loss is told in the end screen's pair
-(`interaction::loss_phrases`), which is why those lines are in the past tense.
-No line ends in a full stop, as the loss lines never did. A line that opens
+languages. The "you" itself is an argument too, so a panel can set it in bold
+like a name: `{7}` as a subject, `{8}` as a direct object, `{9}` as an
+indirect one, which German says as "du", "dich" and "dir"; `Writer::phrase`
+passes all three to every phrase. Every line is in the past tense (#300),
+as the loss lines always were; a loss the end screen words without a "you"
+to mark ("Your life fell to 0") is told in its words, the others in the log's
+own `LogLost…You` phrases. No line ends in a full stop, as the loss lines
+never did. A line that opens
 with our own words ("a card") capitalizes them, and a seat's name keeps the
 case its player gave it.
 
 A `LogLine` carries:
 
 - the sentence;
-- its `NameSpan`s, as byte range, object and card, for hover and preview;
+- when the host wrote it (`at`, Unix milliseconds; 0 when the host was never
+  told the time), for a panel that shows the time;
+- its `NameSpan`s, as byte range, object, card and registry token, for hover
+  and preview; the card is the printing the view showed, so a preview wears
+  the same finish;
+- its `PlayerSpan`s, as byte range and seat, for every player it names: a
+  seat's name wherever it stands, and "you" where the sentence says it to
+  the reader, never "your". None overlaps a `NameSpan`;
 - whether it opens a turn (`header`);
 - the ability an ability line names, as the stack names it, so a panel can show
   the printed sentence;

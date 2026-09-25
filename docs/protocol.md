@@ -871,6 +871,12 @@ for an absent player included).
   after every action it applies and turns it into log lines. A line carries
   players and cards, never text: the client writes the sentence in its own
   language, with card names from its card text.
+- **Every line is dated (view version 36, #300).** `LogEntry::at` is when the
+  host wrote it, in milliseconds since the Unix epoch. The host reads no
+  clock: its caller tells it the time before every call that can write a
+  line (`Session::tell_time`; the engine-server with the wall clock, the
+  client's `LocalHost` through `web_time`), and 0 means nobody ever did. A
+  folded line keeps the time of its first. Tests tell a fixed time.
 - **Every `StateDelta` carries a view.** There is no frame with only log in
   it. `log_json` is empty when there is nothing new.
 - **A seat may receive several frames with the same `seq`.** A tail holds at
@@ -909,7 +915,9 @@ A log line names an object exactly as that seat's view would have shown it at
 the moment it happened, and never more. `LogObject` has the view's three
 shapes:
 
-- `Known { id, card, name }`: the seat may know what it is.
+- `Known { id, card, token, name }`: the seat may know what it is. `token`
+  is the registry token (`PublicObject::token`), so a client can show a
+  token that has left the battlefield since.
 - `FaceDown { id }`: a face-down object the seat may not look at (CR 708.5).
   It keeps the handle the view shows, so a line can point at it on the table.
 - `Hidden`: a card the view does not show this seat at all (a library,
@@ -946,9 +954,16 @@ spell moving to the graveyard as it resolves, the table as the preset laid it
 out, and cards moving between libraries and hands before the first turn (the
 mulligan lines count those).
 
-Told once: a discard and a land played from a hand are each one line, and
-the move that carried the card is not written again. A land played from any
-other zone keeps its move line, which says where it came from.
+Told once: a discard and a land played are each one line, and the move that
+carried the card is not written again. The play says where the land came
+from, as a cast says where the spell did (`LogFrom`: the zone and whose it
+is), read off the move that came first in the same action; a spell that was
+nowhere before the stack says nothing. A card put into a library says where
+in it (`LogPlace`: on top, on the bottom, or counted from the top), which is
+public even while the card is not. Cards put into a library that is then
+shuffled in the same action are "shuffled in", and the shuffle is no line of
+its own; a search that takes a card out and shuffles keeps its shuffle
+line.
 
 ### What a line cannot name
 

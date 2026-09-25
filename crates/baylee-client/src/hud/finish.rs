@@ -922,6 +922,7 @@ mod tests {
             from: 0,
             entries: (0..lines)
                 .map(|i| LogEntry {
+                    at: 0,
                     turn: i / 3,
                     repeat: 1,
                     event: if i % 3 == 0 {

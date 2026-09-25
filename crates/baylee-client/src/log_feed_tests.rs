@@ -75,6 +75,7 @@ fn tail(from: u32, count: u32) -> LogTail {
         from,
         entries: (from..from + count)
             .map(|turn| LogEntry {
+                at: 0,
                 turn,
                 repeat: 1,
                 event: LogEvent::TurnStarted {

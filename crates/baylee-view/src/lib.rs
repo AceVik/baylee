@@ -109,7 +109,11 @@ use serde::{Deserialize, Serialize};
 /// [`SeatSetting`], what a seat sends to show, withdraw, ask or decline.
 /// 35 adds [`PlayerView::policy_acts`], what this seat's own per-ability
 /// policies answered for it since it last answered by hand (#234).
-pub const VIEW_VERSION: u32 = 35;
+/// 36 makes the game log read like a chat (#300): [`LogEntry::at`], when
+/// the host wrote a line; where a land was played or a spell cast from
+/// ([`LogFrom`]); where in a library a card went ([`LogPlace`]); and which
+/// registry token a line names.
+pub const VIEW_VERSION: u32 = 36;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1798,6 +1802,10 @@ pub struct LogEntry {
     /// life total or counters changing the same way again fold into one line
     /// whose `old` and `new` span every change.
     pub repeat: u32,
+    /// When the host wrote it, in milliseconds since the Unix epoch, as the
+    /// host's caller last told it the time; 0 when nobody ever did. A folded
+    /// line keeps the time of its first.
+    pub at: u64,
     /// What happened.
     pub event: LogEvent,
 }
@@ -1819,6 +1827,9 @@ pub enum LogObject {
         id: ObjectId,
         /// The card, when it is one. `None` for a token, which `name` names.
         card: Option<CardIdentity>,
+        /// The registry token it is, as [`PublicObject::token`], so a line
+        /// can show a token that has since left the battlefield.
+        token: Option<u16>,
         /// Its name as it was then.
         name: String,
     },
@@ -1848,6 +1859,31 @@ pub enum LogZone {
     Exile,
     /// The command zone.
     Command,
+}
+
+/// Where a land was played or a spell cast from: a zone, and whose it is,
+/// so a card cast out of another player's graveyard says so.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct LogFrom {
+    /// The zone.
+    pub zone: LogZone,
+    /// Whose it is: the card's owner.
+    pub owner: PlayerId,
+}
+
+/// Where in a library a card went. Every seat is told it, whoever may know
+/// the card: where a card is put is public even when the card is not.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum LogPlace {
+    /// On top.
+    Top,
+    /// On the bottom.
+    Bottom,
+    /// This many from the top, counting from 1 and never the top or the
+    /// bottom card, which are [`Self::Top`] and [`Self::Bottom`].
+    FromTop(u32),
+    /// Into it, and the library was shuffled afterwards in the same action.
+    Shuffled,
 }
 
 /// What a damage line dealt damage to.
@@ -1958,6 +1994,8 @@ pub enum LogEvent {
         player: PlayerId,
         /// The land.
         land: LogObject,
+        /// Where from.
+        from: Option<LogFrom>,
     },
     /// A spell was cast.
     Cast {
@@ -1965,6 +2003,9 @@ pub enum LogEvent {
         player: PlayerId,
         /// The spell.
         spell: LogObject,
+        /// Where from. `None` for a spell that was never anywhere before the
+        /// stack: a copy that is cast.
+        from: Option<LogFrom>,
     },
     /// An activated or triggered ability was put on the stack.
     Ability {
@@ -2009,6 +2050,8 @@ pub enum LogEvent {
         from: LogZone,
         /// Where to.
         to: LogZone,
+        /// Where in it, when `to` is a library; `None` otherwise.
+        place: Option<LogPlace>,
     },
     /// A token was created.
     Created {
@@ -2961,7 +3004,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (35, 0x025f_38ab_fa30_23cb);
+        const RECORDED: (u32, u64) = (36, 0x8ce2_485a_966b_9112);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

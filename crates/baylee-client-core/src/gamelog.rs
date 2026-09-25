@@ -20,7 +20,7 @@ use std::ops::Range;
 use baylee_core::ids::{CardIndex, Defender, ObjectId, PlayerId};
 use baylee_view::{
     CardIdentity, ClockAnswer, CounterKind, DayNight, GameStatic, LogAbility, LogEntry, LogEvent,
-    LogObject, LogTail, LogTarget, LogZone, PlayerView,
+    LogFrom, LogObject, LogPlace, LogTail, LogTarget, LogZone, LossCause, PlayerView,
 };
 
 use crate::card_face::{CardText, shown_name};
@@ -76,10 +76,18 @@ pub struct LogLine {
     pub times: u32,
     /// Whether it opens a turn, so a panel may draw it as a heading.
     pub header: bool,
+    /// When the host wrote it, in milliseconds since the Unix epoch, for a
+    /// panel that shows the time; 0 when the host was never told the time.
+    pub at: u64,
     /// The sentence, with no full stop.
     pub text: String,
     /// Where `text` names an object, in order.
     pub names: Vec<NameSpan>,
+    /// Where `text` names a player, in order (#300): another seat by its
+    /// name wherever the sentence names it, and the reading seat where it is
+    /// "you" as a subject or an object. "Your" names a thing and not the
+    /// player, and has none. No span here overlaps a [`NameSpan`].
+    pub players: Vec<PlayerSpan>,
     /// The ability an ability line names, when the seat may know it, for a
     /// panel that shows its printed sentence the way the stack does.
     pub ability: Option<LogAbility>,
@@ -124,8 +132,23 @@ pub struct NameSpan {
     pub range: Range<usize>,
     /// The object, as the view names it.
     pub id: ObjectId,
-    /// Its card, for a preview. `None` for a token and a face-down card.
+    /// Its card, for a preview, as the view showed it when the line was
+    /// written: [`CardIdentity::print`] indexes [`GameStatic::prints`], whose
+    /// entry has the printing's finish. `None` for a token and a face-down
+    /// card.
     pub card: Option<CardIdentity>,
+    /// The registry token it is, for a preview of a token that has left the
+    /// battlefield since ([`baylee_view::PublicObject::token`]).
+    pub token: Option<u16>,
+}
+
+/// Where a line names a player.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct PlayerSpan {
+    /// Byte range of the name, or of "you", in [`LogLine::text`].
+    pub range: Range<usize>,
+    /// The seat.
+    pub player: PlayerId,
 }
 
 /// A seat's game log, as far as it has been told it.
@@ -305,6 +328,7 @@ impl LogBook {
 struct Piece {
     text: String,
     names: Vec<NameSpan>,
+    players: Vec<PlayerSpan>,
     /// Whether the text opens with words of ours in lower case ("a card"),
     /// which a line that opens with them capitalizes. A name is never
     /// recased: a player may call their seat "bo".
@@ -315,10 +339,22 @@ struct Piece {
 }
 
 impl Piece {
+    /// The same text and spans, as a new argument.
+    fn copy(&self) -> Self {
+        Self {
+            text: self.text.clone(),
+            names: self.names.clone(),
+            players: self.players.clone(),
+            lower: self.lower,
+            subject: self.subject,
+        }
+    }
+
     fn plain(text: impl Into<String>) -> Self {
         Self {
             text: text.into(),
             names: Vec::new(),
+            players: Vec::new(),
             lower: false,
             subject: None,
         }
@@ -334,6 +370,11 @@ impl Piece {
             range: name.range.start + offset..name.range.end + offset,
             ..name.clone()
         }));
+        self.players
+            .extend(piece.players.iter().map(|span| PlayerSpan {
+                range: span.range.start + offset..span.range.end + offset,
+                player: span.player,
+            }));
     }
 
     /// `template` with `{0}`, `{1}` … replaced by `args`, carrying their
@@ -386,8 +427,10 @@ impl Writer<'_> {
             turn: entry.turn,
             times,
             header: matches!(entry.event, LogEvent::TurnStarted { .. }),
+            at: entry.at,
             text: piece.text,
             names: piece.names,
+            players: piece.players,
             ability: match entry.event {
                 LogEvent::Ability { ability, .. } => ability,
                 _ => None,
@@ -396,8 +439,34 @@ impl Writer<'_> {
         }
     }
 
+    /// `phrase` filled with `args` from `{0}` on, and with the reading seat
+    /// as `{7}`, `{8}` and `{9}`: "you" as a subject, a direct object and an
+    /// indirect object, which German says three ways.
     fn phrase(&self, phrase: Phrase, args: &[Piece]) -> Piece {
-        Piece::fill(phrase.text(self.wording.lang), args)
+        let mut all: Vec<Piece> = args.iter().map(Piece::copy).collect();
+        all.resize_with(YOU_SLOT, Piece::default);
+        all.extend(
+            [
+                Phrase::LogYouSubject,
+                Phrase::LogYouObject,
+                Phrase::LogYouIndirect,
+            ]
+            .map(|you| self.you(you)),
+        );
+        Piece::fill(phrase.text(self.wording.lang), &all)
+    }
+
+    /// The reading seat as `you` says it, marked as that seat.
+    fn you(&self, you: Phrase) -> Piece {
+        let text = you.text(self.wording.lang);
+        Piece {
+            players: vec![PlayerSpan {
+                range: 0..text.len(),
+                player: self.wording.seat,
+            }],
+            lower: true,
+            ..Piece::plain(text)
+        }
     }
 
     fn count(n: &impl ToString) -> Piece {
@@ -410,7 +479,14 @@ impl Writer<'_> {
         if player == self.wording.seat {
             Piece::default()
         } else {
-            Piece::plain(seat_name(self.wording.lang, self.wording.statics, player))
+            let name = seat_name(self.wording.lang, self.wording.statics, player);
+            Piece {
+                players: vec![PlayerSpan {
+                    range: 0..name.len(),
+                    player,
+                }],
+                ..Piece::plain(name)
+            }
         }
     }
 
@@ -446,7 +522,13 @@ impl Writer<'_> {
 
     /// An object the seat may know, by the name its card has in the reader's
     /// language ([`shown_name`]), else by the name the line carries.
-    fn known(&self, id: ObjectId, card: Option<CardIdentity>, name: &str) -> Piece {
+    fn known(
+        &self,
+        id: ObjectId,
+        card: Option<CardIdentity>,
+        token: Option<u16>,
+        name: &str,
+    ) -> Piece {
         let text = card.and_then(|card| self.wording.texts.text(card.index, card.face));
         let shown = shown_name(name, text.as_ref());
         let shown = if shown.trim().is_empty() { name } else { shown };
@@ -459,7 +541,9 @@ impl Writer<'_> {
                 range: 0..shown.len(),
                 id,
                 card,
+                token,
             }],
+            players: Vec::new(),
             lower: false,
             subject: None,
         }
@@ -467,13 +551,19 @@ impl Writer<'_> {
 
     fn object(&self, object: &LogObject) -> Piece {
         match object {
-            LogObject::Known { id, card, name } => self.known(*id, *card, name),
+            LogObject::Known {
+                id,
+                card,
+                token,
+                name,
+            } => self.known(*id, *card, *token, name),
             LogObject::FaceDown { id } => {
                 let mut piece = self.neutral(Phrase::LogAFaceDownCard);
                 piece.names.push(NameSpan {
                     range: 0..piece.text.len(),
                     id: *id,
                     card: None,
+                    token: None,
                 });
                 piece
             }
@@ -529,6 +619,50 @@ impl Writer<'_> {
         self.phrase(phrase, &[self.seat(owner)])
     }
 
+    /// Where in `owner`'s library a card went, or which library when the
+    /// line cannot say where in it.
+    fn library_place(&self, owner: PlayerId, place: Option<LogPlace>) -> Piece {
+        let yours = owner == self.wording.seat;
+        let (phrase, at) = match place {
+            Some(LogPlace::Top) if yours => (Phrase::LogOntoLibraryTopYou, None),
+            Some(LogPlace::Top) => (Phrase::LogOntoLibraryTop, None),
+            Some(LogPlace::Bottom) if yours => (Phrase::LogOntoLibraryBottomYou, None),
+            Some(LogPlace::Bottom) => (Phrase::LogOntoLibraryBottom, None),
+            Some(LogPlace::FromTop(n)) if yours => (Phrase::LogIntoLibraryAtYou, Some(n)),
+            Some(LogPlace::FromTop(n)) => (Phrase::LogIntoLibraryAt, Some(n)),
+            Some(LogPlace::Shuffled) | None => return self.zone(owner, LogZone::Library, true),
+        };
+        let mut args = vec![self.seat(owner)];
+        args.extend(at.map(|n| Piece::plain(ordinal(self.wording.lang, n))));
+        self.phrase(phrase, &args)
+    }
+
+    /// Where `player` played or cast something from, with the space before
+    /// it, or nothing when the line does not say.
+    fn played_from(&self, player: PlayerId, from: Option<LogFrom>) -> Piece {
+        let Some(LogFrom { zone, owner }) = from else {
+            return Piece::default();
+        };
+        let own = match zone {
+            LogZone::Hand if owner == player && owner != self.wording.seat => {
+                Some(Phrase::LogFromOwnHand)
+            }
+            LogZone::Library if owner == player && owner != self.wording.seat => {
+                Some(Phrase::LogFromOwnLibrary)
+            }
+            LogZone::Graveyard if owner == player && owner != self.wording.seat => {
+                Some(Phrase::LogFromOwnGraveyard)
+            }
+            _ => None,
+        };
+        let mut out = Piece::plain(" ");
+        out.push(&own.map_or_else(
+            || self.zone(owner, zone, false),
+            |own| self.phrase(own, &[]),
+        ));
+        out
+    }
+
     fn counters(&self, kind: CounterKind, n: u16) -> Piece {
         let n = usize::from(n);
         let (one, many, sizes) = match kind {
@@ -570,7 +704,7 @@ impl Writer<'_> {
                 false,
                 self.defenders.get(&id).map_or_else(
                     || self.neutral(Phrase::LogAPlaneswalker),
-                    |named| self.known(id, named.card, &named.name),
+                    |named| self.known(id, named.card, None, &named.name),
                 ),
             ),
         }
@@ -631,17 +765,21 @@ impl Writer<'_> {
                 Phrase::LogReturned,
                 Vec::new(),
             ),
-            LogEvent::LandPlayed { player, land } => self.about(
+            LogEvent::LandPlayed { player, land, from } => self.about(
                 *player,
                 Phrase::LogLandPlayedYou,
                 Phrase::LogLandPlayed,
-                vec![self.object(land)],
+                vec![self.object(land), self.played_from(*player, *from)],
             ),
-            LogEvent::Cast { player, spell } => self.about(
+            LogEvent::Cast {
+                player,
+                spell,
+                from,
+            } => self.about(
                 *player,
                 Phrase::LogCastYou,
                 Phrase::LogCast,
-                vec![self.object(spell)],
+                vec![self.object(spell), self.played_from(*player, *from)],
             ),
             LogEvent::Ability {
                 controller, source, ..
@@ -686,17 +824,23 @@ impl Writer<'_> {
                 owner,
                 from,
                 to,
-            } => Piece {
-                subject: Some(*owner),
-                ..self.about_nobody(
-                    Phrase::LogMoved,
-                    vec![
-                        self.object(object),
-                        self.zone(*owner, *from, false),
-                        self.zone(*owner, *to, true),
-                    ],
-                )
-            },
+                place,
+            } => {
+                let (phrase, into) = match (to, place) {
+                    (LogZone::Library, Some(LogPlace::Shuffled)) => {
+                        (Phrase::LogMovedShuffled, self.library_place(*owner, *place))
+                    }
+                    (LogZone::Library, _) => (Phrase::LogMoved, self.library_place(*owner, *place)),
+                    _ => (Phrase::LogMoved, self.zone(*owner, *to, true)),
+                };
+                Piece {
+                    subject: Some(*owner),
+                    ..self.about_nobody(
+                        phrase,
+                        vec![self.object(object), self.zone(*owner, *from, false), into],
+                    )
+                }
+            }
             LogEvent::Created { object, controller } => self.about(
                 *controller,
                 Phrase::LogCreatedYou,
@@ -816,7 +960,7 @@ impl Writer<'_> {
             ),
             LogEvent::Lost { player, cause } => {
                 let (you, other) = loss_phrases(*cause);
-                self.about(*player, you, other, Vec::new())
+                self.about(*player, log_loss(*cause).unwrap_or(you), other, Vec::new())
             }
             LogEvent::GameOver { winners } => {
                 let seat = self.wording.seat;
@@ -827,9 +971,9 @@ impl Writer<'_> {
                     .collect();
                 if winners.contains(seat) {
                     if names.is_empty() {
-                        return self.neutral(Phrase::LogWonYou);
+                        return self.phrase(Phrase::LogWonYou, &[]);
                     }
-                    names.push(self.neutral(Phrase::LogYouInList));
+                    names.push(self.you(Phrase::LogYouInList));
                 }
                 match names.len() {
                     0 => self.neutral(Phrase::LogDrawn),
@@ -850,6 +994,41 @@ impl Writer<'_> {
     }
 }
 
+/// Where [`Writer::phrase`] puts the reading seat: `{7}`, `{8}` and `{9}`.
+const YOU_SLOT: usize = 7;
+
+/// The log's own sentence for how the reading seat lost, where the end
+/// screen's does not name it as "you" a panel can mark: "Your life fell to
+/// 0" names the life, and has no "you" to mark.
+const fn log_loss(cause: LossCause) -> Option<Phrase> {
+    match cause {
+        LossCause::Life => None,
+        LossCause::EmptyDraw => Some(Phrase::LogLostEmptyDrawYou),
+        LossCause::Poison => Some(Phrase::LogLostPoisonYou),
+        LossCause::CommanderDamage => Some(Phrase::LogLostCommanderDamageYou),
+        LossCause::Conceded => Some(Phrase::LogLostConcededYou),
+        LossCause::Effect => Some(Phrase::LogLostEffectYou),
+    }
+}
+
+/// `n` as an ordinal in `lang`: "2nd", "3rd", "11th" in English; the bare
+/// number in German, whose sentence writes the full stop after it.
+fn ordinal(lang: Lang, n: u32) -> String {
+    match lang {
+        Lang::En => {
+            let suffix = match (n % 10, n % 100) {
+                (_, 11..=13) => "th",
+                (1, _) => "st",
+                (2, _) => "nd",
+                (3, _) => "rd",
+                _ => "th",
+            };
+            format!("{n}{suffix}")
+        }
+        Lang::De => n.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -863,6 +1042,7 @@ mod tests {
 
     fn entry(turn: u32, event: LogEvent) -> LogEntry {
         LogEntry {
+            at: 0,
             turn,
             repeat: 1,
             event,
@@ -940,6 +1120,7 @@ mod tests {
 
     fn bolt(slot: u32) -> LogObject {
         LogObject::Known {
+            token: None,
             id: ObjectId::new(slot, 0),
             card: Some(CardIdentity {
                 index: BOLT,
@@ -952,6 +1133,7 @@ mod tests {
 
     fn token(slot: u32, name: &str) -> LogObject {
         LogObject::Known {
+            token: None,
             id: ObjectId::new(slot, 0),
             card: None,
             name: name.to_string(),
@@ -1120,6 +1302,7 @@ mod tests {
         let book = book(&[entry(
             1,
             LogEvent::Cast {
+                from: None,
                 player: BO,
                 spell: bolt(3),
             },
@@ -1131,9 +1314,9 @@ mod tests {
             statics: Some(&roster),
             texts: &no_text,
         };
-        assert_eq!(book.lines(&before)[0].text, "Bo wirkt Lightning Bolt");
-        assert_eq!(read(&book, Lang::De).text, "Bo wirkt Blitzschlag");
-        assert_eq!(read(&book, Lang::En).text, "Bo casts Lightning Bolt");
+        assert_eq!(book.lines(&before)[0].text, "Bo hat Lightning Bolt gewirkt");
+        assert_eq!(read(&book, Lang::De).text, "Bo hat Blitzschlag gewirkt");
+        assert_eq!(read(&book, Lang::En).text, "Bo cast Lightning Bolt");
     }
 
     /// A copy is named by the name it has, not by its card's: the catalog
@@ -1144,6 +1327,7 @@ mod tests {
             unreachable!()
         };
         let copy = LogObject::Known {
+            token: None,
             id,
             card,
             name: "Shock".to_string(),
@@ -1152,11 +1336,12 @@ mod tests {
             say(
                 Lang::De,
                 LogEvent::Cast {
+                    from: None,
                     player: BO,
                     spell: copy
                 }
             ),
-            "Bo wirkt Shock"
+            "Bo hat Shock gewirkt"
         );
     }
 
@@ -1175,7 +1360,7 @@ mod tests {
             )]),
             Lang::En,
         );
-        assert_eq!(line.text, "A face-down card blocks a card");
+        assert_eq!(line.text, "A face-down card blocked a card");
         assert!(!line.text.contains("77"), "{}", line.text);
         assert_eq!(
             say(
@@ -1185,7 +1370,7 @@ mod tests {
                     card: LogObject::Hidden
                 }
             ),
-            "Bo wirft eine Karte ab"
+            "Bo hat eine Karte abgeworfen"
         );
         // The face-down card is on the table for everyone to point at; the
         // hidden one has no handle to point with.
@@ -1210,6 +1395,7 @@ mod tests {
             entry(
                 1,
                 LogEvent::Cast {
+                    from: None,
                     player: BO,
                     spell: bolt(3),
                 },
@@ -1223,8 +1409,8 @@ mod tests {
             ),
         ]);
         let lines = book.lines(&wording);
-        assert_eq!(lines[0].text, "Bo casts Lightning Bolt");
-        assert_eq!(lines[1].text, "Bo creates a card");
+        assert_eq!(lines[0].text, "Bo cast Lightning Bolt");
+        assert_eq!(lines[1].text, "Bo created a card");
     }
 
     /// Every name span covers exactly the name, wherever the language puts it.
@@ -1242,7 +1428,10 @@ mod tests {
             )]),
             Lang::De,
         );
-        assert_eq!(line.text, "Soldier erleidet 3 Schaden durch Blitzschlag");
+        assert_eq!(
+            line.text,
+            "Soldier hat 3 Schaden durch Blitzschlag erlitten"
+        );
         let named: Vec<(&str, ObjectId)> = line
             .names
             .iter()
@@ -1267,7 +1456,7 @@ mod tests {
             )]),
             Lang::En,
         );
-        assert_eq!(list.text, "Bo reveals Clue, Lightning Bolt and Food");
+        assert_eq!(list.text, "Bo revealed Clue, Lightning Bolt and Food");
         let spans: Vec<&str> = list
             .names
             .iter()
@@ -1291,9 +1480,11 @@ mod tests {
         };
         let book = book(&[
             LogEntry {
+                at: 0,
                 turn: 1,
                 repeat: 3,
                 event: LogEvent::Cast {
+                    from: None,
                     player: BO,
                     spell: bolt(3),
                 },
@@ -1307,8 +1498,8 @@ mod tests {
             ),
         ]);
         let lines = book.lines(&wording);
-        assert_eq!(lines[0].plain(Lang::En), "{1} casts Lightning Bolt (×3)");
-        assert_eq!(lines[1].text, "{2} blocks Lightning Bolt");
+        assert_eq!(lines[0].plain(Lang::En), "{1} cast Lightning Bolt (×3)");
+        assert_eq!(lines[1].text, "{2} blocked Lightning Bolt");
     }
 
     /// A planeswalker an attack names is called what the view showed when
@@ -1331,14 +1522,14 @@ mod tests {
         book.append(&tail(0, std::slice::from_ref(&attack)), &shown);
         book.append(&tail(1, &entries(3, 1)), &view());
         let line = read(&book, Lang::En);
-        assert_eq!(line.text, "Lightning Bolt attacks Jace Beleren");
+        assert_eq!(line.text, "Lightning Bolt attacked Jace Beleren");
         assert_eq!(line.names[1].id, walker.id);
         assert_eq!(line.names[1].card, walker.card);
 
         let fresh = book_with_view(&[attack], &view());
         assert_eq!(
             read(&fresh, Lang::De).text,
-            "Blitzschlag greift einen Planeswalker an"
+            "Blitzschlag hat einen Planeswalker angegriffen"
         );
     }
 
@@ -1355,13 +1546,15 @@ mod tests {
     #[test]
     fn the_reading_seat_is_you_and_the_others_are_named() {
         let cast = |player| LogEvent::Cast {
+            from: None,
             player,
             spell: bolt(3),
         };
         assert_eq!(say(Lang::En, cast(ME)), "You cast Lightning Bolt");
-        assert_eq!(say(Lang::De, cast(ME)), "Du wirkst Blitzschlag");
-        assert_eq!(say(Lang::En, cast(BO)), "Bo casts Lightning Bolt");
+        assert_eq!(say(Lang::De, cast(ME)), "Du hast Blitzschlag gewirkt");
+        assert_eq!(say(Lang::En, cast(BO)), "Bo cast Lightning Bolt");
         let moved = |owner| LogEvent::Moved {
+            place: None,
             object: bolt(3),
             owner,
             from: LogZone::Hand,
@@ -1369,11 +1562,11 @@ mod tests {
         };
         assert_eq!(
             say(Lang::En, moved(ME)),
-            "Lightning Bolt moves from your hand into your graveyard"
+            "Lightning Bolt moved from your hand into your graveyard"
         );
         assert_eq!(
             say(Lang::De, moved(BO)),
-            "Blitzschlag kommt aus der Hand von Bo in den Friedhof von Bo"
+            "Blitzschlag ist aus der Hand von Bo in den Friedhof von Bo gelangt"
         );
         let hit = |player, combat| LogEvent::Damage {
             source: Some(bolt(3)),
@@ -1383,22 +1576,22 @@ mod tests {
         };
         assert_eq!(
             say(Lang::En, hit(ME, false)),
-            "Lightning Bolt deals 3 damage to you"
+            "Lightning Bolt dealt 3 damage to you"
         );
         assert_eq!(
             say(Lang::De, hit(ME, true)),
-            "Blitzschlag fügt dir 3 Kampfschaden zu"
+            "Blitzschlag hat dir 3 Kampfschaden zugefügt"
         );
         assert_eq!(
             say(Lang::En, hit(BO, true)),
-            "Lightning Bolt deals 3 combat damage to Bo"
+            "Lightning Bolt dealt 3 combat damage to Bo"
         );
         let attack = |player| LogEvent::Attacked {
             attacker: token(4, "Soldier"),
             defending: Defender::Player(player),
         };
-        assert_eq!(say(Lang::De, attack(ME)), "Soldier greift dich an");
-        assert_eq!(say(Lang::En, attack(BO)), "Soldier attacks Bo");
+        assert_eq!(say(Lang::De, attack(ME)), "Soldier hat dich angegriffen");
+        assert_eq!(say(Lang::En, attack(BO)), "Soldier attacked Bo");
         assert_eq!(
             say(
                 Lang::En,
@@ -1408,7 +1601,7 @@ mod tests {
                     new: ME
                 }
             ),
-            "You gain control of Soldier"
+            "You gained control of Soldier"
         );
     }
 
@@ -1419,20 +1612,23 @@ mod tests {
             player,
             cards: vec![LogObject::Hidden; n],
         };
-        assert_eq!(say(Lang::En, drew(ME, 2)), "You draw 2 cards");
-        assert_eq!(say(Lang::De, drew(BO, 1)), "Bo zieht 1 Karte");
+        assert_eq!(say(Lang::En, drew(ME, 2)), "You drew 2 cards");
+        assert_eq!(say(Lang::De, drew(BO, 1)), "Bo hat 1 Karte gezogen");
         let kept = |player, cards| LogEvent::Kept { player, cards };
-        assert_eq!(say(Lang::En, kept(ME, 1)), "You keep 1 card");
-        assert_eq!(say(Lang::De, kept(BO, 7)), "Bo behält 7 Karten");
+        assert_eq!(say(Lang::En, kept(ME, 1)), "You kept 1 card");
+        assert_eq!(say(Lang::De, kept(BO, 7)), "Bo hat 7 Karten behalten");
         let life = |player, old, new| LogEvent::Life { player, old, new };
-        assert_eq!(say(Lang::En, life(BO, 20, 17)), "Bo is at 17 life (was 20)");
+        assert_eq!(
+            say(Lang::En, life(BO, 20, 17)),
+            "Bo went to 17 life (from 20)"
+        );
         assert_eq!(
             say(Lang::De, life(ME, 2, 1)),
-            "Du hast jetzt 1 Lebenspunkt (vorher 2)"
+            "Du hattest danach 1 Lebenspunkt (vorher 2)"
         );
         assert_eq!(
             say(Lang::De, life(ME, 1, -2)),
-            "Du hast jetzt -2 Lebenspunkte (vorher 1)"
+            "Du hattest danach -2 Lebenspunkte (vorher 1)"
         );
         let counters = |kind, old, new| LogEvent::Counters {
             object: token(4, "Soldier"),
@@ -1442,11 +1638,11 @@ mod tests {
         };
         assert_eq!(
             say(Lang::En, counters(CounterKind::PLUS_ONE, 1, 2)),
-            "Soldier has 2 +1/+1 counters (was 1)"
+            "Soldier went to 2 +1/+1 counters (from 1)"
         );
         assert_eq!(
             say(Lang::De, counters(CounterKind::Loyalty, 3, 1)),
-            "Soldier hat jetzt 1 Loyalitätsmarke (vorher 3)"
+            "Soldier hatte danach 1 Loyalitätsmarke (vorher 3)"
         );
     }
 
@@ -1461,7 +1657,7 @@ mod tests {
                     cards: vec![bolt(3), LogObject::Hidden]
                 }
             ),
-            "You draw Lightning Bolt and a card"
+            "You drew Lightning Bolt and a card"
         );
     }
 
@@ -1475,18 +1671,18 @@ mod tests {
             }
             LogEvent::GameOver { winners }
         };
-        assert_eq!(say(Lang::En, over(&[ME])), "You win the game");
-        assert_eq!(say(Lang::De, over(&[BO])), "Bo gewinnt das Spiel");
-        assert_eq!(say(Lang::En, over(&[ME, BO])), "Bo and you win the game");
+        assert_eq!(say(Lang::En, over(&[ME])), "You won the game");
+        assert_eq!(say(Lang::De, over(&[BO])), "Bo hat das Spiel gewonnen");
+        assert_eq!(say(Lang::En, over(&[ME, BO])), "Bo and you won the game");
         assert_eq!(
             say(Lang::De, over(&[ME, BO])),
-            "Bo und du gewinnen das Spiel"
+            "Bo und du haben das Spiel gewonnen"
         );
         assert_eq!(
             say(Lang::En, over(&[BO, PlayerId::new(2)])),
-            "Bo and Cy win the game"
+            "Bo and Cy won the game"
         );
-        assert_eq!(say(Lang::De, over(&[])), "Das Spiel endet unentschieden");
+        assert_eq!(say(Lang::De, over(&[])), "Das Spiel endete unentschieden");
     }
 
     /// A loss is told in the end screen's words.
@@ -1527,7 +1723,7 @@ mod tests {
             seen,
             [
                 (true, "Zug 3 · Bo"),
-                (false, "Bo mischt die eigene Bibliothek"),
+                (false, "Bo hat die eigene Bibliothek gemischt"),
                 (true, "Zug 4 · dein Zug"),
             ]
         );
@@ -1538,12 +1734,14 @@ mod tests {
     #[test]
     fn a_folded_line_says_how_often_unless_it_spans() {
         let folded = |event| LogEntry {
+            at: 0,
             turn: 1,
             repeat: 5,
             event,
         };
         let book = book(&[
             folded(LogEvent::Cast {
+                from: None,
                 player: BO,
                 spell: bolt(3),
             }),
@@ -1568,8 +1766,8 @@ mod tests {
         };
         let lines = book.lines(&wording);
         assert_eq!(lines.iter().map(|l| l.times).collect::<Vec<_>>(), [5, 1, 1]);
-        assert_eq!(lines[0].plain(Lang::En), "Bo casts Lightning Bolt (×5)");
-        assert_eq!(lines[1].plain(Lang::En), "Bo is at 15 life (was 20)");
+        assert_eq!(lines[0].plain(Lang::En), "Bo cast Lightning Bolt (×5)");
+        assert_eq!(lines[1].plain(Lang::En), "Bo went to 15 life (from 20)");
     }
 
     /// An ability line carries the ability, for a panel to show its text.
@@ -1591,7 +1789,7 @@ mod tests {
             )]),
             Lang::En,
         );
-        assert_eq!(line.text, "Bo puts an ability of Soldier on the stack");
+        assert_eq!(line.text, "Bo put an ability of Soldier on the stack");
         assert_eq!(line.ability, Some(ability));
     }
 
@@ -1602,10 +1800,10 @@ mod tests {
         let unresolved = LogEvent::DidNotResolve {
             object: LogObject::Hidden,
         };
-        assert_eq!(say(Lang::En, unresolved.clone()), "A card does not resolve");
+        assert_eq!(say(Lang::En, unresolved.clone()), "A card did not resolve");
         assert_eq!(
             say(Lang::De, unresolved),
-            "Eine Karte wird nicht verrechnet"
+            "Eine Karte wurde nicht verrechnet"
         );
         let mut roster = roster();
         roster.seats[1].display_name = "bo".to_string();
@@ -1616,7 +1814,7 @@ mod tests {
             texts: &no_text,
         };
         let book = book(&[entry(1, LogEvent::Shuffled { player: BO })]);
-        assert_eq!(book.lines(&wording)[0].text, "bo shuffles their library");
+        assert_eq!(book.lines(&wording)[0].text, "bo shuffled their library");
     }
 
     /// Which variant an event is, so the table below can show it has them
@@ -1670,10 +1868,12 @@ mod tests {
             LogEvent::StandIn { player },
             LogEvent::Returned { player },
             LogEvent::LandPlayed {
+                from: None,
                 player,
                 land: token(5, "Island"),
             },
             LogEvent::Cast {
+                from: None,
                 player,
                 spell: card.clone(),
             },
@@ -1791,12 +1991,49 @@ mod tests {
         for from in zones {
             for to in zones {
                 out.push(LogEvent::Moved {
+                    place: None,
                     object: card.clone(),
                     owner: player,
                     from,
                     to,
                 });
             }
+        }
+        for place in [
+            LogPlace::Top,
+            LogPlace::Bottom,
+            LogPlace::FromTop(2),
+            LogPlace::FromTop(11),
+            LogPlace::FromTop(23),
+            LogPlace::Shuffled,
+        ] {
+            out.push(LogEvent::Moved {
+                place: Some(place),
+                object: card.clone(),
+                owner: player,
+                from: LogZone::Hand,
+                to: LogZone::Library,
+            });
+        }
+        for (zone, owner) in [
+            (LogZone::Hand, player),
+            (LogZone::Library, player),
+            (LogZone::Graveyard, player),
+            (LogZone::Graveyard, PlayerId::new(2)),
+            (LogZone::Exile, PlayerId::new(2)),
+            (LogZone::Command, player),
+        ] {
+            let from = Some(LogFrom { zone, owner });
+            out.push(LogEvent::LandPlayed {
+                player,
+                land: token(5, "Island"),
+                from,
+            });
+            out.push(LogEvent::Cast {
+                player,
+                spell: card.clone(),
+                from,
+            });
         }
         for (source, combat) in [
             (Some(card.clone()), true),
@@ -1954,6 +2191,7 @@ mod tests {
     #[test]
     fn every_line_says_which_seat_it_is_about() {
         let cast = LogEvent::Cast {
+            from: None,
             player: BO,
             spell: bolt(3),
         };
@@ -1986,6 +2224,189 @@ mod tests {
             let about = lines.iter().filter(|line| line.subject == Some(player));
             assert!(about.count() > 40, "the walk names {player:?}");
         }
+    }
+
+    /// Every player a line names is marked where it names them (#300):
+    /// another seat by its name wherever the sentence puts it, and the
+    /// reading seat wherever the sentence says "you" to it, and nowhere
+    /// else: not "your", and never inside a card's name.
+    #[test]
+    fn every_player_a_line_names_is_marked() {
+        let roster = roster();
+        let you: fn(Lang) -> &'static [&'static str] = |lang| match lang {
+            Lang::En => &["you", "You"],
+            Lang::De => &["du", "Du", "dich", "dir"],
+        };
+        let mut marked_you = 0;
+        for lang in Lang::ALL {
+            let wording = Wording {
+                lang,
+                seat: ME,
+                statics: Some(&roster),
+                texts: &no_text,
+            };
+            for player in [ME, BO] {
+                let entries: Vec<LogEntry> = every_line_about(player)
+                    .into_iter()
+                    .map(|event| entry(1, event))
+                    .collect();
+                for line in book(&entries).lines(&wording) {
+                    let in_a_name = |at: usize| line.names.iter().any(|n| n.range.contains(&at));
+                    let mut words = Vec::new();
+                    let mut start = None;
+                    for (at, c) in line.text.char_indices().chain([(line.text.len(), ' ')]) {
+                        match (c.is_alphanumeric(), start) {
+                            (true, None) => start = Some(at),
+                            (false, Some(from)) => {
+                                words.push(from..at);
+                                start = None;
+                            }
+                            _ => {}
+                        }
+                    }
+                    let naming: Vec<Range<usize>> = words
+                        .into_iter()
+                        .filter(|word| !in_a_name(word.start))
+                        .filter(|word| {
+                            let text = &line.text[word.clone()];
+                            you(lang).contains(&text) || text == "Bo" || text == "Cy"
+                        })
+                        .collect();
+                    let marks: Vec<Range<usize>> =
+                        line.players.iter().map(|span| span.range.clone()).collect();
+                    assert_eq!(marks, naming, "{lang:?}: {}", line.text);
+                    for span in &line.players {
+                        let text = &line.text[span.range.clone()];
+                        if span.player == ME {
+                            assert!(you(lang).contains(&text), "{}", line.text);
+                            marked_you += 1;
+                        } else {
+                            assert_eq!(text, seat_name(lang, Some(&roster), span.player));
+                        }
+                    }
+                }
+            }
+        }
+        assert!(marked_you > 80, "the walk says you {marked_you} times");
+    }
+
+    /// A card put into a library says where in it (#300), and a card
+    /// shuffled in says that instead.
+    #[test]
+    fn a_card_put_into_a_library_says_where() {
+        let moved = |owner, place| LogEvent::Moved {
+            object: bolt(3),
+            owner,
+            from: LogZone::Hand,
+            to: LogZone::Library,
+            place: Some(place),
+        };
+        assert_eq!(
+            say(Lang::En, moved(ME, LogPlace::Top)),
+            "Lightning Bolt moved from your hand on top of your library"
+        );
+        assert_eq!(
+            say(Lang::En, moved(BO, LogPlace::Bottom)),
+            "Lightning Bolt moved from Bo's hand on the bottom of Bo's library"
+        );
+        for (n, nth) in [
+            (2, "2nd"),
+            (3, "3rd"),
+            (4, "4th"),
+            (11, "11th"),
+            (12, "12th"),
+            (21, "21st"),
+            (113, "113th"),
+        ] {
+            assert_eq!(
+                say(Lang::En, moved(ME, LogPlace::FromTop(n))),
+                format!("Lightning Bolt moved from your hand {nth} from the top of your library")
+            );
+        }
+        assert_eq!(
+            say(Lang::De, moved(BO, LogPlace::FromTop(3))),
+            "Blitzschlag ist aus der Hand von Bo als 3. Karte von oben in die Bibliothek von Bo gelangt"
+        );
+        assert_eq!(
+            say(Lang::En, moved(ME, LogPlace::Shuffled)),
+            "Lightning Bolt was shuffled from your hand into your library"
+        );
+        assert_eq!(
+            say(Lang::De, moved(ME, LogPlace::Shuffled)),
+            "Blitzschlag wurde aus deiner Hand in deine Bibliothek gemischt"
+        );
+    }
+
+    /// A land played and a spell cast say where from (#300): "their" when the
+    /// zone is the player's own, the owner's name when it is not, and
+    /// nothing when the host could not say.
+    #[test]
+    fn a_play_and_a_cast_say_where_from() {
+        let cast = |player, from| LogEvent::Cast {
+            player,
+            spell: bolt(3),
+            from,
+        };
+        let from = |zone, owner| Some(LogFrom { zone, owner });
+        assert_eq!(
+            say(
+                Lang::En,
+                LogEvent::LandPlayed {
+                    player: ME,
+                    land: token(5, "Island"),
+                    from: from(LogZone::Hand, ME),
+                }
+            ),
+            "You played Island from your hand"
+        );
+        assert_eq!(
+            say(Lang::En, cast(BO, from(LogZone::Graveyard, BO))),
+            "Bo cast Lightning Bolt from their graveyard"
+        );
+        assert_eq!(
+            say(Lang::De, cast(BO, from(LogZone::Graveyard, BO))),
+            "Bo hat Blitzschlag aus dem eigenen Friedhof gewirkt"
+        );
+        assert_eq!(
+            say(Lang::En, cast(BO, from(LogZone::Graveyard, ME))),
+            "Bo cast Lightning Bolt from your graveyard"
+        );
+        assert_eq!(
+            say(Lang::En, cast(ME, from(LogZone::Graveyard, BO))),
+            "You cast Lightning Bolt from Bo's graveyard"
+        );
+        assert_eq!(
+            say(Lang::De, cast(ME, from(LogZone::Exile, BO))),
+            "Du hast Blitzschlag aus dem Exil gewirkt"
+        );
+        assert_eq!(say(Lang::En, cast(BO, None)), "Bo cast Lightning Bolt");
+    }
+
+    /// A line carries the time the host wrote it, and a token's registry
+    /// entry, so a panel can show both after the token is gone (#300).
+    #[test]
+    fn a_line_carries_its_time_and_its_token() {
+        let treasure = LogObject::Known {
+            id: ObjectId::new(12, 0),
+            card: None,
+            token: Some(3),
+            name: "Treasure".to_string(),
+        };
+        let entry = LogEntry {
+            at: 1_727_000_000_000,
+            ..entry(
+                2,
+                LogEvent::Created {
+                    object: treasure,
+                    controller: BO,
+                },
+            )
+        };
+        let line = read(&book(&[entry]), Lang::En);
+        assert_eq!(line.at, 1_727_000_000_000);
+        assert_eq!(line.names.len(), 1);
+        assert_eq!(line.names[0].token, Some(3));
+        assert_eq!(&line.text[line.names[0].range.clone()], "Treasure");
     }
 
     /// Every log phrase has a line that says it: a phrase nothing writes is a

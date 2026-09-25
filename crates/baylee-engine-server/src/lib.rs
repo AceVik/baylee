@@ -179,6 +179,8 @@ pub struct EngineRunner {
     /// awaited seat from the reconnect window onto the decision clock, and
     /// that happens after the frame has arrived and before any view is built.
     readings: Vec<(Clock, u32)>,
+    /// The wall time as the caller last told it ([`Self::tell_time`]).
+    now: u64,
 }
 
 impl EngineRunner {
@@ -186,6 +188,17 @@ impl EngineRunner {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Tells the game the wall time, in milliseconds since the Unix epoch,
+    /// which its log stamps each line with (#300). The caller tells it before
+    /// every call that can move the game: the runner reads no clock, for the
+    /// reason [`Self::timeout`] gives.
+    pub fn tell_time(&mut self, unix_ms: u64) {
+        self.now = unix_ms;
+        if let Some(session) = self.session.as_mut() {
+            session.tell_time(unix_ms);
+        }
     }
 
     /// Whether the game has been built.
@@ -406,6 +419,7 @@ impl EngineRunner {
             return vec![ended(&setup.game_id, "the preset does not make a game")];
         };
         session.describe(setup.game_id.clone(), setup.seat_names.clone());
+        session.tell_time(self.now);
         self.game_id.clone_from(&setup.game_id);
         // Down until every seat that answers over a socket has drawn its
         // table, or `CURTAIN_SECS` have passed. An AI chair is ready from the
