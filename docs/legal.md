@@ -144,10 +144,12 @@ Urheber- und Medienrecht.
      own shadow. It never lies over the name, the cost, the type line or the
      artist (`cardrail::the_strip_lies_on_the_art_between_the_name_and_the_type_line`);
    - the **count badge** of a merged group, hanging off the card's top-left
-     corner, outside it. It overhangs the felt and, in a tight row, the card
-     or cards before it in the same row — their art and, in the tightest
-     rows, their top-right cost corner — which the owner accepted as the
-     price of keeping it off its own card's print
+     corner, outside it, on the felt. It never lies on another card's print
+     either (the owner, 25.09): where a row is too tight for that, the row
+     is to scroll sideways with a scrollbar under it, in all three rows,
+     rather than let the badge cover a neighbour. Until that lands (#298),
+     the tightest rows (dozens of groups, or eight seats) still let it
+     overhang the card before it, its top-right cost corner included
      (`cardplate::nothing_of_the_badge_reaches_past_the_printed_border`,
      `table::badge_tests::a_badge_lies_only_on_a_card_its_own_card_lies_on`);
    - the **offer's light** on the felt round a card, which the card lies on

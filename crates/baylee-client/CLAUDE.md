@@ -92,7 +92,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - Combat focus: `Interaction::toggle` pairs against it, `cycle_focus` moves it, tapping a planeswalker/attacker sets it. Wire `input.rs` and `hud.rs`; `toggle` and `confirm` share pairing state.
 - `combat.rs` builds `Line`s from `view.combat` + unsent `assignments` (`standing`). `combatlines.rs` draws unlit quads (no `bevy_gizmos`) from live `Transform`s, never `Motion::target`. `Combat::tallies` (`tally_at`), the only arithmetic docs/design.md §6 allows, counts merely proposed blocks: "what reaches me if I block here".
 - `manaplan.rs` matches lands (Kuhn) over `manasources.rs`; each step is an offered action re-checked against current `LegalActions` (`ManaRun`). No Phyrexian life; refuse `{X}`/`{S}`/restricted; a two-of-one-colour source counts once.
-- Hand: playable (gold), reachable (indigo, taps first), activatable (`glow::ACTIVATABLE`). Indigo passes `timing.rs` (`sorcery_lock`) and `targeting.rs` (CR 601.2c; withholds only on proof); `castmodes::parts_payable` refuses when unsure.
+- Hand: playable (gold), reachable (indigo, taps first), activatable (`glow::ACTIVATABLE`, light on the felt round a permanent). The hand draws no glow: its halo says playable/reachable, and an armed card rises (`ARMED_RAISE`). Indigo passes `timing.rs` (`sorcery_lock`) and `targeting.rs` (CR 601.2c; withholds only on proof); `castmodes::parts_payable` refuses when unsure.
 - A CR 605.3a payment window is `Pending::Priority` with mana abilities; `PlayerView::owed` holds the cost. Show `Phrase::PayOrPass`, owed pips beside the mana pool (same register, scale), `WILL_TAP` on `manaplan::plan`'s lands; pass the total. `Duel::proposing` is an enum; an armed deed beats a window, which arms nothing (§"A payment window…").
 - `abilities.rs` lists only `LegalActions`, registry-labelled, never "Ability N". One option fires on the click; several open a prompt-bar chooser (by position, rebuilt from current `LegalActions` on press).
 - Costs beyond own tap arm (`Duel::armed`), then send; Esc cancels; re-resolved against `LegalActions`; land drops and own-tap-only abilities are one click (`activate_card`, `arm_ability`; docs/keyboard-map.md §Arming).
@@ -100,13 +100,15 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 
 ## On the card
 
-- Rail (`cardrail.rs`, twelve marks in `MARK_ORDER`, appended never inserted: the index is the GPU bit and atlas cell; `RAIL_SPAN`) and plate (`cardplate.rs`): client-core decides, the shader draws; tests catch WGSL drift.
+- Strip (`cardrail.rs`: `Strip` = marks, plate, swing, label; fifteen marks in `MARK_ORDER`, with hexproof, indestructible and shroud appended as 12–14. Marks are appended, never inserted, because the index is the GPU bit and the atlas cell. `ROW_MAX`; rows open upward) and plate (`cardplate.rs`). Client-core decides and `label_strip` draws; tests catch WGSL drift.
 - Marks: Mana-font glyphs as a distance field (`markatlas.rs`), scale only; codepoints enter only via doors like `MARK_GLYPHS` (docs/legal.md §2a).
-- The plate (P/T, or loyalty behind a gilt rim) is one clamped `u32` (three 10-bit numbers, two kind bits) in the material key; damage fills it to damage/toughness. Numerals: AlegreyaSans-Bold, atlas cell 12+, `lnum`+`tnum`, `TEXT_ADV` pinned by `the_advances_are_the_shipped_font_s_own`.
+- The plate (P/T, or loyalty behind a gilt rim) is one clamped `u32` (three 10-bit numbers, two kind bits) in the strip's material key. The strip carries it only where the print can't say it (`Corner::shows_plate`: a changed body, damage, no print, covered in a fan, loyalty, lore); damage fills it to damage/toughness. Numerals: AlegreyaSans-Bold, atlas cell 12+, `lnum`+`tnum`, `TEXT_ADV` pinned by `the_advances_are_the_shipped_font_s_own`.
 - Deathtouch greens power (`Tone`); toxic unreachable.
 - The swing shows net counter P/T (green grown, violet shrunk; CR 704.5q); other counters nowhere (docs/observed-faults.md 58).
 - A saga (lore counters, CR 714) takes the plate; `Corner::of`/`of_object`.
-- Identity slips (`cardcrest.rs`: token, copy, commander) hang left under the name from `SLIP_TOP`, never top or right. They pack (a lone commander takes slip one); colour is the stock (verdigris, violet, gilt), never ink on the mark. Linear colours; a sheen must beat ~20 noise levels.
+- Identity crests (`cardcrest.rs`: token, copy, commander) are squares of paper at the strip's end, after the marks. They pack (a lone commander takes the first). The paper is the reading (verdigris, violet, oxblood), and the glyph is ink on it. Linear colours; a sheen must beat ~20 noise levels.
+- A summoning-sick creature (`board::asleep`, creatures only, CR 302.6) wears the moon on its strip, and its plate inks moon-grey.
+- Offers (`glow::OFFERS`: activatable, reachable, armed, will-tap) are light on the felt (`floormat.rs`, `floor.wgsl`): a child quad under the card at `FLOOR_RUNG`, never drawn on the card material. The count badge (`badgemat.rs`) hangs off the top-left corner, outside the card. A merged group stands on a pile of jogged slabs (`PILE_JOG`, `SLAB_EDGE_COLOR`).
 - New card marks join `ObjectSummaryKey`.
 
 ## Stack and HUD
