@@ -63,8 +63,8 @@ fn shadows(world: &mut World, card: Entity) -> Vec<(Entity, Transform)> {
 }
 
 /// The slabs hang between the card's face and the foot of its deck, one per
-/// card under it up to the cap, and jog out right and left in turn — by the
-/// jog and no further. And no slab carries a print.
+/// card under it up to the cap, and jog out right and left in turn — by at
+/// least half the jog and never past it. And no slab carries a print.
 #[test]
 fn the_slabs_hang_under_the_card_and_jog_in_turn() {
     for count in [2usize, 3, 8, 15, 40] {
@@ -88,7 +88,8 @@ fn the_slabs_hang_under_the_card_and_jog_in_turn() {
                 at.z
             );
             assert!(
-                (at.x.abs() - PILE_JOG * CARD_WIDTH).abs() < 1e-6,
+                at.x.abs() <= PILE_JOG * CARD_WIDTH + 1e-6
+                    && at.x.abs() >= 0.5 * PILE_JOG * CARD_WIDTH - 1e-6,
                 "{count} cards: slab {i} stands out {}",
                 at.x
             );
@@ -103,6 +104,76 @@ fn the_slabs_hang_under_the_card_and_jog_in_turn() {
                     i + 1
                 );
             }
+        }
+    }
+}
+
+/// A pile reads as cards and not as one card on a block (#261, #298).
+///
+/// Three things make it: the pile stands out far enough to be seen at table
+/// size (the assertions under `PILE_JOG`, which bound it both ways), each
+/// slab on a side stands out further than the one above it so every edge
+/// shows and not only the first, and the slabs on one side alternate between
+/// the back and a lighter edge, so the layers stripe.
+/// Measured live on e72c8980, before any of it: at 0.012 a card the jog was
+/// a pixel on a 94-pixel card, every slab was the back at the same offset,
+/// and twenty Forests read as one Forest on a dark block.
+#[test]
+fn a_pile_shows_its_layers() {
+    // The edge is a card's stock in shadow: at least twenty display levels
+    // over the back, so the stripe is more than the felt's own grain, and
+    // well short of the grey the owner took off with the frame.
+    let level = |c: Color| {
+        let s = c.to_srgba();
+        255.0 * (0.2126 * s.red + 0.7152 * s.green + 0.0722 * s.blue)
+    };
+    let (back, edge) = (level(BACK_COLOR), level(SLAB_EDGE_COLOR));
+    assert!(
+        edge - back >= 20.0,
+        "the edge ({edge:.0}) is only {:.0} levels over the back ({back:.0})",
+        edge - back
+    );
+    assert!(
+        edge <= 90.0,
+        "the edge reads as grey paper at {edge:.0} of 255"
+    );
+
+    let mut world = World::new();
+    let mut materials = Assets::<CardMaterial>::default();
+    let mut index = index();
+    let card = world.spawn_empty().id();
+    sync(&mut world, &mut index, &mut materials, card, &merged(9));
+    let under = slabs(&mut world, card);
+    assert_eq!(under.len(), 8);
+    for side in [-1.0f32, 1.0] {
+        let steps: Vec<f32> = under
+            .iter()
+            .filter(|(at, _)| at.x * side > 0.0)
+            .map(|(at, _)| at.x.abs())
+            .collect();
+        for pair in steps.windows(2) {
+            assert!(
+                pair[1] > pair[0] + 1e-4,
+                "a deeper slab on the {side} side does not stand out past the one above it: {steps:?}"
+            );
+        }
+        let tints: Vec<Vec4> = under
+            .iter()
+            .filter(|(at, _)| at.x * side > 0.0)
+            .map(|(_, handle)| {
+                materials
+                    .get(handle)
+                    .expect("a slab's material")
+                    .params
+                    .tint
+            })
+            .collect();
+        assert_eq!(tints.len(), 4, "four slabs on the {side} side");
+        for pair in tints.windows(2) {
+            assert_ne!(
+                pair[0], pair[1],
+                "two slabs in a row on the {side} side wear the same colour: {tints:?}"
+            );
         }
     }
 }

@@ -37,7 +37,7 @@ use baylee_client_core::cardrail;
 use baylee_client_core::combat::Combat;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
 use baylee_client_core::layout::{
-    CARD_HEIGHT, CARD_WIDTH, PileKind, STAGE_STEP, SeatSlot, TableLayout, pack_lane,
+    CARD_HEIGHT, CARD_SPAN, CARD_WIDTH, PileKind, STAGE_STEP, SeatSlot, TableLayout, pack_lane,
 };
 use baylee_client_core::tabletop;
 use baylee_client_core::textface;
@@ -226,15 +226,44 @@ pub(crate) const FLOOR_RUNG: f32 = CARD_LIFT * 0.75;
 /// and what fills a slab's window under a pile, where nothing sees it.
 const BACK_COLOR: Color = Color::srgb(0.12, 0.14, 0.18);
 
-/// How far each slab under a pile stands out sideways from the one above it,
-/// in card widths (#261), alternating left and right, so a merged card reads
-/// as a stack of its own kind rather than as one card on a dark block.
+/// How far the deepest slab under a pile stands out sideways, in card widths
+/// (#261), alternating left and right, so a merged card reads as a stack of
+/// its own kind rather than as one card on a dark block. The slabs above it
+/// stand out less, down to half of it under the top card
+/// ([`slab_transform`]), so each side is a staircase of edges.
+///
+/// About four physical pixels on a 94-pixel table card. It was 0.012 — one
+/// pixel — while the frame's paper was what showed (#274), and with the frame
+/// gone that read as one card on a block (#298). At least half a keyword
+/// mark, so it is seen, and inside the air an untapped card has in its lane
+/// cell, so no slab reaches the next card: the two assertions under it.
 ///
 /// What peeks out is the slab's edge, never a print: a slab has none.
 /// Sideways only: a slab standing out at the top would reach towards the
 /// band the seat bar writes on, and one at the bottom towards the row
 /// behind.
-const PILE_JOG: f32 = 0.012;
+const PILE_JOG: f32 = 0.045;
+const _: () = assert!(PILE_JOG >= cardrail::MARK / 2.0);
+const _: () = assert!(PILE_JOG * CARD_WIDTH <= (CARD_SPAN - CARD_WIDTH) / 2.0);
+/// The lighter of the two colours a pile's slabs wear in turn (#298): card
+/// stock in shadow, so the layers stripe against the back beside them.
+///
+/// Twenty-odd display levels over [`BACK_COLOR`] and far short of the grey
+/// the owner took off with the frame (`a_pile_shows_its_layers` bounds it both
+/// ways).
+const SLAB_EDGE_COLOR: Color = Color::srgb(0.24, 0.25, 0.28);
+
+/// The colour of the `i`-th slab under a pile, counted from 1 as
+/// [`slab_transform`] counts them: each side's slabs alternate between the
+/// back and [`SLAB_EDGE_COLOR`], so each stands out from the one before it on
+/// its side as well as from the felt.
+fn slab_color(i: usize) -> Color {
+    if i.div_ceil(2) % 2 == 1 {
+        SLAB_EDGE_COLOR
+    } else {
+        BACK_COLOR
+    }
+}
 /// How many slabs a pile is ever built from.
 ///
 /// Fourteen rather than four, and the number is about *continuity* rather
@@ -3248,14 +3277,17 @@ struct Stack {
 }
 
 /// Where the `i`-th of `layers` slabs hangs under a card standing `deck`
-/// high, in the card's own space: that share of the deck down, and
-/// [`PILE_JOG`] to the right for an odd slab and to the left for an even one.
+/// high, in the card's own space: that share of the deck down, to the right
+/// for an odd slab and to the left for an even one, and further out the
+/// deeper it lies — from half of [`PILE_JOG`] towards all of it — so every
+/// slab's edge shows past the one above it on its side, not only the first.
 fn slab_transform(i: usize, layers: usize, deck: f32) -> Transform {
     let side = if i % 2 == 1 { 1.0 } else { -1.0 };
+    let share = i as f32 / layers as f32;
     Transform::from_xyz(
-        side * PILE_JOG * CARD_WIDTH,
+        side * PILE_JOG * CARD_WIDTH * (0.5 + 0.5 * share),
         0.0,
-        -deck * i as f32 / layers as f32,
+        -deck * share,
     )
 }
 
@@ -3265,7 +3297,8 @@ fn slab_transform(i: usize, layers: usize, deck: f32) -> Transform {
 /// A pile stands on the cards under it: the top card is drawn at the deck's
 /// own height and the rest hangs below it as children, so what a player sees
 /// is one block of cardboard with a face on top. The slabs are cards with no
-/// print, jogged ([`PILE_JOG`]) so their edges show. Children and not loose
+/// print, jogged ([`PILE_JOG`]) so their edges show, in two colours in turn
+/// ([`slab_color`]) so the layers do. Children and not loose
 /// entities, for the strip's reasons and one more: as loose entities they
 /// were never despawned at all, and every card that ever lay on a graveyard
 /// left its slabs standing there for the rest of the game.
@@ -3324,30 +3357,29 @@ fn sync_stack(
         }
     }
     let layers = stack_layers(under);
-    if layers > 0 {
-        // The back's colour, and nothing sees more of it than the jog: the
-        // card on top covers the rest.
-        let look = CardLook::flat(BACK_COLOR, FinishTreatment::Plain);
+    for i in 1..=layers {
+        // Nothing sees more of a slab than its jog and its wall: the card on
+        // top covers the rest.
+        let color = slab_color(i);
+        let look = CardLook::flat(color, FinishTreatment::Plain);
         let material = index
             .face_materials
             .entry(look)
-            .or_insert_with(|| materials.add(material(look, None, BACK_COLOR, motion)))
+            .or_insert_with(|| materials.add(material(look, None, color, motion)))
             .clone();
-        for i in 1..=layers {
-            let slab = commands
-                .spawn((
-                    StackSlab,
-                    Mesh3d(quad.clone()),
-                    MeshMaterial3d(material.clone()),
-                    slab_transform(i, layers, deck),
-                    // The deck under a card is depth, not cards: the top
-                    // card is what a click has to reach.
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(card).add_child(slab);
-            stack.slabs.push(slab);
-        }
+        let slab = commands
+            .spawn((
+                StackSlab,
+                Mesh3d(quad.clone()),
+                MeshMaterial3d(material),
+                slab_transform(i, layers, deck),
+                // The deck under a card is depth, not cards: the top card is
+                // what a click has to reach.
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(card).add_child(slab);
+        stack.slabs.push(slab);
     }
     stack.count = placement.count;
     index.stacks.insert(placement.object, stack);

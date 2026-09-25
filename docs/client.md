@@ -781,10 +781,18 @@ on its deck: the top card at the deck's height (`stack_rise`, 0.006 a card
 up to thirty) and one slab per card under it up to fourteen
 (`stack_layers`), children of the card built by `table::sync_stack`. A slab
 is a card with no print — nothing under the top card carries an image —
-jogged `PILE_JOG` (0.012 card widths) right and left in turn so that each
-slab's edge shows. The slabs wore the top card's identity paper while the
-frame had a paper to wear; #298 took the frame away and the pile's own look
-is #261's next step. The library stays backs all the way down, face down
+jogged right and left in turn, and further out the deeper it lies: from
+half of `PILE_JOG` under the top card to all of it at the foot (0.045 card
+widths, about four pixels on a table card), so each side is a staircase of
+edges. And the slabs on a side alternate between the back and a lighter edge
+(`slab_color`, `SLAB_EDGE_COLOR`, twenty-odd display levels over the back),
+so the layers stripe. The slabs wore the top card's identity paper while
+the frame had a paper to wear, and at 0.012 a card that paper was all that
+showed; with the frame gone, twenty Forests read as one Forest on a dark
+block until #298 widened and staggered the jog and striped the edges
+(`a_pile_shows_its_layers`; two constant assertions under `PILE_JOG` hold
+the jog between half a keyword mark and the air a card has in its lane
+cell). The library stays backs all the way down, face down
 (CR 401.2; `a_library_is_backs_all_the_way_down`).
 
 The deck follows the count. `sync_stack` rebuilds the slabs and the
