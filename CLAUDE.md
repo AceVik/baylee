@@ -202,3 +202,4 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - Client architecture: `crates/baylee-client/CLAUDE.md`; `docs/client.md` is normative. Work in `crates/baylee-client-core/` does not load that file; read it by hand.
 - No lights: `Tonemapping::None`, everything on the table unlit.
 - Never position a table object directly: `table::sync_scene` sets a `Motion` target, `table::glide` moves it.
+- Nothing is drawn on a card's print (Scryfall image rules, #274): effects, marks and plates live in our own frame around the print window, and the keyword strip is a separate lifted object that never covers name, cost or the artist/© line. The count badge keeps off every print (`cardplate::BADGE_OFF_THE_PRINTS`) until the owner okays otherwise (AGENTS.md, grey areas).
