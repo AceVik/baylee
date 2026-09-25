@@ -148,6 +148,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - `SeatFrame { seat, envelope }` nests an encoded player `Envelope` the gateway never decodes; keep that shape.
 - Secrets: `BAYLEE_AGENT_TOKEN` on `/agent/ws`, per-game token on `/engine/ws`, seat token on `/games/{id}/ws`; not interchangeable.
 - The decision clocks run in the engine (`EngineRunner::clocks`, `crates/baylee-engine-server/src/lib.rs`), at most one per awaited seat, each anchored to `Session::asked_at(seat)`, a `decision_seq` (questions, not frames), never for a socketless seat, whose frames the engine (not the gateway) drops. Losing the engine link ends the game.
+- Nothing runs before the curtain: the table opens (`Curtain`, sent last in its batch) when every human seat has sent `SeatReady` or `CURTAIN_SECS` after `GameSetup`; until then attaches get `GameStatic` and their view, no question, no clock, no AI move, and early actions are dropped. Every clock is anchored at curtain-up. Deploy the engine-server before clients. `docs/protocol.md` §"The curtain".
 - One process per game is the panic boundary; the hosting path wraps no rules call in `catch_unwind`.
 - Gateway e2e tests spawn real gateways (own schema each, pool of two; CI has `postgres:18-alpine`) with the engine in-process (`EngineRunner`); `e2e_processes` is `#[ignore]`d.
 
