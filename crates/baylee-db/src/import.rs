@@ -449,6 +449,19 @@ pub async fn import_legacy(db: &DatabaseConnection, legacy: &Legacy) -> Result<O
         .await
         .context("naming the imported accounts")?;
     insert_all::<Deck, _>(&txn, plan.decks).await?;
+    // The old store recorded no uploader either. A picture belongs to every
+    // account whose deck shows it, as the migration that began recording
+    // owners decided for the files a database already named (#292).
+    for column in ["sleeve", "playmat"] {
+        txn.execute_unprepared(&format!(
+            "INSERT INTO upload (image_id, account_id, kind) \
+             SELECT DISTINCT {column}, account_id, '{column}' FROM deck \
+             WHERE {column} IS NOT NULL AND account_id IS NOT NULL \
+             ON CONFLICT DO NOTHING"
+        ))
+        .await
+        .context("recording who owns the imported pictures")?;
+    }
     insert_all::<SessionToken, _>(&txn, plan.tokens).await?;
     insert_all::<Confirmation, _>(&txn, plan.confirmations).await?;
     insert_all::<ClientSettings, _>(&txn, plan.settings).await?;

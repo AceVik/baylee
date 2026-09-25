@@ -18,7 +18,7 @@
 //! saying that a schema works when nothing had asked it to do anything.
 
 use baylee_db::entity::prelude::*;
-use baylee_db::entity::{account, client_settings, deck, deck_version, session_token};
+use baylee_db::entity::{account, client_settings, deck, deck_version, session_token, upload};
 use baylee_db::migration::Migrator;
 use sea_orm::{
     ActiveValue::{NotSet, Set},
@@ -695,6 +695,16 @@ async fn deleting_an_account_takes_everything_it_owned() {
     .await
     .expect("preferences store");
 
+    Upload::insert(upload::ActiveModel {
+        image_id: Set("ab".repeat(32)),
+        account_id: Set(id),
+        kind: Set("sleeve".to_owned()),
+        created_at: Set(OffsetDateTime::now_utc()),
+    })
+    .exec(&sandbox.db)
+    .await
+    .expect("an upload's owner stores");
+
     // The decklist survives the round trip as an ordered array, which is the
     // one thing `text[]` has to do that a join table with a position column
     // would have done more elaborately.
@@ -729,6 +739,66 @@ async fn deleting_an_account_takes_everything_it_owned() {
         0,
         "a preferences document outlived its account"
     );
+    assert_eq!(
+        Upload::find().count(&sandbox.db).await.unwrap(),
+        0,
+        "an account's claim on a picture outlived it"
+    );
+
+    sandbox.close().await;
+}
+
+/// The pictures uploaded before anybody recorded who uploaded them (#292)
+/// belong to every account with a deck that shows them: the uploader, or a
+/// player who copied the uploader's deck. A deck of nobody's gives nobody a
+/// picture, and a picture on two of one player's decks is one claim.
+#[tokio::test]
+async fn a_picture_on_a_deck_belongs_to_the_decks_player() {
+    // The schema before the migration that records owners.
+    let sandbox = Sandbox::open_at("upload_owners", Some(7)).await;
+    let (sleeve, mat, published) = ("aa".repeat(32), "bb".repeat(32), "cc".repeat(32));
+    let mut players = Vec::new();
+    for email in ["painter@example.com", "copier@example.com"] {
+        let account = an_account(email);
+        let Set(id) = account.id else { unreachable!() };
+        Account::insert(account).exec(&sandbox.db).await.unwrap();
+        players.push(id);
+    }
+    let (painter, copier) = (players[0], players[1]);
+    let decks = [
+        (Some(painter), Some(&sleeve), Some(&mat)),
+        (Some(painter), Some(&sleeve), None),
+        (Some(copier), Some(&sleeve), None),
+        (None, Some(&published), Some(&mat)),
+    ];
+    for (owner, on_sleeve, on_mat) in decks {
+        let mut deck = a_deck(owner, "shown");
+        if owner.is_none() {
+            deck.kind = Set(deck::KIND_PRECONSTRUCTED.to_owned());
+        }
+        deck.sleeve = Set(on_sleeve.cloned());
+        deck.playmat = Set(on_mat.cloned());
+        Deck::insert(deck).exec(&sandbox.db).await.unwrap();
+    }
+    Migrator::up(&sandbox.db, None)
+        .await
+        .expect("the migration records them");
+
+    let mut owners: Vec<(String, Uuid, String)> = Upload::find()
+        .all(&sandbox.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|u| (u.image_id, u.account_id, u.kind))
+        .collect();
+    owners.sort();
+    let mut expected = vec![
+        (sleeve.clone(), painter, "sleeve".to_owned()),
+        (sleeve.clone(), copier, "sleeve".to_owned()),
+        (mat.clone(), painter, "playmat".to_owned()),
+    ];
+    expected.sort();
+    assert_eq!(owners, expected);
 
     sandbox.close().await;
 }
@@ -771,6 +841,7 @@ const A_WHOLE_STORE: &str = r#"{
       "cards": ["4 Llanowar Elves", "20 Forest"],
       "sideboard": ["2 Naturalize"],
       "commander": null,
+      "sleeve": "5eeb5eeb5eeb5eeb5eeb5eeb5eeb5eeb5eeb5eeb5eeb5eeb5eeb5eeb5eeb5eeb",
       "updated_at": 1700000100
     }
   },
@@ -829,6 +900,19 @@ async fn a_store_file_becomes_the_tables_it_describes() {
         .unwrap();
     assert_eq!(deck.account_id, Some(saved.id), "the deck found its owner");
     assert_eq!(deck.sideboard, ["2 Naturalize"]);
+    // The old store recorded no uploader, so the deck says whose it is.
+    let owners: Vec<(String, Uuid, String)> = Upload::find()
+        .all(&sandbox.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|u| (u.image_id, u.account_id, u.kind))
+        .collect();
+    assert_eq!(
+        owners,
+        [(deck.sleeve.clone().unwrap(), saved.id, "sleeve".to_owned())],
+        "the sleeve on an imported deck belongs to its player"
+    );
 
     let again = baylee_db::import::import_legacy(&sandbox.db, &legacy)
         .await

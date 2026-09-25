@@ -18,7 +18,7 @@ the pointers, because line numbers move.
 | Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, or the next resend for that account |
 | Deck and its history | Postgres `deck`, `deck_version` | indefinitely | `DELETE /decks/{id}`, or the account's deletion |
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
-| Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH` | indefinitely | nothing |
+| Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH`; its owners in Postgres `upload` | indefinitely | nothing (an owner row: the account's deletion) |
 | Lobby tables | gateway memory | ≤ 2 h waiting, 1 h after a game ends | the lobby sweep, a restart |
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
 | Game state | engine process memory | the game | the process exits |
@@ -149,14 +149,18 @@ the pointers, because line numbers move.
 - **Stored:** a JPEG on disk under `BAYLEE_DECK_IMAGE_PATH` (default
   `deck-images`), named by the SHA-256 of its bytes. It is re-encoded from
   pixels after a crop and resize, so no metadata of the upload is copied.
-  No owner is recorded, and two players uploading the same picture share one
-  file.
+  Two players uploading the same picture share one file. Who uploaded it is
+  recorded, one row per player: `upload(image_id, account_id, kind,
+  created_at)` (#292). The pictures uploaded before that were given to every
+  account with a deck that showed them. A picture no deck showed has no
+  owner.
 - **Who may upload:** a registered session only, since guests are refused.
   Uploads are capped at 8 MiB.
 - **Who may read:** anyone who has the id. `GET /images/{id}` asks for no
   session and is cached `public` for a year. A deck's images reach the other
   seats at its table through `GET /games/{id}/cosmetics`.
 - **Removed:** never. Deleting a deck, an account or a guest leaves the file.
+  An owner row goes with its account.
 
 ## Lobby tables (memory)
 
@@ -286,7 +290,8 @@ to weigh, not conclusions.
 2. **Uploaded images:**
    - they are never deleted;
    - they are readable by anyone with the id, without a session;
-   - they record no owner, so they cannot be deleted per account either.
+   - the ones uploaded before #292 that no deck showed have no owner, so
+     no account's deletion can take them.
 3. **Confirmation rows:**
    - there is no periodic sweep, contrary to the entity's doc;
    - expired rows go only when the same account asks for a resend.

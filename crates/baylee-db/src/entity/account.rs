@@ -73,6 +73,9 @@ pub enum Relation {
     /// The one preferences document.
     #[sea_orm(has_one = "super::client_settings::Entity")]
     ClientSettings,
+    /// Its claim on uploaded pictures (#292).
+    #[sea_orm(has_many = "super::upload::Entity")]
+    Upload,
 }
 
 impl Related<super::deck::Entity> for Entity {
@@ -96,6 +99,12 @@ impl Related<super::confirmation::Entity> for Entity {
 impl Related<super::client_settings::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ClientSettings.def()
+    }
+}
+
+impl Related<super::upload::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Upload.def()
     }
 }
 

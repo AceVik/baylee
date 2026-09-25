@@ -134,3 +134,50 @@ fn a_picture_becomes_a_sleeve_of_the_one_size_a_sleeve_is_drawn_at() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// #292: an upload records who made it, so an account's deletion can take
+/// its pictures. A picture is one file however many players upload it, so
+/// two players with the same picture are two owners of one file, and the
+/// same player uploading it twice is still one.
+#[test]
+fn an_upload_records_its_owner_once_per_player() {
+    let dir = std::env::temp_dir().join(format!("baylee-owners-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let gw = spawn_gateway_with(
+        "image-owners",
+        &[("BAYLEE_DECK_IMAGE_PATH", dir.to_string_lossy().into_owned())],
+    );
+    let picture = a_picture(600, 800);
+    let upload = |token: &str| {
+        let (status, body) = http_bytes(
+            gw.port,
+            "POST",
+            "/images?kind=sleeve",
+            Some(token),
+            "image/jpeg",
+            &picture,
+        );
+        let body = String::from_utf8_lossy(&body).to_string();
+        assert_eq!(status, 200, "upload: {body}");
+        json_field(&body, "id").to_string()
+    };
+    let owners = |id: &str, username: &str| {
+        gw.scalar(&format!(
+            "SELECT count(*) FROM upload u JOIN account a ON a.id = u.account_id \
+             WHERE u.image_id = '{id}' AND u.kind = 'sleeve' AND a.username = '{username}'"
+        ))
+    };
+
+    let first = login(gw.port, "painter", "Painter");
+    let id = upload(&first);
+    assert_eq!(owners(&id, "painter"), 1, "the uploader owns it");
+    assert_eq!(upload(&first), id);
+    assert_eq!(owners(&id, "painter"), 1, "twice is still one owner");
+
+    let second = login(gw.port, "copier", "Copier");
+    assert_eq!(upload(&second), id, "the same picture is the same file");
+    assert_eq!(owners(&id, "copier"), 1, "and a second owner of it");
+    assert_eq!(gw.scalar("SELECT count(*) FROM upload"), 2);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

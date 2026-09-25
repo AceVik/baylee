@@ -16,6 +16,7 @@ mod m20260918_000004_astra_decks;
 mod m20260924_000005_drop_standing_answer;
 mod m20260924_000006_usernames;
 mod m20260925_000007_guests;
+mod m20260925_000008_upload_owners;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -31,6 +32,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260924_000005_drop_standing_answer::Migration),
             Box::new(m20260924_000006_usernames::Migration),
             Box::new(m20260925_000007_guests::Migration),
+            Box::new(m20260925_000008_upload_owners::Migration),
         ]
     }
 }

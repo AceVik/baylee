@@ -105,6 +105,14 @@ impl Kind {
 pub struct Store {
     /// The directory, or `None` when uploads are switched off.
     dir: Option<PathBuf>,
+    /// Held while a picture is stored and its owner recorded, and while a
+    /// picture nobody owns any more is removed (#292).
+    ///
+    /// A picture is one file however many players upload it, so a deletion
+    /// that found no owner left and an upload of the same bytes must not
+    /// interleave: the upload would see the file there, skip writing it, add
+    /// its owner, and then lose the file to the deletion.
+    files: tokio::sync::Mutex<()>,
 }
 
 impl Store {
@@ -118,7 +126,24 @@ impl Store {
     pub fn from_env() -> Self {
         let raw = std::env::var("BAYLEE_DECK_IMAGE_PATH").unwrap_or_else(|_| "deck-images".into());
         let dir = (!raw.is_empty() && raw != "off").then(|| PathBuf::from(raw));
-        Self { dir }
+        Self::at(dir)
+    }
+
+    /// A store in `dir`, or none when that is `None`.
+    #[must_use]
+    pub fn at(dir: Option<PathBuf>) -> Self {
+        Self {
+            dir,
+            files: tokio::sync::Mutex::new(()),
+        }
+    }
+
+    /// Holds the store's files still (why: the `files` field). Whoever stores a
+    /// picture holds this until its owner is recorded, and whoever removes
+    /// one holds it from asking whether anybody still owns it until the file
+    /// is gone.
+    pub async fn hold(&self) -> tokio::sync::MutexGuard<'_, ()> {
+        self.files.lock().await
     }
 
     /// Whether uploads are accepted at all.
@@ -325,13 +350,13 @@ pub async fn upload(
     Query(params): Query<HashMap<String, String>>,
     body: Bytes,
 ) -> Response {
-    match crate::authed_session(&state, &headers).await {
+    let owner = match crate::authed_session(&state, &headers).await {
         Err(e) => return e.into_response(),
         Ok(session) if session.guest => {
             return err(StatusCode::FORBIDDEN, "guests cannot upload images").into_response();
         }
-        Ok(_) => {}
-    }
+        Ok(session) => session.account_id,
+    };
     // A missing `kind` and an unknown one are the same answer on purpose:
     // both mean the caller named a kind of picture this gateway does not
     // draw, and neither is worth a second error code.
@@ -343,6 +368,10 @@ pub async fn upload(
     // Decoding and rescaling a photograph is not something to do on the async
     // runtime's thread: one upload would stall every socket the gateway is
     // holding, and it holds all of them.
+    //
+    // The file and its owner go together, never between a deletion's check
+    // that nobody owns a picture and its removal of the file (#292).
+    let _files = state.deck_images.hold().await;
     let stored = tokio::task::spawn_blocking(move || store.put(kind, &bytes)).await;
     match stored {
         // The kind comes back with the id because the client uploads both
@@ -350,6 +379,9 @@ pub async fn upload(
         // reply that only said `id` would make the caller remember which
         // request this was.
         Ok(Ok(id)) => {
+            if let Err(e) = crate::store::own_upload(&state.db, &id, &owner, kind.as_str()).await {
+                return crate::db_down(&e).into_response();
+            }
             axum::Json(serde_json::json!({ "id": id, "kind": kind.as_str() })).into_response()
         }
         Ok(Err(rejected)) => {
@@ -419,7 +451,7 @@ mod tests {
         let dir =
             std::env::temp_dir().join(format!("baylee-cosmetics-{label}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        Store { dir: Some(dir) }
+        Store::at(Some(dir))
     }
 
     #[test]
@@ -503,7 +535,7 @@ mod tests {
 
     #[test]
     fn a_disabled_store_accepts_nothing_and_serves_nothing() {
-        let store = Store { dir: None };
+        let store = Store::at(None);
         assert!(!store.enabled());
         assert_eq!(
             store.put(Kind::Sleeve, &a_picture(100, 100)),

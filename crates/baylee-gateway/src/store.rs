@@ -30,8 +30,9 @@ use baylee_db::entity::confirmation::Entity as Confirmations;
 use baylee_db::entity::deck::Entity as Decks;
 use baylee_db::entity::deck_version::Entity as DeckVersions;
 use baylee_db::entity::session_token::Entity as Sessions;
+use baylee_db::entity::upload::Entity as Uploads;
 use baylee_db::entity::{
-    account, client_settings, confirmation, deck, deck_version, session_token,
+    account, client_settings, confirmation, deck, deck_version, session_token, upload,
 };
 use sea_orm::{
     ActiveValue::{NotSet, Set},
@@ -540,6 +541,39 @@ pub async fn purge_guests(db: &DatabaseConnection, now: u64, only: Option<&str>)
         },
     };
     Ok(baylee_db::guests::purge(db, at(now), only).await?)
+}
+
+/// Records that `account_id` owns the stored picture `image_id` (#292).
+///
+/// A picture is stored once however many players upload it, so this is one
+/// row per owner, and the same owner uploading it again changes nothing.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn own_upload(
+    db: &DatabaseConnection,
+    image_id: &str,
+    account_id: &str,
+    kind: &str,
+) -> Result<()> {
+    let Some(account) = uuid(account_id) else {
+        return Ok(());
+    };
+    Uploads::insert(upload::ActiveModel {
+        image_id: Set(image_id.to_owned()),
+        account_id: Set(account),
+        kind: Set(kind.to_owned()),
+        created_at: Set(OffsetDateTime::now_utc()),
+    })
+    .on_conflict(
+        OnConflict::columns([upload::Column::ImageId, upload::Column::AccountId])
+            .do_nothing()
+            .to_owned(),
+    )
+    .exec_without_returning(db)
+    .await?;
+    Ok(())
 }
 
 /// Whether a write failed because something unique already exists.
