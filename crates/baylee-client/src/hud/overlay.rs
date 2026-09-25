@@ -151,6 +151,23 @@ pub(super) fn place_around(
     place_with_badge(at, grown, window, keep_out, badge.max(top)) + Vec2::new(side, 0.0)
 }
 
+/// What the preview takes of the screen beside its panel at `place`: the
+/// plate `plate` off its card's right edge and the shells `shell` off its
+/// sides, as [`place_around`] is given them, so what stands beside it (the
+/// card underneath a copy, the cards attached to it, #305) stands clear of
+/// both. The attachments' first column covered the plate's toughness until
+/// 25.09. Its height is the panel's, whose foot what stands beside it
+/// shares.
+pub(super) fn preview_taken(place: Vec2, panel: Vec2, plate: f32, shell: [f32; 2]) -> Rect {
+    let side = shell[0];
+    Rect::new(
+        place.x - side,
+        place.y,
+        place.x + panel.x + plate.max(side),
+        place.y + panel.y,
+    )
+}
+
 /// Where the preview panel's top-left corner goes when a badge reaches
 /// `reach` over its top edge: placed as a panel that much taller, so the
 /// badge lands on the screen wherever the panel does.
@@ -1105,7 +1122,7 @@ pub fn sync_overlay(
             // What the preview stands in, with the card underneath a copy
             // once it stands beside it: the cards attached to it go beside
             // both.
-            let mut taken = Rect::from_corners(place, place + panel);
+            let mut taken = preview_taken(place, panel, plate_over, shell);
 
             // ---- the card underneath a copy ---------------------------
             //

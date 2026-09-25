@@ -570,6 +570,56 @@ fn a_preview_keeps_its_plate_on_the_screen() {
     }
 }
 
+/// What stands beside a preview (the card underneath a copy, the cards
+/// attached to it, #305) stands clear of the plate hanging off its card's
+/// right edge and of the shells off its sides, on either flank: the
+/// attachments once covered the plate's toughness.
+#[test]
+fn what_stands_beside_a_preview_leaves_its_plate_and_shells_uncovered() {
+    use crate::hud::overlay::{place_around, plate_reach, preview_taken, shell_reach};
+    use crate::shellmat::{Dome, Shells};
+    let all = Shells {
+        steel: true,
+        dome: Some(Dome::Shroud),
+        wall: true,
+        wave: true,
+    };
+    let (mut on_the_left, mut on_the_right) = (0, 0);
+    for shells in [Shells::default(), all] {
+        for img_w in [154.0_f32, 308.0, 400.0] {
+            let panel = Vec2::new(img_w + 12.0, img_w * 88.0 / 63.0 + 12.0);
+            let (plate, shell) = (plate_reach(img_w), shell_reach(img_w, shells));
+            let thumb = Vec2::new(img_w * 0.34, img_w * 0.34 * 88.0 / 63.0 + 13.0);
+            for x in [4.0, 300.0, 864.0, 1400.0, 1724.0] {
+                let at = PreviewAt::Pointer(Vec2::new(x, 400.0));
+                let place = place_around(at, panel, WINDOW, None, [0.0, plate], shell);
+                let beside =
+                    underneath_place(preview_taken(place, panel, plate, shell), thumb, WINDOW);
+                // The plate's right end and the shells' reach on either side.
+                let right = place.x + panel.x + plate.max(shell[0]);
+                let left = place.x - shell[0];
+                let clear = beside.x >= right - 1e-3 || beside.x + thumb.x <= left + 1e-3;
+                assert!(
+                    clear,
+                    "a card {img_w} wide at {x}: what stands beside it spans {} to {}, and \
+                     the preview reaches from {left} to {right}",
+                    beside.x,
+                    beside.x + thumb.x
+                );
+                if beside.x >= right - 1e-3 {
+                    on_the_right += 1;
+                } else {
+                    on_the_left += 1;
+                }
+            }
+        }
+    }
+    assert!(
+        on_the_left > 0 && on_the_right > 0,
+        "{on_the_left}/{on_the_right}"
+    );
+}
+
 /// A preview wears its card's shells as the table does (the PM, 25.09): a
 /// dome's foot off its sides and its foot, a wall over its top. The panel is
 /// placed as one that much bigger all round, so every shell lands on the
