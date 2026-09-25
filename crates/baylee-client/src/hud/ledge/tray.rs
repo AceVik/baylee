@@ -91,10 +91,9 @@ use super::*;
 
 /// The gap between two buttons in the strip.
 ///
-/// There is one button today. The owner has already named the second —
-/// *"hier kommen noch mehr Buttons rein"* is said of the burger menu beside
-/// it — so the row is a row from the start rather than a node that has to be
-/// turned into one later.
+/// There are two now: the game log's scroll (#262) and, at the right end,
+/// the zones. The row was a row from the start, for the owner's *"hier kommen
+/// noch mehr Buttons rein"*, so the second needed no change to the strip.
 const TRAY_GAP: f32 = 6.0;
 
 /// A button in the strip: square, and the same height as the strip's inside.
@@ -141,6 +140,9 @@ pub struct StripRevision {
     open: bool,
     /// Whether the button may be pressed at all.
     free: bool,
+    /// Whether the game log's panel is up (#262). Its button says so the
+    /// way the zones button does.
+    log: bool,
 }
 
 /// Where the strip stands: on the shelf's top edge, against the right margin.
@@ -170,9 +172,9 @@ pub(in crate::hud) fn root_node() -> Node {
 /// the button's centre is its own inset from the right.
 ///
 /// It is the button's middle and not the strip's, because the strip is a row
-/// that will grow more buttons and the sheet belongs to this one. With one
-/// button today the two happen to differ by [`STRIP_PAD`], which is a
-/// coincidence and not a shortcut worth taking.
+/// of buttons and the sheet belongs to this one. The zones are the row's
+/// right end, which is what lets this count from the right margin; the log's
+/// scroll stands to their left for that reason.
 ///
 /// The one place it is wrong is a window too short for `Placement::MIN_H`,
 /// where `band_of` clamps the height it returns and the band no longer ends
@@ -227,6 +229,7 @@ pub fn sync_tray_strip(
     let next = StripRevision {
         open: duel.browser.is_open(),
         free: duel.browser.may_be_put_away(),
+        log: duel.log_open,
     };
     // The counter alone is not enough, and the reason is the same one
     // `sync_tray`'s `drawn` records: the overlay can take this node away and
@@ -244,11 +247,54 @@ pub fn sync_tray_strip(
             commands.entity(*kid).despawn();
         }
     }
+    // The log's scroll first, so the zones stay the strip's right end: the
+    // sheet is put away into that button, and `zones_button_centre` counts
+    // it from the right margin.
+    let log = log_button(&mut commands, &fonts, next.log);
     let zones = zone_button(&mut commands, &fonts, next.open, next.free);
-    commands.entity(strip).add_child(zones);
+    commands.entity(strip).add_children(&[log, zones]);
 }
 
-/// The one button the strip has: the zone dialog's door.
+/// The game log's door (#262): a scroll, beside the zones.
+///
+/// Never held. Nothing a question asks lives in the log, so there is no
+/// moment it may not be opened or put away. `open` lights its ground the way
+/// the zones button's is lit while the sheet is up.
+fn log_button(commands: &mut Commands, fonts: &UiFonts, open: bool) -> Entity {
+    let ground = if open {
+        palette::DIALOG_LIT
+    } else {
+        palette::DIALOG
+    };
+    commands
+        .spawn((
+            Node {
+                width: px(TRAY_BTN),
+                height: px(TRAY_BTN),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(ground),
+            BorderColor::all(palette::DIALOG_LINE),
+            Button,
+            Feel::new(ground),
+            MenuButton {
+                action: MenuAction::ToggleLog,
+            },
+            children![(
+                Text::new(glyph::LOG.to_string()),
+                icon_tf(fonts, TRAY_ICON_PT),
+                TextColor(FREE_INK),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id()
+}
+
+/// The zone dialog's door, at the strip's right end.
 ///
 /// Its icon is an archive box rather than the layer-group the seat bars draw
 /// for a library, which would be the obvious picture of "the piles" and is
@@ -412,6 +458,51 @@ mod tests {
         assert!(
             app.world().get::<TrayZones>(held).is_none(),
             "a held button carries the marker the click handler looks for"
+        );
+    }
+
+    /// The log's scroll stands left of the zones (#262), so the zones stay
+    /// the strip's right end: that is the button the sheet is put away into,
+    /// and [`zones_button_centre`] counts it from the right margin.
+    #[test]
+    fn the_log_s_door_stands_left_of_the_zones() {
+        let mut app = App::new();
+        app.insert_resource(Duel::default())
+            .insert_resource(UiFonts {
+                text: Handle::default(),
+                medium: Handle::default(),
+                bold: Handle::default(),
+                italic: Handle::default(),
+                medium_italic: Handle::default(),
+                serif: Handle::default(),
+                serif_italic: Handle::default(),
+                icons: Handle::default(),
+                mana: Handle::default(),
+            })
+            .init_resource::<StripRevision>()
+            .add_systems(Update, sync_tray_strip);
+        let strip = app.world_mut().spawn((TrayStrip, root_node())).id();
+        app.update();
+        let kids: Vec<Entity> = app
+            .world()
+            .get::<Children>(strip)
+            .expect("the strip was filled")
+            .iter()
+            .collect();
+        assert_eq!(
+            kids.len(),
+            2,
+            "the strip holds the log's door and the zones"
+        );
+        assert!(
+            app.world()
+                .get::<MenuButton>(kids[0])
+                .is_some_and(|b| b.action == MenuAction::ToggleLog),
+            "the first button is not the log's"
+        );
+        assert!(
+            app.world().get::<TrayZones>(kids[1]).is_some(),
+            "the zones are not the strip's right end"
         );
     }
 

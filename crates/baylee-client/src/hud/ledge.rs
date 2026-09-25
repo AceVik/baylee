@@ -19,6 +19,7 @@
 use super::*;
 
 pub(super) mod drawer;
+pub(super) mod log;
 pub(super) mod menu;
 pub(super) mod pool;
 // Not `hud::tray`, which is the zone dialog. This is the strip the

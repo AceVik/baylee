@@ -829,6 +829,8 @@ messages! {
         en: "Open the zone browser, also when a graveyard's top card is lit",
         de: "Zonenbrowser öffnen, auch wenn die oberste Karte eines Friedhofs leuchtet",
     },
+    /// Open the game log (#262).
+    ActToggleLog { en: "Open the game log", de: "Spielprotokoll öffnen" },
     /// Let the stack resolve
     ActHoldForStack { en: "Let the stack resolve", de: "Stack auflösen lassen" },
     /// Nothing more this turn
@@ -1453,6 +1455,13 @@ messages! {
     Concede { en: "Concede", de: "Aufgeben" },
     /// Concede, armed and waiting for the second press.
     ConcedeConfirm { en: "Concede? Press again", de: "Aufgeben? Nochmal drücken" },
+    /// The game log panel's title (#262). Not a `Log…` phrase: those are the
+    /// book's own sentences, which `gamelog` writes; these are the panel's.
+    GameLogTitle { en: "Game log", de: "Spielprotokoll" },
+    /// The game log panel before its first line has arrived.
+    GameLogEmpty { en: "Nothing has happened yet", de: "Noch ist nichts passiert" },
+    /// The game log panel has been scrolled up, and lines arrived under it.
+    GameLogNewBelow { en: "New lines below", de: "Neue Zeilen unten" },
     /// The indicator that says this seat is not being asked right now.
     HoldingPriority { en: "Not asking you", de: "Du wirst nicht gefragt" },
     /// The button that cancels a running hold.

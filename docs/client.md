@@ -6592,6 +6592,34 @@ A `LogLine` carries:
   into one line say 1, because their "was" already spans every change.
   `plain()` adds "(×N)" for a reader that draws plain text.
 
+**The panel** (`hud::ledge::log`) is the tray's scroll button, `L`, and a
+column that stands on the tray strip against the right margin, 360 by 420
+where the window has room and the room there is where it has not. It stands
+on the strip's top edge and not over the strip the way the game menu does:
+the menu goes away on the next press, and the log stays up while the game
+goes on, so it must not bury the zones button or its own. It is the shelf's
+z-rung (`Z_LOG`), under a zone dialog answering a question and under the
+menu. `Esc` shuts it after the menu and before the browser; a question never
+does, and neither does a press outside it. The game's end shuts it, because
+the end screen shows the whole log.
+
+It reads every line when it opens, when the language changes, when card text
+arrives (the catalog's generation) and when the book is rewritten. Otherwise
+it appends only the lines that arrived since it last drew (`LogRevision`):
+a line the host sent never changes, and redrawing thousands of lines for
+each new one would write the whole log once per action. The list follows
+its newest line until the player scrolls up (`LogFollow`), and lines that
+arrive under a list scrolled up light a pill at its bottom that takes it
+back. The scrollbar is Bevy's own (`ScrollbarPlugin`), so its thumb drags.
+
+A turn's heading is a quieter line under a rule. Every other line is the
+seat swatch, then the sentence with each name set one weight up and
+"(×N)" in the quieter ink after a line that happened more than once. The
+swatch is drawn empty until the book says which seat a line is about
+(`LogLine::subject`, from the log's owner); it already takes its width, so
+the lines do not move when it is filled. The panel's words are `GameLog…`
+phrases, because every `Log…` phrase is a sentence of the book's.
+
 Known limits, each a later view version:
 
 - `Defender::Planeswalker` names the planeswalker by handle only. The book

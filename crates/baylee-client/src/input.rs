@@ -961,6 +961,10 @@ fn look_around(
         // a player checking their own yard twice does not re-pick it.
         duel.browser.toggle_by_hand();
     }
+    if fired.has(Action::ToggleLog) {
+        // A latch for the browser's reason: a log is read, not glanced at.
+        duel.log_open = !duel.log_open;
+    }
     // Here rather than beside the other answers, because a hold is the one
     // thing a seat says while it is *not* being asked: the engine takes a
     // `SetPriorityHold` from any seated player at any time, which is what
@@ -1990,6 +1994,12 @@ fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::
             // browser can stand open for a whole turn, and nobody opens the
             // menu and then forgets it.
             duel.game_menu = false;
+        } else if duel.log_open {
+            // Under the menu and over the browser. It stands beside the strip
+            // the browser is put away into, and like the menu it is only ever
+            // up because the player put it there; the browser can have been
+            // opened by a question, and that one is answered, not dismissed.
+            duel.log_open = false;
         } else if duel.browser.is_open() && duel.browser.may_be_put_away() {
             duel.browser.close();
         } else if prefs.orders().selected().is_some() {
@@ -2606,6 +2616,7 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // reason `ability_menu` does: what is open is the client's business,
         // and the renderer reads it rather than owning it.
         MenuAction::ToggleGameMenu => duel.game_menu = !duel.game_menu,
+        MenuAction::ToggleLog => duel.log_open = !duel.log_open,
         // Two presses, because there is no undo behind this one. The panel
         // stays open between them — nothing here closes it — which is the
         // whole reason it is not a child of the shelf: the arming press

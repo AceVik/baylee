@@ -332,6 +332,52 @@ fn escape_puts_the_game_menu_away_before_it_reaches_the_browser() {
     );
 }
 
+/// The game log is a rung on the same ladder: under the menu, which the
+/// player opened over it, and over the browser, which a question may be
+/// holding.
+#[test]
+fn escape_puts_the_log_away_between_the_menu_and_the_browser() {
+    use crate::keys::Fired;
+    use baylee_client_core::prefs::Keymap;
+
+    let keymap = Keymap::standard();
+    let escape = Fired::of(&press(bevy::prelude::KeyCode::Escape), &keymap);
+    let mut prefs = crate::prefs::Prefs::default();
+
+    let mut duel = crate::Duel::default();
+    duel.browser.open();
+    duel.game_menu = true;
+    duel.log_open = true;
+
+    answer_the_question(escape, &mut duel, &mut prefs);
+    assert!(!duel.game_menu, "the menu was the top thing on the screen");
+    assert!(duel.log_open, "and one press put two panels away");
+    answer_the_question(escape, &mut duel, &mut prefs);
+    assert!(!duel.log_open, "the next press reaches the log");
+    assert!(duel.browser.is_open(), "and stops there");
+    answer_the_question(escape, &mut duel, &mut prefs);
+    assert!(!duel.browser.is_open(), "the browser is last");
+}
+
+/// `L` opens the log and shuts it, the way `G` does the browser.
+#[test]
+fn the_log_key_opens_the_log_and_shuts_it() {
+    use crate::keys::Fired;
+    use baylee_client_core::prefs::Keymap;
+
+    let keymap = Keymap::standard();
+    let l = Fired::of(&press(bevy::prelude::KeyCode::KeyL), &keymap);
+    let mut duel = crate::Duel::default();
+    let mut rig = crate::table::CameraRig::default();
+    let mut settings = crate::settings::ClientSettings::default();
+    let mut prefs = crate::prefs::Prefs::default();
+
+    crate::input::look_around(l, &mut duel, &mut rig, &mut settings, &mut prefs);
+    assert!(duel.log_open, "L did not open the log");
+    crate::input::look_around(l, &mut duel, &mut rig, &mut settings, &mut prefs);
+    assert!(!duel.log_open, "L did not shut it again");
+}
+
 /// A press anywhere else puts the menu away, and a press on the panel, on a
 /// row inside it or on the burger does not.
 ///

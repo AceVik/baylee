@@ -414,6 +414,7 @@ pub fn sync_overlay(
                 && !tree.tray.contains(*child)
                 && !tree.pool.contains(*child)
                 && !tree.menu.contains(*child)
+                && !tree.log.contains(*child)
             {
                 commands.entity(*child).despawn();
             }
@@ -469,6 +470,11 @@ pub fn sync_overlay(
         // is where the second press has to be made. See [`ledge::menu`].
         let menu = ledge::menu::spawn_menu_panel(&mut commands);
         commands.entity(root).add_child(menu);
+        // And the game log's panel (#262), for the menu's reason and one of
+        // its own: its lines are appended as they arrive, and a panel swept
+        // with the tree would write every line again on each pointer move.
+        let log = ledge::log::spawn_log_panel(&mut commands);
+        commands.entity(root).add_child(log);
         root
     };
 
@@ -2546,6 +2552,7 @@ mod tests {
                 With<ledge::tray::TrayStrip>,
                 With<ledge::pool::PoolStrip>,
                 With<ledge::menu::MenuPanel>,
+                With<ledge::log::LogPanel>,
             )>>();
             q.iter(app.world()).collect::<Vec<_>>()
         };
@@ -2648,7 +2655,16 @@ mod tests {
                 .world_mut()
                 .query_filtered::<Entity, With<ledge::menu::MenuPanel>>();
             let menu = menu.iter(app.world()).collect::<Vec<_>>();
-            [("tray", tray), ("mana pool", pool), ("game menu", menu)]
+            let mut log = app
+                .world_mut()
+                .query_filtered::<Entity, With<ledge::log::LogPanel>>();
+            let log = log.iter(app.world()).collect::<Vec<_>>();
+            [
+                ("tray", tray),
+                ("mana pool", pool),
+                ("game menu", menu),
+                ("game log", log),
+            ]
         };
 
         let was_shelf = shelf(&mut app);

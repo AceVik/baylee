@@ -74,6 +74,8 @@ pub enum Action {
     ToggleTextView,
     /// Open the zone browser, or shut it again.
     ToggleBrowser,
+    /// Open the game log, or shut it again (#262).
+    ToggleLog,
     /// Stop being asked until the stack has resolved — or, if a hold is
     /// already running, start being asked again.
     HoldForStack,
@@ -103,7 +105,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 28] = [
+    pub const ALL: [Self; 29] = [
         Self::Primary,
         Self::Confirm,
         Self::Cancel,
@@ -132,6 +134,7 @@ impl Action {
         Self::NumberDown,
         Self::ToggleTextView,
         Self::ToggleBrowser,
+        Self::ToggleLog,
     ];
 
     /// How the action is named to a player.
@@ -158,6 +161,7 @@ impl Action {
             Self::NextTurn => Phrase::ActNextTurn,
             Self::ToggleTextView => Phrase::ActToggleTextView,
             Self::ToggleBrowser => Phrase::ActToggleBrowser,
+            Self::ToggleLog => Phrase::ActToggleLog,
             Self::HoldForStack => Phrase::ActHoldForStack,
             Self::HoldForTurn => Phrase::ActHoldForTurn,
             Self::MulliganKeep => Phrase::ActMulliganKeep,
@@ -205,7 +209,7 @@ impl Action {
             | Self::AnswerNo
             | Self::NumberUp
             | Self::NumberDown => Phrase::GroupQuestions,
-            Self::ToggleTextView | Self::ToggleBrowser => Phrase::GroupDisplay,
+            Self::ToggleTextView | Self::ToggleBrowser | Self::ToggleLog => Phrase::GroupDisplay,
         }
     }
 }
@@ -433,6 +437,7 @@ impl Keymap {
         bind(Action::NextTurn, vec![Chord::shift("Tab")]);
         bind(Action::ToggleTextView, vec![Chord::key("KeyT")]);
         bind(Action::ToggleBrowser, vec![Chord::key("KeyG")]);
+        bind(Action::ToggleLog, vec![Chord::key("KeyL")]);
         bind(Action::HoldForStack, vec![Chord::key("F6")]);
         bind(Action::HoldForTurn, vec![Chord::key("F7")]);
         bind(Action::MulliganKeep, vec![Chord::key("KeyK")]);
@@ -473,6 +478,7 @@ impl Keymap {
         map.bindings
             .insert(Action::Confirm, vec![Chord::key("Enter")]);
         map.bindings.remove(&Action::ToggleBrowser);
+        map.bindings.remove(&Action::ToggleLog);
         map.bindings.remove(&Action::HoldForStack);
         map.bindings.remove(&Action::HoldForTurn);
         map.bindings.remove(&Action::ActivateGroup);

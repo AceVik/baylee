@@ -420,6 +420,14 @@ pub(crate) mod glyph {
     /// bullets down their left and can stand in the zone browser's head while
     /// this button shows; they are distinct at the sizes both are drawn at.
     pub const BARS: char = '\u{f0c9}';
+    /// A scroll: the game log, as a door on the tray (#262).
+    ///
+    /// Read out of the shipped `fa-solid-900.ttf` and rastered beside
+    /// [`ZONES`] and [`BARS`] before it was written down: at the tray's size
+    /// it is a rolled sheet, and neither a box nor a list. FA's "book" and
+    /// "file-lines" were the other two candidates; a book reads as rules, a
+    /// page with lines as a document to open.
+    pub const LOG: char = '\u{f70e}';
 }
 
 /// Root of the overlay.
@@ -538,6 +546,9 @@ pub enum MenuAction {
     /// actions, because the button is in the same place either way and a
     /// player who pressed it to open will press it to close.
     ToggleGameMenu,
+    /// Open the game log, or shut it again (#262): the scroll on the tray,
+    /// the cross on the panel's head, and `L`.
+    ToggleLog,
     /// Leave the game (sends the engine's own concession).
     Concede,
     /// Offer a draw: every other player still in the game has to accept
@@ -1793,6 +1804,17 @@ const _: () = assert!(
     Z_MENU > Z_TRAY,
     "the menu stands in front of the zones button until the player closes it"
 );
+/// The game log's panel (#262): the shelf's rung.
+///
+/// It stands on the strip and covers nothing of the shelf's, so among the
+/// things it could meet it is the one that is only *showing*. A zone dialog
+/// that is answering a question stands over it, and so does the menu, which
+/// the player opened last.
+pub(crate) const Z_LOG: i32 = Z_LEDGE;
+const _: () = assert!(
+    Z_LOG < Z_SHEET,
+    "the log only shows the game; a dialog answering a question stands over it"
+);
 /// The hover preview, which describes whatever is under the pointer and so has
 /// to stand over all of it — including a row of the dialog.
 pub(crate) const Z_PREVIEW: i32 = 10;
@@ -1942,6 +1964,10 @@ pub struct OverlayTree<'w, 's> {
     /// between the two presses of the one decision in this client that has no
     /// undo.
     pub(crate) menu: Query<'w, 's, Entity, With<ledge::menu::MenuPanel>>,
+    /// The game log's panel (#262), on the menu's argument: it is up while
+    /// the player holds it open, and its lines are appended rather than
+    /// rebuilt, which a sweep on every pointer move would undo.
+    pub(crate) log: Query<'w, 's, Entity, With<ledge::log::LogPanel>>,
     /// The drawer's **panel**, as a box rather than as an entity — and the one
     /// field here that is not about surviving the sweep.
     ///
@@ -2024,6 +2050,7 @@ pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W
 /// row is drawn by a `MaterialNode` and a border on one is a question.
 pub(crate) use ledge::LIP as LEDGE_LIP;
 pub use ledge::drawer::{DrawerRevision, DrawerRoot, sync_drawer, zoom_the_drawer};
+pub use ledge::log::{LogPanel, LogRevision, follow_the_log, grow_the_log, sync_log};
 pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, sync_menu};
 pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool, zoom_the_pool};
 pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};

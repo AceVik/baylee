@@ -23,7 +23,7 @@ Two consequences worth knowing before changing anything here:
 |---|---|---|
 | The click (a sheet holding the question → card under cursor → phase toggle → pass) | `Enter` | implemented |
 | Confirm / pass (ticks a row on a sheet holding the question, toggles nothing else, and does not declare an empty attack or block) | `Space` | implemented |
-| Cancel: armed deed, then preview, then the game menu, then the zone browser *if the player may put it away*, then phase selection, then half-built answer | `Esc` | implemented |
+| Cancel: armed deed, then preview, then the game menu, then the game log, then the zone browser *if the player may put it away*, then phase selection, then half-built answer | `Esc` | implemented |
 | Send what is armed (a second tap on the card does the same) | `Enter` / `Space` / `E` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
 | Activate the card under the cursor (play / select); on a merged card, one more of it — or one fewer, on a card of ones already chosen | `E` | implemented |
@@ -36,6 +36,7 @@ Two consequences worth knowing before changing anything here:
 | Keep the card text on (latch, persisted) | `T` | implemented |
 | Open the zone browser (graveyards, exile, the stack) | `G`, a tap on the top card of a pile (unless that card is lit: then the tap casts it), or the tray's button | implemented |
 | Minimise the zone browser into the tray (the same three doors, and the button on its own head) | `G` / `Esc` / the button | implemented |
+| Open the game log, or shut it (#262) | `L`, the tray's scroll, or the cross on its head; `Esc` shuts it | implemented |
 | Move the zone browser / resize it (remembered per client; a sheet a *question* opened is centred, stays put, and draws neither corner nor minimise button) | drag its title row / its bottom-right corner | implemented |
 | Battlefield camera: pan / zoom / rotate / tilt | — (deliberately none) | removed |
 | Select a step tile (the seat bars' keyboard cursor) | `⇧W` / `⇧S` | implemented |

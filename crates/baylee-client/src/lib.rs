@@ -691,6 +691,12 @@ pub struct Duel {
     /// away because the opponent passed priority is a menu a player cannot
     /// read.
     pub game_menu: bool,
+    /// Whether the game log's panel is open (#262).
+    ///
+    /// The player's, like [`Self::game_menu`]: no question opens or closes
+    /// it, and it stays up while the game goes on under it, because a log is
+    /// read beside the table and not instead of it.
+    pub log_open: bool,
     /// The tap that has been made and not sent — see [`Armed`].
     ///
     /// Deliberately *not* cleared when a choice arrives: `pump` hands the
@@ -1237,6 +1243,7 @@ fn add_present_systems(app: &mut App) {
     app.init_resource::<hud::StackFold>()
         .init_resource::<hud::TrayReveal>()
         .init_resource::<hud::MenuRevision>()
+        .init_resource::<hud::LogRevision>()
         .init_resource::<input::TrayGlide>();
     app.add_systems(
         Update,
@@ -1413,6 +1420,14 @@ fn add_present_systems(app: &mut App) {
                     // stand over a shelf that is not there yet.
                     hud::sync_menu.after(hud::sync_ledge),
                     hud::grow_the_menu.after(hud::sync_menu),
+                    // The game log's panel, in the same nest for the same
+                    // reason, and after the shelf because it stands on the
+                    // strip that hangs off it. `follow_the_log` reads where
+                    // the rows the sync just added have been laid out, which
+                    // is the frame after they were spawned.
+                    hud::sync_log.after(hud::sync_ledge),
+                    hud::grow_the_log.after(hud::sync_log),
+                    hud::follow_the_log.after(hud::sync_log),
                 ),
                 // The tray hangs off the shelf's edge and not out of its
                 // layout, so it needs nothing the shelf worked out — but it
@@ -1540,6 +1555,11 @@ impl Plugin for DuelPlugin {
         ambience::install(app);
         loading::install(app);
         flip::install(app);
+        // The game log's scrollbar is Bevy's own, so its thumb can be dragged
+        // (#262). The lobby installs the same plugin, and either may be first.
+        if !app.is_plugin_added::<bevy::ui_widgets::ScrollbarPlugin>() {
+            app.add_plugins(bevy::ui_widgets::ScrollbarPlugin);
+        }
         app.add_plugins(cardmat::CardMaterialPlugin)
             .add_plugins(markatlas::MarkAtlasPlugin)
             .add_plugins(marksmat::MarksMaterialPlugin)
