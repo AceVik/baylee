@@ -1216,6 +1216,58 @@ mod tests {
         assert_eq!(said(&out), [(0, "view")]);
     }
 
+    /// The log each frame of `seat`'s carries, in order: the index of its
+    /// first line and how many lines it holds.
+    fn logs(envelopes: &[Envelope], seat: u32) -> Vec<(u64, usize)> {
+        frames(envelopes)
+            .into_iter()
+            .filter_map(|(s, msg)| match msg {
+                v1::envelope::Msg::StateDelta(delta) if s == seat && !delta.log_json.is_empty() => {
+                    let tail: serde_json::Value = serde_json::from_slice(&delta.log_json).ok()?;
+                    Some((tail["from"].as_u64()?, tail["entries"].as_array()?.len()))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// A loader that drops and dials again before the table is open holds
+    /// none of the log its first socket was sent, so its second is told the
+    /// log from the first line (#256, #262), as a socket attaching to an open
+    /// table is.
+    ///
+    /// Nothing the runner does before the curtain writes a line today: no
+    /// clock runs, no answer is applied, and the opening deal is not logged.
+    /// So the line is put there by hand, the one a pre-curtain table would
+    /// hold first if a clock ever ran there: the house standing in.
+    #[test]
+    fn a_seat_that_dials_again_before_the_curtain_is_told_its_log_from_the_start() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &two_humans(600));
+        assert!(
+            logs(&attach(&mut runner, 0), 0).is_empty(),
+            "the runner logs nothing before the curtain"
+        );
+        detach(&mut runner, 0);
+        let session = runner.session.as_mut().expect("set up");
+        assert!(
+            session.stand_in(PlayerId::new(1)),
+            "seat 1 is a human chair"
+        );
+        assert_eq!(
+            logs(&attach(&mut runner, 0), 0),
+            [(0, 1)],
+            "the socket is told the line"
+        );
+        detach(&mut runner, 0);
+        assert!(runner.curtain_pending(), "still loading");
+        assert_eq!(
+            logs(&attach(&mut runner, 0), 0),
+            [(0, 1)],
+            "the second socket was not told the log from its first line"
+        );
+    }
+
     /// During the opening mulligans each human seat is on its own clock, and
     /// one seat's answer leaves the other's exactly as it was: the same
     /// `Clock`, which is what keeps the attach loop from arming it again
