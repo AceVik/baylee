@@ -243,7 +243,9 @@ impl RailRow {
     /// and the engine asks for it when it does. A green button here would
     /// therefore be a stop nobody can arrange in advance: on the ordinary
     /// cleanup there is nothing to stop in, and on the exceptional one the
-    /// question arrives whether the button was set or not. The cost of
+    /// question arrives whether the button was set or not — and stays asked,
+    /// because [`auto_answer`] reads a dead row as "no standing order",
+    /// never as "pass" (#287). The cost of
     /// greying it is exactly one thing — a player who wanted to hold up an
     /// instant *speculatively*, in case a cleanup trigger opens the window,
     /// can no longer arm that in the rail.
@@ -699,6 +701,15 @@ pub fn auto_answer(
         // and for the autopilot, which is allowed to fast-forward to a
         // boundary and never to make a real decision.
         Pending::Priority { .. } if at.opposing_stack => AutoAnswer::None,
+        // A cleanup window is the game's, not the player's: it opens only
+        // because the step's check performed a state-based action or found
+        // a triggered ability (CR 514.3a). The row is dead, so its red is
+        // no order anybody gave, and a fast-forward or a skipped turn was
+        // asked for before whatever opened the window had happened. The
+        // seat's own trigger on the stack is still news to the seat, so it
+        // is asked. Only the rule above passes here, when there is nothing
+        // to answer with at all.
+        Pending::Priority { .. } if at.step == Step::Cleanup => AutoAnswer::None,
         Pending::Priority { .. } if skipped || quiet_turn || pilot.is_some() => AutoAnswer::Pass,
         Pending::ChooseAttackers { attackers, .. }
             if skipped
@@ -1082,6 +1093,69 @@ mod tests {
     /// never meant "let their sorcery resolve unanswered", and it did:
     /// `Situation` carried no stack, so every automatic pass fired straight
     /// through an opponent's spell.
+    /// CR 514.3a: a priority window in the cleanup step is opened by the
+    /// game, so nothing standing passes it. The dead row reads as skipped,
+    /// yet it does not pass; neither does the autopilot of either kind, nor
+    /// skipping the opponent's turn, with no opposing stack in any of them.
+    /// The end step, one row earlier, is the refusing half: the same red row
+    /// and the same pilot do pass there.
+    #[test]
+    fn a_cleanup_window_is_always_asked() {
+        let cleanup = at(true, true, Phase::Ending, Step::Cleanup);
+        let orders = PhaseOrders::default();
+        assert!(orders.is_skipped(RailSide::Mine, RailRow::Cleanup));
+        let rules = AutoRules::default();
+        assert_eq!(
+            auto_answer(&priority_pending(), cleanup, &orders, &rules, None),
+            AutoAnswer::None,
+            "the dead row"
+        );
+        let pilots = [
+            AutoPilot::ToNextPhase {
+                from: Phase::Ending,
+            },
+            AutoPilot::ToNextTurn { from_turn: 3 },
+        ];
+        for pilot in &pilots {
+            assert_eq!(
+                auto_answer(&priority_pending(), cleanup, &orders, &rules, Some(pilot)),
+                AutoAnswer::None,
+                "{pilot:?}"
+            );
+        }
+        let quiet = AutoRules {
+            skip_opponent_turns: true,
+            ..AutoRules::default()
+        };
+        assert_eq!(
+            auto_answer(
+                &priority_pending(),
+                at(true, false, Phase::Ending, Step::Cleanup),
+                &orders,
+                &quiet,
+                None
+            ),
+            AutoAnswer::None,
+            "an opponent's cleanup window, skipping their turn"
+        );
+
+        let end = at(true, true, Phase::Ending, Step::End);
+        let mut red_end = PhaseOrders::default();
+        red_end.set_to(RailPreset::EveryStep);
+        red_end.toggle(RailSide::Mine, RailRow::EndStep);
+        assert_eq!(
+            auto_answer(&priority_pending(), end, &red_end, &rules, None),
+            AutoAnswer::Pass
+        );
+        for pilot in &pilots {
+            assert_eq!(
+                auto_answer(&priority_pending(), end, &orders, &rules, Some(pilot)),
+                AutoAnswer::Pass,
+                "{pilot:?}"
+            );
+        }
+    }
+
     #[test]
     fn nothing_automatic_passes_while_the_other_side_has_the_stack() {
         // From all-green, so the toggle below reddens a row rather than

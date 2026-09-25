@@ -194,6 +194,45 @@ The payment is still not a stack object, so nothing on the board says it is
 coming: a client or the house AI sees an empty upkeep. Making it one — with
 the CR 605.3a window a `PlayerMayPay` tax already opens — is the rest of this.
 
+### The cleanup step checks once, and may give priority (CR 514.3a)
+A cleanup step is its two turn-based actions and then one check. First the
+active player discards to their maximum hand size (CR 514.1). Then damage
+wears off and "until end of turn" effects end (CR 514.2). An effect that
+ends at 514.2 still applies while the discard is being asked for.
+`Engine::cleanup_step` does 514.1 and `cleanup_ends_the_turns_effects` does
+514.2, either straight after it or from the discard's answer.
+
+The check is `run_machine`'s own next pass, in its usual order: 0a (with the
+CR 800.4c exile below), the state-based actions, then the triggers.
+`Engine::cleanup` remembers where the step stands:
+
+- `Due`: the turn-based actions are still to come.
+- `Checking`: the pass is the check.
+- `Open`: the check performed a state-based action or put a triggered
+  ability on the stack.
+
+In `Checking`, `progress_step` ends the turn (`end_cleanup`) if the stack is
+empty and nothing was noted. Otherwise the step is `Open` and gives the
+active player priority like any other. A round that closes on an empty stack
+goes through `advance_step`, whose Cleanup arm begins another cleanup step
+(`Due` again): mana empties, its 514.2 ends what the window made, and its own
+check decides again. The field survives a question, so a window whose
+trigger has resolved is not mistaken for the check.
+
+"Performed" is noted where it happens (`cleanup_check_acted`), because the
+board does not always show it afterwards. `sba::run`'s outcome is noted, and
+so is `finished_sagas`. So are the two removals in `collect_triggers`: no
+mode chosen, and no legal target (CR 603.3d). Each of those abilities was
+waiting to be put on the stack, which is what the check asks. The journal
+can't stand in for this. An Equipment coming off a land whose animation
+ended (CR 704.5n) and a +1/+1 counter cancelling a -1/-1 (CR 704.5q) are
+state-based actions that journal nothing and move nothing, and each one
+opens the window (`cleanup_tests`, Mutavault and Leonin Scimitar).
+
+A cleanup step that makes another one every time is a loop through priority.
+The machine's own watch starts over at every question, so the one that sees
+it is `Engine::apply`'s action watch (`crate::loops`).
+
 ### The clause that is asked twice (CR 603.4)
 A triggered ability may print an **intervening `if`** — the `if` between the
 trigger event and the effect, as in "at the beginning of your upkeep, if this
@@ -723,22 +762,18 @@ then has to end that effect as well.
 
 CR 800.4c is the same rule seen later. A creature the leaver reanimated,
 which somebody else had taken until end of turn, is exiled as that effect
-ends. The same function does it, called from two places:
-
-- `run_machine`'s step 0a, whenever the refresh found the effect table
-  changed and someone has left. That comes before the game-over check and
-  before `sba::run`, because this is not a state-based action. Effects that
-  end at the end of combat, as a turn or an untap step begins, or as their
-  source leaves are all followed by that pass before anybody gets priority.
-- `cleanup_step`, right after until-end-of-turn effects end, because that
-  step goes straight on into the next turn (`end_cleanup`), and step 0a
-  would first look after that turn has begun.
+ends. The same function does it, from `run_machine`'s step 0a, whenever the
+refresh found the effect table changed and someone has left. That comes
+before the game-over check and before `sba::run`, because this is not a
+state-based action. Effects that end at the end of combat, as a turn or an
+untap step begins, or as their source leaves are all followed by that pass
+before anybody gets priority. So are the "until end of turn" ones: the
+cleanup step's check is that pass, inside the step, so the exile is stamped
+in the cleanup step. It is not a state-based action, so by itself it opens
+no window. A trigger it causes does (CR 514.3a).
 
 The residue is a resolution: an effect that ends in the middle of one exiles
-at the next pass, not inside the resolution. And, like everything else that
-happens in the cleanup step, an exile there gives nobody priority and starts
-no second cleanup step (CR 514.3a is not implemented). A trigger it causes
-waits for the next turn's first priority.
+at the next pass, not inside the resolution.
 
 CR 800.4b has four doors. A `GainControl` effect for a player who has left
 applies to nothing (`layers::apply`), and neither `gain_control` nor a

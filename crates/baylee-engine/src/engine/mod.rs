@@ -56,6 +56,33 @@ enum CombatDeclared {
     Blockers,
 }
 
+/// Where the cleanup step stands (CR 514).
+///
+/// A cleanup step is turn-based actions, then one check, and then either
+/// the end of the turn or a priority step of its own (CR 514.3a). The
+/// machine has to remember which of the three it is in because the check
+/// and the window look alike from the outside: both have nobody holding
+/// priority and nothing passed, and a window whose trigger has just
+/// resolved is exactly that again. Reading "did anything happen?" afresh
+/// there would end the turn instead of giving the active player the
+/// priority CR 117.3b owes them.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Cleanup {
+    /// The step's turn-based actions are still to come: the discard to
+    /// hand size (CR 514.1), then damage and "until end of turn" effects
+    /// ending (CR 514.2).
+    Due,
+    /// They have happened, and the machine's own pass is the step's first
+    /// check (CR 514.3a, CR 704.3): it performs the state-based actions and
+    /// puts the triggered abilities on the stack in its usual order. If it
+    /// performs none and puts none there, the turn ends.
+    Checking,
+    /// The check performed a state-based action or found a triggered
+    /// ability, so the step gives priority like any other. When the stack is
+    /// empty and every player has passed, another cleanup step begins.
+    Open,
+}
+
 /// A CR 605.3a payment window, and the resolution it was opened over.
 ///
 /// The resolution travels *with* the window rather than staying in
@@ -130,6 +157,8 @@ pub struct Engine<L: CardLookup> {
     mulligans: Option<Vec<mulligan::SeatMulligan>>,
     /// Combat declaration progress.
     combat_declared: CombatDeclared,
+    /// Where the current cleanup step stands; `Due` outside one.
+    cleanup: Cleanup,
     /// Planeswalkers that already used a loyalty ability this turn.
     loyalty_used_this_turn: Vec<ObjectId>,
     /// `true` while the current pending request is unanswered — the
@@ -533,6 +562,7 @@ impl<L: CardLookup> Engine<L> {
             resolve_next: false,
             regrant_priority: None,
             combat_declared: CombatDeclared::None,
+            cleanup: Cleanup::Due,
             loyalty_used_this_turn: Vec::new(),
             awaiting_answer: true,
             resolution: None,
@@ -726,6 +756,10 @@ impl<L: CardLookup> Engine<L> {
                 .wrapping_add(u64::from(w.suspended.on_stack.slot()))
                 .wrapping_add(u64::from(w.suspended.controller.get()));
         }
+        // A cleanup step's check and its window close differently: nothing
+        // performed ends the turn in the one, a round of passes begins
+        // another cleanup step in the other (CR 514.3a).
+        extra = extra.wrapping_mul(31).wrapping_add(self.cleanup as u64);
         // Automation decides which decisions the engine takes on a seat's
         // behalf, and how many loops it has already broken decides whether
         // the next one is broken or drawn. Two engines that differ in
@@ -884,6 +918,8 @@ mod cast_face_tests;
 mod chosen_tests;
 #[cfg(test)]
 mod claim_tests;
+#[cfg(test)]
+mod cleanup_tests;
 #[cfg(test)]
 mod combat_choice_tests;
 #[cfg(test)]

@@ -1224,7 +1224,10 @@ impl<L: CardLookup> Engine<L> {
                         Cause::TurnBased,
                     )?;
                 }
-                self.end_cleanup();
+                // Then CR 514.2, and the step's check after it (CR 514.3a):
+                // a trigger on the discard waits for that check like any
+                // other, since triggers are collected from the journal.
+                self.cleanup_ends_the_turns_effects();
                 Ok(())
             }
             (

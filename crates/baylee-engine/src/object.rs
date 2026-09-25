@@ -764,12 +764,12 @@ pub struct GameObject {
     /// half cannot expire with it and needs somewhere to say when it ends.
     ///
     /// It is not a sweep over every object with an `own_abilities` at
-    /// cleanup, for the reason recorded in [`Engine::cleanup_step`]: a
-    /// permanent copy has written that field too, and reverting one of
-    /// those would turn a Glasspool Mimic back into a 0/0 on the turn it
-    /// was cast.
+    /// cleanup, for the reason recorded in
+    /// [`Engine::cleanup_ends_the_turns_effects`]: a permanent copy has
+    /// written that field too, and reverting one of those would turn a
+    /// Glasspool Mimic back into a 0/0 on the turn it was cast.
     ///
-    /// [`Engine::cleanup_step`]: crate::engine::Engine
+    /// [`Engine::cleanup_ends_the_turns_effects`]: crate::engine::Engine
     pub own_abilities_until_eot: bool,
     /// Which printed face [`GameObject::own_abilities`] is, when it is one.
     ///

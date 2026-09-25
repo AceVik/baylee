@@ -18,7 +18,7 @@
 
 use super::testkit::{
     Duel, RegistryLookup, card_index, cast_from_hand, cast_with_floating, in_graveyard,
-    keep_mulligans, on_battlefield, pass_until, quiet_artifact, quiet_creature,
+    keep_mulligans, on_battlefield, pass_until, pt, quiet_artifact, quiet_creature,
     reach_their_main_phase, seed_graveyard, stack_is_empty, tap_all_mana, walk_to_own_main,
 };
 use super::*;
@@ -390,6 +390,82 @@ fn a_leavers_creature_is_exiled_when_a_turns_taker_lets_go() {
         exiled_during(&engine, elf),
         Some((turn, Phase::Ending, Step::Cleanup))
     );
+}
+
+/// `{1}{W}{U}` 1/1 "Whenever a creature is exiled from the battlefield, put
+/// a +1/+1 counter on this creature."
+fn soulherder() -> CardIndex {
+    card_index("92019547-f6db-4ea6-8356-d0a90ace5662")
+}
+
+/// The same exile, watched by seat 1's Soulherder: it triggers in the
+/// cleanup step, and a trigger by itself opens the step to priority
+/// (CR 514.3a). Nothing else happens there, since the exile is not a
+/// state-based action. The active player gets priority with the trigger on
+/// the stack, it resolves in that turn, and another cleanup step follows
+/// before the turn ends.
+#[test]
+fn a_trigger_on_that_exile_gives_the_cleanup_step_priority() {
+    let mut engine = Duel::table(281, quiet_creature(), 3)
+        .battlefield(0, &[swamp()])
+        .battlefield(1, &[soulherder()])
+        .battlefield(2, &[mountain(); 5])
+        .hand(0, &[reanimate()])
+        .hand(2, &[song_mad_treachery()])
+        .start();
+    keep_mulligans(&mut engine);
+    let elf = seat_0_reanimates_seat_1s_elf(&mut engine);
+    let herder = on_battlefield(&engine, seat(1), soulherder()).expect("seat 1's Soulherder");
+    reach_their_main_phase(&mut engine, seat(2));
+    treachery_takes(&mut engine, seat(2), elf);
+    let turn = engine.state().turn.number;
+    engine.apply(seat(0), PlayerAction::Concede).unwrap();
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::Cleanup || e.state().turn.number > turn
+    });
+    assert_eq!(
+        (engine.state().turn.number, engine.state().turn.step),
+        (turn, Step::Cleanup)
+    );
+    assert!(exiled(&engine, seat(1), elf));
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == seat(2)),
+        "{:?}",
+        engine.pending()
+    );
+    assert!(!stack_is_empty(&engine), "Soulherder's trigger");
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        (engine.state().turn.number, engine.state().turn.step),
+        (turn, Step::Cleanup)
+    );
+    assert_eq!(pt(&engine, herder), (2, 2), "resolved in the same turn");
+    pass_until(&mut engine, |e| e.state().turn.number > turn);
+    let cleanups = {
+        let mut now = 0;
+        engine
+            .state()
+            .journal
+            .entries()
+            .iter()
+            .filter(|entry| {
+                if let GameEvent::TurnStarted { number, .. } = entry.event {
+                    now = number;
+                }
+                now == turn
+                    && matches!(
+                        entry.event,
+                        GameEvent::StepChanged {
+                            step: Step::Cleanup,
+                            ..
+                        }
+                    )
+            })
+            .count()
+    };
+    assert_eq!(cleanups, 2, "another cleanup step after the window");
 }
 
 /// A control effect of the kind no card in the pool makes, registered by

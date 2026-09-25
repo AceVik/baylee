@@ -1,8 +1,8 @@
 use super::{
-    AbilityDef, AbilityLoc, CardLookup, Cause, CombatDeclared, EndReason, Engine, GameEvent,
-    GameObject, GameResult, NameRef, ObjectId, ObjectKind, Pending, Phase, PlanKind, PlayerId,
-    Resolution, SmallVec, Status, Step, Zone, ZoneLocation, ZonePosition, combat, eval, mana_pay,
-    resolve, sba, trigger,
+    AbilityDef, AbilityLoc, CardLookup, Cause, Cleanup, CombatDeclared, EndReason, Engine,
+    GameEvent, GameObject, GameResult, NameRef, ObjectId, ObjectKind, Pending, Phase, PlanKind,
+    PlayerId, Resolution, SmallVec, Status, Step, Zone, ZoneLocation, ZonePosition, combat, eval,
+    mana_pay, resolve, sba, trigger,
 };
 use crate::choice::{
     CastModeDesc, CastModeKind, ChoicePrompt, PlayerAction, PriorityHold, SeatAutomation,
@@ -267,6 +267,12 @@ impl<L: CardLookup> Engine<L> {
             self.queue_new_triggers();
             // 2. State-based actions (fixpoint).
             let outcome = sba::run(&mut self.state, &self.lookup);
+            if outcome.changed
+                || outcome.legend_choice.is_some()
+                || outcome.commander_zone.is_some()
+            {
+                self.cleanup_check_acted();
+            }
             if let Some((player, options)) = outcome.legend_choice {
                 self.pending = Pending::LegendChoice { player, options };
                 self.awaiting_answer = true;
@@ -286,6 +292,7 @@ impl<L: CardLookup> Engine<L> {
             //     between the two steps is that 2c's rules say in as many
             //     words that they are *not* state-based actions.
             if self.finished_sagas() {
+                self.cleanup_check_acted();
                 continue;
             }
             // 2c. Daybound and nightbound (CR 702.145c–g). Explicitly *not*
@@ -426,7 +433,23 @@ impl<L: CardLookup> Engine<L> {
     pub(crate) fn progress_step(&mut self) -> bool {
         match self.state.turn.step {
             Step::Untap => self.untap_step(),
-            Step::Cleanup => self.cleanup_step(),
+            Step::Cleanup => match self.cleanup {
+                Cleanup::Due => self.cleanup_step(),
+                // The check put nothing on the stack and performed nothing
+                // (`cleanup_check_acted`), so no player gets priority and
+                // the step ends (CR 704.3, last sentence).
+                Cleanup::Checking if self.state.zones.stack_is_empty() => {
+                    self.end_cleanup();
+                    false
+                }
+                // A triggered ability is on the stack, or a state-based
+                // action was performed: the active player gets priority, and
+                // the step is a priority step from here (CR 514.3a).
+                Cleanup::Checking | Cleanup::Open => {
+                    self.cleanup = Cleanup::Open;
+                    self.priority_round()
+                }
+            },
             Step::DeclareAttackers if self.combat_declared != CombatDeclared::Attackers => {
                 let attacker = self.state.turn.active;
                 // The turn goes on without an active player (CR 800.4j), and
@@ -1232,8 +1255,8 @@ impl<L: CardLookup> Engine<L> {
     ///
     /// Only that half differs. Both branches write the copied abilities onto
     /// the object, because nothing about an ability is layer-projected, and
-    /// the temporary branch flags the write so [`Self::cleanup_step`] knows
-    /// to take it back.
+    /// the temporary branch flags the write so
+    /// [`Self::cleanup_ends_the_turns_effects`] knows to take it back.
     ///
     /// One thing neither branch does on its own: a permanent with a
     /// *printed* static ability that becomes a copy keeps that static
@@ -1998,7 +2021,10 @@ impl<L: CardLookup> Engine<L> {
                     .collect();
                 if options.is_empty() {
                     // "If no mode is chosen, the ability is removed from the
-                    // stack." Nothing to ask and nothing to resolve.
+                    // stack." Nothing to ask and nothing to resolve — but it
+                    // was waiting to go there, which is what a cleanup step's
+                    // check asks (CR 514.3a).
+                    self.cleanup_check_acted();
                     self.trigger_queue.pop_front();
                     continue;
                 }
@@ -2061,7 +2087,9 @@ impl<L: CardLookup> Engine<L> {
                 let offered = options.len() + player_options.len();
                 if offered < req.min as usize {
                     // No legal target: the trigger is removed from the stack
-                    // entirely (CR 603.3d).
+                    // entirely (CR 603.3d). It was put there first, so a
+                    // cleanup step's check has found it (CR 514.3a).
+                    self.cleanup_check_acted();
                     self.trigger_queue.pop_front();
                     continue;
                 }
@@ -3909,12 +3937,18 @@ impl<L: CardLookup> Engine<L> {
                 });
                 (Phase::SecondMain, Step::Main)
             }
-            (_, Step::End) => (Phase::Ending, Step::Cleanup),
-            (_, Step::Cleanup) => (Phase::Beginning, Step::Untap),
+            // A cleanup step closes through here only when CR 514.3a opened
+            // it to priority, and then "another cleanup step begins"; the
+            // turn itself ends in `end_cleanup`, from a step nobody was
+            // given priority in.
+            (_, Step::End | Step::Cleanup) => (Phase::Ending, Step::Cleanup),
             _ => unreachable!("invalid phase/step combination"),
         };
         self.state.turn.phase = next_phase;
         self.state.turn.step = next_step;
+        if next_step == Step::Cleanup {
+            self.cleanup = Cleanup::Due;
+        }
         self.state.journal.record(GameEvent::StepChanged {
             phase: next_phase,
             step: next_step,
@@ -4121,7 +4155,8 @@ impl<L: CardLookup> Engine<L> {
         // **After the loop above and not before it.** This is the fourth
         // duration that expires at a point in the turn structure — the other
         // three are `UntilYourNextTurn` in `start_turn`, `UntilEndOfCombat`
-        // in `end_of_combat` and `UntilEndOfTurn` in `cleanup_step` — and it
+        // in `end_of_combat` and `UntilEndOfTurn` in
+        // `cleanup_ends_the_turns_effects` — and it
         // is the first that ends inside the step it is about rather than at
         // a boundary between two. An expiry written at the top of the untap
         // step would let the land untap on schedule and leave a card that
@@ -4146,9 +4181,43 @@ impl<L: CardLookup> Engine<L> {
         self.advance_step();
     }
 
+    /// The cleanup step's turn-based actions, in the order CR 514 gives
+    /// them: the active player discards to their maximum hand size first
+    /// (CR 514.1), and only then does damage wear off and do "until end of
+    /// turn" effects end (CR 514.2). The order is visible: an effect that
+    /// ends at 514.2 still applies while the discard is asked for.
+    ///
+    /// Returns `true` when the discard is a question. Its answer
+    /// (`Engine::apply`) performs the discard and then 514.2 itself.
     pub(crate) fn cleanup_step(&mut self) -> bool {
-        // Clear damage (CR 514.2), expire "until end of turn" effects
-        // (CR 514.2), and check hand size.
+        let active = self.state.turn.active;
+        // Reliquary Tower & co.: no maximum hand size for this player.
+        let no_max = self.state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::NoMaxHandSize)
+                && fx.controller == active
+        });
+        let max_hand = if no_max {
+            i32::MAX
+        } else {
+            7i32 + i32::from(self.state.players[active.get() as usize].hand_modifier)
+        };
+        let hand_size = self.state.zones.list(ZoneLocation::Hand(active)).len() as i32;
+        if hand_size > max_hand {
+            self.pending = Pending::DiscardChoice {
+                player: active,
+                count: (hand_size - max_hand) as u8,
+            };
+            self.awaiting_answer = true;
+            return true;
+        }
+        self.cleanup_ends_the_turns_effects();
+        false
+    }
+
+    /// CR 514.2: all damage is removed and every "until end of turn" and
+    /// "this turn" effect ends, simultaneously. What follows is the step's
+    /// first check, which is the machine's own next pass (`Cleanup::Checking`).
+    pub(crate) fn cleanup_ends_the_turns_effects(&mut self) {
         let mut reverted: Vec<ObjectId> = Vec::new();
         for obj in self.state.arena.iter_mut_all() {
             obj.damage = 0;
@@ -4208,42 +4277,30 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state.invalidate_projections();
         // What a player who has left controls by default is exiled as the
-        // last effect giving it to somebody else ends (CR 800.4c): here, in
-        // the cleanup step. The machine's own look at step 0a comes only
-        // after `end_cleanup` below has begun the next turn.
-        if self
-            .state
-            .players
-            .iter()
-            .any(crate::state::Player::has_lost)
-        {
-            let _ = crate::sba::exile_what_the_departed_control(&mut self.state);
-        }
-        let active = self.state.turn.active;
-        // Reliquary Tower & co.: no maximum hand size for this player.
-        let no_max = self.state.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::NoMaxHandSize)
-                && fx.controller == active
-        });
-        let max_hand = if no_max {
-            i32::MAX
-        } else {
-            7i32 + i32::from(self.state.players[active.get() as usize].hand_modifier)
-        };
-        let hand_size = self.state.zones.list(ZoneLocation::Hand(active)).len() as i32;
-        if hand_size > max_hand {
-            self.pending = Pending::DiscardChoice {
-                player: active,
-                count: (hand_size - max_hand) as u8,
-            };
-            self.awaiting_answer = true;
-            return true;
-        }
-        self.end_cleanup();
-        false
+        // last effect giving it to somebody else ends (CR 800.4c), which for
+        // an "until end of turn" effect is here. The check that follows is
+        // the machine's own pass, and its step 0a does it: the removal above
+        // moved the effect generation, and the step is still this one.
+        self.cleanup = Cleanup::Checking;
     }
 
+    /// The step's first check performed a state-based action or found a
+    /// triggered ability (CR 514.3a), so the step gives priority instead of
+    /// ending. Called from where the machine performs them, and it is not
+    /// only the stack that shows it afterwards: an Equipment falling off a
+    /// land whose animation just ended (CR 704.5n) or a +1/+1 counter
+    /// cancelling a -1/-1 counter (CR 704.5q) moves nothing and journals
+    /// nothing, and either one opens the window.
+    pub(crate) fn cleanup_check_acted(&mut self) {
+        if self.cleanup == Cleanup::Checking {
+            self.cleanup = Cleanup::Open;
+        }
+    }
+
+    /// The cleanup step ends without anyone having had priority in it, and
+    /// with it the turn.
     pub(crate) fn end_cleanup(&mut self) {
+        self.cleanup = Cleanup::Due;
         self.state.combat = crate::combat::CombatState::default();
         self.state.board_state_changed();
         self.combat_declared = CombatDeclared::None;
