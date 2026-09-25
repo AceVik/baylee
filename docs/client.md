@@ -6920,16 +6920,19 @@ the mat under it.
 `cards` is the sixth, and it exists because of what driving this client
 actually costs: **finding a card to click**. It is every card drawn on the
 table, with its object, the name the board model gives it, and
-`at_x`/`at_y`/`w`/`h` in the same logical pixels `/pointer` takes. The box is
-measured from the transform `glide` has the card at *this* frame, and through
-the card's own four corners put through that transform — so a card mid-flight
-reports where it is rather than where it is going, and a tapped permanent
-reports the wider, shorter box it really covers. The height a card is drawn at
-is not part of it: `CARD_LIFT` moves a card 0.14 px at a duel, which is why
-aiming at the felt underneath has worked all along. Before this, a click meant
-three lookups — the object out of the view, the lane out of the board, the
-pixels off a downscaled screenshot — and all three again after the lane
-repacked.
+`at_x`/`at_y`/`w`/`h` in the same logical pixels `/pointer` takes. `at_x` and
+`at_y` are the box's **centre**, not its corner, here and in `buttons`: send
+them to `/pointer` as they come. A driver that added half of `w` and `h` to
+them clicked beside `Keep` and sat in the mulligan for six minutes (#284). The
+box is measured from the transform `glide` has the card at *this* frame, and
+through the card's own four corners put through that transform — so a card
+mid-flight reports where it is rather than where it is going, and a tapped
+permanent reports the wider, shorter box it really covers. The height a card
+is drawn at is not part of it: `CARD_LIFT` moves a card 0.14 px at a duel,
+which is why aiming at the felt underneath has worked all along. Before this,
+a click meant three lookups — the object out of the view, the lane out of the
+board, the pixels off a downscaled screenshot — and all three again after the
+lane repacked.
 
 `buttons` is the same answer for the HUD's controls: the prompt bar's answers
 by name (`Yes`, `No`, `Keep`, `Confirm`, `DeclareNothing`, `Step(1)`) and the
