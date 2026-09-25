@@ -42,7 +42,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 ## Deck builder
 
 - `Screen::Build`; decisions in client-core `deckbuilder.rs` + `deckbuilder/`.
-- Pool: `GET /pool` (registry, `Coverage`), never the catalog; fetched once, filtered locally. "Playable only" hides stubs, marks Partial. One row per card; search covers `alt_names`.
+- Pool: `GET /pool` (registry, `Coverage`), never the catalog; fetched once a session and forgotten at sign-out (`DeckBuilder::forget_pool`), filtered locally. "Playable only" hides stubs, marks Partial. One row per card; search covers `alt_names`.
 - `DeckBuilder::problems` mirrors `POST /decks`: blocking greys Save; advisory (60 cards, 15 sideboard, lands, unimplemented) never blocks.
 - Sideboard: a real list through store, `DeckBody`, `LoadedDeck`, `SeatSpec`.
 - `open_picker`: `GET /printings` → `deckrow::PrintChoice`. `Entry` is `(slot, count, print, note)`: two printings, two rows; copy limit per card; the uneditable note survives every save. A no-op choice writes nothing (default printing leaves `4 Lightning Bolt`).
