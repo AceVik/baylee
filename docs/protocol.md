@@ -946,6 +946,10 @@ spell moving to the graveyard as it resolves, the table as the preset laid it
 out, and cards moving between libraries and hands before the first turn (the
 mulligan lines count those).
 
+Told once: a discard and a land played from a hand are each one line, and
+the move that carried the card is not written again. A land played from any
+other zone keeps its move line, which says where it came from.
+
 ### What a line cannot name
 
 The host reads identities just after each action. It remembers every object

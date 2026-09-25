@@ -3833,6 +3833,97 @@ mod tests {
         );
     }
 
+    /// A land played from a hand is one line, the play's: the move that put
+    /// it onto the battlefield is not told again, to any seat.
+    #[test]
+    fn a_land_played_from_a_hand_is_one_line() {
+        let (mut engine, mut log) = a_logged_table();
+        let me = PlayerId::new(0);
+        for _ in 0..100 {
+            let Pending::Priority { player, .. } = engine.pending().clone() else {
+                panic!("{:?}", engine.pending())
+            };
+            let turn = &engine.state().turn;
+            if player == me && turn.active == me && turn.phase == EnginePhase::FirstMain {
+                break;
+            }
+            engine
+                .apply(player, PlayerAction::PassPriority)
+                .expect("passes");
+        }
+        log.consume(engine.state());
+        let land = engine.state().zones.list(ZoneLocation::Hand(me))[0];
+        let from = log.len();
+        engine
+            .apply(me, PlayerAction::PlayLand { card: land })
+            .expect("plays its land");
+        log.consume(engine.state());
+
+        for seat in [me, PlayerId::new(1)] {
+            let told = told_since(&log, seat, from);
+            assert!(
+                matches!(
+                    &told[..],
+                    [LogEvent::LandPlayed { player, land: LogObject::Known { id, .. } }]
+                        if *player == me && *id == land
+                ),
+                "{told:?}"
+            );
+        }
+    }
+
+    /// A land played from anywhere but a hand keeps its move, which says
+    /// where it came from; "plays" does not.
+    #[test]
+    fn a_land_played_from_a_graveyard_keeps_its_move() {
+        let (mut engine, mut log) = a_logged_table();
+        let me = PlayerId::new(0);
+        let land = engine.state().zones.list(ZoneLocation::Hand(me))[0];
+        let state = engine.dev_state_mut(me).expect("dev commands");
+        state
+            .move_object(
+                land,
+                ZoneLocation::Graveyard(me),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("milled");
+        log.consume(engine.state());
+        let from = log.len();
+        // The engine's own order (`casting::play_land`): moved, then played.
+        let state = engine.dev_state_mut(me).expect("dev commands");
+        state
+            .move_object(
+                land,
+                ZoneLocation::Battlefield,
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("played");
+        state.journal.record(GameEvent::LandPlayed {
+            object: land,
+            player: me,
+        });
+        log.consume(engine.state());
+
+        let told = told_since(&log, PlayerId::new(1), from);
+        assert!(
+            matches!(
+                &told[..],
+                [
+                    LogEvent::Moved {
+                        object: LogObject::Known { id: moved, .. },
+                        from: LogZone::Graveyard,
+                        to: LogZone::Battlefield,
+                        ..
+                    },
+                    LogEvent::LandPlayed { land: LogObject::Known { id: played, .. }, .. },
+                ] if *moved == land && *played == land
+            ),
+            "{told:?}"
+        );
+    }
+
     /// A face-down permanent is named to its controller, and to everyone else
     /// is the blank the view shows them, with the same handle and no card.
     #[test]

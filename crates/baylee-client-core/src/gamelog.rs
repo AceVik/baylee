@@ -83,6 +83,13 @@ pub struct LogLine {
     /// The ability an ability line names, when the seat may know it, for a
     /// panel that shows its printed sentence the way the stack does.
     pub ability: Option<LogAbility>,
+    /// The seat the line is about, for a panel that marks it: the player the
+    /// sentence names, as "you" or by name, or whose card moves between
+    /// zones. `None` for a line about the table, which names no player or
+    /// several: a spell countered or not resolving, counters, a block,
+    /// damage to a permanent, a transform, day and night, a loop, the end of
+    /// the game.
+    pub subject: Option<PlayerId>,
 }
 
 impl LogLine {
@@ -302,6 +309,9 @@ struct Piece {
     /// which a line that opens with them capitalizes. A name is never
     /// recased: a player may call their seat "bo".
     lower: bool,
+    /// The seat a whole sentence is about ([`LogLine::subject`]), set where
+    /// the sentence chooses between "you" and that seat's name.
+    subject: Option<PlayerId>,
 }
 
 impl Piece {
@@ -310,6 +320,7 @@ impl Piece {
             text: text.into(),
             names: Vec::new(),
             lower: false,
+            subject: None,
         }
     }
 
@@ -381,6 +392,7 @@ impl Writer<'_> {
                 LogEvent::Ability { ability, .. } => ability,
                 _ => None,
             },
+            subject: piece.subject,
         }
     }
 
@@ -412,7 +424,10 @@ impl Writer<'_> {
         };
         let mut args = vec![self.seat(player)];
         args.extend(rest);
-        self.phrase(phrase, &args)
+        Piece {
+            subject: Some(player),
+            ..self.phrase(phrase, &args)
+        }
     }
 
     /// A sentence with no player in it: `{0}` is empty.
@@ -446,6 +461,7 @@ impl Writer<'_> {
                 card,
             }],
             lower: false,
+            subject: None,
         }
     }
 
@@ -670,14 +686,17 @@ impl Writer<'_> {
                 owner,
                 from,
                 to,
-            } => self.about_nobody(
-                Phrase::LogMoved,
-                vec![
-                    self.object(object),
-                    self.zone(*owner, *from, false),
-                    self.zone(*owner, *to, true),
-                ],
-            ),
+            } => Piece {
+                subject: Some(*owner),
+                ..self.about_nobody(
+                    Phrase::LogMoved,
+                    vec![
+                        self.object(object),
+                        self.zone(*owner, *from, false),
+                        self.zone(*owner, *to, true),
+                    ],
+                )
+            },
             LogEvent::Created { object, controller } => self.about(
                 *controller,
                 Phrase::LogCreatedYou,
@@ -690,9 +709,13 @@ impl Writer<'_> {
                 amount,
                 combat,
             } => {
-                let (you, victim) = match target {
-                    LogTarget::Player(player) => (*player == self.wording.seat, self.seat(*player)),
-                    LogTarget::Object(object) => (false, self.object(object)),
+                let (you, victim, subject) = match target {
+                    LogTarget::Player(player) => (
+                        *player == self.wording.seat,
+                        self.seat(*player),
+                        Some(*player),
+                    ),
+                    LogTarget::Object(object) => (false, self.object(object), None),
                 };
                 let (phrase, rest) = match (source, you, combat) {
                     (Some(source), true, true) => {
@@ -710,7 +733,10 @@ impl Writer<'_> {
                 };
                 let mut args = vec![victim, Self::count(amount)];
                 args.extend(rest);
-                self.phrase(phrase, &args)
+                Piece {
+                    subject,
+                    ..self.phrase(phrase, &args)
+                }
             }
             LogEvent::Life { player, old, new } => {
                 let n = usize::try_from(*new).unwrap_or(0);
@@ -745,7 +771,13 @@ impl Writer<'_> {
                 } else {
                     Phrase::LogAttacked
                 };
-                self.phrase(phrase, &[defender, self.object(attacker)])
+                Piece {
+                    subject: match defending {
+                        Defender::Player(player) => Some(*player),
+                        Defender::Planeswalker(_) => None,
+                    },
+                    ..self.phrase(phrase, &[defender, self.object(attacker)])
+                }
             }
             LogEvent::Blocked { blocker, attacker } => self.about_nobody(
                 Phrase::LogBlocked,
@@ -1859,6 +1891,101 @@ mod tests {
         }
         let missing: Vec<usize> = (0..VARIANTS).filter(|&i| !seen[i]).collect();
         assert!(missing.is_empty(), "no line of variants {missing:?}");
+    }
+
+    /// The seat each kind of line is about: the player it names, or whose
+    /// card moved; nobody for a line about the table. No `_` arm: a new event
+    /// has to say.
+    fn about_whom(event: &LogEvent) -> Option<PlayerId> {
+        match event {
+            LogEvent::TurnStarted { active: player }
+            | LogEvent::Mulliganed { player }
+            | LogEvent::Kept { player, .. }
+            | LogEvent::TimedOut { player, .. }
+            | LogEvent::StandIn { player }
+            | LogEvent::Returned { player }
+            | LogEvent::LandPlayed { player, .. }
+            | LogEvent::Cast { player, .. }
+            | LogEvent::Ability {
+                controller: player, ..
+            }
+            | LogEvent::Drew { player, .. }
+            | LogEvent::Discarded { player, .. }
+            | LogEvent::Moved { owner: player, .. }
+            | LogEvent::Created {
+                controller: player, ..
+            }
+            | LogEvent::Damage {
+                target: LogTarget::Player(player),
+                ..
+            }
+            | LogEvent::Life { player, .. }
+            | LogEvent::Attacked {
+                defending: Defender::Player(player),
+                ..
+            }
+            | LogEvent::ControlChanged { new: player, .. }
+            | LogEvent::Revealed { player, .. }
+            | LogEvent::Shuffled { player }
+            | LogEvent::DiceRolled { player, .. }
+            | LogEvent::Lost { player, .. } => Some(*player),
+            LogEvent::Countered { .. }
+            | LogEvent::DidNotResolve { .. }
+            | LogEvent::Damage {
+                target: LogTarget::Object(_),
+                ..
+            }
+            | LogEvent::Counters { .. }
+            | LogEvent::Attacked {
+                defending: Defender::Planeswalker(_),
+                ..
+            }
+            | LogEvent::Blocked { .. }
+            | LogEvent::Transformed { .. }
+            | LogEvent::GameOver { .. }
+            | LogEvent::LoopDetected { .. }
+            | LogEvent::DayNight { .. } => None,
+        }
+    }
+
+    /// Every line says which seat it is about, the reading seat as much as
+    /// any other, so a panel can mark it; a line about the table says
+    /// nobody, even the end of a game one seat won.
+    #[test]
+    fn every_line_says_which_seat_it_is_about() {
+        let cast = LogEvent::Cast {
+            player: BO,
+            spell: bolt(3),
+        };
+        assert_eq!(read(&book(&[entry(1, cast)]), Lang::En).subject, Some(BO));
+        let day = LogEvent::DayNight { now: DayNight::Day };
+        assert_eq!(read(&book(&[entry(1, day)]), Lang::En).subject, None);
+
+        let roster = roster();
+        let wording = Wording {
+            lang: Lang::En,
+            seat: ME,
+            statics: Some(&roster),
+            texts: &no_text,
+        };
+        for player in [ME, BO] {
+            let entries: Vec<LogEntry> = every_line_about(player)
+                .into_iter()
+                .map(|event| entry(1, event))
+                .collect();
+            let lines = book(&entries).lines(&wording);
+            for (line, entry) in lines.iter().zip(&entries) {
+                assert_eq!(
+                    line.subject,
+                    about_whom(&entry.event),
+                    "{:?}: {:?}",
+                    entry.event,
+                    line.text
+                );
+            }
+            let about = lines.iter().filter(|line| line.subject == Some(player));
+            assert!(about.count() > 40, "the walk names {player:?}");
+        }
     }
 
     /// Every log phrase has a line that says it: a phrase nothing writes is a

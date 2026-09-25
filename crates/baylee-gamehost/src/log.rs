@@ -452,6 +452,11 @@ impl GameLog {
                 Vec::new(),
             ),
             GameEvent::LandPlayed { object, player } => {
+                // The engine moves the land before it records the play, so
+                // the move from the hand is already a line, and this one says
+                // it again. A land played from anywhere else keeps its move:
+                // "plays" does not say where from.
+                self.unwrite_move(*object, LogZone::Hand, LogZone::Battlefield, batch);
                 let (land, sees) = self.refer(state, *object);
                 self.push(
                     LogEvent::LandPlayed {
@@ -626,6 +631,33 @@ impl GameLog {
             },
             vec![sees],
         );
+    }
+
+    /// Takes back this batch's line moving `id` from `from` to `to`, which a
+    /// later line of the same action says better. Only a line nobody has been
+    /// sent is taken back.
+    fn unwrite_move(&mut self, id: ObjectId, from: LogZone, to: LogZone, batch: usize) {
+        let first = batch.max(self.sealed);
+        let moved = self
+            .lines
+            .get(first..)
+            .unwrap_or_default()
+            .iter()
+            .rposition(|line| {
+                line.repeat == 1
+                    && matches!(
+                        &line.event,
+                        LogEvent::Moved {
+                            object: LogObject::Known { id: moved, .. },
+                            from: was,
+                            to: now,
+                            ..
+                        } if *moved == id && *was == from && *now == to
+                    )
+            });
+        if let Some(at) = moved {
+            self.lines.remove(first + at);
+        }
     }
 
     /// `count` cards were drawn: the moves that drew them, the batch's last

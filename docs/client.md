@@ -6571,6 +6571,11 @@ A `LogLine` carries:
 - whether it opens a turn (`header`);
 - the ability an ability line names, as the stack names it, so a panel can show
   the printed sentence;
+- the seat the line is about (`subject`), for a panel that marks each line
+  with its seat: the player the sentence names, "you" included, or whose card
+  moved between zones. A line about the table has none: a spell countered or
+  not resolving, counters, a block, damage to a permanent, a transform, day
+  and night, a loop, and the end of the game, whoever won it;
 - `times`, how often a folded line happened. A life total or counters folded
   into one line say 1, because their "was" already spans every change.
   `plain()` adds "(×N)" for a reader that draws plain text.
