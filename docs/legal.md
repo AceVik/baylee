@@ -164,7 +164,9 @@ Urheber- und Medienrecht.
      that it shows only on the felt there.
    - the **shell** of a protected permanent: indestructible's steel rim,
      which stands round the card from just above its face down to the
-     felt, and hexproof's or shroud's dome of light over it. Two rules
+     felt, hexproof's or shroud's dome of light over it, and defender's
+     brick wall on the felt past its top edge, lower than every card's
+     face. Two rules
      hold them, by the owner's and the PM's decisions under
      #298. Over its own print it is exactly transparent: a mask follows the
      real camera's ray through each of its points to the card's face
@@ -176,7 +178,9 @@ Urheber- und Medienrecht.
      (`table::shell_tests::a_standing_rim_never_lands_on_another_cards_print`
      and `a_standing_dome_never_lands_on_another_cards_print`, swept over
      duels and rings, fanned rows, fliers, hovers and every seat's
-     camera).
+     camera); the wall stands under every face, so every print in front
+     of it hides it by depth (`a_wall_never_draws_over_a_print`, the same
+     sweep).
    What reaches the image itself: its own **finish** (a foil is what that printing is, the one
    exception the owner accepted) and light that passes over the whole card
    and leaves nothing behind — the table's lamp pool, the one-second arrival

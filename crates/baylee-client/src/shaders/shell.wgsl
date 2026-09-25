@@ -12,6 +12,9 @@
 // 25.09): nearly black, darker than the felt it stands on, and read by the
 // pale light along its crest and the silver band going round it. The domes
 // are light in the lobby's blue-hour key, their colour in `params.tint`.
+// Defender's wall is brick at dusk, standing on the felt under every face,
+// so the prints in front of it hide it by depth (it writes depth, being
+// solid); the mask is there all the same.
 
 #import bevy_pbr::mesh_functions::{get_world_from_local, get_local_from_world, mesh_position_local_to_world, mesh_normal_local_to_world}
 #import bevy_pbr::view_transformations::position_world_to_clip
@@ -38,6 +41,7 @@ const SHELL_RIM: u32 = 1u;
 const SHELL_RING: u32 = 2u;
 const SHELL_DOME: u32 = 3u;
 const SHELL_DOME_RING: u32 = 4u;
+const SHELL_WALL: u32 = 5u;
 
 /// The card, in its own space: half its width and height, and its corner.
 /// `shellmat` holds these to `CARD_WIDTH`, `CARD_HEIGHT` and `CARD_CORNER`.
@@ -51,11 +55,20 @@ const RIM_RISE: f32 = 0.01;
 const RIM_DROP: f32 = 0.083;
 /// How far a ring's edges and a dome's foot line take to fade in.
 const SOFT: f32 = 0.012;
+/// One course of the wall's brick, one brick along it, and the mortar
+/// between them.
+const WALL_COURSE: f32 = 0.028;
+const WALL_BRICK: f32 = 0.07;
+const WALL_MORTAR: f32 = 0.005;
 
 /// Darksteel, linear: the metal, and the light it gives back, a cool
 /// silver.
 const STEEL: vec3<f32> = vec3<f32>(0.006, 0.0065, 0.0078);
 const SHEEN: vec3<f32> = vec3<f32>(0.58, 0.60, 0.64);
+/// Brick and mortar, linear, and the blue hour in the wall's shade.
+const BRICK: vec3<f32> = vec3<f32>(0.30, 0.075, 0.04);
+const MORTAR: vec3<f32> = vec3<f32>(0.11, 0.11, 0.12);
+const DUSK: vec3<f32> = vec3<f32>(0.006, 0.01, 0.025);
 
 struct ShellVertex {
     @builtin(instance_index) instance_index: u32,
@@ -118,10 +131,37 @@ fn steel(n: vec3<f32>, v: vec3<f32>, band: f32, lip: f32) -> vec3<f32> {
         + SHEEN * (0.04 * edge + 0.5 * glint + 0.25 * lip + 0.08 * band);
 }
 
+/// Defender's wall in running bond: `along` is the distance along its arc,
+/// `h` the height off the felt, `aa` how far either moves across a pixel.
+/// Warm where it faces up, the blue hour where it turns away; a top face
+/// shows only the joints across it.
+fn brick(along: f32, h: f32, n: vec3<f32>, aa: f32) -> vec3<f32> {
+    let row = floor(h / WALL_COURSE);
+    let x = along / WALL_BRICK + 0.5 * (row % 2.0);
+    let cell = floor(x);
+    let fy = fract(h / WALL_COURSE);
+    var joint = min(fract(x), 1.0 - fract(x)) * WALL_BRICK;
+    if n.y < 0.5 {
+        joint = min(joint, min(fy, 1.0 - fy) * WALL_COURSE);
+    }
+    // Where a pixel is wider than a course, the joints blur into the share
+    // of the face they take, about a quarter, rather than into grey.
+    let sharp = 1.0 - smoothstep(0.5 * WALL_MORTAR - aa, 0.5 * WALL_MORTAR + aa, joint);
+    let mortar = mix(0.25, sharp, clamp(1.0 - aa / (0.5 * WALL_COURSE), 0.0, 1.0));
+    // Every brick a shade of its own, from where it lies.
+    let shade = 0.85 + 0.3 * fract(sin(dot(vec2<f32>(cell, row), vec2<f32>(12.9898, 78.233))) * 43758.5453);
+    let up = max(n.y, 0.0);
+    let side = 0.5 + 0.5 * dot(n, normalize(vec3<f32>(-0.35, 0.0, 0.55)));
+    let lit = 0.62 + 0.25 * side + 0.3 * up;
+    return mix(BRICK * shade, MORTAR, mortar) * lit + DUSK * (1.0 - up);
+}
+
 @fragment
 fn fragment(in: ShellOut) -> @location(0) vec4<f32> {
     // Nothing of a shell over its own print.
     let clear = clear_over_print(in.local_cam, in.local_pos);
+    // Taken before any branch, where every pixel of the quad still runs.
+    let aa = max(fwidth(in.uv.x), fwidth(in.local_pos.z));
 
     let m = params.motion;
     let n = normalize(in.world_normal);
@@ -157,6 +197,9 @@ fn fragment(in: ShellOut) -> @location(0) vec4<f32> {
             * (1.0 - smoothstep(params.outer - 0.3 * SOFT, params.outer, d));
         let glow = (0.05 + 0.55 * fresnel + 0.35 * foot) * breath;
         return vec4<f32>(params.tint.rgb, min(glow, 1.0) * clear);
+    }
+    if params.kind == SHELL_WALL {
+        return vec4<f32>(brick(in.uv.x, in.local_pos.z + RIM_DROP, n, aa), clear);
     }
     // The rim: a lip of light along its crest, darker towards its foot,
     // where it meets the felt.

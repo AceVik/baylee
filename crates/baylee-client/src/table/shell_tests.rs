@@ -1,7 +1,8 @@
 //! The shells round a protected permanent, on real tables (#298): a rim or a
 //! dome that stands never lands on another card's print, seen from the real
 //! camera of every seat; the mask still leaves a rim to see; and both halves
-//! of each choice are taken, so neither test is true of nothing.
+//! of each choice are taken, so neither test is true of nothing. Defender's
+//! wall stands under every face, so every print in front of it hides it.
 
 use super::flying_tests::creature;
 use super::*;
@@ -453,5 +454,137 @@ fn a_standing_dome_never_lands_on_another_cards_print() {
     eprintln!(
         "{} standing {:?}, {} lying",
         found.standing, found.steps, found.lying
+    );
+}
+
+/// The wall's points, in its own space: every corner of its mesh, which is
+/// where a face of it is highest and furthest out.
+fn wall_points() -> Vec<Vec3> {
+    let mesh = shellmat::wall_mesh();
+    let Some(bevy::mesh::VertexAttributeValues::Float32x3(at)) =
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+    else {
+        panic!("a wall has positions");
+    };
+    let mut out: Vec<Vec3> = Vec::new();
+    for p in at.iter().map(|p| Vec3::from_array(*p)) {
+        if !out.iter().any(|q| q.distance_squared(p) < 1e-10) {
+            out.push(p);
+        }
+    }
+    out
+}
+
+/// What a wall sweep found.
+#[derive(Default, Debug)]
+struct WallSweep {
+    walls: usize,
+    points: usize,
+    /// Points some print is in front of, and of those, their own card's.
+    hidden: usize,
+    hidden_by_own: usize,
+    /// Wall points drawn over a print: where, and on what.
+    trespass: Vec<String>,
+}
+
+/// Stands a wall at every card, where `fit_the_shells` puts one
+/// ([`wall_pose`]), and follows the ray from `eye` through every point of
+/// every wall to every card's face near it, the wall's own card's included.
+/// Where it meets a print past the point, the wall would be drawn over that
+/// print; where it meets one before it, that print hides it.
+fn sweep_walls(placed: &[Placement], hovered: &[bool], eye: Vec3, found: &mut WallSweep) {
+    let points = wall_points();
+    let poses: Vec<Transform> = placed
+        .iter()
+        .zip(hovered)
+        .map(|(p, &h)| pose(p, h))
+        .collect();
+    let faces: Vec<(f32, Mat4)> = poses
+        .iter()
+        .map(|at| {
+            (
+                at.translation.y + CARD_THICKNESS * at.scale.y,
+                at.to_matrix().inverse(),
+            )
+        })
+        .collect();
+    for (i, at) in poses.iter().enumerate() {
+        found.walls += 1;
+        let wall = at.to_matrix() * wall_pose(at).to_matrix();
+        let near: Vec<usize> = (0..poses.len())
+            .filter(|&j| poses[j].translation.xz().distance(at.translation.xz()) < 2.5)
+            .collect();
+        for &p in &points {
+            found.points += 1;
+            let world = wall.transform_point3(p);
+            let mut hidden = false;
+            for &j in &near {
+                let (face, into) = faces[j];
+                let landing = eye + (world - eye) * ((eye.y - face) / (eye.y - world.y));
+                let on = into.transform_point3(landing);
+                if shellmat::card_sdf(on.truncate()) >= -1e-4 {
+                    continue;
+                }
+                if world.y > face {
+                    found.trespass.push(format!(
+                        "wall of {:?} at {world} lands {:.4} inside {:?}",
+                        placed[i].object,
+                        -shellmat::card_sdf(on.truncate()),
+                        placed[j].object
+                    ));
+                } else {
+                    hidden = true;
+                    if j == i {
+                        found.hidden_by_own += 1;
+                    }
+                }
+            }
+            if hidden {
+                found.hidden += 1;
+            }
+        }
+    }
+}
+
+/// Defender's wall never draws over a print: every point of it, stood at
+/// every card of every table, hovered and flying ones included, is under
+/// the face of every card whose print the ray to it crosses, from every
+/// shot the table is seen from, every other seat's included. And the sweep
+/// is not true of nothing: prints stand in front of walls, and much of
+/// every wall is left to see: measured when this was written (25.09.2026),
+/// 0.55 of the points behind some print, 0.010 behind their own card's.
+#[test]
+fn a_wall_never_draws_over_a_print() {
+    let mut found = WallSweep::default();
+    for (seats, row, window) in tables() {
+        let duel = table(seats, row, window);
+        let placed = placements(&duel);
+        for hovered in [
+            vec![false; placed.len()],
+            (0..placed.len()).map(|i| i % 5 == 2).collect(),
+        ] {
+            for eye in eyes(&duel, window) {
+                sweep_walls(&placed, &hovered, eye, &mut found);
+            }
+        }
+    }
+    assert!(
+        found.trespass.is_empty(),
+        "{} wall points land on a print, the first: {:?}",
+        found.trespass.len(),
+        &found.trespass[..found.trespass.len().min(5)]
+    );
+    assert!(
+        found.hidden > 1_000_000,
+        "prints stood in front of walls only {} times",
+        found.hidden
+    );
+    assert!(
+        (found.points - found.hidden) * 10 > found.points * 3,
+        "prints hide most of every wall: {found:?}"
+    );
+    assert!(
+        found.hidden_by_own * 20 < found.points,
+        "walls stand behind their own cards: {found:?}"
     );
 }

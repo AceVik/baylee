@@ -20,6 +20,7 @@ fn card(slot: u32, flying: bool) -> Placement {
         flying,
         indestructible: false,
         dome: None,
+        defender: false,
         count: 1,
         badge: 0,
         art: None,

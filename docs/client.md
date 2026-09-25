@@ -1925,8 +1925,18 @@ on objects of its own:
   between 1 and 1.1 every six seconds. It is blended, not added: Bevy
   draws `Add` premultiplied, where a colour with alpha zero is still
   added, and the mask below is an alpha. Its back faces are drawn, since
-  the half of it the mask leaves is the far side, seen from within. A
-  wall for defender is the next slice. Two rules hold every shell:
+  the half of it the mask leaves is the far side, seen from within.
+  Defender's is a low wall of brick on the felt past the card's top edge,
+  towards the table's middle: two courses and a row of `WALL_MERLONS` (5)
+  merlons, `WALL_HEIGHT` (0.08) high, along a shallow arc
+  `WALL_NEAR` (0.12) past the edge at its ends and `WALL_BULGE` (0.04)
+  further at its middle, `WALL_OVERHANG` (0.06) wider than the card each
+  side (`shellmat::wall_mesh`). Brick at dusk, the blue hour in its shade,
+  running bond laid along the arc. It turns with its card and always
+  stands, on the felt whatever the card does (`table::wall_pose`: never
+  lifted or grown with a hover or a flier's bob). It is solid, so it
+  writes depth, and it comes first in the pass (`WALL_RUNG`). Two rules
+  hold every shell:
   - **Exactly nothing over its own print.** Its vertex stage hands the
     fragment the camera in the shell's own space (`get_local_from_world`),
     the fragment follows its ray to the card's face, and where that meets
@@ -1975,6 +1985,15 @@ on objects of its own:
     seat's side of the table: none lands on a print, both halves of each
     choice are taken hundreds of times, and domes stand at every step.
     Taking the guard away turns both red by the million.
+    The wall needs no guard: it is lower than every face (0.08 against a
+    resting card's 0.083, a const assert), so past any point of it the
+    camera's ray only goes lower, and every print the ray crosses is in
+    front of it and hides it by depth, a neighbour's under a hover
+    included. `a_wall_never_draws_over_a_print` stands one at every card
+    of the same tables, from the same shots, and follows the ray through
+    every corner of it to every card's face nearby, its own card's
+    included: none lies past the point on a print, and prints stand in
+    front of walls millions of times.
   A card leaving the battlefield loses its shell at once; indestructible
   means nothing anywhere else, and a rim flying off with its card would
   no longer be fitted to anything on the way.

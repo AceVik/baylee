@@ -1720,6 +1720,8 @@ pub struct SceneIndex {
     ring_meshes: HashMap<Band, Handle<Mesh>>,
     /// Each dome's mesh at each of its steps.
     dome_meshes: HashMap<(shellmat::Dome, usize), Handle<Mesh>>,
+    /// Defender's wall, one for the whole table.
+    wall_mesh: Option<Handle<Mesh>>,
     /// What stands under each card on the table: the slabs of its deck and
     /// its contact shadow, with the count they were built for (#261). Held for the strip's reason, and because a group grows under
     /// the same top card: a deck built once at spawn kept one slab under a
@@ -2130,6 +2132,7 @@ pub fn spawn_stage(
             );
         }
     }
+    index.wall_mesh = Some(meshes.add(shellmat::wall_mesh()));
 
     // The contact shadow: a quad a little larger than a card, carrying a
     // painted halo that is dense under the card and gone by its own edge.
@@ -3382,6 +3385,8 @@ pub enum ShellPart {
     Dome,
     /// The ring on the felt a dome lies down to.
     DomeRing,
+    /// Defender's wall, on the felt past the card's top edge.
+    Wall,
 }
 
 /// One shell round a card: what stands, the ring it lies down to, and how
@@ -3401,6 +3406,8 @@ struct Shell {
     steel: Option<Layer>,
     /// Hexproof's or shroud's dome, and which.
     dome: Option<(shellmat::Dome, Layer)>,
+    /// Defender's wall, which always stands.
+    wall: Option<Entity>,
 }
 
 impl Shell {
@@ -3415,6 +3422,13 @@ impl Shell {
             commands.entity(layer.stand).despawn();
             commands.entity(layer.lie).despawn();
         }
+        if let Some(wall) = self.wall {
+            commands.entity(wall).despawn();
+        }
+    }
+
+    fn is_empty(self) -> bool {
+        self.layers().next().is_none() && self.wall.is_none()
     }
 }
 
@@ -3465,7 +3479,8 @@ fn spawn_layer(
 }
 
 /// Puts a protected permanent's shells round it, or takes them away:
-/// indestructible's steel, and hexproof's or shroud's dome.
+/// indestructible's steel, hexproof's or shroud's dome, and defender's
+/// wall.
 ///
 /// Each is spawned hidden, as children of the card, and [`fit_the_shells`]
 /// shows it standing or lying on the same frame: which depends on where
@@ -3482,12 +3497,16 @@ fn sync_shell(
     let on_table = placement.fan.is_none();
     let steel = placement.indestructible && on_table;
     let dome = placement.dome.filter(|_| on_table);
+    let wall = placement.defender && on_table;
     let mut shell = index
         .shells
         .get(&placement.object)
         .copied()
         .unwrap_or_default();
-    if shell.steel.is_some() == steel && shell.dome.map(|(d, _)| d) == dome {
+    if shell.steel.is_some() == steel
+        && shell.dome.map(|(d, _)| d) == dome
+        && shell.wall.is_some() == wall
+    {
         return;
     }
     let (Some(rim_mesh), Some(ring_mesh)) = (
@@ -3500,7 +3519,7 @@ fn sync_shell(
         if let Some(layer) = shell.steel.take() {
             Shell {
                 steel: Some(layer),
-                dome: None,
+                ..Shell::default()
             }
             .despawn(commands);
         } else {
@@ -3523,8 +3542,8 @@ fn sync_shell(
     if shell.dome.map(|(d, _)| d) != dome {
         if let Some(gone) = shell.dome.take() {
             Shell {
-                steel: None,
                 dome: Some(gone),
+                ..Shell::default()
             }
             .despawn(commands);
         }
@@ -3562,11 +3581,44 @@ fn sync_shell(
             }
         }
     }
-    if shell.layers().next().is_some() {
-        index.shells.insert(placement.object, shell);
-    } else {
-        index.shells.remove(&placement.object);
+    if shell.wall.is_some() != wall {
+        shell.wall = sync_wall(commands, index, materials, card, shell.wall, motion);
     }
+    if shell.is_empty() {
+        index.shells.remove(&placement.object);
+    } else {
+        index.shells.insert(placement.object, shell);
+    }
+}
+
+/// Takes defender's wall away if `had` one, or builds one, hidden, as a
+/// child of `card`: [`fit_the_shells`] stands it on the felt.
+fn sync_wall(
+    commands: &mut Commands,
+    index: &mut SceneIndex,
+    materials: &mut Assets<ShellMaterial>,
+    card: Entity,
+    had: Option<Entity>,
+    motion: f32,
+) -> Option<Entity> {
+    if let Some(gone) = had {
+        commands.entity(gone).despawn();
+        return None;
+    }
+    let mesh = index.wall_mesh.clone()?;
+    let material = shell_material(index, materials, ShellLook::steel(ShellKind::Wall), motion);
+    let wall = commands
+        .spawn((
+            ShellPart::Wall,
+            Mesh3d(mesh),
+            MeshMaterial3d(material),
+            Transform::default(),
+            Visibility::Hidden,
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(card).add_child(wall);
+    Some(wall)
 }
 
 /// Where a ring lies under the card at `at`, in the card's own space: flat on
@@ -3590,6 +3642,24 @@ fn on_the_felt(at: &Transform) -> Transform {
     }
 }
 
+/// Where defender's wall stands for the card at `at`, in the card's own
+/// space: on the felt under the card's middle, turned as the card is and
+/// unbanked, at the height a resting card's face has, which is the plane
+/// its mesh and its mask are drawn from ([`shellmat::wall_mesh`]). Never
+/// lifted or grown with the card, which would carry it over its
+/// neighbours' faces.
+pub fn wall_pose(at: &Transform) -> Transform {
+    let mut pose = on_the_felt(at);
+    let foot = Vec3::new(
+        at.translation.x,
+        TABLE_Y + shellmat::RIM_DROP,
+        at.translation.z,
+    );
+    pose.translation = at.to_matrix().inverse().transform_point3(foot);
+    pose.scale = Vec3::ONE / at.scale;
+    pose
+}
+
 /// Stands each protected permanent's shells, or lays them on the felt as
 /// rings, and keeps the rings flat on the felt under their card.
 ///
@@ -3599,8 +3669,10 @@ fn on_the_felt(at: &Transform) -> Transform {
 /// dome, against every card on the table, departing ones included, from
 /// where the camera is. A dome stands at the tallest step that fits. Where
 /// the steel and the dome both lie, the steel takes the band's inner half
-/// and the dome its outer, nested as they stand.
+/// and the dome its outer, nested as they stand. Defender's wall always
+/// stands, on the felt ([`wall_pose`]).
 #[allow(clippy::type_complexity)] // four disjoint views of one table
+#[allow(clippy::too_many_lines)] // three shells fitted in one pass over the table
 pub fn fit_the_shells(
     mut index: ResMut<SceneIndex>,
     cards: Query<
@@ -3647,6 +3719,12 @@ pub fn fit_the_shells(
         let Ok((_, at, _)) = cards.get(card) else {
             continue;
         };
+        if let Some(wall) = shell.wall
+            && let Ok((mut shown, mut transform, _, _)) = parts.get_mut(wall)
+        {
+            shown.set_if_neq(Visibility::Inherited);
+            transform.set_if_neq(wall_pose(at));
+        }
         let me = shellmat::Footprint::of(at);
         let others = faces
             .iter()
@@ -3886,6 +3964,9 @@ struct Placement {
     /// The dome this card stands under, if it has hexproof or shroud
     /// ([`shellmat::Dome::of`]); read and meaningful as `indestructible` is.
     dome: Option<shellmat::Dome>,
+    /// Whether this card has defender, and so stands behind its wall
+    /// ([`shellmat::wall_mesh`]); read and meaningful as `indestructible` is.
+    defender: bool,
     count: usize,
     /// What the count badge says ([`cardplate::count_word`]): how many
     /// permanents this card stands for when it is a merged group on the
@@ -4041,6 +4122,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         group.badges.contains(&KeywordBadge::Hexproof),
                         group.badges.contains(&KeywordBadge::Shroud),
                     ),
+                    defender: group.badges.contains(&KeywordBadge::Defender),
                     count: group.count(),
                     badge: cardplate::count_word(group.count()),
                     art: group.art,
@@ -4116,6 +4198,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         flying: false,
                         indestructible: false,
                         dome: None,
+                        defender: false,
                         count: if i + 1 == len {
                             under.saturating_sub(len - 1).max(1)
                         } else {
@@ -4161,6 +4244,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 flying: false,
                 indestructible: false,
                 dome: None,
+                defender: false,
                 count: usize::try_from(pile.count).unwrap_or(usize::MAX),
                 badge: 0,
                 art: pile.art,

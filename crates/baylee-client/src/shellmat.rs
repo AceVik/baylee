@@ -41,6 +41,15 @@
 //! they stand: steel [`RING_INNER`]..[`RING_SPLIT`], the dome
 //! [`RING_SPLIT`]..[`RING_OUTER`] (the PM, 25.09). Which dome is a row
 //! ([`Dome::row`]), so ward and protection (#302) are rows too.
+//!
+//! The third is defender's brick wall: a low rampart standing on the felt
+//! past the card's top edge, towards the table's middle and the enemy,
+//! slightly curved like a shield. It needs no guard, because it is never
+//! taller than any card: at most [`WALL_HEIGHT`] (0.08) off the felt, under
+//! the face of every card lying there ([`RIM_DROP`], 0.083), so wherever it
+//! meets a print on screen that print is in front of it and hides it. It
+//! stands on the felt whatever its card does: a hover or a flier's lift
+//! would carry it over its neighbours' faces.
 
 use baylee_client_core::airborne;
 use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH};
@@ -102,6 +111,29 @@ pub const DOME_RINGS: usize = 8;
 /// Where a dome sits in the transparent pass: over the rim it stands
 /// outside of, under the strip and the count badge.
 pub const DOME_RUNG: f32 = RIM_RUNG + 0.0005;
+/// How high defender's wall stands off the felt: two courses of brick and
+/// a row of merlons, and never as high as a card's face (the PM, 25.09).
+pub const WALL_HEIGHT: f32 = 0.08;
+/// One course of brick, and one brick along it.
+pub const WALL_COURSE: f32 = 0.028;
+/// See [`WALL_COURSE`].
+pub const WALL_BRICK: f32 = 0.07;
+/// How far past the card's top edge the wall's inner face stands at its
+/// ends; its middle bulges [`WALL_BULGE`] further out. Far enough that its
+/// own card hides little of it (the wall sweep in `table::shell_tests`
+/// counts it: one point in a hundred, from every shot).
+pub const WALL_NEAR: f32 = 0.12;
+/// How far the wall's middle bows out past its ends, like a shield.
+pub const WALL_BULGE: f32 = 0.04;
+/// How thick the wall is.
+pub const WALL_THICK: f32 = 0.025;
+/// How far the wall runs past the card's width at each end.
+pub const WALL_OVERHANG: f32 = 0.06;
+/// How many merlons crown it.
+pub const WALL_MERLONS: usize = 5;
+/// Where the wall sits in the pass. It writes depth like a solid thing, so
+/// it goes first: what is drawn over it after is sorted by that.
+pub const WALL_RUNG: f32 = FLOOR_RUNG - 0.0005;
 
 const _: () = assert!(RING_INNER >= crate::floormat::REACH && RING_OUTER > RING_INNER);
 const _: () = assert!(RING_SPLIT > RING_INNER && RING_SPLIT < RING_OUTER);
@@ -111,6 +143,11 @@ const _: () = assert!(RIM_RISE > 0.0 && RIM_MARGIN > 0.0);
 // A dome stands outside the rim and inside its own ring's band.
 const _: () = assert!(DOME_MARGIN > RIM_MARGIN && DOME_MARGIN <= RING_INNER);
 const _: () = assert!(DOME_RUNG > RIM_RUNG && DOME_RUNG < STRIP_RUNG);
+// Under every card's face, which is the whole of the wall's legality.
+const _: () = assert!(WALL_HEIGHT <= 0.08 && WALL_HEIGHT < RIM_DROP);
+const _: () = assert!(2.0 * WALL_COURSE < WALL_HEIGHT);
+// Outside the dome's skirt.
+const _: () = assert!(WALL_NEAR > DOME_MARGIN);
 
 /// Which shell a material draws, as `shell.wgsl` reads it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -124,6 +161,8 @@ pub enum ShellKind {
     Dome = 3,
     /// A dome lying down as a ring on the felt, in its colour.
     DomeRing = 4,
+    /// Defender's brick wall.
+    Wall = 5,
 }
 
 /// A protection that stands over its card as a dome of light (#298).
@@ -261,7 +300,7 @@ pub struct ShellMaterial {
 }
 
 /// What a shell's pipeline is specialised on: whether its back faces are
-/// drawn.
+/// drawn, and whether it writes depth.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ShellKey {
@@ -269,12 +308,16 @@ pub struct ShellKey {
     /// seen from within, and that is the half that stands past the card's
     /// far edge, where the mask lets it be seen.
     double_sided: bool,
+    /// A wall is solid: its merlons stand in front of its own top, and only
+    /// depth says which of its faces is nearer.
+    solid: bool,
 }
 
 impl From<&ShellMaterial> for ShellKey {
     fn from(material: &ShellMaterial) -> Self {
         Self {
             double_sided: material.kind() == ShellKind::Dome,
+            solid: material.kind() == ShellKind::Wall,
         }
     }
 }
@@ -307,6 +350,7 @@ impl ShellMaterial {
             2 => ShellKind::Ring,
             3 => ShellKind::Dome,
             4 => ShellKind::DomeRing,
+            5 => ShellKind::Wall,
             _ => ShellKind::Rim,
         }
     }
@@ -336,6 +380,7 @@ impl Material for ShellMaterial {
             ShellKind::Rim => RIM_RUNG,
             ShellKind::Ring | ShellKind::DomeRing => RING_RUNG,
             ShellKind::Dome => DOME_RUNG,
+            ShellKind::Wall => WALL_RUNG,
         })
     }
 
@@ -347,6 +392,11 @@ impl Material for ShellMaterial {
     ) -> Result<(), bevy::render::render_resource::SpecializedMeshPipelineError> {
         if key.bind_group_data.double_sided {
             descriptor.primitive.cull_mode = None;
+        }
+        if key.bind_group_data.solid
+            && let Some(depth) = descriptor.depth_stencil.as_mut()
+        {
+            depth.depth_write_enabled = Some(true);
         }
         Ok(())
     }
@@ -593,6 +643,133 @@ pub fn dome_mesh(row: DomeRow, step: f32) -> Mesh {
     .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
     .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     .with_inserted_indices(Indices::U32(indices))
+}
+
+/// Defender's wall as a mesh, in the card's own space with its face at
+/// `z = 0` and the felt [`RIM_DROP`] under it: two courses of brick along a
+/// shallow arc past the card's top edge, and [`WALL_MERLONS`] merlons on
+/// them. Every face faces out of the solid, and `uv.x` is the distance
+/// along the arc, which the bricks are laid by.
+///
+/// # Panics
+///
+/// Never: a wall has a few hundred vertices.
+#[must_use]
+pub fn wall_mesh() -> Mesh {
+    let mut at: Vec<[f32; 3]> = Vec::new();
+    let mut normals: Vec<[f32; 3]> = Vec::new();
+    let mut uvs: Vec<[f32; 2]> = Vec::new();
+    let mut indices: Vec<u32> = Vec::new();
+    let mut quad = |corners: [(Vec3, f32); 4], normal: Vec3| {
+        let base = u32::try_from(at.len()).expect("a few hundred");
+        for (p, along) in corners {
+            at.push(p.to_array());
+            normals.push(normal.to_array());
+            uvs.push([along, 0.0]);
+        }
+        let [a, b, c, _] = corners.map(|(p, _)| p);
+        let order = if (b - a).cross(c - a).dot(normal) >= 0.0 {
+            [0, 1, 2, 0, 2, 3]
+        } else {
+            [0, 2, 1, 0, 3, 2]
+        };
+        indices.extend(order.map(|i| base + i));
+    };
+    let foot = -RIM_DROP;
+    let crenels = foot + 2.0 * WALL_COURSE;
+    let top = foot + WALL_HEIGHT;
+    let mut slab = |from: f32, to: f32, low: f32, high: f32, pieces: usize| {
+        let arc: Vec<(Vec2, Vec2, f32)> = (0..=pieces)
+            .map(|i| {
+                #[expect(clippy::cast_precision_loss)] // a few dozen pieces
+                let u = from + (to - from) * i as f32 / pieces as f32;
+                wall_arc(u)
+            })
+            .collect();
+        for pair in arc.windows(2) {
+            let [(c0, n0, s0), (c1, n1, s1)] = [pair[0], pair[1]];
+            let half = WALL_THICK / 2.0;
+            let (o0, o1) = (c0 + n0 * half, c1 + n1 * half);
+            let (i0, i1) = (c0 - n0 * half, c1 - n1 * half);
+            let n = (n0 + n1).normalize().extend(0.0);
+            quad(
+                [
+                    (o0.extend(low), s0),
+                    (o1.extend(low), s1),
+                    (o1.extend(high), s1),
+                    (o0.extend(high), s0),
+                ],
+                n,
+            );
+            quad(
+                [
+                    (i0.extend(low), s0),
+                    (i1.extend(low), s1),
+                    (i1.extend(high), s1),
+                    (i0.extend(high), s0),
+                ],
+                -n,
+            );
+            quad(
+                [
+                    (i0.extend(high), s0),
+                    (o0.extend(high), s0),
+                    (o1.extend(high), s1),
+                    (i1.extend(high), s1),
+                ],
+                Vec3::Z,
+            );
+        }
+        for (end, outward) in [(arc[0], -1.0), (arc[arc.len() - 1], 1.0)] {
+            let (c, n, s) = end;
+            let half = WALL_THICK / 2.0;
+            let along = Vec2::new(n.y, -n.x) * outward;
+            quad(
+                [
+                    ((c - n * half).extend(low), s),
+                    ((c + n * half).extend(low), s),
+                    ((c + n * half).extend(high), s),
+                    ((c - n * half).extend(high), s),
+                ],
+                along.extend(0.0),
+            );
+        }
+    };
+    slab(0.0, 1.0, foot, crenels, 24);
+    let parts = 2 * WALL_MERLONS - 1;
+    for k in 0..WALL_MERLONS {
+        #[expect(clippy::cast_precision_loss)] // five merlons
+        let (from, to) = (
+            (2 * k) as f32 / parts as f32,
+            (2 * k + 1) as f32 / parts as f32,
+        );
+        slab(from, to, crenels, top, 3);
+    }
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::RENDER_WORLD,
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, at)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    .with_inserted_indices(Indices::U32(indices))
+}
+
+/// The wall's middle line at `u` along it (0 at its left end, 1 at its
+/// right, seen from the card): where it is, which way is out (towards the
+/// table's middle), and how far along the arc that is.
+#[must_use]
+pub fn wall_arc(u: f32) -> (Vec2, Vec2, f32) {
+    let chord = CARD_WIDTH + 2.0 * WALL_OVERHANG;
+    let x = (u - 0.5) * chord;
+    let across = 2.0 * x / chord;
+    let near = CARD_HEIGHT / 2.0 + WALL_NEAR + WALL_THICK / 2.0;
+    let y = near + WALL_BULGE * (1.0 - across * across);
+    let slope = -8.0 * WALL_BULGE * x / (chord * chord);
+    let out = Vec2::new(-slope, 1.0).normalize();
+    // The arc is shallow enough that its length is its chord's to within a
+    // brick's thousandth; bricks are laid by it, not measured against it.
+    (Vec2::new(x, y), out, x + chord / 2.0)
 }
 
 /// Which of [`DOME_STEPS`] a dome of `row` stands at round the card at `me`,
@@ -903,6 +1080,8 @@ struct VertexOutput {
             ("MASK_FEATHER", MASK_FEATHER),
             ("RIM_RISE", RIM_RISE),
             ("RIM_DROP", RIM_DROP),
+            ("WALL_COURSE", WALL_COURSE),
+            ("WALL_BRICK", WALL_BRICK),
         ] {
             let theirs = wgsl_const(SHADER, name);
             assert!(
@@ -915,6 +1094,7 @@ struct VertexOutput {
             ("SHELL_RING", ShellKind::Ring),
             ("SHELL_DOME", ShellKind::Dome),
             ("SHELL_DOME_RING", ShellKind::DomeRing),
+            ("SHELL_WALL", ShellKind::Wall),
         ] {
             #[expect(clippy::cast_precision_loss)] // a small enum
             let ours = kind as u32 as f32;
@@ -1028,6 +1208,73 @@ struct VertexOutput {
     /// no ring stands further past the card's edge than its point of the
     /// profile, which is the distance the guard measures its throw from, and
     /// each stands at that point's height.
+    /// Defender's wall stands where its constants say: on the felt, no
+    /// higher than [`WALL_HEIGHT`], [`WALL_NEAR`] past the card's top edge
+    /// or further. And every face of it faces out of the solid, so the back
+    /// faces the pipeline culls are the ones inside it: a face whose front
+    /// is in the wall and whose back is out of it is drawn inside out.
+    #[test]
+    fn the_wall_stands_where_its_constants_say_and_faces_out() {
+        let mesh = wall_mesh();
+        let Some(bevy::mesh::VertexAttributeValues::Float32x3(at)) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            panic!("a wall has positions");
+        };
+        let Some(bevy::mesh::VertexAttributeValues::Float32x3(normals)) =
+            mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
+        else {
+            panic!("a wall has normals");
+        };
+        let Some(Indices::U32(indices)) = mesh.indices() else {
+            panic!("a wall is indexed");
+        };
+        let at: Vec<Vec3> = at.iter().map(|p| Vec3::from_array(*p)).collect();
+        let (low, high) = at.iter().fold((f32::MAX, f32::MIN), |(lo, hi), p| {
+            (lo.min(p.z), hi.max(p.z))
+        });
+        assert!((low + RIM_DROP).abs() < 1e-6, "its foot is at {low}");
+        assert!(
+            (high - (WALL_HEIGHT - RIM_DROP)).abs() < 1e-6,
+            "its top is at {high}"
+        );
+        let nearest = at.iter().map(|p| p.y).fold(f32::MAX, f32::min);
+        assert!(
+            nearest >= CARD_HEIGHT / 2.0 + WALL_NEAR - 1e-5,
+            "it comes to {nearest}"
+        );
+        let crenels = 2.0 * WALL_COURSE - RIM_DROP;
+        let inside = |p: Vec3| {
+            let u = p.x / (CARD_WIDTH + 2.0 * WALL_OVERHANG) + 0.5;
+            if !(0.0..=1.0).contains(&u) || p.z < -RIM_DROP || p.z > WALL_HEIGHT - RIM_DROP {
+                return false;
+            }
+            let (centre, out, _) = wall_arc(u);
+            if (p.truncate() - centre).dot(out).abs() > WALL_THICK / 2.0 {
+                return false;
+            }
+            #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // 0..=9
+            let part = (u * (2 * WALL_MERLONS - 1) as f32) as usize;
+            p.z <= crenels || part.is_multiple_of(2)
+        };
+        let mut out = 0;
+        for tri in indices.chunks(3) {
+            let [a, b, c] = [0, 1, 2].map(|k| at[tri[k] as usize]);
+            let n = Vec3::from_array(normals[tri[0] as usize]);
+            assert!(
+                (b - a).cross(c - a).dot(n) > 0.0,
+                "a face wound against its normal at {a}"
+            );
+            let middle = (a + b + c) / 3.0;
+            let (front, back) = (inside(middle + n * 1e-3), inside(middle - n * 1e-3));
+            assert!(!front || back, "a face at {middle} faces into the wall");
+            if back && !front {
+                out += 1;
+            }
+        }
+        assert!(out > 200, "only {out} faces face out of the wall");
+    }
+
     #[test]
     fn a_domes_mesh_stands_no_further_out_than_its_profile() {
         let row = Dome::Hexproof.row();
