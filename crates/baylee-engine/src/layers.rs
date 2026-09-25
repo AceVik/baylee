@@ -480,8 +480,15 @@ fn apply(
 ) {
     match &fx.modifier {
         // Layer 2 (CR 613.1b): whoever controls the effect controls the
-        // permanent, for exactly as long as the effect lasts.
-        Modifier::GainControl => *controller = fx.controller,
+        // permanent, for exactly as long as the effect lasts. Never a player
+        // who has left the game (CR 800.4b): their effects end as they leave
+        // (`sba::eliminate_player`), and this is the door for any that did
+        // not.
+        Modifier::GainControl => {
+            if !state.has_left(fx.controller) {
+                *controller = fx.controller;
+            }
+        }
         Modifier::BecomeCopyOf(id) => {
             // Layer 1: the target's copiable values (CR 707.2), which are
             // its base as other copy effects have rewritten it and nothing

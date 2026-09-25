@@ -51,7 +51,7 @@ impl<L: CardLookup> Engine<L> {
         {
             self.passes -= 1;
         }
-        sba::eliminate_player(&mut self.state, player, LossReason::Conceded);
+        let exiled = sba::eliminate_player(&mut self.state, player, LossReason::Conceded);
         // CR 104.2a: the game is over the moment the last opponent leaves,
         // whatever was being asked.
         if let Some(result) = self.game_result() {
@@ -60,7 +60,7 @@ impl<L: CardLookup> Engine<L> {
         }
         if asked == Some(player) {
             self.drop_the_leavers_question(player);
-        } else if !self.forget_the_departed() {
+        } else if !self.forget_the_departed(&exiled) {
             self.cannot_comply();
         }
     }
@@ -106,14 +106,19 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// Takes out of the question on the table every object that has left
-    /// the game and every player who has. Returns `false` when a target
-    /// choice is left with fewer options than it must name.
+    /// the game, every object in `exiled` and every player who has left.
+    /// Returns `false` when a target choice is left with fewer options than
+    /// it must name.
+    ///
+    /// `exiled` is what the leaver controlled and did not own, which went to
+    /// exile as they left (CR 800.4a). It keeps its handle there, so the arena
+    /// alone would still offer it; it is a new object (CR 400.7).
     ///
     /// A choice of cards keeps what is left and asks for no more than that:
     /// a player can't choose what is impossible (CR 608.2d).
-    pub(super) fn forget_the_departed(&mut self) -> bool {
+    pub(super) fn forget_the_departed(&mut self, exiled: &[ObjectId]) -> bool {
         let state = &self.state;
-        let here = |id: &ObjectId| state.object(*id).is_some();
+        let here = |id: &ObjectId| state.object(*id).is_some() && !exiled.contains(id);
         let playing = |p: &PlayerId| !state.players[usize::from(p.get())].has_lost();
         if let Some(PlanKind::DrawOffer { remaining, .. }) = &mut self.pending_plan {
             remaining.retain(playing);
@@ -235,6 +240,26 @@ impl<L: CardLookup> Engine<L> {
             let mut res = *window.suspended;
             let flow = resolve::resume_tax_choice(&mut self.state, &mut res, false);
             self.go_on_with(res, flow);
+            return;
+        }
+        // A search they were making for another player (Opposition Agent)
+        // is that player's own again: the effect that gave them control of
+        // the searcher has ended (CR 800.4a), and a player nobody controls
+        // makes their own choices (CR 722.5). Same cards, same limits, and
+        // the finds go where the search sends them.
+        if !their_own
+            && let Some(res) = &mut self.resolution
+            && let Some(AwaitingOp::SearchTakeover {
+                agent,
+                finds,
+                reveal,
+            }) = res.awaiting
+            && agent == player
+            && !self.state.has_left(res.controller)
+            && let Pending::ChooseCards { player: asked, .. } = &mut self.pending
+        {
+            res.awaiting = Some(AwaitingOp::SearchLibrary { finds, reveal });
+            *asked = res.controller;
             return;
         }
         // A resolution goes on without them, their own included: a spell

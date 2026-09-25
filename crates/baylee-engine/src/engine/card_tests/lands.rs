@@ -76601,6 +76601,10 @@ fn echoing_deeps_enters_as_copy_of_graveyard_land_with_cave_subtype() {
 /// It prints "{T}: Add {C}." and "{T}: Each player gains control of all creatures they own."
 /// When a creature owned by player 0 is controlled by player 1, activating `Homeward Path`'s
 /// second ability restores control of the creature to player 0.
+///
+/// Player 1 holds the Elf through a control effect until end of turn, a Threaten's, and not
+/// through its projected controller written by hand: the next refresh of the projection would
+/// undo that on its own. The owner's control is a later effect, which wins (CR 613.7).
 #[test]
 fn homeward_path_restores_creature_control_to_owner() {
     let p0 = PlayerId::new(0);
@@ -76614,8 +76618,19 @@ fn homeward_path_restores_creature_control_to_owner() {
     let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf deployed");
     {
         let state = engine.dev_state_mut(p0).expect("harness sets up board");
-        let obj = state.object_mut(elf).expect("object exists");
-        obj.controller = p1;
+        let filter = crate::effects::EffectFilter::object(state, elf);
+        let timestamp = state.next_timestamp();
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: p1,
+            layer: baylee_cards_dsl::Layer::Control,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::GainControl,
+        });
+        state.refresh_characteristics();
     }
     engine.refresh_offer();
 

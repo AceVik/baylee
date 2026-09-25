@@ -57,11 +57,13 @@ Layer 2 is `Modifier::GainControl` at `Layer::Control`: the effect's
 controller controls the permanent for as long as the effect lasts, and
 gets it back when it ends (Mind Control, Act of Treason, Sower of
 Temptation). `GameObject::controller` is the projected answer that every
-rule reads; `base_controller` is where it goes back to, and only a
-*permanent* handover (`set_controller`) writes that. A control change
-restarts summoning sickness in both directions (CR 302.6). The one-shot
-`Effect::ChangeController` is still the right tool for a permanent
-handover — Gilded Drake, Homeward Path, Aminatou −6.
+rule reads; `base_controller` is where it goes back to: the player it
+arrived under, written by `set_controller` and nothing else. A control
+change restarts summoning sickness in both directions (CR 302.6). A change
+for the rest of the game (Gilded Drake, Wishclaw Talisman, Homeward Path,
+Aminatou −6) is a layer-2 effect too, lasting `Indefinitely`, so a player
+who leaves the game takes none of it with them (CR 800.4a; see
+`docs/engine-internals.md`, "A player leaving the game").
 
 Triggers: ETB, LTB, dies, spellcast, draws (incl. except-first), attacks,
 becomes-target, exiled-from-battlefield, combat-damage-to-player,

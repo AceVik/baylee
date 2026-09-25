@@ -2,7 +2,7 @@
 //! direction encoding on the wire: every player receives that neighbour's
 //! nonland permanents, relative to their own seat (Aminatou's printed −6).
 
-use super::{AwaitingOp, Flow, Pending, PlayerId, Resolution, change_controller, run};
+use super::{AwaitingOp, Flow, Pending, PlayerId, Resolution, gain_control, run};
 use crate::state::GameState;
 use crate::zone::ZoneLocation;
 use baylee_core::types::TypeSet;
@@ -78,9 +78,7 @@ fn rotate(state: &mut GameState, res: &Resolution, seats: &[PlayerId], distance:
             Some((id, seats[(from + seats.len() - distance) % seats.len()]))
         })
         .collect();
-    for (id, controller) in changes {
-        change_controller(state, id, controller);
-    }
+    gain_control(state, &changes);
 }
 
 #[cfg(test)]

@@ -587,9 +587,28 @@ pub fn lose_by_effect(state: &mut GameState, player: PlayerId) -> bool {
     true
 }
 
-/// Eliminates a player (S2: mark + journal; CR 800.4 object cleanup is
-/// refined with multiplayer polish — here their objects leave the game).
-pub fn eliminate_player(state: &mut GameState, player: PlayerId, reason: LossReason) {
+/// A player leaves the game (CR 800.4a), having lost for `reason`, and
+/// returns what of theirs was exiled.
+///
+/// In the rule's order, which decides where each object ends up:
+/// 1. Everything they own leaves the game, and every effect giving them
+///    control of an object ends, so what they took goes back to whoever
+///    controls it without them. So does every effect giving them control of
+///    a player: the one the engine has is Opposition Agent's search takeover
+///    (CR 722.2), and `every_card_that_controls_a_player_does_it_by_taking_over_a_search`
+///    fails the day a card controls a player some other way.
+/// 2. [`exile_what_the_departed_control`]: an ability or a copy of a spell
+///    they control ceases to exist, and what else they still control is
+///    exiled. That is what they control by default: a creature they
+///    reanimated out of somebody else's graveyard, a spell of somebody
+///    else's they cast.
+///
+/// Not a state-based action: it all happens as they leave.
+pub fn eliminate_player(
+    state: &mut GameState,
+    player: PlayerId,
+    reason: LossReason,
+) -> Vec<baylee_core::ids::ObjectId> {
     // The first loss is the one that happened: a seat that has already lost
     // and then concedes has not lost a second time for a second reason.
     let _ = state.players[player.get() as usize]
@@ -598,7 +617,6 @@ pub fn eliminate_player(state: &mut GameState, player: PlayerId, reason: LossRea
     state
         .journal
         .record(GameEvent::PlayerLost { player, reason });
-    // CR 800.4a (simplified): everything they own leaves the game.
     let owned: Vec<_> = state
         .arena
         .iter()
@@ -614,6 +632,13 @@ pub fn eliminate_player(state: &mut GameState, player: PlayerId, reason: LossRea
         state.zones.remove(id, loc);
         let _ = state.arena.remove(id);
     }
+    state.effects.remove_where(|fx| {
+        matches!(
+            fx.modifier,
+            baylee_cards_dsl::Modifier::GainControl | baylee_cards_dsl::Modifier::SearchTakeover
+        ) && fx.controller == player
+    });
+    let exiled = exile_what_the_departed_control(state);
     let attackers: Vec<_> = state
         .combat
         .attackers
@@ -634,6 +659,75 @@ pub fn eliminate_player(state: &mut GameState, player: PlayerId, reason: LossRea
     // (CR 800.4d), and one waiting for a turn of theirs would otherwise sit
     // in the hashed state for the rest of the game.
     state.delayed.retain(|d| d.controller != player);
+    exiled
+}
+
+/// What players who have left the game still control, gone, and the ids of
+/// what was exiled.
+///
+/// An ability or a copy of a spell on the stack ceases to exist; anything
+/// else on the battlefield or the stack is exiled (CR 800.4a). The second
+/// reader is CR 800.4c: an object whose last control effect ends while the
+/// player who controls it by default has left, such as a creature a player
+/// reanimated and left behind that another player had taken until end of
+/// turn, is exiled as that effect ends.
+///
+/// **Not a state-based action**, and not run as one. [`eliminate_player`]
+/// calls it as a player leaves. The engine's loop calls it right after it
+/// refreshes the projection (step 0a), before it checks whether the game is
+/// over and before any state-based action, and the cleanup step calls it as
+/// until-end-of-turn effects end. An effect that ends in the middle of a
+/// resolution exiles at the next pass, not inside the resolution
+/// (`docs/engine-internals.md`).
+///
+/// It goes through [`GameState::move_object`], so a permanent leaving the
+/// battlefield this way triggers what leaving the battlefield triggers.
+pub fn exile_what_the_departed_control(state: &mut GameState) -> Vec<baylee_core::ids::ObjectId> {
+    state.refresh_characteristics();
+    let departed = |state: &GameState, id: baylee_core::ids::ObjectId| {
+        state
+            .object(id)
+            .is_some_and(|o| state.has_left(o.controller))
+    };
+    let ceased: Vec<_> = state
+        .zones
+        .list(ZoneLocation::Stack)
+        .iter()
+        .copied()
+        .filter(|&id| {
+            departed(state, id)
+                && state.object(id).is_some_and(|o| {
+                    o.kind == ObjectKind::AbilityOnStack
+                        || o.riders.contains(&crate::object::Rider::SpellCopy)
+                })
+        })
+        .collect();
+    for id in ceased {
+        state.zones.remove(id, ZoneLocation::Stack);
+        let _ = state.arena.remove(id);
+    }
+    let exiled: Vec<_> = state
+        .zones
+        // phasing: a phased-out permanent is exiled too (CR 702.26n).
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .chain(state.zones.list(ZoneLocation::Stack).iter())
+        .copied()
+        .filter(|&id| departed(state, id))
+        .collect();
+    for &id in &exiled {
+        let owner = state.object(id).map_or(PlayerId::new(0), |o| o.owner);
+        if let Some(obj) = state.object_mut(id) {
+            obj.kind = ObjectKind::Card;
+        }
+        let _ = state.move_object(
+            id,
+            ZoneLocation::Exile(owner),
+            ZonePosition::Top,
+            Cause::PlayerLeft,
+        );
+    }
+    exiled
 }
 
 #[cfg(test)]

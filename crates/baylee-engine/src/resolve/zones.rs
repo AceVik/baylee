@@ -324,6 +324,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // (`TargetSpec::EventObject` is the creature that died), and
             // without it a card exiled in response to the keyword trigger
             // came back onto the battlefield out of exile.
+            // "Under your control" when `you` has left the game: the card
+            // stays where it is (CR 800.4b). Under its owner's it goes, since
+            // an owner who had left would have taken the card with them.
+            if !owner_control && state.has_left(you) {
+                return None;
+            }
             for target_id in spec_objects(res, target) {
                 // The card has to still be in a graveyard, asked per card:
                 // one of several targets leaving does not stop the others.
@@ -689,6 +695,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             })
         }
         Effect::AllGraveyardCreaturesToBattlefield => {
+            // Under `you`'s control, so nowhere once they have left
+            // (CR 800.4b).
+            if state.has_left(you) {
+                return None;
+            }
             for seat in 0..state.players.len() {
                 let p = PlayerId::new(seat as u8);
                 for &card in &state.zones.list(ZoneLocation::Graveyard(p)).clone() {

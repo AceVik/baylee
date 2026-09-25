@@ -381,6 +381,65 @@ fn a_bystanders_concession_leaves_a_cast_without_their_creature() {
     assert_eq!(engine.state().players[0].mana_pool.total(), 0, "paid for");
 }
 
+/// The same, with a creature seat 1 owns and seat 2 controls, as if seat 2
+/// had reanimated it (#281). It is exiled as seat 2 leaves (CR 800.4a) and
+/// keeps its id in exile, so what drops it from the offer is that it moved,
+/// not that it is gone.
+#[test]
+fn a_creature_exiled_as_its_controller_leaves_is_no_longer_on_offer() {
+    let mut engine = Duel::table(277, plains(), 3)
+        .hand(0, &[twining_twins()])
+        .battlefield(0, &[plains(), plains()])
+        .battlefield(1, &[quiet_creature(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat(0));
+    let [ones, lent] = creatures_of(&engine, seat(1))[..] else {
+        panic!("two creatures for seat 1");
+    };
+    engine
+        .dev_state_mut(seat(0))
+        .expect("the harness sets boards up")
+        .object_mut(lent)
+        .expect("on the battlefield")
+        .set_controller(seat(2));
+    tap_all_mana(&mut engine, seat(0));
+    let card = in_hand(&engine, seat(0), twining_twins()).expect("in hand");
+    engine
+        .apply(seat(0), PlayerAction::CastSpell { card })
+        .unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        panic!("{:?}", engine.pending());
+    };
+    assert!(options.contains(&ones) && options.contains(&lent));
+
+    engine.apply(seat(2), PlayerAction::Concede).unwrap();
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("the cast is still asking: {:?}", engine.pending());
+    };
+    assert_eq!((player, options), (seat(0), vec![ones]));
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(seat(1)))
+            .contains(&lent)
+    );
+    assert!(
+        engine
+            .apply(
+                seat(0),
+                PlayerAction::ChooseObjects {
+                    objects: vec![lent],
+                },
+            )
+            .is_err()
+    );
+}
+
 /// The only creature on offer was the leaver's. The cast can't go on, so
 /// it is illegal, and the game returns to the moment before it was
 /// proposed (CR 601.2): the card is back in hand, the stack is empty, and
@@ -871,7 +930,7 @@ fn piles_ask_for_no_more_cards_than_are_left() {
         crate::event::LossReason::Conceded,
     );
 
-    assert!(engine.forget_the_departed());
+    assert!(engine.forget_the_departed(&[]));
     let Pending::Arrange { cards, piles, .. } = engine.pending() else {
         unreachable!("set above")
     };

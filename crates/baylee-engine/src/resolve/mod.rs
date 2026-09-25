@@ -275,6 +275,12 @@ pub enum AwaitingOp {
     SearchTakeover {
         /// The player taking the search over.
         agent: PlayerId,
+        /// The search's own [`AwaitingOp::SearchLibrary`] fields, for the
+        /// searching player to finish it with if the agent leaves the game
+        /// before choosing (CR 800.4a).
+        finds: &'static [baylee_cards_dsl::effect::Find],
+        /// See [`AwaitingOp::SearchLibrary`].
+        reveal: bool,
     },
     /// After `DiscardForPlayers`: discard the chosen cards, then ask the
     /// next remaining player.
@@ -1036,7 +1042,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         AwaitingOp::NewTargets(_) => {
             unreachable!("a change of targets resumes via resume_targets")
         }
-        AwaitingOp::SearchTakeover { agent } => {
+        AwaitingOp::SearchTakeover { agent, .. } => {
             for &card in chosen {
                 let _ = state.move_object(
                     card,
@@ -1260,13 +1266,16 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             }
             // Opposition Agent: an opponent of the searching player takes
             // the search over — they choose, and the find goes to exile
-            // playable by them.
+            // playable by them. That is controlling the searching player
+            // (CR 722.2), which a player who has left the game does not
+            // (CR 800.4b).
             let takeover = state
                 .effects
                 .iter()
                 .find(|fx| {
                     matches!(fx.modifier, baylee_cards_dsl::Modifier::SearchTakeover)
                         && state.is_opponent(fx.controller, you)
+                        && !state.has_left(fx.controller)
                 })
                 .map(|fx| fx.controller);
             let options: Vec<ObjectId> = state
@@ -1291,7 +1300,11 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             let want = u8::try_from(finds.len()).unwrap_or(u8::MAX);
             let least = if optional { 0 } else { want };
             if let Some(agent) = takeover {
-                res.awaiting = Some(AwaitingOp::SearchTakeover { agent });
+                res.awaiting = Some(AwaitingOp::SearchTakeover {
+                    agent,
+                    finds,
+                    reveal: reveals(filter, finds),
+                });
                 return Some(Pending::ChooseCards {
                     player: agent,
                     options,
@@ -1720,8 +1733,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             });
             if let Some(target) = exchange {
                 let their_controller = state.object(target).map_or(you, |o| o.controller);
-                change_controller(state, target, you);
-                change_controller(state, res.source, their_controller);
+                gain_control(state, &[(target, you), (res.source, their_controller)]);
             } else {
                 // No exchange: sacrifice the source (Gilded Drake).
                 let owner = state.object(res.source).map_or(you, |o| o.owner);
@@ -1762,7 +1774,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             // guessed at, because the fix is a `Pending` and not an index.
             let subject = res.targets.first().copied().unwrap_or(res.source);
             if let Some(&seat) = players_of(new_controller, state, you, res).first() {
-                change_controller(state, subject, seat);
+                gain_control(state, &[(subject, seat)]);
             }
             None
         }
@@ -1781,10 +1793,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 })
                 .copied()
                 .collect();
-            for id in creatures {
-                let owner = state.object(id).map_or(you, |o| o.owner);
-                change_controller(state, id, owner);
-            }
+            let changes: Vec<(ObjectId, PlayerId)> = creatures
+                .into_iter()
+                .filter_map(|id| state.object(id).map(|o| (id, o.owner)))
+                .collect();
+            gain_control(state, &changes);
             None
         }
         // --- Cards drawn -------------------------------------------------
@@ -1886,6 +1899,18 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             run_nested_with(state, res, flatten(branch), targets)
         }
         // --- Effects, emblems, and the misc tail -------------------------
+        // A departed player's resolution goes on without them (CR 608.2m),
+        // but it creates nothing for them and gives them control of nothing.
+        // An emblem is owned by the player who gets it (CR 114.2), and a
+        // copy of a spell by the player it is put on the stack under
+        // (CR 707.10), so neither is created (CR 800.4d); nothing changes to
+        // their control (CR 800.4b).
+        Effect::CreateEmblem { .. }
+        | Effect::CopyTargetSpell { .. }
+        | Effect::CreateContinuousEffect {
+            modifier: baylee_cards_dsl::Modifier::GainControl,
+            ..
+        } if state.has_left(you) => None,
         Effect::CreateContinuousEffect {
             layer,
             filter,
@@ -1999,12 +2024,6 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             state.extra_turns.push_back(you);
             None
         }
-        // An emblem is owned by the player who gets it (CR 114.2), and a
-        // copy of a spell by the player it is put on the stack under
-        // (CR 707.10). Neither is created for a player who has left the game
-        // (CR 800.4d), though their own resolution goes on without them
-        // (CR 608.2m).
-        Effect::CreateEmblem { .. } | Effect::CopyTargetSpell { .. } if state.has_left(you) => None,
         Effect::CreateEmblem { abilities } => {
             let name = match state.object(res.source) {
                 Some(o) => o.base.name,
@@ -2235,26 +2254,71 @@ fn untap(state: &mut GameState, id: ObjectId) {
     });
 }
 
-fn change_controller(state: &mut GameState, target: ObjectId, new_controller: PlayerId) {
-    let Some(obj) = state.object(target) else {
-        return;
-    };
-    let old = obj.controller;
-    if old == new_controller {
-        return;
+/// Each `(object, player)`: the player gains control of the object for as
+/// long as it stays where it is, all at once.
+///
+/// A layer-2 effect (CR 613.1b) and not a new default controller. The
+/// difference is the whole of CR 800.4: when a player leaves the game the
+/// effects giving them control end and the object goes back to whoever
+/// controls it without them (a Gilded Drake'd creature to its owner), while
+/// what they control by default is exiled (a creature they reanimated out
+/// of someone else's graveyard). `base_controller` is that default, so it
+/// is never written here. The effects keep their timestamps, so a later
+/// taker wins and an earlier one's control comes back when the later one
+/// leaves (CR 613.7).
+///
+/// Nothing is registered for a player who has left the game (CR 800.4b), or
+/// for a player who controls the object by default when no effect gives it
+/// to anybody: that effect would change nothing, now or later. One that
+/// does change nothing *now* is still registered, because it outlives the
+/// shorter effect that hides it: a creature stolen back until end of turn
+/// is its thief's again after the cleanup step.
+///
+/// Summoning sickness restarts where control moved (CR 302.6), as the
+/// projection moves it; the journal says who has each object now.
+fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId)]) {
+    let before: Vec<(ObjectId, PlayerId)> = changes
+        .iter()
+        .filter_map(|&(id, _)| state.object(id).map(|o| (id, o.controller)))
+        .collect();
+    let timestamp = state.next_timestamp();
+    for &(id, player) in changes {
+        if state.has_left(player) {
+            continue;
+        }
+        let Some(obj) = state.object(id) else {
+            continue;
+        };
+        let held = state.effects.iter().any(|fx| {
+            fx.modifier == baylee_cards_dsl::Modifier::GainControl
+                && crate::effects::applies_to(state, fx, obj)
+        });
+        if !held && obj.base_controller == player {
+            continue;
+        }
+        let filter = crate::effects::EffectFilter::object(state, id);
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: player,
+            layer: baylee_cards_dsl::Layer::Control,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::GainControl,
+        });
     }
-    let ts = state.next_timestamp();
-    {
-        let obj = state.object_mut(target).expect("checked above");
-        obj.set_controller(new_controller);
-        // Control changes restart summoning sickness (CR 302.6).
-        obj.timestamp = ts;
+    state.refresh_characteristics();
+    for (object, old) in before {
+        let Some(new) = state.object(object).map(|o| o.controller) else {
+            continue;
+        };
+        if new != old {
+            state
+                .journal
+                .record(GameEvent::ControllerChanged { object, old, new });
+        }
     }
-    state.journal.record(GameEvent::ControllerChanged {
-        object: target,
-        old,
-        new: new_controller,
-    });
 }
 
 #[cfg(test)]
@@ -2539,5 +2603,182 @@ mod created_for_the_departed_tests {
         let mut res = theirs(Effect::CopyTargetSpell { mods: &[] }, spell);
         assert!(matches!(run(&mut state, &mut res), Flow::Complete));
         assert_eq!(state.zones.list(ZoneLocation::Stack)[..], [spell]);
+    }
+
+    /// A permanent of seat 0's.
+    fn permanent(state: &mut GameState) -> ObjectId {
+        let name = state.names.intern("Permanent");
+        state.create_bare(me(), ObjectKind::Permanent, name, ZoneLocation::Battlefield)
+    }
+
+    /// A creature card in seat 0's graveyard.
+    fn buried(state: &mut GameState) -> ObjectId {
+        let name = state.names.intern("Creature");
+        let id = state.create_bare(me(), ObjectKind::Card, name, ZoneLocation::Graveyard(me()));
+        let obj = state.object_mut(id).expect("fresh");
+        let mut base = (*obj.base).clone();
+        base.types = baylee_core::types::TypeSet::CREATURE;
+        obj.base = std::sync::Arc::new(base);
+        state.invalidate_projections();
+        id
+    }
+
+    fn control_effects(state: &GameState) -> usize {
+        state
+            .effects
+            .iter()
+            .filter(|fx| fx.modifier == baylee_cards_dsl::Modifier::GainControl)
+            .count()
+    }
+
+    /// Nothing changes to the control of a player who has left (CR 800.4b):
+    /// their "gain control of target creature" resolves to nothing, and no
+    /// indefinite change is registered for them either.
+    #[test]
+    fn a_player_who_has_left_gains_control_of_nothing() {
+        let (mut state, _) = state();
+        let it = permanent(&mut state);
+        let mut res = theirs(
+            Effect::continuous(
+                &baylee_cards_dsl::Filter::This,
+                baylee_cards_dsl::Modifier::GainControl,
+                baylee_cards_dsl::Duration::UntilEndOfTurn,
+            ),
+            it,
+        );
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        gain_control(&mut state, &[(it, them())]);
+        assert_eq!(control_effects(&state), 0);
+        assert_eq!(state.object(it).map(|o| o.controller), Some(me()));
+    }
+
+    /// And a control effect for them that got into the table anyway gives
+    /// them nothing.
+    #[test]
+    fn a_control_effect_for_a_player_who_has_left_applies_to_nothing() {
+        let (mut state, _) = state();
+        let it = permanent(&mut state);
+        let filter = crate::effects::EffectFilter::object(&state, it);
+        let timestamp = state.next_timestamp();
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: them(),
+            layer: baylee_cards_dsl::Layer::Control,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::GainControl,
+        });
+        state.refresh_characteristics();
+        assert_eq!(state.object(it).map(|o| o.controller), Some(me()));
+    }
+
+    /// A card that would be put onto the battlefield under the control of a
+    /// player who has left stays where it is (CR 800.4b). Under its owner's
+    /// control it goes, since its owner is still in the game.
+    #[test]
+    fn nothing_is_put_onto_the_battlefield_under_a_player_who_has_left() {
+        let (mut state, _) = state();
+        let card = buried(&mut state);
+        let spec =
+            TargetSpec::CardInGraveyard(&baylee_cards_dsl::Filter::CREATURE, PlayerRel::EachPlayer);
+        for effect in [
+            Effect::reanimate(spec),
+            Effect::AllGraveyardCreaturesToBattlefield,
+        ] {
+            let mut res = theirs(effect, card);
+            assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+            assert_eq!(
+                state.zones.list(ZoneLocation::Graveyard(me()))[..],
+                [card],
+                "{effect:?}"
+            );
+        }
+
+        let mut res = theirs(
+            Effect::GraveyardToBattlefield {
+                target: spec,
+                owner_control: true,
+                counters: None,
+            },
+            card,
+        );
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        let obj = state.object(card).expect("the same card");
+        assert_eq!(
+            (obj.zone, obj.controller),
+            (crate::zone::Zone::Battlefield, me())
+        );
+    }
+
+    /// A player who has left controls no player (CR 800.4b): an Opposition
+    /// Agent's takeover of theirs that is still in the table leaves seat 0
+    /// to make its own search.
+    #[test]
+    fn a_player_who_has_left_takes_over_no_search() {
+        let (mut state, _) = state();
+        let takeover = baylee_cards_dsl::Modifier::SearchTakeover;
+        let timestamp = state.next_timestamp();
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: them(),
+            layer: takeover.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
+            modifier: takeover,
+        });
+        let name = state.names.intern("Card");
+        let card = state.create_bare(me(), ObjectKind::Card, name, ZoneLocation::Library(me()));
+        let mut res = theirs(
+            Effect::SearchLibrary {
+                filter: &baylee_cards_dsl::Filter::Any,
+                finds: &[baylee_cards_dsl::effect::Find::HAND],
+                optional: false,
+            },
+            card,
+        );
+        res.controller = me();
+        let Flow::Wait(Pending::ChooseCards {
+            player, options, ..
+        }) = run(&mut state, &mut res)
+        else {
+            panic!("a search asks");
+        };
+        assert_eq!(player, me());
+        assert!(options.contains(&card));
+    }
+
+    /// What a player who has left controls and does not own (CR 800.4a): a
+    /// spell and a permanent are exiled, into their owner's exile, and an
+    /// ability ceases to exist rather than become a card there.
+    #[test]
+    fn what_a_departed_player_controls_is_exiled_or_ceases_to_exist() {
+        let (mut state, spell) = state();
+        let name = state.names.intern("Ability");
+        let ability =
+            state.create_bare(me(), ObjectKind::AbilityOnStack, name, ZoneLocation::Stack);
+        let it = permanent(&mut state);
+        for id in [spell, ability, it] {
+            state
+                .object_mut(id)
+                .expect("made above")
+                .set_controller(them());
+        }
+
+        let exiled = crate::sba::exile_what_the_departed_control(&mut state);
+        assert_eq!(exiled, [it, spell]);
+        assert!(state.object(ability).is_none());
+        assert!(state.zones.list(ZoneLocation::Stack).is_empty());
+        assert_eq!(state.zones.list(ZoneLocation::Exile(me())).len(), 2);
+        for id in [it, spell] {
+            let obj = state.object(id).expect("in exile");
+            assert_eq!(
+                (obj.zone, obj.kind),
+                (crate::zone::Zone::Exile, ObjectKind::Card)
+            );
+        }
     }
 }

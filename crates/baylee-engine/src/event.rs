@@ -27,6 +27,11 @@ pub enum Cause {
     TurnBased,
     /// A state-based action (CR 704).
     StateBased,
+    /// A player left the game, and what they controlled that did not leave
+    /// with them is exiled (CR 800.4a), or is exiled once the last effect
+    /// giving it to a player still in the game ends (CR 800.4c). Neither is
+    /// a state-based action.
+    PlayerLeft,
     /// A developer-mode command (dev games only; journaled for honesty).
     DevCommand,
 }

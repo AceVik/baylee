@@ -220,7 +220,24 @@ impl<L: CardLookup> Engine<L> {
             // 0a. Continuous effects: sync statics with the battlefield and
             //    refresh characteristic caches (generation compare).
             self.sync_static_effects();
+            let moved = self.state.characteristics_generation != self.state.effects.generation;
             self.state.refresh_characteristics();
+            // What a player who has left still controls is exiled as the
+            // last effect giving it to somebody else ends (CR 800.4c). Not a
+            // state-based action, so before them and before the game-over
+            // check: the first point after any effect can have ended. Only
+            // an effect ending can hand an object back to a departed player,
+            // and every one of those moves the generation.
+            if moved
+                && self
+                    .state
+                    .players
+                    .iter()
+                    .any(crate::state::Player::has_lost)
+                && !crate::sba::exile_what_the_departed_control(&mut self.state).is_empty()
+            {
+                continue;
+            }
             // 0b. As-it-enters modifiers (taplands, shockland choices).
             let wrote = self.apply_enter_modifiers();
             if self.awaiting_answer {
@@ -1549,6 +1566,7 @@ impl<L: CardLookup> Engine<L> {
             matches!(fx.duration, Duration::WhileSourceOnBattlefield)
                 && fx.source.is_some_and(|s| gone.contains(&s))
         });
+        forget_effects_on_moved_objects(&mut self.state);
         // Collect statics of permanents not yet registered (then apply,
         // so the borrow of `state` ends before mutation).
         //
@@ -4184,6 +4202,18 @@ impl<L: CardLookup> Engine<L> {
                 .retain(|r| !reverted.contains(&r.source));
         }
         self.state.invalidate_projections();
+        // What a player who has left controls by default is exiled as the
+        // last effect giving it to somebody else ends (CR 800.4c): here, in
+        // the cleanup step. The machine's own look at step 0a comes only
+        // after `end_cleanup` below has begun the next turn.
+        if self
+            .state
+            .players
+            .iter()
+            .any(crate::state::Player::has_lost)
+        {
+            let _ = crate::sba::exile_what_the_departed_control(&mut self.state);
+        }
         let active = self.state.turn.active;
         // Reliquary Tower & co.: no maximum hand size for this player.
         let no_max = self.state.effects.iter().any(|fx| {
@@ -4213,5 +4243,32 @@ impl<L: CardLookup> Engine<L> {
         self.state.board_state_changed();
         self.combat_declared = CombatDeclared::None;
         self.begin_turn(false);
+    }
+}
+
+/// Drops every effect for as long as the game lasts that names one object
+/// which has since moved: it is a new object the effect never named
+/// (CR 400.7), and a control change would otherwise sit in the hashed table
+/// for the rest of the game.
+fn forget_effects_on_moved_objects(state: &mut crate::state::GameState) {
+    use baylee_cards_dsl::Duration;
+    let stale: Vec<(ObjectId, u32)> = state
+        .effects
+        .iter()
+        .filter(|fx| matches!(fx.duration, Duration::Indefinitely))
+        .filter_map(|fx| match fx.filter {
+            crate::effects::EffectFilter::ObjectIs(id, version) => state
+                .object(id)
+                .is_none_or(|o| o.version != version)
+                .then_some((id, version)),
+            crate::effects::EffectFilter::Dsl(_) => None,
+        })
+        .collect();
+    if !stale.is_empty() {
+        state.effects.remove_where(|fx| {
+            matches!(fx.duration, Duration::Indefinitely)
+                && matches!(fx.filter, crate::effects::EffectFilter::ObjectIs(id, version)
+                    if stale.contains(&(id, version)))
+        });
     }
 }

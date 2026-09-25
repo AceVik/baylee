@@ -82,11 +82,22 @@ is the guard for both: a recompute may not disagree with the cache.
 Layer 2 is not cached separately: the refresh writes the projected
 controller straight into `GameObject::controller`, so every rule that asks
 "who controls this" reads one field and none of them has to know that
-layers exist. `base_controller` holds what a control effect will hand back
-and is written only by `GameObject::set_controller` — a permanent handover
-(entering the battlefield, Gilded Drake, Homeward Path). When the
-controller moves in either direction the object's timestamp is bumped,
-because CR 302.6 wants control held *continuously* since the turn began.
+layers exist. `base_controller` is the controller by default: the player a
+permanent entered the battlefield under, or who cast the spell. It is written
+only by `GameObject::set_controller`, and only where an object arrives.
+**Every change of control is a layer-2 effect** (CR 613.1b), including the
+ones that last the whole game: Gilded Drake's exchange, Wishclaw Talisman's
+handover, Homeward Path and the control rotation all go through
+`resolve::gain_control`, which registers `Modifier::GainControl` for the
+player gaining it, `Duration::Indefinitely`, on the one object and its
+version. They used to overwrite `base_controller`, which lost the one fact a
+player leaving the game turns on (below). The effects keep their
+timestamps, so a later taker wins (CR 613.7) and an earlier one's control
+returns when the later one ends. `sync_static_effects` drops an indefinite
+effect whose object has moved on, since it names an object that no longer
+exists (CR 400.7). When the controller moves in either direction the
+object's timestamp is bumped, because CR 302.6 wants control held
+*continuously* since the turn began.
 
 ## Combat
 An attack names a `Defender` — a player or one of the defending player's
@@ -657,3 +668,55 @@ alone, and skips eliminated seats. The house-AI multiplayer soak exposed the
 old `1 - controller` calculation, which overflowed as soon as seat 2 owned a
 nonland. The four-seat regression exercises both directions and failed with
 that original calculation restored.
+
+## A player leaving the game (CR 800.4)
+
+`sba::eliminate_player` follows CR 800.4a in order:
+
+1. Everything the leaver owns leaves the game.
+2. Every `GainControl` effect for them ends, so what they took goes back to
+   whoever controls it without them. A Gilded Drake'd creature goes back to
+   its owner. Under a later thief it goes back to the earlier one. Their
+   `SearchTakeover` effects end too: Opposition Agent's hold on a searching
+   player is the one way the engine controls a player (CR 722.2). A search
+   they were making for somebody else when they left goes back to that
+   player, with the same cards and limits, to finish as their own search
+   (CR 722.5).
+3. `sba::exile_what_the_departed_control` removes what they still control:
+   an ability or a copy of a spell on the stack ceases to exist, and
+   everything else is exiled through `move_object` with
+   `Cause::PlayerLeft`. That leaves what they control by default: a creature
+   they reanimated out of another player's graveyard, a spell of another
+   player's they cast.
+
+`every_card_that_controls_a_player_does_it_by_taking_over_a_search` reads
+the Oracle text of every implemented and partial card and fails the day
+one controls a player some other way (Mindslaver, Word of Command). Step 2
+then has to end that effect as well.
+
+CR 800.4c is the same rule seen later. A creature the leaver reanimated,
+which somebody else had taken until end of turn, is exiled as that effect
+ends. The same function does it, called from two places:
+
+- `run_machine`'s step 0a, whenever the refresh found the effect table
+  changed and someone has left. That comes before the game-over check and
+  before `sba::run`, because this is not a state-based action. Effects that
+  end at the end of combat, as a turn or an untap step begins, or as their
+  source leaves are all followed by that pass before anybody gets priority.
+- `cleanup_step`, right after until-end-of-turn effects end, because that
+  step goes straight on into the next turn (`end_cleanup`), and step 0a
+  would first look after that turn has begun.
+
+The residue is a resolution: an effect that ends in the middle of one exiles
+at the next pass, not inside the resolution. And, like everything else that
+happens in the cleanup step, an exile there gives nobody priority and starts
+no second cleanup step (CR 514.3a is not implemented). A trigger it causes
+waits for the next turn's first priority.
+
+CR 800.4b has four doors. A `GainControl` effect for a player who has left
+applies to nothing (`layers::apply`), and neither `gain_control` nor a
+resolution's `CreateContinuousEffect` registers one. A search is never taken
+over by a player who has left. A card put onto the battlefield "under your
+control" by a leaver's resolution stays where it is. Tokens and copies of
+spells were closed by #278.
+
