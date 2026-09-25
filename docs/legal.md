@@ -115,8 +115,10 @@ Urheber- und Medienrecht.
    mirror for anyone else, because their terms forbid republishing or
    proxying their data: the gateway's `/art` serves only a signed-in session
    and marks what it serves `private` (#273; `docs/protocol.md` §"Card
-   art"), and `/catalog/text` and `/catalog/search` serve only a signed-in
-   session too (#270; §"Card text"). A free account is enough, a guest's
+   art"), and `/catalog/text`, `/catalog/search`, `/pool` and `/printings`
+   serve only a signed-in session too (#270; §"Card text"). The gateway
+   asks Scryfall on nobody's behalf: it no longer fetches a printing its
+   catalog lacks for whoever asked. A free account is enough, a guest's
    included, which the terms allow: "If you have an account system,
    end-users should be able to access card data anonymously or with free
    accounts." No card images are committed to the repo — and that includes the

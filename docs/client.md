@@ -2994,7 +2994,10 @@ row carries its `Coverage`, and "playable only" is on by default: it hides the
 stubs — cards the registry knows and the engine does nothing with. Partial
 cards stay, because they do play, and are marked *partial* with their author's
 note in the card panel; turning the switch off brings the stubs back, marked
-*stub*, which is a different thing from pretending they are fine. The whole pool arrives once per session and every
+*stub*, which is a different thing from pretending they are fine. The whole
+pool arrives once per session, asked with it, and is forgotten at sign-out
+(`DeckBuilder::forget_pool`, #270), since `/pool` answers a session and the
+next one may be at another gateway. Every
 filter — text, colour identity, type, mana value, sort — runs locally, so
 search answers at keystroke latency and never at the gateway's.
 

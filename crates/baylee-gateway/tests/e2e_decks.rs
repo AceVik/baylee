@@ -11,14 +11,36 @@ mod common;
 
 use common::{http, json_field, json_number, login, spawn_gateway};
 
-/// The pool the deck builder searches.
+/// The pool the deck builder searches, for a signed-in session only (#270):
+/// its rows carry the catalog's text, which is Scryfall's data. A guest's
+/// session is enough.
 #[test]
-fn the_card_pool_is_public_and_says_what_the_engine_does_with_each_card() {
+fn the_card_pool_answers_a_session_and_says_what_the_engine_does_with_each_card() {
     let gateway = spawn_gateway("pool");
 
-    // No token: the pool is reference data about this build, the same for
-    // everybody, and the sign-in screen is allowed to have shown it already.
-    let (status, body) = http(gateway.port, "GET", "/pool", None, "");
+    for token in [None, Some("not-a-session")] {
+        let (status, body) = http(gateway.port, "GET", "/pool", token, "");
+        assert_eq!(status, 401, "{token:?}: {body}");
+    }
+    let (status, guest) = http(
+        gateway.port,
+        "POST",
+        "/auth/guest",
+        None,
+        r#"{"display_name":"Casper"}"#,
+    );
+    assert_eq!(status, 200, "guest: {guest}");
+    let (status, body) = http(
+        gateway.port,
+        "GET",
+        "/pool",
+        Some(json_field(&guest, "token")),
+        "",
+    );
+    assert_eq!(status, 200, "a guest's session: {body}");
+
+    let token = login(gateway.port, "pooled", "Pooled");
+    let (status, body) = http(gateway.port, "GET", "/pool", Some(&token), "");
     assert_eq!(status, 200, "{body}");
     assert!(body.contains("\"cards\":["), "{body}");
     assert!(body.contains("\"pool_hash\""), "{body}");
@@ -35,7 +57,7 @@ fn the_card_pool_is_public_and_says_what_the_engine_does_with_each_card() {
     // The pool is the registry, so a card the client can name is in it.
     assert!(body.contains("Baleful Strix"), "{body}");
 
-    let (status, translated) = http(gateway.port, "GET", "/pool?lang=de", None, "");
+    let (status, translated) = http(gateway.port, "GET", "/pool?lang=de", Some(&token), "");
     assert_eq!(status, 200, "{translated}");
     assert!(
         translated.contains("\"lang\":\"de\""),
@@ -337,9 +359,10 @@ fn a_printing_does_not_buy_a_fifth_copy() {
 #[test]
 fn a_card_always_has_at_least_one_printing_to_choose() {
     let gateway = spawn_gateway("printing-list");
+    let token = login(gateway.port, "picker", "Picker");
 
     // The pool says which card, and carries the identity the picker asks on.
-    let (status, pool) = http(gateway.port, "GET", "/pool", None, "");
+    let (status, pool) = http(gateway.port, "GET", "/pool", Some(&token), "");
     assert_eq!(status, 200, "{pool}");
     assert!(
         pool.contains("\"oracle_id\""),
@@ -354,13 +377,12 @@ fn a_card_always_has_at_least_one_printing_to_choose() {
         .nth(1)
         .and_then(|rest| rest.split(|c: char| !c.is_ascii_digit()).next())
         .expect("the pool names an index");
-    let (status, one) = http(
-        gateway.port,
-        "GET",
-        &format!("/printings?card={card}"),
-        None,
-        "",
-    );
+    let asked = format!("/printings?card={card}");
+    // For a session only, as the pool is (#270): the printings are the
+    // catalog's.
+    let (status, one) = http(gateway.port, "GET", &asked, None, "");
+    assert_eq!(status, 401, "without a session: {one}");
+    let (status, one) = http(gateway.port, "GET", &asked, Some(&token), "");
     assert_eq!(status, 200, "{one}");
     assert!(one.contains("\"printings\":["), "{one}");
     assert!(
@@ -373,7 +395,13 @@ fn a_card_always_has_at_least_one_printing_to_choose() {
 
     // A card outside the registry is a 404, not an empty list: the picker
     // asked about something this build cannot play.
-    let (status, answer) = http(gateway.port, "GET", "/printings?card=999999", None, "");
+    let (status, answer) = http(
+        gateway.port,
+        "GET",
+        "/printings?card=999999",
+        Some(&token),
+        "",
+    );
     assert_eq!(status, 404, "{answer}");
 }
 
@@ -800,7 +828,8 @@ fn a_deck_row_may_name_a_card_by_either_of_its_printed_spellings() {
 #[test]
 fn the_pool_carries_the_spelling_a_deck_row_may_use() {
     let gateway = spawn_gateway("pool-spellings");
-    let (status, body) = http(gateway.port, "GET", "/pool", None, "");
+    let token = login(gateway.port, "speller", "Speller");
+    let (status, body) = http(gateway.port, "GET", "/pool", Some(&token), "");
     assert_eq!(status, 200, "{body}");
 
     let (whole, index) = baylee_cards::generated_names::WHOLE_NAMES
@@ -836,7 +865,8 @@ fn the_pool_says_which_cards_have_a_back_and_which_are_double_faced() {
     use baylee_cards::sides::{double_faced, has_back_image};
 
     let gateway = spawn_gateway("pool-sides");
-    let (status, body) = http(gateway.port, "GET", "/pool", None, "");
+    let token = login(gateway.port, "sider", "Sider");
+    let (status, body) = http(gateway.port, "GET", "/pool", Some(&token), "");
     assert_eq!(status, 200, "{body}");
     let rows: serde_json::Value = serde_json::from_str(&body).expect("pool is json");
     let rows = rows["cards"].as_array().expect("cards is a list").clone();

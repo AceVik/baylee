@@ -94,6 +94,30 @@ fn a_gateways_open_table_is_still_waiting_for_an_opponent() {
     assert_eq!(lobby.status(), "table open — waiting for an opponent");
 }
 
+/// #270: a sign-out forgets the pool, offline play's too. Offline has no
+/// session to lose and a pool of its own, so coming back asks this process
+/// for it again, and the builder opens as it did.
+#[test]
+fn offline_play_asks_for_its_pool_again_after_a_sign_out() {
+    let mut lobby = offline_lobby();
+    assert_eq!(lobby.build_deck(), Some(LobbyRequest::LoadPool));
+    lobby.apply(LobbyEvent::Pool {
+        cards: vec![PoolCard {
+            index: 1,
+            english_name: "Forest".to_string(),
+            name: "Forest".to_string(),
+            ..PoolCard::default()
+        }],
+        has_text: false,
+    });
+    assert!(lobby.builder().loaded());
+    lobby.sign_out();
+    assert_eq!(lobby.play_offline(), Some(LobbyRequest::ListDecks));
+    assert_eq!(lobby.token(), None, "still nobody's session");
+    assert_eq!(lobby.build_deck(), Some(LobbyRequest::LoadPool));
+    assert_eq!(*lobby.screen(), Screen::Build);
+}
+
 /// Signing out of offline play puts the sign-in screen back in charge.
 #[test]
 fn leaving_offline_play_takes_the_performer_with_it() {

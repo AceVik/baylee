@@ -993,6 +993,39 @@ fn a_pool_reply_from_the_previous_language_cannot_replace_the_current_one() {
     );
 }
 
+/// #270: a sign-out forgets the pool, because `/pool` answers a session.
+/// Offline play has its own and no session, and after a sign-out its
+/// builder still opens with every card: asked again, of this process.
+#[test]
+fn offline_play_builds_from_its_own_pool_after_a_sign_out() {
+    let mut app = headless();
+    for round in ["the first visit", "after a sign-out"] {
+        app.world_mut().resource_mut::<LobbyState>().offline =
+            Some(super::offline::Offline::without_a_file());
+        to_gateway_face(&mut app);
+        tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+        tap_control(&mut app, "new deck", |p| *p == Press::NewDeck);
+        {
+            let state = app.world().resource::<LobbyState>();
+            assert_eq!(*state.lobby.screen(), Screen::Build, "{round}");
+            assert!(
+                !state.lobby.builder().pool().is_empty(),
+                "{round}: the pool is here"
+            );
+        }
+        tap_control(&mut app, "the way out", |p| *p == Press::CloseBuilder);
+        tap_control(&mut app, "sign out", |p| *p == Press::SignOut);
+        assert!(
+            !app.world()
+                .resource::<LobbyState>()
+                .lobby
+                .builder()
+                .loaded(),
+            "{round}: signed out, no pool is held"
+        );
+    }
+}
+
 #[test]
 fn artwork_modal_hides_and_then_restores_existing_search_suggestions() {
     let mut app = headless();

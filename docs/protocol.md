@@ -1592,8 +1592,9 @@ from a curl recipe into a contract:
 | arrange a chair | `POST /lobby/games/{id}/seats/{seat}` `{kind?, ai?, deck_id?, team?}` | the seat |
 | stand up | `POST /lobby/games/{id}/leave` | `204` |
 
-Everything but `/info`, the three auth calls, `/auth/config`, `/pool` and
-`/printings` takes `Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a
+Everything but `/info`, the three auth calls and `/auth/config` takes
+`Authorization: Bearer <token>`; `/pool` and `/printings` did not until
+#270. A refusal is `{"error":"…"}` with a
 status, and the string is written to be shown to a player as-is — the lobby
 does.
 
@@ -1688,10 +1689,12 @@ copy kept by some older client cannot go on answering for a seat its owner
 has taken back. The cost is that a player with the table open in two places
 keeps only the newer one, which is the same rule a password reset follows.
 
-`/pool` is the deck builder's card list, and one of the two routes with no
-account behind it: it is reference data about what this build can play, the
-same for everybody, and a sign-in page that cannot show it is worse than a
-public one.
+`/pool` is the deck builder's card list. It answers a signed-in session
+only (#270), as `/printings`, `/catalog/text` and `/art` do: its rows carry
+the catalog's text and names, which are Scryfall's data, and one rule for
+every route that answers such data is simpler than an exception. A guest's
+session is enough. The client fetches it once a session and forgets it at
+sign-out; offline play builds from its own registry and asks nobody.
 Each row carries the registry `index` (the rules identity a saved deck line
 resolves to), the printed characteristics, and `coverage`
 (`implemented` / `partial` / `unimplemented`) with the author's `note` — a

@@ -21,8 +21,8 @@
 
 use crate::{ErrorBody, Shared, err};
 use axum::extract::{Query, State};
-use axum::http::StatusCode;
 use axum::http::header::CONTENT_TYPE;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Json, Response};
 use baylee_cards::pool::{PoolCard, rows as registry_rows};
 use serde::{Deserialize, Serialize};
@@ -54,35 +54,45 @@ pub struct PoolQuery {
 
 /// `GET /pool` — every card a deck may be built from.
 ///
-/// Deliberately unauthenticated: this is what the game can play, which is
-/// public reference data, and a player looking at what the platform
-/// supports has not signed up yet. `/catalog/text` answered on the same
-/// footing until #270 closed it to anyone without a session.
+/// For a signed-in session only (#270), as `/catalog/text` and `/art` are.
+/// The rows carry the catalog's rules text and names, which are Scryfall's
+/// data, and Scryfall's terms say "You may not simply repackage, republish,
+/// or proxy Scryfall data". One rule for every route that answers such data
+/// is simpler than an exception for this one. A guest's session is enough,
+/// which the same terms allow ("end-users should be able to access card data
+/// anonymously or with free accounts"); an offline client builds from its
+/// own registry and asks nobody.
 ///
 /// The answer is built once per language and catalog version and sent as
 /// the bytes it was serialized to ([`crate::texts`]): it is a few hundred
 /// rows that are the same for every reader until an ingest changes them.
-pub async fn pool(State(state): State<Shared>, Query(params): Query<PoolQuery>) -> Response {
+pub async fn pool(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Query(params): Query<PoolQuery>,
+) -> Result<Response, (StatusCode, Json<ErrorBody>)> {
+    crate::authed(&state, &headers).await?;
     let lang = params.lang.as_deref().unwrap_or("en").to_lowercase();
     if let Some(catalog) = state.catalog.as_ref() {
         match state.texts.get(catalog, &lang).await {
             Ok(language) => {
-                return ([(CONTENT_TYPE, "application/json")], language.pool_json())
-                    .into_response();
+                return Ok(
+                    ([(CONTENT_TYPE, "application/json")], language.pool_json()).into_response()
+                );
             }
             // Card text is presentation. A catalog that is down costs a
             // player rules text and their own language, not the deck builder.
             Err(e) => tracing::warn!(%e, "pool text lookup failed; serving the registry alone"),
         }
     }
-    Json(PoolBody {
+    Ok(Json(PoolBody {
         total: registry_rows().len(),
         pool_hash: format!("{:016x}", baylee_cards::pool_hash()),
         lang,
         has_text: false,
         cards: registry_rows().to_vec(),
     })
-    .into_response()
+    .into_response())
 }
 
 /// The pool as `/pool` sends it in `lang`: the registry's rows with the
@@ -187,8 +197,8 @@ pub struct PrintingsBody {
 
 /// `GET /printings?card=<index>` — every printing of one card.
 ///
-/// Unauthenticated for the same reason `/pool` is: which sets a card appeared
-/// in is public reference data.
+/// For a signed-in session only, as `/pool` is (#270): the printings are the
+/// catalog's, which is Scryfall's data.
 ///
 /// Without a catalog the answer is not an error but a single row — the
 /// printing codegen referenced, in English, plain. A picker that got a 503
@@ -197,8 +207,10 @@ pub struct PrintingsBody {
 /// writes is the same row either way.
 pub async fn printings(
     State(state): State<Shared>,
+    headers: HeaderMap,
     Query(params): Query<PrintingsQuery>,
 ) -> Result<Json<PrintingsBody>, (StatusCode, Json<ErrorBody>)> {
+    crate::authed(&state, &headers).await?;
     let card = registry_rows()
         .iter()
         .find(|c| c.index == params.card)

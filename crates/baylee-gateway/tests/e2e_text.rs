@@ -164,7 +164,7 @@ async fn a_pool_card_is_held_until_the_catalog_is_stamped() {
         found[0].faces[0].printed.clone()
     };
     let pool = || {
-        let (status, body) = http(gw.port, "GET", "/pool?lang=de", None, "");
+        let (status, body) = http(gw.port, "GET", "/pool?lang=de", Some(&token), "");
         assert_eq!(status, 200);
         body
     };

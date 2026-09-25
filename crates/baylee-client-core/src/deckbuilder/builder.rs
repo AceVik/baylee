@@ -156,6 +156,22 @@ impl DeckBuilder {
 
     // ------------------------------------------------------------- the pool
 
+    /// Forgets the pool and everything built on it (the deck being edited,
+    /// the filters, the search) and becomes a builder that never had one.
+    ///
+    /// The lobby's at sign-out (#270): `/pool` answers a session, so a
+    /// signed-out lobby holds no pool that a language change would ask for
+    /// again without one, and the next sign-in, perhaps to another gateway,
+    /// fetches its own. The revision still moves on, so nothing that drew
+    /// the old pool takes the next one for it.
+    pub fn forget_pool(&mut self) {
+        let pool_revision = self.pool_revision.wrapping_add(1);
+        *self = Self {
+            pool_revision,
+            ..Self::default()
+        };
+    }
+
     /// Takes the pool and rebuilds the results.
     pub fn set_pool(&mut self, cards: Vec<PoolCard>, has_text: bool) {
         self.pool_revision = self.pool_revision.wrapping_add(1);

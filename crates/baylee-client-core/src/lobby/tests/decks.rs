@@ -69,6 +69,51 @@ fn the_card_pool_is_fetched_once() {
     assert_eq!(lobby.screen(), &Screen::Build);
 }
 
+/// #270: `/pool` answers a session, so a sign-out forgets the pool. A
+/// signed-out lobby then holds none that a language picked on the front
+/// door would ask for again without one, and the next session, perhaps at
+/// another gateway, asks for its own.
+#[test]
+fn signing_out_forgets_the_pool() {
+    let mut lobby = seated_lobby();
+    assert_eq!(lobby.build_deck(), Some(LobbyRequest::LoadPool));
+    lobby.apply(LobbyEvent::Pool {
+        cards: vec![PoolCard {
+            index: 1,
+            english_name: "Forest".to_string(),
+            name: "Forest".to_string(),
+            ..PoolCard::default()
+        }],
+        has_text: false,
+    });
+    let drawn = lobby.builder().pool_revision();
+    lobby.sign_out();
+    assert!(!lobby.builder().loaded(), "signed out, no pool is held");
+    lobby.apply(LobbyEvent::LoggedIn {
+        token: "another".to_string(),
+        username: None,
+    });
+    assert_eq!(
+        lobby.build_deck(),
+        Some(LobbyRequest::LoadPool),
+        "the next session asks for its own"
+    );
+    lobby.apply(LobbyEvent::Pool {
+        cards: vec![PoolCard {
+            index: 2,
+            english_name: "Island".to_string(),
+            name: "Island".to_string(),
+            ..PoolCard::default()
+        }],
+        has_text: false,
+    });
+    assert_ne!(
+        lobby.builder().pool_revision(),
+        drawn,
+        "nothing that drew the old pool takes the new one for it"
+    );
+}
+
 /// Editing a saved deck asks for its rows — `GET /decks` lists counts, not
 /// contents, so the builder cannot fill itself from the list.
 #[test]

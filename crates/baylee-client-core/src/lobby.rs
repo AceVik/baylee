@@ -776,7 +776,8 @@ pub struct Lobby {
     doors: Doors,
     /// The guest this device holds for this gateway, if any.
     kept_guest: Option<KeptGuest>,
-    /// The deck builder. Kept across visits so its pool is fetched once.
+    /// The deck builder. Kept across visits so its pool is fetched once a
+    /// session.
     builder: DeckBuilder,
     /// Whether the pool has been asked for. See [`Lobby::needs_pool`].
     pool_requested: bool,
@@ -1513,7 +1514,8 @@ impl Lobby {
     ///
     /// The pool outlives a visit deliberately: it is the same few hundred
     /// cards every time, and a player who steps out to look at the tables
-    /// should not pay for it again on the way back.
+    /// should not pay for it again on the way back. It does not outlive the
+    /// session it was fetched under (#270; `forget_the_session`).
     pub fn build_deck(&mut self) -> Option<LobbyRequest> {
         if !self.has_a_performer() {
             return None;
@@ -2075,6 +2077,8 @@ impl Lobby {
         self.revealed = None;
         self.focus = Field::Username;
         self.screen = Screen::SignIn { registering: false };
+        self.builder.forget_pool();
+        self.pool_requested = false;
         self.note(Phrase::SignedOut);
     }
 

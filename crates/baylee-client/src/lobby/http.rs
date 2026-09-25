@@ -109,15 +109,14 @@ pub(super) fn build(
         LobbyRequest::Library(request) => library_request(base, request),
         LobbyRequest::ListDecks => (ehttp::Request::get(format!("{base}/decks")), Expect::Decks),
         LobbyRequest::LoadPool => (
-            // The pool is public reference data and needs no token; the lang
-            // is what decides whether names and rules text come back
+            // Signed with the session, as every catalog route is (#270). The
+            // lang decides whether names and rules text come back
             // translated, and it is the same one the duel reads card text in.
             ehttp::Request::get(format!("{base}/pool?lang={lang}")),
             Expect::Pool,
         ),
         LobbyRequest::LoadPrintings { card } => (
-            // Public for the same reason the pool is: which sets a card
-            // appeared in is reference data, not something about an account.
+            // Signed, as the pool is (#270): the printings are the catalog's.
             ehttp::Request::get(format!("{base}/printings?card={card}")),
             Expect::Printings,
         ),
