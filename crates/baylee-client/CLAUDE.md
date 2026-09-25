@@ -53,6 +53,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 ## The table
 
 - A row that can't fan until a third of each card shows scrolls sideways (`Duel::rows`, `rowbar.rs`). Cards outside its window are `Visibility::Hidden`, never despawned.
+- A battlefield row stands in sections (`client-core::board::Section`: basics and tokens left, legends and utility lands right), decided by what a card is, never by what it is doing. Identical permanents pile on any row, keyed on every visible difference (`PublicObject::summary_key` plus `Proposal`, a mana plan's taps included; `a_counter_is_never_merged_away`). A pile's at most five slabs step left, and the row holds their room (`layout::pile_reach`). `docs/client.md` §"A row stands in sections".
 - Unlit: no lights, `Tonemapping::None`.
 - Never position directly: `table::sync_scene` sets a `Motion` target, `table::glide` moves it (`1-e^(-rate·dt)`); `ShownRig` likewise for camera (yaw the short way); `reduce_motion` disables both.
 - Generated, no sprites or textures. `tabletop.rs` CPU references: fixed-seed value-noise, no rand, no clock; the felt shader takes one OS-random seed per duel (`feltmat::TablePattern`, `host::fresh_seed`), stable across updates, resizes, reconnects (docs/legal.md §2).
