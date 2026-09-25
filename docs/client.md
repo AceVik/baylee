@@ -2590,6 +2590,18 @@ numbers, and the **light on the felt** round the card says what is on offer.
     below 0.82, which is a row of twenty-odd in the narrowest lane — it
     shows none. **Accepted:** the preview says it.
 
+  **It rides its card.** `Upright` turns a plate (and an upright badge)
+  back only by its card's turn about its own face's normal, which is a tap
+  (`table::tap_of`, the twist of a swing-twist split). A flier's bank and
+  pitch it keeps, so the plate tilts with the card it lies on. Turned back
+  from the whole rotation, it lay flat while its flier rocked round it, and
+  with a row's step only a few thousandths over the face, half of each rock
+  the print rose through the plate's end that lies on the card: a Darksteel
+  Gargoyle's 4/4 read "/4" (the PM, 25.09). It was the print, not the rim,
+  which sorts a rung under the plate (`RIM_RUNG`) and is painted first
+  (`a_plate_rides_its_card_through_a_fliers_bank`; the old turn-back put a
+  corner 0.015 off the plate's height over the face).
+
   **It reads upright to the one looking** (the PO, 25.09: a `6/1` upside
   down reads `1/9`, and power and toughness decide combat). A seat's cards
   face their owner, so from the local seat an opponent's across the table

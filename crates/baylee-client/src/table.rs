@@ -3199,15 +3199,33 @@ pub struct Upright {
 
 impl Upright {
     /// The badge's transform on a card turned `rotation`: its place on the
-    /// card untapped, turned back by as much as the card is turned from
-    /// untapped.
+    /// card untapped, turned back by as much as the card has turned about its
+    /// own face's normal from untapped, which is a tap.
+    ///
+    /// Only that turn: a flier banks and pitches (`sync_scene`'s sway), and
+    /// what lies on it tilts with it. Turned back from all of it, a plate
+    /// lay flat while its card rocked round it, and half of each rock the
+    /// print rose through the plate's end that lies on the card (the PM,
+    /// 25.09: a Darksteel Gargoyle's 4/4 read "/4").
     fn on(&self, rotation: Quat) -> Transform {
-        let back = rotation.inverse() * self.base;
+        let back = tap_of(self.base.inverse() * rotation).inverse();
         Transform {
             translation: back * self.at.translation,
             rotation: back * self.at.rotation,
             scale: self.at.scale,
         }
+    }
+}
+
+/// The part of `turn`, a card's rotation in its own frame, that is about its
+/// face's normal, its `z`: the twist of a swing-twist split, which is the
+/// tap. What is left is the swing, a tilt off the face's plane.
+fn tap_of(turn: Quat) -> Quat {
+    let twist = Quat::from_xyzw(0.0, 0.0, turn.z, turn.w);
+    if twist.length_squared() < 1e-12 {
+        Quat::IDENTITY
+    } else {
+        twist.normalize()
     }
 }
 

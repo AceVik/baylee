@@ -176,6 +176,81 @@ fn a_plate_stands_upright_under_a_tapped_card() {
     }
 }
 
+/// A flier banks and pitches (`sync_scene`'s sway), and its plate rides it:
+/// every corner stays at the plate's own height over the card's face, tapped
+/// or not, and still upright under a tapped card. Kept flat as its card
+/// rocked round it, the plate sank under the face at half of each rock, and
+/// the print covered its end on the card (the PM, 25.09: "/4").
+#[test]
+fn a_plate_rides_its_card_through_a_fliers_bank() {
+    use bevy::ecs::system::RunSystemOnce;
+    let size = quad_size();
+    let (w, h) = (size.x * CARD_WIDTH, size.y * DOWN_THE_CARD);
+    for tapped in [false, true] {
+        let mut card = one();
+        card.tapped = tapped;
+        let pose = card_transform(&card.slot, card.position, tapped, card.lift);
+        let mut world = World::new();
+        let mut index = index();
+        let mut materials = Assets::<PlateMaterial>::default();
+        let entity = world.spawn(pose).id();
+        sync(
+            &mut world,
+            &mut index,
+            &mut materials,
+            entity,
+            &card,
+            Some(words()),
+        );
+        let (body, _) = plate_rect(cardplate::KIND_FIGHT, tapped, card.room, None).expect("room");
+        let height = on_card(card.rung, plate_quad(body)).translation.z;
+        assert!(
+            height > CARD_THICKNESS,
+            "the plate is under its card's face"
+        );
+        // The sway's extremes, each way: a bank of 0.012 and a pitch of 0.016.
+        for (bank, pitch) in [
+            (0.012, 0.016),
+            (-0.012, 0.016),
+            (0.012, -0.016),
+            (-0.012, -0.016),
+        ] {
+            let rocked = pose.rotation * Quat::from_rotation_x(bank) * Quat::from_rotation_y(pitch);
+            world
+                .get_mut::<Transform>(entity)
+                .expect("the card")
+                .rotation = rocked;
+            world
+                .run_system_once(keep_upright)
+                .expect("the system runs");
+            let local = *world
+                .query_filtered::<&Transform, With<CardPlate>>()
+                .single(&world)
+                .expect("one plate");
+            let card_at = *world.get::<Transform>(entity).expect("the card");
+            let plate = card_at.mul_transform(local);
+            let normal = card_at.rotation * Vec3::Z;
+            for corner in [(-0.5, -0.5), (0.5, -0.5), (-0.5, 0.5), (0.5, 0.5)] {
+                let at = plate.transform_point(Vec3::new(corner.0 * w, corner.1 * h, 0.0));
+                let over = (at - card_at.translation).dot(normal);
+                assert!(
+                    (over - height).abs() < 1e-5,
+                    "tapped {tapped}, rocked {bank}/{pitch}: a corner lies {over} over the \
+                     face's plane, the plate {height}"
+                );
+            }
+            // Still upright: its top points up the untapped card, give or
+            // take the rock.
+            let untapped = card_transform(&card.slot, card.position, false, card.lift);
+            let upright = (plate.rotation * Vec3::Y).dot(untapped.rotation * Vec3::Y);
+            assert!(
+                upright > 0.999,
+                "tapped {tapped}, rocked {bank}/{pitch}: the plate turned ({upright})"
+            );
+        }
+    }
+}
+
 /// The plate goes on where the print cannot say the numbers, moves when its
 /// card taps, comes off when the print can say them again and where a
 /// tapped card's neighbours leave it no air; and a card that did not change
