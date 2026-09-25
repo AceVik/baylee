@@ -153,9 +153,10 @@ fn a_badge_comes_and_goes_with_the_count() {
     assert!(!index.badges.contains_key(&placed[1].object));
 }
 
-/// A table of `seats` chairs, every lane of every seat holding `n` merged
-/// creatures of two each, tapped where `tapped` says by their place in the
-/// row.
+/// A table of `seats` chairs, every lane of every seat holding `n`
+/// creatures, every third of them (the first included) merged of two, tapped
+/// where `tapped` says by their place in the row: so a row has cards that
+/// fan and merged cards that hold their cells between them.
 fn crowded(seats: u8, n: usize, tapped: fn(usize) -> bool) -> Duel {
     use baylee_client_core::board::{BoardModel, Lane, SeatPod};
     use baylee_client_core::layout::LaneKind;
@@ -164,7 +165,9 @@ fn crowded(seats: u8, n: usize, tapped: fn(usize) -> bool) -> Duel {
     let mut group = |i: usize| {
         slot += 1;
         let mut group = creature(slot, Vec::new());
-        group.members.push(obj(slot + 100_000));
+        if i.is_multiple_of(3) {
+            group.members.push(obj(slot + 100_000));
+        }
         if tapped(i) {
             group.status = baylee_view::ObjectStatus::TAPPED;
         }
@@ -300,58 +303,85 @@ fn laid_badges(placed: &[Placement]) -> (Vec<Transform>, Vec<Entity>, Vec<Laid>)
     (poses, cards, laid)
 }
 
-/// A count badge lies on no card but the ones before it in its own row
-/// (#274, #298), wherever the table puts the cards.
+/// No count badge lies on another card's print (#274; the owner, 25.09),
+/// wherever the table puts the cards.
 ///
 /// The print fills the card since #298 and the badge hangs off the card's
-/// top-left corner, outside it — the owner's placement — so in a fanned row
-/// it lies over the cards before it, which the row has already covered with
-/// the cards after them, and in a row with less room between two cards than
-/// the badge overhangs it lies on the corner of the card before it: the
-/// owner accepted both. What it may not do is reach anything else: the next
-/// lane, another seat, or a card laid over its own.
+/// top-left corner, outside it, or, tapped, lies along its right edge. A
+/// merged card holds its cell whole in its row (`layout::HELD_PITCH`), so
+/// neither neighbour reaches into it, and a row that cannot hold its cells
+/// and fan legibly scrolls rather than packing tighter: only the run it
+/// shows is drawn, and only that run is laid against.
 ///
 /// Every badge is spawned as the scene spawns it, on its card at the card's
 /// resting pose, and each badge's quad, shadow and all, is laid against
-/// every other card on the table. A duel and a ring of eight; rows of two to
-/// forty in all three lanes, so the tightest fan (0.26 of a card, asserted)
-/// and the lane before and behind are all there; untapped, all tapped and
-/// every other one tapped, a tapped badge turning with its card; and a
-/// creature staged into combat beside a merged one, half a card forward of
-/// its row, which is where a badge above the top edge failed.
+/// every other drawn card on the table, the print being the whole card. A
+/// duel and a ring of eight; rows of two to forty in all three lanes, so the
+/// tightest fan (0.26 of a card, asserted) and rows that scroll are there,
+/// each scrolled to its start, a few cards in and past its end; untapped,
+/// all tapped and every other one tapped, a tapped badge turning with its
+/// card; and a creature staged into combat beside a merged one, half a card
+/// forward of its row, which is where a badge above the top edge failed.
 #[test]
-fn a_badge_lies_only_on_a_card_its_own_card_lies_on() {
+fn no_badge_lies_on_another_cards_print() {
     use baylee_client_core::layout::{MIN_VISIBLE_FRACTION, STAGE_STEP};
+    use baylee_client_core::rowscroll::ROW_STEP;
     let taps: [Tap; 3] = [
         ("untapped", |_| false),
         ("tapped", |_| true),
         ("every other tapped", |i| i % 2 == 1),
     ];
-    let (mut badges, mut pairs, mut tightest) = (0, 0, f32::INFINITY);
+    let (mut badges, mut pairs, mut hidden, mut tightest) = (0, 0, 0, f32::INFINITY);
     for seats in [2u8, 8] {
         for n in [2usize, 3, 4, 5, 6, 8, 10, 13, 17, 24, 32, 40] {
             for (tap, tapped) in taps {
-                for staged in [false, true] {
-                    let mut placed = placements(&crowded(seats, n, tapped));
-                    assert_eq!(
-                        placed.len(),
-                        usize::from(seats) * 3 * n,
-                        "three rows a seat"
-                    );
-                    // The first two cards of the local seat's creature row.
-                    let row: Vec<usize> = (1..=2)
-                        .filter_map(|slot| placed.iter().position(|p| p.object == obj(slot)))
+                for (staged, first) in [(false, 0), (true, 0), (false, 3), (false, 1000)] {
+                    let mut duel = crowded(seats, n, tapped);
+                    let rows: Vec<_> = duel
+                        .board
+                        .as_ref()
+                        .expect("a board")
+                        .pods
+                        .iter()
+                        .flat_map(|pod| pod.lanes.iter().map(move |lane| (pod.player, lane.kind)))
                         .collect();
-                    if let [first, second] = row[..] {
-                        tightest =
-                            tightest.min(placed[first].position.distance(placed[second].position));
-                        if staged {
-                            // Staged out of its group, as the board model does
-                            // for a declared attacker, and forward of the row.
-                            let forward = placed[first].slot.forward();
-                            placed[first].position += forward * STAGE_STEP;
-                            placed[first].badge = 0;
+                    #[allow(clippy::cast_precision_loss)] // a few cards
+                    let travel = first as f32 * ROW_STEP;
+                    for row in rows {
+                        let Duel {
+                            rows,
+                            board,
+                            layout,
+                            ..
+                        } = &mut duel;
+                        rows.wheel(
+                            board.as_ref().expect("a board"),
+                            layout.as_ref().expect("a layout"),
+                            row,
+                            travel,
+                        );
+                    }
+                    let all = placements(&duel);
+                    assert_eq!(all.len(), usize::from(seats) * 3 * n, "three rows a seat");
+                    hidden += all.iter().filter(|p| !p.shown).count();
+                    let mut placed: Vec<Placement> = all.into_iter().filter(|p| p.shown).collect();
+                    for pair in placed.windows(2) {
+                        if pair[0].slot.player == pair[1].slot.player
+                            && (pair[0].position - pair[1].position)
+                                .dot(pair[0].slot.forward())
+                                .abs()
+                                < 1e-3
+                        {
+                            tightest = tightest.min(pair[0].position.distance(pair[1].position));
                         }
+                    }
+                    // The first card of the local seat's creature row, which
+                    // is merged, staged out of its group as the board model
+                    // does for a declared attacker, and forward of the row.
+                    if staged && let Some(p) = placed.iter_mut().find(|p| p.object == obj(1)) {
+                        let forward = p.slot.forward();
+                        p.position += forward * STAGE_STEP;
+                        p.badge = 0;
                     }
                     let (poses, cards, laid) = laid_badges(&placed);
                     let whole = [0.0, 0.0, 1.0, cardrail::CARD_TALL];
@@ -363,18 +393,16 @@ fn a_badge_lies_only_on_a_card_its_own_card_lies_on() {
                             .iter()
                             .position(|c| c == card)
                             .expect("a badge on a card");
-                        // `placements` walks the model in order, so a row is
-                        // `n` placements in a run, earliest card first.
                         for (other, body) in bodies.iter().enumerate() {
-                            let before = other / n == own / n && other < own;
-                            if own == other || before || overlap(&bodies[own], body) {
+                            if own == other {
                                 continue;
                             }
                             pairs += 1;
                             assert!(
                                 !overlap(badge, body),
-                                "{seats} seats, rows of {n}, {tap}{}: a badge lies on {:?}, which its card does not",
+                                "{seats} seats, rows of {n}, {tap}{}, from card {first}: the badge of {:?} lies on {:?}",
                                 if staged { ", one staged" } else { "" },
+                                placed[own].object,
                                 placed[other].object
                             );
                         }
@@ -388,7 +416,56 @@ fn a_badge_lies_only_on_a_card_its_own_card_lies_on() {
         "the rows never reach the tightest fan: {tightest}"
     );
     assert!(
-        badges > 10_000 && pairs > badges,
+        hidden > 1000,
+        "only {hidden} cards were scrolled out of view"
+    );
+    assert!(
+        badges > 5_000 && pairs > badges,
         "{badges} badges, {pairs} pairs"
     );
+}
+
+/// Every card a row draws stands inside its lane, however many the row
+/// holds (#298): a row that does not fit, merged cells held whole, scrolls
+/// rather than running on past its lane into the piles beside it, which is
+/// where forty distinct creatures used to stand. And the rows that do not
+/// fit are there: cards are left out of the picture.
+#[test]
+fn every_drawn_card_stands_inside_its_lane() {
+    let mut hidden = 0;
+    for seats in [2u8, 3, 4, 8] {
+        for n in [5usize, 17, 40, 70] {
+            let duel = crowded(seats, n, |i| i % 2 == 1);
+            let board = duel.board.as_ref().expect("a board");
+            let row: HashMap<ObjectId, baylee_client_core::layout::LaneKind> = board
+                .pods
+                .iter()
+                .flat_map(|pod| {
+                    pod.lanes.iter().flat_map(|lane| {
+                        lane.groups
+                            .iter()
+                            .map(move |g| (g.representative, lane.kind))
+                    })
+                })
+                .collect();
+            for p in placements(&duel) {
+                let Some(&kind) = row.get(&p.object) else {
+                    continue;
+                };
+                if !p.shown {
+                    hidden += 1;
+                    continue;
+                }
+                let along = Vec2::new(p.slot.facing.cos(), -p.slot.facing.sin());
+                let off = (p.position - p.slot.lane_center(kind)).dot(along);
+                assert!(
+                    off.abs() + CARD_SPAN * 0.5 <= p.slot.half_extent.x + 1e-3,
+                    "{seats} seats, rows of {n}: {:?} stands {off} along a lane {} wide",
+                    p.object,
+                    p.slot.lane_width()
+                );
+            }
+        }
+    }
+    assert!(hidden > 500, "only {hidden} cards were left out");
 }

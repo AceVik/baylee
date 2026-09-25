@@ -430,6 +430,29 @@ impl SeatSlot {
         self.center - away * offset_from_front
     }
 
+    /// The row whose band of felt `point` lies in, if any: across the lane's
+    /// width and within half a lane of its centre, the creature row also
+    /// owning the combat step in front of it.
+    ///
+    /// What a wheel over the felt scrolls, when the row has more cards than
+    /// it shows.
+    #[must_use]
+    pub fn lane_at(&self, point: Vec2) -> Option<LaneKind> {
+        let along = Vec2::new(self.facing.cos(), -self.facing.sin());
+        let forward = self.forward();
+        let h = self.lane_height() * 0.5;
+        LaneKind::ALL.iter().copied().find(|&lane| {
+            let off = point - self.lane_center(lane);
+            let depth = off.dot(forward);
+            let front = if lane == LaneKind::Creatures {
+                h + STAGE_STEP
+            } else {
+                h
+            };
+            off.dot(along).abs() <= self.half_extent.x && depth >= -h && depth <= front
+        })
+    }
+
     /// The direction this seat's cards advance in: out of the rows and
     /// towards the middle of the table.
     ///
@@ -1343,12 +1366,28 @@ const ARC_SHARE: f32 = 0.86;
 /// A focused opponent counts as this many ordinary seats.
 const FOCUS_WEIGHT: f32 = 2.6;
 
+/// The pitch on either side of a merged card: a whole cell, the room a card
+/// turns in.
+///
+/// A merged card's count badge hangs [`BADGE_REACH`](crate::cardplate::BADGE_REACH)
+/// off its left edge, and when it taps the badge turns with it to lie along
+/// its right edge. The owner's rule is that it lies on no other card's print
+/// (25.09), so neither neighbour may reach into the cell a merged card
+/// stands in: the card before it, tapped, ends half a span from its own
+/// centre, and the badge starts where that leaves off.
+pub const HELD_PITCH: f32 = CARD_SPAN;
+const _: () =
+    assert!(CARD_SPAN * 0.5 + CARD_WIDTH * 0.5 + crate::cardplate::BADGE_REACH <= HELD_PITCH);
+
 /// How a lane packed its cards.
 #[derive(Clone, PartialEq, Debug)]
 pub struct LanePacking {
-    /// Horizontal offsets from the lane centre, left to right.
+    /// Horizontal offsets from the lane centre, left to right, of the whole
+    /// row: a row that scrolls runs longer than its lane, and
+    /// [`window`](Self::window) says which of them are shown and where.
     pub offsets: Vec<f32>,
-    /// Distance between successive card centres.
+    /// Distance between successive card centres where nothing holds the gap
+    /// open.
     pub pitch: f32,
     /// Whether the cells are tighter than a card's own span, so cards can
     /// overlap.
@@ -1357,60 +1396,163 @@ pub struct LanePacking {
     /// row still has air in it and a tapped one does not, and a lane cannot
     /// know which of its cards will be turned.
     pub fanned: bool,
-    /// Whether even a fan cannot show every card legibly, so the caller should
-    /// group identical cards into counted stacks instead.
+    /// Whether even a fan cannot show every card legibly, with every held
+    /// gap held: the row scrolls, and shows the run of whole cards
+    /// [`window`](Self::window) picks.
     pub overflowing: bool,
+    /// The lane's usable width, which a scrolled row's window is cut to.
+    usable: f32,
 }
 
-/// Packs `count` cards into a lane `width` units wide.
-///
-/// Cards keep their size and start overlapping once they no longer fit, the way
-/// a physical player fans a row. Shrinking instead would trade a readable board
-/// for an unreadable one at exactly the moment the board matters most.
+/// The run of a row's cards that is shown, and how far their offsets move to
+/// stand in the lane.
+#[derive(Clone, PartialEq, Debug)]
+pub struct RowWindow {
+    /// The cards shown; the rest of the row is not drawn.
+    pub shown: std::ops::Range<usize>,
+    /// Added to every offset: a scrolled row's shown run starts at the
+    /// lane's left edge.
+    pub shift: f32,
+}
+
+impl LanePacking {
+    /// The cards a row shows when its first shown card is `first`: every
+    /// card of a row that fits, else the longest run of whole cards from
+    /// `first` that fits the lane, `first` pulled back so the run never
+    /// stops short of the row's end.
+    #[must_use]
+    pub fn window(&self, first: usize) -> RowWindow {
+        let n = self.offsets.len();
+        if !self.overflowing {
+            return RowWindow {
+                shown: 0..n,
+                shift: 0.0,
+            };
+        }
+        let first = first.min(self.last_first());
+        let fits = |from: usize, to: usize| {
+            self.offsets[to] - self.offsets[from] + CARD_SPAN <= self.usable + 1e-4
+        };
+        let end = (first..n)
+            .take_while(|&i| fits(first, i))
+            .last()
+            .unwrap_or(first)
+            + 1;
+        RowWindow {
+            shown: first..end,
+            shift: -self.usable * 0.5 + CARD_SPAN * 0.5 - self.offsets[first],
+        }
+    }
+
+    /// The first card a row may show and still reach its last.
+    #[must_use]
+    pub fn last_first(&self) -> usize {
+        let n = self.offsets.len();
+        let Some(&last) = self.offsets.last() else {
+            return 0;
+        };
+        (0..n)
+            .find(|&f| last - self.offsets[f] + CARD_SPAN <= self.usable + 1e-4)
+            .unwrap_or(n - 1)
+    }
+
+    /// The first shown card that brings card `index` into view, moving the
+    /// window as little as it can: `first` itself if it is shown already.
+    #[must_use]
+    pub fn reveal(&self, first: usize, index: usize) -> usize {
+        let window = self.window(first);
+        if window.shown.contains(&index) || index >= self.offsets.len() {
+            return window.shown.start;
+        }
+        if index < window.shown.start {
+            return index;
+        }
+        (0..=index)
+            .find(|&f| self.offsets[index] - self.offsets[f] + CARD_SPAN <= self.usable + 1e-4)
+            .unwrap_or(index)
+    }
+
+    /// Whether the card after `index` can lie over it: the next card is
+    /// shown and the gap to it is tighter than a card's span.
+    #[must_use]
+    pub fn covered(&self, index: usize, window: &RowWindow) -> bool {
+        window.shown.contains(&(index + 1))
+            && self.offsets[index + 1] - self.offsets[index] < CARD_SPAN - 1e-4
+    }
+}
+
+/// Packs `count` cards into a lane `width` units wide, none of them merged.
 #[must_use]
 pub fn pack_lane(count: usize, width: f32) -> LanePacking {
-    if count == 0 {
+    pack_row(&vec![false; count], width)
+}
+
+/// Packs a row into a lane `width` units wide, holding the gaps either side
+/// of each card `held` names open at [`HELD_PITCH`].
+///
+/// Cards keep their size and start overlapping once they no longer fit, the
+/// way a physical player fans a row. Shrinking instead would trade a readable
+/// board for an unreadable one at exactly the moment the board matters most.
+/// A fan is only ever of cards over cards: a merged card's cell stays whole,
+/// and a row that cannot hold it and still fan legibly scrolls instead
+/// (`overflowing`), rather than run past its lane into the piles beside it.
+#[must_use]
+pub fn pack_row(held: &[bool], width: f32) -> LanePacking {
+    let count = held.len();
+    let usable = width.max(CARD_SPAN);
+    if count <= 1 {
         return LanePacking {
-            offsets: Vec::new(),
+            offsets: vec![0.0; count],
             pitch: 0.0,
             fanned: false,
             overflowing: false,
-        };
-    }
-    if count == 1 {
-        return LanePacking {
-            offsets: vec![0.0],
-            pitch: 0.0,
-            fanned: false,
-            overflowing: false,
+            usable,
         };
     }
 
     let n = count as f32;
     let comfortable_pitch = CARD_SPAN + CARD_GAP;
     let comfortable_span = comfortable_pitch * (n - 1.0) + CARD_SPAN;
-    let usable = width.max(CARD_SPAN);
+    // The gap after card `i` is held when either card beside it is.
+    let gaps: Vec<bool> = held.windows(2).map(|pair| pair[0] || pair[1]).collect();
+    let holds = gaps.iter().filter(|&&h| h).count() as f32;
+    let free = (n - 1.0) - holds;
+    let min_pitch = CARD_WIDTH * MIN_VISIBLE_FRACTION;
 
-    let (pitch, fanned) = if comfortable_span <= usable {
-        (comfortable_pitch, false)
+    let (pitch, fanned, overflowing) = if comfortable_span <= usable {
+        (comfortable_pitch, false, false)
     } else {
-        ((usable - CARD_SPAN) / (n - 1.0), true)
+        let room = usable - CARD_SPAN - holds * HELD_PITCH;
+        if free > 0.0 {
+            let pitch = (room / free).min(comfortable_pitch);
+            (pitch.max(min_pitch), true, pitch < min_pitch)
+        } else {
+            (HELD_PITCH, true, room < 0.0)
+        }
     };
 
-    let min_pitch = CARD_WIDTH * MIN_VISIBLE_FRACTION;
-    let overflowing = pitch < min_pitch;
-    let pitch = pitch.max(min_pitch);
-
-    let span = pitch * (n - 1.0);
-    let offsets = (0..count)
-        .map(|i| (i as f32) * pitch - span / 2.0)
-        .collect();
+    let steps: Vec<f32> = if fanned {
+        gaps.iter()
+            .map(|&h| if h { HELD_PITCH } else { pitch })
+            .collect()
+    } else {
+        vec![comfortable_pitch; count - 1]
+    };
+    let span: f32 = steps.iter().sum();
+    let mut offsets = Vec::with_capacity(count);
+    let mut at = -span * 0.5;
+    offsets.push(at);
+    for step in steps {
+        at += step;
+        offsets.push(at);
+    }
 
     LanePacking {
         offsets,
         pitch,
         fanned,
         overflowing,
+        usable,
     }
 }
 

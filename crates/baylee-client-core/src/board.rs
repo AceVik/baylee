@@ -30,7 +30,7 @@
 
 use crate::images::{ArtSize, Face, ImageKey};
 use crate::interaction::CombatFocus;
-use crate::layout::{LaneKind, PileKind, pack_lane};
+use crate::layout::{LaneKind, LanePacking, PileKind, pack_lane, pack_row};
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
 use baylee_view::{CounterEntry, ObjectStatus, PlayerView, PublicObject, TargetRef};
@@ -358,12 +358,26 @@ pub struct Lane {
     pub kind: LaneKind,
     /// Cards, already grouped and deterministically ordered.
     pub groups: Vec<CardGroup>,
-    /// Whether the row still does not fit after grouping, so the renderer
-    /// should scroll or zoom it rather than fan it further.
+    /// Whether the row still does not fit after grouping, with every merged
+    /// card's cell held whole, so it scrolls rather than fanning further.
     pub overflowing: bool,
 }
 
 impl Lane {
+    /// How the row packs into a lane `width` units wide: every merged card,
+    /// the ones wearing a count badge, holds its cell whole
+    /// ([`crate::layout::HELD_PITCH`]).
+    #[must_use]
+    pub fn pack(&self, width: f32) -> LanePacking {
+        pack_row(&self.held(), width)
+    }
+
+    /// Which of the row's cards hold their cells: the merged ones.
+    #[must_use]
+    pub fn held(&self) -> Vec<bool> {
+        self.groups.iter().map(CardGroup::is_stack).collect()
+    }
+
     /// Total number of permanents represented, counting group members.
     #[must_use]
     pub fn permanent_count(&self) -> usize {
@@ -1586,7 +1600,8 @@ fn build_pod(
             // is no longer overflowing, while forty *distinct* creatures
             // collapse to nothing and it still is — which is the case that
             // has to scroll rather than fan.
-            let overflowing = pack_lane(groups.len(), pod_width).overflowing;
+            let held: Vec<bool> = groups.iter().map(CardGroup::is_stack).collect();
+            let overflowing = pack_row(&held, pod_width).overflowing;
             Lane {
                 kind,
                 groups,

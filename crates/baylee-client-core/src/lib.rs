@@ -70,6 +70,7 @@ pub mod music;
 pub mod prefs;
 pub mod prose;
 pub mod reconnect;
+pub mod rowscroll;
 pub mod seatbar;
 pub mod sky;
 pub mod strike;

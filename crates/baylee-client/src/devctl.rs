@@ -39,7 +39,7 @@
 //! POST /key      {"name":"Space","shift":false,"hold":false,"release":false}
 //! POST /text     {"text":"dev@baylee.local"}
 //! POST /pointer  {"x":100,"y":200,"button":"left","press":true,"hold":false,"release":false}
-//! POST /scroll   {"y":-3}   (wheel lines, over wherever the pointer is)
+//! POST /scroll   {"y":-3}   (wheel lines, over wherever the pointer is; "x" turns it sideways)
 //! POST /screenshot {"path":"/tmp/table.png"}   (replies once written)
 //! POST /timescale {"speed":0.1}   (the whole picture, a tenth as fast)
 //! POST /pause    {"paused":false}   (absent or true stops the clock)
@@ -647,12 +647,17 @@ fn turn_the_wheel(
     wheels: &mut MessageWriter<bevy::input::mouse::MouseWheel>,
     window_events: &mut MessageWriter<WindowEvent>,
 ) -> String {
+    // Sideways too, which is what scrolls a battlefield row under a card
+    // without scrolling the card's preview (#298). Without `x` the wheel is
+    // the plain one it always was, three lines down.
+    let across: Option<f32> = field(body, "x").and_then(|v| v.parse().ok());
     let lines: f32 = field(body, "y")
         .and_then(|v| v.parse().ok())
-        .unwrap_or(-3.0);
+        .unwrap_or(if across.is_some() { 0.0 } else { -3.0 });
+    let across = across.unwrap_or(0.0);
     let wheel = bevy::input::mouse::MouseWheel {
         unit: bevy::input::mouse::MouseScrollUnit::Line,
-        x: 0.0,
+        x: across,
         y: lines,
         window,
         // What a mouse always sends; a finger is the other gesture entirely
@@ -661,7 +666,7 @@ fn turn_the_wheel(
     };
     wheels.write(wheel);
     window_events.write(WindowEvent::MouseWheel(wheel));
-    format!("{{\"ok\":true,\"lines\":{lines}}}")
+    format!("{{\"ok\":true,\"lines\":{lines},\"x\":{across}}}")
 }
 
 /// Types a line of text as keyboard events.
@@ -1108,9 +1113,18 @@ struct Believed<'w, 's> {
     /// camera the last rendered frame was drawn with — so a rect measured
     /// here answers for the picture a `/screenshot` would return.
     rig: Option<Res<'w, crate::table::ShownRig>>,
-    /// Every card drawn on the table, with the transform `glide` has it at
-    /// right now rather than the one it is heading for.
-    cards: Query<'w, 's, (&'static crate::table::CardVisual, &'static Transform)>,
+    /// Every card on the table, with the transform `glide` has it at right
+    /// now rather than the one it is heading for, and whether it is drawn:
+    /// a scrolled row does not draw the cards outside the run it shows.
+    cards: Query<
+        'w,
+        's,
+        (
+            &'static crate::table::CardVisual,
+            &'static Transform,
+            &'static Visibility,
+        ),
+    >,
     /// Every card standing in the player's own hand row.
     ///
     /// A different kind of thing entirely — the hand is `bevy_ui` and the
@@ -1570,7 +1584,10 @@ fn cards_json(believed: &Believed, duel: &Duel, window: Vec2) -> String {
         return "null".to_string();
     }
     let lens = crate::table::Lens::new(rig, window);
-    let on_the_table = believed.cards.iter().filter_map(|(visual, at)| {
+    let on_the_table = believed.cards.iter().filter_map(|(visual, at, seen)| {
+        if *seen == Visibility::Hidden {
+            return None;
+        }
         let (mid, size) = crate::table::card_box(&lens, at)?;
         Some(card_row(
             duel,
@@ -2405,6 +2422,33 @@ mod tests {
         let mirrored = window_events(&app);
         assert_eq!(mirrored.len(), 1, "{mirrored:?}");
         assert!(mirrored[0].contains("MouseWheel"), "{mirrored:?}");
+    }
+
+    /// A sideways wheel is written sideways, and says so; its `y` is then
+    /// nothing rather than the three lines a bare `/scroll` turns.
+    #[test]
+    fn a_wheel_can_be_turned_sideways() {
+        let (mut app, tx) = harness();
+        let (reply, answers) = channel();
+        tx.send(Job {
+            path: "/scroll".to_string(),
+            body: r#"{"x":2}"#.to_string(),
+            reply,
+        })
+        .unwrap();
+        app.update();
+        let answer = answers.try_recv().unwrap();
+        assert!(
+            answer.contains("\"x\":2") && answer.contains("\"lines\":0"),
+            "{answer}"
+        );
+        let plain: Vec<(f32, f32)> = app
+            .world()
+            .resource::<Messages<bevy::input::mouse::MouseWheel>>()
+            .iter_current_update_messages()
+            .map(|wheel| (wheel.x, wheel.y))
+            .collect();
+        assert_eq!(plain, [(2.0, 0.0)]);
     }
 
     /// A move without `press` presses nothing — the hover path, which is how

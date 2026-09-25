@@ -694,6 +694,15 @@ pub fn badge_rect(count: u32) -> [f32; 4] {
     [BADGE_RIGHT - w, BADGE_TOP, BADGE_RIGHT, BADGE_TOP + BADGE_H]
 }
 
+/// How far the badge reaches past its card's left edge, shadow and all, in
+/// card widths: the widest body's overhang, its shadow's drop and its blur.
+///
+/// What a row has to leave free before a merged card
+/// ([`crate::layout::HELD_PITCH`]), so the badge lies on the felt and on no
+/// other card (the owner, 25.09). `the_badge_reaches_as_far_as_its_quad`
+/// holds it to [`badge_quad_rect`].
+pub const BADGE_REACH: f32 = BADGE_W - BADGE_RIGHT - BADGE_DROP[0] + BADGE_BLUR;
+
 /// The quad every badge is drawn in, the same way round as [`badge_rect`]:
 /// the widest body and all of its shadow, so one mesh serves every count and
 /// the shader lays the body out from the quad's right and bottom edges.
@@ -1097,6 +1106,18 @@ mod tests {
             assert!(right <= x1, "×{count} ends past its quad");
             assert!(x0 < 0.0, "×{count} does not hang off the card");
         }
+    }
+
+    /// The room a row leaves before a merged card is measured against the
+    /// quad the badge is drawn in, not against a second reckoning of it.
+    #[test]
+    fn the_badge_reaches_as_far_as_its_quad() {
+        let [x0, ..] = badge_quad_rect();
+        assert!(
+            (BADGE_REACH + x0).abs() < 1e-6,
+            "the quad reaches {} past the card, BADGE_REACH says {BADGE_REACH}",
+            -x0
+        );
     }
 
     /// And nothing of it stands above the card's top edge, where a ring

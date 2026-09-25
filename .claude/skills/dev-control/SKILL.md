@@ -67,7 +67,7 @@ GET  /state                      → the dump below
 POST /key        {"name":"Space","shift":false,"hold":false,"release":false}
 POST /text       {"text":"dev@baylee.local"}
 POST /pointer    {"x":100,"y":200,"button":"left","press":true,"hold":false,"release":false}
-POST /scroll     {"y":-3}
+POST /scroll     {"y":-3}   or {"x":1}: sideways, a battlefield row under a card
 POST /screenshot {"path":"/tmp/table.png"}
 POST /timescale  {"speed":0.1}          → {"ok":true,"speed":0.1,"paused":false}
 POST /pause      {}  |  {"paused":false} → the same two numbers

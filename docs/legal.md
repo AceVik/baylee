@@ -145,13 +145,16 @@ Urheber- und Medienrecht.
      artist (`cardrail::the_strip_lies_on_the_art_between_the_name_and_the_type_line`);
    - the **count badge** of a merged group, hanging off the card's top-left
      corner, outside it, on the felt. It never lies on another card's print
-     either (the owner, 25.09): where a row is too tight for that, the row
-     is to scroll sideways with a scrollbar under it, in all three rows,
-     rather than let the badge cover a neighbour. Until that lands (#298),
-     the tightest rows (dozens of groups, or eight seats) still let it
-     overhang the card before it, its top-right cost corner included
-     (`cardplate::nothing_of_the_badge_reaches_past_the_printed_border`,
-     `table::badge_tests::a_badge_lies_only_on_a_card_its_own_card_lies_on`);
+     either (the owner, 25.09). A merged card holds its cell whole in its
+     row, so neither neighbour reaches the badge, and a row too tight for
+     that and a legible fan scrolls sideways instead, in all three rows: it
+     shows a run of whole cards, draws nothing of the rest, and has a
+     scrollbar saying there is more (#298;
+     `cardplate::nothing_of_the_badge_reaches_past_the_printed_border`,
+     `table::badge_tests::no_badge_lies_on_another_cards_print`,
+     `table::badge_tests::every_drawn_card_stands_inside_its_lane`). Until
+     25.09 the tightest rows let it overhang the card before it, its
+     top-right cost corner included;
    - the **offer's light** on the felt round a card, which the card lies on
      and which the next card of a fanned lane covers; the owner accepted
      that it shows only on the felt there.

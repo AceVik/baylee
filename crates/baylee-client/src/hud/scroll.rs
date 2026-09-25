@@ -128,6 +128,7 @@ pub fn scrolls(
     mut panels: Query<Scrolled, (With<Scrolls>, Without<crate::face::FaceTextBox>)>,
     hand: Query<(), With<HandScroll>>,
     table: Query<&crate::table::CardVisual>,
+    bars: Query<&crate::rowbar::RowBar>,
     mut previews: Query<Scrolled, With<crate::face::FaceTextBox>>,
     mut duel: ResMut<Duel>,
     mut preview: ResMut<PreviewScroll>,
@@ -144,10 +145,22 @@ pub fn scrolls(
         for _ in 0..8 {
             let Some(entity) = current else { break };
             if let Ok(card) = table.get(entity) {
-                // A card on the felt: what a wheel over it scrolls is its
-                // preview's text, and only while it is the card previewed.
-                // Text that fits is left where it is, and nothing else takes
-                // the wheel instead.
+                // A sideways wheel over a card on the felt scrolls its row,
+                // if the row scrolls (#298): the upright one is the
+                // preview's.
+                if wheel.x.abs() > wheel.y.abs() {
+                    if let Some(board) = duel.board.as_ref()
+                        && let Some((row, _)) =
+                            baylee_client_core::rowscroll::row_of(board, card.object)
+                    {
+                        wheel_the_row(&mut duel, row, wheel.x, wheel.unit);
+                    }
+                    break;
+                }
+                // Upright: what a wheel over it scrolls is its preview's
+                // text, and only while it is the card previewed. Text that
+                // fits is left where it is, and nothing else takes the wheel
+                // instead.
                 if duel.hovered == Some(card.object) {
                     for (mut position, computed) in &mut previews {
                         position.y = scrolled(
@@ -177,6 +190,17 @@ pub fn scrolls(
                 );
                 break;
             }
+            if let Ok(bar) = bars.get(entity) {
+                // A scrolled row's felt or its bar: either way of the
+                // wheel scrolls the row.
+                let axis = if wheel.x.abs() > wheel.y.abs() {
+                    wheel.x
+                } else {
+                    wheel.y
+                };
+                wheel_the_row(&mut duel, bar.row, axis, wheel.unit);
+                break;
+            }
             if hand.contains(entity) {
                 // Clamped by `apply_hand_scroll` against the layout it just
                 // measured, which is the only place the row's real width is
@@ -195,6 +219,31 @@ pub fn scrolls(
             }
             current = parents.get(entity).ok().map(ChildOf::parent);
         }
+    }
+}
+
+/// Scrolls a battlefield row by one wheel gesture: a line is a card, and
+/// pixels add up to one ([`baylee_client_core::rowscroll::ROW_STEP`]). A wheel
+/// pushed away, or to the right, moves the row back towards its first card,
+/// the way it moves the hand.
+fn wheel_the_row(
+    duel: &mut Duel,
+    row: baylee_client_core::rowscroll::RowKey,
+    axis: f32,
+    unit: MouseScrollUnit,
+) {
+    let pixels = match unit {
+        MouseScrollUnit::Line => axis * baylee_client_core::rowscroll::ROW_STEP,
+        MouseScrollUnit::Pixel => axis,
+    };
+    let Duel {
+        rows,
+        board,
+        layout,
+        ..
+    } = duel;
+    if let (Some(board), Some(layout)) = (board.as_ref(), layout.as_ref()) {
+        rows.wheel(board, layout, row, -pixels);
     }
 }
 
@@ -228,6 +277,11 @@ mod tests {
     /// A wheel aimed at one entity. The location is required of the message
     /// and read by nothing here.
     fn aimed(entity: Entity, y: f32) -> Pointer<Scroll> {
+        aimed_both(entity, 0.0, y)
+    }
+
+    /// The same, turned `x` lines sideways as well.
+    fn aimed_both(entity: Entity, x: f32, y: f32) -> Pointer<Scroll> {
         use bevy::camera::NormalizedRenderTarget;
         use bevy::window::WindowRef;
         Pointer::new(
@@ -242,7 +296,7 @@ mod tests {
             },
             Scroll {
                 unit: MouseScrollUnit::Line,
-                x: 0.0,
+                x,
                 y,
                 hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
                 // What a mouse always sends (`Scroll::phase`'s own doc).
@@ -498,5 +552,64 @@ mod tests {
             app.world().resource::<Duel>().hand_scroll.abs() < f32::EPSILON,
             "nothing in the interface claimed it"
         );
+    }
+
+    /// Where the local seat's land row of a table of long rows starts.
+    fn first_land(app: &App) -> usize {
+        use baylee_client_core::layout::LaneKind;
+        app.world()
+            .resource::<Duel>()
+            .rows
+            .first((baylee_core::ids::PlayerId::new(0), LaneKind::Lands))
+    }
+
+    /// A row that scrolls, under a card of it: the wheel turned sideways
+    /// moves the row a card a line, and the upright wheel, which is the
+    /// card's preview's (#259), leaves the row alone (#298).
+    #[test]
+    fn a_sideways_wheel_over_a_card_scrolls_its_row_and_an_upright_one_does_not() {
+        let mut app = app();
+        app.insert_resource(crate::rowbar::tests::long_rows(2, 40));
+        let card = app
+            .world_mut()
+            .spawn(crate::table::CardVisual {
+                object: ObjectId::new(2, 0),
+                count: 4,
+            })
+            .id();
+        wheel(&mut app, card, -1.0);
+        assert_eq!(first_land(&app), 0, "the upright wheel moved the row");
+        app.world_mut()
+            .resource_mut::<Messages<Pointer<Scroll>>>()
+            .write(aimed_both(card, -2.0, 0.0));
+        app.update();
+        assert_eq!(first_land(&app), 2, "two lines sideways are two cards");
+    }
+
+    /// Over the row's felt or its bar, either way of the wheel scrolls it.
+    #[test]
+    fn a_wheel_over_a_scrolled_rows_felt_scrolls_it_either_way() {
+        use crate::rowbar::{Part, RowBar};
+        let mut app = app();
+        app.insert_resource(crate::rowbar::tests::long_rows(2, 40));
+        let pad = app
+            .world_mut()
+            .spawn(RowBar {
+                row: (
+                    baylee_core::ids::PlayerId::new(0),
+                    baylee_client_core::layout::LaneKind::Lands,
+                ),
+                part: Part::Pad,
+            })
+            .id();
+        wheel(&mut app, pad, -1.0);
+        assert_eq!(first_land(&app), 1, "upright");
+        app.world_mut()
+            .resource_mut::<Messages<Pointer<Scroll>>>()
+            .write(aimed_both(pad, -1.0, 0.0));
+        app.update();
+        assert_eq!(first_land(&app), 2, "sideways");
+        wheel(&mut app, pad, 5.0);
+        assert_eq!(first_land(&app), 0, "back, and no further than the start");
     }
 }

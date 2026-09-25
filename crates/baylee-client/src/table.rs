@@ -38,7 +38,7 @@ use baylee_client_core::cardrail;
 use baylee_client_core::combat::Combat;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
 use baylee_client_core::layout::{
-    CARD_HEIGHT, CARD_SPAN, CARD_WIDTH, PileKind, STAGE_STEP, SeatSlot, TableLayout, pack_lane,
+    CARD_HEIGHT, CARD_SPAN, CARD_WIDTH, PileKind, STAGE_STEP, SeatSlot, TableLayout,
 };
 use baylee_client_core::tabletop;
 use baylee_client_core::textface;
@@ -1197,7 +1197,18 @@ type DrawnCard = (
     &'static mut MeshMaterial3d<CardMaterial>,
     Has<Floating>,
     &'static mut CardRest,
+    &'static mut Visibility,
 );
+
+/// A card's visibility: its parent's while it is shown, none while a
+/// scrolled row leaves it out.
+fn shown_as(shown: bool) -> Visibility {
+    if shown {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    }
+}
 
 /// A card that is off the felt because what it stands for has flying.
 ///
@@ -3526,7 +3537,7 @@ fn on_the_felt(at: &Transform) -> Transform {
 pub fn fit_the_shells(
     mut index: ResMut<SceneIndex>,
     cards: Query<
-        (Entity, &Transform),
+        (Entity, &Transform, &Visibility),
         (Or<(With<CardVisual>, With<Departing>)>, Without<ShellPart>),
     >,
     camera: Query<&Transform, (With<TableCamera>, Without<ShellPart>)>,
@@ -3547,9 +3558,12 @@ pub fn fit_the_shells(
         return;
     };
     let eye = eye.translation;
+    // Only the cards that are drawn: a scrolled row's hidden cards stand
+    // past the lane's end, where nothing is to be kept clear of them.
     let faces: Vec<(Entity, shellmat::Footprint)> = cards
         .iter()
-        .map(|(entity, at)| (entity, shellmat::Footprint::of(at)))
+        .filter(|(_, _, seen)| **seen != Visibility::Hidden)
+        .map(|(entity, at, _)| (entity, shellmat::Footprint::of(at)))
         .collect();
     let SceneIndex {
         shells,
@@ -3563,7 +3577,7 @@ pub fn fit_the_shells(
         let Some(&card) = drawn.get(object) else {
             continue;
         };
-        let Ok((_, at)) = cards.get(card) else {
+        let Ok((_, at, _)) = cards.get(card) else {
             continue;
         };
         let me = shellmat::Footprint::of(at);
@@ -3839,6 +3853,9 @@ struct Placement {
     /// How much higher the next card of this card's row stands, which the
     /// strip lies a share of: see [`STRIP_STEP_SHARE`].
     rung: f32,
+    /// Whether the card is drawn: false for the cards of a scrolled row
+    /// outside the run it shows (`LanePacking::window`).
+    shown: bool,
 }
 
 /// The place a pile stands for, for the zone machinery that speaks in places.
@@ -3909,7 +3926,11 @@ fn placements(duel: &Duel) -> Vec<Placement> {
         };
         for lane in &pod.lanes {
             let center = slot.lane_center(lane.kind);
-            let packing = pack_lane(lane.groups.len(), slot.lane_width());
+            // A merged card holds its cell whole, so its badge lies on no
+            // neighbour; a row that cannot hold them and still fan legibly
+            // shows a run of whole cards and scrolls (the owner, 25.09).
+            let packing = lane.pack(slot.lane_width());
+            let window = packing.window(duel.rows.first((pod.player, lane.kind)));
             // The row's rise, shared out over however many cards are on it.
             let steps = lane.groups.len().saturating_sub(1).max(1) as f32;
             for (i, (group, offset)) in lane.groups.iter().zip(packing.offsets.iter()).enumerate() {
@@ -3929,7 +3950,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 out.push(Placement {
                     object: group.representative,
                     slot: *slot,
-                    position: center + along * *offset + slot.forward() * stage,
+                    position: center + along * (*offset + window.shift) + slot.forward() * stage,
                     // Later in the row is higher, so a fanned lane shingles
                     // the way a hand of cards does — each card over the one
                     // before it, and never in bands of both.
@@ -3937,8 +3958,10 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     marks: cardrail::badge_bits(&group.badges),
                     sick: group.summoning_sick,
                     crests: cardcrest::marks(group.provenance, group.commander),
-                    // The last card of a row has nothing laid over it.
-                    covered: packing.fanned && i + 1 < lane.groups.len(),
+                    // The last card shown has nothing laid over it, and
+                    // nothing lies over a merged card's cell.
+                    covered: packing.covered(i, &window),
+                    shown: window.shown.contains(&i),
                     rung: LANE_RISE / steps,
                     tapped: group.status.is_tapped(),
                     // A group is one card standing for several and every
@@ -4044,6 +4067,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         sick: false,
                         crests: [None; cardcrest::MAX_CRESTS],
                         covered: false,
+                        shown: true,
                         rung: 0.0,
                     });
                 }
@@ -4084,6 +4108,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 sick: false,
                 crests: [None; cardcrest::MAX_CRESTS],
                 covered: false,
+                shown: true,
                 rung: 0.0,
             });
         }
@@ -4371,9 +4396,18 @@ pub fn sync_scene(
         let entity = if let Some(&entity) = index.cards.get(&placement.object) {
             // Existing card: update in place. Touching only what changed is
             // what keeps a large board cheap.
-            if let Ok((mut motion, mut visual, mut current_material, airborne, mut rest)) =
-                cards.get_mut(entity)
+            if let Ok((
+                mut motion,
+                mut visual,
+                mut current_material,
+                airborne,
+                mut rest,
+                mut seen,
+            )) = cards.get_mut(entity)
             {
+                // A card a scrolled row does not show is not drawn, and
+                // everything lying on it or under it goes with it.
+                seen.set_if_neq(shown_as(placement.shown));
                 if motion.target != transform {
                     motion.target = transform;
                 }
@@ -4436,6 +4470,7 @@ pub fn sync_scene(
                     ),
                     Motion { target: transform },
                     CardRest(resting),
+                    shown_as(placement.shown),
                 ))
                 .id();
             index.cards.insert(placement.object, entity);
@@ -4577,7 +4612,7 @@ pub fn sync_scene(
                 // moved zones on the same frame never reaches here: the move
                 // below is the truer answer and takes precedence.
                 if let Some(&home) = index.fanned.get(&id) {
-                    if let Ok((mut motion, _, _, _, _)) = cards.get_mut(entity) {
+                    if let Ok((mut motion, ..)) = cards.get_mut(entity) {
                         motion.target =
                             exit(Some(home), pile_stand(&duel, Some(home)), &motion.target);
                     }
@@ -4591,7 +4626,7 @@ pub fn sync_scene(
                 continue;
             };
             let to = step.to;
-            if let Ok((mut motion, _, mut worn, _, _)) = cards.get_mut(entity) {
+            if let Ok((mut motion, _, mut worn, ..)) = cards.get_mut(entity) {
                 motion.target = exit(to, pile_stand(&duel, to), &motion.target);
                 if let Some(dressed) = dress_the_exit(
                     &mut card_materials,

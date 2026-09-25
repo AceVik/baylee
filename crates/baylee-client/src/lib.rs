@@ -79,6 +79,7 @@ pub mod matmat;
 pub mod music;
 pub mod net;
 pub mod prefs;
+pub mod rowbar;
 pub mod settings;
 pub mod settingsui;
 pub mod sheen;
@@ -504,6 +505,9 @@ pub struct Duel {
     pub camera_held: bool,
     /// Hand bar scroll offset in pixels.
     pub hand_scroll: f32,
+    /// The first card each scrolled battlefield row shows
+    /// (`table::follow_the_rows`, `hud::scrolls`).
+    pub rows: baylee_client_core::rowscroll::RowScroll,
     /// Whether the preview resize handle is being dragged.
     pub resize_drag: bool,
     /// The zone browser's sheet being moved or stretched, and where the
@@ -1259,6 +1263,8 @@ fn add_present_systems(app: &mut App) {
             (
                 table::track_canvas,
                 table::track_proposals.before(table::sync_scene),
+                rowbar::follow_the_rows.before(table::sync_scene),
+                rowbar::sync_row_bars.after(table::sync_scene),
             ),
             // Ahead of both things that draw a card, so a card arriving is
             // placed with its sheen already decided rather than a frame late.

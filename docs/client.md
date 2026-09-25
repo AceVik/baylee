@@ -701,8 +701,8 @@ accident, and arithmetic borrows nothing.
   it is the circle being bought rather than anything going wrong.
 - Every seat plays on a board of the same width, and focusing an opponent
   widens that one at the other opponents' expense, never at yours.
-- Lanes fan when crowded and report overflow when even fanning stops being
-  legible.
+- Lanes fan when crowded, and a row that cannot fan legibly with its merged
+  cards' cells held whole scrolls (§"A row that does not fit scrolls").
 - A seat's tab carries a **second life total** when one applies. Twenty-one
   combat damage from a single commander ends a game at any life total
   (CR 903.10a), so a seat facing commanders is on two clocks and only one of
@@ -743,22 +743,30 @@ stood under the card, on the row behind.
 
 - A tapped card turns its badge with it, as any object lying on the card
   does; there is no longer a system holding it upright.
-- **What it costs, accepted by the owner:** in a fanned row the overhang
-  lies on the cards before it, which the row has already covered with the
-  cards after them; in a row with less room between two cards than the
-  badge overhangs, it lies on the top-right corner of the card before it,
-  where that card's cost is.
-- `a_badge_lies_only_on_a_card_its_own_card_lies_on` holds the rest: every
-  badge, spawned as the scene spawns it, against every card on the table
-  that is not one before it in its own row and that its own card does not
-  already lie on, at a duel and a ring of eight, rows of 2 to 40 in all
-  three lanes (reaching the 0.26 fan), untapped, tapped and every other one
-  tapped, and with a creature staged beside a merged one.
+- **It lies on no other card's print** (the owner, 25.09). A merged card
+  holds its cell whole in its row: the gaps on both sides of it are
+  `layout::HELD_PITCH`, a card's span, whatever the rest of the row fans
+  to. That is the room a tapped card before it and the badge's reach need
+  (`CARD_SPAN / 2 + CARD_WIDTH / 2 + BADGE_REACH`, 1.394 of 1.397, a
+  constant assertion; `the_badge_reaches_as_far_as_its_quad` holds
+  `BADGE_REACH` to the quad). Tapped, the badge lies along its card's right
+  edge, which the next card no longer reaches either. A row that cannot
+  hold its merged cells and still fan legibly scrolls instead
+  (§"A row that does not fit scrolls"). Until then a fanned row laid the
+  overhang on the cards before it, the top-right corner of the one before
+  it, where its cost is, included.
+- `no_badge_lies_on_another_cards_print` holds it. It lays every badge,
+  spawned as the scene spawns it, against every other drawn card on the
+  table, the print being the whole card. It runs at a duel and a ring of
+  eight, with rows of 2 to 40 in all three lanes, every third card merged,
+  reaching the 0.26 fan and rows that scroll. Each row is scrolled to its
+  start, three cards in and past its end. Cards are untapped, all tapped
+  or every other one tapped, and one run stages a merged creature forward
+  of its row.
 - It grows to `×99` (`BADGE_W`) and no further; three digits are set smaller
   to fit (`badge_cap`).
-- It lies at the strip's height, half a row step over its card's face, which
-  also lays its overhang over the card before it in a fanned row, a whole
-  step lower (`a_badge_lies_on_its_card_and_under_the_next_one`).
+- It lies at the strip's height, half a row step over its card's face and a
+  step under the next card's (`a_badge_lies_on_its_card_and_under_the_next_one`).
 - Nothing of it reaches past the print's border onto the art
   (`nothing_of_the_badge_reaches_past_the_printed_border`).
 
@@ -792,7 +800,8 @@ showed; with the frame gone, twenty Forests read as one Forest on a dark
 block until #298 widened and staggered the jog and striped the edges
 (`a_pile_shows_its_layers`; two constant assertions under `PILE_JOG` hold
 the jog between half a keyword mark and the air a card has in its lane
-cell). The library stays backs all the way down, face down
+cell). A merged card's cell is held whole, so the jog shows in a fanned row
+too. The library stays backs all the way down, face down
 (CR 401.2; `a_library_is_backs_all_the_way_down`).
 
 The deck follows the count. `sync_stack` rebuilds the slabs and the
@@ -801,9 +810,7 @@ rather than moved, because `ground_the_shadows` remembers a flier's resting
 shadow by entity. Until #274 the deck was built once, when the card was
 spawned: a group of Treasures growing from two to twelve under the same top
 card kept one slab under a card that had risen to stand on eleven
-(`the_deck_follows_the_count`). **Accepted:** in a fanned lane the jog lies
-under the neighbours on both sides, so only a roomy row shows it; the badge
-and the deck's own walls still say "stack" there.
+(`the_deck_follows_the_count`).
 
 When they merge depends on what they are (`board::group_objects`). Tokens
 merge from two, on any row: a token is made to be one of many, and a fan of
@@ -857,6 +864,59 @@ The board model also builds a text chip row per seat (`board::TokenChip`,
 (`ThreatSummary`: power ready, blockers, open mana, cards in hand), meant for
 an unfocused pod at eight seats. **Neither is drawn** — measured for #210,
 nothing in `baylee-client` reads either.
+
+### A row that does not fit scrolls
+
+A battlefield row packs its cards into its lane (`layout::pack_row`): at
+`CARD_SPAN + CARD_GAP` while that fits, fanned down to
+`MIN_VISIBLE_FRACTION` of a card when it does not, and with every merged
+card's cell held whole (`HELD_PITCH`, the count badge's room; §"Grouping
+and the token summary"). A row that cannot hold its cells and still fan legibly **scrolls**
+(the owner, 25.09, for all three rows). It used to run on past its lane into
+the pile strip beside it instead.
+
+- **Whole cards, from the lane's left edge.** `LanePacking::window(first)`
+  shows the longest run of whole cards from `first` that fits the lane,
+  pulled back so it never stops short of the row's end. Nothing of a card
+  outside the run is drawn: its entity stays and is `Visibility::Hidden`,
+  and everything lying on it or under it (strip, badge, shell, offer light,
+  shadow) inherits that. It is not despawned, so a card scrolled back into
+  view glides in from beside the lane instead of re-entering as if it had
+  just been played. `/state.cards` lists only drawn cards, and
+  `fit_the_shells` keeps no rim clear of a card that isn't drawn.
+- **A card at a time.** `Duel::rows` (`rowscroll::RowScroll`) keeps the
+  first card each scrolled row shows, by seat and row, and forgets rows that
+  fit again. A line of the wheel is one card, and pixel travel adds up to
+  one at `ROW_STEP` (60, the hand's line).
+- **Which wheel.** A sideways wheel over one of the row's cards scrolls the
+  row. An upright one over a card stays the card's preview's (#259). Over
+  the row's felt or its bar, either direction scrolls it. The cloth answers
+  no pointer, so a scrolled row lays an invisible pad over its band, under
+  its cards, and the bar has an invisible grab strip (`rowbar::Part`).
+  Neither is a card or a panel, so a press on them is a press on the felt to
+  every other handler. `/scroll {"x":…}` turns the wheel sideways in
+  dev-control. Thumb dragging is not there yet.
+- **The card cursor reaches every card.** `A`/`D` walk the whole row,
+  hidden cards included, and the row scrolls to show the card the cursor
+  lands on, by the smallest move (`LanePacking::reveal`). It does this once
+  per card (`RowScroll::follow`), so a row the wheel has moved since is not
+  pulled back every frame.
+- **The bar says there is more.** It is a track the lane's width, with a
+  thumb the shown share of the row (at least `THUMB_MIN`), standing where
+  the shown run is. In a duel it is a hairline (`SEAM_BAR`, 0.010) in the
+  seam under its own row. Round a ring the rows are 0.0185 apart, so the
+  three rows' bars stand one behind another in the mat's outer margin
+  (`MARGIN_FIRST` 0.12, `MARGIN_STEP` 0.09, `MARGIN_BAR` 0.03). Both are
+  the PM's call. Its colours are the blue hour's bands (`ambience.rs`). It
+  lies under every card at a share of `FLOOR_RUNG`, so nothing of it is on
+  a print.
+- Tests: `a_scrolled_row_shows_whole_cards_inside_its_lane_and_every_card_in_some_window`,
+  `a_card_is_revealed_by_the_smallest_move`, `the_felt_under_a_row_is_that_rows`
+  (client-core `layout`); `rowscroll::tests`; `every_drawn_card_stands_inside_its_lane`
+  (`table::badge_tests`); `rowbar::tests` (seam and margin, the thumb, a bar
+  only for a row that scrolls); `hud::scroll`'s
+  `a_sideways_wheel_over_a_card_scrolls_its_row_and_an_upright_one_does_not`
+  and `a_wheel_over_a_scrolled_rows_felt_scrolls_it_either_way`.
 
 ## Which ability is on the stack (and how a client names it)
 

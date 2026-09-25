@@ -31,6 +31,7 @@ fn card(slot: u32, flying: bool) -> Placement {
         sick: false,
         crests: [None; baylee_client_core::cardcrest::MAX_CRESTS],
         covered: false,
+        shown: true,
         rung: 0.0,
     }
 }
