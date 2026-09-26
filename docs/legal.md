@@ -374,3 +374,9 @@ notices in our stuff.” Whole card thumbnails/previews preserve those notices,
 and finish choices use the already recorded foil treatment approval above.
 Scryfall's API documentation returned HTTP 403 during this review; the existing
 catalog/cache/rate-limit path and its previously documented terms are unchanged.
+
+The native app title and Dock icon reuse the original Baylee branding already
+shipped in the bundle. No third-party logo is added. Rechecked the
+[Wizards policy](https://company.wizards.com/en/legal/fancontentpolicy) on
+2026-09-26: “Don’t use Wizards’ logos and trademarks.” The Baylee icon depicts
+the owner's cat, moon and flowers; the existing fan-content notice remains.

@@ -322,7 +322,7 @@ messages! {
     // ---- the sign-in screen
     /// The product's name. Not translated, and here so that the one place it
     /// is written stays one place.
-    AppName { en: "baylee", de: "baylee" },
+    AppName { en: "Baylee", de: "Baylee" },
     /// Caption over the username field.
     Username { en: "USERNAME", de: "BENUTZERNAME" },
     /// Caption over the name field, when registering.

@@ -53,7 +53,7 @@ pub fn run() {
         .set(WindowPlugin {
             primary_window: Some({
                 let mut window = Window {
-                    title: "baylee".to_string(),
+                    title: "Baylee".to_string(),
                     // A regular decorated window: the system close /
                     // minimize buttons stay available.
                     fit_canvas_to_parent: true,
@@ -121,6 +121,8 @@ pub fn run() {
     app.add_plugins(plugins).add_plugins(DuelPlugin {
         config: DuelConfig::default(),
     });
+    #[cfg(target_os = "macos")]
+    app.add_systems(Startup, super::app_icon::install);
     crate::arrival::start_login(&mut app);
     // After the plugins, because `LogPlugin` is what installs the logger.
     // The one line that tells a packaged build reading its own fonts from a

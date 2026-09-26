@@ -156,6 +156,12 @@ sha2.workspace = true
 [target.'cfg(target_os = "android")'.dependencies]
 bevy = { workspace = true, features = ["android-native-activity"] }
 
+# Dock identity for direct/cargo launches as well as packaged .app launches.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.4"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSResponder", "NSImage"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSData"] }
+
 # Browser builds: entropy comes from Web Crypto and settings persist in
 # localStorage (see src/settings.rs). `getrandom` refuses to guess a backend
 # on wasm32-unknown-unknown — a wrong guess would be a silently weak RNG

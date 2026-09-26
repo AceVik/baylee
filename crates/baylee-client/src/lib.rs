@@ -37,6 +37,8 @@
 
 pub mod abilities;
 pub mod ambience;
+#[cfg(target_os = "macos")]
+mod app_icon;
 mod arrival;
 pub mod arrowmat;
 #[cfg(not(target_arch = "wasm32"))]

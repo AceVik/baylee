@@ -8007,3 +8007,9 @@ Login forms now place the named submit action and the switch to the other form
 below their fields. Baylee and the lantern stand lower on the foreground floor.
 The gateway-selection zoom affects the distant scenery, not the stone frame or
 foreground props. Legal notices remain exclusively in the login area.
+
+The native window and in-client app name are `Baylee`. On macOS the standalone
+client also installs the bundled `brand/baylee.icns` into AppKit at startup,
+so Cargo/direct launches use the same Dock icon as the packaged `.app`.
+The setter runs on the main thread and accepts only a decoded, non-null image;
+the installed image is read back to verify the assignment.
