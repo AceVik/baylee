@@ -19,8 +19,8 @@ Urheber- und Medienrecht.
    except a card image under clause 3, and the symbols a client draws are
    clause 2a's subject rather than this one's.
    The same rule reaches everything the table is made of: the felt,
-   the seat mats, the lobby's backdrop, the sky and **the weather over the
-   table** are all computed rather than shipped
+   the seat mats, the sky and **the weather over the table** are computed
+   rather than shipped
    (`crates/baylee-client/src/shaders/atmosphere.wgsl`). The weather is the
    sharpest case of it, because a falling leaf, a snowflake and a shaft of
    light are exactly the three things a renderer normally reaches for a
@@ -224,26 +224,24 @@ Urheber- und Medienrecht.
    endpoint (`DELETE /account`, `docs/protocol.md` §"Deleting an account
    (#292)"); no tracking. As a private, GitHub-hosted open-source project
    no Impressum is required (no commercial/public telemedia service).
-5. **Audio:** the client ships **no audio files**. Every sound it makes is
-   computed — `crates/baylee-client/src/sound.rs` writes PCM and a RIFF
-   header at startup, and nothing is fetched, bundled or sampled. This is
-   clause 2's reasoning applied to the ear rather than the eye: ornament is
-   the easiest thing to borrow by accident, and arithmetic borrows nothing.
-   It is the same decision the table's felt, the seat mats and the lobby's
-   backdrop were given, and it is the reason there is no "sounds/" directory
-   to audit. A player's own sound pack is a later question and a different
-   one — files a player supplies are theirs, not ours to distribute — and
-   `baylee_client_core::cue::Cue` is deliberately a named moment rather than
-   a file name so that answer stays open.
-   The lobby's music (#296) is the same answer at the length of a tune.
-   `baylee_client_core::music` holds a composition written for this client,
-   note by note, and synthesises it as it plays: square, pulse and triangle
-   voices and a frame drum made of sines, in the manner of the demo scene's
-   cracktros and trainers. No module file, sample or recording from the
-   scene or anywhere else is in it, and it quotes no known melody: no keygen,
-   cracktro, trainer, game or film theme, and nothing of Wizards' (the Fan
-   Content Policy: "Don't use Wizards' Video or Music in your Fan Content").
-   The style is borrowed, which costs nothing; the notes are ours.
+5. **Audio:** interface/gameplay cues remain original computed PCM in
+   `crates/baylee-client/src/sound.rs`. The continuous music is an original
+   composition, now performed using recordings of real instruments from
+   **Versilian Studios VSCO 2 Community Edition**, not the paid editions.
+   The [publisher's original-WAV page](https://versilian-studios.com/vsco-community/)
+   states: “Licensed under CC0 (Creative Commons Zero) you can do whatever
+   you want with these samples.” Checked 26.09.2026, together with the
+   [source repository licence](https://github.com/sgossner/VSCO-2-CE/blob/440300901dfe9275fd84e0b7763af1f8443ae62e/LICENSE).
+   The full CC0 dedication is shipped in
+   `crates/baylee-client-core/assets/orchestra/LICENSE-CC0.txt`.
+   Recordings: Sam Gossner and Simon Dalzell; sample editing: Elan Hickler /
+   Soundemote. `art/music/samples.json` records each original path, pinned
+   revision, SHA-256 and prepared PCM hash. `art/music/prepare.py` reproducibly
+   downmixes/resamples the selected recordings to mono 22,050 Hz PCM16.
+   The score and sampler are project code under AGPL; the samples remain CC0.
+   No game soundtrack, melody or recording from Wizards or Blizzard is used.
+   This replaces the earlier arithmetic-only music decision at the owner's
+   explicit request for real orchestral instruments on 26.09.2026.
 6. **AGPL §13 — the network clause.** This is the one licence obligation the
    project's own architecture triggers, and it was written down nowhere.
    §13 says a user who interacts with a modified version of the program
@@ -302,48 +300,40 @@ Urheber- und Medienrecht.
    network still has to show a player what an ability does, and the owner's
    rule is that what it shows is the card's own English, never a sentence
    the client made up.
-10. **A front door after someone else's (#295).** The gateway and sign-in
-    faces stand in a scene (`crates/baylee-client/src/vista.rs`,
-    `shaders/vista.wgsl`) that the owner asked to have the depth of the
-    login screen of Blizzard's *World of Warcraft: Midnight*. What came
-    from it is a mood and a job: a cool foreground frame around a warm,
-    bright world the form stands in, a lit seam where the two meet, depth
-    told in parallax, and joining told as passing a threshold. Nothing of
-    its expression is here: no round ornate ring, no spikes standing off
-    it, no jewels at its sides, no crystal wings, no city, tree or figure,
-    and no Blizzard image, texture, logo, font, layout or motif; nothing
-    was traced or sampled, and the screenshot that showed the mood was
-    deleted once the scene was done. Ours is a geode: the screen is the cut
-    face of a dark mineral, agate bands following the cavity's line out
-    into rough rock; the opening is its cavity, a broken superellipse that
-    is nowhere a circle, lined with crystal teeth that point inward as a
-    geode's do; and the world seen through it is a first light over a
-    ridge of crystal fins, mirrored in a resin floor. It is arithmetic,
-    like clause 5's music and the table's felt, it has no Magic art, and
-    its colours are the lobby's own.
+10. **Baylee's identity and sanctuary (26.09.2026).** The owner requested
+    a logo, app icon and richly detailed animated login inspired by the sense
+    of crossing a threshold in *World of Warcraft: Midnight*. They explicitly
+    permitted generated textures and Baylee as a mascot. The result is an
+    original moonlit conservatory garden with limestone architecture, water,
+    botanical reliefs and warm lamps; it replaces the earlier procedural geode.
+    No Blizzard or Wizards image, texture, model, logo, font, character or
+    recognizable location is copied, traced, sampled or bundled.
 
+    `art/baylee/sanctuary-master.png`, `assets/scenes/sanctuary-world.png`,
+    `sanctuary-frame.png`, `baylee-guardian.png` and the two brand
+    masters are generated with the built-in image tool. The cat's identity
+    references the owner's supplied photographs; those photos and the people
+    appearing in them are not shipped. `wayfinder-lantern.png` is a render of
+    our original Blender model (`art/baylee/wayfinder-lantern.blend`); its
+    source script and GLB export accompany it. Real-time water, mist, light
+    and particles are original WGSL. Exact prompts and asset provenance are
+    recorded in `art/baylee/`. Project-authored materials are distributed under
+    the repository's AGPL-3.0-only licence, to the extent rights apply. No
+    third-party stock artwork or additional font is introduced.
 
-    Login refinement audit, 26.09.2026: the new mineral fractures, inward
-    dust and authenticated portal flight are original procedural WGSL. No
-    downloaded artwork, new font, symbol, recording or card image is used.
-    The reference screenshot was inspected outside the repository only.
-    Checked the [Fan Content Policy and its FAQ](https://company.wizards.com/en/legal/fancontentpolicy):
-    “Please respect other people’s IP.” The existing unofficial-content
-    notice remains on the front door. Checked [Scryfall's API/image rules](https://scryfall.com/docs/api):
-    “Do not blur, sharpen, desaturate, or color-shift card images.” The
-    sharper edges here belong to our generated stone and crystals. The
-    lobby's existing fonts and their bundled OFL notices are unchanged;
-    no additional asset licence or exception is needed.
+    Checked the [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+    on 26.09.2026: “Please respect other people's IP.” Its FAQ prohibits
+    incorporating Wizards' logos and trademarks without written consent;
+    this identity contains only Baylee and original lettering/ornament.
+    The existing unofficial-content notice remains on the front door.
+    Checked the [Scryfall API and image rules](https://scryfall.com/docs/api)
+    directly (HTTP fetch after the browser returned 403): “Do not add your own
+    watermarks, stamps, or logos to card images.” This logo and scene never
+    sample or alter a card image. The existing bundled Alegreya Sans and
+    Faustina notices state: “This Font Software is licensed under the SIL
+    Open Font License, Version 1.1.” Those fonts remain unmodified; the
+    generated logo does not bundle a new font. No policy exception is needed.
 
-    Loading-screen audit, 26.09.2026: the astrolabe, light rings and inward
-    particles are original procedural artwork; there are no imported symbols,
-    textures or recordings. Rechecked the [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy):
-    “Please respect other people’s IP.” The [Scryfall image rules](https://scryfall.com/docs/api)
-    say: “Do not blur, sharpen, desaturate, or color-shift card images.” The
-    portal only uncovers the live table; it does not sample, distort or process
-    a card image. Alegreya Sans and Faustina reuse their bundled OFL licences:
-    “This Font Software is licensed under the SIL Open Font License, Version 1.1.”
-    No new asset licence or policy exception is required.
 
 The table UI icon map (`baylee-client-core/src/tableicons.rs`) was checked on
 17.09.2026 against the same policy table and the upstream Mana 1.18 stylesheet

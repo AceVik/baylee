@@ -1,0 +1,162 @@
+[
+  {
+    "name": "violins",
+    "path": "Strings/Violin Section/susVib/VlnEns_susVib_C4_v1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "c07edd5b2119fa1da2207aba996961b50dd616f69bbcf2300ab271bc6c16239f",
+    "midi": 72,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "faba8d94aacf0a8734458c01c8c761d342f9b24ba975e26d87fe42912eac843f"
+  },
+  {
+    "name": "violas",
+    "path": "Strings/Viola Section/susvib/ViolaEns_susvib_C4_v1_1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "144ec7666be1b3b4da50937db4b1fc3675ca34bc2e871264707d83b8a0d526e6",
+    "midi": 72,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "51fa0644cc5375c9c1493f01769aaa35b7fdaa416547b5e10bf68a3fa6d332c6"
+  },
+  {
+    "name": "cellos",
+    "path": "Strings/Cello Section/susvib/susvib_C3_v1_1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "a614ee7ca821b44660236e47b89620cf914ec6ad27a99bc0d9764f47dbe512e1",
+    "midi": 60,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "143123ef7961d3dcebc678e999c570121bdd8f3e010e152c87963e4f30d504dd"
+  },
+  {
+    "name": "spiccato1",
+    "path": "Strings/Violin Section/Spic/VlnEns_Spic_C4_v2_rr1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "a14e9795677e0c418f1e18f7b640bc27b8cb3aef4cfef766e18caf38549ffe56",
+    "midi": 72,
+    "frames": 20926,
+    "rate": 22050,
+    "pcm_sha256": "7ce58af9570aa74c4b846b911959219282d1d75244c299a555cb7d3271e74d50"
+  },
+  {
+    "name": "spiccato2",
+    "path": "Strings/Violin Section/Spic/VlnEns_Spic_C4_v2_rr2.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "a6dbe1a0118aceb93665afb4d8bf1fab249d0842c75801745bf9d3526bddcf73",
+    "midi": 72,
+    "frames": 15533,
+    "rate": 22050,
+    "pcm_sha256": "7cb8a26e3ad07c2530387ea2d846f0d28696ff02df7ff0749d13e54855fafe44"
+  },
+  {
+    "name": "harp-low",
+    "path": "Strings/Harp/KSHarp_C3_mf.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "e5d232771704e140959819de8cf2a3e0ba49d021ca77354c42664ce4fce6d9f3",
+    "midi": 48,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "2d79fb977a450fb239071989422efb4829d240b29f2dbe347980ac53b05800a2"
+  },
+  {
+    "name": "harp-mid",
+    "path": "Strings/Harp/KSHarp_D4_mf.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "ebfde8aab4411019e37e3426f4dd88d6a52a38c2d0261d7f10ec63d8ff584dc7",
+    "midi": 62,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "33dd3a590271124234038e3a2c94e94ae23142469841bb41375110be79d3871b"
+  },
+  {
+    "name": "harp-high",
+    "path": "Strings/Harp/KSHarp_C5_mf.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "7c8b862f6fd3f1442ed87537af976d84bda8c05a5b4900e8907d570b5202a517",
+    "midi": 72,
+    "frames": 154300,
+    "rate": 22050,
+    "pcm_sha256": "b944b47571da3aed48dd7eba1f7e7c504b7d307d6226cbf99c4ff37c5d8add1e"
+  },
+  {
+    "name": "flute",
+    "path": "Woodwinds/Flute/susvib/LDFlute_susvib_C4_v1_1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "e88a0ff35e6b8c29fd88bc778a4c817d955b2c3a2934def97a7d093b72e2ae97",
+    "midi": 72,
+    "frames": 167432,
+    "rate": 22050,
+    "pcm_sha256": "4c26bd670c7202fa2ace970856df01412a8b423ba42dd1414e8346605ab211cf"
+  },
+  {
+    "name": "horn",
+    "path": "Brass/F Horn/sus/MOHorn_sus_C3_v2_1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "c0c0b157dcde094c4417b7c165d645897cde9ea6d74247bbab0c0e75355e78c3",
+    "midi": 60,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "ae871d236007c19cc45e67175271a9805dfafa7251d29af3547470278174de7e"
+  },
+  {
+    "name": "horn-forte",
+    "path": "Brass/F Horn/sus/MOHorn_sus_C3_v4_1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "e8668437838648d4cb6a0fd9e7b207de399bfb87ab1e0e025b5d14e3175aff7d",
+    "midi": 60,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "96b2f98ee90977df4ac9bfe81f68e0b8e658068b87c7c30de2c3d15ab1803f0c"
+  },
+  {
+    "name": "oboe",
+    "path": "Woodwinds/Oboe/Sus/Oboe_Sus_D4_v1_Main.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "cbc9cdf1b6ca5765ec67918cd4a19669f792f9c6f755837ab807d3b8e0f3dfa9",
+    "midi": 74,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "cf77d2911e1b62322289a895e1f65b865b5597a4c7a30f8d7a4d39ad9a16bf64"
+  },
+  {
+    "name": "timpani",
+    "path": "Percussion/Timpani/Timpani1_Hit_v3_rr1_Sum.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "8b39a785901d08dee14dd89914bdf2201e16ee418965e4d903fdb8e280a14d24",
+    "midi": 42,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "47252d633bded87c954e85fb28652c8f5b0c05cb3df637b6fa4ec8f721e769b9"
+  },
+  {
+    "name": "snare1",
+    "path": "Percussion/Snare2-HitSN_v3_rr1_Sum.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "3df96009d655dd4fe43c635bd3c20314a1e0cbdf9f571ee8a66207f9ef917d08",
+    "midi": 60,
+    "frames": 38158,
+    "rate": 22050,
+    "pcm_sha256": "d5b49a778cf24aa45b96c9c971c6d1881a3e07e666c6d0e8e15b7d43f6a0ff27"
+  },
+  {
+    "name": "snare2",
+    "path": "Percussion/Snare2-HitSN_v3_rr2_Sum.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "3ed6158d6873089e0f4967f303c3fab514ddde3991117a45d259d419f6bc62b8",
+    "midi": 60,
+    "frames": 28903,
+    "rate": 22050,
+    "pcm_sha256": "ae6c749020072381ce2a5cfb34010cffb2f876492fbda5693ce074d4c0864704"
+  },
+  {
+    "name": "cymbal",
+    "path": "VSCO 1 Percussion/varMetal/Cymbals/susp/susp_hit_softmall_p.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "52c773fb5fcff708f2bafddd9c3ca578a3fc78c0d5db6687d6bfdc585a483e66",
+    "midi": 60,
+    "frames": 124746,
+    "rate": 22050,
+    "pcm_sha256": "b0ebfb79a8813a06335b4f2b6674a00c47bb3d024c2730222aa895c605382855"
+  }
+]

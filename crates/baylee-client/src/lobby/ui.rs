@@ -148,6 +148,7 @@ pub(super) fn spawn_camera(
     mut commands: Commands,
     ambience: Option<ResMut<Assets<crate::ambience::AmbienceMaterial>>>,
     vista: Option<ResMut<Assets<crate::vista::VistaMaterial>>>,
+    assets: Option<Res<AssetServer>>,
 ) {
     commands.spawn((
         LobbyScreen,
@@ -187,7 +188,12 @@ pub(super) fn spawn_camera(
     // hides itself once the front door has gone, and the field is the lobby's
     // ground again.
     if let Some(mut vista) = vista {
-        let scene = crate::vista::surface(&mut commands, &mut vista, crate::vista::Vista::Front);
+        let scene = crate::vista::surface(
+            &mut commands,
+            &mut vista,
+            crate::vista::Vista::Front,
+            assets.as_deref(),
+        );
         commands
             .entity(scene)
             .insert((LobbyScreen, GlobalZIndex(-1)));
@@ -367,6 +373,7 @@ pub(super) fn ui(
                 &fonts,
                 metrics,
                 &scrolled_to,
+                assets.as_deref(),
             );
         }
         Screen::Table => table(&mut commands, root, &state, &fonts, metrics, &scrolled_to),
@@ -477,7 +484,7 @@ fn table(
         fonts,
         metrics,
         Phrase::Settings.text(lang),
-        Press::OpenSettings,
+        Press::FrontMenu,
         palette::PANEL_LIT,
         true,
     );
@@ -490,13 +497,15 @@ fn table(
         palette::PANEL_LIT,
         true,
     );
-    let music = music_toggle(commands, fonts, metrics, lang);
     commands.entity(bar).add_child(gap);
     commands.entity(bar).add_child(status);
-    commands.entity(bar).add_child(music);
     commands.entity(bar).add_child(settings);
     commands.entity(bar).add_child(out);
     commands.entity(root).add_child(bar);
+    if state.front_menu {
+        let menu = super::front::gear_menu(commands, state, fonts, metrics, metrics.pad);
+        commands.entity(bar).add_child(menu);
+    }
 
     if let Some(handover) = lobby.awaiting() {
         let banner = commands
@@ -1991,89 +2000,6 @@ pub(crate) fn button(
     id
 }
 
-/// The music's switch, wherever a screen puts it (#296).
-#[derive(Component)]
-pub(crate) struct MusicToggle;
-
-/// The speaker on it, which [`show_the_music_level`] turns to a crossed one
-/// while the music is silent.
-#[derive(Component)]
-pub(super) struct MusicSpeaker;
-
-/// Font Awesome's speaker, and its speaker with a cross.
-const SPEAKER: [char; 2] = ['\u{f028}', '\u{f6a9}'];
-
-/// The music's switch: a speaker and a word, as the lobby's other buttons
-/// are drawn, which a press turns off or on again (`Press::ToggleMusic`).
-///
-/// It assumes nothing about where it stands: it is one flex item for its
-/// parent to place, like [`button`]. The music plays before anybody has
-/// signed in and on until a table opens, so every screen it plays on offers
-/// the switch (WCAG 1.4.2). Its speaker and word follow the level every
-/// frame ([`show_the_music_level`]), so a screen that does not redraw after
-/// a press still shows it pressed.
-pub(crate) fn music_toggle(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    metrics: Metrics,
-    lang: Lang,
-) -> Entity {
-    let id = button(
-        commands,
-        fonts,
-        metrics,
-        Phrase::MusicPlaying.text(lang),
-        Press::ToggleMusic,
-        palette::PANEL_LIT,
-        true,
-    );
-    let speaker = commands
-        .spawn((
-            Text::new(SPEAKER[0].to_string()),
-            crate::hud::icon_tf(fonts, metrics.small),
-            TextColor(palette::DOCK_INK),
-            Pickable::IGNORE,
-            MusicSpeaker,
-        ))
-        .id();
-    commands
-        .entity(id)
-        .insert(MusicToggle)
-        .insert_children(0, &[speaker]);
-    id
-}
-
-/// Keeps every music switch saying what the music is doing: the speaker and
-/// "Music" while it can be heard, the crossed speaker and "Music off" while
-/// it cannot, muted or turned all the way down. Written only when it
-/// differs, so a switch left alone is not re-laid out every frame.
-pub(super) fn show_the_music_level(
-    settings: Option<Res<crate::settings::ClientSettings>>,
-    state: Res<LobbyState>,
-    toggles: Query<&Children, With<MusicToggle>>,
-    mut texts: Query<(&mut Text, Has<MusicSpeaker>)>,
-) {
-    let level = settings.map(|settings| settings.music).unwrap_or_default();
-    let heard = level.gain() > 0.0;
-    let lang = state.lobby.lang();
-    let speaker = SPEAKER[usize::from(!heard)].to_string();
-    let words = if heard {
-        Phrase::MusicPlaying
-    } else {
-        Phrase::MusicSilent
-    }
-    .text(lang);
-    for children in &toggles {
-        let mut part = texts.iter_many_mut(children);
-        while let Some((mut text, is_speaker)) = part.fetch_next() {
-            let want = if is_speaker { speaker.as_str() } else { words };
-            if text.0 != want {
-                want.clone_into(&mut text.0);
-            }
-        }
-    }
-}
-
 /// A column panel: a fixed width beside its neighbour, or the full width
 /// above it.
 pub(crate) fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow: f32) -> Entity {
@@ -2204,6 +2130,7 @@ pub(super) fn surface(commands: &mut Commands, metrics: Metrics) -> Entity {
         .id()
 }
 
+#[allow(clippy::too_many_arguments)] // the front door also consumes its brand artwork
 fn front_door(
     commands: &mut Commands,
     root: Entity,
@@ -2212,45 +2139,50 @@ fn front_door(
     fonts: &UiFonts,
     metrics: Metrics,
     scrolled_to: &Scrolled,
+    assets: Option<&AssetServer>,
 ) {
     let page = commands
         .spawn((
             Node {
                 width: percent(100),
-                min_height: percent(100),
-                flex_shrink: 0.0,
+                min_height: px(0),
+                flex_grow: 1.0,
+                overflow: Overflow::scroll_y(),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                padding: UiRect::all(px(metrics.pad * 1.5)),
-                row_gap: px(metrics.pad * 1.5),
+                justify_content: JustifyContent::FlexStart,
+                padding: UiRect::all(px(metrics.pad * 0.8)),
+                row_gap: px(metrics.pad * 0.8),
                 ..default()
             },
-            Pickable::IGNORE,
+            Scrollable(List::Table),
+            ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
+            // Empty space between fields must receive wheel/swipe gestures too.
+            Pickable::default(),
         ))
         .id();
+    commands
+        .entity(root)
+        .remove::<(Scrollable, ScrollPosition)>();
+    commands
+        .entity(root)
+        .entry::<Node>()
+        .and_modify(|mut node| node.overflow = Overflow::clip());
     commands.entity(root).add_child(page);
+    let logo = assets.map_or_else(Handle::default, |a| a.load("brand/baylee-logo.png"));
     let brand = commands
         .spawn((
-            Text::new("baylee"),
-            TextFont {
-                font: fonts.serif.clone().into(),
-                font_size: (metrics.head * 2.8).into(),
+            ImageNode::new(logo),
+            Node {
+                width: Val::Vh(27.0),
+                max_width: px(if metrics.frame == Frame::Phone {
+                    190.0
+                } else {
+                    280.0
+                }),
+                aspect_ratio: Some(1942.0 / 809.0),
+                flex_shrink: 0.0,
                 ..default()
-            },
-            TextColor(palette::DOCK_INK),
-            // The first light is below it in the scene (#295), so its
-            // glyphs' undersides catch it: a warm edge, not a bigger title.
-            TextShadow {
-                offset: Vec2::new(
-                    0.0,
-                    if metrics.frame == Frame::Phone {
-                        1.0
-                    } else {
-                        1.5
-                    },
-                ),
-                color: Color::srgba(0.98, 0.81, 0.51, 0.45),
             },
             Pickable::IGNORE,
         ))
@@ -2263,7 +2195,6 @@ fn front_door(
     );
     let stage = super::front::stage(commands, state, cast, fonts, metrics, scrolled_to);
     let colophon = super::front::colophon(commands, state, fonts, metrics);
-    commands
-        .entity(page)
-        .add_children(&[brand, tagline, stage, colophon]);
+    commands.entity(page).add_children(&[brand, tagline, stage]);
+    commands.entity(root).add_child(colophon);
 }

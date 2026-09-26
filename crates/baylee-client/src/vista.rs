@@ -1,11 +1,10 @@
 //! The front door's scene (#295): a world at first light seen through the
-//! cavity of a geode, the panel standing in it, which choosing a gateway
+//! moonlit sanctuary, the panel standing in it, which choosing a gateway
 //! walks through, followed by an accelerating flight on successful login.
 //!
-//! It grows out of [`crate::ambience`]'s field (the same warped noise makes
-//! its sky) and, like it, is arithmetic rather than a picture:
-//! `docs/legal.md` §2 and §10 for why, and `shaders/vista.wgsl` for the
-//! layers.
+//! Original generated sanctuary artwork, a painted Baylee mascot and a
+//! Blender-authored lantern are layered with real-time light, water and mist.
+//! Asset provenance and prompts live in `art/baylee/README.md`.
 //!
 //! This file schedules what the shader draws. A frame of the scene is a
 //! [`Stage`]: the hour, the haze, the glow on the rim, and the two frames of
@@ -26,10 +25,7 @@ use bevy::shader::ShaderRef;
 use bevy::ui::UiGlobalTransform;
 use bevy::window::PrimaryWindow;
 
-/// Whether the shader draws what a phone's tiler pays most for: the fine
-/// skyline and the rim's fine break, the clouds' own noise, the rays, the
-/// middle motes, the finer seams, the bands' laminations and grain, the
-/// quartz's sparkle, mineral fractures and the second inward dust layer.
+/// Desktop adds a second firefly depth plane and fine water highlights.
 const QUALITY: f32 = if cfg!(any(target_os = "android", target_os = "ios")) {
     0.0
 } else {
@@ -68,7 +64,7 @@ const WAIT_PRESENCE: f32 = 0.96;
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Stage {
     /// 0 on the gateway's side, 1 on the far side: the same world with the
-    /// light broadened, seen from inside the far cavity.
+    /// light broadened, seen from beyond the arch.
     pub hour: f32,
     /// The accent's fog, which hides the hour turning. Never white.
     pub haze: f32,
@@ -90,7 +86,7 @@ pub struct Stage {
 /// One frame of a passage.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct GateStage {
-    /// How far the cavity stands off the panel: 1 in front of it, wider once
+    /// How far the arch stands off the panel: 1 in front of it, wider once
     /// the viewer stands inside it.
     pub opening: f32,
     /// How much of it there is.
@@ -107,7 +103,7 @@ impl GateStage {
     };
 }
 
-/// The opening of the cavity the viewer stands inside, on the far side.
+/// The opening of the arch the viewer stands inside, on the far side.
 const INSIDE: f32 = 1.35;
 
 /// The haze's peak on the way in, and on the way back out.
@@ -158,7 +154,7 @@ pub fn passage(progress: f32, peak: f32) -> Stage {
 }
 
 /// Successful authentication: gather light, accelerate through the current
-/// cavity, then reveal the already-loaded lobby from the centre outward.
+/// arch, then reveal the already-loaded lobby from the centre outward.
 #[must_use]
 pub fn arrival(progress: f32) -> Stage {
     let p = progress.clamp(0.0, 1.0);
@@ -222,7 +218,7 @@ pub struct VistaParams {
     /// The path's brightness, the ember rate, the scene's alpha, the floor's
     /// zoom.
     pub air: Vec4,
-    /// Login flight progress, active flag, reserved zw.
+    /// Login flight progress, active flag, virtual seconds, reserved.
     pub portal: Vec4,
 }
 
@@ -232,6 +228,22 @@ pub struct VistaMaterial {
     /// Everything the shader reads.
     #[uniform(0)]
     pub params: VistaParams,
+    /// Original sanctuary matte painting, decoded in sRGB.
+    #[texture(1)]
+    #[sampler(2)]
+    pub sanctuary: Handle<Image>,
+    /// Baylee's transparent portrait, a separate foreground plane.
+    #[texture(3)]
+    #[sampler(4)]
+    pub guardian: Handle<Image>,
+    /// Original Blender lantern render, with its own foreground parallax.
+    #[texture(5)]
+    #[sampler(6)]
+    pub lantern: Handle<Image>,
+    /// Near stone arch and foliage, independent of the distant world.
+    #[texture(7)]
+    #[sampler(8)]
+    pub frame: Handle<Image>,
 }
 
 impl UiMaterial for VistaMaterial {
@@ -296,6 +308,27 @@ pub struct Settled {
 /// every surface's uniforms in step with the screen.
 pub struct VistaPlugin;
 
+/// Keep the front door's art resident, including while a restored session
+/// skips its form. The arrival curtain waits for these handles before it lifts.
+#[derive(Resource)]
+pub(crate) struct VistaArt([Handle<Image>; 5]);
+
+impl VistaArt {
+    pub(crate) fn ready(&self, assets: &AssetServer) -> Result<bool, ()> {
+        let mut ready = true;
+        for image in &self.0 {
+            if matches!(
+                assets.get_load_state(image.id()),
+                Some(bevy::asset::LoadState::Failed(_))
+            ) {
+                return Err(());
+            }
+            ready &= assets.is_loaded_with_dependencies(image.id());
+        }
+        Ok(ready)
+    }
+}
+
 impl Plugin for VistaPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FrontScene>()
@@ -306,6 +339,15 @@ impl Plugin for VistaPlugin {
         if !app.world().contains_resource::<AssetServer>() {
             return;
         }
+        let assets = app.world().resource::<AssetServer>();
+        let art = VistaArt([
+            assets.load("scenes/sanctuary-world.png"),
+            assets.load("scenes/baylee-guardian.png"),
+            assets.load("scenes/wayfinder-lantern.png"),
+            assets.load("brand/baylee-logo.png"),
+            assets.load("scenes/sanctuary-frame.png"),
+        ]);
+        app.insert_resource(art);
         embedded_asset!(app, "shaders/vista.wgsl");
         app.add_plugins(UiMaterialPlugin::<VistaMaterial>::default());
     }
@@ -325,9 +367,14 @@ pub fn surface(
     commands: &mut Commands,
     materials: &mut Assets<VistaMaterial>,
     kind: Vista,
+    assets: Option<&AssetServer>,
 ) -> Entity {
     let handle = materials.add(VistaMaterial {
         params: VistaParams::default(),
+        sanctuary: assets.map_or_else(Handle::default, |a| a.load("scenes/sanctuary-world.png")),
+        guardian: assets.map_or_else(Handle::default, |a| a.load("scenes/baylee-guardian.png")),
+        lantern: assets.map_or_else(Handle::default, |a| a.load("scenes/wayfinder-lantern.png")),
+        frame: assets.map_or_else(Handle::default, |a| a.load("scenes/sanctuary-frame.png")),
     });
     commands
         .spawn((
@@ -498,8 +545,8 @@ pub(crate) fn paint(
             portal: Vec4::new(
                 if entering { front.portal } else { 0.0 },
                 if entering { 1.0 } else { 0.0 },
-                0.0,
-                0.0,
+                time.elapsed_secs() * energy,
+                size.y * computed.inverse_scale_factor(),
             ),
             air: Vec4::new(
                 stage.river,

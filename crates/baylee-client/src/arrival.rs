@@ -306,12 +306,14 @@ fn fonts_ready(fonts: &UiFonts, assets: &AssetServer) -> Result<bool, ()> {
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)] // startup readiness includes fonts, login art and destination assets
 fn prepare(
     mut journey: ResMut<Journey>,
     mut prepared: ResMut<Prepared>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
     mut images: ResMut<Assets<Image>>,
+    vista_art: Option<Res<crate::vista::VistaArt>>,
     meshes: Query<&Mesh3d>,
     textures: Res<crate::textures::CardTextures>,
     lobby: Option<Res<crate::lobby::LobbyState>>,
@@ -337,7 +339,16 @@ fn prepare(
         journey.fail_local(Phrase::ArrivalTimeout);
         return;
     }
-    let Ok(fonts_ok) = fonts_ready(&fonts, &assets) else {
+    let art_ready = if journey.destination == Destination::Login {
+        vista_art
+            .as_ref()
+            .map_or(Ok(true), |art| art.ready(&assets))
+    } else {
+        Ok(true)
+    };
+    let Ok(fonts_ok) =
+        fonts_ready(&fonts, &assets).and_then(|fonts| art_ready.map(|art| fonts && art))
+    else {
         journey.fail_local(Phrase::ArrivalAssetsFailed);
         return;
     };

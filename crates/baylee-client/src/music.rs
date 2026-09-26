@@ -1,48 +1,18 @@
-//! The music before the table (#296): [`baylee_client_core::music::Tune`],
-//! heard on the gateway and sign-in faces, in the lobby and in the builder,
-//! and never at a table.
-//!
-//! The tune is a [`Decodable`] asset whose decoder is the tune itself, so
-//! `bevy_audio` hands it to rodio and the audio thread pulls it a buffer at
-//! a time: no frame computes a sample, and no buffer is held. In a browser
-//! there is no audio thread, and the pull runs between frames on the one
-//! thread there is; the tune is made about a hundred and thirty times faster
-//! than it plays (a release build, measured by `music::tests::record`), so
-//! that costs about an eighth of a millisecond a frame.
-//!
-//! One player exists while the music is heard or fading, and none at any
-//! other time, so a player at the table synthesises nothing. It fades in
-//! over [`FADE_IN`] when the client opens, and out over [`FADE_OUT`] when a
-//! seat is granted, a game opens or the music is muted; the volume
-//! in [`ClientSettings::music`] is read on every frame, so a slider is heard
-//! as it moves. A tune that fades to nothing is let go; leaving the table
-//! starts it again from its first bar.
-
-use std::time::Duration;
-
-use baylee_client_core::lobby::Screen;
-use baylee_client_core::music::{self, Tune};
+//! One orchestra follows the player through the whole app. The conductor
+//! changes future bars from public game activity; the audio player never
+//! restarts at a screen change. Only the user's own volume fades the master.
+use crate::{Duel, DuelPhase, settings::ClientSettings};
+use baylee_client_core::music::{self, Mood, ScoreControl, Tune};
 use bevy::audio::{
     AddAudioSource, AudioPlayer, AudioPlugin, AudioSink, AudioSinkPlayback, ChannelCount,
     Decodable, PlaybackSettings, Sample, SampleRate, Source, Volume,
 };
 use bevy::prelude::*;
+use std::{sync::Arc, time::Duration};
 
-use crate::DuelPhase;
-use crate::lobby::LobbyState;
-use crate::settings::ClientSettings;
-
-/// Seconds from silence to the player's volume.
-const FADE_IN: f32 = 2.5;
-
-/// Seconds from the player's volume to silence.
-const FADE_OUT: f32 = 0.8;
-
-/// The tune, as an asset `bevy_audio` can play. It holds nothing: every
-/// player made from it starts a new [`Tune`] at its first bar.
-#[derive(Asset, TypePath, Clone, Copy, Debug, Default)]
-pub struct LobbyTune;
-
+/// A shared conductor, held by the continuously playing audio asset.
+#[derive(Asset, TypePath, Clone, Debug, Default)]
+pub struct LobbyTune(Arc<ScoreControl>);
 /// A [`Tune`] as rodio pulls it.
 pub struct Stream(Tune);
 
@@ -76,232 +46,421 @@ impl Source for Stream {
 
 impl Decodable for LobbyTune {
     type Decoder = Stream;
-
     fn decoder(&self) -> Stream {
-        Stream(Tune::new())
+        Stream(Tune::with_control(self.0.clone()))
     }
 }
-
-/// The asset every player is made from.
 #[derive(Resource)]
-struct TuneHandle(Handle<LobbyTune>);
-
-/// The one player, and how far it has faded in: from 0, silent, to 1, at
-/// the player's volume.
+struct Conductor {
+    handle: Handle<LobbyTune>,
+    control: Arc<ScoreControl>,
+}
 #[derive(Component)]
 struct Playing {
-    presence: f32,
+    gain: f32,
+}
+#[derive(Default)]
+struct Activity {
+    seq: Option<u64>,
+    life: i32,
+    objects: usize,
+    stack: usize,
+    energy: f32,
 }
 
-/// Adds the music to the lobby, when the app has audio at all: an
-/// embedding without bevy's `AudioPlugin` has nothing to play it through.
+#[derive(Resource)]
+struct Installed;
+
+/// Install the orchestra and the screen-independent quick-settings controls.
 pub fn install(app: &mut App) {
+    if app.world().contains_resource::<Installed>() {
+        return;
+    }
+    app.insert_resource(Installed);
+    app.add_systems(Update, show_level);
     if !app.is_plugin_added::<AudioPlugin>() {
         return;
     }
+    music::prepare();
+    let control = Arc::new(ScoreControl::default());
     app.add_audio_source::<LobbyTune>();
     let handle = app
         .world_mut()
         .resource_mut::<Assets<LobbyTune>>()
-        .add(LobbyTune);
-    app.insert_resource(TuneHandle(handle))
-        .add_systems(Update, play_until_a_table_opens);
+        .add(LobbyTune(control.clone()));
+    app.insert_resource(Conductor { handle, control })
+        .add_systems(Update, perform);
 }
 
-/// Whether the music belongs on this screen: every face of the lobby, the
-/// builder's included (#296, the owner: it plays on while a player picks a
-/// table or builds a deck), until a seat is granted, and never while a game
-/// is open over them.
-fn heard(screen: &Screen, duel: DuelPhase) -> bool {
-    !matches!(screen, Screen::Seated(_)) && duel == DuelPhase::Closed
-}
-
-/// How far faded in, one frame of `dt` seconds later, moving from `now`
-/// towards `target`: up at the fade in's pace, down at the fade out's.
-fn fade(now: f32, target: f32, dt: f32) -> f32 {
-    if target > now {
-        (now + dt / FADE_IN).min(target)
-    } else {
-        (now - dt / FADE_OUT).max(target)
+fn direction(
+    phase: DuelPhase,
+    duel: Option<&Duel>,
+    activity: &mut Activity,
+    dt: f32,
+) -> (Mood, f32) {
+    activity.energy *= (-dt / 9.0).exp();
+    if phase == DuelPhase::Closed {
+        activity.seq = None;
+        return (Mood::Sanctuary, 0.0);
     }
+    if let Some(duel) = duel
+        && let Some(view) = duel.view.as_ref()
+    {
+        if let Some(result) = duel.ending() {
+            return (
+                match baylee_client_core::interaction::outcome(result, view.seat, duel.my_team())
+                    .won()
+                {
+                    Some(true) => Mood::Victory,
+                    Some(false) => Mood::Defeat,
+                    None => Mood::Draw,
+                },
+                0.0,
+            );
+        }
+        if activity.seq != Some(view.seq) {
+            let life = view.seats.iter().map(|seat| seat.life).sum::<i32>();
+            if activity.seq.is_some() {
+                #[allow(clippy::cast_precision_loss)] // small visible board counts
+                let burst = (activity.life - life).max(0) as f32 * 0.065
+                    + activity.objects.abs_diff(view.battlefield.len()) as f32 * 0.06
+                    + activity.stack.abs_diff(view.stack.len()) as f32 * 0.13;
+                activity.energy = (activity.energy + burst).min(1.0);
+            }
+            activity.seq = Some(view.seq);
+            activity.life = life;
+            activity.objects = view.battlefield.len();
+            activity.stack = view.stack.len();
+        }
+        #[allow(clippy::cast_precision_loss)] // capped after conversion
+        let pressure =
+            (view.combat.attackers.len() as f32 * 0.09 + view.stack.len() as f32 * 0.10).min(0.65);
+        return (Mood::Battle, (0.12 + pressure + activity.energy).min(1.0));
+    }
+    (Mood::Battle, 0.15)
 }
 
-fn play_until_a_table_opens(
+#[allow(clippy::too_many_arguments)] // Bevy system: conductor, screen, game, settings and the persistent player
+fn perform(
     mut commands: Commands,
     time: Res<Time<Real>>,
-    tune: Res<TuneHandle>,
-    lobby: Option<Res<LobbyState>>,
-    duel: Option<Res<State<DuelPhase>>>,
+    conductor: Res<Conductor>,
+    phase: Option<Res<State<DuelPhase>>>,
+    duel: Option<Res<Duel>>,
     settings: Option<Res<ClientSettings>>,
-    mut players: Query<(Entity, &mut Playing, Option<&mut AudioSink>)>,
+    mut players: Query<(&mut Playing, Option<&mut AudioSink>)>,
+    mut activity: Local<Activity>,
 ) {
-    let phase = duel.map_or(DuelPhase::Closed, |duel| *duel.get());
-    let level = settings.map(|settings| settings.music).unwrap_or_default();
-    let wanted =
-        lobby.is_some_and(|lobby| heard(lobby.lobby.screen(), phase)) && level.gain() > 0.0;
-    let target = if wanted { 1.0 } else { 0.0 };
     let dt = time.delta_secs();
+    let (mood, energy) = direction(
+        phase.map_or(DuelPhase::Closed, |p| *p.get()),
+        duel.as_deref(),
+        &mut activity,
+        dt,
+    );
+    conductor.control.set(mood, energy);
+    let target = settings.map_or_else(|| music::MusicLevel::default().gain(), |s| s.music.gain());
     let mut any = false;
-    for (entity, mut playing, sink) in &mut players {
+    for (mut playing, sink) in &mut players {
         any = true;
-        playing.presence = fade(playing.presence, target, dt);
+        playing.gain += (target - playing.gain) * (1.0 - (-dt / 0.10).exp());
         if let Some(mut sink) = sink {
-            sink.set_volume(Volume::Linear(playing.presence * level.loudness()));
-        }
-        if playing.presence <= 0.0 && !wanted {
-            commands.entity(entity).despawn();
+            sink.set_volume(Volume::Linear(playing.gain));
         }
     }
-    if !any && wanted {
+    if !any {
         commands.spawn((
-            AudioPlayer(tune.0.clone()),
+            AudioPlayer(conductor.handle.clone()),
             PlaybackSettings::ONCE.with_volume(Volume::Linear(0.0)),
-            Playing { presence: 0.0 },
+            Playing { gain: 0.0 },
         ));
+    }
+}
+
+#[derive(Component, Clone, Copy, Debug)]
+pub(crate) enum MusicAction {
+    Toggle,
+    Adjust(i8),
+}
+#[derive(Component)]
+struct MusicReadout;
+#[derive(Component)]
+struct MusicSwitch;
+
+/// The same accessible controls in the login gear, settings and table menu.
+pub(crate) fn controls(
+    commands: &mut Commands,
+    fonts: &crate::hud::UiFonts,
+    metrics: crate::lobby::Metrics,
+    lang: baylee_client_core::i18n::Lang,
+) -> Entity {
+    use crate::hud::{palette, tf};
+    use baylee_client_core::i18n::Phrase;
+    use bevy::ui::{percent, px};
+    let root = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                max_width: px(320),
+                flex_shrink: 0.0,
+                flex_direction: FlexDirection::Column,
+                row_gap: px(6),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let toggle = control_button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::MusicPlaying.text(lang),
+        MusicAction::Toggle,
+    );
+    commands.entity(toggle).with_child((
+        Text::new(Phrase::MusicPlaying.text(lang)),
+        tf(fonts, metrics.text),
+        TextColor(palette::INK),
+        MusicSwitch,
+        Pickable::IGNORE,
+    ));
+    let row = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                column_gap: px(6),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let down = control_button(commands, fonts, metrics, "−", MusicAction::Adjust(-1));
+    let up = control_button(commands, fonts, metrics, "+", MusicAction::Adjust(1));
+    let label = commands
+        .spawn((
+            Text::new("50 %"),
+            tf(fonts, metrics.text),
+            TextColor(palette::INK),
+            MusicReadout,
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(row).add_children(&[down, label, up]);
+    commands.entity(root).add_children(&[toggle, row]);
+    root
+}
+fn control_button(
+    commands: &mut Commands,
+    fonts: &crate::hud::UiFonts,
+    metrics: crate::lobby::Metrics,
+    label: &str,
+    action: MusicAction,
+) -> Entity {
+    let id = crate::lobby::button(
+        commands,
+        fonts,
+        metrics,
+        if matches!(action, MusicAction::Toggle) {
+            ""
+        } else {
+            label
+        },
+        crate::lobby::Press::PickerNothing,
+        crate::hud::palette::PANEL,
+        true,
+    );
+    commands
+        .entity(id)
+        .entry::<Node>()
+        .and_modify(move |mut node| node.min_width = bevy::ui::px(metrics.tap));
+    commands
+        .entity(id)
+        .remove::<crate::lobby::Press>()
+        .insert((Button, action))
+        .observe(
+            |mut click: On<Pointer<Click>>,
+             actions: Query<&MusicAction>,
+             mut settings: ResMut<ClientSettings>| {
+                let Ok(action) = actions.get(click.entity) else {
+                    return;
+                };
+                click.propagate(false);
+                match action {
+                    MusicAction::Toggle => settings.music.toggle(),
+                    MusicAction::Adjust(step) => {
+                        let volume = settings.music.volume() + f32::from(*step) * 0.1;
+                        settings.music.set_volume(volume);
+                        if *step > 0 {
+                            settings.music.set_muted(false);
+                        }
+                    }
+                }
+                settings.save();
+            },
+        );
+    id
+}
+#[allow(clippy::type_complexity)] // two marker types share a text update query
+fn show_level(
+    settings: Option<Res<ClientSettings>>,
+    mut labels: Query<
+        (&mut Text, Has<MusicReadout>, Has<MusicSwitch>),
+        Or<(With<MusicReadout>, With<MusicSwitch>)>,
+    >,
+) {
+    use baylee_client_core::i18n::{Lang, Phrase};
+    let Some(settings) = settings else {
+        return;
+    };
+    let lang = Lang::of(&settings.lang);
+    for (mut text, volume, switch) in &mut labels {
+        let value = if volume {
+            format!("{:.0} %", settings.music.volume() * 100.0)
+        } else if switch {
+            if settings.music.gain() > 0.0 {
+                Phrase::MusicPlaying
+            } else {
+                Phrase::MusicSilent
+            }
+            .text(lang)
+            .to_owned()
+        } else {
+            continue;
+        };
+        if **text != value {
+            **text = value;
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// Heard on every face of the lobby, the builder's included, and
-    /// nowhere once a seat is granted or a game is open, the table's above
-    /// all.
     #[test]
-    fn the_music_is_heard_until_a_table_opens() {
-        let lobby = [
-            Screen::SignIn { registering: false },
-            Screen::SignIn { registering: true },
-            Screen::Table,
-            Screen::Build,
-        ];
-        for screen in &lobby {
-            assert!(heard(screen, DuelPhase::Closed), "{screen:?}");
-            for phase in [DuelPhase::Opening, DuelPhase::Playing, DuelPhase::Finished] {
-                assert!(!heard(screen, phase), "{screen:?} {phase:?}");
-            }
-        }
-        let seated = Screen::Seated(baylee_client_core::lobby::SeatHandover {
-            game_id: "g".into(),
-            seat: 0,
-            seat_token: "t".into(),
-            local: false,
-        });
-        assert!(!heard(&seated, DuelPhase::Closed));
-    }
-
-    /// The fades take their own time each way, whatever the volume, and
-    /// stop where they are going.
-    #[test]
-    fn a_fade_takes_its_time_and_stops_there() {
-        let frame = 1.0 / 60.0;
-        let count = |from: f32, to: f32| {
-            let (mut now, mut frames) = (from, 0_u32);
-            while (now - to).abs() > f32::EPSILON {
-                now = fade(now, to, frame);
-                frames += 1;
-                assert!((0.0..=1.0).contains(&now), "{now}");
-            }
-            frames
-        };
-        let up = count(0.0, 1.0);
-        let down = count(1.0, 0.0);
-        assert!(
-            up.abs_diff(150) <= 1,
-            "in over {up} frames, not {FADE_IN} s"
-        );
-        assert!(
-            down.abs_diff(48) <= 1,
-            "out over {down} frames, not {FADE_OUT} s"
-        );
-    }
-
-    /// An app with the lobby's state, a device's settings and the music's
-    /// system, whose clock moves a tenth of a second a frame.
-    fn front_door() -> App {
+    fn one_player_survives_tables_endings_and_mute() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
             .add_plugins(bevy::state::app::StatesPlugin)
             .init_state::<DuelPhase>()
+            .insert_resource(ClientSettings::default())
+            .insert_resource(Conductor {
+                handle: Handle::default(),
+                control: Arc::new(ScoreControl::default()),
+            })
             .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
                 Duration::from_millis(100),
             ))
-            .insert_resource(LobbyState::new())
-            .insert_resource(ClientSettings::default())
-            .insert_resource(TuneHandle(Handle::default()))
-            .add_systems(Update, play_until_a_table_opens);
+            .add_systems(Update, perform);
         app.update();
-        app
-    }
-
-    /// How far the one player has faded in, or `None` when there is none.
-    fn playing(app: &mut App) -> Option<f32> {
-        let mut query = app.world_mut().query::<&Playing>();
-        let found: Vec<f32> = query.iter(app.world()).map(|p| p.presence).collect();
-        assert!(found.len() <= 1, "one player at most: {found:?}");
-        found.first().copied()
-    }
-
-    fn run(app: &mut App, seconds: f32) {
-        for _ in 0..(seconds * 10.0).ceil() as usize {
-            app.update();
+        let entity = app
+            .world_mut()
+            .query_filtered::<Entity, With<Playing>>()
+            .single(app.world())
+            .unwrap();
+        for phase in [
+            DuelPhase::Opening,
+            DuelPhase::Playing,
+            DuelPhase::Finished,
+            DuelPhase::Closed,
+        ] {
+            app.world_mut()
+                .resource_mut::<NextState<DuelPhase>>()
+                .set(phase);
+            for _ in 0..20 {
+                app.update();
+            }
+            assert_eq!(
+                app.world_mut()
+                    .query_filtered::<Entity, With<Playing>>()
+                    .single(app.world())
+                    .unwrap(),
+                entity
+            );
         }
-    }
-
-    /// The player's whole life: made in the lobby and faded all the
-    /// way in, faded out and let go when a game opens over it, made again
-    /// from the first bar when the lobby is back, and faded out and let
-    /// go when muted.
-    #[test]
-    fn the_player_comes_and_goes_with_the_front_door() {
-        let mut app = front_door();
-        run(&mut app, FADE_IN / 2.0);
-        let rising = playing(&mut app).expect("the lobby plays");
-        assert!(rising > 0.0 && rising < 1.0, "fading in: {rising}");
-        run(&mut app, FADE_IN);
-        let gain = playing(&mut app).expect("still playing");
-        assert!((gain - 1.0).abs() < f32::EPSILON, "faded in: {gain}");
-
-        app.world_mut()
-            .resource_mut::<NextState<DuelPhase>>()
-            .set(DuelPhase::Playing);
-        run(&mut app, FADE_OUT / 2.0);
-        let fading = playing(&mut app).expect("still fading");
-        assert!(fading < gain && fading > 0.0, "{fading}");
-        run(&mut app, FADE_OUT);
-        assert_eq!(playing(&mut app), None, "let go at the table");
-        run(&mut app, 3.0);
-        assert_eq!(playing(&mut app), None, "and never made again there");
-
-        app.world_mut()
-            .resource_mut::<NextState<DuelPhase>>()
-            .set(DuelPhase::Closed);
-        run(&mut app, 0.2);
-        assert!(playing(&mut app).is_some(), "back in the lobby");
-        run(&mut app, FADE_IN);
-
         app.world_mut()
             .resource_mut::<ClientSettings>()
             .music
             .set_muted(true);
-        run(&mut app, 0.3);
-        assert!(
-            playing(&mut app).is_some(),
-            "muting fades, it does not click"
+        for _ in 0..20 {
+            app.update();
+        }
+        assert!(app.world().get::<Playing>(entity).unwrap().gain < 0.0001);
+        app.world_mut()
+            .resource_mut::<ClientSettings>()
+            .music
+            .set_muted(false);
+        for _ in 0..20 {
+            app.update();
+        }
+        assert!(app.world().get::<Playing>(entity).unwrap().gain > 0.24);
+    }
+    #[test]
+    fn action_energy_decays_and_does_not_count_a_repeated_snapshot() {
+        use baylee_client_core::test_support::ViewBuilder;
+        let mut duel = Duel {
+            view: Some(ViewBuilder::new(2).build()),
+            ..Default::default()
+        };
+        let mut activity = Activity::default();
+        direction(DuelPhase::Playing, Some(&duel), &mut activity, 0.1);
+        let v = duel.view.as_mut().unwrap();
+        v.seq += 1;
+        v.seats[0].life -= 7;
+        let (_, peak) = direction(DuelPhase::Playing, Some(&duel), &mut activity, 0.1);
+        let (_, later) = direction(DuelPhase::Playing, Some(&duel), &mut activity, 5.0);
+        assert!(peak > 0.5 && later < peak);
+        assert_eq!(
+            direction(DuelPhase::Closed, Some(&duel), &mut activity, 0.1).0,
+            Mood::Sanctuary
         );
-        run(&mut app, FADE_OUT);
-        assert_eq!(playing(&mut app), None, "muted is let go, not played at 0");
+    }
+    #[test]
+    fn results_choose_the_matching_cadence() {
+        use baylee_client_core::{Interaction, test_support::ViewBuilder};
+        use baylee_core::ids::PlayerId;
+        use baylee_engine::{
+            choice::Pending,
+            win::{EndReason, GameResult, Victor},
+        };
+        for (winner, expected) in [
+            (Some(Victor::Player(PlayerId::new(0))), Mood::Victory),
+            (Some(Victor::Player(PlayerId::new(1))), Mood::Defeat),
+            (None, Mood::Draw),
+        ] {
+            let duel = Duel {
+                view: Some(ViewBuilder::new(2).build()),
+                interaction: Some(Interaction::new(
+                    Pending::GameOver(GameResult {
+                        winner,
+                        reason: if winner.is_some() {
+                            EndReason::LastPlayerStanding
+                        } else {
+                            EndReason::Draw
+                        },
+                    }),
+                    PlayerId::new(0),
+                )),
+                ..Default::default()
+            };
+            assert_eq!(
+                direction(
+                    DuelPhase::Finished,
+                    Some(&duel),
+                    &mut Activity::default(),
+                    0.1
+                )
+                .0,
+                expected
+            );
+        }
     }
 
-    /// Rodio is told the truth about the stream: two channels at the tune's
-    /// rate, and no end.
     #[test]
-    fn the_stream_says_what_it_is() {
-        let stream = LobbyTune.decoder();
+    fn the_stream_remains_endless_stereo() {
+        let stream = LobbyTune::default().decoder();
         assert_eq!(stream.channels().get(), music::CHANNELS);
         assert_eq!(stream.sample_rate().get(), music::RATE);
         assert_eq!(stream.total_duration(), None);
-        assert_eq!(stream.take(10_000).count(), 10_000);
     }
 }

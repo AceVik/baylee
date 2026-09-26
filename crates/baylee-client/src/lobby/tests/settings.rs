@@ -15,6 +15,7 @@ fn a_key_can_be_rebound_from_the_settings_screen() {
     sized(&mut app, 1400.0);
     app.update();
 
+    press(&mut app, Press::FrontMenu);
     press(&mut app, Press::OpenSettings);
     assert!(app.world().resource::<LobbyState>().settings.is_open());
 
@@ -66,6 +67,7 @@ fn arming_a_row_can_be_backed_out_of_or_used_to_unbind() {
     stocked(&mut app);
     sized(&mut app, 1400.0);
     app.update();
+    press(&mut app, Press::FrontMenu);
     press(&mut app, Press::OpenSettings);
 
     press(&mut app, Press::Rebind(Action::Cancel));
@@ -113,6 +115,7 @@ fn the_settings_screen_offers_every_switch_and_both_rails() {
     stocked(&mut app);
     sized(&mut app, 1400.0);
     app.update();
+    press(&mut app, Press::FrontMenu);
     press(&mut app, Press::OpenSettings);
 
     let found = presses(&mut app);
@@ -218,45 +221,18 @@ fn closing_the_settings_puts_the_lobby_back_as_it_was() {
     );
 }
 
-/// The music's switch stands in the lobby's bar and in the builder's (#296:
-/// the music plays on in both, so both can stop it). A press silences the
-/// music and the switch says so, speaker and word; another lets it play.
-/// In the builder the bar is kept rather than redrawn, and the switch still
-/// follows.
+/// Audio lives behind settings, leaving the header for navigation.
 #[test]
-fn the_music_switch_is_in_the_lobby_and_the_builder() {
+fn music_controls_live_in_quick_settings_and_full_settings() {
     let mut app = headless();
     app.insert_resource(crate::settings::ClientSettings::default());
     stocked(&mut app);
     sized(&mut app, 1400.0);
     app.update();
-    let muted = |app: &App| {
-        app.world()
-            .resource::<crate::settings::ClientSettings>()
-            .music
-            .muted()
-    };
-    let says_off = |app: &mut App| {
-        let labels = labels(app);
-        let off = labels.iter().any(|l| l == "Music off");
-        let crossed = labels.iter().any(|l| l == "\u{f6a9}");
-        assert_eq!(
-            off, crossed,
-            "the word and the speaker disagree: {labels:?}"
-        );
-        off
-    };
-    assert!(!says_off(&mut app));
-
-    press(&mut app, Press::ToggleMusic);
-    assert!(muted(&app));
-    assert!(says_off(&mut app), "the lobby's switch does not say so");
-    press(&mut app, Press::ToggleMusic);
-    assert!(!muted(&app));
-    assert!(!says_off(&mut app));
-
-    press(&mut app, Press::NewDeck);
-    press(&mut app, Press::ToggleMusic);
-    assert!(muted(&app), "the builder has no switch");
-    assert!(says_off(&mut app), "the builder's switch does not say so");
+    assert!(!labels(&mut app).iter().any(|l| l == "50 %"));
+    press(&mut app, Press::FrontMenu);
+    assert!(labels(&mut app).iter().any(|l| l == "50 %"));
+    assert!(labels(&mut app).iter().any(|l| l == "Music"));
+    press(&mut app, Press::OpenSettings);
+    assert!(labels(&mut app).iter().any(|l| l == "50 %"));
 }

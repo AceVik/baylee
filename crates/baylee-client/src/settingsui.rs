@@ -85,6 +85,8 @@ pub(crate) fn screen(
     // setting on this screen that decides how the rest of it reads.
     let tongue = language_row(commands, lang, fonts, metrics);
     commands.entity(root).add_child(tongue);
+    let music = crate::music::controls(commands, fonts, metrics, lang);
+    commands.entity(root).add_child(music);
 
     let columns = commands
         .spawn((

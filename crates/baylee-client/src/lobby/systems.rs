@@ -1020,12 +1020,6 @@ pub(super) fn clicks(
                 dispatch(&mut state, &mailbox, request);
             }
             Press::OpenSettings => state.settings = SettingsPane::Open,
-            Press::ToggleMusic => {
-                if let Some(settings) = settings.as_mut() {
-                    settings.music.toggle();
-                    settings.save();
-                }
-            }
             Press::CloseSettings => state.settings = SettingsPane::Closed,
             Press::AskToDeleteAccount => state.lobby.ask_to_delete_account(),
             Press::CancelAccountDeletion => state.lobby.cancel_account_deletion(),
@@ -1595,6 +1589,7 @@ fn scroll_lineage(
     let mut current = Some(entity);
     while let Some(e) = current {
         if let Ok((mut position, computed, which)) = lists.get_mut(e) {
+            let before = position.y;
             position.y = crate::hud::scrolled(
                 position.y,
                 by,
@@ -1602,8 +1597,12 @@ fn scroll_lineage(
                 computed.content_size().y,
                 computed.inverse_scale_factor(),
             );
-            memory.set(which.0, position.y);
-            return;
+            if (position.y - before).abs() > f32::EPSILON {
+                memory.set(which.0, position.y);
+                return;
+            }
+            // An exhausted inner list must not trap a short screen's form.
+            // Continue up to the first ancestor that can consume the gesture.
         }
         current = parents.get(e).ok().map(ChildOf::parent);
     }
@@ -1855,8 +1854,6 @@ pub(crate) enum Press {
     Rematch(usize),
     /// Open the settings screen.
     OpenSettings,
-    /// Silence the music, or let it play again (#296).
-    ToggleMusic,
     /// Leave it.
     CloseSettings,
     /// Wait for a key and bind it to this action.
@@ -2023,5 +2020,64 @@ pub(super) fn waiting(state: Res<LobbyState>, mut loading: ResMut<crate::loading
         }
         _ if state.lobby.busy() => loading.show(Phrase::VeilTalking.text(lang)),
         _ => loading.clear(),
+    }
+}
+
+#[cfg(test)]
+mod scrolling_tests {
+    use super::*;
+    #[test]
+    #[allow(clippy::type_complexity)] // explicit Bevy SystemState for exercising the actual scroll ancestry
+    fn a_full_or_exhausted_inner_list_passes_scroll_to_the_form() {
+        use bevy::ecs::system::SystemState;
+        let mut world = World::new();
+        world.init_resource::<Scrolled>();
+        let computed = |content| ComputedNode {
+            size: Vec2::new(300.0, 100.0),
+            content_size: Vec2::new(300.0, content),
+            inverse_scale_factor: 1.0,
+            ..default()
+        };
+        let form = world
+            .spawn((
+                ScrollPosition::default(),
+                computed(600.0),
+                Scrollable(List::Table),
+            ))
+            .id();
+        let inner = world
+            .spawn((
+                ScrollPosition::default(),
+                computed(100.0),
+                Scrollable(List::Gateways),
+                ChildOf(form),
+            ))
+            .id();
+        let mut system = SystemState::<(
+            Query<&ChildOf>,
+            Query<(&mut ScrollPosition, &ComputedNode, &Scrollable)>,
+            ResMut<Scrolled>,
+        )>::new(&mut world);
+        let scroll = |world: &mut World,
+                      system: &mut SystemState<(
+            Query<&ChildOf>,
+            Query<(&mut ScrollPosition, &ComputedNode, &Scrollable)>,
+            ResMut<Scrolled>,
+        )>,
+                      by| {
+            let (parents, mut lists, mut memory) = system.get_mut(world).expect("scroll query");
+            scroll_lineage(inner, by, &parents, &mut lists, &mut memory);
+        };
+        scroll(&mut world, &mut system, 30.0);
+        assert!((world.get::<ScrollPosition>(form).unwrap().y - 30.0).abs() < 0.001);
+        world.entity_mut(inner).insert(computed(300.0));
+        scroll(&mut world, &mut system, 30.0);
+        assert!((world.get::<ScrollPosition>(inner).unwrap().y - 30.0).abs() < 0.001);
+        assert!((world.get::<ScrollPosition>(form).unwrap().y - 30.0).abs() < 0.001);
+        world
+            .entity_mut(inner)
+            .insert(ScrollPosition(Vec2::new(0.0, 200.0)));
+        scroll(&mut world, &mut system, 30.0);
+        assert!((world.get::<ScrollPosition>(form).unwrap().y - 60.0).abs() < 0.001);
     }
 }

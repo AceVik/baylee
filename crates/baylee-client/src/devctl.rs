@@ -81,6 +81,17 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 /// harness is worse than a slow one.
 const REPLY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
+/// Optional logical viewport for repeatable phone/tablet/desktop captures.
+/// Invalid or excessive sizes leave the normal maximized window untouched.
+pub(crate) fn window_size() -> Option<(f32, f32)> {
+    let value = std::env::var("BAYLEE_DEV_WINDOW").ok()?;
+    let (width, height) = value.split_once('x')?;
+    let width: u16 = width.parse().ok()?;
+    let height: u16 = height.parse().ok()?;
+    ((320..=7680).contains(&width) && (320..=4320).contains(&height))
+        .then_some((f32::from(width), f32::from(height)))
+}
+
 /// One request from the socket thread, with the channel its answer goes back
 /// on. Answering can outlive the frame that received it (a screenshot is not
 /// ready until the render world has read the surface), which is why the
@@ -1069,6 +1080,24 @@ fn write_screenshot(
 /// clock around them.
 #[derive(bevy::ecs::system::SystemParam)]
 struct Believed<'w, 's> {
+    legal_text: Query<
+        'w,
+        's,
+        (
+            &'static Text,
+            &'static ComputedNode,
+            &'static UiGlobalTransform,
+        ),
+    >,
+    music_controls: Query<
+        'w,
+        's,
+        (
+            &'static crate::music::MusicAction,
+            &'static ComputedNode,
+            &'static UiGlobalTransform,
+        ),
+    >,
     duel: Option<Res<'w, Duel>>,
     settings: Option<Res<'w, ClientSettings>>,
     /// The card text the sheet draws its rows from, so an ability row can be
@@ -1351,6 +1380,27 @@ fn refusal_json(refusal: Option<&Refusal>, lang: Lang) -> String {
 /// under test. `view` is what the host last sent, `interaction` is what the
 /// client made of it, and a disagreement between them is exactly the class of
 /// bug this endpoint exists to show.
+fn presentation_json(believed: &Believed) -> serde_json::Value {
+    let bounds = |node: &ComputedNode, place: &UiGlobalTransform| {
+        let size = node.size() * node.inverse_scale_factor;
+        let mid = place.translation * node.inverse_scale_factor;
+        serde_json::json!({"x":mid.x-size.x/2.0,"y":mid.y-size.y/2.0,"w":size.x,"h":size.y})
+    };
+    let legal: Vec<_> = believed
+        .legal_text
+        .iter()
+        .filter(|(text, _, _)| {
+            text.0.contains("unofficial Fan Content") || text.0.contains("github.com/")
+        })
+        .map(|(text, node, place)| serde_json::json!({"text":text.0,"bounds":bounds(node,place)}))
+        .collect();
+    let music: Vec<_> = believed.music_controls.iter()
+        .map(|(action,node,place)|serde_json::json!({"action":format!("{action:?}"),"bounds":bounds(node,place)})).collect();
+    serde_json::json!({"legal":legal,"music_controls":music,
+        "volume":believed.settings.as_ref().map(|s|s.music.volume()),
+        "muted":believed.settings.as_ref().map(|s|s.music.muted())})
+}
+
 fn loading_json(believed: &Believed) -> serde_json::Value {
     believed
         .journey
@@ -1365,6 +1415,7 @@ fn loading_json(believed: &Believed) -> serde_json::Value {
         })
 }
 
+#[allow(clippy::too_many_lines)] // one diagnostic snapshot, including presentation bounds
 fn state_dump(believed: &Believed, window: Vec2) -> String {
     let Some(duel) = believed.duel.as_deref() else {
         return "{\"duel\":null}".to_string();
@@ -1448,7 +1499,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"ability_tap\":{tap},\"cast_menu\":{cast_menu},\"cast_answer\":{cast_answer},\
          \"last_cue\":{last_cue},\"last_count\":{last_count},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"shelves\":{shelves},\
-         \"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits}}}",
+         \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits}}}",
         // Which screen this is, and — on the end screen only — the ways off
         // it with `duel_exit` saying which the keyboard can see. See
         // [`exits_json`] for why that flag is the row rather than a detail
@@ -1458,6 +1509,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
             .phase
             .as_ref()
             .map_or_else(|| "null".to_string(), |p| quoted(&format!("{:?}", p.get()))),
+        presentation = presentation_json(believed),
         loading = loading_json(believed),
         exits = exits_json(believed),
         lobby_controls = lobby_controls_json(believed),

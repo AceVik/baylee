@@ -379,6 +379,13 @@ pub fn sync_menu(
     });
     commands.entity(panel).add_child(concede);
 
+    let music = crate::music::controls(
+        &mut commands,
+        &fonts,
+        crate::lobby::Metrics::of(MENU_W),
+        lang,
+    );
+    commands.entity(panel).add_child(music);
     for part in version_block(&mut commands, &fonts) {
         commands.entity(panel).add_child(part);
     }

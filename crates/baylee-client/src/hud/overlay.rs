@@ -2571,7 +2571,10 @@ mod tests {
         app.update();
         let (panel, shown, rows) = menu_panel(&mut app).expect("a panel");
         assert!(shown, "the menu is open");
-        assert_eq!(rows, 4, "two ways out, a rule and the version");
+        assert_eq!(
+            rows, 5,
+            "two ways out, music controls, a rule and the version"
+        );
         // The shelf's own children, less the two casts: those are spawned
         // with the shelf and exempt from its rebuild, so counting them would
         // make "everything was rebuilt" false on a shelf that rebuilt

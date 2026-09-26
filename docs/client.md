@@ -3454,95 +3454,50 @@ duel taking the screen still drops it on the frame it does (`teardown`).
 
 ### The front door stands in a scene
 
-The gateway and sign-in faces are drawn inside a geode (#295): `vista.rs`
-schedules it and `shaders/vista.wgsl` paints it, one full-screen `UiMaterial`
-on uniforms only, so it stays inside the GL budget. The screen is the geode's
-cut face, agate bands following the cavity out into rough dark rock; the bands
-swell and pinch along the ring and drift in tone along their length, so none
-repeats the cavity's outline, and the quartz next to the cavity sparkles now
-and then. The cavity is a broken superellipse round the panel
-(`vista::Framed`), deeper on the right than on the left and with a lip rising
-off its sill on the left, lined with two rows of crystal teeth pointing
-inward and edged with a gold seam that breathes with the music's bar. Through
-it, back to front: the lobby's blue-hour sky (the same warped noise as
-`ambience.rs`) with clouds that end in streaks and rays,
-a first light low over a ridge of crystal fins, a resin lake mirroring both
-with the light's path glittering towards the viewer, and dust flowing inward
-in two depth planes. The first light is the brightest thing on the screen and rises
-just over the panel, below the title, so the title's lit edge is its
-underside. Each layer leans
-with the pointer by its own amount, which is where the depth comes from. The
-world behind the panel is capped (`PANEL_CAP` in the shader), so a form is
-read against the scene and not through it, and nothing of the world is drawn
-where solid stone covers it.
+The gateway and sign-in forms now stand in **Baylee's sanctuary**: a moonlit
+conservatory garden seen through an open limestone arch. The previous geode's
+inward crystal teeth are gone. `vista.rs` schedules a single full-screen
+`UiMaterial`; `shaders/vista.wgsl` composites an original generated matte
+painting split into distant world and transparent near architecture, a
+photorealistic portrait of petite Baylee in her red body and an original
+Blender lantern.
+The photographic references remain outside the repository. Sources, exact
+generation prompts and the editable lantern live in `art/baylee/`.
 
-The stage the scene frames is the card's own height, not the screen's
-(`front::stage`): a taller frame put a slab of stone behind a short card.
+The image is fitted with cover coordinates, preserving architectural proportions
+on portrait and ultrawide displays. Pointer parallax grows toward the foreground;
+Baylee and the lantern have separate depths and contact shadows. Virtual time
+drives drifting mist, moonbeams, local water ripples and glints, warm lantern
+flicker, two firefly layers and Baylee's subtle breathing. The shader never
+samples card artwork. Phones omit the second firefly layer and foreground props
+when they cannot stand clear of the form; Baylee remains in the logo.
 
-**Choosing a gateway is walking through it.** `FrontMotion::progress` says
-how far the viewer has come, 0 on the gateway's side and 1 arrived, and
-`vista::passage` turns that into a frame of the scene: the seam brightens,
-the viewer walks through the cavity, a haze rises over the moment the panels
-change, and they arrive inside a wider cavity on the far side, the light
-broadened. It takes a second (`PASSAGE_IN`), 0.8 s back (`PASSAGE_OUT`); the
-panels keep their own 0.48 s film from 0.20 s in, and the carousel between
-the account form's tabs keeps its own time and does not touch the scene. The
-haze peaks at `HAZE_IN` going in and `HAZE_OUT` coming back and is never
-white.
+The form keeps its opaque dark surface, keyboard controls, guest/account flows
+and accessible settings. The logo uses the new transparent brand artwork, above
+the existing localized welcome line. The source and fan-content notice occupy a non-shrinking opaque footer with
+12.5 px text. Only the form body scrolls, keeping these notices visible at
+every viewport. Long source URLs wrap by character when needed.
 
-**Successful login flies into the lobby.** `lobby::entrance` observes a
-visible sign-in screen becoming authenticated (account or guest). It starts
-one 1.65 s flight after the server accepts the credentials; a rejection,
-an offline entry or a restored session never starts it. `vista::arrival`
-charges the seam, accelerates the foreground past the camera and brings up
-a spiral throat. A soft radial opening reveals the actual lobby underneath
-from the centre outward. The same scene surface moves above the lobby for
-this interval; it adds no render target or second effect pass. Its aperture
-stays fixed on the departed form, and it hides completely on completion.
-Data loading proceeds underneath; clicks, keyboard, IME and scroll input are
-held until arrival. Sign-out or reduced motion cancels it immediately.
+**Choosing a gateway is walking through it.** The existing one-second passage
+(0.8 s back) gently advances into the garden as the panels exchange places.
+The account carousel retains its own 0.48 s timing. **Successful authentication**
+starts the existing 1.65 s flight only after account or guest acceptance: the
+camera accelerates, foreground props pass away, light streaks converge, and a
+feathered aperture reveals the actual lobby beneath. Rejected credentials,
+offline entry and restored sessions do not start that flight. Input remains
+blocked until it completes; sign-out or reduced motion cancels it.
 
-Dust now follows two analytic inward spiral fields: increasing time lowers
-log-radius along each trajectory, with luminous heads and trailing tails.
-There is no CPU particle simulation, allocation per particle or draw per
-particle. Desktop stone uses nine neighbouring cellular samples for crisp,
-irregular mineral faces and thin veins, with bevels and inclusions on the
-crystal teeth. Mobile omits the cellular search and the second dust layer.
-The lake's reflection is softened independently of the sharp foreground,
-and distant shelves establish depth behind the nearer ridge. Text and the
-footer retain their quiet areas.
+The same scene holds behind longer waits. `VistaArt` retains all five login
+images, and the startup curtain waits for their load state as well as the fonts
+before collecting resident GPU assets. A missing image reports the existing
+asset failure rather than revealing an incomplete login.
 
-**A wait is the passage held open.** The veil (`loading.rs`) raises the same
-scene around its card (`Vista::Wait`, `vista::waiting`): the cavity stands
-wide, the haze and the seam rise a little over 0.4 s, and the light turns
-slowly for as long as the wait lasts, so a long wait is seen to be going on
-without a spinner being the only thing that moves. The scene covers nearly
-all of the screen behind it (`WAIT_PRESENCE`): over a bright sky, a form
-showing through reads as clutter.
-
-Under `reduce_motion` nothing moves: the scene ignores time and the pointer,
-and the passage is a quarter-second change of colour to the far side's light.
-Measured on the Mac at 3456×2104 with the pointer at rest: 0 pixels of
-7,271,424 changed in 1.5 s, against 8.6 % with motion. A phone draws it
-without the fine skyline and the rim's fine break, the clouds' own noise, the
-rays, the middle motes, the finer seams, the bands' laminations and grain,
-the quartz's sparkle and the glitter's sparkle (`vista::QUALITY`). Its cost is not
-measured on a phone yet: on the Android emulator (Pixel 9 Pro XL image, API
-35, landscape, release build) against a flat fill it drew 14–20 fps against
-10–16 on the host GPU and 2.3–2.5 against 1.6–2.3 on SwiftShader, which is
-the emulator's own overhead, not the scene. The first version of the scene
-measured 109–113 fps against 107–111 on the Mac (M1 Max, debug build): the
-lobby is CPU-bound there.
-
-Refinement check, 26.09.2026: in the same M1 Max debug client at
-3456×2104 physical pixels, three 2 s samples each measured 58.5–60.0 fps
-with the refined scene, 59.0–60.0 with the previous shader, then 58.3–60.0
-with the refined scene restored. These are presentation-limited frame counts
-from `/health`, not GPU timings or a mobile performance claim. No build ran
-during the comparison. Successful account and guest login, rejection and
-portal completion were exercised against a loopback test gateway using an
-isolated `XDG_CONFIG_HOME`. The lobby schedule test covers the first
-accepted frame, input blocking during the flight and input after arrival.
+`reduce_motion` zeros the virtual clock and pointer; even Baylee, the lamp and
+water stay still. The only reduced-motion passage is a short colour change.
+The public material uses four textures and samplers, no offscreen buffers,
+particle entities, per-frame allocation or scene geometry. The GLB is an editable
+source export; the client consumes its transparent render. Mobile GPU performance
+has not been measured for this replacement; older geode timings do not apply.
 
 ## The deck builder
 
@@ -5829,7 +5784,7 @@ listening at the right moment.
 ear: ornament is the easiest thing to borrow by accident, and arithmetic
 borrows nothing. The felt, the seat mats and the lobby's backdrop were given
 that answer and so is this — `sound::render` writes samples and `sound::wav`
-writes a RIFF header in front of them, so the client ships no audio assets and
+writes a RIFF header in front of them, so these cues ship no audio assets and
 there is no `sounds/` directory to audit. A player's own pack stays reachable
 because a `Cue` is a named moment and not a file name.
 
@@ -6021,71 +5976,48 @@ are the same `last_cue` and two different sounds, so a harness reading only
 the name could not tell a burst from a tap — which is precisely the thing the
 counted cues exist to do.
 
-### The lobby has music, and the table never does
+### One orchestra follows the player
 
-The lobby plays a tune (#296), from the gateway face through the builder, and
-it is arithmetic like everything above: `baylee-client-core/src/music.rs`
-writes it a sample at a time, in the manner of a tracker module and from no
-module. A square lead with its own echo, a harp breaking the chords on a
-triangle and a pulse whose width sweeps, a triangle bass and a frame drum
-whose skin is three falling sines at a membrane's mode ratios (1, 1.59,
-2.14), 32 bars of 6/8 in D minor at a dotted quarter of 63. Every note rings
-on under the next on its own release (`Voice` keeps four sounding), so no
-voice clicks from one note to the next. The owner heard the first version
-(76, a 50 Hz arpeggio, a noise drum) as too quick and its beat as made;
-`the_drum_is_a_skin_and_not_a_hiss` holds the drum's weight under 400 Hz
-(the noise drum's lay at 3.4 kHz). Where it comes from is `docs/legal.md` §5.
+`baylee-client-core/src/music/score.rs` performs the original 32-bar 6/8
+D-minor/Dorian theme with recorded VSCO 2 CE strings, harp, flute, oboe,
+horns, timpani, snare and suspended cymbal. The 16-source bank is CC0;
+provenance, pitch mapping and the reproducible preparation script live in
+`art/music/`. The sampler decodes the small embedded bank once before playback,
+uses bounded polyphony and allocates nothing while rendering. Stereo seating,
+natural recorded attacks, note releases, phrase dynamics and a damped diffuse
+room are shared by every state.
 
-**It is streamed, never rendered ahead.** `Tune` is an endless iterator, and
-`crates/baylee-client/src/music.rs` makes it a `Decodable` asset whose decoder
-is the tune itself, so rodio pulls it a buffer at a time on the audio thread.
-No frame computes a sample, nothing is held but the tune's few voices, and
-startup waits for none of it. A browser has no audio thread, so the pull
-there runs between frames on the one thread it has. Both are cheap: a
-release build makes the tune about 130× faster than it plays on an M1
-(`music::tests::record` prints the factor). The first version, one note per
-voice at a time, was 300× there and 220× on a Pixel 11 Pro XL; the Pixel has
-not been measured since the notes began to ring on.
+There is **one musical clock and one persistent AudioPlayer**. Public stack,
+combat, board and damage activity drives a decaying energy estimate. The
+conductor admits a new state on a bar line, changes future instrumentation,
+and lets the tempo approach its target over eight seconds. Sanctuary starts
+at a dotted-quarter 60; battle moves towards 72–100 according to energy.
+Held notes and reverb never restart, no screen transition fades a track out,
+and no other track fades in. Victory, defeat and draw each have a four-bar
+cadence. Dismissing the result early still completes that cadence before
+returning to sanctuary. Long result screens settle into quiet tonic strings.
 
-**It loops without a seam.** The first four bars are an introduction and are
-heard once; `LOOP` returns to `RESTART`, bar 5. Every note restarts its
-oscillator's phase and the drum's noise is reseeded at `RESTART` (a stroke's
-strength is read off its beat), so the
-second pass is the first one sample for sample, and a player who leaves the
-face open for an hour hears no drift. `the_loop_plays_on_without_a_seam`
-holds the join to no larger a step than the tune takes inside itself.
+Quick settings behind the login/lobby gear contain mute and volume controls
+in ten-percent steps. The full settings screen and the table's game menu
+provide the same controls. The chosen level remains device-local in
+`ClientSettings::music`; changing volume slews only the master over 100 ms.
+Muting keeps the musical transport running, so unmuting resumes the present
+phrase. Sound effects keep their independent preference.
 
-**It is heard until a table opens.** `music::heard` is any screen but
-`Screen::Seated` while `DuelPhase::Closed`: the faces, the lobby and the
-builder (the owner, 25.09.). The music fades in over 2.5 s and out over
-0.8 s, on a seat being granted, on a game opening, and on a mute. At most one
-player exists; one that has faded out is despawned, so a table synthesises
-nothing, and leaving it starts the tune again at bar 1
-(`the_player_comes_and_goes_with_the_front_door`).
+Tests cover bar-boundary admission, sample-identical playback before a change,
+cadence completion, output headroom, single-player persistence across all
+screen states and activity decay. To render a listening demo from the exact
+runtime sampler:
 
-**The level is the device's.** `ClientSettings::music` is a `MusicLevel`: a
-volume, heard as its square because a linear slider does all its work in its
-first quarter, and a mute that keeps the volume for when it is lifted. It is
-not in the account's settings, for `last_username`'s reason: it plays before
-anybody has signed in. The fields are private because serde_json writes a NaN
-`f32` as `null`, and a `null` there would refuse the whole settings file,
-gateways and guest sessions included; the setters ignore a non-number and
-clamp. Music that starts by itself has to be stoppable where it plays (WCAG
-1.4.2), so every screen it plays on has its switch: `lobby::music_toggle`, a
-speaker and a word (`Press::ToggleMusic`, `MusicLevel::toggle`), in the
-lobby's bar left of Settings, first on the right of the builder's bar, and
-beside the gear on the faces (#295). `ui::show_the_music_level` keeps every
-switch's speaker and word in step with the level each frame, so a screen
-that keeps its bar rather than redrawing it (the builder) still shows the
-press (`the_music_switch_is_in_the_lobby_and_the_builder`). The system reads
-the level every frame, so a slider is heard as it moves.
+```sh
+cargo run -p baylee-client-core --example music_demo -- /tmp/baylee-orchestra.wav
+```
 
-**A browser keeps it quiet until someone presses something.** Browsers start
-an `AudioContext` suspended until the page has had a gesture, and cpal asks
-its context to resume once, at startup, before any gesture can have
-happened. `index.html` wraps `AudioContext` before the wasm loads and resumes
-every context it made on each press, key or touch until it runs. That is
-what makes the table's cues audible in a browser too.
+The 150-second demo visits sanctuary (0 s), restrained battle (32 s), intense
+battle (56 s), victory (80 s), sanctuary (90 s), battle (104 s), defeat (116 s),
+draw (126 s), and sanctuary (138 s). These are requests, admitted on musical
+boundaries. Browser playback retains the existing AudioContext gesture unlock
+in `index.html`; autoplay permission remains the browser's decision.
 
 ## The zone browser is a dialog, which is a different material
 

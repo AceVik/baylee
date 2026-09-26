@@ -133,6 +133,7 @@ fn raise(
     fonts: Option<Res<UiFonts>>,
     veil: Query<Entity, With<Veil>>,
     scene: Option<ResMut<Assets<VistaMaterial>>>,
+    assets: Option<Res<AssetServer>>,
     mut shown: Local<Option<String>>,
     mut asked: Local<f32>,
     journey: Option<Res<crate::arrival::Journey>>,
@@ -196,7 +197,7 @@ fn raise(
     // The wait's own scene (#295): the front door's passage held open. It
     // dims what is behind it by itself, so the plain veil gives way to it.
     if let Some(mut scene) = scene {
-        let surface = vista::surface(&mut commands, &mut scene, Vista::Wait);
+        let surface = vista::surface(&mut commands, &mut scene, Vista::Wait, assets.as_deref());
         commands
             .entity(root)
             .insert(BackgroundColor(Color::NONE))

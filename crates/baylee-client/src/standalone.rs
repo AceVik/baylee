@@ -62,6 +62,13 @@ pub fn run() {
                 // Starts maximized (decorations kept). A phone has no
                 // window manager to ask, and ignores it.
                 window.set_maximized(true);
+                // Reproducible viewport captures without desktop automation.
+                // Only a dev-control build reads this test-only override.
+                #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+                if let Some((width, height)) = crate::devctl::window_size() {
+                    window.set_maximized(false);
+                    window.resolution.set(width, height);
+                }
                 window
             }),
             ..default()

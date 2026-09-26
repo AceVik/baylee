@@ -1581,12 +1581,14 @@ fn add_input_systems(app: &mut App) {
 }
 
 impl Plugin for DuelPlugin {
+    #[allow(clippy::too_many_lines)] // the client plugins are registered together
     fn build(&self, app: &mut App) {
         add_present_systems(app);
         add_input_systems(app);
         // Shared with the lobby, which is a separate plugin and may already
         // have installed it.
         prefs::install(app);
+        music::install(app);
         ambience::install(app);
         loading::install(app);
         flip::install(app);

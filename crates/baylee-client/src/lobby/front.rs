@@ -37,7 +37,7 @@
 //! motion starts or ends), and [`pose_front`] and [`fade_front`] write each
 //! frame's pose onto whatever panels stand.
 
-use super::ui::{Masked, music_toggle, status_ink};
+use super::ui::{Masked, status_ink};
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::*;
 use crate::frontal::FrontalMaterial;
@@ -97,24 +97,11 @@ fn card_width(frame: Frame) -> Val {
     }
 }
 
-/// The room the panels stand in: as tall as the tallest of them, so that
-/// neither a motion nor a tab moves anything outside the panel. Each panel
-/// is as tall as what it holds and stands in the middle of this room, so a
-/// short one is not a tall one with a hole at its foot. A phone scrolls
-/// instead.
-///
-/// Measured on a desktop window before guests: the account form on "Create
-/// account", four fields and two hints, was about 594 px; the gateway form
-/// with its list at the four rows in sight about 548; signing in about 393.
-/// The guest entry (#269) adds a field and a rule above the tabs, about 80 px
-/// more, which is what this was grown by; it is to be measured again at the
-/// next screenshots. A panel taller than this room makes the room taller,
-/// and the page moves by the excess.
-fn stage_height(frame: Frame) -> Val {
-    match frame {
-        Frame::Phone => Val::Auto,
-        Frame::Tablet | Frame::Desktop => px(690),
-    }
+/// Reserve a stable place for the gateway and sign-in cards. The body alone
+/// scrolls when a taller form or shorter viewport needs more room; the legal
+/// footer is a separate, non-shrinking sibling.
+fn stage_height(_frame: Frame) -> Val {
+    Val::Auto
 }
 
 /// The three panels.
@@ -834,8 +821,7 @@ fn header(
         Phrase::LanguageAndSettings.text(lang),
         state.front_menu,
     );
-    let music = music_toggle(commands, fonts, metrics, lang);
-    commands.entity(header).add_children(&[words, music, gear]);
+    commands.entity(header).add_children(&[words, gear]);
     header
 }
 
@@ -903,7 +889,7 @@ fn icon_button(
 ///
 /// A veil over the rest of the page closes it when pressed, as any press
 /// outside a menu does.
-fn gear_menu(
+pub(super) fn gear_menu(
     commands: &mut Commands,
     state: &LobbyState,
     fonts: &UiFonts,
@@ -953,7 +939,7 @@ fn gear_menu(
                 border_radius: BorderRadius::all(px(10)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL_LIT),
+            BackgroundColor(palette::PANEL_LIT.with_alpha(1.0)),
             BorderColor::all(palette::DOCK_EDGE.with_alpha(0.45)),
             soft_shadow(),
             GlobalZIndex(600),
@@ -983,6 +969,7 @@ fn gear_menu(
     }
     let languages = halves(commands, metrics, &chips);
     let rule = rule(commands);
+    let music = crate::music::controls(commands, fonts, metrics, lang);
     let all = button(
         commands,
         fonts,
@@ -997,7 +984,7 @@ fn gear_menu(
     });
     commands
         .entity(menu)
-        .add_children(&[caption, languages, rule, all]);
+        .add_children(&[caption, languages, rule, music, all]);
     commands.entity(holder).add_children(&[veil, menu]);
     holder
 }
@@ -1078,6 +1065,7 @@ fn status_slot(
 /// (`baylee_build::short()`), for the same reason: it is what a bug report
 /// is worthless without. The source line is the AGPL's §13 offer (#270),
 /// drawn where every player passes; see [`source_address`].
+#[allow(clippy::too_many_lines)] // one legal footer: build, quoted notice, source link and QR
 pub(super) fn colophon(
     commands: &mut Commands,
     state: &LobbyState,
@@ -1087,21 +1075,32 @@ pub(super) fn colophon(
     let colophon = commands
         .spawn((
             Node {
-                width: card_width(metrics.frame),
+                width: percent(100),
                 max_width: percent(100),
                 flex_shrink: 0.0,
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
-                row_gap: px(metrics.gap * 0.5),
+                row_gap: px(3),
+                padding: UiRect {
+                    left: px(12),
+                    right: px(if metrics.frame == Frame::Phone {
+                        12.0
+                    } else {
+                        110.0
+                    }),
+                    top: px(8),
+                    bottom: px(8),
+                },
                 ..default()
             },
+            BackgroundColor(Color::srgb(0.018, 0.028, 0.045)),
             Pickable::IGNORE,
         ))
         .id();
     let build = commands
         .spawn((
             Text::new(baylee_build::short()),
-            tf(fonts, metrics.small * 0.9),
+            tf(fonts, 12.5),
             TextColor(palette::MUTED),
             Pickable::IGNORE,
         ))
@@ -1109,16 +1108,25 @@ pub(super) fn colophon(
     let notice = commands
         .spawn((
             Text::new(FAN_CONTENT_NOTICE),
-            tf(fonts, metrics.small * 0.85),
-            TextColor(palette::MUTED.with_alpha(0.8)),
+            Node {
+                width: percent(100),
+                max_width: px(1100),
+                ..default()
+            },
+            tf(fonts, 12.5),
+            TextColor(palette::INK),
             TextLayout::justify(Justify::Center),
             Pickable::IGNORE,
         ))
         .id();
     let mut source = commands.spawn((
         Text::new(Phrase::SourceCode.fill(state.lobby.lang(), &[source_address(state)])),
-        tf(fonts, metrics.small * 0.85),
-        TextColor(palette::MUTED.with_alpha(0.8)),
+        Node {
+            max_width: percent(100),
+            ..default()
+        },
+        tf(fonts, 12.5),
+        TextColor(palette::INK),
         // An address is one long word; on a phone it breaks where it
         // must rather than running off the card.
         TextLayout::new(Justify::Center, LineBreak::WordOrCharacter),
@@ -1160,6 +1168,9 @@ pub(super) fn colophon(
         let frame = commands
             .spawn((
                 Node {
+                    position_type: PositionType::Absolute,
+                    right: px(12),
+                    bottom: px(10),
                     padding: UiRect::all(px(3)),
                     border: UiRect::all(px(1)),
                     border_radius: BorderRadius::all(px(5)),

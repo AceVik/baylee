@@ -72,6 +72,7 @@ case "$target" in
     mkdir -p "$app/MacOS" "$app/Resources"
     cp "$bin_dir/$exe" "$app/MacOS/"
     cp -R crates/baylee-client/assets "$app/Resources/assets"
+    cp crates/baylee-client/assets/brand/baylee.icns "$app/Resources/Baylee.icns"
     ln -s ../Resources/assets "$app/MacOS/assets"
     cat >"$app/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -80,6 +81,7 @@ case "$target" in
 <dict>
     <key>CFBundleName</key><string>Baylee</string>
     <key>CFBundleDisplayName</key><string>Baylee</string>
+    <key>CFBundleIconFile</key><string>Baylee.icns</string>
     <key>CFBundleIdentifier</key><string>local.baylee.client</string>
     <key>CFBundleExecutable</key><string>$exe</string>
     <key>CFBundlePackageType</key><string>APPL</string>
