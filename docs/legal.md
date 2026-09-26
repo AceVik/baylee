@@ -322,6 +322,19 @@ Urheber- und Medienrecht.
     like clause 5's music and the table's felt, it has no Magic art, and
     its colours are the lobby's own.
 
+
+    Login refinement audit, 26.09.2026: the new mineral fractures, inward
+    dust and authenticated portal flight are original procedural WGSL. No
+    downloaded artwork, new font, symbol, recording or card image is used.
+    The reference screenshot was inspected outside the repository only.
+    Checked the [Fan Content Policy and its FAQ](https://company.wizards.com/en/legal/fancontentpolicy):
+    “Please respect other people’s IP.” The existing unofficial-content
+    notice remains on the front door. Checked [Scryfall's API/image rules](https://scryfall.com/docs/api):
+    “Do not blur, sharpen, desaturate, or color-shift card images.” The
+    sharper edges here belong to our generated stone and crystals. The
+    lobby's existing fonts and their bundled OFL notices are unchanged;
+    no additional asset licence or exception is needed.
+
 The table UI icon map (`baylee-client-core/src/tableicons.rs`) was checked on
 17.09.2026 against the same policy table and the upstream Mana 1.18 stylesheet
 (https://github.com/andrewgioia/mana/blob/master/css/mana.css). It uses zone,

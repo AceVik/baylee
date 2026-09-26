@@ -3466,8 +3466,8 @@ inward and edged with a gold seam that breathes with the music's bar. Through
 it, back to front: the lobby's blue-hour sky (the same warped noise as
 `ambience.rs`) with clouds that end in streaks and rays,
 a first light low over a ridge of crystal fins, a resin lake mirroring both
-with the light's path glittering towards the viewer, and motes drifting in
-two planes. The first light is the brightest thing on the screen and rises
+with the light's path glittering towards the viewer, and dust flowing inward
+in two depth planes. The first light is the brightest thing on the screen and rises
 just over the panel, below the title, so the title's lit edge is its
 underside. Each layer leans
 with the pointer by its own amount, which is where the depth comes from. The
@@ -3488,6 +3488,28 @@ panels keep their own 0.48 s film from 0.20 s in, and the carousel between
 the account form's tabs keeps its own time and does not touch the scene. The
 haze peaks at `HAZE_IN` going in and `HAZE_OUT` coming back and is never
 white.
+
+**Successful login flies into the lobby.** `lobby::entrance` observes a
+visible sign-in screen becoming authenticated (account or guest). It starts
+one 1.65 s flight after the server accepts the credentials; a rejection,
+an offline entry or a restored session never starts it. `vista::arrival`
+charges the seam, accelerates the foreground past the camera and brings up
+a spiral throat. A soft radial opening reveals the actual lobby underneath
+from the centre outward. The same scene surface moves above the lobby for
+this interval; it adds no render target or second effect pass. Its aperture
+stays fixed on the departed form, and it hides completely on completion.
+Data loading proceeds underneath; clicks, keyboard, IME and scroll input are
+held until arrival. Sign-out or reduced motion cancels it immediately.
+
+Dust now follows two analytic inward spiral fields: increasing time lowers
+log-radius along each trajectory, with luminous heads and trailing tails.
+There is no CPU particle simulation, allocation per particle or draw per
+particle. Desktop stone uses nine neighbouring cellular samples for crisp,
+irregular mineral faces and thin veins, with bevels and inclusions on the
+crystal teeth. Mobile omits the cellular search and the second dust layer.
+The lake's reflection is softened independently of the sharp foreground,
+and distant shelves establish depth behind the nearer ridge. Text and the
+footer retain their quiet areas.
 
 **A wait is the passage held open.** The veil (`loading.rs`) raises the same
 scene around its card (`Vista::Wait`, `vista::waiting`): the cavity stands
@@ -3510,6 +3532,16 @@ measured on a phone yet: on the Android emulator (Pixel 9 Pro XL image, API
 the emulator's own overhead, not the scene. The first version of the scene
 measured 109–113 fps against 107–111 on the Mac (M1 Max, debug build): the
 lobby is CPU-bound there.
+
+Refinement check, 26.09.2026: in the same M1 Max debug client at
+3456×2104 physical pixels, three 2 s samples each measured 58.5–60.0 fps
+with the refined scene, 59.0–60.0 with the previous shader, then 58.3–60.0
+with the refined scene restored. These are presentation-limited frame counts
+from `/health`, not GPU timings or a mobile performance claim. No build ran
+during the comparison. Successful account and guest login, rejection and
+portal completion were exercised against a loopback test gateway using an
+isolated `XDG_CONFIG_HOME`. The lobby schedule test covers the first
+accepted frame, input blocking during the flight and input after arrival.
 
 ## The deck builder
 

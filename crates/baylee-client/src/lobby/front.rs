@@ -311,6 +311,7 @@ pub(super) fn move_front(
 pub(super) fn show_scene(
     state: Res<LobbyState>,
     motion: Res<FrontMotion>,
+    entrance: Res<super::entrance::Entrance>,
     mut scene: ResMut<crate::vista::FrontScene>,
 ) {
     let peak = if motion.to == Panel::Gateway {
@@ -319,8 +320,14 @@ pub(super) fn show_scene(
         crate::vista::HAZE_IN
     };
     scene.set_if_neq(crate::vista::FrontScene {
-        stage: crate::vista::passage(motion.progress(), peak),
-        shown: matches!(state.lobby.screen(), Screen::SignIn { .. }),
+        stage: if entrance.active() {
+            crate::vista::arrival(entrance.progress())
+        } else {
+            crate::vista::passage(motion.progress(), peak)
+        },
+        shown: matches!(state.lobby.screen(), Screen::SignIn { .. }) || entrance.active(),
+        entering: entrance.active(),
+        portal: entrance.progress(),
     });
 }
 

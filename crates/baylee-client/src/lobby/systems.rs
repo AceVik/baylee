@@ -272,11 +272,12 @@ pub(super) fn softkeys(
     mailbox: Res<Mailbox>,
     mut epoch: Local<u64>,
     mut build_epoch: Local<u64>,
+    entrance: Res<super::entrance::Entrance>,
 ) {
     if !SoftKeyboard::owns_typing() {
         return;
     }
-    if state.lobby.library().page.is_some() || state.confirmation.is_some() {
+    if entrance.active() || state.lobby.library().page.is_some() || state.confirmation.is_some() {
         keys.close();
         drop(keys.drain());
         return;
@@ -417,7 +418,12 @@ pub(super) fn keyboard(
     mailbox: Res<Mailbox>,
     mut clipboard: Option<ResMut<bevy::clipboard::Clipboard>>,
     mut paste: Local<Option<super::editing::Paste>>,
+    entrance: Res<super::entrance::Entrance>,
 ) {
+    if entrance.active() {
+        keys.clear();
+        return;
+    }
     if state.confirmation.is_some() {
         keys.clear();
         if codes.just_pressed(KeyCode::Escape) {
@@ -840,10 +846,11 @@ pub(super) fn clicks(
     // Absent in a headless test, which has no settings file to write to.
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
     motion: Res<super::front::FrontMotion>,
+    entrance: Res<super::entrance::Entrance>,
 ) {
     // A panel on its way out or in answers nothing: what is under the
     // pointer is half of a form that is going, or not yet there.
-    if motion.moving() {
+    if motion.moving() || entrance.active() {
         pointer.clear();
         ends.clear();
         return;
@@ -1540,7 +1547,13 @@ pub(super) fn scrolls(
     parents: Query<&ChildOf>,
     mut lists: Query<(&mut ScrollPosition, &ComputedNode, &Scrollable)>,
     mut memory: ResMut<Scrolled>,
+    entrance: Res<super::entrance::Entrance>,
 ) {
+    if entrance.active() {
+        wheels.clear();
+        drags.clear();
+        return;
+    }
     for wheel in wheels.read() {
         let travel = match wheel.unit {
             MouseScrollUnit::Line => wheel.y * WHEEL_LINE,

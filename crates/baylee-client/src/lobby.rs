@@ -87,6 +87,7 @@ impl Plugin for LobbyPlugin {
             .insert_resource(LobbyState::new())
             .init_resource::<hint::Hinted>()
             .init_resource::<front::FrontMotion>()
+            .init_resource::<entrance::Entrance>()
             .init_resource::<front::FrontCast>()
             .init_resource::<front::RowPlaces>()
             .add_systems(Startup, (ask_about_registration, ask_about_saved_gateways))
@@ -94,7 +95,7 @@ impl Plugin for LobbyPlugin {
                 Update,
                 (
                     feed::feed,
-                    poll,
+                    (poll, entrance::advance).chain(),
                     localization::update,
                     watch,
                     softkeys,
@@ -108,7 +109,7 @@ impl Plugin for LobbyPlugin {
                     (
                         source::keep_the_code,
                         front::move_front,
-                        front::show_scene,
+                        front::show_scene.before(crate::vista::paint),
                         ui,
                         front::pose_front,
                     )
@@ -444,6 +445,7 @@ enum Expect {
 mod confirm;
 pub(crate) mod dock;
 mod editing;
+mod entrance;
 mod feed;
 mod front;
 mod gateway;

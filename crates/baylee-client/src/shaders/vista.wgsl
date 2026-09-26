@@ -53,6 +53,8 @@ struct VistaParams {
     /// The glitter path's brightness, the ember rate, the scene's own alpha,
     /// the floor's zoom.
     air: vec4<f32>,
+    // Successful login progress, active flag, reserved.
+    portal: vec4<f32>,
 }
 
 @group(0) @binding(1) var<uniform> globals: Globals;
@@ -130,7 +132,12 @@ fn skyline(x: f32, quality: f32) -> Skyline {
         s.fine = noise2(vec2<f32>(x * 11.0, 9.0));
     }
     // A triangle wave: 0 at a fin's point, 1 between two.
-    s.fin = abs(fract(x * 9.0 + s.fine) - 0.5) * 2.0;
+    let along = x * 12.0 + s.fine * 0.8;
+    let cell = floor(along);
+    let tip = 0.22 + 0.55 * hash2(vec2<f32>(cell, 19.0));
+    let part = fract(along);
+    let triangle = select(part / tip, (1.0 - part) / (1.0 - tip), part > tip);
+    s.fin = 1.0 - triangle * (0.35 + 0.65 * hash2(vec2<f32>(cell, 29.0)));
     return s;
 }
 
@@ -200,19 +207,74 @@ fn cavity(at: vec2<f32>, opening: f32, zoom: f32) -> Cavity {
     return out;
 }
 
+/// Nine local cells describe irregular mineral faces. Only the desktop
+/// stone branch pays for this bounded search; the sky and mobile never do.
+fn fracture(p: vec2<f32>) -> vec3<f32> {
+    let q = p * 24.0;
+    let cell = floor(q);
+    let f = fract(q);
+    var nearest = 8.0;
+    var second = 8.0;
+    var tone = 0.0;
+    for (var y = -1; y <= 1; y = y + 1) {
+        for (var x = -1; x <= 1; x = x + 1) {
+            let offset = vec2<f32>(f32(x), f32(y));
+            let seed = hash2(cell + offset);
+            let site = offset + vec2<f32>(seed, hash2(cell + offset + 17.3)) - f;
+            let distance = dot(site, site);
+            if distance < nearest {
+                second = nearest;
+                nearest = distance;
+                tone = seed;
+            } else {
+                second = min(second, distance);
+            }
+        }
+    }
+    let edge = second - nearest;
+    return vec3<f32>(mix(0.50, 1.6, tone),
+        (1.0 - smoothstep(0.006, 0.045, edge)) * tone, tone);
+}
+
+/// Analytic inward advection: holding a cell constant as time grows forces
+/// log(radius) to decrease. The same spiral bends heads and their outward
+/// tails. Two layers cost two samples per pixel, independent of particle count.
+fn inflow(p: vec2<f32>, t: f32, layer: f32, rush: f32, px: f32) -> vec3<f32> {
+    let radius = max(length(p), 0.018);
+    let angle = atan2(p.y, p.x) / TAU + 0.5;
+    let rings = 7.0 + layer * 2.0;
+    let lanes = 144.0 + layer * 48.0;
+    let logarithm = log(radius);
+    let flow = vec2<f32>((angle + logarithm * 0.055) * lanes,
+        logarithm * rings + t * (0.42 + layer * 0.17));
+    let cell = floor(flow);
+    // Wrap the angular hash too: no seam at -pi/pi.
+    let seed = hash2(vec2<f32>(cell.x - floor(cell.x / lanes) * lanes, cell.y) + layer * 17.0);
+    let local = fract(flow) - vec2<f32>(0.25 + seed * 0.5, 0.25 + fract(seed * 13.7) * 0.4);
+    let aa = max(px / radius * lanes / TAU, 0.012);
+    let width = 0.026 + seed * 0.045;
+    let cross = 1.0 - smoothstep(width, width + aa, abs(local.x));
+    let tail = 0.045 + 0.30 * rush;
+    let along = exp(-max(local.y, 0.0) / tail)
+        * smoothstep(-0.09, -0.01, local.y) * (1.0 - smoothstep(0.32, 0.48, local.y));
+    let head = exp(-dot(local * vec2<f32>(13.0, 32.0), local * vec2<f32>(13.0, 32.0)));
+    let live = step(0.945 - 0.10 * rush, seed);
+    let envelope = smoothstep(0.035, 0.16, radius) * (1.0 - smoothstep(0.8, 1.35, radius));
+    let colour = mix(AURORA, RIM_GOLD, step(0.58, seed));
+    return colour * (cross * along * 0.65 + head * 0.55) * live * envelope;
+}
+
 /// The frame over `world` at a point of `cave`: its mineral and crystal, with
 /// its light added. `lining` scales the crystal teeth, `shimmer` the light
 /// running along them.
 fn frame(
     cave: Cavity,
-    at: vec2<f32>,
     world: vec3<f32>,
     opening: f32,
     zoom: f32,
     lining: f32,
     shimmer: f32,
     field: f32,
-    warp: vec2<f32>,
     t: f32,
     px: f32,
 ) -> vec3<f32> {
@@ -240,7 +302,7 @@ fn frame(
     // along its length, so no band repeats the cavity's outline.
     var mineral = vec3<f32>(0.0);
     if stone > 0.0 {
-        var wobble = 0.03 * noise2(g * 3.0 + warp * 0.4);
+        var wobble = 0.024 * noise2(g * 3.0 + 2.0);
         if quality > 0.5 {
             wobble = wobble + 0.012 * noise2(g * 9.0 + 5.0);
         }
@@ -267,7 +329,17 @@ fn frame(
             agate = agate * (0.84 + 0.32 * noise2(g * 90.0));
             rock = rock * (0.6 + 0.8 * noise2(g * 14.0 + 3.0)) * (0.85 + 0.3 * noise2(g * 70.0));
         }
-        mineral = mix(agate, rock, smoothstep(0.16, 0.34, deep));
+        var cut = vec3<f32>(1.0, 0.0, 0.5);
+        if quality > 0.5 {
+            cut = fracture(g);
+        }
+        mineral = mix(agate, rock, smoothstep(0.12, 0.34, deep));
+        mineral = mineral * cut.x + AGATE_PALE * cut.y * 0.12;
+        // Thin mineral veins, interrupted by the fractures rather than a
+        // uniform luminous outline. Static material, moving illumination.
+        let vein = 1.0 - smoothstep(0.012, 0.042, abs(fract(layer * 1.7) - 0.5));
+        mineral = mineral + mix(AURORA, CHAMPAGNE, cut.z) * vein
+            * exp(-outside / 0.20) * 0.10 * cut.z;
         // Light travelling along the bands, one swell every sixteen bars.
         mineral = mineral * (1.0 + 0.15 * sin(t * TAU / (16.0 * BAR) - 3.0 * (g.x + g.y)));
         let flicker = 0.6 + 0.4 * noise2(c * 1.8 + vec2<f32>(t * 0.03, 2.0));
@@ -316,36 +388,32 @@ fn frame(
         let is_front = front > 0.5;
         let tip = clamp(-d / max(select(depth2, depth, is_front), 1.0e-4), 0.0, 1.0);
         let own_f = select(f2, f, is_front);
-        let facet = select(0.55, 1.0, own_f > 0.5);
+        let facet = select(0.38, 1.25, own_f > 0.5);
+        let bevel = 1.0 - smoothstep(px, 3.0 * px, abs(-d - select(depth2, depth, is_front)));
         let hue = mix(CRYSTAL, AMETHYST, 0.5 + 0.5 * sin(k * 1.3));
         // Dark in body, the world's light coming through it violet towards
         // the point, and a lit ridge down its middle where two faces meet.
-        crystal = hue * 0.10 * facet + world * hue * 0.35 * tip * tip;
+        crystal = hue * (0.12 + 0.22 * tip) * facet + world * hue * 0.25 * tip * tip;
+        crystal = crystal + mix(AURORA, RIM_GOLD, tip) * bevel * 0.55;
+        if quality > 0.5 {
+            let inclusion = pow(noise2(g * 110.0 + k), 5.0);
+            crystal = crystal + hue * inclusion * 0.20 * tip;
+        }
         let ridge_line = 1.0 - smoothstep(0.0, 0.05, abs(own_f - 0.5));
         crystal = crystal + (hue * 0.10 + RIM_GOLD * 0.30 * tip) * ridge_line * select(0.5, 1.0, is_front);
         let wave = pow(0.5 + 0.5 * sin(s * 1.7 - t * TAU / (2.0 * BAR)), 6.0);
-        crystal = crystal + RIM_GOLD * 0.35 * wave * shimmer;
+        crystal = crystal + RIM_GOLD * 0.14 * wave * shimmer * tip;
     }
 
     var rgb = mix(mix(world, mineral, stone), crystal, tooth);
     // The seam of gold where frame and world meet: tight over the stone,
     // softer into the opening, and held back over a tooth, which catches
     // the light at its point and not along its body.
-    let rim = select(0.45 * exp(d / 0.04) * (1.0 - tooth), exp(-d / 0.012), d > 0.0);
+    let rim = select(0.26 * exp(d / 0.023) * (1.0 - tooth), exp(-d / 0.006), d > 0.0);
+    let seam = exp(-abs(d) / max(1.1 * px, 0.0007));
+    rgb = rgb + mix(AURORA, FIRST, 0.72) * seam * glow * 0.45;
     rgb = rgb + RIM_GOLD * 0.7 * glow * breath * rim;
 
-    // Embers on the band just outside the rim, rising and burning out.
-    let band = smoothstep(0.0, 0.004, d) * (1.0 - smoothstep(0.02, 0.03, d));
-    if band > 0.0 {
-        let rising = (at + vec2<f32>(0.0, t * 0.06)) * 60.0;
-        let cell = floor(rising);
-        let seed = hash2(cell);
-        let lit = step(1.0 - 0.06 * params.air.y, seed);
-        let point = fract(rising) - vec2<f32>(seed, fract(seed * 7.3));
-        let life = fract(t * 0.7 + seed * 13.1);
-        let ember = (1.0 - smoothstep(0.03, 0.14, length(point))) * sin(3.14159 * life);
-        rgb = rgb + RIM_GOLD * ember * lit * band;
-    }
     return rgb;
 }
 
@@ -358,7 +426,17 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let hour = params.hour.x;
     let centre = params.panel.xy;
     let px = 1.0 / max(in.size.y, 1.0);
-    let uv = in.uv * vec2<f32>(aspect, 1.0);
+    let screen_uv = in.uv * vec2<f32>(aspect, 1.0);
+    let flight = params.portal.x;
+    let entering = params.portal.y;
+    let reveal = smoothstep(0.56, 1.0, flight) * (length(vec2<f32>(aspect, 1.0)) + 0.2);
+    if entering > 0.5 && length(screen_uv - centre) < reveal - 0.12 {
+        // The lobby is already visible here. Do not shade hidden scenery.
+        return vec4<f32>(0.0);
+    }
+    let acceleration = smoothstep(0.08, 0.82, flight) * entering;
+    // Lens advances into the world as the nearer stone passes faster.
+    let uv = centre + (screen_uv - centre) / (1.0 + acceleration * 1.4);
     let pointer = params.view.xy * energy;
     // Two slow drifts that never line up, so nothing repeats within a minute.
     let drift = vec2<f32>(sin(t * 0.126), cos(t * 0.188) * 0.7);
@@ -391,14 +469,17 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         var puff = field;
         if quality > 0.5 {
             let wind = vec2<f32>(t * 0.012, 0.0);
-            let broad = noise2(vec2<f32>(sky_at.x * 2.4, sky_at.y * 7.0) + wind + warp * 0.5);
-            let streak = noise2(vec2<f32>(sky_at.x * 5.0, sky_at.y * 26.0) + wind * 1.6 + warp * 0.8);
-            let wisp = noise2(vec2<f32>(sky_at.x * 11.0, sky_at.y * 60.0) + wind * 2.2);
-            puff = 0.55 * broad + 0.30 * streak + 0.15 * wisp;
+            let broad = noise2(vec2<f32>(sky_at.x * 3.4, sky_at.y * 8.0) + wind + warp * 0.8);
+            let streak = noise2(vec2<f32>(sky_at.x * 12.0, sky_at.y * 25.0) + wind * 1.6 + warp * 1.3);
+            let wisp = noise2(vec2<f32>(sky_at.x * 35.0, sky_at.y * 65.0) + wind * 2.2 + warp);
+            puff = 0.50 * broad + 0.32 * streak + 0.18 * wisp;
         }
-        let cloud = smoothstep(0.50, 0.70, puff) * (1.0 - smoothstep(y_h - 0.05, y_h - 0.01, sky_at.y));
+        let cloud = smoothstep(0.46, 0.68, puff) * (1.0 - smoothstep(y_h - 0.05, y_h - 0.01, sky_at.y));
         let lit_from_below = clamp((y_h - sky_at.y) / 0.3, 0.0, 1.0);
-        rgb = mix(rgb, mix(FIRST * 0.55, SKY_HIGH * 0.45, lit_from_below), 0.6 * cloud);
+        let silver = pow(clamp(1.0 - abs(puff - 0.52) * 16.0, 0.0, 1.0), 3.0);
+        let cloud_body = mix(FIRST * 0.26, SKY_HIGH * 0.22, lit_from_below);
+        rgb = mix(rgb, cloud_body, 0.66 * cloud);
+        rgb = rgb + FIRST * silver * cloud * 0.12 * (1.0 - lit_from_below);
 
         // Rays from the light, and stars high up while it is still first light.
         if quality > 0.5 && sky_at.y < y_h {
@@ -415,6 +496,17 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
             rgb = rgb + vec3<f32>(0.6, 0.7, 1.0) * star * twinkle * (1.0 - hour) * 0.5;
         }
 
+        // Receding shelves: small silhouettes in haze establish scale
+        // behind the sharply cut nearer fins, without additional geometry.
+        if quality > 0.5 {
+            let far_x = uv.x + pointer.x * 0.006;
+            let far_line = y_h + 0.035 + 0.025 * noise2(vec2<f32>(far_x * 8.0, 31.0));
+            let far_mask = smoothstep(far_line - px, far_line + px, uv.y);
+            rgb = mix(rgb, mix(SKY_LOW, RIDGE, 0.65), far_mask * 0.72);
+            let mid_line = y_h + 0.065 + 0.020 * skyline(far_x + 1.7, quality).fin;
+            rgb = mix(rgb, mix(SKY_LOW, RIDGE, 0.82), smoothstep(mid_line - px, mid_line + px, uv.y));
+        }
+
         // The ridge, low in the middle where the light rises. On the far side it
         // is another stretch of the same line.
         var ridge_at = uv + pointer * 0.012 + drift * 0.006;
@@ -424,10 +516,10 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         let valley = smoothstep(0.15, 0.6, abs(ridge_at.x - centre.x) / max(params.panel.z, 1.0e-3));
         let skyline_y = mix(y_h + 0.075, y_h + 0.09 * line.broad + 0.03 * line.fin, valley);
         let ground = smoothstep(skyline_y - px, skyline_y + px, ridge_at.y);
-        let crest = 1.0 - smoothstep(0.0, 6.0 * px, ridge_at.y - skyline_y);
+        let crest = 1.0 - smoothstep(0.0, 2.5 * px, ridge_at.y - skyline_y);
         let body = mix(TIPS, RIDGE, smoothstep(skyline_y, skyline_y + 0.08, ridge_at.y));
         let backlit = exp(-pow((ridge_at.x - sx) / 0.5, 2.0));
-        rgb = mix(rgb, body + FIRST * 0.5 * (0.5 + 0.5 * backlit) * crest, ground);
+        rgb = mix(rgb, body + FIRST * 0.25 * (0.3 + 0.7 * backlit) * crest, ground);
 
         // The floor: dark resin from the ridge's foot, mirroring the sky, with
         // the light's reflection running towards the viewer.
@@ -439,10 +531,10 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
             let ripple = 0.02 * below * (noise2(vec2<f32>(floor_at.x * 9.0, floor_at.y * 30.0 - t * 0.5)) - 0.5);
             let mirrored = vec2<f32>(floor_at.x, 2.0 * shore - floor_at.y + ripple);
             let fade = mix(0.22, 0.06, smoothstep(shore, shore + 0.4, floor_at.y));
-            var water = FLOOR + light_of(mirrored, y_h, sx, hour, first_breath) * fade;
+            var water = FLOOR + light_of(mirrored, y_h, sx, hour, first_breath) * fade * 0.65;
             // The ridge upside down in it, where the mirrored point is behind it.
             let under_ridge = smoothstep(skyline_y - px, skyline_y + px, mirrored.y);
-            water = mix(water, FLOOR + RIDGE * 0.6, under_ridge);
+            water = mix(water, FLOOR + RIDGE * 0.6, under_ridge * 0.4 * exp(-below * 5.0));
             let width = mix(0.05, 0.30, smoothstep(shore, shore + 0.6, floor_at.y));
             let off = abs(floor_at.x - sx) / width;
             // The light's path: short bright strokes across the water, as the
@@ -459,32 +551,22 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
                 }
                 // Fading before the foot of the screen, where the small print is.
                 let foot = 1.0 - 0.6 * smoothstep(0.78, 1.0, uv.y);
-                water = water + FIRST * params.air.x * path * (0.05 + 0.8 * glint) * foot;
+                water = water + FIRST * params.air.x * path * (0.035 + 0.45 * glint) * foot;
             }
             rgb = mix(rgb, water, smoothstep(shore - px, shore + px, floor_at.y));
         }
 
-        // Motes in the middle air, rising, gold near the light.
-        if quality > 0.5 {
-            let mid_at = uv + pointer * 0.030 + drift * 0.010;
-            let cells = (mid_at + vec2<f32>(0.0, t * 0.03)) * 28.0;
-            let seed = hash2(floor(cells) + 3.0);
-            let point = fract(cells) - vec2<f32>(seed, fract(seed * 5.1));
-            let size = mix(0.02, 0.07, fract(seed * 31.7));
-            let mote = (1.0 - smoothstep(size * 0.3, size, length(point))) * step(0.988, seed);
-            let near_light = 1.0 - smoothstep(0.0, 0.35, length(mid_at - vec2<f32>(sx, y_h)));
-            rgb = rgb + mix(AURORA, RIM_GOLD, near_light) * 0.25 * mote;
-        }
+
     }
 
     // The frame: the cavity walked through, and the one arrived in.
     if params.gate_a.y > 0.0 {
-        let a = frame(cave_a, frame_at, rgb, params.gate_a.x, params.gate_a.z, 1.0, 1.0, field, warp, t, px);
+        let a = frame(cave_a, rgb, params.gate_a.x, params.gate_a.z, 1.0, 1.0, field, t, px);
         rgb = mix(rgb, a, params.gate_a.y);
     }
     if params.gate_b.y > 0.0 {
         let cave_b = cavity(frame_at, params.gate_b.x, params.gate_b.z);
-        let b = frame(cave_b, frame_at, rgb, params.gate_b.x, params.gate_b.z, 0.6, 0.5, field, warp, t, px);
+        let b = frame(cave_b, rgb, params.gate_b.x, params.gate_b.z, 0.6, 0.5, field, t, px);
         rgb = mix(rgb, b, params.gate_b.y);
     }
 
@@ -504,18 +586,41 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // Softly, so the hold reads as the panel's shade on the scene and not
     // as a plate behind it.
     let off_panel = rounded_box(uv - centre, params.panel.zw, 0.02);
-    let held = 1.0 - smoothstep(0.0, 0.04, off_panel);
+    let held = (1.0 - smoothstep(0.0, 0.04, off_panel)) * (1.0 - entering);
     let capped = rgb * min(1.0, PANEL_CAP / max(luminance(rgb), 1.0e-4));
     rgb = mix(rgb, capped, held);
 
-    // The near air: motes, never over the panel.
-    var air_at = uv + pointer * 0.060 + drift * 0.02;
-    air_at = centre + (air_at - centre) / params.gate_a.z;
-    let motes_at = air_at * 42.0 + vec2<f32>(t * 0.07, -t * 0.12);
-    let mote_seed = hash2(floor(motes_at));
-    let mote_point = fract(motes_at) - vec2<f32>(mote_seed, fract(mote_seed * 7.3));
-    let mote = (1.0 - smoothstep(0.015, 0.065, length(mote_point))) * step(0.985, mote_seed);
-    rgb = rgb + AURORA * 0.22 * mote * step(0.0, off_panel);
+    // Two depth planes feed the cavity's centre; neither drifts upward.
+    let pull_at = screen_uv - centre + pointer * 0.018;
+    let rush = clamp((params.air.y - 1.0) * 0.5, 0.0, 1.0);
+    var dust = inflow(pull_at, t + acceleration * 12.0, 0.0, rush, px);
+    if quality > 0.5 {
+        dust = dust + inflow(pull_at + pointer * 0.024, t + 31.0 + acceleration * 12.0, 1.0, rush, px) * 0.55;
+    }
+    let quiet = smoothstep(0.04, 0.15, screen_uv.y) * (1.0 - smoothstep(0.80, 0.98, screen_uv.y));
+    rgb = rgb + dust * (1.0 - held) * (0.40 + rush) * mix(quiet, 1.0, entering);
+
+    // The flight has a throat, an accelerating spiral and a radial reveal.
+    // This is the same full-screen pass; there is no blur buffer or feedback.
+    var opacity = params.air.z;
+    if entering > 0.5 {
+        let radial = screen_uv - centre;
+        let radius = max(length(radial), 0.001);
+        let theta = atan2(radial.y, radial.x);
+        let throat = smoothstep(0.10, 0.44, flight);
+        let twist = theta + 0.65 * log(radius) - acceleration * 0.7;
+        let filament = pow(0.5 + 0.5 * sin(twist * 19.0 + noise2(radial * 4.0) * 3.0), 14.0);
+        let falloff = exp(-radius * 1.8) * smoothstep(0.025, 0.2, radius);
+        rgb = mix(rgb, SKY_TOP * 0.6 + AURORA * 0.07 * falloff, throat * 0.97);
+        rgb = rgb + mix(AURORA, FIRST, 0.3) * filament * falloff * throat * 0.38;
+        rgb = rgb + dust * throat * 0.65;
+        // A soft opening shows the actual lobby under this surface. At p=1
+        // the furthest corner is transparent, with no last-frame flash.
+        opacity = opacity * smoothstep(reveal - 0.12, reveal + 0.04, radius);
+        let lip = exp(-abs(radius - reveal) / 0.024) * smoothstep(0.55, 0.65, flight)
+            * (1.0 - smoothstep(0.90, 1.0, flight));
+        rgb = rgb + mix(AURORA, FIRST, 0.45) * lip * 0.32;
+    }
 
     // Grain, then a triangular dither of one step of the 8-bit target, in
     // sRGB where the steps are: long dark ramps band otherwise.
@@ -523,5 +628,5 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let dither = hash2(in.position.xy) + hash2(in.position.xy + vec2<f32>(17.3, 5.9)) - 1.0;
     let encoded = pow(max(rgb + grain, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.2)) + dither / 255.0;
     rgb = pow(max(encoded, vec3<f32>(0.0)), vec3<f32>(2.2));
-    return vec4<f32>(rgb, params.air.z);
+    return vec4<f32>(rgb, opacity);
 }

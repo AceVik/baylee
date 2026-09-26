@@ -12,6 +12,7 @@
 
 mod builder;
 mod end_screen;
+mod entrance;
 mod frame;
 mod gateway;
 mod guests;

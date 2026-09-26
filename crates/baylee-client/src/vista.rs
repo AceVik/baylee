@@ -1,6 +1,6 @@
 //! The front door's scene (#295): a world at first light seen through the
 //! cavity of a geode, the panel standing in it, which choosing a gateway
-//! walks through.
+//! walks through, followed by an accelerating flight on successful login.
 //!
 //! It grows out of [`crate::ambience`]'s field (the same warped noise makes
 //! its sky) and, like it, is arithmetic rather than a picture:
@@ -29,7 +29,7 @@ use bevy::window::PrimaryWindow;
 /// Whether the shader draws what a phone's tiler pays most for: the fine
 /// skyline and the rim's fine break, the clouds' own noise, the rays, the
 /// middle motes, the finer seams, the bands' laminations and grain, the
-/// quartz's sparkle and the glitter's sparkle.
+/// quartz's sparkle, mineral fractures and the second inward dust layer.
 const QUALITY: f32 = if cfg!(any(target_os = "android", target_os = "ios")) {
     0.0
 } else {
@@ -83,7 +83,7 @@ pub struct Stage {
     pub after: GateStage,
     /// How bright the light's path on the floor runs, 1 at rest.
     pub river: f32,
-    /// How many embers the rim throws, 1 at rest.
+    /// Strength of the inward dust stream, 1 at rest.
     pub sparks: f32,
 }
 
@@ -157,6 +157,29 @@ pub fn passage(progress: f32, peak: f32) -> Stage {
     }
 }
 
+/// Successful authentication: gather light, accelerate through the current
+/// cavity, then reveal the already-loaded lobby from the centre outward.
+#[must_use]
+pub fn arrival(progress: f32) -> Stage {
+    let p = progress.clamp(0.0, 1.0);
+    let travel = smoothstep(0.10, 0.88, p);
+    let charge = smoothstep(0.0, 0.22, p) * (1.0 - smoothstep(0.70, 1.0, p));
+    Stage {
+        hour: 1.0,
+        haze: 0.16 * charge,
+        glow: 1.0 + 1.8 * charge,
+        before: GateStage {
+            opening: INSIDE,
+            alpha: 1.0 - smoothstep(0.65, 0.9, p),
+            zoom: 1.0 / (1.0 - 0.94 * travel),
+        },
+        after: GateStage::GONE,
+        dolly: travel,
+        river: 1.0 + charge,
+        sparks: 1.0 + 4.0 * charge,
+    }
+}
+
 /// The scene of a wait `age` seconds old: the passage held open, the haze
 /// standing like fog rather than passing like a flash, and the hour turning
 /// slowly for as long as the wait lasts.
@@ -199,6 +222,8 @@ pub struct VistaParams {
     /// The path's brightness, the ember rate, the scene's alpha, the floor's
     /// zoom.
     pub air: Vec4,
+    /// Login flight progress, active flag, reserved zw.
+    pub portal: Vec4,
 }
 
 /// The scene, as a UI material.
@@ -236,6 +261,10 @@ pub struct FrontScene {
     pub stage: Stage,
     /// Whether the front door is on screen at all.
     pub shown: bool,
+    /// The authenticated flight draws over the lobby while it is revealed.
+    pub entering: bool,
+    /// Successful login progress (0..1), zero before authentication.
+    pub portal: f32,
 }
 
 impl Default for FrontScene {
@@ -243,6 +272,8 @@ impl Default for FrontScene {
         Self {
             stage: passage(0.0, HAZE_IN),
             shown: true,
+            entering: false,
+            portal: 0.0,
         }
     }
 }
@@ -369,7 +400,7 @@ fn towards(from: f32, to: f32, step: f32) -> f32 {
 
 /// Writes each surface's uniforms for this frame.
 #[allow(clippy::type_complexity)]
-fn paint(
+pub(crate) fn paint(
     time: Res<Time>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     gaze: Res<Gaze>,
@@ -381,6 +412,7 @@ fn paint(
         &ComputedNode,
         &MaterialNode<VistaMaterial>,
         &mut Visibility,
+        Option<&mut GlobalZIndex>,
     )>,
     materials: Option<ResMut<Assets<VistaMaterial>>>,
 ) {
@@ -389,7 +421,7 @@ fn paint(
     };
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
     let dt = time.delta_secs();
-    for (kind, mut settled, computed, handle, mut visibility) in &mut surfaces {
+    for (kind, mut settled, computed, handle, mut visibility, z) in &mut surfaces {
         let size = computed.size();
         if size.y <= 0.0 {
             continue;
@@ -400,7 +432,14 @@ fn paint(
             Vista::Front => (front.stage, if front.shown { 1.0 } else { 0.0 }),
             Vista::Wait => (waiting(settled.age), WAIT_PRESENCE),
         };
-        settled.presence = if still {
+        let entering = *kind == Vista::Front && front.entering && !still;
+        if *kind == Vista::Front
+            && let Some(mut z) = z
+        {
+            z.set_if_neq(GlobalZIndex(if entering { 50 } else { -1 }));
+        }
+        settled.presence = if still || (*kind == Vista::Front && front.portal > 0.0 && !front.shown)
+        {
             presence
         } else {
             towards(settled.presence, presence, dt / PRESENCE_SECONDS)
@@ -418,6 +457,9 @@ fn paint(
                 |(_, node, place)| frame_of(node, place, size),
             );
         let panel = match settled.panel {
+            // The form has already gone; keep its aperture throughout the
+            // flight instead of chasing the fallback panel behind the lobby.
+            Some(panel) if entering => panel,
             Some(panel) if !still => panel + (target - panel) * (1.0 - (-FRAME_RATE * dt).exp()),
             _ => target,
         };
@@ -451,6 +493,12 @@ fn paint(
                 stage.after.opening,
                 stage.after.alpha,
                 stage.after.zoom,
+                0.0,
+            ),
+            portal: Vec4::new(
+                if entering { front.portal } else { 0.0 },
+                if entering { 1.0 } else { 0.0 },
+                0.0,
                 0.0,
             ),
             air: Vec4::new(
