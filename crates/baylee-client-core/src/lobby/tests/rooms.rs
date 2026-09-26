@@ -148,3 +148,58 @@ fn a_room_is_opened_at_a_size_the_gateway_allows() {
         assert_eq!(chairs, expected, "asked for {asked}");
     }
 }
+
+#[test]
+fn a_room_can_be_opened_before_choosing_a_deck() {
+    let mut lobby = seated_lobby();
+    lobby.apply(LobbyEvent::Decks(vec![]));
+    lobby.apply(LobbyEvent::Games(GameListing::default()));
+    assert!(
+        matches!(lobby.host(GameMode::Open), Some(LobbyRequest::CreateGame { deck_id, .. }) if deck_id.is_empty())
+    );
+}
+
+#[test]
+fn room_drafts_preserve_edits_until_apply_and_follow_the_room_not_search() {
+    use super::super::room::Adjustment;
+    let mut lobby = seated_lobby();
+    lobby.set_field(Field::Search, "some other room");
+    lobby.host(GameMode::Open);
+    lobby.apply(LobbyEvent::Seated(SeatHandover {
+        game_id: "room".into(),
+        seat: 0,
+        seat_token: "ticket".into(),
+        local: false,
+    }));
+    let listing = GameListing::of(vec![GameSummary {
+        id: "room".into(),
+        name: "Garden".into(),
+        yours: true,
+        state: "waiting".into(),
+        seats: vec![
+            GameSeat {
+                you: true,
+                taken: true,
+                ..GameSeat::default()
+            },
+            GameSeat::default(),
+        ],
+        ..GameSummary::default()
+    }]);
+    lobby.apply(LobbyEvent::Games(listing.clone()));
+    assert_eq!(lobby.query().q, "room");
+    assert_eq!(lobby.query().offset, 0);
+    assert!(!lobby.room_dirty());
+    lobby.adjust_room(Adjustment::Mulligans(true));
+    lobby.set_field(Field::RoomName, "A quiet evening");
+    lobby.set_field(Field::RoomBoard(0), "Forest; Island");
+    lobby.apply(LobbyEvent::Games(listing));
+    assert!(lobby.room_dirty());
+    let Some(LobbyRequest::ConfigureRoom { update, .. }) = lobby.save_room(false) else {
+        panic!("host edit")
+    };
+    assert_eq!(update.name, "A quiet evening");
+    assert_eq!(update.setup.free_mulligans, 2);
+    assert_eq!(update.setup.seats[0].permanents, ["Forest", "Island"]);
+    assert_eq!(update.password, None, "an existing lock is preserved");
+}

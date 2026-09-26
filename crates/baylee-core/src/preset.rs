@@ -82,6 +82,9 @@ pub enum LoopPolicy {
 pub struct HouseRules {
     /// First mulligan is free (default).
     pub mulligan_free_first: bool,
+    /// Explicit house-rule count; absent preserves the legacy first-free flag.
+    #[serde(default)]
+    pub free_mulligans: Option<u8>,
     /// Endless-loop policy.
     pub loop_policy: LoopPolicy,
     /// Per-decision timeout in seconds (default 600 = 10 min).
@@ -100,6 +103,7 @@ impl Default for HouseRules {
     fn default() -> Self {
         Self {
             mulligan_free_first: true,
+            free_mulligans: None,
             loop_policy: LoopPolicy::default(),
             decision_timeout_secs: 600,
             reconnect_window_secs: 60,
@@ -107,6 +111,88 @@ impl Default for HouseRules {
             takebacks: false,
             time_extension_votes: true,
         }
+    }
+}
+
+impl HouseRules {
+    /// Number of opening redraws that cost no cards.
+    #[must_use]
+    pub fn free_mulligan_count(&self) -> u8 {
+        self.free_mulligans
+            .unwrap_or(u8::from(self.mulligan_free_first))
+    }
+}
+
+/// An atomic host edit. Absent password preserves the existing lock.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoomUpdate {
+    /// Public room name.
+    pub name: String,
+    /// Number of chairs, two through eight.
+    pub chairs: usize,
+    /// New password; empty removes it, absent preserves it.
+    pub password: Option<String>,
+    /// Shared rules and per-seat starting position.
+    pub setup: RoomSetup,
+}
+
+/// Shared room setup, resolved into a game preset before starting.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RoomSetup {
+    /// Global starting life; seats may override it.
+    pub starting_life: i32,
+    /// Number of free opening redraws.
+    pub free_mulligans: u8,
+    /// Per-seat life and extra permanents, indexed by seat.
+    pub seats: Vec<RoomSeatSetup>,
+}
+
+impl Default for RoomSetup {
+    fn default() -> Self {
+        Self {
+            starting_life: 40,
+            free_mulligans: 1,
+            seats: Vec::new(),
+        }
+    }
+}
+
+/// A seat's custom starting position. Card names are resolved during setup.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RoomSeatSetup {
+    /// Overrides the shared starting life.
+    pub life: Option<i32>,
+    /// Extra permanents, one name per copy, separate from the deck.
+    pub permanents: Vec<String>,
+}
+
+impl RoomSetup {
+    /// Checks allocation and numeric bounds before resolving any card names.
+    /// # Errors
+    /// A human-readable reason when a setting is outside the supported range.
+    pub fn validate(&self, chairs: usize) -> Result<(), String> {
+        if !(1..=999).contains(&self.starting_life) || self.free_mulligans > 7 {
+            return Err("starting life must be 1–999; free mulligans must be 0–7".into());
+        }
+        if self.seats.len() > chairs || !(2..=8).contains(&chairs) {
+            return Err("a table seats between two and eight".into());
+        }
+        for seat in &self.seats {
+            if seat.life.is_some_and(|n| !(1..=999).contains(&n))
+                || seat.permanents.len() > 32
+                || seat
+                    .permanents
+                    .iter()
+                    .any(|s| s.len() > 200 || s.contains([';', '\n']))
+            {
+                return Err(
+                    "each seat supports 1–999 life and at most 32 starting permanents".into(),
+                );
+            }
+        }
+        Ok(())
     }
 }
 
@@ -339,6 +425,9 @@ pub const MAX_PRINTS: usize = u16::MAX as usize + 1;
 /// Structural preset errors (rules validation is the gateway's job).
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum PresetError {
+    /// Too many free mulligans for a bounded opening procedure.
+    #[error("at most seven free mulligans are supported")]
+    TooManyFreeMulligans,
     /// Fewer than two seats.
     #[error("preset needs at least 2 seats")]
     TooFewSeats,
@@ -427,6 +516,9 @@ impl GamePreset {
     /// # Errors
     /// [`PresetError`] describing the first violation.
     pub fn validate(&self) -> Result<(), PresetError> {
+        if self.house_rules.free_mulligan_count() > 7 {
+            return Err(PresetError::TooManyFreeMulligans);
+        }
         if self.seats.len() < 2 {
             return Err(PresetError::TooFewSeats);
         }

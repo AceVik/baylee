@@ -716,6 +716,45 @@ pub fn deal_named(preset: &mut GamePreset, spec: &str, zone: DevZone) -> Result<
     Ok(())
 }
 
+/// Resolves a room's custom start without granting any in-game capabilities.
+/// # Errors
+/// Invalid bounds, unknown/unimplemented cards, or non-permanents.
+pub fn apply_room_setup(
+    preset: &mut GamePreset,
+    setup: &baylee_core::preset::RoomSetup,
+) -> Result<(), String> {
+    setup.validate(preset.seats.len())?;
+    let mut candidate = preset.clone();
+    candidate.house_rules.free_mulligans = Some(setup.free_mulligans);
+    candidate.house_rules.mulligan_free_first = setup.free_mulligans > 0;
+    for at in 0..candidate.seats.len() {
+        let settings = setup.seats.get(at);
+        candidate.seats[at].starting_life =
+            Some(settings.and_then(|s| s.life).unwrap_or(setup.starting_life));
+        if let Some(settings) = settings {
+            for name in &settings.permanents {
+                let def = crate::all()
+                    .find(|c| {
+                        c.faces
+                            .first()
+                            .is_some_and(|f| f.name.eq_ignore_ascii_case(name.trim()))
+                    })
+                    .ok_or_else(|| format!("no playable permanent named `{name}`"))?;
+                if !def.faces[0].types.is_permanent() {
+                    return Err(format!("`{name}` is not a permanent"));
+                }
+                deal_named(
+                    &mut candidate,
+                    &format!("{at}:{name}"),
+                    DevZone::Battlefield,
+                )?;
+            }
+        }
+    }
+    *preset = candidate;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

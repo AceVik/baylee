@@ -126,6 +126,7 @@ message HouseRules {
   bool timing_normalization = 5;
   bool takebacks = 6;
   bool time_extension_votes = 7;
+  optional uint32 free_mulligans = 8;
 }
 
 message GamePresetMsg {

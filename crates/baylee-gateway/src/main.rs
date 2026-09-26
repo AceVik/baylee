@@ -16,6 +16,7 @@ mod handle;
 mod lobby;
 mod mail;
 mod pool;
+mod room;
 mod seatrate;
 mod store;
 mod texts;
@@ -232,6 +233,7 @@ async fn main() {
         .merge(deck_routes())
         .route("/lobby/games", get(list_games).post(create_game))
         .route("/lobby/games/{id}/join", post(join_game))
+        .route("/lobby/games/{id}/configure", post(room::configure))
         .route("/lobby/games/{id}/seat", post(take_seat))
         .route("/lobby/games/{id}/seats/{seat}", post(set_seat))
         .route("/lobby/games/{id}/ready", post(set_ready))
@@ -2325,6 +2327,7 @@ async fn list_games(
 }
 #[derive(Deserialize)]
 struct CreateGameBody {
+    #[serde(default)]
     deck_id: String,
     /// `"ai"` is the one-tap game against the house AI and starts at once.
     /// Anything else opens a room the host configures.
@@ -2685,6 +2688,8 @@ fn try_start(state: &Shared, id: &str) -> Result<bool, (StatusCode, Json<ErrorBo
         // gamehost has always decoded it — so every table ran the default
         // purely because nothing here ever wrote to this field.
         preset.house_rules = game.house_rules.clone();
+        baylee_cards::decks::apply_room_setup(&mut preset, &game.setup)
+            .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))?;
         prints = table_prints(&preset);
         game.preset = Some(preset);
         game.state = LobbyState::Playing;
@@ -2711,7 +2716,11 @@ async fn create_game(
     Json(body): Json<CreateGameBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
-    let (deck_name, deck) = own_deck(&state, &account_id, &body.deck_id).await?;
+    let chosen = if body.deck_id.is_empty() {
+        None
+    } else {
+        Some(own_deck(&state, &account_id, &body.deck_id).await?)
+    };
     let game_id = auth::new_id();
     let seat_token = auth::new_token();
     // Before anything is built, because a room refused for its clock should
@@ -2726,6 +2735,8 @@ async fn create_game(
     // The one-tap game against the house AI keeps its own path: it is a whole
     // table decided in one request, and nobody is going to configure it.
     if body.mode == "ai" {
+        let (deck_name, deck) =
+            chosen.ok_or_else(|| err(StatusCode::BAD_REQUEST, "pick a deck first"))?;
         {
             let mut preset = ai_preset(&deck, auth::new_game_seed())?;
             preset.house_rules = house_rules.clone();
@@ -2738,7 +2749,7 @@ async fn create_game(
             seats[0].deck = Some(deck);
             seats[1].kind = lobby::SeatKind::Ai;
             seats[1].ai = Some("steady".to_string());
-            seats[1].deck_name = "house AI".to_string();
+            seats[1].deck_name = "Victory".to_string();
             let mut game = LobbyGame::playing(game_id.clone(), seats, preset, auth::now_secs());
             game.house_rules = house_rules;
             state.lobby.lock().games.insert(game_id.clone(), game);
@@ -2765,15 +2776,18 @@ async fn create_game(
     }
     {
         let mut lobby = state.lobby.lock();
-        let mut game = LobbyGame::room(
-            game_id.clone(),
-            account_id,
-            deck_name,
-            deck,
-            chairs,
-            body.name.chars().take(60).collect(),
-            auth::now_secs(),
-        );
+        let mut game = LobbyGame::blank(game_id.clone(), auth::now_secs());
+        game.state = LobbyState::Waiting;
+        game.host = Some(account_id.clone());
+        game.name = body.name.chars().take(60).collect();
+        game.seats = (0..chairs).map(lobby::LobbySeat::open).collect();
+        let seq = game.claim_seq();
+        game.seats[0].account_id = Some(account_id);
+        game.seats[0].joined_seq = Some(seq);
+        if let Some((name, deck)) = chosen {
+            game.seats[0].deck_name = name;
+            game.seats[0].deck = Some(deck);
+        }
         game.seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
         game.house_rules = house_rules;
         if !body.password.is_empty() {
@@ -2791,6 +2805,7 @@ async fn create_game(
 
 #[derive(Deserialize)]
 struct JoinGameBody {
+    #[serde(default)]
     deck_id: String,
     /// Which chair to take. The first free one when the body does not say.
     #[serde(default)]
@@ -2807,7 +2822,11 @@ async fn join_game(
     Json(body): Json<JoinGameBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
-    let (deck_name, deck) = own_deck(&state, &account_id, &body.deck_id).await?;
+    let chosen = if body.deck_id.is_empty() {
+        None
+    } else {
+        Some(own_deck(&state, &account_id, &body.deck_id).await?)
+    };
     let seat_token = auth::new_token();
     let seat = {
         let mut lobby = state.lobby.lock();
@@ -2852,8 +2871,10 @@ async fn join_game(
         };
         chair.account_id = Some(account_id);
         chair.seat_token_hash = Some(auth::token_hash(&seat_token));
-        chair.deck_name = deck_name;
-        chair.deck = Some(deck);
+        if let Some((name, deck)) = chosen {
+            chair.deck_name = name;
+            chair.deck = Some(deck);
+        }
         chair.joined_seq = Some(seq);
         chair.seat
     };
@@ -2951,6 +2972,7 @@ struct SeatBody {
 /// player who could pick their own would pick the winning one, and a table
 /// whose sides can change under the people at it is not the table they
 /// agreed to sit at.
+#[allow(clippy::too_many_lines)] // validate the complete edit before committing one chair
 async fn set_seat(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -2974,9 +2996,10 @@ async fn set_seat(
             return Err(err(StatusCode::CONFLICT, "game already started"));
         }
         let is_host = game.host.as_ref() == Some(&account_id);
-        let chair = game
+        let mut chair = game
             .seats
-            .get_mut(seat)
+            .get(seat)
+            .cloned()
             .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such seat"))?;
         let is_mine = chair.account_id.as_ref() == Some(&account_id);
         if !is_mine && !is_host {
@@ -2988,7 +3011,7 @@ async fn set_seat(
             if !is_host {
                 return Err(err(StatusCode::FORBIDDEN, "only the host arranges seats"));
             }
-            if chair.account_id.is_some() && !is_mine {
+            if chair.account_id.is_some() && kind == "ai" {
                 return Err(err(StatusCode::CONFLICT, "someone is sitting there"));
             }
             match kind.as_str() {
@@ -3003,7 +3026,7 @@ async fn set_seat(
                     chair.deck_name = if chair.deck.is_some() {
                         deck_name
                     } else {
-                        "house AI".to_string()
+                        "Victory".to_string()
                     };
                 }
                 "human" => {
@@ -3059,6 +3082,14 @@ async fn set_seat(
             // Without this the host could swap an opponent into a game they
             // had already declared themselves ready for.
             chair.said_ready = false;
+        }
+        let old = &game.seats[seat];
+        let changed = old.kind != chair.kind || old.ai != chair.ai || old.team != chair.team;
+        game.seats[seat] = chair;
+        if changed {
+            for s in &mut game.seats {
+                s.said_ready = false;
+            }
         }
     }
     state.lobby_moved();

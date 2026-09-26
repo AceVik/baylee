@@ -541,6 +541,8 @@ async fn sides_are_the_hosts_to_arrange_and_a_table_needs_two_of_them() {
         "{\"team\":2}",
     );
     assert_eq!(status, 200, "back to team 2: {body}");
+    say_ready(port, &host, &game_id);
+    say_ready(port, &guest, &game_id);
     let (status, body) = http(
         port,
         "POST",

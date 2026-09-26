@@ -1322,7 +1322,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     pub(crate) fn mulligan_bottom_count(&self, taken: u8) -> u8 {
-        taken.saturating_sub(u8::from(self.house_rules.mulligan_free_first))
+        taken.saturating_sub(self.house_rules.free_mulligan_count())
     }
 
     /// The automatic progression machine: SBAs, stack resolution, and

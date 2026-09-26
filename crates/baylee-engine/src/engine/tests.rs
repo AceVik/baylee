@@ -380,3 +380,24 @@ fn the_active_player_has_drawn_before_they_have_priority_in_their_draw_step() {
         }
     }
 }
+
+#[test]
+fn configured_free_mulligans_change_the_actual_bottom_offer() {
+    for free in [0, 1, 3, 7] {
+        let mut preset = preset_2p(47, &[forest()]);
+        preset.house_rules.free_mulligans = Some(free);
+        let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+        let player = PlayerId::new(0);
+        for taken in 0..=free {
+            assert!(
+                matches!(engine.pending_for(player), Some(Pending::Mulligan { next_is_free, .. }) if *next_is_free == (taken < free))
+            );
+            engine.apply(player, PlayerAction::MulliganTake).unwrap();
+        }
+        engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+        assert!(matches!(
+            engine.pending_for(player),
+            Some(Pending::MulliganBottom { count: 1, .. })
+        ));
+    }
+}

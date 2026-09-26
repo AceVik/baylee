@@ -2278,3 +2278,24 @@ keep it honest — a seat another socket is already driving is refused, and a
 seat that is not at the table is refused — and the reason it is loopback-only
 is now larger than it was: a connection is handed the hidden information of
 whichever seat it names.
+
+### Configurable waiting rooms (protocol 5)
+
+Protocol 5 adds the optional `HouseRules.free_mulligans` count (0–7), in JSON
+presets and protobuf field 8. When absent, `mulligan_free_first` still supplies
+the old 0/1 count. All participants must upgrade together: an older engine
+would silently ignore an explicit count.
+
+Open-room creation and joins accept an empty `deck_id`; a deck is required
+before readiness. `POST /lobby/games/{id}/configure` takes `name`, `chairs`,
+`password` (null preserves, empty removes), and `setup` (`starting_life`,
+`free_mulligans`, per-seat `life` and `permanents`). Only the current host may
+change these while waiting. Changes validate atomically, cannot remove an
+occupied chair, and invalidate human readiness when gameplay settings change.
+Starting cards are bounded registry-resolved permanents, never dev commands.
+Listings expose setup and each seat's deck format, never the password.
+A seated client's live listing query follows the room id, independent of search
+pagination. Existing join-order host succession applies unchanged.
+
+Planechase is explicitly unavailable in the UI: this engine has no planar deck
+or planar die, so the room must not advertise it as a playable mode.

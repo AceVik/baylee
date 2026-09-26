@@ -219,6 +219,13 @@ pub(super) fn build(
             ),
             Expect::Seat,
         ),
+        LobbyRequest::ConfigureRoom { game_id, update } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/configure"),
+                &serde_json::to_value(update).expect("room update serializes"),
+            ),
+            Expect::Moved,
+        ),
         LobbyRequest::SetSeat {
             game_id,
             seat,

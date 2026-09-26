@@ -230,7 +230,7 @@ pub struct LobbyState {
     /// every wider frame shows both halves and never reads it.
     pub(crate) pane: Pane,
     pub(crate) hub: Hub,
-    pub(crate) room_chairs: usize,
+    pub(crate) room_deck_seat: Option<u32>,
     /// Whether the settings screen is up, and what it is waiting for.
     settings: SettingsPane,
     /// Offline play, once the player has asked for it.
@@ -360,7 +360,7 @@ impl LobbyState {
             commander_pick: None,
             pane: Pane::Cards,
             hub: Hub::Play,
-            room_chairs: MIN_CHAIRS,
+            room_deck_seat: None,
             settings: SettingsPane::Closed,
             offline: None,
         }
@@ -457,6 +457,7 @@ mod library_ui;
 pub(crate) mod offline;
 mod preview;
 mod print_catalog;
+mod room;
 mod source;
 mod systems;
 pub(crate) mod thumbnails;

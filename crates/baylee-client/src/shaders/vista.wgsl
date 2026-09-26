@@ -205,11 +205,10 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         + noise2(uv * 32.0) * 9.0)), 12.0);
     rgb += MOON * stream * ripples * 0.07;
 
-    // The near arch moves as rigid architecture, at four times the distant
-    // parallax. Advancing through it carries it beyond the screen edges.
+    // The foreground is anchored to the screen. Only the distant world
+    // responds to the pointer; the deliberate portal flight still advances.
     let arch_zoom = zoom + advance * 2.2;
-    let arch_uv = vec2<f32>(0.5) + (in.uv - vec2<f32>(0.5)) * cover / arch_zoom
-        + pointer * vec2<f32>(0.014, 0.009) + drift;
+    let arch_uv = vec2<f32>(0.5) + (in.uv - vec2<f32>(0.5)) * cover / arch_zoom;
     let stone = textureSample(arch, arch_sampler, arch_uv);
     let lamp_light = bell(arch_uv - vec2<f32>(0.12, 0.16), vec2<f32>(0.03, 0.05))
         + bell(arch_uv - vec2<f32>(0.925, 0.165), vec2<f32>(0.03, 0.05));
@@ -220,7 +219,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let wide = smoothstep(1.20, 1.55, aspect);
     let foreground = (1.0 - interior) * wide * (1.0 - smoothstep(0.02, 0.55, flight));
     let ground = min(0.92, 1.0 - 105.0 / max(params.portal.w, 320.0));
-    let cat_foot = vec2<f32>(aspect * 0.235, ground) - pointer * 0.012;
+    let cat_foot = vec2<f32>(aspect * 0.235, ground);
     let cat_height = 0.285 * (1.0 + 0.0035 * sin(t * 1.55));
     let cat_size = vec2<f32>(cat_height * 0.75, cat_height);
     let cat_uv = (p - cat_foot) / cat_size + vec2<f32>(0.5, 1.0);
@@ -231,7 +230,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // The sprite's painted moonlight remains cool; the nearby lantern warms its foot.
     rgb = mix(rgb, cat.rgb * vec3<f32>(0.62, 0.69, 0.77), cat.a * cat_inside * foreground);
 
-    let lamp_foot = vec2<f32>(aspect * 0.15, ground + 0.02) - pointer * 0.018;
+    let lamp_foot = vec2<f32>(aspect * 0.15, ground + 0.02);
     let lamp_uv = (p - lamp_foot) / vec2<f32>(0.139, 0.185) + vec2<f32>(0.5, 1.0);
     let lamp = textureSample(lantern, lantern_sampler, clamp(lamp_uv, vec2<f32>(0.0), vec2<f32>(1.0)));
     let lamp_inside = step(0.0, lamp_uv.x) * step(lamp_uv.x, 1.0) * step(0.0, lamp_uv.y) * step(lamp_uv.y, 1.0);

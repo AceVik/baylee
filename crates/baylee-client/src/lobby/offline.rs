@@ -134,6 +134,7 @@ struct Chair {
 /// A table arranged offline, before it starts.
 #[derive(Clone, Debug)]
 struct Room {
+    setup: baylee_core::preset::RoomSetup,
     name: String,
     chairs: Vec<Chair>,
     /// Set by the start button. The lobby watches for it through the game
@@ -324,6 +325,7 @@ impl Offline {
                     seated
                 }
             }
+            LobbyRequest::ConfigureRoom { update, .. } => self.configure_room(update),
             LobbyRequest::SetSeat {
                 seat,
                 kind,
@@ -481,7 +483,7 @@ impl Offline {
         seats.push(Chair {
             kind: SeatKind::Human,
             ai: String::new(),
-            deck: Some(deck_id.to_string()),
+            deck: (!deck_id.is_empty()).then(|| deck_id.to_string()),
             ready: false,
             team: None,
         });
@@ -501,6 +503,7 @@ impl Offline {
             });
         }
         self.room = Some(Room {
+            setup: baylee_core::preset::RoomSetup::default(),
             name,
             chairs: seats,
             playing: false,
@@ -543,6 +546,11 @@ impl Offline {
                 );
             }
         }
+        let changed = ai.as_ref().is_some_and(|a| *a != chair.ai)
+            || deck_id
+                .as_ref()
+                .is_some_and(|d| chair.deck.as_ref() != Some(d))
+            || team.is_some_and(|t| chair.team != (t != 0).then_some(t));
         if let Some(ai) = ai {
             chair.ai = ai;
         }
@@ -553,6 +561,49 @@ impl Offline {
         // that "leave it alone" stays the absent field it is everywhere else.
         if let Some(team) = team {
             chair.team = (team != 0).then_some(team);
+        }
+        if changed {
+            room.chairs[0].ready = false;
+        }
+        LobbyEvent::Moved
+    }
+
+    fn configure_room(&mut self, update: baylee_core::preset::RoomUpdate) -> LobbyEvent {
+        if let Err(why) = update.setup.validate(update.chairs) {
+            return LobbyEvent::Failed(why);
+        }
+        let Some(room) = self.room.as_mut() else {
+            return LobbyEvent::Failed("no table is open".into());
+        };
+        if room.playing {
+            return LobbyEvent::Failed("game already started".into());
+        }
+        let empty = baylee_cards::decks::LoadedDeck {
+            name: String::new(),
+            main: vec![],
+            sideboard: vec![],
+            commanders: vec![],
+        };
+        let refs = vec![&empty; update.chairs];
+        let mut probe = baylee_cards::decks::preset_for_all(0, &refs);
+        if let Err(why) = baylee_cards::decks::apply_room_setup(&mut probe, &update.setup) {
+            return LobbyEvent::Failed(why);
+        }
+        let changed = room.setup != update.setup || room.chairs.len() != update.chairs;
+        room.chairs.truncate(update.chairs);
+        while room.chairs.len() < update.chairs {
+            room.chairs.push(Chair {
+                kind: SeatKind::Ai,
+                ai: "steady".into(),
+                deck: self.decks.first().map(|d| d.id.clone()),
+                ready: true,
+                team: None,
+            });
+        }
+        room.name = update.name;
+        room.setup = update.setup;
+        if changed {
+            room.chairs[0].ready = false;
         }
         LobbyEvent::Moved
     }
@@ -586,6 +637,9 @@ impl Offline {
             };
             spec.team = chair.team;
         }
+        if let Err(why) = baylee_cards::decks::apply_room_setup(&mut preset, &room.setup) {
+            return LobbyEvent::Failed(why);
+        }
         if let Err(why) = preset.validate() {
             return LobbyEvent::Failed(why.to_string());
         }
@@ -607,6 +661,7 @@ impl Offline {
             locked: false,
             startable: room.chairs.iter().all(|c| c.ready && c.deck.is_some()),
             rematch: false,
+            setup: room.setup.clone(),
             seats: room
                 .chairs
                 .iter()
@@ -626,6 +681,19 @@ impl Offline {
                         .as_ref()
                         .and_then(|id| self.deck(id))
                         .map(|d| d.name.clone())
+                        .unwrap_or_default(),
+                    format: chair
+                        .deck
+                        .as_ref()
+                        .and_then(|id| self.deck(id))
+                        .map(|d| {
+                            if d.commanders.is_empty() {
+                                "freeform"
+                            } else {
+                                "commander"
+                            }
+                            .to_string()
+                        })
                         .unwrap_or_default(),
                     ready: chair.ready,
                     team: chair.team,

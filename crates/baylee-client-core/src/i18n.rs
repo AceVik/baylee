@@ -182,7 +182,7 @@ messages! {
     /// Empty table listing heading.
     EmptyTablesTitle { en: "A place for your next game", de: "Platz für dein nächstes Spiel" },
     /// A new player needs a deck before hosting a game.
-    ChooseDeckToBegin { en: "Choose a deck to open a table with friends or play against the house.", de: "Wähle ein Deck, um einen Tisch mit Freunden zu eröffnen oder gegen das Haus zu spielen." },
+    ChooseDeckToBegin { en: "Open a table and choose your deck in the room. Friends can join through the table search.", de: "Erstelle einen Tisch und wähle dein Deck im Raum. Freunde können über die Tischsuche beitreten." },
     /// A table search returned no rows.
     NoMatches { en: "No matching tables", de: "Keine passenden Tische" },
     /// Clear a table search to see the unfiltered listing.
@@ -1027,6 +1027,46 @@ messages! {
     SortBy { en: "Sort: {0}", de: "Sortierung: {0}" },
     /// Cards ({0})
     PaneCards { en: "Cards ({0})", de: "Karten ({0})" },
+    /// Unapplied host edits.
+    RoomDraft { en: "Unsaved settings · apply your changes before starting.", de: "Ungespeicherte Einstellungen · übernimm deine Änderungen vor dem Start." },
+    /// Room configuration title.
+    RoomTitle { en: "Your table", de: "Dein Spielraum" },
+    /// Public name input.
+    RoomName { en: "Room name", de: "Raumname" },
+    /// Shared configuration heading.
+    RoomRules { en: "Rules & starting position", de: "Regeln & Startaufstellung" },
+    /// Host authority explanation.
+    RoomHostHelp { en: "You arrange the table. Players choose their own decks and confirm they are ready.", de: "Du konfigurierst den Tisch. Jeder Spieler wählt sein eigenes Deck und bestätigt seine Bereitschaft." },
+    /// Visitor authority explanation.
+    RoomGuestHelp { en: "The host arranges the table. Choose your deck below, then mark yourself ready.", de: "Der Host konfiguriert den Tisch. Wähle unten dein Deck und bestätige anschließend mit Bereit." },
+    /// Seats heading.
+    RoomPlayers { en: "Players & seats", de: "Spieler & Sitze" },
+    /// Global starting life.
+    RoomLife { en: "Starting life", de: "Start-Lebenspunkte" },
+    /// Free mulligan count.
+    RoomMulligans { en: "Free mulligans", de: "Freie Mulligans" },
+    /// Permanent input label.
+    RoomBoard { en: "Starting permanents (separate names with ;)", de: "Start-Permanents (Kartennamen mit ; trennen)" },
+    /// Draft submit.
+    RoomApply { en: "Apply settings", de: "Einstellungen übernehmen" },
+    /// Optional password help.
+    RoomLockHelp { en: "Leave blank to keep the current password. Changes take effect with Apply settings.", de: "Leer lassen, um das bisherige Kennwort beizubehalten. Änderungen gelten nach dem Übernehmen." },
+    /// Remove lock.
+    RoomUnlock { en: "Remove password", de: "Kennwort entfernen" },
+    /// Preset picker heading.
+    RoomTemplate { en: "Starting template", de: "Startvorlage" },
+    /// Accelerated original house-rule scenario.
+    RoomFast { en: "Five-land start", de: "Start mit fünf Ländern" },
+    /// Planechase honesty.
+    RoomPlanechase { en: "Planechase · unavailable: planar cards and planar die are not implemented yet.", de: "Planechase · noch nicht verfügbar: Weltenkarten und Weltenwürfel sind noch nicht implementiert." },
+    /// Host handover guarantee.
+    RoomSuccession { en: "If the host leaves, the longest-standing player takes over.", de: "Verlässt der Host den Raum, übernimmt der am längsten anwesende Spieler." },
+    /// Deck selector heading.
+    RoomPickDeck { en: "Choose a deck", de: "Deck auswählen" },
+    /// Shared default for per-seat life.
+    RoomDefault { en: "Use default", de: "Standard verwenden" },
+    /// Empty deck notice in room.
+    RoomNoDeck { en: "No deck selected", de: "Noch kein Deck gewählt" },
     /// Deck ({0} / {1})
     PaneDeck { en: "Deck ({0} / {1})", de: "Deck ({0} / {1})" },
     /// Leave without saving

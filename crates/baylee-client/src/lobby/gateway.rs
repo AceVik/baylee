@@ -231,9 +231,9 @@ fn row_words(url: &str, probe: Option<&Probe>, lang: Lang) -> RowWords {
 /// finger's height on a phone.
 fn row_height(metrics: Metrics) -> f32 {
     if metrics.frame == Frame::Phone {
-        metrics.tap + 12.0
+        metrics.tap + 28.0
     } else {
-        56.0
+        76.0
     }
 }
 
@@ -242,16 +242,6 @@ const ROW_GAP: f32 = 8.0;
 
 /// How many rows are in sight before the list scrolls.
 pub(super) const ROWS_IN_SIGHT: usize = 4;
-
-/// The width of a row's warning cell, reserved on every row so that the
-/// versions and bins of all rows stand in one column.
-fn mark_width(metrics: Metrics) -> f32 {
-    if metrics.frame == Frame::Phone {
-        metrics.tap
-    } else {
-        34.0
-    }
-}
 
 /// The side of a row's bin.
 fn bin_side(metrics: Metrics) -> f32 {
@@ -348,9 +338,8 @@ fn in_view(offset: f32, cursor: Option<usize>, row: f32, height: f32) -> f32 {
 ///    address                    v0.1.0
 /// ```
 /// A dot for whether it answered, the name over the address, and in the
-/// right column the bin over the short version. The warning mark, when there
-/// is one, stands in a cell of its own at the right end, reserved on every
-/// row so the columns line up.
+/// right column the bin over the short version. A compatibility warning sits
+/// below the online dot in the same narrow status column.
 ///
 /// The bin and the mark lie over the row as its siblings and not inside it,
 /// so pressing the one or holding a finger on the other to read why does not
@@ -379,7 +368,7 @@ fn gateway_row(
         palette::PANEL,
         enabled,
     );
-    let mark_w = mark_width(metrics);
+    super::button_style::primary(commands, control);
     commands
         .entity(control)
         .entry::<Node>()
@@ -390,9 +379,9 @@ fn gateway_row(
             node.column_gap = px(0);
             node.padding = UiRect {
                 left: px(12),
-                right: px(mark_w),
-                top: px(6),
-                bottom: px(6),
+                right: px(12),
+                top: px(12),
+                bottom: px(12),
             };
         });
     if marked {
@@ -406,9 +395,25 @@ fn gateway_row(
     }
     let dot = reach_dot(commands, &words);
     commands.entity(dot).insert(passes_presses());
-    commands.entity(dot).entry::<Node>().and_modify(|mut node| {
-        node.margin = UiRect::right(px(12));
-    });
+    let status = commands
+        .spawn((
+            Node {
+                width: px(22),
+                flex_shrink: 0.0,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                row_gap: px(8),
+                margin: UiRect::right(px(12)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(status).add_child(dot);
+    if let Some(mark) = mark_cell(commands, &words, fonts, metrics, lang) {
+        commands.entity(status).add_child(mark);
+    }
     let texts = row_texts(commands, fonts, metrics, &words);
     // The right column: room for the bin on top, the version at the foot.
     let side = commands
@@ -435,7 +440,9 @@ fn gateway_row(
         ))
         .id();
     commands.entity(side).add_child(version);
-    commands.entity(control).add_children(&[dot, texts, side]);
+    commands
+        .entity(control)
+        .add_children(&[status, texts, side]);
 
     let row = commands
         .spawn((
@@ -450,9 +457,6 @@ fn gateway_row(
     commands.entity(row).add_child(control);
     let bin = bin(commands, fonts, metrics, lang, index, enabled);
     commands.entity(row).add_child(bin);
-    if let Some(mark) = mark_cell(commands, &words, fonts, metrics, lang) {
-        commands.entity(row).add_child(mark);
-    }
     row
 }
 
@@ -540,7 +544,7 @@ fn bin(
             Node {
                 position_type: PositionType::Absolute,
                 top: px(4),
-                right: px(mark_width(metrics) - side * 0.5 + 4.0),
+                right: px(10),
                 width: px(side),
                 height: px(side),
                 justify_content: JustifyContent::Center,
@@ -572,7 +576,7 @@ fn bin(
     bin
 }
 
-/// The warning mark with its hint, at the row's right end, or nothing when
+/// The warning mark under the online dot, or nothing when
 /// this client and the gateway agree.
 fn mark_cell(
     commands: &mut Commands,
@@ -585,11 +589,8 @@ fn mark_cell(
     let cell = commands
         .spawn((
             Node {
-                position_type: PositionType::Absolute,
-                right: px(0),
-                top: px(0),
-                bottom: px(0),
-                width: px(mark_width(metrics)),
+                width: px(20),
+                height: px(20),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()

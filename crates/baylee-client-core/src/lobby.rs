@@ -14,6 +14,7 @@
 pub mod gateway_info;
 pub mod gateway_use;
 pub mod library;
+pub mod room;
 
 use crate::deckbuilder::DeckBuilder;
 use crate::i18n::{Lang, Phrase};
@@ -74,6 +75,10 @@ pub enum Field {
     /// at all — it shares the caret machinery because a client has one caret,
     /// not because the two fields are related.
     RoomPassword,
+    /// Public room name.
+    RoomName,
+    /// Starting permanents for one seat, separated by semicolons.
+    RoomBoard(u8),
     /// What the table list is being searched for. Also on the table screen,
     /// and also not a sign-in field.
     Search,
@@ -250,6 +255,9 @@ pub struct GameSeat {
     /// The deck this chair plays, as far as it is decided.
     #[serde(default)]
     pub deck: String,
+    /// Deck format alongside its chosen name.
+    #[serde(default)]
+    pub format: String,
     /// Whether the chair is settled enough for the game to start.
     #[serde(default)]
     pub ready: bool,
@@ -312,6 +320,9 @@ pub struct GameSummary {
     /// Every seat at the table, taken or not.
     #[serde(default)]
     pub seats: Vec<GameSeat>,
+    /// Rules and starting positions advertised by the host.
+    #[serde(default)]
+    pub setup: baylee_core::preset::RoomSetup,
 }
 
 impl GameSummary {
@@ -591,6 +602,13 @@ pub enum LobbyRequest {
         /// stays the absent field it is for everything else here.
         team: Option<u8>,
     },
+    /// Atomically updates the shared room configuration.
+    ConfigureRoom {
+        /// Waiting room id.
+        game_id: String,
+        /// Host settings; server checks authority and all bounds.
+        update: baylee_core::preset::RoomUpdate,
+    },
     /// `POST /lobby/games/{id}/ready` — say whether this player is ready.
     SetReady {
         /// The table.
@@ -763,6 +781,10 @@ pub struct Lobby {
     password: TextBuffer,
     password_again: TextBuffer,
     room_password: TextBuffer,
+    room_name: TextBuffer,
+    room_boards: [TextBuffer; 8],
+    room_edit: Option<room::Draft>,
+    room_saving: bool,
     search: TextBuffer,
     performer: Performer,
     decks: Vec<DeckSummary>,
@@ -932,7 +954,11 @@ impl Lobby {
         match field {
             Field::Username => FieldKind::Username,
             Field::Gateway => FieldKind::Url,
-            Field::DisplayName | Field::GuestName | Field::Search => FieldKind::Name,
+            Field::DisplayName
+            | Field::GuestName
+            | Field::Search
+            | Field::RoomName
+            | Field::RoomBoard(_) => FieldKind::Name,
             Field::Password | Field::PasswordAgain if self.registering() => FieldKind::NewPassword,
             Field::Password | Field::PasswordAgain => FieldKind::Password,
             Field::RoomPassword | Field::AccountPassword => FieldKind::Secret,
@@ -957,6 +983,8 @@ impl Lobby {
             Field::Password => &self.password,
             Field::PasswordAgain => &self.password_again,
             Field::RoomPassword => &self.room_password,
+            Field::RoomName => &self.room_name,
+            Field::RoomBoard(at) => &self.room_boards[usize::from(at).min(7)],
             Field::Search => &self.search,
             Field::AccountPassword => &self.account_password,
         }
@@ -1251,6 +1279,21 @@ impl Lobby {
         if self.deleting.is_some() {
             // The confirmation's one box is a ring of one.
             self.focus = Field::AccountPassword;
+        } else if self.screen == Screen::Table && self.awaiting.is_some() {
+            if !self.room_edit.as_ref().is_some_and(|d| d.host) {
+                return;
+            }
+            let chairs = self.room_edit.as_ref().map_or(0, |d| d.update.chairs);
+            let ring: Vec<Field> = [Field::RoomName]
+                .into_iter()
+                .chain((!self.offline()).then_some(Field::RoomPassword))
+                .chain((0..chairs).map(|at| Field::RoomBoard(at as u8)))
+                .collect();
+            let at = ring.iter().position(|f| *f == self.focus).unwrap_or(0);
+            self.focus = ring[match dir {
+                Tab::Next => at + 1,
+                Tab::Back => at + ring.len() - 1,
+            } % ring.len()];
         } else if self.screen == Screen::Table {
             self.focus = match self.focus {
                 Field::Search => Field::RoomPassword,
@@ -1326,9 +1369,23 @@ impl Lobby {
                 Field::GuestName => self.guest_name_offered(),
                 Field::Username | Field::Password => self.gateway_chosen(),
                 Field::DisplayName | Field::PasswordAgain => registering && self.gateway_chosen(),
-                Field::RoomPassword | Field::Search | Field::AccountPassword => false,
+                Field::RoomPassword
+                | Field::RoomName
+                | Field::RoomBoard(_)
+                | Field::Search
+                | Field::AccountPassword => false,
             },
-            Screen::Table => matches!(self.focus, Field::RoomPassword | Field::Search),
+            Screen::Table => match self.focus {
+                Field::RoomName | Field::RoomBoard(_) => {
+                    self.awaiting.is_some() && self.room_edit.as_ref().is_some_and(|d| d.host)
+                }
+                Field::RoomPassword => {
+                    self.awaiting.is_none()
+                        || (!self.offline() && self.room_edit.as_ref().is_some_and(|d| d.host))
+                }
+                Field::Search => self.awaiting.is_none(),
+                _ => false,
+            },
             Screen::Build | Screen::Seated(_) => false,
         }
     }
@@ -1626,8 +1683,15 @@ impl Lobby {
     #[must_use]
     pub fn query(&self) -> GameQuery {
         GameQuery {
-            q: self.search.text().trim().to_string(),
-            offset: self.offset,
+            q: self.awaiting.as_ref().map_or_else(
+                || self.search.text().trim().to_string(),
+                |h| h.game_id.clone(),
+            ),
+            offset: if self.awaiting.is_some() {
+                0
+            } else {
+                self.offset
+            },
             limit: PAGE,
         }
     }
@@ -1768,7 +1832,18 @@ impl Lobby {
         name: String,
         password: String,
     ) -> Option<LobbyRequest> {
-        let deck_id = self.picked_deck()?;
+        if self.busy || !self.has_a_performer() {
+            return None;
+        }
+        let deck_id = self
+            .selected()
+            .and_then(|at| self.decks.get(at))
+            .map(|d| d.id.clone())
+            .unwrap_or_default();
+        if mode == GameMode::Ai && deck_id.is_empty() {
+            self.refuse(Phrase::PickADeckFirst);
+            return None;
+        }
         self.busy = true;
         self.room_password.clear();
         self.asked_for = Some(mode);
@@ -1790,7 +1865,14 @@ impl Lobby {
     /// Sits down in a named chair, sending whatever is in the room password
     /// box — which a room that is not locked simply ignores.
     pub fn join_seat(&mut self, game_id: &str, seat: Option<u32>) -> Option<LobbyRequest> {
-        let deck_id = self.picked_deck()?;
+        if self.busy || !self.has_a_performer() {
+            return None;
+        }
+        let deck_id = self
+            .selected()
+            .and_then(|at| self.decks.get(at))
+            .map(|d| d.id.clone())
+            .unwrap_or_default();
         let password = self.room_password.text().to_string();
         self.room_password.clear();
         self.busy = true;
@@ -1846,6 +1928,23 @@ impl Lobby {
     pub fn take_rematch(&mut self) -> Option<LobbyRequest> {
         let game_id = self.rematch_wanted.take()?;
         self.rematch(&game_id)
+    }
+
+    /// Sends a host edit; room authority is checked again by the gateway.
+    pub fn configure_room(
+        &mut self,
+        game_id: &str,
+        update: baylee_core::preset::RoomUpdate,
+    ) -> Option<LobbyRequest> {
+        if self.busy || !self.has_a_performer() {
+            return None;
+        }
+        self.busy = true;
+        self.note(Phrase::ArrangingTable);
+        Some(LobbyRequest::ConfigureRoom {
+            game_id: game_id.to_string(),
+            update,
+        })
     }
 
     /// Says whether this player is ready to play.
@@ -2311,10 +2410,17 @@ impl Lobby {
                 self.clear_status();
                 self.list()
             }
-            LobbyEvent::Moved => self.list(),
+            LobbyEvent::Moved => {
+                if self.room_saving {
+                    self.room_edit = None;
+                    self.room_saving = false;
+                }
+                self.list()
+            }
             LobbyEvent::Games(listing) => {
                 self.games = listing.games;
                 self.total = listing.total;
+                self.sync_room_edit();
                 self.offset = listing.offset;
                 // A seat becomes usable when its table starts playing, which
                 // is a different moment from being given the seat — see
@@ -2422,6 +2528,7 @@ impl Lobby {
                 None
             }
             LobbyEvent::Failed(why) => {
+                self.room_saving = false;
                 // A refused deletion leaves the session good: the refusal is
                 // the confirmation's, and the typed password goes with it.
                 if let Some(deletion) = self.deleting.as_mut().filter(|d| d.sent) {
@@ -2457,6 +2564,8 @@ impl Lobby {
             Field::Password => &mut self.password,
             Field::PasswordAgain => &mut self.password_again,
             Field::RoomPassword => &mut self.room_password,
+            Field::RoomName => &mut self.room_name,
+            Field::RoomBoard(at) => &mut self.room_boards[usize::from(at).min(7)],
             Field::Search => &mut self.search,
             Field::AccountPassword => &mut self.account_password,
         }

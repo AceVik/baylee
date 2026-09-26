@@ -164,7 +164,7 @@ impl<L: CardLookup> Engine<L> {
                 Some(Pending::Mulligan {
                     player,
                     taken: taken + 1,
-                    next_is_free: false,
+                    next_is_free: taken + 1 < self.house_rules.free_mulligan_count(),
                 })
             }
             (

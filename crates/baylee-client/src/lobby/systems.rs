@@ -943,13 +943,6 @@ pub(super) fn clicks(
                 state.hub = hub;
                 scrolled.set(List::Table, 0.0);
             }
-            Press::RoomSize(more) => {
-                state.room_chairs = if more {
-                    state.room_chairs.saturating_add(1).min(MAX_CHAIRS)
-                } else {
-                    state.room_chairs.saturating_sub(1).max(MIN_CHAIRS)
-                };
-            }
             Press::AddGateway => {
                 if let Some(url) = state.check_gateway() {
                     http::probe_gateway(url, &mailbox);
@@ -1137,16 +1130,25 @@ pub(super) fn clicks(
                     dispatch(&mut state, &mailbox, request);
                 }
             }
+            Press::RoomDeckPicker(seat) => {
+                state.room_deck_seat = (state.room_deck_seat != Some(seat)).then_some(seat);
+            }
+            Press::RoomAdjust(change) => state.lobby.adjust_room(change),
+            Press::SaveRoom(remove_password) => {
+                let request = state.lobby.save_room(remove_password);
+                dispatch(&mut state, &mailbox, request);
+            }
+            Press::RoomDeck(index, seat, deck) => {
+                state.lobby.select_deck(deck);
+                state.room_deck_seat = None;
+                if let Some(game) = state.lobby.games().get(index).map(|g| g.id.clone()) {
+                    let request = state.lobby.seat_deck(&game, seat);
+                    dispatch(&mut state, &mailbox, request);
+                }
+            }
             Press::OpenRoom(chairs) => {
                 let request = state.lobby.open_room(GameMode::Open, chairs, String::new());
                 dispatch(&mut state, &mailbox, request);
-            }
-            Press::JoinSeat(index, seat) => {
-                let game = state.lobby.games().get(index).map(|g| g.id.clone());
-                if let Some(game) = game {
-                    let request = state.lobby.join_seat(&game, Some(seat));
-                    dispatch(&mut state, &mailbox, request);
-                }
             }
             Press::LeaveTable(index) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
@@ -1207,13 +1209,6 @@ pub(super) fn clicks(
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
                     let request = state.lobby.seat_team(&game, seat, team);
-                    dispatch(&mut state, &mailbox, request);
-                }
-            }
-            Press::SeatDeck(index, seat) => {
-                let game = state.lobby.games().get(index).map(|g| g.id.clone());
-                if let Some(game) = game {
-                    let request = state.lobby.seat_deck(&game, seat);
                     dispatch(&mut state, &mailbox, request);
                 }
             }
@@ -1786,7 +1781,6 @@ fn ended_as(
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Press {
     Hub(Hub),
-    RoomSize(bool),
     AddGateway,
     SelectGateway(usize),
     /// Asks, in the confirm dialog, whether a saved gateway leaves the list.
@@ -1832,10 +1826,16 @@ pub(crate) enum Press {
     Host(GameMode),
     /// Open a table with a chosen number of chairs.
     OpenRoom(usize),
+    /// Edit the local room draft.
+    RoomAdjust(baylee_client_core::lobby::room::Adjustment),
+    /// Apply the host draft; true explicitly removes the password.
+    SaveRoom(bool),
+    /// Apply a chosen deck directly to this seat.
+    RoomDeck(usize, u32, usize),
+    /// Toggle the deck choices for a seat.
+    RoomDeckPicker(u32),
     /// Sit down at a listed table by its index.
     Join(usize),
-    /// Sit down in a named chair of a listed table.
-    JoinSeat(usize, u32),
     /// Give up a chair. The room outlives it.
     LeaveTable(usize),
     /// Say whether this player is ready at a listed table.
@@ -1848,8 +1848,6 @@ pub(crate) enum Press {
     SeatKind(usize, u32, SeatKind),
     /// Set an AI chair's difficulty.
     SeatAi(usize, u32, &'static str),
-    /// Put the selected deck in a chair.
-    SeatDeck(usize, u32),
     /// Move a chair onto a side. `0` puts it back on its own.
     SeatTeam(usize, u32, u8),
     /// Leave a finished game.

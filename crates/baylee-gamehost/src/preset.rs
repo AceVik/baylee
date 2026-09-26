@@ -24,6 +24,7 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
         .house_rules
         .map(|h| HouseRules {
             mulligan_free_first: h.mulligan_free_first,
+            free_mulligans: h.free_mulligans.map(|n| u8::try_from(n).unwrap_or(u8::MAX)),
             loop_policy: match h.loop_policy {
                 1 => LoopPolicy::CompRulesDraw,
                 _ => LoopPolicy::RunOnceThenBreak,
@@ -185,6 +186,7 @@ mod tests {
         let with_rules = |loop_policy| {
             from_proto(&v1::GamePresetMsg {
                 house_rules: Some(v1::HouseRules {
+                    free_mulligans: None,
                     loop_policy,
                     ..v1::HouseRules::default()
                 }),
@@ -416,6 +418,7 @@ mod tests {
     fn unsent_house_rules_are_the_defaults() {
         let sent = from_proto(&v1::GamePresetMsg {
             house_rules: Some(v1::HouseRules {
+                free_mulligans: Some(3),
                 mulligan_free_first: true,
                 loop_policy: 1,
                 decision_timeout_secs: 45,
@@ -427,6 +430,7 @@ mod tests {
             ..msg(vec![seat_msg(), seat_msg()])
         })
         .expect("two seats");
+        assert_eq!(sent.house_rules.free_mulligan_count(), 3);
         assert_eq!(sent.house_rules.loop_policy, LoopPolicy::CompRulesDraw);
         assert_eq!(sent.house_rules.decision_timeout_secs, 45);
         assert_eq!(sent.house_rules.reconnect_window_secs, 90);

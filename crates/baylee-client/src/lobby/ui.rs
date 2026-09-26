@@ -397,6 +397,10 @@ fn table(
     let phone = metrics.frame == Frame::Phone;
 
     if phone {
+        commands
+            .entity(root)
+            .entry::<Node>()
+            .and_modify(|mut n| n.overflow = Overflow::scroll_y());
         commands.entity(root).insert((
             Scrollable(List::Table),
             ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
@@ -518,6 +522,16 @@ fn table(
         commands.entity(bar).add_child(menu);
     }
 
+    if let Some(handover) = lobby.awaiting()
+        && let Some(index) = lobby
+            .games()
+            .iter()
+            .position(|g| g.id == handover.game_id && g.state == "waiting")
+    {
+        super::room::draw(commands, root, state, fonts, metrics, scrolled_to, index);
+        return;
+    }
+
     if let Some(handover) = lobby.awaiting() {
         let banner = commands
             .spawn((
@@ -627,6 +641,18 @@ fn table(
     commands
         .entity(navigation)
         .add_children(&[house, gap, stats]);
+    if state.hub == Hub::Play {
+        let create = button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::CreateTable.text(lang),
+            Press::OpenRoom(2),
+            palette::ACCENT,
+            !lobby.busy(),
+        );
+        commands.entity(navigation).add_child(create);
+    }
     commands.entity(root).add_child(navigation);
     // ---- body
     let body = commands
@@ -935,116 +961,17 @@ fn table(
     } else {
         commands.entity(games).add_child(search_tools);
     }
-    let creation = row(commands, metrics, true);
-    commands
-        .entity(creation)
-        .entry::<Node>()
-        .and_modify(move |mut node| {
-            node.align_items = AlignItems::FlexEnd;
-            node.column_gap = px(metrics.gap);
-            node.row_gap = px(metrics.gap);
-            node.margin.top = px(metrics.gap);
-        });
-    let play = button(
-        commands,
-        fonts,
-        metrics,
-        Phrase::PlayTheHouse.text(lang),
-        Press::Host(GameMode::Ai),
-        palette::ACCENT,
-        !lobby.busy() && lobby.selected().is_some(),
-    );
     if lobby.selected().is_some() {
-        commands.entity(decks).add_child(play);
-    } else {
-        commands.entity(play).despawn();
-    }
-    // One box, two uses: it locks a room the moment it is opened, and it is
-    // what a locked room is joined with. They are never both wanted at once,
-    // and two boxes a player has to tell apart would be worse than one that
-    // says what it is for.
-    if !alone {
-        let lock = commands
-            .spawn((
-                Node {
-                    width: px(220),
-                    max_width: percent(100),
-                    flex_grow: 1.0,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        let box_ = text_field(
+        let play = button(
             commands,
             fonts,
             metrics,
-            Phrase::RoomPassword.text(lang),
-            &FieldLook {
-                buffer: lobby.buffer(Field::RoomPassword),
-                focused: lobby.focus() == Field::RoomPassword,
-                mask: Some(Masked {
-                    field: Field::RoomPassword,
-                    shown: lobby.showing(Field::RoomPassword),
-                }),
-                press: Press::Focus(Field::RoomPassword),
-                lead: None,
-                hint: None,
-                tail: None,
-            },
+            Phrase::PlayTheHouse.text(lang),
+            Press::Host(GameMode::Ai),
+            palette::PANEL_LIT,
+            !lobby.busy(),
         );
-        commands.entity(lock).add_child(box_);
-        commands.entity(creation).add_child(lock);
-    }
-    let fewer = button(
-        commands,
-        fonts,
-        metrics,
-        "−",
-        Press::RoomSize(false),
-        palette::PANEL_LIT,
-        state.room_chairs > MIN_CHAIRS,
-    );
-    let size = note(
-        commands,
-        fonts,
-        metrics,
-        &Phrase::PlayerCount.fill(lang, &[&state.room_chairs.to_string()]),
-    );
-    let more = button(
-        commands,
-        fonts,
-        metrics,
-        "+",
-        Press::RoomSize(true),
-        palette::PANEL_LIT,
-        state.room_chairs < MAX_CHAIRS,
-    );
-    let create = button(
-        commands,
-        fonts,
-        metrics,
-        Phrase::CreateTable.text(lang),
-        Press::OpenRoom(state.room_chairs),
-        palette::PANEL_LIT,
-        !lobby.busy() && lobby.selected().is_some(),
-    );
-    let chairs = row(commands, metrics, false);
-    commands
-        .entity(chairs)
-        .entry::<Node>()
-        .and_modify(move |mut node| {
-            node.width = Val::Auto;
-            node.height = px(metrics.tap);
-            node.flex_shrink = 0.0;
-            node.column_gap = px(metrics.gap * 0.5);
-        });
-    commands.entity(chairs).add_children(&[fewer, size, more]);
-    commands.entity(creation).add_children(&[chairs, create]);
-    if lobby.selected().is_some() {
-        commands.entity(games).add_child(creation);
-    } else {
-        commands.entity(creation).despawn();
+        commands.entity(decks).add_child(play);
     }
 
     if lobby.games().is_empty() {
@@ -1070,7 +997,7 @@ fn table(
                 Phrase::EmptyTablesTitle,
                 Phrase::NoTablesOpen.text(lang).to_string(),
                 Phrase::CreateTable,
-                Press::OpenRoom(state.room_chairs),
+                Press::OpenRoom(2),
             )
         };
         let empty = super::empty::state(commands, fonts, metrics, title.text(lang), &said);
@@ -1145,6 +1072,27 @@ fn table(
         commands.entity(row).add_child(seats);
         commands.entity(row).add_child(gap);
         if game.joinable() && !game.seated() {
+            if game.locked {
+                let password = text_field(
+                    commands,
+                    fonts,
+                    metrics,
+                    Phrase::RoomPassword.text(lang),
+                    &FieldLook {
+                        buffer: lobby.buffer(Field::RoomPassword),
+                        focused: lobby.focus() == Field::RoomPassword,
+                        mask: Some(Masked {
+                            field: Field::RoomPassword,
+                            shown: lobby.showing(Field::RoomPassword),
+                        }),
+                        press: Press::Focus(Field::RoomPassword),
+                        lead: None,
+                        hint: None,
+                        tail: None,
+                    },
+                );
+                commands.entity(row).add_child(password);
+            }
             let join = button(
                 commands,
                 fonts,
@@ -1156,81 +1104,19 @@ fn table(
             );
             commands.entity(row).add_child(join);
         }
-        if game.seated() && game.state == "waiting" {
-            // Ready is the player's own statement and start is the host's:
-            // two different buttons because they are two different claims,
-            // and a host has to make both.
-            //
-            // A chair at a rematch room is a third thing again: it is being
-            // *kept* for this player, and claiming it is what says they are
-            // ready. Pressing ready there would be answered `200` and leave
-            // the chair exactly as unready as it was, so the button has to be
-            // the other one until the chair is claimed.
-            let ready = game.i_am_ready();
-            let say = if game.rematch && !ready {
-                button(
-                    commands,
-                    fonts,
-                    metrics,
-                    Phrase::PlayAgain.text(lang),
-                    Press::Rematch(index),
-                    palette::ACCENT,
-                    !lobby.busy(),
-                )
-            } else {
-                button(
-                    commands,
-                    fonts,
-                    metrics,
-                    if ready {
-                        Phrase::NotReady.text(lang)
-                    } else {
-                        Phrase::Ready.text(lang)
-                    },
-                    Press::Ready(index, !ready),
-                    if ready {
-                        palette::PANEL
-                    } else {
-                        palette::ACCENT
-                    },
-                    !lobby.busy(),
-                )
-            };
-            commands.entity(row).add_child(say);
-            if game.yours {
-                let start = button(
-                    commands,
-                    fonts,
-                    metrics,
-                    Phrase::Start.text(lang),
-                    Press::StartRoom(index),
-                    palette::ACCENT,
-                    !lobby.busy() && game.startable,
-                );
-                commands.entity(row).add_child(start);
-            }
-            let leave = button(
+        if game.seated() && game.rematch && !game.i_am_ready() {
+            let b = button(
                 commands,
                 fonts,
                 metrics,
-                // A host who leaves no longer closes the room — it passes to
-                // whoever has been there longest — so the button says the
-                // same thing for everyone.
-                Phrase::Leave.text(lang),
-                Press::LeaveTable(index),
-                palette::PANEL,
+                Phrase::PlayAgain.text(lang),
+                Press::Rematch(index),
+                palette::ACCENT,
                 !lobby.busy(),
             );
-            commands.entity(row).add_child(leave);
+            commands.entity(row).add_child(b);
         }
         commands.entity(games).add_child(row);
-
-        // Its chairs, one row each. A room is arranged in the open, so this
-        // is drawn for every table and not only for the one you are at.
-        if game.state == "waiting" {
-            let chairs = seat_rows(commands, fonts, metrics, lang, game, index, lobby.busy());
-            commands.entity(games).add_child(chairs);
-        }
     }
     // The pager, and only when there is more than one page. A lobby with
     // four tables in it should not be asked to explain what page it is on.
@@ -1288,7 +1174,7 @@ fn table(
 /// Seated and ready are counted separately, because since a player has to say
 /// they are ready the two answer different questions — a full table can still
 /// be waiting for everyone in it.
-fn host_note(lang: Lang, game: &GameSummary) -> String {
+pub(super) fn host_note(lang: Lang, game: &GameSummary) -> String {
     let total = game.seats.len();
     if game.state != "waiting" {
         return Phrase::SeatCount.fill(lang, &[&total.to_string()]);
@@ -1330,172 +1216,6 @@ pub(super) fn ai_name(lang: Lang, name: &str) -> &'static str {
 }
 
 /// One row per chair: who is in it, what they brought, and — for the host —
-/// the controls that arrange it.
-#[allow(clippy::too_many_lines)] // one chair, and everything offered on it
-fn seat_rows(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    metrics: Metrics,
-    lang: Lang,
-    game: &GameSummary,
-    index: usize,
-    busy: bool,
-) -> Entity {
-    let holder = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                flex_direction: FlexDirection::Column,
-                row_gap: px(4),
-                padding: UiRect::new(
-                    px(metrics.pad * 1.4),
-                    px(metrics.pad * 0.7),
-                    px(2),
-                    px(metrics.pad * 0.4),
-                ),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    for seat in &game.seats {
-        let line = row(commands, metrics, true);
-        let chair = seat.seat.to_string();
-        let who = match (seat.kind, seat.player.as_deref()) {
-            (SeatKind::Ai, _) => Phrase::SeatAi.fill(
-                lang,
-                &[
-                    &chair,
-                    ai_name(lang, seat.ai.as_deref().unwrap_or("steady")),
-                ],
-            ),
-            (SeatKind::Human, Some(name)) if seat.you => {
-                Phrase::SeatYours.fill(lang, &[&chair, name])
-            }
-            (SeatKind::Human, Some(name)) => Phrase::SeatTaken.fill(lang, &[&chair, name]),
-            (SeatKind::Human, None) => Phrase::SeatOpen.fill(lang, &[&chair]),
-        };
-        let label = commands
-            .spawn((
-                Text::new(who),
-                tf(fonts, metrics.small),
-                TextColor(if seat.ready {
-                    palette::INK
-                } else {
-                    palette::MUTED
-                }),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(line).add_child(label);
-        if !seat.deck.is_empty() {
-            let deck = note(commands, fonts, metrics, &seat.deck);
-            commands.entity(line).add_child(deck);
-        }
-        let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
-        commands.entity(line).add_child(gap);
-
-        // A player brings their own deck; the host brings an AI's. The
-        // gateway checks both again — this only decides what to offer.
-        let mine = seat.you;
-        let ai_chair = seat.kind == SeatKind::Ai;
-        if mine || (game.yours && ai_chair) {
-            let set = chip(
-                commands,
-                fonts,
-                metrics,
-                Phrase::UseMyDeck.text(lang),
-                Press::SeatDeck(index, seat.seat),
-                false,
-            );
-            commands.entity(line).add_child(set);
-        }
-        // Only the host arranges chairs, and never one somebody is sitting in.
-        if game.yours && (mine || !seat.taken) {
-            let (label, press) = if ai_chair {
-                (
-                    Phrase::SeatToOpen.text(lang),
-                    Press::SeatKind(index, seat.seat, SeatKind::Human),
-                )
-            } else {
-                (
-                    Phrase::SeatToAi.text(lang),
-                    Press::SeatKind(index, seat.seat, SeatKind::Ai),
-                )
-            };
-            // The host's own chair is theirs as a player, not as the host:
-            // handing it to the AI would seat them out of their own table.
-            if !mine {
-                let swap = chip(commands, fonts, metrics, label, press, false);
-                commands.entity(line).add_child(swap);
-            }
-            if ai_chair {
-                for (name, _) in baylee_core::preset::AIProfile::NAMED {
-                    let lit = seat.ai.as_deref() == Some(name);
-                    let pick = chip(
-                        commands,
-                        fonts,
-                        metrics,
-                        ai_name(lang, name),
-                        Press::SeatAi(index, seat.seat, name),
-                        lit,
-                    );
-                    commands.entity(line).add_child(pick);
-                }
-            }
-        }
-        // Which side the chair plays for, cycled by the host: nothing, then
-        // team 1, 2, … and back. One chip rather than one per team, because
-        // a table of eight would otherwise carry nine buttons per row for a
-        // setting most tables never touch.
-        if game.yours {
-            let seats = game.seats.len() as u8;
-            let next = seat.team.map_or(1, |t| if t >= seats { 0 } else { t + 1 });
-            let label = match seat.team {
-                None => Phrase::SeatSideNone.text(lang).to_string(),
-                Some(team) => Phrase::SeatSide.fill(lang, &[&team.to_string()]),
-            };
-            let side = chip(
-                commands,
-                fonts,
-                metrics,
-                &label,
-                Press::SeatTeam(index, seat.seat, next),
-                seat.team.is_some(),
-            );
-            commands.entity(line).add_child(side);
-        }
-        // The room can be handed to anyone else who is sitting at it, which
-        // is also how a host leaves without taking the table with them.
-        if game.yours && !mine && seat.taken && seat.kind == SeatKind::Human {
-            let pass = chip(
-                commands,
-                fonts,
-                metrics,
-                Phrase::MakeHost.text(lang),
-                Press::HandOver(index, seat.seat),
-                false,
-            );
-            commands.entity(line).add_child(pass);
-        }
-        // A free chair is one anyone else can take, by name rather than by
-        // whichever one the gateway would have picked.
-        if seat.open() && !game.seated() && !busy {
-            let sit = chip(
-                commands,
-                fonts,
-                metrics,
-                Phrase::SitHere.text(lang),
-                Press::JoinSeat(index, seat.seat),
-                false,
-            );
-            commands.entity(line).add_child(sit);
-        }
-        commands.entity(holder).add_child(line);
-    }
-    holder
-}
-
 /// A wrapping row of controls.
 pub(crate) fn row(commands: &mut Commands, metrics: Metrics, wrap: bool) -> Entity {
     commands

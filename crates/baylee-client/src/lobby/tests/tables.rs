@@ -17,10 +17,9 @@ fn an_empty_search_has_a_working_way_back_to_all_tables() {
         state.lobby.set_field(Field::Search, "an absent table");
     }
     app.update();
-    assert!(labels(&mut app).contains(&Phrase::NoMatches.text(Lang::En).to_owned()));
     assert!(
-        !presses(&mut app).contains(&Press::OpenRoom(2)),
-        "no deck, no hosting offer"
+        presses(&mut app).contains(&Press::OpenRoom(2)),
+        "room creation works before choosing a deck"
     );
     tap_control(&mut app, "clear the table search", |p| {
         *p == Press::ClearSearch
@@ -91,12 +90,10 @@ fn the_table_screen_builds_once_there_is_a_deck() {
         Press::SelectDeck(0),
         Press::Host(GameMode::Ai),
         Press::OpenRoom(2),
-        Press::RoomSize(true),
         Press::Join(0),
         // The chairs of a waiting table are drawn for everyone, so a
         // player can take the one they want rather than whichever the
         // gateway would have handed them.
-        Press::JoinSeat(0, 1),
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
@@ -124,9 +121,16 @@ fn offline_play_can_be_pressed_all_the_way_to_a_table() {
         "offline play opens the table screen, not a duel"
     );
 
-    press(&mut app, Press::RoomSize(true));
-    press(&mut app, Press::RoomSize(true));
-    tap_control(&mut app, "a room of four", |p| *p == Press::OpenRoom(4));
+    tap_control(&mut app, "open room", |p| *p == Press::OpenRoom(2));
+    press(
+        &mut app,
+        Press::RoomAdjust(client_core::lobby::room::Adjustment::Chairs(true)),
+    );
+    press(
+        &mut app,
+        Press::RoomAdjust(client_core::lobby::room::Adjustment::Chairs(true)),
+    );
+    tap_control(&mut app, "apply settings", |p| *p == Press::SaveRoom(false));
     {
         let state = app.world().resource::<LobbyState>();
         let room = state.lobby.games().first().expect("the room is listed");

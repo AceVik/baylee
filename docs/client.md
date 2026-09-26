@@ -7959,3 +7959,28 @@ throughout preparation. The ordinary short-request veil remains debounced.
 The `dev-control` `/state` response includes `loading` with destination,
 milestone, ready/total, monotonic departure, progress and error, allowing
 screenshots to be matched to actual preparation rather than a guessed delay.
+
+### Dedicated waiting room (2026-09-26)
+
+The table search has one Create table action. Creation and joining no longer
+require picking a deck beforehand. A granted waiting seat renders a dedicated
+room inside the sanctuary frame, with host configuration on the left and seat
+cards on the right. Smartphones target landscape orientation; shorter windows
+scroll the room. Legal notices remain fixed and readable in the login area.
+Each player chooses their
+own deck in their seat; the host chooses AI decks. Deck name and format remain
+visible. Shared rules are a draft with an explicit Apply action; unsaved rules
+prevent starting. Configuration changes invalidate readiness. The live listing
+follows the room id, so paging and a previous search cannot lose a seated room.
+
+The host can set 2–8 chairs, teams, five AI profiles, room name, optional password,
+0–7 free mulligans, 1–999 global/per-seat starting life, and up to 32 named extra
+permanents per seat. Commander, 20-life duel and five-basic-land starting templates
+populate these settings. These are starting-state templates, not deck legality
+formats. Planechase is labelled unavailable until its actual rules exist.
+The earliest joined remaining human inherits the host role when the host leaves.
+
+The login's stone frame, Baylee and lantern positions no longer receive pointer
+parallax; only the deep scenery and water camera do. The deliberate portal
+transition is retained. Gateway status and compatibility marks form one left
+column; symmetric tile padding replaces the empty warning column on the right.

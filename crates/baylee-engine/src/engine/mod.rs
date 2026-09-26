@@ -544,7 +544,7 @@ impl<L: CardLookup> Engine<L> {
             mulligans: Some(mulligan::open(
                 &state.rng,
                 state.players.len(),
-                preset.house_rules.mulligan_free_first,
+                preset.house_rules.free_mulligan_count() > 0,
             )),
             automation: vec![crate::choice::SeatAutomation::default(); state.players.len()],
             breaking_loop: false,
@@ -555,7 +555,7 @@ impl<L: CardLookup> Engine<L> {
             pending: Pending::Mulligan {
                 player: PlayerId::new(0),
                 taken: 0,
-                next_is_free: preset.house_rules.mulligan_free_first,
+                next_is_free: preset.house_rules.free_mulligan_count() > 0,
             },
             passes: 0,
             priority_holder: None,

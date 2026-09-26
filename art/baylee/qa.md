@@ -1,5 +1,30 @@
 # Verification · 26 September 2026
 
+## Dedicated room and fixed login foreground
+
+- Created a room without a preselected deck, then configured its name, three
+  seats, three free mulligans and the five-land starting template through real
+  pointer/keyboard input. Selected a different deck inside the room.
+- Native final passes completed at **1920×1080** and **932×430** logical pixels.
+  Smartphone support targets landscape. Both login notice/source bounds stayed
+  inside the viewport; the final lobby and room contain no legal footer, as
+  requested. Login, account creation and gateway selection remain scrollable.
+- Iteration exposed a room scroll surface that ignored wheel input over blank
+  space. The page now receives those gestures; the full configuration and deck
+  selection flow passed in the short landscape viewport after the fix.
+- The gateway status/warning share one column, and login fields have a common
+  inset surface. Pointer parallax is removed from the frame, cat and lantern,
+  while distant scenery retains it.
+- Changed-crate library suites: **5,750 passed, 4 intentional ignores**; gateway
+  HTTP/database/engine room tests: **9 passed**. Final affected library rerun:
+  **2,232 passed, 4 intentional ignores**. After the last layout adjustment,
+  all **165 lobby tests** passed. Workspace all-target clippy with warnings
+  denied, formatting and browser-target compilation passed.
+- Gateway tests cover host-only writes, password entry, occupied-seat protection,
+  atomic invalid AI edits, earliest-joined host succession, readiness reset and
+  configured life, permanents and free mulligans reaching the actual engine.
+- Planechase remains explicitly unavailable: there is no planar rules engine.
+
 ## Login and lobby layout refinement
 
 Three native visual passes, with a final typography pass, using a disposable

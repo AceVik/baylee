@@ -1428,6 +1428,23 @@ fn account_face(
     let tabs = halves(commands, metrics, &tabs);
     commands.entity(card).add_child(tabs);
 
+    let fields = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(metrics.gap),
+                padding: UiRect::all(px(metrics.gap)),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(10)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.02, 0.06, 0.09, 0.24)),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.25)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(card).add_child(fields);
     let plain = |field: Field| FieldLook {
         buffer: lobby.buffer(field),
         focused: lobby.focus() == field,
@@ -1451,7 +1468,7 @@ fn account_face(
         Phrase::Username.text(lang),
         &plain(Field::Username),
     );
-    commands.entity(card).add_child(username);
+    commands.entity(fields).add_child(username);
     if registering {
         let name = text_field(
             commands,
@@ -1461,7 +1478,7 @@ fn account_face(
             &plain(Field::DisplayName),
         );
         let hint = note(commands, fonts, metrics, Phrase::AccountNameHint.text(lang));
-        commands.entity(card).add_children(&[name, hint]);
+        commands.entity(fields).add_children(&[name, hint]);
     }
     let password = text_field(
         commands,
@@ -1470,7 +1487,7 @@ fn account_face(
         Phrase::Password.text(lang),
         &masked(Field::Password),
     );
-    commands.entity(card).add_child(password);
+    commands.entity(fields).add_child(password);
     if registering {
         let again = text_field(
             commands,
@@ -1485,7 +1502,7 @@ fn account_face(
             metrics,
             Phrase::AccountPasswordHint.text(lang),
         );
-        commands.entity(card).add_children(&[again, hint]);
+        commands.entity(fields).add_children(&[again, hint]);
     }
 
     let submit = button(

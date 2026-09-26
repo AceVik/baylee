@@ -187,6 +187,8 @@ pub struct LobbyGame {
     /// preset until it starts — the listing has to be able to say what pace a
     /// table plays at while a player is still deciding whether to sit down.
     pub house_rules: baylee_core::preset::HouseRules,
+    /// The custom starting state, visible to every participant.
+    pub setup: baylee_core::preset::RoomSetup,
     /// SHA-256 of the token the engine proves itself with. One game's worth
     /// of authority: it is issued when the engine is ordered and is useless
     /// for anything but attaching to this game.
@@ -253,6 +255,7 @@ impl LobbyGame {
     /// chairs the AI takes and at what difficulty. Everyone else configures
     /// exactly one thing, which is the deck they themselves will play.
     #[must_use]
+    #[cfg(test)]
     pub fn room(
         id: String,
         account_id: String,
@@ -329,7 +332,7 @@ impl LobbyGame {
     }
 
     /// The fields every game starts with, whatever else is true of it.
-    fn blank(id: String, created_at: u64) -> Self {
+    pub(crate) fn blank(id: String, created_at: u64) -> Self {
         Self {
             id,
             state: LobbyState::Waiting,
@@ -338,6 +341,7 @@ impl LobbyGame {
             seats: Vec::new(),
             preset: None,
             house_rules: baylee_core::preset::HouseRules::default(),
+            setup: baylee_core::preset::RoomSetup::default(),
             engine_token_hash: None,
             agent_id: None,
             engine: None,
@@ -385,6 +389,7 @@ impl LobbyGame {
             // there is no screen between the button and the new room on
             // which anybody could have said otherwise.
             house_rules: parent.house_rules.clone(),
+            setup: parent.setup.clone(),
             password_hash: parent.password_hash.clone(),
             next_seq: parent.next_seq,
             parent: Some(parent.id.clone()),
@@ -502,7 +507,8 @@ impl LobbyQuery {
             return true;
         }
         let needle = self.q.trim().to_lowercase();
-        game.name.to_lowercase().contains(&needle)
+        game.id == needle
+            || game.name.to_lowercase().contains(&needle)
             || host_name.is_some_and(|h| h.to_lowercase().contains(&needle))
     }
 }
@@ -640,6 +646,7 @@ impl Lobby {
         serde_json::json!({
                     "id": g.id,
                     "name": g.name,
+                    "setup": g.setup,
                     "host": g.host.as_ref().and_then(|h| names.get(h)),
                     "yours": g.host.as_deref() == Some(me),
                     // Whether, never what: a client needs to know to ask for
@@ -697,6 +704,7 @@ impl Lobby {
                             "you": s.account_id.as_deref() == Some(me),
                             "host": s.account_id.is_some() && s.account_id == g.host,
                             "deck": s.deck_name,
+                            "format": s.deck.as_ref().map_or("commander", |d| d.format.as_str()),
                             "ready": s.ready(),
                             // `null` for a chair that plays for itself, which
                             // is every chair at a table with no teams on it.

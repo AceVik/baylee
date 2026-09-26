@@ -352,3 +352,17 @@ The table UI icon map (`baylee-client-core/src/tableicons.rs`) was checked on
 (https://github.com/andrewgioia/mana/blob/master/css/mana.css). It uses zone,
 untap, sorcery, combat/ability and counter marks, with generic end/cleanup
 controls from Font Awesome. It adds no logos or faction watermarks.
+
+### Room and gateway interface review (2026-09-26)
+
+The room controls and textured gateway surfaces are original code; no new
+third-party artwork, logos, fonts or audio are added. The existing fan-content
+and source notices remain visible in the login footer. The owner requested
+that these notices appear only in the login area, preserving room and lobby
+space for play. Checked the
+[Wizards policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy):
+“Tell the Community it’s unofficial.” The FAQ also explicitly says:
+“Yes. You can require a login/sign up to play a private group game.”
+Optional room passwords use the existing private-group access model; guest
+access and the public source offer remain available. Starting permanents use
+the existing registry and licensed image-delivery path documented above.
