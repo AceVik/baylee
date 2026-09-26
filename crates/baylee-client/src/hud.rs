@@ -1247,6 +1247,8 @@ pub(crate) mod palette {
     pub const INK: Color = Color::srgb(0.90, 0.93, 0.94);
     /// Secondary text.
     pub const MUTED: Color = Color::srgb(0.58, 0.64, 0.68);
+    /// Moonlit mist behind the legal copy; fades into the garden above it.
+    pub const COLOPHON_MIST: Color = Color::srgb(0.045, 0.095, 0.13);
     /// A seat that has lost.
     pub const DEAD: Color = Color::srgb(0.30, 0.32, 0.34);
     /// The accent used for anything asking for a decision.

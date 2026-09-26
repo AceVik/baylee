@@ -16,7 +16,7 @@ RAW.mkdir(exist_ok=True)
 # MIDI pitches verified spectrally: this library mixes octave naming conventions.
 PITCH = {'violins':72, 'violas':72, 'cellos':60, 'spiccato1':72,
          'spiccato2':72, 'harp-low':48, 'harp-mid':62, 'harp-high':72,
-         'flute':72, 'horn':60, 'horn-forte':60, 'oboe':74,
+         'horn':60, 'horn-forte':60, 'oboe':74,
          'timpani':42, 'snare1':60, 'snare2':60, 'cymbal':60}
 items = json.loads(Path('art/music/samples.json').read_text())
 for item in items:
@@ -39,5 +39,5 @@ for item in items:
     samples[:110] *= np.linspace(0,1,110)
     pcm = np.round(samples * 32767).astype('<i2').tobytes()
     (ROOT/(name+'.pcm')).write_bytes(pcm)
-    item.update(midi=PITCH[name],frames=len(samples),rate=22050,pcm_sha256=hashlib.sha256(pcm).hexdigest())
+    item.update(midi=PITCH.get(name,item.get('midi')),frames=len(samples),rate=22050,pcm_sha256=hashlib.sha256(pcm).hexdigest())
 Path('art/music/samples.json').write_text(json.dumps(items,indent=2)+'\n')

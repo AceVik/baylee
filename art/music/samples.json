@@ -80,16 +80,6 @@
     "pcm_sha256": "b944b47571da3aed48dd7eba1f7e7c504b7d307d6226cbf99c4ff37c5d8add1e"
   },
   {
-    "name": "flute",
-    "path": "Woodwinds/Flute/susvib/LDFlute_susvib_C4_v1_1.wav",
-    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
-    "sha256": "e88a0ff35e6b8c29fd88bc778a4c817d955b2c3a2934def97a7d093b72e2ae97",
-    "midi": 72,
-    "frames": 167432,
-    "rate": 22050,
-    "pcm_sha256": "4c26bd670c7202fa2ace970856df01412a8b423ba42dd1414e8346605ab211cf"
-  },
-  {
     "name": "horn",
     "path": "Brass/F Horn/sus/MOHorn_sus_C3_v2_1.wav",
     "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
@@ -158,5 +148,155 @@
     "frames": 124746,
     "rate": 22050,
     "pcm_sha256": "b0ebfb79a8813a06335b4f2b6674a00c47bb3d024c2730222aa895c605382855"
+  },
+  {
+    "name": "piano-2-pp",
+    "path": "Keys/Upright Nr1/UR1_C2_pp_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "965d05d098e65226bfebbfff2951aa649d527c4a90545e6437e8ced9d703de08",
+    "midi": 36,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "47bf0e397f3e254403252d2228f55e5278937c2f46545dc2e7c04cd401669330"
+  },
+  {
+    "name": "piano-2-mf",
+    "path": "Keys/Upright Nr1/UR1_C2_mf_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "2c865da6c7e27d5e8cbffcc1394ddaccf06f3c4513a184d65d08e33b72bdc160",
+    "midi": 36,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "4f6ca3e37a7f22c61428414cdb701fe9557c3f65126a3ab1230294742dc17d15"
+  },
+  {
+    "name": "piano-2-f",
+    "path": "Keys/Upright Nr1/UR1_C2_f_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "03cb58c95040d16a4b5b8cb018372e55f80ca1e44c122df165af1cdf524a6e59",
+    "midi": 36,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "8aa6f348a618322c0505963ce9bf11cafd63faf1fcfd91106077ab1253f2667d"
+  },
+  {
+    "name": "piano-3-pp",
+    "path": "Keys/Upright Nr1/UR1_C3_pp_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "2fbe80d44b96c24980762eb805594cff6b84a5b4ed06ddfed70a8f8c692b856f",
+    "midi": 48,
+    "frames": 155985,
+    "rate": 22050,
+    "pcm_sha256": "496c9bfaf8a152a66addbcad6e99a41e6583cae352b45e20aa04791c0bf745fc"
+  },
+  {
+    "name": "piano-3-mf",
+    "path": "Keys/Upright Nr1/UR1_C3_mf_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "4b14e4babc7acab16fb8cafe6c286e347a99437c217bed5e125fc56c316b1579",
+    "midi": 48,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "fbec830ee6d251e9bc7f079e308cd34c0187297cb58654538609f6739391f164"
+  },
+  {
+    "name": "piano-3-f",
+    "path": "Keys/Upright Nr1/UR1_C3_f_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "385249d5d2e5c2696cc29d0bc2f35f072ad88939545bc3b38793be98a324a7af",
+    "midi": 48,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "0dd4632e36d5bcb9b825a6f424bf6e5b1837d13f210bda86eacb9920eb016606"
+  },
+  {
+    "name": "piano-4-pp",
+    "path": "Keys/Upright Nr1/UR1_C4_pp_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "0354bf405b644eb16b0d1223e304de93b4abef4e2191c552665563784d40f1ea",
+    "midi": 60,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "4a80cf35bc46b0735b1240bbf7d23c534d33f4cec3115d3c8d0bc30e10df1624"
+  },
+  {
+    "name": "piano-4-mf",
+    "path": "Keys/Upright Nr1/UR1_C4_mf_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "9f3a820c2ccbfb60209ff21ab8e80082d6bb7f09f7ff29027380d6cc43c69997",
+    "midi": 60,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "c26cb434e84577b83c1bb511b4af6dadd0182635d8db306d7951aeb9976d369a"
+  },
+  {
+    "name": "piano-4-f",
+    "path": "Keys/Upright Nr1/UR1_C4_f_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "c804b8af3109aee316a8e0551ed66e2fdc7861369aebafaa9b872f104f11b8fd",
+    "midi": 60,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "44c45c3159b8dad040be932500e2a8a9c71a82b825bbdf10a25c4ae3c9725aba"
+  },
+  {
+    "name": "piano-5-pp",
+    "path": "Keys/Upright Nr1/UR1_C5_pp_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "e0d5353f67afe55e4d6d49253651f2a8aa0c456603f538175e103769e1e1e73c",
+    "midi": 72,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "ffd69d99f2eadf405d5e9ca7a8b0fb825ac6b04dae77a9237e4233b007eb0636"
+  },
+  {
+    "name": "piano-5-mf",
+    "path": "Keys/Upright Nr1/UR1_C5_mf_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "dacba2dd26c3fd581c093d8131321d2b46fb0f52d5031aad6f173aa7e357b0fb",
+    "midi": 72,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "537cc1afd4a44e64d8c695f53bbbecc77a582aa867a8a899cfadc43f27b69287"
+  },
+  {
+    "name": "piano-5-f",
+    "path": "Keys/Upright Nr1/UR1_C5_f_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "ee5a4568c4be267904908fc7e67ddf284980a8025667d0aee09f3ef39ce8efb6",
+    "midi": 72,
+    "frames": 176400,
+    "rate": 22050,
+    "pcm_sha256": "4ff28297e5f8e27ecea42ae0301610c10d3e24e4f3b413ed612280700f5beee6"
+  },
+  {
+    "name": "piano-6-pp",
+    "path": "Keys/Upright Nr1/UR1_C6_pp_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "d5c574169167c0a3186bda3a3c721073c4b5435d58357285182e09e18f957ea8",
+    "midi": 84,
+    "frames": 127420,
+    "rate": 22050,
+    "pcm_sha256": "ffe06c601be504c68e7969843e0ff3fea55235adf06751000b48eed4cc4b2f12"
+  },
+  {
+    "name": "piano-6-mf",
+    "path": "Keys/Upright Nr1/UR1_C6_mf_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "425938849f04921dddc5251cfc74f7192d5f6b733ee51e58c4f8dd2cf2c3f547",
+    "midi": 84,
+    "frames": 126715,
+    "rate": 22050,
+    "pcm_sha256": "c3457f6d1e9a37b3f8e9e028b0e341be2ab296f1b967ade7a1e19779b5a9d0eb"
+  },
+  {
+    "name": "piano-6-f",
+    "path": "Keys/Upright Nr1/UR1_C6_f_RR1.wav",
+    "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+    "sha256": "76fa05988e93d40180b70dd65d93cffe185483b73658026f8b5b195ff7aa6567",
+    "midi": 84,
+    "frames": 146821,
+    "rate": 22050,
+    "pcm_sha256": "fbe71be91d8c6093e51183166fc776280c566d0b95bcd9e29ee1df56cf0b74e2"
   }
 ]

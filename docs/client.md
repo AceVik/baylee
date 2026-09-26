@@ -3459,7 +3459,7 @@ conservatory garden seen through an open limestone arch. The previous geode's
 inward crystal teeth are gone. `vista.rs` schedules a single full-screen
 `UiMaterial`; `shaders/vista.wgsl` composites an original generated matte
 painting split into distant world and transparent near architecture, a
-photorealistic portrait of petite Baylee in her red body and an original
+hand-painted portrait of petite Baylee in her red body and an original
 Blender lantern.
 The photographic references remain outside the repository. Sources, exact
 generation prompts and the editable lantern live in `art/baylee/`.
@@ -3474,7 +3474,7 @@ when they cannot stand clear of the form; Baylee remains in the logo.
 
 The form keeps its opaque dark surface, keyboard controls, guest/account flows
 and accessible settings. The logo uses the new transparent brand artwork, above
-the existing localized welcome line. The source and fan-content notice occupy a non-shrinking opaque footer with
+the existing localized welcome line. The source and fan-content notice occupy a non-shrinking footer over a soft blue mist gradient with
 12.5 px text. Only the form body scrolls, keeping these notices visible at
 every viewport. Long source URLs wrap by character when needed.
 
@@ -5979,8 +5979,10 @@ counted cues exist to do.
 ### One orchestra follows the player
 
 `baylee-client-core/src/music/score.rs` performs the original 32-bar 6/8
-D-minor/Dorian theme with recorded VSCO 2 CE strings, harp, flute, oboe,
-horns, timpani, snare and suspended cymbal. The 16-source bank is CC0;
+D-minor/Dorian theme with recorded VSCO 2 CE strings, expressive piano, harp,
+horns, timpani, snare and suspended cymbal. The 30-source bank is CC0; fifteen samples provide five piano registers and
+three touch layers. Piano voicings, bass inversions, suspensions and contrary
+string answers develop the shared theme without resetting the transport;
 provenance, pitch mapping and the reproducible preparation script live in
 `art/music/`. The sampler decodes the small embedded bank once before playback,
 uses bounded polyphony and allocates nothing while rendering. Stereo seating,

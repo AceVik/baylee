@@ -1,5 +1,24 @@
 # Verification · 26 September 2026
 
+## Painterly / piano follow-up
+
+- Replaced the photographic guardian after two repaint passes; replaced the
+  logo, app icon, browser icons and macOS icon together. Native 1280×768 and
+  phone renders reviewed for a consistent painted light and readable wordmark.
+- Replaced the black footer plate with blue translucent mist extending 52 px
+  into the scene. Both legal text bounds passed again at 1280×768, 390×844,
+  320×568, 844×390 and 320×320; copy retains its reserved scrolling boundary.
+- Client unit suite: **1,055 passed, 2 intentionally ignored**. All six core
+  music tests passed; native clippy with warnings denied and wasm check passed.
+- Removed flute, added 15 recorded piano samples (five registers, pp/mf/f).
+  Prepared sample hashes are pinned in the manifest. Spectral harmonics verified
+  C2–C6 roots, avoiding confusing the strong second/third partial with the root.
+- Revised runtime score rendered 150 s in 33.08 s (debug). Peak 0.389,
+  maximum adjacent-sample step 0.069; sanctuary RMS 0.057, quiet battle 0.079,
+  intense battle 0.109. Musical changes still use the same uninterrupted clock.
+
+## Initial sanctuary milestone
+
 - Native Client + Client Core, all targets, dev-control/dev-reload: **2,113
   tests passed, 2 explicitly ignored audio export tests**.
 - Native clippy with warnings denied; browser target compilation checked.

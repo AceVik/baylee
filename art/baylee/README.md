@@ -16,7 +16,7 @@ as a mascot was given on 26 September 2026.
 | `brand/baylee.icns` | Native macOS sizes, produced with `sips` and `iconutil`; release packaging installs it |
 | `scenes/sanctuary-world.png` | Distant landscape with near architecture removed for independent parallax |
 | `scenes/sanctuary-frame.png` | Transparent near arch, lamps, ivy and steps |
-| `scenes/baylee-guardian.png` | Transparent 1086 × 1448 photorealistic petite Baylee, fitted crimson body and slender tapered tail |
+| `scenes/baylee-guardian.png` | Transparent 1086 × 1448 hand-painted petite Baylee, fitted crimson body and slender tapered tail |
 | `scenes/wayfinder-lantern.png` | Transparent 600 × 800 Cycles render of the original Blender lantern |
 
 The original composition is retained as `art/baylee/sanctuary-master.png`;
@@ -54,7 +54,7 @@ Reduced motion produces a stable still. Narrow screens omit foreground props
 that would collide with controls; the logo retains Baylee's identity.
 
 The arrival curtain retains and waits for all login art before revealing the
-screen. The opaque legal footer remains visible while the form body scrolls. See `docs/legal.md` §10 for the
+screen. The legal footer blends into the scene through translucent blue mist and remains visible while the form body scrolls. See `docs/legal.md` §10 for the
 source-checked asset audit. Original project materials are distributed under
 AGPL-3.0-only, to the extent rights apply; existing font notices remain intact.
 
@@ -69,3 +69,8 @@ Add `BAYLEE_DEV_WINDOW=1280x768` or `390x844` for repeatable logical viewports.
 This override exists only in dev-control builds. `/pause`, `/step`, `/pointer`
 and `/screenshot` support actual renderer checks; do not judge motion solely
 from a still image.
+
+The owner's follow-up replaces the photographic mascot with grouped painted
+fur and moon/lantern lighting. Logo and icon now share a seated Baylee, crescent
+moon and wisteria; the earlier frontal cat-head crest is retired. Exact revised
+prompts are recorded in `painterly-revision.md`.

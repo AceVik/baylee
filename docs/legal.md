@@ -239,6 +239,9 @@ Urheber- und Medienrecht.
    revision, SHA-256 and prepared PCM hash. `art/music/prepare.py` reproducibly
    downmixes/resamples the selected recordings to mono 22,050 Hz PCM16.
    The score and sampler are project code under AGPL; the samples remain CC0.
+   The owner's follow-up removes flute and adds fifteen `Keys/Upright Nr1`
+   recordings from the same pinned CC0 source: five registers, three dynamics.
+   The publisher licence quote above was checked again for this revision.
    No game soundtrack, melody or recording from Wizards or Blizzard is used.
    This replaces the earlier arithmetic-only music decision at the owner's
    explicit request for real orchestral instruments on 26.09.2026.

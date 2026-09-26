@@ -36,7 +36,6 @@ pub(super) fn bank() -> &'static [Instrument] {
             sample!("harp-low", 48),
             sample!("harp-mid", 62),
             sample!("harp-high", 72),
-            sample!("flute", 72),
             sample!("horn", 60),
             sample!("horn-forte", 60),
             sample!("oboe", 74),
@@ -44,6 +43,21 @@ pub(super) fn bank() -> &'static [Instrument] {
             sample!("snare1", 60),
             sample!("snare2", 60),
             sample!("cymbal", 60),
+            sample!("piano-2-pp", 36),
+            sample!("piano-2-mf", 36),
+            sample!("piano-2-f", 36),
+            sample!("piano-3-pp", 48),
+            sample!("piano-3-mf", 48),
+            sample!("piano-3-f", 48),
+            sample!("piano-4-pp", 60),
+            sample!("piano-4-mf", 60),
+            sample!("piano-4-f", 60),
+            sample!("piano-5-pp", 72),
+            sample!("piano-5-mf", 72),
+            sample!("piano-5-f", 72),
+            sample!("piano-6-pp", 84),
+            sample!("piano-6-mf", 84),
+            sample!("piano-6-f", 84),
         ]
     })
 }
@@ -57,6 +71,7 @@ struct Voice {
     release: u32,
     attack: u32,
     gain: [f32; 2],
+    room_send: f32,
 }
 impl Voice {
     fn next(&mut self, bank: &[Instrument]) -> Option<[f32; 2]> {
@@ -116,7 +131,7 @@ impl Default for Orchestra {
     fn default() -> Self {
         bank();
         Self {
-            voices: Vec::with_capacity(80),
+            voices: Vec::with_capacity(112),
             room: [1499, 1877, 2137, 2593, 1559, 1931, 2203, 2683].map(Delay::new),
             scatter: [347, 113, 379, 127].map(Delay::new),
         }
@@ -124,37 +139,72 @@ impl Default for Orchestra {
 }
 impl Orchestra {
     pub(super) fn note(&mut self, instrument: usize, pitch: u8, seconds: f32, gain: f32, pan: f32) {
-        if self.voices.len() >= 80 {
+        if self.voices.len() >= 112 {
             return;
         }
         let sample = &bank()[instrument];
-        let plucked = (3..=7).contains(&instrument) || instrument >= 12;
+        let plucked = (3..=7).contains(&instrument) || instrument >= 11;
         self.voices.push(Voice {
             instrument,
             position: 0.0,
             rate: 0.5 * 2.0_f64.powf((f64::from(pitch) - f64::from(sample.root)) / 12.0),
             age: 0,
             hold: (seconds * RATE as f32) as u32,
-            release: ((if plucked { 1.8 } else { 0.85 }) * RATE as f32) as u32,
-            attack: if plucked { 100 } else { 2205 },
+            release: ((if instrument >= 15 {
+                2.8
+            } else if plucked {
+                1.8
+            } else {
+                0.85
+            }) * RATE as f32) as u32,
+            attack: if instrument >= 15 {
+                44
+            } else if plucked {
+                100
+            } else {
+                2205
+            },
+            room_send: if instrument >= 15 { 0.09 } else { 0.22 },
             gain: [
                 ((1.0 - pan) * 0.5).sqrt() * gain,
                 f32::midpoint(1.0, pan).sqrt() * gain,
             ],
         });
     }
+    /// Five recorded registers and three touch layers retain the piano's
+    /// hammer character. Adjacent velocity layers blend in power, not tracks.
+    pub(super) fn piano(&mut self, pitch: u8, seconds: f32, gain: f32, touch: f32) {
+        let zone = usize::from((pitch.saturating_sub(30) / 12).min(4));
+        let velocity = touch.clamp(0.0, 1.0) * 2.0;
+        let layer = (velocity.floor() as usize).min(1);
+        let mix = velocity - layer as f32;
+        let pan = ((f32::from(pitch) - 60.0) / 60.0).clamp(-0.45, 0.45);
+        for (offset, weight) in [(0, (1.0 - mix).sqrt()), (1, mix.sqrt())] {
+            if weight > 0.001 {
+                self.note(
+                    15 + zone * 3 + layer + offset,
+                    pitch,
+                    seconds,
+                    gain * weight,
+                    pan,
+                );
+            }
+        }
+    }
+
     pub(super) fn frame(&mut self) -> [f32; 2] {
         let mut dry = [0.0; 2];
+        let mut feed = 0.0;
         self.voices.retain_mut(|voice| {
             if let Some(frame) = voice.next(bank()) {
                 dry[0] += frame[0];
                 dry[1] += frame[1];
+                feed += (frame[0] + frame[1]) * voice.room_send;
                 true
             } else {
                 false
             }
         });
-        let feed = (dry[0] + dry[1]) * 0.18;
         let mut wet = [0.0; 2];
         for (i, delay) in self.room.iter_mut().enumerate() {
             wet[i / 4] += delay.comb(feed) * 0.25;

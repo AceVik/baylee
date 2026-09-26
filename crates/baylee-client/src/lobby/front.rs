@@ -1093,15 +1093,32 @@ pub(super) fn colophon(
                 },
                 ..default()
             },
-            BackgroundColor(Color::srgb(0.018, 0.028, 0.045)),
             Pickable::IGNORE,
         ))
         .id();
+    // Extend the soft scrim into the scene, with no hard rectangular edge.
+    // Legal copy stays in its reserved, non-scrolling area above the mist.
+    commands.entity(colophon).with_child((
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(0),
+            right: px(0),
+            top: px(-52),
+            bottom: px(0),
+            ..default()
+        },
+        BackgroundGradient::from(LinearGradient::to_bottom(vec![
+            ColorStop::percent(palette::COLOPHON_MIST.with_alpha(0.0), 0.0),
+            ColorStop::px(palette::COLOPHON_MIST.with_alpha(0.86), 52.0),
+            ColorStop::percent(palette::COLOPHON_MIST.with_alpha(0.92), 100.0),
+        ])),
+        Pickable::IGNORE,
+    ));
     let build = commands
         .spawn((
             Text::new(baylee_build::short()),
             tf(fonts, 12.5),
-            TextColor(palette::MUTED),
+            TextColor(palette::INK.with_alpha(0.82)),
             Pickable::IGNORE,
         ))
         .id();
