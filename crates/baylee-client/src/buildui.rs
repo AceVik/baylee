@@ -24,7 +24,7 @@ use bevy::prelude::*;
 use bevy::ui::{percent, px};
 
 pub(crate) mod autocomplete;
-mod print_picker;
+pub(crate) mod print_picker;
 use print_picker::printing_picker;
 pub(crate) mod virtual_rows;
 

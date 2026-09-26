@@ -28,7 +28,7 @@ async fn configuration_is_host_owned_and_reaches_the_engine() {
     let base = format!("/lobby/games/{id}");
     let settings = json!({"name":"Moon garden", "chairs":4, "password":"moonlight", "setup":{
         "starting_life":30, "free_mulligans":3,
-        "seats":[{"life":45,"permanents":["Forest","Island"]}]
+        "seats":[{"life":45,"permanents":["Forest *F*","Island"],"counters":[[{"kind":"charge","amount":3}]]}]
     }});
     assert_eq!(
         post(port, &first, &format!("{base}/configure"), settings.clone()).0,
@@ -100,7 +100,7 @@ async fn configuration_is_host_owned_and_reaches_the_engine() {
     let room = &listing["games"][0];
     assert_eq!(
         room["setup"]["seats"][0]["permanents"],
-        json!(["Forest", "Island"])
+        json!(["Forest *F*", "Island"])
     );
     assert_eq!(room["seats"][2]["kind"], "human");
     assert!(!listing.to_string().contains("moonlight"));
@@ -171,12 +171,10 @@ async fn configuration_is_host_owned_and_reaches_the_engine() {
         409,
         "changed rules require new consent"
     );
-    for token in [&first, &second] {
-        assert_eq!(
-            post(port, token, &format!("{base}/ready"), json!({})).0,
-            200
-        );
-    }
+    assert_eq!(
+        post(port, &second, &format!("{base}/ready"), json!({})).0,
+        200
+    );
     assert_eq!(
         post(port, &first, &format!("{base}/start"), json!({})).0,
         200
@@ -189,6 +187,14 @@ async fn configuration_is_host_owned_and_reaches_the_engine() {
     assert_eq!(preset.seats[0].starting_life, Some(45));
     assert_eq!(preset.seats[1].starting_life, Some(30));
     assert_eq!(preset.seats[0].starting_battlefield.len(), 2);
+    assert_eq!(
+        preset.house_rules.starting_counters[0].counters[0].amount,
+        3
+    );
+    assert_eq!(
+        preset.prints[usize::from(preset.seats[0].starting_battlefield[0].print.get())].finish,
+        baylee_core::preset::Finish::Foil
+    );
     assert!(preset.seats.iter().all(|s| !s.capabilities.dev_commands));
     agent.abort();
 }

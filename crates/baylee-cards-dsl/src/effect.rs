@@ -66,6 +66,41 @@ pub enum CounterKind {
 }
 
 impl CounterKind {
+    /// Parses a starting-position counter, including arbitrary signed P/T pairs.
+    #[must_use]
+    pub fn from_setup_name(name: &str) -> Option<Self> {
+        match name.trim().to_ascii_lowercase().as_str() {
+            "loyalty" => Some(Self::Loyalty),
+            "lore" => Some(Self::Lore),
+            "time" => Some(Self::Time),
+            "charge" => Some(Self::Charge),
+            "poison" => Some(Self::Poison),
+            "energy" => Some(Self::Energy),
+            "rad" => Some(Self::Rad),
+            "lifelink" => Some(Self::Lifelink),
+            "level" => Some(Self::Level),
+            value => {
+                if let Some(id) = value.strip_prefix("custom:") {
+                    return id.parse().ok().map(Self::Custom);
+                }
+                let (a, b) = value.split_once('/')?;
+                if a.starts_with('+') && b.starts_with('+') {
+                    Some(Self::Plus {
+                        power: a[1..].parse().ok()?,
+                        toughness: b[1..].parse().ok()?,
+                    })
+                } else if a.starts_with('-') && b.starts_with('-') {
+                    Some(Self::Minus {
+                        power: a[1..].parse().ok()?,
+                        toughness: b[1..].parse().ok()?,
+                    })
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
     /// The +1/+1 counter, which Magic prints on more cards than every other
     /// P/T pair together (2528 reference scripts against 195).
     ///

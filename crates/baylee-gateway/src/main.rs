@@ -2678,7 +2678,7 @@ fn try_start(state: &Shared, id: &str) -> Result<bool, (StatusCode, Json<ErrorBo
         let Some(game) = lobby.games.get_mut(id) else {
             return Ok(false);
         };
-        if game.state != LobbyState::Waiting || !game.seats.iter().all(lobby::LobbySeat::ready) {
+        if game.state != LobbyState::Waiting || !game.all_ready() {
             return Ok(false);
         }
         let mut preset = room_preset(&game.seats, auth::new_game_seed())?;
@@ -3175,7 +3175,7 @@ async fn start_room(
         if game.state != LobbyState::Waiting {
             return Err(err(StatusCode::CONFLICT, "game already started"));
         }
-        if !game.seats.iter().all(lobby::LobbySeat::ready) {
+        if !game.all_ready() {
             return Err(err(StatusCode::CONFLICT, "not everyone is ready"));
         }
     }

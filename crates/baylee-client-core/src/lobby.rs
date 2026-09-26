@@ -77,8 +77,10 @@ pub enum Field {
     RoomPassword,
     /// Public room name.
     RoomName,
-    /// Starting permanents for one seat, separated by semicolons.
+    /// Search query for one seat’s starting permanents.
     RoomBoard(u8),
+    /// Counter type entered in the selected permanent editor.
+    RoomCounter,
     /// What the table list is being searched for. Also on the table screen,
     /// and also not a sign-in field.
     Search,
@@ -782,6 +784,8 @@ pub struct Lobby {
     password_again: TextBuffer,
     room_password: TextBuffer,
     room_name: TextBuffer,
+    room_counter: TextBuffer,
+    room_print_target: Option<(u8, usize)>,
     room_boards: [TextBuffer; 8],
     room_edit: Option<room::Draft>,
     room_saving: bool,
@@ -958,7 +962,8 @@ impl Lobby {
             | Field::GuestName
             | Field::Search
             | Field::RoomName
-            | Field::RoomBoard(_) => FieldKind::Name,
+            | Field::RoomBoard(_)
+            | Field::RoomCounter => FieldKind::Name,
             Field::Password | Field::PasswordAgain if self.registering() => FieldKind::NewPassword,
             Field::Password | Field::PasswordAgain => FieldKind::Password,
             Field::RoomPassword | Field::AccountPassword => FieldKind::Secret,
@@ -984,6 +989,7 @@ impl Lobby {
             Field::PasswordAgain => &self.password_again,
             Field::RoomPassword => &self.room_password,
             Field::RoomName => &self.room_name,
+            Field::RoomCounter => &self.room_counter,
             Field::RoomBoard(at) => &self.room_boards[usize::from(at).min(7)],
             Field::Search => &self.search,
             Field::AccountPassword => &self.account_password,
@@ -1372,11 +1378,12 @@ impl Lobby {
                 Field::RoomPassword
                 | Field::RoomName
                 | Field::RoomBoard(_)
+                | Field::RoomCounter
                 | Field::Search
                 | Field::AccountPassword => false,
             },
             Screen::Table => match self.focus {
-                Field::RoomName | Field::RoomBoard(_) => {
+                Field::RoomName | Field::RoomBoard(_) | Field::RoomCounter => {
                     self.awaiting.is_some() && self.room_edit.as_ref().is_some_and(|d| d.host)
                 }
                 Field::RoomPassword => {
@@ -2450,6 +2457,7 @@ impl Lobby {
                 // only thing holding both halves of the question — that chair
                 // is mine, and I have nothing for it.
                 self.reclaim_a_seat()
+                    .or_else(|| self.awaiting.is_some().then(|| self.needs_pool()).flatten())
             }
             LobbyEvent::Seated(handover) => {
                 // **A seat is not a game**, and this used to ask only whether
@@ -2565,6 +2573,7 @@ impl Lobby {
             Field::PasswordAgain => &mut self.password_again,
             Field::RoomPassword => &mut self.room_password,
             Field::RoomName => &mut self.room_name,
+            Field::RoomCounter => &mut self.room_counter,
             Field::RoomBoard(at) => &mut self.room_boards[usize::from(at).min(7)],
             Field::Search => &mut self.search,
             Field::AccountPassword => &mut self.account_password,

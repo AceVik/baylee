@@ -207,7 +207,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     // The foreground is anchored to the screen. Only the distant world
     // responds to the pointer; the deliberate portal flight still advances.
-    let arch_zoom = zoom + advance * 2.2;
+    let arch_zoom = 1.035 + advance * advance * 1.8 + advance * 2.2 + interior * 0.10;
     let arch_uv = vec2<f32>(0.5) + (in.uv - vec2<f32>(0.5)) * cover / arch_zoom;
     let stone = textureSample(arch, arch_sampler, arch_uv);
     let lamp_light = bell(arch_uv - vec2<f32>(0.12, 0.16), vec2<f32>(0.03, 0.05))
@@ -218,7 +218,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // guardian remains in the identity above it, rather than covering controls.
     let wide = smoothstep(1.20, 1.55, aspect);
     let foreground = (1.0 - interior) * wide * (1.0 - smoothstep(0.02, 0.55, flight));
-    let ground = min(0.92, 1.0 - 105.0 / max(params.portal.w, 320.0));
+    let ground = 0.955;
     let cat_foot = vec2<f32>(aspect * 0.235, ground);
     let cat_height = 0.285 * (1.0 + 0.0035 * sin(t * 1.55));
     let cat_size = vec2<f32>(cat_height * 0.75, cat_height);

@@ -231,6 +231,7 @@ pub struct LobbyState {
     pub(crate) pane: Pane,
     pub(crate) hub: Hub,
     pub(crate) room_deck_seat: Option<u32>,
+    pub(crate) room_card_edit: Option<(u8, usize)>,
     /// Whether the settings screen is up, and what it is waiting for.
     settings: SettingsPane,
     /// Offline play, once the player has asked for it.
@@ -361,6 +362,7 @@ impl LobbyState {
             pane: Pane::Cards,
             hub: Hub::Play,
             room_deck_seat: None,
+            room_card_edit: None,
             settings: SettingsPane::Closed,
             offline: None,
         }

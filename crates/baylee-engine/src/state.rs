@@ -299,6 +299,9 @@ pub enum SetupError {
     /// A deck entry references a card the lookup cannot resolve.
     #[error("unknown card index {0}")]
     UnknownCard(CardIndex),
+    /// A counter name is not in the supported setup vocabulary.
+    #[error("unknown starting counter `{0}`")]
+    UnknownCounter(String),
 }
 
 /// State operation failures.
@@ -725,6 +728,13 @@ impl GameState {
     #[allow(clippy::too_many_lines)] // setup is a linear checklist; extraction would obscure it
     pub fn from_preset(preset: &GamePreset, lookup: &impl CardLookup) -> Result<Self, SetupError> {
         preset.validate()?;
+        for placement in &preset.house_rules.starting_counters {
+            for counter in &placement.counters {
+                if CounterKind::from_setup_name(&counter.kind).is_none() {
+                    return Err(SetupError::UnknownCounter(counter.kind.clone()));
+                }
+            }
+        }
         let default_life = match preset.format {
             FormatId::Commander => 40,
             _ => 20,
@@ -836,7 +846,7 @@ impl GameState {
                     answered: 0,
                 });
             }
-            for &entry in &seat.starting_battlefield {
+            for (position, &entry) in seat.starting_battlefield.iter().enumerate() {
                 let id = state.create_card(player, entry, lookup)?;
                 state.object_mut(id).expect("freshly created object").kind = ObjectKind::Permanent;
                 state
@@ -847,6 +857,19 @@ impl GameState {
                         Cause::Setup,
                     )
                     .expect("freshly created object");
+                for placement in &preset.house_rules.starting_counters {
+                    if placement.seat == i && placement.permanent == position {
+                        for counter in &placement.counters {
+                            if let Some(kind) = CounterKind::from_setup_name(&counter.kind) {
+                                state
+                                    .object_mut(id)
+                                    .expect("freshly created object")
+                                    .counters
+                                    .add(kind, counter.amount);
+                            }
+                        }
+                    }
+                }
             }
             for &entry in &seat.deck {
                 let id = state.create_card(player, entry, lookup)?;
@@ -3174,6 +3197,59 @@ mod tests {
         let mut state = GameState::from_preset(&make_preset(seed), &RegistryLookup).unwrap();
         state.per_turn.reset();
         state
+    }
+
+    #[test]
+    fn room_counters_seed_only_the_selected_permanent_and_reject_unknown_kinds() {
+        use baylee_core::preset::{StartingCounter, StartingCounters};
+        let mut preset = make_preset(77);
+        let entry = preset.seats[0].deck[0];
+        preset.seats[0].starting_battlefield = vec![entry, entry];
+        preset.house_rules.starting_counters = vec![StartingCounters {
+            seat: 0,
+            permanent: 1,
+            counters: vec![
+                StartingCounter {
+                    kind: "charge".into(),
+                    amount: 3,
+                },
+                StartingCounter {
+                    kind: "+2/+1".into(),
+                    amount: 2,
+                },
+                StartingCounter {
+                    kind: "custom:42".into(),
+                    amount: 1,
+                },
+            ],
+        }];
+        let state = GameState::from_preset(&preset, &RegistryLookup).unwrap();
+        let cards: Vec<_> = state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .map(|id| state.object(*id).unwrap())
+            .collect();
+        assert!(cards[0].counters.is_empty());
+        assert_eq!(cards[1].counters.get(CounterKind::Charge), 3);
+        assert_eq!(
+            cards[1].counters.get(CounterKind::Plus {
+                power: 2,
+                toughness: 1
+            }),
+            2
+        );
+        assert_eq!(cards[1].counters.get(CounterKind::Custom(42)), 1);
+        preset.house_rules.starting_counters[0].counters[0].kind = "made-up".into();
+        assert!(matches!(
+            GameState::from_preset(&preset, &RegistryLookup),
+            Err(SetupError::UnknownCounter(_))
+        ));
+        preset.house_rules.starting_counters[0].permanent = 2;
+        assert!(matches!(
+            preset.validate(),
+            Err(PresetError::StartingCounters)
+        ));
     }
 
     #[test]

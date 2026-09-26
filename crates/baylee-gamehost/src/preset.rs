@@ -22,9 +22,26 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
     };
     let house_rules = msg
         .house_rules
+        .as_ref()
         .map(|h| HouseRules {
             mulligan_free_first: h.mulligan_free_first,
             free_mulligans: h.free_mulligans.map(|n| u8::try_from(n).unwrap_or(u8::MAX)),
+            starting_counters: h
+                .starting_counters
+                .iter()
+                .map(|p| baylee_core::preset::StartingCounters {
+                    seat: p.seat as usize,
+                    permanent: p.permanent as usize,
+                    counters: p
+                        .counters
+                        .iter()
+                        .map(|c| baylee_core::preset::StartingCounter {
+                            kind: c.kind.clone(),
+                            amount: u16::try_from(c.amount).unwrap_or(u16::MAX),
+                        })
+                        .collect(),
+                })
+                .collect(),
             loop_policy: match h.loop_policy {
                 1 => LoopPolicy::CompRulesDraw,
                 _ => LoopPolicy::RunOnceThenBreak,
@@ -419,6 +436,7 @@ mod tests {
         let sent = from_proto(&v1::GamePresetMsg {
             house_rules: Some(v1::HouseRules {
                 free_mulligans: Some(3),
+                starting_counters: vec![],
                 mulligan_free_first: true,
                 loop_policy: 1,
                 decision_timeout_secs: 45,
@@ -438,5 +456,32 @@ mod tests {
 
         let unsent = from_proto(&msg(vec![seat_msg(), seat_msg()])).expect("two seats");
         assert_eq!(unsent.house_rules, HouseRules::default());
+    }
+    #[test]
+    fn initial_counter_placements_survive_the_wire() {
+        let mut message = msg(vec![seat_msg(), seat_msg()]);
+        message.seats[0].starting_battlefield = vec![v1::DeckEntry {
+            card_index: 5,
+            print_ref: 0,
+        }];
+        message.prints.push(v1::PrintInfo::default());
+        message.house_rules = Some(v1::HouseRules {
+            starting_counters: vec![v1::StartingCounters {
+                seat: 0,
+                permanent: 0,
+                counters: vec![v1::StartingCounter {
+                    kind: "charge".into(),
+                    amount: 7,
+                }],
+            }],
+            ..v1::HouseRules::default()
+        });
+        let preset = from_proto(&message).unwrap();
+        assert_eq!(
+            preset.house_rules.starting_counters[0].counters[0].amount,
+            7
+        );
+        message.house_rules.as_mut().unwrap().starting_counters[0].permanent = 999;
+        assert!(from_proto(&message).unwrap().validate().is_err());
     }
 }

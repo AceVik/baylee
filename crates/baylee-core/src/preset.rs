@@ -85,6 +85,9 @@ pub struct HouseRules {
     /// Explicit house-rule count; absent preserves the legacy first-free flag.
     #[serde(default)]
     pub free_mulligans: Option<u8>,
+    /// Counters seeded on configured battlefield cards, before play.
+    #[serde(default)]
+    pub starting_counters: Vec<StartingCounters>,
     /// Endless-loop policy.
     pub loop_policy: LoopPolicy,
     /// Per-decision timeout in seconds (default 600 = 10 min).
@@ -104,6 +107,7 @@ impl Default for HouseRules {
         Self {
             mulligan_free_first: true,
             free_mulligans: None,
+            starting_counters: Vec::new(),
             loop_policy: LoopPolicy::default(),
             decision_timeout_secs: 600,
             reconnect_window_secs: 60,
@@ -166,6 +170,28 @@ pub struct RoomSeatSetup {
     pub life: Option<i32>,
     /// Extra permanents, one name per copy, separate from the deck.
     pub permanents: Vec<String>,
+    /// Counter lists indexed by the permanent's position above.
+    pub counters: Vec<Vec<StartingCounter>>,
+}
+
+/// One counter type and its initial amount.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct StartingCounter {
+    /// Canonical engine name, a signed P/T pair, or `custom:ID`.
+    pub kind: String,
+    /// Number of counters placed before the game begins.
+    pub amount: u16,
+}
+
+/// Counter placement attached to a preset battlefield entry.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct StartingCounters {
+    /// Zero-based seat.
+    pub seat: usize,
+    /// Zero-based entry in that seat's starting battlefield.
+    pub permanent: usize,
+    /// Counter amounts.
+    pub counters: Vec<StartingCounter>,
 }
 
 impl RoomSetup {
@@ -182,10 +208,17 @@ impl RoomSetup {
         for seat in &self.seats {
             if seat.life.is_some_and(|n| !(1..=999).contains(&n))
                 || seat.permanents.len() > 32
+                || seat.counters.len() > seat.permanents.len()
+                || seat.counters.iter().any(|cs| {
+                    cs.len() > 32
+                        || cs
+                            .iter()
+                            .any(|c| c.kind.len() > 40 || c.amount == 0 || c.amount > 999)
+                })
                 || seat
                     .permanents
                     .iter()
-                    .any(|s| s.len() > 200 || s.contains([';', '\n']))
+                    .any(|s| s.len() > 500 || s.contains([';', '\n']))
             {
                 return Err(
                     "each seat supports 1–999 life and at most 32 starting permanents".into(),
@@ -425,6 +458,9 @@ pub const MAX_PRINTS: usize = u16::MAX as usize + 1;
 /// Structural preset errors (rules validation is the gateway's job).
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum PresetError {
+    /// Initial counters are out of bounds or point at no starting card.
+    #[error("invalid starting counter placement")]
+    StartingCounters,
     /// Too many free mulligans for a bounded opening procedure.
     #[error("at most seven free mulligans are supported")]
     TooManyFreeMulligans,
@@ -516,6 +552,19 @@ impl GamePreset {
     /// # Errors
     /// [`PresetError`] describing the first violation.
     pub fn validate(&self) -> Result<(), PresetError> {
+        if self.house_rules.starting_counters.len() > 256
+            || self.house_rules.starting_counters.iter().any(|p| {
+                self.seats
+                    .get(p.seat)
+                    .is_none_or(|s| p.permanent >= s.starting_battlefield.len())
+                    || p.counters.len() > 32
+                    || p.counters
+                        .iter()
+                        .any(|c| c.amount == 0 || c.amount > 999 || c.kind.len() > 40)
+            })
+        {
+            return Err(PresetError::StartingCounters);
+        }
         if self.house_rules.free_mulligan_count() > 7 {
             return Err(PresetError::TooManyFreeMulligans);
         }

@@ -2299,3 +2299,24 @@ pagination. Existing join-order host succession applies unchanged.
 
 Planechase is explicitly unavailable in the UI: this engine has no planar deck
 or planar die, so the room must not advertise it as a playable mode.
+
+### Starting-card cosmetics and counters (protocol 6)
+
+`RoomSeatSetup.permanents` stays an ordered string list, now using the existing
+single-copy deck-row suffix syntax without its leading count. Each line may
+carry a printing UUID, set, collector number, language and finish. The room UI
+shows independent badges rather than a delimiter-separated input.
+`RoomSeatSetup.counters` is an optional parallel list of counter lists, one per
+permanent, each entry `{kind, amount}`. Removing a copy removes its counter list.
+
+The gateway resolves and validates the complete draft atomically. At start it
+appends the chosen print to the preset print table and seeds counter placements
+in `HouseRules.starting_counters` (`seat`, `permanent`, `counters`). Protocol 6
+adds the corresponding protobuf messages. Old peers are rejected rather than
+silently discarding starting counters. The engine validates placement bounds
+and counter kinds, then applies the amounts before the opening procedure.
+
+The host's occupied seat is ready once it has a deck and a seat token. Guest
+readiness remains explicit. Listings and Start use the same predicate, including
+a rematch's reserved-seat check; host succession automatically transfers this
+readiness behavior to the new host.

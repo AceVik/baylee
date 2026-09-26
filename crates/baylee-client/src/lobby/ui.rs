@@ -376,6 +376,22 @@ pub(super) fn ui(
         // The persistent preparation cover takes over in the same frame.
         Screen::Seated(_) => {}
     }
+    if state.lobby.screen() == &Screen::Table
+        && let Some(picker) = state.lobby.builder().picker()
+    {
+        let dialog = crate::buildui::print_picker::printing_picker(
+            &mut commands,
+            &fonts,
+            metrics,
+            state.lobby.lang(),
+            state.lobby.builder(),
+            picker,
+            assets.as_deref(),
+            cards.as_mut(),
+            &scrolled_to,
+        );
+        commands.entity(root).add_child(dialog);
+    }
     super::confirm::draw(&mut commands, root, &state, &fonts, metrics);
     if state.confirmation.is_some() {
         *builder_drawn = None;
@@ -407,12 +423,11 @@ fn table(
         ));
     }
 
-    // A wide monitor frames the lobby; it must not pull related tools apart.
+    // Use the full viewport for discovery and multiplayer configuration.
     let frame = commands
         .spawn((
             Node {
                 width: percent(100),
-                max_width: px(1480),
                 height: if phone { Val::Auto } else { percent(100) },
                 min_height: if phone { percent(100) } else { px(0) },
                 flex_shrink: 0.0,
@@ -868,6 +883,17 @@ fn table(
 
     // ---- tables
     let games = panel(commands, metrics, percent(100), 1.0);
+    commands
+        .entity(games)
+        .entry::<Node>()
+        .and_modify(move |mut n| {
+            n.height = if metrics.stacked() {
+                px(600)
+            } else {
+                percent(100)
+            };
+            n.min_height = px(0);
+        });
     commands.entity(games).insert(super::dock::Dock(4));
     let head_row = commands
         .spawn((
@@ -1017,12 +1043,15 @@ fn table(
         }
         commands.entity(games).add_child(empty);
     }
+    let game_list = scroller(commands, metrics, List::Games, scrolled_to.get(List::Games));
+    super::scrollbars::attach(commands, games, game_list, metrics);
     for (index, game) in lobby.games().iter().enumerate() {
         let row = commands
             .spawn((
                 Node {
                     width: percent(100),
                     min_height: px(metrics.tap),
+                    flex_shrink: 0.0,
                     align_items: AlignItems::Center,
                     column_gap: px(metrics.gap),
                     row_gap: px(6),
@@ -1116,7 +1145,7 @@ fn table(
             );
             commands.entity(row).add_child(b);
         }
-        commands.entity(games).add_child(row);
+        commands.entity(game_list).add_child(row);
     }
     // The pager, and only when there is more than one page. A lobby with
     // four tables in it should not be asked to explain what page it is on.

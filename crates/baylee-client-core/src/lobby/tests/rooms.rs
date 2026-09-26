@@ -192,7 +192,31 @@ fn room_drafts_preserve_edits_until_apply_and_follow_the_room_not_search() {
     assert!(!lobby.room_dirty());
     lobby.adjust_room(Adjustment::Mulligans(true));
     lobby.set_field(Field::RoomName, "A quiet evening");
-    lobby.set_field(Field::RoomBoard(0), "Forest; Island");
+    lobby.builder_mut().set_pool(
+        vec![
+            crate::deckbuilder::PoolCard {
+                name: "Forest".into(),
+                english_name: "Forest".into(),
+                kinds: vec!["Land".into()],
+                ..crate::deckbuilder::PoolCard::default()
+            },
+            crate::deckbuilder::PoolCard {
+                name: "Island".into(),
+                english_name: "Island".into(),
+                kinds: vec!["Land".into()],
+                ..crate::deckbuilder::PoolCard::default()
+            },
+        ],
+        false,
+    );
+    lobby.set_field(Field::RoomBoard(0), "forest");
+    lobby.room_add_card(0, 0);
+    lobby.set_field(Field::RoomBoard(0), "island");
+    lobby.room_add_card(0, 1);
+    lobby.set_field(Field::RoomCounter, "charge");
+    lobby.room_add_counter(0, 0);
+    lobby.room_counter_step(0, 0, 0, 2);
+    assert!(lobby.field(Field::RoomBoard(0)).is_empty());
     lobby.apply(LobbyEvent::Games(listing));
     assert!(lobby.room_dirty());
     let Some(LobbyRequest::ConfigureRoom { update, .. }) = lobby.save_room(false) else {
@@ -202,4 +226,81 @@ fn room_drafts_preserve_edits_until_apply_and_follow_the_room_not_search() {
     assert_eq!(update.setup.free_mulligans, 2);
     assert_eq!(update.setup.seats[0].permanents, ["Forest", "Island"]);
     assert_eq!(update.password, None, "an existing lock is preserved");
+    assert_eq!(update.setup.seats[0].counters[0][0].amount, 3);
+    assert!(update.setup.seats[0].counters[1].is_empty());
+}
+
+#[test]
+fn room_printing_and_counter_edits_stay_with_their_copy_without_changing_a_deck() {
+    let mut lobby = seated_lobby();
+    lobby.host(GameMode::Open);
+    lobby.apply(LobbyEvent::Seated(SeatHandover {
+        game_id: "room".into(),
+        seat: 0,
+        seat_token: "ticket".into(),
+        local: false,
+    }));
+    lobby.apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+        id: "room".into(),
+        yours: true,
+        state: "waiting".into(),
+        seats: vec![GameSeat::default(); 2],
+        ..GameSummary::default()
+    }])));
+    lobby.builder_mut().set_pool(
+        vec![crate::deckbuilder::PoolCard {
+            index: 1,
+            name: "Forest".into(),
+            english_name: "Forest".into(),
+            kinds: vec!["Land".into()],
+            scryfall_id: "e04da0ed-d24b-53b8-8f02-7e0d4df382d0".into(),
+            ..crate::deckbuilder::PoolCard::default()
+        }],
+        false,
+    );
+    for _ in 0..2 {
+        lobby.set_field(Field::RoomBoard(0), "forest");
+        lobby.room_add_card(0, 0);
+    }
+    lobby.set_field(Field::RoomCounter, "+2/+1");
+    lobby.room_add_counter(0, 1);
+    lobby.room_counter_step(0, 1, 0, 4);
+    lobby.room_pick_print(0, 1);
+    lobby.builder_mut().set_printings(
+        1,
+        vec![crate::deckbuilder::Printing {
+            scryfall_id: "99fbd104-696d-5639-b71a-7275bbd45881".into(),
+            set: "m21".into(),
+            collector_number: "274".into(),
+            lang: "en".into(),
+            finishes: vec!["nonfoil".into(), "foil".into()],
+            ..crate::deckbuilder::Printing::default()
+        }],
+        true,
+    );
+    lobby
+        .builder_mut()
+        .picker_set_finish(baylee_core::preset::Finish::Foil);
+    assert!(lobby.room_confirm_print());
+    assert!(
+        lobby
+            .builder()
+            .entries(crate::deckbuilder::Zone::Main)
+            .is_empty()
+    );
+    assert_eq!(
+        lobby.room_card(0, 1).unwrap().print.finish_or_default(),
+        baylee_core::preset::Finish::Foil
+    );
+    lobby.room_remove_card(0, 0);
+    assert_eq!(
+        lobby.room_draft().unwrap().setup.seats[0].counters[0][0].amount,
+        5
+    );
+    assert_eq!(
+        lobby.room_card(0, 0).unwrap().print.finish_or_default(),
+        baylee_core::preset::Finish::Foil
+    );
+    lobby.room_counter_step(0, 0, 0, -999);
+    assert!(lobby.room_draft().unwrap().setup.seats[0].counters[0].is_empty());
 }

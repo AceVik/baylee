@@ -3,6 +3,7 @@ use super::ui::{FieldLook, Masked, button, chip, heading, note, panel, row, text
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use baylee_client_core::lobby::room::Adjustment;
+mod cards;
 
 /// Draw a room in the same bounded sanctuary frame as the lobby.
 #[allow(clippy::too_many_lines)] // the page is read in visual order
@@ -99,6 +100,26 @@ pub(super) fn draw(
             Pickable::IGNORE,
         ))
         .id();
+    let labels = row(commands, m, false);
+    commands
+        .entity(labels)
+        .entry::<Node>()
+        .and_modify(move |mut n| {
+            n.column_gap = px(m.pad);
+            n.height = px(m.head * 1.5);
+            n.flex_shrink = 0.0;
+            n.align_items = AlignItems::Start;
+        });
+    let label = heading(commands, fonts, m, Phrase::RoomRules.text(lang));
+    commands.entity(label).entry::<Node>().and_modify(|mut n| {
+        n.width = px(365);
+        n.flex_shrink = 0.0;
+    });
+    commands.entity(labels).add_child(label);
+    add_heading(commands, labels, fonts, m, Phrase::RoomPlayers.text(lang));
+    if !m.stacked() {
+        commands.entity(page).add_child(labels);
+    }
     commands.entity(page).add_child(columns);
     let rules = panel(
         commands,
@@ -112,7 +133,7 @@ pub(super) fn draw(
     });
     commands.entity(rules).insert(super::dock::Dock(3));
     commands.entity(columns).add_child(rules);
-    add_heading(commands, rules, fonts, m, Phrase::RoomRules.text(lang));
+
     if game.yours {
         field(
             commands,
@@ -245,25 +266,34 @@ pub(super) fn draw(
         ))
         .id();
     commands.entity(columns).add_child(seats);
-    add_heading(commands, seats, fonts, m, Phrase::RoomPlayers.text(lang));
+
     let actions = row(commands, m, true);
-    let ready = game.i_am_ready();
-    let own_deck = game.seats.iter().any(|s| s.you && !s.deck.is_empty());
-    let b = button(
-        commands,
-        fonts,
-        m,
-        if ready {
-            Phrase::NotReady
-        } else {
-            Phrase::Ready
-        }
-        .text(lang),
-        Press::Ready(index, !ready),
-        palette::ACCENT,
-        !lobby.busy() && own_deck,
-    );
-    commands.entity(actions).add_child(b);
+    commands
+        .entity(actions)
+        .entry::<Node>()
+        .and_modify(|mut n| {
+            n.width = Val::Auto;
+            n.margin.left = Val::Auto;
+        });
+    if !game.yours {
+        let ready = game.i_am_ready();
+        let own_deck = game.seats.iter().any(|s| s.you && !s.deck.is_empty());
+        let b = button(
+            commands,
+            fonts,
+            m,
+            if ready {
+                Phrase::NotReady
+            } else {
+                Phrase::Ready
+            }
+            .text(lang),
+            Press::Ready(index, !ready),
+            palette::ACCENT,
+            !lobby.busy() && own_deck,
+        );
+        commands.entity(actions).add_child(b);
+    }
     if game.yours {
         let b = button(
             commands,
@@ -276,8 +306,8 @@ pub(super) fn draw(
         );
         commands.entity(actions).add_child(b);
     }
-    commands.entity(seats).add_child(actions);
-    add_note(commands, seats, fonts, m, &super::ui::host_note(lang, game));
+    commands.entity(title).add_child(actions);
+
     for seat in &game.seats {
         seat_card(commands, seats, state, fonts, m, index, seat);
     }
@@ -330,20 +360,38 @@ fn seat_card(
     } else {
         Phrase::NotReady
     };
+    let readiness = chip(
+        commands,
+        fonts,
+        m,
+        status.text(lang),
+        Press::PickerNothing,
+        seat.ready,
+    );
+    commands
+        .entity(readiness)
+        .insert(BackgroundColor(if seat.ready {
+            palette::ACTIVE.with_alpha(0.22)
+        } else {
+            palette::PANEL_LIT
+        }));
+    commands.entity(card).add_child(readiness);
+    commands
+        .entity(readiness)
+        .entry::<Node>()
+        .and_modify(|mut n| {
+            n.align_self = AlignSelf::Start;
+        });
     add_note(
         commands,
         card,
         fonts,
         m,
-        &format!(
-            "{}  ·  {}",
-            status.text(lang),
-            if seat.deck.is_empty() {
-                Phrase::RoomNoDeck.text(lang).to_string()
-            } else {
-                format!("{} · {}", seat.deck, seat.format)
-            }
-        ),
+        &if seat.deck.is_empty() {
+            Phrase::RoomNoDeck.text(lang).to_string()
+        } else {
+            format!("{} · {}", seat.deck, seat.format)
+        },
     );
     let tools = row(commands, m, true);
     if game.yours {
@@ -480,16 +528,6 @@ fn seat_card(
             life > 1,
             life < 999,
         );
-        field(
-            commands,
-            card,
-            state,
-            fonts,
-            m,
-            Phrase::RoomBoard.text(lang),
-            Field::RoomBoard(seat.seat as u8),
-            false,
-        );
     } else {
         add_note(
             commands,
@@ -498,12 +536,17 @@ fn seat_card(
             m,
             &format!("{} · {life}", Phrase::RoomLife.text(lang)),
         );
-        if let Some(personal) = personal
-            && !personal.permanents.is_empty()
-        {
-            add_note(commands, card, fonts, m, &personal.permanents.join(" · "));
-        }
     }
+    cards::draw(
+        commands,
+        card,
+        state,
+        fonts,
+        m,
+        seat.seat as u8,
+        personal,
+        game.yours,
+    );
 }
 
 fn add_heading(commands: &mut Commands, parent: Entity, fonts: &UiFonts, m: Metrics, text: &str) {

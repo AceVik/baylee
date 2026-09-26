@@ -7984,3 +7984,26 @@ The login's stone frame, Baylee and lantern positions no longer receive pointer
 parallax; only the deep scenery and water camera do. The deliberate portal
 transition is retained. Gateway status and compatibility marks form one left
 column; symmetric tile padding replaces the empty warning column on the right.
+
+### Room card editor and full-width lobby (2026-09-26)
+
+The lobby and waiting room use the viewport width. Table results have their own
+scrollbar; the room's two panel edges start together. Host consent is the Start
+action itself. A host with a deck is ready automatically, while guests still
+confirm after changing a deck or after shared rules change. Each seat carries an
+explicit readiness badge.
+
+Starting permanents are per-copy badges with thumbnails, hover previews and a
+remove action. The search dropdown matches localized and English permanent
+names; Enter accepts its first suggestion. Each copy opens the existing catalog
+picker for edition, language and finish without changing the saved deck. The
+expanded badge editor adds/removes initial counter types and adjusts their
+amounts. Counter names use the engine vocabulary: signed P/T pairs, loyalty,
+lore, time, charge, poison, energy, rad, lifelink, level and numeric custom IDs.
+Amounts are bounded to 1–999 and there are at most 32 counter types per copy.
+These are initial-state counters, not an in-game effect or extra capabilities.
+
+Login forms now place the named submit action and the switch to the other form
+below their fields. Baylee and the lantern stand lower on the foreground floor.
+The gateway-selection zoom affects the distant scenery, not the stone frame or
+foreground props. Legal notices remain exclusively in the login area.

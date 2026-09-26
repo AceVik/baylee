@@ -6,8 +6,8 @@
 //! everyone brings. Every other player at the table sees all of it and sets
 //! exactly one thing, the deck they themselves will play.
 //!
-//! Starting takes two different statements by two different people: every
-//! player says they are ready, and the host says go. A room used to start
+//! Starting takes two different statements: guests say they are ready,
+//! and the host says go. A room used to start
 //! itself the moment the last chair had a deck, which meant picking a deck to
 //! look at it put you in a game.
 
@@ -69,8 +69,8 @@ async fn a_room_is_arranged_in_the_open_and_starts_when_the_host_says_so() {
     let (seats, ready) = seat_counts(&listing);
     assert_eq!(seats, 3, "three chairs: {listing}");
     assert_eq!(
-        ready, 0,
-        "the host has a deck but has not said they are ready: {listing}"
+        ready, 1,
+        "the host with a deck is implicitly ready: {listing}"
     );
 
     // The host hands the third chair to the AI. Two chairs are ready now, and
@@ -115,9 +115,8 @@ async fn a_room_is_arranged_in_the_open_and_starts_when_the_host_says_so() {
     );
     assert_eq!(status, 409, "nobody has said ready: {body}");
 
-    // Both players say so. The AI chair needed nothing — it is ready as soon
-    // as it is configured.
-    say_ready(port, &host, &game_id);
+    // The host's Start action is its consent; only guests need Ready.
+    // The AI chair is ready as soon as it is configured.
     say_ready(port, &guest, &game_id);
     let (_, listing) = http(port, "GET", "/lobby/games", Some(&guest), "");
     assert!(listing.contains("\"startable\":true"), "{listing}");
@@ -395,7 +394,7 @@ async fn a_guest_leaving_frees_the_chair_and_the_last_player_out_closes_the_room
     let (_, listing) = http(port, "GET", "/lobby/games", Some(&host), "");
     let (seats, ready) = seat_counts(&listing);
     assert_eq!(seats, 3, "the chair is still there: {listing}");
-    assert_eq!(ready, 0, "and it is empty again: {listing}");
+    assert_eq!(ready, 1, "only the host remains ready: {listing}");
     assert!(
         listing.contains("\"player\":null"),
         "nothing of the guest is left in it: {listing}"

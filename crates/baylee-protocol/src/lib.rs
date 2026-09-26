@@ -11,7 +11,7 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-pub const PROTOCOL_VERSION: u32 = 5;
+pub const PROTOCOL_VERSION: u32 = 6;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -177,13 +177,14 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_five() {
+    fn the_wire_version_is_six() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
         // view that never comes.
         // 4: render readiness, clock probes and the scheduled shared entrance.
         // 5: explicit free-mulligan counts in room presets.
-        assert_eq!(PROTOCOL_VERSION, 5);
+        // 6: per-permanent starting counters in room presets.
+        assert_eq!(PROTOCOL_VERSION, 6);
     }
 }

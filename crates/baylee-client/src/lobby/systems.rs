@@ -289,7 +289,7 @@ pub(super) fn softkeys(
     }
     // The builder counts its own placements, so it gets its own tally: one
     // shared counter would open the keyboard on the way between the screens.
-    if matches!(state.lobby.screen(), Screen::Build) {
+    if matches!(state.lobby.screen(), Screen::Build) || state.lobby.builder().picker().is_some() {
         let builder = state.lobby.builder();
         if builder.picker().is_some_and(|p| !p.set_open()) {
             keys.close();
@@ -388,6 +388,13 @@ pub(super) fn softkeys(
                 state.lobby.set_caret(field, cursor, anchor);
             }
             SoftKey::Submit => {
+                if let Field::RoomBoard(seat) = state.lobby.focus() {
+                    if let Some(slot) = state.lobby.room_matches(seat).first().copied() {
+                        state.lobby.room_add_card(seat, slot);
+                    }
+                    keys.close();
+                    continue;
+                }
                 let request = if matches!(state.lobby.screen(), Screen::Table) {
                     // "Done" on the table screen means the search that was
                     // just typed; there is no form here to send.
@@ -487,7 +494,7 @@ pub(super) fn keyboard(
         keys.clear();
         return;
     }
-    if matches!(state.lobby.screen(), Screen::Build) {
+    if matches!(state.lobby.screen(), Screen::Build) || state.lobby.builder().picker().is_some() {
         // While a row of the filter builder holds the caret, every key goes
         // there and none of them into the deck builder's own boxes. The two
         // are editors of one string and only one may be typed into, which is
@@ -798,6 +805,16 @@ fn text_field_keys(
                 } else if let Some(url) = state.check_gateway() {
                     http::probe_gateway(url, mailbox);
                 }
+            }
+            Key::Enter if table && matches!(state.lobby.focus(), Field::RoomBoard(_)) => {
+                if let Field::RoomBoard(seat) = state.lobby.focus()
+                    && let Some(slot) = state.lobby.room_matches(seat).first().copied()
+                {
+                    state.lobby.room_add_card(seat, slot);
+                }
+            }
+            Key::Escape if table && matches!(state.lobby.focus(), Field::RoomBoard(_)) => {
+                state.lobby.set_field(state.lobby.focus(), "");
             }
             Key::Enter => {
                 let request = if table {
@@ -1130,6 +1147,37 @@ pub(super) fn clicks(
                     dispatch(&mut state, &mailbox, request);
                 }
             }
+            Press::RoomCardAdd(seat, slot, printing) => {
+                let count = state
+                    .lobby
+                    .room_draft()
+                    .and_then(|d| d.setup.seats.get(usize::from(seat)))
+                    .map_or(0, |s| s.permanents.len());
+                state.lobby.room_add_card(seat, slot);
+                if printing {
+                    let request = state.lobby.room_pick_print(seat, count);
+                    dispatch(&mut state, &mailbox, request);
+                }
+            }
+            Press::RoomCardRemove(seat, at) => {
+                state.room_card_edit = None;
+                state.lobby.room_remove_card(seat, at);
+            }
+            Press::RoomCardEdit(seat, at) => {
+                state.room_card_edit = if state.room_card_edit == Some((seat, at)) {
+                    None
+                } else {
+                    Some((seat, at))
+                };
+            }
+            Press::RoomCardPrint(seat, at) => {
+                let request = state.lobby.room_pick_print(seat, at);
+                dispatch(&mut state, &mailbox, request);
+            }
+            Press::RoomCounterAdd(seat, at) => state.lobby.room_add_counter(seat, at),
+            Press::RoomCounterStep(seat, at, counter, delta) => {
+                state.lobby.room_counter_step(seat, at, counter, delta);
+            }
             Press::RoomDeckPicker(seat) => {
                 state.room_deck_seat = (state.room_deck_seat != Some(seat)).then_some(seat);
             }
@@ -1372,11 +1420,12 @@ pub(super) fn clicks(
             Press::PickerSet(at) => state.lobby.builder_mut().picker_set_set(at),
             Press::PickerFinish(finish) => state.lobby.builder_mut().picker_set_finish(finish),
             Press::PickerConfirm => {
-                if !state.lobby.builder_mut().picker_confirm() {
+                if !state.lobby.room_confirm_print() && !state.lobby.builder_mut().picker_confirm()
+                {
                     state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
                 }
             }
-            Press::PickerClose => state.lobby.builder_mut().close_picker(),
+            Press::PickerClose => state.lobby.room_close_print(),
             Press::AddRow(at) => {
                 let zone = state.lobby.builder().zone();
                 if let Some(entry) = state.lobby.builder().entries(zone).get(at).cloned()
@@ -1493,6 +1542,8 @@ pub(crate) enum List {
     Table,
     /// The saved gateways on the front door.
     Gateways,
+    Games,
+    RoomCards,
     Library,
     PickerSets,
     PickerPanel,
@@ -1511,6 +1562,7 @@ pub(crate) struct Scrolled {
     deck: f32,
     table: f32,
     gateways: f32,
+    games: f32,
     library: f32,
     picker_panel: f32,
 }
@@ -1522,8 +1574,9 @@ impl Scrolled {
             List::Deck => self.deck,
             List::Table => self.table,
             List::Gateways => self.gateways,
+            List::Games => self.games,
+            List::RoomCards | List::PickerSets => 0.0,
             List::Library => self.library,
-            List::PickerSets => 0.0,
             List::PickerPanel => self.picker_panel,
         }
     }
@@ -1534,8 +1587,9 @@ impl Scrolled {
             List::Deck => self.deck = at,
             List::Table => self.table = at,
             List::Gateways => self.gateways = at,
+            List::Games => self.games = at,
+            List::RoomCards | List::PickerSets => {}
             List::Library => self.library = at,
-            List::PickerSets => {}
             List::PickerPanel => self.picker_panel = at,
         }
     }
@@ -1834,6 +1888,12 @@ pub(crate) enum Press {
     RoomDeck(usize, u32, usize),
     /// Toggle the deck choices for a seat.
     RoomDeckPicker(u32),
+    RoomCardAdd(u8, usize, bool),
+    RoomCardRemove(u8, usize),
+    RoomCardEdit(u8, usize),
+    RoomCardPrint(u8, usize),
+    RoomCounterAdd(u8, usize),
+    RoomCounterStep(u8, usize, usize, i16),
     /// Sit down at a listed table by its index.
     Join(usize),
     /// Give up a chair. The room outlives it.

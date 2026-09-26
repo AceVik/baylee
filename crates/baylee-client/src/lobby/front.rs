@@ -226,9 +226,9 @@ pub(super) struct FrontCard(pub(super) Panel);
 #[derive(Component)]
 pub(super) struct FrontShade;
 
-/// The tab of the account form that is open.
+/// The primary action of the currently drawn account form.
 #[derive(Component)]
-pub(super) struct ActiveTab;
+pub(super) struct AccountSubmit;
 
 /// Where each saved gateway's row stood on the gateway panel, from the
 /// panel's centre, the last time the panel stood still. Read when a motion
@@ -1367,8 +1367,7 @@ fn gateway_face(
 /// Panels two and three: the account, at the gateway chosen on panel one,
 /// signing in or creating one.
 ///
-/// Each word once: the gateway's name is the title, the tabs say which of
-/// the two this is, and the submit says only that it goes on.
+/// The primary action names the current form; its neighbour switches forms.
 #[allow(clippy::too_many_lines)] // one flat form, read top to bottom
 fn account_face(
     commands: &mut Commands,
@@ -1393,40 +1392,6 @@ fn account_face(
         let rule = rule(commands);
         commands.entity(card).add_child(rule);
     }
-
-    let mut tabs = Vec::new();
-    for (label, active) in [
-        (Phrase::SignIn, !registering),
-        (Phrase::CreateAccount, registering),
-    ] {
-        let enabled =
-            !lobby.busy() && (label != Phrase::CreateAccount || lobby.registration_enabled());
-        let tab = button(
-            commands,
-            fonts,
-            metrics,
-            label.text(lang),
-            if active {
-                Press::PickerNothing
-            } else {
-                Press::ToggleRegistering
-            },
-            palette::PANEL,
-            enabled,
-        );
-        // `button` draws every enabled tone but the loud ones as the same
-        // key, so the tab that is open is lit here.
-        if active && enabled {
-            commands.entity(tab).insert((
-                ActiveTab,
-                BackgroundColor(palette::PANEL_HOT),
-                crate::ambience::Feel::new(palette::PANEL_HOT),
-            ));
-        }
-        tabs.push(tab);
-    }
-    let tabs = halves(commands, metrics, &tabs);
-    commands.entity(card).add_child(tabs);
 
     let fields = commands
         .spawn((
@@ -1509,20 +1474,34 @@ fn account_face(
         commands,
         fonts,
         metrics,
-        Phrase::Continue.text(lang),
+        if registering {
+            Phrase::CreateAccount
+        } else {
+            Phrase::SignIn
+        }
+        .text(lang),
         Press::Submit,
         palette::ACCENT,
         state.gateway_selected && !lobby.busy(),
     );
-    commands
-        .entity(submit)
-        .entry::<Node>()
-        .and_modify(|mut node| {
-            node.justify_content = JustifyContent::Center;
-        });
-    // Over the form's last gap, next to what it answers.
+    commands.entity(submit).insert(AccountSubmit);
+    let switch = button(
+        commands,
+        fonts,
+        metrics,
+        if registering {
+            Phrase::SignIn
+        } else {
+            Phrase::CreateAccount
+        }
+        .text(lang),
+        Press::ToggleRegistering,
+        palette::PANEL,
+        !lobby.busy() && (registering || lobby.registration_enabled()),
+    );
+    let actions = halves(commands, metrics, &[submit, switch]);
     let status = status_slot(commands, state, fonts, metrics);
-    commands.entity(card).add_children(&[status, submit]);
+    commands.entity(card).add_children(&[status, actions]);
 }
 
 /// The guest's way in (#269): the guest this device keeps here, as one

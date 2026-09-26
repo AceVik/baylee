@@ -38,8 +38,12 @@ fn the_sign_in_screen_builds_with_its_controls() {
             .filter(|l| l.as_str() == phrase.text(Lang::En))
             .count()
     };
-    assert_eq!(said(Phrase::Continue), 1, "the submit says where it goes");
-    assert_eq!(said(Phrase::SignIn), 1, "and the tab alone names the mode");
+    assert_eq!(
+        said(Phrase::Continue),
+        0,
+        "the action names sign-in directly"
+    );
+    assert_eq!(said(Phrase::SignIn), 1, "the submit names its action");
     assert!(
         drawn
             .iter()
@@ -65,37 +69,31 @@ fn creating_an_account_asks_for_the_password_twice_and_names_itself_once() {
     let drawn = labels(&mut app);
     let said = |text: &str| drawn.iter().filter(|l| l.as_str() == text).count();
     assert_eq!(said(Phrase::CreateAccount.text(Lang::En)), 1);
-    assert_eq!(said(Phrase::Continue.text(Lang::En)), 1);
+    assert_eq!(said(Phrase::Continue.text(Lang::En)), 0);
     assert_eq!(said(Phrase::PasswordAgain.text(Lang::En)), 1);
 }
 
 #[test]
-fn the_open_tab_is_the_lit_one_and_the_other_opens_its_form() {
-    fn lit(app: &mut App) -> Vec<(String, Press, Color)> {
-        let mut tabs = app.world_mut().query_filtered::<(
-            &Press,
-            &Children,
-            &BackgroundColor,
-        ), With<super::super::front::ActiveTab>>();
+fn the_primary_action_submits_and_the_secondary_opens_the_other_form() {
+    fn lit(app: &mut App) -> Vec<(String, Press)> {
+        let mut tabs = app
+            .world_mut()
+            .query_filtered::<(&Press, &Children), With<super::super::front::AccountSubmit>>();
         tabs.iter(app.world())
-            .map(|(press, children, fill)| {
+            .map(|(press, children)| {
                 let label = children
                     .iter()
                     .find_map(|kid| app.world().get::<Text>(kid))
                     .map(|text| text.0.clone())
                     .unwrap_or_default();
-                (label, *press, fill.0)
+                (label, *press)
             })
             .collect()
     }
     let mut app = headless();
     assert_eq!(
         lit(&mut app),
-        [(
-            Phrase::SignIn.text(Lang::En).to_string(),
-            Press::PickerNothing,
-            palette::PANEL_HOT
-        )]
+        [(Phrase::SignIn.text(Lang::En).to_string(), Press::Submit)]
     );
     press(&mut app, Press::ToggleRegistering);
     settle(&mut app);
@@ -103,10 +101,9 @@ fn the_open_tab_is_the_lit_one_and_the_other_opens_its_form() {
         lit(&mut app),
         [(
             Phrase::CreateAccount.text(Lang::En).to_string(),
-            Press::PickerNothing,
-            palette::PANEL_HOT
+            Press::Submit
         )],
-        "the tab pressed is the one lit, and pressing it again does nothing"
+        "registration is now the primary submission action"
     );
 }
 
@@ -1150,7 +1147,7 @@ fn choosing_a_gateway_goes_into_it_and_back_comes_out_the_same_way() {
         "the form comes up out of the distance: {form}"
     );
     assert!(list_z > form_z, "the list passes in front of the form");
-    let continuing = Phrase::Continue.text(Lang::En);
+    let continuing = Phrase::SignIn.text(Lang::En);
     assert_eq!(
         ink_on(&mut app, Panel::SignIn, continuing),
         Some(0.0),
@@ -1243,7 +1240,7 @@ fn the_tabs_turn_the_form_round_with_both_sides_in_sight() {
     );
     // Nothing fades on a carousel: the side turning away is darkened, not
     // thinned.
-    let continuing = Phrase::Continue.text(Lang::En);
+    let continuing = Phrase::SignIn.text(Lang::En);
     assert_eq!(ink_on(&mut app, Panel::SignIn, continuing), Some(1.0));
     assert_eq!(ink_on(&mut app, Panel::Create, continuing), Some(1.0));
     let mut shades = app

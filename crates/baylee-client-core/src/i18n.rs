@@ -337,7 +337,7 @@ messages! {
     /// The button that signs in.
     SignIn { en: "Sign in", de: "Anmelden" },
     /// The button that registers.
-    CreateAccount { en: "Create account", de: "Konto erstellen" },
+    CreateAccount { en: "Create account", de: "Registrieren" },
     /// Swaps the form to registering.
     WantAnAccount { en: "Create an account", de: "Konto erstellen" },
     /// Swaps the form back to signing in.
@@ -1046,7 +1046,7 @@ messages! {
     /// Free mulligan count.
     RoomMulligans { en: "Free mulligans", de: "Freie Mulligans" },
     /// Permanent input label.
-    RoomBoard { en: "Starting permanents (separate names with ;)", de: "Start-Permanents (Kartennamen mit ; trennen)" },
+    RoomBoard { en: "Find starting permanents", de: "Start-Permanents suchen" },
     /// Draft submit.
     RoomApply { en: "Apply settings", de: "Einstellungen übernehmen" },
     /// Optional password help.
@@ -1055,6 +1055,20 @@ messages! {
     RoomUnlock { en: "Remove password", de: "Kennwort entfernen" },
     /// Preset picker heading.
     RoomTemplate { en: "Starting template", de: "Startvorlage" },
+    /// Starting-position card editor.
+    RoomCardAppearance { en: "Edition & finish", de: "Edition & Foil" },
+    /// Starting-position card editor.
+    RoomCardCounters { en: "Starting counters", de: "Startcounter" },
+    /// Starting-position card editor.
+    RoomCounterKind { en: "Counter type", de: "Counter-Typ" },
+    /// Starting-position card editor.
+    RoomCounterHint { en: "+1/+1, -1/-1, loyalty, lore, time, charge, poison, energy, rad, lifelink, level; any +X/+Y or -X/-Y pair; custom:ID", de: "+1/+1, -1/-1, loyalty, lore, time, charge, poison, energy, rad, lifelink, level; beliebige +X/+Y- oder -X/-Y-Paare; custom:ID" },
+    /// Starting-position card editor.
+    RoomAddCounter { en: "Add counter", de: "Counter hinzufügen" },
+    /// Starting-position card editor.
+    RoomRemoveCard { en: "Remove card", de: "Karte entfernen" },
+    /// Starting-position card editor.
+    RoomNoCardMatches { en: "No matching permanent.", de: "Kein passendes Permanent gefunden." },
     /// Accelerated original house-rule scenario.
     RoomFast { en: "Five-land start", de: "Start mit fünf Ländern" },
     /// Planechase honesty.

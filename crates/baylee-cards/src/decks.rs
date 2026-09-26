@@ -732,22 +732,39 @@ pub fn apply_room_setup(
         candidate.seats[at].starting_life =
             Some(settings.and_then(|s| s.life).unwrap_or(setup.starting_life));
         if let Some(settings) = settings {
-            for name in &settings.permanents {
-                let def = crate::all()
-                    .find(|c| {
-                        c.faces
-                            .first()
-                            .is_some_and(|f| f.name.eq_ignore_ascii_case(name.trim()))
-                    })
-                    .ok_or_else(|| format!("no playable permanent named `{name}`"))?;
+            for (position, line) in settings.permanents.iter().enumerate() {
+                let row = baylee_core::deckrow::parse(&format!("1 {line}"))
+                    .map_err(|why| why.to_string())?;
+                let name = &row.name;
+                let index =
+                    by_name(name).ok_or_else(|| format!("no playable permanent named `{name}`"))?;
+                let def = by_index(index).ok_or_else(|| format!("no permanent named `{name}`"))?;
                 if !def.faces[0].types.is_permanent() {
                     return Err(format!("`{name}` is not a permanent"));
                 }
-                deal_named(
-                    &mut candidate,
-                    &format!("{at}:{name}"),
-                    DevZone::Battlefield,
-                )?;
+                let counters = settings.counters.get(position).cloned().unwrap_or_default();
+                for counter in &counters {
+                    if baylee_cards_dsl::CounterKind::from_setup_name(&counter.kind).is_none() {
+                        return Err(format!("unknown counter type `{}`", counter.kind));
+                    }
+                }
+                let print = print_ref_for(
+                    &mut candidate.prints,
+                    &DeckCard::chosen(index, &row.print).print,
+                );
+                let permanent = candidate.seats[at].starting_battlefield.len();
+                candidate.seats[at]
+                    .starting_battlefield
+                    .push(DeckEntry { card: index, print });
+                if !counters.is_empty() {
+                    candidate.house_rules.starting_counters.push(
+                        baylee_core::preset::StartingCounters {
+                            seat: at,
+                            permanent,
+                            counters,
+                        },
+                    );
+                }
             }
         }
     }

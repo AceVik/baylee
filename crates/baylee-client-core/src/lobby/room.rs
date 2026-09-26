@@ -43,14 +43,11 @@ impl Lobby {
         let game = game.clone();
         self.set_field(Field::RoomName, &game.name);
         self.room_password.clear();
-        for at in 0..8 {
-            let names = game
-                .setup
-                .seats
-                .get(at)
-                .map(|s| s.permanents.join("; "))
-                .unwrap_or_default();
-            self.set_field(Field::RoomBoard(at as u8), &names);
+        self.room_boards
+            .iter_mut()
+            .for_each(super::TextBuffer::clear);
+        if self.room_print_target.take().is_some() {
+            self.builder.close_picker();
         }
         self.room_edit = Some(Draft {
             id: game.id,
@@ -87,24 +84,7 @@ impl Lobby {
         {
             return true;
         }
-        (0..draft.update.chairs).any(|at| {
-            let before = game.setup.seats.get(at).cloned().unwrap_or_default();
-            let after = draft
-                .update
-                .setup
-                .seats
-                .get(at)
-                .cloned()
-                .unwrap_or_default();
-            before.life != after.life
-                || before.permanents
-                    != self
-                        .field(Field::RoomBoard(at as u8))
-                        .split(';')
-                        .map(str::trim)
-                        .filter(|s| !s.is_empty())
-                        .collect::<Vec<_>>()
-        })
+        draft.update.setup != game.setup
     }
 
     /// Edits a bounded setting without sending a partial room update.
@@ -148,13 +128,15 @@ impl Lobby {
                     starting_life: if template == 1 { 20 } else { 40 },
                     ..RoomSetup::default()
                 };
-                for at in 0..8 {
-                    self.room_boards[at].clear();
-                    if template == 2 {
-                        self.set_field(
-                            Field::RoomBoard(at as u8),
-                            "Forest; Island; Mountain; Plains; Swamp",
-                        );
+                update
+                    .setup
+                    .seats
+                    .resize_with(update.chairs, RoomSeatSetup::default);
+                if template == 2 {
+                    for seat in &mut update.setup.seats {
+                        seat.permanents = ["Forest", "Island", "Mountain", "Plains", "Swamp"]
+                            .map(str::to_string)
+                            .to_vec();
                     }
                 }
             }
@@ -177,17 +159,158 @@ impl Lobby {
             .setup
             .seats
             .resize_with(update.chairs, RoomSeatSetup::default);
-        for (at, seat) in update.setup.seats.iter_mut().enumerate() {
-            seat.permanents = self
-                .field(Field::RoomBoard(at as u8))
-                .split(';')
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .map(str::to_string)
-                .collect();
-        }
         let request = self.configure_room(&id, update);
         self.room_saving = request.is_some();
         request
+    }
+}
+
+impl Lobby {
+    /// Permanent search suggestions, bounded to keep the dropdown readable.
+    #[must_use]
+    pub fn room_matches(&self, seat: u8) -> Vec<usize> {
+        let query = self.field(Field::RoomBoard(seat)).trim().to_lowercase();
+        if query.is_empty() {
+            return Vec::new();
+        }
+        self.builder
+            .pool()
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| {
+                c.kinds.iter().any(|k| {
+                    [
+                        "Creature",
+                        "Artifact",
+                        "Enchantment",
+                        "Land",
+                        "Planeswalker",
+                        "Battle",
+                    ]
+                    .contains(&k.as_str())
+                }) && (c.name.to_lowercase().contains(&query)
+                    || c.english_name.to_lowercase().contains(&query))
+            })
+            .take(8)
+            .map(|(at, _)| at)
+            .collect()
+    }
+
+    fn room_seat_mut(&mut self, seat: u8) -> Option<&mut RoomSeatSetup> {
+        let d = self.room_edit.as_mut().filter(|d| d.host)?;
+        d.update
+            .setup
+            .seats
+            .resize_with(d.update.chairs, RoomSeatSetup::default);
+        d.update.setup.seats.get_mut(usize::from(seat))
+    }
+
+    /// Adds one independent copy, preserving per-copy printing and counters.
+    pub fn room_add_card(&mut self, seat: u8, slot: usize) {
+        if !self.room_matches(seat).contains(&slot) {
+            return;
+        }
+        let Some(card) = self.builder.card(slot) else {
+            return;
+        };
+        let name = card.english_name.clone();
+        if let Some(s) = self.room_seat_mut(seat)
+            && s.permanents.len() < 32
+        {
+            s.permanents.push(name);
+            s.counters.resize_with(s.permanents.len(), Vec::new);
+            self.set_field(Field::RoomBoard(seat), "");
+        }
+    }
+
+    /// Removes a copy together with its counters.
+    pub fn room_remove_card(&mut self, seat: u8, at: usize) {
+        if let Some(s) = self.room_seat_mut(seat)
+            && at < s.permanents.len()
+        {
+            s.permanents.remove(at);
+            if at < s.counters.len() {
+                s.counters.remove(at);
+            }
+        }
+        self.room_print_target = None;
+        self.builder.close_picker();
+    }
+
+    /// Parses the persisted printing choice of one starting card.
+    #[must_use]
+    pub fn room_card(&self, seat: u8, at: usize) -> Option<baylee_core::deckrow::Row> {
+        let line = self
+            .room_draft()?
+            .setup
+            .seats
+            .get(usize::from(seat))?
+            .permanents
+            .get(at)?;
+        baylee_core::deckrow::parse(&format!("1 {line}")).ok()
+    }
+
+    /// Opens the existing catalog picker without editing a deck.
+    pub fn room_pick_print(&mut self, seat: u8, at: usize) -> Option<LobbyRequest> {
+        self.room_edit.as_ref().filter(|d| d.host)?;
+        let row = self.room_card(seat, at)?;
+        let slot = self.builder.slot_of(&row.name)?;
+        self.room_print_target = Some((seat, at));
+        self.builder.open_choice_picker(slot, row.print)
+    }
+
+    /// Routes catalog confirmation to the room when it owns the picker.
+    pub fn room_confirm_print(&mut self) -> bool {
+        let Some((seat, at)) = self.room_print_target.take() else {
+            return false;
+        };
+        let print = self.builder.picked_choice();
+        if let Some(mut row) = self.room_card(seat, at) {
+            row.print = print;
+            if let Some(s) = self.room_seat_mut(seat)
+                && let Some(line) = s.permanents.get_mut(at)
+            {
+                *line = row.to_string().trim_start_matches("1 ").to_string();
+            }
+        }
+        self.builder.close_picker();
+        true
+    }
+
+    /// Closes a room-owned printing dialog without applying its draft.
+    pub fn room_close_print(&mut self) {
+        self.room_print_target = None;
+        self.builder.close_picker();
+    }
+
+    /// Adds a counter type; the server validates the engine vocabulary too.
+    pub fn room_add_counter(&mut self, seat: u8, at: usize) {
+        let kind = self.field(Field::RoomCounter).trim().to_ascii_lowercase();
+        if baylee_engine::object::CounterKind::from_setup_name(&kind).is_none() {
+            return;
+        }
+        if let Some(s) = self.room_seat_mut(seat)
+            && at < s.permanents.len()
+        {
+            s.counters.resize_with(s.permanents.len(), Vec::new);
+            let counters = &mut s.counters[at];
+            if counters.len() < 32 && !counters.iter().any(|c| c.kind == kind) {
+                counters.push(baylee_core::preset::StartingCounter { kind, amount: 1 });
+                self.set_field(Field::RoomCounter, "");
+            }
+        }
+    }
+
+    /// Edits an initial counter count; zero removes that type.
+    pub fn room_counter_step(&mut self, seat: u8, at: usize, counter: usize, delta: i16) {
+        if let Some(s) = self.room_seat_mut(seat)
+            && let Some(cs) = s.counters.get_mut(at)
+            && let Some(c) = cs.get_mut(counter)
+        {
+            c.amount = c.amount.saturating_add_signed(delta).min(999);
+            if c.amount == 0 {
+                cs.remove(counter);
+            }
+        }
     }
 }

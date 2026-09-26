@@ -28,7 +28,7 @@ pub(super) fn builder_keys(
             if searching {
                 state.lobby.builder_mut().picker_close_sets();
             } else {
-                state.lobby.builder_mut().close_picker();
+                state.lobby.room_close_print();
             }
             keys.clear();
             return false;

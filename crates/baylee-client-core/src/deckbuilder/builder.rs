@@ -573,6 +573,21 @@ impl DeckBuilder {
         request
     }
 
+    /// Reuses the catalog dialog for a choice outside the saved deck.
+    pub fn open_choice_picker(&mut self, slot: usize, print: PrintChoice) -> Option<LobbyRequest> {
+        let request = self.open_picker(slot, Zone::Main);
+        if let Some(picker) = &mut self.picker {
+            picker.replacing = Some(Entry {
+                slot,
+                count: 1,
+                print,
+                note: None,
+            });
+            picker.select_original();
+        }
+        request
+    }
+
     /// Forget the cached metadata and request a fresh printing catalog.
     pub fn refresh_printings(&mut self) -> Option<LobbyRequest> {
         let picker = self.picker.as_mut()?;
@@ -810,7 +825,7 @@ impl DeckBuilder {
     /// is what keeps a deck built before this feature existed from growing
     /// noise the first time it is saved.
     #[must_use]
-    fn picked_choice(&self) -> PrintChoice {
+    pub fn picked_choice(&self) -> PrintChoice {
         let Some(picker) = self.picker.as_ref() else {
             return PrintChoice::default();
         };

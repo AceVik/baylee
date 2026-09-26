@@ -117,6 +117,15 @@ message SeatSpec {
   optional uint32 team = 7;
 }
 
+message StartingCounter {
+  string kind = 1;
+  uint32 amount = 2;
+}
+message StartingCounters {
+  uint32 seat = 1;
+  uint32 permanent = 2;
+  repeated StartingCounter counters = 3;
+}
 message HouseRules {
   bool mulligan_free_first = 1;
   // 0 = run-once-then-break, 1 = comp-rules-draw
@@ -127,6 +136,7 @@ message HouseRules {
   bool takebacks = 6;
   bool time_extension_votes = 7;
   optional uint32 free_mulligans = 8;
+  repeated StartingCounters starting_counters = 9;
 }
 
 message GamePresetMsg {

@@ -132,3 +132,30 @@ These are native desktop render and automated audio checks. Real mobile-GPU
 performance and browser playback latency have not been measured; the browser
 build compiles. The listening demo is intended for artistic review, not a
 claim of having recorded a live orchestra session.
+
+## Login grounding and room card editor — 2026-09-26
+
+- Native UI reviewed at **1580×918** and **932×430** logical pixels (Retina
+  scale 2). The desktop requested size was capped by the current monitor;
+  these are the actual `/health` viewport sizes. No portrait pass was used.
+- Baylee and the lantern sit lower on the foreground floor. Gateway selection
+  leaves the stone frame and their anchors fixed while the distant scene zooms.
+  Login submit and form-switch actions sit below the fields; both legal text
+  bounds remain inside the viewport, only on login pages.
+- The room uses the available width, with aligned panel tops and headings.
+  Start remains in the title row. Host readiness is implicit; readiness badges
+  remain visible on individual seats.
+- Pointer-driven native passes added Sol Ring from image autocomplete, opened
+  its printing picker, chose foil, expanded its badge, added three charge
+  counters and saved the room. The same workflow completed in landscape.
+  One desktop sequence was repeated with intermediate render captures after
+  modal dismissal; the repeated full sequence completed successfully.
+- A populated 30-table fixture exposed compressed result rows; disabling row
+  shrink preserves button height inside the independent scroll area.
+- Client library: **1056 passed, 2 ignored**. Gateway all-target suites:
+  **194 passed, 1 ignored**, including room authority, host succession,
+  guest readiness and starting-card metadata reaching the engine.
+  Core/client-core/cards/DSL/engine/gamehost/protocol suites also passed.
+  Browser target compilation and workspace Clippy with warnings denied passed.
+- Counter types use the existing engine vocabulary, including signed P/T
+  pairs and numeric custom IDs; this does not implement new counter mechanics.

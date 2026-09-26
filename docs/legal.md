@@ -366,3 +366,11 @@ space for play. Checked the
 Optional room passwords use the existing private-group access model; guest
 access and the public source offer remain available. Starting permanents use
 the existing registry and licensed image-delivery path documented above.
+
+The room's starting-card dropdown and badges reuse the existing licensed card
+image loader and catalog printing picker; they add no bundled card artwork.
+The 2026-09-26 review reconfirmed the policy wording: “Don’t mess with the legal
+notices in our stuff.” Whole card thumbnails/previews preserve those notices,
+and finish choices use the already recorded foil treatment approval above.
+Scryfall's API documentation returned HTTP 403 during this review; the existing
+catalog/cache/rate-limit path and its previously documented terms are unchanged.

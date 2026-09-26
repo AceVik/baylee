@@ -249,6 +249,22 @@ pub struct LobbyGame {
 }
 
 impl LobbyGame {
+    /// The host consents by pressing Start; other humans explicitly get ready.
+    #[must_use]
+    pub fn seat_ready(&self, seat: &LobbySeat) -> bool {
+        seat.ready()
+            || (seat.account_id.is_some()
+                && seat.account_id == self.host
+                && seat.deck.is_some()
+                && seat.seat_token_hash.is_some())
+    }
+
+    /// Whether every occupied chair can enter the game.
+    #[must_use]
+    pub fn all_ready(&self) -> bool {
+        self.seats.iter().all(|seat| self.seat_ready(seat))
+    }
+
     /// A room: `chairs` seats, the host in the first one, the rest open.
     ///
     /// The host owns the table until it starts — who else may sit, which
@@ -657,7 +673,7 @@ impl Lobby {
                     // the host's button, but every player can see why it is
                     // not lit yet.
                     "startable": g.state == LobbyState::Waiting
-                        && g.seats.iter().all(LobbySeat::ready),
+                        && g.all_ready(),
                     "state": match g.state {
                         LobbyState::Waiting => "waiting",
                         LobbyState::Playing => "playing",
@@ -705,7 +721,7 @@ impl Lobby {
                             "host": s.account_id.is_some() && s.account_id == g.host,
                             "deck": s.deck_name,
                             "format": s.deck.as_ref().map_or("commander", |d| d.format.as_str()),
-                            "ready": s.ready(),
+                            "ready": g.seat_ready(s),
                             // `null` for a chair that plays for itself, which
                             // is every chair at a table with no teams on it.
                             "team": s.team,

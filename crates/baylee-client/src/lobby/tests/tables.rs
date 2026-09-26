@@ -148,7 +148,12 @@ fn offline_play_can_be_pressed_all_the_way_to_a_table() {
         Some(1)
     );
 
-    tap_control(&mut app, "ready", |p| *p == Press::Ready(0, true));
+    assert!(
+        !presses(&mut app)
+            .iter()
+            .any(|p| matches!(p, Press::Ready(..))),
+        "the host starts directly"
+    );
     tap_control(&mut app, "the start button", |p| *p == Press::StartRoom(0));
 
     let state = app.world().resource::<LobbyState>();

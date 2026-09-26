@@ -659,7 +659,11 @@ impl Offline {
             yours: true,
             state: if room.playing { "playing" } else { "waiting" }.to_string(),
             locked: false,
-            startable: room.chairs.iter().all(|c| c.ready && c.deck.is_some()),
+            startable: room
+                .chairs
+                .iter()
+                .enumerate()
+                .all(|(at, c)| (at == 0 || c.ready) && c.deck.is_some()),
             rematch: false,
             setup: room.setup.clone(),
             seats: room
@@ -695,7 +699,7 @@ impl Offline {
                             .to_string()
                         })
                         .unwrap_or_default(),
-                    ready: chair.ready,
+                    ready: (at == 0 || chair.ready) && chair.deck.is_some(),
                     team: chair.team,
                 })
                 .collect(),

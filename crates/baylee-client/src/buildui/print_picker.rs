@@ -10,7 +10,7 @@ use super::*;
 /// art on a phone, which is the one thing this dialog exists to show.
 #[allow(clippy::too_many_lines)] // one dialog, six rows, each trivial
 #[allow(clippy::too_many_arguments)] // one dialog: the tree, the state, the stores
-pub(super) fn printing_picker(
+pub(crate) fn printing_picker(
     commands: &mut Commands,
     fonts: &UiFonts,
     metrics: Metrics,
