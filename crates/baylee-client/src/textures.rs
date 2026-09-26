@@ -178,6 +178,25 @@ impl CardTextures {
         }
     }
 
+    /// Only art the opening table can actually show. A failed request has a
+    /// fully constructed face; speculative deck preloads never hold entry.
+    pub(crate) fn table_ready(&self, view: &baylee_view::PlayerView) -> bool {
+        let settled = |key| self.has_arrived(key) || self.has_failed(key);
+        settled(BACK_KEY)
+            && view
+                .hand
+                .iter()
+                .all(|h| settled(ImageKey::new(h.card.print, h.card.face, ArtSize::Small)))
+            && view.command.iter().flatten().all(|o| {
+                o.card
+                    .is_none_or(|c| settled(ImageKey::new(c.print, c.face, ArtSize::Small)))
+            })
+            && view
+                .battlefield
+                .iter()
+                .all(|o| art_of(o, ArtSize::Small, crate::cardart::registry()).is_none_or(settled))
+    }
+
     fn reset_prints(&mut self) {
         self.budget = TextureBudget::new(self.budget.budget());
         self.handles.retain(|key, _| *key == BACK_KEY);
@@ -825,6 +844,32 @@ mod tests {
         fn extensions(&self) -> &[&str] {
             &["flaky"]
         }
+    }
+
+    #[test]
+    fn entry_requires_visible_art_at_its_drawn_size_or_a_constructed_fallback() {
+        use baylee_client_core::test_support::ViewBuilder;
+        let view = ViewBuilder::new(2).with_hand(vec![("Card", 1, 7)]).build();
+        let mut images = Assets::<Image>::default();
+        let mut textures = CardTextures::new(&mut images, 1 << 20);
+        textures.mark_failed(BACK_KEY, Failure::Load(1));
+        let card = view.hand[0].card;
+        textures.mark_arrived(ImageKey::new(card.print, card.face, ArtSize::Normal));
+        assert!(
+            !textures.table_ready(&view),
+            "a preview is not the hand's texture"
+        );
+        let visible = ImageKey::new(card.print, card.face, ArtSize::Small);
+        textures.mark_failed(visible, Failure::Load(1));
+        assert!(
+            textures.table_ready(&view),
+            "the existing constructed face is renderable"
+        );
+        textures.mark_arrived(visible);
+        assert!(
+            textures.table_ready(&view),
+            "speculative deck preloads are not prerequisites"
+        );
     }
 
     #[test]

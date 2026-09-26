@@ -17,6 +17,10 @@ pub fn server_message(lang: Lang, message: &str) -> String {
 
 const MESSAGES: &[(&str, &str)] = &[
     (
+        "The table could not start: not every player finished loading. Return to the lobby and try again.",
+        "Die Partie konnte nicht starten: Nicht alle Spieler sind mit dem Laden fertig. Kehre zur Lobby zurück und versuche es erneut.",
+    ),
+    (
         "this gateway takes no guests",
         "Dieses Gateway nimmt keine Gäste auf.",
     ),

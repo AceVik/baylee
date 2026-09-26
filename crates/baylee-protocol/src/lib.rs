@@ -11,7 +11,13 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-pub const PROTOCOL_VERSION: u32 = 3;
+pub const PROTOCOL_VERSION: u32 = 4;
+
+/// Duration of the shared portal flight; clocks start after arrival.
+pub const TABLE_ENTRANCE_MS: u64 = 1_650;
+
+/// Lead time for delivering a shared entrance to every prepared seat.
+pub const TABLE_ENTRANCE_LEAD_MS: u64 = 1_500;
 
 /// Why a peer that says it speaks protocol `theirs` is refused, or `None`
 /// when it speaks this build's (#271).
@@ -171,11 +177,12 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_three() {
+    fn the_wire_version_is_four() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
         // view that never comes.
-        assert_eq!(PROTOCOL_VERSION, 3);
+        // 4: render readiness, clock probes and the scheduled shared entrance.
+        assert_eq!(PROTOCOL_VERSION, 4);
     }
 }

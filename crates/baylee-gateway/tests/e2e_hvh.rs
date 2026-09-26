@@ -364,6 +364,81 @@ async fn the_curtain_goes_up_for_both_seats_once_both_are_ready() {
 }
 
 /// The next text frame on a lobby socket.
+/// A slow renderer is a real barrier; the two sockets receive one common
+/// departure and no questions until that flight has finished.
+#[tokio::test]
+async fn a_slow_seat_holds_everyone_then_both_receive_the_same_departure() {
+    let gw = spawn_gateway("hvh_loading");
+    let _agent = attach_agent(&gw).await;
+    let (game, token_a, token_b) = start_two_seats(gw.port);
+    let mut a = common::dial_seat(gw.port, &game, &token_a).await;
+    let mut b = common::dial(&common::seat_url(gw.port, &game, &token_b))
+        .await
+        .unwrap();
+    for socket in [&mut a, &mut b] {
+        let waiting = recv_until(socket, |e| matches!(&e.msg, Some(v1::envelope::Msg::TableLoading(s)) if s.total == 2 && s.ready == 1)).await;
+        assert!(
+            matches!(waiting.msg, Some(v1::envelope::Msg::TableLoading(s)) if s.enter_at_ms == 0)
+        );
+    }
+    // Longer than a full entrance: elapsed time alone never releases a seat.
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_secs(2), a.next())
+            .await
+            .is_err()
+    );
+    common::send(
+        &mut b,
+        &Envelope {
+            msg: Some(v1::envelope::Msg::ClockProbe(v1::ClockProbe {
+                client_time_ms: 123,
+                server_time_ms: 0,
+            })),
+        },
+    )
+    .await;
+    let probe = recv_until(&mut b, |e| {
+        matches!(e.msg, Some(v1::envelope::Msg::ClockProbe(_)))
+    })
+    .await;
+    assert!(
+        matches!(probe.msg, Some(v1::envelope::Msg::ClockProbe(p)) if p.client_time_ms == 123 && p.server_time_ms > 0)
+    );
+    common::send(
+        &mut b,
+        &Envelope {
+            msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
+        },
+    )
+    .await;
+    let mut departures = Vec::new();
+    for socket in [&mut a, &mut b] {
+        let scheduled = recv_until(
+            socket,
+            |e| matches!(&e.msg, Some(v1::envelope::Msg::TableLoading(s)) if s.enter_at_ms > 0),
+        )
+        .await;
+        let Some(v1::envelope::Msg::TableLoading(status)) = scheduled.msg else {
+            unreachable!()
+        };
+        assert_eq!((status.ready, status.total), (2, 2));
+        departures.push(status.enter_at_ms);
+    }
+    assert_eq!(departures[0], departures[1]);
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(250), a.next())
+            .await
+            .is_err(),
+        "a question arrived before the entrance finished"
+    );
+    for socket in [&mut a, &mut b] {
+        recv_until(socket, |e| {
+            matches!(e.msg, Some(v1::envelope::Msg::Curtain(_)))
+        })
+        .await;
+    }
+}
+
 async fn next_listing(socket: &mut common::Socket) -> String {
     loop {
         let frame = tokio::time::timeout(common::WAIT_BUDGET, socket.next())

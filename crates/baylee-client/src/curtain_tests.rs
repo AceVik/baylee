@@ -196,3 +196,23 @@ fn a_standing_order_is_sent_once_a_game() {
         "a reconnect to the same game"
     );
 }
+
+/// The renderer, when installed, owns readiness. Packet receipt cannot
+/// release the cover or tell the server that an invisible table is ready.
+#[test]
+fn a_rendered_client_never_acknowledges_just_the_first_view() {
+    let mut table = Table::new();
+    table.app.init_resource::<arrival::Journey>();
+    table.hear(vec![statics(), view()]);
+    assert!(table.told().is_empty());
+    assert_eq!(
+        *table.app.world().resource::<State<DuelPhase>>().get(),
+        DuelPhase::Opening
+    );
+    table.hear(vec![HostMessage::Curtain]);
+    assert!(table.told().is_empty());
+    assert_eq!(
+        *table.app.world().resource::<State<DuelPhase>>().get(),
+        DuelPhase::Opening
+    );
+}

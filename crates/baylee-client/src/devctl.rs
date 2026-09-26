@@ -1086,6 +1086,8 @@ struct Believed<'w, 's> {
     /// Never `null`: there is always a phase, so a missing one would be a
     /// fault in the probe rather than an answer from it.
     phase: Option<Res<'w, State<crate::DuelPhase>>>,
+    journey: Option<Res<'w, crate::arrival::Journey>>,
+    real_time: Option<Res<'w, Time<Real>>>,
     /// Every way out of a finished game, and which of them the keyboard can
     /// see.
     ///
@@ -1349,6 +1351,20 @@ fn refusal_json(refusal: Option<&Refusal>, lang: Lang) -> String {
 /// under test. `view` is what the host last sent, `interaction` is what the
 /// client made of it, and a disagreement between them is exactly the class of
 /// bug this endpoint exists to show.
+fn loading_json(believed: &Believed) -> serde_json::Value {
+    believed
+        .journey
+        .as_ref()
+        .map_or(serde_json::Value::Null, |j| {
+            j.diagnostic(
+                believed
+                    .real_time
+                    .as_ref()
+                    .map_or(0.0, |t| t.elapsed_secs_f64()),
+            )
+        })
+}
+
 fn state_dump(believed: &Believed, window: Vec2) -> String {
     let Some(duel) = believed.duel.as_deref() else {
         return "{\"duel\":null}".to_string();
@@ -1432,7 +1448,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"ability_tap\":{tap},\"cast_menu\":{cast_menu},\"cast_answer\":{cast_answer},\
          \"last_cue\":{last_cue},\"last_count\":{last_count},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"shelves\":{shelves},\
-         \"phase\":{phase},\"lobby_controls\":{lobby_controls},\"exits\":{exits}}}",
+         \"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits}}}",
         // Which screen this is, and — on the end screen only — the ways off
         // it with `duel_exit` saying which the keyboard can see. See
         // [`exits_json`] for why that flag is the row rather than a detail
@@ -1442,6 +1458,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
             .phase
             .as_ref()
             .map_or_else(|| "null".to_string(), |p| quoted(&format!("{:?}", p.get()))),
+        loading = loading_json(believed),
         exits = exits_json(believed),
         lobby_controls = lobby_controls_json(believed),
         cards = cards_json(believed, duel, window),

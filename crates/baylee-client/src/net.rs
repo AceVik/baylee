@@ -24,6 +24,8 @@
 //! and connects. Getting that ticket is the lobby's job, and the lobby is
 //! HTTP (see [`crate::settings::gateway_url`]).
 
+mod clock;
+
 use crate::host::{DuelHost, HostMessage, LinkState, host_message};
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::PlayerAction;
@@ -262,6 +264,11 @@ pub struct NetworkHost {
     /// close behind it, and never cleared, so [`DuelHost::link`] never shows
     /// the retry schedule a closed socket it could redial.
     refused: Option<u32>,
+    clock: clock::Clock,
+    clock_origin: web_time::Instant,
+    next_probe: u64,
+    pending_ready: bool,
+    clock_open: bool,
 }
 
 impl NetworkHost {
@@ -285,6 +292,11 @@ impl NetworkHost {
             outbox: Vec::new(),
             pending_out: Vec::new(),
             refused: None,
+            clock: clock::Clock::default(),
+            clock_origin: web_time::Instant::now(),
+            next_probe: 0,
+            pending_ready: false,
+            clock_open: true,
         })
     }
 
@@ -303,6 +315,10 @@ impl NetworkHost {
         let link = dial(&self.ticket)?;
         *self.link.get_mut().unwrap_or_else(PoisonError::into_inner) = link;
         self.connection.open = false;
+        self.clock = clock::Clock::default();
+        self.next_probe = 0;
+        self.pending_ready = false;
+        self.clock_open = true;
         // Still lost until the new socket says `Opened`, and dialling until
         // then so the application waits for this attempt instead of starting
         // another one on the next frame.
@@ -387,6 +403,27 @@ impl DuelHost for NetworkHost {
                 WsEvent::Message(WsMessage::Binary(bytes)) => {
                     match Envelope::decode(bytes.as_slice()) {
                         Ok(envelope) => {
+                            let now = self.clock_origin.elapsed().as_millis() as u64;
+                            match &envelope.msg {
+                                Some(v1::envelope::Msg::Curtain(_)) => self.clock_open = false,
+                                Some(v1::envelope::Msg::ClockProbe(probe)) => {
+                                    self.clock.sample(
+                                        probe.client_time_ms,
+                                        now,
+                                        probe.server_time_ms,
+                                    );
+                                }
+                                Some(v1::envelope::Msg::TableLoading(status)) => {
+                                    out.push(HostMessage::Preparing {
+                                        ready: status.ready,
+                                        total: status.total,
+                                        starts_in: (status.enter_at_ms != 0)
+                                            .then(|| self.clock.until(now, status.enter_at_ms))
+                                            .flatten(),
+                                    });
+                                }
+                                _ => {}
+                            }
                             self.note_seq(&envelope);
                             self.note_refusal(&envelope);
                             if let Some(message) = host_message(envelope) {
@@ -407,6 +444,22 @@ impl DuelHost for NetworkHost {
                 // errors without a subsequent Closed event on the first dial.
                 WsEvent::Message(_) | WsEvent::Opened | WsEvent::Error(_) | WsEvent::Closed => {}
             }
+        }
+        let now = self.clock_origin.elapsed().as_millis() as u64;
+        if self.connection.open && self.clock_open && now >= self.next_probe {
+            self.next_probe = now.saturating_add(if self.clock.ready() { 2000 } else { 250 });
+            self.outbox.push(Envelope {
+                msg: Some(v1::envelope::Msg::ClockProbe(v1::ClockProbe {
+                    client_time_ms: now,
+                    server_time_ms: 0,
+                })),
+            });
+        }
+        if self.pending_ready && self.clock.ready() {
+            self.pending_ready = false;
+            self.outbox.push(Envelope {
+                msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
+            });
         }
         self.flush();
         out
@@ -433,10 +486,7 @@ impl DuelHost for NetworkHost {
     }
 
     fn ready(&mut self) {
-        self.outbox.push(Envelope {
-            msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
-        });
-        self.flush();
+        self.pending_ready = true;
     }
 
     fn seat(&self) -> PlayerId {

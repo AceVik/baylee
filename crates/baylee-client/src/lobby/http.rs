@@ -585,29 +585,35 @@ pub(super) fn probe_registration(state: &LobbyState, mailbox: &Mailbox) {
     let gateway = state.gateway.clone();
     let epoch = state.gateway_epoch;
     let url = format!("{gateway}/auth/config");
-    ehttp::fetch(ehttp::Request::get(&url), move |result| {
-        let body = match result {
-            Ok(response) if response.ok => response
-                .text()
-                .and_then(|body| serde_json::from_str::<AuthConfig>(body).ok()),
-            // A gateway that is not up yet says nothing about registration.
-            // Leaving the offer standing is the recoverable failure.
-            _ => None,
-        };
-        let Some(body) = body else {
-            return;
-        };
-        if let Ok(mut box_) = box_.lock() {
-            box_.push(Reply::Remote(
-                epoch,
-                Box::new(Reply::Registration {
-                    enabled: body.registration_enabled,
-                    art_cache: body.art_cache,
-                    guests: body.guests_enabled,
-                }),
-            ));
-        }
-    });
+    let pending = Arc::clone(&state.auth_probes);
+    pending.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    ehttp::fetch(
+        ehttp::Request::get(&url).with_timeout(Some(PROBE_TIMEOUT)),
+        move |result| {
+            pending.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+            let body = match result {
+                Ok(response) if response.ok => response
+                    .text()
+                    .and_then(|body| serde_json::from_str::<AuthConfig>(body).ok()),
+                // A gateway that is not up yet says nothing about registration.
+                // Leaving the offer standing is the recoverable failure.
+                _ => None,
+            };
+            let Some(body) = body else {
+                return;
+            };
+            if let Ok(mut box_) = box_.lock() {
+                box_.push(Reply::Remote(
+                    epoch,
+                    Box::new(Reply::Registration {
+                        enabled: body.registration_enabled,
+                        art_cache: body.art_cache,
+                        guests: body.guests_enabled,
+                    }),
+                ));
+            }
+        },
+    );
 }
 
 /// Asks every saved address about itself, once, at startup.

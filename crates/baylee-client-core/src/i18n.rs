@@ -1874,6 +1874,41 @@ messages! {
     /// Rules text unavailable
     NoRulesTextHere { en: "Rules text unavailable", de: "Regeltext nicht verfügbar" },
 
+    /// Startup and game preparation use the same original portal scene.
+    ArrivalLogin { en: "At the threshold", de: "An der Schwelle" },
+    /// The table is being prepared beneath the cover.
+    ArrivalTable { en: "One table. A new story.", de: "Ein Tisch. Eine neue Geschichte." },
+    /// Preparation failed; the player can leave the table.
+    ArrivalHeld { en: "The journey is on hold", de: "Die Reise wartet" },
+    /// The prepared destination is being revealed.
+    ArrivalPortal { en: "The portal opens", de: "Das Portal öffnet sich" },
+    /// Counts human seats that have acknowledged render readiness.
+    ArrivalPlayers { en: "Waiting for the table  ·  {0} / {1} ready", de: "Warte auf die Runde  ·  {0} / {1} bereit" },
+    /// Required fonts and local assets.
+    ArrivalWorld { en: "Awakening the world", de: "Die Welt erwacht" },
+    /// All initial gateway probes, including failed replies.
+    ArrivalGateways { en: "Checking gateways", de: "Gateways werden geprüft" },
+    /// Opening snapshot and visible card textures.
+    ArrivalCards { en: "Preparing cards and table", de: "Karten und Tisch werden vorbereitet" },
+    /// The render thread is preparing the covered scene.
+    ArrivalGraphics { en: "Setting the scene", de: "Der letzte Feinschliff" },
+    /// Local preparation has completed.
+    ArrivalReady { en: "Everything is ready", de: "Alles bereit" },
+    /// The three chapters of the game entrance.
+    ArrivalTableSteps { en: "PREPARE    ·    GATHER    ·    ENTER", de: "VORBEREITEN    ·    VERSAMMELN    ·    EINTRETEN" },
+    /// The three chapters of startup.
+    ArrivalLoginSteps { en: "WORLD    ·    CONNECTION    ·    ARRIVAL", de: "WELT    ·    VERBINDUNG    ·    ANKUNFT" },
+    /// Cancel preparation, including a failed connection.
+    ArrivalLeave { en: "Return to lobby  ·  Esc", de: "Zur Lobby  ·  Esc" },
+    /// Direct seat launches have no lobby to return to.
+    ArrivalLeaveTable { en: "Leave table  ·  Esc", de: "Tisch verlassen  ·  Esc" },
+    /// A recoverable preparation timeout.
+    ArrivalTimeout { en: "Loading could not finish. Check the connection and try again.", de: "Das Laden konnte nicht abgeschlossen werden. Prüfe die Verbindung und versuche es erneut." },
+    /// Required local files are missing; the default font keeps this readable.
+    ArrivalAssetsFailed { en: "Required interface files could not load. Please restart or reinstall the client.", de: "Benötigte Dateien für die Oberfläche konnten nicht geladen werden. Bitte starte den Client neu oder installiere ihn erneut." },
+    /// A failed render pipeline cannot safely reveal the scene.
+    ArrivalGraphicsFailed { en: "The graphics could not be prepared. Please restart the client.", de: "Die Grafik konnte nicht vorbereitet werden. Bitte starte den Client neu." },
+
     /// Taking your seat
     VeilTakingSeat { en: "Taking your seat", de: "Nehme deinen Platz ein" },
     /// Talking to the gateway

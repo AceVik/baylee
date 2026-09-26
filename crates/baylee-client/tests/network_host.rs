@@ -134,6 +134,12 @@ async fn serve(stream: tokio::net::TcpStream, session: &mut Session) {
                 }
             }
             Some(v1::envelope::Msg::Resume(msg)) => session.resume(SEAT, msg.last_seq),
+            Some(v1::envelope::Msg::ClockProbe(probe)) => vec![Envelope {
+                msg: Some(v1::envelope::Msg::ClockProbe(v1::ClockProbe {
+                    client_time_ms: probe.client_time_ms,
+                    server_time_ms: 100_000,
+                })),
+            }],
             // A table of one: the seat that is ready is the last one.
             Some(v1::envelope::Msg::SeatReady(_)) => vec![Envelope {
                 msg: Some(v1::envelope::Msg::Curtain(v1::Curtain {})),

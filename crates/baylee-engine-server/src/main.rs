@@ -661,19 +661,29 @@ mod attached {
             armed.sync(&runner.clocks(), |clock| {
                 now + std::time::Duration::from_secs(u64::from(clock.secs))
             });
-            curtain_at = runner.curtain_pending().then(|| {
-                curtain_at.unwrap_or_else(|| {
-                    now + std::time::Duration::from_secs(u64::from(
-                        baylee_engine_server::CURTAIN_SECS,
-                    ))
-                })
-            });
+            curtain_at =
+                (runner.curtain_pending() && runner.entrance_deadline().is_none()).then(|| {
+                    curtain_at.unwrap_or_else(|| {
+                        now + std::time::Duration::from_secs(u64::from(
+                            baylee_engine_server::CURTAIN_SECS,
+                        ))
+                    })
+                });
+            let arrival = runner
+                .entrance_deadline()
+                .map(|at| now + std::time::Duration::from_millis(at.saturating_sub(wall_ms())));
             let next = armed.next();
             tokio::select! {
-                () = deadline(curtain_at) => {
-                    tracing::info!(game_id = attach.game_id, "the curtain went up on its deadline");
+                () = deadline(arrival) => {
                     runner.tell_time(wall_ms());
-                    for envelope in runner.raise_curtain() {
+                    for envelope in runner.finish_entrance() {
+                        send(&mut ws, &envelope).await?;
+                    }
+                }
+                () = deadline(curtain_at) => {
+                    tracing::info!(game_id = attach.game_id, "table preparation timed out");
+                    runner.tell_time(wall_ms());
+                    for envelope in runner.preparation_expired() {
                         send(&mut ws, &envelope).await?;
                     }
                 }

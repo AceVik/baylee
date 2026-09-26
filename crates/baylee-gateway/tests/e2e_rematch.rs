@@ -81,6 +81,19 @@ async fn opening(ws: &mut Socket) -> baylee_view::GameStatic {
 }
 
 async fn concede(ws: &mut Socket) {
+    // Match the real client's outbox: even a concession must wait until
+    // the shared entrance is over. Receipt of GameStatic is not permission.
+    tokio::time::timeout(common::WAIT_BUDGET, async {
+        loop {
+            match common::next_msg(ws).await {
+                Some(v1::envelope::Msg::Curtain(_)) => break,
+                Some(_) => {}
+                None => panic!("the socket closed before play was allowed"),
+            }
+        }
+    })
+    .await
+    .expect("the shared entrance did not finish");
     let answer = Envelope {
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
             game_id: String::new(),

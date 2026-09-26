@@ -37,12 +37,24 @@ message ResumeGame {
 // changes nothing.
 message SeatReady {}
 
-// Engine → player: the table is open (#256). Nothing is decided and no clock
-// runs before it. Sent to every attached seat once every human seat is ready,
-// or 30 s after the game was built, whichever comes first, and to every later
-// attach. It is always the last frame of its batch, so a client opens on the
-// table as it stands after the curtain went up.
+// Engine → player: play is now allowed. The shared entrance has finished.
 message Curtain {}
+
+// An echo for estimating server time using the lowest round-trip sample.
+// A request has server_time_ms = 0; the engine stamps its reply.
+message ClockProbe {
+  uint64 client_time_ms = 1;
+  uint64 server_time_ms = 2;
+}
+
+// Readiness of human seats. A zero enter_at_ms cancels a pending entrance.
+// Otherwise every client begins its portal at this server Unix timestamp.
+// No game actions or decision clocks run until the entrance has finished.
+message TableLoading {
+  uint32 ready = 1;
+  uint32 total = 2;
+  uint64 enter_at_ms = 3;
+}
 
 // ------------------------------------------------------------------- preset
 
@@ -366,6 +378,8 @@ message Envelope {
     Curtain curtain = 26;
     // Player → engine, protocol version 3: a seat's setting about itself.
     SeatSettingMsg seat_setting = 27;
+    ClockProbe clock_probe = 28;
+    TableLoading table_loading = 29;
   }
 
 }

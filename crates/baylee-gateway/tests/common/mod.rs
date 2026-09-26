@@ -511,18 +511,39 @@ async fn run_engine(
     )
     .await;
     let mut runner = EngineRunner::new();
-    while let Some(msg) = next_msg(&mut ws).await {
-        if let v1::envelope::Msg::GameSetup(setup) = &msg
-            && let Ok(preset) = serde_json::from_slice(&setup.preset_json)
-        {
-            let _ = presets.send(preset);
-        }
-        // This harness runs no timer, so it never has a deadline armed and
-        // has nothing to read off one. Every question therefore reaches a
-        // seat with its allowance whole, which is what an untimed in-process
-        // runner should show.
-        for out in runner.handle(Envelope { msg: Some(msg) }, &[]) {
-            send(&mut ws, &out).await;
+    let wall_ms = || {
+        u64::try_from(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
+        )
+        .unwrap()
+    };
+    loop {
+        let delay = runner
+            .entrance_deadline()
+            .map(|at| std::time::Duration::from_millis(at.saturating_sub(wall_ms())));
+        let out = tokio::select! {
+            () = async {
+                if let Some(delay) = delay { tokio::time::sleep(delay).await; }
+                else { std::future::pending::<()>().await; }
+            } => {
+                runner.tell_time(wall_ms());
+                runner.finish_entrance()
+            }
+            msg = next_msg(&mut ws) => {
+                let Some(msg) = msg else { break };
+                if let v1::envelope::Msg::GameSetup(setup) = &msg
+                    && let Ok(preset) = serde_json::from_slice(&setup.preset_json) {
+                    let _ = presets.send(preset);
+                }
+                runner.tell_time(wall_ms());
+                runner.handle(Envelope { msg: Some(msg) }, &[])
+            }
+        };
+        for envelope in out {
+            send(&mut ws, &envelope).await;
         }
         if runner.finished() {
             break;

@@ -335,6 +335,16 @@ Urheber- und Medienrecht.
     lobby's existing fonts and their bundled OFL notices are unchanged;
     no additional asset licence or exception is needed.
 
+    Loading-screen audit, 26.09.2026: the astrolabe, light rings and inward
+    particles are original procedural artwork; there are no imported symbols,
+    textures or recordings. Rechecked the [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy):
+    “Please respect other people’s IP.” The [Scryfall image rules](https://scryfall.com/docs/api)
+    say: “Do not blur, sharpen, desaturate, or color-shift card images.” The
+    portal only uncovers the live table; it does not sample, distort or process
+    a card image. Alegreya Sans and Faustina reuse their bundled OFL licences:
+    “This Font Software is licensed under the SIL Open Font License, Version 1.1.”
+    No new asset licence or policy exception is required.
+
 The table UI icon map (`baylee-client-core/src/tableicons.rs`) was checked on
 17.09.2026 against the same policy table and the upstream Mana 1.18 stylesheet
 (https://github.com/andrewgioia/mana/blob/master/css/mana.css). It uses zone,

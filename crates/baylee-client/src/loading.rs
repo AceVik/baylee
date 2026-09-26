@@ -106,6 +106,7 @@ impl Plugin for LoadingPlugin {
     fn build(&self, app: &mut App) {
         ambience::install(app);
         crate::vista::install(app);
+        crate::arrival::install(app);
         app.init_resource::<Loading>()
             .add_systems(Update, (raise, pulse));
     }
@@ -134,6 +135,7 @@ fn raise(
     scene: Option<ResMut<Assets<VistaMaterial>>>,
     mut shown: Local<Option<String>>,
     mut asked: Local<f32>,
+    journey: Option<Res<crate::arrival::Journey>>,
 ) {
     // The grace is counted on *whether* something is being waited for and not
     // on what it is called, so a wait that changes its words while it runs —
@@ -150,7 +152,9 @@ fn raise(
     // the veil that often would reset the dots to the start of their cycle —
     // three dots that never move, which is precisely the impression the veil
     // exists to avoid.
-    let want = (*asked >= GRACE).then(|| loading.what.clone()).flatten();
+    let want = (*asked >= GRACE && !journey.is_some_and(|j| j.active()))
+        .then(|| loading.what.clone())
+        .flatten();
     if *shown == want && want.is_some() != veil.is_empty() {
         return;
     }

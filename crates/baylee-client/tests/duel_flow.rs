@@ -351,7 +351,7 @@ impl Client {
                 }
                 // This driver answers the host itself, not through the
                 // client's outbox, so it has nothing to hold.
-                HostMessage::Curtain => {}
+                HostMessage::Curtain | HostMessage::Preparing { .. } => {}
             }
         }
     }

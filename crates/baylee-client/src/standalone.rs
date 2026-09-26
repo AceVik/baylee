@@ -110,9 +110,11 @@ pub fn run() {
     });
 
     let mut app = App::new();
+    app.insert_resource(ClearColor(Color::srgb(0.009, 0.013, 0.029)));
     app.add_plugins(plugins).add_plugins(DuelPlugin {
         config: DuelConfig::default(),
     });
+    crate::arrival::start_login(&mut app);
     // After the plugins, because `LogPlugin` is what installs the logger.
     // The one line that tells a packaged build reading its own fonts from a
     // build reading the build machine's: both start, and look, the same.

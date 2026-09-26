@@ -264,7 +264,7 @@ pub(super) fn watch(
 /// The keyboard is *not* raised on arrival — only when a field is tapped —
 /// because a form that covers half the screen before anyone asked for it is
 /// the thing every mobile web app gets wrong.
-#[allow(clippy::too_many_lines)] // Platform input routing across lobby and editor fields.
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)] // Platform input routing across lobby and editor fields.
 pub(super) fn softkeys(
     mut keys: ResMut<SoftKeyboard>,
     mut state: ResMut<LobbyState>,
@@ -273,11 +273,16 @@ pub(super) fn softkeys(
     mut epoch: Local<u64>,
     mut build_epoch: Local<u64>,
     entrance: Res<super::entrance::Entrance>,
+    journey: Option<Res<crate::arrival::Journey>>,
 ) {
     if !SoftKeyboard::owns_typing() {
         return;
     }
-    if entrance.active() || state.lobby.library().page.is_some() || state.confirmation.is_some() {
+    if journey.as_ref().is_some_and(|j| j.active())
+        || entrance.active()
+        || state.lobby.library().page.is_some()
+        || state.confirmation.is_some()
+    {
         keys.close();
         drop(keys.drain());
         return;
@@ -419,8 +424,9 @@ pub(super) fn keyboard(
     mut clipboard: Option<ResMut<bevy::clipboard::Clipboard>>,
     mut paste: Local<Option<super::editing::Paste>>,
     entrance: Res<super::entrance::Entrance>,
+    journey: Option<Res<crate::arrival::Journey>>,
 ) {
-    if entrance.active() {
+    if journey.as_ref().is_some_and(|j| j.active()) || entrance.active() {
         keys.clear();
         return;
     }
@@ -847,10 +853,11 @@ pub(super) fn clicks(
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
     motion: Res<super::front::FrontMotion>,
     entrance: Res<super::entrance::Entrance>,
+    journey: Option<Res<crate::arrival::Journey>>,
 ) {
     // A panel on its way out or in answers nothing: what is under the
     // pointer is half of a form that is going, or not yet there.
-    if motion.moving() || entrance.active() {
+    if journey.as_ref().is_some_and(|j| j.active()) || motion.moving() || entrance.active() {
         pointer.clear();
         ends.clear();
         return;
@@ -1548,8 +1555,9 @@ pub(super) fn scrolls(
     mut lists: Query<(&mut ScrollPosition, &ComputedNode, &Scrollable)>,
     mut memory: ResMut<Scrolled>,
     entrance: Res<super::entrance::Entrance>,
+    journey: Option<Res<crate::arrival::Journey>>,
 ) {
-    if entrance.active() {
+    if journey.as_ref().is_some_and(|j| j.active()) || entrance.active() {
         wheels.clear();
         drags.clear();
         return;

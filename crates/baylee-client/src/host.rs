@@ -32,11 +32,20 @@ pub enum HostMessage {
     Choice(Box<Pending>),
     /// Something went wrong; the string is safe to show a player.
     Failed(String),
-    /// The table is open (#256): every seat has drawn it, or the engine
-    /// stopped waiting. Nothing this seat sends is read before it, which is
+    /// The table is open: every human seat has prepared it and the shared
+    /// entrance has finished. Nothing this seat sends is read before it, which is
     /// why the client holds its outbox until then. It never comes down again
     /// in the same game.
     Curtain,
+    /// Human preparation progress and departure relative to receipt, clock corrected.
+    Preparing {
+        /// Prepared human seats.
+        ready: u32,
+        /// Expected human seats.
+        total: u32,
+        /// Seconds until the common portal departure; none also cancels it.
+        starts_in: Option<f64>,
+    },
 }
 
 /// Whether a host still has the connection it plays through.
@@ -79,8 +88,8 @@ pub trait DuelHost: Send + Sync + 'static {
     fn submit(&mut self, action: PlayerAction);
 
     /// Says this seat has drawn its table (#256), so the engine can open it
-    /// once every seat has. Called once per game, when the first view has
-    /// been built.
+    /// once every seat has. Called after the table
+    /// and its required assets have been prepared by the renderer.
     ///
     /// No default: a host that forgot it would hold the whole table behind
     /// the curtain for the engine's full wait, and a missing method is the

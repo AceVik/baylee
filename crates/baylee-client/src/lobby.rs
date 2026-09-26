@@ -179,6 +179,7 @@ pub struct LobbyState {
     /// Keyed by the address and not by [`Self::gateway_epoch`]: every saved
     /// address is asked at once, and an answer belongs to its address
     /// whichever one is selected by the time it lands.
+    pub(crate) auth_probes: Arc<std::sync::atomic::AtomicUsize>,
     pub(crate) probes: std::collections::HashMap<String, Probe>,
     /// The typed address being asked before it is saved.
     pub(crate) adding: Option<String>,
@@ -343,6 +344,7 @@ impl LobbyState {
             art_cache: false,
             gateway_selected: false,
             gateway_epoch: 0,
+            auth_probes: Arc::default(),
             probes: std::collections::HashMap::new(),
             adding: None,
             lobby,

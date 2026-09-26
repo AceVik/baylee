@@ -27,23 +27,17 @@ use baylee_gamehost::{SeatKind, Session};
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::SeatSetting;
 
-/// How long the curtain waits for seats that have not said they are ready
-/// (#256), counted from the moment the game is built.
-///
-/// The thirty seconds a seat socket already gives the engine to appear
-/// (`ENGINE_WAIT_SECS` in the gateway). A client that has not drawn its
-/// table by then is stuck, or is an old client that never says it is ready;
-/// either way the table opens without it, and that seat's own clock starts
-/// then.
-pub const CURTAIN_SECS: u32 = 30;
+/// How long a table waits for preparation before failing explicitly.
+/// A slow or missing seat never causes an unready table to open.
+pub const CURTAIN_SECS: u32 = 120;
 
 /// The curtain while it is down (#256): the seats it waits for, and which of
 /// them have said they are ready.
 ///
 /// Two sets rather than one that shrinks, so a `SeatReady` from a seat it
 /// never waited for (an AI chair a socket drives) is not counted, and one
-/// from a seat that already said it is counted once. Both are bitmasks, so
-/// hearing a seat allocates nothing.
+/// from a seat that already said it is counted once. Readiness bookkeeping
+/// uses two bitmasks; only the outgoing status frames allocate.
 #[derive(Clone, Copy, Debug)]
 struct Barrier {
     /// Every seat that answers over a socket, as the game was built.
@@ -181,6 +175,8 @@ pub struct EngineRunner {
     readings: Vec<(Clock, u32)>,
     /// The wall time as the caller last told it ([`Self::tell_time`]).
     now: u64,
+    /// Shared portal departure, cancelled if a prepared socket drops.
+    enter_at: Option<u64>,
 }
 
 impl EngineRunner {
@@ -400,6 +396,13 @@ impl EngineRunner {
             Some(v1::envelope::Msg::SeatAttached(attached)) => self.attach(attached),
             Some(v1::envelope::Msg::SeatDetached(detached)) => {
                 self.attached.retain(|s| u32::from(*s) != detached.seat);
+                if let (Some(barrier), Ok(seat)) =
+                    (self.curtain.as_mut(), u8::try_from(detached.seat))
+                {
+                    barrier.ready = barrier.ready.iter().filter(|p| p.get() != seat).collect();
+                    self.enter_at = None;
+                    return self.loading_status();
+                }
                 Vec::new()
             }
             Some(v1::envelope::Msg::SeatFrame(frame)) => self.seat_frame(&frame),
@@ -422,8 +425,8 @@ impl EngineRunner {
         session.tell_time(self.now);
         self.game_id.clone_from(&setup.game_id);
         // Down until every seat that answers over a socket has drawn its
-        // table, or `CURTAIN_SECS` have passed. An AI chair is ready from the
-        // start, and a table with no such seat has nothing to wait for.
+        // table. An expired preparation fails explicitly. An AI chair is
+        // ready from the start and never holds the barrier.
         let waits_for: SeatSet = session.human_seats().into_iter().collect();
         self.curtain = (!waits_for.is_empty()).then_some(Barrier {
             waits_for,
@@ -433,9 +436,8 @@ impl EngineRunner {
         Vec::new()
     }
 
-    /// Opens the table (#256), once: the last seat said it is ready, or the
-    /// caller's [`CURTAIN_SECS`] ran out, whichever came first. Any later call
-    /// does nothing.
+    /// Opens the table once, after the scheduled entrance. Also available
+    /// to in-process harnesses that deliberately bypass presentation.
     ///
     /// The house plays its chairs in the pump that follows, which is the
     /// first moment anything is decided, and every attached seat is sent
@@ -447,6 +449,7 @@ impl EngineRunner {
         if self.curtain.take().is_none() {
             return Vec::new();
         }
+        self.enter_at = None;
         // The clocks exist from here on, and the views below are the first
         // to carry them.
         self.absorb_clock();
@@ -464,22 +467,75 @@ impl EngineRunner {
         out
     }
 
-    /// A seat has drawn its table (#256). Counted for the seat whose socket
-    /// said so — the frame's seat, which the gateway stamps, since the
-    /// message itself names none — at most once, and not at all after the
-    /// curtain is up. The last one raises it.
-    fn seat_ready(&mut self, player: PlayerId) -> Vec<Envelope> {
-        let Some(barrier) = self.curtain.as_mut() else {
-            return Vec::new();
-        };
-        if barrier.waits_for.contains(player) {
-            barrier.ready.insert(player);
-        }
-        if barrier.met() {
+    /// Scheduled arrival, at which play and its clocks may begin.
+    #[must_use]
+    pub fn entrance_deadline(&self) -> Option<u64> {
+        self.enter_at
+            .map(|at| at.saturating_add(baylee_protocol::TABLE_ENTRANCE_MS))
+    }
+
+    /// Called by the transport timer. Early and cancelled timers do nothing.
+    pub fn finish_entrance(&mut self) -> Vec<Envelope> {
+        if self.entrance_deadline().is_some_and(|at| self.now >= at) {
             self.raise_curtain()
         } else {
             Vec::new()
         }
+    }
+
+    /// Preparation failed. Never start decision clocks for an unready seat.
+    pub fn preparation_expired(&mut self) -> Vec<Envelope> {
+        if self.curtain.is_none() || self.enter_at.is_some() {
+            return Vec::new();
+        }
+        self.ended = true;
+        let reason = "The table could not start: not every player finished loading. Return to the lobby and try again.";
+        let mut out: Vec<_> = self
+            .attached
+            .iter()
+            .map(|&seat| seat_frame(seat, &error(reason)))
+            .collect();
+        out.push(ended(&self.game_id, reason));
+        out
+    }
+
+    fn loading_status(&self) -> Vec<Envelope> {
+        let Some(barrier) = self.curtain else {
+            return Vec::new();
+        };
+        let status = Envelope {
+            msg: Some(v1::envelope::Msg::TableLoading(v1::TableLoading {
+                ready: barrier.ready.iter().count() as u32,
+                total: barrier.waits_for.iter().count() as u32,
+                enter_at_ms: self.enter_at.unwrap_or(0),
+            })),
+        };
+        self.attached
+            .iter()
+            .map(|&seat| seat_frame(seat, &status))
+            .collect()
+    }
+
+    /// Count only attached human seats, once. All ready schedules a flight;
+    /// it does not pump the game or start a decision clock.
+    fn seat_ready(&mut self, player: PlayerId) -> Vec<Envelope> {
+        let Some(barrier) = self.curtain.as_mut() else {
+            return Vec::new();
+        };
+        if !self.attached.contains(&player.get())
+            || !barrier.waits_for.contains(player)
+            || barrier.ready.contains(player)
+        {
+            return Vec::new();
+        }
+        barrier.ready.insert(player);
+        if barrier.met() {
+            self.enter_at = Some(
+                self.now
+                    .saturating_add(baylee_protocol::TABLE_ENTRANCE_LEAD_MS),
+            );
+        }
+        self.loading_status()
     }
 
     /// A seat's socket opened. Sends it the payload every later frame refers
@@ -491,6 +547,12 @@ impl EngineRunner {
         let player = PlayerId::new(seat);
         if self.session.is_none() {
             return Vec::new();
+        }
+        // A fresh snapshot must earn a fresh render acknowledgement, also
+        // when the gateway requests resynchronization on the same socket.
+        if let Some(barrier) = self.curtain.as_mut() {
+            barrier.ready = barrier.ready.iter().filter(|p| *p != player).collect();
+            self.enter_at = None;
         }
         if !self.attached.contains(&seat) {
             self.attached.push(seat);
@@ -523,6 +585,7 @@ impl EngineRunner {
             // before (a loader that dropped and dialled again).
             session.retell_log(player);
             out.extend(session.show(player).iter().map(|env| seat_frame(seat, env)));
+            out.extend(self.loading_status());
             return out;
         }
         if attached.resync {
@@ -572,6 +635,15 @@ impl EngineRunner {
             return Vec::new();
         };
         match inner.msg {
+            Some(v1::envelope::Msg::ClockProbe(probe)) => vec![seat_frame(
+                seat,
+                &Envelope {
+                    msg: Some(v1::envelope::Msg::ClockProbe(v1::ClockProbe {
+                        client_time_ms: probe.client_time_ms,
+                        server_time_ms: self.now,
+                    })),
+                },
+            )],
             Some(v1::envelope::Msg::SeatReady(_)) => self.seat_ready(player),
             // Dropped rather than refused before the curtain is up (#256): no
             // seat has been asked anything, so a correct client has nothing
@@ -844,6 +916,10 @@ mod tests {
     fn sit(runner: &mut EngineRunner, seat: u32) -> Vec<Envelope> {
         let mut out = attach(runner, seat);
         out.extend(ready(runner, seat));
+        if let Some(at) = runner.entrance_deadline() {
+            runner.tell_time(at);
+            out.extend(runner.finish_entrance());
+        }
         out
     }
 
@@ -1072,6 +1148,7 @@ mod tests {
                     v1::envelope::Msg::StateDelta(_) => "view",
                     v1::envelope::Msg::ChoiceRequest(_) => "question",
                     v1::envelope::Msg::Curtain(_) => "curtain",
+                    v1::envelope::Msg::TableLoading(_) => "loading",
                     v1::envelope::Msg::Error(_) => "error",
                     _ => "other",
                 };
@@ -1091,7 +1168,10 @@ mod tests {
         // when the view is the first to show a printing), but no question
         // and no curtain.
         let shown = |out: &[Envelope], seat: u32| {
-            let order = said(out);
+            let order: Vec<_> = said(out)
+                .into_iter()
+                .filter(|(_, what)| *what != "loading")
+                .collect();
             order.first() == Some(&(seat, "static"))
                 && order.last() == Some(&(seat, "view"))
                 && order
@@ -1105,12 +1185,29 @@ mod tests {
             None,
             "a table that has not opened shows no clock"
         );
-        assert!(ready(&mut runner, 0).is_empty(), "seat 1 is not here yet");
+        assert!(!ready(&mut runner, 0).is_empty(), "readiness is broadcast");
+        assert!(
+            runner.entrance_deadline().is_none(),
+            "seat 1 is not here yet"
+        );
         let second = attach(&mut runner, 1);
         assert!(shown(&second, 1), "{:?}", said(&second));
         assert!(runner.curtain_pending());
 
-        let up = ready(&mut runner, 1);
+        let scheduled = ready(&mut runner, 1);
+        assert!(
+            frames(&scheduled)
+                .iter()
+                .all(|(_, m)| matches!(m, v1::envelope::Msg::TableLoading(_)))
+        );
+        assert!(runner.curtain_pending());
+        assert!(runner.clocks().is_empty());
+        assert!(
+            runner.finish_entrance().is_empty(),
+            "an early timer cannot open play"
+        );
+        runner.tell_time(runner.entrance_deadline().unwrap());
+        let up = runner.finish_entrance();
         assert!(!runner.curtain_pending());
         for seat in [0, 1] {
             let theirs: Vec<&str> = said(&up)
@@ -1146,36 +1243,75 @@ mod tests {
         );
         let stuck = session.decision_seq();
 
-        let up = ready(&mut runner, 0);
+        ready(&mut runner, 0);
+        assert_eq!(
+            runner.session().unwrap().decision_seq(),
+            stuck,
+            "AI waits throughout the portal"
+        );
+        runner.tell_time(runner.entrance_deadline().unwrap());
+        let up = runner.finish_entrance();
         assert_eq!(said(&up).last(), Some(&(0, "curtain")));
         let session = runner.session().expect("a game");
         assert!(!session.awaited().contains(house), "the house did not keep");
         assert!(session.decision_seq() > stuck);
     }
 
-    /// The deadline opens the table with nobody at it, and a seat that
-    /// arrives afterwards is shown the open table and told so, last (#256).
     #[test]
-    fn the_deadline_opens_a_table_nobody_has_reached() {
+    fn preparation_timeout_never_opens_an_unready_table() {
         let mut runner = EngineRunner::new();
-        setup(&mut runner, &duel_window(600, 60));
-        assert!(runner.curtain_pending());
+        setup(&mut runner, &two_humans(600));
+        attach(&mut runner, 0);
+        ready(&mut runner, 0);
+        let out = runner.preparation_expired();
+        assert!(runner.finished());
+        assert!(runner.clocks().is_empty());
+        assert!(said(&out).contains(&(0, "error")));
+        assert!(!said(&out).iter().any(|(_, what)| *what == "curtain"));
         assert!(
-            runner.raise_curtain().is_empty(),
-            "nobody is attached to be told"
+            out.iter()
+                .any(|e| matches!(e.msg, Some(v1::envelope::Msg::GameEnded(_))))
         );
-        assert!(runner.raise_curtain().is_empty(), "and once is all");
-        assert_eq!(
-            on_clock(&runner).map(|c| (c.what, c.secs)),
-            Some((Deadline::StandIn, 60)),
-            "the absent seat's window starts at the curtain"
-        );
+    }
 
-        let late = attach(&mut runner, 0);
-        let order = said(&late);
-        assert_eq!(order.first(), Some(&(0, "static")));
-        assert!(order.contains(&(0, "question")), "{order:?}");
-        assert_eq!(order.last(), Some(&(0, "curtain")), "{order:?}");
+    #[test]
+    fn a_resynchronized_snapshot_must_earn_readiness_again() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &two_humans(600));
+        attach(&mut runner, 0);
+        attach(&mut runner, 1);
+        ready(&mut runner, 0);
+        ready(&mut runner, 1);
+        assert!(runner.entrance_deadline().is_some());
+        let refreshed = attach(&mut runner, 0);
+        assert!(runner.entrance_deadline().is_none());
+        assert!(frames(&refreshed).iter().any(|(_, message)| matches!(message, v1::envelope::Msg::TableLoading(s) if s.ready == 1 && s.enter_at_ms == 0)));
+        ready(&mut runner, 0);
+        assert!(runner.entrance_deadline().is_some());
+    }
+
+    #[test]
+    fn a_dropped_seat_cancels_departure_and_must_prepare_again() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &two_humans(600));
+        attach(&mut runner, 0);
+        attach(&mut runner, 1);
+        ready(&mut runner, 0);
+        ready(&mut runner, 1);
+        let old_deadline = runner.entrance_deadline().unwrap();
+        let cancelled = detach(&mut runner, 1);
+        assert!(frames(&cancelled).iter().any(|(_, message)| matches!(message, v1::envelope::Msg::TableLoading(s) if s.ready == 1 && s.enter_at_ms == 0)));
+        runner.tell_time(old_deadline);
+        assert!(runner.finish_entrance().is_empty());
+        assert!(
+            ready(&mut runner, 1).is_empty(),
+            "a detached seat cannot be ready"
+        );
+        attach(&mut runner, 1);
+        assert!(runner.entrance_deadline().is_none());
+        ready(&mut runner, 1);
+        assert!(runner.entrance_deadline().unwrap() > old_deadline);
+        assert!(runner.clocks().is_empty());
     }
 
     /// An action before the curtain is up is dropped without a word: a
@@ -1208,6 +1344,7 @@ mod tests {
         setup(&mut runner, &two_humans(600));
         attach(&mut runner, 0);
         attach(&mut runner, 1);
+        assert!(!ready(&mut runner, 0).is_empty());
         for _ in 0..3 {
             assert!(ready(&mut runner, 0).is_empty());
         }
@@ -1953,6 +2090,8 @@ mod tests {
 
         ready(&mut runner, 0);
         ready(&mut runner, 1);
+        runner.tell_time(runner.entrance_deadline().unwrap());
+        runner.finish_entrance();
         assert!(!runner.curtain_pending());
         let withdrawn = set(
             &mut runner,

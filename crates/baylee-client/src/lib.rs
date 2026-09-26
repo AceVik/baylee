@@ -37,6 +37,7 @@
 
 pub mod abilities;
 pub mod ambience;
+mod arrival;
 pub mod arrowmat;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod artreader;
@@ -124,8 +125,8 @@ pub enum DuelPhase {
     /// No duel; the host application owns the screen.
     #[default]
     Closed,
-    /// A duel is being set up: the static payload has arrived, the first view
-    /// has not.
+    /// The table is prepared beneath its loading cover. Input remains
+    /// disabled until render readiness and the shared entrance complete.
     Opening,
     /// A duel is on screen.
     Playing,
@@ -489,7 +490,7 @@ pub struct Duel {
     /// cleared for the rest of the game.
     pub curtain_up: bool,
     /// Whether this seat has said it has drawn its table since it last
-    /// attached; a stopgap for "drawn" that is "the first view is built".
+    /// attached; set only after the renderer acknowledges the prepared table.
     pub ready_sent: bool,
     /// Whether the player has aimed the camera themselves.
     ///
@@ -1751,6 +1752,7 @@ fn handle_commands(
 }
 
 /// Drains the host and keeps the client's state current.
+#[allow(clippy::too_many_arguments)]
 fn poll_host(
     host: Option<ResMut<InstalledHost>>,
     mut duel: ResMut<Duel>,
@@ -1758,6 +1760,8 @@ fn poll_host(
     phase: Res<State<DuelPhase>>,
     mut next: ResMut<NextState<DuelPhase>>,
     mut reports: MessageWriter<DuelReport>,
+    mut journey: Option<ResMut<arrival::Journey>>,
+    time: Option<Res<Time<Real>>>,
 ) {
     let Some(mut host) = host else {
         return;
@@ -1768,6 +1772,9 @@ fn poll_host(
     for message in host.0.poll() {
         match message {
             HostMessage::Static(statics) => {
+                if let Some(journey) = journey.as_mut() {
+                    journey.changed_scene();
+                }
                 duel.statics = Some(*statics);
                 // Every attach opens with this payload. One before the
                 // curtain is up is a seat the engine may not have heard
@@ -1791,17 +1798,34 @@ fn poll_host(
                 if let Some(tail) = &log {
                     duel.log.append(tail, &view);
                 }
+                if let Some(journey) = journey.as_mut() {
+                    journey.changed_scene();
+                }
                 duel.receive_view(*view);
                 rebuild_board(&mut duel);
-                if *phase.get() == DuelPhase::Opening {
+                if journey.is_none() && *phase.get() == DuelPhase::Opening {
                     next.set(DuelPhase::Playing);
                 }
-                if !duel.curtain_up && !duel.ready_sent {
+                if journey.is_none() && !duel.curtain_up && !duel.ready_sent {
                     host.0.ready();
                     duel.ready_sent = true;
                 }
             }
             HostMessage::Curtain => duel.curtain_up = true,
+            HostMessage::Preparing {
+                ready,
+                total,
+                starts_in,
+            } => {
+                if let Some(journey) = journey.as_mut() {
+                    journey.synchronize(
+                        ready,
+                        total,
+                        starts_in,
+                        time.as_ref().map_or(0.0, |t| t.elapsed_secs_f64()),
+                    );
+                }
+            }
             HostMessage::Choice(pending) => {
                 if matches!(*pending, Pending::GameOver(_)) {
                     next.set(DuelPhase::Finished);
@@ -1816,6 +1840,11 @@ fn poll_host(
                 // client objecting to something nobody can still do.
                 if duel.ending().is_none() {
                     duel.cues.note_refusal();
+                }
+                if *phase.get() == DuelPhase::Opening
+                    && let Some(journey) = journey.as_mut()
+                {
+                    journey.fail(reason.clone());
                 }
                 duel.last_error = Some(Refusal::Verbatim(reason.clone()));
                 reports.write(DuelReport::Failed(reason));

@@ -1300,85 +1300,64 @@ agent runs somewhere else. With no agent connected, `POST /lobby/games` answers
 `503`: there is nothing to run the game, and handing out a seat token for a
 table that will never start would be worse.
 
-## The curtain: nothing starts until every seat can see it (#256)
+## The curtain: prepare together, enter together (#256)
 
-A game used to start on the engine's clock rather than the players'. The first
-seat's socket to attach pumped the game: the house played its chairs, that seat
-was asked its mulligan, and its decision clock started, while the other seats
-were still loading. A seat with no socket yet was on its reconnect window from
-the moment the game was built, so a client slower than the window lost its
-chair to the house before it had drawn the table. Two envelopes fix the start
-(a `PROTOCOL_VERSION` bump; the view is unchanged):
+Protocol **4** separates render readiness, a scheduled entrance and permission
+to play. All four messages travel inside the authenticated `SeatFrame`; the
+gateway remains an opaque relay and stamps the seat itself.
 
-| message | direction | meaning |
+| Message | Direction | Meaning |
 | --- | --- | --- |
-| `SeatReady {}` | player → engine | this seat has drawn its table |
-| `Curtain {}` | engine → player | the table is open |
+| `ClockProbe { client_time_ms, server_time_ms }` | both | echo a monotonic client timestamp with server Unix milliseconds |
+| `SeatReady {}` | player → engine | the opening table, required art and render pipelines are prepared |
+| `TableLoading { ready, total, enter_at_ms }` | engine → player | human preparation count and shared portal departure; zero cancels departure |
+| `Curtain {}` | engine → player | the entrance has finished; play may begin |
 
-Both travel inside `SeatFrame` on the engine link, so the gateway forwards them
-without reading them, like everything else a seat says. `SeatReady` is empty
-on purpose: it counts for the seat the gateway stamped on the frame, so there
-is nothing in it a client could claim for another seat.
+`GameSetup` constructs the session. An attach receives statics and its own
+`Session::show` snapshot without pumping AI, asking a question or starting a
+clock. AI chairs do not participate in the readiness barrier. Actions received
+before the curtain are dropped; settings and read-only resynchronization still
+work. Readiness counts once per attached human seat.
 
-**Before the curtain nothing is decided.** `EngineRunner` builds the game at
-`GameSetup` and waits for every seat that answers over a socket; an AI chair is
-ready from the start. Until then:
+Each socket estimates server time from the midpoint of its lowest round-trip
+clock sample, using a monotonic local clock. A network client defers its
+`SeatReady` until it has that estimate. When the last human seat is ready, the
+server broadcasts a departure **1,500 ms in the future**. All clients evaluate
+the same **1,650 ms** portal flight against that timestamp, rather than starting
+an animation when their packet happens to arrive. Network asymmetry and frame
+cadence bound the remaining timing error; packets arriving after departure
+catch up to the shared phase.
 
-- An attach is sent the payload and its own view, and no question. The view
-  goes through `Session::show`, which reveals printings as a pump would (an
-  opponent's commander needs its entry to be drawn) but drives no seat.
-  `ResumeGame` is answered the same way.
-- A `PlayerActionMsg` is dropped and logged at debug level. It is not refused,
-  because the client turns an `Error` into a failure on screen, and a correct
-  client has been asked nothing it could answer.
-- The house plays none of its chairs, and no clock runs:
-  `EngineRunner::clocks` is empty and every view's `decision_remaining_ms` is
-  `None`.
+The server keeps the barrier, AI and decision clocks closed for the entire
+flight. At the arrival deadline it pumps the game, sends each seat the resulting
+view and question, and sends `Curtain` last. Late reconnects receive the current
+snapshot and `Curtain` and prepare their own reveal. A socket dropped during
+preparation loses its ready bit and cancels any scheduled flight for everyone;
+its replacement must prepare again. Cancelled or early timer callbacks cannot
+open play.
 
-`SeatReady` counts once per seat. A repeat, one after the curtain, or one from
-a seat the curtain was not waiting for changes nothing. Hearing it allocates
-nothing: the barrier is two `SeatSet` bitmasks.
+After **120 seconds** without all human seats being ready, the server reports
+an explicit preparation failure and ends the table. It never opens an unready
+table on timeout. The client offers a return to the lobby while preparing or
+showing a failure. Leaving drops the seat socket, so the remaining players see
+the updated readiness rather than starting without it.
 
-**The curtain goes up once**, when the last seat is ready or
-`baylee_engine_server::CURTAIN_SECS` (30 s) after the game was built, whichever
-comes first. The attach loop arms that deadline on its first turn after
-`GameSetup`, whether or not any seat has attached. Thirty seconds is the wait a
-seat socket already gives the engine to appear (`ENGINE_WAIT_SECS`). A client
-that has not drawn its table by then is stuck, or is too old to send
-`SeatReady`, so such a client costs the table at most thirty seconds. At
-curtain-up the house plays its chairs in one pump, every attached seat is sent
-what the pump produced (its view and its question), and then `Curtain`,
-**last**, so a client opens on the table as it now stands. A seat that attaches
-later gets the payload, its views and then `Curtain`, again last. The curtain
-never comes down again in that game, including on a reconnect or a lag resync.
+The renderer acknowledges preparation after required fonts and opening card
+art have loaded (or failed into an existing constructed face), and the render
+world has prepared the scene's images and pipelines across three submitted
+frames. Speculative deck-art preloads are not a prerequisite. A generation tag
+prevents a previous scene's acknowledgement from releasing a new table.
+`Opening` renders underneath the opaque cover; only after preparation, flight
+and `Curtain` does `Playing` enable input. An embedding with no renderer keeps
+the headless first-view acknowledgement.
 
-**Every clock starts at curtain-up.** This is a player-visible rule. The
-decision clock of a seat that is present, and the reconnect window of a seat
-that is not, are both anchored at the moment the table opens. No seat spends
-its decision time or its window on another seat's loading. A seat that never
-attached starts its whole reconnect window at curtain-up, and the house takes
-the chair only when that window runs out.
+`LocalHost` and the engine-server's loopback development harness have no remote
+barrier or decision clocks; they send `Curtain` with the initial snapshot. The
+same client still waits for render readiness and performs its local entrance.
 
-**Every host that serves a seat sends `Curtain`**, last in the batch that
-seats it, so no client can wait behind a curtain nothing raises. `LocalHost`
-sends it with its first poll: one seat, nobody else loading, no clock. The
-engine-server's dev harness has no barrier and no clocks, but sends it at the
-end of `CreateGame`, `Join` and `Resume`.
-
-**The client** sends `SeatReady` once its first view is built, and again if it
-attaches afresh before the table is open. The first view is a stopgap for
-"drawn"; #256(b) moves the signal to "drawn" and adds the curtain the player
-sees. Until the table opens it holds its outbox rather than sending it: it
-sends its standing ability orders as soon as it has a view, and the engine
-would drop them.
-
-**Deploy the engine-server before the clients.** A client from before this
-change never sends `SeatReady`, and its table opens thirty seconds late. A
-client from after it, playing against an older engine, is never sent
-`Curtain` and waits behind the curtain for ever. Since #271 neither pair
-meets: the gateway refuses a seat socket and an engine of another protocol
-than its own (below), and `SeatReady` and `Curtain` came with a
-`PROTOCOL_VERSION` bump.
+Gateway, agent, engine and clients must all speak protocol 4. The existing
+handshake refuses mixed versions explicitly; the gameplay view version is
+unchanged.
 
 ## Which side checks the protocol (#271)
 

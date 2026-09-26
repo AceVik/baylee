@@ -3231,13 +3231,14 @@ wait only appears at a table of two or more players.
 A networked table does not start until every seat has drawn it
 (docs/protocol.md §"The curtain"). The client's half:
 
-- **It says so.** `poll_host` calls `DuelHost::ready` the first time a view has
-  been built (`Duel::ready_sent`). It says it again after a fresh `Static`
-  while the table is still closed, because that is a new attach the engine
-  may not have heard from. For now "drawn" means the first view is built;
-  #256(b) moves the call to the moment the table is drawn, art included.
-  `ready` has no default body: a host without it would hold the table for the
-  engine's whole wait, and only a missing method makes the compiler say so.
+- **It says so after rendering.** `arrival::prepare` calls `DuelHost::ready`
+  after fonts, visible card textures, GPU images/meshes and render pipelines
+  are prepared (`Duel::ready_sent`). A fresh `Static` before the table opens
+  invalidates the previous acknowledgement. `poll_host` retains first-view
+  acknowledgement only for an embedding with no renderer.
+- **It enters on server time.** `ClockProbe` estimates the server clock;
+  `TableLoading` schedules the shared portal after all human seats are ready.
+  `Opening` draws the covered table and holds input throughout the flight.
 - **It holds, and does not drop.** Before `HostMessage::Curtain` the engine
   reads nothing a seat sends, so `flush_outbox` keeps the outbox until the
   curtain arrives (`Duel::curtain_up`) and sends it on that frame. The outbox
@@ -7954,3 +7955,34 @@ highlights image contours and filtered metallic grain. Both catch light along
 the rounded edge, preserve dark ink and bright text boxes, and honor reduced
 motion. The same material path covers the hand, board, duel hover preview,
 printing picker, deck thumbnails and builder hover preview.
+
+
+### Prepared startup and table entrances (26.09.2026)
+
+`arrival.rs` owns a persistent full-screen cover across lobby/table camera
+handoff. Startup waits for all nine shipped fonts, terminal results of the
+initial saved-gateway probes and optional auth-config request, and renderer
+preparation of the login behind it. A failed gateway probe is a terminal result:
+the login can show that gateway as unavailable and still offer offline play.
+Auth configuration has the same bounded timeout as the gateway probes.
+
+For a game, the cover appears on the frame that grants a seat. The actual table
+renders beneath it in `DuelPhase::Opening`; required opening art must either
+arrive or produce its established constructed-face fallback. GPU image/mesh
+preparation and pipeline completion are acknowledged from `RenderApp`, tagged
+with a scene generation and checked across three submitted frames. Only then
+is `SeatReady` sent. Server timing and the strict multiplayer barrier are
+specified in `docs/protocol.md` under “The curtain”.
+
+The original `loading.wgsl` draws a suspended brass instrument, etched rings,
+converging particles and three readiness lights. The shared portal accelerates
+into that centre and reveals the already rendered destination. It uses one UI
+material pass and no bitmap, particle entities, extra render targets or blur.
+It stops drawing after entry. Reduced motion keeps the artwork still and uses
+a fade over the same synchronized interval. Text is in the regular EN/DE phrase
+catalogue. A preparation failure offers return to the lobby; Escape works
+throughout preparation. The ordinary short-request veil remains debounced.
+
+The `dev-control` `/state` response includes `loading` with destination,
+milestone, ready/total, monotonic departure, progress and error, allowing
+screenshots to be matched to actual preparation rather than a guessed delay.

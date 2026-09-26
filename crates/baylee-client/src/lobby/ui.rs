@@ -382,16 +382,8 @@ pub(super) fn ui(
                 cards.as_mut(),
             ));
         }
-        Screen::Seated(_) => {
-            let note = commands
-                .spawn((
-                    Text::new(Phrase::TakingYourSeat.text(state.lobby.lang())),
-                    tf(&fonts, metrics.head),
-                    TextColor(palette::MUTED),
-                ))
-                .id();
-            commands.entity(root).add_child(note);
-        }
+        // The persistent preparation cover takes over in the same frame.
+        Screen::Seated(_) => {}
     }
     super::confirm::draw(&mut commands, root, &state, &fonts, metrics);
     if state.confirmation.is_some() {
