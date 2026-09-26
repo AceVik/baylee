@@ -3456,8 +3456,8 @@ duel taking the screen still drops it on the frame it does (`teardown`).
 
 The gateway and sign-in forms now stand in **Baylee's sanctuary**: a moonlit
 conservatory garden seen through an open limestone arch. The previous geode's
-inward crystal teeth are gone. `vista.rs` schedules a single full-screen
-`UiMaterial`; `shaders/vista.wgsl` composites an original generated matte
+inward crystal teeth are gone. `vista.rs` schedules reusable full-screen
+`UiMaterial` surfaces; `shaders/vista.wgsl` composites an original generated matte
 painting split into distant world and transparent near architecture, a
 hand-painted portrait of petite Baylee in her red body and an original
 Blender lantern.
@@ -3465,17 +3465,35 @@ The photographic references remain outside the repository. Sources, exact
 generation prompts and the editable lantern live in `art/baylee/`.
 
 The image is fitted with cover coordinates, preserving architectural proportions
-on portrait and ultrawide displays. Pointer parallax grows toward the foreground;
-Baylee and the lantern have separate depths and contact shadows. Virtual time
-drives drifting mist, moonbeams, local water ripples and glints, warm lantern
-flicker, two firefly layers and Baylee's subtle breathing. The shader never
-samples card artwork. Phones omit the second firefly layer and foreground props
-when they cannot stand clear of the form; Baylee remains in the logo.
+on portrait and ultrawide displays. This is a **hybrid scene**, not a fully
+modelled landscape: painted architecture sits behind shader-rendered spatial
+water and cloud volumes. Water rays intersect a horizontal world surface with
+two height refinements; four travelling waves provide analytic surface normals,
+Fresnel reflection, moving moon highlights and shoreline-masked refraction.
+Cloud rays cross six slices (three at mobile quality) of a continuous 3D density
+field. Wind advects that volume, which shades and occludes the moon's disc and
+halo. Narrow cascades carry falling streaks and mist.
+
+Pointer parallax grows toward the foreground; Baylee and the lantern have
+separate depths and contact shadows. Virtual time drives all of these effects,
+lantern flicker, two firefly layers and Baylee's subtle breathing. The shader
+never samples card artwork. Narrow screens omit foreground props when they
+cannot stand clear of the form; Baylee remains in the logo.
+
+`Vista::Interior` keeps the same garden behind both the lobby and deckbuilder,
+including beneath the authenticated arrival flight. It uses quieter pointer
+motion, fewer visible motes, a slightly closer view and a 32% reading-light
+reduction. Lobby/editor panels keep their gold tooling while their material
+opacity grades from 90% to 80%; the fallback fill is removed only after that
+material exists. Thus translucent panels do not accidentally stack over a second
+opaque background. Front-door panels retain their original density.
 
 The form keeps its opaque dark surface, keyboard controls, guest/account flows
 and accessible settings. The logo uses the new transparent brand artwork, above
 the existing localized welcome line. The source and fan-content notice occupy a non-shrinking footer over a soft blue mist gradient with
-12.5 px text. Only the form body scrolls, keeping these notices visible at
+12.5 px text, three sentence-aligned notice lines and equal left/right margins.
+The QR occupies the right margin without shifting the text off the screen
+centre. Only the form body scrolls, keeping these notices visible at
 every viewport. Long source URLs wrap by character when needed.
 
 **Choosing a gateway is walking through it.** The existing one-second passage
@@ -3495,7 +3513,8 @@ asset failure rather than revealing an incomplete login.
 `reduce_motion` zeros the virtual clock and pointer; even Baylee, the lamp and
 water stay still. The only reduced-motion passage is a short colour change.
 The public material uses four textures and samplers, no offscreen buffers,
-particle entities, per-frame allocation or scene geometry. The GLB is an editable
+particle entities, per-frame allocation or imported scene meshes. Water and
+cloud geometry are evaluated analytically inside the material. The GLB is an editable
 source export; the client consumes its transparent render. Mobile GPU performance
 has not been measured for this replacement; older geode timings do not apply.
 

@@ -328,7 +328,12 @@ Urheber- und Medienrecht.
     on 26.09.2026: “Please respect other people's IP.” Its FAQ prohibits
     incorporating Wizards' logos and trademarks without written consent;
     this identity contains only Baylee and original lettering/ornament.
-    The existing unofficial-content notice remains on the front door.
+    The existing unofficial-content notice remains on the front door. Its later
+    layout revision changes whitespace only, retaining all words and punctuation
+    in three centred sentence lines. Clause 2 was checked again directly:
+    “Tell the Community it’s unofficial.” A regression test compares the quoted
+    notice after whitespace normalization. Water/cloud shader geometry and the
+    shared lobby/editor view use only the existing original project artwork.
     Checked the [Scryfall API and image rules](https://scryfall.com/docs/api)
     directly (HTTP fetch after the browser returned 403): “Do not add your own
     watermarks, stamps, or logos to card images.” This logo and scene never

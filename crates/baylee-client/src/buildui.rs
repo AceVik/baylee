@@ -241,7 +241,7 @@ fn build_bar(
                 padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.5)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL),
+            BackgroundColor(palette::SANCTUARY_PANEL),
         ))
         .id();
     let back = button(

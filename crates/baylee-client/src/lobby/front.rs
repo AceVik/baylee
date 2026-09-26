@@ -85,7 +85,7 @@ const HEADER_HEIGHT: f32 = 36.0;
 ///
 /// Not a `Phrase`: it is quoted, not written, and a translation of it would
 /// be a notice nobody approved. It stands under the panel in every language.
-pub(crate) const FAN_CONTENT_NOTICE: &str = "baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.";
+pub(crate) const FAN_CONTENT_NOTICE: &str = "baylee is unofficial Fan Content permitted under the Fan Content Policy.\nNot approved/endorsed by Wizards.\nPortions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.";
 
 /// The width of a panel on a tablet and a desktop. A phone gives it the
 /// whole page.
@@ -1082,7 +1082,11 @@ pub(super) fn colophon(
                 align_items: AlignItems::Center,
                 row_gap: px(3),
                 padding: UiRect {
-                    left: px(12),
+                    left: px(if metrics.frame == Frame::Phone {
+                        12.0
+                    } else {
+                        110.0
+                    }),
                     right: px(if metrics.frame == Frame::Phone {
                         12.0
                     } else {
@@ -1119,6 +1123,7 @@ pub(super) fn colophon(
             Text::new(baylee_build::short()),
             tf(fonts, 12.5),
             TextColor(palette::INK.with_alpha(0.82)),
+            TextLayout::justify(Justify::Center),
             Pickable::IGNORE,
         ))
         .id();
@@ -1127,7 +1132,7 @@ pub(super) fn colophon(
             Text::new(FAN_CONTENT_NOTICE),
             Node {
                 width: percent(100),
-                max_width: px(1100),
+                max_width: px(960),
                 ..default()
             },
             tf(fonts, 12.5),
@@ -1631,10 +1636,13 @@ mod tests {
 
     #[test]
     fn the_notice_is_the_policy_s_own_words() {
-        // Pinned byte for byte: the Fan Content Policy asks for this text,
-        // and a notice that was tidied is not the one it asks for.
+        // Every word and punctuation mark stays pinned. Sentence line breaks
+        // only format the quoted notice; they may not rewrite its wording.
         assert_eq!(
-            FAN_CONTENT_NOTICE,
+            FAN_CONTENT_NOTICE
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" "),
             "baylee is unofficial Fan Content permitted under the Fan Content Policy. \
              Not approved/endorsed by Wizards. Portions of the materials used are \
              property of Wizards of the Coast. \u{a9}Wizards of the Coast LLC."

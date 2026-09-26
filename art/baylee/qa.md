@@ -1,5 +1,27 @@
 # Verification · 26 September 2026
 
+## Spatial garden / shared interiors follow-up
+
+- Kept the painted architecture and added analytical 3D water intersections,
+  travelling wave normals, perspective reflection/refraction and a wind-driven
+  cloud volume that occludes the luminous moon. This is a hybrid scene, not a
+  fully modelled landscape. Waterfalls, fireflies and parallax remain animated.
+- Native login, guest arrival, lobby and a new deck were exercised against a
+  disposable local gateway. Lobby and editor now share the garden, dimmed behind
+  translucent reading surfaces; the same virtual clock continues across them.
+- Notice and source-link bounds are fully inside the viewport and horizontally
+  centred (within 1 logical pixel) at **1280×768, 390×844, 320×568, 844×390 and
+  320×320**. The quoted notice's words and punctuation remain pinned in a test;
+  only whitespace changes to format the sentences symmetrically.
+- Native moving frame pair showed channel difference peaks [170, 164, 177].
+  Pausing the virtual clock produced a pixel-identical frame pair. The actual
+  reduced-motion preference also produced identical portrait frames with the
+  virtual clock running, including the new water and cloud geometry.
+- Final client unit suite: **1,055 passed, 2 intentionally ignored**. Native
+  clippy (all targets, dev-control/dev-reload, warnings denied), shader validation
+  and wasm target check passed. Actual native GPU rendering was reviewed in
+  all three screens; real mobile-GPU performance remains unmeasured.
+
 ## Painterly / piano follow-up
 
 - Replaced the photographic guardian after two repaint passes; replaced the

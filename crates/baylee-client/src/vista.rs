@@ -213,12 +213,12 @@ pub struct VistaParams {
     pub hour: Vec4,
     /// The frame walked through: opening, alpha, zoom, dolly.
     pub gate_a: Vec4,
-    /// The frame arrived in: opening, alpha, zoom, unused.
+    /// The frame arrived in: opening, alpha, zoom, interior reading mode.
     pub gate_b: Vec4,
     /// The path's brightness, the ember rate, the scene's alpha, the floor's
     /// zoom.
     pub air: Vec4,
-    /// Login flight progress, active flag, virtual seconds, reserved.
+    /// Login flight progress, active flag, virtual seconds, logical height.
     pub portal: Vec4,
 }
 
@@ -257,6 +257,8 @@ impl UiMaterial for VistaMaterial {
 pub enum Vista {
     /// The front door's, scheduled by the lobby through [`FrontScene`].
     Front,
+    /// The same garden, quietly lit behind the lobby and deck editor.
+    Interior,
     /// A wait's, which schedules itself by its age.
     Wait,
 }
@@ -477,6 +479,14 @@ pub(crate) fn paint(
         settled.age += dt;
         let (stage, presence) = match kind {
             Vista::Front => (front.stage, if front.shown { 1.0 } else { 0.0 }),
+            Vista::Interior => (
+                passage(1.0, HAZE_IN),
+                if !front.shown || front.entering {
+                    1.0
+                } else {
+                    0.0
+                },
+            ),
             Vista::Wait => (waiting(settled.age), WAIT_PRESENCE),
         };
         let entering = *kind == Vista::Front && front.entering && !still;
@@ -540,7 +550,7 @@ pub(crate) fn paint(
                 stage.after.opening,
                 stage.after.alpha,
                 stage.after.zoom,
-                0.0,
+                if *kind == Vista::Interior { 1.0 } else { 0.0 },
             ),
             portal: Vec4::new(
                 if entering { front.portal } else { 0.0 },

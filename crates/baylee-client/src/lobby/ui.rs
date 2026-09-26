@@ -133,20 +133,11 @@ impl Metrics {
     }
 }
 
-/// How much the lobby's ground moves.
-///
-/// Well under the loading veil's: this surface is behind text a player is
-/// reading and typing into, and a backdrop that competes with the form is a
-/// backdrop that has to be turned off. The veil, which is shown *instead* of
-/// a screen, can afford to be the thing being looked at.
-const AMBIENT_ENERGY: f32 = 0.35;
-
 /// The lobby's own camera. The duel brings its own and the two never coexist:
 /// this one is despawned on the way out of [`DuelPhase::Closed`], before the
 /// stage is built.
 pub(super) fn spawn_camera(
     mut commands: Commands,
-    ambience: Option<ResMut<Assets<crate::ambience::AmbienceMaterial>>>,
     vista: Option<ResMut<Assets<crate::vista::VistaMaterial>>>,
     assets: Option<Res<AssetServer>>,
 ) {
@@ -169,25 +160,18 @@ pub(super) fn spawn_camera(
     //
     // `Option`, because a headless test has no render plugin and therefore no
     // `Assets` — the lobby's decisions are all tested that way.
-    if let Some(mut ambience) = ambience {
-        let backdrop = crate::ambience::backdrop(
-            &mut commands,
-            &mut ambience,
-            BACKDROP,
-            Color::srgb(0.28, 0.49, 0.9),
-            AMBIENT_ENERGY,
-            0.0,
-        );
-        // Under the screen, which is what the negative index says; the
-        // loading veil spawns the same surface *inside* itself and must not.
-        commands
-            .entity(backdrop)
-            .insert((LobbyScreen, GlobalZIndex(-2)));
-    }
-    // The front door's scene (#295), over the field and under the screen. It
-    // hides itself once the front door has gone, and the field is the lobby's
-    // ground again.
+    // The inner garden is ready under the arrival flight, and remains behind
+    // both the lobby and the builder. No unrelated abstract field takes over.
     if let Some(mut vista) = vista {
+        let interior = crate::vista::surface(
+            &mut commands,
+            &mut vista,
+            crate::vista::Vista::Interior,
+            assets.as_deref(),
+        );
+        commands
+            .entity(interior)
+            .insert((LobbyScreen, GlobalZIndex(-2)));
         let scene = crate::vista::surface(
             &mut commands,
             &mut vista,
@@ -425,7 +409,7 @@ fn table(
                 padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.5)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL),
+            BackgroundColor(palette::SANCTUARY_PANEL),
         ))
         .id();
     let brand = commands
@@ -2030,7 +2014,7 @@ pub(crate) fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow:
                 border: UiRect::all(px(1)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL),
+            BackgroundColor(palette::SANCTUARY_PANEL),
             BorderColor::all(palette::DOCK_EDGE.with_alpha(0.4)),
             Pickable::IGNORE,
         ))

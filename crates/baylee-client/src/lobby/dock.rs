@@ -7,7 +7,7 @@ use bevy::prelude::*;
 /// inside.
 pub(super) const GROUND_RADIUS: f32 = super::front::CARD_RADIUS - 1.0;
 
-/// How dense the leather is behind a lobby panel: even, and not quite
+/// How dense the leather is behind a front-door panel: even, and not quite
 /// opaque. The front door fades a panel by lowering it (`front::fade_front`).
 pub(super) const GROUND_DENSITY: f32 = 0.98;
 
@@ -43,9 +43,15 @@ pub(super) fn materialize(
             let Some(mut material) = materials.get(&source).cloned() else {
                 continue;
             };
-            // Keep the hand's full tooling and five inlays, with even opacity
-            // behind a reading surface rather than the hand's bottom fade.
-            material.params.ramp = Vec4::new(36.0, GROUND_DENSITY, GROUND_DENSITY, 0.0);
+            // Keep the hand's full tooling and five inlays, with a dense
+            // reading surface rather than the hand's transparent bottom edge.
+            material.params.ramp = if (3..=6).contains(&slot.0) {
+                // A quiet reading surface above the same garden, with more
+                // of its depth visible below the controls and headings.
+                Vec4::new(36.0, 0.90, 0.80, 0.0)
+            } else {
+                Vec4::new(36.0, GROUND_DENSITY, GROUND_DENSITY, 0.0)
+            };
             material.params.surface = Vec4::new(0.0, 0.0, INLAY_LIFT, 0.0);
             // A lobby panel stands on the page, so all four corners are cut,
             // one pixel inside the panel's own radius and border. The hand's
@@ -76,5 +82,9 @@ pub(super) fn materialize(
             ))
             .id();
         commands.entity(parent).insert_children(0, &[ground]);
+        if (3..=6).contains(&slot.0) {
+            // The fallback fill must not make translucent material opaque.
+            commands.entity(parent).insert(BackgroundColor(Color::NONE));
+        }
     }
 }

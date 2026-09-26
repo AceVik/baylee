@@ -74,3 +74,11 @@ The owner's follow-up replaces the photographic mascot with grouped painted
 fur and moon/lantern lighting. Logo and icon now share a seated Baylee, crescent
 moon and wisteria; the earlier frontal cat-head crest is retired. Exact revised
 prompts are recorded in `painterly-revision.md`.
+
+## Spatial garden follow-up
+
+Login, lobby and deckbuilder now share a hybrid garden: painted architecture,
+ray-intersected 3D water waves and a wind-driven cloud volume rendered in WGSL.
+The moon's light is occluded by that cloud volume. This is not a fully modelled
+3D landscape. No additional third-party assets are introduced. Footer sentences
+are centred symmetrically and its source QR no longer offsets the text block.
