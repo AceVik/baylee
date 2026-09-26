@@ -14,9 +14,17 @@
 #    (`POST /lobby/games` answers 503), and the games already running go on:
 #    each engine dialled the gateway itself, and the agent's unit has
 #    `KillMode=process`, so stopping it leaves its engines alone.
-# 2. Finish: when `/health` counts no game running and none waiting, install
-#    the gateway, restart it and start the new agent. Until then the agent
-#    stays off and `watch` (a timer, every minute) asks again.
+# 2. Finish: when `/health` counts no game of this machine running and no
+#    room waiting, install the gateway, restart it and start the new agent.
+#    Until then the agent stays off and `watch` (a timer, every minute) asks
+#    again.
+#
+# "This machine's" games are those of the agent on the gateway's unix socket
+# (`games.local_running`, `docs/protocol.md` §"On the same machine: the unix
+# socket"): the deploy replaces this machine's binaries, not another agent's.
+# Restarting the gateway still drops the link of a game an agent elsewhere
+# runs; the owner chose not to wait for those. A gateway too old to count
+# local games is waited on for all of its running ones.
 #
 # `--force` skips the wait and ends whatever is open.
 #
@@ -40,10 +48,19 @@ exec 9>"$state/lock"
 flock -n 9 || { log "another deploy is running"; exit 0; }
 
 open_games() {
-    # Prints "<running> <waiting>"; an unreachable gateway counts as open,
-    # so a gateway that is down is never swapped on a guess.
+    # Prints "<running here> <waiting>"; an unreachable gateway counts as
+    # open, so a gateway that is down is never swapped on a guess.
+    #
+    # Local games are only counted apart when the gateway has a unix socket
+    # at all. Without one this machine's agent came in over TCP, every
+    # count of local games is 0, and trusting it would swap the gateway
+    # under running games; so then every running game counts.
+    local field=running
+    if grep -qs '^BAYLEE_UNIX_SOCKET=.' /etc/baylee/gateway.env; then
+        field=local_running
+    fi
     curl -fsS -m 5 "$gateway/health" \
-        | python3 -c 'import sys,json; g=json.load(sys.stdin)["games"]; print(g["running"], g["waiting"])' \
+        | FIELD=$field python3 -c 'import os,sys,json; g=json.load(sys.stdin)["games"]; print(g.get(os.environ["FIELD"], g["running"]), g["waiting"])' \
         2>/dev/null || echo "? ?"
 }
 
@@ -83,7 +100,7 @@ finish() {
 
     if [ "$force" != --force ]; then
         if [ "$running" != 0 ]; then
-            log "waiting for ${rev:0:10}: $running game(s) running, $waiting waiting"
+            log "waiting for ${rev:0:10}: $running game(s) running here, $waiting waiting"
             return 0
         fi
         if [ "$waiting" != 0 ] && [ $(( $(date +%s) - since )) -lt $(( room_grace * 60 )) ]; then
@@ -125,7 +142,7 @@ status() {
     echo "deployed: $(cat "$state/deployed" 2>/dev/null || echo -)"
     echo "staged:   $(cat "$state/staged/rev" 2>/dev/null || echo -)"
     echo "release:  $(cat "$state/last-release" 2>/dev/null || echo -)"
-    echo "games:    $(open_games) (running waiting)"
+    echo "games:    $(open_games) (running here, waiting)"
     systemctl is-active baylee-gateway baylee-agent | paste -sd' ' | sed 's/^/services: /'
 }
 

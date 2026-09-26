@@ -17,7 +17,7 @@ secret back in under another spelling.
   "database": true,
   "catalog": { "state": "ready", "cards": true, "projection": true },
   "agents": { "connected": 1, "games": 2 },
-  "games": { "running": 2, "waiting": 0, "seats_awaiting_engine": 0 },
+  "games": { "running": 2, "local_running": 2, "waiting": 0, "seats_awaiting_engine": 0 },
   "version": "0.1.0+build.1057 (257eed7a28)",
   "commit": "257eed7a28df650934f50d4ff2557933d25ad713",
   "built_at": "2026-09-19T15:58:27Z",
@@ -1300,6 +1300,27 @@ agent runs somewhere else. With no agent connected, `POST /lobby/games` answers
 `503`: there is nothing to run the game, and handing out a seat token for a
 table that will never start would be worse.
 
+### On the same machine: the unix socket
+
+With `BAYLEE_UNIX_SOCKET=<path>` the gateway also serves every route on a unix
+socket at that path, beside its TCP port. A file already there is removed
+first, and the socket is made `0660`: whoever shares its owner or group may
+dial it, nobody else on the host may. An agent on the same machine is then
+given `BAYLEE_GATEWAY=unix:<path>`, dials `/agent/ws` on it, and hands its
+engines the same `unix:<path>` as `--attach` instead of `BAYLEE_ENGINE_URL`;
+the engine dials `/engine/ws` on it. `unix:<path>` names the gateway as a
+whole, as an `http://` base does, and `baylee_protocol::unix_socket` is the one
+reader of that spelling. The secrets are unchanged: the socket's permissions
+are a second fence, not a replacement for `BAYLEE_AGENT_TOKEN`.
+
+An agent that came in on the socket is **local**, and so is every game it is
+ordered to run; the game keeps that mark after its agent has gone. `/health`
+counts them apart as `games.local_running`, because that is what a deploy of
+this machine waits for (`scripts/server/baylee-deploy`): replacing this
+machine's agent and engine binary does not end a game an agent elsewhere is
+running. Replacing the gateway still ends every game, local or not, since
+every engine's link runs through it.
+
 ## The curtain: prepare together, enter together (#256)
 
 Protocol **4** separates render readiness, a scheduled entrance and permission
@@ -2109,6 +2130,17 @@ asked over two transports.
 
 `GET /lobby/games` remains, and remains the fallback: a client with no socket
 polls it, which is what the two-second re-read used to be for everybody.
+
+Every listing, pushed or asked for, also says `agents_available`: whether any
+agent is connected, so whether a game can start at all. Without one the lobby
+still lists rooms, and creating or starting a game answers `503`; this field
+lets a client say so before a player presses anything. A full agent still
+counts, because it has room again as soon as a game ends. The feed pushes a
+fresh page when the first agent arrives and when the last one leaves, which is
+also what a deploy looks like from the lobby: it stops this machine's agent
+before it replaces the gateway (`scripts/server/baylee-deploy`). A listing
+without the field comes from an older gateway and means `true`. It is an
+added field, not a new message, so `PROTOCOL_VERSION` does not move.
 
 ## The opening payload, and a client that is not the server
 
