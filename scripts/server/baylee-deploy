@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# Server half of a deploy. Installed as /usr/local/sbin/baylee-deploy from
+# the tree it deploys, so a release also updates how the next one goes.
+#
+#   baylee-deploy stage <rev> [--force]   build <rev>, swap agent + engine, wait
+#   baylee-deploy finish [--force]        swap the gateway once no game is open
+#   baylee-deploy watch                   stage the newest release tag, finish
+#   baylee-deploy status
+#
+# A deploy never ends a game unless told to. It goes in two halves:
+#
+# 1. Stage: build everything, then stop the agent and install the new agent
+#    and engine-server. With the agent stopped the gateway starts no game
+#    (`POST /lobby/games` answers 503), and the games already running go on:
+#    each engine dialled the gateway itself, and the agent's unit has
+#    `KillMode=process`, so stopping it leaves its engines alone.
+# 2. Finish: when `/health` counts no game running and none waiting, install
+#    the gateway, restart it and start the new agent. Until then the agent
+#    stays off and `watch` (a timer, every minute) asks again.
+#
+# `--force` skips the wait and ends whatever is open.
+#
+# A waiting room nobody starts would hold a deploy forever, so rooms alone
+# stop blocking after BAYLEE_DEPLOY_ROOM_GRACE minutes (60). Running games
+# always block.
+set -euo pipefail
+
+src=/opt/baylee/src
+bin=/opt/baylee/bin
+state=/opt/baylee/state
+repo=https://github.com/AceVik/baylee.git
+gateway=http://127.0.0.1:28766
+room_grace=${BAYLEE_DEPLOY_ROOM_GRACE:-60}
+cargo=${CARGO:-$HOME/.cargo/bin/cargo}
+
+log() { echo "baylee-deploy: $*"; logger -t baylee-deploy -- "$*" 2>/dev/null || true; }
+
+# Serialises the timer against a hand-started deploy.
+exec 9>"$state/lock"
+flock -n 9 || { log "another deploy is running"; exit 0; }
+
+open_games() {
+    # Prints "<running> <waiting>"; an unreachable gateway counts as open,
+    # so a gateway that is down is never swapped on a guess.
+    curl -fsS -m 5 "$gateway/health" \
+        | python3 -c 'import sys,json; g=json.load(sys.stdin)["games"]; print(g["running"], g["waiting"])' \
+        2>/dev/null || echo "? ?"
+}
+
+stage() {
+    local rev=$1 force=${2:-}
+    cd "$src"
+    git cat-file -e "$rev^{commit}" 2>/dev/null || git fetch -q --tags "$repo"
+    git checkout -q -f --detach "$rev"
+    git clean -q -fd -e target
+    "$cargo" build --release --locked \
+        -p baylee-gateway -p baylee-agent -p baylee-engine-server -p baylee-catalog 2>&1 | tail -1
+    rev=$(git rev-parse HEAD)
+
+    rm -rf "$state/staged"
+    mkdir -p "$state/staged"
+    cp target/release/{baylee-gateway,baylee-catalog} "$state/staged/"
+    # The gateway reads the house AI's deck from `data/` under its working
+    # directory at run time; without it no game against the AI starts.
+    cp data/acceptance-decks.txt "$state/staged/"
+    echo "$rev" > "$state/staged/rev"
+    date +%s > "$state/staged/since"
+
+    sudo systemctl stop baylee-agent
+    sudo install -m755 target/release/{baylee-agent,baylee-engine-server} "$bin/"
+    sudo install -m755 scripts/server/baylee-deploy /usr/local/sbin/baylee-deploy
+    log "staged ${rev:0:10}: agent and engine installed, agent off until the gateway follows"
+    finish "$force"
+}
+
+finish() {
+    local force=${1:-}
+    [ -f "$state/staged/rev" ] || { log "nothing staged"; return 0; }
+    local rev running waiting since
+    rev=$(cat "$state/staged/rev")
+    read -r running waiting < <(open_games)
+    since=$(cat "$state/staged/since")
+
+    if [ "$force" != --force ]; then
+        if [ "$running" != 0 ]; then
+            log "waiting for ${rev:0:10}: $running game(s) running, $waiting waiting"
+            return 0
+        fi
+        if [ "$waiting" != 0 ] && [ $(( $(date +%s) - since )) -lt $(( room_grace * 60 )) ]; then
+            log "waiting for ${rev:0:10}: $waiting room(s) waiting"
+            return 0
+        fi
+    fi
+
+    sudo install -m755 "$state/staged/"{baylee-gateway,baylee-catalog} "$bin/"
+    sudo install -D -m644 "$state/staged/acceptance-decks.txt" /var/lib/baylee/data/acceptance-decks.txt
+    sudo systemctl restart baylee-gateway
+    for _ in $(seq 20); do curl -fsS -m 2 "$gateway/info" >/dev/null 2>&1 && break; sleep 1; done
+    sudo systemctl start baylee-agent
+    echo "$rev" > "$state/deployed"
+    rm -rf "$state/staged"
+    log "deployed ${rev:0:10} (games running: $running, waiting: $waiting${force:+, forced})"
+    curl -fsS -m 5 "$gateway/info"; echo
+}
+
+watch() {
+    # The newest release tag; stages it once, the first time it is seen.
+    local tag rev
+    tag=$(git ls-remote --tags --refs "$repo" 'v*' 2>/dev/null \
+        | awk '{sub("refs/tags/","",$2); print $2}' | sort -V | tail -1)
+    if [ -n "$tag" ] && [ "$tag" != "$(cat "$state/last-release" 2>/dev/null)" ]; then
+        (cd "$src" && git fetch -q --tags "$repo")
+        rev=$(git -C "$src" rev-parse "$tag^{commit}")
+        echo "$tag" > "$state/last-release"
+        if [ "$rev" != "$(cat "$state/deployed" 2>/dev/null)" ]; then
+            log "release $tag found"
+            stage "$rev"
+            return
+        fi
+    fi
+    finish
+}
+
+status() {
+    echo "deployed: $(cat "$state/deployed" 2>/dev/null || echo -)"
+    echo "staged:   $(cat "$state/staged/rev" 2>/dev/null || echo -)"
+    echo "release:  $(cat "$state/last-release" 2>/dev/null || echo -)"
+    echo "games:    $(open_games) (running waiting)"
+    systemctl is-active baylee-gateway baylee-agent | paste -sd' ' | sed 's/^/services: /'
+}
+
+cmd=${1:-status}; shift || true
+case $cmd in
+    stage) stage "$@" ;;
+    finish) finish "$@" ;;
+    watch) watch ;;
+    status) status ;;
+    *) echo "usage: baylee-deploy stage <rev> [--force] | finish [--force] | watch | status" >&2; exit 2 ;;
+esac

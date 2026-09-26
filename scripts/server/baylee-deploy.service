@@ -1,0 +1,12 @@
+# Installed to /etc/systemd/system/. Runs as the deploy user, whose cargo
+# builds the tree and whose sudo installs binaries and restarts services.
+[Unit]
+Description=Baylee: deploy a new release, or finish a staged one
+After=network-online.target baylee-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=viktor
+ExecStart=/usr/local/sbin/baylee-deploy watch
+Nice=10

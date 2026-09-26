@@ -1,0 +1,9 @@
+[Unit]
+Description=Baylee: look for a release, finish a waiting deploy
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=1min
+
+[Install]
+WantedBy=timers.target
