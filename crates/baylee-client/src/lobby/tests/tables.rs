@@ -4,6 +4,48 @@
 use super::*;
 
 #[test]
+fn an_empty_search_has_a_working_way_back_to_all_tables() {
+    let mut app = headless();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.apply(LobbyEvent::LoggedIn {
+            token: "tok".into(),
+            username: None,
+        });
+        state.lobby.apply(LobbyEvent::Decks(Vec::new()));
+        state.lobby.apply(LobbyEvent::Games(GameListing::default()));
+        state.lobby.set_field(Field::Search, "an absent table");
+    }
+    app.update();
+    assert!(labels(&mut app).contains(&Phrase::NoMatches.text(Lang::En).to_owned()));
+    assert!(
+        !presses(&mut app).contains(&Press::OpenRoom(2)),
+        "no deck, no hosting offer"
+    );
+    tap_control(&mut app, "clear the table search", |p| {
+        *p == Press::ClearSearch
+    });
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .field(Field::Search),
+        ""
+    );
+    // The fresh response restores the first-deck invitation, not an empty
+    // search and not an enabled action that would try to host without a deck.
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .apply(LobbyEvent::Games(GameListing::default()));
+    app.update();
+    assert!(labels(&mut app).contains(&Phrase::EmptyTablesTitle.text(Lang::En).to_owned()));
+    assert!(presses(&mut app).contains(&Press::BrowseHouse));
+    assert!(presses(&mut app).contains(&Press::NewDeck));
+    assert!(!presses(&mut app).contains(&Press::ClearSearch));
+}
+
+#[test]
 fn the_table_screen_builds_once_there_is_a_deck() {
     let mut app = headless();
     {

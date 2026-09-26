@@ -1116,6 +1116,11 @@ pub(super) fn clicks(
                 let request = state.lobby.search_again();
                 dispatch(&mut state, &mailbox, request);
             }
+            Press::ClearSearch => {
+                state.lobby.set_field(Field::Search, "");
+                let request = state.lobby.search_again();
+                dispatch(&mut state, &mailbox, request);
+            }
             Press::Page(forwards) => {
                 let request = state.lobby.page(forwards);
                 dispatch(&mut state, &mailbox, request);
@@ -1817,6 +1822,8 @@ pub(crate) enum Press {
     Refresh,
     /// Read the table list again for whatever the search box says.
     Search,
+    /// Clear a table search and return to its first page.
+    ClearSearch,
     /// Step one page through the table list. `true` is forwards.
     Page(bool),
     /// Pick a deck by its index in the list.

@@ -333,7 +333,11 @@ Urheber- und Medienrecht.
     in three centred sentence lines. Clause 2 was checked again directly:
     “Tell the Community it’s unofficial.” A regression test compares the quoted
     notice after whitespace normalization. Water/cloud shader geometry and the
-    shared lobby/editor view use only the existing original project artwork.
+    shared lobby/editor view use only the existing original project artwork. The
+    later empty-state card backs are original UI geometry (rounded rectangles
+    and diamond inlays), with no card images or third-party emblems. The same
+    policy's “Please respect other people's IP.” was checked directly for this
+    addition; the notice, bundled font licences and source link are retained.
     Checked the [Scryfall API and image rules](https://scryfall.com/docs/api)
     directly (HTTP fetch after the browser returned 403): “Do not add your own
     watermarks, stamps, or logos to card images.” This logo and scene never

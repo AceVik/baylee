@@ -108,12 +108,12 @@ impl Metrics {
             },
             Frame::Desktop => Self {
                 frame: Frame::Desktop,
-                text: 15.0,
-                head: 20.0,
-                small: 12.0,
-                tap: 38.0,
-                pad: 18.0,
-                gap: 9.0,
+                text: 16.0,
+                head: 22.0,
+                small: 12.5,
+                tap: 44.0,
+                pad: 20.0,
+                gap: 12.0,
             },
         }
     }
@@ -128,7 +128,7 @@ impl Metrics {
         match self.frame {
             Frame::Phone => percent(100),
             Frame::Tablet => px(280),
-            Frame::Desktop => px(330),
+            Frame::Desktop => px(360),
         }
     }
 }
@@ -396,12 +396,39 @@ fn table(
     let lang = lobby.lang();
     let phone = metrics.frame == Frame::Phone;
 
+    if phone {
+        commands.entity(root).insert((
+            Scrollable(List::Table),
+            ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
+        ));
+    }
+
+    // A wide monitor frames the lobby; it must not pull related tools apart.
+    let frame = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                max_width: px(1480),
+                height: if phone { Val::Auto } else { percent(100) },
+                min_height: if phone { percent(100) } else { px(0) },
+                flex_shrink: 0.0,
+                align_self: AlignSelf::Center,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(root).add_child(frame);
+    let root = frame;
+
     // ---- top bar
     let bar = commands
         .spawn((
             Node {
                 width: percent(100),
                 min_height: px(metrics.tap + metrics.pad),
+                flex_shrink: 0.0,
                 align_items: AlignItems::Center,
                 column_gap: px(metrics.gap),
                 row_gap: px(6),
@@ -497,6 +524,7 @@ fn table(
                 Node {
                     width: percent(100),
                     align_items: AlignItems::Center,
+                    flex_shrink: 0.0,
                     padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.5)),
                     ..default()
                 },
@@ -536,6 +564,7 @@ fn table(
                 Node {
                     width: percent(100),
                     align_items: AlignItems::Center,
+                    flex_shrink: 0.0,
                     padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.5)),
                     ..default()
                 },
@@ -558,8 +587,11 @@ fn table(
     let navigation = row(commands, metrics, true);
     commands.entity(navigation).insert(Node {
         width: percent(100),
+        align_items: AlignItems::Center,
+        flex_shrink: 0.0,
         padding: UiRect::axes(px(metrics.pad), px(6)),
         column_gap: px(metrics.gap),
+        row_gap: px(metrics.gap * 0.5),
         flex_wrap: FlexWrap::Wrap,
         ..default()
     });
@@ -601,6 +633,7 @@ fn table(
         .spawn((
             Node {
                 width: percent(100),
+                min_height: px(0),
                 flex_grow: 1.0,
                 flex_direction: if metrics.stacked() {
                     FlexDirection::Column
@@ -612,7 +645,11 @@ fn table(
                 padding: UiRect::all(px(metrics.pad)),
                 // A phone runs out of height long before it runs out of
                 // games; without this the list is simply cut off.
-                overflow: Overflow::scroll_y(),
+                overflow: if phone {
+                    Overflow::visible()
+                } else {
+                    Overflow::scroll_y()
+                },
                 ..default()
             },
             Scrollable(List::Table),
@@ -620,6 +657,11 @@ fn table(
         ))
         .id();
     commands.entity(root).add_child(body);
+    if phone {
+        commands
+            .entity(body)
+            .remove::<(Scrollable, ScrollPosition)>();
+    }
 
     // ---- decks
     let decks = panel(
@@ -656,11 +698,40 @@ fn table(
         true,
     );
     commands.entity(deck_tools).add_child(new_deck);
-    commands.entity(decks).add_child(deck_tools);
+    if lobby.decks().is_empty() {
+        commands.entity(deck_tools).despawn();
+    } else {
+        commands.entity(decks).add_child(deck_tools);
+    }
     let deck_grid = row(commands, metrics, true);
     commands.entity(decks).add_child(deck_grid);
     if lobby.decks().is_empty() {
-        let empty = note(commands, fonts, metrics, Phrase::NoOwnDecks.text(lang));
+        let empty = super::empty::state(
+            commands,
+            fonts,
+            metrics,
+            Phrase::FirstDeck.text(lang),
+            Phrase::NoOwnDecks.text(lang),
+        );
+        let action = button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::HouseDecks.text(lang),
+            Press::BrowseHouse,
+            palette::ACCENT,
+            !lobby.busy(),
+        );
+        let build = button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::NewDeck.text(lang),
+            Press::NewDeck,
+            palette::PANEL_LIT,
+            true,
+        );
+        commands.entity(empty).add_children(&[action, build]);
         commands.entity(decks).add_child(empty);
     }
     for (index, deck) in lobby.decks().iter().enumerate() {
@@ -787,10 +858,16 @@ fn table(
         .id();
     let head = heading(commands, fonts, metrics, Phrase::Tables.text(lang));
     commands.entity(head_row).add_child(head);
-    if !phone {
-        let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
-        commands.entity(head_row).add_child(gap);
-    }
+    commands.entity(games).add_child(head_row);
+    let search_tools = row(commands, metrics, true);
+    commands
+        .entity(search_tools)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.align_items = AlignItems::FlexEnd;
+            node.column_gap = px(metrics.gap);
+            node.row_gap = px(metrics.gap);
+        });
     // The search box sits with the buttons rather than over the list,
     // because on a phone the list is the screen and a bar above it is the
     // only place a control can be without pushing a table off the bottom.
@@ -804,7 +881,10 @@ fn table(
         let hunt = commands
             .spawn((
                 Node {
-                    width: px(metrics.tap * 4.0),
+                    width: px(280),
+                    max_width: percent(100),
+                    flex_grow: 1.0,
+                    min_width: px(0),
                     ..default()
                 },
                 Pickable::IGNORE,
@@ -826,7 +906,7 @@ fn table(
             },
         );
         commands.entity(hunt).add_child(box_);
-        commands.entity(head_row).add_child(hunt);
+        commands.entity(search_tools).add_child(hunt);
     }
     let mut controls = Vec::new();
     if !alone {
@@ -848,10 +928,23 @@ fn table(
     }
     for (label, press, tone) in controls {
         let b = button(commands, fonts, metrics, label, press, tone, !lobby.busy());
-        commands.entity(head_row).add_child(b);
+        commands.entity(search_tools).add_child(b);
     }
-    commands.entity(games).add_child(head_row);
+    if alone {
+        commands.entity(search_tools).despawn();
+    } else {
+        commands.entity(games).add_child(search_tools);
+    }
     let creation = row(commands, metrics, true);
+    commands
+        .entity(creation)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.align_items = AlignItems::FlexEnd;
+            node.column_gap = px(metrics.gap);
+            node.row_gap = px(metrics.gap);
+            node.margin.top = px(metrics.gap);
+        });
     let play = button(
         commands,
         fonts,
@@ -861,7 +954,11 @@ fn table(
         palette::ACCENT,
         !lobby.busy() && lobby.selected().is_some(),
     );
-    commands.entity(creation).add_child(play);
+    if lobby.selected().is_some() {
+        commands.entity(decks).add_child(play);
+    } else {
+        commands.entity(play).despawn();
+    }
     // One box, two uses: it locks a room the moment it is opened, and it is
     // what a locked room is joined with. They are never both wanted at once,
     // and two boxes a player has to tell apart would be worse than one that
@@ -870,7 +967,9 @@ fn table(
         let lock = commands
             .spawn((
                 Node {
-                    width: px(metrics.tap * 4.0),
+                    width: px(220),
+                    max_width: percent(100),
+                    flex_grow: 1.0,
                     ..default()
                 },
                 Pickable::IGNORE,
@@ -930,21 +1029,65 @@ fn table(
         palette::PANEL_LIT,
         !lobby.busy() && lobby.selected().is_some(),
     );
+    let chairs = row(commands, metrics, false);
     commands
-        .entity(creation)
-        .add_children(&[fewer, size, more, create]);
-    commands.entity(games).add_child(creation);
+        .entity(chairs)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.width = Val::Auto;
+            node.height = px(metrics.tap);
+            node.flex_shrink = 0.0;
+            node.column_gap = px(metrics.gap * 0.5);
+        });
+    commands.entity(chairs).add_children(&[fewer, size, more]);
+    commands.entity(creation).add_children(&[chairs, create]);
+    if lobby.selected().is_some() {
+        commands.entity(games).add_child(creation);
+    } else {
+        commands.entity(creation).despawn();
+    }
 
     if lobby.games().is_empty() {
         // An empty lobby and an empty search are different news: one says
         // open a table, the other says the tables are elsewhere.
         let hunt = lobby.field(Field::Search).trim();
-        let said = if hunt.is_empty() {
-            Phrase::NoTablesOpen.text(lang).to_string()
+        let (title, said, action, press) = if !hunt.is_empty() {
+            (
+                Phrase::NoMatches,
+                Phrase::NoTableMatches.fill(lang, &[hunt]),
+                Phrase::ClearTableSearch,
+                Press::ClearSearch,
+            )
+        } else if lobby.selected().is_none() {
+            (
+                Phrase::EmptyTablesTitle,
+                Phrase::ChooseDeckToBegin.text(lang).to_string(),
+                Phrase::HouseDecks,
+                Press::BrowseHouse,
+            )
         } else {
-            Phrase::NoTableMatches.fill(lang, &[hunt])
+            (
+                Phrase::EmptyTablesTitle,
+                Phrase::NoTablesOpen.text(lang).to_string(),
+                Phrase::CreateTable,
+                Press::OpenRoom(state.room_chairs),
+            )
         };
-        let empty = note(commands, fonts, metrics, &said);
+        let empty = super::empty::state(commands, fonts, metrics, title.text(lang), &said);
+        // With a selected deck, the adjacent room form already owns its
+        // submit. Do not duplicate that action in the empty list below it.
+        if !hunt.is_empty() || lobby.selected().is_none() {
+            let action = button(
+                commands,
+                fonts,
+                metrics,
+                action.text(lang),
+                press,
+                palette::ACCENT,
+                !lobby.busy(),
+            );
+            commands.entity(empty).add_child(action);
+        }
         commands.entity(games).add_child(empty);
     }
     for (index, game) in lobby.games().iter().enumerate() {
@@ -1685,6 +1828,7 @@ pub(crate) fn text_field(
             Node {
                 width: percent(100),
                 min_height: px(metrics.tap),
+                overflow: Overflow::clip_x(),
                 align_items: AlignItems::Center,
                 padding: UiRect::axes(px(metrics.pad * 0.7), px(6)),
                 // Two pixels whether or not it has the caret, so that taking
@@ -1729,8 +1873,11 @@ pub(crate) fn text_field(
             .spawn((
                 Text::new(words.to_string()),
                 tf(fonts, metrics.text),
+                TextLayout::no_wrap(),
                 TextColor(palette::MUTED),
                 Node {
+                    min_width: px(0),
+                    overflow: Overflow::clip_x(),
                     flex_shrink: 1.0,
                     ..default()
                 },
@@ -1762,8 +1909,7 @@ pub(crate) fn text_field(
             commands.entity(boxed).add_child(button);
         }
     }
-    commands.entity(column).add_child(caption);
-    commands.entity(column).add_child(boxed);
+    commands.entity(column).add_children(&[caption, boxed]);
     column
 }
 
@@ -1974,6 +2120,12 @@ pub(crate) fn button(
         metrics.tap,
         metrics.text,
     );
+    commands
+        .entity(id)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.justify_content = JustifyContent::Center;
+        });
     if enabled && (tone == palette::ACCENT || tone == palette::ACTIVE) {
         super::button_style::primary(commands, id);
     }
@@ -1998,7 +2150,11 @@ pub(crate) fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow:
                 // wider than the window silently pushed the window's edge
                 // instead of letting that row wrap. Seven table sizes made
                 // that visible; two never had.
-                flex_shrink: if grow > 0.0 { 1.0 } else { 0.0 },
+                flex_shrink: if grow > 0.0 && !metrics.stacked() {
+                    1.0
+                } else {
+                    0.0
+                },
                 min_width: px(0),
                 // Height comes from the content, with the screen as a floor.
                 // Stretched to the row instead — which is what a flex item
@@ -2006,7 +2162,11 @@ pub(crate) fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow:
                 // rows carry on past the bottom of it, so a scrolled list
                 // leaves the panel behind and is drawn on the backdrop.
                 align_self: AlignSelf::Start,
-                min_height: percent(100),
+                min_height: if metrics.stacked() {
+                    px(0)
+                } else {
+                    percent(100)
+                },
                 flex_direction: FlexDirection::Column,
                 row_gap: px(metrics.gap * 0.8),
                 padding: UiRect::all(px(metrics.pad * 1.5)),
@@ -2179,6 +2339,32 @@ fn front_door(
     );
     let stage = super::front::stage(commands, state, cast, fonts, metrics, scrolled_to);
     let colophon = super::front::colophon(commands, state, fonts, metrics);
-    commands.entity(page).add_children(&[brand, tagline, stage]);
+    // Auto margins consume spare height, but collapse to zero when the form
+    // needs to scroll. `justify-content: center` would hide its top on overflow.
+    let composition = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                flex_shrink: 0.0,
+                row_gap: px(metrics.pad),
+                margin: UiRect::vertical(if metrics.frame == Frame::Phone {
+                    px(0)
+                } else {
+                    Val::Auto
+                }),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands
+        .entity(tagline)
+        .insert(TextLayout::justify(Justify::Center));
+    commands
+        .entity(composition)
+        .add_children(&[brand, tagline, stage]);
+    commands.entity(page).add_child(composition);
     commands.entity(root).add_child(colophon);
 }

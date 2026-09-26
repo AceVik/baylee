@@ -3298,6 +3298,26 @@ only when it passes `gateway_info::web_address` again at the door
 answer is the thing being drawn; otherwise the line stays plain text.
 `docs/legal.md` §6 is the reason for the line.
 
+**Framing and empty states.** The front-door composition uses vertical auto
+margins above the fixed legal footer on tablet and desktop. Spare height centres
+the logo and form together; when height runs out, the margins collapse and the
+whole form remains reachable by scrolling. Phones start at the top. Desktop
+forms are 600 logical pixels wide, with 44-pixel controls; the gateway save
+button keeps its intrinsic label width instead of wrapping into a taller key.
+
+The lobby has a centred 1480-pixel maximum width. Its heading, search tools and
+room form are separate rows; captioned fields and buttons align at their bottom
+edges, placeholders stay on one line, and the seat count stays together. The
+non-scrolling headers do not shrink over one another. Phones scroll the whole
+lobby, with panels sized to their content; desktops scroll the panel area.
+
+`lobby::empty` draws three original geometric card backs above a centred title,
+explanation and context-appropriate actions. A new collection offers house decks
+or a new deck; hosting controls appear after choosing a deck. An unsuccessful
+table search has a distinct explanation and `Press::ClearSearch`, which empties
+the query and requests the first unfiltered page. A selected deck keeps just one
+room-submit control rather than repeating it in the empty listing.
+
 **Playing as a guest** (#269; `docs/protocol.md` §"Playing as a guest").
 When the chosen gateway's `/auth/config` says `guests_enabled`, the sign-in
 face draws the guest's way in first, above the tabs and ruled off from them:
@@ -3484,7 +3504,7 @@ cannot stand clear of the form; Baylee remains in the logo.
 including beneath the authenticated arrival flight. It uses quieter pointer
 motion, fewer visible motes, a slightly closer view and a 32% reading-light
 reduction. Lobby/editor panels keep their gold tooling while their material
-opacity grades from 90% to 80%; the fallback fill is removed only after that
+opacity grades from 96% to 92%; the fallback fill is removed only after that
 material exists. Thus translucent panels do not accidentally stack over a second
 opaque background. Front-door panels retain their original density.
 

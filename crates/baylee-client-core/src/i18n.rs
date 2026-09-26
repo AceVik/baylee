@@ -177,6 +177,16 @@ messages! {
     PlayerCount { en: "{0} players", de: "{0} Spieler" },
     /// Hub navigation.
     NoOwnDecks { en: "Start with a house deck or build your own.", de: "Starte mit einem Hausdeck oder baue dein eigenes." },
+    /// Empty collection heading.
+    FirstDeck { en: "Your first deck", de: "Dein erstes Deck" },
+    /// Empty table listing heading.
+    EmptyTablesTitle { en: "A place for your next game", de: "Platz für dein nächstes Spiel" },
+    /// A new player needs a deck before hosting a game.
+    ChooseDeckToBegin { en: "Choose a deck to open a table with friends or play against the house.", de: "Wähle ein Deck, um einen Tisch mit Freunden zu eröffnen oder gegen das Haus zu spielen." },
+    /// A table search returned no rows.
+    NoMatches { en: "No matching tables", de: "Keine passenden Tische" },
+    /// Clear a table search to see the unfiltered listing.
+    ClearTableSearch { en: "Show all tables", de: "Alle Tische anzeigen" },
     /// Hub navigation.
     CollectionHint { en: "Your decks, your ideas. Every saved change stays in your history.", de: "Deine Decks, deine Ideen. Jede gespeicherte Änderung bleibt in deiner Historie." },
     /// Gateway selection.
@@ -430,8 +440,8 @@ messages! {
     OpenATableFor { en: "Open a table for", de: "Tisch eröffnen für" },
     /// Shown in place of an empty table list.
     NoTablesOpen {
-        en: "no tables are open — start one",
-        de: "keine Tische offen — eröffne einen",
+        en: "The tables are quiet for now. Open yours and invite someone to play.",
+        de: "Noch sind alle Tische frei. Eröffne deinen und lade jemanden zum Spielen ein.",
     },
     /// Shown when a search matched nothing. `{0}` is what was searched for.
     NoTableMatches {

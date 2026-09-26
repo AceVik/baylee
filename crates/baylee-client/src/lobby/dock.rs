@@ -46,9 +46,10 @@ pub(super) fn materialize(
             // Keep the hand's full tooling and five inlays, with a dense
             // reading surface rather than the hand's transparent bottom edge.
             material.params.ramp = if (3..=6).contains(&slot.0) {
-                // A quiet reading surface above the same garden, with more
-                // of its depth visible below the controls and headings.
-                Vec4::new(36.0, 0.90, 0.80, 0.0)
+                // The top engraving belongs to the rim: these headings have
+                // responsive heights, unlike the front door's fixed header.
+                // A shoulder at 44 px cuts straight through larger type.
+                Vec4::new(0.0, 0.96, 0.92, 0.0)
             } else {
                 Vec4::new(36.0, GROUND_DENSITY, GROUND_DENSITY, 0.0)
             };

@@ -93,7 +93,7 @@ fn card_width(frame: Frame) -> Val {
     match frame {
         Frame::Phone => percent(100),
         Frame::Tablet => px(480),
-        Frame::Desktop => px(520),
+        Frame::Desktop => px(600),
     }
 }
 
@@ -1331,7 +1331,8 @@ fn gateway_face(
             .entity(save)
             .entry::<Node>()
             .and_modify(|mut node| {
-                node.width = px(150);
+                node.width = Val::Auto;
+                node.min_width = px(150);
                 node.justify_content = JustifyContent::Center;
             });
         commands.entity(add).add_children(&[field, save]);

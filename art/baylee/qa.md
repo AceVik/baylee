@@ -1,5 +1,37 @@
 # Verification · 26 September 2026
 
+## Login and lobby layout refinement
+
+Three native visual passes, with a final typography pass, using a disposable
+loopback gateway and a separate client profile:
+
+1. Centred the logo/form composition on tall displays, widened desktop forms,
+   kept the gateway-save label on one line, bounded the lobby to 1480 px and
+   separated its heading, search tools and room controls. Replaced bare empty
+   notices with original card-back ornaments, explanations and useful actions.
+2. Compared actual 1920×1080 and 2560×1440 renders. Increased panel density,
+   removed premature hosting controls without a deck, and verified the search
+   reset by clicking through no-results back to the unfiltered empty listing.
+3. The 390×844 render exposed overlapping header/guest bands. Prevented header
+   shrinking and made phones scroll the full lobby, with content-sized panels.
+   Moved the interior panel's engraved shoulder to its rim so larger headings
+   no longer cross a decorative rule.
+
+- Final notice/source bounds remain inside and centred in all eight native
+  viewport sizes: **2560×1440, 1920×1080, 1280×768, 900×700, 390×844,
+  320×568, 844×390 and 320×320**. The smallest view also passed guest entry,
+  scrolling to search, submitting it and clearing it. Its footer remains fixed.
+- Measured search/input/button centre heights match within 1 logical pixel on
+  desktop. A populated fixture with one deck and one open table also verified
+  password, chair count and room-submit alignment at 1280 and 1920 px.
+- Client: **1,056 tests passed, 2 intentional ignores**. Client core:
+  **1,005 passed**. Clippy (all client targets, dev-control/dev-reload, warnings
+  denied), formatting and wasm compilation passed. The new regression presses
+  the no-results recovery and checks that no hosting action is offered without
+  a deck. Existing arrival-input and offline-game tests pass as well.
+- No account data or real tables were changed during visual testing. These are
+  native simulated viewport checks, not a mobile-device performance benchmark.
+
 ## Spatial garden / shared interiors follow-up
 
 - Kept the painted architecture and added analytical 3D water intersections,
