@@ -138,4 +138,7 @@ jobs:
           Every binary names its commit and CI run in its build stamp. The run number is this workflow's, not \`ci\`'s.
           EOF
           ls -l out
-          gh release create "$GITHUB_REF_NAME" out/* --verify-tag --title "Baylee $VERSION" --notes-file notes.md --generate-notes
+          # A version with a pre-release part (`0.1.0-beta.1`) is published as a
+          # pre-release, so GitHub does not offer it as the latest stable build.
+          pre=; case $VERSION in *-*) pre=--prerelease ;; esac
+          gh release create "$GITHUB_REF_NAME" out/* --verify-tag $pre --title "Baylee $VERSION" --notes-file notes.md --generate-notes
