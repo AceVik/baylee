@@ -180,7 +180,13 @@ pub fn gateway_url() -> String {
         if let Some(url) = option_env!("BAYLEE_GATEWAY").filter(|url| !url.is_empty()) {
             return trim_url(url);
         }
-        "http://127.0.0.1:28766".to_string()
+        // Nothing configured: a release plays at the live gateway, a debug
+        // build at the developer's own.
+        if cfg!(debug_assertions) {
+            "http://127.0.0.1:28766".to_string()
+        } else {
+            baylee_client_core::lobby::gateway_list::PINNED.to_string()
+        }
     }
     #[cfg(target_arch = "wasm32")]
     {

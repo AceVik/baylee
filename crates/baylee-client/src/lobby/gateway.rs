@@ -2,6 +2,7 @@
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::*;
 use baylee_client_core::lobby::gateway_info::Warning;
+use baylee_client_core::lobby::gateway_list;
 
 /// Accept only an HTTP(S) origin/base path, with no embedded credentials.
 pub(super) fn normalize(value: &str) -> Option<String> {
@@ -70,8 +71,11 @@ impl LobbyState {
     }
 
     /// Removes a saved gateway, with what this device knew about it.
+    /// The pinned gateway stays (`gateway_list::forget` refuses it).
     pub(super) fn forget_gateway(&mut self, url: &str) {
-        self.gateways.retain(|saved| saved != url);
+        if !gateway_list::forget(&mut self.gateways, url) {
+            return;
+        }
         self.probes.remove(url);
         self.uses.forget(url);
         self.gateway_cursor = None;
@@ -211,6 +215,10 @@ fn row_words(url: &str, probe: Option<&Probe>, lang: Lang) -> RowWords {
             Phrase::GatewayCheckingShort.text(lang).to_string(),
         ),
     };
+    // The pinned gateway is named before it has answered: it is ours, and
+    // its name is known.
+    let name = name
+        .or_else(|| gateway_list::is_pinned(url).then(|| gateway_list::PINNED_NAME.to_string()));
     let (title, address) = match name {
         Some(name) => (name, Some(url.to_string())),
         None => (url.to_string(), None),
@@ -455,8 +463,10 @@ fn gateway_row(
         ))
         .id();
     commands.entity(row).add_child(control);
-    let bin = bin(commands, fonts, metrics, lang, index, enabled);
-    commands.entity(row).add_child(bin);
+    // No bin for the live gateway: `gateway_list::forget` refuses it.
+    let bin = (!gateway_list::is_pinned(url))
+        .then(|| bin(commands, fonts, metrics, lang, index, enabled));
+    commands.entity(row).add_children(bin.as_slice());
     row
 }
 

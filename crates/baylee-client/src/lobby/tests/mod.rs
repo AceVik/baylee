@@ -89,6 +89,12 @@ fn headless() -> App {
         state.gateway_selected = true;
         state.lobby.set_gateway_ready(true);
         state.lobby.set_registration_enabled(true);
+        // The live gateway is in every list, and its `/info` answer would
+        // land the same way: marked as asked, it is never asked.
+        state.probes.insert(
+            baylee_client_core::lobby::gateway_list::PINNED.to_string(),
+            Probe::Asking,
+        );
     }
     app.update();
     settle(&mut app);

@@ -12,6 +12,7 @@
 //! request is not it.
 
 pub mod gateway_info;
+pub mod gateway_list;
 pub mod gateway_use;
 pub mod library;
 pub mod room;

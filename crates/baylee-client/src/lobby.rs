@@ -29,6 +29,7 @@ use baylee_client_core::filterdialog::FilterPanel;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
 use baylee_client_core::lobby::gateway_info::Probe;
+use baylee_client_core::lobby::gateway_list;
 use baylee_client_core::lobby::{
     Field, GameMode, GameQuery, GameSummary, Lobby, LobbyEvent, LobbyRequest, MAX_CHAIRS,
     MIN_CHAIRS, Screen, SeatKind, Tab, Tone,
@@ -325,20 +326,30 @@ impl LobbyState {
         }
         lobby.set_gateway_ready(false);
         lobby.set_registration_enabled(false);
-        lobby.set_field(Field::Gateway, &crate::settings::gateway_url());
-        let mut gateways: Vec<String> = stored
-            .gateways
-            .into_iter()
-            .filter_map(|g| gateway::normalize(&g))
-            .collect();
+        let mut gateways = gateway_list::with_pinned(
+            stored
+                .gateways
+                .into_iter()
+                .filter_map(|g| gateway::normalize(&g))
+                .collect(),
+        );
+        // The address field offers the configured gateway to save, unless
+        // it is saved already (in a release that is the pinned one).
+        let configured = crate::settings::gateway_url();
+        if !gateways.contains(&configured) {
+            lobby.set_field(Field::Gateway, &configured);
+        }
         // Ordered once, here, and not while the list is on screen: a row
         // that moved under the pointer would be a row chosen by mistake.
         stored.gateway_uses.order(&mut gateways);
+        // A release puts the keyboard's row on the live gateway, so Enter
+        // plays there; choosing is still the player's step.
+        let gateway_cursor = gateway_list::preselected(&gateways, !cfg!(debug_assertions));
         Self {
             gateways,
             uses: stored.gateway_uses,
             guests: stored.guests,
-            gateway_cursor: None,
+            gateway_cursor,
             front_menu: false,
             source_code: None,
             art_cache: false,

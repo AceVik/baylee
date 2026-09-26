@@ -716,7 +716,8 @@ fn issue_187_no_account_request_without_an_explicit_gateway() {
     assert!(!presses(&mut app).contains(&Press::Submit));
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
-        assert!(state.select_gateway(1));
+        // The pinned live gateway leads the list.
+        assert!(state.select_gateway(2));
         assert_eq!(state.gateway, "https://two.example");
         assert!(state.lobby.field(Field::Password).is_empty());
         state
@@ -761,7 +762,13 @@ fn issue_187_saved_gateways_round_trip_without_selecting_one() {
         let asked = state.check_gateway().expect("an address");
         state.gateway_answered(asked, Probe::Older);
     }
-    assert_eq!(state.gateways, ["https://example.test"]);
+    assert_eq!(
+        state.gateways,
+        [
+            baylee_client_core::lobby::gateway_list::PINNED,
+            "https://example.test"
+        ]
+    );
     assert!(!state.gateway_selected, "saving is not selecting");
     let settings = crate::settings::ClientSettings {
         gateways: state.gateways.clone(),
@@ -836,8 +843,9 @@ fn an_address_is_saved_only_once_a_gateway_answers_there() {
         .set_field(Field::Gateway, "https://typo.example/");
     let asked = state.check_gateway().expect("an address");
     assert_eq!(asked, "https://typo.example");
-    assert!(
-        state.gateways.is_empty(),
+    assert_eq!(
+        state.gateways,
+        [baylee_client_core::lobby::gateway_list::PINNED],
         "nothing is saved before the answer"
     );
 
@@ -849,7 +857,10 @@ fn an_address_is_saved_only_once_a_gateway_answers_there() {
     );
 
     assert!(!state.gateway_answered(asked, Probe::Silent));
-    assert!(state.gateways.is_empty());
+    assert_eq!(
+        state.gateways,
+        [baylee_client_core::lobby::gateway_list::PINNED]
+    );
     assert_eq!(state.adding, None);
     assert_eq!(state.lobby.tone(), Tone::Refusal);
     assert!(state.lobby.status().contains("https://typo.example"));
@@ -864,7 +875,13 @@ fn an_address_is_saved_only_once_a_gateway_answers_there() {
     let asked = state.check_gateway().expect("an address");
     let newer = gateway_info(None, "9.9.9", baylee_view::VIEW_VERSION + 1);
     assert!(state.gateway_answered(asked, newer));
-    assert_eq!(state.gateways, ["https://typo.example"]);
+    assert_eq!(
+        state.gateways,
+        [
+            baylee_client_core::lobby::gateway_list::PINNED,
+            "https://typo.example"
+        ]
+    );
     assert!(state.lobby.field(Field::Gateway).is_empty());
     assert_eq!(state.lobby.tone(), Tone::Note);
 }
@@ -895,11 +912,14 @@ fn the_save_button_waits_for_the_answer_the_mailbox_brings() {
     app.update();
     assert_eq!(
         app.world().resource::<LobbyState>().gateways,
-        ["https://new.example"]
+        [
+            baylee_client_core::lobby::gateway_list::PINNED,
+            "https://new.example"
+        ]
     );
     let pressable = presses(&mut app);
     assert!(pressable.contains(&Press::AddGateway));
-    assert!(pressable.contains(&Press::SelectGateway(0)));
+    assert!(pressable.contains(&Press::SelectGateway(1)));
     let drawn = labels(&mut app);
     assert!(drawn.iter().any(|l| l == "New Hall"), "the name leads");
     assert!(
