@@ -343,10 +343,10 @@ fn fetch(
     // with it, at the gateway's next sweep. Said to the player it would be a
     // refusal on a form that has just been left.
     if matches!(expect, Expect::LoggedOut) {
-        ehttp::fetch(request, |_| {});
+        crate::transport::fetch(request, |_| {});
         return;
     }
-    ehttp::fetch(request, move |result| {
+    crate::transport::fetch(request, move |result| {
         let reply = match result {
             Ok(response) if response.ok => Reply::Event(decode(lang, expect, &response)),
             // Only a *signed* 401 means the token is spent; on the sign-in
@@ -594,7 +594,7 @@ pub(super) fn probe_registration(state: &LobbyState, mailbox: &Mailbox) {
     let url = format!("{gateway}/auth/config");
     let pending = Arc::clone(&state.auth_probes);
     pending.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    ehttp::fetch(
+    crate::transport::fetch(
         ehttp::Request::get(&url).with_timeout(Some(PROBE_TIMEOUT)),
         move |result| {
             pending.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
@@ -647,12 +647,12 @@ pub(super) const PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_
 pub(super) fn probe_gateway(url: String, mailbox: &Mailbox) {
     let box_ = Arc::clone(&mailbox.0);
     let (info, older) = probe_requests(&url);
-    ehttp::fetch(info, move |answer| {
+    crate::transport::fetch(info, move |answer| {
         if let Some(probe) = read_info(&answer) {
             post_probe(&box_, url, probe);
             return;
         }
-        ehttp::fetch(older, move |answer| {
+        crate::transport::fetch(older, move |answer| {
             post_probe(&box_, url, read_older(&answer));
         });
     });

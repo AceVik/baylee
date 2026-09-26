@@ -132,7 +132,7 @@ impl Prefs {
         request
             .headers
             .insert("authorization", format!("Bearer {token}"));
-        ehttp::fetch(request, move |result| {
+        crate::transport::fetch(request, move |result| {
             let prefs = match result {
                 Ok(response) if response.ok => response.text().map(Preferences::from_json),
                 Ok(response) => {
@@ -186,7 +186,7 @@ impl Prefs {
             ("Content-Type", "application/json"),
             ("Authorization", &format!("Bearer {token}")),
         ]);
-        ehttp::fetch(request, |result| match result {
+        crate::transport::fetch(request, |result| match result {
             Ok(response) if response.ok => {}
             Ok(response) => bevy::log::warn!(status = response.status, "settings not saved"),
             Err(err) => bevy::log::info!("settings not saved: {err}"),

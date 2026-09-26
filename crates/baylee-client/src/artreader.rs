@@ -258,13 +258,10 @@ pub fn cache_home() -> Option<PathBuf> {
 
 /// The one client every picture is fetched with.
 static AGENT: LazyLock<ureq::Agent> = LazyLock::new(|| {
-    use ureq::tls::{RootCerts, TlsConfig};
+    // The system's trust store in a release, any certificate in a debug
+    // build, like every other request (`crate::transport`).
     ureq::Agent::config_builder()
-        .tls_config(
-            TlsConfig::builder()
-                .root_certs(RootCerts::PlatformVerifier)
-                .build(),
-        )
+        .tls_config(crate::transport::tls(true))
         .user_agent(crate::cardtext::scryfall::AGENT)
         .timeout_connect(Some(Duration::from_secs(10)))
         .timeout_global(Some(Duration::from_secs(30)))

@@ -97,7 +97,7 @@ pub(super) fn update(
     local.pending = Some(answer);
     local.next_request = time.elapsed_secs_f64() + 0.3;
     let lang = lang.to_string();
-    ehttp::fetch(request, move |response| {
+    crate::transport::fetch(request, move |response| {
         // The gateway's own rule over Scryfall's rows, as the game's door
         // reads them, filed under the printing the deck builder asked about.
         let mut entries: Vec<CardTextEntry> = response

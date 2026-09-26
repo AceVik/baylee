@@ -485,7 +485,7 @@ pub fn request(
     };
     let slot: Slot = Arc::default();
     let target = Arc::clone(&slot);
-    ehttp::fetch(request, move |result| {
+    crate::transport::fetch(request, move |result| {
         let reply = match result {
             Ok(response) if response.ok => response
                 .text()
@@ -578,7 +578,7 @@ fn ask_scryfall(texts: &mut CardTexts, view: &PlayerView, now: f64) {
     let lang = texts.lang.clone();
     let slot: Slot = Arc::default();
     let target = Arc::clone(&slot);
-    ehttp::fetch(request, move |result| {
+    crate::transport::fetch(request, move |result| {
         let reply = match result {
             Ok(response) if response.ok => Reply::Answered(
                 response

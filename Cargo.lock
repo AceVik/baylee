@@ -848,6 +848,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "prost",
  "qrcodegen",
+ "rustls",
  "send_wrapper",
  "serde",
  "serde_json",
@@ -856,6 +857,7 @@ dependencies = [
  "time",
  "tokio",
  "tokio-tungstenite 0.30.0",
+ "tungstenite 0.24.0",
  "ureq",
  "url",
  "uuid",
@@ -863,6 +865,7 @@ dependencies = [
  "web-sys",
  "web-time",
  "webbrowser",
+ "webpki-roots 1.0.9",
 ]
 
 [[package]]

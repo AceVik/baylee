@@ -156,7 +156,7 @@ fn dial(gateway: &str, token: &str, query: &GameQuery) -> Option<Link> {
         super::http::escape(token),
         super::http::params(query)
     );
-    match ewebsock::connect(url, ewebsock::Options::default()) {
+    match crate::transport::ws_connect(url, ewebsock::Options::default()) {
         Ok((sender, receiver)) => Some(Link {
             _sender: crate::net::wrap_sender(sender),
             receiver,

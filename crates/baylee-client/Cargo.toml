@@ -143,6 +143,13 @@ image = { workspace = true, optional = true }
 # `platform-verifier` so a gateway's mirror is trusted the way the system
 # trusts it, as bevy's reader did.
 ureq = { workspace = true, features = ["platform-verifier"] }
+# Natively the gateway's HTTP and sockets go through `src/transport.rs`,
+# which sets the certificate policy itself (strict in a release, none in a
+# debug build) — something neither `ehttp` nor `ewebsock` lets a caller do.
+# The same tungstenite and rustls `ewebsock` already builds, ring only.
+tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+webpki-roots = "1"
 blocking.workspace = true
 sha2.workspace = true
 

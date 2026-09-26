@@ -12,8 +12,10 @@
 //!
 //! # One socket, two platforms
 //!
-//! `ewebsock` is a background thread speaking tungstenite natively and the
-//! browser's own `WebSocket` on wasm, behind one non-blocking API. That
+//! [`crate::transport::ws_connect`] is a background thread speaking
+//! tungstenite natively (under the build's certificate policy) and
+//! `ewebsock` over the browser's own `WebSocket` on wasm, behind one
+//! non-blocking API. That
 //! matters here: [`DuelHost::poll`] runs once per frame and may never wait on
 //! I/O, and the browser build has no threads to wait on anything with.
 //!
@@ -166,20 +168,20 @@ pub(crate) fn query_value(query: &str, key: &str) -> Option<String> {
 /// than corrupting anything, and on wasm there is no other thread to touch it
 /// from. Natively the sender is already a channel, so nothing is wrapped.
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) type SocketSender = ewebsock::WsSender;
+pub(crate) type SocketSender = crate::transport::WsSender;
 /// See the native definition above.
 #[cfg(target_arch = "wasm32")]
 pub(crate) type SocketSender = send_wrapper::SendWrapper<ewebsock::WsSender>;
 
 /// Wraps a fresh sender for this platform.
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) fn wrap_sender(sender: ewebsock::WsSender) -> SocketSender {
+pub(crate) fn wrap_sender(sender: crate::transport::WsSender) -> SocketSender {
     sender
 }
 
 /// See the native definition above.
 #[cfg(target_arch = "wasm32")]
-pub(crate) fn wrap_sender(sender: ewebsock::WsSender) -> SocketSender {
+pub(crate) fn wrap_sender(sender: crate::transport::WsSender) -> SocketSender {
     send_wrapper::SendWrapper::new(sender)
 }
 
@@ -197,7 +199,7 @@ fn dial(ticket: &SeatTicket) -> Result<Link, String> {
         max_incoming_frame_size: MAX_FRAME_BYTES,
         ..ewebsock::Options::default()
     };
-    let (sender, receiver) = ewebsock::connect(ticket.socket_url(), options)?;
+    let (sender, receiver) = crate::transport::ws_connect(ticket.socket_url(), options)?;
     Ok(Link {
         sender: wrap_sender(sender),
         receiver,

@@ -51,7 +51,7 @@ fn page(
     request
         .headers
         .insert("User-Agent", "baylee-deckbuilder/0.1");
-    ehttp::fetch(request, move |response| {
+    crate::transport::fetch(request, move |response| {
         if response
             .as_ref()
             .is_ok_and(|r| r.status == 429 || r.status >= 500)
