@@ -22,6 +22,9 @@
 use baylee_protocol::v1::{self, Envelope};
 use std::path::PathBuf;
 
+/// Where the control socket is on the gateway.
+pub const CONTROL_PATH: &str = "/agent/ws";
+
 /// How this agent was configured.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentConfig {
@@ -88,9 +91,31 @@ impl AgentConfig {
     }
 
     /// The control socket this agent connects to.
+    ///
+    /// For a gateway on a unix socket (`unix:<path>`) this is the URL the
+    /// handshake names; the socket file is what is dialled.
     #[must_use]
     pub fn control_url(&self) -> String {
-        format!("{}/agent/ws", ws_base(&self.gateway))
+        if baylee_protocol::unix_socket(&self.gateway).is_some() {
+            return format!("ws://localhost{CONTROL_PATH}");
+        }
+        format!("{}{CONTROL_PATH}", ws_base(&self.gateway))
+    }
+
+    /// What an engine this agent starts is told to dial.
+    ///
+    /// The gateway names an address in its order (`BAYLEE_ENGINE_URL`, TCP
+    /// loopback by default). An agent that itself reached the gateway on its
+    /// unix socket hands its engines that socket instead: they run on the
+    /// same machine, and a game is "local" to the gateway because its engine
+    /// came in on the socket — the same way the agent did.
+    #[must_use]
+    pub fn engine_address<'a>(&'a self, ordered: &'a str) -> &'a str {
+        if baylee_protocol::unix_socket(&self.gateway).is_some() {
+            &self.gateway
+        } else {
+            ordered
+        }
     }
 
     /// The agent's opening frame.
@@ -269,6 +294,26 @@ mod tests {
             secure.control_url(),
             "wss://play.example/agent/ws",
             "https becomes wss, and a trailing slash is not a second one"
+        );
+    }
+
+    /// An agent on the gateway's unix socket hands its engines the socket;
+    /// one over TCP passes on the address the gateway ordered.
+    #[test]
+    fn a_unix_agent_sends_its_engines_down_the_same_socket() {
+        let local = AgentConfig {
+            gateway: "unix:/run/baylee/gateway.sock".to_string(),
+            ..config()
+        };
+        assert_eq!(
+            local.engine_address("ws://127.0.0.1:28766/engine/ws"),
+            "unix:/run/baylee/gateway.sock"
+        );
+        assert_eq!(local.control_url(), "ws://localhost/agent/ws");
+        assert_eq!(
+            config().engine_address("ws://127.0.0.1:28766/engine/ws"),
+            "ws://127.0.0.1:28766/engine/ws",
+            "over TCP the gateway's own word stands"
         );
     }
 

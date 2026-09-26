@@ -120,9 +120,31 @@ async fn session(
     running: &Running,
 ) -> Result<Ended, Box<dyn std::error::Error + Send + Sync>> {
     let url = config.control_url();
+    #[cfg(unix)]
+    if let Some(path) = baylee_protocol::unix_socket(&config.gateway) {
+        let socket = tokio::net::UnixStream::connect(path)
+            .await
+            .map_err(|err| format!("dial {}: {err}", config.gateway))?;
+        let (ws, _) = tokio_tungstenite::client_async_with_config(&url, socket, Some(ws_config()))
+            .await
+            .map_err(|err| format!("dial {}: {err}", config.gateway))?;
+        return run(ws, config, running).await;
+    }
     let (ws, _) = tokio_tungstenite::connect_async_with_config(&url, Some(ws_config()), false)
         .await
         .map_err(|err| format!("dial {url}: {err}"))?;
+    run(ws, config, running).await
+}
+
+/// One connection to the gateway, once dialled, over whichever socket.
+async fn run<S>(
+    ws: tokio_tungstenite::WebSocketStream<S>,
+    config: &AgentConfig,
+    running: &Running,
+) -> Result<Ended, Box<dyn std::error::Error + Send + Sync>>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
     let (mut sink, mut stream) = ws.split();
 
     // Everything that writes to the gateway does it through this queue: the
@@ -248,7 +270,11 @@ fn start(
     }
 
     let child = tokio::process::Command::new(&config.engine_bin)
-        .args(engine_argv(gateway_url, game_id, engine_token))
+        .args(engine_argv(
+            config.engine_address(gateway_url),
+            game_id,
+            engine_token,
+        ))
         // A dropped agent must not leave engines behind holding games nobody
         // is routing any more.
         .kill_on_drop(true)

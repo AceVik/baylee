@@ -53,6 +53,22 @@ pub fn seat_socket_path(game_id: &str, seat_token: &str) -> String {
     format!("/games/{game_id}/ws?token={seat_token}&protocol={PROTOCOL_VERSION}")
 }
 
+/// The socket file a gateway address names, when it names one.
+///
+/// `unix:<path>` is a gateway reached on its unix socket
+/// (`BAYLEE_UNIX_SOCKET`) rather than over TCP: what an agent on the same
+/// machine is given as `BAYLEE_GATEWAY`, and what it hands its engines as
+/// `--attach`. It stands for the gateway as a whole, like an `http://` base;
+/// the dialer adds the path it wants (`/agent/ws`, `/engine/ws`).
+///
+/// Anything else is a URL and is `None` here. An empty path is not a socket.
+#[must_use]
+pub fn unix_socket(address: &str) -> Option<&str> {
+    address
+        .strip_prefix("unix:")
+        .filter(|path| !path.is_empty())
+}
+
 /// Generated protobuf types (`baylee.v1`).
 #[allow(missing_docs, clippy::all, clippy::pedantic)]
 pub mod v1 {
@@ -186,5 +202,18 @@ mod tests {
         // 5: explicit free-mulligan counts in room presets.
         // 6: per-permanent starting counters in room presets.
         assert_eq!(PROTOCOL_VERSION, 6);
+    }
+
+    #[test]
+    fn a_unix_address_names_its_socket_file_and_a_url_names_none() {
+        use super::unix_socket;
+        assert_eq!(
+            unix_socket("unix:/run/baylee/gateway.sock"),
+            Some("/run/baylee/gateway.sock")
+        );
+        assert_eq!(unix_socket("unix:relative.sock"), Some("relative.sock"));
+        assert_eq!(unix_socket("unix:"), None, "no path is no socket");
+        assert_eq!(unix_socket("http://127.0.0.1:28766"), None);
+        assert_eq!(unix_socket("ws://127.0.0.1:28766/engine/ws"), None);
     }
 }

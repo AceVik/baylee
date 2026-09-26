@@ -70,7 +70,8 @@ async fn main() {
 /// Where an attached engine dials, and what it proves it is.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Attach {
-    /// The gateway's engine socket (`ws://…/engine/ws`).
+    /// The gateway's engine socket (`ws://…/engine/ws`), or its unix socket
+    /// (`unix:<path>`), on which the engine plane is at `/engine/ws`.
     pub url: String,
     /// The game this process was started for.
     pub game_id: String,
@@ -627,9 +628,34 @@ mod attached {
 
     /// Plays one game against the gateway and returns when it ends.
     pub async fn run(attach: Attach) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let (mut ws, _) =
+        // `unix:<path>` is the gateway's unix socket (`BAYLEE_UNIX_SOCKET`),
+        // which an agent on the same machine hands its engines; the engine
+        // plane is at the usual path on it.
+        #[cfg(unix)]
+        if let Some(path) = baylee_protocol::unix_socket(&attach.url) {
+            let socket = tokio::net::UnixStream::connect(path).await?;
+            let (ws, _) = tokio_tungstenite::client_async_with_config(
+                "ws://localhost/engine/ws",
+                socket,
+                Some(ws_config()),
+            )
+            .await?;
+            return play(ws, attach).await;
+        }
+        let (ws, _) =
             tokio_tungstenite::connect_async_with_config(&attach.url, Some(ws_config()), false)
                 .await?;
+        play(ws, attach).await
+    }
+
+    /// The game itself, on whichever socket reached the gateway.
+    async fn play<S>(
+        mut ws: tokio_tungstenite::WebSocketStream<S>,
+        attach: Attach,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
         // The first frame proves this process is the one the gateway asked an
         // agent to start. Nothing else on this socket is authenticated,
         // because nothing else needs to be: the gateway closes it otherwise.
@@ -744,12 +770,13 @@ mod attached {
         }
     }
 
-    async fn send(
-        ws: &mut tokio_tungstenite::WebSocketStream<
-            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-        >,
+    async fn send<S>(
+        ws: &mut tokio_tungstenite::WebSocketStream<S>,
         envelope: &Envelope,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
         ws.send(Message::Binary(envelope.encode_to_vec().into()))
             .await?;
         Ok(())
