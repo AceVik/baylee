@@ -302,7 +302,7 @@ pub(super) fn draw(
             Phrase::Start.text(lang),
             Press::StartRoom(index),
             palette::ACCENT,
-            game.startable && !lobby.busy() && !lobby.room_dirty(),
+            game.startable && !lobby.busy() && !lobby.room_dirty() && lobby.games_can_start(),
         );
         commands.entity(actions).add_child(b);
     }

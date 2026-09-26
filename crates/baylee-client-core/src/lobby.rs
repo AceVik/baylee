@@ -387,7 +387,7 @@ impl GameSummary {
 /// differ by exactly the rows the client did not ask for, and a pager with no
 /// idea how many there are is a Next button that has to be pressed to find
 /// out it does nothing.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct GameListing {
     /// This page's tables, in the order the gateway ordered them.
     #[serde(default)]
@@ -401,6 +401,40 @@ pub struct GameListing {
     /// How many rows a page holds.
     #[serde(default)]
     pub limit: usize,
+    /// Whether the gateway has an agent to start a game on. A gateway that
+    /// predates the field says nothing, which reads as yes: it would answer
+    /// `POST /lobby/games` itself.
+    #[serde(default = "yes")]
+    pub agents_available: bool,
+}
+
+/// What the lobby last heard about the gateway itself, as opposed to its
+/// tables. Both are stored as the bad news, so a lobby that has heard
+/// nothing yet offers every door.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Health {
+    /// The last listing said no agent is there to start a game on (a server
+    /// being updated, say).
+    no_agents: bool,
+    /// The gateway stopped answering, and nothing has answered since.
+    unreachable: bool,
+}
+
+/// The default of a field whose silence means yes.
+fn yes() -> bool {
+    true
+}
+
+impl Default for GameListing {
+    fn default() -> Self {
+        Self {
+            games: Vec::new(),
+            total: 0,
+            offset: 0,
+            limit: 0,
+            agents_available: true,
+        }
+    }
 }
 
 impl GameListing {
@@ -414,6 +448,7 @@ impl GameListing {
             total,
             offset: 0,
             limit: PAGE,
+            agents_available: true,
         }
     }
 }
@@ -724,6 +759,9 @@ pub enum LobbyEvent {
     Seated(SeatHandover),
     /// The request failed, with something worth showing a player.
     Failed(String),
+    /// The gateway did not answer at all: no connection, or a proxy saying
+    /// that nothing stands behind it. Held until anything answers again.
+    GatewayLost,
 }
 
 /// Who performs the requests this lobby produces.
@@ -796,6 +834,8 @@ pub struct Lobby {
     games: Vec<GameSummary>,
     /// How many tables the current search matched, of which `games` is a page.
     total: usize,
+    /// Whether the gateway answers, and whether it can start a game.
+    health: Health,
     /// Where that page starts.
     offset: usize,
     deck: Option<usize>,
@@ -893,6 +933,20 @@ impl Lobby {
             gateway_selection: GatewaySelection::Selected,
             ..Self::default()
         }
+    }
+
+    /// Whether a new game can start: the last listing named an agent to
+    /// start it on. Opening and starting a room wait for it.
+    #[must_use]
+    pub fn games_can_start(&self) -> bool {
+        !self.health.no_agents
+    }
+
+    /// Whether the gateway has stopped answering. Cleared by the next
+    /// answer, whatever it says.
+    #[must_use]
+    pub fn unreachable(&self) -> bool {
+        self.health.unreachable
     }
 
     /// The screen to draw.
@@ -1843,6 +1897,10 @@ impl Lobby {
         if self.busy || !self.has_a_performer() {
             return None;
         }
+        if self.health.no_agents {
+            self.refuse(Phrase::NoNewGames);
+            return None;
+        }
         let deck_id = self
             .selected()
             .and_then(|at| self.decks.get(at))
@@ -1980,6 +2038,10 @@ impl Lobby {
     /// nothing.
     pub fn start_room(&mut self, game_id: &str) -> Option<LobbyRequest> {
         if self.busy || !self.has_a_performer() {
+            return None;
+        }
+        if self.health.no_agents {
+            self.refuse(Phrase::NoNewGames);
             return None;
         }
         self.busy = true;
@@ -2318,7 +2380,19 @@ impl Lobby {
     )]
     pub fn apply(&mut self, event: LobbyEvent) -> Option<LobbyRequest> {
         self.busy = false;
+        // Any answer from the gateway, a refusal included, is the gateway
+        // answering. Said first, so the event's own sentence can follow it.
+        if self.health.unreachable && !matches!(event, LobbyEvent::GatewayLost) {
+            self.health.unreachable = false;
+            self.note(Phrase::GatewayBack);
+        }
         match event {
+            LobbyEvent::GatewayLost => {
+                self.room_saving = false;
+                self.health.unreachable = true;
+                self.refuse(Phrase::GatewayUnreachable);
+                None
+            }
             LobbyEvent::Library(reply) => self.library_reply(reply),
             // Sign-up hands back no token, so the credentials that are still
             // in the form go straight into a log-in.
@@ -2426,6 +2500,7 @@ impl Lobby {
                 self.list()
             }
             LobbyEvent::Games(listing) => {
+                self.health.no_agents = !listing.agents_available;
                 self.games = listing.games;
                 self.total = listing.total;
                 self.sync_room_edit();

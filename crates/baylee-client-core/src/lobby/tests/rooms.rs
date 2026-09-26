@@ -132,6 +132,52 @@ fn a_room_is_readied_started_and_handed_on_by_name() {
     assert_eq!(lobby.start_room("g7"), None);
 }
 
+/// A gateway with no agent (a server being updated) says so in its listing,
+/// and neither opening nor starting a room is offered until it has one
+/// again. A gateway that never sends the field is read as having one.
+#[test]
+fn no_room_opens_or_starts_while_the_gateway_has_no_agent() {
+    let silent: GameListing = serde_json::from_str(r#"{"games":[],"total":0}"#).unwrap();
+    assert!(silent.agents_available, "silence means yes");
+
+    let mut lobby = seated_lobby();
+    let none: GameListing =
+        serde_json::from_str(r#"{"games":[],"total":0,"agents_available":false}"#).unwrap();
+    lobby.apply(LobbyEvent::Games(none));
+    assert!(!lobby.games_can_start());
+    assert_eq!(lobby.host(GameMode::Ai), None);
+    assert_eq!(lobby.status(), Phrase::NoNewGames.text(lobby.lang()));
+    assert_eq!(lobby.tone(), Tone::Refusal);
+    assert_eq!(lobby.start_room("g7"), None);
+    assert!(!lobby.busy(), "a refused intent leaves nothing in flight");
+
+    lobby.apply(LobbyEvent::Games(GameListing::default()));
+    assert!(lobby.games_can_start());
+    assert!(lobby.host(GameMode::Ai).is_some());
+}
+
+/// A gateway that stops answering is said to have stopped, and the first
+/// answer after that, whatever it is, says it is back.
+#[test]
+fn a_silent_gateway_is_named_until_it_answers_again() {
+    let mut lobby = seated_lobby();
+    assert!(lobby.refresh().is_some());
+    lobby.apply(LobbyEvent::GatewayLost);
+    assert!(lobby.unreachable());
+    assert!(!lobby.busy(), "a lost request is not one in flight");
+    assert_eq!(
+        lobby.status(),
+        Phrase::GatewayUnreachable.text(lobby.lang())
+    );
+    assert_eq!(lobby.tone(), Tone::Refusal);
+    lobby.apply(LobbyEvent::GatewayLost);
+    assert!(lobby.unreachable(), "a second loss changes nothing");
+
+    lobby.apply(LobbyEvent::Games(GameListing::default()));
+    assert!(!lobby.unreachable());
+    assert_eq!(lobby.status(), Phrase::GatewayBack.text(lobby.lang()));
+}
+
 /// The size a room is opened at is clamped to what the gateway accepts,
 /// so a client can never ask for a table that would be refused.
 #[test]

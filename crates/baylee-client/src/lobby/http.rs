@@ -338,6 +338,8 @@ fn fetch(
     let box_ = Arc::clone(&mailbox.0);
     let library = matches!(expect, Expect::Library(_));
     let pool = matches!(expect, Expect::Pool);
+    // A request that names no gateway cannot have lost one.
+    let addressed = request.url.contains("://");
     // A sign-out's answer changes nothing here: the session is already
     // forgotten, and a gateway that did not hear it lets it lapse — a guest
     // with it, at the gateway's next sweep. Said to the player it would be a
@@ -352,7 +354,15 @@ fn fetch(
             // Only a *signed* 401 means the token is spent; on the sign-in
             // form it means the password was wrong.
             Ok(response) if signed && response.status == 401 => Reply::Expired,
+            // A proxy answering for a gateway that is not behind it.
+            Ok(response) if matches!(response.status, 502 | 504) => {
+                Reply::Event(LobbyEvent::GatewayLost)
+            }
             Ok(response) => Reply::Event(LobbyEvent::Failed(gateway_error(lang, &response))),
+            Err(err) if addressed => {
+                debug!(err, "the gateway did not answer");
+                Reply::Event(LobbyEvent::GatewayLost)
+            }
             Err(err) => Reply::Event(LobbyEvent::Failed(
                 Phrase::GatewayNoAnswer.fill(lang, &[&err]),
             )),
@@ -364,6 +374,12 @@ fn fetch(
             Reply::Event(LobbyEvent::Failed(error)) if library => Reply::Event(
                 LobbyEvent::Library(client_core::lobby::library::Reply::Failed(error)),
             ),
+            // The library waits for its own answer; it gets the plain words.
+            Reply::Event(LobbyEvent::GatewayLost) if library => Reply::Event(LobbyEvent::Library(
+                client_core::lobby::library::Reply::Failed(
+                    Phrase::GatewayUnreachable.text(lang).to_string(),
+                ),
+            )),
             other => other,
         };
         if let Ok(mut box_) = box_.lock() {

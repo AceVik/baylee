@@ -656,6 +656,26 @@ fn table(
     commands
         .entity(navigation)
         .add_children(&[house, gap, stats]);
+    // What stops a game from starting stays in sight for as long as it
+    // holds, not only until the status line says something else.
+    let blocked = if lobby.unreachable() {
+        Some(Phrase::GatewayUnreachable)
+    } else if !lobby.games_can_start() {
+        Some(Phrase::NoNewGames)
+    } else {
+        None
+    };
+    if let Some(blocked) = blocked {
+        let warning = commands
+            .spawn((
+                Text::new(blocked.text(lang)),
+                tf(fonts, metrics.small),
+                TextColor(status_ink(Tone::Refusal)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(navigation).add_child(warning);
+    }
     if state.hub == Hub::Play {
         let create = button(
             commands,
@@ -664,7 +684,7 @@ fn table(
             Phrase::CreateTable.text(lang),
             Press::OpenRoom(2),
             palette::ACCENT,
-            !lobby.busy(),
+            !lobby.busy() && lobby.games_can_start(),
         );
         commands.entity(navigation).add_child(create);
     }
@@ -995,7 +1015,7 @@ fn table(
             Phrase::PlayTheHouse.text(lang),
             Press::Host(GameMode::Ai),
             palette::PANEL_LIT,
-            !lobby.busy(),
+            !lobby.busy() && lobby.games_can_start(),
         );
         commands.entity(decks).add_child(play);
     }

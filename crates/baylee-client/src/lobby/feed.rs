@@ -138,6 +138,12 @@ pub(super) fn feed(
     if lost {
         feed.hang_up();
         feed.cooldown = REDIAL_SECS;
+        // Said at once rather than when the next poll times out; the next
+        // listing, from either path, says it is back. A socket that named no
+        // gateway lost none.
+        if state.gateway.contains("://") {
+            post(&mailbox, LobbyEvent::GatewayLost);
+        }
     }
 }
 

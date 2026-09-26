@@ -443,6 +443,22 @@ messages! {
         en: "The tables are quiet for now. Open yours and invite someone to play.",
         de: "Noch sind alle Tische frei. Eröffne deinen und lade jemanden zum Spielen ein.",
     },
+    /// The gateway stopped answering: the feed closed or a request found
+    /// nobody there. Stays until it answers again.
+    GatewayUnreachable {
+        en: "The gateway is not answering. Trying again\u{2026}",
+        de: "Das Gateway antwortet nicht. Neuer Versuch l\u{e4}uft\u{2026}",
+    },
+    /// The gateway answered again after [`Phrase::GatewayUnreachable`].
+    GatewayBack {
+        en: "The gateway is back.",
+        de: "Das Gateway ist wieder da.",
+    },
+    /// The listing said no agent is there: no room can open or start.
+    NoNewGames {
+        en: "No new games can start right now \u{2014} the server may be updating. Games already running go on.",
+        de: "Gerade k\u{f6}nnen keine neuen Spiele beginnen \u{2014} vielleicht wird der Server aktualisiert. Laufende Spiele gehen weiter.",
+    },
     /// Shown when a search matched nothing. `{0}` is what was searched for.
     NoTableMatches {
         en: "no table matches “{0}”",
