@@ -495,7 +495,7 @@ pub fn sync_overlay(
     revision.hovered = hovered;
     revision.hovered_log = duel.hovered_log;
     revision.selected.clone_from(&selected);
-    revision.orders = Some(orders.clone());
+    revision.orders = Some(orders);
     revision.autopilot = autopilot;
     revision.focus = focus;
     revision.preview_scale = preview_scale;

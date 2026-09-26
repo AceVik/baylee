@@ -975,7 +975,7 @@ mod tests {
 
         // Everywhere, and not only at the top: the glued pair put a `Text` one
         // level further down than this assertion used to reach.
-        let mut stack = children.clone();
+        let mut stack = children;
         while let Some(entity) = stack.pop() {
             assert!(
                 app.world().entity(entity).contains::<Pickable>(),

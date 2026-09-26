@@ -1058,7 +1058,7 @@ mod tests {
         assert_eq!(next.seat_token_hash, None);
         assert!(!next.said_ready);
 
-        let mut without = next.clone();
+        let mut without = next;
         without.seat_token_hash = seat.seat_token_hash.clone();
         without.said_ready = seat.said_ready;
         assert_eq!(

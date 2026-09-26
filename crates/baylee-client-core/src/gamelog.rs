@@ -2054,7 +2054,7 @@ mod tests {
         }
         for (source, combat) in [
             (Some(card.clone()), true),
-            (Some(card.clone()), false),
+            (Some(card), false),
             (None, false),
         ] {
             for target in [

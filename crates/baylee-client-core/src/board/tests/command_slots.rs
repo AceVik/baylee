@@ -116,7 +116,7 @@ fn what_is_not_a_commander_lies_on_the_first_slot() {
     let emblem = token(3, 0, "Emblem", 0, 0);
     let view = ViewBuilder::new(2)
         .with_commanders(0, &[&first, &second])
-        .with_command(0, vec![first.clone(), emblem.clone(), second.clone()])
+        .with_command(0, vec![first.clone(), emblem, second.clone()])
         .build();
     let piles = zone_piles(&view, PlayerId::new(0));
     let count = |kind| {

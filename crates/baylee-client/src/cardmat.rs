@@ -2696,7 +2696,7 @@ struct Globals { time: f32 };
         let flat = images.add(Image::default());
         let back = cache.get(
             CardLook::back(FinishTreatment::Plain),
-            Some(flat.clone()),
+            Some(flat),
             Color::BLACK,
             &mut assets,
         );

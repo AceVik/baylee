@@ -166,7 +166,7 @@ fn the_gate_notices_a_caret_that_moved() {
         "a buffer that compares equal with the caret somewhere else \
          cannot gate a redraw of the caret"
     );
-    let mut held = typed.clone();
+    let mut held = typed;
     held.move_caret(Step::Char, Dir::Left, true);
     assert_ne!(
         held, moved,

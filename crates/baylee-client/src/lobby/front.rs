@@ -1581,6 +1581,20 @@ mod tests {
     }
 
     #[test]
+    fn the_status_band_holds_two_lines_at_every_width() {
+        // `status_slot` lays the line over the sliver and the gap either
+        // side of it, instead of reserving two empty lines, so a refusal
+        // must still find two lines of room there. Bevy's default line
+        // height is 1.2 of the font.
+        for width in [390.0, 900.0, 1728.0] {
+            let metrics = Metrics::of(width);
+            let band = 2.0 * card_gap(metrics) + metrics.small;
+            let two_lines = 2.0 * 1.2 * metrics.small;
+            assert!(band >= two_lines, "{width}: band {band} < {two_lines}");
+        }
+    }
+
+    #[test]
     fn the_notice_is_the_policy_s_own_words() {
         // Pinned byte for byte: the Fan Content Policy asks for this text,
         // and a notice that was tidied is not the one it asks for.

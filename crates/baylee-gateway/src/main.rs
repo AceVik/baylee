@@ -2735,7 +2735,7 @@ async fn create_game(
             seats[0].account_id = Some(account_id.clone());
             seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
             seats[0].deck_name = deck_name;
-            seats[0].deck = Some(deck.clone());
+            seats[0].deck = Some(deck);
             seats[1].kind = lobby::SeatKind::Ai;
             seats[1].ai = Some("steady".to_string());
             seats[1].deck_name = "house AI".to_string();

@@ -202,6 +202,11 @@ pub fn scrolls(
                 break;
             }
             if hand.contains(entity) {
+                // A finished game's veil takes the wheel the way it takes
+                // clicks: the hand under it stays where it is (#297).
+                if duel.ending().is_some() {
+                    break;
+                }
                 // Clamped by `apply_hand_scroll` against the layout it just
                 // measured, which is the only place the row's real width is
                 // known.
@@ -403,6 +408,28 @@ mod tests {
         assert!(
             app.world().resource::<Duel>().hand_scroll > 0.0,
             "the card's own bar took the wheel"
+        );
+    }
+
+    /// Once the game is over the veil lies over the hand, and a wheel there
+    /// moves nothing behind it (#297).
+    #[test]
+    fn a_wheel_over_a_finished_game_s_hand_moves_nothing() {
+        let mut app = app();
+        app.world_mut().resource_mut::<Duel>().interaction =
+            Some(baylee_client_core::Interaction::new(
+                baylee_engine::choice::Pending::GameOver(baylee_engine::win::GameResult {
+                    winner: None,
+                    reason: baylee_engine::win::EndReason::Draw,
+                }),
+                baylee_core::ids::PlayerId::new(0),
+            ));
+        let bar = app.world_mut().spawn((Node::default(), HandScroll)).id();
+        let card = app.world_mut().spawn((Node::default(), ChildOf(bar))).id();
+        wheel(&mut app, card, -1.0);
+        assert!(
+            app.world().resource::<Duel>().hand_scroll.abs() < f32::EPSILON,
+            "the hand scrolled under a finished game's veil"
         );
     }
 
