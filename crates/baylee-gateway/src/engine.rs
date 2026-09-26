@@ -17,6 +17,7 @@
 //! started. A player's seat token opens neither.
 
 use crate::{Shared, auth, lobby::LobbyState};
+use axum::Extension;
 use axum::extract::State;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::response::Response;
@@ -34,10 +35,17 @@ const HEARTBEAT_SECS: u32 = 30;
 /// broken or is holding a connection open to see what happens.
 const HELLO_TIMEOUT_SECS: u64 = 10;
 
+/// Marks a request that came in on the gateway's unix socket
+/// (`BAYLEE_UNIX_SOCKET`), so from this machine.
+#[derive(Clone, Copy, Debug)]
+pub struct ViaUnix;
+
 /// An agent that is connected right now.
 pub struct Agent {
     /// Human label from the agent's hello, for logs.
     pub name: String,
+    /// Whether it connected on the unix socket, i.e. runs on this machine.
+    pub local: bool,
     /// How many engines it will run at once. 0 means no limit.
     pub capacity: u32,
     /// Orders to that agent.
@@ -61,6 +69,17 @@ pub struct Agents {
 }
 
 impl Agents {
+    /// Whether any agent is connected, so whether a game could start at all.
+    ///
+    /// Capacity is not asked: an agent that is full now has room again as
+    /// soon as a game ends, and a lobby that flickered between "games can
+    /// start" and "they cannot" with every game would be telling players
+    /// about scheduling, not about whether this gateway is working.
+    #[must_use]
+    pub fn any_connected(&self) -> bool {
+        !self.connected.is_empty()
+    }
+
     /// The agent that should run the next game: the least busy one with room.
     ///
     /// Ties break on the id rather than on iteration order — a `HashMap` has
@@ -97,15 +116,18 @@ impl Agents {
 /// When no agent has room, or when the game is not one that needs an engine.
 pub fn start_engine(state: &Shared, game_id: &str) -> Result<(), &'static str> {
     let engine_token = auth::new_token();
-    let agent_id = {
+    let (agent_id, local) = {
         let agents = state.agents.lock();
-        agents.pick().ok_or("no engine capacity")?
+        let id = agents.pick().ok_or("no engine capacity")?;
+        let local = agents.connected.get(&id).is_some_and(|agent| agent.local);
+        (id, local)
     };
     {
         let mut lobby = state.lobby.lock();
         let game = lobby.games.get_mut(game_id).ok_or("no such game")?;
         game.engine_token_hash = Some(auth::token_hash(&engine_token));
         game.agent_id = Some(agent_id.clone());
+        game.engine_local = local;
     }
     let order = Envelope {
         msg: Some(v1::envelope::Msg::StartEngine(v1::StartEngine {
@@ -153,11 +175,16 @@ fn stop_engine(state: &Shared, game_id: &str) {
 // ---------------------------------------------------------- control plane
 
 /// `GET /agent/ws` — an agent offering to run engines.
-pub async fn agent_ws(State(state): State<Shared>, ws: WebSocketUpgrade) -> Response {
-    ws.on_upgrade(move |socket| run_agent_socket(state, socket))
+pub async fn agent_ws(
+    State(state): State<Shared>,
+    via_unix: Option<Extension<ViaUnix>>,
+    ws: WebSocketUpgrade,
+) -> Response {
+    let local = via_unix.is_some();
+    ws.on_upgrade(move |socket| run_agent_socket(state, socket, local))
 }
 
-async fn run_agent_socket(state: Shared, mut socket: WebSocket) {
+async fn run_agent_socket(state: Shared, mut socket: WebSocket, local: bool) {
     let Some(v1::envelope::Msg::AgentHello(hello)) = hello_of(&mut socket).await else {
         return;
     };
@@ -179,21 +206,33 @@ async fn run_agent_socket(state: Shared, mut socket: WebSocket) {
     }
     let agent_id = auth::new_id();
     let (tx, mut rx) = mpsc::unbounded_channel();
-    state.agents.lock().connected.insert(
-        agent_id.clone(),
-        Agent {
-            name: hello.name.clone(),
-            capacity: hello.capacity,
-            tx,
-            games: Vec::new(),
-        },
-    );
+    let first = {
+        let mut agents = state.agents.lock();
+        let first = !agents.any_connected();
+        agents.connected.insert(
+            agent_id.clone(),
+            Agent {
+                name: hello.name.clone(),
+                local,
+                capacity: hello.capacity,
+                tx,
+                games: Vec::new(),
+            },
+        );
+        first
+    };
     tracing::info!(
         agent_id,
         name = hello.name,
         capacity = hello.capacity,
+        local,
         "agent registered"
     );
+    // Every lobby listing says whether a game can start (`agents_available`);
+    // the first agent in and the last one out change that answer.
+    if first {
+        state.lobby_moved();
+    }
     let welcome = Envelope {
         msg: Some(v1::envelope::Msg::AgentWelcome(v1::AgentWelcome {
             agent_id: agent_id.clone(),
@@ -203,8 +242,15 @@ async fn run_agent_socket(state: Shared, mut socket: WebSocket) {
     if send(&mut socket, &welcome).await.is_ok() {
         pump_agent(&state, &mut socket, &mut rx).await;
     }
-    state.agents.lock().connected.remove(&agent_id);
+    let last = {
+        let mut agents = state.agents.lock();
+        agents.connected.remove(&agent_id);
+        !agents.any_connected()
+    };
     tracing::info!(agent_id, "agent gone");
+    if last {
+        state.lobby_moved();
+    }
 }
 
 /// One agent's conversation: orders out, status in.
@@ -551,6 +597,7 @@ mod tests {
     fn agent(games: usize, capacity: u32) -> Agent {
         Agent {
             name: "test".to_string(),
+            local: false,
             capacity,
             tx: mpsc::unbounded_channel().0,
             games: (0..games).map(|i| i.to_string()).collect(),
@@ -589,5 +636,16 @@ mod tests {
             agents.connected.insert(id.to_string(), agent(1, 0));
         }
         assert_eq!(agents.pick().as_deref(), Some("a"));
+    }
+
+    /// A full agent still counts as available: its games end and it has room
+    /// again, and the lobby should not flicker with every game that starts.
+    #[test]
+    fn a_full_agent_is_still_an_available_one() {
+        let mut agents = Agents::default();
+        assert!(!agents.any_connected(), "nobody connected");
+        agents.connected.insert("a".to_string(), agent(2, 2));
+        assert!(agents.any_connected());
+        assert_eq!(agents.pick(), None, "though it takes no game right now");
     }
 }

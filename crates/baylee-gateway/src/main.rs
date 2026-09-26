@@ -278,6 +278,10 @@ async fn main() {
         .layer(axum::middleware::from_fn(cors))
         .with_state(state);
 
+    #[cfg(unix)]
+    if let Some(path) = std::env::var_os("BAYLEE_UNIX_SOCKET").filter(|p| !p.is_empty()) {
+        serve_unix(std::path::Path::new(&path), app.clone());
+    }
     announce(port);
     axum::serve(
         listener,
@@ -285,6 +289,45 @@ async fn main() {
     )
     .await
     .expect("gateway serves");
+}
+
+/// Serves the same routes on a unix socket as well (`BAYLEE_UNIX_SOCKET`).
+///
+/// For the agent on this machine and the engines it starts: a socket file
+/// the operating system guards by owner and group, not a port anybody on the
+/// host could dial. Whatever arrives here is marked [`engine::ViaUnix`], and
+/// that mark is what "local" means to `/health` and to a deploy: the games
+/// this machine's agent runs, as opposed to an agent somewhere else.
+///
+/// A peer on a unix socket has no address, and the routes that limit by
+/// address still ask for one, so every request here reads as loopback. It
+/// is: the file is only reachable from this host.
+///
+/// A file left behind by an earlier run is removed first, since binding over
+/// it fails; the new one is readable and writable by owner and group only
+/// (0660).
+#[cfg(unix)]
+fn serve_unix(path: &std::path::Path, app: Router) {
+    use std::os::unix::fs::PermissionsExt as _;
+    match std::fs::remove_file(path) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => panic!("BAYLEE_UNIX_SOCKET {}: {e}", path.display()),
+    }
+    let listener = tokio::net::UnixListener::bind(path)
+        .unwrap_or_else(|e| panic!("BAYLEE_UNIX_SOCKET {}: {e}", path.display()));
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o660))
+        .unwrap_or_else(|e| panic!("BAYLEE_UNIX_SOCKET {}: {e}", path.display()));
+    let loopback = SocketAddr::from(([127, 0, 0, 1], 0));
+    let app = app
+        .layer(axum::Extension(ConnectInfo(loopback)))
+        .layer(axum::Extension(engine::ViaUnix));
+    tracing::info!(path = %path.display(), "baylee-gateway listening on a unix socket");
+    tokio::spawn(async move {
+        axum::serve(listener, app.into_make_service())
+            .await
+            .expect("gateway serves its unix socket");
+    });
 }
 
 /// Binds the gateway's port, and answers which port that is: the one asked
@@ -856,7 +899,7 @@ async fn health(State(state): State<Shared>) -> (StatusCode, Json<serde_json::Va
     // disagree in the one case worth seeing: a game the gateway has ordered
     // but whose engine has not dialled back yet is on an agent's list and has
     // no `EngineLink`. That gap is what `seats_awaiting_engine` is.
-    let (games_running, games_waiting, seats_awaiting_engine) = {
+    let (games_running, games_local, games_waiting, seats_awaiting_engine) = {
         let lobby = state.lobby.lock();
         let playing = lobby
             .games
@@ -864,6 +907,10 @@ async fn health(State(state): State<Shared>) -> (StatusCode, Json<serde_json::Va
             .filter(|game| game.state == LobbyState::Playing);
         (
             playing.clone().count(),
+            // Ordered from an agent on this machine's unix socket. What a
+            // deploy of this machine waits for: a game on an agent elsewhere
+            // is not ended by replacing this machine's engine binary.
+            playing.clone().filter(|game| game.engine_local).count(),
             lobby
                 .games
                 .values()
@@ -896,6 +943,7 @@ async fn health(State(state): State<Shared>) -> (StatusCode, Json<serde_json::Va
         "games".into(),
         serde_json::json!({
             "running": games_running,
+            "local_running": games_local,
             "waiting": games_waiting,
             "seats_awaiting_engine": seats_awaiting_engine,
         }),
@@ -2273,8 +2321,10 @@ async fn delete_deck(
 /// happened to fall off the end of it.
 async fn listing(state: &Shared, account_id: &str) -> serde_json::Value {
     let names = seated_names(state).await;
+    let agents_available = state.agents.lock().any_connected();
     let lobby = state.lobby.lock();
     serde_json::json!({
+        "agents_available": agents_available,
         "games": lobby.list_for(account_id, &names),
     })
 }
@@ -2286,9 +2336,14 @@ async fn listing_page(
     query: &lobby::LobbyQuery,
 ) -> serde_json::Value {
     let names = seated_names(state).await;
+    // Whether a game could start at all: with no agent connected the lobby
+    // still lists rooms, and creating or starting one answers 503. Said here
+    // so a client can say so first, and pushed again whenever it changes.
+    let agents_available = state.agents.lock().any_connected();
     let lobby = state.lobby.lock();
     let (games, total) = lobby.page_for(account_id, &names, query);
     serde_json::json!({
+        "agents_available": agents_available,
         "games": games,
         "total": total,
         "offset": query.offset,

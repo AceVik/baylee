@@ -196,6 +196,11 @@ pub struct LobbyGame {
     /// The agent that was asked to run this game, so the gateway knows who to
     /// tell when it is over.
     pub agent_id: Option<String>,
+    /// Whether that agent came in on this machine's unix socket
+    /// (`BAYLEE_UNIX_SOCKET`). Kept on the game rather than read off the
+    /// agent, because a deploy stops the agent first and still has to know
+    /// which of the games that go on were this machine's.
+    pub engine_local: bool,
     /// The engine process, once it has dialled in.
     pub engine: Option<EngineLink>,
     /// Flips to true when an engine is attached. A seat socket may open the
@@ -360,6 +365,7 @@ impl LobbyGame {
             setup: baylee_core::preset::RoomSetup::default(),
             engine_token_hash: None,
             agent_id: None,
+            engine_local: false,
             engine: None,
             ready: watch::channel(false).0,
             updates: broadcast::channel(256).0,
