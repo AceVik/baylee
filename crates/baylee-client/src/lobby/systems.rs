@@ -742,6 +742,29 @@ fn sign_out(
 /// would answer for free, written out for a canvas that has none: a caret
 /// that moves by character, word and line, a selection that shift extends,
 /// Delete as well as Backspace, and select-all.
+/// ⌘V in a sign-in field: a closed-beta key (#317) is pasted far more often
+/// than typed. A clipboard that answers later lands its text in the same
+/// field through `land_form_paste`, if the caret is still there.
+fn paste_into_form(
+    state: &mut LobbyState,
+    clipboard: &mut bevy::clipboard::Clipboard,
+    paste: &mut Option<super::editing::FormPaste>,
+) {
+    let mut read = clipboard.fetch_text();
+    match read.poll_result() {
+        // `insert` drops the line breaks a copied key brings along.
+        Some(Ok(text)) => state.lobby.insert(&text),
+        Some(Err(_)) => {}
+        None => {
+            *paste = Some(super::editing::FormPaste {
+                field: state.lobby.focus(),
+                epoch: state.lobby.focus_epoch(),
+                read,
+            });
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)] // the clipboard and its pending answer ride along
 fn text_field_keys(
     keys: &mut MessageReader<KeyboardInput>,
@@ -846,21 +869,7 @@ fn text_field_keys(
                 } else if text.eq_ignore_ascii_case("v")
                     && let Some(cb) = clipboard.as_deref_mut()
                 {
-                    // ⌘V: a closed-beta key (#317) is pasted far more often
-                    // than typed. A clipboard that answers later lands its
-                    // text in this field through `land_form_paste`.
-                    let mut read = cb.fetch_text();
-                    match read.poll_result() {
-                        Some(Ok(text)) => state.lobby.insert(&text),
-                        Some(Err(_)) => {}
-                        None => {
-                            *paste = Some(super::editing::FormPaste {
-                                field: state.lobby.focus(),
-                                epoch: state.lobby.focus_epoch(),
-                                read,
-                            });
-                        }
-                    }
+                    paste_into_form(state, cb, paste);
                 }
             }
             // Everything else is text or nothing. `type_char` drops the

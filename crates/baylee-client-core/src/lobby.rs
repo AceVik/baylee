@@ -828,6 +828,10 @@ impl Registration {
     }
 }
 
+/// A closed beta's form was sent without its key: the lobby has said so and
+/// put the caret in the box.
+struct KeyMissing;
+
 /// Who a gateway lets in, from its `GET /auth/config`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct Doors {
@@ -1196,19 +1200,20 @@ impl Lobby {
     }
 
     /// The key to send with a new account or guest: what was typed, on a
-    /// gateway that asks for one, or `None` with a refusal on the status
-    /// line when nothing was. `Some(None)` is a gateway that asks for none.
-    fn invite_key_to_send(&mut self) -> Option<Option<String>> {
+    /// gateway that asks for one, or [`KeyMissing`] with a refusal on the
+    /// status line when nothing was. `Ok(None)` is a gateway that asks for
+    /// none.
+    fn invite_key_to_send(&mut self) -> Result<Option<String>, KeyMissing> {
         if self.doors.registration != Registration::Invite {
-            return Some(None);
+            return Ok(None);
         }
         let key = self.invite_key.text().trim();
         if key.is_empty() {
             self.refuse(Phrase::NeedInviteKey);
             self.focus_on(Field::InviteKey);
-            return None;
+            return Err(KeyMissing);
         }
-        Some(Some(key.to_string()))
+        Ok(Some(key.to_string()))
     }
 
     /// The caret out of a field the sign-in form no longer draws.
@@ -1291,7 +1296,7 @@ impl Lobby {
             self.enter_as_guest(kept);
             return Some(LobbyRequest::ListDecks);
         }
-        let Some(invite_key) = self.invite_key_to_send() else {
+        let Ok(invite_key) = self.invite_key_to_send() else {
             self.busy = false;
             return None;
         };
@@ -1718,7 +1723,7 @@ impl Lobby {
             return None;
         }
         let invite_key = if registering {
-            self.invite_key_to_send()?
+            self.invite_key_to_send().ok()?
         } else {
             None
         };
