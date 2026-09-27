@@ -50,6 +50,12 @@ fn the_sign_in_screen_builds_with_its_controls() {
             .any(|l| l == super::super::front::FAN_CONTENT_NOTICE),
         "the policy's notice stands under the form"
     );
+    assert!(
+        drawn
+            .iter()
+            .any(|l| l == Phrase::ScryfallCredit.text(Lang::En)),
+        "and Scryfall's attribution (#325)"
+    );
 }
 
 #[test]
@@ -240,6 +246,12 @@ fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
         drawn
             .iter()
             .any(|l| l == super::super::front::FAN_CONTENT_NOTICE)
+    );
+    assert!(
+        drawn
+            .iter()
+            .any(|l| l == Phrase::ScryfallCredit.text(Lang::En)),
+        "Scryfall's attribution is on this face too (#325)"
     );
 }
 

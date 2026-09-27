@@ -2472,6 +2472,12 @@ mod tests {
             lines.iter().any(|l| l.contains(baylee_build::short())),
             "and says which baylee it is: {lines:?}"
         );
+        assert!(
+            lines
+                .iter()
+                .any(|l| l == Phrase::ScryfallCredit.text(Lang::En)),
+            "and credits Scryfall, whose images the table shows (#325): {lines:?}"
+        );
     }
 
     /// A refusal this client wrote is read in the player's language, and one
@@ -2588,8 +2594,9 @@ mod tests {
         let (panel, shown, rows) = menu_panel(&mut app).expect("a panel");
         assert!(shown, "the menu is open");
         assert_eq!(
-            rows, 6,
-            "two ways out, the report row, music controls, a rule and the version"
+            rows, 7,
+            "two ways out, the report row, music controls, a rule, the version \
+             and Scryfall's attribution"
         );
         // The shelf's own children, less the two casts: those are spawned
         // with the shelf and exempt from its rebuild, so counting them would

@@ -111,7 +111,9 @@ Urheber- und Medienrecht.
 
 3. **Scryfall:** honor rate limits (≤ 10 req/s), cache card images
    (encouraged by their terms), "data and images provided by Scryfall"
-   attribution in clients. The cache is for our own players and never a
+   attribution in clients: `Phrase::ScryfallCredit`, under the Fan Content
+   notice on the front door and under the version in the game menu, which a
+   client seated straight into a game shows instead (#325). The cache is for our own players and never a
    mirror for anyone else, because their terms forbid republishing or
    proxying their data: the gateway's `/art` serves only a signed-in session
    and marks what it serves `private` (#273; `docs/protocol.md` §"Card
