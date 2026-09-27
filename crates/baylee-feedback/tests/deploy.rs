@@ -1,7 +1,8 @@
 //! `scripts/server/baylee-deploy stage` with every command it would change a
-//! server with stood in for (`git`, `cargo`, `sudo`, `systemctl`, `curl`,
-//! `flock`, `logger`): it builds the feedback service with the rest, and
-//! installs and restarts it exactly when its unit is installed
+//! server with stood in for (`git`, `cargo`, `npm`, `sudo`, `systemctl`,
+//! `curl`, `flock`, `logger`): it builds the feedback service with the rest,
+//! installs and restarts it exactly when its unit is installed, and builds
+//! and installs its web UI before that restart when npm is there
 //! (`docs/feedback.md` §"Running it").
 
 #![cfg(unix)]
@@ -21,15 +22,36 @@ fn stub(dir: &Path, name: &str, body: &str) {
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
 
-/// Runs `stage` in a scratch tree; every command it ran, one per line.
-fn stage(feedback_installed: bool) -> String {
+/// What npm does on the server under test.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Npm {
+    /// Not installed.
+    Absent,
+    /// Installs and builds `dist/`.
+    Builds,
+    /// Installed, but the build fails.
+    Fails,
+}
+
+/// Runs `stage` in a scratch tree; the deploy root and every command it
+/// ran, one per line.
+fn stage(feedback_installed: bool, npm: Npm) -> (PathBuf, String) {
+    // Tests run at once, some with the same arguments: each run its own tree.
+    static RUN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let scratch = std::env::temp_dir().join(format!(
-        "baylee-deploy-test-{}-{feedback_installed}",
-        std::process::id()
+        "baylee-deploy-test-{}-{}-{feedback_installed}-{npm:?}",
+        std::process::id(),
+        RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     ));
     let _ = std::fs::remove_dir_all(&scratch);
     let (root, stubs) = (scratch.join("opt"), scratch.join("stubs"));
-    for dir in ["src/target/release", "src/data", "bin", "state"] {
+    for dir in [
+        "src/target/release",
+        "src/data",
+        "src/web/feedback",
+        "bin",
+        "state",
+    ] {
         std::fs::create_dir_all(root.join(dir)).unwrap();
     }
     std::fs::create_dir_all(&stubs).unwrap();
@@ -45,6 +67,16 @@ fn stage(feedback_installed: bool) -> String {
         r#"[ "$1" = rev-parse ] && echo 0123456789abcdef0123; exit 0"#,
     );
     stub(&stubs, "cargo", "echo built");
+    stub(
+        &stubs,
+        "npm",
+        match npm {
+            Npm::Fails => r#"[ "$1" = run ] && exit 1; exit 0"#,
+            _ => {
+                r#"[ "$1 $2" = "run build" ] && mkdir -p dist && echo page > dist/index.html; exit 0"#
+            }
+        },
+    );
     stub(&stubs, "sudo", "exit 0");
     stub(&stubs, "logger", "exit 0");
     stub(&stubs, "flock", "exit 0");
@@ -64,12 +96,18 @@ fn stage(feedback_installed: bool) -> String {
         r#"echo '{"games":{"running":1,"local_running":1,"waiting":0}}'"#,
     );
 
+    let npm_path = if npm == Npm::Absent {
+        scratch.join("no-such-npm")
+    } else {
+        stubs.join("npm")
+    };
     let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/server/baylee-deploy");
     let out = std::process::Command::new("bash")
         .arg(&script)
         .args(["stage", "0123456789abcdef0123"])
         .env("BAYLEE_DEPLOY_ROOT", &root)
         .env("CARGO", stubs.join("cargo"))
+        .env("NPM", &npm_path)
         .env("DEPLOY_CALLS", &calls)
         .env(
             "PATH",
@@ -89,14 +127,14 @@ fn stage(feedback_installed: bool) -> String {
     );
     let ran = std::fs::read_to_string(&calls).unwrap_or_default();
     let _ = std::fs::remove_dir_all(&scratch);
-    ran
+    (root, ran)
 }
 
 #[test]
 fn stage_builds_the_feedback_service_and_installs_it_only_where_its_unit_is() {
     let bin = "/bin/";
     for installed in [true, false] {
-        let ran = stage(installed);
+        let (_, ran) = stage(installed, Npm::Builds);
         let build = ran
             .lines()
             .find(|l| l.starts_with("cargo build"))
@@ -116,5 +154,53 @@ fn stage_builds_the_feedback_service_and_installs_it_only_where_its_unit_is() {
             "the gateway was swapped under a running game:\n{ran}"
         );
         assert!(ran.contains("sudo systemctl stop baylee-agent"));
+        // A service that is not here gets no web UI built either.
+        assert_eq!(ran.contains("npm "), installed, "{ran}");
+    }
+}
+
+#[test]
+fn stage_builds_the_web_ui_and_installs_it_before_the_service_restarts() {
+    let (root, ran) = stage(true, Npm::Builds);
+    let lines: Vec<&str> = ran.lines().collect();
+    let at = |wanted: &str| {
+        lines
+            .iter()
+            .position(|l| *l == wanted)
+            .unwrap_or_else(|| panic!("no `{wanted}` in:\n{ran}"))
+    };
+    let web = root.join("web/feedback");
+    let web = web.display();
+    let ci = at("npm ci --no-audit --no-fund");
+    let build = at("npm run build");
+    let copy = at(&format!("sudo cp -R web/feedback/dist {web}.new"));
+    let swap = at(&format!("sudo mv {web}.new {web}"));
+    let restart = at("sudo systemctl restart baylee-feedback");
+    assert!(
+        ci < build && build < copy && copy < swap && swap < restart,
+        "{ran}"
+    );
+    // A fresh checkout keeps the installed packages between deploys.
+    let clean = lines
+        .iter()
+        .find(|l| l.starts_with("git clean"))
+        .expect("a clean");
+    assert!(clean.contains("-e web/feedback/node_modules"), "{clean}");
+}
+
+#[test]
+fn without_npm_or_with_a_failed_build_the_service_is_still_deployed() {
+    for npm in [Npm::Absent, Npm::Fails] {
+        let (_, ran) = stage(true, npm);
+        assert!(
+            !ran.contains("sudo cp -R web/feedback/dist"),
+            "{npm:?}: a UI was installed:\n{ran}"
+        );
+        assert!(
+            ran.lines()
+                .any(|l| l == "sudo systemctl restart baylee-feedback"),
+            "{npm:?}: the service was not restarted:\n{ran}"
+        );
+        assert_eq!(ran.contains("npm run build"), npm == Npm::Fails, "{ran}");
     }
 }

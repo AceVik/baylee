@@ -29,7 +29,8 @@
 # `--force` skips the wait and ends whatever is open.
 #
 # The feedback service (docs/feedback.md) holds no game, so stage replaces
-# it straight away, once its unit is installed.
+# it straight away, once its unit is installed, with its web UI when npm is
+# there to build it.
 #
 # A waiting room nobody starts would hold a deploy forever, so rooms alone
 # stop blocking after BAYLEE_DEPLOY_ROOM_GRACE minutes (60). Running games
@@ -46,6 +47,9 @@ repo=https://github.com/AceVik/baylee.git
 gateway=http://127.0.0.1:28766
 room_grace=${BAYLEE_DEPLOY_ROOM_GRACE:-60}
 cargo=${CARGO:-$HOME/.cargo/bin/cargo}
+npm=${NPM:-npm}
+# Where the feedback web UI goes; FEEDBACK_WEB_DIR in /etc/baylee/feedback.env.
+web=$root/web/feedback
 
 log() { echo "baylee-deploy: $*"; logger -t baylee-deploy -- "$*" 2>/dev/null || true; }
 
@@ -82,7 +86,7 @@ stage() {
     cd "$src"
     git cat-file -e "$rev^{commit}" 2>/dev/null || git fetch -q --tags "$repo"
     git checkout -q -f --detach "$rev"
-    git clean -q -fd -e target
+    git clean -q -fd -e target -e web/feedback/node_modules
     "$cargo" build --release --locked \
         -p baylee-gateway -p baylee-agent -p baylee-engine-server -p baylee-catalog \
         -p baylee-feedback 2>&1 | tail -1
@@ -103,10 +107,34 @@ stage() {
     log "staged ${rev:0:10}: agent and engine installed, agent off until the gateway follows"
     if installed baylee-feedback; then
         sudo install -m755 target/release/baylee-feedback "$bin/"
+        feedback_web
         sudo systemctl restart baylee-feedback
         log "feedback service ${rev:0:10} installed"
     fi
     finish "$force"
+}
+
+# The feedback service's web UI (web/feedback, #311): built here when npm
+# (and so node) is installed, and put where the unit's FEEDBACK_WEB_DIR
+# points, before the service restarts. Without npm, or when the build
+# fails, the UI installed last stays, and the deploy goes on: the service
+# and its API do not need it.
+feedback_web() {
+    if ! command -v "$npm" >/dev/null 2>&1; then
+        log "no npm here: the feedback web UI is not built, the one installed stays"
+        return 0
+    fi
+    if ! (cd web/feedback && "$npm" ci --no-audit --no-fund >/dev/null && "$npm" run build >/dev/null) \
+        || [ ! -f web/feedback/dist/index.html ]; then
+        log "the feedback web UI did not build; the one installed stays"
+        return 0
+    fi
+    sudo mkdir -p "$(dirname "$web")"
+    sudo rm -rf "$web.new"
+    sudo cp -R web/feedback/dist "$web.new"
+    sudo rm -rf "$web"
+    sudo mv "$web.new" "$web"
+    log "feedback web UI installed to $web"
 }
 
 finish() {

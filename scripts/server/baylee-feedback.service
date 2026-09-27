@@ -2,6 +2,10 @@
 # after that `baylee-deploy stage` replaces the binary and restarts it.
 # Reads its database URL and tokens from /etc/baylee/feedback.env and binds
 # to loopback; the TLS reverse proxy in front of it is the public side.
+# The web UI (#311) is served when that file sets
+# FEEDBACK_WEB_DIR=/opt/baylee/web/feedback, where `stage` installs it, and
+# FEEDBACK_TRUSTED_PROXIES=127.0.0.1 lets the sign-in limiter see the
+# proxy's client. Both only read, so ProtectSystem=strict stays.
 [Unit]
 Description=Baylee: the feedback service (bug reports from the gateways)
 After=network-online.target postgresql.service
