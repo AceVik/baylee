@@ -15,6 +15,7 @@ the pointers, because line numbers move.
 | Account | Postgres `account` | until its player deletes it | `DELETE /account` |
 | Guest account | Postgres `account` (`guest`) | until its last session lapses, 29–30 days after its last request | the sweep, or signing out |
 | Session | Postgres `session_token` (hash only) | 12 h (account) / 30 days (guest), sliding | the sweep, use after expiry, signing out |
+| Closed beta key (#317) | Postgres `invite` (hash only), and which key admitted an account (`account.invite_id`) | until the operator removes the row | SQL by the operator; revoking only closes it |
 | Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, the next resend for that account, or the sweep once expired |
 | Deck and its history | Postgres `deck`, `deck_version` | indefinitely | `DELETE /decks/{id}`, or the account's deletion |
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
@@ -47,6 +48,8 @@ the pointers, because line numbers move.
     imported from the legacy file carry one.
   - `confirmed_at`, `created_at`, `lang` (the language a mail is sent in),
     `guest`.
+  - `invite_id`: on a closed beta (#317), which key let the account in
+    (below); empty otherwise.
   - No IP address, user agent or last-login time is stored anywhere.
 - **Why:** the username signs in. The display name and tag are how other
   players see and find the account (`GET /players/{handle}`). The e-mail
@@ -108,6 +111,30 @@ the pointers, because line numbers move.
 - **Other secrets, in memory only:** seat and engine tokens as SHA-256 hashes
   (`lobby::LobbySeat`, `lobby::LobbyGame`), and a room password as an
   unsalted SHA-256. They go with the lobby table.
+
+## Closed beta keys (#317)
+
+`crates/baylee-db/src/invites.rs`, the migration
+`m20260927_000010_invites`, and the command `baylee-gateway invite`
+(`crates/baylee-gateway/src/invite.rs`).
+
+- **Stored:** `invite(id, key_hash, created_at, note, uses_left,
+  expires_at, revoked_at)`. `key_hash` is SHA-256 of the key's canonical
+  form; the key itself is printed once, by the command that makes it, and
+  never stored or logged. `note` is the operator's own word on whom a key
+  was for, at most 100 characters: it may name a person, so write what you
+  need and no more.
+- **Linked:** an account made with a key keeps its id (`account.invite_id`),
+  so `invite list` can say how many accounts each key admitted. Nothing
+  about the player is written to the key's row.
+- **Seen by:** the operator, through `invite list` or SQL. No route shows a
+  key's row, and no player sees another's `invite_id`.
+- **Kept:** until the operator removes the row. `invite revoke` only closes
+  a key; there is no delete command, so removal is SQL
+  (`DELETE FROM invite WHERE id = …`). Removing a key leaves its accounts
+  (`ON DELETE SET NULL`), and deleting an account leaves its key's row.
+- **Key tries** count in `AppState.sign_in_limiter` under the caller's
+  address (below).
 
 ## Confirmation mail
 
@@ -212,6 +239,8 @@ the pointers, because line numbers move.
 - `AppState.sign_in_limiter` (8 per 300 s) is keyed by the account, or by
   what was typed when no account matches, which can be an e-mail address.
   A successful sign-in forgets the key, and so does an account's deletion.
+  On a closed beta it also counts key tries, keyed `invite:{ip}`, forgotten
+  when a key admits somebody.
 - The art mirror's limiter is keyed by account id (`art::OUTBOUND_PER_ACCOUNT`).
 - `auth::RateLimiter` prunes a key's old hits when the key is used, and drops
   idle keys in a sweep that runs inside the next check made after a window

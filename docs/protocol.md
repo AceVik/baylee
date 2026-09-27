@@ -75,7 +75,8 @@ is no account yet:
 
 ```json
 {"name":"Baylee EU","version":"…","commit":"…","build":"…","built_at":"…","dirty":false,
- "protocol_version":…,"view_version":…,"source":"https://github.com/AceVik/baylee"}
+ "protocol_version":…,"view_version":…,"source":"https://github.com/AceVik/baylee",
+ "registration":"invite","guests":true}
 ```
 
 - `name` is `BAYLEE_GATEWAY_NAME`, trimmed. It is **absent** when unset, and
@@ -102,6 +103,11 @@ is no account yet:
   than cuts anything else (`gateway_info::GatewayInfo::source`). Its front
   door draws it under the Fan Content notice, and draws the client's own
   repository instead while the gateway has not said.
+- `registration` is who may make an account: `open`, `invite` (a closed
+  beta, §"A closed beta: keys (#317)") or `off`; `guests` is whether it takes
+  guests. Both are absent from a gateway older than #317. They are here so a
+  gateway list can say what a gateway takes before anything is saved;
+  `GET /auth/config` says the same for the form.
 
 ## Printings (which art the client draws)
 
@@ -1678,6 +1684,57 @@ so a guest is `Guest#1a2b` to the other players.
 Turning a guest into an account, keeping its decks, is not part of this
 (#269 leaves it to an issue of its own).
 
+## A closed beta: keys (#317)
+
+`BAYLEE_REGISTRATION=invite` makes a gateway a closed beta: a **new
+account and a new guest each need a key**. A guest coming back with its
+session needs none (the session is the guest), and signing in needs none.
+`off` and unset are as before; `BAYLEE_GUESTS=off` still closes the guest
+door, key or no key.
+
+- **Where it goes.** `POST /auth/register` and `POST /auth/guest` take an
+  optional `invite_key` beside their other fields. A gateway that is not a
+  closed beta ignores it; a client sends it only where the gateway said
+  `invite`, so an older gateway is sent exactly what it always was.
+- **What the gateway says.** `GET /info` and `GET /auth/config` carry
+  `"registration": "open" | "invite" | "off"`. `/auth/config` keeps
+  `registration_enabled: true` in invite mode, so a client from before #317
+  still draws its sign-up form, and is then told why it failed (below).
+- **Its shape.** `BAYLEE-XXXX-XXXX-XXXX-XXXX`: sixteen characters of
+  Crockford base32, 80 random bits, the prefix and dashes only for the eye.
+  The gateway reads a key the way a person copies one: case, spaces, dashes
+  (also typographic ones) and the prefix do not matter, `O` is `0`, and `I`
+  and `L` are `1`.
+- **Refusals**, all `403`:
+  - no key, or a blank one: `this gateway is a closed beta: a new account
+    or guest needs a closed beta key. If there is no field for one, update
+    Baylee`. That last sentence is for a beta.1 client, which shows a
+    gateway's refusal as it is and has no field for a key;
+  - a key that is malformed, unknown, used up, expired or revoked, all in
+    one sentence so a guess learns nothing: `this closed beta key is not
+    valid`.
+  A key try counts against the sign-in limiter under the caller's address
+  (eight in five minutes, then `429` `too many attempts`, before the key is
+  even read); a key that admits somebody clears that count, as a right
+  password does. The ordinary per-address limit of registration and guests
+  still applies too.
+- **Kept as a hash.** The table `invite` holds SHA-256 of the key's
+  canonical sixteen characters, never the key, with a note, the uses left
+  (default one), an optional expiry and a revocation time. Redeeming is one
+  `UPDATE … WHERE uses_left > 0 AND revoked_at IS NULL AND (expires_at IS
+  NULL OR expires_at > now) RETURNING id` in the transaction that inserts
+  the account: two players racing for the last use make one account, and a
+  registration refused after the key (a username taken meanwhile) rolls the
+  use back. The account keeps which key let it in (`account.invite_id`,
+  `ON DELETE SET NULL`). No key is ever logged.
+- **Made on the server.** `baylee-gateway invite` needs only
+  `DATABASE_URL`, and `baylee-invite` (installed by `baylee-deploy stage`)
+  runs it with the gateway's settings:
+  `create [--uses N] [--expires 30d|12h] [--note "…"] [--count K]` prints
+  one key per line on stdout, and nothing else, so it pipes; `list` shows
+  every key's id, note, uses left, accounts admitted, expiry and state,
+  never a key; `revoke <id>` closes one. A key is shown once, when made.
+
 ## Deleting an account (#292)
 
 `DELETE /account` deletes the caller's own account and answers `204`.
@@ -1753,12 +1810,12 @@ from a curl recipe into a contract:
 
 | step | call | answer |
 | --- | --- | --- |
-| which gateway this is | `GET /info` | `{name?, version, commit, build, built_at, dirty, protocol_version, view_version}` |
-| sign up | `POST /auth/register` `{username, display_name, password, lang}` | `{"ok":true}`; `409` for a taken username |
+| which gateway this is | `GET /info` | `{name?, version, commit, build, built_at, dirty, protocol_version, view_version, source, registration, guests}` |
+| sign up | `POST /auth/register` `{username, display_name, password, lang, invite_key?}` | `{"ok":true}`; `409` for a taken username; `403` for a missing or refused key on a closed beta |
 | confirm | `GET /auth/confirm?token=…` (the link in the mail) | `{"ok":true}` |
 | send it again | `POST /auth/confirm/resend` `{email}` (an address from before #269) | `{"ok":true}`, always |
 | sign in | `POST /auth/login` `{username, password}` (an address until 31.12.2026) | `{token, expires_at, username}` |
-| play as a guest | `POST /auth/guest` `{display_name?, lang?}` | `{token, expires_at, guest, handle}`; `403` when off, `503` when full |
+| play as a guest | `POST /auth/guest` `{display_name?, lang?, invite_key?}` | `{token, expires_at, guest, handle}`; `403` when off or for a missing or refused key on a closed beta, `503` when full |
 | sign out | `POST /auth/logout` | `204`; a guest is deleted with it |
 | leave for good | `DELETE /account` `{password}` (a guest sends `{}`) | `204`; `403` for a wrong password, `429` past eight tries |
 | who am I | `GET /me` | `{id, email, username, guest, display_name, tag, handle}` |
