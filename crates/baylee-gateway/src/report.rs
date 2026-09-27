@@ -351,6 +351,7 @@ mod tests {
         );
     }
 
+    #[allow(clippy::needless_pass_by_value)] // the callers build the values in place
     fn body(
         kind: &str,
         text: &str,
@@ -502,7 +503,9 @@ mod tests {
         limiter.give_back("a");
         assert!(limiter.allow_at("a", start), "a slot given back");
         assert!(!limiter.allow_at("a", start));
-        let almost = start + REPORT_WINDOW - Duration::from_millis(1);
+        let almost = (start + REPORT_WINDOW)
+            .checked_sub(Duration::from_millis(1))
+            .unwrap();
         assert!(!limiter.allow_at("a", almost), "the window has not passed");
         assert!(
             limiter.allow_at("a", start + REPORT_WINDOW),
@@ -518,7 +521,8 @@ mod tests {
         }
         assert!(limiter.allow_at("d", start + REPORT_WINDOW), "a sweep");
         let edge = spent + REPORT_WINDOW;
-        assert!(!limiter.allow_at("c", edge - Duration::from_millis(1)));
+        let before = edge.checked_sub(Duration::from_millis(1)).unwrap();
+        assert!(!limiter.allow_at("c", before));
         assert!(limiter.allow_at("c", edge), "a window after it was spent");
     }
 

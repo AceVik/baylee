@@ -54,7 +54,7 @@ fn stage(feedback_installed: bool) -> String {
         "systemctl",
         &format!(
             r#"[ "$1 $2" = "cat baylee-feedback" ] && exit {}; exit 0"#,
-            if feedback_installed { 0 } else { 1 }
+            u8::from(!feedback_installed)
         ),
     );
     // A game is running, so `finish` waits and the gateway is left alone.
