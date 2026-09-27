@@ -5,7 +5,50 @@ use baylee_update::apply::Staged;
 use baylee_update::plan::{NEW, STAGE};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::AtomicU32;
+
+fn updater(install: &Install, allowed: bool) -> Updater {
+    Updater {
+        service: Mutex::new(None),
+        install: Some(install.clone()),
+        version: "0.1.0-beta.2".into(),
+        dev: false,
+        allowed: AtomicBool::new(allowed),
+    }
+}
+
+/// What winit does on macOS's "Quit" (`bevy_winit`'s `exiting`): it clears
+/// the world, and that alone has to install the update.
+#[test]
+fn clearing_the_world_as_quit_does_installs_the_update() {
+    let (base, install) = installed();
+    stage(&install);
+    let mut world = World::new();
+    world.insert_resource(updater(&install, true));
+    world.clear_all();
+    assert_eq!(program(&base), "new");
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn switching_installing_off_is_what_the_exit_obeys() {
+    let (base, install) = installed();
+    stage(&install);
+    let mut app = App::new();
+    app.add_message::<UpdateRequest>()
+        .insert_resource(updater(&install, true))
+        .add_systems(Update, forward);
+    app.world_mut()
+        .write_message(UpdateRequest::Prefs(UpdatePrefs {
+            check: true,
+            install: false,
+        }));
+    app.update();
+    drop(app);
+    assert_eq!(program(&base), "old");
+    assert!(apply::staged(&install).is_some());
+    let _ = fs::remove_dir_all(base);
+}
 
 /// A fresh folder with an "installed" Linux client in it (the plan is the
 /// same renames on every system; the per-system trees are

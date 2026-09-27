@@ -5,8 +5,8 @@
 //! announced once ("Updated to X"). Then a thread (`baylee_update::service`)
 //! asks GitHub at start and every six hours, unless the player switched that
 //! off, and downloads, verifies and unpacks a newer release beside the
-//! installation. When the program ends ([`AppExit`]), a staged update
-//! replaces it. `docs/client.md` §"Updating" is the whole story.
+//! installation. When the program ends (the `Drop` of its resource), a
+//! staged update replaces it. `docs/client.md` §"Updating" is the whole story.
 //!
 //! A build that did not come out of the release workflow is a development
 //! build: it checks and shows what it found, and never replaces itself,
@@ -22,6 +22,7 @@ use baylee_update::service::{self, Command, Service, Settings};
 use baylee_update::{VerifyingKey, Version, sign};
 use bevy::prelude::*;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Whether this build may replace itself: built by the release workflow,
 /// with optimisations, from a clean commit.
@@ -107,6 +108,8 @@ struct Updater {
     install: Option<Install>,
     version: String,
     dev: bool,
+    /// "Update automatically", as the player last set it.
+    allowed: AtomicBool,
 }
 
 /// The updater, on a desktop build.
@@ -128,9 +131,9 @@ impl Plugin for NativeUpdatePlugin {
             install: build.install.ok(),
             version: build.version.to_string(),
             dev: build.dev,
+            allowed: AtomicBool::new(prefs.install),
         })
-        .add_systems(Update, (forward, receive).chain())
-        .add_systems(Last, on_exit);
+        .add_systems(Update, (forward, receive).chain());
     }
 }
 
@@ -215,10 +218,14 @@ fn forward(mut requests: MessageReader<UpdateRequest>, updater: Res<Updater>) {
     let Ok(service) = updater.service.lock() else {
         return;
     };
-    let Some(service) = service.as_ref() else {
-        return;
-    };
     for request in requests.read() {
+        // The exit obeys the switch even with no thread to tell.
+        if let UpdateRequest::Prefs(prefs) = request {
+            updater.allowed.store(prefs.install, Ordering::Relaxed);
+        }
+        let Some(service) = service.as_ref() else {
+            continue;
+        };
         service.send(match request {
             UpdateRequest::CheckNow => Command::CheckNow,
             UpdateRequest::Prefs(prefs) => Command::Settings(settings(*prefs)),
@@ -293,29 +300,34 @@ fn why_of(manual: &Manual) -> Why {
 }
 
 /// When the program ends: stops the thread, then installs a staged update
-/// if this device lets it and this is not a development build. The window
-/// is already closed; nothing of the installation is read after this.
-fn on_exit(
-    mut exits: MessageReader<AppExit>,
-    updater: Res<Updater>,
-    prefs: Res<UpdatePrefs>,
-    mut done: Local<bool>,
-) {
-    if exits.read().count() == 0 || *done {
-        return;
-    }
-    *done = true;
-    if let Ok(mut service) = updater.service.lock() {
-        // Dropping the door ends the thread at its next wake-up; a download
-        // it is in the middle of holds the stage's claim, and `apply` then
-        // answers `Busy` and leaves the update for the next exit.
-        service.take();
-    }
-    let Some(install) = &updater.install else {
-        return;
-    };
-    if let Some(outcome) = exit_with(install, &updater.version, prefs.install, updater.dev) {
-        info!("updates: {outcome}");
+/// if this device lets it and this is not a development build.
+///
+/// A `Drop` and not a system reading [`AppExit`], because on macOS "Quit"
+/// (⌘Q, the menu, the Dock) never sends one: macOS ends the process from
+/// `applicationWillTerminate`, and all winit lets Bevy do first is clear its
+/// world (`bevy_winit`'s `exiting`), which drops this resource. Closing the
+/// window drops it the same way, once the event loop has ended. Seen in the
+/// live check of 27.09.2026, where ⌘Q left the update staged. The window is
+/// gone by then; nothing of the installation is read after this.
+impl Drop for Updater {
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            // A crash installs nothing; the next exit will.
+            return;
+        }
+        if let Ok(mut service) = self.service.lock() {
+            // Dropping the door ends the thread at its next wake-up; a
+            // download it is in the middle of holds the stage's claim, and
+            // `apply` then answers `Busy` and leaves it for the next exit.
+            service.take();
+        }
+        let Some(install) = &self.install else {
+            return;
+        };
+        let allowed = self.allowed.load(Ordering::Relaxed);
+        if let Some(outcome) = exit_with(install, &self.version, allowed, self.dev) {
+            info!("updates: {outcome}");
+        }
     }
 }
 
