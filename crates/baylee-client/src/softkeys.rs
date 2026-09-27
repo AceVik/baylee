@@ -214,7 +214,11 @@ impl Inner {
                     let made: web_sys::HtmlInputElement =
                         document.create_element("input").ok()?.dyn_into().ok()?;
                     made.set_id(ID);
-                    let _ = made.set_attribute("style", STYLE);
+                    // Through the CSSOM, not a `style` attribute: a page
+                    // whose policy has no `'unsafe-inline'` style (#327,
+                    // `scripts/server/play.caddy`) refuses the attribute and
+                    // leaves this one alone.
+                    made.style().set_css_text(STYLE);
                     let _ = made.set_attribute("autocapitalize", "off");
                     let _ = made.set_attribute("autocorrect", "off");
                     let _ = made.set_attribute("spellcheck", "false");

@@ -15,34 +15,14 @@
   <title>Baylee</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/brand/favicon-32.png">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/brand/apple-touch-icon.png">
-  <!-- Sound waits for the player (#296). A browser lets a page make sound only
-       after someone has pressed, tapped or typed on it: an AudioContext made
-       before that starts suspended, and cpal makes its one at startup and asks
-       it to resume only then, so without this nothing the client plays is
-       ever heard in a browser. This keeps every context the page makes and
-       resumes it on each press until it runs. It must stand before the wasm
-       is loaded, so the context cpal makes is one of these. -->
-  <script>
-    (() => {
-      const Made = window.AudioContext || window.webkitAudioContext;
-      if (!Made) return;
-      const made = [];
-      window.AudioContext = class extends Made {
-        constructor(...args) {
-          super(...args);
-          made.push(this);
-        }
-      };
-      const wake = () => {
-        for (const context of made) {
-          if (context.state === "suspended") context.resume();
-        }
-      };
-      for (const press of ["pointerdown", "keydown", "touchend"]) {
-        window.addEventListener(press, wake, { capture: true, passive: true });
-      }
-    })();
-  </script>
+  <!-- Nothing on this page is inline, script or style (#327): the served
+       page's Content-Security-Policy (`scripts/server/play.caddy`) allows
+       only files. The stylesheet is `web/page.css`; `web/boot.js` checks for
+       WebGPU, wakes sound on the first press (#296) and starts the wasm, and
+       Trunk.toml's `pattern_script` puts the tag that loads it where the
+       `rel="rust"` link stands, with the hashed file names on it. -->
+  <link data-trunk rel="css" href="web/page.css">
+  <link data-trunk rel="copy-file" href="web/boot.js">
   <link data-trunk rel="rust" data-wasm-opt="z" data-bin="baylee-client">
   <!-- Bevy's asset server resolves `fonts/Faustina.ttf` against `./assets/` in a
        browser exactly as it does natively, but nothing puts that directory in
@@ -50,50 +30,6 @@
        no fonts, and every glyph the client draws — the icons, the mana
        symbols — silently renders as nothing. -->
   <link data-trunk rel="copy-dir" href="assets">
-
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: #0a0d0f;
-      overflow: hidden;
-      /* A rubber-band scroll on iOS drags the whole game out of view. */
-      overscroll-behavior: none;
-    }
-    /* Bevy creates the canvas; fit_canvas_to_parent sizes it to the body. */
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-      /* Every touch is the game's: no scroll, no pinch-zoom, no
-         double-tap-to-zoom, and no grey flash on tap. */
-      touch-action: none;
-      -webkit-tap-highlight-color: transparent;
-      outline: none;
-    }
-    /* The lobby's text fields on a touch device. A canvas never raises a soft
-       keyboard, so `src/softkeys.rs` puts a real input over the page and
-       focuses it; the client draws the text itself. Invisible, but NOT
-       `display:none` or `visibility:hidden` — neither can hold focus, and
-       focus is the whole point. 16px keeps iOS from zooming on focus. -->
-    #baylee-text-input {
-      position: fixed;
-      left: 0;
-      bottom: 0;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      border: 0;
-      outline: none;
-      opacity: 0;
-      font-size: 16px;
-      background: transparent;
-      color: transparent;
-      caret-color: transparent;
-      z-index: 2;
-    }
-  </style>
 </head>
 <body></body>
 </html>

@@ -1,0 +1,10 @@
+# Trunk's settings for the browser client (`index.html`).
+#
+# Trunk would put an inline `<script type="module">` where the
+# `<link data-trunk rel="rust">` stands, and the served page's
+# Content-Security-Policy (`scripts/server/play.caddy`, #327) allows no inline
+# script. So the tag it writes there loads `web/boot.js` instead, and carries
+# the hashed names of the wasm-bindgen module and the wasm for it to start.
+# Trunk's preload links (with their integrity hashes) are unchanged.
+[build]
+pattern_script = '<script type="module" src="{base}boot.js" data-js="{base}{js}" data-wasm="{base}{wasm}"></script>'

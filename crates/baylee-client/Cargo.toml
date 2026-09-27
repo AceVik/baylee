@@ -203,6 +203,7 @@ getrandom = { workspace = true, features = ["wasm_js"] }
 # and the column would say UTC.
 time = { workspace = true, features = ["wasm-bindgen"] }
 web-sys = { workspace = true, features = [
+    "CssStyleDeclaration",
     "Document",
     "Element",
     "EventTarget",
