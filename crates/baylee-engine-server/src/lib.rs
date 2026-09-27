@@ -562,7 +562,10 @@ impl EngineRunner {
         }
         // A fresh snapshot must earn a fresh render acknowledgement, also
         // when the gateway requests resynchronization on the same socket.
+        // Only then has the count the other seats hold changed.
+        let mut recounted = false;
         if let Some(barrier) = self.curtain.as_mut() {
+            recounted = barrier.ready.contains(player) || self.enter_at.is_some();
             barrier.ready = barrier.ready.iter().filter(|p| *p != player).collect();
             self.enter_at = None;
         }
@@ -597,7 +600,15 @@ impl EngineRunner {
             // before (a loader that dropped and dialled again).
             session.retell_log(player);
             out.extend(session.show(player).iter().map(|env| seat_frame(seat, env)));
-            out.extend(self.loading_status());
+            let status = self.loading_status();
+            out.extend(
+                status
+                    .into_iter()
+                    .filter(|env| {
+                        recounted
+                            || matches!(&env.msg, Some(v1::envelope::Msg::SeatFrame(f)) if f.seat == u32::from(seat))
+                    }),
+            );
             return out;
         }
         if attached.resync {
@@ -1238,6 +1249,11 @@ mod tests {
         );
         let second = attach(&mut runner, 1);
         assert!(shown(&second, 1), "{:?}", said(&second));
+        assert!(
+            said(&second).iter().all(|(s, _)| *s == 1),
+            "seat 0's count has not changed, so it is not told it again: {:?}",
+            said(&second)
+        );
         assert!(runner.curtain_pending());
 
         let scheduled = ready(&mut runner, 1);
@@ -1331,6 +1347,10 @@ mod tests {
         assert!(runner.entrance_deadline().is_some());
         let refreshed = attach(&mut runner, 0);
         assert!(runner.entrance_deadline().is_none());
+        assert!(
+            said(&refreshed).contains(&(1, "loading")),
+            "the other seat hears its departure cancelled"
+        );
         assert!(frames(&refreshed).iter().any(|(_, message)| matches!(message, v1::envelope::Msg::TableLoading(s) if s.ready == 1 && s.enter_at_ms == 0)));
         ready(&mut runner, 0);
         assert!(runner.entrance_deadline().is_some());
