@@ -524,6 +524,70 @@ mod tests {
         ));
     }
 
+    /// What a reader is handed that is not a whole record: nothing, a
+    /// header alone, a record of another shape, a header twice, a line
+    /// that does not parse, an end the game had not reached.
+    #[test]
+    fn a_record_that_is_not_one_says_why() {
+        assert!(matches!(replay(b""), Err(ReplayError::NoHeader)));
+        assert!(matches!(replay(b"\n\n"), Err(ReplayError::NoHeader)));
+        let written = lines(&played(3).take_record());
+
+        // The header alone is the game before its first input.
+        let header = replay(&encode(&written[..1])).expect("a header replays");
+        assert_eq!(header.inputs, 0);
+        assert!(!header.ended);
+        // The header without its newline is a record cut before it ended.
+        let cut = encode(&written[..1]);
+        assert!(matches!(
+            replay(&cut[..cut.len() - 1]),
+            Err(ReplayError::NoHeader)
+        ));
+
+        let mut other = written.clone();
+        if let Line::Header { record, .. } = &mut other[0] {
+            *record = RECORD_VERSION + 1;
+        }
+        assert!(matches!(
+            replay(&encode(&other)),
+            Err(ReplayError::NoHeader)
+        ));
+
+        let mut twice = written.clone();
+        twice.insert(3, written[0].clone());
+        assert!(matches!(
+            replay(&encode(&twice)),
+            Err(ReplayError::NoHeader)
+        ));
+
+        let mut garbled = encode(&written[..4]);
+        garbled.extend_from_slice(b"{\"kind\":\"input\"}\n");
+        garbled.extend_from_slice(&encode(&written[4..]));
+        assert!(matches!(
+            replay(&garbled),
+            Err(ReplayError::Unreadable { line: 5, .. })
+        ));
+
+        let end = written
+            .iter()
+            .find(|l| matches!(l, Line::End { .. }))
+            .expect("an end")
+            .clone();
+        let Line::End { n, .. } = end else {
+            unreachable!()
+        };
+        let at = written
+            .iter()
+            .position(|l| by(l).is_some())
+            .expect("an input");
+        let mut early = written[..=at].to_vec();
+        early.push(end);
+        assert_eq!(
+            replay(&encode(&early)).err(),
+            Some(ReplayError::NotOver { n })
+        );
+    }
+
     #[test]
     fn a_record_names_nobody() {
         let record = String::from_utf8(played(3).take_record()).unwrap();

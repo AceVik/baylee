@@ -41,6 +41,12 @@ pub const CURTAIN_SECS: u32 = 120;
 /// engine that dies loses at most this much.
 pub const RECORD_CHUNK_BYTES: usize = 32 * 1024;
 
+/// Whether `pending` bytes of the record, uncompressed, are a piece to send
+/// while the game goes on: [`RECORD_CHUNK_BYTES`] or more.
+const fn record_due(pending: usize) -> bool {
+    pending >= RECORD_CHUNK_BYTES
+}
+
 /// The curtain while it is down (#256): the seats it waits for, and which of
 /// them have said they are ready.
 ///
@@ -784,7 +790,7 @@ impl EngineRunner {
             return Vec::new();
         };
         let Pending::GameOver(result) = session.pending() else {
-            if session.record_pending() < RECORD_CHUNK_BYTES {
+            if !record_due(session.record_pending()) {
                 return Vec::new();
             }
             let data = session.take_record();
@@ -1817,7 +1823,17 @@ mod tests {
                 .session()
                 .and_then(|s| s.house_action(me))
                 .expect("the player is asked while the game goes on");
-            out.extend(act(&mut runner, 0, &action));
+            let step = act(&mut runner, 0, &action);
+            let sent = step
+                .iter()
+                .any(|e| matches!(e.msg, Some(v1::envelope::Msg::GameRecordChunk(_))));
+            if !sent {
+                // Nothing held back that was due: what is left waiting is
+                // under the bound.
+                let pending = runner.session().unwrap().record_pending();
+                assert!(pending < RECORD_CHUNK_BYTES, "{pending} bytes held back");
+            }
+            out.extend(step);
         }
         assert!(runner.finished(), "the game ended");
         let pieces: Vec<&v1::GameRecordChunk> = out
@@ -1869,6 +1885,52 @@ mod tests {
         );
         let text = String::from_utf8(record).unwrap();
         assert!(!text.contains("\"You\""), "the record names no seat");
+
+        // Each piece but the last waited for the bound, and each is a gzip
+        // member of its own.
+        for piece in &pieces {
+            let mut inside = Vec::new();
+            std::io::Read::read_to_end(
+                &mut flate2::read::GzDecoder::new(&piece.data[..]),
+                &mut inside,
+            )
+            .expect("a gzip member");
+            if !piece.last {
+                assert!(inside.len() >= RECORD_CHUNK_BYTES, "piece {}", piece.seq);
+            }
+        }
+    }
+
+    /// The bound is inclusive: exactly [`RECORD_CHUNK_BYTES`] is a piece.
+    #[test]
+    fn a_piece_is_due_at_exactly_its_bound() {
+        assert!(!record_due(0));
+        assert!(!record_due(RECORD_CHUNK_BYTES - 1));
+        assert!(record_due(RECORD_CHUNK_BYTES));
+        assert!(record_due(RECORD_CHUNK_BYTES + 1));
+    }
+
+    /// A game can end with nothing left to send (the last take drained it):
+    /// the last piece is then an empty gzip member, which a reader of the
+    /// pieces in order passes over, and `seq` still counts on.
+    #[test]
+    fn an_empty_last_piece_still_ends_the_record() {
+        let mut runner = EngineRunner::new();
+        let piece = |env: Envelope| match env.msg {
+            Some(v1::envelope::Msg::GameRecordChunk(c)) => c,
+            other => panic!("{other:?}"),
+        };
+        let first = piece(runner.record_chunk(b"a line\n", false));
+        let last = piece(runner.record_chunk(b"", true));
+        assert_eq!((first.seq, last.seq), (0, 1));
+        assert!(last.last && !last.data.is_empty());
+        let mut record = Vec::new();
+        std::io::Read::read_to_end(
+            &mut flate2::read::MultiGzDecoder::new(&[first.data, last.data].concat()[..]),
+            &mut record,
+        )
+        .expect("one gzip stream");
+        assert_eq!(record, b"a line\n");
     }
 
     /// A preset that does not describe a game has to say so. The gateway
