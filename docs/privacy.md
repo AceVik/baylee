@@ -303,6 +303,34 @@ decks and settings as JSON.
 - **No tracking:** no cookie is set by the gateway, no analytics or
   telemetry library is linked, and the CORS policy allows no credentials.
 
+## Game records and reports (#315, #307, #308)
+
+Kept apart from the table above so the two strands' rows merge cleanly.
+
+| What | Where | Kept | Removed by |
+| --- | --- | --- | --- |
+| Game record (every input, all hands and libraries) | gateway Postgres `game_record`, `game_record_chunk` | indefinitely (the owner's decision) | nothing yet |
+| Who sat in which seat of a recorded game | gateway Postgres `game_record_seat` (account id) | until the account is deleted | the account's deletion sets it to `NULL`; the record stays |
+| Report count per account | gateway memory | an hour | the limiter itself; a report the service did not take is not counted |
+| Report (kind, text, game id, the client's `client` object, the record of a game its reporter sat at) | the feedback service's own Postgres, `feedback_report` | until an admin deletes it | `DELETE /reports/{id}` on the service |
+| Reporter pseudonym | `feedback_report.reporter` | with the report | with the report |
+
+- **The record names nobody.** Seats are numbers; the seat names the engine
+  was told never enter it. The only link to a person is `game_record_seat`,
+  which goes with the account. What stays after that is a game between
+  numbered seats, with their decks and every card they held.
+- **No seat or lobby route reads a record.** The one reader is
+  `POST /reports`, which attaches a game's record only when the reporter sat
+  at that game (`docs/protocol.md` §"The game record").
+- **What reaches the feedback service** is `docs/feedback.md`'s list: the
+  gateway's name, public URL and build, the pseudonym (HMAC-SHA256 of the
+  account id under `BAYLEE_FEEDBACK_KEY`, which the service does not hold),
+  and what the player sent. Never a name, username, address, session or IP.
+  The service has no column for an address or a name and logs no request's
+  address.
+- **Open:** records have no deletion path yet, not even for a player who
+  deletes their account; their account link is cut, the game stays.
+
 ## Open points
 
 Found while writing this inventory. They are facts for the owner and the PM
