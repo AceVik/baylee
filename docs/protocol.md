@@ -1234,8 +1234,8 @@ POST /lobby/games ─┐
                    │                                                          v
                    └── EngineHello{game_id, token, protocol_version} ── baylee-engine-server
                    │
-                   ├── GameSetup / SeatAttached / SeatDetached / SeatFrame ──>
-                   <── SeatFrame / GameRecordChunk / GameEnded ────────────────
+                   ├── GameSetup / SeatAttached / SeatDetached / SeatFrame / FlushRecord ──>
+                   <── SeatFrame / GameRecordChunk / RecordFlushed / GameEnded ──────────────
                    │
                    └── the seat sockets, unchanged
 ```
@@ -1310,6 +1310,41 @@ last}` on the engine link, a piece once 32 KiB of it have gathered
 stream of the record. A two-seat game of the acceptance decks is 660–1,450
 lines, 100–190 KB of JSON, 17–29 KB compressed.
 
+Two more reasons send a piece before 32 KiB have gathered (#323), because a
+bug report is about a moment, and a record that ends at the last full piece
+does not reach it (two reports from turn 17 carried records that ended in
+turns 13 and 16):
+
+- **A report asks.** `POST /reports` naming a game that goes on, from a
+  player who sits at it, sends the game's engine `FlushRecord{game_id,
+  nonce}`. The engine sends what has gathered as a piece that is not `last`
+  and then `RecordFlushed{game_id, nonce, pieces}` (`pieces`: how many it has
+  sent, the next `seq`), on the same socket and so after the piece. It
+  answers every ask: with nothing waiting, before the game is built and
+  after it ended the answer is `RecordFlushed` alone, never an empty piece.
+  The gateway hands the answer to the game's record writer behind the pieces
+  before it, and the report waits until those are *stored*, not merely
+  received, at most `FLUSH_WAIT` (3 s, `crates/baylee-gateway/src/report.rs`).
+  Then it reads the record as the store has it, which reaches the moment the
+  report was filed: played again it ends on the hash the engine had when the
+  report arrived. An engine that does not answer in time (busy, stuck, gone,
+  or from before the ask) costs the report the wait and never the report:
+  it goes with the record as stored until then. A flush moves nothing in the
+  game: no pump, no clock, no frame to a seat.
+- **Time passes.** Record that has waited `RECORD_FLUSH_MS` (30 s of wall
+  time, `crates/baylee-engine-server/src/lib.rs`) goes without being asked,
+  counted from when those bytes began to wait rather than from the last
+  piece, so a quiet game sends no piece per action. It keeps a game lost with
+  its engine, or reported on after it ended that way, at most half a minute
+  short. Not while the curtain is down: loading seats have the database to
+  themselves, and the first move after it rises finds the header overdue.
+
+Where a piece breaks changes nothing else: the pieces are gzip members of
+their own, and the record they make is the same bytes with or without
+flushes (`flushes_at_any_moment_change_nothing_but_where_the_pieces_break`).
+The store takes pieces of any size in `seq` order, under the same 64 MiB
+bound.
+
 - **It is omniscient, so no seat is ever sent it.** The gateway stores the
   pieces and forwards none; nothing a seat socket or the lobby can ask reads
   them. The one reader is `POST /reports`, for a player who sat at the game,
@@ -1324,6 +1359,12 @@ lines, 100–190 KB of JSON, 17–29 KB compressed.
   64 MiB in the store; past that the gateway drops the rest and says so.
 - **No protocol bump.** Only an engine sends it and only a gateway reads it,
   and both ship in one build; a gateway from before it ignores the message.
+  The same holds for `FlushRecord` and `RecordFlushed` (#323): engine link
+  only, and a peer from before them decodes either as an envelope with no
+  message and passes over it (prost skips a field number it does not know;
+  `an_envelope_from_a_newer_peer_is_read_as_nothing_rather_than_refused`).
+  An older engine never answers, so a report to it waits `FLUSH_WAIT` and
+  carries what was stored, as before.
 
 ### Running one
 

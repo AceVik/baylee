@@ -698,8 +698,19 @@ mod attached {
             let arrival = runner
                 .entrance_deadline()
                 .map(|at| now + std::time::Duration::from_millis(at.saturating_sub(wall_ms())));
+            // The record that has waited long enough goes to the gateway even
+            // when nothing moves (#323). Wall time, like the entrance.
+            let record_at = runner
+                .record_deadline()
+                .map(|at| now + std::time::Duration::from_millis(at.saturating_sub(wall_ms())));
             let next = armed.next();
             tokio::select! {
+                () = deadline(record_at) => {
+                    runner.tell_time(wall_ms());
+                    for envelope in runner.flush_record_due() {
+                        send(&mut ws, &envelope).await?;
+                    }
+                }
                 () = deadline(arrival) => {
                     runner.tell_time(wall_ms());
                     for envelope in runner.finish_entrance() {

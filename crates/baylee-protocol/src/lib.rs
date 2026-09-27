@@ -225,6 +225,9 @@ mod tests {
         // 4: render readiness, clock probes and the scheduled shared entrance.
         // 5: explicit free-mulligan counts in room presets.
         // 6: per-permanent starting counters in room presets.
+        // Not 7 for `FlushRecord`/`RecordFlushed` (#323): engine link only,
+        // and a peer from before them passes over either
+        // (`an_envelope_from_a_newer_peer_is_read_as_nothing_rather_than_refused`).
         assert_eq!(PROTOCOL_VERSION, 6);
     }
 

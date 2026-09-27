@@ -21,7 +21,9 @@ use baylee_client_core::bugreport::{
 };
 use baylee_engine::choice::{Pending, PlayerAction, timeout_answer};
 use baylee_protocol::v1::{self, Envelope};
-use common::{Gateway, Socket, attach_agent, http, http_bytes, json_field, login};
+use common::{
+    Gateway, Socket, attach_agent, attach_agent_probed, http, http_bytes, json_field, login,
+};
 use futures_util::SinkExt;
 use prost::Message;
 use sea_orm::ConnectionTrait as _;
@@ -156,7 +158,9 @@ async fn until_quiet(ws: &mut Socket) -> Option<baylee_view::PlayerView> {
         tokio::time::timeout(std::time::Duration::from_secs(2), common::next_msg(ws)).await
     {
         match msg {
-            v1::envelope::Msg::GameRecordChunk(_) => panic!("a seat was sent the game's record"),
+            v1::envelope::Msg::GameRecordChunk(_)
+            | v1::envelope::Msg::FlushRecord(_)
+            | v1::envelope::Msg::RecordFlushed(_) => panic!("a seat was sent the game's record"),
             v1::envelope::Msg::StateDelta(d) => view = serde_json::from_slice(&d.view_json).ok(),
             _ => {}
         }
@@ -172,9 +176,44 @@ async fn play(
     b: &mut Socket,
     answers: usize,
 ) -> (Option<baylee_view::PlayerView>, Option<Pending>) {
+    play_on(a, b, answers, &mut [None, None]).await
+}
+
+/// The seat's answer to `pending`, sent as a client sends it.
+async fn answer(ws: &mut Socket, pending: &Pending) {
+    let answer =
+        timeout_answer(pending).unwrap_or_else(|| panic!("no plain answer to {pending:?}"));
+    common::send(
+        ws,
+        &Envelope {
+            msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
+                game_id: String::new(),
+                seat_token: String::new(),
+                action_json: serde_json::to_vec(&answer).unwrap(),
+            })),
+        },
+    )
+    .await;
+}
+
+/// [`play`], going on from a stop: `held` is each seat's question it was
+/// asked while the last round fell quiet, answered first, and on return the
+/// questions this round leaves open.
+async fn play_on(
+    a: &mut Socket,
+    b: &mut Socket,
+    answers: usize,
+    held: &mut [Option<Pending>; 2],
+) -> (Option<baylee_view::PlayerView>, Option<Pending>) {
     let mut view = None;
     let mut asked = None;
     let mut answered = [0_usize; 2];
+    for (seat, ws) in [&mut *a, &mut *b].into_iter().enumerate() {
+        if let Some(pending) = held[seat].take() {
+            answer(ws, &pending).await;
+            answered[seat] += 1;
+        }
+    }
     let deadline = tokio::time::Instant::now() + common::WAIT_BUDGET;
     while answered.iter().any(|&n| n < answers) {
         assert!(
@@ -189,7 +228,9 @@ async fn play(
                 continue;
             };
             match msg {
-                v1::envelope::Msg::GameRecordChunk(_) => {
+                v1::envelope::Msg::GameRecordChunk(_)
+                | v1::envelope::Msg::FlushRecord(_)
+                | v1::envelope::Msg::RecordFlushed(_) => {
                     panic!("a seat was sent the game's record")
                 }
                 v1::envelope::Msg::StateDelta(d) if seat == 0 => {
@@ -198,22 +239,10 @@ async fn play(
                 v1::envelope::Msg::ChoiceRequest(c) => {
                     let pending: Pending =
                         serde_json::from_slice(&c.pending_json).expect("a question");
-                    let answer = timeout_answer(&pending)
-                        .unwrap_or_else(|| panic!("no plain answer to {pending:?}"));
+                    answer(ws, &pending).await;
                     if seat == 0 {
                         asked = Some(pending);
                     }
-                    common::send(
-                        ws,
-                        &Envelope {
-                            msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
-                                game_id: String::new(),
-                                seat_token: String::new(),
-                                action_json: serde_json::to_vec(&answer).unwrap(),
-                            })),
-                        },
-                    )
-                    .await;
                     answered[seat] += 1;
                 }
                 _ => {}
@@ -235,14 +264,20 @@ async fn play(
             };
             quiet = false;
             match msg {
-                v1::envelope::Msg::GameRecordChunk(_) => {
+                v1::envelope::Msg::GameRecordChunk(_)
+                | v1::envelope::Msg::FlushRecord(_)
+                | v1::envelope::Msg::RecordFlushed(_) => {
                     panic!("a seat was sent the game's record")
                 }
                 v1::envelope::Msg::StateDelta(d) if seat == 0 => {
                     view = serde_json::from_slice(&d.view_json).ok();
                 }
-                v1::envelope::Msg::ChoiceRequest(c) if seat == 0 => {
-                    asked = serde_json::from_slice(&c.pending_json).ok();
+                v1::envelope::Msg::ChoiceRequest(c) => {
+                    let pending: Option<Pending> = serde_json::from_slice(&c.pending_json).ok();
+                    if seat == 0 {
+                        asked.clone_from(&pending);
+                    }
+                    held[seat] = pending;
                 }
                 _ => {}
             }
@@ -566,6 +601,87 @@ async fn a_report_goes_from_the_client_through_the_gateway_to_the_service() {
     for p in &private {
         assert!(!text.contains(p.as_str()), "the record carried {p:?}");
     }
+
+    agent.abort();
+}
+
+/// The gateway of these tests, pointed at `service`.
+fn gateway_for(service: &Service, label: &str) -> Gateway {
+    common::spawn_gateway_with(
+        label,
+        &[
+            (
+                "BAYLEE_FEEDBACK_URL",
+                format!("http://127.0.0.1:{}/", service.port),
+            ),
+            ("BAYLEE_FEEDBACK_TOKEN", INTAKE.to_owned()),
+            ("BAYLEE_FEEDBACK_KEY", "the-e2e-pseudonym-key".to_owned()),
+        ],
+    )
+}
+
+/// A report filed in the middle of a game carries the record up to the
+/// moment it was filed (#323): played again on a fresh engine, it reaches
+/// exactly the state the game's engine was in when the player pressed send,
+/// and not the state of the last 32 KiB piece before it. Two live reports
+/// from turn 17 carried records that ended in turns 13 and 16.
+///
+/// The game is kept under one size-due piece on purpose, so nothing but the
+/// flush the report asks for can have put that moment in the store. A
+/// second report later in the same game reaches the later moment, through
+/// a second flushed piece appended to the first.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_report_mid_game_carries_the_record_up_to_the_moment_reported() {
+    let service = Service::start().await;
+    let gw = gateway_for(&service, "feedback-mid-game");
+    let port = gw.port;
+    let (agent, probe) = attach_agent_probed(&gw).await;
+
+    let (game, [(alma, alma_seat), (bert, bert_seat)]) = two_players(port);
+    let mut ws_a = common::dial_seat(port, &game, &alma_seat).await;
+    let mut ws_b = common::dial_seat(port, &game, &bert_seat).await;
+
+    let mut reports = Vec::new();
+    let mut held = [None, None];
+    for (round, reporter) in [(6, &alma), (4, &bert)] {
+        // Played until both seats fall quiet: every answer is applied and
+        // the engine waits on the next question, so its hash is the state
+        // the reporter is looking at.
+        play_on(&mut ws_a, &mut ws_b, round, &mut held).await;
+        let at_report = probe.hash.borrow().expect("the game is built");
+        let body = serde_json::json!({
+            "kind": "bug", "text": "right now", "game_id": game, "client": {},
+        })
+        .to_string();
+        let id = send(port, reporter, &body);
+
+        let report = service.report(&id);
+        assert_eq!(report["has_record"], true, "a record is attached");
+        assert_eq!(
+            report["record_complete"], false,
+            "the game has not ended, so its record is not whole"
+        );
+        let record = service.record(&id);
+        assert!(
+            record.len() < baylee_engine_server::RECORD_CHUNK_BYTES,
+            "the game stayed under one size-due piece ({} bytes)",
+            record.len()
+        );
+        let replayed = baylee_gamehost::record::replay(&record).expect("the record replays");
+        assert!(!replayed.ended, "the game goes on");
+        assert!(replayed.inputs > 0, "both seats' answers are in it");
+        assert_eq!(
+            replayed.engine.snapshot_hash(),
+            at_report,
+            "the record reaches the moment of the report"
+        );
+        reports.push((record, replayed.inputs));
+    }
+    let [(first, first_inputs), (second, second_inputs)] = <[_; 2]>::try_from(reports).unwrap();
+    assert!(
+        second.starts_with(&first) && second_inputs > first_inputs,
+        "the second report's record goes on from the first's"
+    );
 
     agent.abort();
 }
