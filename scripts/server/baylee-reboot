@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Reboots the server for pending updates only while no game of this machine
+# runs. Installed as /usr/local/sbin/baylee-reboot, run by
+# baylee-reboot.timer every five minutes; unattended-upgrades itself never
+# reboots (Automatic-Reboot "false" in /etc/apt/apt.conf.d/52baylee).
+#
+# A reboot is due when /run/reboot-required exists. It happens only inside
+# the night window (BAYLEE_REBOOT_WINDOW, local hours, default 3-7 meaning
+# 03:00-07:59) and only when /health counts no game running here and no room
+# waiting. An unreachable gateway is not taken for an empty one.
+#
+# Games can go on through every night. After BAYLEE_REBOOT_DRAIN_DAYS (3) of
+# waiting, the window drains like a deploy does: the agent is stopped, so no
+# new game starts, and the reboot follows once the last game is over. If the
+# window closes first, the agent is started again and the next night tries
+# again. Running games are never ended.
+set -euo pipefail
+
+gateway=http://127.0.0.1:28766
+window=${BAYLEE_REBOOT_WINDOW:-3-7}
+drain_days=${BAYLEE_REBOOT_DRAIN_DAYS:-3}
+# Overridden only by its test (crates/baylee-feedback/tests/reboot.rs).
+run=${BAYLEE_REBOOT_RUN:-/run}
+etc=${BAYLEE_REBOOT_ETC:-/etc/baylee}
+drained=$run/baylee-reboot.drained
+deploy_lock=${BAYLEE_REBOOT_DEPLOY_LOCK:-/opt/baylee/state/lock}
+
+log() { echo "baylee-reboot: $*"; logger -t baylee-reboot -- "$*" 2>/dev/null || true; }
+
+undrain() {
+    if [ -e "$drained" ]; then
+        rm -f "$drained"
+        systemctl start baylee-agent
+        log "window closed with games still running; agent started again"
+    fi
+}
+
+[ -e $run/reboot-required ] || { undrain; exit 0; }
+
+hour=$((10#$(date +%H)))
+if [ "$hour" -lt "${window%-*}" ] || [ "$hour" -gt "${window#*-}" ]; then
+    undrain
+    exit 0
+fi
+
+# A deploy in progress owns the agent and the gateway; wait for it.
+if [ -e "$deploy_lock" ]; then
+    exec 9<"$deploy_lock"
+    flock -n 9 || { log "a deploy is running; not now"; exit 0; }
+fi
+
+field=running
+if grep -qs '^BAYLEE_UNIX_SOCKET=.' $etc/gateway.env; then
+    field=local_running
+fi
+read -r running waiting < <(curl -fsS -m 5 "$gateway/health" \
+    | FIELD=$field python3 -c 'import os,sys,json; g=json.load(sys.stdin)["games"]; print(g.get(os.environ["FIELD"], g["running"]), g["waiting"])' \
+    2>/dev/null || echo "? ?")
+
+if [ "$running" = 0 ] && { [ "$waiting" = 0 ] || [ -e "$drained" ]; }; then
+    log "rebooting for $(tr '\n' ' ' <$run/reboot-required.pkgs 2>/dev/null || echo updates)"
+    rm -f "$drained"
+    systemctl reboot
+    exit 0
+fi
+
+age_days=$(( ( $(date +%s) - $(stat -c %Y $run/reboot-required) ) / 86400 ))
+if [ "$age_days" -ge "$drain_days" ] && [ ! -e "$drained" ] && [ "$running" != "?" ]; then
+    systemctl stop baylee-agent
+    touch "$drained"
+    log "reboot pending for $age_days days: agent stopped, rebooting once $running game(s) end"
+    exit 0
+fi
+log "reboot pending: $running game(s) running here, $waiting waiting"

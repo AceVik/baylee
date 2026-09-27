@@ -1,0 +1,8 @@
+# Installed to /etc/systemd/system/ with baylee-reboot.timer
+# (scripts/server/baylee-reboot says what it does).
+[Unit]
+Description=Baylee: reboot for updates once no game is running
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/baylee-reboot
