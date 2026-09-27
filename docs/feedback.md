@@ -53,7 +53,17 @@ What the gateway sends on, and nothing else:
 - `record`: when `game_id` names a game the reporter sat at, that game's
   record (#315, `docs/protocol.md` §"The game record") as
   `{complete, gzip_base64}`; otherwise `null`. A player never gets another
-  table's record attached by naming it.
+  table's record attached by naming it. It reaches the moment of the report
+  (#323): for a game that goes on, the gateway first asks the game's engine
+  for what it has not sent yet and waits, at most 3 s, until that is stored
+  (`docs/protocol.md` §"The game record"), so played again the record ends
+  on the state the game was in when the report arrived. `complete` says
+  whether the game's end is in it, and is `false` for every report filed
+  while the game goes on; it does not say whether the record reaches the
+  report. Only an engine that did not answer in time leaves the record short
+  of the report, at most 30 s of play short while that engine lives (it
+  sends what has waited that long by itself); the gateway logs that it went
+  without.
 
 Never a name, username, address, session or IP. The client decides what goes
 into `client` and says so to the player (`docs/privacy.md`).
