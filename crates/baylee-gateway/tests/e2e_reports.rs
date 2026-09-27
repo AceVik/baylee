@@ -122,6 +122,16 @@ async fn a_finished_game(port: u16, token: &str) -> String {
     ))
     .await
     .expect("send the concession");
+    // The record is omniscient (#315): through the end of the game, until
+    // the socket closes or falls quiet, not one piece of it reaches a seat.
+    while let Ok(Some(msg)) =
+        tokio::time::timeout(std::time::Duration::from_secs(2), common::next_msg(&mut ws)).await
+    {
+        assert!(
+            !matches!(msg, v1::envelope::Msg::GameRecordChunk(_)),
+            "a seat was sent the game's record"
+        );
+    }
     game
 }
 
