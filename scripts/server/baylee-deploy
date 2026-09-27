@@ -36,9 +36,12 @@
 # always block.
 set -euo pipefail
 
-src=/opt/baylee/src
-bin=/opt/baylee/bin
-state=/opt/baylee/state
+# BAYLEE_DEPLOY_ROOT moves the tree it works in, for its test
+# (crates/baylee-feedback/tests/deploy.rs); a server leaves it unset.
+root=${BAYLEE_DEPLOY_ROOT:-/opt/baylee}
+src=$root/src
+bin=$root/bin
+state=$root/state
 repo=https://github.com/AceVik/baylee.git
 gateway=http://127.0.0.1:28766
 room_grace=${BAYLEE_DEPLOY_ROOM_GRACE:-60}
