@@ -33,13 +33,127 @@ enum Npm {
     Fails,
 }
 
+/// What trunk does on the server under test (the browser client, #327).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Trunk {
+    /// Not installed.
+    Absent,
+    /// Builds `index.html` into its `--dist`.
+    Builds,
+    /// Installed, but the build fails.
+    Fails,
+}
+
+/// The server a test deploys to.
+#[derive(Clone, Copy, Debug)]
+struct Server {
+    feedback_installed: bool,
+    npm: Npm,
+    trunk: Trunk,
+    /// Whether rustup lists the `wasm32-unknown-unknown` target.
+    wasm_target: bool,
+    /// A game running here, so `finish` waits; otherwise it swaps.
+    game_running: bool,
+}
+
+impl Server {
+    /// The server the feedback tests were written against: no browser
+    /// toolchain, and a game running, so the gateway is never swapped.
+    fn with_feedback(feedback_installed: bool, npm: Npm) -> Self {
+        Self {
+            feedback_installed,
+            npm,
+            trunk: Trunk::Absent,
+            wasm_target: false,
+            game_running: true,
+        }
+    }
+
+    /// One that can build the browser client.
+    fn with_trunk(trunk: Trunk, game_running: bool) -> Self {
+        Self {
+            feedback_installed: false,
+            npm: Npm::Absent,
+            trunk,
+            wasm_target: true,
+            game_running,
+        }
+    }
+}
+
 /// Runs `stage` in a scratch tree; the deploy root and every command it
 /// ran, one per line.
 fn stage(feedback_installed: bool, npm: Npm) -> (PathBuf, String) {
+    let (root, ran, _) = stage_on(Server::with_feedback(feedback_installed, npm));
+    (root, ran)
+}
+
+/// The stand-ins that say what the machine is: whether the feedback unit is
+/// installed (asked with `systemctl cat`) and whether a game runs (with one
+/// running `finish` waits and the gateway is left alone).
+fn machine_stubs(stubs: &Path, feedback_installed: bool, game_running: bool) {
+    stub(
+        stubs,
+        "systemctl",
+        &format!(
+            r#"[ "$1 $2" = "cat baylee-feedback" ] && exit {}; exit 0"#,
+            u8::from(!feedback_installed)
+        ),
+    );
+    stub(
+        stubs,
+        "curl",
+        &format!(
+            r#"echo '{{"games":{{"running":{0},"local_running":{0},"waiting":0}}}}'"#,
+            u8::from(game_running)
+        ),
+    );
+}
+
+/// The stand-ins for the browser client's toolchain (#327): trunk writes the
+/// page into `--dist` and says where it ran (a failing build writes one too
+/// before it fails, so only its exit status can tell), and rustup lists the
+/// wasm target or not.
+fn browser_stubs(stubs: &Path, trunk: Trunk, wasm_target: bool) {
+    stub(
+        stubs,
+        "trunk",
+        &format!(
+            r#"[ "$1" = --version ] && {{ echo "trunk 0.21.14"; exit 0; }}
+echo "trunk ran in $PWD" >> "$DEPLOY_CALLS"
+while [ $# -gt 0 ]; do [ "$1" = --dist ] && dist=$2; shift; done
+mkdir -p "$dist" && echo '<script src="/play/baylee-client-0123456789abcdef.js">' > "$dist/index.html"
+exit {}"#,
+            u8::from(trunk == Trunk::Fails)
+        ),
+    );
+    stub(
+        stubs,
+        "rustup",
+        &format!(
+            r#"[ "$1 $2 $3" = "target list --installed" ] && echo aarch64-unknown-linux-gnu {}; exit 0"#,
+            if wasm_target {
+                "&& echo wasm32-unknown-unknown"
+            } else {
+                ""
+            }
+        ),
+    );
+}
+
+/// The same on any server; also what `stage` said.
+fn stage_on(server: Server) -> (PathBuf, String, String) {
     // Tests run at once, some with the same arguments: each run its own tree.
     static RUN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let Server {
+        feedback_installed,
+        npm,
+        trunk,
+        wasm_target,
+        game_running,
+    } = server;
     let scratch = std::env::temp_dir().join(format!(
-        "baylee-deploy-test-{}-{}-{feedback_installed}-{npm:?}",
+        "baylee-deploy-test-{}-{}-{feedback_installed}-{npm:?}-{trunk:?}",
         std::process::id(),
         RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     ));
@@ -49,6 +163,7 @@ fn stage(feedback_installed: bool, npm: Npm) -> (PathBuf, String) {
         "src/target/release",
         "src/data",
         "src/web/feedback",
+        "src/crates/baylee-client",
         "bin",
         "state",
     ] {
@@ -80,26 +195,18 @@ fn stage(feedback_installed: bool, npm: Npm) -> (PathBuf, String) {
     stub(&stubs, "sudo", "exit 0");
     stub(&stubs, "logger", "exit 0");
     stub(&stubs, "flock", "exit 0");
-    // Whether a unit is installed is asked with `systemctl cat`.
-    stub(
-        &stubs,
-        "systemctl",
-        &format!(
-            r#"[ "$1 $2" = "cat baylee-feedback" ] && exit {}; exit 0"#,
-            u8::from(!feedback_installed)
-        ),
-    );
-    // A game is running, so `finish` waits and the gateway is left alone.
-    stub(
-        &stubs,
-        "curl",
-        r#"echo '{"games":{"running":1,"local_running":1,"waiting":0}}'"#,
-    );
+    machine_stubs(&stubs, feedback_installed, game_running);
+    browser_stubs(&stubs, trunk, wasm_target);
 
     let npm_path = if npm == Npm::Absent {
         scratch.join("no-such-npm")
     } else {
         stubs.join("npm")
+    };
+    let trunk_path = if trunk == Trunk::Absent {
+        scratch.join("no-such-trunk")
+    } else {
+        stubs.join("trunk")
     };
     let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/server/baylee-deploy");
     let out = std::process::Command::new("bash")
@@ -108,6 +215,8 @@ fn stage(feedback_installed: bool, npm: Npm) -> (PathBuf, String) {
         .env("BAYLEE_DEPLOY_ROOT", &root)
         .env("CARGO", stubs.join("cargo"))
         .env("NPM", &npm_path)
+        .env("TRUNK", &trunk_path)
+        .env("RUSTUP", stubs.join("rustup"))
         .env("DEPLOY_CALLS", &calls)
         .env(
             "PATH",
@@ -127,7 +236,112 @@ fn stage(feedback_installed: bool, npm: Npm) -> (PathBuf, String) {
     );
     let ran = std::fs::read_to_string(&calls).unwrap_or_default();
     let _ = std::fs::remove_dir_all(&scratch);
-    (root, ran)
+    (root, ran, String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// The lines of `ran` that install the browser client into `play`.
+fn play_installs(ran: &str, root: &Path) -> Vec<String> {
+    let play = root.join("web/play");
+    let play = play.display().to_string();
+    ran.lines()
+        .filter(|l| l.starts_with("sudo ") && l.contains(&play))
+        .map(str::to_string)
+        .collect()
+}
+
+/// With trunk and the wasm target, stage builds the browser client from the
+/// client's directory, `--release` under `/play/`, into the stage; with a
+/// game running nothing is installed yet, because the client goes live with
+/// the gateway it talks to.
+#[test]
+fn stage_builds_the_browser_client_into_the_stage() {
+    let (root, ran, _) = stage_on(Server::with_trunk(Trunk::Builds, true));
+    let staged = root.join("state/staged/play");
+    let build = format!(
+        "trunk build index.html --release --locked --public-url /play/ --dist {}",
+        staged.display()
+    );
+    assert!(ran.lines().any(|l| l == build), "no `{build}` in:\n{ran}");
+    let client = root.join("src/crates/baylee-client");
+    assert!(
+        ran.lines()
+            .any(|l| l == format!("trunk ran in {}", client.display())),
+        "{ran}"
+    );
+    assert_eq!(play_installs(&ran, &root), Vec::<String>::new(), "{ran}");
+}
+
+/// When finish swaps the gateway it installs the staged client first, as a
+/// copy beside the old one and one rename, before the gateway restarts.
+#[test]
+fn finish_installs_the_browser_client_with_the_gateway() {
+    let (root, ran, _) = stage_on(Server::with_trunk(Trunk::Builds, false));
+    let lines: Vec<&str> = ran.lines().collect();
+    let at = |wanted: &str| {
+        lines
+            .iter()
+            .position(|l| *l == wanted)
+            .unwrap_or_else(|| panic!("no `{wanted}` in:\n{ran}"))
+    };
+    let play = root.join("web/play");
+    let play = play.display();
+    let staged = root.join("state/staged/play");
+    let build = at(&format!(
+        "trunk build index.html --release --locked --public-url /play/ --dist {}",
+        staged.display()
+    ));
+    let copy = at(&format!("sudo cp -R {} {play}.new", staged.display()));
+    let swap = at(&format!("sudo mv {play}.new {play}"));
+    let restart = at("sudo systemctl restart baylee-gateway");
+    // The long wasm build runs while the agent still starts games.
+    let stop = at("sudo systemctl stop baylee-agent");
+    assert!(
+        build < stop && build < copy && copy < swap && swap < restart,
+        "{ran}"
+    );
+}
+
+/// Without trunk, without the wasm target, or with a build that fails, the
+/// backend is deployed all the same and the installed client is left alone.
+#[test]
+fn without_the_browser_toolchain_or_with_a_failed_build_the_backend_still_deploys() {
+    let cases = [
+        (Server::with_trunk(Trunk::Absent, false), "no trunk here"),
+        (
+            Server {
+                wasm_target: false,
+                ..Server::with_trunk(Trunk::Builds, false)
+            },
+            "no wasm32-unknown-unknown target here",
+        ),
+        (
+            Server::with_trunk(Trunk::Fails, false),
+            "the browser client did not build",
+        ),
+    ];
+    for (server, said) in cases {
+        let (root, ran, out) = stage_on(server);
+        assert!(out.contains(said), "{server:?}: said\n{out}");
+        assert_eq!(
+            play_installs(&ran, &root),
+            Vec::<String>::new(),
+            "{server:?}: a client was installed:\n{ran}"
+        );
+        assert!(
+            ran.lines()
+                .any(|l| l == "sudo systemctl restart baylee-gateway"),
+            "{server:?}: the gateway was not deployed:\n{ran}"
+        );
+        assert!(
+            out.contains("deployed 0123456789"),
+            "{server:?}: no deploy:\n{out}"
+        );
+        assert_eq!(
+            ran.contains("trunk build"),
+            server.trunk != Trunk::Absent && server.wasm_target,
+            "{server:?}:\n{ran}"
+        );
+    }
 }
 
 #[test]

@@ -32,6 +32,13 @@
 # it straight away, once its unit is installed, with its web UI when npm is
 # there to build it.
 #
+# The browser client (#327) is built by stage when trunk and the wasm target
+# are installed, and installed by finish beside the gateway it talks to:
+# gateway and clients ship as one build (`docs/protocol.md` §"Which side
+# checks the protocol"). Caddy serves it at /play/ (scripts/server/play.caddy).
+# Without the toolchain, or when the build fails, the client installed last
+# stays and the deploy goes on.
+#
 # A waiting room nobody starts would hold a deploy forever, so rooms alone
 # stop blocking after BAYLEE_DEPLOY_ROOM_GRACE minutes (60). Running games
 # always block.
@@ -50,6 +57,11 @@ cargo=${CARGO:-$HOME/.cargo/bin/cargo}
 npm=${NPM:-npm}
 # Where the feedback web UI goes; FEEDBACK_WEB_DIR in /etc/baylee/feedback.env.
 web=$root/web/feedback
+# The browser client: trunk (installed as docs/client.md §"Serving it at
+# /play/" says) and the rustup that knows the wasm target; Caddy's `root`.
+trunk=${TRUNK:-$HOME/.cargo/bin/trunk}
+rustup=${RUSTUP:-$HOME/.cargo/bin/rustup}
+play=$root/web/play
 
 log() { echo "baylee-deploy: $*"; logger -t baylee-deploy -- "$*" 2>/dev/null || true; }
 
@@ -100,6 +112,9 @@ stage() {
     cp data/acceptance-decks.txt "$state/staged/"
     echo "$rev" > "$state/staged/rev"
     date +%s > "$state/staged/since"
+    # Before the agent stops: the wasm build is the long one, and games
+    # can still start while it runs.
+    play_build
 
     sudo systemctl stop baylee-agent
     sudo install -m755 target/release/{baylee-agent,baylee-engine-server} "$bin/"
@@ -113,6 +128,47 @@ stage() {
         log "feedback service ${rev:0:10} installed"
     fi
     finish "$force"
+}
+
+# The browser client, built into the stage (#327). Skipped, with a line in
+# the log, where trunk or the wasm target is missing; a failed build is
+# logged and leaves nothing staged, so finish keeps the installed client.
+# `--public-url /play/` because Caddy serves it there; always `--release`.
+play_build() {
+    if ! command -v "$trunk" >/dev/null 2>&1; then
+        log "no trunk here: the browser client is not built, the one installed stays"
+        return 0
+    fi
+    if ! "$rustup" target list --installed 2>/dev/null | grep -qx wasm32-unknown-unknown; then
+        log "no wasm32-unknown-unknown target here: the browser client is not built, the one installed stays"
+        return 0
+    fi
+    local out=$state/staged/play
+    # trunk runs cargo from PATH, which a systemd unit's PATH may not have.
+    if ! (cd crates/baylee-client \
+            && PATH="$(dirname "$cargo"):$PATH" "$trunk" build index.html --release --locked \
+                --public-url /play/ --dist "$out" 2>&1 | tail -1) \
+        || [ ! -f "$out/index.html" ]; then
+        rm -rf "$out"
+        log "the browser client did not build; the one installed stays"
+        return 0
+    fi
+    log "browser client built ($("$trunk" --version 2>/dev/null || echo trunk))"
+}
+
+# Installs the staged browser client next to the gateway, as the feedback
+# UI is installed: a copy beside the old one, then one rename.
+play_install() {
+    [ -f "$state/staged/play/index.html" ] || {
+        log "no browser client staged; the one installed stays"
+        return 0
+    }
+    sudo mkdir -p "$(dirname "$play")"
+    sudo rm -rf "$play.new"
+    sudo cp -R "$state/staged/play" "$play.new"
+    sudo rm -rf "$play"
+    sudo mv "$play.new" "$play"
+    log "browser client installed to $play"
 }
 
 # The feedback service's web UI (web/feedback, #311): built here when npm
@@ -159,6 +215,7 @@ finish() {
 
     sudo install -m755 "$state/staged/"{baylee-gateway,baylee-catalog} "$bin/"
     sudo install -D -m644 "$state/staged/acceptance-decks.txt" /var/lib/baylee/data/acceptance-decks.txt
+    play_install
     sudo systemctl restart baylee-gateway
     for _ in $(seq 20); do curl -fsS -m 2 "$gateway/info" >/dev/null 2>&1 && break; sleep 1; done
     sudo systemctl start baylee-agent
