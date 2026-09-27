@@ -61,9 +61,9 @@ What the gateway sends on, and nothing else:
   whether the game's end is in it, and is `false` for every report filed
   while the game goes on; it does not say whether the record reaches the
   report. Only an engine that did not answer in time leaves the record short
-  of the report, at most 30 s of play short while that engine lives (it
-  sends what has waited that long by itself); the gateway logs that it went
-  without.
+  of the report, and the gateway logs that it went without: one of this
+  build that was merely slow has sent everything older than 30 s by itself,
+  and an older or a stuck one leaves the record where its last piece did.
 
 Never a name, username, address, session or IP. The client decides what goes
 into `client` and says so to the player (`docs/privacy.md`).
