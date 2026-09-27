@@ -1590,6 +1590,53 @@ async fn a_game_record_at_its_edges() {
     sandbox.close().await;
 }
 
+/// A record flushed for every report and every half minute (#323) comes in
+/// many small pieces: each is kept, in `seq` order, and counted, however
+/// small, and the record reads back as their concatenation.
+#[tokio::test]
+async fn a_game_record_of_many_small_pieces_reads_back_in_order() {
+    use baylee_db::records;
+
+    let sandbox = Sandbox::open("record_small").await;
+    let db = &sandbox.db;
+    let me = an_account("small@example.com");
+    let me_id = me.id.clone().unwrap();
+    Account::insert(me).exec(db).await.expect("an account");
+
+    records::open(db, "small", &[Some(me_id)]).await.unwrap();
+    let pieces: Vec<Vec<u8>> = (0..300_u32)
+        .map(|n| format!("{n}\n").into_bytes())
+        .collect();
+    for (seq, piece) in pieces.iter().enumerate() {
+        let seq = u32::try_from(seq).unwrap();
+        assert!(
+            records::append(db, "small", seq, piece.clone(), false)
+                .await
+                .unwrap(),
+            "piece {seq}"
+        );
+    }
+    let read = records::for_seated(db, "small", me_id)
+        .await
+        .unwrap()
+        .expect("mine");
+    assert_eq!(read.data, pieces.concat(), "in seq order, not text order");
+    assert!(!read.complete);
+    let bytes = db
+        .query_one_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT bytes FROM game_record WHERE game_id = 'small'",
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<i64>("", "bytes")
+        .unwrap();
+    assert_eq!(usize::try_from(bytes).unwrap(), pieces.concat().len());
+
+    sandbox.close().await;
+}
+
 // ------------------------------------------------------ closed-beta keys
 
 /// A key's row as the gateway's command writes it (#317): `hash` stands in
