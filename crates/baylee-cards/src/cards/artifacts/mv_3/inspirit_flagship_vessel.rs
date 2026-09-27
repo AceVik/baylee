@@ -5,9 +5,10 @@
 //! Oracle: Other artifacts you control have hexproof and indestructible.
 //! Set: EOC #2 — Edge of Eternities Commander | Scryfall ID: 46900ec7-eb18-45c4-8e90-a48b665cfdee | Oracle ID: 554df866-3dbb-4811-8573-6033481591aa
 // IMPLEMENTED — station (tap another creature for power-many charge
-// counters, sorcery speed), artifact-creature at 8+, 8+ flying, the
+// counters, sorcery speed), artifact-creature at 8+, 8+ flying, the 8+
 // artifact hexproof/indestructible grant, and the 1+ modal counter
-// trigger.
+// trigger. Both sentences after a station symbol are that symbol's
+// (CR 721.2): the grant is printed in the 8+ striation beside Flying.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::artifact;
@@ -64,13 +65,16 @@ card!(
                 keywords: KeywordSet::FLYING,
             }
         ),
-        // Other artifacts you control have hexproof and indestructible.
+        // 8+: other artifacts you control have hexproof and indestructible.
         static_ability!(
             Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou, Filter::Another,]),
-            Modifier::AddKeyword(HEXPROOF_INDESTRUCTIBLE)
+            Modifier::AddKeyword(HEXPROOF_INDESTRUCTIBLE),
+            condition = Some(Condition::Station(8))
         ),
         // 1+: modal combat trigger (a +1/+1 counter or two charge
-        // counters on up to one other artifact).
+        // counters on up to one other artifact). The permanent has it while
+        // it has a charge counter, so it triggers only then; once triggered
+        // it resolves whatever happens to the Spacecraft (CR 113.7a).
         modal_triggered!(
             Trigger::StepBegin {
                 step: StepKind::CombatBegin,
@@ -94,7 +98,8 @@ card!(
                     }],
                     targets = Some(TargetReq::up_to_one(TargetSpec::Object(&OTHER_ARTIFACT)))
                 ),
-            ]
+            ],
+            condition = Some(Condition::Station(1))
         ),
     ],
 );
