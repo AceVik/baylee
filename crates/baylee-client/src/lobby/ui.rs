@@ -1559,7 +1559,7 @@ pub(super) fn blink(
 /// A phase rather than a toggle, so nothing has to be kept in step with
 /// anything: the answer is a function of how long the caret has stood still,
 /// and a system that missed a frame is right again on the next one.
-pub(super) fn caret_lit(since: f32, still: bool) -> bool {
+pub(crate) fn caret_lit(since: f32, still: bool) -> bool {
     // `reduce_motion` is a promise that nothing moves, and a bar that comes
     // and goes twice a second is movement.
     still || since % (BLINK_SECS * 2.0) < BLINK_SECS

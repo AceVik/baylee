@@ -33,7 +33,7 @@ mod shot;
 #[cfg(test)]
 pub(crate) use corner::ReportCorner;
 #[cfg(test)]
-pub(crate) use form::{DeskPress, DeskRoot};
+pub(crate) use form::{DeskBox, DeskCaret, DeskPress, DeskRoot, DeskText};
 #[cfg(test)]
 mod tests;
 
@@ -78,6 +78,9 @@ pub struct ReportDesk {
     pub asked: bool,
     /// A clipboard read `Ctrl`/`Cmd`+`V` started, until it answers.
     paste: Option<bevy::clipboard::ClipboardRead>,
+    /// How far the text box is scrolled, carried across the rebuild every
+    /// keystroke makes of the form.
+    box_scroll: f32,
 }
 
 impl ReportDesk {
@@ -93,6 +96,12 @@ impl ReportDesk {
 /// whose fields are this module's.
 #[cfg(test)]
 impl ReportDesk {
+    /// Scrolls the text box, as `form::place_the_caret` does once the text
+    /// is laid out — which a headless test never does.
+    pub(crate) fn set_box_scroll(&mut self, y: f32) {
+        self.box_scroll = y;
+    }
+
     pub(crate) fn form(&self) -> &ReportForm {
         &self.form
     }
@@ -170,8 +179,15 @@ pub(crate) fn install(app: &mut App) {
                 send_the_crash,
                 form::draw,
                 form::scroll,
+                form::blink,
             )
                 .chain()
+                .run_if(settled),
+        )
+        .add_systems(
+            PostUpdate,
+            form::place_the_caret
+                .after(bevy::ui::UiSystems::PostLayout)
                 .run_if(settled),
         );
 }

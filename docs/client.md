@@ -7402,6 +7402,25 @@ start `crash_step` reads the file against `CrashConsent`: ask once, send,
 or discard. A send waits for a session at `CrashFile::sends_to`'s gateway
 and is tried once per start.
 
+**The text box wraps, and its caret is a bar of its own (#320).** Until then
+it was one text node with `▏` spliced in at the caret: neither shipped face
+has that glyph, so no caret was drawn, and the node would not shrink below its
+widest line, so the text ran out of the box to the right. Now the box
+(`form::text_box`) is a paragraph as wide as the box that breaks lines
+(`LineBreak::WordOrCharacter`), as three spans (before the selection, the
+selection, after it; the last ends in one space nobody sees), with the caret
+as an absolute node beside it. The box grows from four lines to ten and
+then scrolls (`Overflow::scroll_y`); where it was scrolled is carried across the
+rebuild every keystroke makes (`ReportDesk::box_scroll`). After layout,
+`form::place_the_caret` reads the spans' laid-out runs and asks
+`client-core::caretspot` where the caret stands. The answer is the start of the
+first run after it, except before a line break: a blank line lays out no run,
+so there the caret ends the text before it, or starts the line that text's own
+breaks open (`Seam`). Then `caretspot::follow` scrolls the box just far enough
+to keep the caret in it. The caret blinks at the lobby's rate and holds still
+under `reduce_motion` (`lobby::caret_lit`). The box has no Up/Down: the buffer
+moves by character, word and line end only, as it did before.
+
 ## Embedding (the open-world plan)
 
 `DuelPlugin` creates no window and no schedule of its own. An application adds
