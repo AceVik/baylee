@@ -156,8 +156,8 @@ steht in den Schritten unten.
    geschützt“, klicke auf **Weitere Informationen** und dann auf
    **Trotzdem ausführen**.
 
-Die x86-64-Version braucht eine CPU mit x86-64-v2 (SSE4.2, POPCNT). Die hat
-jeder PC, auf dem Windows 11 läuft.
+Die x86-64-Version braucht eine CPU mit x86-64-v2 (SSE4.2, POPCNT); ohne
+eine solche startet auch Windows 11 24H2 nicht.
 
 ### macOS
 
@@ -189,7 +189,7 @@ Du brauchst einen Vulkan-Treiber und die Laufzeitbibliotheken für ALSA, udev,
 X11/Wayland und xkbcommon. Unter Debian oder Ubuntu sind das
 `libasound2 libudev1 libxkbcommon-x11-0 libwayland-client0`. Gebaut wird auf
 Ubuntu 22.04; das Programm läuft auf jeder Distribution mit glibc 2.35 oder
-neuer.
+neuer. Wie unter Windows braucht die x86-64-Version eine CPU mit x86-64-v2.
 
 ### Handy, Tablet und Browser
 
@@ -202,7 +202,7 @@ neuer.
   (`scripts/mobile/ios-sim-run.sh`).
 - **Browser:** Der Client lässt sich auch für WebAssembly bauen und spielt
   gegen ein Gateway. Er braucht WebGPU, das Browser nur auf HTTPS-Seiten
-  freigeben. Eine gehostete Web-Version gibt es noch nicht.
+  freigeben. Das Projekt veröffentlicht keine gehostete Web-Version.
 
 Was genau geht und was nicht, steht in [docs/mobile.md](docs/mobile.md).
 
@@ -275,7 +275,8 @@ Mit Schlüssel:
    hochladen. Ein Gast wird gelöscht, wenn er sich abmeldet oder 30 Tage lang
    nicht genutzt wurde.
 
-Baylee **fragt nie nach einer E-Mail-Adresse.** Der Benutzername bleibt
+Die Registrierung **fragt nach keiner E-Mail-Adresse**: Ein Konto besteht aus
+Benutzername und Passwort. Der Benutzername bleibt
 privat: Andere sehen nur deinen Anzeigenamen mit einem kurzen Kürzel, etwa
 `Alice#af03`. Mit einem Konto meldest du dich künftig mit Benutzername und
 Passwort an und brauchst keinen Schlüssel mehr. Du kannst das Konto jederzeit

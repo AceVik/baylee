@@ -145,8 +145,8 @@ you past the warning.
 3. If Microsoft Defender SmartScreen says "Windows protected your PC", click
    **More info** and then **Run anyway**.
 
-The x86-64 build needs a CPU with x86-64-v2 (SSE4.2, POPCNT), which every PC
-that runs Windows 11 has.
+The x86-64 build needs a CPU with x86-64-v2 (SSE4.2, POPCNT); Windows 11
+24H2 does not start without one either.
 
 ### macOS
 
@@ -177,6 +177,7 @@ You need a Vulkan driver and the ALSA, udev, X11/Wayland and xkbcommon
 runtime libraries. On Debian or Ubuntu these are
 `libasound2 libudev1 libxkbcommon-x11-0 libwayland-client0`. The binaries are
 built on Ubuntu 22.04 and run on any distribution with glibc 2.35 or newer.
+Like the Windows one, the x86-64 build needs a CPU with x86-64-v2.
 
 ### Phones, tablets and the browser
 
@@ -188,8 +189,8 @@ There are **no mobile builds to download yet.**
 - **iOS:** the client runs only in the simulator
   (`scripts/mobile/ios-sim-run.sh`).
 - **Browser:** the client also builds for WebAssembly and plays against a
-  gateway. It needs WebGPU, which browsers enable only on HTTPS pages. No
-  gateway hosts a web build yet.
+  gateway. It needs WebGPU, which browsers enable only on HTTPS pages. The
+  project does not publish a hosted web build.
 
 [docs/mobile.md](docs/mobile.md) describes exactly what works and what does
 not.
@@ -259,7 +260,8 @@ With a key:
    build decks and play, but cannot upload sleeves or playmats. A guest is
    deleted when it signs out or after 30 days without use.
 
-Baylee **never asks for an e-mail address.** The username is private: other
+Signing up **asks for no e-mail address**: an account is a username and a
+password. The username is private: other
 players see only your display name and a short tag, such as `Alice#af03`.
 Once you have an account, you sign in with your username and password and need
 no key. You can delete the account from the client at any time
