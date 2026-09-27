@@ -183,12 +183,21 @@ pub struct Flushes {
 
 impl Flushes {
     /// A new ask of `game_id`'s engine: the nonce to send it with, and what
-    /// resolves once the record it answers with is stored.
-    pub fn ask(&self, game_id: &str) -> (u64, oneshot::Receiver<()>) {
+    /// resolves once the record it answers with is stored. The ask is
+    /// forgotten when the [`Asked`] is dropped, however the report ends,
+    /// its request cancelled half way included, so an engine that never
+    /// answers leaves nothing behind.
+    pub fn ask(&self, game_id: &str) -> (Asked<'_>, oneshot::Receiver<()>) {
         let nonce = self.last.fetch_add(1, Ordering::Relaxed) + 1;
         let (tx, rx) = oneshot::channel();
         self.waiting.lock().insert(nonce, (game_id.to_owned(), tx));
-        (nonce, rx)
+        (
+            Asked {
+                flushes: self,
+                nonce,
+            },
+            rx,
+        )
     }
 
     /// The engine of `game_id` answered `nonce`: who waits for it, if
@@ -203,7 +212,7 @@ impl Flushes {
     }
 
     /// The report stopped waiting for `nonce`.
-    pub fn forget(&self, nonce: u64) {
+    fn forget(&self, nonce: u64) {
         self.waiting.lock().remove(&nonce);
     }
 
@@ -211,6 +220,19 @@ impl Flushes {
     #[cfg(test)]
     fn open(&self) -> usize {
         self.waiting.lock().len()
+    }
+}
+
+/// One open ask ([`Flushes::ask`]); forgotten when dropped.
+pub struct Asked<'a> {
+    flushes: &'a Flushes,
+    /// What the engine is sent the ask with.
+    pub nonce: u64,
+}
+
+impl Drop for Asked<'_> {
+    fn drop(&mut self) {
+        self.flushes.forget(self.nonce);
     }
 }
 
@@ -346,15 +368,20 @@ mod tests {
         let flushes = Flushes::default();
         let (a, _rx_a) = flushes.ask("g1");
         let (b, _rx_b) = flushes.ask("g2");
-        assert_ne!(a, b, "every ask has its own nonce");
+        let (a, b_nonce) = (a.nonce, b.nonce);
+        assert_ne!(a, b_nonce, "every ask has its own nonce");
         assert!(
             flushes.answered("g2", a).is_none(),
             "another game's engine cannot answer it"
         );
         assert!(flushes.answered("g1", a).is_some());
         assert!(flushes.answered("g1", a).is_none(), "once");
-        flushes.forget(b);
-        assert!(flushes.answered("g2", b).is_none(), "a forgotten ask");
+        assert_eq!(flushes.open(), 1, "the other is still open");
+        drop(b);
+        assert!(
+            flushes.answered("g2", b_nonce).is_none(),
+            "an ask whose report stopped waiting"
+        );
         assert_eq!(flushes.open(), 0, "nothing left behind");
     }
 }

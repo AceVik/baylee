@@ -352,23 +352,23 @@ async fn flush_record(state: &Shared, game_id: &str, account_id: &str) -> bool {
         return false;
     };
     let flushes = &state.record_flushes;
-    let (nonce, stored) = flushes.ask(game_id);
+    // Forgotten when this ends, however it ends: a report whose request
+    // is cancelled while it waits leaves no ask behind.
+    let (asked, stored) = flushes.ask(game_id);
     let ask = baylee_protocol::v1::Envelope {
         msg: Some(baylee_protocol::v1::envelope::Msg::FlushRecord(
             baylee_protocol::v1::FlushRecord {
                 game_id: game_id.to_owned(),
-                nonce,
+                nonce: asked.nonce,
             },
         )),
     };
     if engine.send(ask).is_err() {
-        flushes.forget(nonce);
         return false;
     }
     if let Ok(Ok(())) = tokio::time::timeout(FLUSH_WAIT, stored).await {
         return true;
     }
-    flushes.forget(nonce);
     tracing::warn!(
         game_id,
         "the engine did not send its record in time; the report carries what was stored"
