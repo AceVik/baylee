@@ -35,11 +35,19 @@ impl Sink {
         let (tx, mut rx) = mpsc::unbounded_channel::<v1::GameRecordChunk>();
         let id = game_id.to_owned();
         tokio::spawn(async move {
+            // Nothing is written until the first piece arrives, which is
+            // after the table opened: while seats attach and load, the
+            // database belongs to them (a pool of two in the e2e tests was
+            // enough for this write to hold up a seat's sign-in).
+            let Some(first) = rx.recv().await else {
+                return;
+            };
             if let Err(e) = baylee_db::records::open(&db, &id, &seats).await {
                 tracing::error!(game_id = id, "starting the game's record: {e}");
                 return;
             }
-            while let Some(piece) = rx.recv().await {
+            let mut next = Some(first);
+            while let Some(piece) = next {
                 if let Err(e) =
                     baylee_db::records::append(&db, &id, piece.seq, piece.data, piece.last).await
                 {
@@ -49,6 +57,7 @@ impl Sink {
                         "storing the game's record: {e}"
                     );
                 }
+                next = rx.recv().await;
             }
         });
         Self {
