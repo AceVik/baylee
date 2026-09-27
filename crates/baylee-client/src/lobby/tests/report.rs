@@ -224,6 +224,91 @@ fn over_the_end_screen_the_form_s_keys_are_not_the_sheet_s_answers() {
     );
 }
 
+/// The corner button stands while a table is up, playing or finished, over
+/// the end screen and under the form; a click on it opens the form, over the
+/// end screen too; and it is gone once the table is.
+#[test]
+fn the_corner_button_stands_at_the_table_and_opens_the_form() {
+    use crate::report::ReportCorner;
+    let corners = |app: &mut App| {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(Entity, &GlobalZIndex), With<ReportCorner>>();
+        q.iter(app.world())
+            .map(|(e, z)| (e, z.0))
+            .collect::<Vec<_>>()
+    };
+    let click = |app: &mut App, button: Entity| {
+        app.world_mut().trigger(aimed(
+            button,
+            Click {
+                button: PointerButton::Primary,
+                hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+                duration: std::time::Duration::ZERO,
+                count: 1,
+            },
+        ));
+        for _ in 0..32 {
+            app.update();
+        }
+    };
+    let mut app = with_settings();
+    assert!(corners(&mut app).is_empty(), "a button over the lobby");
+
+    phase(&mut app, DuelPhase::Playing);
+    app.update();
+    let standing = corners(&mut app);
+    assert_eq!(standing.len(), 1, "one button at the table");
+    let (button, rung) = standing[0];
+    // Where the panels that keep clear of it think it is.
+    let node = app.world().get::<Node>(button).expect("a node").clone();
+    let window = Vec2::new(1280.0, 720.0);
+    let corner = crate::hud::report_corner(window);
+    assert_eq!(
+        (node.right, node.top, node.width, node.height),
+        (
+            px(window.x - corner.max.x),
+            px(corner.min.y),
+            px(corner.width()),
+            px(corner.height())
+        ),
+        "the button stands where `report_corner` says"
+    );
+    assert!(
+        rung > crate::hud::G_PREVIEW_OVER_FINISH,
+        "the button is over the end screen and what stands on it"
+    );
+    click(&mut app, button);
+    assert!(desk(&app).open, "the button opened the form");
+    let shade = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&GlobalZIndex, With<DeskRoot>>();
+        q.iter(app.world()).map(|z| z.0).collect::<Vec<_>>()
+    };
+    assert!(
+        shade.iter().all(|&z| z > rung),
+        "the form stands over the button: {shade:?} against {rung}"
+    );
+    click_desk(&mut app, "close", |p| matches!(p, DeskPress::Close));
+    assert!(!desk(&app).open);
+
+    phase(&mut app, DuelPhase::Finished);
+    app.update();
+    let standing = corners(&mut app);
+    assert_eq!(standing.len(), 1, "the button outlives the game");
+    click(&mut app, standing[0].0);
+    assert!(desk(&app).open, "and opens the form over the end screen");
+    click_desk(&mut app, "close", |p| matches!(p, DeskPress::Close));
+
+    phase(&mut app, DuelPhase::Closed);
+    app.update();
+    assert!(
+        corners(&mut app).is_empty(),
+        "the button outlived the table"
+    );
+}
+
 /// `Ctrl`+`V` asks the clipboard, and what it answers lands at the caret,
 /// cut to the room the limit leaves; the `v` is not typed.
 #[test]

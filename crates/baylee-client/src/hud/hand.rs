@@ -676,7 +676,9 @@ const PREVIEW_GAP: f32 = 18.0;
 const PREVIEW_INSET: f32 = 8.0;
 
 /// The corners the panel's own corner may take and still be **wholly on the
-/// screen**, with [`PREVIEW_INSET`] left around it.
+/// screen**, with [`PREVIEW_INSET`] left around it — and under
+/// [`TOP_CLEAR`] at the top, the report button's corner (#309): the button
+/// is over everything, and the top of a preview is its card's name and cost.
 ///
 /// This is the hard bound, and it is the one thing every arm below obeys
 /// without exception: a preview is a thing the player is *reading*, and half
@@ -685,7 +687,7 @@ const PREVIEW_INSET: f32 = 8.0;
 /// than at a bound below its own origin — the crossed-bounds clamp, which
 /// puts the panel's *top* off the screen instead of its bottom.
 fn viewport(panel: Vec2, window: Vec2) -> (Vec2, Vec2) {
-    let low = Vec2::splat(PREVIEW_INSET);
+    let low = Vec2::new(PREVIEW_INSET, TOP_CLEAR);
     (low, (window - panel - Vec2::splat(PREVIEW_INSET)).max(low))
 }
 
@@ -707,7 +709,7 @@ fn band(panel: Vec2, window: Vec2) -> (Vec2, Vec2) {
     // Never past `high.y`: a panel taller than the window has nowhere to be
     // but at the inset, and the top edge must not be pushed off the screen
     // to keep a rule about the bottom one.
-    let top = EDGE.clamp(low.y, high.y);
+    let top = TOP_CLEAR.clamp(low.y, high.y);
     let bottom = window.y - HAND_ZONE_H - PREVIEW_INSET - panel.y;
     let floor = if bottom >= top { bottom } else { top };
     (Vec2::new(low.x, top), Vec2::new(high.x, floor))
@@ -731,7 +733,7 @@ fn band(panel: Vec2, window: Vec2) -> (Vec2, Vec2) {
 pub(super) fn preview_art_size(want: Vec2, pad: f32, window: Vec2) -> Vec2 {
     // The panel is the picture plus `pad` on every side, so the picture's own
     // room is the window less the inset and that padding.
-    let room = window - Vec2::splat(2.0 * PREVIEW_INSET + 2.0 * pad);
+    let room = window - Vec2::new(2.0 * PREVIEW_INSET, PREVIEW_INSET + TOP_CLEAR) - 2.0 * pad;
     if room.x <= 0.0 || room.y <= 0.0 || want.x <= 0.0 || want.y <= 0.0 {
         return want;
     }
@@ -897,7 +899,9 @@ fn beside(card: Rect, panel: Vec2, low: Vec2, high: Vec2, window: Vec2) -> Vec2 
     // point of this function.
     let x = (f32::midpoint(from, to) - panel.x / 2.0).clamp(low.x, high.x);
     let above = top - PREVIEW_GAP - panel.y;
-    let below = bottom + PREVIEW_GAP;
+    // Never over the band's top, though: a pointer or card in the strip the
+    // report button's corner keeps (#309) is above it.
+    let below = (bottom + PREVIEW_GAP).max(bl.y);
     if above >= bl.y {
         return Vec2::new(x, above);
     }

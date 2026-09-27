@@ -1843,6 +1843,37 @@ pub(crate) const Z_PREVIEW: i32 = 10;
 /// [`hand`]'s spread rather than an inset.
 pub(crate) const EDGE: f32 = 12.0;
 
+/// The report button's side: a square the height of every button on the
+/// shelf, standing [`EDGE`] into the window's top-right corner (#309,
+/// `crate::report`).
+pub(crate) const CORNER_BUTTON: f32 = ledge::BUTTON_H;
+
+/// The line every panel pinned to the window's top keeps below: the report
+/// button's foot and a gap. The stack, the zone dialog's band, the log, the
+/// ability sheet and the hover preview all stood at [`EDGE`] and so reached
+/// the corner the button stands in; the button is over everything
+/// (`GlobalZIndex`), so a panel under it would lose its corner to it — and a
+/// preview's corner is where its card's name and mana cost are printed.
+///
+/// No seat's place on the table reaches the corner at any seat count or
+/// window the client supports (`camera_tests::
+/// the_report_corner_lies_on_no_seat_s_place`), so the table itself gives
+/// nothing up.
+pub(crate) const TOP_CLEAR: f32 = EDGE + CORNER_BUTTON + 8.0;
+
+/// Where the report button stands in a window `window` logical pixels big,
+/// for the tests that hold every panel clear of it.
+#[cfg(test)]
+#[must_use]
+pub(crate) fn report_corner(window: Vec2) -> Rect {
+    Rect::new(
+        window.x - EDGE - CORNER_BUTTON,
+        EDGE,
+        window.x - EDGE,
+        EDGE + CORNER_BUTTON,
+    )
+}
+
 /// The end screen's root rung: over every other root of the table
 /// (`GlobalZIndex(0)`, the seat bars at -1). See [`finish`].
 pub(crate) const G_FINISH: i32 = 1;

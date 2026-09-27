@@ -223,6 +223,18 @@ pub(in crate::hud) fn root_node() -> Node {
     }
 }
 
+/// The band the panel grows up into in a window this big: the whole width,
+/// and from the hand zone up to [`TOP_CLEAR`], the report button's corner
+/// (#309), which it stands under.
+///
+/// Not the zone dialog's [`band_of`]: that one is floored at the dialog's
+/// least height, and a short window (a phone on its side) would grow the
+/// panel past the top of the window and under the button, which is over
+/// everything.
+pub(in crate::hud) fn log_band(window: Vec2) -> (f32, f32) {
+    (window.x, window.y - TOP_CLEAR - hand::HAND_ZONE_H)
+}
+
 /// How big the panel is in a window of this band.
 ///
 /// [`LOG_W`] by [`LOG_H`] where they fit, and otherwise the room there is:
@@ -270,7 +282,10 @@ pub fn sync_log(
     let Ok((panel, standing, mut fold, mut node)) = panel.single_mut() else {
         return;
     };
-    let (width, height) = log_size(band_of(&windows));
+    let window = windows.single().map_or(Vec2::new(1280.0, 720.0), |w| {
+        Vec2::new(w.width(), w.height())
+    });
+    let (width, height) = log_size(log_band(window));
     if node.width != px(width) {
         node.width = px(width);
     }
@@ -1106,6 +1121,36 @@ mod tests {
             (h - (200.0 - (STRIP_H - STRIP_LIP))).abs() < 0.01,
             "a 200 high band's panel is {h} high"
         );
+    }
+
+    /// The panel stands under the report button (#309) in every window,
+    /// down to a phone's on its side: grown up from the strip, its top is
+    /// the button's foot at the highest, and a short window gets a shorter
+    /// panel rather than one reaching into the corner.
+    #[test]
+    fn the_panel_stands_under_the_report_button() {
+        let Val::Px(bottom) = root_node().bottom else {
+            panic!("the panel is placed in pixels");
+        };
+        for window in [
+            Vec2::new(1728.0, 1052.0),
+            Vec2::new(1280.0, 720.0),
+            Vec2::new(1024.0, 640.0),
+            Vec2::new(800.0, 600.0),
+            Vec2::new(932.0, 430.0),
+            Vec2::new(430.0, 932.0),
+            Vec2::new(360.0, 640.0),
+        ] {
+            let (_, height) = log_size(log_band(window));
+            let top = window.y - bottom - height;
+            let corner = report_corner(window);
+            assert!(
+                top >= corner.max.y,
+                "in a {window} window the panel's top is {top}, over the \
+                 button's foot at {}",
+                corner.max.y
+            );
+        }
     }
 
     fn line(text: &str, names: &[(usize, usize)], times: u32) -> LogLine {

@@ -4806,6 +4806,31 @@ mod tests {
         );
     }
 
+    /// The stack stands in the window's top-right corner, and the report
+    /// button (#309) is over everything there: the panel starts under it,
+    /// or its head and first entry are what the button covers.
+    #[test]
+    fn the_stack_stands_under_the_report_button() {
+        let mut duel = duel_with_a_stack();
+        duel.statics = Some(baylee_client_core::test_support::statics(8));
+        crate::rebuild_board(&mut duel);
+        let mut app = overlay_with(duel, crate::cardtext::CardTexts::default());
+        let mut q = app.world_mut().query::<(&Node, &ZIndex)>();
+        let tops: Vec<Val> = q
+            .iter(app.world())
+            .filter(|(_, z)| z.0 == Z_STACK)
+            .map(|(node, _)| node.top)
+            .collect();
+        assert_eq!(tops.len(), 1, "the premise: one stack panel");
+        let corner = report_corner(Vec2::new(1280.0, 720.0));
+        assert!(
+            matches!(tops[0], Val::Px(top) if top >= corner.max.y),
+            "the panel's top {:?} is under the button's foot {}",
+            tops[0],
+            corner.max.y
+        );
+    }
+
     /// The stack's head names the seat the table is waiting for, and it is
     /// the seat the **engine asked** rather than the one holding priority.
     ///

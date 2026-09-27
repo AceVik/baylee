@@ -2284,7 +2284,8 @@ pub fn zoom_the_sheet(
 fn corner_for(mid: Vec2, card: Vec2, sheet: Vec2, window: Vec2) -> Vec2 {
     let above = mid.y - card.y / 2.0 - SHEET_GAP - sheet.y;
     let below = mid.y + card.y / 2.0 + SHEET_GAP;
-    let top = if above >= SHEET_MARGIN {
+    // Under the report button's corner at the top (#309), as every panel.
+    let top = if above >= TOP_CLEAR {
         above
     } else {
         below.min(window.y - SHEET_MARGIN - sheet.y)
@@ -2294,7 +2295,7 @@ fn corner_for(mid: Vec2, card: Vec2, sheet: Vec2, window: Vec2) -> Vec2 {
             SHEET_MARGIN,
             (window.x - SHEET_MARGIN - sheet.x).max(SHEET_MARGIN),
         ),
-        top.max(SHEET_MARGIN),
+        top.max(TOP_CLEAR),
     )
 }
 
@@ -2389,6 +2390,24 @@ mod tests {
         );
         assert!(at.y >= SHEET_MARGIN, "the top is on screen: {at}");
         assert!(at.x >= SHEET_MARGIN, "and so is the left edge");
+    }
+
+    /// A sheet opened from a card at the top-right of the window stands
+    /// clear of the report button (#309), which is over everything there: a
+    /// sheet under it would lose its head, which names the card.
+    #[test]
+    fn a_sheet_never_opens_under_the_report_button() {
+        let corner = report_corner(WINDOW);
+        for x in [WINDOW.x - 20.0, WINDOW.x - 120.0, WINDOW.x - 200.0] {
+            for y in [20.0, 60.0, 120.0, 280.0, 290.0, 300.0] {
+                let at = corner_for(Vec2::new(x, y), CARD, SHEET, WINDOW);
+                let sheet = Rect::from_corners(at, at + SHEET);
+                assert!(
+                    sheet.intersect(corner).is_empty(),
+                    "a card at ({x}, {y}) opens its sheet at {at}, under the button {corner:?}"
+                );
+            }
+        }
     }
 
     /// A bubble is a sheet two lines high and goes where a sheet goes. It

@@ -8,9 +8,10 @@
 //! that sends a crash report on the next start.
 //!
 //! One form for the lobby and the table, opened by `F8` (`Action::Report`),
-//! by the row in the table's game menu and by the buttons beside the music
-//! controls in the lobby. It sends to the gateway the lobby is signed in to,
-//! with that session; without one it says so and sends nothing.
+//! by the button in the table's top-right corner (`corner`, over the end
+//! screen too), by the row in the table's game menu and by the button beside
+//! the music controls in the lobby. It sends to the gateway the lobby is
+//! signed in to, with that session; without one it says so and sends nothing.
 
 use std::sync::{Arc, Mutex};
 
@@ -26,8 +27,11 @@ use bevy::prelude::*;
 use crate::lobby::LobbyState;
 use crate::settings::ClientSettings;
 
+mod corner;
 mod form;
 mod shot;
+#[cfg(test)]
+pub(crate) use corner::ReportCorner;
 #[cfg(test)]
 pub(crate) use form::{DeskPress, DeskRoot};
 #[cfg(test)]
@@ -159,6 +163,7 @@ pub(crate) fn install(app: &mut App) {
         .add_systems(
             Update,
             (
+                corner::keep_the_corner,
                 open_when_asked,
                 remember_the_gateway,
                 answers,

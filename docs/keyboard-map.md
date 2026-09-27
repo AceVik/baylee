@@ -51,7 +51,7 @@ Two consequences worth knowing before changing anything here:
 | Let the stack resolve (stop asking me) | `F6` | implemented |
 | Nothing more this turn (stop asking me) | `F7` | implemented |
 | Ask me again (cancel a hold) | `F6` / `F7`, or the way out on the shelf | implemented |
-| Report a problem: the report form, over the lobby or the table (#309); while it is up every key is the form's, `Esc` shuts it, `Ctrl`/`Cmd`+`V` pastes | `F8`, the game menu's row, or the lobby's button | implemented |
+| Report a problem: the report form, over the lobby or the table (#309); while it is up every key is the form's, `Esc` shuts it, `Ctrl`/`Cmd`+`V` pastes | `F8`, the table's corner button or game menu row, or the lobby's button | implemented |
 | Game log | `L` | planned |
 | Automation menu for selection | `M` | planned |
 

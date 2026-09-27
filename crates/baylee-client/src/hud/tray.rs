@@ -859,8 +859,9 @@ fn reach_in(lit: &[(ObjectId, crate::Reach)], object: ObjectId) -> Option<crate:
         .find_map(|(id, reach)| (*id == object).then_some(*reach))
 }
 
-/// The strip of screen the sheet is allowed into: below the seat tabs and the
-/// phase rail, above the hand zone.
+/// The strip of screen the sheet is allowed into: below the report button's
+/// corner ([`TOP_CLEAR`], #309), above the hand zone. The log panel is sized
+/// to it as well.
 ///
 /// One function because three places need the same answer and a band computed
 /// twice is a band that can disagree with itself — the overlay places the
@@ -871,7 +872,15 @@ pub(crate) fn band_of(windows: &Query<&Window>) -> (f32, f32) {
     let (w, h) = windows
         .single()
         .map_or((1280.0, 720.0), |window| (window.width(), window.height()));
-    (w, (h - EDGE - HAND_ZONE_H).max(Placement::MIN_H))
+    band_in(Vec2::new(w, h))
+}
+
+/// [`band_of`] for a window of this size.
+pub(crate) fn band_in(window: Vec2) -> (f32, f32) {
+    (
+        window.x,
+        (window.y - TOP_CLEAR - HAND_ZONE_H).max(Placement::MIN_H),
+    )
 }
 
 /// How fast the veil rises, as the rate of `1 - e^(-rate·dt)`.
@@ -1290,7 +1299,7 @@ pub(super) fn spawn_tray(
                 position_type: PositionType::Absolute,
                 left: px(0),
                 right: px(0),
-                top: px(EDGE),
+                top: px(TOP_CLEAR),
                 bottom: px(HAND_ZONE_H),
                 ..default()
             },
