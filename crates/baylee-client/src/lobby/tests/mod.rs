@@ -17,6 +17,7 @@ mod feed;
 mod frame;
 mod gateway;
 mod guests;
+mod legal;
 mod printings;
 mod report;
 mod settings;

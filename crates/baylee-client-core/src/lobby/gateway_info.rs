@@ -50,6 +50,12 @@ pub struct GatewayInfo {
     /// sign-in screen to show. Only a plain `http://` or `https://` address
     /// is kept.
     pub source: Option<String>,
+    /// Where the operator's privacy statement is (`privacy_url`), kept by
+    /// the same rule as [`Self::source`]. `None` when the gateway names none,
+    /// and then the client links none.
+    pub privacy: Option<String>,
+    /// Where the operator's imprint is (`imprint_url`), likewise.
+    pub imprint: Option<String>,
 }
 
 /// `GET /info` as it arrives.
@@ -67,6 +73,10 @@ struct Wire {
     view_version: u32,
     #[serde(default)]
     source: Option<String>,
+    #[serde(default)]
+    privacy_url: Option<String>,
+    #[serde(default)]
+    imprint_url: Option<String>,
 }
 
 impl GatewayInfo {
@@ -83,6 +93,8 @@ impl GatewayInfo {
             protocol_version: wire.protocol_version,
             view_version: wire.view_version,
             source: wire.source.as_deref().and_then(web_address),
+            privacy: wire.privacy_url.as_deref().and_then(web_address),
+            imprint: wire.imprint_url.as_deref().and_then(web_address),
         })
     }
 
@@ -270,6 +282,8 @@ mod tests {
             protocol_version: protocol,
             view_version: view,
             source: None,
+            privacy: None,
+            imprint: None,
         })
     }
 
@@ -361,6 +375,53 @@ mod tests {
         let older = GatewayInfo::read(br#"{"protocol_version":1,"view_version":1}"#)
             .expect("a gateway from before #270");
         assert_eq!(older.source, None, "says nothing, so nothing is drawn");
+    }
+
+    /// The operator's privacy statement and imprint: kept when the gateway
+    /// names them as plain web addresses, `None` when it names none (a
+    /// gateway from before them, or one whose operator set none), and
+    /// dropped like `source` when they are not plainly addresses.
+    #[test]
+    fn the_legal_addresses_are_read_when_named_and_none_otherwise() {
+        let named = GatewayInfo::read(
+            br#"{"protocol_version":1,"view_version":1,
+                "privacy_url":"https://hall.example/datenschutz",
+                "imprint_url":" https://hall.example/impressum "}"#,
+        )
+        .expect("an answer");
+        assert_eq!(
+            named.privacy.as_deref(),
+            Some("https://hall.example/datenschutz")
+        );
+        assert_eq!(
+            named.imprint.as_deref(),
+            Some("https://hall.example/impressum")
+        );
+
+        let unnamed = GatewayInfo::read(br#"{"protocol_version":1,"view_version":1}"#)
+            .expect("a gateway that names neither");
+        assert_eq!((unnamed.privacy, unnamed.imprint), (None, None));
+
+        let hostile = GatewayInfo::read(
+            br#"{"protocol_version":1,"view_version":1,
+                "privacy_url":"javascript:alert(1)","imprint_url":"file:///etc/passwd"}"#,
+        )
+        .expect("the answer is still read");
+        assert_eq!((hostile.privacy, hostile.imprint), (None, None));
+    }
+
+    /// A field this client does not know is skipped, not a reason to refuse
+    /// the answer: that is what lets a gateway add one (as `privacy_url` and
+    /// `imprint_url` were added) without cutting off the clients before it.
+    #[test]
+    fn an_answer_with_fields_this_client_does_not_know_is_still_read() {
+        let info = GatewayInfo::read(
+            br#"{"protocol_version":3,"view_version":40,"source":"https://x.example/s",
+                "a_field_from_a_later_gateway":{"nested":[1,2]},"another":"x"}"#,
+        )
+        .expect("unknown fields are skipped");
+        assert_eq!((info.protocol_version, info.view_version), (3, 40));
+        assert_eq!(info.source.as_deref(), Some("https://x.example/s"));
     }
 
     #[test]

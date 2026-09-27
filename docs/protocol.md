@@ -75,7 +75,8 @@ is no account yet:
 
 ```json
 {"name":"Baylee EU","version":"…","commit":"…","build":"…","built_at":"…","dirty":false,
- "protocol_version":…,"view_version":…,"source":"https://github.com/AceVik/baylee"}
+ "protocol_version":…,"view_version":…,"source":"https://github.com/AceVik/baylee",
+ "privacy_url":"https://baylee.acevik.de/datenschutz","imprint_url":"https://baylee.acevik.de/impressum"}
 ```
 
 - `name` is `BAYLEE_GATEWAY_NAME`, trimmed. It is **absent** when unset, and
@@ -102,6 +103,20 @@ is no account yet:
   than cuts anything else (`gateway_info::GatewayInfo::source`). Its front
   door draws it under the Fan Content notice, and draws the client's own
   repository instead while the gateway has not said.
+- `privacy_url` and `imprint_url` are where the operator's privacy
+  statement and imprint are: `BAYLEE_PRIVACY_URL` and `BAYLEE_IMPRINT_URL`.
+  Each is **absent** when unset (or blank). An address that is not
+  `https://`, is over 200 characters, or holds whitespace, a control or a
+  bidirectional character refuses startup. The client keeps them by the
+  same rule as `source` (`gateway_info::web_address`), links them under the
+  front door's notice and in its settings, and puts the privacy link in a
+  line beside creating an account or a guest; a gateway that names none
+  gets no links. A client from before them skips the unknown fields
+  (`GatewayInfo::read` reads the fields it knows). This repository's own
+  pages are `web/legal/`, served by the reverse proxy
+  (`scripts/server/legal.caddy`) at `/datenschutz`, `/privacy` and
+  `/impressum`, paths the gateway has no route at
+  (`e2e_health::info_names_the_gateway_and_the_versions_a_client_decides_on`).
 
 ## Printings (which art the client draws)
 

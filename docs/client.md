@@ -3298,6 +3298,18 @@ only when it passes `gateway_info::web_address` again at the door
 answer is the thing being drawn; otherwise the line stays plain text.
 `docs/legal.md` §6 is the reason for the line.
 
+Under it stand the operator's legal pages, "Privacy" and "Imprint"
+("Datenschutz", "Impressum"), when the chosen gateway names them in `/info`
+(`privacy_url`, `imprint_url`), and nothing when it does not: unlike the
+source there is no address of this client's own to put in their place
+(`source::legal_links`, `Press::OpenLegal`). The settings screen carries the
+same row. Creating an account, and a new guest's entry, carry one line more,
+itself a link to the privacy statement ("What this gateway keeps about you,
+and why: Privacy"; `source::privacy_notice`), once a face, before anything
+is stored; signing in to an account or back in as a kept guest creates
+nothing and shows none. Each address passes `web_address` at the door
+before it is drawn as a link or opened (`source::open_legal`).
+
 **Framing and empty states.** The front-door composition uses vertical auto
 margins above the fixed legal footer on tablet and desktop. Spare height centres
 the logo and form together; when height runs out, the margins collapse and the

@@ -216,6 +216,18 @@ messages! {
     /// Under the Fan Content notice: where the source is, the AGPL's §13
     /// offer (#270). `{0}` is the address, drawn as it came.
     SourceCode { en: "Source code (AGPL-3.0): {0}", de: "Quellcode (AGPL-3.0): {0}" },
+    /// A link to the gateway operator's privacy statement (`privacy_url` in
+    /// `/info`), under the notice and in the settings.
+    PrivacyLink { en: "Privacy", de: "Datenschutz" },
+    /// A link to the gateway operator's imprint (`imprint_url` in `/info`).
+    ImprintLink { en: "Imprint", de: "Impressum" },
+    /// One line beside creating an account or a guest, before anything is
+    /// stored: where the gateway says what it keeps. The whole line is the
+    /// link to its privacy statement.
+    PrivacyNotice {
+        en: "What this gateway keeps about you, and why: Privacy",
+        de: "Was dieses Gateway über dich speichert und warum: Datenschutz",
+    },
     /// Gateway selection: an address is asked about itself before it is saved.
     GatewayChecking { en: "Checking {0}…", de: "Prüfe {0} …" },
     /// Gateway selection: the address answered and is saved.

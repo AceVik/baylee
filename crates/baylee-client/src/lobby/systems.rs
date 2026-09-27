@@ -1042,6 +1042,7 @@ pub(super) fn clicks(
                 dispatch(&mut state, &mailbox, request);
             }
             Press::OpenSource => super::source::open(&state),
+            Press::OpenLegal(page) => super::source::open_legal(&state, page),
             Press::Rebind(action) => {
                 // Tapping the armed row again disarms it, so the chip is its
                 // own cancel and there is no way to get stuck waiting.
@@ -2000,6 +2001,8 @@ pub(crate) enum Press {
     CancelAccountDeletion,
     /// Open the source address in the browser (#299).
     OpenSource,
+    /// Open one of the gateway operator's legal pages in the browser.
+    OpenLegal(super::source::LegalPage),
     /// Show the pool or the deck, on a screen with room for one.
     ShowPane(Pane),
     /// Read a card in full, by its slot in the pool.

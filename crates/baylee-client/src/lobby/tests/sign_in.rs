@@ -135,6 +135,8 @@ fn the_front_door_says_where_the_source_is() {
                     protocol_version: baylee_protocol::PROTOCOL_VERSION,
                     view_version: baylee_view::VIEW_VERSION,
                     source: Some(fork.to_string()),
+                    privacy: None,
+                    imprint: None,
                 }),
             );
         }
@@ -189,6 +191,8 @@ fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
                     protocol_version: baylee_protocol::PROTOCOL_VERSION,
                     view_version: baylee_view::VIEW_VERSION,
                     source: Some("javascript:alert(1)".to_string()),
+                    privacy: None,
+                    imprint: None,
                 }),
             );
         }
@@ -832,6 +836,8 @@ fn gateway_info(name: Option<&str>, version: &str, view: u32) -> Probe {
         protocol_version: baylee_protocol::PROTOCOL_VERSION,
         view_version: view,
         source: None,
+        privacy: None,
+        imprint: None,
     })
 }
 

@@ -475,7 +475,7 @@ pub(crate) mod offline;
 mod preview;
 mod print_catalog;
 mod room;
-mod source;
+pub(crate) mod source;
 mod systems;
 pub(crate) mod thumbnails;
 mod ui;

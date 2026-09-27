@@ -120,6 +120,139 @@ pub(super) fn open(state: &LobbyState) {
     }
 }
 
+/// One of the gateway operator's legal pages, which it names in `/info`
+/// (`privacy_url`, `imprint_url`; `docs/protocol.md` §"Which gateway is
+/// this?").
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum LegalPage {
+    /// The privacy statement (Datenschutzerklärung).
+    Privacy,
+    /// The imprint (Impressum).
+    Imprint,
+}
+
+impl LegalPage {
+    /// Both, in the order they are drawn.
+    pub(crate) const ALL: [Self; 2] = [Self::Privacy, Self::Imprint];
+
+    /// The link's words.
+    fn phrase(self) -> Phrase {
+        match self {
+            Self::Privacy => Phrase::PrivacyLink,
+            Self::Imprint => Phrase::ImprintLink,
+        }
+    }
+}
+
+/// Where the chosen gateway keeps `page`, when it said so in `/info`.
+///
+/// Unlike the source, nothing stands in for an address the gateway did not
+/// give: a privacy statement or an imprint is the operator's own, and this
+/// client has none of its own to offer instead. The address was checked on
+/// the way in (`GatewayInfo::read`).
+pub(crate) fn legal_address(state: &LobbyState, page: LegalPage) -> Option<&str> {
+    let Some(Probe::Known(info)) = state.probes.get(&state.gateway) else {
+        return None;
+    };
+    match page {
+        LegalPage::Privacy => info.privacy.as_deref(),
+        LegalPage::Imprint => info.imprint.as_deref(),
+    }
+}
+
+/// Opens `page` in the player's browser, on their click, after the same
+/// check at the door as the source address.
+pub(super) fn open_legal(state: &LobbyState, page: LegalPage) {
+    let Some(url) = legal_address(state, page).and_then(web_address) else {
+        return;
+    };
+    if let Err(err) = webbrowser::open(&url) {
+        warn!("could not open {url}: {err}");
+    }
+}
+
+/// The legal pages the chosen gateway names, as a row of links: `None` when
+/// it names neither, so nothing is drawn for a gateway without them.
+pub(crate) fn legal_links(
+    commands: &mut Commands,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    size: f32,
+) -> Option<Entity> {
+    let lang = state.lobby.lang();
+    let named: Vec<LegalPage> = LegalPage::ALL
+        .into_iter()
+        .filter(|&page| legal_address(state, page).and_then(web_address).is_some())
+        .collect();
+    if named.is_empty() {
+        return None;
+    }
+    let row = commands
+        .spawn((
+            Node {
+                max_width: percent(100),
+                flex_wrap: FlexWrap::Wrap,
+                justify_content: JustifyContent::Center,
+                column_gap: px(14),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for page in named {
+        let link = legal_link(commands, fonts, size, page.phrase().text(lang), page);
+        commands.entity(row).add_child(link);
+    }
+    Some(row)
+}
+
+/// One line of words that opens `page` when clicked, drawn as the source
+/// line is: underlined, in the ink round it.
+pub(crate) fn legal_link(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    size: f32,
+    words: &str,
+    page: LegalPage,
+) -> Entity {
+    commands
+        .spawn((
+            Text::new(words),
+            Node {
+                max_width: percent(100),
+                ..default()
+            },
+            tf(fonts, size),
+            TextColor(palette::INK),
+            TextLayout::new(Justify::Center, LineBreak::WordBoundary),
+            Button,
+            Press::OpenLegal(page),
+            Underline,
+            UnderlineColor(palette::MUTED.with_alpha(0.5)),
+        ))
+        .id()
+}
+
+/// The one line beside creating an account or a guest (`None` when the
+/// gateway names no privacy statement): where it says what it keeps, before
+/// anything is kept.
+pub(super) fn privacy_notice(
+    commands: &mut Commands,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    size: f32,
+) -> Option<Entity> {
+    legal_address(state, LegalPage::Privacy).and_then(web_address)?;
+    let words = Phrase::PrivacyNotice.text(state.lobby.lang());
+    let line = legal_link(commands, fonts, size, words, LegalPage::Privacy);
+    commands.entity(line).insert(PrivacyNotice);
+    Some(line)
+}
+
+/// Marks the privacy notice beside account creation, for tests to find.
+#[derive(Component)]
+pub(crate) struct PrivacyNotice;
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -325,12 +325,14 @@ pub(super) fn ui(
     // account's, not the gateway's, and coming back has to land exactly where
     // the player left — including halfway through a deck.
     if state.settings.is_open() {
+        let legal = super::source::legal_links(&mut commands, &state, &fonts, metrics.small);
         crate::settingsui::screen(
             &mut commands,
             root,
             prefs.all(),
             state.settings.capturing(),
             state.lobby.token().is_some(),
+            legal,
             state.lobby.lang(),
             &fonts,
             metrics,

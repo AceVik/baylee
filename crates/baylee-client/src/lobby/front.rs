@@ -1060,7 +1060,8 @@ fn status_slot(
 }
 
 /// Under the panels: this build, the notice the Fan Content Policy asks
-/// for, word for word, and where the source is.
+/// for, word for word, where the source is, and the gateway operator's
+/// privacy statement and imprint when it names them.
 ///
 /// The build is the same string the signed-in header draws
 /// (`baylee_build::short()`), for the same reason: it is what a bug report
@@ -1172,6 +1173,11 @@ pub(super) fn colophon(
     commands
         .entity(colophon)
         .add_children(&[build, notice, source]);
+    // The operator's privacy statement and imprint, when the gateway names
+    // them (`privacy_url`, `imprint_url` in `/info`); nothing otherwise.
+    if let Some(legal) = super::source::legal_links(commands, state, fonts, 12.5) {
+        commands.entity(colophon).add_child(legal);
+    }
     if let Some(code) = code.filter(|_| metrics.frame != Frame::Phone) {
         #[allow(clippy::cast_precision_loss)] // a code is at most 177 modules a side
         let side = px(code.side as f32 * super::source::MODULE_PX);
@@ -1388,8 +1394,19 @@ fn account_face(
 
     // Playing as a guest (#269), first, between the gateway and the tabs, and
     // a rule under it: the tabs below are the other way in.
+    // Where the gateway says what it keeps, once a face, before
+    // anything is kept: under a new guest's entry, which comes first, or
+    // above the button that creates an account. Signing in to an account or
+    // back in as a kept guest creates nothing, and gets none.
+    let new_guest = lobby.guest_offered() && lobby.kept_guest().is_none();
+    let mut notice = (new_guest || registering)
+        .then(|| super::source::privacy_notice(commands, state, fonts, metrics.small))
+        .flatten();
     if lobby.guest_offered() {
         guest_entry(commands, card, state, fonts, metrics);
+        if new_guest && let Some(line) = notice.take() {
+            commands.entity(card).add_child(line);
+        }
         let rule = rule(commands);
         commands.entity(card).add_child(rule);
     }
@@ -1502,6 +1519,9 @@ fn account_face(
     );
     let actions = halves(commands, metrics, &[submit, switch]);
     let status = status_slot(commands, state, fonts, metrics);
+    if let Some(line) = notice {
+        commands.entity(card).add_child(line);
+    }
     commands.entity(card).add_children(&[status, actions]);
 }
 

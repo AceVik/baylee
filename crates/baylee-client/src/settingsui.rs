@@ -25,7 +25,9 @@ use bevy::ui::{percent, px};
 /// Draws the whole screen under `root`.
 ///
 /// `capturing` is the action waiting for a key, if any: its row reads
-/// "press a key…" and the next keystroke binds it.
+/// "press a key…" and the next keystroke binds it. `legal` is the row of
+/// links to the gateway operator's legal pages, when it names any
+/// (`lobby::source::legal_links`).
 #[allow(clippy::too_many_arguments)] // one screen, drawn from everything it shows
 pub(crate) fn screen(
     commands: &mut Commands,
@@ -33,6 +35,7 @@ pub(crate) fn screen(
     prefs: &Preferences,
     capturing: Option<Action>,
     signed_in: bool,
+    legal: Option<Entity>,
     lang: Lang,
     fonts: &UiFonts,
     metrics: Metrics,
@@ -89,6 +92,11 @@ pub(crate) fn screen(
     commands.entity(root).add_child(music);
     let report = crate::report::button(commands, fonts, metrics, lang);
     commands.entity(root).add_child(report);
+    // The gateway operator's privacy statement and imprint, when it names
+    // them: this is where a player looks for them once past the front door.
+    if let Some(legal) = legal {
+        commands.entity(root).add_child(legal);
+    }
 
     let columns = commands
         .spawn((
