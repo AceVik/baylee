@@ -67,5 +67,10 @@ uuid.workspace = true
 baylee-engine.workspace = true
 baylee-engine-server.workspace = true
 baylee-feedback.workspace = true
+# A report as the client builds it and seals it (`bugreport`), sent through
+# the gateway to the service; and the record it arrives with, replayed.
+baylee-client-core.workspace = true
+baylee-gamehost.workspace = true
+baylee-view.workspace = true
 flate2.workspace = true
 tokio-tungstenite.workspace = true

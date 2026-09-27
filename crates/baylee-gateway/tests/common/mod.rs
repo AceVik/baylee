@@ -97,6 +97,37 @@ impl Gateway {
         .join()
         .expect("the query's thread")
     }
+
+    /// The one text a query in this gateway's schema answers, such as an
+    /// account's id, which no route says. Panics as [`Self::scalar`] does.
+    #[allow(dead_code)] // not every test binary in this directory needs it
+    pub fn text(&self, query: &str) -> String {
+        let url = self.database_url();
+        let query = query.to_owned();
+        std::thread::spawn(move || {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("a runtime for one query")
+                .block_on(async move {
+                    use sea_orm::ConnectionTrait as _;
+                    let db = sea_orm::Database::connect(&url)
+                        .await
+                        .expect("connecting to the gateway's schema");
+                    db.query_one_raw(sea_orm::Statement::from_string(
+                        sea_orm::DbBackend::Postgres,
+                        query.clone(),
+                    ))
+                    .await
+                    .unwrap_or_else(|e| panic!("{query}: {e}"))
+                    .unwrap_or_else(|| panic!("{query}: no row"))
+                    .try_get_by_index::<String>(0)
+                    .unwrap_or_else(|e| panic!("{query}: {e}"))
+                })
+        })
+        .join()
+        .expect("the query's thread")
+    }
 }
 
 impl Drop for Gateway {
