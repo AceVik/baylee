@@ -48,6 +48,7 @@ pub fn outcome(status: u16, body: &str) -> Outcome {
         401 => said(Phrase::ReportSignInAgain),
         413 => said(Phrase::ReportTooLarge),
         429 => said(Phrase::ReportTooMany),
+        502 => said(Phrase::ReportNotPassedOn),
         503 => said(Phrase::ReportsUnavailable),
         0 => said(Phrase::ReportUnreachable),
         _ => said(Phrase::ReportFailed),
@@ -248,19 +249,65 @@ mod tests {
             outcome(400, r#"{"error":"kind is not one of ..."}"#),
             Outcome::Refused(Refusal::Verbatim("kind is not one of ...".into()))
         );
-        for (status, phrase) in [
+        let table = [
             (401, Phrase::ReportSignInAgain),
             (413, Phrase::ReportTooLarge),
             (429, Phrase::ReportTooMany),
+            (502, Phrase::ReportNotPassedOn),
             (503, Phrase::ReportsUnavailable),
             (0, Phrase::ReportUnreachable),
             (500, Phrase::ReportFailed),
-        ] {
+        ];
+        for (status, phrase) in table {
             assert_eq!(
                 outcome(status, r#"{"error":"reports are not configured"}"#),
                 Outcome::Refused(Refusal::Said(phrase)),
                 "{status}"
             );
+        }
+        // Told apart means no two of them read alike, in either language.
+        for lang in [Lang::En, Lang::De] {
+            let mut said: Vec<&str> = table.iter().map(|(_, p)| p.text(lang)).collect();
+            said.sort_unstable();
+            said.dedup();
+            assert_eq!(said.len(), table.len(), "{lang:?}: two statuses read alike");
+        }
+    }
+
+    /// A 400 without words of the gateway's own still says something, and
+    /// a 400 in plain text is quoted as it came.
+    #[test]
+    fn a_bad_request_is_the_gateway_s_words_or_the_general_sentence() {
+        assert_eq!(
+            outcome(400, ""),
+            Outcome::Refused(Refusal::Said(Phrase::ReportFailed))
+        );
+        assert_eq!(
+            outcome(400, "game_id is too long\n"),
+            Outcome::Refused(Refusal::Verbatim("game_id is too long".into()))
+        );
+    }
+
+    /// The form says each answer as the player reads it: the status line
+    /// after a send is the outcome's sentence, and a received report says
+    /// its id.
+    #[test]
+    fn the_status_line_after_each_answer_is_its_sentence() {
+        for (status, body, want) in [
+            (201, r#"{"report_id":"r-9"}"#, Phrase::ReportSent.fill(Lang::En, &["r-9"])),
+            (400, r#"{"error":"no text"}"#, "no text".to_string()),
+            (401, "", Phrase::ReportSignInAgain.text(Lang::En).to_string()),
+            (413, "", Phrase::ReportTooLarge.text(Lang::En).to_string()),
+            (429, "", Phrase::ReportTooMany.text(Lang::En).to_string()),
+            (502, "", Phrase::ReportNotPassedOn.text(Lang::En).to_string()),
+            (503, "", Phrase::ReportsUnavailable.text(Lang::En).to_string()),
+            (0, "", Phrase::ReportUnreachable.text(Lang::En).to_string()),
+        ] {
+            let mut form = form("it broke");
+            form.prepare(&Gathered::default(), &Consent::default(), &[])
+                .expect("sendable");
+            form.answered(status, body);
+            assert_eq!(form.status.text(Lang::En), Some(want), "{status}");
         }
     }
 

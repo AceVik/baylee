@@ -2840,6 +2840,11 @@ messages! {
         en: "The gateway could not be reached. Your report is still here.",
         de: "Das Gateway war nicht erreichbar. Dein Bericht ist noch da.",
     },
+    /// 502: the gateway took it and its feedback service did not.
+    ReportNotPassedOn {
+        en: "The gateway could not pass the report on. Your report is still here; try again later.",
+        de: "Das Gateway konnte den Bericht nicht weitergeben. Dein Bericht ist noch da; versuch es später erneut.",
+    },
     /// Any other answer.
     ReportFailed {
         en: "The report could not be sent. Try again later.",
