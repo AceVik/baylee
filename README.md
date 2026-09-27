@@ -218,8 +218,22 @@ and compare the result with the number in the `.sha256` file.
 
 ### Updating
 
-Baylee has no auto-updater yet. To update, download the new archive and
-replace the old folder (or `Baylee.app`) with the new one.
+Baylee updates itself. It asks GitHub for a newer release at start and every
+six hours, downloads it, checks its signature, and installs it when you quit;
+the lobby's corner and the table's menu say "Update X ready – installs when you
+quit", and the next start says "Updated to X" once. An update whose signature
+does not verify is never installed. The settings screen has two switches,
+"Update automatically" and "Check for updates automatically" (off: Baylee asks
+GitHub nothing until you press "Check for updates"); `docs/privacy.md` says
+what GitHub sees.
+
+Baylee only links to the release page, and you update by hand, when it
+cannot replace itself: its folder is not writable for your user (it never
+asks for administrator rights), or macOS runs it from a read-only copy
+because `Baylee.app` was started from where it was unpacked in Downloads
+(move it once, to Applications for example). To update by hand, download
+the new archive and replace the old folder (or `Baylee.app`) with the new
+one.
 
 Replacing the program keeps your settings, because they are not stored next
 to it. The client keeps them in `baylee/` under `$XDG_CONFIG_HOME`, or
@@ -230,6 +244,7 @@ macOS too. The files there are:
   guest's session;
 - `preferences.json`: key bindings and standing answers;
 - `offline-decks.json`: decks built offline.
+- `update.json`: the two update switches.
 
 Card images are cached separately, in `~/Library/Caches/baylee` (macOS),
 `%LOCALAPPDATA%\baylee` (Windows) or `~/.cache/baylee` (Linux). Your account

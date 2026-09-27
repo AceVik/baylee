@@ -230,8 +230,23 @@ vergleichst das Ergebnis mit der Zahl in der `.sha256`-Datei.
 
 ### Aktualisieren
 
-Eine automatische Aktualisierung gibt es noch nicht. Lade das neue Archiv
-herunter und ersetze den alten Ordner (oder `Baylee.app`) durch den neuen.
+Baylee aktualisiert sich selbst. Es fragt GitHub beim Start und alle sechs
+Stunden nach einer neueren Version, lädt sie herunter, prüft ihre Signatur
+und installiert sie beim Beenden; die Ecke der Lobby und das Menü am Tisch
+sagen „Update X bereit – wird beim Beenden installiert“, und der nächste
+Start sagt einmal „Aktualisiert auf X“. Ein Update, dessen Signatur nicht
+stimmt, wird nie installiert. In den Einstellungen gibt es zwei Schalter,
+„Automatisch aktualisieren“ und „Automatisch nach Updates suchen“ (aus: Baylee
+fragt GitHub gar nichts, bis du „Nach Updates suchen“ drückst);
+`docs/privacy.md` sagt, was GitHub dabei sieht.
+
+Nur verlinken, und du aktualisierst von Hand, wenn Baylee sich nicht selbst
+ersetzen kann: Sein Ordner ist für deinen Benutzer nicht beschreibbar (es
+fragt nie nach Administratorrechten), oder macOS startet es aus einer
+schreibgeschützten Kopie, weil `Baylee.app` noch dort liegt, wo es in
+„Downloads“ entpackt wurde (einmal verschieben, etwa nach „Programme“). Von
+Hand: Lade das neue Archiv herunter und ersetze den alten Ordner (oder
+`Baylee.app`) durch den neuen.
 
 Deine Einstellungen bleiben dabei erhalten, weil sie nicht neben dem Programm
 liegen. Der Client speichert sie in `baylee/` unter `$XDG_CONFIG_HOME`, oder
@@ -242,6 +257,7 @@ auch auf macOS. Dort liegen:
   Meldungen und die Sitzung eines Gastes;
 - `preferences.json`: Tastenbelegung und stehende Antworten;
 - `offline-decks.json`: offline gebaute Decks.
+- `update.json`: die beiden Update-Schalter.
 
 Kartenbilder werden getrennt davon zwischengespeichert, in
 `~/Library/Caches/baylee` (macOS), `%LOCALAPPDATA%\baylee` (Windows) oder

@@ -30,6 +30,8 @@ the pointers, because line numbers move.
 | A report the player sends | leaves the device for the gateway (`POST /reports`) | see [Reports](#reports-and-crash-reports-309-310-314) | — |
 | Game record | Postgres, written by the gateway (#315) | without a time limit | nothing |
 | Crash file | the player's device, `crash-report.json` | until the next start sends or discards it | the client |
+| Update check (#326) | leaves a desktop client for `api.github.com` and GitHub's download hosts | GitHub's own terms | switching "Check for updates automatically" off |
+| Update choice and stage | the player's device: `update.json`; `.baylee-update/` beside the installation | until changed; the stage until the update is installed | the player; the client after installing |
 
 ## Accounts
 
@@ -362,6 +364,20 @@ decks and settings as JSON.
     sends `Referrer-Policy: no-referrer`, so not which page asked;
   - a session is sent to the gateway it belongs to and to no other host
     (`artreader::authorization`, `cardtext::text_request`).
+  - **Updates (#326, desktop only):** at start and every six hours the
+    client asks `api.github.com` for the list of releases, without an
+    account or any identifier of the player: the request carries
+    `User-Agent: Baylee/<version>` and the `ETag` of GitHub's previous
+    answer, nothing else. When a newer release exists it downloads the
+    archive, `.sig` and `.sha256` from GitHub (`github.com`, which redirects
+    to its download hosts). GitHub sees the device's IP address, the
+    version and when it asks. The switch "Check for updates automatically"
+    (`update.json` beside the settings, per device, default on) turns every
+    such request off; "Check for updates" then asks once. "Update
+    automatically" (default on) decides only whether a download is
+    installed. The downloaded update waits in `.baylee-update/` beside the
+    installation until it is installed; a browser or phone build makes no
+    such request.
 - **No tracking:** no cookie is set by the gateway, no analytics or
   telemetry library is linked, and the CORS policy allows no credentials.
 

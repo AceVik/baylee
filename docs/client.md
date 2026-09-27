@@ -7434,6 +7434,72 @@ back to something else. `hud::despawn_overlay` runs beside `table::despawn_stage
 and resets `HudRevision` with it — a revision describing a tree that no longer
 exists would make the next duel's first frame skip its own rebuild.
 
+## Updating
+
+A desktop build updates itself (#326). A browser build has no updater (the
+page is the update), and neither has a phone build (its store is); both
+compile `baylee-update` out, and `update::controls` draws no switches there.
+
+**Checking.** A thread of its own (`baylee_update::service`) asks
+`https://api.github.com/repos/AceVik/baylee/releases?per_page=10` at start
+and every six hours: no account, `User-Agent: Baylee/<version>`, the last
+`ETag` sent back (a `304` does not count against GitHub's limit), and after a
+`403`/`429` nothing until the limit's reset. Drafts are skipped; a stable
+build is offered stable releases only, a pre-release build both, ordered by
+semver precedence (`0.1.0-beta.10` after `beta.9`).
+
+**Staging.** For a newer release it downloads the archive for its own target
+into `<installation>/.baylee-update/`, checks the size, the `.sha256` (a
+sanity check against a broken download, nothing more) and then the Ed25519
+`.sig` against the keys compiled into the client (`sign::TRUSTED_KEYS`, a
+list so a key can be rotated). Only an archive whose signature verifies is
+unpacked (no path out of the folder, no link out of it) into `new/`, and
+only then is `staged.json` written. An unsigned archive is never
+downloaded, and a refused one is deleted; the notice then only links to the
+release page.
+
+**Installing on exit.** When the program ends (`AppExit`, the window
+already closed), a staged update replaces the installation by renames
+within one folder: every entry of the new tree first sets the old one aside
+(`<name>.old`; the running Windows program as `baylee-client.old.exe`,
+which Windows lets one rename but not delete), then moves in. On macOS only
+`Baylee.app` and the files that shipped beside it are replaced; whatever
+else is in the folder (`/Applications`, say) is not touched. Each step is
+recorded in `journal.json` before the next one. At the next start, before
+anything reads the installation, `apply::recover` finishes an interrupted
+update when every remaining source is still there and otherwise undoes it;
+then the set-aside files are deleted and "Updated to X" is shown once. A
+version that failed to install is not tried again.
+
+**When it only links.** The notice says why: installing switched off, a
+development build, a folder this user cannot write (the client never asks
+for elevated rights), an app macOS runs from a read-only copy (App
+Translocation: moved once, to `/Applications` or anywhere else, it can
+update), a missing or refused signature, or a failed download.
+
+**Development builds.** Only a build the release workflow made
+(`BAYLEE_RELEASE_BUILD=1` at compile time, optimised, clean commit;
+`update::native::is_release_build`) replaces itself. Any other build checks
+and shows what it found, with "development build" as the reason, because the
+folder it runs from is `target/release`, not an installation. Under
+`dev-control` only, `BAYLEE_UPDATE_API`, `BAYLEE_UPDATE_VERSION` and
+`BAYLEE_UPDATE_KEY` point it at a stub, make it pretend to be an older
+version and make it trust a test key.
+
+**The face.** `update::UpdateNotice` is what is shown: a small panel in the
+lobby's bottom-left corner (hidden for the session by its own button, back
+on news) and a line in the table's menu, both opening the release page
+(`https` only, or a loopback stub). The settings screen has "Update
+automatically", "Check for updates automatically" (off: no request at all,
+until "Check for updates" is pressed) and that button, kept per device in
+`update.json`.
+
+**macOS quarantine.** Files the client writes are not quarantined: macOS
+marks a download with `com.apple.quarantine` only when the program that
+wrote it opted in (browsers do), so the new `Baylee.app` starts without the
+first-start warning the downloaded archive gave. What the live check of
+27.09.2026 showed is in #326.
+
 ## Where a packaged desktop build finds its fonts
 
 `standalone::asset_root` takes the `assets` directory **beside the executable**
