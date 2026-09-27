@@ -1,0 +1,210 @@
+[
+  {
+    "url": "https://api.github.com/repos/AceVik/baylee/releases/397747678",
+    "html_url": "https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.2",
+    "id": 397747678,
+    "tag_name": "v0.1.0-beta.2",
+    "target_commitish": "main",
+    "name": "Baylee 0.1.0-beta.2",
+    "draft": false,
+    "prerelease": true,
+    "created_at": "2026-09-27T16:07:51Z",
+    "published_at": "2026-09-27T17:44:30Z",
+    "assets": [
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/593434363",
+        "id": 593434363,
+        "name": "baylee-client-0.1.0-beta.2-aarch64-apple-darwin.zip",
+        "content_type": "application/zip",
+        "state": "uploaded",
+        "size": 145293019,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.2/baylee-client-0.1.0-beta.2-aarch64-apple-darwin.zip"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/593434362",
+        "id": 593434362,
+        "name": "baylee-client-0.1.0-beta.2-aarch64-apple-darwin.zip.sha256",
+        "content_type": "application/octet-stream",
+        "state": "uploaded",
+        "size": 118,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.2/baylee-client-0.1.0-beta.2-aarch64-apple-darwin.zip.sha256"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/593434365",
+        "id": 593434365,
+        "name": "baylee-client-0.1.0-beta.2-aarch64-pc-windows-msvc.zip",
+        "content_type": "application/zip",
+        "state": "uploaded",
+        "size": 116748095,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.2/baylee-client-0.1.0-beta.2-aarch64-pc-windows-msvc.zip"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/593434368",
+        "id": 593434368,
+        "name": "baylee-client-0.1.0-beta.2-aarch64-pc-windows-msvc.zip.sha256",
+        "content_type": "application/octet-stream",
+        "state": "uploaded",
+        "size": 121,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.2/baylee-client-0.1.0-beta.2-aarch64-pc-windows-msvc.zip.sha256"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/593434364",
+        "id": 593434364,
+        "name": "baylee-client-0.1.0-beta.2-aarch64-unknown-linux-gnu.tar.gz",
+        "content_type": "application/x-gtar",
+        "state": "uploaded",
+        "size": 115350589,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.2/baylee-client-0.1.0-beta.2-aarch64-unknown-linux-gnu.tar.gz"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/593434376",
+        "id": 593434376,
+        "name": "baylee-client-0.1.0-beta.2-aarch64-unknown-linux-gnu.tar.gz.sha256",
+        "content_type": "application/octet-stream",
+        "state": "uploaded",
+        "size": 126,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.2/baylee-client-0.1.0-beta.2-aarch64-unknown-linux-gnu.tar.gz.sha256"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/593434380",
+        "id": 593434380,
+        "name": "baylee-client-0.1.0-beta.2-x86_64-pc-windows-msvc.zip",
+        "content_type": "application/zip",
+        "state": "uploaded",
+        "size": 116137906,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.2/baylee-client-0.1.0-beta.2-x86_64-pc-windows-msvc.zip"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/593434387",
+        "id": 593434387,
+        "name": "baylee-client-0.1.0-beta.2-x86_64-pc-windows-msvc.zip.sha256",
+        "content_type": "application/octet-stream",
+        "state": "uploaded",
+        "size": 120,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.2/baylee-client-0.1.0-beta.2-x86_64-pc-windows-msvc.zip.sha256"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/593434390",
+        "id": 593434390,
+        "name": "baylee-client-0.1.0-beta.2-x86_64-unknown-linux-gnu.tar.gz",
+        "content_type": "application/x-gtar",
+        "state": "uploaded",
+        "size": 119590682,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.2/baylee-client-0.1.0-beta.2-x86_64-unknown-linux-gnu.tar.gz"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/593434470",
+        "id": 593434470,
+        "name": "baylee-client-0.1.0-beta.2-x86_64-unknown-linux-gnu.tar.gz.sha256",
+        "content_type": "application/octet-stream",
+        "state": "uploaded",
+        "size": 125,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.2/baylee-client-0.1.0-beta.2-x86_64-unknown-linux-gnu.tar.gz.sha256"
+      }
+    ]
+  },
+  {
+    "url": "https://api.github.com/repos/AceVik/baylee/releases/397424630",
+    "html_url": "https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.1",
+    "id": 397424630,
+    "tag_name": "v0.1.0-beta.1",
+    "target_commitish": "main",
+    "name": "Baylee 0.1.0-beta.1",
+    "draft": false,
+    "prerelease": true,
+    "created_at": "2026-09-26T22:28:54Z",
+    "published_at": "2026-09-26T23:01:03Z",
+    "assets": [
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/591629379",
+        "id": 591629379,
+        "name": "baylee-client-0.1.0-beta.1-aarch64-apple-darwin.zip",
+        "content_type": "application/zip",
+        "state": "uploaded",
+        "size": 143984344,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.1/baylee-client-0.1.0-beta.1-aarch64-apple-darwin.zip"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/591629381",
+        "id": 591629381,
+        "name": "baylee-client-0.1.0-beta.1-aarch64-apple-darwin.zip.sha256",
+        "content_type": "application/octet-stream",
+        "state": "uploaded",
+        "size": 118,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.1/baylee-client-0.1.0-beta.1-aarch64-apple-darwin.zip.sha256"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/591629378",
+        "id": 591629378,
+        "name": "baylee-client-0.1.0-beta.1-aarch64-pc-windows-msvc.zip",
+        "content_type": "application/zip",
+        "state": "uploaded",
+        "size": 115539336,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.1/baylee-client-0.1.0-beta.1-aarch64-pc-windows-msvc.zip"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/591629380",
+        "id": 591629380,
+        "name": "baylee-client-0.1.0-beta.1-aarch64-pc-windows-msvc.zip.sha256",
+        "content_type": "application/octet-stream",
+        "state": "uploaded",
+        "size": 121,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.1/baylee-client-0.1.0-beta.1-aarch64-pc-windows-msvc.zip.sha256"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/591629382",
+        "id": 591629382,
+        "name": "baylee-client-0.1.0-beta.1-aarch64-unknown-linux-gnu.tar.gz",
+        "content_type": "application/x-gtar",
+        "state": "uploaded",
+        "size": 113599942,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.1/baylee-client-0.1.0-beta.1-aarch64-unknown-linux-gnu.tar.gz"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/591629391",
+        "id": 591629391,
+        "name": "baylee-client-0.1.0-beta.1-aarch64-unknown-linux-gnu.tar.gz.sha256",
+        "content_type": "application/octet-stream",
+        "state": "uploaded",
+        "size": 126,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.1/baylee-client-0.1.0-beta.1-aarch64-unknown-linux-gnu.tar.gz.sha256"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/591629392",
+        "id": 591629392,
+        "name": "baylee-client-0.1.0-beta.1-x86_64-pc-windows-msvc.zip",
+        "content_type": "application/zip",
+        "state": "uploaded",
+        "size": 114944300,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.1/baylee-client-0.1.0-beta.1-x86_64-pc-windows-msvc.zip"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/591629403",
+        "id": 591629403,
+        "name": "baylee-client-0.1.0-beta.1-x86_64-pc-windows-msvc.zip.sha256",
+        "content_type": "application/octet-stream",
+        "state": "uploaded",
+        "size": 120,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.1/baylee-client-0.1.0-beta.1-x86_64-pc-windows-msvc.zip.sha256"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/591629414",
+        "id": 591629414,
+        "name": "baylee-client-0.1.0-beta.1-x86_64-unknown-linux-gnu.tar.gz",
+        "content_type": "application/x-gtar",
+        "state": "uploaded",
+        "size": 117834539,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.1/baylee-client-0.1.0-beta.1-x86_64-unknown-linux-gnu.tar.gz"
+      },
+      {
+        "url": "https://api.github.com/repos/AceVik/baylee/releases/assets/591629464",
+        "id": 591629464,
+        "name": "baylee-client-0.1.0-beta.1-x86_64-unknown-linux-gnu.tar.gz.sha256",
+        "content_type": "application/octet-stream",
+        "state": "uploaded",
+        "size": 125,
+        "browser_download_url": "https://github.com/AceVik/baylee/releases/download/v0.1.0-beta.1/baylee-client-0.1.0-beta.1-x86_64-unknown-linux-gnu.tar.gz.sha256"
+      }
+    ]
+  }
+]

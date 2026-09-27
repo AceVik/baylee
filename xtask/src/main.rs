@@ -1,6 +1,7 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
 mod cr_check;
+mod update_key;
 
 use baylee_cards_codegen::{
     acceptance, cardindex, catalog, landgen, layout, ledger, lines, names, scriptgen, scripts,
@@ -472,6 +473,15 @@ enum Cmd {
         #[arg(long)]
         play: bool,
     },
+    /// Make the key release archives are signed with, or show its public half.
+    ///
+    /// The seed goes only to the file (mode 600) and is never printed; an
+    /// existing file is never overwritten (#326, `docs/releasing.md`).
+    UpdateKey {
+        /// Where the seed lives [default: ~/.config/baylee-release/update-signing.key].
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -550,6 +560,7 @@ fn main() -> anyhow::Result<()> {
             teams,
             play,
         } => dev_table(&root, &gateway, seats, &ai, &deck, &teams, play),
+        Cmd::UpdateKey { out } => update_key::run(&out.map_or_else(update_key::default_path, Ok)?),
     }
 }
 

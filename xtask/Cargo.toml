@@ -14,6 +14,7 @@ baylee-cards.workspace = true
 baylee-core.workspace = true
 baylee-cards-codegen.workspace = true
 baylee-cards-index.workspace = true
+baylee-update.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true

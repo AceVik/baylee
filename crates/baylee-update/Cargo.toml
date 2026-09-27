@@ -1,0 +1,25 @@
+[package]
+name = "baylee-update"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "The desktop client's updater: which release is newer, whether its signature is ours, and replacing the installed files on exit (#326)"
+
+[lints]
+workspace = true
+
+[dependencies]
+base64.workspace = true
+ed25519-dalek.workspace = true
+flate2.workspace = true
+getrandom.workspace = true
+semver.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tar.workspace = true
+ureq.workspace = true
+zip.workspace = true

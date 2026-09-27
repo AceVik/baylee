@@ -1,0 +1,305 @@
+//! Applying an update with real renames, in a temporary directory laid out
+//! as each system's installation is, on whatever machine runs the tests.
+//! And a crash after every step: the next start always converges on a
+//! client that starts.
+
+mod support;
+
+use baylee_update::apply::{self, ApplyError, Install, Journal, Recovery, Staged};
+use baylee_update::plan::{NEW, Os, STAGE};
+use support::{Tree, expected, installed, release_tree, snapshot, write_tree};
+
+const OLD: &str = "0.1.0-beta.2";
+const NEWER: &str = "0.1.0-beta.3";
+const SYSTEMS: [Os; 3] = [Os::Windows, Os::MacOs, Os::Linux];
+
+/// Puts the newer release's tree where the updater stages it.
+fn stage(install: &Install) -> Tree {
+    let tree = release_tree(install.os, NEWER);
+    write_tree(&install.stage().join(NEW), &tree);
+    apply::mark_staged(
+        install,
+        &Staged {
+            version: NEWER.into(),
+            tag: format!("v{NEWER}"),
+            page: "https://example.test/release".into(),
+            asset: "archive".into(),
+            size: 1,
+        },
+    )
+    .unwrap();
+    tree
+}
+
+/// What the installation should be once the update is in: every entry the
+/// newer release brings replaced (on macOS, beside the bundle, only those
+/// that were there), and the player's own file untouched.
+fn after(os: Os, old: &Tree, new: &Tree) -> Tree {
+    let top = |rel: &str| rel.split('/').next().unwrap().to_owned();
+    let replaced: std::collections::BTreeSet<String> = new
+        .keys()
+        .map(|rel| top(rel))
+        .filter(|name| {
+            os != Os::MacOs || name == "Baylee.app" || old.keys().any(|r| top(r) == *name)
+        })
+        .collect();
+    let mut tree: Tree = old
+        .iter()
+        .filter(|(rel, _)| !replaced.contains(&top(rel)))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    tree.extend(
+        new.iter()
+            .filter(|(rel, _)| replaced.contains(&top(rel)))
+            .map(|(k, v)| (k.clone(), v.clone())),
+    );
+    tree
+}
+
+#[test]
+fn each_system_is_replaced_by_its_new_tree() {
+    for os in SYSTEMS {
+        let (base, install, old) = installed(os, OLD, "each");
+        let new = stage(&install);
+        let applied = apply::apply(&install, OLD).unwrap();
+        assert_eq!(applied.to, NEWER);
+        assert_eq!(snapshot(&base), expected(&after(os, &old, &new)), "{os:?}");
+        // The player's file, and none of the old release's own.
+        assert!(base.join("my-notes.txt").exists());
+        assert!(
+            !snapshot(&base).keys().any(|k| k.contains("Gone.ttf")),
+            "{os:?}"
+        );
+        // Said once at the next start, then never again.
+        let told = apply::take_applied(&install).unwrap();
+        assert_eq!((told.from.as_str(), told.to.as_str()), (OLD, NEWER));
+        assert_eq!(apply::take_applied(&install), None);
+        assert!(
+            !install.stage().exists(),
+            "{os:?}: the staging directory stays"
+        );
+    }
+}
+
+/// A bundle in `/Applications`: only the bundle is replaced, and the
+/// licences the archive carries are not dropped beside it.
+#[test]
+fn macos_in_applications_touches_nothing_but_the_bundle() {
+    let base = support::scratch("applications").join("Applications");
+    let old: Tree = release_tree(Os::MacOs, OLD)
+        .into_iter()
+        .filter(|(rel, _)| rel.starts_with("Baylee.app/"))
+        .collect();
+    write_tree(&base, &old);
+    std::fs::create_dir_all(base.join("Safari.app/Contents")).unwrap();
+    std::fs::write(base.join("Safari.app/Contents/Info.plist"), "safari").unwrap();
+    let install = Install::around(&support::exe(Os::MacOs, &base), Os::MacOs).unwrap();
+    let new = stage(&install);
+    apply::apply(&install, OLD).unwrap();
+    let shot = snapshot(&base);
+    assert!(!shot.contains_key("LICENSE"));
+    assert!(!shot.contains_key("README.txt"));
+    assert!(!shot.keys().any(|k| k.starts_with("baylee-client.dSYM")));
+    assert_eq!(shot["Safari.app/Contents/Info.plist"], "file 644 safari");
+    assert_eq!(
+        shot["Baylee.app/Contents/MacOS/baylee-client"],
+        expected(&new)["Baylee.app/Contents/MacOS/baylee-client"]
+    );
+    // The bundle's link came through as a link.
+    assert_eq!(
+        shot["Baylee.app/Contents/MacOS/assets"],
+        "link ../Resources/assets"
+    );
+}
+
+/// Windows cannot delete the program that is running the update, so it is
+/// renamed to `baylee-client.old.exe`, and the next start deletes it. The
+/// steps are watched one by one up to that point.
+#[test]
+fn the_running_windows_exe_is_set_aside_and_deleted_at_the_next_start() {
+    let (base, install, _) = installed(Os::Windows, OLD, "windows-exe");
+    stage(&install);
+    let mut journal = Journal::begin(&install, OLD).unwrap();
+    // Every step but the last: the running program is set aside, the new
+    // one not yet in.
+    for _ in 0..journal.steps.len() - 1 {
+        assert!(journal.step(&install).unwrap());
+    }
+    assert!(!base.join("baylee-client.exe").exists());
+    assert_eq!(
+        std::fs::read_to_string(base.join("baylee-client.old.exe")).unwrap(),
+        format!("windows program {OLD}")
+    );
+    assert!(journal.step(&install).unwrap());
+    assert!(!journal.step(&install).unwrap());
+    assert_eq!(
+        std::fs::read_to_string(base.join("baylee-client.exe")).unwrap(),
+        format!("windows program {NEWER}")
+    );
+    // The process ends here, before its own clean-up; the next start
+    // finishes the bookkeeping. The old program, still running while the
+    // update finished, could not be deleted then: it is there again.
+    assert!(matches!(apply::recover(&install), Recovery::Finished(_)));
+    std::fs::write(base.join("baylee-client.old.exe"), "was running").unwrap();
+    assert_eq!(apply::take_applied(&install).unwrap().to, NEWER);
+    assert!(!base.join("baylee-client.old.exe").exists());
+}
+
+/// A crash after any step, recorded in the journal or not yet, is finished
+/// at the next start: the installation is then exactly the new one.
+#[test]
+fn a_crash_after_any_step_is_finished_at_the_next_start() {
+    for os in SYSTEMS {
+        let steps = {
+            let (_, install, _) = installed(os, OLD, "count");
+            stage(&install);
+            Journal::begin(&install, OLD).unwrap().steps.len()
+        };
+        for done in 0..=steps {
+            for unrecorded in [false, true] {
+                if unrecorded && done == steps {
+                    continue;
+                }
+                let (base, install, old) = installed(os, OLD, "crash");
+                let new = stage(&install);
+                let mut journal = Journal::begin(&install, OLD).unwrap();
+                for _ in 0..done {
+                    journal.step(&install).unwrap();
+                }
+                if unrecorded {
+                    // The rename happened; the process died before the
+                    // journal said so.
+                    let step = &journal.steps[done];
+                    let at = |rel: &[String]| rel.iter().fold(base.clone(), |p, s| p.join(s));
+                    std::fs::rename(at(&step.from), at(&step.to)).unwrap();
+                }
+                let recovered = apply::recover(&install);
+                assert!(
+                    matches!(recovered, Recovery::Finished(ref a) if a.to == NEWER),
+                    "{os:?} after {done} steps (unrecorded {unrecorded}): {recovered:?}"
+                );
+                assert_eq!(
+                    snapshot(&base),
+                    expected(&after(os, &old, &new)),
+                    "{os:?} after {done} steps (unrecorded {unrecorded})"
+                );
+                assert!(apply::take_applied(&install).is_some());
+            }
+        }
+    }
+}
+
+/// When the staged tree is lost as well (a disk cleaner, a player tidying
+/// up), the update cannot be finished, and every done step is undone: the
+/// old installation, exactly.
+#[test]
+fn a_crash_that_cannot_be_finished_is_rolled_back_to_the_old_client() {
+    for os in SYSTEMS {
+        let steps = {
+            let (_, install, _) = installed(os, OLD, "count");
+            stage(&install);
+            Journal::begin(&install, OLD).unwrap().steps.len()
+        };
+        for done in 0..steps {
+            let (base, install, old) = installed(os, OLD, "rollback");
+            stage(&install);
+            let mut journal = Journal::begin(&install, OLD).unwrap();
+            for _ in 0..done {
+                journal.step(&install).unwrap();
+            }
+            std::fs::remove_dir_all(install.stage().join(NEW)).unwrap();
+            let recovered = apply::recover(&install);
+            // A crash before any move-in whose source is gone would have
+            // nothing left to finish with; one after the last would have
+            // nothing left to do.
+            assert_eq!(recovered, Recovery::RolledBack, "{os:?} after {done} steps");
+            assert_eq!(snapshot(&base), expected(&old), "{os:?} after {done} steps");
+            assert_eq!(apply::failed(&install).unwrap().version, NEWER);
+            assert_eq!(apply::staged(&install), None);
+            assert!(!base.join(STAGE).join("journal.json").exists());
+        }
+    }
+}
+
+/// A rename that fails half way undoes the ones before it, records the
+/// version as failed, and leaves the old client exactly as it was. The
+/// failure: the staged folder cannot be written, so nothing can be moved
+/// out of it, while the old entries can still be set aside.
+#[cfg(unix)]
+#[test]
+fn a_step_that_fails_undoes_the_ones_before_it() {
+    use std::os::unix::fs::PermissionsExt as _;
+    for os in SYSTEMS {
+        let (base, install, old) = installed(os, OLD, "fails");
+        stage(&install);
+        let new = install.stage().join(NEW);
+        std::fs::set_permissions(&new, std::fs::Permissions::from_mode(0o555)).unwrap();
+        let result = apply::apply(&install, OLD);
+        let _ = std::fs::set_permissions(&new, std::fs::Permissions::from_mode(0o755));
+        if result.is_ok() {
+            // Root renames anywhere; there is nothing to measure.
+            return;
+        }
+        assert!(matches!(result, Err(ApplyError::Io(_))), "{os:?}");
+        assert_eq!(snapshot(&base), expected(&old), "{os:?}");
+        assert_eq!(apply::failed(&install).unwrap().version, NEWER);
+        assert!(!install.stage().join("journal.json").exists());
+        // Nothing is staged any more, so nothing is tried again.
+        assert!(matches!(
+            apply::apply(&install, OLD),
+            Err(ApplyError::NothingStaged)
+        ));
+    }
+}
+
+/// An aside name taken by something the plan does not know is refused
+/// before any rename.
+#[test]
+fn a_taken_aside_refuses_before_any_rename() {
+    for os in SYSTEMS {
+        let (base, install, old) = installed(os, OLD, "taken");
+        stage(&install);
+        let aside = base.join(os.aside(&install.program));
+        std::fs::create_dir_all(&aside).unwrap();
+        let err = apply::apply(&install, OLD).unwrap_err();
+        assert!(matches!(err, ApplyError::Plan(_)), "{os:?}: {err}");
+        std::fs::remove_dir_all(&aside).unwrap();
+        assert_eq!(snapshot(&base), expected(&old), "{os:?}");
+        assert_eq!(apply::failed(&install).unwrap().version, NEWER);
+    }
+}
+
+/// Nothing staged, nothing done: a client closed with no update pending.
+#[test]
+fn nothing_staged_changes_nothing() {
+    for os in SYSTEMS {
+        let (base, install, old) = installed(os, OLD, "nothing");
+        assert!(matches!(
+            apply::apply(&install, OLD),
+            Err(ApplyError::NothingStaged)
+        ));
+        assert_eq!(apply::recover(&install), Recovery::Nothing);
+        assert_eq!(apply::take_applied(&install), None);
+        assert_eq!(snapshot(&base), expected(&old));
+    }
+}
+
+/// A folder the player cannot write is reported, not forced.
+#[cfg(unix)]
+#[test]
+fn an_unwritable_folder_is_reported() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let (base, install, _) = installed(Os::Linux, OLD, "unwritable");
+    std::fs::set_permissions(&base, std::fs::Permissions::from_mode(0o555)).unwrap();
+    let probe = std::fs::write(base.join("probe"), "");
+    if probe.is_ok() {
+        // Root writes anywhere; there is nothing to measure.
+        let _ = std::fs::remove_file(base.join("probe"));
+        std::fs::set_permissions(&base, std::fs::Permissions::from_mode(0o755)).unwrap();
+        return;
+    }
+    assert!(install.writable().is_err());
+    assert!(!install.stage().exists());
+    std::fs::set_permissions(&base, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert!(install.writable().is_ok());
+}
