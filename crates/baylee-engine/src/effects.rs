@@ -251,6 +251,18 @@ impl EffectTable {
             .any(|fx| fx.source == Some(source) && fx.modifier == modifier)
     }
 
+    /// Removes the effect `source`'s static ability with `modifier`
+    /// registered: a conditional static whose condition stopped holding
+    /// (a station symbol's, CR 721.2a). Only that origin, so an effect a
+    /// resolution of the same permanent made is left alone.
+    pub(crate) fn remove_static(&mut self, source: ObjectId, modifier: Modifier) {
+        self.remove_where(|fx| {
+            fx.origin == EffectOrigin::Static
+                && fx.source == Some(source)
+                && fx.modifier == modifier
+        });
+    }
+
     /// Points every static ability's "you" at whoever controls its source
     /// now (CR 109.5).
     ///

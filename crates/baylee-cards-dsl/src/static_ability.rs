@@ -449,6 +449,19 @@ pub struct StaticAbility {
     pub filter: Filter,
     /// What changes.
     pub modifier: Modifier,
+    /// A condition on the source under which the ability exists at all:
+    /// `None` for the ordinary static that is there for as long as its
+    /// source is on the battlefield.
+    ///
+    /// A station symbol is the one sentence that sets it
+    /// ([`crate::Condition::Station`], CR 721.2a): Inspirit, Flagship
+    /// Vessel's "Other artifacts you control have hexproof and
+    /// indestructible" is printed inside its 8+ striation, so it applies
+    /// only while the Spacecraft has eight charge counters. The engine
+    /// registers the effect while the condition holds and removes it when
+    /// it stops (`sync_static_effects`), so the projection sees a table that
+    /// changed rather than a filter that reads the source.
+    pub condition: Option<crate::Condition>,
 }
 
 /// How long a created continuous effect lasts.

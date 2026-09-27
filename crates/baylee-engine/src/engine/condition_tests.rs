@@ -22,8 +22,8 @@ use super::synthetic::{
 use super::*;
 use crate::turn::Step;
 use baylee_cards_dsl::{
-    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Amount, Condition, Cost, Effect,
-    Filter, ManaColor, PlayerRel, StepKind, Trigger, counters,
+    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Amount, Condition, Cost,
+    CounterKind, Effect, Filter, ManaColor, PlayerRel, StepKind, Trigger, counters,
 };
 
 // ---------------------------------------------------------------- fixtures
@@ -100,11 +100,32 @@ static COUNTING_ABILITIES: &[AbilityDef] = &[
     TAP_FOR_MANA,
 ];
 
+/// A station card's two striations on one land: a 1+ upkeep trigger and a
+/// 2+ static that gives the land itself hexproof (CR 721.2a).
+const STATION_BASIN: u32 = 1113;
+
+static STATION_ABILITIES: &[AbilityDef] = &[
+    AbilityDef::Triggered {
+        trigger: UPKEEP,
+        effects: BANK_ONE,
+        targets: None,
+        once_per_turn: false,
+        condition: Some(Condition::Station(1)),
+    },
+    baylee_cards_dsl::static_ability!(
+        Filter::This,
+        baylee_cards_dsl::Modifier::AddKeyword(baylee_cards_dsl::KeywordSet::HEXPROOF),
+        condition = Some(Condition::Station(2))
+    ),
+    TAP_FOR_MANA,
+];
+
 fn lookup() -> SyntheticLookup {
     SyntheticLookup::new(vec![
         land(WAKING_BASIN, "Waking Basin", WAKING_ABILITIES),
         land(BANKING_BASIN, "Banking Basin", BANKING_ABILITIES),
         land(COUNTING_BASIN, "Counting Basin", COUNTING_ABILITIES),
+        land(STATION_BASIN, "Station Basin", STATION_ABILITIES),
     ])
 }
 
@@ -408,4 +429,109 @@ fn the_clause_is_asked_of_the_ability_s_controller() {
         "the clause was asked of the seat that controls the lands, twice"
     );
     assert_eq!(storage(&engine, basin), 1, "and it did what it says");
+}
+
+// ------------------------------------------------------------------ station
+
+fn charge(engine: &mut Engine<SyntheticLookup>, seat: PlayerId, id: ObjectId, by: i16) {
+    let state = engine
+        .dev_state_mut(seat)
+        .expect("the bench grants dev commands");
+    if by >= 0 {
+        crate::replacement::put_counters(state, id, CounterKind::Charge, by.unsigned_abs());
+    } else {
+        crate::replacement::remove_counters(state, id, CounterKind::Charge, by.unsigned_abs());
+    }
+}
+
+fn hexproof(engine: &Engine<SyntheticLookup>, id: ObjectId) -> bool {
+    engine
+        .state()
+        .object(id)
+        .expect("the basin is on the battlefield")
+        .characteristics()
+        .keywords
+        .contains(baylee_cards_dsl::KeywordSet::HEXPROOF)
+}
+
+/// A station symbol is not an intervening `if` (CR 721.2a against CR
+/// 603.4): it says whether the permanent has the ability. With no charge
+/// counter the 1+ trigger does not trigger at all; with one it does, and
+/// once it has, losing the counter does not take it off the stack, because
+/// the ability exists independently of its source (CR 113.7a).
+///
+/// The walk of `a_clause_that_stops_being_true_takes_the_ability_off_the_stack`
+/// with the opposite answer, which is the whole difference between the two.
+#[test]
+fn a_station_trigger_waits_for_its_counter_and_then_outlives_it() {
+    let f = forest();
+    let mut engine = Engine::new(&preset(24, &[STATION_BASIN, f]), lookup()).unwrap();
+    keep_mulligans(&mut engine);
+    let basin = permanents(&engine, STATION_BASIN)[0];
+    let seat = engine
+        .state()
+        .object(basin)
+        .expect("the basin is on the battlefield")
+        .controller;
+
+    past_own_upkeep(&mut engine, seat);
+    assert!(
+        !ever_triggered(&engine, basin),
+        "no charge counter: the land does not have the ability"
+    );
+
+    charge(&mut engine, seat, basin, 1);
+    let ability = trigger_on_stack(&mut engine, seat);
+    assert!(ever_triggered(&engine, basin), "one counter: it triggers");
+    charge(&mut engine, seat, basin, -1);
+    drain_the_stack(&mut engine);
+
+    assert!(
+        journal_has(
+            &engine,
+            &crate::event::GameEvent::StackObjectResolved { object: ability }
+        ),
+        "the ability resolved without the counter that let it trigger"
+    );
+    assert_eq!(storage(&engine, basin), 1, "and put its counter on");
+}
+
+/// A static ability under a station symbol applies exactly while the
+/// permanent has that many charge counters (CR 721.2a), both ways: it
+/// arrives with the second counter and leaves with it.
+#[test]
+fn a_static_under_a_station_symbol_applies_only_while_it_holds() {
+    let f = forest();
+    let mut engine = Engine::new(&preset(25, &[STATION_BASIN, f]), lookup()).unwrap();
+    keep_mulligans(&mut engine);
+    let basin = permanents(&engine, STATION_BASIN)[0];
+    let seat = engine
+        .state()
+        .object(basin)
+        .expect("the basin is on the battlefield")
+        .controller;
+    let pass = |engine: &mut Engine<SyntheticLookup>| {
+        let pending = engine.pending().clone();
+        assert!(
+            walk_past(engine, &pending),
+            "unexpected question: {pending:?}"
+        );
+    };
+
+    assert!(!hexproof(&engine, basin), "no counters, no 2+ ability");
+    charge(&mut engine, seat, basin, 1);
+    pass(&mut engine);
+    assert!(!hexproof(&engine, basin), "one is not two");
+    charge(&mut engine, seat, basin, 1);
+    pass(&mut engine);
+    assert!(
+        hexproof(&engine, basin),
+        "two counters: the land has hexproof"
+    );
+    charge(&mut engine, seat, basin, -1);
+    pass(&mut engine);
+    assert!(
+        !hexproof(&engine, basin),
+        "and loses it with the second counter"
+    );
 }

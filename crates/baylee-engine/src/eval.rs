@@ -427,6 +427,9 @@ pub fn condition_holds(
         Condition::CountersOnSelfExactly(kind, n) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) == u16::from(n)),
+        Condition::Station(min) => state.object(source).is_some_and(|o| {
+            o.counters.get(baylee_cards_dsl::CounterKind::Charge) >= u16::from(min)
+        }),
         // `is_some_and`, so a source that is no longer in the arena does not
         // match: an ability is a separate object from its source the moment
         // it goes on the stack (CR 113.7a), and "if this land is tapped"

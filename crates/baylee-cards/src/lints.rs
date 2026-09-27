@@ -1354,11 +1354,13 @@ mod tests {
             layer: Layer::Color,
             filter: Filter::Any,
             modifier: Modifier::AddType(TypeSet::ARTIFACT),
+            condition: None,
         });
         let right = AbilityDef::Static(crate::dsl::StaticAbility {
             layer: Layer::Type,
             filter: Filter::Any,
             modifier: Modifier::AddType(TypeSet::ARTIFACT),
+            condition: None,
         });
         assert_eq!(
             layer_fault(&wrong),

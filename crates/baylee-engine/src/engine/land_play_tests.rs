@@ -33,6 +33,7 @@ const fn rules_static(modifier: Modifier) -> AbilityDef {
         layer: Layer::Text,
         filter: Filter::Any,
         modifier,
+        condition: None,
     })
 }
 

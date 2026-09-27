@@ -37,6 +37,7 @@ static BASIN_ABILITIES: &[AbilityDef] = &[
         layer: Layer::Text,
         filter: THIS_F,
         modifier: Modifier::MayChooseNotToUntap,
+        condition: None,
     }),
     AbilityDef::Activated {
         cost: Cost::TAP,
@@ -55,11 +56,13 @@ static FROZEN_ABILITIES: &[AbilityDef] = &[
         layer: Layer::Text,
         filter: THIS_F,
         modifier: Modifier::MayChooseNotToUntap,
+        condition: None,
     }),
     AbilityDef::Static(StaticAbility {
         layer: Layer::Text,
         filter: THIS_F,
         modifier: Modifier::DoesNotUntap,
+        condition: None,
     }),
     AbilityDef::Activated {
         cost: Cost::TAP,

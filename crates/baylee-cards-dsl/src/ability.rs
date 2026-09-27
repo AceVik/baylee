@@ -151,6 +151,20 @@ pub enum Condition {
     CountersOnSelf(crate::effect::CounterKind, u8),
     /// The source has EXACTLY N counters of a kind (class level gating).
     CountersOnSelfExactly(crate::effect::CounterKind, u8),
+    /// A station symbol, `{N+}`: the source has N or more charge counters
+    /// on it (CR 721.2a, "As long as this permanent has N or more charge
+    /// counters on it, it has [abilities]").
+    ///
+    /// The same count as `CountersOnSelf(CounterKind::Charge, N)`, and a
+    /// variant of its own because it is asked differently. It says whether
+    /// the permanent **has** the ability, not an intervening `if` (CR
+    /// 603.4): a static ability carrying it applies only while it holds, an
+    /// activated one may be activated only while it holds, and a triggered
+    /// one triggers only while it holds and is then not asked again, because
+    /// a triggered ability on the stack exists independently of its source
+    /// (CR 113.7a). An Inspirit, Flagship Vessel destroyed in response to
+    /// its own combat trigger still puts the counters on its target.
+    Station(u8),
     /// The source itself matches the filter — "if this land is tapped".
     ///
     /// The other four sentences here count something the source is not;
@@ -671,6 +685,7 @@ mod tests {
                     // is still not one itself.
                     mana_ability: true,
                 },
+                condition: None,
             }),
             AbilityDef::Replacement(ReplacementRule::DoubleTokenCreation {
                 controller_filter: &crate::Filter::Any,

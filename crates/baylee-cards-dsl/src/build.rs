@@ -332,6 +332,10 @@ pub struct StaticParts {
     pub filter: Filter,
     /// What changes.
     pub modifier: Modifier,
+    /// A condition on the source under which the ability exists
+    /// ([`StaticAbility::condition`]). `None` is the rules default: a
+    /// static ability applies while its source is on the battlefield.
+    pub condition: Option<Condition>,
 }
 
 impl StaticParts {
@@ -339,7 +343,11 @@ impl StaticParts {
     /// `filter`, on the layer the modifier belongs to.
     #[must_use]
     pub const fn new(filter: Filter, modifier: Modifier) -> Self {
-        Self { filter, modifier }
+        Self {
+            filter,
+            modifier,
+            condition: None,
+        }
     }
 
     /// Turns the parts into the ability.
@@ -349,6 +357,7 @@ impl StaticParts {
             layer: self.modifier.layer(),
             filter: self.filter,
             modifier: self.modifier,
+            condition: self.condition,
         })
     }
 }
@@ -779,6 +788,7 @@ macro_rules! mode {
 /// ```ignore
 /// static_ability!(Filter::AttachedToBySource, Modifier::ModifyPT(2, 2))
 /// static_ability!(Filter::Any, Modifier::AddType(TypeSet::ARTIFACT))
+/// static_ability!(OTHERS, Modifier::AddKeyword(K), condition = Some(Condition::Station(8)))
 /// ```
 ///
 /// There is no layer argument: [`Modifier::layer`] derives it, which is the
@@ -791,8 +801,12 @@ macro_rules! mode {
 /// borrows one.
 #[macro_export]
 macro_rules! static_ability {
-    ($filter:expr, $modifier:expr $(,)?) => {
-        $crate::StaticParts::new($filter, $modifier).build()
+    ($filter:expr, $modifier:expr $(, $field:ident = $value:expr)* $(,)?) => {
+        $crate::StaticParts {
+            $($field: $value,)*
+            ..$crate::StaticParts::new($filter, $modifier)
+        }
+        .build()
     };
 }
 

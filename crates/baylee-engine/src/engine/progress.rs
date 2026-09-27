@@ -1584,6 +1584,16 @@ impl<L: CardLookup> Engine<L> {
             if self.state.effects.has_source_ability(id, sa.modifier) {
                 continue;
             }
+            // A static that exists only under a condition is kept only while
+            // it holds now. Afterwards nothing asks again, because
+            // `sync_static_effects` reads the copied list: a copier whose
+            // own statics include a station symbol keeps it as it stood
+            // when the copy began.
+            if let Some(condition) = sa.condition
+                && !crate::eval::condition_holds(&self.state, controller, id, condition)
+            {
+                continue;
+            }
             to_register.push(crate::effects::ContinuousEffect {
                 id: baylee_core::ids::EffectId::new(0),
                 source: Some(id),
@@ -1675,8 +1685,15 @@ impl<L: CardLookup> Engine<L> {
         // `settle_copied_rules_text` hands it its list at step 0, ahead of
         // every scan in the pass, which is why that function runs where it
         // does.
+        //
+        // A static with a condition on its source (a station symbol's,
+        // CR 721.2a) exists only while the condition holds: its effect is
+        // registered on the pass that finds it true and removed on the pass
+        // that finds it false. Both move the effect generation, which is the
+        // projection's cache key, so no filter has to read the source.
         let ids: Vec<ObjectId> = self.state.zones.list(ZoneLocation::Battlefield).clone();
         let mut to_register = Vec::new();
+        let mut lapsed = Vec::new();
         for id in ids {
             let Some(obj) = self.state.object(id) else {
                 continue;
@@ -1685,7 +1702,16 @@ impl<L: CardLookup> Engine<L> {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
                 };
-                if self.state.effects.has_source_ability(id, sa.modifier) {
+                let registered = self.state.effects.has_source_ability(id, sa.modifier);
+                if let Some(condition) = sa.condition
+                    && !crate::eval::condition_holds(&self.state, obj.controller, id, condition)
+                {
+                    if registered {
+                        lapsed.push((id, sa.modifier));
+                    }
+                    continue;
+                }
+                if registered {
                     continue;
                 }
                 to_register.push(crate::effects::ContinuousEffect {
@@ -1700,6 +1726,9 @@ impl<L: CardLookup> Engine<L> {
                     modifier: sa.modifier,
                 });
             }
+        }
+        for (source, modifier) in lapsed {
+            self.state.effects.remove_static(source, modifier);
         }
         for fx in to_register {
             self.state.effects.register(fx);
@@ -2288,6 +2317,12 @@ impl<L: CardLookup> Engine<L> {
     /// Only a *triggered* ability has one. An activated ability's condition
     /// is a restriction on activating it, spent once at CR 602.5, and the
     /// synthetic keyword triggers (prowess, ward) print no clause at all.
+    ///
+    /// Nor is a station threshold one ([`Condition::Station`], CR 721.2a):
+    /// it decided whether the permanent had the ability when it triggered,
+    /// and the ability on the stack no longer depends on its source.
+    ///
+    /// [`Condition::Station`]: baylee_cards_dsl::Condition::Station
     fn intervening_if_failed(&self, on_stack: ObjectId) -> bool {
         let Some(obj) = self.state.object(on_stack) else {
             return false;
@@ -2312,7 +2347,8 @@ impl<L: CardLookup> Engine<L> {
                 | AbilityDef::ModalTriggered { condition, .. },
             ) => *condition,
             _ => None,
-        };
+        }
+        .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)));
         !crate::eval::intervening_if(&self.state, condition, obj.controller, loc.source)
     }
 

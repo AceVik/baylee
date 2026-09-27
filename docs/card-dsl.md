@@ -679,6 +679,19 @@ When this enters, choose one — if you control a Forest, …
 A reference script writes the first kind as `IsPresent$` / `PresentDefined$`
 on the `T:` line, and the second as a condition inside the `SVar` chain.
 
+**A station symbol is not an `if`.** `Condition::Station(n)` is `{N+}` on a
+station card: "as long as this permanent has N or more charge counters on
+it, it has [abilities]" (CR 721.2a), and every ability printed in that
+striation carries it (CR 721.2) — on Inspirit, Flagship Vessel both "Flying"
+and "Other artifacts you control have hexproof and indestructible" are 8+.
+It counts what `CountersOnSelf(CounterKind::Charge, n)` counts and is asked
+differently: on an activated ability it gates activation, on a
+`static_ability!(filter, modifier, condition = Some(Condition::Station(n)))`
+the effect exists only while it holds (the engine registers and removes it),
+and on a triggered ability it decides whether the ability triggers and is
+**not** asked again on resolution, because the ability on the stack no
+longer depends on its source (CR 113.7a).
+
 The vocabulary is the five sentences listed above and nothing else. A clause
 it cannot say yet is a `Coverage::Partial` with the reason written out, never
 a variant invented at the card.
