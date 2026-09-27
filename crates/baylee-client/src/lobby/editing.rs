@@ -8,6 +8,35 @@ pub(super) struct Paste {
     read: bevy::clipboard::ClipboardRead,
 }
 
+/// A paste into a sign-in or table field that the clipboard has not
+/// answered yet. It lands only in the field it was asked for, and only while
+/// the caret has not been placed again since.
+pub(super) struct FormPaste {
+    pub(super) field: Field,
+    pub(super) epoch: u64,
+    pub(super) read: bevy::clipboard::ClipboardRead,
+}
+
+/// Lands a paste the clipboard has now answered, if it has. Touches the
+/// lobby only when there is text to land, so a quiet frame marks nothing
+/// changed.
+pub(super) fn land_form_paste(state: &mut ResMut<LobbyState>, paste: &mut Option<FormPaste>) {
+    let Some(answer) = paste.as_mut().and_then(|p| p.read.poll_result()) else {
+        return;
+    };
+    let Some(FormPaste { field, epoch, .. }) = paste.take() else {
+        return;
+    };
+    if let Ok(text) = answer
+        && state.lobby.focus() == field
+        && state.lobby.focus_epoch() == epoch
+        && state.lobby.typing_here()
+    {
+        // `insert` drops the line breaks a copied key brings along.
+        state.lobby.insert(&text);
+    }
+}
+
 #[allow(clippy::too_many_lines)] // one batch, with a single refilter after all text events
 pub(super) fn builder_keys(
     keys: &mut MessageReader<KeyboardInput>,

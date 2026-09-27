@@ -32,7 +32,7 @@ use baylee_client_core::lobby::gateway_info::Probe;
 use baylee_client_core::lobby::gateway_list;
 use baylee_client_core::lobby::{
     Field, GameMode, GameQuery, GameSummary, Lobby, LobbyEvent, LobbyRequest, MAX_CHAIRS,
-    MIN_CHAIRS, Screen, SeatKind, Tab, Tone,
+    MIN_CHAIRS, Registration, Screen, SeatKind, Tab, Tone,
 };
 use baylee_client_core::textbuf::{Dir, Step as Reach, TextBuffer};
 use baylee_core::ids::PlayerId;
@@ -327,7 +327,7 @@ impl LobbyState {
             lobby.focus_on(Field::Password);
         }
         lobby.set_gateway_ready(false);
-        lobby.set_registration_enabled(false);
+        lobby.set_registration(Registration::Off);
         let mut gateways = gateway_list::with_pinned(
             stored
                 .gateways
@@ -404,9 +404,9 @@ enum Reply {
     /// Public catalog completion; never starts a second fallback lookup.
     PrintingCatalog(LobbyEvent),
     PoolLanguage(Lang, LobbyEvent),
-    /// `GET /auth/config` said whether sign-ups are open.
+    /// `GET /auth/config` said who may register (#317: with a key, too).
     Registration {
-        enabled: bool,
+        registration: Registration,
         art_cache: bool,
         /// Whether it takes guests (#269).
         guests: bool,

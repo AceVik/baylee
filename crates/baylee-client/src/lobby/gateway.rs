@@ -43,7 +43,7 @@ impl LobbyState {
         self.lobby
             .keep_guest(self.guests.get(&self.gateway).cloned());
         self.lobby.set_gateway_ready(true);
-        self.lobby.set_registration_enabled(false);
+        self.lobby.set_registration(Registration::Off);
         true
     }
 

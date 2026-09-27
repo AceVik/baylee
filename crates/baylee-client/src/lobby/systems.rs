@@ -115,11 +115,11 @@ pub(super) fn poll(
                 dispatch(&mut state, &mailbox, next);
             }
             Reply::Registration {
-                enabled,
+                registration,
                 art_cache,
                 guests,
             } => {
-                state.lobby.set_registration_enabled(enabled);
+                state.lobby.set_registration(registration);
                 state.lobby.set_guests_enabled(guests);
                 state.art_cache = art_cache;
             }
@@ -430,6 +430,7 @@ pub(super) fn keyboard(
     mailbox: Res<Mailbox>,
     mut clipboard: Option<ResMut<bevy::clipboard::Clipboard>>,
     mut paste: Local<Option<super::editing::Paste>>,
+    mut form_paste: Local<Option<super::editing::FormPaste>>,
     entrance: Res<super::entrance::Entrance>,
     journey: Option<Res<crate::arrival::Journey>>,
     desk: Option<Res<crate::report::ReportDesk>>,
@@ -478,6 +479,8 @@ pub(super) fn keyboard(
                 &mut prefs,
                 &mailbox,
                 false,
+                clipboard.as_deref_mut(),
+                &mut form_paste,
             );
         }
         return;
@@ -589,6 +592,10 @@ pub(super) fn keyboard(
         keys.clear();
         return;
     }
+    // A paste the clipboard answered after the frame that asked for it.
+    if form_paste.is_some() {
+        super::editing::land_form_paste(&mut state, &mut form_paste);
+    }
     // Nothing was pressed, so nothing is touched. `ResMut` is what the lobby's
     // retained tree watches — change detection stands in for a revision
     // struct — and merely taking `&mut` out of one marks it changed, so a
@@ -604,6 +611,8 @@ pub(super) fn keyboard(
         &mut prefs,
         &mailbox,
         table,
+        clipboard.as_deref_mut(),
+        &mut form_paste,
     );
 }
 
@@ -733,6 +742,7 @@ fn sign_out(
 /// would answer for free, written out for a canvas that has none: a caret
 /// that moves by character, word and line, a selection that shift extends,
 /// Delete as well as Backspace, and select-all.
+#[allow(clippy::too_many_arguments)] // the clipboard and its pending answer ride along
 fn text_field_keys(
     keys: &mut MessageReader<KeyboardInput>,
     codes: &ButtonInput<KeyCode>,
@@ -740,6 +750,8 @@ fn text_field_keys(
     prefs: &mut crate::prefs::Prefs,
     mailbox: &Mailbox,
     table: bool,
+    mut clipboard: Option<&mut bevy::clipboard::Clipboard>,
+    paste: &mut Option<super::editing::FormPaste>,
 ) {
     // The three modifiers a text field reads, and they are read once for the
     // whole batch because a key event carries no modifier state of its own.
@@ -831,6 +843,24 @@ fn text_field_keys(
             Key::Character(text) if command => {
                 if text.eq_ignore_ascii_case("a") {
                     state.lobby.select_all();
+                } else if text.eq_ignore_ascii_case("v")
+                    && let Some(cb) = clipboard.as_deref_mut()
+                {
+                    // ⌘V: a closed-beta key (#317) is pasted far more often
+                    // than typed. A clipboard that answers later lands its
+                    // text in this field through `land_form_paste`.
+                    let mut read = cb.fetch_text();
+                    match read.poll_result() {
+                        Some(Ok(text)) => state.lobby.insert(&text),
+                        Some(Err(_)) => {}
+                        None => {
+                            *paste = Some(super::editing::FormPaste {
+                                field: state.lobby.focus(),
+                                epoch: state.lobby.focus_epoch(),
+                                read,
+                            });
+                        }
+                    }
                 }
             }
             // Everything else is text or nothing. `type_char` drops the

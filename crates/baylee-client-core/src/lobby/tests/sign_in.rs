@@ -64,6 +64,7 @@ fn registering_needs_the_password_typed_the_same_twice() {
             username: "alice".to_string(),
             display_name: "V".to_string(),
             password: "hunter22".to_string(),
+            invite_key: None,
         })
     );
 }
@@ -177,6 +178,7 @@ fn a_username_is_sent_in_the_form_the_rule_keeps() {
             username: "Alice".to_string(),
             display_name: "V".to_string(),
             password: "hunter22".to_string(),
+            invite_key: None,
         })
     );
 }
@@ -272,7 +274,7 @@ fn the_password_is_dropped_once_it_has_been_spent() {
 #[test]
 fn a_gateway_that_takes_no_sign_ups_offers_none() {
     let mut lobby = Lobby::new();
-    lobby.set_registration_enabled(false);
+    lobby.set_registration(Registration::Off);
     lobby.toggle_registering();
     assert_eq!(lobby.screen(), &Screen::SignIn { registering: false });
     assert_eq!(lobby.status(), "this gateway is not taking new accounts");
@@ -282,7 +284,7 @@ fn a_gateway_that_takes_no_sign_ups_offers_none() {
 fn a_form_already_registering_survives_the_config_arriving_late() {
     let mut lobby = Lobby::new();
     lobby.toggle_registering();
-    lobby.set_registration_enabled(false);
+    lobby.set_registration(Registration::Off);
     assert_eq!(
         lobby.screen(),
         &Screen::SignIn { registering: false },

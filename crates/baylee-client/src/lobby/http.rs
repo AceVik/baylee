@@ -70,20 +70,25 @@ pub(super) fn build(
             username,
             display_name,
             password,
-        } => (
-            json_post(
-                &format!("{base}/auth/register"),
-                &serde_json::json!({
-                    "username": username,
-                    "display_name": display_name,
-                    "password": password,
-                    // The language the gateway writes to the account in,
-                    // kept on it.
-                    "lang": lang,
-                }),
-            ),
-            Expect::Registered,
-        ),
+            invite_key,
+        } => {
+            let mut body = serde_json::json!({
+                "username": username,
+                "display_name": display_name,
+                "password": password,
+                // The language the gateway writes to the account in,
+                // kept on it.
+                "lang": lang,
+            });
+            // Only where the gateway asked for one (#317).
+            if let Some(key) = invite_key {
+                body["invite_key"] = key.into();
+            }
+            (
+                json_post(&format!("{base}/auth/register"), &body),
+                Expect::Registered,
+            )
+        }
         LobbyRequest::LogIn { username, password } => (
             json_post(
                 &format!("{base}/auth/login"),
@@ -91,13 +96,19 @@ pub(super) fn build(
             ),
             Expect::LoggedIn,
         ),
-        LobbyRequest::PlayAsGuest { display_name } => (
-            json_post(
-                &format!("{base}/auth/guest"),
-                &serde_json::json!({ "display_name": display_name, "lang": lang }),
-            ),
-            Expect::Guest,
-        ),
+        LobbyRequest::PlayAsGuest {
+            display_name,
+            invite_key,
+        } => {
+            let mut body = serde_json::json!({ "display_name": display_name, "lang": lang });
+            if let Some(key) = invite_key {
+                body["invite_key"] = key.into();
+            }
+            (
+                json_post(&format!("{base}/auth/guest"), &body),
+                Expect::Guest,
+            )
+        }
         // Signed with the token it ends, which the lobby no longer holds.
         LobbyRequest::LogOut { token } => (
             bearer(
@@ -569,6 +580,14 @@ pub(super) fn gateway_error(lang: Lang, response: &ehttp::Response) -> String {
             || Phrase::GatewayAnswered.fill(lang, &[&response.status.to_string()]),
             |b| match b.error.as_str() {
                 "invalid display name" => Phrase::AccountNameHint.text(lang).to_string(),
+                // The two refusals of a closed beta (#317), in the player's
+                // language and with what to do about them.
+                "this closed beta key is not valid" => {
+                    Phrase::InviteKeyInvalid.text(lang).to_string()
+                }
+                needed if needed.starts_with("this gateway is a closed beta:") => {
+                    Phrase::InviteKeyNeeded.text(lang).to_string()
+                }
                 "weak password" | "invalid password" => {
                     Phrase::AccountPasswordInvalid.text(lang).to_string()
                 }
@@ -589,6 +608,10 @@ pub(super) fn ask_about_registration(state: Res<LobbyState>, mailbox: Res<Mailbo
 #[derive(serde::Deserialize)]
 struct AuthConfig {
     registration_enabled: bool,
+    /// `open`, `invite` or `off` (#317). Absent from a gateway from before
+    /// keys, which [`Registration::read`] answers from the flag above.
+    #[serde(default)]
+    registration: Option<String>,
     /// Whether `GET /art/…` serves card images.
     ///
     /// Defaulted rather than required: a gateway built before the mirror
@@ -614,29 +637,31 @@ pub(super) fn probe_registration(state: &LobbyState, mailbox: &Mailbox) {
         ehttp::Request::get(&url).with_timeout(Some(PROBE_TIMEOUT)),
         move |result| {
             pending.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
-            let body = match result {
-                Ok(response) if response.ok => response
-                    .text()
-                    .and_then(|body| serde_json::from_str::<AuthConfig>(body).ok()),
+            let reply = match result {
+                Ok(response) if response.ok => response.text().and_then(auth_config),
                 // A gateway that is not up yet says nothing about registration.
                 // Leaving the offer standing is the recoverable failure.
                 _ => None,
             };
-            let Some(body) = body else {
+            let Some(reply) = reply else {
                 return;
             };
             if let Ok(mut box_) = box_.lock() {
-                box_.push(Reply::Remote(
-                    epoch,
-                    Box::new(Reply::Registration {
-                        enabled: body.registration_enabled,
-                        art_cache: body.art_cache,
-                        guests: body.guests_enabled,
-                    }),
-                ));
+                box_.push(Reply::Remote(epoch, Box::new(reply)));
             }
         },
     );
+}
+
+/// What a `GET /auth/config` body says about who is let in, or `None` for a
+/// body that is not one.
+pub(super) fn auth_config(body: &str) -> Option<Reply> {
+    let body = serde_json::from_str::<AuthConfig>(body).ok()?;
+    Some(Reply::Registration {
+        registration: Registration::read(body.registration_enabled, body.registration.as_deref()),
+        art_cache: body.art_cache,
+        guests: body.guests_enabled,
+    })
 }
 
 /// Asks every saved address about itself, once, at startup.

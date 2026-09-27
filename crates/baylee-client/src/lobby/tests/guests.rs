@@ -36,7 +36,7 @@ fn welcoming() -> App {
         Reply::Remote(
             0,
             Box::new(Reply::Registration {
-                enabled: true,
+                registration: Registration::Open,
                 art_cache: false,
                 guests: true,
             }),
@@ -206,6 +206,7 @@ fn the_guest_routes_carry_what_the_gateway_reads() {
         "de",
         LobbyRequest::PlayAsGuest {
             display_name: Some("Casper".to_string()),
+            invite_key: None,
         },
     );
     assert_eq!(request.url, "http://gw/auth/guest");
@@ -217,7 +218,10 @@ fn the_guest_routes_carry_what_the_gateway_reads() {
         "http://gw",
         None,
         "en",
-        LobbyRequest::PlayAsGuest { display_name: None },
+        LobbyRequest::PlayAsGuest {
+            display_name: None,
+            invite_key: None,
+        },
     );
     assert_eq!(body(&request)["display_name"], serde_json::Value::Null);
 

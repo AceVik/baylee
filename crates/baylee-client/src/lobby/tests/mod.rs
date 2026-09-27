@@ -17,6 +17,7 @@ mod feed;
 mod frame;
 mod gateway;
 mod guests;
+mod invites;
 mod printings;
 mod report;
 mod settings;
@@ -90,7 +91,7 @@ fn headless() -> App {
         state.gateway.clear();
         state.gateway_selected = true;
         state.lobby.set_gateway_ready(true);
-        state.lobby.set_registration_enabled(true);
+        state.lobby.set_registration(Registration::Open);
         // The live gateway is in every list, and its `/info` answer would
         // land the same way: marked as asked, it is never asked.
         state.probes.insert(

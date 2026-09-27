@@ -21,6 +21,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
                 username: "alice".to_string(),
                 display_name: "V".to_string(),
                 password: "pw".to_string(),
+                invite_key: None,
             },
             "POST",
             "http://gw/auth/register",
@@ -132,6 +133,7 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             username: "alice".to_string(),
             display_name: "V".to_string(),
             password: "pw".to_string(),
+            invite_key: None,
         },
     );
     assert_eq!(

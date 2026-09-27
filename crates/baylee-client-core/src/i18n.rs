@@ -622,6 +622,28 @@ messages! {
     },
     /// The gateway takes no guests (its `/auth/config` said so).
     NoGuests { en: "this gateway takes no guests", de: "dieses Gateway nimmt keine Gäste auf" },
+    /// Caption of the box for a closed-beta key (#317).
+    InviteKey { en: "CLOSED BETA KEY", de: "BETA-SCHLÜSSEL" },
+    /// What that box says while empty: the shape of a key.
+    InviteKeyShape { en: "BAYLEE-XXXX-XXXX-XXXX-XXXX", de: "BAYLEE-XXXX-XXXX-XXXX-XXXX" },
+    /// Under the box: what the key is for, and that pasting it is fine.
+    InviteKeyHint {
+        en: "This gateway is a closed beta: a new account or a new guest needs a key. Paste it as you got it.",
+        de: "Dieses Gateway ist eine geschlossene Beta: Ein neues Konto oder ein neuer Gast braucht einen Schlüssel. Füg ihn einfach so ein, wie du ihn bekommen hast.",
+    },
+    /// A new account or guest was asked for with the box empty.
+    NeedInviteKey { en: "your closed beta key, please", de: "bitte deinen Beta-Schlüssel" },
+    /// The gateway refused the key, for whichever reason: mistyped, used,
+    /// expired or revoked. It does not say which, and neither does this.
+    InviteKeyInvalid {
+        en: "this closed beta key is not valid — check it, or ask for a new one",
+        de: "dieser Beta-Schlüssel ist nicht gültig — prüf ihn oder frag nach einem neuen",
+    },
+    /// The gateway wanted a key and none reached it.
+    InviteKeyNeeded {
+        en: "this gateway is a closed beta: a new account or guest needs a closed beta key",
+        de: "dieses Gateway ist eine geschlossene Beta: ein neues Konto oder ein neuer Gast braucht einen Beta-Schlüssel",
+    },
     /// Asked before a guest signs out. `{0}` is its handle.
     GuestSignOutQuestion { en: "Sign out {0}?", de: "{0} abmelden?" },
     /// Under that question: what signing out does to a guest.

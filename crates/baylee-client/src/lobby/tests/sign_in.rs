@@ -740,7 +740,7 @@ fn issue_187_no_account_request_without_an_explicit_gateway() {
         .push(Reply::Remote(
             0,
             Box::new(Reply::Registration {
-                enabled: true,
+                registration: Registration::Open,
                 art_cache: false,
                 guests: false,
             }),
@@ -1303,7 +1303,7 @@ fn under_reduce_motion_the_front_door_changes_panel_at_once() {
     app.world_mut()
         .resource_mut::<LobbyState>()
         .lobby
-        .set_registration_enabled(true);
+        .set_registration(Registration::Open);
     app.update();
     press(&mut app, Press::ToggleRegistering);
     app.update();
