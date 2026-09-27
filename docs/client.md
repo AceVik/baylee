@@ -7461,7 +7461,8 @@ client on <http://127.0.0.1:8080> (the lobby, unless the page URL carries a
 seat ticket; card art streams from the Scryfall CDN on first use, so the first
 minute needs a network connection). Build for deployment with `trunk build
 index.html --release` and host the resulting `dist/` statically. Two notes:
-always build `--release` (a dev-profile wasm is ~350 MB vs ~36 MB optimized),
+always build `--release` (a dev-profile wasm is ~350 MB vs ~57 MB optimized,
+27.09.2026),
 and the acceptance deck file is embedded with `include_str!` because a browser
 has no filesystem.
 
@@ -7479,7 +7480,13 @@ gateway is on `:28766`. So `?gateway=http://127.0.0.1:28766` on the page URL
 wins — and is remembered in `localStorage` under `baylee:gateway`, because a
 browser drops the query string on the first internal navigation and a client
 that forgot where its table was would be worse than one that never knew.
-`settings::forget_gateway()` clears it.
+`settings::forget_gateway()` clears it. Told nothing, the client is configured
+with its page's origin, and that is the served case (#327): the origin is then
+the page's gateway (`gateway_list::page_gateway`, tested natively over a plain
+string), which joins the gateway list at the front if it is missing and is
+where the keyboard's cursor starts (`with_page`, `starting_row`). On
+`https://baylee.acevik.de/play/` that is the pinned Sanctuary row; natively
+there is no page and the list behaves as before.
 
 The same missing filesystem is why settings take a second back end. Natively
 they are JSON files in the client's config directory; in a browser the identical
@@ -7520,6 +7527,73 @@ there was no file to read, and the same unguarded path saved. A test that needs
 a starting state sets it, or asserts relative to what it found.
 `settings::store::tests::a_process_that_never_opened_the_store_reads_and_writes_nothing`
 is the proof, and goes red when the door is taken out.
+
+### Serving it at /play/
+
+The live gateway's host serves the browser client at
+**<https://baylee.acevik.de/play/>** (#327). Caddy terminates TLS there and
+hands every path to the gateway except `/play`, which
+`scripts/server/play.caddy` answers from `/opt/baylee/web/play`; the gateway
+has no route under `/play` and a test keeps it so
+(`crates/baylee-gateway/tests/e2e_play.rs`).
+
+- **Build.** `trunk build index.html --release --locked --public-url /play/`
+  in `crates/baylee-client/`. `baylee-deploy stage` runs exactly that on the
+  server when trunk and the `wasm32-unknown-unknown` target are installed
+  (`rust-toolchain.toml` lists the target, so rustup adds it on the first
+  cargo run in the tree), before it stops the agent; `finish` installs the
+  build with the gateway (a copy beside the old directory, then one rename),
+  because gateway and clients ship as one build. Without the toolchain, or
+  when the build fails, the client installed last stays and the backend
+  deploys all the same. Trunk is pinned at **0.21.14** and installed once by
+  hand, never by the script: `cargo install --locked trunk@0.21.14`. Its
+  first build downloads `wasm-bindgen` and `wasm-opt` into `~/.cache/trunk`,
+  so the server needs to reach GitHub then. A release build is 57 MB of wasm
+  (27.09.2026), 19–21 MB compressed.
+- **Caddy.** `play.caddy` goes into the gateway's site block, imported ahead
+  of the proxy, with the proxy in a `handle` of its own; its header says how.
+  `/play` redirects to `/play/`; trunk's content-hashed files
+  (`-<16 hex>.js`, `_bg.wasm`, `.css`) are cached for a year as `immutable`,
+  everything else (the page, `boot.js`, `assets/`) is `no-cache` and
+  revalidated; `.wasm` is served as `application/wasm`; answers are zstd or
+  gzip compressed; and nothing is logged, because the handover page's address
+  can carry a seat token.
+- **The policy.** `default-src 'self'; script-src 'self' 'wasm-unsafe-eval';
+  style-src 'self'; connect-src 'self' wss://{host}` and the three Scryfall
+  hosts (`images::SCRYFALL_CDN`, `SCRYFALL_BACKS_CDN`, `SCRYFALL_API`), plus
+  `object-src`, `base-uri`, `form-action` and `frame-ancestors` shut.
+  `'wasm-unsafe-eval'` compiles the client and allows no JavaScript `eval`.
+  So the page carries nothing inline: its stylesheet is `web/page.css`, and
+  `Trunk.toml`'s `pattern_script` writes, where trunk's inline loader would
+  stand, a tag loading `web/boot.js` with the hashed file names on it.
+  `boot.js` wakes sound on the first press (#296), then starts the wasm.
+  `softkeys.rs` styles its input through the CSSOM, which the policy allows,
+  and not with a `style` attribute, which it refuses.
+  `crates/baylee-client-core/tests/play_caddy.rs` holds all of this: the
+  policy against the client's host constants, the constants against every
+  Scryfall address in the client's source, the snippet against the deploy,
+  the page against inline code, and (ignored, it builds the wasm) a real
+  trunk build against the snippet's hash pattern.
+- **One gateway per page.** `connect-src` names this gateway only, so a page
+  served by one gateway cannot play on another: a second gateway in the list
+  shows as unreachable, and its probe is a refused request in the console.
+  Another gateway serves the same build under its own `/play/`, and a player
+  who wants several uses the native client.
+- **WebGPU or a sentence.** The client renders through WebGPU only. Before
+  fetching the wasm, `boot.js` asks for an adapter; without one it writes,
+  in English or German by the browser's language, why (no WebGPU, not a
+  secure context, no usable adapter) and which browsers run it, instead of
+  leaving a black page. As of the gpuweb implementation-status page
+  (13.08.2026): Chrome and Edge from 113 (Linux: Intel Gen12+ from 144,
+  NVIDIA on Wayland from 147, others behind a flag), Chrome on Android from
+  121, Safari 26 on macOS, iOS and iPadOS, Firefox 141 on Windows and 145
+  (Apple silicon) or 147 on macOS; Firefox on Linux and Android not yet.
+  WebGPU exists only in a secure context, so over plain http the page works
+  on `localhost` alone.
+- **Sign-in.** A registered account's session stays in memory, a guest's in
+  `localStorage` (§"Playing as a guest"). Sockets open with tickets bought
+  over `POST /ws-ticket` (#294), because a browser cannot put a header on a
+  WebSocket; the live check saw `/ws-ticket` before every socket.
 
 ## On a phone
 

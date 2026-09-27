@@ -74,6 +74,7 @@ BAYLEE_AGENT_TOKEN=<same> ./target/debug/baylee-agent
 ./target/debug/baylee-engine-server       # dev harness, loopback
 DATABASE_URL=… ./target/debug/baylee-gateway invite create --note "…" [--uses N --expires 30d --count K] | list | revoke <id>
 sudo baylee-invite create --note "…"      # the same on the server, with the gateway's settings (installed by baylee-deploy stage)
+trunk build index.html --release --locked --public-url /play/   # in crates/baylee-client/: the web build baylee-deploy stages and finish installs to /opt/baylee/web/play (trunk 0.21.14; Caddy: scripts/server/play.caddy; docs/client.md §"Serving it at /play/")
 adb forward tcp:28773 tcp:28770           # Android dev-control
 cp .env.example .env                      # the client's BAYLEE_GATEWAY and DATABASE_URL
 ```

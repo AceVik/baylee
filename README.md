@@ -188,9 +188,14 @@ There are **no mobile builds to download yet.**
   yet, so you cannot sign in on the phone.
 - **iOS:** the client runs only in the simulator
   (`scripts/mobile/ios-sim-run.sh`).
-- **Browser:** the client also builds for WebAssembly and plays against a
-  gateway. It needs WebGPU, which browsers enable only on HTTPS pages. The
-  project does not publish a hosted web build.
+- **Browser:** play in the browser at **<https://baylee.acevik.de/play/>**,
+  on the Sanctuary gateway; a new account there still needs a
+  [closed-beta key](#getting-in-closed-beta-keys). The page needs WebGPU:
+  Chrome or Edge 113 or later, Safari 26 or later (macOS, iOS, iPadOS), or
+  Firefox 141 or later on Windows and 145 or later on macOS. Firefox on
+  Linux and Android does not offer WebGPU yet, and a browser without it is
+  told so instead of shown a blank page. The browser build plays only on the
+  gateway that serves it; for other gateways use the desktop client.
 
 [docs/mobile.md](docs/mobile.md) describes exactly what works and what does
 not.

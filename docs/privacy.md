@@ -296,7 +296,10 @@ the pointers, because line numbers move.
   carries a secret in its address: `/auth/confirm?token=` (a mailed link) and
   the browser client's handover page, `?game=…&token=…` (a page address the
   gateway never sees, `docs/protocol.md` §"Opening a socket: tickets"). The
-  repository ships no proxy configuration.
+  one proxy configuration the repository ships, `scripts/server/play.caddy`
+  (the browser client at `/play/`, #327), writes no access log, and a test
+  keeps it that way, because the handover page's address can carry a seat
+  token.
 - **Socket tickets, in memory only:** the gateway keeps each ticket as a
   SHA-256 hash with what bought it (an account id and its session's hash, or a
   game id, seat and the seat token's hash) and when, until it is used or
@@ -339,14 +342,24 @@ decks and settings as JSON.
   sign-out and when the gateway says the guest has ended. The art cache
   (`artreader`) holds only images, with default permissions.
 - **Browser:** `localStorage` keys `baylee:client-settings` (a kept guest's
-  token included), `baylee:gateway` and one per stored document. A seat
-  token may arrive in the page's URL.
+  token included), `baylee:gateway` and one per stored document
+  (`baylee:preferences.json`, `baylee:offline-decks.json`,
+  `baylee:card-text-<lang>.json`), for the origin the page came from, until the player clears the
+  site's data; a registered account's session stays in memory, as natively.
+  The browser's HTTP cache also keeps the client's files and the card images
+  it fetched. A seat token may arrive in the page's URL. The hosted page
+  (`https://baylee.acevik.de/play/`, #327) sets no cookie and its policy
+  lets it talk only to its own gateway and the three Scryfall hosts below.
 - **Third parties:**
   - the client fetches card images from `cards.scryfall.io` and
     `backs.scryfall.io`;
   - it asks `api.scryfall.com` for card text and printings, naming a card
     and a language;
-  - Scryfall sees the device's IP address, as any host does;
+  - Scryfall sees the device's IP address, as any host does; in a browser
+    every card image comes from Scryfall and never from the gateway's
+    mirror (`docs/protocol.md` §"Card art"), so playing at `/play/` shows
+    Scryfall the player's IP address straight from their browser; the page
+    sends `Referrer-Policy: no-referrer`, so not which page asked;
   - a session is sent to the gateway it belongs to and to no other host
     (`artreader::authorization`, `cardtext::text_request`).
 - **No tracking:** no cookie is set by the gateway, no analytics or

@@ -200,9 +200,15 @@ neuer. Wie unter Windows braucht die x86-64-Version eine CPU mit x86-64-v2.
   Touch bedienbar, deshalb kannst du dich auf dem Handy nicht anmelden.
 - **iOS:** Der Client läuft nur im Simulator
   (`scripts/mobile/ios-sim-run.sh`).
-- **Browser:** Der Client lässt sich auch für WebAssembly bauen und spielt
-  gegen ein Gateway. Er braucht WebGPU, das Browser nur auf HTTPS-Seiten
-  freigeben. Das Projekt veröffentlicht keine gehostete Web-Version.
+- **Browser:** Im Browser spielst du unter
+  **<https://baylee.acevik.de/play/>**, auf dem Sanctuary-Gateway; ein neues
+  Konto dort braucht weiterhin einen
+  [Beta-Schlüssel](#zugang-beta-schlüssel). Die Seite braucht WebGPU:
+  Chrome oder Edge ab 113, Safari ab 26 (macOS, iOS, iPadOS) oder Firefox ab
+  141 unter Windows bzw. ab 145 unter macOS. Firefox unter Linux und Android
+  bietet WebGPU noch nicht an; ein Browser ohne WebGPU bekommt das gesagt
+  statt einer leeren Seite. Die Browser-Version spielt nur auf dem Gateway,
+  das sie ausliefert; für andere Gateways nimm den Desktop-Client.
 
 Was genau geht und was nicht, steht in [docs/mobile.md](docs/mobile.md).
 
