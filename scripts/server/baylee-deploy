@@ -5,7 +5,7 @@
 #   baylee-deploy stage <rev> [--force]   build <rev>, swap agent + engine, wait
 #   baylee-deploy finish [--force]        swap the gateway once no game is open
 #   baylee-deploy watch                   stage the newest release tag, finish
-#   baylee-deploy status
+#   baylee-deploy status                  what is deployed, staged and running
 #
 # A deploy never ends a game unless told to. It goes in two halves:
 #
@@ -28,6 +28,9 @@
 #
 # `--force` skips the wait and ends whatever is open.
 #
+# The feedback service (docs/feedback.md) holds no game, so stage replaces
+# it straight away, once its unit is installed.
+#
 # A waiting room nobody starts would hold a deploy forever, so rooms alone
 # stop blocking after BAYLEE_DEPLOY_ROOM_GRACE minutes (60). Running games
 # always block.
@@ -43,9 +46,16 @@ cargo=${CARGO:-$HOME/.cargo/bin/cargo}
 
 log() { echo "baylee-deploy: $*"; logger -t baylee-deploy -- "$*" 2>/dev/null || true; }
 
-# Serialises the timer against a hand-started deploy.
-exec 9>"$state/lock"
-flock -n 9 || { log "another deploy is running"; exit 0; }
+# Serialises the timer against a hand-started deploy. `status` only reads,
+# and takes no lock: it has to answer while a deploy is building, which is
+# exactly when someone asks.
+lock() {
+    exec 9>"$state/lock"
+    flock -n 9 || { log "another deploy is running"; exit 0; }
+}
+
+# Whether a unit is installed on this machine.
+installed() { systemctl cat "$1" >/dev/null 2>&1; }
 
 open_games() {
     # Prints "<running here> <waiting>"; an unreachable gateway counts as
@@ -71,7 +81,8 @@ stage() {
     git checkout -q -f --detach "$rev"
     git clean -q -fd -e target
     "$cargo" build --release --locked \
-        -p baylee-gateway -p baylee-agent -p baylee-engine-server -p baylee-catalog 2>&1 | tail -1
+        -p baylee-gateway -p baylee-agent -p baylee-engine-server -p baylee-catalog \
+        -p baylee-feedback 2>&1 | tail -1
     rev=$(git rev-parse HEAD)
 
     rm -rf "$state/staged"
@@ -87,6 +98,11 @@ stage() {
     sudo install -m755 target/release/{baylee-agent,baylee-engine-server} "$bin/"
     sudo install -m755 scripts/server/baylee-deploy /usr/local/sbin/baylee-deploy
     log "staged ${rev:0:10}: agent and engine installed, agent off until the gateway follows"
+    if installed baylee-feedback; then
+        sudo install -m755 target/release/baylee-feedback "$bin/"
+        sudo systemctl restart baylee-feedback
+        log "feedback service ${rev:0:10} installed"
+    fi
     finish "$force"
 }
 
@@ -143,14 +159,17 @@ status() {
     echo "staged:   $(cat "$state/staged/rev" 2>/dev/null || echo -)"
     echo "release:  $(cat "$state/last-release" 2>/dev/null || echo -)"
     echo "games:    $(open_games) (running here, waiting)"
-    systemctl is-active baylee-gateway baylee-agent | paste -sd' ' | sed 's/^/services: /'
+    local units=(baylee-gateway baylee-agent)
+    installed baylee-feedback && units+=(baylee-feedback)
+    echo "services: ${units[*]}"
+    echo "          $(systemctl is-active "${units[@]}" | paste -sd' ')"
 }
 
 cmd=${1:-status}; shift || true
 case $cmd in
-    stage) stage "$@" ;;
-    finish) finish "$@" ;;
-    watch) watch ;;
+    stage) lock; stage "$@" ;;
+    finish) lock; finish "$@" ;;
+    watch) lock; watch ;;
     status) status ;;
     *) echo "usage: baylee-deploy stage <rev> [--force] | finish [--force] | watch | status" >&2; exit 2 ;;
 esac

@@ -1,0 +1,33 @@
+# Installed once to /etc/systemd/system/ (docs/feedback.md §"Running it");
+# after that `baylee-deploy stage` replaces the binary and restarts it.
+# Reads its database URL and tokens from /etc/baylee/feedback.env and binds
+# to loopback; the TLS reverse proxy in front of it is the public side.
+[Unit]
+Description=Baylee: the feedback service (bug reports from the gateways)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/baylee/bin/baylee-feedback
+EnvironmentFile=/etc/baylee/feedback.env
+DynamicUser=yes
+Restart=on-failure
+RestartSec=5
+# It needs the network and nothing of the file system.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
