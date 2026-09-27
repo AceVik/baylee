@@ -433,19 +433,25 @@ fn collect_for_objects(
                             .contains(baylee_core::types::TypeSet::CREATURE)
                     })
                 {
-                    triggers.push(PendingTrigger {
-                        source: permanent,
-                        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                        controller: obj.controller,
-                        timestamp: obj.timestamp,
-                        event_object: Some(permanent),
-                        implicit_target: Some(permanent),
-                        abilities: None,
-                        synthetic_effects: Some(PROWESS_PUMP),
-                        once_per_turn: false,
-                        synthetic_target: None,
-                        chosen_mode: None,
-                    });
+                    for _ in 0..times_triggered(
+                        state,
+                        baylee_cards_dsl::TriggerEventKind::Any,
+                        permanent,
+                    ) {
+                        triggers.push(PendingTrigger {
+                            source: permanent,
+                            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                            controller: obj.controller,
+                            timestamp: obj.timestamp,
+                            event_object: Some(permanent),
+                            implicit_target: Some(permanent),
+                            abilities: None,
+                            synthetic_effects: Some(PROWESS_PUMP),
+                            once_per_turn: false,
+                            synthetic_target: None,
+                            chosen_mode: None,
+                        });
+                    }
                     // Once per spell, not once per window: two noncreature
                     // spells can land in one of these (a spell cast during
                     // another's resolution), and prowess counts both.
@@ -525,19 +531,25 @@ fn collect_for_objects(
                         && *from == crate::zone::Zone::Battlefield
                         && *to == crate::zone::Zone::Graveyard
                     {
-                        triggers.push(PendingTrigger {
-                            source: permanent,
-                            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                            controller: obj.controller,
-                            timestamp: obj.timestamp,
-                            event_object: Some(permanent),
-                            implicit_target: Some(permanent),
-                            abilities: None,
-                            synthetic_effects: Some(effects),
-                            once_per_turn: false,
-                            synthetic_target: None,
-                            chosen_mode: None,
-                        });
+                        for _ in 0..times_triggered(
+                            state,
+                            baylee_cards_dsl::TriggerEventKind::Any,
+                            permanent,
+                        ) {
+                            triggers.push(PendingTrigger {
+                                source: permanent,
+                                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                                controller: obj.controller,
+                                timestamp: obj.timestamp,
+                                event_object: Some(permanent),
+                                implicit_target: Some(permanent),
+                                abilities: None,
+                                synthetic_effects: Some(effects),
+                                once_per_turn: false,
+                                synthetic_target: None,
+                                chosen_mode: None,
+                            });
+                        }
                     }
                 }
             }
@@ -559,7 +571,9 @@ fn collect_for_objects(
             for entry in events {
                 if matches(trigger, &entry.event, state, permanent, obj.controller) {
                     let event_object = event_object_of(&entry.event);
-                    for _ in 0..repeats(&entry.event) {
+                    let times = trigger_count(state, trigger, permanent, obj.controller)
+                        * repeats(&entry.event);
+                    for _ in 0..times {
                         triggers.push(PendingTrigger {
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -602,19 +616,25 @@ fn collect_for_objects(
                     .object(target_obj)
                     .is_some_and(|o| o.targets_object(permanent));
                 if targets_this && caster != Some(obj.controller) {
-                    triggers.push(PendingTrigger {
-                        source: permanent,
-                        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                        controller: obj.controller,
-                        timestamp: obj.timestamp,
-                        event_object: Some(target_obj),
-                        implicit_target: Some(target_obj),
-                        abilities: None,
-                        synthetic_effects: Some(synthetic),
-                        once_per_turn: false,
-                        synthetic_target: None,
-                        chosen_mode: None,
-                    });
+                    for _ in 0..times_triggered(
+                        state,
+                        baylee_cards_dsl::TriggerEventKind::Any,
+                        permanent,
+                    ) {
+                        triggers.push(PendingTrigger {
+                            source: permanent,
+                            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                            controller: obj.controller,
+                            timestamp: obj.timestamp,
+                            event_object: Some(target_obj),
+                            implicit_target: Some(target_obj),
+                            abilities: None,
+                            synthetic_effects: Some(synthetic),
+                            once_per_turn: false,
+                            synthetic_target: None,
+                            chosen_mode: None,
+                        });
+                    }
                 }
             }
         }
@@ -716,12 +736,33 @@ fn trigger_count(
     source: ObjectId,
     controller: PlayerId,
 ) -> u32 {
-    let Some(source_obj) = state.object(source) else {
-        return 1;
-    };
     let event_kind = match trigger {
         Trigger::EntersBattlefield(_) => baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
         _ => baylee_cards_dsl::TriggerEventKind::Any,
+    };
+    let _ = controller;
+    times_triggered(state, event_kind, source)
+}
+
+/// How many times a triggered ability of `source` triggers for one event
+/// of `event_kind` (CR 603.2d): once, plus one for each multiplier whose
+/// filter the source matches, or not at all under a suppressor.
+///
+/// Every triggered ability an object has asks this, the printed ones
+/// through [`trigger_count`] and the keyword ones directly. Prowess is a
+/// triggered ability (CR 702.108a), and so are ward, undying and persist
+/// and a granted trigger; Katara, the Fearless multiplies "a triggered
+/// ability of an Ally you control", which is all of them. The keyword
+/// pushes used to build one trigger each and never ask, so Katara doubled
+/// Sokka's token and left his prowess, and every Ally's he granted, at one
+/// (#318).
+fn times_triggered(
+    state: &GameState,
+    event_kind: baylee_cards_dsl::TriggerEventKind,
+    source: ObjectId,
+) -> u32 {
+    let Some(source_obj) = state.object(source) else {
+        return 1;
     };
     let mut count = 1u32;
     for entry in &state.replacement_rules {
@@ -757,7 +798,6 @@ fn trigger_count(
             _ => {}
         }
     }
-    let _ = controller;
     count
 }
 
@@ -1207,5 +1247,61 @@ mod tests {
 
         state.arena.remove(bear);
         assert_eq!(trigger_count(&state, &Trigger::ETB, bear, me()), 1);
+    }
+
+    /// Prowess is a triggered ability (CR 702.108a), so a multiplier adds a
+    /// trigger to it as it does to a printed one (CR 603.2d), and a
+    /// suppressor takes it away. The keyword's trigger is built here rather
+    /// than read off the card, and it used to be pushed once whatever the
+    /// board said: Katara, the Fearless doubled Sokka's token and left his
+    /// prowess at +1/+1.
+    #[test]
+    fn a_keyword_trigger_is_multiplied_like_a_printed_one() {
+        fn prowess_triggers(state: &GameState, from: u64) -> usize {
+            collect(state, &RegistryLookup, from)
+                .iter()
+                .filter(|t| t.synthetic_effects == Some(PROWESS_PUMP))
+                .count()
+        }
+        let mut state = state();
+        let monk = permanent(&mut state, me(), "Monk");
+        std::sync::Arc::make_mut(&mut state.object_mut(monk).expect("the monk").base).keywords =
+            baylee_cards_dsl::KeywordSet::PROWESS;
+        let name = state.names.intern("Opt");
+        let spell = state.create_bare(me(), ObjectKind::Spell, name, ZoneLocation::Stack);
+        let from = state.journal.len() as u64;
+        state.journal.record(GameEvent::SpellCast {
+            object: spell,
+            player: me(),
+        });
+        assert_eq!(prowess_triggers(&state, from), 1, "one spell, one prowess");
+
+        rule(
+            &mut state,
+            me(),
+            ReplacementRule::TriggerMultiplier {
+                source_filter: &Filter::ControlledByYou,
+                event: TriggerEventKind::Any,
+            },
+        );
+        assert_eq!(
+            prowess_triggers(&state, from),
+            2,
+            "a multiplier adds a prowess trigger"
+        );
+
+        rule(
+            &mut state,
+            me(),
+            ReplacementRule::TriggerSuppress {
+                source_filter: &Filter::ControlledByYou,
+                event: TriggerEventKind::Any,
+            },
+        );
+        assert_eq!(
+            prowess_triggers(&state, from),
+            0,
+            "a suppressor stops prowess as well"
+        );
     }
 }
