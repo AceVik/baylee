@@ -22,7 +22,7 @@ The body, frozen:
 {
   "kind": "bug" | "improvement" | "feedback" | "crash" | "other",
   "text": "…",                 // at most 20000 characters
-  "game_id": "…" | null,        // the game the report is about, if any
+  "game_id": "…" | null,        // the game the report is about, if any; at most 128 characters
   "client": { … }               // anything the client wants to say; at most 2 MB serialized
 }
 ```
@@ -30,10 +30,10 @@ The body, frozen:
 | answer | when |
 | --- | --- |
 | `201 {"report_id": "…"}` | the service took it; the id is the service's |
-| `400` | not JSON, an unknown `kind`, no `text`, or `client` not an object |
+| `400` | not JSON, an unknown `kind`, no `text`, `client` not an object, or `game_id` over 128 characters |
 | `401` | no session, or not a live one |
 | `413` | `text` over 20000 characters, `client` over 2 MB, or the body over 2.25 MB |
-| `429` | the account has sent 20 reports in the last hour |
+| `429` | the account has sent 20 reports in the last hour; one the service did not take (`502`) is not counted |
 | `502` | the service did not take it (unreachable, refused, or no `report_id`) |
 | `503 {"error":"reports are not configured"}` | `BAYLEE_FEEDBACK_URL` is not set |
 

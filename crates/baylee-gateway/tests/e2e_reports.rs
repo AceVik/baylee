@@ -274,6 +274,10 @@ async fn a_report_is_refused_for_what_it_is() {
         r#"{"kind":"rant","text":"x","game_id":null,"client":{}}"#,
         r#"{"kind":"bug","text":"x","game_id":null,"client":[]}"#,
         r#"{"kind":"bug","game_id":null,"client":{}}"#,
+        &format!(
+            r#"{{"kind":"bug","text":"x","game_id":"{}","client":{{}}}}"#,
+            "g".repeat(129)
+        ),
         "not json",
     ] {
         assert_eq!(report(port, Some(&token), bad).0, 400, "{bad}");
@@ -311,6 +315,14 @@ async fn a_report_is_refused_for_what_it_is() {
         "another account is not held"
     );
     assert_eq!(inbox.lock().len(), 21);
+
+    // A service that is not there takes nothing, and a report it did not
+    // take costs nothing of the budget.
+    let gone = with_service("reports-gone", "http://127.0.0.1:9");
+    let token = login(gone.port, "ruth", "Ruth");
+    for _ in 0..25 {
+        assert_eq!(report(gone.port, Some(&token), fine).0, 502);
+    }
 }
 
 /// The same path into the real service rather than the stub: what the

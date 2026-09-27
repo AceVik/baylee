@@ -27,6 +27,9 @@ use crate::{ErrorBody, Shared, err};
 /// The longest report text, in characters.
 pub const MAX_TEXT_CHARS: usize = 20_000;
 
+/// The longest `game_id`, in characters.
+pub const MAX_GAME_ID_CHARS: usize = 128;
+
 /// The largest `client` object, serialized.
 pub const MAX_CLIENT_BYTES: usize = 2 * 1024 * 1024;
 
@@ -228,18 +231,23 @@ pub async fn post_report(
             "the client details are too large",
         ));
     }
+    let game_id = report.game_id.as_deref().filter(|g| !g.is_empty());
+    if game_id.is_some_and(|g| g.chars().count() > MAX_GAME_ID_CHARS) {
+        return Err(err(StatusCode::BAD_REQUEST, "not a game id"));
+    }
     if !feedback.limiter.allow(&session.account_id) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many reports"));
     }
-
-    let game_id = report
-        .game_id
-        .as_deref()
-        .filter(|g| !g.is_empty() && g.len() <= 128);
+    // A report the service did not take was not sent, and costs the
+    // player nothing of the budget.
+    let give_back = || feedback.limiter.give_back(&session.account_id);
     let record = match (game_id, uuid::Uuid::parse_str(&session.account_id)) {
         (Some(game), Ok(account)) => baylee_db::records::for_seated(&state.db, game, account)
             .await
-            .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?
+            .map_err(|e| {
+                give_back();
+                crate::db_down(&anyhow::Error::from(e))
+            })?
             .map(|r| RecordOut {
                 complete: r.complete,
                 gzip_base64: base64::engine::general_purpose::STANDARD.encode(r.data),
@@ -269,6 +277,7 @@ pub async fn post_report(
         Ok(report_id) => Ok((StatusCode::CREATED, Json(Created { report_id }))),
         Err(why) => {
             tracing::warn!("the feedback service did not take a report: {why}");
+            give_back();
             Err(err(
                 StatusCode::BAD_GATEWAY,
                 "the feedback service did not take the report",

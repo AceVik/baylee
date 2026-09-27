@@ -277,6 +277,14 @@ impl RateLimiter {
     pub fn forget(&self, key: &str) {
         self.hits.lock().remove(key);
     }
+
+    /// Takes back the latest attempt under `key`, for one that did not
+    /// happen after all.
+    pub fn give_back(&self, key: &str) {
+        if let Some(hits) = self.hits.lock().get_mut(key) {
+            hits.pop();
+        }
+    }
 }
 
 /// Display-name validation (shown to other players).
