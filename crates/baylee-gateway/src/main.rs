@@ -83,6 +83,11 @@ struct AppState {
     /// repository it was built from), already checked by [`source_url`].
     /// The AGPL's §13 offer, which `/source` and `/info` both carry.
     source_url: String,
+    /// Where this gateway's privacy statement is (`BAYLEE_PRIVACY_URL`), and
+    /// its imprint (`BAYLEE_IMPRINT_URL`), already checked by [`legal_url`].
+    /// `None` when unset, and `/info` then says nothing about either.
+    privacy_url: Option<String>,
+    imprint_url: Option<String>,
     /// Where confirmation mail goes, and — because it is the same
     /// question — whether an address has to be confirmed at all.
     mail: mail::Mailer,
@@ -192,6 +197,10 @@ async fn main() {
         .unwrap_or_else(|why| panic!("BAYLEE_GATEWAY_NAME: {why}"));
     let source_url = source_url(std::env::var("BAYLEE_SOURCE_URL").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_SOURCE_URL: {why}"));
+    let privacy_url = legal_url(std::env::var("BAYLEE_PRIVACY_URL").ok().as_deref())
+        .unwrap_or_else(|why| panic!("BAYLEE_PRIVACY_URL: {why}"));
+    let imprint_url = legal_url(std::env::var("BAYLEE_IMPRINT_URL").ok().as_deref())
+        .unwrap_or_else(|why| panic!("BAYLEE_IMPRINT_URL: {why}"));
     let guest_cap = guest_cap(std::env::var("BAYLEE_GUEST_CAP").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_GUEST_CAP: {why}"));
     let ticket_ttl = wsticket::ttl_from_env(std::env::var("BAYLEE_WS_TICKET_SECS").ok().as_deref())
@@ -232,6 +241,8 @@ async fn main() {
         guest_cap,
         display_name,
         source_url,
+        privacy_url,
+        imprint_url,
         mail: mail::Mailer::from_env(),
         trusted_proxies: trusted_proxies(
             &std::env::var("BAYLEE_TRUSTED_PROXIES").unwrap_or_default(),
@@ -817,7 +828,48 @@ async fn info(State(state): State<Shared>) -> Json<serde_json::Value> {
     );
     body.insert("view_version".into(), baylee_view::VIEW_VERSION.into());
     body.insert("source".into(), state.source_url.clone().into());
+    // The operator's privacy statement and imprint, for the client to link
+    // at sign-in and in its settings; absent when unset, and an older client
+    // skips fields it does not know.
+    if let Some(url) = &state.privacy_url {
+        body.insert("privacy_url".into(), url.clone().into());
+    }
+    if let Some(url) = &state.imprint_url {
+        body.insert("imprint_url".into(), url.clone().into());
+    }
     Json(body.into())
+}
+
+/// A privacy statement's or imprint's address, out of `BAYLEE_PRIVACY_URL`
+/// or `BAYLEE_IMPRINT_URL`.
+///
+/// Unset or blank is `None`: this gateway names none, and `/info` leaves the
+/// field out. What is set is shown to players and opened in their browser,
+/// so it is held to [`source_url`]'s rule and one stricter: `https://` only,
+/// because a page a player reads to learn what is kept about them should
+/// not travel in the clear. At most [`MAX_SOURCE_CHARS`] characters, no
+/// whitespace, control or bidirectional character. Refused at startup rather
+/// than trimmed.
+fn legal_url(raw: Option<&str>) -> Result<Option<String>, String> {
+    let Some(url) = raw.map(str::trim).filter(|url| !url.is_empty()) else {
+        return Ok(None);
+    };
+    if !url.starts_with("https://") {
+        return Err("it is not an https:// address".to_owned());
+    }
+    let length = url.chars().count();
+    if length > MAX_SOURCE_CHARS {
+        return Err(format!(
+            "{length} characters, and an address has {MAX_SOURCE_CHARS} at most"
+        ));
+    }
+    if let Some(bad) = url
+        .chars()
+        .find(|&c| c.is_whitespace() || c.is_control() || is_bidi_control(c))
+    {
+        return Err(format!("it contains U+{:04X}", u32::from(bad)));
+    }
+    Ok(Some(url.to_owned()))
 }
 
 /// The longest name `BAYLEE_GATEWAY_NAME` may set, in characters.

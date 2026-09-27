@@ -343,6 +343,45 @@ fn a_source_address_is_the_repository_unless_an_operator_names_a_web_address() {
     }
 }
 
+/// The operator's privacy statement and imprint: unset and blank are none,
+/// and what is set must be an `https://` address that displays as what it
+/// says. Each refusal is its own case, so a rule dropped shows by name.
+#[test]
+fn a_legal_address_is_none_unless_an_operator_names_an_https_address() {
+    assert_eq!(legal_url(None), Ok(None));
+    assert_eq!(legal_url(Some("  ")), Ok(None), "blank is unset");
+    assert_eq!(
+        legal_url(Some(" https://baylee.example/datenschutz ")),
+        Ok(Some("https://baylee.example/datenschutz".to_owned())),
+        "the ends are trimmed"
+    );
+    let longest = format!("https://{}", "a".repeat(MAX_SOURCE_CHARS - 8));
+    assert_eq!(legal_url(Some(&longest)), Ok(Some(longest.clone())));
+
+    for (refused, why) in [
+        ("http://baylee.example/datenschutz".to_owned(), "plain http"),
+        ("baylee.example/datenschutz".to_owned(), "no scheme"),
+        ("javascript:alert(1)".to_owned(), "another scheme"),
+        (format!("{longest}a"), "one character too long"),
+        (
+            "https://baylee.example/daten schutz".to_owned(),
+            "whitespace",
+        ),
+        ("https://baylee.example/\u{7}x".to_owned(), "a control"),
+        ("https://baylee.example/\nx".to_owned(), "a line break"),
+        (
+            "https://baylee.example/\u{202E}zthcs".to_owned(),
+            "a bidi override",
+        ),
+        (
+            "https://baylee.example/\u{2066}x".to_owned(),
+            "a bidi isolate",
+        ),
+    ] {
+        assert!(legal_url(Some(&refused)).is_err(), "{why}: {refused:?}");
+    }
+}
+
 /// What a deck list of these lines parses to, or what the player is told.
 ///
 /// Every refusal here is a 400 and that is folded in rather than asserted

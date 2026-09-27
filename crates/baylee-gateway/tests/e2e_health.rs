@@ -95,6 +95,14 @@ async fn info_names_the_gateway_and_the_versions_a_client_decides_on() {
                 "BAYLEE_SOURCE_URL",
                 "https://git.example/fork/baylee".into(),
             ),
+            (
+                "BAYLEE_PRIVACY_URL",
+                " https://hall.example/datenschutz ".into(),
+            ),
+            (
+                "BAYLEE_IMPRINT_URL",
+                "https://hall.example/impressum".into(),
+            ),
         ],
     );
     let (status, body) = http(named.port, "GET", "/info", None, "");
@@ -133,6 +141,18 @@ async fn info_names_the_gateway_and_the_versions_a_client_decides_on() {
         !body.contains(&named.agent_token),
         "a secret in info: {body}"
     );
+    // The operator's privacy statement and imprint, for the client to link
+    // at sign-in (`docs/protocol.md` §"Which gateway is this?").
+    assert_eq!(
+        json_field(&body, "privacy_url"),
+        "https://hall.example/datenschutz",
+        "trimmed: {body}"
+    );
+    assert_eq!(
+        json_field(&body, "imprint_url"),
+        "https://hall.example/impressum",
+        "{body}"
+    );
 
     let unnamed = spawn_gateway("info-unnamed");
     let (status, body) = http(unnamed.port, "GET", "/info", None, "");
@@ -146,6 +166,19 @@ async fn info_names_the_gateway_and_the_versions_a_client_decides_on() {
         baylee_build::REPOSITORY,
         "none set, so the repository this build came from: {body}"
     );
+    for field in ["privacy_url", "imprint_url"] {
+        assert!(
+            !body.contains(&format!("\"{field}\"")),
+            "none set, so no {field}: {body}"
+        );
+    }
+    // The reverse proxy serves the legal pages at these paths ahead of the
+    // gateway (`scripts/server/legal.caddy`), which works only while the
+    // gateway has no route of its own there.
+    for path in ["/datenschutz", "/privacy", "/impressum"] {
+        let (status, _) = http(unnamed.port, "GET", path, None, "");
+        assert_eq!(status, 404, "the gateway answers {path} itself");
+    }
 }
 
 /// #279: gateways started side by side each find a port of their own. The
