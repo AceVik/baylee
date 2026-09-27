@@ -1702,8 +1702,15 @@ pub(super) fn leave_keys(
     exits: Query<&Press, With<super::ui::DuelExit>>,
     mut state: ResMut<LobbyState>,
     mut closes: MessageWriter<DuelCommand>,
+    desk: Option<Res<crate::report::ReportDesk>>,
 ) {
     use baylee_client_core::prefs::Action;
+    // The report form opens over the end screen too (F8, the corner
+    // button): while it is up, `Esc` shuts the form and `Enter` is a line
+    // break in its text, and neither is an answer to this sheet.
+    if desk.is_some_and(|desk| desk.holds_keyboard()) {
+        return;
+    }
     let fired = crate::keys::Fired::of(&keys, prefs.keymap());
     if fired.quiet() {
         return;

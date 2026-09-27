@@ -23,7 +23,7 @@ use crate::settings::ClientSettings;
 
 /// The form's root, over everything.
 #[derive(Component)]
-pub(super) struct DeskRoot;
+pub(crate) struct DeskRoot;
 
 /// The form's scrolling column.
 #[derive(Component)]
@@ -31,7 +31,7 @@ pub(super) struct DeskScroll;
 
 /// What a button on the form does.
 #[derive(Component, Clone, Copy, Debug)]
-pub(super) enum DeskPress {
+pub(crate) enum DeskPress {
     /// Pick a kind.
     Kind(Kind),
     /// Tick or clear a box.

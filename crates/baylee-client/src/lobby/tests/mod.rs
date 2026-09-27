@@ -17,6 +17,7 @@ mod frame;
 mod gateway;
 mod guests;
 mod printings;
+mod report;
 mod settings;
 mod sign_in;
 mod tables;

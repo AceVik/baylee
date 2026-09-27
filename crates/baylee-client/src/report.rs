@@ -29,6 +29,8 @@ use crate::settings::ClientSettings;
 mod form;
 mod shot;
 #[cfg(test)]
+pub(crate) use form::{DeskPress, DeskRoot};
+#[cfg(test)]
 mod tests;
 
 /// Where the panic hook leaves a crash, beside the settings.
@@ -80,6 +82,47 @@ impl ReportDesk {
     #[must_use]
     pub fn holds_keyboard(&self) -> bool {
         self.open || self.asking || self.swallow
+    }
+}
+
+/// What the tests in `report::tests` and elsewhere read and set of a desk
+/// whose fields are this module's.
+#[cfg(test)]
+impl ReportDesk {
+    pub(crate) fn form(&self) -> &ReportForm {
+        &self.form
+    }
+    pub(crate) fn form_mut(&mut self) -> &mut ReportForm {
+        &mut self.form
+    }
+    pub(crate) fn gathered_mut(&mut self) -> &mut Gathered {
+        &mut self.gathered
+    }
+    pub(crate) fn asking(&self) -> bool {
+        self.asking
+    }
+    pub(crate) fn crash(&self) -> Option<&CrashFile> {
+        self.crash.as_ref()
+    }
+    pub(crate) fn crash_tried(&self) -> bool {
+        self.crash_tried
+    }
+    /// The clipboard's answer, as a desktop clipboard gives it: at once.
+    pub(crate) fn clipboard_answers(&mut self, text: &str) {
+        self.paste = Some(bevy::clipboard::ClipboardRead::Ready(Ok(text.to_string())));
+    }
+    /// A crash file found at start, as `find_a_crash` meets it.
+    pub(crate) fn found(&mut self, consent: CrashConsent, text: Option<&str>) -> bool {
+        meet_the_crash(self, consent, text)
+    }
+}
+
+/// The gateway answering the form's report with `status` and `body`, for a
+/// test standing in for the HTTP thread.
+#[cfg(test)]
+pub(crate) fn gateway_answers(world: &World, status: u16, body: &str) {
+    if let Ok(mut slot) = world.resource::<Answers>().0.lock() {
+        slot.push(Answer::Form(status, body.to_string()));
     }
 }
 
@@ -501,18 +544,29 @@ fn remember_the_gateway(lobby: Option<Res<LobbyState>>, mut last: Local<Option<S
 /// At start: a crash file, and what the player said to do with one.
 fn find_a_crash(mut desk: ResMut<ReportDesk>, settings: Res<ClientSettings>) {
     let text = crate::settings::store::read_named(CRASH_FILE);
-    let file = text.as_deref().and_then(CrashFile::from_text);
-    if text.is_some() && file.is_none() {
+    if meet_the_crash(&mut desk, settings.reports.crashes, text.as_deref()) {
         crate::settings::store::remove_named(CRASH_FILE);
     }
-    match bugreport::crash_step(settings.reports.crashes, file.is_some()) {
-        CrashStep::Nothing => {}
-        CrashStep::Discard => crate::settings::store::remove_named(CRASH_FILE),
+}
+
+/// What start does with the crash file's `text` under `consent`: holds the
+/// crash for the courier, or asks the question. `true` when the file is to
+/// be deleted: answered "never", or torn by the crash it was written in.
+fn meet_the_crash(desk: &mut ReportDesk, consent: CrashConsent, text: Option<&str>) -> bool {
+    let file = text.and_then(CrashFile::from_text);
+    let torn = text.is_some() && file.is_none();
+    match bugreport::crash_step(consent, file.is_some()) {
+        CrashStep::Nothing => torn,
+        CrashStep::Discard => true,
         CrashStep::Ask => {
             desk.crash = file;
             desk.asking = true;
+            false
         }
-        CrashStep::Send => desk.crash = file,
+        CrashStep::Send => {
+            desk.crash = file;
+            false
+        }
     }
 }
 
