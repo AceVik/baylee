@@ -2793,6 +2793,16 @@ messages! {
     },
     /// A box with nothing behind it.
     ReportCatNothing { en: "(nothing to send here)", de: "(hier gibt es nichts zu senden)" },
+    /// Beside the screenshot box in a browser, which takes no picture.
+    ReportCatNoShotOnWeb {
+        en: "(the browser version takes no picture)",
+        de: "(die Browser-Version macht kein Bild)",
+    },
+    /// Under the screenshot box in a browser.
+    ReportCatScreenshotHintWeb {
+        en: "The browser version of the client cannot take a picture of its window, so a report from here never carries one. Ticked, the box applies when you report from the desktop client.",
+        de: "Die Browser-Version des Clients kann kein Bild ihres Fensters machen, ein Bericht von hier enthält also nie eines. Angekreuzt gilt das Kästchen, wenn du aus dem Desktop-Client meldest.",
+    },
     /// The picture's size. `{0}` × `{1}` pixels, `{2}` kilobytes.
     ReportShotSize { en: "{0} × {1}, {2} KB", de: "{0} × {1}, {2} KB" },
     /// The box for crash reports, which the client sends by itself.

@@ -504,7 +504,7 @@ fn form(
         let coming = category == Category::Screenshot && desk.shooting;
         if !there && !coming {
             label.push_str("  ");
-            label.push_str(Phrase::ReportCatNothing.text(lang));
+            label.push_str(category.nothing_where(super::shot::TAKES_PICTURES).text(lang));
         }
         let entry = commands
             .spawn((
@@ -528,7 +528,7 @@ fn form(
         let hint = words(
             commands,
             tf(fonts, metrics.small),
-            category.hint().text(lang),
+            category.hint_where(super::shot::TAKES_PICTURES).text(lang),
             palette::MUTED,
         );
         commands.entity(entry).add_children(&[tick, hint]);
