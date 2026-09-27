@@ -2,16 +2,22 @@
 //!
 //! A player who has just watched the game do the wrong thing is holding the
 //! only copy of the evidence, and the window that says "what went wrong?" is
-//! the one chance to collect it. So this reaches for everything it can — the
+//! the one chance to collect it. So this can reach for a great deal — the
 //! whole board as the seat was shown it, the question the engine was asking,
-//! what the client had selected and armed, the last refusal it was given —
-//! and the free text beside it, because the one thing no dump contains is
-//! what the player *expected* to happen.
+//! what the client had selected and armed, the seat's own game log, the
+//! settings, a picture of the window — and the free text beside it, because
+//! the one thing no dump contains is what the player *expected* to happen.
+//!
+//! What it reaches for is the player's choice (#309, #314): every part past
+//! the build is one [`Category`], one box in the form, and [`Consent`], kept
+//! per device, says which are ticked. [`Gathered::report`] copies a part in
+//! only when its box is, and the form's preview shows the very bytes
+//! [`Submission::sealed`] hands the sender.
 //!
 //! # Why that is safe
 //!
 //! The alarming half of "send me everything" is that a client is a program a
-//! player runs. Two rules, and they are different rules with different
+//! player runs. Three rules, and they are different rules with different
 //! reasons.
 //!
 //! **An opponent's information cannot be in here, because the client never
@@ -22,6 +28,12 @@
 //! omitted"), and it is what makes a report of the *whole* `PlayerView`
 //! safe to attach without reading it first. Nothing has to be filtered out,
 //! because nothing was ever put in.
+//!
+//! **Other players' names are replaced where they enter.** A name is in one
+//! place only, the roster in `GameStatic`, and the log writes it into lines.
+//! [`seat_log`] writes the log against a roster whose names are already
+//! "Player A", "Player B", so no line is ever written with the real one.
+//! The roster itself is not attached, and the view names nobody.
 //!
 //! **The reporter's own secrets are kept out by an allow-list, never by a
 //! filter.** [`BugReport`] is a named struct assembled one field at a time;
@@ -41,10 +53,24 @@
 //! that happens to carry a token is a refused report rather than a leaked
 //! one.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use baylee_engine::choice::Pending;
 use baylee_view::PlayerView;
+
+use crate::i18n::Phrase;
+
+mod base64;
+mod consent;
+mod crash;
+mod form;
+mod seatlog;
+
+pub use base64::encode as base64_encode;
+pub use consent::{Category, Consent, CrashConsent};
+pub use crash::{CrashFile, CrashRecord, CrashStep, crash_step, crash_submission, scrub_home};
+pub use form::{Outcome, ReportForm, Status, outcome};
+pub use seatlog::{LogRow, RosterSeat, SeatLog, seat_log};
 
 /// The shortest string [`seal`] will search for.
 ///
@@ -54,6 +80,17 @@ use baylee_view::PlayerView;
 /// a base64url blob, so the bound costs nothing real — and a "secret" below
 /// it is not one, whatever it is stored in.
 pub const SHORTEST_SECRET: usize = 12;
+
+/// The longest text a report may carry, in characters, as the gateway
+/// counts them (`POST /reports`, the `text` field).
+pub const MAX_TEXT_CHARS: usize = 20_000;
+
+/// The most the `client` object may weigh once serialised, in bytes.
+///
+/// The gateway refuses more than 2 MB; this is the smaller reading of that
+/// (10^6, not 2^20), so a report this side lets through is never one the
+/// gateway turns away for its size.
+pub const MAX_CLIENT_BYTES: usize = 2_000_000;
 
 /// One thing the sender is holding that must not appear in a report.
 ///
@@ -87,35 +124,67 @@ impl std::fmt::Display for Leaked {
 
 impl std::error::Error for Leaked {}
 
-/// What the player said.
-///
-/// Two fields and not one, because they are two different things and the
-/// second is the one a dump can never supply. "It did the wrong thing" plus
-/// a board is a puzzle; "it did X, I expected Y" plus a board is a test.
-#[derive(Clone, Debug, Default, Serialize)]
-pub struct Told {
-    /// What happened, in the player's own words.
-    pub happened: String,
-    /// What they expected instead.
-    pub expected: String,
+/// What kind of report this is: the `kind` field of `POST /reports`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Kind {
+    /// Something did the wrong thing.
+    #[default]
+    Bug,
+    /// Something could be better.
+    Improvement,
+    /// Anything the player wants to say about the game.
+    Feedback,
+    /// The client stopped. Sent by the client itself, never picked in the
+    /// form: see [`crash_submission`].
+    Crash,
+    /// None of the above.
+    Other,
 }
 
-/// Which build this was, and what it was running on.
-///
-/// Every field here is about the program, not about the person. A GPU
-/// adapter string and a window size are what separate "the client is wrong"
-/// from "this machine draws it differently", and neither says who is at the
-/// keyboard.
-#[derive(Clone, Debug, Default, Serialize)]
+impl Kind {
+    /// The kinds a player picks between, in the order the form offers them.
+    pub const OFFERED: [Self; 4] = [Self::Bug, Self::Improvement, Self::Feedback, Self::Other];
+
+    /// How the form names it.
+    #[must_use]
+    pub fn phrase(self) -> Phrase {
+        match self {
+            Self::Bug => Phrase::ReportKindBug,
+            Self::Improvement => Phrase::ReportKindImprovement,
+            Self::Feedback => Phrase::ReportKindFeedback,
+            Self::Crash => Phrase::ReportKindCrash,
+            Self::Other => Phrase::ReportKindOther,
+        }
+    }
+}
+
+/// Which build this was. Always sent: a report nobody can match to a build
+/// cannot be read, and neither field says anything about a person.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Build {
     /// The crate version.
     pub version: String,
     /// The commit, when the build was told one.
     pub commit: Option<String>,
-    /// `target_os`/`target_arch`, or a browser's user agent on wasm.
+}
+
+/// What the client was running on ([`Category::System`]).
+///
+/// Every field here is about the program and the machine, not about the
+/// person. A GPU adapter string and a window size are what separate "the
+/// client is wrong" from "this machine draws it differently", and neither
+/// says who is at the keyboard.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct System {
+    /// `target_os/target_arch`.
     pub platform: String,
+    /// Logical CPUs, where the platform says.
+    pub cpus: Option<usize>,
     /// What the renderer picked, verbatim.
     pub adapter: Option<String>,
+    /// The graphics backend (Metal, Vulkan, WebGPU, …).
+    pub backend: Option<String>,
     /// Logical window size.
     pub window: (u32, u32),
     /// Device pixels per logical pixel.
@@ -134,8 +203,6 @@ pub struct Build {
 /// seat number against their own records.
 #[derive(Clone, Debug, Serialize)]
 pub struct Table {
-    /// The gateway's id for the game, when this was not an offline duel.
-    pub game: Option<String>,
     /// Which seat the reporter was sitting in.
     pub seat: u8,
     /// The view the report was written against, so the operator can line it
@@ -165,78 +232,264 @@ pub struct Holding {
     pub last_error: Option<String>,
 }
 
-/// One player-visible note the client made, with the frame it made it on.
+/// The table as the reporting seat was shown it ([`Category::Game`]).
 #[derive(Clone, Debug, Serialize)]
-pub struct Note {
-    /// The frame it was written on.
-    pub frame: u64,
-    /// The note.
-    pub text: String,
-}
-
-/// Everything a report carries.
-///
-/// Assembled field by field on purpose — see the module header. A field
-/// added here is a decision about what leaves a player's machine, which is
-/// why there is no catch-all and why [`seal`] exists.
-#[derive(Clone, Debug, Serialize)]
-pub struct BugReport {
-    /// What the player said.
-    pub told: Told,
-    /// Which build, and on what.
-    pub build: Build,
-    /// Where in a game, when there was one.
-    pub table: Option<Table>,
+pub struct Game {
+    /// Where in the game.
+    pub table: Table,
     /// The whole board as this seat was shown it.
     ///
     /// Attached whole, and that is the point: what the reporter can see is
-    /// exactly what this carries, so there is nothing here to redact.
-    pub view: Option<PlayerView>,
+    /// exactly what this carries, so there is nothing here to redact. It
+    /// names no player either: names live in the roster, which is not here.
+    pub view: PlayerView,
     /// The question the engine was asking.
     pub pending: Option<Pending>,
     /// What the client was in the middle of.
     pub holding: Holding,
-    /// The tail of the client's own notes.
-    pub notes: Vec<Note>,
 }
 
-impl BugReport {
-    /// An empty report carrying only what the player typed and which build
-    /// they typed it in.
+/// The settings that shape what the player saw ([`Category::Settings`]).
+///
+/// A summary written field by field and never the settings file itself:
+/// that file holds the gateway list, the last username and a kept guest's
+/// token, none of which belongs in a report.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct Settings {
+    /// The interface language.
+    pub lang: String,
+    /// How large the card preview is drawn.
+    pub preview_scale: f32,
+    /// Whether the constructed text face stands in for card art.
+    pub prefer_text_view: bool,
+    /// How the zone browser lays cards out.
+    pub zone_view: String,
+    /// The music's level.
+    pub music: String,
+    /// How many gateways this device has saved: a count, never an address.
+    pub saved_gateways: usize,
+    /// The account's preferences (key bindings, standing answers,
+    /// automation), as the client keeps them. They name abilities and keys,
+    /// never people.
+    pub preferences: Option<serde_json::Value>,
+}
+
+/// A picture of the window ([`Category::Screenshot`]).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Screenshot {
+    /// Pixels across.
+    pub width: u32,
+    /// Pixels down.
+    pub height: u32,
+    /// The PNG, base64 (RFC 4648, padded).
+    pub png_base64: String,
+}
+
+impl Screenshot {
+    /// The picture's size on the wire, in kilobytes, for the form to say.
     #[must_use]
-    pub fn new(told: Told, build: Build) -> Self {
-        Self {
-            told,
-            build,
-            table: None,
-            view: None,
-            pending: None,
-            holding: Holding::default(),
-            notes: Vec::new(),
+    pub fn kilobytes(&self) -> usize {
+        self.png_base64.len().div_ceil(1000)
+    }
+}
+
+/// Everything a report carries in its `client` object.
+///
+/// Assembled field by field on purpose — see the module header. A field
+/// added here is a decision about what leaves a player's machine, which is
+/// why there is no catch-all and why [`seal`] exists. Every optional part but
+/// `crash` is one [`Category`] and is `None` unless the player ticked it.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct BugReport {
+    /// Which build. Always there.
+    pub build: Build,
+    /// What it ran on.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system: Option<System>,
+    /// The table as this seat saw it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub game: Option<Game>,
+    /// This seat's own log, other players' names replaced.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub log: Option<SeatLog>,
+    /// The settings that shape what the player saw.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settings: Option<Settings>,
+    /// A picture of the window.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub screenshot: Option<Screenshot>,
+    /// What stopped the client, in a crash report.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub crash: Option<CrashRecord>,
+}
+
+/// Everything the client could attach, before the player has chosen.
+///
+/// The form keeps one of these and builds a [`Submission`] from it and the
+/// player's [`Consent`] each time it is shown or sent, so what the preview
+/// shows and what goes out are one computation.
+#[derive(Clone, Debug, Default)]
+pub struct Gathered {
+    /// Which build.
+    pub build: Build,
+    /// The game's id at the gateway, when there is a networked game.
+    pub game_id: Option<String>,
+    /// What it runs on.
+    pub system: Option<System>,
+    /// The table, when there is one.
+    pub game: Option<Game>,
+    /// The seat's log, already written by [`seat_log`].
+    pub log: Option<SeatLog>,
+    /// The settings summary.
+    pub settings: Option<Settings>,
+    /// The picture, once it has been taken.
+    pub screenshot: Option<Screenshot>,
+}
+
+impl Gathered {
+    /// Whether there is anything to attach under `category`. A category
+    /// with nothing behind it is shown, but cannot be ticked.
+    #[must_use]
+    pub fn has(&self, category: Category) -> bool {
+        match category {
+            Category::System => self.system.is_some(),
+            Category::Game => self.game.is_some(),
+            Category::Log => self.log.as_ref().is_some_and(|log| !log.lines.is_empty()),
+            Category::Settings => self.settings.is_some(),
+            Category::Screenshot => self.screenshot.is_some(),
         }
     }
 
-    /// Attaches the game this was written during.
+    /// The report, holding exactly what `consent` allows.
+    ///
+    /// An allow-list in the literal sense: each part is copied in only when
+    /// its box is ticked, and nothing is built first and stripped after.
     #[must_use]
-    pub fn at(mut self, table: Table, view: PlayerView, pending: Option<Pending>) -> Self {
-        self.table = Some(table);
-        self.view = Some(view);
-        self.pending = pending;
-        self
+    pub fn report(&self, consent: &Consent) -> BugReport {
+        fn take<T: Clone>(consent: &Consent, category: Category, part: Option<&T>) -> Option<T> {
+            consent.allows(category).then(|| part.cloned()).flatten()
+        }
+        BugReport {
+            build: self.build.clone(),
+            system: take(consent, Category::System, self.system.as_ref()),
+            game: take(consent, Category::Game, self.game.as_ref()),
+            log: take(consent, Category::Log, self.log.as_ref()),
+            settings: take(consent, Category::Settings, self.settings.as_ref()),
+            screenshot: take(consent, Category::Screenshot, self.screenshot.as_ref()),
+            crash: None,
+        }
     }
 
-    /// Attaches what the client was in the middle of.
+    /// The whole body of a report of `kind` saying `text`.
     #[must_use]
-    pub fn holding(mut self, holding: Holding) -> Self {
-        self.holding = holding;
-        self
+    pub fn submission(&self, kind: Kind, text: &str, consent: &Consent) -> Submission {
+        Submission {
+            kind,
+            text: text.to_string(),
+            game_id: self.game_id.clone(),
+            client: self.report(consent),
+        }
+    }
+}
+
+/// The body of `POST {gateway}/reports`, field for field.
+#[derive(Clone, Debug, Serialize)]
+pub struct Submission {
+    /// What kind of report.
+    pub kind: Kind,
+    /// What the player wrote.
+    pub text: String,
+    /// The game it was written during, when it was a networked one. The
+    /// gateway attaches that game's full record itself.
+    pub game_id: Option<String>,
+    /// Everything else, as far as the player allowed it.
+    pub client: BugReport,
+}
+
+/// A submission that cannot be sent as it stands.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Unsendable {
+    /// One of the sender's secrets is in it.
+    Leaked(Leaked),
+    /// The text is longer than [`MAX_TEXT_CHARS`].
+    TextTooLong,
+    /// The `client` object is over [`MAX_CLIENT_BYTES`] even with the
+    /// screenshot and the log left out.
+    TooLarge,
+}
+
+impl Unsendable {
+    /// What the form says about it.
+    #[must_use]
+    pub fn text(&self, lang: crate::i18n::Lang) -> String {
+        match self {
+            Self::Leaked(leaked) => Phrase::ReportLeaked.fill(lang, &[&leaked.label]),
+            Self::TextTooLong => {
+                Phrase::ReportTextTooLong.fill(lang, &[&MAX_TEXT_CHARS.to_string()])
+            }
+            Self::TooLarge => Phrase::ReportTooLarge.text(lang).to_string(),
+        }
+    }
+}
+
+/// What [`Submission::fitted`] had to leave out to stay under the limit.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Trimmed {
+    /// The screenshot was dropped.
+    pub screenshot: bool,
+    /// The log was cut to its last this many lines.
+    pub log_lines: Option<usize>,
+}
+
+impl Submission {
+    /// This submission cut to [`MAX_CLIENT_BYTES`], and what was cut.
+    ///
+    /// The screenshot goes first, because it is by far the heaviest part and
+    /// the one a report can best do without; then the log loses its oldest
+    /// half, again and again, because the lines nearest the report are the
+    /// ones it is about.
+    ///
+    /// # Errors
+    ///
+    /// [`Unsendable::TooLarge`] when even that is not enough.
+    pub fn fitted(mut self) -> Result<(Self, Trimmed), Unsendable> {
+        fn weight(report: &BugReport) -> usize {
+            serde_json::to_vec(report).map_or(usize::MAX, |bytes| bytes.len())
+        }
+        let mut trimmed = Trimmed::default();
+        if weight(&self.client) <= MAX_CLIENT_BYTES {
+            return Ok((self, trimmed));
+        }
+        trimmed.screenshot = self.client.screenshot.take().is_some();
+        while weight(&self.client) > MAX_CLIENT_BYTES {
+            let Some(log) = self.client.log.as_mut() else {
+                return Err(Unsendable::TooLarge);
+            };
+            if log.lines.is_empty() {
+                self.client.log = None;
+                trimmed.log_lines = Some(0);
+                continue;
+            }
+            let keep = log.lines.len() / 2;
+            log.lines.drain(..log.lines.len() - keep);
+            trimmed.log_lines = Some(keep);
+        }
+        Ok((self, trimmed))
     }
 
-    /// Attaches the tail of the client's notes.
-    #[must_use]
-    pub fn with_notes(mut self, notes: Vec<Note>) -> Self {
-        self.notes = notes;
-        self
+    /// The bytes to send: checked, fitted and sealed, in that order, so that
+    /// [`seal`] is the last thing to look at them.
+    ///
+    /// # Errors
+    ///
+    /// See [`Unsendable`].
+    pub fn sealed(self, secrets: &[Secret<'_>]) -> Result<(String, Trimmed), Unsendable> {
+        if self.text.chars().count() > MAX_TEXT_CHARS {
+            return Err(Unsendable::TextTooLong);
+        }
+        let (fitted, trimmed) = self.fitted()?;
+        let json = seal(&fitted, secrets).map_err(Unsendable::Leaked)?;
+        Ok((json, trimmed))
     }
 }
 
@@ -259,9 +512,10 @@ impl BugReport {
 ///
 /// # Panics
 ///
-/// Never: every field of a [`BugReport`] serialises, and the view and the
-/// pending question are the wire types the client already receives as JSON.
-pub fn seal(report: &BugReport, secrets: &[Secret<'_>]) -> Result<String, Leaked> {
+/// Never for a [`Submission`] or a [`BugReport`]: every field serialises,
+/// and the view and the pending question are the wire types the client
+/// already receives as JSON.
+pub fn seal<T: Serialize>(report: &T, secrets: &[Secret<'_>]) -> Result<String, Leaked> {
     let json = serde_json::to_string(report).expect("a bug report serialises");
     for secret in secrets {
         if secret.value.len() < SHORTEST_SECRET {
@@ -279,86 +533,180 @@ pub fn seal(report: &BugReport, secrets: &[Secret<'_>]) -> Result<String, Leaked
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::ViewBuilder;
+
+    const TOKEN: &str = "0123456789abcdef0123456789abcdef";
 
     fn build() -> Build {
         Build {
             version: "0.1.0".into(),
             commit: Some("deadbeef".into()),
+        }
+    }
+
+    fn system() -> System {
+        System {
             platform: "macos/aarch64".into(),
+            cpus: Some(10),
             adapter: Some("Apple M1 Max".into()),
+            backend: Some("Metal".into()),
             window: (1728, 1052),
             scale: 2.0,
             lang: "de".into(),
         }
     }
 
-    fn told() -> Told {
-        Told {
-            happened: "Der Command Tower wurde nicht getappt".into(),
-            expected: "Harabaz Druid haette gecastet werden koennen".into(),
+    fn gathered() -> Gathered {
+        Gathered {
+            build: build(),
+            game_id: Some("g-42".into()),
+            system: Some(system()),
+            game: Some(Game {
+                table: Table {
+                    seat: 0,
+                    seq: 7,
+                    when: "turn 3, main 1".into(),
+                },
+                view: ViewBuilder::new(2).build(),
+                pending: None,
+                holding: Holding::default(),
+            }),
+            log: Some(SeatLog {
+                seat: 0,
+                roster: Vec::new(),
+                lines: vec![LogRow {
+                    turn: 1,
+                    at: 0,
+                    text: "Your turn".into(),
+                }],
+            }),
+            settings: Some(Settings {
+                lang: "de".into(),
+                music: "soft".into(),
+                ..Settings::default()
+            }),
+            screenshot: Some(Screenshot {
+                width: 2,
+                height: 1,
+                png_base64: "iVBORw0KGgo=".into(),
+            }),
         }
     }
 
-    /// The ordinary case: a report with no secret in it comes back as bytes.
-    #[test]
-    fn a_clean_report_is_handed_over() {
-        let report = BugReport::new(told(), build());
-        let json = seal(
-            &report,
-            &[Secret {
-                label: "seat token",
-                value: "0123456789abcdef0123456789abcdef",
-            }],
-        )
-        .expect("nothing to find");
-        assert!(json.contains("Command Tower"), "the player's words survive");
+    fn told() -> &'static str {
+        "Der Command Tower wurde nicht getappt; Harabaz Druid haette gehen sollen"
     }
 
-    /// The whole point of the function. A token that reached the report by
-    /// *any* route — here the free text, which is the one field no schema
-    /// can constrain, because a player may paste anything into it — refuses
-    /// the report instead of sending it.
+    fn token() -> [Secret<'static>; 1] {
+        [Secret {
+            label: "seat token",
+            value: TOKEN,
+        }]
+    }
+
+    fn json_of(submission: Submission) -> serde_json::Value {
+        let (json, _) = submission.sealed(&token()).expect("nothing to find");
+        serde_json::from_str(&json).expect("sealed bytes are JSON")
+    }
+
+    /// The ordinary case: a report with no secret in it comes back as bytes,
+    /// shaped as `POST /reports` takes it.
+    #[test]
+    fn a_clean_report_is_handed_over_in_the_contract_s_shape() {
+        let all = Consent::everything();
+        let body = json_of(gathered().submission(Kind::Improvement, told(), &all));
+        assert_eq!(body["kind"], "improvement");
+        assert_eq!(body["text"], told());
+        assert_eq!(body["game_id"], "g-42");
+        let client = body["client"].as_object().expect("client is an object");
+        for part in ["build", "system", "game", "log", "settings", "screenshot"] {
+            assert!(
+                client.contains_key(part),
+                "{part} was ticked and is missing"
+            );
+        }
+    }
+
+    /// Nothing ticked: the build and nothing else. This is the consent gate,
+    /// read off the bytes that would be sent rather than off the struct.
+    #[test]
+    fn with_nothing_ticked_only_the_build_goes() {
+        let body = json_of(gathered().submission(Kind::Bug, told(), &Consent::default()));
+        let client = body["client"].as_object().expect("client is an object");
+        assert_eq!(client.keys().collect::<Vec<_>>(), ["build"]);
+        assert!(
+            !body.to_string().contains("Apple M1 Max"),
+            "the adapter is a system detail, and system was not ticked"
+        );
+    }
+
+    /// Each box lets through its own part and no other.
+    #[test]
+    fn each_box_lets_through_its_own_part_and_no_other() {
+        let key = |category| match category {
+            Category::System => "system",
+            Category::Game => "game",
+            Category::Log => "log",
+            Category::Settings => "settings",
+            Category::Screenshot => "screenshot",
+        };
+        for category in Category::ALL {
+            let mut consent = Consent::default();
+            consent.set(category, true);
+            let body = json_of(gathered().submission(Kind::Bug, "x", &consent));
+            let client = body["client"].as_object().expect("client is an object");
+            let mut keys: Vec<_> = client.keys().map(String::as_str).collect();
+            keys.sort_unstable();
+            let mut want = vec!["build", key(category)];
+            want.sort_unstable();
+            assert_eq!(keys, want, "{category:?}");
+        }
+    }
+
+    /// The whole point of [`seal`]. A token that reached the report by *any*
+    /// route — here the free text, which is the one field no schema can
+    /// constrain, because a player may paste anything into it — refuses the
+    /// report instead of sending it.
     #[test]
     fn a_secret_anywhere_in_it_refuses_the_report() {
-        let token = "0123456789abcdef0123456789abcdef";
-        let mut report = BugReport::new(told(), build());
-        report.told.happened = format!("ich war auf dem Tisch mit token={token}");
-
-        let refused = seal(
-            &report,
-            &[Secret {
-                label: "seat token",
-                value: token,
-            }],
-        )
-        .expect_err("the token is in there");
-        assert_eq!(refused.label, "seat token");
+        let text = format!("ich war auf dem Tisch mit token={TOKEN}");
+        let refused = gathered()
+            .submission(Kind::Bug, &text, &Consent::default())
+            .sealed(&token())
+            .expect_err("the token is in there");
+        assert_eq!(
+            refused,
+            Unsendable::Leaked(Leaked {
+                label: "seat token".into()
+            })
+        );
         assert!(
-            !refused.to_string().contains(token),
+            !refused.text(crate::i18n::Lang::En).contains(TOKEN),
             "a refusal that quoted the secret would be a way to read it"
         );
     }
 
     /// And it searches every field, not the text ones: a secret that arrived
-    /// through the build metadata — a gateway URL with a token in its query,
-    /// which is exactly how one would get there — is caught the same way.
+    /// through a structured part — a gateway URL with a token in its query,
+    /// pasted into an adapter string, which is how one would get there — is
+    /// caught the same way.
     #[test]
     fn a_secret_in_a_structured_field_is_found_too() {
-        let token = "tok_aaaabbbbccccdddd";
-        let mut report = BugReport::new(told(), build());
-        report.build.adapter = Some(format!("http://gateway/?token={token}"));
-        assert_eq!(
-            seal(
-                &report,
-                &[Secret {
-                    label: "session token",
-                    value: token
-                }]
-            ),
-            Err(Leaked {
-                label: "session token".into()
-            })
-        );
+        let mut gathered = gathered();
+        gathered.system.as_mut().expect("system").adapter =
+            Some(format!("http://gateway/?token={TOKEN}"));
+        let everything = Consent::everything();
+        assert!(matches!(
+            gathered
+                .submission(Kind::Bug, "x", &everything)
+                .sealed(&token()),
+            Err(Unsendable::Leaked(_))
+        ));
+        // Unticked, it is not in the report, so there is nothing to refuse.
+        gathered
+            .submission(Kind::Bug, "x", &Consent::default())
+            .sealed(&token())
+            .expect("the system part was not sent");
     }
 
     /// A short "secret" is not one, and searching for it would refuse every
@@ -366,9 +714,8 @@ mod tests {
     /// them.
     #[test]
     fn something_too_short_to_be_a_secret_is_not_searched_for() {
-        let report = BugReport::new(told(), build());
         seal(
-            &report,
+            &gathered().report(&Consent::everything()),
             &[
                 Secret {
                     label: "language",
@@ -381,5 +728,61 @@ mod tests {
             ],
         )
         .expect("neither is a secret");
+    }
+
+    /// The text limit is characters, as the gateway counts them: a text of
+    /// umlauts at the limit goes, one more character does not.
+    #[test]
+    fn the_text_limit_counts_characters_not_bytes() {
+        let at = "ä".repeat(MAX_TEXT_CHARS);
+        gathered()
+            .submission(Kind::Bug, &at, &Consent::default())
+            .sealed(&[])
+            .expect("exactly at the limit");
+        let over = format!("{at}a");
+        assert_eq!(
+            gathered()
+                .submission(Kind::Bug, &over, &Consent::default())
+                .sealed(&[])
+                .map(|_| ()),
+            Err(Unsendable::TextTooLong)
+        );
+    }
+
+    /// Over the size limit the screenshot goes first, then the log's oldest
+    /// lines, and the report still goes out under the limit.
+    #[test]
+    fn an_oversized_report_drops_the_screenshot_then_the_oldest_log_lines() {
+        let mut gathered = gathered();
+        gathered.screenshot.as_mut().expect("shot").png_base64 = "A".repeat(MAX_CLIENT_BYTES);
+        let (fitted, trimmed) = gathered
+            .submission(Kind::Bug, "x", &Consent::everything())
+            .fitted()
+            .expect("fits without the picture");
+        assert!(trimmed.screenshot && trimmed.log_lines.is_none());
+        assert!(fitted.client.screenshot.is_none() && fitted.client.log.is_some());
+
+        let rows = 40_000;
+        gathered.log.as_mut().expect("log").lines = (0..rows)
+            .map(|i| LogRow {
+                turn: i,
+                at: 0,
+                text: format!("line {i:05} {}", "x".repeat(60)),
+            })
+            .collect();
+        let (fitted, trimmed) = gathered
+            .submission(Kind::Bug, "x", &Consent::everything())
+            .fitted()
+            .expect("fits with a shorter log");
+        let kept = trimmed.log_lines.expect("the log was cut");
+        assert!(kept > 0 && kept < rows as usize);
+        let lines = &fitted.client.log.as_ref().expect("log").lines;
+        assert_eq!(lines.len(), kept);
+        assert_eq!(
+            lines.last().map(|row| row.turn),
+            Some(rows - 1),
+            "the newest line is the one kept"
+        );
+        assert!(serde_json::to_vec(&fitted.client).expect("json").len() <= MAX_CLIENT_BYTES);
     }
 }

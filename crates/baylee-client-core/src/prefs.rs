@@ -101,11 +101,13 @@ pub enum Action {
     FocusNextSeat,
     /// Look back at your own.
     FocusHome,
+    /// Open the report form (#309), from the lobby or the table.
+    Report,
 }
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 29] = [
+    pub const ALL: [Self; 30] = [
         Self::Primary,
         Self::Confirm,
         Self::Cancel,
@@ -135,6 +137,7 @@ impl Action {
         Self::ToggleTextView,
         Self::ToggleBrowser,
         Self::ToggleLog,
+        Self::Report,
     ];
 
     /// How the action is named to a player.
@@ -174,6 +177,7 @@ impl Action {
             Self::RailDown => Phrase::ActRailDown,
             Self::FocusNextSeat => Phrase::ActFocusNextSeat,
             Self::FocusHome => Phrase::ActFocusHome,
+            Self::Report => Phrase::ReportButton,
         }
     }
 
@@ -209,7 +213,9 @@ impl Action {
             | Self::AnswerNo
             | Self::NumberUp
             | Self::NumberDown => Phrase::GroupQuestions,
-            Self::ToggleTextView | Self::ToggleBrowser | Self::ToggleLog => Phrase::GroupDisplay,
+            Self::ToggleTextView | Self::ToggleBrowser | Self::ToggleLog | Self::Report => {
+                Phrase::GroupDisplay
+            }
         }
     }
 }
@@ -456,6 +462,7 @@ impl Keymap {
         bind(Action::RailDown, vec![Chord::shift("KeyS")]);
         bind(Action::FocusNextSeat, vec![Chord::key("KeyF")]);
         bind(Action::FocusHome, vec![Chord::key("KeyH")]);
+        bind(Action::Report, vec![Chord::key("F8")]);
         Self { bindings }
     }
 
@@ -482,6 +489,7 @@ impl Keymap {
         map.bindings.remove(&Action::HoldForStack);
         map.bindings.remove(&Action::HoldForTurn);
         map.bindings.remove(&Action::ActivateGroup);
+        map.bindings.remove(&Action::Report);
         map
     }
 
