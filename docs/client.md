@@ -1331,11 +1331,15 @@ does nothing — because either alone is a guess.
 
 What no printing of these three covers is a choice stated **inside** one
 sentence: "you may tap or untap target permanent", "put your choice of a
-+1/+1 counter or two charge counters". There neither mode *is* a sentence, so
-the number is the honest label and the reader refuses. Derevi and Inspirit,
-Flagship Vessel are the two, and they are named in a list
-(`MODES_PRINTED_INLINE`) rather than tolerated as a count, so that the next
-card reading as unknown stops a build instead of joining them in silence.
++1/+1 counter or two charge counters". There neither mode *is* a sentence, and
+the reader refuses. Derevi, Inspirit, Flagship Vessel and Tireless Provisioner
+are the three, and they are named in a hand-written table
+(`lines::MODES_PRINTED_INLINE`) rather than tolerated as a count, so that the
+next card reading as unknown stops a build instead of joining them in silence.
+The table also carries each mode's own words, "a +1/+1 counter" and "two
+charge counters", as verbatim slices of the English Oracle sentence
+(`every_inline_mode_is_printed_in_its_own_sentence` holds them against the
+compiled Oracle), which is what the cast chooser draws for them (#319).
 
 An alternative cost is printed either as a sentence — and the two
 templates are themselves the discriminator, "without
@@ -4349,11 +4353,16 @@ which is the client describing a button rather than the card saying
 anything; the row now draws the face's mana cost as pips beside an empty
 label, and a spell cast for nothing draws `{0}` rather than an empty row. An
 alternative cost whose card the view cannot name has no words either (it
-said "Alternative cost"). A **mode** with no sentence keeps its number,
-"Mode 2", because there the number is the only thing that tells two rows
-apart: Derevi, Inspirit and Tireless Provisioner state their choice inside
-one sentence (`lines::MODES_PRINTED_INLINE`), a mode that declines prints
-nothing, and a trigger's mode costs nothing to draw instead.
+said "Alternative cost"). A **mode printed inside a sentence** (Derevi,
+Inspirit, Tireless Provisioner) draws the card's own English words for it,
+"a +1/+1 counter" (`lines::inline_mode_words`): English, because nothing can
+say where inside a translated sentence the choice sits, and English is the
+fallback everywhere card text cannot be paired. It drew "Modus 1" and
+"Modus 2" until the owner reported it (#319). Only a mode that is neither
+keeps its number, "Mode 2": one whose card the view cannot name, and the
+effect-less mode that declines "choose up to one", which no card prints.
+`choices::tests::every_mode_in_the_pool_is_a_row_in_the_card_s_words` walks
+every modal ability in the pool and holds each row to words its card prints.
 
 **A prepared cast is the spell it casts** (#212). Emeritus of Woe offers a
 copy of Demonic Tutor under the reserved `PREPARED_CAST`, which is no

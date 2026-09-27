@@ -73,6 +73,22 @@ impl FaceNames<'_> {
 /// is what `FaceNames::of` is given.
 const CAST_FACE: usize = 0;
 
+/// Which card `object` is, for a cast chooser.
+///
+/// It is in **hand** when it is a spell being cast, which is the one zone
+/// `PlayerView::object` does not answer for, and on the battlefield (or
+/// anywhere else the view shows it) when it is the source of a modal
+/// trigger.
+fn cast_card(names: FaceNames<'_>, object: ObjectId) -> Option<CardIndex> {
+    let view = names.view?;
+    view.hand
+        .iter()
+        .find(|c| c.id == object)
+        .map(|c| c.card)
+        .or_else(|| view.object(object).and_then(|o| o.card))
+        .map(|card| card.index)
+}
+
 /// One printed sentence of the card `object` is, in the player's own
 /// language — the label a row of the cast chooser wants.
 ///
@@ -99,20 +115,14 @@ fn printed_sentence(
     line: fn(CardIndex, usize, usize) -> Option<baylee_cards::lines::AbilityLine>,
     at: usize,
 ) -> Option<String> {
-    let view = names.view?;
-    let card = view
-        .hand
-        .iter()
-        .find(|c| c.id == object)
-        .map(|c| c.card)
-        .or_else(|| view.object(object).and_then(|o| o.card))?;
-    let found = line(card.index, CAST_FACE, at)?;
+    let card = cast_card(names, object)?;
+    let found = line(card, CAST_FACE, at)?;
     let printed = baylee_view::StackText {
         face: u8::try_from(CAST_FACE).ok()?,
         line: found.line,
         of: found.of,
     };
-    let blocks = crate::cardtext::sentence(names.texts, card.index, printed)?;
+    let blocks = crate::cardtext::sentence(names.texts, card, printed)?;
     let said: Vec<&str> = blocks
         .iter()
         .filter_map(|block| match block {
@@ -318,12 +328,20 @@ pub fn options(
 /// the row then draws its cost and nothing invented beside it: it said
 /// "Alternative cost" before.
 ///
-/// A **mode** keeps its number where it has no sentence, because there the
-/// number is the only thing that tells two rows apart. Three modal triggers
-/// in the pool state their choice inside one sentence (Derevi, Inspirit,
-/// Tireless Provisioner, `lines::MODES_PRINTED_INLINE`) and a mode that
-/// declines prints nothing; a trigger's mode costs nothing, so without the
-/// number those rows would be blank and identical.
+/// A mode that has no sentence of its own is one of three modal triggers
+/// that state their choice **inside** one sentence (Derevi, Inspirit,
+/// Tireless Provisioner): "put your choice of a +1/+1 counter or two charge
+/// counters". Its row says the card's own words for it, "a +1/+1 counter",
+/// which [`baylee_cards::lines::inline_mode_words`] holds as a verbatim
+/// slice of the English Oracle sentence. English, because nothing can say
+/// where inside a translated sentence the choice sits; the player's language
+/// falls back to English everywhere the card's text cannot be paired. These
+/// rows read "Mode 1" and "Mode 2" until #319.
+///
+/// Only a mode that is neither keeps its number: one whose card cannot be
+/// found, and the effect-less mode a player declines "choose up to one"
+/// with, which a card prints nowhere. A trigger's mode costs nothing, so
+/// without the number those rows would be blank and identical.
 fn cast_label(
     kind: baylee_engine::choice::CastModeKind,
     lang: Lang,
@@ -340,6 +358,10 @@ fn cast_label(
         // One-based in the fallback, because the printed card numbers its
         // modes from one and a player reads the card, not the index.
         K::Mode(i) => printed_sentence(names, object, baylee_cards::lines::mode_line, i)
+            .or_else(|| {
+                let card = cast_card(names, object)?;
+                baylee_cards::lines::inline_mode_words(card, CAST_FACE, i).map(str::to_string)
+            })
             .unwrap_or_else(|| Phrase::CastModeNumber.fill(lang, &[&(i + 1).to_string()])),
         K::Face(i) => names
             .of(object, i)
@@ -937,5 +959,129 @@ mod tests {
             Lang::En,
         );
         assert_eq!(unfound[0].label, "");
+    }
+
+    /// The source of a modal trigger, on the battlefield as the view shows
+    /// it: the zone a trigger's question is asked from.
+    fn on_the_battlefield(name: &str) -> (baylee_view::PlayerView, ObjectId) {
+        let object = crate::registry_printed(55, 0, name);
+        let id = object.id;
+        let view = baylee_client_core::test_support::ViewBuilder::new(2)
+            .with_battlefield(0, [object])
+            .build();
+        (view, id)
+    }
+
+    /// The owner's report 01a0e3ec (#319): Inspirit's combat trigger asked
+    /// "Modus 1" or "Modus 2".
+    ///
+    /// Its choice is printed inside one sentence, so neither mode *is* a
+    /// sentence and the table of printed lines rightly knows none; the row
+    /// fell straight to a number this client had worded. The shape here is
+    /// the report's: the trigger's source on the battlefield, a German
+    /// interface, and the German printing's text as Scryfall files it — in
+    /// English, as it was served for this card.
+    #[test]
+    fn inspirit_s_two_modes_say_the_card_s_own_words() {
+        let (view, object) = on_the_battlefield("Inspirit, Flagship Vessel");
+        let (_, texts, _) = asking_about(
+            "554df866-3dbb-4811-8573-6033481591aa",
+            "de",
+            "Station (Tap another creature you control: Put charge counters equal to its \
+             power on this Spacecraft. Station only as a sorcery. It's an artifact creature \
+             at 8+.)\n\
+             1+ | At the beginning of combat on your turn, put your choice of a +1/+1 counter \
+             or two charge counters on up to one other target artifact.\n\
+             8+ | Flying\n\
+             Other artifacts you control have hexproof and indestructible.",
+        );
+        for texts in [Some(&texts), None] {
+            let rows = cast_rows(
+                object,
+                &[CastModeKind::Mode(0), CastModeKind::Mode(1)],
+                FaceNames {
+                    view: Some(&view),
+                    texts,
+                },
+                Lang::De,
+            );
+            assert_eq!(rows[0].label, "a +1/+1 counter");
+            assert_eq!(rows[1].label, "two charge counters");
+        }
+    }
+
+    /// Every mode of every modal ability in the pool is a row that says
+    /// something the card prints, and no two modes of one ability say the
+    /// same thing.
+    ///
+    /// Asked the way the report was asked: a German interface with no text
+    /// filed, so a row can only come from the compiled English Oracle —
+    /// through the printed sentence a mode is, or the words it is inside a
+    /// sentence. The one mode allowed its number is the effect-less mode a
+    /// player declines "choose up to one" with, which no card prints.
+    #[test]
+    fn every_mode_in_the_pool_is_a_row_in_the_card_s_words() {
+        let mut modes_seen = 0usize;
+        let mut faces_seen = 0usize;
+        for def in baylee_cards::all() {
+            let modes = baylee_cards::lines::face_modes(def.abilities_for_face(CAST_FACE));
+            if modes.is_empty() {
+                continue;
+            }
+            faces_seen += 1;
+            let (view, object) = on_the_battlefield(def.name());
+            let kinds: Vec<CastModeKind> = (0..modes.len()).map(CastModeKind::Mode).collect();
+            let rows = cast_rows(
+                object,
+                &kinds,
+                FaceNames {
+                    view: Some(&view),
+                    texts: None,
+                },
+                Lang::De,
+            );
+            let mut said = Vec::new();
+            for (at, (mode, row)) in modes.iter().zip(&rows).enumerate() {
+                let number = Phrase::CastModeNumber.fill(Lang::De, &[&(at + 1).to_string()]);
+                if mode.effects.is_empty() {
+                    assert_eq!(
+                        row.label,
+                        number,
+                        "{} mode {at} declines, and is printed nowhere",
+                        def.name()
+                    );
+                    continue;
+                }
+                modes_seen += 1;
+                assert!(
+                    !row.label.is_empty() && row.label != number,
+                    "{} mode {at} is drawn as {:?}, not in the card's words",
+                    def.name(),
+                    row.label
+                );
+                let oracle = baylee_cards::oracle::face(def.index, CAST_FACE)
+                    .expect("a pool card has its Oracle text");
+                assert!(
+                    oracle.contains(row.label.as_str()),
+                    "{} mode {at}: {:?} is not what the card prints",
+                    def.name(),
+                    row.label
+                );
+                said.push(row.label.clone());
+            }
+            let count = said.len();
+            said.sort_unstable();
+            said.dedup();
+            assert_eq!(
+                said.len(),
+                count,
+                "{}: two of its modes are drawn alike",
+                def.name()
+            );
+        }
+        // The walk's own floor: a pool that lost its modal cards, or a
+        // reading of modes that found none, would pass everything above.
+        assert!(faces_seen >= 10, "only {faces_seen} modal faces walked");
+        assert!(modes_seen >= 25, "only {modes_seen} modes walked");
     }
 }
