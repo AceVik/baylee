@@ -60,6 +60,11 @@ impl Sink {
                 next = rx.recv().await;
             }
         });
+        Self::feeding(game_id, tx)
+    }
+
+    /// A sink handing its pieces to `tx`.
+    fn feeding(game_id: &str, tx: mpsc::UnboundedSender<v1::GameRecordChunk>) -> Self {
         Self {
             game_id: game_id.to_owned(),
             tx,
@@ -84,5 +89,44 @@ impl Sink {
             return;
         }
         let _ = self.tx.send(piece);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn piece(game_id: &str, seq: u32, bytes: usize) -> v1::GameRecordChunk {
+        v1::GameRecordChunk {
+            game_id: game_id.to_owned(),
+            seq,
+            data: vec![0; bytes],
+            last: false,
+        }
+    }
+
+    fn handed(rx: &mut mpsc::UnboundedReceiver<v1::GameRecordChunk>) -> Vec<u32> {
+        std::iter::from_fn(|| rx.try_recv().ok())
+            .map(|p| p.seq)
+            .collect()
+    }
+
+    /// Only this game's pieces go to the writer, and only up to
+    /// [`MAX_RECORD_BYTES`] of them: the piece that crosses it and every one
+    /// after are dropped, however small.
+    #[test]
+    fn a_sink_takes_its_own_game_up_to_the_bound() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mut sink = Sink::feeding("g1", tx);
+        sink.take(piece("g1", 0, 10));
+        sink.take(piece("g2", 1, 10));
+        sink.take(piece("", 2, 10));
+        assert_eq!(handed(&mut rx), [0], "another game's piece is dropped");
+
+        sink.take(piece("g1", 1, MAX_RECORD_BYTES - 10));
+        assert_eq!(handed(&mut rx), [1], "exactly the bound fits");
+        sink.take(piece("g1", 2, 1));
+        sink.take(piece("g1", 3, 0));
+        assert!(handed(&mut rx).is_empty(), "past the bound nothing goes");
     }
 }
