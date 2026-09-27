@@ -10,6 +10,7 @@
 pub mod harness;
 mod log;
 pub mod preset;
+pub mod record;
 mod scouting;
 pub mod session;
 pub mod view;

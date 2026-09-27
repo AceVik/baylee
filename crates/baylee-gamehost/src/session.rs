@@ -20,6 +20,7 @@ use baylee_view::{
 };
 
 use crate::log::GameLog;
+use crate::record::{ChairChange, Recorder, Source};
 
 /// How many of its policies' answers a seat's view carries (#234): the
 /// latest, so a seat yielding to a long loop is not sent the loop. Their
@@ -213,6 +214,10 @@ pub struct Session {
     /// `(owner, asker)` → the turn the owner turned the asker down in. The
     /// asker may ask again from the next turn on.
     declined: BTreeMap<(u8, u8), u32>,
+    /// The game's record (#315), when the host asked for one
+    /// ([`Session::new_recorded`]); `None` in the client's own table, which
+    /// has nowhere to keep it.
+    record: Option<Recorder>,
 }
 
 /// A seat's number as the policy-seed derivation takes it.
@@ -276,7 +281,59 @@ impl Session {
             showing: vec![SeatSet::new(); preset.seats.len()],
             asking: vec![SeatSet::new(); preset.seats.len()],
             declined: BTreeMap::new(),
+            record: None,
         })
+    }
+
+    /// [`Session::new`], keeping the game's record (#315) as it goes: every
+    /// input the engine takes, in order, which [`Session::take_record`]
+    /// hands out. `build` names the build playing it.
+    #[must_use]
+    pub fn new_recorded(preset: &GamePreset, build: &str) -> Option<Self> {
+        let mut session = Self::new(preset)?;
+        session.record = Some(Recorder::new(preset, build, session.engine.snapshot_hash()));
+        Some(session)
+    }
+
+    /// The record written since the last take, whole lines only; empty when
+    /// nothing was written or the session keeps no record.
+    pub fn take_record(&mut self) -> Vec<u8> {
+        self.record.as_mut().map(Recorder::take).unwrap_or_default()
+    }
+
+    /// How many bytes of record are waiting to be taken.
+    #[must_use]
+    pub fn record_pending(&self) -> usize {
+        self.record.as_ref().map_or(0, Recorder::pending)
+    }
+
+    /// Writes down an action the engine has just applied, and the end of the
+    /// game the first time the engine says it is over.
+    fn recorded(&mut self, seat: PlayerId, by: Source, action: PlayerAction) {
+        let Some(record) = self.record.as_mut() else {
+            return;
+        };
+        record.input(seat, by, action, &self.engine);
+        if !record.ended()
+            && let Pending::GameOver(result) = self.engine.pending()
+        {
+            let winners = self
+                .winning_seats(*result)
+                .iter()
+                .map(|p| p.get())
+                .collect();
+            let reason = format!("{:?}", result.reason);
+            if let Some(record) = self.record.as_mut() {
+                record.end(winners, reason);
+            }
+        }
+    }
+
+    /// Writes down a change of who answers `seat`.
+    fn chair_changed(&mut self, seat: PlayerId, change: ChairChange) {
+        if let Some(record) = self.record.as_mut() {
+            record.chair(seat, change);
+        }
     }
 
     /// The seats that are played over a socket, in seat order.
@@ -325,6 +382,7 @@ impl Session {
         };
         *kind = SeatKind::Driven(agent.clone());
         self.roster_changed();
+        self.chair_changed(seat, ChairChange::TakenOver);
         true
     }
 
@@ -344,6 +402,7 @@ impl Session {
         *kind = SeatKind::Ai(agent.clone());
         self.roster_changed();
         self.house_takes_hands(seat);
+        self.chair_changed(seat, ChairChange::Released);
         true
     }
 
@@ -394,6 +453,7 @@ impl Session {
         *kind = SeatKind::StandIn(HeuristicAgent::new(AIProfile::default()).with_teams(teams));
         self.roster_changed();
         self.log.note(LogEvent::StandIn { player: seat });
+        self.chair_changed(seat, ChairChange::StoodIn);
         true
     }
 
@@ -413,6 +473,7 @@ impl Session {
         *kind = SeatKind::Human;
         self.roster_changed();
         self.log.note(LogEvent::Returned { player: seat });
+        self.chair_changed(seat, ChairChange::HandedBack);
         true
     }
 
@@ -878,6 +939,16 @@ impl Session {
     /// write a line.
     pub fn tell_time(&mut self, unix_ms: u64) {
         self.log.tell_time(unix_ms);
+        if let Some(record) = self.record.as_mut() {
+            record.tell_time(unix_ms);
+        }
+    }
+
+    /// The engine's determinism hash, which a record checks its replay
+    /// against (#315).
+    #[must_use]
+    pub fn snapshot_hash(&self) -> u64 {
+        self.engine.snapshot_hash()
     }
 
     /// Read-only state access (views).
@@ -976,7 +1047,16 @@ impl Session {
         let moves = !action.is_automation_setting();
         let deciding = self.deciding();
         let asked = self.answering(player, &action);
+        let by = if self.seats[player.get() as usize].is_away() {
+            Source::StandIn
+        } else {
+            Source::House
+        };
+        let kept = self.record.is_some().then(|| action.clone());
         if self.engine.apply(player, action).is_ok() {
+            if let Some(action) = kept {
+                self.recorded(player, by, action);
+            }
             self.log_answer(player, &asked, deciding, None);
             return moves;
         }
@@ -987,9 +1067,13 @@ impl Session {
             .house_action(player)
             .expect("refused AI action left no decision");
         let asked = self.answering(player, &fallback);
+        let kept = self.record.is_some().then(|| fallback.clone());
         self.engine.apply(player, fallback).expect(
             "both AI proposal and recovery were refused; refusing to silently stall the table",
         );
+        if let Some(action) = kept {
+            self.recorded(player, by, action);
+        }
         self.log_answer(player, &asked, deciding, None);
         true
     }
@@ -1473,8 +1557,17 @@ impl Session {
         let moves_the_game = !action.is_automation_setting();
         let deciding = self.deciding();
         let asked = self.answering(player, &action);
+        let source = if clock.is_some() {
+            Source::Clock
+        } else {
+            Source::Seat
+        };
+        let kept = self.record.is_some().then(|| action.clone());
         if self.engine.apply(player, action).is_err() {
             return Err("illegal action for your seat".to_string());
+        }
+        if let Some(action) = kept {
+            self.recorded(player, source, action);
         }
         // Before the journal is read: the same apply may have run on into
         // this seat's policy answering again, and that one is news.
