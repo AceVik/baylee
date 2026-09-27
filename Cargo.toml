@@ -74,6 +74,9 @@ ureq = { version = "3", features = ["json"] }
 # as bevy's own web reader did; already in the tree through `async-fs`.
 blocking = "1"
 heck = "0.5"
+# The facade bevy's command errors are logged through (`bevy_ecs::error::warn`);
+# a client test installs its own logger to count them (#321).
+log = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio = { version = "1", features = ["full"] }

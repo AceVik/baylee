@@ -1730,16 +1730,25 @@ impl Plugin for DuelPlugin {
             // covers the way to `Closed` too, so it needs no line in the
             // teardown below.
             .add_systems(OnEnter(DuelPhase::Finished), hud::spawn_finish)
-            .add_systems(OnExit(DuelPhase::Finished), hud::despawn_finish)
-            .add_systems(
-                OnEnter(DuelPhase::Closed),
-                (
-                    table::despawn_stage,
-                    hud::despawn_overlay,
-                    textures::reset_game,
-                ),
-            );
+            .add_systems(OnExit(DuelPhase::Finished), hud::despawn_finish);
+        tear_the_table_down(app);
     }
+}
+
+/// What closing a duel takes down: the stage, the overlay, the game's
+/// printings.
+///
+/// Its own function so that `teardown_tests` runs the very schedule a real
+/// client runs on leaving a table, rather than a copy of it that could drift.
+pub(crate) fn tear_the_table_down(app: &mut App) {
+    app.add_systems(
+        OnEnter(DuelPhase::Closed),
+        (
+            table::despawn_stage,
+            hud::despawn_overlay,
+            textures::reset_game,
+        ),
+    );
 }
 
 /// Opens and closes the duel on request.
@@ -2805,6 +2814,10 @@ mod curtain_tests;
 
 #[cfg(test)]
 mod log_feed_tests;
+
+/// Leaving a table despawns what it drew once each (#321).
+#[cfg(test)]
+mod teardown_tests;
 
 /// A [`baylee_view::PublicObject`] carrying the registry card of that name.
 ///
