@@ -407,8 +407,15 @@ pub struct Gathered {
 }
 
 impl Gathered {
-    /// Whether there is anything to attach under `category`. A category
-    /// with nothing behind it is shown, but cannot be ticked.
+    /// Whether there is anything to attach under `category`.
+    ///
+    /// A box with nothing behind it is still shown and can still be ticked:
+    /// the ticks are the player's standing answer on this device, kept for
+    /// the next report (which may be written at a table, with a log and a
+    /// picture), and a box that refused a click now and took one later would
+    /// be a box that seemed broken. What it cannot do is put anything in the
+    /// report: [`Self::report`] asks this, so a ticked box over nothing sends
+    /// no key at all, not an empty one.
     #[must_use]
     pub fn has(&self, category: Category) -> bool {
         match category {
@@ -423,19 +430,18 @@ impl Gathered {
     /// The report, holding exactly what `consent` allows.
     ///
     /// An allow-list in the literal sense: each part is copied in only when
-    /// its box is ticked, and nothing is built first and stripped after.
+    /// its box is ticked *and* [`Self::has`] something under it, and nothing
+    /// is built first and stripped after.
     #[must_use]
     pub fn report(&self, consent: &Consent) -> BugReport {
-        fn take<T: Clone>(consent: &Consent, category: Category, part: Option<&T>) -> Option<T> {
-            consent.allows(category).then(|| part.cloned()).flatten()
-        }
+        let take = |category: Category| consent.allows(category) && self.has(category);
         BugReport {
             build: self.build.clone(),
-            system: take(consent, Category::System, self.system.as_ref()),
-            game: take(consent, Category::Game, self.game.as_ref()),
-            log: take(consent, Category::Log, self.log.as_ref()),
-            settings: take(consent, Category::Settings, self.settings.as_ref()),
-            screenshot: take(consent, Category::Screenshot, self.screenshot.as_ref()),
+            system: self.system.clone().filter(|_| take(Category::System)),
+            game: self.game.clone().filter(|_| take(Category::Game)),
+            log: self.log.clone().filter(|_| take(Category::Log)),
+            settings: self.settings.clone().filter(|_| take(Category::Settings)),
+            screenshot: self.screenshot.clone().filter(|_| take(Category::Screenshot)),
             crash: None,
         }
     }
@@ -720,6 +726,45 @@ mod tests {
             let mut want = vec!["build", key(category)];
             want.sort_unstable();
             assert_eq!(keys, want, "{category:?}");
+        }
+    }
+
+    /// A box ticked over nothing sends nothing: no key, not an empty one.
+    /// Here every box is ticked, the lobby had no table (no game, no log),
+    /// the log a table left behind is empty, and no picture was taken; the
+    /// preview and the sealed body agree, and both hold only what is there.
+    #[test]
+    fn a_ticked_box_with_nothing_behind_it_puts_nothing_in_the_report() {
+        let lobby = Gathered {
+            build: build(),
+            system: Some(system()),
+            settings: Some(Settings::default()),
+            log: Some(SeatLog {
+                seat: 0,
+                roster: Vec::new(),
+                lines: Vec::new(),
+            }),
+            ..Gathered::default()
+        };
+        let everything = Consent::everything();
+        for category in [Category::Game, Category::Log, Category::Screenshot] {
+            assert!(!lobby.has(category), "{category:?} has something");
+            assert!(everything.allows(category), "{category:?} is ticked");
+        }
+        let body = json_of(lobby.submission(Kind::Bug, "x", &everything));
+        let client = body["client"].as_object().expect("client is an object");
+        let mut keys: Vec<_> = client.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["build", "settings", "system"]);
+
+        let preview = ReportForm {
+            text: crate::textbuf::TextBuffer::new("x"),
+            ..ReportForm::default()
+        }
+        .preview_text(&lobby, &everything);
+        let shown: serde_json::Value = serde_json::from_str(&preview).expect("the preview is JSON");
+        for absent in ["game", "log", "screenshot"] {
+            assert!(shown["client"].get(absent).is_none(), "the preview shows {absent}");
         }
     }
 
