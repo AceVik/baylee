@@ -466,3 +466,12 @@ fn a_reconnect_returns_to_the_same_table() {
         "{back:#?}"
     );
 }
+
+/// The networked host answers the report form's keyring with its ticket's
+/// seat token (#314): at the table the lobby no longer holds it, and this
+/// is the one place it still lives.
+#[test]
+fn the_networked_host_names_its_seat_token_to_the_report_form() {
+    let host = NetworkHost::connect(ticket(1)).expect("connect");
+    assert_eq!(host.seat_token(), Some("0123456789abcdef"));
+}

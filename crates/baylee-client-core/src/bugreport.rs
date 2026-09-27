@@ -105,6 +105,63 @@ pub struct Secret<'a> {
     pub value: &'a str,
 }
 
+/// Every token the client is holding, wherever the shell keeps it, for
+/// [`seal`] to look for.
+///
+/// Gathered afresh for each send, from every place a token lives rather than
+/// from the screen that happens to be up: the seat token is the lobby's only
+/// between a join and the table opening, and after that it is the table's
+/// host's, which is exactly when a report about a game gets written. A
+/// keyring that missed one screen's token would pass the one report most
+/// likely to hold it.
+#[derive(Clone, Default, PartialEq, Eq)]
+pub struct Keyring {
+    /// Account sessions: the lobby's, and every copy of it (preferences,
+    /// card text) that could have gone stale behind a sign-out.
+    pub sessions: Vec<String>,
+    /// Seat tokens: the lobby's handover and the table's ticket.
+    pub seats: Vec<String>,
+    /// Guests this device keeps, one per gateway.
+    pub guests: Vec<String>,
+}
+
+impl std::fmt::Debug for Keyring {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Keyring")
+            .field("sessions", &self.sessions.len())
+            .field("seats", &self.seats.len())
+            .field("guests", &self.guests.len())
+            .finish()
+    }
+}
+
+impl Keyring {
+    /// The label a refusal names a session by.
+    pub const SESSION: &'static str = "session token";
+    /// The label a refusal names a seat token by.
+    pub const SEAT: &'static str = "seat token";
+    /// The label a refusal names a kept guest by.
+    pub const GUEST: &'static str = "guest token";
+
+    /// Every token, labelled, for [`seal`].
+    #[must_use]
+    pub fn secrets(&self) -> Vec<Secret<'_>> {
+        [
+            (Self::SESSION, &self.sessions),
+            (Self::SEAT, &self.seats),
+            (Self::GUEST, &self.guests),
+        ]
+        .into_iter()
+        .flat_map(|(label, values)| {
+            values.iter().map(move |value| Secret {
+                label,
+                value: value.as_str(),
+            })
+        })
+        .collect()
+    }
+}
+
 /// A report that was refused because it contained something it must not.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Leaked {
@@ -707,6 +764,44 @@ mod tests {
             .submission(Kind::Bug, "x", &Consent::default())
             .sealed(&token())
             .expect("the system part was not sent");
+    }
+
+    /// Each kind of token the keyring holds refuses a report that carries
+    /// it, under its own label, and a keyring holding all three finds each.
+    #[test]
+    fn the_keyring_refuses_each_kind_of_token_it_holds() {
+        let session = "5e55105e55105e55105e55105e55105e";
+        let seat = "5ea75ea75ea75ea75ea75ea75ea75ea7";
+        let guest = "9ue579ue579ue579ue579ue579ue579u";
+        let keyring = Keyring {
+            sessions: vec![session.into()],
+            seats: vec![seat.into()],
+            guests: vec!["some other guest's token".into(), guest.into()],
+        };
+        for (token, label) in [
+            (session, Keyring::SESSION),
+            (seat, Keyring::SEAT),
+            (guest, Keyring::GUEST),
+        ] {
+            let refused = gathered()
+                .submission(Kind::Bug, &format!("pasted {token} by mistake"), &Consent::default())
+                .sealed(&keyring.secrets());
+            assert_eq!(
+                refused.map(|_| ()),
+                Err(Unsendable::Leaked(Leaked {
+                    label: label.into()
+                })),
+                "{label}"
+            );
+        }
+        gathered()
+            .submission(Kind::Bug, "nothing of theirs", &Consent::everything())
+            .sealed(&keyring.secrets())
+            .expect("a clean report passes the whole keyring");
+        assert!(
+            !format!("{keyring:?}").contains(session),
+            "a keyring's Debug is counts, never tokens"
+        );
     }
 
     /// A short "secret" is not one, and searching for it would refuse every

@@ -16,10 +16,10 @@ use std::sync::{Arc, Mutex};
 
 use baylee_client_core::bugreport::{
     self, Build, Category, Consent, CrashConsent, CrashFile, CrashStep, Game, Gathered, Holding,
-    ReportForm, Secret, Settings, Status, System, Table,
+    Keyring, ReportForm, Settings, Status, System, Table,
 };
 use baylee_client_core::i18n::Lang;
-use baylee_client_core::lobby::gateway_list;
+use baylee_client_core::lobby::{Screen, gateway_list};
 use baylee_client_core::prefs::Action;
 use bevy::prelude::*;
 
@@ -28,6 +28,8 @@ use crate::settings::ClientSettings;
 
 mod form;
 mod shot;
+#[cfg(test)]
+mod tests;
 
 /// Where the panic hook leaves a crash, beside the settings.
 const CRASH_FILE: &str = "crash-report.json";
@@ -306,46 +308,74 @@ fn session(lobby: Option<&LobbyState>) -> Option<(String, String)> {
     Some((lobby.gateway.clone(), token.to_string()))
 }
 
-/// Every secret this client holds that a report must not carry: the
-/// session, a seat's token, and every guest kept on this device.
-fn secrets<'a>(
-    token: &'a str,
-    lobby: Option<&'a LobbyState>,
-    settings: &'a ClientSettings,
-) -> Vec<Secret<'a>> {
-    let mut secrets = vec![Secret {
-        label: "session token",
-        value: token,
-    }];
-    if let Some(seat) = lobby.and_then(|l| l.lobby.awaiting()) {
-        secrets.push(Secret {
-            label: "seat token",
-            value: &seat.seat_token,
-        });
+/// Everywhere a token lives, for [`keyring`]: read the same way by the
+/// form's Send and by the crash courier.
+#[derive(bevy::ecs::system::SystemParam)]
+pub(crate) struct Holders<'w> {
+    lobby: Option<Res<'w, LobbyState>>,
+    host: Option<Res<'w, crate::InstalledHost>>,
+    prefs: Option<Res<'w, crate::prefs::Prefs>>,
+    text: Option<Res<'w, crate::cardtext::TextGateway>>,
+}
+
+impl Holders<'_> {
+    /// Every token they hold, and the settings' guests.
+    fn keyring(&self, settings: &ClientSettings) -> Keyring {
+        keyring(
+            self.lobby.as_deref(),
+            self.host.as_deref(),
+            self.prefs.as_deref(),
+            self.text.as_deref(),
+            settings,
+        )
     }
-    for guest in settings.guests.values() {
-        secrets.push(Secret {
-            label: "guest token",
-            value: &guest.token,
-        });
+}
+
+/// Every token this client holds that a report must not carry, from every
+/// place it lives and whatever screen is up (#314): the lobby's session and
+/// the copies of it the preferences and the card text keep, the seat token
+/// the lobby holds between a join and the table and the one the table's
+/// host dials with after that, and every guest kept on this device.
+pub(crate) fn keyring(
+    lobby: Option<&LobbyState>,
+    host: Option<&crate::InstalledHost>,
+    prefs: Option<&crate::prefs::Prefs>,
+    text: Option<&crate::cardtext::TextGateway>,
+    settings: &ClientSettings,
+) -> Keyring {
+    let mut ring = Keyring::default();
+    let owned = |token: &str| token.to_string();
+    ring.sessions.extend(lobby.and_then(|l| l.lobby.token()).map(owned));
+    ring.sessions
+        .extend(prefs.and_then(crate::prefs::Prefs::session_token).map(owned));
+    ring.sessions.extend(
+        text.and_then(|t| t.0.as_ref())
+            .map(|signed| signed.token.clone()),
+    );
+    ring.seats.extend(
+        lobby
+            .and_then(|l| l.lobby.awaiting())
+            .map(|seat| seat.seat_token.clone()),
+    );
+    if let Some(Screen::Seated(seat)) = lobby.map(|l| l.lobby.screen()) {
+        ring.seats.push(seat.seat_token.clone());
     }
-    secrets
+    ring.seats
+        .extend(host.and_then(|h| h.0.seat_token()).map(owned));
+    ring.guests
+        .extend(settings.guests.values().map(|guest| guest.token.clone()));
+    ring
 }
 
 /// Sends the form's report: sealed here, answered into [`Answers`].
-fn send(
-    desk: &mut ReportDesk,
-    lobby: Option<&LobbyState>,
-    settings: &ClientSettings,
-    answers: &Answers,
-) {
-    let Some((gateway, token)) = session(lobby) else {
+fn send(desk: &mut ReportDesk, holders: &Holders, settings: &ClientSettings, answers: &Answers) {
+    let Some((gateway, token)) = session(holders.lobby.as_deref()) else {
         return;
     };
-    let secrets = secrets(&token, lobby, settings);
+    let keyring = holders.keyring(settings);
     let consent = settings.reports.clone();
     let gathered = desk.gathered.clone();
-    let Some(json) = desk.form.prepare(&gathered, &consent, &secrets) else {
+    let Some(json) = desk.form.prepare(&gathered, &consent, &keyring.secrets()) else {
         return;
     };
     post(&gateway, &token, json, answers, Answer::Form);
@@ -495,7 +525,7 @@ fn answer_the_crash_question(desk: &mut ReportDesk, settings: &mut ClientSetting
 /// Sends a waiting crash once the lobby is signed in where it belongs.
 fn send_the_crash(
     mut desk: ResMut<ReportDesk>,
-    lobby: Option<Res<LobbyState>>,
+    holders: Holders,
     settings: Res<ClientSettings>,
     answers: Res<Answers>,
 ) {
@@ -505,7 +535,7 @@ fn send_the_crash(
     let Some(file) = desk.crash.clone() else {
         return;
     };
-    let Some((gateway, token)) = session(lobby.as_deref()) else {
+    let Some((gateway, token)) = session(holders.lobby.as_deref()) else {
         return;
     };
     if !file.sends_to(&gateway, gateway_list::PINNED) {
@@ -516,8 +546,8 @@ fn send_the_crash(
         .reports
         .allows(Category::System)
         .then(|| system(None, None, &settings.lang));
-    let secrets = secrets(&token, lobby.as_deref(), &settings);
-    if let Ok((json, _)) = bugreport::crash_submission(&file, system).sealed(&secrets) {
+    let keyring = holders.keyring(&settings);
+    if let Ok((json, _)) = bugreport::crash_submission(&file, system).sealed(&keyring.secrets()) {
         post(&gateway, &token, json, &answers, |status, _| {
             Answer::Crash(status)
         });

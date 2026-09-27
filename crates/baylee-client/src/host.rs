@@ -123,6 +123,15 @@ pub trait DuelHost: Send + Sync + 'static {
     fn reconnect(&mut self) -> Result<(), String> {
         Ok(())
     }
+
+    /// The seat token this host plays with, for the report form's leak
+    /// check (`report::keyring`) and for nothing else.
+    ///
+    /// Defaults to `None`, the truthful answer for a host with no gateway
+    /// behind it: an in-process table has no token to leak.
+    fn seat_token(&self) -> Option<&str> {
+        None
+    }
 }
 
 /// Decodes one server envelope into the message a client acts on.

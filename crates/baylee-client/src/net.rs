@@ -495,6 +495,10 @@ impl DuelHost for NetworkHost {
         self.seat
     }
 
+    fn seat_token(&self) -> Option<&str> {
+        Some(self.ticket.seat_token.as_str()).filter(|token| !token.is_empty())
+    }
+
     fn link(&self) -> LinkState {
         if let Some(table) = self.refused {
             return LinkState::Refused { table };

@@ -683,7 +683,7 @@ fn pressed(
     presses: Query<&DeskPress>,
     mut desk: ResMut<ReportDesk>,
     mut settings: ResMut<ClientSettings>,
-    lobby: Option<Res<LobbyState>>,
+    holders: super::Holders,
     answers: Res<Answers>,
 ) {
     let Ok(press) = presses.get(click.entity) else {
@@ -712,7 +712,7 @@ fn pressed(
         DeskPress::Preview => desk.form.preview = !desk.form.preview,
         DeskPress::Send => {
             let desk = desk.as_mut();
-            super::send(desk, lobby.as_deref(), &settings, &answers);
+            super::send(desk, &holders, &settings, &answers);
         }
         DeskPress::Close => {
             desk.open = false;
