@@ -8,6 +8,14 @@ the pointers, because line numbers move.
 
 "Kept until deleted by hand" means no code path removes it.
 
+The player-facing statement made from this inventory lives in `web/legal/`
+(`datenschutz.html`, its English twin `privacy.html`, and `impressum.html`),
+served at `/datenschutz`, `/privacy` and `/impressum` and named in `/info`
+(`BAYLEE_PRIVACY_URL`, `BAYLEE_IMPRINT_URL`). **Change them together with
+this inventory:** a fact that changes here and not there is a false
+statement to players. They are drafts awaiting legal review
+(`docs/legal.md` §4).
+
 ## At a glance
 
 | What | Where | Kept | Removed by |
@@ -24,6 +32,7 @@ the pointers, because line numbers move.
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
 | Game state | engine process memory | the game | the process exits |
 | Server logs | stdout | the host's choice | the host |
+| Backups (live server) | the same machine | 48 h / 14 d / 8 w / 12 months | rotation (operator's setup, not in this repository) |
 | Legacy import file | disk, `STORE_PATH` + `.imported` | indefinitely | nothing |
 | Client settings | the player's device | until the player removes them | the player; a guest's token at sign-out |
 | A report the player sends | leaves the device for the gateway (`POST /reports`) | see [Reports](#reports-and-crash-reports-309-310-314) | — |
@@ -242,6 +251,14 @@ the pointers, because line numbers move.
   at the level `RUST_LOG` sets. There is no log file, no access log (no
   `tower-http` trace layer) and no JSON output. How long stdout is kept is up
   to whatever runs the process.
+- **On the live server (the owner's statement, 27.09.2026; server
+  configuration, not code in this repository):** the reverse proxy in front
+  of the gateway and the feedback service keeps no access log
+  (`scripts/server/legal.caddy` carries no `log` directive, and its test
+  holds it to that), and the databases are backed up on the same machine,
+  kept 48 hours, 14 days, 8 weeks and 12 months in tiers. A deleted account
+  can so stay in a backup for up to 12 months. How long the systemd journal
+  keeps stdout there is not stated yet.
 - **What is personal in them:** game ids, seat numbers, an agent's operator
   label, counts (for example "idle guests deleted"), and the id of a picture
   whose file could not be removed. No log line names
@@ -441,8 +458,10 @@ to weigh, not conclusions.
    client still sends its session or seat token in a socket's address, and
    `/auth/confirm?token=` always does; whatever access log sits in front of
    the gateway sees those.
-4. **Retention of stdout logs and of backups** is not set anywhere in the
-   repository.
+4. **Retention of stdout logs** is not set anywhere in the repository or
+   stated for the live server. Backup retention and the proxy's missing
+   access log are the owner's statements about the live server (see Logs),
+   not something the repository sets up.
 5. **Game records** (#315) are kept without a time limit and name seats by
    account id: an account's id stays in them after the account is deleted.
 6. **Reports:** a screenshot can show other players' names, and the text

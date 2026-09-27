@@ -222,8 +222,26 @@ Urheber- und Medienrecht.
    the rest.
 4. **Privacy:** self-hosted; minimal account data; account deletion
    endpoint (`DELETE /account`, `docs/protocol.md` §"Deleting an account
-   (#292)"); no tracking. As a private, GitHub-hosted open-source project
-   no Impressum is required (no commercial/public telemedia service).
+   (#292)"); no tracking. `docs/privacy.md` is the exact inventory.
+   **Player-facing pages, drafts awaiting review (27.09.2026):**
+   `web/legal/datenschutz.html` (Art. 13/14 DSGVO, German, the version
+   meant to be in force), `web/legal/privacy.html` (the same in English) and
+   `web/legal/impressum.html`, served by the reverse proxy at
+   `/datenschutz`, `/privacy`, `/impressum` (`scripts/server/legal.caddy`)
+   and linked by the client from `/info` (`BAYLEE_PRIVACY_URL`,
+   `BAYLEE_IMPRINT_URL`). They carry placeholders (`[NAME]`,
+   `[ANSCHRIFT]`, `[E-MAIL]`, the supervisory authority, log retention,
+   minimum age) and a visible draft note, and are not to be pointed at from
+   `/info` before a person with legal knowledge has approved them. This
+   clause used to say no Impressum is required; that holds for § 5 DDG,
+   which asks it of business-like services, but a public game server
+   anybody can join is likely not "purely personal" under § 18 Abs. 1 MStV,
+   so publishing name and address is the prudent reading (not legal
+   advice; the file's header says why). The one point flagged hardest for
+   review is the game records (`docs/privacy.md` §"Game records and
+   reports"): kept without a time limit, with only the account link cut on
+   deletion, and whether that clears the anonymisation threshold of
+   Art. 17 DSGVO is a lawyer's call.
 5. **Audio:** interface/gameplay cues remain original computed PCM in
    `crates/baylee-client/src/sound.rs`. The continuous music is an original
    composition, now performed using recordings of real instruments from
