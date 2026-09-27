@@ -498,7 +498,7 @@ async fn a_player_who_deletes_their_account_leaves_the_table() {
         json_field(&body, "token").to_string()
     };
     let (alice, bob) = (session("alice"), session("bob"));
-    let lobby = |token: &str| format!("ws://127.0.0.1:{port}/lobby/ws?token={token}");
+    let lobby = |token: &str| common::lobby_url(port, token, "");
     let (mut lobby_a, _) = tokio_tungstenite::connect_async(lobby(&alice))
         .await
         .expect("alice's lobby socket");
@@ -526,12 +526,12 @@ async fn a_player_who_deletes_their_account_leaves_the_table() {
         closes(&mut lobby_a).await,
         "alice's lobby socket stayed open"
     );
-    match tokio_tungstenite::connect_async(common::seat_url(port, &game_id, &seat_token_a)).await {
-        Err(tokio_tungstenite::tungstenite::Error::Http(refused)) => {
-            assert_eq!(refused.status(), 401, "alice's seat token");
-        }
-        other => panic!("alice's seat token still opens a seat: {:?}", other.is_ok()),
-    }
+    let (status, _) = common::ask_ticket(
+        port,
+        &seat_token_a,
+        &format!("{{\"socket\":\"seat\",\"game\":\"{game_id}\"}}"),
+    );
+    assert_eq!(status, 401, "alice's seat token still buys a ticket");
 
     let after = next_listing(&mut lobby_b).await;
     assert!(

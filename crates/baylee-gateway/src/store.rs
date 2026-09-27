@@ -741,7 +741,22 @@ pub async fn resolve_token(
     token: &str,
     now: u64,
 ) -> Result<Option<Session>> {
-    let hash = auth::token_digest(token);
+    resolve_digest(db, auth::token_digest(token), now).await
+}
+
+/// [`resolve_token`] for a session known only by its digest: what a lobby
+/// socket's ticket remembers of the session that asked for it (#294), so
+/// the upgrade can ask whether it still stands without the token itself
+/// having been kept anywhere.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn resolve_digest(
+    db: &DatabaseConnection,
+    hash: Vec<u8>,
+    now: u64,
+) -> Result<Option<Session>> {
     let Some((row, owner)) = Sessions::find_by_id(hash.clone())
         .find_also_related(Accounts)
         .one(db)

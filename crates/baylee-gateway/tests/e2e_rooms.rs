@@ -646,8 +646,8 @@ async fn a_player_who_lost_their_client_is_given_their_seat_back() {
     let (status, body) = http(
         port,
         "GET",
-        &format!("/games/{game_id}/cosmetics?token={third}"),
-        None,
+        &format!("/games/{game_id}/cosmetics"),
+        Some(&third),
         "",
     );
     assert_eq!(status, 200, "the ticket just issued: {body}");
@@ -655,8 +655,8 @@ async fn a_player_who_lost_their_client_is_given_their_seat_back() {
         let (status, body) = http(
             port,
             "GET",
-            &format!("/games/{game_id}/cosmetics?token={stale}"),
-            None,
+            &format!("/games/{game_id}/cosmetics"),
+            Some(stale),
             "",
         );
         assert_eq!(status, 401, "a ticket that was replaced: {body}");

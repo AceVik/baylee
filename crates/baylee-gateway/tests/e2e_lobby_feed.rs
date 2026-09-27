@@ -131,7 +131,7 @@ async fn the_lobby_socket_pushes_a_change_nobody_asked_about() {
     let opener = login(port, "o-player", "Opener");
     let deck = make_deck(port, &opener, "d");
 
-    let url = format!("ws://127.0.0.1:{port}/lobby/ws?token={watcher}");
+    let url = common::lobby_url(port, &watcher, "");
     let (mut socket, _) = tokio_tungstenite::connect_async(&url)
         .await
         .expect("open the lobby socket");
@@ -173,9 +173,7 @@ async fn the_lobby_socket_takes_a_page_and_not_only_a_token() {
         assert_eq!(status, 200, "{body}");
     }
 
-    let url = format!(
-        "ws://127.0.0.1:{port}/lobby/ws?token={watcher}&q=&offset=2&limit=2&waiting_only=true"
-    );
+    let url = common::lobby_url(port, &watcher, "&q=&offset=2&limit=2&waiting_only=true");
     let (mut socket, _) = tokio_tungstenite::connect_async(&url)
         .await
         .expect("the socket refused a page");
@@ -187,13 +185,18 @@ async fn the_lobby_socket_takes_a_page_and_not_only_a_token() {
 }
 
 #[tokio::test]
-async fn the_lobby_socket_refuses_a_token_it_does_not_know() {
+async fn the_lobby_socket_refuses_a_ticket_it_does_not_know() {
     let gw = spawn_gateway("lobby-feed-auth");
-    let url = format!("ws://127.0.0.1:{}/lobby/ws?token=not-a-token", gw.port);
-    assert!(
-        tokio_tungstenite::connect_async(&url).await.is_err(),
-        "the lobby socket let a stranger in"
-    );
+    let port = gw.port;
+    for query in ["ticket=not-a-ticket", "", "token=not-a-token"] {
+        let url = format!("ws://127.0.0.1:{port}/lobby/ws?{query}");
+        assert!(
+            tokio_tungstenite::connect_async(&url).await.is_err(),
+            "the lobby socket let a stranger in with {query:?}"
+        );
+    }
+    let (status, _) = common::ask_ticket(port, "not-a-token", r#"{"socket":"lobby"}"#);
+    assert_eq!(status, 401, "nor does a stranger get a ticket");
 }
 
 /// The next text frame, or a panic if the socket says nothing in time.

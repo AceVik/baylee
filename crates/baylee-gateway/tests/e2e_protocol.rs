@@ -137,9 +137,14 @@ async fn a_seat_socket_of_another_protocol_is_told_both_numbers_and_nothing_else
     let seat_token = json_field(&body, "seat_token").to_string();
 
     // By hand, because the shared path can only say this build's protocol.
-    let other =
-        format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={seat_token}&protocol={OTHER}");
-    let silent = format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={seat_token}");
+    let other = format!(
+        "ws://127.0.0.1:{port}/games/{game_id}/ws?ticket={}&protocol={OTHER}",
+        common::seat_ticket(port, &game_id, &seat_token)
+    );
+    let silent = format!(
+        "ws://127.0.0.1:{port}/games/{game_id}/ws?ticket={}",
+        common::seat_ticket(port, &game_id, &seat_token)
+    );
     for (url, theirs) in [(other, OTHER), (silent, 0)] {
         let mut ws = common::dial(&url)
             .await

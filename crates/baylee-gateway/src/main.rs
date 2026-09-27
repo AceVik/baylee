@@ -22,6 +22,7 @@ mod room;
 mod seatrate;
 mod store;
 mod texts;
+mod wsticket;
 
 use axum::Router;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
@@ -153,6 +154,13 @@ struct AppState {
     /// `BAYLEE_FEEDBACK_URL`, `BAYLEE_FEEDBACK_TOKEN`, `BAYLEE_FEEDBACK_KEY`,
     /// and how many each account has sent.
     feedback: report::Feedback,
+    /// The unspent tickets a socket may be opened with (#294), in memory
+    /// only; `BAYLEE_WS_TICKET_SECS` says how long each lives.
+    tickets: wsticket::Tickets,
+    /// Until when (unix seconds) a socket may still be opened with its
+    /// token in the query, as clients from before #294 do
+    /// ([`wsticket::LEGACY_UNTIL`], or `0` for `BAYLEE_WS_LEGACY_TOKENS=off`).
+    legacy_until: u64,
 }
 
 impl AppState {
@@ -170,6 +178,7 @@ impl AppState {
 type Shared = Arc<AppState>;
 
 #[tokio::main]
+#[allow(clippy::too_many_lines)] // one statement per setting and route, read top to bottom
 async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
@@ -185,6 +194,11 @@ async fn main() {
         .unwrap_or_else(|why| panic!("BAYLEE_SOURCE_URL: {why}"));
     let guest_cap = guest_cap(std::env::var("BAYLEE_GUEST_CAP").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_GUEST_CAP: {why}"));
+    let ticket_ttl = wsticket::ttl_from_env(std::env::var("BAYLEE_WS_TICKET_SECS").ok().as_deref())
+        .unwrap_or_else(|why| panic!("BAYLEE_WS_TICKET_SECS: {why}"));
+    let legacy_until =
+        wsticket::legacy_from_env(std::env::var("BAYLEE_WS_LEGACY_TOKENS").ok().as_deref())
+            .unwrap_or_else(|why| panic!("BAYLEE_WS_LEGACY_TOKENS: {why}"));
     let store_path = std::env::var("STORE_PATH")
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
     let db = open_database(&store_path).await;
@@ -227,10 +241,13 @@ async fn main() {
         art: Arc::new(art::ArtCache::from_env()),
         deck_images: Arc::new(cosmetics::Store::from_env()),
         feedback: report::Feedback::from_env(),
+        tickets: wsticket::Tickets::new(ticket_ttl),
+        legacy_until,
     });
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;
     spawn_cleanup(state.clone());
+    spawn_ticket_sweep(state.clone());
 
     let app = Router::new()
         .route("/health", get(health))
@@ -249,6 +266,7 @@ async fn main() {
         .route("/lobby/games/{id}/host", post(hand_over))
         .route("/lobby/games/{id}/leave", post(leave_game))
         .route("/lobby/games/{id}/rematch", post(rematch))
+        .route("/ws-ticket", post(ws_ticket))
         .route("/lobby/ws", get(lobby_ws))
         .route("/games/{id}/ws", get(game_ws))
         .route("/games/{id}/cosmetics", get(game_cosmetics))
@@ -504,6 +522,26 @@ fn spawn_cleanup(state: Shared) {
                 }
                 Ok(_) => {}
                 Err(e) => tracing::warn!("{e:#}"),
+            }
+        }
+    });
+}
+
+/// Drops expired socket tickets (#294) once a minute.
+///
+/// Not the ten-minute loop above: a ticket lives 45 seconds by default, and
+/// what this bounds is how long a dead one takes up room. The store is
+/// bounded without it ([`wsticket::MAX_OUTSTANDING`], and it sweeps itself
+/// when full); this keeps it small in the ordinary case.
+fn spawn_ticket_sweep(state: Shared) {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        interval.tick().await;
+        loop {
+            interval.tick().await;
+            let swept = state.tickets.sweep(std::time::Instant::now());
+            if swept > 0 {
+                tracing::debug!(swept, "expired socket tickets swept");
             }
         }
     });
@@ -1318,10 +1356,7 @@ async fn authed_session(
     state: &Shared,
     headers: &HeaderMap,
 ) -> Result<store::Session, (StatusCode, Json<ErrorBody>)> {
-    let token = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
+    let token = bearer_token(headers)
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
     store::resolve_token(&state.db, token, auth::now_secs())
         .await
@@ -3531,30 +3566,165 @@ async fn put_settings(
 
 // ---------------------------------------------------------------- game ws
 
+/// What a seat socket is opened with (`/games/{id}/ws`).
+///
+/// Never logged, and deliberately no `Debug`: both secrets ride here.
 #[derive(Deserialize)]
 struct WsParams {
-    token: String,
+    /// A ticket from `POST /ws-ticket` (#294): what a client dials with.
+    #[serde(default)]
+    ticket: Option<String>,
+    /// The seat token itself, as clients from before #294 send it; accepted
+    /// until [`wsticket::LEGACY_UNTIL`] and then refused.
+    #[serde(default)]
+    token: Option<String>,
     /// The protocol the dialler speaks (#271). A client from before it was
     /// sent says nothing, which reads as 0 and is refused.
     #[serde(default)]
     protocol: u32,
 }
 
-/// What `/lobby/ws` is opened with: an account token, and the same search a
+/// What `/lobby/ws` is opened with: a ticket, and the same search a
 /// `GET /lobby/games` would carry.
 #[derive(Deserialize)]
 struct LobbyWsParams {
-    /// The account bearer token.
-    ///
-    /// In the query string rather than a header because a browser's
-    /// `WebSocket` cannot set one — the same reason the seat socket does it,
-    /// and the same trade: a URL is likelier to be logged, which is why this
-    /// is the account token and not something longer-lived.
-    token: String,
+    /// A ticket from `POST /ws-ticket` (#294), bound to the session that
+    /// asked for it.
+    #[serde(default)]
+    ticket: Option<String>,
+    /// The account's session token, as clients from before #294 send it;
+    /// accepted until [`wsticket::LEGACY_UNTIL`] and then refused.
+    #[serde(default)]
+    token: Option<String>,
     /// The page and search this reader wants, flattened so the socket URL and
     /// the HTTP route take the identical parameters.
     #[serde(flatten)]
     query: lobby::LobbyQuery,
+}
+
+/// What an upgrade whose ticket opened nothing is answered, whatever the
+/// reason: unknown, used, expired, or for another socket. One sentence, so a
+/// stranger learns nothing from it, and a fixed one, so a client can tell it
+/// from every other `401` and fetch a fresh ticket.
+const TICKET_REFUSED: &str = baylee_protocol::TICKET_REFUSED;
+
+/// Which socket a ticket is asked for (`POST /ws-ticket`).
+#[derive(Deserialize)]
+#[serde(tag = "socket", rename_all = "snake_case")]
+enum TicketFor {
+    /// `/lobby/ws`, proven by the session in `Authorization`.
+    Lobby,
+    /// `/games/{game}/ws`, proven by that seat's token in `Authorization`.
+    Seat {
+        /// The game.
+        game: String,
+    },
+}
+
+/// `POST /ws-ticket` — trade a bearer token for a ticket to open one socket
+/// with (#294).
+///
+/// The bearer is what proves the socket today: the session for the lobby
+/// feed, the seat token for a seat. The ticket is bound to it and to the
+/// socket it names; see `wsticket.rs`. Neither the bearer nor the ticket is
+/// ever logged.
+async fn ws_ticket(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Json(body): Json<TicketFor>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let grant = match body {
+        TicketFor::Lobby => {
+            let session = authed_session(&state, &headers).await?;
+            let bearer = bearer_token(&headers).unwrap_or_default();
+            wsticket::Grant::Lobby {
+                account_id: session.account_id,
+                session: auth::token_digest(bearer),
+            }
+        }
+        TicketFor::Seat { game } => {
+            let bearer = bearer_token(&headers)
+                .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
+            let token_hash = auth::token_hash(bearer);
+            let lobby = state.lobby.lock();
+            let table = lobby
+                .games
+                .get(&game)
+                .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+            let seated = seat_of_token(table, bearer)
+                .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid seat token"))?;
+            wsticket::Grant::Seat {
+                game_id: game,
+                seat: seated,
+                seat_token_hash: token_hash,
+            }
+        }
+    };
+    let ticket = state
+        .tickets
+        .issue(grant, std::time::Instant::now())
+        .map_err(|wsticket::Full| {
+            tracing::warn!("the socket ticket store is full");
+            err(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "too many sockets are being opened",
+            )
+        })?;
+    Ok(Json(serde_json::json!({
+        "ticket": ticket,
+        "expires_in": state.tickets.ttl().as_secs(),
+    })))
+}
+
+/// The bearer token of a request, if it names one.
+fn bearer_token(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+}
+
+/// Spends an upgrade's ticket on `door`, or says why it opened nothing.
+///
+/// The reason goes to the debug log for whoever runs the gateway; the
+/// caller gets [`TICKET_REFUSED`] whichever it was.
+fn spend_ticket(
+    state: &AppState,
+    ticket: &str,
+    door: &wsticket::Door,
+) -> Result<wsticket::Grant, (StatusCode, Json<ErrorBody>)> {
+    state
+        .tickets
+        .consume(ticket, door, std::time::Instant::now())
+        .map_err(|why| {
+            tracing::debug!(?why, "a socket ticket opened nothing");
+            err(StatusCode::UNAUTHORIZED, TICKET_REFUSED)
+        })
+}
+
+/// A token in the query string, from a client older than #294, while the
+/// window for those is still open ([`wsticket::LEGACY_UNTIL`]).
+///
+/// Said at `info` each time, naming the route and never the token, so an
+/// operator can see when the last old client stopped dialling.
+fn legacy_token<'a>(
+    state: &AppState,
+    token: Option<&'a str>,
+    route: &'static str,
+) -> Result<&'a str, (StatusCode, Json<ErrorBody>)> {
+    let token = token.ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing ticket"))?;
+    if !wsticket::legacy_open(state.legacy_until, auth::now_secs()) {
+        return Err(err(
+            StatusCode::UNAUTHORIZED,
+            "a token in the address is no longer accepted; update the client",
+        ));
+    }
+    tracing::info!(
+        route,
+        until = wsticket::LEGACY_UNTIL_DATE,
+        "opened with a token in the query string (#294)"
+    );
+    Ok(token)
 }
 
 /// The lobby's push channel.
@@ -3568,11 +3738,34 @@ async fn lobby_ws(
     Query(params): Query<LobbyWsParams>,
     ws: WebSocketUpgrade,
 ) -> Result<axum::response::Response, (StatusCode, Json<ErrorBody>)> {
-    let account_id = store::resolve_token(&state.db, &params.token, auth::now_secs())
-        .await
-        .map_err(|e| db_down(&e))?
-        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?
-        .account_id;
+    let account_id = if let Some(ticket) = params.ticket.as_deref() {
+        let wsticket::Grant::Lobby {
+            account_id,
+            session,
+        } = spend_ticket(&state, ticket, &wsticket::Door::Lobby)?
+        else {
+            return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
+        };
+        // The session that asked must still stand: signed out, lapsed, or
+        // its account deleted since, the ticket opens nothing.
+        match store::resolve_digest(&state.db, session, auth::now_secs())
+            .await
+            .map_err(|e| db_down(&e))?
+        {
+            Some(session) if session.account_id == account_id => account_id,
+            _ => {
+                tracing::debug!("a lobby ticket outlived its session");
+                return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
+            }
+        }
+    } else {
+        let token = legacy_token(&state, params.token.as_deref(), "/lobby/ws")?;
+        store::resolve_token(&state.db, token, auth::now_secs())
+            .await
+            .map_err(|e| db_down(&e))?
+            .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?
+            .account_id
+    };
     Ok(ws.on_upgrade(move |socket| run_lobby_socket(state, account_id, params.query, socket)))
 }
 
@@ -3630,22 +3823,52 @@ async fn game_ws(
     Query(params): Query<WsParams>,
     ws: WebSocketUpgrade,
 ) -> Result<axum::response::Response, (StatusCode, Json<ErrorBody>)> {
+    // Spent before the game is looked up, so a ticket is gone after one
+    // presentation whatever the answer (#294).
+    let granted = match params.ticket.as_deref() {
+        Some(ticket) => Some(spend_ticket(
+            &state,
+            ticket,
+            &wsticket::Door::Seat {
+                game_id: id.clone(),
+            },
+        )?),
+        None => None,
+    };
     let seat = {
         let lobby = state.lobby.lock();
         let game = lobby
             .games
             .get(&id)
             .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
-        let token_hash = auth::token_hash(&params.token);
-        game.seats
-            .iter()
-            .find(|s| {
-                s.seat_token_hash
-                    .as_ref()
-                    .is_some_and(|h| auth::ct_eq(h, &token_hash))
-            })
-            .map(|s| s.seat)
-            .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid seat token"))?
+        match granted {
+            // The seat the ticket names, and only while its token is the one
+            // that asked: a seat handed out again since (`.../seat`) is not
+            // opened by a ticket its old token bought.
+            Some(wsticket::Grant::Seat {
+                seat,
+                seat_token_hash,
+                ..
+            }) => game
+                .seats
+                .iter()
+                .find(|s| {
+                    s.seat == seat
+                        && s.seat_token_hash
+                            .as_ref()
+                            .is_some_and(|h| auth::ct_eq(h, &seat_token_hash))
+                })
+                .map(|s| s.seat)
+                .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?,
+            Some(wsticket::Grant::Lobby { .. }) => {
+                return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
+            }
+            None => {
+                let token = legacy_token(&state, params.token.as_deref(), "/games/{id}/ws")?;
+                seat_of_token(game, token)
+                    .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid seat token"))?
+            }
+        }
     };
     // After the seat token, as at the agent's door, and before the engine
     // hears of the socket: a table this client cannot read is not joined at
@@ -3679,7 +3902,29 @@ async fn refuse_seat(mut socket: WebSocket, why: String) {
     }
 }
 
-/// `GET /games/{id}/cosmetics?token=…` — every seat's sleeve and playmat.
+/// The seat of `game` whose token is `token`, compared in constant time.
+fn seat_of_token(game: &LobbyGame, token: &str) -> Option<usize> {
+    let token_hash = auth::token_hash(token);
+    game.seats
+        .iter()
+        .find(|s| {
+            s.seat_token_hash
+                .as_ref()
+                .is_some_and(|h| auth::ct_eq(h, &token_hash))
+        })
+        .map(|s| s.seat)
+}
+
+/// What `GET /games/{id}/cosmetics` may still carry in its query: the seat
+/// token, from a client older than #294.
+#[derive(Deserialize)]
+struct CosmeticsParams {
+    #[serde(default)]
+    token: Option<String>,
+}
+
+/// `GET /games/{id}/cosmetics` — every seat's sleeve and playmat, for
+/// `Authorization: Bearer <seat token>`.
 ///
 /// The one route decorations travel on, and the reason they do not travel with
 /// the game: `GameStatic` is rules data and a view is what a seat is entitled
@@ -3695,19 +3940,22 @@ async fn refuse_seat(mut socket: WebSocket, why: String) {
 async fn game_cosmetics(
     State(state): State<Shared>,
     Path(id): Path<String>,
-    Query(params): Query<WsParams>,
+    headers: HeaderMap,
+    Query(params): Query<CosmeticsParams>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    // A header since #294: this is an ordinary request, so nothing forces
+    // the secret into its address.
+    let token = match (bearer_token(&headers), params.token.as_deref()) {
+        (Some(token), _) => token,
+        (None, Some(old)) => legacy_token(&state, Some(old), "/games/{id}/cosmetics")?,
+        (None, None) => return Err(err(StatusCode::UNAUTHORIZED, "missing bearer token")),
+    };
     let lobby = state.lobby.lock();
     let game = lobby
         .games
         .get(&id)
         .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
-    let token_hash = auth::token_hash(&params.token);
-    if !game.seats.iter().any(|s| {
-        s.seat_token_hash
-            .as_ref()
-            .is_some_and(|h| auth::ct_eq(h, &token_hash))
-    }) {
+    if seat_of_token(game, token).is_none() {
         return Err(err(StatusCode::UNAUTHORIZED, "invalid seat token"));
     }
     // Seats with nothing set are left out rather than sent as empty objects:

@@ -25,9 +25,18 @@ pub struct Gateway {
     store_path: std::path::PathBuf,
     port_file: std::path::PathBuf,
     schema: String,
+    /// Where the process's log lines go (`tracing` writes to stdout), for
+    /// the tests that read what the gateway said.
+    log_path: std::path::PathBuf,
 }
 
 impl Gateway {
+    /// Everything the gateway has logged so far. Empty unless the test set
+    /// `RUST_LOG`: the harness starts every gateway with it off.
+    pub fn logs(&self) -> String {
+        std::fs::read_to_string(&self.log_path).unwrap_or_default()
+    }
+
     /// The test database, scoped to this gateway's own schema: where a test
     /// seeds what the gateway will read, such as catalog rows.
     pub fn database_url(&self) -> String {
@@ -138,6 +147,7 @@ impl Drop for Gateway {
         let _ = self.child.wait();
         let _ = std::fs::remove_file(&self.store_path);
         let _ = std::fs::remove_file(&self.port_file);
+        let _ = std::fs::remove_file(&self.log_path);
         ddl(&format!(
             "DROP SCHEMA IF EXISTS \"{}\" CASCADE",
             self.schema
@@ -239,6 +249,7 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     // Beside the store and named the same way, so a failure that outlives the
     // run leaves both halves of the evidence in one place.
     let stderr_path = std::env::temp_dir().join(format!("baylee-gateway-{label}-{id}.stderr"));
+    let log_path = std::env::temp_dir().join(format!("baylee-gateway-{label}-{id}.log"));
     let loud = std::env::var("GATEWAY_DEBUG").is_ok();
     let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
         // The gateway reads `data/acceptance-decks.txt` for the house deck by
@@ -270,7 +281,12 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         .env("BAYLEE_DECK_IMAGE_PATH", "off")
         .env("RUST_LOG", if loud { "info" } else { "off" })
         .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
-        .stdout(std::process::Stdio::null())
+        .stdout(if loud {
+            std::process::Stdio::inherit()
+        } else {
+            std::fs::File::create(&log_path)
+                .map_or_else(|_| std::process::Stdio::null(), Into::into)
+        })
         // Kept, not discarded. A gateway that fails on the way up says why on
         // its stderr, and throwing that away leaves every test in the crate
         // failing with "connection refused" from the *first* request — which
@@ -347,6 +363,7 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         store_path,
         port_file,
         schema,
+        log_path,
     }
 }
 
@@ -610,11 +627,22 @@ pub async fn dial(url: &str) -> Option<Socket> {
 ///
 /// Opened on [`baylee_protocol::seat_socket_path`], as the client opens it,
 /// so every seat socket here says which protocol it speaks (#271).
+///
+/// Each attempt spends a fresh ticket (#294), as the client does on every
+/// dial: a refused upgrade has already spent the one it showed.
 pub async fn dial_seat(port: u16, game_id: &str, seat_token: &str) -> Socket {
-    let url = seat_url(port, game_id, seat_token);
-    let mut ws = dial(&url)
-        .await
-        .unwrap_or_else(|| panic!("the seat socket never opened within {WAIT_BUDGET:?}: {url}"));
+    let mut opened = None;
+    for _ in 0..WAIT_TRIES {
+        let url = seat_url(port, game_id, seat_token);
+        if let Ok((socket, _)) = tokio_tungstenite::connect_async(&url).await {
+            opened = Some(socket);
+            break;
+        }
+        tokio::time::sleep(WAIT_STEP).await;
+    }
+    let mut ws = opened.unwrap_or_else(|| {
+        panic!("the seat socket of {game_id} never opened within {WAIT_BUDGET:?}")
+    });
     send(
         &mut ws,
         &Envelope {
@@ -625,12 +653,54 @@ pub async fn dial_seat(port: u16, game_id: &str, seat_token: &str) -> Socket {
     ws
 }
 
-/// A seat socket's URL on a gateway listening on `port`.
+/// A seat socket's URL on a gateway listening on `port`, carrying a ticket
+/// just bought with `seat_token` (#294): good for one upgrade.
 pub fn seat_url(port: u16, game_id: &str, seat_token: &str) -> String {
+    seat_url_with(port, game_id, &seat_ticket(port, game_id, seat_token))
+}
+
+/// A seat socket's URL for a ticket the caller already holds.
+pub fn seat_url_with(port: u16, game_id: &str, ticket: &str) -> String {
     format!(
         "ws://127.0.0.1:{port}{}",
-        baylee_protocol::seat_socket_path(game_id, seat_token)
+        baylee_protocol::seat_socket_path(game_id, ticket)
     )
+}
+
+/// `POST /ws-ticket` as the client sends it: the bearer in the header, the
+/// socket in the body. The status and the body, unread.
+pub fn ask_ticket(port: u16, bearer: &str, body: &str) -> (u16, String) {
+    http(
+        port,
+        "POST",
+        baylee_protocol::WS_TICKET_PATH,
+        Some(bearer),
+        body,
+    )
+}
+
+/// A ticket for a seat's socket, bought with its seat token.
+pub fn seat_ticket(port: u16, game_id: &str, seat_token: &str) -> String {
+    let (status, body) = ask_ticket(
+        port,
+        seat_token,
+        &format!("{{\"socket\":\"seat\",\"game\":\"{game_id}\"}}"),
+    );
+    assert_eq!(status, 200, "a seat ticket: {body}");
+    json_field(&body, "ticket").to_string()
+}
+
+/// A ticket for the lobby feed, bought with a session.
+pub fn lobby_ticket(port: u16, session: &str) -> String {
+    let (status, body) = ask_ticket(port, session, r#"{"socket":"lobby"}"#);
+    assert_eq!(status, 200, "a lobby ticket: {body}");
+    json_field(&body, "ticket").to_string()
+}
+
+/// The lobby feed's URL with a fresh ticket, and whatever search follows.
+pub fn lobby_url(port: u16, session: &str, search: &str) -> String {
+    let ticket = lobby_ticket(port, session);
+    format!("ws://127.0.0.1:{port}/lobby/ws?ticket={ticket}{search}")
 }
 
 pub async fn send(ws: &mut Socket, envelope: &Envelope) {

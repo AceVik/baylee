@@ -42,16 +42,31 @@ pub fn version_refusal(who: &str, theirs: u32) -> Option<String> {
 }
 
 /// The path and query a seat socket is opened on, relative to the gateway:
-/// `/games/{game_id}/ws?token=…&protocol=…` (#271).
+/// `/games/{game_id}/ws?ticket=…&protocol=…` (#271, #294).
 ///
 /// Every dialer builds it here, so none can leave out the protocol it
 /// speaks: the gateway refuses a seat socket that does not say, before a
 /// frame of the game is sent (`docs/protocol.md` §"Which side checks the
 /// protocol (#271)").
+///
+/// It takes a **ticket** from [`WS_TICKET_PATH`], never the seat token: a
+/// URL is what proxies log, and a ticket is spent by the upgrade it opens
+/// (`docs/protocol.md` §"Opening a socket: tickets (#294)").
 #[must_use]
-pub fn seat_socket_path(game_id: &str, seat_token: &str) -> String {
-    format!("/games/{game_id}/ws?token={seat_token}&protocol={PROTOCOL_VERSION}")
+pub fn seat_socket_path(game_id: &str, ticket: &str) -> String {
+    format!("/games/{game_id}/ws?ticket={ticket}&protocol={PROTOCOL_VERSION}")
 }
+
+/// Where a client trades its bearer token for a ticket to open one socket
+/// with (#294): `POST`, `Authorization: Bearer <session or seat token>`,
+/// body `{"socket":"lobby"}` or `{"socket":"seat","game":"<id>"}`.
+pub const WS_TICKET_PATH: &str = "/ws-ticket";
+
+/// What a gateway answers an upgrade whose ticket opened nothing (#294):
+/// the `error` of its `401`, the same whether the ticket was unknown, used,
+/// expired or for another socket. A client that reads it fetches a fresh
+/// ticket and dials again.
+pub const TICKET_REFUSED: &str = "ticket expired or used";
 
 /// The socket file a gateway address names, when it names one.
 ///
@@ -185,8 +200,17 @@ mod tests {
     fn a_seat_socket_says_its_protocol() {
         assert_eq!(
             super::seat_socket_path("g", "t"),
-            format!("/games/g/ws?token=t&protocol={PROTOCOL_VERSION}")
+            format!("/games/g/ws?ticket=t&protocol={PROTOCOL_VERSION}")
         );
+    }
+
+    /// A seat socket's address carries a ticket and never a token (#294):
+    /// whatever it is handed goes under `ticket=`, and no `token=` appears.
+    #[test]
+    fn a_seat_socket_path_names_no_token() {
+        let path = super::seat_socket_path("g", "secret");
+        assert!(path.contains("ticket=secret"), "{path}");
+        assert!(!path.contains("token="), "{path}");
     }
 
     /// The version is a refusal, not a label: an engine and a client that

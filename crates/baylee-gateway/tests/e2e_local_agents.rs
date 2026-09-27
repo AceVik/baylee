@@ -48,7 +48,7 @@ async fn the_lobby_says_whether_an_agent_is_there_and_says_it_again_when_that_ch
         "no agent, no game: {body}"
     );
 
-    let url = format!("ws://127.0.0.1:{port}/lobby/ws?token={watcher}");
+    let url = common::lobby_url(port, &watcher, "");
     let (mut feed, _) = tokio_tungstenite::connect_async(&url)
         .await
         .expect("lobby feed");
