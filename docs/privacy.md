@@ -25,6 +25,9 @@ the pointers, because line numbers move.
 | Server logs | stdout | the host's choice | the host |
 | Legacy import file | disk, `STORE_PATH` + `.imported` | indefinitely | nothing |
 | Client settings | the player's device | until the player removes them | the player; a guest's token at sign-out |
+| A report the player sends | leaves the device for the gateway (`POST /reports`) | see [Reports](#reports-and-crash-reports-309-310-314) | — |
+| Game record | Postgres, written by the gateway (#315) | without a time limit | nothing |
+| Crash file | the player's device, `crash-report.json` | until the next start sends or discards it | the client |
 
 ## Accounts
 
@@ -280,7 +283,10 @@ decks and settings as JSON.
   keeps:
   - `client-settings.json`: the language, the last username (for an older
     file, possibly an e-mail), the gateway list and how often each was used,
-    and per gateway a kept guest's token and handle;
+    per gateway a kept guest's token and handle, and what reports may carry
+    (#309);
+  - `crash-report.json`, after a crash, until the next start deals with it
+    (#310);
   - `preferences.json`;
   - `offline-decks.json`;
   - a card-text cache per language.
@@ -331,6 +337,61 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 - **Open:** records have no deletion path yet, not even for a player who
   deletes their account; their account link is cut, the game stays.
 
+## Reports and crash reports (#309, #310, #314)
+
+The client's half; what the gateway and the feedback service do with a
+report once it has it is theirs to describe.
+
+- **When:** only when the player presses Send in the report form (F8, the
+  table's game menu, the lobby's gear menu or settings), and, for a crash,
+  on the next start once the player has said yes to crash reports.
+- **Where to:** `POST {gateway}/reports` on the gateway the lobby is signed
+  in to, with that session's bearer. Signed in nowhere, nothing is sent.
+  A crash report goes to the gateway the client was signed in to when it
+  crashed, or, if none, to the live gateway every build knows
+  (`gateway_list::PINNED`), and only once signed in there.
+- **What, always:** the kind, the text the player wrote, this client's
+  version and commit, and the game's id at the gateway when the report is
+  written at a networked table. The gateway adds its own record of that
+  game (#315).
+- **What, if ticked** (one box each, `bugreport::Category`, all off until
+  the player ticks them):
+  - *System and hardware:* platform (OS/architecture), logical CPU count,
+    graphics adapter and backend, window size and scale, interface
+    language.
+  - *The table as you see it:* the seat's `PlayerView` (which holds nothing
+    hidden from that seat and names no player), the open question, the
+    half-built answer, the turn and step.
+  - *Your game log:* the seat's own log, written in English with the
+    reporter as "You" and every other seat as "Player A", "Player B", …
+    in seat order (`bugreport::seat_log`); no display name or handle is
+    in it.
+  - *Settings:* language, preview size, text view, zone view, music level,
+    the number (not the addresses) of saved gateways, and the account's
+    preferences (key bindings, standing answers, automation). Never the
+    username, a gateway address or a token.
+  - *Screenshot:* a PNG of the window as it was when the form opened, at
+    most 1280 pixels wide. It shows whatever was on screen, which can
+    include other players' names; the box says so. Native builds only.
+- **What, never:** a session, seat or guest token. `bugreport::seal` looks
+  for every token the client holds in the serialised body and refuses to
+  send a body that contains one, whichever field it got into.
+- **Crash reports:** the panic hook writes `crash-report.json` next to the
+  settings (the panic message and location, the thread's name, the time,
+  the build, and on disk only the gateway it was signed in to), with the
+  home directory written `~`. No network in the hook. The next start asks
+  once (`CrashConsent::Unasked`); "Send crash reports" sends each crash
+  from then on, "Don't send" deletes the file and asks no more. A crash
+  report carries the error and the build, and the system details only if
+  that box is ticked. The file is deleted once the gateway has it (or has
+  refused it for good); unanswered, it waits for the next start.
+- **Consent is per device** (`client-settings.json`, `reports`), shown and
+  changed in the form itself: un-ticking a box, or the crash box, is the
+  revocation, and holds from the next report on.
+- **Game records (#315):** the gateway keeps each game's full record in
+  its database without a time limit; the record numbers its seats and
+  names nobody (see "Game records and reports" above).
+
 ## Open points
 
 Found while writing this inventory. They are facts for the owner and the PM
@@ -348,3 +409,7 @@ to weigh, not conclusions.
    access log sits in front of the gateway.
 4. **Retention of stdout logs and of backups** is not set anywhere in the
    repository.
+5. **Game records** (#315) are kept without a time limit and name seats by
+   account id: an account's id stays in them after the account is deleted.
+6. **Reports:** a screenshot can show other players' names, and the text
+   the player writes can contain anything; neither is filtered.

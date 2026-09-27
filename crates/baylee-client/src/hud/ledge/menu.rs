@@ -379,6 +379,18 @@ pub fn sync_menu(
     });
     commands.entity(panel).add_child(concede);
 
+    let report = answer(
+        &mut commands,
+        &fonts,
+        Phrase::ReportButton.text(lang),
+        Weight::Secondary,
+        None,
+    );
+    commands.entity(report).insert(MenuButton {
+        action: MenuAction::Report,
+    });
+    commands.entity(panel).add_child(report);
+
     let music = crate::music::controls(
         &mut commands,
         &fonts,
@@ -488,7 +500,12 @@ mod tests {
     fn the_panel_is_wide_enough_for_everything_it_can_ever_say() {
         let inside = MENU_W - 2.0 * MENU_PAD_X - 2.0;
         for lang in [Lang::En, Lang::De] {
-            for phrase in [Phrase::OfferADraw, Phrase::Concede, Phrase::ConcedeConfirm] {
+            for phrase in [
+                Phrase::OfferADraw,
+                Phrase::Concede,
+                Phrase::ConcedeConfirm,
+                Phrase::ReportButton,
+            ] {
                 let label = phrase.text(lang);
                 let row = crate::hud::text_width(label, LABEL_PT, true) + 2.0 * BUTTON_PAD_X + 2.0;
                 assert!(

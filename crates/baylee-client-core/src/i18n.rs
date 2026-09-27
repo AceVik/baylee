@@ -2720,6 +2720,160 @@ messages! {
     LogDay { en: "It became day", de: "Es wurde Tag" },
     /// It became night (CR 730).
     LogNight { en: "It became night", de: "Es wurde Nacht" },
+
+    // ---- reports (#309, #310) ------------------------------------------
+    /// The button, the form's title and the keymap row that opens it.
+    ReportButton { en: "Report a problem", de: "Problem melden" },
+    /// A kind of report: something did the wrong thing.
+    ReportKindBug { en: "Bug", de: "Fehler" },
+    /// A kind of report: something could be better.
+    ReportKindImprovement { en: "Suggestion", de: "Vorschlag" },
+    /// A kind of report: anything said about the game.
+    ReportKindFeedback { en: "Feedback", de: "Rückmeldung" },
+    /// A kind of report the client sends by itself.
+    ReportKindCrash { en: "Crash", de: "Absturz" },
+    /// A kind of report: none of the others.
+    ReportKindOther { en: "Other", de: "Sonstiges" },
+    /// The empty text box's prompt.
+    ReportTextHint {
+        en: "What happened, and what did you expect?",
+        de: "Was ist passiert, und was hast du erwartet?",
+    },
+    /// Under the text box. `{0}` characters written of `{1}`.
+    ReportChars { en: "{0} / {1} characters", de: "{0} / {1} Zeichen" },
+    /// The text is too long to send. `{0}` is the limit.
+    ReportTextTooLong {
+        en: "The text is longer than {0} characters.",
+        de: "Der Text ist länger als {0} Zeichen.",
+    },
+    /// Above the boxes.
+    ReportIncludeHeading {
+        en: "Also send (remembered on this device):",
+        de: "Außerdem senden (auf diesem Gerät gemerkt):",
+    },
+    /// What is always sent, whatever is ticked.
+    ReportAlways {
+        en: "Always sent: your text, this client's version and the game's id. The gateway adds its own record of the game, which names no one.",
+        de: "Immer gesendet: dein Text, die Version dieses Clients und die Kennung der Partie. Das Gateway fügt seine eigene Aufzeichnung der Partie hinzu, die niemanden namentlich nennt.",
+    },
+    /// A box: system and hardware.
+    ReportCatSystem { en: "System and hardware", de: "System und Hardware" },
+    /// Under it.
+    ReportCatSystemHint {
+        en: "Platform, processor count, graphics adapter, window size, language.",
+        de: "Plattform, Prozessoranzahl, Grafikadapter, Fenstergröße, Sprache.",
+    },
+    /// A box: the table.
+    ReportCatGame { en: "The table as you see it", de: "Der Tisch, wie du ihn siehst" },
+    /// Under it.
+    ReportCatGameHint {
+        en: "Your view of the board, the open question and what you had selected. Nothing that is hidden from you.",
+        de: "Deine Sicht aufs Spielfeld, die offene Frage und was du ausgewählt hattest. Nichts, was vor dir verborgen ist.",
+    },
+    /// A box: the seat's log.
+    ReportCatLog { en: "Your game log", de: "Dein Spielprotokoll" },
+    /// Under it.
+    ReportCatLogHint {
+        en: "Other players' names are replaced by Player A, Player B, …",
+        de: "Die Namen anderer Spieler werden durch Player A, Player B, … ersetzt.",
+    },
+    /// A box: settings.
+    ReportCatSettings { en: "Settings", de: "Einstellungen" },
+    /// Under it.
+    ReportCatSettingsHint {
+        en: "Language, display settings, key bindings and standing answers. No names, addresses or tokens.",
+        de: "Sprache, Anzeige, Tastenbelegung und Daueranweisungen. Keine Namen, Adressen oder Tokens.",
+    },
+    /// A box: the picture.
+    ReportCatScreenshot { en: "Screenshot", de: "Bildschirmfoto" },
+    /// Under it.
+    ReportCatScreenshotHint {
+        en: "The window as it was when you opened this form. It can show other players' names.",
+        de: "Das Fenster, wie es beim Öffnen dieses Formulars aussah. Es kann Namen anderer Spieler zeigen.",
+    },
+    /// A box with nothing behind it.
+    ReportCatNothing { en: "(nothing to send here)", de: "(hier gibt es nichts zu senden)" },
+    /// The picture's size. `{0}` × `{1}` pixels, `{2}` kilobytes.
+    ReportShotSize { en: "{0} × {1}, {2} KB", de: "{0} × {1}, {2} KB" },
+    /// The box for crash reports, which the client sends by itself.
+    ReportCrashesBox {
+        en: "Send crash reports automatically",
+        de: "Absturzberichte automatisch senden",
+    },
+    /// Opens the preview.
+    ReportPreviewShow { en: "Show what is sent", de: "Zeigen, was gesendet wird" },
+    /// Closes it.
+    ReportPreviewHide { en: "Hide what is sent", de: "Vorschau schließen" },
+    /// Sends.
+    ReportSend { en: "Send", de: "Senden" },
+    /// Closes the form.
+    ReportClose { en: "Close", de: "Schließen" },
+    /// While it goes.
+    ReportSending { en: "Sending …", de: "Wird gesendet …" },
+    /// Received. `{0}` is the report's id.
+    ReportSent {
+        en: "Thank you. Report {0} was received.",
+        de: "Danke. Bericht {0} ist angekommen.",
+    },
+    /// 503.
+    ReportsUnavailable {
+        en: "This gateway does not take reports right now.",
+        de: "Dieses Gateway nimmt gerade keine Berichte an.",
+    },
+    /// 401.
+    ReportSignInAgain {
+        en: "Your session has ended. Sign in again, then send the report.",
+        de: "Deine Sitzung ist abgelaufen. Melde dich erneut an und sende den Bericht dann.",
+    },
+    /// 413, or too large even without the picture.
+    ReportTooLarge {
+        en: "The report is too large. Leave out the screenshot or the log and try again.",
+        de: "Der Bericht ist zu groß. Lass das Bildschirmfoto oder das Protokoll weg und versuch es erneut.",
+    },
+    /// 429.
+    ReportTooMany {
+        en: "Too many reports in a short time. Wait a little, then send again.",
+        de: "Zu viele Berichte in kurzer Zeit. Warte etwas und sende dann erneut.",
+    },
+    /// No answer at all.
+    ReportUnreachable {
+        en: "The gateway could not be reached. Your report is still here.",
+        de: "Das Gateway war nicht erreichbar. Dein Bericht ist noch da.",
+    },
+    /// Any other answer.
+    ReportFailed {
+        en: "The report could not be sent. Try again later.",
+        de: "Der Bericht konnte nicht gesendet werden. Versuch es später erneut.",
+    },
+    /// No session to send it with.
+    ReportNeedsSession {
+        en: "Sign in to a gateway to send a report.",
+        de: "Melde dich bei einem Gateway an, um einen Bericht zu senden.",
+    },
+    /// `seal` found a secret. `{0}` names which, never its value.
+    ReportLeaked {
+        en: "Not sent: the report contains your {0}. Remove it and try again.",
+        de: "Nicht gesendet: Der Bericht enthält „{0}“. Entferne es und versuch es erneut.",
+    },
+    /// The report was cut to fit.
+    ReportTrimmed {
+        en: "To fit the size limit, the screenshot or older log lines were left out.",
+        de: "Um die Größengrenze einzuhalten, wurden das Bildschirmfoto oder ältere Protokollzeilen weggelassen.",
+    },
+    /// Asked once, at the start after a crash.
+    CrashAskTitle {
+        en: "Baylee closed unexpectedly last time.",
+        de: "Baylee wurde beim letzten Mal unerwartet beendet.",
+    },
+    /// Under it.
+    CrashAskBody {
+        en: "May the client send crash reports to the gateway you play on? A crash report holds the error and this client's version, and system details if you allow them in the report form. Nothing about your games or your account. You can change this in the report form at any time.",
+        de: "Darf der Client Absturzberichte an das Gateway senden, auf dem du spielst? Ein Absturzbericht enthält den Fehler und die Version dieses Clients, und Systemangaben, wenn du sie im Meldeformular erlaubst. Nichts über deine Partien oder dein Konto. Du kannst das jederzeit im Meldeformular ändern.",
+    },
+    /// The yes.
+    CrashAskSend { en: "Send crash reports", de: "Absturzberichte senden" },
+    /// The no.
+    CrashAskNever { en: "Don't send", de: "Nicht senden" },
 }
 
 impl Phrase {

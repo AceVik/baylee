@@ -31,6 +31,9 @@ pub fn run() {
     // may use their files. A test never comes through here, so a test never
     // touches them (`settings::store_is_open`).
     crate::settings::open_store();
+    // Straight after: a crash from here on is written down for the next
+    // start to report (#310).
+    crate::report::install_panic_hook();
     // Hot shader reload is watching from a root, and the wrong root reloads
     // nothing while looking exactly like the right one.
     #[cfg(all(feature = "dev-reload", not(target_arch = "wasm32")))]

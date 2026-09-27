@@ -83,6 +83,7 @@ pub mod music;
 pub mod net;
 pub mod platemat;
 pub mod prefs;
+pub mod report;
 pub mod rowbar;
 pub mod settings;
 pub mod settingsui;
@@ -676,6 +677,10 @@ pub struct Duel {
     /// game's. A reconnect keeps it, and the host's retelling from the start
     /// adds only what is missing.
     pub log: baylee_client_core::gamelog::LogBook,
+    /// The game menu's "report a problem" was pressed: `report` opens its
+    /// form on the next frame (#309). A flag rather than a call, because the
+    /// menu's handler holds only the duel.
+    pub report_asked: bool,
     /// What has been typed into the creature-type filter.
     ///
     /// It lives here and not on the `Interaction` because the interaction is

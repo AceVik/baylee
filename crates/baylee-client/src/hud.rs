@@ -547,6 +547,8 @@ pub enum MenuAction {
     /// Open the game log, or shut it again (#262): the scroll on the tray,
     /// the cross on the panel's head, and `L`.
     ToggleLog,
+    /// Open the report form (#309), from the game menu.
+    Report,
     /// Leave the game (sends the engine's own concession).
     Concede,
     /// Offer a draw: every other player still in the game has to accept

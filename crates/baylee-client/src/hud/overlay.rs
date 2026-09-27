@@ -2572,8 +2572,8 @@ mod tests {
         let (panel, shown, rows) = menu_panel(&mut app).expect("a panel");
         assert!(shown, "the menu is open");
         assert_eq!(
-            rows, 5,
-            "two ways out, music controls, a rule and the version"
+            rows, 6,
+            "two ways out, the report row, music controls, a rule and the version"
         );
         // The shelf's own children, less the two casts: those are spawned
         // with the shelf and exempt from its rebuild, so counting them would
