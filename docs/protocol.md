@@ -1427,7 +1427,7 @@ other's protocol.
 | --- | --- | --- | --- | --- |
 | agent | `AgentHello.protocol_version` | the agent token | `Error{code: 1, message}`, and the socket closes | not registered; it logs the sentence at error level and dials again on its back-off |
 | engine | `EngineHello.protocol_version` | the game's engine token | `Error{code: 1, message}`, and the socket closes | the game ends: it leaves the listing and its agent is sent `StopEngine`. The process exits with the sentence |
-| seat socket | `&protocol=` in the socket's query | the seat token, and before the engine hears of the socket | `HelloAck{protocol_version: <the gateway's>, compatible: false, message}`, the only frame, and the socket closes | the client stops for good (below) |
+| seat socket | `&protocol=` in the socket's query | the ticket (or, until 2026-10-31, the seat token), and before the engine hears of the socket | `HelloAck{protocol_version: <the gateway's>, compatible: false, message}`, the only frame, and the socket closes | the client stops for good (below) |
 
 - **One sentence for all three**, `baylee_protocol::version_refusal`, and it
   names both numbers: a mismatch is fixed by knowing which side is behind.
@@ -1464,6 +1464,96 @@ A client that is already shipped cannot be taught more than that.
 
 `Hello` is gone and its field reserved. Nothing ever sent it, and a seat
 socket is checked at the upgrade, before there is a frame to say hello in.
+
+## Opening a socket: tickets (#294)
+
+A browser's `WebSocket` cannot set a header, so a player's sockets used to
+carry their secret in the address: the session on `/lobby/ws?token=`, the
+seat token on `/games/{id}/ws?token=`. An address is what a reverse proxy's
+access log records, what a browser keeps in its history and what a crash
+report quotes, and both tokens live for hours. Now a client buys a
+**ticket** with an ordinary request, which can carry a header, and dials
+with that.
+
+| step | call | answer |
+| --- | --- | --- |
+| buy a lobby ticket | `POST /ws-ticket` `{"socket":"lobby"}`, `Authorization: Bearer <session>` | `{ticket, expires_in}`; `401` for a session the gateway does not know |
+| buy a seat ticket | `POST /ws-ticket` `{"socket":"seat","game":"<id>"}`, `Authorization: Bearer <seat token>` | `{ticket, expires_in}`; `401` for a seat token that is not this game's (or not any more), `404` for no such game |
+| open the lobby feed | `GET /lobby/ws?ticket=…&q=&offset=&limit=&waiting_only=` | the feed |
+| open a seat | `GET /games/{id}/ws?ticket=…&protocol=…` (`baylee_protocol::seat_socket_path`) | the table |
+
+What a ticket is (`crates/baylee-gateway/src/wsticket.rs`):
+
+- **Random**: 256 bits from the OS, hex. The gateway keeps only its SHA-256.
+- **Single use.** The upgrade that shows it removes it before anything else
+  is checked, so it is spent even when that upgrade is refused, and a second
+  use fails.
+- **Bound** to what bought it. A lobby ticket opens only `/lobby/ws`, and
+  only while the session that bought it still stands: signed out, lapsed or
+  its account deleted since, it opens nothing. A seat ticket opens only its
+  own game's `/games/{id}/ws`, as the seat it was bought for, and only while
+  that seat's token is still the one that bought it: a seat handed out again
+  (`POST /lobby/games/{id}/seat`) is not opened by a ticket its old token
+  bought. A lobby ticket opens no seat and a seat ticket no lobby.
+- **Short-lived**: `BAYLEE_WS_TICKET_SECS`, 45 s by default (the owner,
+  27.09.2026), any whole number of seconds from 1 to 600; anything else
+  (0, more than ten minutes, not a number) refuses startup. At exactly
+  `issued + lifetime` it is dead. The lifetime only matters for a ticket
+  nobody used: a used one is dead at once.
+- **In memory only**, never in the database. Each holder (a session, or a
+  seat token) has at most 8 unspent tickets, the oldest giving way to a new
+  one; the whole gateway holds at most 65 536, sweeps expired ones every
+  minute and when full, and answers `503` past that.
+- **Never logged.** Neither the ticket nor the bearer that bought it is a
+  field of any log line; `e2e_ws_tickets::no_secret_reaches_the_log` runs
+  the gateway at `debug` and looks.
+
+**A refused ticket** is `401` with `{"error":"ticket expired or used"}`
+(`baylee_protocol::TICKET_REFUSED`), the same sentence whether it was
+unknown, spent, expired or for another socket: a stranger learns nothing
+from which, and a client can tell it from every other `401`. The reason is
+logged at `debug`, without the ticket.
+
+**The client** buys a fresh ticket before every dial, the first and every
+reconnect (`baylee_client_core::wsticket::TicketDial`). An upgrade that
+fails before the socket opened is taken for a stale ticket: the client buys
+another and dials again at once, at most twice
+(`STALE_TICKET_RETRIES`), and the player sees nothing. A browser cannot
+read why an upgrade failed, so there every failure counts; natively too,
+for one rule on both platforms. After that the dial gives up and the
+ordinary reconnect schedule (`reconnect.rs`, "the gateway is not
+answering") takes over. A `401` on the ticket request itself means the
+bearer is gone: for the lobby feed the session, and the player is sent to
+sign in as after any other signed `401`; for a seat a chair that is not
+this client's any more, which is a link that is down.
+
+**`/games/{id}/cosmetics`** is an ordinary request and needs no ticket: it
+takes the seat token as `Authorization: Bearer <seat token>`.
+
+**The old way, until 2026-10-31.** Clients from before #294 (beta.1) send
+the token in the query and nothing else. The gateway still accepts
+`?token=` on `/lobby/ws`, `/games/{id}/ws` and `/games/{id}/cosmetics`
+until **2026-10-31 (UTC)**, the last day; from 2026-11-01T00:00:00Z it
+refuses them with `401` ("a token in the address is no longer accepted;
+update the client"). The date is enforced at run time
+(`wsticket::LEGACY_UNTIL`), not by a test that fails when it passes; every
+use inside the window is logged at `info`, naming the route and never the
+token, so an operator sees when the last old client stopped.
+`BAYLEE_WS_LEGACY_TOKENS=off` ends the window early; nothing makes it
+longer, and any other value refuses startup. A ticket, when both are sent,
+wins.
+
+`PROTOCOL_VERSION` did not move: an old client still gets in during the
+window, and nothing about the frames changed. A new client needs a gateway
+that sells tickets, which one build (gateway first) guarantees.
+
+What is still in an address: `/auth/confirm?token=` (a mail link, which
+has to be one; single-use, 24 h), and in a browser the page URL a table is
+handed over with from outside the client (`?game=…&token=…`,
+`docs/client.md`), which the static host serving the page and the
+browser's history see. The client's own lobby never builds that URL; it
+hands the seat over in memory. Moving that handover off the address is not
+part of #294.
 
 ## Confirming an address, and why it is optional
 
@@ -1685,11 +1775,12 @@ from a curl recipe into a contract:
 | put one back | `POST /decks/{id}/versions/{v}/revert` | `{version}` — the **new** number |
 | upload a sleeve or mat | `POST /images?kind=sleeve\|playmat`, the image as the raw body | `{id, kind}`; `403` for a guest |
 | fetch one | `GET /images/{id}` | the stored JPEG |
-| what a table wears | `GET /games/{id}/cosmetics?token=…` | `{"<seat>":{sleeve, playmat}}` |
+| what a table wears | `GET /games/{id}/cosmetics`, `Authorization: Bearer <seat token>` | `{"<seat>":{sleeve, playmat}}` |
 | the card pool | `GET /pool?lang=de` | `{total, pool_hash, lang, has_text, cards:[…]}` |
 | a card's printings | `GET /printings?card=42` | `{card, english_name, from_catalog, printings:[…]}` |
 | tables | `GET /lobby/games?q=&offset=&limit=` | `{games:[{id, name, host, yours, state, seats:[…]}], total, offset, limit}` |
-| the same, pushed | `GET /lobby/ws?token=…&q=&offset=&limit=` (websocket) | that page again, on every lobby change |
+| a socket ticket | `POST /ws-ticket` `{"socket":"lobby"}` or `{"socket":"seat","game"}` (§"Opening a socket: tickets") | `{ticket, expires_in}` |
+| the same, pushed | `GET /lobby/ws?ticket=…&q=&offset=&limit=` (websocket) | that page again, on every lobby change |
 | open one | `POST /lobby/games` `{deck_id, mode:"ai"\|"open", seats, name}` | `{game_id, seat, seat_token}` |
 | sit down | `POST /lobby/games/{id}/join` `{deck_id, seat?}` | `{game_id, seat, seat_token}` |
 | take the chair you are in | `POST /lobby/games/{id}/seat` | `{game_id, seat, seat_token}` |
@@ -2145,12 +2236,13 @@ no help at all.
 
 ### The lobby feed
 
-`GET /lobby/ws?token=<account token>&q=&offset=&limit=&waiting_only=` is a
+`GET /lobby/ws?ticket=<ticket>&q=&offset=&limit=&waiting_only=` is a
 websocket carrying **the page that socket asked for**, sent once on connect and
 again on every change to the lobby: a table opened or closed, a chair taken,
-freed, arranged or readied, a room started, a game ended. The token is the
-account bearer token in the query string, because a browser cannot put a header
-on a websocket; an unknown one is a `401` on the upgrade itself.
+freed, arranged or readied, a room started, a game ended. The ticket is bought
+with the session (`POST /ws-ticket`, §"Opening a socket: tickets (#294)"),
+because a browser cannot put a header on a websocket and the session must not
+ride in an address; a refused one is a `401` on the upgrade itself.
 
 The payload is the same object `GET /lobby/games` answers, rendered for *this*
 reader — `yours`, `you` and `player` are per-account, so the fan-out is a
@@ -2227,13 +2319,15 @@ messages from.
 
 `NetworkHost` (`crates/baylee-client/src/net.rs`) is the second
 `DuelHost`. It is handed a `SeatTicket{gateway, game_id, seat, seat_token}`
-and connects to `/games/{id}/ws?token=…`; `poll` drains the socket without
-blocking and `submit` sends a `PlayerActionMsg`. The token is *not* repeated
-in each frame — the socket is already bound to one seat of one game, and the
-seat comes from the token rather than from anything the client says later.
+buys a socket ticket with the seat token (`POST /ws-ticket`, the token in
+`Authorization`), then connects to `/games/{id}/ws?ticket=…`; `poll` picks up
+the ticket, opens the socket, drains it without blocking, and `submit` sends a
+`PlayerActionMsg`. The token is *not* repeated in each frame — the socket is
+already bound to one seat of one game, and the seat comes from the ticket's
+seat token rather than from anything the client says later.
 The seat in the ticket is only a hint: the host believes `GameStatic.your_seat`.
 
-`reconnect()` re-dials and sends `ResumeGame{last_seq}`. It is deliberately
+`reconnect()` buys a fresh ticket, re-dials and sends `ResumeGame{last_seq}`. It is deliberately
 not automatic: only the application knows whether a player is still sitting
 there, and a host that redialled by itself would hammer a gateway that is
 down.

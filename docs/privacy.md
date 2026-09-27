@@ -20,6 +20,7 @@ the pointers, because line numbers move.
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
 | Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH`; its owners in Postgres `upload` | while an account claims it or a deck shows it | the deletion of the last account that claims it, or the sweep at the gateway's next start |
 | Lobby tables | gateway memory | ≤ 2 h waiting, 1 h after a game ends | the lobby sweep, a restart |
+| Socket ticket (hash only) | gateway memory | ≤ 45 s (`BAYLEE_WS_TICKET_SECS`), or until used | use, the ticket sweep, a restart |
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
 | Game state | engine process memory | the game | the process exits |
 | Server logs | stdout | the host's choice | the host |
@@ -255,11 +256,23 @@ the pointers, because line numbers move.
   `store::Account` (hash and e-mail), `baylee-agent`'s config, the engine's
   `Attach`, and the generated protobuf messages that carry a token. The
   client's `KeptGuest` and `cardtext::SignedIn` print `<token>` instead.
-- **Tokens in URLs:** some secrets travel in a query string, where a reverse
-  proxy's access log would see them: `/lobby/ws?token=` (the account's
-  session), `/games/{id}/ws?token=` and `/games/{id}/cosmetics?token=` (a seat
-  token), and `/auth/confirm?token=`. The repository ships no proxy
-  configuration.
+- **Tokens in URLs (#294):** a socket is opened with a ticket
+  (`?ticket=`), bought over `POST /ws-ticket` with the session or seat token
+  in `Authorization`, and the cosmetics route takes the seat token in
+  `Authorization` too. A ticket in a proxy's access log is spent or expired
+  within seconds. Until 2026-10-31 (UTC) the gateway still accepts the old
+  `?token=` on `/lobby/ws`, `/games/{id}/ws` and `/games/{id}/cosmetics` from
+  clients that have not updated (`BAYLEE_WS_LEGACY_TOKENS=off` ends that
+  earlier), and logs the route, never the token, each time. What still
+  carries a secret in its address: `/auth/confirm?token=` (a mailed link) and
+  the browser client's handover page, `?game=…&token=…` (a page address the
+  gateway never sees, `docs/protocol.md` §"Opening a socket: tickets"). The
+  repository ships no proxy configuration.
+- **Socket tickets, in memory only:** the gateway keeps each ticket as a
+  SHA-256 hash with what bought it (an account id and its session's hash, or a
+  game id, seat and the seat token's hash) and when, until it is used or
+  `BAYLEE_WS_TICKET_SECS` (45 s by default) have passed; a sweep every minute
+  removes expired ones, and a restart all of them.
 
 ## Card data
 
@@ -424,8 +437,10 @@ to weigh, not conclusions.
      again: the deletion commits first, and the start's sweep takes them.
 2. **The legacy import file** stays on disk after import, with e-mails and
    password hashes in it.
-3. **Tokens in query strings** (listed under Logs) are exposed to whatever
-   access log sits in front of the gateway.
+3. **Tokens in query strings** (listed under Logs): until 2026-10-31 an old
+   client still sends its session or seat token in a socket's address, and
+   `/auth/confirm?token=` always does; whatever access log sits in front of
+   the gateway sees those.
 4. **Retention of stdout logs and of backups** is not set anywhere in the
    repository.
 5. **Game records** (#315) are kept without a time limit and name seats by

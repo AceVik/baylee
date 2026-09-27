@@ -5,7 +5,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 
 ## Hosts and connection
 
-- The renderer has no socket, only a `DuelHost`: `LocalHost` (in-process engine vs house AI) or `NetworkHost` (`src/net.rs`, `/games/{id}/ws`), same envelopes.
+- The renderer has no socket, only a `DuelHost`: `LocalHost` (in-process engine vs house AI) or `NetworkHost` (`src/net.rs`, `/games/{id}/ws`), same envelopes. Every dial and redial buys a ticket with the seat token first (`POST /ws-ticket`), and a failed upgrade retries silently twice with a fresh one (#294).
 - `standalone::run` (`src/standalone.rs`; `main.rs`, `android_main`) picks `NetworkHost` iff given a `SeatTicket` (`BAYLEE_GAME` + `BAYLEE_SEAT_TOKEN`, or `?game=…&token=…`, gateway `?gateway=…` kept in localStorage `baylee:gateway`); else `LobbyPlugin`.
 - `DuelHost::link()` → `LinkState` (Local/Up/Connecting/Down/Refused); `keep_the_table_connected` redials (`Connecting` distinct, else every frame), asking for missed frames, and never after `Refused` (the gateway's `HelloAck{compatible:false}`, #271: a hard stop naming which side is behind). `InstalledHost` is `Box<dyn DuelHost>`: link policy goes via `link()`.
 - `Retry` (`baylee-client-core/src/reconnect.rs`): 0.5 s doubling to 15 s, 12 dials, then an announced give-up.
@@ -34,7 +34,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - `POST .../host {seat}` hands the room on; leaving passes it to the earliest joiner; empty, it closes. Passwords list only as "locked".
 - Players are handles `Name#tag` (tag: `account.tag`, lowercase hex, padded to 4, may grow; `baylee-gateway/src/handle.rs`), never account ids; `you`/`yours` = "is that me", `startable` = would Start work. Only `store::display_names` joins name and tag; nothing below the gateway knows tags.
 - `GET /lobby/games` → `{games,total,offset,limit}`, `q` over table and host, fixed total order (waiting, newest, id): games sit in a `HashMap`.
-- `GET /lobby/ws?token=…&q=…&offset=…&limit=…` pushes the page on change; search/pager re-dial. `src/lobby/feed.rs` holds it; the 2 s HTTP re-read waits behind `Feed::live()`.
+- `GET /lobby/ws?ticket=…&q=…&offset=…&limit=…` (a fresh ticket per dial, bought with the session; `client-core::wsticket::TicketDial`, #294) pushes the page on change; search/pager re-dial. `src/lobby/feed.rs` holds it; the 2 s HTTP re-read waits behind `Feed::live()`.
 - `mode:"ai"` and join order an engine (seat socket waits 30 s); an open table orders none: dial the seat once the feed says `"playing"`.
 - Only the lobby is responsive: `Metrics::of(width)` (`src/lobby/ui.rs`) picks phone/tablet/desktop, sets every size; phone: stacked panels, no gateway line, 44 px targets.
 - On wasm, `softkeys.rs` keeps one invisible but focusable `<input>` (focus raises the phone keyboard; autofill, IME, paste); own key handling is off there (no double input).
