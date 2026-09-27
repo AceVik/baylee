@@ -8,6 +8,10 @@
 
 use bevy::prelude::*;
 
+/// Whether this build takes a picture of its window at all: the form says
+/// so at the screenshot box where it does not.
+pub(super) const TAKES_PICTURES: bool = cfg!(not(target_arch = "wasm32"));
+
 /// The most the encoded picture may weigh, before base64.
 #[cfg(not(target_arch = "wasm32"))]
 const BUDGET: usize = 900_000;

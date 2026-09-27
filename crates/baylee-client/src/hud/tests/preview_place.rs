@@ -266,9 +266,64 @@ fn a_panel_too_tall_for_the_band_sits_at_the_top_of_the_window() {
     ] {
         let place = preview_place(at, panel, window, None);
         assert!(
-            (place.y - EDGE).abs() < 1e-3,
-            "{at:?} opened at {place}, and the only sensible y here is {EDGE}"
+            (place.y - TOP_CLEAR).abs() < 1e-3,
+            "{at:?} opened at {place}, and the only sensible y here is {TOP_CLEAR}, \
+             under the report button"
         );
+    }
+}
+
+/// No preview lands under the report button (#309), whatever it is anchored
+/// to and however big the slider made it: the button stands in the window's
+/// top-right corner over everything, and the top of a preview is its card's
+/// name and mana cost. Down to a phone's window, either way up.
+#[test]
+fn no_preview_lands_under_the_report_button() {
+    const PAD: f32 = 6.0;
+    let aspect = 88.0 / 63.0;
+    for window in [
+        WINDOW,
+        Vec2::new(1280.0, 720.0),
+        Vec2::new(800.0, 600.0),
+        Vec2::new(932.0, 430.0),
+        Vec2::new(430.0, 932.0),
+        Vec2::new(360.0, 640.0),
+    ] {
+        let corner = report_corner(window);
+        for scale in [0.5_f32, 1.0, 1.75] {
+            let art = preview_art_size(
+                Vec2::new(308.0 * scale, 308.0 * scale * aspect),
+                PAD,
+                window,
+            );
+            let panel = art + Vec2::splat(2.0 * PAD);
+            let right = window.x;
+            let anchors = [
+                PreviewAt::Pointer(Vec2::new(right - 4.0, 4.0)),
+                PreviewAt::Pointer(Vec2::new(right - 30.0, 60.0)),
+                PreviewAt::Pointer(Vec2::new(right - 300.0, 20.0)),
+                PreviewAt::Pointer(Vec2::new(right * 0.5, 2.0)),
+                PreviewAt::Card(Rect::from_corners(
+                    Vec2::new(right - 60.0, 0.0),
+                    Vec2::new(right - 20.0, 56.0),
+                )),
+                PreviewAt::Card(Rect::from_corners(
+                    Vec2::new(right - 400.0, 10.0),
+                    Vec2::new(right - 360.0, 66.0),
+                )),
+                PreviewAt::Hand(right - 20.0),
+                PreviewAt::Loose,
+            ];
+            for at in anchors {
+                let place = preview_place(at, panel, window, None);
+                let drawn = Rect::from_corners(place, place + panel);
+                assert!(
+                    drawn.intersect(corner).is_empty(),
+                    "{at:?} in a {window} window at {scale}x: the preview at {drawn:?} \
+                     is under the button at {corner:?}"
+                );
+            }
+        }
     }
 }
 

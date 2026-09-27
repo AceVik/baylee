@@ -68,7 +68,10 @@ mod seatlog;
 
 pub use base64::encode as base64_encode;
 pub use consent::{Category, Consent, CrashConsent};
-pub use crash::{CrashFile, CrashRecord, CrashStep, crash_step, crash_submission, scrub_home};
+pub use crash::{
+    BACKTRACE_CHARS, CrashFile, CrashRecord, CrashStep, bounded_backtrace, crash_step,
+    crash_submission, scrub_home,
+};
 pub use form::{Outcome, ReportForm, Status, outcome};
 pub use seatlog::{LogRow, RosterSeat, SeatLog, seat_log};
 
@@ -103,6 +106,63 @@ pub struct Secret<'a> {
     pub label: &'a str,
     /// The bytes that must not be in the report.
     pub value: &'a str,
+}
+
+/// Every token the client is holding, wherever the shell keeps it, for
+/// [`seal`] to look for.
+///
+/// Gathered afresh for each send, from every place a token lives rather than
+/// from the screen that happens to be up: the seat token is the lobby's only
+/// between a join and the table opening, and after that it is the table's
+/// host's, which is exactly when a report about a game gets written. A
+/// keyring that missed one screen's token would pass the one report most
+/// likely to hold it.
+#[derive(Clone, Default, PartialEq, Eq)]
+pub struct Keyring {
+    /// Account sessions: the lobby's, and every copy of it (preferences,
+    /// card text) that could have gone stale behind a sign-out.
+    pub sessions: Vec<String>,
+    /// Seat tokens: the lobby's handover and the table's ticket.
+    pub seats: Vec<String>,
+    /// Guests this device keeps, one per gateway.
+    pub guests: Vec<String>,
+}
+
+impl std::fmt::Debug for Keyring {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Keyring")
+            .field("sessions", &self.sessions.len())
+            .field("seats", &self.seats.len())
+            .field("guests", &self.guests.len())
+            .finish()
+    }
+}
+
+impl Keyring {
+    /// The label a refusal names a session by.
+    pub const SESSION: &'static str = "session token";
+    /// The label a refusal names a seat token by.
+    pub const SEAT: &'static str = "seat token";
+    /// The label a refusal names a kept guest by.
+    pub const GUEST: &'static str = "guest token";
+
+    /// Every token, labelled, for [`seal`].
+    #[must_use]
+    pub fn secrets(&self) -> Vec<Secret<'_>> {
+        [
+            (Self::SESSION, &self.sessions),
+            (Self::SEAT, &self.seats),
+            (Self::GUEST, &self.guests),
+        ]
+        .into_iter()
+        .flat_map(|(label, values)| {
+            values.iter().map(move |value| Secret {
+                label,
+                value: value.as_str(),
+            })
+        })
+        .collect()
+    }
 }
 
 /// A report that was refused because it contained something it must not.
@@ -347,8 +407,15 @@ pub struct Gathered {
 }
 
 impl Gathered {
-    /// Whether there is anything to attach under `category`. A category
-    /// with nothing behind it is shown, but cannot be ticked.
+    /// Whether there is anything to attach under `category`.
+    ///
+    /// A box with nothing behind it is still shown and can still be ticked:
+    /// the ticks are the player's standing answer on this device, kept for
+    /// the next report (which may be written at a table, with a log and a
+    /// picture), and a box that refused a click now and took one later would
+    /// be a box that seemed broken. What it cannot do is put anything in the
+    /// report: [`Self::report`] asks this, so a ticked box over nothing sends
+    /// no key at all, not an empty one.
     #[must_use]
     pub fn has(&self, category: Category) -> bool {
         match category {
@@ -363,19 +430,21 @@ impl Gathered {
     /// The report, holding exactly what `consent` allows.
     ///
     /// An allow-list in the literal sense: each part is copied in only when
-    /// its box is ticked, and nothing is built first and stripped after.
+    /// its box is ticked *and* [`Self::has`] something under it, and nothing
+    /// is built first and stripped after.
     #[must_use]
     pub fn report(&self, consent: &Consent) -> BugReport {
-        fn take<T: Clone>(consent: &Consent, category: Category, part: Option<&T>) -> Option<T> {
-            consent.allows(category).then(|| part.cloned()).flatten()
-        }
+        let take = |category: Category| consent.allows(category) && self.has(category);
         BugReport {
             build: self.build.clone(),
-            system: take(consent, Category::System, self.system.as_ref()),
-            game: take(consent, Category::Game, self.game.as_ref()),
-            log: take(consent, Category::Log, self.log.as_ref()),
-            settings: take(consent, Category::Settings, self.settings.as_ref()),
-            screenshot: take(consent, Category::Screenshot, self.screenshot.as_ref()),
+            system: self.system.clone().filter(|_| take(Category::System)),
+            game: self.game.clone().filter(|_| take(Category::Game)),
+            log: self.log.clone().filter(|_| take(Category::Log)),
+            settings: self.settings.clone().filter(|_| take(Category::Settings)),
+            screenshot: self
+                .screenshot
+                .clone()
+                .filter(|_| take(Category::Screenshot)),
             crash: None,
         }
     }
@@ -663,6 +732,48 @@ mod tests {
         }
     }
 
+    /// A box ticked over nothing sends nothing: no key, not an empty one.
+    /// Here every box is ticked, the lobby had no table (no game, no log),
+    /// the log a table left behind is empty, and no picture was taken; the
+    /// preview and the sealed body agree, and both hold only what is there.
+    #[test]
+    fn a_ticked_box_with_nothing_behind_it_puts_nothing_in_the_report() {
+        let lobby = Gathered {
+            build: build(),
+            system: Some(system()),
+            settings: Some(Settings::default()),
+            log: Some(SeatLog {
+                seat: 0,
+                roster: Vec::new(),
+                lines: Vec::new(),
+            }),
+            ..Gathered::default()
+        };
+        let everything = Consent::everything();
+        for category in [Category::Game, Category::Log, Category::Screenshot] {
+            assert!(!lobby.has(category), "{category:?} has something");
+            assert!(everything.allows(category), "{category:?} is ticked");
+        }
+        let body = json_of(lobby.submission(Kind::Bug, "x", &everything));
+        let client = body["client"].as_object().expect("client is an object");
+        let mut keys: Vec<_> = client.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["build", "settings", "system"]);
+
+        let preview = ReportForm {
+            text: crate::textbuf::TextBuffer::new("x"),
+            ..ReportForm::default()
+        }
+        .preview_text(&lobby, &everything);
+        let shown: serde_json::Value = serde_json::from_str(&preview).expect("the preview is JSON");
+        for absent in ["game", "log", "screenshot"] {
+            assert!(
+                shown["client"].get(absent).is_none(),
+                "the preview shows {absent}"
+            );
+        }
+    }
+
     /// The whole point of [`seal`]. A token that reached the report by *any*
     /// route — here the free text, which is the one field no schema can
     /// constrain, because a player may paste anything into it — refuses the
@@ -707,6 +818,48 @@ mod tests {
             .submission(Kind::Bug, "x", &Consent::default())
             .sealed(&token())
             .expect("the system part was not sent");
+    }
+
+    /// Each kind of token the keyring holds refuses a report that carries
+    /// it, under its own label, and a keyring holding all three finds each.
+    #[test]
+    fn the_keyring_refuses_each_kind_of_token_it_holds() {
+        let session = "5e55105e55105e55105e55105e55105e";
+        let seat = "5ea75ea75ea75ea75ea75ea75ea75ea7";
+        let guest = "9ue579ue579ue579ue579ue579ue579u";
+        let keyring = Keyring {
+            sessions: vec![session.into()],
+            seats: vec![seat.into()],
+            guests: vec!["some other guest's token".into(), guest.into()],
+        };
+        for (token, label) in [
+            (session, Keyring::SESSION),
+            (seat, Keyring::SEAT),
+            (guest, Keyring::GUEST),
+        ] {
+            let refused = gathered()
+                .submission(
+                    Kind::Bug,
+                    &format!("pasted {token} by mistake"),
+                    &Consent::default(),
+                )
+                .sealed(&keyring.secrets());
+            assert_eq!(
+                refused.map(|_| ()),
+                Err(Unsendable::Leaked(Leaked {
+                    label: label.into()
+                })),
+                "{label}"
+            );
+        }
+        gathered()
+            .submission(Kind::Bug, "nothing of theirs", &Consent::everything())
+            .sealed(&keyring.secrets())
+            .expect("a clean report passes the whole keyring");
+        assert!(
+            !format!("{keyring:?}").contains(session),
+            "a keyring's Debug is counts, never tokens"
+        );
     }
 
     /// A short "secret" is not one, and searching for it would refuse every

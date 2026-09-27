@@ -23,7 +23,7 @@ use crate::settings::ClientSettings;
 
 /// The form's root, over everything.
 #[derive(Component)]
-pub(super) struct DeskRoot;
+pub(crate) struct DeskRoot;
 
 /// The form's scrolling column.
 #[derive(Component)]
@@ -31,7 +31,7 @@ pub(super) struct DeskScroll;
 
 /// What a button on the form does.
 #[derive(Component, Clone, Copy, Debug)]
-pub(super) enum DeskPress {
+pub(crate) enum DeskPress {
     /// Pick a kind.
     Kind(Kind),
     /// Tick or clear a box.
@@ -59,10 +59,17 @@ const PREVIEW_CHARS: usize = 20_000;
 const SHOT_PATIENCE: u32 = 30;
 
 /// Hands this frame's keys to the form. `true` when `Esc` closed it.
+///
+/// `Ctrl`/`Cmd`+`V` asks `clipboard` for its text; natively the answer is
+/// there at once, in a browser it comes a frame or more later, so the read
+/// waits on the desk and [`take_the_paste`] lands it whenever it arrives.
+/// Without a clipboard (a headless test) the chord does nothing, and in
+/// particular does not type a `v`.
 pub(super) fn typing(
     desk: &mut ReportDesk,
     codes: &ButtonInput<KeyCode>,
     typed: &mut MessageReader<KeyboardInput>,
+    mut clipboard: Option<&mut bevy::clipboard::Clipboard>,
 ) -> bool {
     let shift = codes.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
     let word = codes.any_pressed([
@@ -98,6 +105,10 @@ pub(super) fn typing(
             Key::Character(c) if command => {
                 if c.eq_ignore_ascii_case("a") {
                     text.select_all();
+                } else if c.eq_ignore_ascii_case("v")
+                    && let Some(clipboard) = clipboard.as_deref_mut()
+                {
+                    desk.paste = Some(clipboard.fetch_text());
                 }
                 continue;
             }
@@ -115,6 +126,26 @@ pub(super) fn typing(
         desk.form.edited();
     }
     closed
+}
+
+/// Lands a paste the clipboard has answered, cut to the room the limit
+/// leaves ([`baylee_client_core::bugreport::ReportForm::paste`]). A read
+/// that failed (an empty or non-text clipboard) is dropped without a word:
+/// nothing was pasted, and the box shows that.
+pub(super) fn take_the_paste(desk: &mut ReportDesk) {
+    let Some(result) = desk
+        .paste
+        .as_mut()
+        .and_then(bevy::clipboard::ClipboardRead::poll_result)
+    else {
+        return;
+    };
+    desk.paste = None;
+    if let Ok(text) = result
+        && desk.open
+    {
+        desk.form.paste(&text);
+    }
 }
 
 /// Scrolls the form's column under the wheel.
@@ -477,7 +508,11 @@ fn form(
         let coming = category == Category::Screenshot && desk.shooting;
         if !there && !coming {
             label.push_str("  ");
-            label.push_str(Phrase::ReportCatNothing.text(lang));
+            label.push_str(
+                category
+                    .nothing_where(super::shot::TAKES_PICTURES)
+                    .text(lang),
+            );
         }
         let entry = commands
             .spawn((
@@ -501,7 +536,7 @@ fn form(
         let hint = words(
             commands,
             tf(fonts, metrics.small),
-            category.hint().text(lang),
+            category.hint_where(super::shot::TAKES_PICTURES).text(lang),
             palette::MUTED,
         );
         commands.entity(entry).add_children(&[tick, hint]);
@@ -656,7 +691,7 @@ fn pressed(
     presses: Query<&DeskPress>,
     mut desk: ResMut<ReportDesk>,
     mut settings: ResMut<ClientSettings>,
-    lobby: Option<Res<LobbyState>>,
+    holders: super::Holders,
     answers: Res<Answers>,
 ) {
     let Ok(press) = presses.get(click.entity) else {
@@ -685,7 +720,7 @@ fn pressed(
         DeskPress::Preview => desk.form.preview = !desk.form.preview,
         DeskPress::Send => {
             let desk = desk.as_mut();
-            super::send(desk, lobby.as_deref(), &settings, &answers);
+            super::send(desk, &holders, &settings, &answers);
         }
         DeskPress::Close => {
             desk.open = false;

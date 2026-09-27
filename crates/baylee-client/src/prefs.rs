@@ -108,6 +108,13 @@ impl Prefs {
         Edit { prefs: self }
     }
 
+    /// The session the preferences are kept under, while signed in: a copy
+    /// of the lobby's, which a report must not carry either.
+    #[must_use]
+    pub fn session_token(&self) -> Option<&str> {
+        self.account.as_ref().map(|(_, token)| token.as_str())
+    }
+
     /// Signs in: from here on the account's copy is the truth.
     ///
     /// Called by whatever owns the sign-in — the lobby, or an embedding

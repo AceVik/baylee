@@ -8,26 +8,34 @@
 //! that sends a crash report on the next start.
 //!
 //! One form for the lobby and the table, opened by `F8` (`Action::Report`),
-//! by the row in the table's game menu and by the buttons beside the music
-//! controls in the lobby. It sends to the gateway the lobby is signed in to,
-//! with that session; without one it says so and sends nothing.
+//! by the button in the table's top-right corner (`corner`, over the end
+//! screen too), by the row in the table's game menu and by the button beside
+//! the music controls in the lobby. It sends to the gateway the lobby is
+//! signed in to, with that session; without one it says so and sends nothing.
 
 use std::sync::{Arc, Mutex};
 
 use baylee_client_core::bugreport::{
     self, Build, Category, Consent, CrashConsent, CrashFile, CrashStep, Game, Gathered, Holding,
-    ReportForm, Secret, Settings, Status, System, Table,
+    Keyring, ReportForm, Settings, Status, System, Table,
 };
 use baylee_client_core::i18n::Lang;
-use baylee_client_core::lobby::gateway_list;
+use baylee_client_core::lobby::{Screen, gateway_list};
 use baylee_client_core::prefs::Action;
 use bevy::prelude::*;
 
 use crate::lobby::LobbyState;
 use crate::settings::ClientSettings;
 
+mod corner;
 mod form;
 mod shot;
+#[cfg(test)]
+pub(crate) use corner::ReportCorner;
+#[cfg(test)]
+pub(crate) use form::{DeskPress, DeskRoot};
+#[cfg(test)]
+mod tests;
 
 /// Where the panic hook leaves a crash, beside the settings.
 const CRASH_FILE: &str = "crash-report.json";
@@ -68,6 +76,8 @@ pub struct ReportDesk {
     crash_tried: bool,
     /// Asked for from elsewhere (a button, the game menu): open next frame.
     pub asked: bool,
+    /// A clipboard read `Ctrl`/`Cmd`+`V` started, until it answers.
+    paste: Option<bevy::clipboard::ClipboardRead>,
 }
 
 impl ReportDesk {
@@ -76,6 +86,47 @@ impl ReportDesk {
     #[must_use]
     pub fn holds_keyboard(&self) -> bool {
         self.open || self.asking || self.swallow
+    }
+}
+
+/// What the tests in `report::tests` and elsewhere read and set of a desk
+/// whose fields are this module's.
+#[cfg(test)]
+impl ReportDesk {
+    pub(crate) fn form(&self) -> &ReportForm {
+        &self.form
+    }
+    pub(crate) fn form_mut(&mut self) -> &mut ReportForm {
+        &mut self.form
+    }
+    pub(crate) fn gathered_mut(&mut self) -> &mut Gathered {
+        &mut self.gathered
+    }
+    pub(crate) fn asking(&self) -> bool {
+        self.asking
+    }
+    pub(crate) fn crash(&self) -> Option<&CrashFile> {
+        self.crash.as_ref()
+    }
+    pub(crate) fn crash_tried(&self) -> bool {
+        self.crash_tried
+    }
+    /// The clipboard's answer, as a desktop clipboard gives it: at once.
+    pub(crate) fn clipboard_answers(&mut self, text: &str) {
+        self.paste = Some(bevy::clipboard::ClipboardRead::Ready(Ok(text.to_string())));
+    }
+    /// A crash file found at start, as `find_a_crash` meets it.
+    pub(crate) fn found(&mut self, consent: CrashConsent, text: Option<&str>) -> bool {
+        meet_the_crash(self, consent, text)
+    }
+}
+
+/// The gateway answering the form's report with `status` and `body`, for a
+/// test standing in for the HTTP thread.
+#[cfg(test)]
+pub(crate) fn gateway_answers(world: &World, status: u16, body: &str) {
+    if let Ok(mut slot) = world.resource::<Answers>().0.lock() {
+        slot.push(Answer::Form(status, body.to_string()));
     }
 }
 
@@ -112,6 +163,7 @@ pub(crate) fn install(app: &mut App) {
         .add_systems(
             Update,
             (
+                corner::keep_the_corner,
                 open_when_asked,
                 remember_the_gateway,
                 answers,
@@ -131,8 +183,10 @@ fn keys(
     prefs: Option<Res<crate::prefs::Prefs>>,
     mut typed: MessageReader<bevy::input::keyboard::KeyboardInput>,
     mut desk: ResMut<ReportDesk>,
+    mut clipboard: Option<ResMut<bevy::clipboard::Clipboard>>,
 ) {
     desk.swallow = false;
+    form::take_the_paste(&mut desk);
     if desk.asking {
         typed.clear();
         return;
@@ -147,7 +201,10 @@ fn keys(
         typed.clear();
         return;
     }
-    if form::typing(&mut desk, &codes, &mut typed) {
+    let closed = form::typing(&mut desk, &codes, &mut typed, clipboard.as_deref_mut());
+    // Natively the clipboard has answered already: land it this frame.
+    form::take_the_paste(&mut desk);
+    if closed {
         desk.open = false;
         desk.swallow = true;
     }
@@ -299,46 +356,78 @@ fn session(lobby: Option<&LobbyState>) -> Option<(String, String)> {
     Some((lobby.gateway.clone(), token.to_string()))
 }
 
-/// Every secret this client holds that a report must not carry: the
-/// session, a seat's token, and every guest kept on this device.
-fn secrets<'a>(
-    token: &'a str,
-    lobby: Option<&'a LobbyState>,
-    settings: &'a ClientSettings,
-) -> Vec<Secret<'a>> {
-    let mut secrets = vec![Secret {
-        label: "session token",
-        value: token,
-    }];
-    if let Some(seat) = lobby.and_then(|l| l.lobby.awaiting()) {
-        secrets.push(Secret {
-            label: "seat token",
-            value: &seat.seat_token,
-        });
+/// Everywhere a token lives, for [`keyring`]: read the same way by the
+/// form's Send and by the crash courier.
+#[derive(bevy::ecs::system::SystemParam)]
+pub(crate) struct Holders<'w> {
+    lobby: Option<Res<'w, LobbyState>>,
+    host: Option<Res<'w, crate::InstalledHost>>,
+    prefs: Option<Res<'w, crate::prefs::Prefs>>,
+    text: Option<Res<'w, crate::cardtext::TextGateway>>,
+}
+
+impl Holders<'_> {
+    /// Every token they hold, and the settings' guests.
+    fn keyring(&self, settings: &ClientSettings) -> Keyring {
+        keyring(
+            self.lobby.as_deref(),
+            self.host.as_deref(),
+            self.prefs.as_deref(),
+            self.text.as_deref(),
+            settings,
+        )
     }
-    for guest in settings.guests.values() {
-        secrets.push(Secret {
-            label: "guest token",
-            value: &guest.token,
-        });
+}
+
+/// Every token this client holds that a report must not carry, from every
+/// place it lives and whatever screen is up (#314): the lobby's session and
+/// the copies of it the preferences and the card text keep, the seat token
+/// the lobby holds between a join and the table and the one the table's
+/// host dials with after that, and every guest kept on this device.
+pub(crate) fn keyring(
+    lobby: Option<&LobbyState>,
+    host: Option<&crate::InstalledHost>,
+    prefs: Option<&crate::prefs::Prefs>,
+    text: Option<&crate::cardtext::TextGateway>,
+    settings: &ClientSettings,
+) -> Keyring {
+    let mut ring = Keyring::default();
+    let owned = |token: &str| token.to_string();
+    ring.sessions
+        .extend(lobby.and_then(|l| l.lobby.token()).map(owned));
+    ring.sessions.extend(
+        prefs
+            .and_then(crate::prefs::Prefs::session_token)
+            .map(owned),
+    );
+    ring.sessions.extend(
+        text.and_then(|t| t.0.as_ref())
+            .map(|signed| signed.token.clone()),
+    );
+    ring.seats.extend(
+        lobby
+            .and_then(|l| l.lobby.awaiting())
+            .map(|seat| seat.seat_token.clone()),
+    );
+    if let Some(Screen::Seated(seat)) = lobby.map(|l| l.lobby.screen()) {
+        ring.seats.push(seat.seat_token.clone());
     }
-    secrets
+    ring.seats
+        .extend(host.and_then(|h| h.0.seat_token()).map(owned));
+    ring.guests
+        .extend(settings.guests.values().map(|guest| guest.token.clone()));
+    ring
 }
 
 /// Sends the form's report: sealed here, answered into [`Answers`].
-fn send(
-    desk: &mut ReportDesk,
-    lobby: Option<&LobbyState>,
-    settings: &ClientSettings,
-    answers: &Answers,
-) {
-    let Some((gateway, token)) = session(lobby) else {
+fn send(desk: &mut ReportDesk, holders: &Holders, settings: &ClientSettings, answers: &Answers) {
+    let Some((gateway, token)) = session(holders.lobby.as_deref()) else {
         return;
     };
-    let secrets = secrets(&token, lobby, settings);
+    let keyring = holders.keyring(settings);
     let consent = settings.reports.clone();
     let gathered = desk.gathered.clone();
-    let Some(json) = desk.form.prepare(&gathered, &consent, &secrets) else {
+    let Some(json) = desk.form.prepare(&gathered, &consent, &keyring.secrets()) else {
         return;
     };
     post(&gateway, &token, json, answers, Answer::Form);
@@ -427,7 +516,13 @@ pub(crate) fn install_panic_hook() {
                 location: info
                     .location()
                     .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column())),
-                backtrace: None,
+                // Forced, because `RUST_BACKTRACE` is unset on a player's
+                // machine and the default capture would say "disabled".
+                // Scrubbed and cut in client-core, where it is tested.
+                backtrace: bugreport::bounded_backtrace(
+                    &std::backtrace::Backtrace::force_capture().to_string(),
+                    &home,
+                ),
                 at_unix: web_time::SystemTime::now()
                     .duration_since(web_time::UNIX_EPOCH)
                     .map_or(0, |d| d.as_secs()),
@@ -454,18 +549,29 @@ fn remember_the_gateway(lobby: Option<Res<LobbyState>>, mut last: Local<Option<S
 /// At start: a crash file, and what the player said to do with one.
 fn find_a_crash(mut desk: ResMut<ReportDesk>, settings: Res<ClientSettings>) {
     let text = crate::settings::store::read_named(CRASH_FILE);
-    let file = text.as_deref().and_then(CrashFile::from_text);
-    if text.is_some() && file.is_none() {
+    if meet_the_crash(&mut desk, settings.reports.crashes, text.as_deref()) {
         crate::settings::store::remove_named(CRASH_FILE);
     }
-    match bugreport::crash_step(settings.reports.crashes, file.is_some()) {
-        CrashStep::Nothing => {}
-        CrashStep::Discard => crate::settings::store::remove_named(CRASH_FILE),
+}
+
+/// What start does with the crash file's `text` under `consent`: holds the
+/// crash for the courier, or asks the question. `true` when the file is to
+/// be deleted: answered "never", or torn by the crash it was written in.
+fn meet_the_crash(desk: &mut ReportDesk, consent: CrashConsent, text: Option<&str>) -> bool {
+    let file = text.and_then(CrashFile::from_text);
+    let torn = text.is_some() && file.is_none();
+    match bugreport::crash_step(consent, file.is_some()) {
+        CrashStep::Nothing => torn,
+        CrashStep::Discard => true,
         CrashStep::Ask => {
             desk.crash = file;
             desk.asking = true;
+            false
         }
-        CrashStep::Send => desk.crash = file,
+        CrashStep::Send => {
+            desk.crash = file;
+            false
+        }
     }
 }
 
@@ -488,7 +594,7 @@ fn answer_the_crash_question(desk: &mut ReportDesk, settings: &mut ClientSetting
 /// Sends a waiting crash once the lobby is signed in where it belongs.
 fn send_the_crash(
     mut desk: ResMut<ReportDesk>,
-    lobby: Option<Res<LobbyState>>,
+    holders: Holders,
     settings: Res<ClientSettings>,
     answers: Res<Answers>,
 ) {
@@ -498,7 +604,7 @@ fn send_the_crash(
     let Some(file) = desk.crash.clone() else {
         return;
     };
-    let Some((gateway, token)) = session(lobby.as_deref()) else {
+    let Some((gateway, token)) = session(holders.lobby.as_deref()) else {
         return;
     };
     if !file.sends_to(&gateway, gateway_list::PINNED) {
@@ -509,8 +615,8 @@ fn send_the_crash(
         .reports
         .allows(Category::System)
         .then(|| system(None, None, &settings.lang));
-    let secrets = secrets(&token, lobby.as_deref(), &settings);
-    if let Ok((json, _)) = bugreport::crash_submission(&file, system).sealed(&secrets) {
+    let keyring = holders.keyring(&settings);
+    if let Ok((json, _)) = bugreport::crash_submission(&file, system).sealed(&keyring.secrets()) {
         post(&gateway, &token, json, &answers, |status, _| {
             Answer::Crash(status)
         });

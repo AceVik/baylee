@@ -983,3 +983,73 @@ fn every_panel_stays_on_its_own_seats_band() {
         }
     }
 }
+
+/// No seat's place on the table reaches the report button's corner (#309):
+/// the button stands over everything, so a mat under it would lose a card's
+/// name and cost to it. Every seat count, framed as the camera frames it, in
+/// windows from a laptop's down to a phone's either way up.
+///
+/// A separating-axis test between the button's square and each seat's
+/// footprint as the camera draws it (a trapezoid, which a bounding box would
+/// overstate towards the far seats).
+#[test]
+fn the_report_corner_lies_on_no_seat_s_place() {
+    for window in [
+        WINDOW,
+        Vec2::new(1280.0, 800.0),
+        Vec2::new(1024.0, 640.0),
+        Vec2::new(800.0, 600.0),
+        Vec2::new(932.0, 430.0),
+        Vec2::new(430.0, 932.0),
+        Vec2::new(360.0, 800.0),
+    ] {
+        let canvas = Canvas::hud(window);
+        let corner = crate::hud::report_corner(window);
+        let square = [
+            corner.min,
+            Vec2::new(corner.max.x, corner.min.y),
+            corner.max,
+            Vec2::new(corner.min.x, corner.max.y),
+        ];
+        for n in 2..=8u8 {
+            let layout = TableLayout::new(&seats(n), canvas.aspect(), None);
+            let rig = CameraRig::home(&layout, canvas);
+            for (seat, quad) in places(&layout).chunks(4).enumerate() {
+                // `box_corners` walks (-,-), (-,+), (+,-), (+,+): round the
+                // loop, that is 0, 1, 3, 2.
+                let drawn: Vec<Vec2> = [0usize, 1, 3, 2]
+                    .iter()
+                    .map(|&i| {
+                        let at = project(rig, canvas, quad[i]);
+                        Vec2::new(
+                            f32::midpoint(at.x, 1.0) * window.x,
+                            f32::midpoint(1.0, -at.y) * window.y,
+                        )
+                    })
+                    .collect();
+                let mut axes = vec![Vec2::X, Vec2::Y];
+                for i in 0..4 {
+                    let edge = drawn[(i + 1) % 4] - drawn[i];
+                    axes.push(Vec2::new(-edge.y, edge.x));
+                }
+                let span = |points: &[Vec2], axis: Vec2| {
+                    points
+                        .iter()
+                        .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), p| {
+                            (lo.min(p.dot(axis)), hi.max(p.dot(axis)))
+                        })
+                };
+                let apart = axes.iter().any(|&axis| {
+                    let (a0, a1) = span(&drawn, axis);
+                    let (b0, b1) = span(&square, axis);
+                    a1 < b0 || b1 < a0
+                });
+                assert!(
+                    apart,
+                    "{n} seats in a {window} window: seat {seat}'s place {drawn:?} \
+                     reaches the report button at {corner:?}"
+                );
+            }
+        }
+    }
+}

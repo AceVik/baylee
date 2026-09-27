@@ -48,6 +48,7 @@ pub fn outcome(status: u16, body: &str) -> Outcome {
         401 => said(Phrase::ReportSignInAgain),
         413 => said(Phrase::ReportTooLarge),
         429 => said(Phrase::ReportTooMany),
+        502 => said(Phrase::ReportNotPassedOn),
         503 => said(Phrase::ReportsUnavailable),
         0 => said(Phrase::ReportUnreachable),
         _ => said(Phrase::ReportFailed),
@@ -163,6 +164,37 @@ impl ReportForm {
         }
     }
 
+    /// Pastes `text` over the selection, or at the caret: what the system
+    /// clipboard handed the form on `Ctrl`/`Cmd`+`V`. Returns how many
+    /// characters went in.
+    ///
+    /// Line breaks stay, because a report is prose and a pasted panic or a
+    /// log excerpt is lines (`\r\n` and a lone `\r` become `\n`); every
+    /// other control character is dropped, as typing drops them. And it is
+    /// cut to the room the limit leaves, counting the selection it replaces
+    /// as room: typing past [`MAX_TEXT_CHARS`] only greys Send, but a paste
+    /// is thousands of characters at once, and a paste that overshot would
+    /// leave the player to find and delete the excess by hand.
+    pub fn paste(&mut self, text: &str) -> usize {
+        let normal = text.replace("\r\n", "\n").replace('\r', "\n");
+        let selected = self
+            .text
+            .selection()
+            .map_or(0, |range| self.text.text()[range].chars().count());
+        let room = MAX_TEXT_CHARS.saturating_sub(self.chars() - selected);
+        let kept: String = normal
+            .chars()
+            .filter(|c| *c == '\n' || !c.is_control())
+            .take(room)
+            .collect();
+        if kept.is_empty() {
+            return 0;
+        }
+        self.text.replace_selection(&kept);
+        self.edited();
+        kept.chars().count()
+    }
+
     /// Something was typed or ticked: a finished or refused attempt's line
     /// gives way to the form again.
     pub fn edited(&mut self) {
@@ -217,19 +249,81 @@ mod tests {
             outcome(400, r#"{"error":"kind is not one of ..."}"#),
             Outcome::Refused(Refusal::Verbatim("kind is not one of ...".into()))
         );
-        for (status, phrase) in [
+        let table = [
             (401, Phrase::ReportSignInAgain),
             (413, Phrase::ReportTooLarge),
             (429, Phrase::ReportTooMany),
+            (502, Phrase::ReportNotPassedOn),
             (503, Phrase::ReportsUnavailable),
             (0, Phrase::ReportUnreachable),
             (500, Phrase::ReportFailed),
-        ] {
+        ];
+        for (status, phrase) in table {
             assert_eq!(
                 outcome(status, r#"{"error":"reports are not configured"}"#),
                 Outcome::Refused(Refusal::Said(phrase)),
                 "{status}"
             );
+        }
+        // Told apart means no two of them read alike, in either language.
+        for lang in [Lang::En, Lang::De] {
+            let mut said: Vec<&str> = table.iter().map(|(_, p)| p.text(lang)).collect();
+            said.sort_unstable();
+            said.dedup();
+            assert_eq!(said.len(), table.len(), "{lang:?}: two statuses read alike");
+        }
+    }
+
+    /// A 400 without words of the gateway's own still says something, and
+    /// a 400 in plain text is quoted as it came.
+    #[test]
+    fn a_bad_request_is_the_gateway_s_words_or_the_general_sentence() {
+        assert_eq!(
+            outcome(400, ""),
+            Outcome::Refused(Refusal::Said(Phrase::ReportFailed))
+        );
+        assert_eq!(
+            outcome(400, "game_id is too long\n"),
+            Outcome::Refused(Refusal::Verbatim("game_id is too long".into()))
+        );
+    }
+
+    /// The form says each answer as the player reads it: the status line
+    /// after a send is the outcome's sentence, and a received report says
+    /// its id.
+    #[test]
+    fn the_status_line_after_each_answer_is_its_sentence() {
+        for (status, body, want) in [
+            (
+                201,
+                r#"{"report_id":"r-9"}"#,
+                Phrase::ReportSent.fill(Lang::En, &["r-9"]),
+            ),
+            (400, r#"{"error":"no text"}"#, "no text".to_string()),
+            (
+                401,
+                "",
+                Phrase::ReportSignInAgain.text(Lang::En).to_string(),
+            ),
+            (413, "", Phrase::ReportTooLarge.text(Lang::En).to_string()),
+            (429, "", Phrase::ReportTooMany.text(Lang::En).to_string()),
+            (
+                502,
+                "",
+                Phrase::ReportNotPassedOn.text(Lang::En).to_string(),
+            ),
+            (
+                503,
+                "",
+                Phrase::ReportsUnavailable.text(Lang::En).to_string(),
+            ),
+            (0, "", Phrase::ReportUnreachable.text(Lang::En).to_string()),
+        ] {
+            let mut form = form("it broke");
+            form.prepare(&Gathered::default(), &Consent::default(), &[])
+                .expect("sendable");
+            form.answered(status, body);
+            assert_eq!(form.status.text(Lang::En), Some(want), "{status}");
         }
     }
 
@@ -277,6 +371,78 @@ mod tests {
             form.status,
             Status::Blocked(Unsendable::Leaked(_))
         ));
+    }
+
+    /// A paste keeps its line breaks, as one kind, and drops every other
+    /// control character.
+    #[test]
+    fn a_paste_keeps_its_lines_and_drops_other_controls() {
+        let mut form = form("");
+        let went = form.paste("thread 'main' panicked\r\n  at x.rs:1\rnext\u{7}\ttab\n");
+        assert_eq!(
+            form.text.text(),
+            "thread 'main' panicked\n  at x.rs:1\nnexttab\n"
+        );
+        assert_eq!(went, form.chars());
+        assert_eq!(
+            form.paste("\u{7}\u{1b}"),
+            0,
+            "nothing printable, nothing pasted"
+        );
+    }
+
+    /// A paste lands at the caret, or over the selection it replaces.
+    #[test]
+    fn a_paste_goes_in_at_the_caret_or_over_the_selection() {
+        let mut form = form("before after");
+        form.text.place(7, None);
+        form.paste("middle ");
+        assert_eq!(form.text.text(), "before middle after");
+        form.text.select_all();
+        form.paste("all of it");
+        assert_eq!(form.text.text(), "all of it");
+    }
+
+    /// A paste is cut to the room the limit leaves, the selection it
+    /// replaces counted as room, and characters counted rather than bytes.
+    #[test]
+    fn a_paste_is_cut_to_the_room_the_limit_leaves() {
+        let mut empty = form("");
+        assert_eq!(
+            empty.paste(&"ä".repeat(MAX_TEXT_CHARS + 5_000)),
+            MAX_TEXT_CHARS
+        );
+        assert_eq!(empty.chars(), MAX_TEXT_CHARS);
+        assert!(!empty.over_limit() && empty.can_send(true));
+        assert_eq!(empty.paste("more"), 0, "a full box takes nothing more");
+        assert_eq!(empty.chars(), MAX_TEXT_CHARS);
+
+        let mut nearly = form_with_room(10);
+        assert_eq!(nearly.paste("0123456789abc"), 10);
+        assert_eq!(nearly.chars(), MAX_TEXT_CHARS);
+
+        // Selecting five characters frees five.
+        let mut full = form(&"x".repeat(MAX_TEXT_CHARS));
+        full.text.place(0, Some(5));
+        assert_eq!(full.paste("abcdefgh"), 5);
+        assert_eq!(full.chars(), MAX_TEXT_CHARS);
+        assert!(full.text.text().starts_with("abcdex"));
+    }
+
+    fn form_with_room(room: usize) -> ReportForm {
+        let mut form = form(&"y".repeat(MAX_TEXT_CHARS - room));
+        form.text.place(form.text.text().len(), None);
+        form
+    }
+
+    /// A paste into a form whose last send was refused brings the form back
+    /// to editing, as a keystroke does.
+    #[test]
+    fn a_paste_is_an_edit() {
+        let mut form = form("x");
+        form.answered(429, "");
+        form.paste("y");
+        assert_eq!(form.status, Status::Editing);
     }
 
     /// The preview is the sent body: same parts, the picture as its size.

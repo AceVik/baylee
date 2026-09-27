@@ -78,17 +78,22 @@ use super::*;
 /// drücken`, 174.9 px at [`LABEL_PT`] and 196.9 as a button — but it is not
 /// what decides this number. The **version line** is: it is the one thing in
 /// here that grows on its own, because the build number counts up with every
-/// build made, and the worst shape it can take (a three-part version, six
-/// digits of build, a ten-character commit and `-dirty`) is 40 characters at
-/// [`VERSION_PT`], which is 228.8. Plus [`MENU_PAD_X`] either side and the
-/// border, 262.8 — and the constant carries nine pixels over that.
+/// build made, and the worst shape it can take is this version as Cargo
+/// stamps it, six digits of build, a ten-character commit and `-dirty`:
+/// `0.1.0-beta.1+build.999999 (0123456789-dirty)`, 44 characters at
+/// [`VERSION_PT`], which is 251.7. Plus [`MENU_PAD_X`] either side and the
+/// border, 285.7 — and the constant carries eight pixels over that.
 ///
-/// Both halves of that were wrong at first and the test said so, which is the
-/// argument for bounding it here rather than measuring once by hand: the
+/// Every bound here was wrong once and the test said so, which is the
+/// argument for bounding it there rather than measuring once by hand: the
 /// first draft sized the panel against the armed label alone and was six
-/// pixels too narrow for a version string nobody in this repository has seen
-/// yet.
-const MENU_W: f32 = 272.0;
+/// pixels too narrow for a version string nobody in this repository had seen
+/// yet, and the second typed its worst version as `10.20.30`, which the
+/// first beta's `0.1.0-beta.1` outgrew, so every dirty working copy drew a
+/// version wider than the panel. The worst
+/// shape is now built from the real version, so a bump that lengthens it is
+/// measured by the same test.
+const MENU_W: f32 = 294.0;
 
 /// The air either side of a row. The drawer's number, because this is the
 /// drawer's shape one level smaller.
@@ -514,20 +519,59 @@ mod tests {
                 );
             }
         }
-        // The widest version string this scheme can produce: a three-part
-        // version, a six-digit build number, a ten-character commit and the
-        // dirty marker.
-        let worst = "10.20.30+build.999999 (0123456789-dirty)";
-        let line = crate::hud::text_width(worst, VERSION_PT, false);
+        let worst = widest_version();
+        let line = crate::hud::text_width(&worst, VERSION_PT, false);
         assert!(
             line <= inside,
-            "a dirty build sets {line:.1} and the panel holds {inside:.1}"
+            "{worst:?} sets {line:.1} and the panel holds {inside:.1}"
         );
         let real = baylee_build::short();
         assert!(
             real.chars().count() <= worst.chars().count(),
-            "the version is longer than the shape this was bounded at: {real:?}"
+            "this build's version is longer than the shape it was bounded at: {real:?}"
         );
+    }
+
+    /// The widest version line a build of this version can draw.
+    ///
+    /// Built from the real pieces rather than typed as a literal, which is
+    /// what the first bound got wrong: it was a three-part version with no
+    /// pre-release tag, `10.20.30+build.999999 (0123456789-dirty)`, and the
+    /// first beta, `0.1.0-beta.1`, is two characters longer than `10.20.30`,
+    /// so a dirty tree's version outgrew the shape and the test failed on
+    /// every working copy with an edit in it. So: the version exactly as
+    /// Cargo stamps it (a bump that lengthens it re-measures here), the
+    /// build number at the six digits CI's run number will not pass for
+    /// years, the commit at the ten characters `COMMIT_SHORT` always has,
+    /// and the dirty marker.
+    fn widest_version() -> String {
+        let build = baylee_build::BUILD_NUMBER;
+        assert!(
+            build.len() <= 6,
+            "the build number {build} passed the six digits the menu is bounded at"
+        );
+        let commit = baylee_build::COMMIT_SHORT;
+        assert!(
+            commit.len() <= 10,
+            "the commit {commit} is longer than the ten characters it is cut to"
+        );
+        format!("{}+build.999999 (0123456789-dirty)", baylee_build::VERSION)
+    }
+
+    /// The bound is the dirty shape of *this* version, so it holds for the
+    /// string a dirty working copy draws, whatever its commit count: a
+    /// clean build and a dirty one of the same commit both fit.
+    #[test]
+    fn the_widest_version_is_this_version_dirty() {
+        let worst = widest_version();
+        assert!(worst.starts_with(baylee_build::VERSION));
+        assert!(worst.ends_with("-dirty)"));
+        for shape in [
+            format!("{}+build.1 (abcdef1234)", baylee_build::VERSION),
+            format!("{}+build.4242 (abcdef1234-dirty)", baylee_build::VERSION),
+        ] {
+            assert!(shape.chars().count() <= worst.chars().count(), "{shape}");
+        }
     }
 
     /// The panel covers the right strip rather than standing on it. That

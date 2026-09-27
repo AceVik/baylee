@@ -48,6 +48,30 @@ impl Category {
         }
     }
 
+    /// The line under the label saying what it holds, on a client that
+    /// can (`pictures`) or cannot take a picture of its window.
+    ///
+    /// A browser build cannot, and a box promising "the window as it was"
+    /// there would be a promise the report never keeps.
+    #[must_use]
+    pub fn hint_where(self, pictures: bool) -> Phrase {
+        match self {
+            Self::Screenshot if !pictures => Phrase::ReportCatScreenshotHintWeb,
+            _ => self.hint(),
+        }
+    }
+
+    /// What the label adds when there is nothing to send under it: that
+    /// there is nothing, or, for the screenshot on a client that takes no
+    /// pictures, why.
+    #[must_use]
+    pub fn nothing_where(self, pictures: bool) -> Phrase {
+        match self {
+            Self::Screenshot if !pictures => Phrase::ReportCatNoShotOnWeb,
+            _ => Phrase::ReportCatNothing,
+        }
+    }
+
     /// The line under the label saying what it holds.
     #[must_use]
     pub fn hint(self) -> Phrase {
@@ -150,6 +174,26 @@ mod tests {
         assert_eq!(consent.crashes, CrashConsent::Unasked);
         let read: Consent = serde_json::from_str("{}").expect("an empty object reads");
         assert_eq!(read, consent);
+    }
+
+    /// A client that takes no picture says so at the screenshot box, under
+    /// it and beside it, and says nothing different at any other box.
+    #[test]
+    fn a_client_without_pictures_says_so_at_the_screenshot_box_only() {
+        for category in Category::ALL {
+            assert_eq!(category.hint_where(true), category.hint());
+            assert_eq!(category.nothing_where(true), Phrase::ReportCatNothing);
+            if category == Category::Screenshot {
+                assert_eq!(
+                    category.hint_where(false),
+                    Phrase::ReportCatScreenshotHintWeb
+                );
+                assert_eq!(category.nothing_where(false), Phrase::ReportCatNoShotOnWeb);
+            } else {
+                assert_eq!(category.hint_where(false), category.hint());
+                assert_eq!(category.nothing_where(false), Phrase::ReportCatNothing);
+            }
+        }
     }
 
     /// Each box is its own switch, and un-ticking one is remembered as

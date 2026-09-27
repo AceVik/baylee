@@ -7355,9 +7355,17 @@ Known limits, each a later view version:
 
 One form, `src/report.rs` and `src/report/`, stands over the lobby and the
 table alike (`GlobalZIndex(1000)`, a shade that blocks the pointer). It is
-opened by `Action::Report` (F8), the game menu's row and a button beside the
-music controls in the lobby's gear menu and settings. While it is up it has
-every key: `ReportDesk::holds_keyboard` is the first thing the lobby's and
+opened by `Action::Report` (F8), the table's corner button, the game menu's
+row and a button beside the music controls in the lobby's gear menu and
+settings. The corner button (`src/report/corner.rs`) stands in the window's
+top-right corner while a table is up, playing or finished, as a root at
+`GlobalZIndex(900)`: over the end screen (1) and a preview opened from it
+(2), under the form. Every panel that reached that corner (the stack, the
+zone dialog's band, the log, the ability sheet, the hover preview) stands
+under `hud::TOP_CLEAR` instead, and no seat's place on the table reaches it
+at two to eight seats down to a phone's window (`camera_tests`).
+
+While the form is up it has every key: `ReportDesk::holds_keyboard` is the first thing the lobby's and
 the table's key handlers ask, and it stays true for the frame `Esc` closes
 it, so that `Esc` does not also cancel something underneath.
 
@@ -7368,7 +7376,7 @@ roster already reading "You", "Player A", "Player B"), `Submission::sealed`
 (20 000 characters, the `client` object fitted under 2 MB by dropping the
 picture and then the oldest log lines, and `seal` last), and `outcome`, the
 table of the gateway's answers (`201`, the gateway's own words for `400`, a
-sentence of ours for `401`, `413`, `429`, `503` and for no answer). The
+sentence of ours for `401`, `413`, `429`, `502`, `503` and for no answer). The
 preview is the same fitted submission pretty-printed, the picture written
 as its size and the text cut at 20 000 characters on screen.
 
