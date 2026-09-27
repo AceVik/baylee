@@ -133,7 +133,11 @@ pub(super) fn typing(
 /// that failed (an empty or non-text clipboard) is dropped without a word:
 /// nothing was pasted, and the box shows that.
 pub(super) fn take_the_paste(desk: &mut ReportDesk) {
-    let Some(result) = desk.paste.as_mut().and_then(|read| read.poll_result()) else {
+    let Some(result) = desk
+        .paste
+        .as_mut()
+        .and_then(bevy::clipboard::ClipboardRead::poll_result)
+    else {
         return;
     };
     desk.paste = None;

@@ -12,6 +12,8 @@
 //! log, the settings or a picture: those are the form's, and the form is
 //! the player's.
 
+use std::fmt::Write as _;
+
 use serde::{Deserialize, Serialize};
 
 use super::{BugReport, Build, Kind, Submission, System};
@@ -163,7 +165,8 @@ pub fn bounded_backtrace(text: &str, home: &str) -> Option<String> {
         kept.push('\n');
         taken = 1;
     }
-    kept.push_str(&format!("… {} more lines", lines.len() - taken));
+    // Writing to a `String` cannot fail.
+    let _ = write!(kept, "… {} more lines", lines.len() - taken);
     Some(kept)
 }
 
