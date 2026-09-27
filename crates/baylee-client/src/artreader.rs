@@ -229,31 +229,29 @@ pub fn authorization(url: &str, base: &str, session: Option<&str>) -> Option<Str
 /// relative one), on every desktop, as `settings` reads `$XDG_CONFIG_HOME`;
 /// else `~/Library/Caches` on macOS and iOS (whose `HOME` is the app's
 /// container), `%LOCALAPPDATA%` on Windows, `~/.cache` elsewhere, and on
-/// Android the app's own cache directory.
+/// Android the app's own cache directory. Every answer but Android's is
+/// `baylee_client_core::userdirs::user_dir`, where each system's is tested.
 #[must_use]
 pub fn cache_home() -> Option<PathBuf> {
-    let set = |key: &str| {
-        std::env::var_os(key)
-            .filter(|value| !value.is_empty())
-            .map(PathBuf::from)
-    };
-    if let Some(xdg) = set("XDG_CACHE_HOME").filter(|dir| dir.is_absolute()) {
-        return Some(xdg.join("baylee"));
-    }
-    #[cfg(target_vendor = "apple")]
-    let base = set("HOME").map(|home| home.join("Library").join("Caches"));
-    #[cfg(windows)]
-    let base = set("LOCALAPPDATA");
-    // `getCacheDir()` is `cache` beside `getFilesDir()`, which is the one
-    // path a NativeActivity is handed.
-    #[cfg(target_os = "android")]
-    let base = bevy::android::ANDROID_APP
+    use baylee_client_core::userdirs::{Kind, Os, real_env, user_dir};
+    user_dir(Kind::Cache, Os::current(), &real_env).or_else(android_cache)
+}
+
+/// Android's cache directory: `getCacheDir()` is `cache` beside
+/// `getFilesDir()`, which is the one path a NativeActivity is handed.
+#[cfg(target_os = "android")]
+fn android_cache() -> Option<PathBuf> {
+    bevy::android::ANDROID_APP
         .get()
         .and_then(|app| app.internal_data_path())
-        .and_then(|files| Some(files.parent()?.join("cache")));
-    #[cfg(not(any(target_vendor = "apple", windows, target_os = "android")))]
-    let base = set("HOME").map(|home| home.join(".cache"));
-    base.map(|dir| dir.join("baylee"))
+        .and_then(|files| Some(files.parent()?.join("cache").join("baylee")))
+}
+
+/// Only Android is handed its cache directory rather than reading it from
+/// the environment.
+#[cfg(not(target_os = "android"))]
+const fn android_cache() -> Option<PathBuf> {
+    None
 }
 
 /// The one client every picture is fetched with.

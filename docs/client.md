@@ -7482,11 +7482,30 @@ that forgot where its table was would be worse than one that never knew.
 `settings::forget_gateway()` clears it.
 
 The same missing filesystem is why settings take a second back end. Natively
-they are a JSON file under `~/.config/baylee/`; in a browser the identical
+they are JSON files in the client's config directory; in a browser the identical
 JSON lives in `localStorage` under `baylee:client-settings`, scoped to the
 origin the client is served from. Both are best-effort — a corrupt file, a
 private window, a browser set to block site data — so `ClientSettings::load`
 falls back to defaults rather than failing a launch.
+
+**Where the files live** (`client-settings.json`, `preferences.json`,
+`offline-decks.json`, `crash-report.json`, …) is one pure function,
+`client-core::userdirs::user_dir`, over the operating system and an
+environment lookup, so every system's answer is tested on whichever machine
+runs the tests:
+
+| System | Settings | Card-art cache |
+|---|---|---|
+| any, when set | `$XDG_CONFIG_HOME/baylee` | `$XDG_CACHE_HOME/baylee` (absolute only) |
+| Windows | `%APPDATA%\Baylee`, else `%USERPROFILE%\AppData\Roaming\Baylee` | `%LOCALAPPDATA%\baylee` |
+| macOS, iOS | `~/.config/baylee` | `~/Library/Caches/baylee` |
+| Linux | `~/.config/baylee` | `~/.cache/baylee` |
+| Android | `~/.config/baylee` when `HOME` is set, else none | the app's cache directory |
+
+Until #324 the settings read only `XDG_CONFIG_HOME` and `HOME`, which Windows
+normally sets neither of, so a Windows client saved nothing: no settings, no
+kept guest, no saved gateway, no report consent, no crash report. Every other
+system answers what it did before, so no player's files move.
 
 **Only the player's client opens that store.** Both back ends answer nothing
 and write nothing until `settings::open_store()` is called, and only
