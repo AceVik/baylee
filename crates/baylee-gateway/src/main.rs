@@ -13,6 +13,7 @@ mod clock;
 mod cosmetics;
 mod engine;
 mod handle;
+mod invite;
 mod lobby;
 mod mail;
 mod pool;
@@ -67,8 +68,9 @@ struct AppState {
     /// limit so account spam and mail amplification stay bounded by it.
     sign_in_limiter: auth::RateLimiter,
     lobby: Mutex<Lobby>,
-    /// Registration toggle (`BAYLEE_REGISTRATION=off` to disable).
-    registration_enabled: bool,
+    /// Who may register (`BAYLEE_REGISTRATION`): anybody, somebody with a
+    /// closed-beta key (`invite`, #317), or nobody (`off`).
+    registration: invite::Registration,
     /// Whether a player may play as a guest (`BAYLEE_GUESTS=off` to
     /// disable; #269).
     guests_enabled: bool,
@@ -180,6 +182,13 @@ type Shared = Arc<AppState>;
 #[tokio::main]
 #[allow(clippy::too_many_lines)] // one statement per setting and route, read top to bottom
 async fn main() {
+    // The operator's command for closed-beta keys (#317), before anything
+    // else: it prints keys on standard output, where a log line would be
+    // read as one, and it needs no port, agent or setting but the database.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("invite") {
+        std::process::exit(invite::cli(&args[1..]).await);
+    }
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
@@ -227,7 +236,9 @@ async fn main() {
         agent_token,
         engine_url: std::env::var("BAYLEE_ENGINE_URL")
             .unwrap_or_else(|_| format!("ws://127.0.0.1:{port}/engine/ws")),
-        registration_enabled: switched_on(std::env::var("BAYLEE_REGISTRATION").ok().as_deref()),
+        registration: invite::Registration::from_env(
+            std::env::var("BAYLEE_REGISTRATION").ok().as_deref(),
+        ),
         guests_enabled: switched_on(std::env::var("BAYLEE_GUESTS").ok().as_deref()),
         guest_cap,
         display_name,
@@ -562,6 +573,10 @@ struct RegisterBody {
     /// written before this field existed still registers.
     #[serde(default)]
     lang: String,
+    /// The closed-beta key, as typed (#317). Read only on a gateway with
+    /// `BAYLEE_REGISTRATION=invite`, ignored elsewhere.
+    #[serde(default)]
+    invite_key: Option<String>,
 }
 
 /// What `POST /auth/confirm/resend` takes.
@@ -618,10 +633,10 @@ fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBod
     )
 }
 
-/// Whether a switch is on: whether this gateway lets a stranger make an
-/// account (`BAYLEE_REGISTRATION`), and whether it lets one play as a guest
-/// (`BAYLEE_GUESTS`, #269), one reading for both so that an operator learns
-/// one.
+/// Whether a switch is on: whether this gateway lets one play as a guest
+/// (`BAYLEE_GUESTS`, #269). `BAYLEE_REGISTRATION` has three answers since
+/// #317 ([`invite::Registration::from_env`]) and reads its two old ones the
+/// same way, so that an operator still learns one reading.
 ///
 /// **Three spellings shut the door and every other value leaves it open**,
 /// which is the wrong way round for the one switch an operator reaches for
@@ -817,6 +832,10 @@ async fn info(State(state): State<Shared>) -> Json<serde_json::Value> {
     );
     body.insert("view_version".into(), baylee_view::VIEW_VERSION.into());
     body.insert("source".into(), state.source_url.clone().into());
+    // Who may come in (#317): `open`, `invite` (a closed-beta key for a new
+    // account or guest) or `off`, and whether guests are taken at all.
+    body.insert("registration".into(), state.registration.wire().into());
+    body.insert("guests".into(), state.guests_enabled.into());
     Json(body.into())
 }
 
@@ -1001,7 +1020,12 @@ async fn health(State(state): State<Shared>) -> (StatusCode, Json<serde_json::Va
 /// registration).
 async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
-        "registration_enabled": state.registration_enabled,
+        // True for `invite` too: a client from before keys offers the form,
+        // and the refusal it gets tells it to update (#317).
+        "registration_enabled": state.registration.takes_sign_ups(),
+        // `open`, `invite` or `off` (#317); a client that knows keys reads
+        // this one.
+        "registration": state.registration.wire(),
         // Whether "play as a guest" is offered (#269).
         "guests_enabled": state.guests_enabled,
         // Whether `GET /art/…` mirrors card images. A client that pointed at a
@@ -1131,13 +1155,11 @@ async fn register(
     headers: HeaderMap,
     Json(body): Json<RegisterBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    if !state.registration_enabled {
+    if !state.registration.takes_sign_ups() {
         return Err(err(StatusCode::FORBIDDEN, "registration is disabled"));
     }
-    if !state
-        .limiter
-        .allow(&rate_limit_ip(&state.trusted_proxies, addr.ip(), &headers))
-    {
+    let ip = rate_limit_ip(&state.trusted_proxies, addr.ip(), &headers);
+    if !state.limiter.allow(&ip) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
     let Ok(username) = names::username(&body.username) else {
@@ -1149,6 +1171,9 @@ async fn register(
     if !auth::valid_password(&username.shown, &body.display_name, &body.password) {
         return Err(err(StatusCode::BAD_REQUEST, "invalid password"));
     }
+    // Before the expensive hash, so that guessing at keys costs the gateway
+    // nothing but a count.
+    let key = admission(&state, &ip, body.invite_key.as_deref())?;
     // Argon2 is deliberately expensive and runs off the async worker.
     let password = body.password.clone();
     let password_hash = tokio::task::spawn_blocking(move || auth::hash_password(&password))
@@ -1173,13 +1198,59 @@ async fn register(
     // bounds that: ten tries in five minutes. What it finds is a login name
     // and no more — the username is shown to nobody but its owner, and the
     // password is still the other half.
-    match store::create_account(&state.db, account)
+    match store::create_account(&state.db, account, key.as_deref())
         .await
         .map_err(|e| db_down(&e))?
     {
-        Some(_) => Ok(Json(serde_json::json!({ "ok": true }))),
-        None => Err(err(StatusCode::CONFLICT, "that username is taken")),
+        store::Admitted::Made => {
+            admitted(&state, &ip, key.as_deref());
+            Ok(Json(serde_json::json!({ "ok": true })))
+        }
+        store::Admitted::Taken => Err(err(StatusCode::CONFLICT, "that username is taken")),
+        store::Admitted::KeyRefused => Err(err(StatusCode::FORBIDDEN, invite::KEY_INVALID)),
     }
+}
+
+/// The closed-beta key a new account or guest brings (#317), as the hash
+/// its row is found by; `None` on a gateway that asks for none.
+///
+/// A request that brings no key is refused in words a client from before
+/// keys can show ([`invite::KEY_NEEDED`]). Every key brought is counted
+/// against the address it came from, on the sign-in limiter, before
+/// anything else is done with it: eight tries in five minutes, whether they
+/// were well formed or not, so that guessing at eighty bits stays a guess.
+/// A key that is not one is refused as a key that admits nobody is, in one
+/// sentence ([`invite::KEY_INVALID`]). The key itself is never logged.
+fn admission(
+    state: &AppState,
+    ip: &str,
+    offered: Option<&str>,
+) -> Result<Option<Vec<u8>>, (StatusCode, Json<ErrorBody>)> {
+    if state.registration != invite::Registration::Invite {
+        return Ok(None);
+    }
+    let Some(offered) = offered.filter(|key| !key.trim().is_empty()) else {
+        return Err(err(StatusCode::FORBIDDEN, invite::KEY_NEEDED));
+    };
+    if !state.sign_in_limiter.allow(&invite_budget(ip)) {
+        return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
+    }
+    invite::canonical(offered)
+        .map(|key| Some(invite::digest(&key)))
+        .ok_or_else(|| err(StatusCode::FORBIDDEN, invite::KEY_INVALID))
+}
+
+/// A key admitted somebody: the tries from that address start over, as a
+/// right password's do.
+fn admitted(state: &AppState, ip: &str, key: Option<&[u8]>) {
+    if key.is_some() {
+        state.sign_in_limiter.forget(&invite_budget(ip));
+    }
+}
+
+/// What the sign-in limiter counts an address's key tries under.
+fn invite_budget(ip: &str) -> String {
+    format!("invite:{ip}")
 }
 
 async fn login(
@@ -1267,6 +1338,10 @@ struct GuestBody {
     /// The language it asks in.
     #[serde(default)]
     lang: String,
+    /// The closed-beta key a new guest needs on a gateway with
+    /// `BAYLEE_REGISTRATION=invite` (#317).
+    #[serde(default)]
+    invite_key: Option<String>,
 }
 
 /// The name a guest is seen by when it chose none.
@@ -1291,10 +1366,8 @@ async fn guest(
     if !state.guests_enabled {
         return Err(err(StatusCode::FORBIDDEN, "this gateway takes no guests"));
     }
-    if !state
-        .limiter
-        .allow(&rate_limit_ip(&state.trusted_proxies, addr.ip(), &headers))
-    {
+    let ip = rate_limit_ip(&state.trusted_proxies, addr.ip(), &headers);
+    if !state.limiter.allow(&ip) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
     let display_name = body
@@ -1304,6 +1377,9 @@ async fn guest(
     if !auth::valid_display_name(&display_name) {
         return Err(err(StatusCode::BAD_REQUEST, "invalid display name"));
     }
+    // A closed beta's guest door is a door too (#317). A guest this device
+    // keeps comes back with its session and never asks this route again.
+    let key = admission(&state, &ip, body.invite_key.as_deref())?;
     if let Some(cap) = state.guest_cap {
         let guests = store::guest_count(&state.db)
             .await
@@ -1316,7 +1392,7 @@ async fn guest(
         }
     }
     let issued = auth::IssuedToken::lasting(auth::Lifetime::GUEST);
-    let account = store::create_guest(
+    let Some(account) = store::create_guest(
         &state.db,
         store::NewGuest {
             display_name,
@@ -1325,9 +1401,14 @@ async fn guest(
         },
         auth::token_digest(&issued.token),
         issued.expires_at,
+        key.as_deref(),
     )
     .await
-    .map_err(|e| db_down(&e))?;
+    .map_err(|e| db_down(&e))?
+    else {
+        return Err(err(StatusCode::FORBIDDEN, invite::KEY_INVALID));
+    };
+    admitted(&state, &ip, key.as_deref());
     Ok(Json(serde_json::json!({
         "token": issued.token,
         "expires_at": issued.expires_at,

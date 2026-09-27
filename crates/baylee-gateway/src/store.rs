@@ -81,6 +81,18 @@ pub struct NewGuest {
     pub lang: String,
 }
 
+/// What registering came to (#317).
+#[derive(Clone, Debug)]
+pub enum Admitted {
+    /// The account was made.
+    Made,
+    /// The username is somebody's already. A key it brought is not spent.
+    Taken,
+    /// The closed-beta key it brought admits nobody: never made, used up,
+    /// expired or revoked, which of them is not said.
+    KeyRefused,
+}
+
 /// A registered account. It signs in with its username, which only its
 /// owner is ever shown; the display name is shown to other players.
 #[derive(Clone, Debug)]
@@ -432,22 +444,42 @@ pub async fn account_by_tag(db: &DatabaseConnection, tag: i32) -> Result<Option<
         .map(Into::into))
 }
 
-/// Write a new account, answering `None` when the username is already taken.
+/// Write a new account, spending a use of the closed-beta key whose hash
+/// is `invite` when there is one (#317), and answer which of
+/// [`Admitted`] it came to.
 ///
 /// The refusal comes from the unique index rather than from a check, which is
 /// what closes the window the file-backed version had: two registrations of
 /// one name could both read "free" and both write. A *display name* is not
 /// among the things that can be taken.
 ///
-/// What comes back is the row the database made, not the one that went in,
-/// because the tag is the database's to hand out: [`account::Column::Tag`]
-/// is an identity column and is `NotSet` on the way in. The caller needs it
-/// — the confirmation mail names the account it is about.
+/// The tag is the database's to hand out: [`account::Column::Tag`] is an
+/// identity column and is `NotSet` on the way in.
 ///
 /// # Errors
 ///
 /// If the database refuses for any reason other than that clash.
-pub async fn create_account(db: &DatabaseConnection, new: NewAccount) -> Result<Option<Account>> {
+pub async fn create_account(
+    db: &DatabaseConnection,
+    new: NewAccount,
+    invite: Option<&[u8]>,
+) -> Result<Admitted> {
+    // The key's use first and the account last, in one transaction (#317):
+    // a taken name is refused by the insert, which aborts the transaction,
+    // and the rollback gives the use back. Two registrations racing for a
+    // key's last use queue on its row, and the second finds none left.
+    let txn = db.begin().await?;
+    let invite_id = match invite {
+        None => None,
+        Some(key_hash) => {
+            let Some(id) = baylee_db::invites::redeem(&txn, key_hash, at(new.created_at)).await?
+            else {
+                txn.rollback().await?;
+                return Ok(Admitted::KeyRefused);
+            };
+            Some(id)
+        }
+    };
     let row = account::ActiveModel {
         id: NotSet,
         // Registration asks for no address (#269); one may be added later,
@@ -462,11 +494,17 @@ pub async fn create_account(db: &DatabaseConnection, new: NewAccount) -> Result<
         confirmed_at: Set(None),
         lang: Set(new.lang),
         guest: Set(false),
-        invite_id: Set(None),
+        invite_id: Set(invite_id),
     };
-    match Accounts::insert(row).exec_with_returning(db).await {
-        Ok(made) => Ok(Some(made.into())),
-        Err(e) if is_taken(&e) => Ok(None),
+    match Accounts::insert(row).exec_with_returning(&txn).await {
+        Ok(_) => {
+            txn.commit().await?;
+            Ok(Admitted::Made)
+        }
+        Err(e) if is_taken(&e) => {
+            txn.rollback().await?;
+            Ok(Admitted::Taken)
+        }
         Err(e) => Err(e.into()),
     }
 }
@@ -475,7 +513,9 @@ pub async fn create_account(db: &DatabaseConnection, new: NewAccount) -> Result<
 ///
 /// Together, in one transaction: the session is the only way into a guest,
 /// so a guest written without one would be an account nobody can reach —
-/// which is exactly what [`purge_guests`] deletes.
+/// which is exactly what [`purge_guests`] deletes. With `invite`, the
+/// closed-beta key's use too (#317), first; `None` when it admits nobody,
+/// and then nothing is written.
 ///
 /// # Errors
 ///
@@ -485,8 +525,20 @@ pub async fn create_guest(
     new: NewGuest,
     token_hash: Vec<u8>,
     expires_at: u64,
-) -> Result<Account> {
+    invite: Option<&[u8]>,
+) -> Result<Option<Account>> {
     let txn = db.begin().await?;
+    let invite_id = match invite {
+        None => None,
+        Some(key_hash) => {
+            let Some(id) = baylee_db::invites::redeem(&txn, key_hash, at(new.created_at)).await?
+            else {
+                txn.rollback().await?;
+                return Ok(None);
+            };
+            Some(id)
+        }
+    };
     let made = Accounts::insert(account::ActiveModel {
         id: NotSet,
         email: Set(None),
@@ -499,7 +551,7 @@ pub async fn create_guest(
         confirmed_at: Set(None),
         lang: Set(new.lang),
         guest: Set(true),
-        invite_id: Set(None),
+        invite_id: Set(invite_id),
     })
     .exec_with_returning(&txn)
     .await?;
@@ -511,7 +563,7 @@ pub async fn create_guest(
     .exec(&txn)
     .await?;
     txn.commit().await?;
-    Ok(made.into())
+    Ok(Some(made.into()))
 }
 
 /// How many guests there are, which is how many a session still leads to,
