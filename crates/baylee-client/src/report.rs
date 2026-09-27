@@ -345,9 +345,13 @@ pub(crate) fn keyring(
 ) -> Keyring {
     let mut ring = Keyring::default();
     let owned = |token: &str| token.to_string();
-    ring.sessions.extend(lobby.and_then(|l| l.lobby.token()).map(owned));
     ring.sessions
-        .extend(prefs.and_then(crate::prefs::Prefs::session_token).map(owned));
+        .extend(lobby.and_then(|l| l.lobby.token()).map(owned));
+    ring.sessions.extend(
+        prefs
+            .and_then(crate::prefs::Prefs::session_token)
+            .map(owned),
+    );
     ring.sessions.extend(
         text.and_then(|t| t.0.as_ref())
             .map(|signed| signed.token.clone()),

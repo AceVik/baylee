@@ -441,7 +441,10 @@ impl Gathered {
             game: self.game.clone().filter(|_| take(Category::Game)),
             log: self.log.clone().filter(|_| take(Category::Log)),
             settings: self.settings.clone().filter(|_| take(Category::Settings)),
-            screenshot: self.screenshot.clone().filter(|_| take(Category::Screenshot)),
+            screenshot: self
+                .screenshot
+                .clone()
+                .filter(|_| take(Category::Screenshot)),
             crash: None,
         }
     }
@@ -764,7 +767,10 @@ mod tests {
         .preview_text(&lobby, &everything);
         let shown: serde_json::Value = serde_json::from_str(&preview).expect("the preview is JSON");
         for absent in ["game", "log", "screenshot"] {
-            assert!(shown["client"].get(absent).is_none(), "the preview shows {absent}");
+            assert!(
+                shown["client"].get(absent).is_none(),
+                "the preview shows {absent}"
+            );
         }
     }
 
@@ -832,7 +838,11 @@ mod tests {
             (guest, Keyring::GUEST),
         ] {
             let refused = gathered()
-                .submission(Kind::Bug, &format!("pasted {token} by mistake"), &Consent::default())
+                .submission(
+                    Kind::Bug,
+                    &format!("pasted {token} by mistake"),
+                    &Consent::default(),
+                )
                 .sealed(&keyring.secrets());
             assert_eq!(
                 refused.map(|_| ()),

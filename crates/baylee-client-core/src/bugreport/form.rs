@@ -294,13 +294,29 @@ mod tests {
     #[test]
     fn the_status_line_after_each_answer_is_its_sentence() {
         for (status, body, want) in [
-            (201, r#"{"report_id":"r-9"}"#, Phrase::ReportSent.fill(Lang::En, &["r-9"])),
+            (
+                201,
+                r#"{"report_id":"r-9"}"#,
+                Phrase::ReportSent.fill(Lang::En, &["r-9"]),
+            ),
             (400, r#"{"error":"no text"}"#, "no text".to_string()),
-            (401, "", Phrase::ReportSignInAgain.text(Lang::En).to_string()),
+            (
+                401,
+                "",
+                Phrase::ReportSignInAgain.text(Lang::En).to_string(),
+            ),
             (413, "", Phrase::ReportTooLarge.text(Lang::En).to_string()),
             (429, "", Phrase::ReportTooMany.text(Lang::En).to_string()),
-            (502, "", Phrase::ReportNotPassedOn.text(Lang::En).to_string()),
-            (503, "", Phrase::ReportsUnavailable.text(Lang::En).to_string()),
+            (
+                502,
+                "",
+                Phrase::ReportNotPassedOn.text(Lang::En).to_string(),
+            ),
+            (
+                503,
+                "",
+                Phrase::ReportsUnavailable.text(Lang::En).to_string(),
+            ),
             (0, "", Phrase::ReportUnreachable.text(Lang::En).to_string()),
         ] {
             let mut form = form("it broke");
@@ -363,9 +379,16 @@ mod tests {
     fn a_paste_keeps_its_lines_and_drops_other_controls() {
         let mut form = form("");
         let went = form.paste("thread 'main' panicked\r\n  at x.rs:1\rnext\u{7}\ttab\n");
-        assert_eq!(form.text.text(), "thread 'main' panicked\n  at x.rs:1\nnexttab\n");
+        assert_eq!(
+            form.text.text(),
+            "thread 'main' panicked\n  at x.rs:1\nnexttab\n"
+        );
         assert_eq!(went, form.chars());
-        assert_eq!(form.paste("\u{7}\u{1b}"), 0, "nothing printable, nothing pasted");
+        assert_eq!(
+            form.paste("\u{7}\u{1b}"),
+            0,
+            "nothing printable, nothing pasted"
+        );
     }
 
     /// A paste lands at the caret, or over the selection it replaces.
@@ -385,7 +408,10 @@ mod tests {
     #[test]
     fn a_paste_is_cut_to_the_room_the_limit_leaves() {
         let mut empty = form("");
-        assert_eq!(empty.paste(&"ä".repeat(MAX_TEXT_CHARS + 5_000)), MAX_TEXT_CHARS);
+        assert_eq!(
+            empty.paste(&"ä".repeat(MAX_TEXT_CHARS + 5_000)),
+            MAX_TEXT_CHARS
+        );
         assert_eq!(empty.chars(), MAX_TEXT_CHARS);
         assert!(!empty.over_limit() && empty.can_send(true));
         assert_eq!(empty.paste("more"), 0, "a full box takes nothing more");

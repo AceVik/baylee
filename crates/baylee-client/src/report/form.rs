@@ -504,7 +504,11 @@ fn form(
         let coming = category == Category::Screenshot && desk.shooting;
         if !there && !coming {
             label.push_str("  ");
-            label.push_str(category.nothing_where(super::shot::TAKES_PICTURES).text(lang));
+            label.push_str(
+                category
+                    .nothing_where(super::shot::TAKES_PICTURES)
+                    .text(lang),
+            );
         }
         let entry = commands
             .spawn((

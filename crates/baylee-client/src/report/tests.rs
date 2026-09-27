@@ -14,7 +14,6 @@ use baylee_engine::choice::PlayerAction;
 use super::*;
 use crate::host::{DuelHost, HostMessage};
 
-
 pub(super) const SESSION: &str = "5e55105e55105e55105e55105e55105e";
 pub(super) const AWAITED_SEAT: &str = "a3a17ed5ea7a3a17ed5ea7a3a17ed5ea";
 pub(super) const TABLE_SEAT: &str = "7ab1e5ea77ab1e5ea77ab1e5ea77ab1e";
@@ -107,14 +106,14 @@ fn a_seat_the_lobby_holds_is_in_the_keyring() {
 #[test]
 fn a_seat_on_its_way_to_the_table_is_in_the_keyring() {
     let mut lobby = signed_in();
-    lobby
-        .lobby
-        .apply(LobbyEvent::Decks(vec![baylee_client_core::lobby::DeckSummary {
+    lobby.lobby.apply(LobbyEvent::Decks(vec![
+        baylee_client_core::lobby::DeckSummary {
             id: "d1".into(),
             name: "Allytifact".into(),
             cards: 60,
             ..Default::default()
-        }]));
+        },
+    ]));
     // The deck list asked for the table list; answered, the lobby is idle.
     lobby.lobby.apply(LobbyEvent::Games(
         baylee_client_core::lobby::GameListing::default(),

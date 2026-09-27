@@ -275,13 +275,24 @@ mod tests {
         assert!(!kept.contains("more lines"), "a short one is whole");
 
         let frames: Vec<String> = (0..2_000)
-            .map(|i| format!("  {i:4}: baylee_client::frame_{i}\n             at /Users/ada/src/f.rs:{i}:1"))
+            .map(|i| {
+                format!(
+                    "  {i:4}: baylee_client::frame_{i}\n             at /Users/ada/src/f.rs:{i}:1"
+                )
+            })
             .collect();
         let long = frames.join("\n");
         assert!(long.chars().count() > 4 * BACKTRACE_CHARS);
         let kept = bounded_backtrace(&long, home).expect("a backtrace");
-        assert!(kept.chars().count() <= BACKTRACE_CHARS, "{}", kept.chars().count());
-        assert!(kept.starts_with("     0: baylee_client::frame_0"), "the head is kept");
+        assert!(
+            kept.chars().count() <= BACKTRACE_CHARS,
+            "{}",
+            kept.chars().count()
+        );
+        assert!(
+            kept.starts_with("     0: baylee_client::frame_0"),
+            "the head is kept"
+        );
         assert!(!kept.contains("frame_1999"), "the tail is what goes");
         assert!(!kept.contains("/Users/ada"));
         let last = kept.lines().last().expect("a last line");
@@ -302,7 +313,11 @@ mod tests {
     #[test]
     fn an_empty_backtrace_is_none() {
         for nothing in ["", "  ", "unsupported backtrace", "disabled backtrace"] {
-            assert_eq!(bounded_backtrace(nothing, "/Users/ada"), None, "{nothing:?}");
+            assert_eq!(
+                bounded_backtrace(nothing, "/Users/ada"),
+                None,
+                "{nothing:?}"
+            );
         }
     }
 
