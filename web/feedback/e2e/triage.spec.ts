@@ -77,11 +77,11 @@ test("the list filters by kind, text, pseudonym and record", async ({ page }) =>
 test("a report opens from the keyboard and shows its dump", async ({ page }) => {
   const problems = watch(page);
   await signIn(page);
-  await page.getByLabel("Text").fill("Swamp");
-  await page.getByLabel("Text").press("Enter");
-  await expect(page.getByRole("row")).toHaveCount(2);
+  // Newest first: the music, the sorting, the crash, the Swamp. Down three,
+  // up one, down one lands on the Swamp only if both keys move.
+  await expect(page.getByRole("row")).toHaveCount(5);
   await page.locator("body").click({ position: { x: 5, y: 5 } });
-  await page.keyboard.press("j");
+  for (const key of ["j", "j", "j", "k", "j"]) await page.keyboard.press(key);
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "What the player wrote" })).toBeVisible();
   await expect(page.getByText("The Swamp untapped by itself during my upkeep.")).toBeVisible();
@@ -100,7 +100,7 @@ test("a report opens from the keyboard and shows its dump", async ({ page }) => 
 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("table")).toBeVisible();
-  await expect(page).toHaveURL(/q=Swamp/);
+  await expect(page.getByRole("row")).toHaveCount(5);
   expect(problems).toEqual([]);
 });
 
