@@ -314,7 +314,7 @@ async fn a_report_is_refused_for_what_it_is() {
     assert_eq!(report(port, Some(&token), &heavy).0, 413);
 
     // The budget is per account: one more than it allows is refused.
-    for _ in 1..20 {
+    for _ in 1..64 {
         assert_eq!(report(port, Some(&token), fine).0, 201);
     }
     assert_eq!(report(port, Some(&token), fine).0, 429);
@@ -324,13 +324,13 @@ async fn a_report_is_refused_for_what_it_is() {
         201,
         "another account is not held"
     );
-    assert_eq!(inbox.lock().len(), 21);
+    assert_eq!(inbox.lock().len(), 65);
 
     // A service that is not there takes nothing, and a report it did not
     // take costs nothing of the budget.
     let gone = with_service("reports-gone", "http://127.0.0.1:9");
     let token = login(gone.port, "ruth", "Ruth");
-    for _ in 0..25 {
+    for _ in 0..70 {
         assert_eq!(report(gone.port, Some(&token), fine).0, 502);
     }
 }

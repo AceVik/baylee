@@ -38,7 +38,7 @@ pub const MAX_CLIENT_BYTES: usize = 2 * 1024 * 1024;
 pub const MAX_BODY_BYTES: usize = MAX_CLIENT_BYTES + 256 * 1024;
 
 /// How many reports one account may send per [`REPORT_WINDOW`].
-pub const REPORTS_PER_WINDOW: usize = 20;
+pub const REPORTS_PER_WINDOW: usize = 64;
 
 /// The window [`REPORTS_PER_WINDOW`] counts in.
 pub const REPORT_WINDOW: Duration = Duration::from_secs(3600);
