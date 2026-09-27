@@ -660,8 +660,9 @@ pub(crate) mod scryfall {
             return None;
         }
         let url = format!(
-            "https://api.scryfall.com/cards/search?unique=prints&order=released\
-             &include_multilingual=true&q=oracleid%3A{oracle_id}%20lang%3A{lang}"
+            "{}/cards/search?unique=prints&order=released\
+             &include_multilingual=true&q=oracleid%3A{oracle_id}%20lang%3A{lang}",
+            baylee_client_core::images::SCRYFALL_API
         );
         Some(ehttp::Request::new(
             ehttp::Method::GET,

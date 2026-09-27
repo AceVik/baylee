@@ -277,6 +277,14 @@ pub const SCRYFALL_CDN: &str = "https://cards.scryfall.io";
 /// Scryfall serves it with no face segment in the path.
 pub const SCRYFALL_BACKS_CDN: &str = "https://backs.scryfall.io";
 
+/// Base URL of Scryfall's API, which a client asks for a card's printings
+/// and localized text when no gateway catalog answers.
+///
+/// Beside the two image hosts because a browser page has to be allowed all
+/// three by name (`scripts/server/play.caddy`'s `connect-src`, held to these
+/// constants by `tests/play_caddy.rs`).
+pub const SCRYFALL_API: &str = "https://api.scryfall.com";
+
 /// Scryfall's id for the printed Magic card back.
 ///
 /// The one their API hands back as `card_back_id` for every ordinary card.

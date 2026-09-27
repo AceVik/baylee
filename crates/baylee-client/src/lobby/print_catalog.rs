@@ -1,6 +1,7 @@
 //! Public printing metadata for offline clients and gateways without a catalog.
 use super::{LobbyEvent, Mailbox, Reply};
 use baylee_client_core::deckbuilder::Printing;
+use baylee_client_core::images::SCRYFALL_API;
 use std::sync::Arc;
 
 #[derive(serde::Deserialize)]
@@ -18,7 +19,7 @@ pub(super) fn fetch(
     mailbox: &Mailbox,
 ) {
     let url = format!(
-        "https://api.scryfall.com/cards/search?order=released&unique=prints&include_multilingual=true&include_variations=true&q=oracleid%3A{}",
+        "{SCRYFALL_API}/cards/search?order=released&unique=prints&include_multilingual=true&include_variations=true&q=oracleid%3A{}",
         super::http::escape(oracle)
     );
     page(
@@ -101,7 +102,10 @@ fn page(
             prints.extend(next.data);
             if let Some(url) = next
                 .next_page
-                .filter(|u| u.starts_with("https://api.scryfall.com/"))
+                .filter(|u| {
+                    u.strip_prefix(SCRYFALL_API)
+                        .is_some_and(|rest| rest.starts_with('/'))
+                })
                 // Basic lands have thousands of multilingual editions.
                 && pages < 127
             {
