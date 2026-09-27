@@ -2867,8 +2867,8 @@ messages! {
     },
     /// Under it.
     CrashAskBody {
-        en: "May the client send crash reports to the gateway you play on? A crash report holds the error and this client's version, and system details if you allow them in the report form. Nothing about your games or your account. You can change this in the report form at any time.",
-        de: "Darf der Client Absturzberichte an das Gateway senden, auf dem du spielst? Ein Absturzbericht enthält den Fehler und die Version dieses Clients, und Systemangaben, wenn du sie im Meldeformular erlaubst. Nichts über deine Partien oder dein Konto. Du kannst das jederzeit im Meldeformular ändern.",
+        en: "May the client send crash reports to the gateway you play on? A crash report holds the error, where in the program it happened (the backtrace) and this client's version, and system details if you allow them in the report form. Nothing about your games or your account. You can change this in the report form at any time.",
+        de: "Darf der Client Absturzberichte an das Gateway senden, auf dem du spielst? Ein Absturzbericht enthält den Fehler, die Stelle im Programm, an der er auftrat (den Backtrace), und die Version dieses Clients, und Systemangaben, wenn du sie im Meldeformular erlaubst. Nichts über deine Partien oder dein Konto. Du kannst das jederzeit im Meldeformular ändern.",
     },
     /// The yes.
     CrashAskSend { en: "Send crash reports", de: "Absturzberichte senden" },

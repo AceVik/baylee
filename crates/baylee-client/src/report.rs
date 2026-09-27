@@ -464,7 +464,13 @@ pub(crate) fn install_panic_hook() {
                 location: info
                     .location()
                     .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column())),
-                backtrace: None,
+                // Forced, because `RUST_BACKTRACE` is unset on a player's
+                // machine and the default capture would say "disabled".
+                // Scrubbed and cut in client-core, where it is tested.
+                backtrace: bugreport::bounded_backtrace(
+                    &std::backtrace::Backtrace::force_capture().to_string(),
+                    &home,
+                ),
                 at_unix: web_time::SystemTime::now()
                     .duration_since(web_time::UNIX_EPOCH)
                     .map_or(0, |d| d.as_secs()),

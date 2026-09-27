@@ -68,7 +68,10 @@ mod seatlog;
 
 pub use base64::encode as base64_encode;
 pub use consent::{Category, Consent, CrashConsent};
-pub use crash::{CrashFile, CrashRecord, CrashStep, crash_step, crash_submission, scrub_home};
+pub use crash::{
+    BACKTRACE_CHARS, CrashFile, CrashRecord, CrashStep, bounded_backtrace, crash_step,
+    crash_submission, scrub_home,
+};
 pub use form::{Outcome, ReportForm, Status, outcome};
 pub use seatlog::{LogRow, RosterSeat, SeatLog, seat_log};
 

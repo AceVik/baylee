@@ -378,12 +378,18 @@ report once it has it is theirs to describe.
   send a body that contains one, whichever field it got into.
 - **Crash reports:** the panic hook writes `crash-report.json` next to the
   settings (the panic message and location, the thread's name, the time,
-  the build, and on disk only the gateway it was signed in to), with the
-  home directory written `~`. No network in the hook. The next start asks
+  the build, the backtrace, and on disk only the gateway it was signed in
+  to), with the home directory written `~`. No network in the hook. The
+  backtrace is the list of functions the program was in when it stopped,
+  each with the source file and line it was compiled from (a dependency's
+  under `~/.cargo`); it names code, not the player or the game, and is cut
+  to its first 16 000 characters (`bugreport::BACKTRACE_CHARS`, the frames
+  nearest the crash kept). The next start asks
   once (`CrashConsent::Unasked`); "Send crash reports" sends each crash
   from then on, "Don't send" deletes the file and asks no more. A crash
-  report carries the error and the build, and the system details only if
-  that box is ticked. The file is deleted once the gateway has it (or has
+  report carries the error, its location, the thread, the time, the
+  backtrace and the build, and the system details only if that box is
+  ticked. The file is deleted once the gateway has it (or has
   refused it for good); unanswered, it waits for the next start.
 - **Consent is per device** (`client-settings.json`, `reports`), shown and
   changed in the form itself: un-ticking a box, or the crash box, is the

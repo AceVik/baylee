@@ -116,6 +116,57 @@ pub fn crash_submission(file: &CrashFile, system: Option<System>) -> Submission 
     }
 }
 
+/// The longest backtrace a crash report carries, in characters.
+///
+/// A debug build's backtrace of a panic deep in Bevy's schedule runs to a
+/// hundred frames and some 30 KB; a release build's is a few KB. The frames
+/// that say what broke are the first ones, so the cap keeps the head and
+/// says how much was cut. Far inside [`super::MAX_CLIENT_BYTES`], so it never
+/// pushes a crash report over the gateway's limit.
+pub const BACKTRACE_CHARS: usize = 16_000;
+
+/// A captured backtrace as a crash report carries it: the home directory
+/// written `~` (a frame names the file it was compiled from, and a
+/// dependency's lies under `~/.cargo`), then cut to [`BACKTRACE_CHARS`] at
+/// a line boundary, with a last line saying how many lines were dropped.
+/// `None` for one that captured nothing (a platform without unwinding
+/// information says only "unsupported" or "disabled backtrace").
+#[must_use]
+pub fn bounded_backtrace(text: &str, home: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() || matches!(trimmed, "unsupported backtrace" | "disabled backtrace") {
+        return None;
+    }
+    let scrubbed = scrub_home(text.trim_end(), home);
+    if scrubbed.chars().count() <= BACKTRACE_CHARS {
+        return Some(scrubbed);
+    }
+    let lines: Vec<&str> = scrubbed.lines().collect();
+    let mut kept = String::new();
+    let mut used = 0;
+    let mut taken = 0;
+    // Room for the closing line, which is at most this long.
+    let budget = BACKTRACE_CHARS - 40;
+    for line in &lines {
+        let length = line.chars().count() + 1;
+        if used + length > budget {
+            break;
+        }
+        kept.push_str(line);
+        kept.push('\n');
+        used += length;
+        taken += 1;
+    }
+    if taken == 0 {
+        // One line longer than the whole budget: cut inside it.
+        kept = scrubbed.chars().take(budget).collect();
+        kept.push('\n');
+        taken = 1;
+    }
+    kept.push_str(&format!("… {} more lines", lines.len() - taken));
+    Some(kept)
+}
+
 /// `text` with every occurrence of `home` written `~`.
 ///
 /// A panic message or backtrace can name a file under the player's home
@@ -211,6 +262,59 @@ mod tests {
         assert!(json.contains("ee97ad79"));
         assert!(!json.contains("play.example"), "the gateway stays on disk");
         assert!(!json.contains("\"system\""));
+    }
+
+    /// A backtrace comes with the home directory written `~`, whole when it
+    /// is short, and cut to its head at a line boundary when it is long.
+    #[test]
+    fn a_backtrace_is_scrubbed_and_bounded_from_its_head() {
+        let home = "/Users/ada";
+        let short = "   0: std::panicking::begin_panic\n             at /Users/ada/.cargo/registry/src/x.rs:1:2";
+        let kept = bounded_backtrace(short, home).expect("a backtrace");
+        assert!(kept.contains("~/.cargo/registry") && !kept.contains("/Users/ada"));
+        assert!(!kept.contains("more lines"), "a short one is whole");
+
+        let frames: Vec<String> = (0..2_000)
+            .map(|i| format!("  {i:4}: baylee_client::frame_{i}\n             at /Users/ada/src/f.rs:{i}:1"))
+            .collect();
+        let long = frames.join("\n");
+        assert!(long.chars().count() > 4 * BACKTRACE_CHARS);
+        let kept = bounded_backtrace(&long, home).expect("a backtrace");
+        assert!(kept.chars().count() <= BACKTRACE_CHARS, "{}", kept.chars().count());
+        assert!(kept.starts_with("     0: baylee_client::frame_0"), "the head is kept");
+        assert!(!kept.contains("frame_1999"), "the tail is what goes");
+        assert!(!kept.contains("/Users/ada"));
+        let last = kept.lines().last().expect("a last line");
+        let dropped: usize = last
+            .trim_start_matches("… ")
+            .trim_end_matches(" more lines")
+            .parse()
+            .expect("the last line counts what was cut");
+        assert_eq!(kept.lines().count() - 1 + dropped, long.lines().count());
+
+        let one_line = "x".repeat(3 * BACKTRACE_CHARS);
+        let kept = bounded_backtrace(&one_line, home).expect("a backtrace");
+        assert!(kept.chars().count() <= BACKTRACE_CHARS);
+    }
+
+    /// A platform that captured nothing sends no backtrace, rather than a
+    /// field that says so.
+    #[test]
+    fn an_empty_backtrace_is_none() {
+        for nothing in ["", "  ", "unsupported backtrace", "disabled backtrace"] {
+            assert_eq!(bounded_backtrace(nothing, "/Users/ada"), None, "{nothing:?}");
+        }
+    }
+
+    /// A crash report carries its backtrace, and stays well inside the
+    /// gateway's limit with the longest one it can have.
+    #[test]
+    fn a_crash_report_carries_its_backtrace() {
+        let mut file = file();
+        file.record.backtrace = bounded_backtrace(&"   0: frame\n".repeat(50_000), "/Users/ada");
+        let (json, _) = crash_submission(&file, None).sealed(&[]).expect("sealed");
+        assert!(json.contains("\"backtrace\":\"   0: frame"));
+        assert!(json.len() < super::super::MAX_CLIENT_BYTES / 10);
     }
 
     /// The home directory becomes `~`; a root-sized one is left alone.
