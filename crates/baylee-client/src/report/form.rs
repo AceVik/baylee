@@ -59,10 +59,17 @@ const PREVIEW_CHARS: usize = 20_000;
 const SHOT_PATIENCE: u32 = 30;
 
 /// Hands this frame's keys to the form. `true` when `Esc` closed it.
+///
+/// `Ctrl`/`Cmd`+`V` asks `clipboard` for its text; natively the answer is
+/// there at once, in a browser it comes a frame or more later, so the read
+/// waits on the desk and [`take_the_paste`] lands it whenever it arrives.
+/// Without a clipboard (a headless test) the chord does nothing, and in
+/// particular does not type a `v`.
 pub(super) fn typing(
     desk: &mut ReportDesk,
     codes: &ButtonInput<KeyCode>,
     typed: &mut MessageReader<KeyboardInput>,
+    mut clipboard: Option<&mut bevy::clipboard::Clipboard>,
 ) -> bool {
     let shift = codes.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
     let word = codes.any_pressed([
@@ -98,6 +105,10 @@ pub(super) fn typing(
             Key::Character(c) if command => {
                 if c.eq_ignore_ascii_case("a") {
                     text.select_all();
+                } else if c.eq_ignore_ascii_case("v")
+                    && let Some(clipboard) = clipboard.as_deref_mut()
+                {
+                    desk.paste = Some(clipboard.fetch_text());
                 }
                 continue;
             }
@@ -115,6 +126,22 @@ pub(super) fn typing(
         desk.form.edited();
     }
     closed
+}
+
+/// Lands a paste the clipboard has answered, cut to the room the limit
+/// leaves ([`baylee_client_core::bugreport::ReportForm::paste`]). A read
+/// that failed (an empty or non-text clipboard) is dropped without a word:
+/// nothing was pasted, and the box shows that.
+pub(super) fn take_the_paste(desk: &mut ReportDesk) {
+    let Some(result) = desk.paste.as_mut().and_then(|read| read.poll_result()) else {
+        return;
+    };
+    desk.paste = None;
+    if let Ok(text) = result
+        && desk.open
+    {
+        desk.form.paste(&text);
+    }
 }
 
 /// Scrolls the form's column under the wheel.

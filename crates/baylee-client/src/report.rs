@@ -68,6 +68,8 @@ pub struct ReportDesk {
     crash_tried: bool,
     /// Asked for from elsewhere (a button, the game menu): open next frame.
     pub asked: bool,
+    /// A clipboard read `Ctrl`/`Cmd`+`V` started, until it answers.
+    paste: Option<bevy::clipboard::ClipboardRead>,
 }
 
 impl ReportDesk {
@@ -131,8 +133,10 @@ fn keys(
     prefs: Option<Res<crate::prefs::Prefs>>,
     mut typed: MessageReader<bevy::input::keyboard::KeyboardInput>,
     mut desk: ResMut<ReportDesk>,
+    mut clipboard: Option<ResMut<bevy::clipboard::Clipboard>>,
 ) {
     desk.swallow = false;
+    form::take_the_paste(&mut desk);
     if desk.asking {
         typed.clear();
         return;
@@ -147,7 +151,10 @@ fn keys(
         typed.clear();
         return;
     }
-    if form::typing(&mut desk, &codes, &mut typed) {
+    let closed = form::typing(&mut desk, &codes, &mut typed, clipboard.as_deref_mut());
+    // Natively the clipboard has answered already: land it this frame.
+    form::take_the_paste(&mut desk);
+    if closed {
         desk.open = false;
         desk.swallow = true;
     }

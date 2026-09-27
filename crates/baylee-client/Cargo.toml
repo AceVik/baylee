@@ -164,6 +164,15 @@ sha2.workspace = true
 [target.'cfg(target_os = "android")'.dependencies]
 bevy = { workspace = true, features = ["android-native-activity"] }
 
+# The system clipboard, for `Ctrl`/`Cmd`+`V` into the report form and the
+# lobby's fields. Without it `bevy_clipboard` keeps an in-process buffer, and
+# a paste reads back only what this client itself copied. Only where
+# `arboard` has a back end: it has none for Android or iOS (both `unix`, and
+# its Linux module would be chosen for iOS), and the browser reads the page's
+# clipboard through `web-sys` whatever the feature says.
+[target.'cfg(any(windows, target_os = "macos", target_os = "linux"))'.dependencies]
+bevy = { workspace = true, features = ["system_clipboard"] }
+
 # Dock identity for direct/cargo launches as well as packaged .app launches.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"
