@@ -19,7 +19,7 @@ use baylee_client_core::bugreport::{
     self, Build, Consent, CrashFile, CrashRecord, Gathered, Holding, Screenshot, Secret, Settings,
     System, Unsendable,
 };
-use baylee_engine::choice::PlayerAction;
+use baylee_engine::choice::{Pending, PlayerAction, timeout_answer};
 use baylee_protocol::v1::{self, Envelope};
 use common::{Gateway, Socket, attach_agent, http, http_bytes, json_field, login};
 use futures_util::SinkExt;
@@ -148,29 +148,6 @@ fn two_players(port: u16) -> (String, [(String, String); 2]) {
     (game, [(a, seat_a), (b, seat_b)])
 }
 
-/// Reads a seat until the table opens; the last view it was shown.
-async fn until_curtain(ws: &mut Socket) -> Option<baylee_view::PlayerView> {
-    let mut view = None;
-    tokio::time::timeout(common::WAIT_BUDGET, async {
-        loop {
-            match common::next_msg(ws).await {
-                Some(v1::envelope::Msg::StateDelta(d)) => {
-                    view = serde_json::from_slice(&d.view_json).ok();
-                }
-                Some(v1::envelope::Msg::Curtain(_)) => break,
-                Some(v1::envelope::Msg::GameRecordChunk(_)) => {
-                    panic!("a seat was sent the game's record")
-                }
-                Some(_) => {}
-                None => panic!("the socket closed before the table opened"),
-            }
-        }
-    })
-    .await
-    .expect("the table opened");
-    view
-}
-
 /// Reads a seat until it falls quiet or closes; the last view it was shown.
 /// Not one piece of the record may reach it (#315).
 async fn until_quiet(ws: &mut Socket) -> Option<baylee_view::PlayerView> {
@@ -185,6 +162,65 @@ async fn until_quiet(ws: &mut Socket) -> Option<baylee_view::PlayerView> {
         }
     }
     view
+}
+
+/// Answers what each seat is asked, as its decision clock would, until each
+/// has answered `answers` questions. The first seat's last view and last
+/// question.
+async fn play(
+    a: &mut Socket,
+    b: &mut Socket,
+    answers: usize,
+) -> (Option<baylee_view::PlayerView>, Option<Pending>) {
+    let mut view = None;
+    let mut asked = None;
+    let mut answered = [0_usize; 2];
+    let deadline = tokio::time::Instant::now() + common::WAIT_BUDGET;
+    while answered.iter().any(|&n| n < answers) {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "the seats stopped being asked ({answered:?} answers)"
+        );
+        for (seat, ws) in [&mut *a, &mut *b].into_iter().enumerate() {
+            let Ok(Some(msg)) =
+                tokio::time::timeout(std::time::Duration::from_millis(50), common::next_msg(ws))
+                    .await
+            else {
+                continue;
+            };
+            match msg {
+                v1::envelope::Msg::GameRecordChunk(_) => {
+                    panic!("a seat was sent the game's record")
+                }
+                v1::envelope::Msg::StateDelta(d) if seat == 0 => {
+                    view = serde_json::from_slice(&d.view_json).ok();
+                }
+                v1::envelope::Msg::ChoiceRequest(c) => {
+                    let pending: Pending =
+                        serde_json::from_slice(&c.pending_json).expect("a question");
+                    let answer = timeout_answer(&pending)
+                        .unwrap_or_else(|| panic!("no plain answer to {pending:?}"));
+                    if seat == 0 {
+                        asked = Some(pending);
+                    }
+                    common::send(
+                        ws,
+                        &Envelope {
+                            msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
+                                game_id: String::new(),
+                                seat_token: String::new(),
+                                action_json: serde_json::to_vec(&answer).unwrap(),
+                            })),
+                        },
+                    )
+                    .await;
+                    answered[seat] += 1;
+                }
+                _ => {}
+            }
+        }
+    }
+    (view, asked)
 }
 
 async fn stored(gw: &Gateway, game: &str) {
@@ -231,8 +267,9 @@ async fn a_report_goes_from_the_client_through_the_gateway_to_the_service() {
     let (game, [(alma, alma_seat), (bert, bert_seat)]) = two_players(port);
     let mut ws_a = common::dial_seat(port, &game, &alma_seat).await;
     let mut ws_b = common::dial_seat(port, &game, &bert_seat).await;
-    let mut view_a = until_curtain(&mut ws_a).await;
-    until_curtain(&mut ws_b).await;
+    // Both play a while once the table opens (no question comes before),
+    // so the record holds both seats' answers; the first then concedes.
+    let (mut view_a, asked_a) = play(&mut ws_a, &mut ws_b, 8).await;
     let concede = Envelope {
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
             game_id: String::new(),
@@ -275,7 +312,7 @@ async fn a_report_goes_from_the_client_through_the_gateway_to_the_service() {
                 when: "Turn 1".into(),
             },
             view: view_a,
-            pending: None,
+            pending: asked_a,
             holding: Holding::default(),
         }),
         log: None,
@@ -474,6 +511,16 @@ async fn a_report_goes_from_the_client_through_the_gateway_to_the_service() {
     assert_eq!(usize::try_from(replayed.inputs).unwrap(), inputs.len());
     assert_eq!(inputs.last().unwrap()["action"], "Concede");
     assert_eq!(inputs.last().unwrap()["seat"], 0);
+    for seat in [0, 1] {
+        assert!(
+            inputs
+                .iter()
+                .filter(|l| l["seat"] == seat && l["by"] == "seat")
+                .count()
+                >= 8,
+            "seat {seat}'s answers are in the record"
+        );
+    }
     assert_eq!(
         inputs.last().unwrap()["hash"],
         format!("{:016x}", replayed.engine.snapshot_hash()),
