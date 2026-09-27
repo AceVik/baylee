@@ -508,6 +508,18 @@ mod tests {
             limiter.allow_at("a", start + REPORT_WINDOW),
             "and now it has"
         );
+
+        // The same edge where the periodic sweep cannot have cleared it: the
+        // budget spent half a window in, a sweep at a full window, and the
+        // edge half a window after that, which the key's own count decides.
+        let spent = start + REPORT_WINDOW / 2;
+        for _ in 0..REPORTS_PER_WINDOW {
+            assert!(limiter.allow_at("c", spent));
+        }
+        assert!(limiter.allow_at("d", start + REPORT_WINDOW), "a sweep");
+        let edge = spent + REPORT_WINDOW;
+        assert!(!limiter.allow_at("c", edge - Duration::from_millis(1)));
+        assert!(limiter.allow_at("c", edge), "a window after it was spent");
     }
 
     #[test]
