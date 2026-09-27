@@ -204,3 +204,76 @@ fn without_npm_or_with_a_failed_build_the_service_is_still_deployed() {
         assert_eq!(ran.contains("npm run build"), npm == Npm::Fails, "{ran}");
     }
 }
+
+/// `stage` installs the closed-beta key command (#317) beside itself, so a
+/// release that changes it reaches the owner's terminal.
+#[test]
+fn stage_installs_the_invite_command() {
+    let (_, ran) = stage(false, Npm::Absent);
+    assert!(
+        ran.lines().any(|l| l
+            == "sudo install -m755 scripts/server/baylee-invite /usr/local/sbin/baylee-invite"),
+        "{ran}"
+    );
+}
+
+/// `baylee-invite` reads the gateway's two settings files and hands its
+/// arguments to `baylee-gateway invite` with them; with no database named
+/// in either it says so and runs nothing.
+#[test]
+fn the_invite_command_runs_the_gateway_with_its_settings() {
+    let scratch = std::env::temp_dir().join(format!("baylee-invite-test-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&scratch);
+    let etc = scratch.join("etc");
+    std::fs::create_dir_all(&etc).unwrap();
+    let gateway = scratch.join("baylee-gateway");
+    std::fs::write(
+        &gateway,
+        "#!/usr/bin/env bash\necho \"args: $*\"\necho \"db: $DATABASE_URL\"\n\
+         echo \"reg: $BAYLEE_REGISTRATION\"\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&gateway, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/server/baylee-invite");
+    let run = || {
+        std::process::Command::new("bash")
+            .arg(&script)
+            .args(["create", "--note", "Max und Moritz"])
+            .env("BAYLEE_INVITE_ETC", &etc)
+            .env("BAYLEE_INVITE_BIN", &gateway)
+            .env_remove("DATABASE_URL")
+            .env_remove("BAYLEE_REGISTRATION")
+            .output()
+            .expect("bash runs")
+    };
+
+    let out = run();
+    assert_eq!(out.status.code(), Some(1), "no database named");
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("DATABASE_URL"),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(out.stdout.is_empty(), "the gateway was not run");
+
+    std::fs::write(
+        etc.join("secrets.env"),
+        "DATABASE_URL=postgres://baylee:secret@127.0.0.1/baylee\n",
+    )
+    .unwrap();
+    std::fs::write(etc.join("gateway.env"), "BAYLEE_REGISTRATION=invite\n").unwrap();
+    let out = run();
+    let said = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        out.status.success(),
+        "{said}{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        said,
+        "args: invite create --note Max und Moritz\n\
+         db: postgres://baylee:secret@127.0.0.1/baylee\n\
+         reg: invite\n"
+    );
+    let _ = std::fs::remove_dir_all(&scratch);
+}

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Closed-beta keys for this server's gateway (#317). Installed as
+# /usr/local/sbin/baylee-invite by `baylee-deploy stage`.
+#
+#   sudo baylee-invite create [--uses N] [--expires 30d|12h] [--note "Max"] [--count K]
+#   sudo baylee-invite list
+#   sudo baylee-invite revoke <id>
+#
+# Runs `baylee-gateway invite` with the gateway's own settings, so it reaches
+# the gateway's database; the gateway need not be running. A key is printed
+# once, by `create`, and only its hash is kept.
+set -euo pipefail
+
+# Overridden only by its test (crates/baylee-feedback/tests/deploy.rs).
+etc=${BAYLEE_INVITE_ETC:-/etc/baylee}
+bin=${BAYLEE_INVITE_BIN:-/opt/baylee/bin/baylee-gateway}
+
+set -a
+for env in "$etc/secrets.env" "$etc/gateway.env"; do
+    # shellcheck disable=SC1090
+    [ -r "$env" ] && . "$env"
+done
+set +a
+
+if [ -z "${DATABASE_URL:-}" ]; then
+    echo "baylee-invite: DATABASE_URL is in neither $etc/secrets.env nor $etc/gateway.env" >&2
+    exit 1
+fi
+exec "$bin" invite "$@"

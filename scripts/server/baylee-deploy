@@ -104,6 +104,7 @@ stage() {
     sudo systemctl stop baylee-agent
     sudo install -m755 target/release/{baylee-agent,baylee-engine-server} "$bin/"
     sudo install -m755 scripts/server/baylee-deploy /usr/local/sbin/baylee-deploy
+    sudo install -m755 scripts/server/baylee-invite /usr/local/sbin/baylee-invite
     log "staged ${rev:0:10}: agent and engine installed, agent off until the gateway follows"
     if installed baylee-feedback; then
         sudo install -m755 target/release/baylee-feedback "$bin/"
