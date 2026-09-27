@@ -7351,6 +7351,40 @@ Known limits, each a later view version:
 - An ability line cannot tell activated from triggered.
 - `CounterKind::badge` is English, so the counter nouns are written here.
 
+## Reporting a problem (#309, #310)
+
+One form, `src/report.rs` and `src/report/`, stands over the lobby and the
+table alike (`GlobalZIndex(1000)`, a shade that blocks the pointer). It is
+opened by `Action::Report` (F8), the game menu's row and a button beside the
+music controls in the lobby's gear menu and settings. While it is up it has
+every key: `ReportDesk::holds_keyboard` is the first thing the lobby's and
+the table's key handlers ask, and it stays true for the frame `Esc` closes
+it, so that `Esc` does not also cancel something underneath.
+
+What it decides is in `client-core::bugreport`: the categories and the
+per-device `Consent`, `Gathered::report` (a part is copied in only when its
+box is ticked), `seat_log` (the seat's log written in English against a
+roster already reading "You", "Player A", "Player B"), `Submission::sealed`
+(20 000 characters, the `client` object fitted under 2 MB by dropping the
+picture and then the oldest log lines, and `seal` last), and `outcome`, the
+table of the gateway's answers (`201`, the gateway's own words for `400`, a
+sentence of ours for `401`, `413`, `429`, `503` and for no answer). The
+preview is the same fitted submission pretty-printed, the picture written
+as its size and the text cut at 20 000 characters on screen.
+
+The screenshot is asked for as the form opens and the form waits up to
+`SHOT_PATIENCE` frames to draw itself, so the picture is of the screen and
+not of the form. It is encoded as PNG at most 1280 pixels wide, smaller
+until it is under 900 kB, and dropped if it never is. A browser build links
+no encoder and takes none.
+
+Crashes: `report::install_panic_hook`, called by `standalone::run` right
+after the store opens, writes `crash-report.json` and chains the previous
+hook. It reads a static (`SIGNED_IN_AT`) and nothing from the world. At
+start `crash_step` reads the file against `CrashConsent`: ask once, send,
+or discard. A send waits for a session at `CrashFile::sends_to`'s gateway
+and is tried once per start.
+
 ## Embedding (the open-world plan)
 
 `DuelPlugin` creates no window and no schedule of its own. An application adds
