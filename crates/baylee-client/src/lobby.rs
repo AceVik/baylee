@@ -328,25 +328,34 @@ impl LobbyState {
         }
         lobby.set_gateway_ready(false);
         lobby.set_registration(Registration::Off);
-        let mut gateways = gateway_list::with_pinned(
-            stored
-                .gateways
-                .into_iter()
-                .filter_map(|g| gateway::normalize(&g))
-                .collect(),
+        let configured = crate::settings::gateway_url();
+        // In a browser, the gateway that served the page (#327); natively
+        // `None`, which changes nothing below.
+        let page =
+            gateway_list::page_gateway(crate::settings::page_origin().as_deref(), &configured);
+        let mut gateways = gateway_list::with_page(
+            gateway_list::with_pinned(
+                stored
+                    .gateways
+                    .into_iter()
+                    .filter_map(|g| gateway::normalize(&g))
+                    .collect(),
+            ),
+            page.as_deref(),
         );
         // The address field offers the configured gateway to save, unless
         // it is saved already (in a release that is the pinned one).
-        let configured = crate::settings::gateway_url();
         if !gateways.contains(&configured) {
             lobby.set_field(Field::Gateway, &configured);
         }
         // Ordered once, here, and not while the list is on screen: a row
         // that moved under the pointer would be a row chosen by mistake.
         stored.gateway_uses.order(&mut gateways);
-        // A release puts the keyboard's row on the live gateway, so Enter
-        // plays there; choosing is still the player's step.
-        let gateway_cursor = gateway_list::preselected(&gateways, !cfg!(debug_assertions));
+        // A release puts the keyboard's row on the live gateway, and a page
+        // on the gateway that served it, so Enter plays there; choosing is
+        // still the player's step.
+        let gateway_cursor =
+            gateway_list::starting_row(&gateways, !cfg!(debug_assertions), page.as_deref());
         Self {
             gateways,
             uses: stored.gateway_uses,

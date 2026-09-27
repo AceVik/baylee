@@ -233,6 +233,21 @@ pub fn forget_gateway() {
     store::remove_key("baylee:gateway");
 }
 
+/// The page's origin (`window.location.origin`) in a browser; `None`
+/// natively, where no page served the client. What it means is decided in
+/// `baylee_client_core::lobby::gateway_list::page_gateway`, where it is tested.
+#[must_use]
+pub fn page_origin() -> Option<String> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        web_sys::window().and_then(|w| w.location().origin().ok())
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        None
+    }
+}
+
 /// Reads one key out of a `.env` file in the working directory.
 ///
 /// Deliberately tiny rather than a dependency: the file holds a handful of
