@@ -103,7 +103,12 @@ pub(crate) fn install(app: &mut App) {
     app.init_resource::<ReportDesk>()
         .init_resource::<Answers>()
         .add_systems(Startup, find_a_crash.run_if(settled))
-        .add_systems(PreUpdate, keys.after(bevy::input::InputSystems))
+        // In `Update`, after every `PreUpdate` writer of keys (the
+        // dev-control harness presses them there). The lobby's and the
+        // table's handlers ask `holds_keyboard` whichever side of this they
+        // run on: open, the form has the keys either way, and the frame it
+        // closes on is swallowed by `swallow`.
+        .add_systems(Update, keys.run_if(resource_exists::<ClientSettings>))
         .add_systems(
             Update,
             (

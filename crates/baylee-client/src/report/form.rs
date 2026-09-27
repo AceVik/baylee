@@ -295,9 +295,51 @@ fn button(
         enabled,
     );
     commands.entity(id).remove::<crate::lobby::Press>();
+    if lit && enabled {
+        // As the lobby marks its chosen language: the colour the button
+        // rests at, and the one it warms from.
+        commands.entity(id).insert((
+            BackgroundColor(palette::PANEL_HOT),
+            crate::ambience::Feel::new(palette::PANEL_HOT),
+        ));
+    }
     if enabled {
         commands.entity(id).insert((Button, press)).observe(pressed);
     }
+    id
+}
+
+/// A box: the lobby's button, with a square in front that is ticked or not.
+///
+/// The mark is a glyph of the icon font; the interface's own font has no
+/// ballot boxes.
+fn checkbox(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    label: &str,
+    press: DeskPress,
+    ticked: bool,
+) -> Entity {
+    let id = button(commands, fonts, metrics, label, press, ticked, true);
+    let (glyph, ink) = if ticked {
+        ('\u{f14a}', palette::ACCENT)
+    } else {
+        ('\u{f0c8}', palette::MUTED.with_alpha(0.5))
+    };
+    let mark = commands
+        .spawn((
+            Text::new(glyph.to_string()),
+            crate::hud::icon_tf(fonts, metrics.text),
+            TextColor(ink),
+            Pickable::IGNORE,
+            Node {
+                margin: UiRect::right(px(metrics.gap)),
+                ..default()
+            },
+        ))
+        .id();
+    commands.entity(id).insert_children(0, &[mark]);
     id
 }
 
@@ -418,8 +460,7 @@ fn form(
     for category in Category::ALL {
         let there = desk.gathered.has(category);
         let ticked = settings.reports.allows(category);
-        let mark = if ticked { "☑" } else { "☐" };
-        let mut label = format!("{mark}  {}", category.phrase().text(lang));
+        let mut label = category.phrase().text(lang).to_string();
         if category == Category::Screenshot
             && let Some(shot) = &desk.gathered.screenshot
         {
@@ -449,14 +490,13 @@ fn form(
                 Pickable::IGNORE,
             ))
             .id();
-        let tick = button(
+        let tick = checkbox(
             commands,
             fonts,
             metrics,
             &label,
             DeskPress::Toggle(category),
-            false,
-            true,
+            ticked,
         );
         let hint = words(
             commands,
@@ -468,18 +508,13 @@ fn form(
         parts.push(entry);
     }
     let crashes = settings.reports.crashes == CrashConsent::Send;
-    parts.push(button(
+    parts.push(checkbox(
         commands,
         fonts,
         metrics,
-        &format!(
-            "{}  {}",
-            if crashes { "☑" } else { "☐" },
-            Phrase::ReportCrashesBox.text(lang)
-        ),
+        Phrase::ReportCrashesBox.text(lang),
         DeskPress::Crashes,
-        false,
-        true,
+        crashes,
     ));
 
     let preview_label = if desk.form.preview {
