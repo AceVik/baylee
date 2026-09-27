@@ -46,6 +46,13 @@ pub const REPORT_WINDOW: Duration = Duration::from_secs(3600);
 /// How long the service has to take a report.
 const FORWARD_TIMEOUT: Duration = Duration::from_secs(20);
 
+/// How long a report about a game that goes on waits for the game's engine
+/// to send its record as it stands and for that to be stored (#323), before
+/// it attaches what is there. An engine answers in milliseconds; this bounds
+/// one that is busy, stuck or from before the ask (which never answers), and
+/// it is what a player filing such a report can wait at most for it.
+pub const FLUSH_WAIT: Duration = Duration::from_secs(3);
+
 /// Where reports go, from the environment.
 pub struct Feedback {
     /// `BAYLEE_FEEDBACK_URL` without a trailing slash; `None` = not
@@ -268,6 +275,9 @@ pub async fn post_report(
     // A report the service did not take was not sent, and costs the
     // player nothing of the budget.
     let give_back = || feedback.limiter.give_back(&session.account_id);
+    if let Some(game) = game_id {
+        flush_record(&state, game, &session.account_id).await;
+    }
     let record = match (game_id, uuid::Uuid::parse_str(&session.account_id)) {
         (Some(game), Ok(account)) => baylee_db::records::for_seated(&state.db, game, account)
             .await
@@ -311,6 +321,58 @@ pub async fn post_report(
             ))
         }
     }
+}
+
+/// Asks the engine of `game_id` for its record as it stands and waits, up to
+/// [`FLUSH_WAIT`], until what it sent is stored (#323), when `account_id`
+/// sits at that game and it goes on; otherwise asks nothing. Whether it was
+/// stored in time.
+///
+/// Never an error: a report is not refused because its game's engine is
+/// slow or gone. The record attached is then what was stored before, and
+/// `complete` says what it said before: whether the game's end is in it.
+async fn flush_record(state: &Shared, game_id: &str, account_id: &str) -> bool {
+    // The link is cloned out, so no lock is held across the wait.
+    let engine = {
+        let lobby = state.lobby.lock();
+        lobby
+            .games
+            .get(game_id)
+            .filter(|game| {
+                game.state == crate::LobbyState::Playing
+                    && game
+                        .seats
+                        .iter()
+                        .any(|seat| seat.account_id.as_deref() == Some(account_id))
+            })
+            .and_then(|game| game.engine.clone())
+    };
+    let Some(engine) = engine else {
+        return false;
+    };
+    let flushes = &state.record_flushes;
+    let (nonce, stored) = flushes.ask(game_id);
+    let ask = baylee_protocol::v1::Envelope {
+        msg: Some(baylee_protocol::v1::envelope::Msg::FlushRecord(
+            baylee_protocol::v1::FlushRecord {
+                game_id: game_id.to_owned(),
+                nonce,
+            },
+        )),
+    };
+    if engine.send(ask).is_err() {
+        flushes.forget(nonce);
+        return false;
+    }
+    if let Ok(Ok(())) = tokio::time::timeout(FLUSH_WAIT, stored).await {
+        return true;
+    }
+    flushes.forget(nonce);
+    tracing::warn!(
+        game_id,
+        "the engine did not send its record in time; the report carries what was stored"
+    );
+    false
 }
 
 /// Posts one report to the service; its id, or why not.

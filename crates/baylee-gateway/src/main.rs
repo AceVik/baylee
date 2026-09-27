@@ -156,6 +156,9 @@ struct AppState {
     /// `BAYLEE_FEEDBACK_URL`, `BAYLEE_FEEDBACK_TOKEN`, `BAYLEE_FEEDBACK_KEY`,
     /// and how many each account has sent.
     feedback: report::Feedback,
+    /// Reports waiting for a game's engine to send its record as it stands
+    /// (#323); see `record.rs`.
+    record_flushes: record::Flushes,
     /// The unspent tickets a socket may be opened with (#294), in memory
     /// only; `BAYLEE_WS_TICKET_SECS` says how long each lives.
     tickets: wsticket::Tickets,
@@ -252,6 +255,7 @@ async fn main() {
         art: Arc::new(art::ArtCache::from_env()),
         deck_images: Arc::new(cosmetics::Store::from_env()),
         feedback: report::Feedback::from_env(),
+        record_flushes: record::Flushes::default(),
         tickets: wsticket::Tickets::new(ticket_ttl),
         legacy_until,
     });

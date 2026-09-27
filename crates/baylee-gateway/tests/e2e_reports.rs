@@ -18,7 +18,7 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use base64::Engine as _;
-use baylee_engine::choice::PlayerAction;
+use baylee_engine::choice::{Pending, PlayerAction, timeout_answer};
 use baylee_protocol::v1::{self, Envelope};
 use common::{Gateway, Socket, attach_agent, http, json_field, login, spawn_gateway_with};
 use futures_util::SinkExt;
@@ -466,6 +466,226 @@ async fn a_report_reaches_the_real_service_with_its_record() {
         )),
         1,
         "the service holds the record the gateway stored"
+    );
+    agent.abort();
+}
+
+/// How long the gateway waits for an engine's record before a report goes
+/// without it (`report::FLUSH_WAIT`, which a test cannot import from the
+/// gateway's binary).
+const FLUSH_WAIT: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// A game against the house that goes on: the table is open and the seat
+/// has fallen quiet on its first question, which is returned unanswered.
+async fn a_game_that_goes_on(port: u16, token: &str) -> (String, Socket, Pending) {
+    let deck_id = deck(port, token);
+    let create = format!("{{\"deck_id\":\"{deck_id}\",\"mode\":\"ai\"}}");
+    let (status, body) = http(port, "POST", "/lobby/games", Some(token), &create);
+    assert_eq!(status, 200, "create ai game: {body}");
+    let game = json_field(&body, "game_id").to_string();
+    let seat_token = json_field(&body, "seat_token").to_string();
+    let mut ws: Socket = common::dial_seat(port, &game, &seat_token).await;
+    let mut asked = None;
+    tokio::time::timeout(common::WAIT_BUDGET, async {
+        loop {
+            match common::next_msg(&mut ws).await {
+                Some(v1::envelope::Msg::GameStatic(_)) => {
+                    common::send(
+                        &mut ws,
+                        &Envelope {
+                            msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
+                        },
+                    )
+                    .await;
+                }
+                Some(v1::envelope::Msg::Curtain(_)) => break,
+                Some(v1::envelope::Msg::ChoiceRequest(c)) => {
+                    asked = serde_json::from_slice(&c.pending_json).ok();
+                }
+                Some(_) => {}
+                None => panic!("the socket closed before play was allowed"),
+            }
+        }
+    })
+    .await
+    .expect("the table opened");
+    let asked = quiet(&mut ws).await.or(asked).expect("the seat is asked");
+    (game, ws, asked)
+}
+
+/// Reads a seat until it falls quiet: the last question it was asked. No
+/// piece of the record, and nothing about asking for one, reaches a seat.
+async fn quiet(ws: &mut Socket) -> Option<Pending> {
+    let mut asked = None;
+    while let Ok(Some(msg)) =
+        tokio::time::timeout(std::time::Duration::from_millis(700), common::next_msg(ws)).await
+    {
+        match msg {
+            v1::envelope::Msg::GameRecordChunk(_)
+            | v1::envelope::Msg::FlushRecord(_)
+            | v1::envelope::Msg::RecordFlushed(_) => {
+                panic!("a seat was sent something of the game's record: {msg:?}")
+            }
+            v1::envelope::Msg::ChoiceRequest(c) => {
+                asked = serde_json::from_slice(&c.pending_json).ok();
+            }
+            _ => {}
+        }
+    }
+    asked
+}
+
+/// The record a report arrived at the service with, unpacked.
+fn record_sent(sent: &serde_json::Value) -> Vec<u8> {
+    let gz = base64::engine::general_purpose::STANDARD
+        .decode(sent["record"]["gzip_base64"].as_str().expect("a record"))
+        .expect("base64");
+    let mut record = Vec::new();
+    flate2::read::MultiGzDecoder::new(&gz[..])
+        .read_to_end(&mut record)
+        .expect("one gzip stream");
+    record
+}
+
+/// The hash a record replays to.
+fn replays_to(record: &[u8]) -> u64 {
+    let replayed = baylee_gamehost::record::replay(record).expect("the record replays");
+    assert!(!replayed.ended, "the game goes on");
+    replayed.engine.snapshot_hash()
+}
+
+/// A seat's answer, as its socket sends it.
+async fn say(ws: &mut Socket, action: &PlayerAction) {
+    common::send(
+        ws,
+        &Envelope {
+            msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
+                game_id: String::new(),
+                seat_token: String::new(),
+                action_json: serde_json::to_vec(action).unwrap(),
+            })),
+        },
+    )
+    .await;
+}
+
+/// A report naming a game that goes on, from a player who sits at it, asks
+/// that game's engine for its record once and carries it to the moment of
+/// the report (#323). Nobody else's report asks: not a stranger's naming
+/// the game, not one naming no game or another, and not one about a game
+/// that ended, whose record is whole already.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_report_at_a_game_that_goes_on_asks_its_engine_for_the_moment() {
+    let (url, inbox) = stub_service().await;
+    let gw = with_service("reports-flush", &url);
+    let port = gw.port;
+    let (agent, probe) = common::attach_agent_probed(&gw).await;
+    let token = login(port, "rhea", "RheaReporter");
+    let (game, mut ws, _) = a_game_that_goes_on(port, &token).await;
+    let now = probe.hash.borrow().expect("the game is built");
+    let naming = serde_json::json!({
+        "kind": "bug", "text": "now", "game_id": game, "client": {},
+    })
+    .to_string();
+
+    let stranger = login(port, "sten", "StenStranger");
+    assert_eq!(report(port, Some(&stranger), &naming).0, 201);
+    let none = r#"{"kind":"bug","text":"x","game_id":null,"client":{}}"#;
+    assert_eq!(report(port, Some(&token), none).0, 201);
+    let other = r#"{"kind":"bug","text":"x","game_id":"no-such-game","client":{}}"#;
+    assert_eq!(report(port, Some(&token), other).0, 201);
+    assert_eq!(probe.flushes(), 0, "none of those asks the engine");
+
+    assert_eq!(report(port, Some(&token), &naming).0, 201);
+    assert_eq!(probe.flushes(), 1, "the reporter's own game is asked once");
+    {
+        let inbox = inbox.lock();
+        assert!(
+            inbox[0].1["record"].is_null(),
+            "a stranger was sent the record"
+        );
+        let sent = &inbox[3].1;
+        assert_eq!(sent["record"]["complete"], false, "the game goes on");
+        assert_eq!(
+            replays_to(&record_sent(sent)),
+            now,
+            "the record reaches the moment of the report"
+        );
+    }
+    assert!(
+        quiet(&mut ws).await.is_none(),
+        "the seat was asked nothing new"
+    );
+
+    // The game ends; a report about it asks nothing and carries it whole.
+    say(&mut ws, &PlayerAction::Concede).await;
+    quiet(&mut ws).await;
+    stored(&gw, &game).await;
+    assert_eq!(report(port, Some(&token), &naming).0, 201);
+    assert_eq!(probe.flushes(), 1, "a game that ended is not asked");
+    assert_eq!(inbox.lock()[4].1["record"]["complete"], true);
+    agent.abort();
+}
+
+/// An engine that does not answer (busy, stuck, or from before the ask)
+/// costs a report [`FLUSH_WAIT`] and never the report: it goes with the
+/// record as stored, which is where the last answered ask left it. The
+/// next ask the engine answers carries the game on to its own moment.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_report_whose_engine_does_not_answer_carries_what_was_stored() {
+    let (url, inbox) = stub_service().await;
+    let gw = with_service("reports-mute", &url);
+    let port = gw.port;
+    let (agent, probe) = common::attach_agent_probed(&gw).await;
+    let token = login(port, "rhea", "RheaReporter");
+    let (game, mut ws, asked) = a_game_that_goes_on(port, &token).await;
+    let naming = serde_json::json!({
+        "kind": "bug", "text": "now", "game_id": game, "client": {},
+    })
+    .to_string();
+
+    let first = probe.hash.borrow().expect("the game is built");
+    assert_eq!(report(port, Some(&token), &naming).0, 201);
+
+    // The game moves on.
+    say(&mut ws, &timeout_answer(&asked).expect("a plain answer")).await;
+    quiet(&mut ws).await;
+    let later = probe.hash.borrow().expect("the game is built");
+    assert_ne!(later, first, "the game moved");
+
+    probe.set_mute(true);
+    let started = std::time::Instant::now();
+    assert_eq!(
+        report(port, Some(&token), &naming).0,
+        201,
+        "a report is never refused for its engine"
+    );
+    let waited = started.elapsed();
+    assert_eq!(probe.flushes(), 2, "the engine was asked");
+    assert!(
+        waited >= FLUSH_WAIT && waited < FLUSH_WAIT * 3,
+        "waited {waited:?} for an engine that never answers"
+    );
+
+    probe.set_mute(false);
+    assert_eq!(report(port, Some(&token), &naming).0, 201);
+    assert_eq!(probe.flushes(), 3);
+    let hashes: Vec<u64> = inbox
+        .lock()
+        .iter()
+        .map(|(_, sent)| {
+            assert_eq!(sent["record"]["complete"], false);
+            replays_to(&record_sent(sent))
+        })
+        .collect();
+    assert_eq!(
+        hashes,
+        [first, first, later],
+        "the unanswered report carries what was stored; the next goes on"
+    );
+    assert!(
+        quiet(&mut ws).await.is_none(),
+        "the seat was asked nothing new"
     );
     agent.abort();
 }

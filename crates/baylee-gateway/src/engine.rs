@@ -8,6 +8,7 @@
 //!   gateway ── StartEngine ──> agent ── spawn ──> engine
 //!   gateway <── EngineHello / SeatFrame / GameEnded ── engine
 //!   gateway ── GameSetup / SeatAttached / SeatFrame ─> engine
+//!   gateway ── FlushRecord ─> engine ── GameRecordChunk / RecordFlushed ─> gateway
 //! ```
 //!
 //! Two sockets, two secrets, and neither of them is a player's. An agent
@@ -456,6 +457,16 @@ async fn pump_engine(
                     }
                     // Never forwarded: the record is omniscient (#315).
                     Incoming::Msg(v1::envelope::Msg::GameRecordChunk(piece)) => record.take(piece),
+                    // A report's ask answered (#323): the piece it asked for
+                    // came before this on the socket and is already handed
+                    // to the writer, so the report is told once that is
+                    // stored. This game's own asks only, whatever the frame
+                    // says it is about. Never forwarded either.
+                    Incoming::Msg(v1::envelope::Msg::RecordFlushed(ack)) => {
+                        if let Some(done) = state.record_flushes.answered(game_id, ack.nonce) {
+                            record.flushed(done);
+                        }
+                    }
                     Incoming::Msg(v1::envelope::Msg::GameEnded(ended)) => {
                         tracing::info!(game_id, winners = ?ended.winners, reason = ended.reason, "game over");
                         end_game(state, game_id);

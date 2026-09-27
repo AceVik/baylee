@@ -500,12 +500,78 @@ pub async fn attach_agent_watching(
     tokio::sync::mpsc::UnboundedReceiver<baylee_core::preset::GamePreset>,
 ) {
     let (presets, seen) = tokio::sync::mpsc::unbounded_channel();
-    (attach_agent_inner(gateway, presets).await, seen)
+    (
+        attach_agent_inner(gateway, presets, EngineProbe::new().1).await,
+        seen,
+    )
+}
+
+/// What a test can see of, and change about, the engines an agent runs:
+/// every engine this agent starts reports to one probe, so it is for tests
+/// with one game (#323).
+pub struct EngineProbe {
+    /// The game's `snapshot_hash` after the last frame its engine handled;
+    /// `None` until the game is built.
+    pub hash: tokio::sync::watch::Receiver<Option<u64>>,
+    /// How many `FlushRecord`s the gateway sent the engine.
+    pub flushes: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    /// While set, the engine passes over a `FlushRecord` without a word, as
+    /// an engine from before the message does.
+    pub mute: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl EngineProbe {
+    /// How many `FlushRecord`s the gateway has sent so far.
+    pub fn flushes(&self) -> usize {
+        self.flushes.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// Makes the engine pass over every `FlushRecord` from now on, or answer
+    /// them again.
+    pub fn set_mute(&self, mute: bool) {
+        self.mute.store(mute, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+/// The engine's half of an [`EngineProbe`].
+#[derive(Clone)]
+struct ProbeEnd {
+    hash: std::sync::Arc<tokio::sync::watch::Sender<Option<u64>>>,
+    flushes: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    mute: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl EngineProbe {
+    fn new() -> (Self, ProbeEnd) {
+        let (hash, seen) = tokio::sync::watch::channel(None);
+        let flushes = std::sync::Arc::default();
+        let mute = std::sync::Arc::default();
+        (
+            Self {
+                hash: seen,
+                flushes: std::sync::Arc::clone(&flushes),
+                mute: std::sync::Arc::clone(&mute),
+            },
+            ProbeEnd {
+                hash: std::sync::Arc::new(hash),
+                flushes,
+                mute,
+            },
+        )
+    }
+}
+
+/// The agent of [`attach_agent`], with a probe into its engines.
+pub async fn attach_agent_probed(gateway: &Gateway) -> (tokio::task::JoinHandle<()>, EngineProbe) {
+    let (probe, end) = EngineProbe::new();
+    let presets = tokio::sync::mpsc::unbounded_channel().0;
+    (attach_agent_inner(gateway, presets, end).await, probe)
 }
 
 async fn attach_agent_inner(
     gateway: &Gateway,
     presets: tokio::sync::mpsc::UnboundedSender<baylee_core::preset::GamePreset>,
+    probe: ProbeEnd,
 ) -> tokio::task::JoinHandle<()> {
     let url = format!("ws://127.0.0.1:{}/agent/ws", gateway.port);
     let mut ws = dial(&url).await.expect("agent socket");
@@ -529,7 +595,7 @@ async fn attach_agent_inner(
     tokio::spawn(async move {
         while let Some(msg) = next_msg(&mut ws).await {
             if let v1::envelope::Msg::StartEngine(start) = msg {
-                tokio::spawn(run_engine(start, presets.clone()));
+                tokio::spawn(run_engine(start, presets.clone(), probe.clone()));
             }
         }
     })
@@ -543,6 +609,7 @@ async fn attach_agent_inner(
 async fn run_engine(
     start: v1::StartEngine,
     presets: tokio::sync::mpsc::UnboundedSender<baylee_core::preset::GamePreset>,
+    probe: ProbeEnd,
 ) {
     let Some(mut ws) = dial(&start.gateway_url).await else {
         return;
@@ -582,6 +649,12 @@ async fn run_engine(
             }
             msg = next_msg(&mut ws) => {
                 let Some(msg) = msg else { break };
+                if let v1::envelope::Msg::FlushRecord(_) = &msg {
+                    probe.flushes.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    if probe.mute.load(std::sync::atomic::Ordering::SeqCst) {
+                        continue;
+                    }
+                }
                 if let v1::envelope::Msg::GameSetup(setup) = &msg
                     && let Ok(preset) = serde_json::from_slice(&setup.preset_json) {
                     let _ = presets.send(preset);
@@ -593,6 +666,14 @@ async fn run_engine(
         for envelope in out {
             send(&mut ws, &envelope).await;
         }
+        // After the frames went out: a test that reads the hash and then
+        // asks the gateway something is asking about a game whose every
+        // answer is already on the wire.
+        probe.hash.send_replace(
+            runner
+                .session()
+                .map(baylee_gamehost::Session::snapshot_hash),
+        );
         if runner.finished() {
             break;
         }
