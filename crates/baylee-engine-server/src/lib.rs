@@ -6,7 +6,7 @@
 //!
 //! ```text
 //!   gateway ──> GameSetup / SeatAttached / SeatFrame ──> EngineRunner
-//!   gateway <── SeatFrame / GameEnded ────────────────── EngineRunner
+//!   gateway <── SeatFrame / GameRecordChunk / GameEnded ─ EngineRunner
 //! ```
 //!
 //! [`EngineRunner`] is that whole conversation with no socket in it: frames
@@ -20,16 +20,26 @@
 
 #![warn(missing_docs)]
 
+use std::io::Write as _;
+
 use baylee_core::ids::{PlayerId, SeatSet};
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::{SeatKind, Session};
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::SeatSetting;
+use flate2::Compression;
+use flate2::write::GzEncoder;
 
 /// How long a table waits for preparation before failing explicitly.
 /// A slow or missing seat never causes an unready table to open.
 pub const CURTAIN_SECS: u32 = 120;
+
+/// How much of the game's record (#315), uncompressed, gathers before it is
+/// sent to the gateway as a [`v1::GameRecordChunk`]. A two-seat game of the
+/// acceptance decks writes 100–190 KiB, so a handful of pieces a game; an
+/// engine that dies loses at most this much.
+pub const RECORD_CHUNK_BYTES: usize = 32 * 1024;
 
 /// The curtain while it is down (#256): the seats it waits for, and which of
 /// them have said they are ready.
@@ -161,6 +171,8 @@ pub struct EngineRunner {
     attached: Vec<u8>,
     /// Whether `GameEnded` has already been reported.
     ended: bool,
+    /// The next [`v1::GameRecordChunk::seq`] (#315).
+    record_seq: u32,
     /// The curtain, while it is down; `None` before the game is built and
     /// from the moment it goes up, which is for good: nothing brings it
     /// down again (#256).
@@ -418,7 +430,7 @@ impl EngineRunner {
         let Ok(preset) = serde_json::from_slice::<GamePreset>(&setup.preset_json) else {
             return vec![ended(&setup.game_id, "the preset did not decode")];
         };
-        let Some(mut session) = Session::new(&preset) else {
+        let Some(mut session) = Session::new_recorded(&preset, baylee_build::short()) else {
             return vec![ended(&setup.game_id, "the preset does not make a game")];
         };
         session.describe(setup.game_id.clone(), setup.seat_names.clone());
@@ -745,35 +757,69 @@ impl EngineRunner {
         self.route(&frames)
     }
 
-    /// `GameEnded`, once, when the game is over.
+    /// What the gateway is owed after the game moved: the game's record
+    /// (#315) once [`RECORD_CHUNK_BYTES`] of it have gathered, and when the
+    /// game is over the rest of it and then `GameEnded`, once.
     ///
     /// The gateway cannot read a `Pending` — it does not link the engine — so
-    /// the end of a game has to be said outright.
-    fn ending(&mut self) -> Option<Envelope> {
+    /// the end of a game has to be said outright. The record goes before it
+    /// on the same socket, so a gateway that has read `GameEnded` has read
+    /// the whole record.
+    fn ending(&mut self) -> Vec<Envelope> {
         if self.ended {
-            return None;
+            return Vec::new();
         }
-        let session = self.session.as_ref()?;
-        let Pending::GameOver(result) = session.pending() else {
-            return None;
+        let Some(session) = self.session.as_mut() else {
+            return Vec::new();
         };
+        let Pending::GameOver(result) = session.pending() else {
+            if session.record_pending() < RECORD_CHUNK_BYTES {
+                return Vec::new();
+            }
+            let data = session.take_record();
+            return vec![self.record_chunk(&data, false)];
+        };
+        let result = *result;
+        let data = session.take_record();
         self.ended = true;
         // A draw has no winner, which is a shorter list rather than a
         // different message — and a team win is a longer one, which is why
         // the field was a list from the start.
         let winners = session
-            .winning_seats(*result)
+            .winning_seats(result)
             .into_iter()
             .map(|p| u32::from(p.get()))
             .collect();
         let reason = format!("{:?}", result.reason);
-        Some(Envelope {
-            msg: Some(v1::envelope::Msg::GameEnded(v1::GameEnded {
+        vec![
+            self.record_chunk(&data, true),
+            Envelope {
+                msg: Some(v1::envelope::Msg::GameEnded(v1::GameEnded {
+                    game_id: self.game_id.clone(),
+                    winners,
+                    reason,
+                })),
+            },
+        ]
+    }
+
+    /// The next piece of the record, as one gzip member: pieces stored one
+    /// after another in `seq` order are one gzip stream of the record.
+    fn record_chunk(&mut self, data: &[u8], last: bool) -> Envelope {
+        let seq = self.record_seq;
+        self.record_seq += 1;
+        let mut gz = GzEncoder::new(Vec::new(), Compression::default());
+        // Writing into a `Vec` cannot fail.
+        gz.write_all(data).expect("compressing into memory");
+        let data = gz.finish().expect("compressing into memory");
+        Envelope {
+            msg: Some(v1::envelope::Msg::GameRecordChunk(v1::GameRecordChunk {
                 game_id: self.game_id.clone(),
-                winners,
-                reason,
+                seq,
+                data,
+                last,
             })),
-        })
+        }
     }
 }
 
@@ -1732,6 +1778,77 @@ mod tests {
             view.seat(clock.seat).and_then(|s| s.house_answered),
             Some(HouseAnswer::Clock)
         );
+    }
+
+    /// The game's record reaches the gateway whole (#315): in pieces as it
+    /// grows, the last of them before `GameEnded`, and the pieces together
+    /// replay the game the runner played.
+    #[test]
+    fn the_record_goes_to_the_gateway_before_the_game_ends() {
+        let me = PlayerId::new(0);
+        let mut runner = EngineRunner::new();
+        let mut out = setup(&mut runner, &duel(0));
+        out.extend(sit(&mut runner, 0));
+        for _ in 0..5_000 {
+            if runner.finished() {
+                break;
+            }
+            let action = runner
+                .session()
+                .and_then(|s| s.house_action(me))
+                .expect("the player is asked while the game goes on");
+            out.extend(act(&mut runner, 0, &action));
+        }
+        assert!(runner.finished(), "the game ended");
+        let pieces: Vec<&v1::GameRecordChunk> = out
+            .iter()
+            .filter_map(|e| match &e.msg {
+                Some(v1::envelope::Msg::GameRecordChunk(c)) => Some(c),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            pieces.len() > 1,
+            "a whole game is sent in more than one piece"
+        );
+        let seqs: Vec<u32> = pieces.iter().map(|c| c.seq).collect();
+        assert_eq!(
+            seqs,
+            (0..u32::try_from(pieces.len()).unwrap()).collect::<Vec<_>>()
+        );
+        let last = pieces.iter().filter(|c| c.last).count();
+        assert_eq!(last, 1, "one last piece");
+        assert!(pieces.last().unwrap().last, "the last piece is last");
+        let kinds: Vec<bool> = out
+            .iter()
+            .filter_map(|e| match &e.msg {
+                Some(v1::envelope::Msg::GameRecordChunk(_)) => Some(false),
+                Some(v1::envelope::Msg::GameEnded(_)) => Some(true),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            kinds.last(),
+            Some(&true),
+            "GameEnded comes after the record"
+        );
+        assert_eq!(kinds.iter().filter(|&&k| k).count(), 1);
+
+        let stored: Vec<u8> = pieces.iter().flat_map(|c| c.data.iter().copied()).collect();
+        let mut record = Vec::new();
+        std::io::Read::read_to_end(
+            &mut flate2::read::MultiGzDecoder::new(&stored[..]),
+            &mut record,
+        )
+        .expect("the pieces are one gzip stream");
+        let replayed = baylee_gamehost::record::replay(&record).expect("the record replays");
+        assert!(replayed.ended);
+        assert_eq!(
+            replayed.engine.snapshot_hash(),
+            runner.session().unwrap().snapshot_hash()
+        );
+        let text = String::from_utf8(record).unwrap();
+        assert!(!text.contains("\"You\""), "the record names no seat");
     }
 
     /// A preset that does not describe a game has to say so. The gateway

@@ -25,6 +25,7 @@ use baylee_protocol::v1::{self, Envelope};
 use prost::Message as _;
 use std::collections::HashMap;
 use tokio::sync::mpsc;
+use uuid::Uuid;
 
 /// How often a connected agent is asked to say it is still there.
 const HEARTBEAT_SECS: u32 = 30;
@@ -355,16 +356,28 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
                 return;
             };
             game.engine = Some(tx);
-            Ok(Envelope {
-                msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
-                    game_id: game_id.clone(),
-                    preset_json,
-                    seat_names: names,
-                })),
-            })
+            let seats = game
+                .seats
+                .iter()
+                .map(|s| {
+                    s.account_id
+                        .as_deref()
+                        .and_then(|a| Uuid::parse_str(a).ok())
+                })
+                .collect();
+            Ok((
+                seats,
+                Envelope {
+                    msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
+                        game_id: game_id.clone(),
+                        preset_json,
+                        seat_names: names,
+                    })),
+                },
+            ))
         }
     };
-    let setup = match setup {
+    let (seats, setup) = match setup {
         Ok(setup) => setup,
         Err(why) => {
             let _ = send(&mut socket, &refusal(&why)).await;
@@ -391,7 +404,8 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
         }
     }
     tracing::info!(game_id, "engine attached");
-    pump_engine(&state, &game_id, &mut socket, &mut rx).await;
+    let mut record = crate::record::Sink::open(state.db.clone(), &game_id, seats);
+    pump_engine(&state, &game_id, &mut socket, &mut rx, &mut record).await;
     // The socket is the game's lifeline: its state lives in that process and
     // nowhere else, so a link that closes before `GameEnded` is a game that
     // cannot be continued. Marking it over is the honest answer.
@@ -419,6 +433,7 @@ async fn pump_engine(
     game_id: &str,
     socket: &mut WebSocket,
     rx: &mut mpsc::UnboundedReceiver<Envelope>,
+    record: &mut crate::record::Sink,
 ) {
     loop {
         tokio::select! {
@@ -439,6 +454,8 @@ async fn pump_engine(
                             let _ = game.updates.send((seat, seat_frame.envelope));
                         }
                     }
+                    // Never forwarded: the record is omniscient (#315).
+                    Incoming::Msg(v1::envelope::Msg::GameRecordChunk(piece)) => record.take(piece),
                     Incoming::Msg(v1::envelope::Msg::GameEnded(ended)) => {
                         tracing::info!(game_id, winners = ?ended.winners, reason = ended.reason, "game over");
                         end_game(state, game_id);

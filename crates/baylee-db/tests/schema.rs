@@ -1401,3 +1401,99 @@ async fn an_expired_confirmation_link_goes_in_the_sweep_and_a_live_one_stays() {
 
     sandbox.close().await;
 }
+
+/// A game's record (#315) comes in pieces and is read back whole, in order,
+/// by a player who sat at the game and by nobody else.
+#[tokio::test]
+async fn a_game_record_is_read_back_whole_by_a_player_who_sat_there() {
+    use baylee_db::records;
+
+    let sandbox = Sandbox::open("records").await;
+    let db = &sandbox.db;
+    let (me, stranger) = (an_account("me@example.com"), an_account("them@example.com"));
+    let (me_id, stranger_id) = (me.id.clone().unwrap(), stranger.id.clone().unwrap());
+    Account::insert(me).exec(db).await.expect("an account");
+    Account::insert(stranger)
+        .exec(db)
+        .await
+        .expect("an account");
+
+    records::open(db, "g1", &[Some(me_id), None])
+        .await
+        .expect("opens");
+    // Out of order, and one piece twice: the store keeps each once, in
+    // `seq` order.
+    assert!(
+        records::append(db, "g1", 1, b"world".to_vec(), false)
+            .await
+            .unwrap()
+    );
+    assert!(
+        records::append(db, "g1", 0, b"hello ".to_vec(), false)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !records::append(db, "g1", 0, b"again".to_vec(), false)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !records::append(db, "nowhere", 0, b"x".to_vec(), true)
+            .await
+            .unwrap(),
+        "a piece of a record never opened is dropped"
+    );
+    let open = records::for_seated(db, "g1", me_id)
+        .await
+        .unwrap()
+        .expect("mine");
+    assert_eq!(open.data, b"hello world");
+    assert!(!open.complete);
+    assert!(
+        records::append(db, "g1", 2, b"!".to_vec(), true)
+            .await
+            .unwrap()
+    );
+    let done = records::for_seated(db, "g1", me_id)
+        .await
+        .unwrap()
+        .expect("mine");
+    assert_eq!(done.data, b"hello world!");
+    assert!(done.complete);
+
+    assert_eq!(
+        records::for_seated(db, "g1", stranger_id).await.unwrap(),
+        None
+    );
+    assert_eq!(records::for_seated(db, "g2", me_id).await.unwrap(), None);
+
+    // Opening again rewrites nobody's seat.
+    records::open(db, "g1", &[Some(stranger_id), None])
+        .await
+        .unwrap();
+    assert_eq!(
+        records::for_seated(db, "g1", stranger_id).await.unwrap(),
+        None
+    );
+
+    // The account goes; the record stays, linked to nobody.
+    baylee_db::accounts::delete(db, me_id)
+        .await
+        .expect("deletes");
+    let row = db
+        .query_one_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT (SELECT count(*) FROM game_record) AS records, \
+                    (SELECT count(*) FROM game_record_seat WHERE account_id IS NOT NULL) AS linked, \
+                    (SELECT bytes FROM game_record WHERE game_id = 'g1') AS bytes",
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.try_get::<i64>("", "records").unwrap(), 1);
+    assert_eq!(row.try_get::<i64>("", "linked").unwrap(), 0);
+    assert_eq!(row.try_get::<i64>("", "bytes").unwrap(), 12);
+
+    sandbox.close().await;
+}

@@ -1229,7 +1229,7 @@ POST /lobby/games ─┐
                    └── EngineHello{game_id, token, protocol_version} ── baylee-engine-server
                    │
                    ├── GameSetup / SeatAttached / SeatDetached / SeatFrame ──>
-                   <── SeatFrame / GameEnded ──────────────────────────────────
+                   <── SeatFrame / GameRecordChunk / GameEnded ────────────────
                    │
                    └── the seat sockets, unchanged
 ```
@@ -1283,6 +1283,41 @@ Losing the engine link ends the game. The state lives in that process and
 nowhere else, so a link that closes before `GameEnded` is a game that cannot be
 continued; the gateway marks it over rather than leaving a table that will
 never move again.
+
+### The game record (#315)
+
+Every game an engine plays is written down whole: the preset it was built
+from, then every action the engine applied, in order, each with who produced
+it (`seat`, `clock`, `house`, `stand_in`) and the engine's `snapshot_hash`
+after it, the changes of who answers a chair as annotations, and the end.
+Enough to play the game again on a fresh engine of the same build and reach
+the same hash at every step (`baylee_gamehost::record::replay`). A policy's
+answer is not a line of its own: it is given inside `apply`, from settings
+that are themselves recorded inputs. JSON Lines, so a record cut off with its
+engine is readable up to the cut; the header names the build
+(`baylee_build::short`).
+
+The engine sends it to the gateway as `GameRecordChunk{game_id, seq, data,
+last}` on the engine link, a piece once 32 KiB of it have gathered
+(`RECORD_CHUNK_BYTES`) and the rest, `last`, just before `GameEnded`. Each
+`data` is one gzip member, so the pieces stored in `seq` order are one gzip
+stream of the record. A two-seat game of the acceptance decks is 660–1,450
+lines, 100–190 KB of JSON, 17–29 KB compressed.
+
+- **It is omniscient, so no seat is ever sent it.** The gateway stores the
+  pieces and forwards none; nothing a seat socket or the lobby can ask reads
+  them. The one reader is `POST /reports`, for a player who sat at the game,
+  which passes it to the feedback service (`docs/feedback.md`).
+- **It names nobody.** Seats are numbers, and the gateway keeps which account
+  sat where beside it (`game_record_seat`), a link that goes with the
+  account (`ON DELETE SET NULL`) while the record stays. The seat names a
+  table was described with never enter it.
+- **It is kept without a limit** (the owner's decision), in `game_record`,
+  `game_record_chunk` and `game_record_seat` (migration 000009). A record
+  whose engine died stays `complete = false`. One game's record is bounded at
+  64 MiB in the store; past that the gateway drops the rest and says so.
+- **No protocol bump.** Only an engine sends it and only a gateway reads it,
+  and both ship in one build; a gateway from before it ignores the message.
 
 ### Running one
 

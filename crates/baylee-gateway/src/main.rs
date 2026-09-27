@@ -16,6 +16,7 @@ mod handle;
 mod lobby;
 mod mail;
 mod pool;
+mod record;
 mod room;
 mod seatrate;
 mod store;

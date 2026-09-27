@@ -20,6 +20,7 @@ dev-table = []
 anyhow.workspace = true
 argon2.workspace = true
 axum.workspace = true
+base64.workspace = true
 baylee-build.workspace = true
 baylee-cards.workspace = true
 # The ledger, for one question the pool cannot answer: whether a name this
@@ -65,4 +66,5 @@ uuid.workspace = true
 # what the engine reads with, and drive a real engine over the real link.
 baylee-engine.workspace = true
 baylee-engine-server.workspace = true
+flate2.workspace = true
 tokio-tungstenite.workspace = true

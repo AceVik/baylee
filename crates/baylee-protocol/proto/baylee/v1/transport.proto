@@ -354,6 +354,20 @@ message GameEnded {
   string reason = 3;
 }
 
+// Engine → gateway: a piece of the game's record (#315), every input the
+// engine took, for the gateway's store and bug reports; never forwarded to a
+// seat. `data` is one gzip member of JSON Lines (`baylee_gamehost::record`),
+// so the pieces stored one after another in `seq` order are one gzip stream.
+// The last piece comes before `GameEnded` on the same socket; a record whose
+// engine died has no last piece.
+message GameRecordChunk {
+  string game_id = 1;
+  // 0, 1, 2, … per game.
+  uint32 seq = 2;
+  bytes data = 3;
+  bool last = 4;
+}
+
 message Envelope {
   // 1 was `Hello`, which nothing ever sent (#271).
   reserved 1;
@@ -391,6 +405,8 @@ message Envelope {
     SeatSettingMsg seat_setting = 27;
     ClockProbe clock_probe = 28;
     TableLoading table_loading = 29;
+    // Engine → gateway only (#315). An older gateway ignores it.
+    GameRecordChunk game_record_chunk = 30;
   }
 
 }

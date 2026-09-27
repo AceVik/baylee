@@ -70,6 +70,7 @@ pub mod guests;
 pub mod import;
 pub mod migration;
 pub mod pictures;
+pub mod records;
 pub mod usernames;
 
 use anyhow::{Context, Result};

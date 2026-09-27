@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 baylee-ai.workspace = true
+baylee-build.workspace = true
 baylee-cards.workspace = true
 baylee-cards-dsl.workspace = true
 baylee-core.workspace = true
@@ -18,6 +19,7 @@ baylee-gamehost.workspace = true
 baylee-protocol.workspace = true
 baylee-view.workspace = true
 bytes.workspace = true
+flate2.workspace = true
 futures-util.workspace = true
 prost.workspace = true
 serde.workspace = true

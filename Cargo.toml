@@ -127,6 +127,7 @@ time = { version = "0.3", features = ["serde"] }
 # Scryfall ships its bulk data gzipped; the ingest streams it rather than
 # holding 400 MB of JSON in memory.
 flate2 = "1"
+base64 = "0.22"
 # Card text fetch in the client. Tiny, and the only HTTP client that works
 # unchanged on native and wasm — bevy's asset server only does assets.
 ehttp = "0.7"
