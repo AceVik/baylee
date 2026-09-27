@@ -963,6 +963,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-feedback"
+version = "0.1.0-beta.1"
+dependencies = [
+ "anyhow",
+ "axum",
+ "base64 0.22.1",
+ "baylee-build",
+ "sea-orm",
+ "sea-orm-migration",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "subtle",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "ureq",
+ "uuid",
+]
+
+[[package]]
 name = "baylee-gamehost"
 version = "0.1.0-beta.1"
 dependencies = [
@@ -994,6 +1016,7 @@ dependencies = [
  "baylee-db",
  "baylee-engine",
  "baylee-engine-server",
+ "baylee-feedback",
  "baylee-protocol",
  "baylee-view",
  "bytes",

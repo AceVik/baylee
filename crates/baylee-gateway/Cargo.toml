@@ -66,5 +66,6 @@ uuid.workspace = true
 # what the engine reads with, and drive a real engine over the real link.
 baylee-engine.workspace = true
 baylee-engine-server.workspace = true
+baylee-feedback.workspace = true
 flate2.workspace = true
 tokio-tungstenite.workspace = true

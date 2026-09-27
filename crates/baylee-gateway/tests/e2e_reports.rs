@@ -64,7 +64,10 @@ fn with_service(label: &str, url: &str) -> Gateway {
         label,
         &[
             ("BAYLEE_FEEDBACK_URL", url.to_owned()),
-            ("BAYLEE_FEEDBACK_TOKEN", "intake-secret".to_owned()),
+            (
+                "BAYLEE_FEEDBACK_TOKEN",
+                "intake-secret-for-tests".to_owned(),
+            ),
             ("BAYLEE_FEEDBACK_KEY", "pseudonym-key".to_owned()),
         ],
     )
@@ -199,7 +202,7 @@ async fn a_finished_game_leaves_its_record_and_a_report_about_it_carries_it() {
     let inbox = inbox.lock();
     assert_eq!(inbox.len(), 3);
     let (auth, sent) = &inbox[0];
-    assert_eq!(auth, "Bearer intake-secret");
+    assert_eq!(auth, "Bearer intake-secret-for-tests");
     // Without the record, whose base64 may spell anything; it is read
     // decoded below.
     let mut rest = sent.clone();
@@ -308,4 +311,58 @@ async fn a_report_is_refused_for_what_it_is() {
         "another account is not held"
     );
     assert_eq!(inbox.lock().len(), 21);
+}
+
+/// The same path into the real service rather than the stub: what the
+/// gateway sends is what the service takes (`docs/feedback.md`), and the
+/// record it hands on is the one it stored.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_report_reaches_the_real_service_with_its_record() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let gw = with_service("reports-service", &url);
+    // The service keeps tables of its own and may share a schema with a
+    // gateway without either's migrator seeing the other's.
+    let db = baylee_feedback::connect(&gw.database_url(), 2)
+        .await
+        .expect("the service migrates");
+    let config = baylee_feedback::Config::new(
+        "test-gw=intake-secret-for-tests",
+        Some("a-read-token-for-tests"),
+        None,
+    )
+    .expect("config");
+    let app = baylee_feedback::app(Arc::new(baylee_feedback::AppState { db, config }));
+    tokio::spawn(async move { axum::serve(listener, app).await });
+
+    let port = gw.port;
+    let agent = attach_agent(&gw).await;
+    let token = login(port, "tove", "Tove");
+    let game = a_finished_game(port, &token).await;
+    stored(&gw, &game).await;
+    let body = serde_json::json!({
+        "kind": "crash", "text": "it fell over", "game_id": game,
+        "client": { "panic": "index out of bounds" },
+    })
+    .to_string();
+    let (status, answer) = report(port, Some(&token), &body);
+    assert_eq!(status, 201, "{answer}");
+    let id = json_field(&answer, "report_id").to_string();
+
+    assert_eq!(
+        gw.scalar(&format!(
+            "SELECT count(*) FROM feedback_report WHERE id = '{id}' AND gateway = 'test-gw' \
+             AND kind = 'crash' AND record_complete AND client->>'panic' = 'index out of bounds'"
+        )),
+        1
+    );
+    assert_eq!(
+        gw.scalar(&format!(
+            "SELECT count(*) FROM feedback_report f, game_record g \
+             WHERE f.id = '{id}' AND g.game_id = '{game}' AND octet_length(f.record) = g.bytes"
+        )),
+        1,
+        "the service holds the record the gateway stored"
+    );
+    agent.abort();
 }
