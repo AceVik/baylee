@@ -1497,3 +1497,89 @@ async fn a_game_record_is_read_back_whole_by_a_player_who_sat_there() {
 
     sandbox.close().await;
 }
+
+/// The edges of a record: started and never sent a piece, sent pieces and
+/// never its last, a piece after the last, a `seq` the column cannot hold.
+#[tokio::test]
+async fn a_game_record_at_its_edges() {
+    use baylee_db::records;
+
+    let sandbox = Sandbox::open("record_edges").await;
+    let db = &sandbox.db;
+    let me = an_account("edge@example.com");
+    let me_id = me.id.clone().unwrap();
+    Account::insert(me).exec(db).await.expect("an account");
+
+    // Started, nothing sent: an empty record, not a missing one.
+    records::open(db, "empty", &[Some(me_id)]).await.unwrap();
+    assert_eq!(
+        records::for_seated(db, "empty", me_id).await.unwrap(),
+        Some(records::Record {
+            data: Vec::new(),
+            complete: false
+        })
+    );
+
+    // Its engine went before the last piece: what came, incomplete.
+    records::open(db, "cut", &[None, Some(me_id)])
+        .await
+        .unwrap();
+    for (seq, piece) in [(0, b"ab"), (1, b"cd")] {
+        assert!(
+            records::append(db, "cut", seq, piece.to_vec(), false)
+                .await
+                .unwrap()
+        );
+    }
+    let cut = records::for_seated(db, "cut", me_id)
+        .await
+        .unwrap()
+        .expect("mine");
+    assert_eq!(cut.data, b"abcd");
+    assert!(!cut.complete);
+
+    // An empty last piece completes it and adds nothing; a piece after it
+    // is kept in order, and the record stays complete.
+    assert!(
+        records::append(db, "cut", 2, Vec::new(), true)
+            .await
+            .unwrap()
+    );
+    assert!(
+        records::append(db, "cut", 3, b"!".to_vec(), false)
+            .await
+            .unwrap()
+    );
+    let done = records::for_seated(db, "cut", me_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(done.data, b"abcd!");
+    assert!(done.complete, "a later piece does not undo the last");
+
+    // Refused before the database is asked, whose `seq >= 0` check would
+    // otherwise be the only thing between a wrapped seq and the table.
+    assert!(
+        matches!(
+            records::append(db, "cut", u32::MAX, b"x".to_vec(), false).await,
+            Err(sea_orm::DbErr::Custom(_))
+        ),
+        "a seq past the column is refused, not wrapped"
+    );
+    assert!(
+        records::append(db, "cut", i32::MAX.unsigned_abs(), b"?".to_vec(), false)
+            .await
+            .unwrap(),
+        "the largest seq the column holds"
+    );
+    assert_eq!(
+        records::for_seated(db, "cut", me_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .data,
+        b"abcd!?"
+    );
+
+    sandbox.close().await;
+}
