@@ -967,9 +967,11 @@ name = "baylee-feedback"
 version = "0.1.0-beta.1"
 dependencies = [
  "anyhow",
+ "argon2",
  "axum",
  "base64 0.22.1",
  "baylee-build",
+ "getrandom 0.4.3",
  "sea-orm",
  "sea-orm-migration",
  "serde",

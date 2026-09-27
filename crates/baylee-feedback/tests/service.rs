@@ -410,23 +410,29 @@ async fn a_malformed_report_is_refused_and_nothing_about_the_caller_is_kept() {
         413
     );
 
-    // The table has no column a request's address or a person's name could
-    // go into: the whole list, so a new one has to be added here on purpose.
-    let columns: Vec<String> = service
-        .db
-        .query_all_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT column_name::text AS c FROM information_schema.columns \
-             WHERE table_schema = $1 AND table_name = 'feedback_report' ORDER BY ordinal_position",
-            [service.schema.clone().into()],
-        ))
-        .await
-        .unwrap()
-        .iter()
-        .map(|r| r.try_get::<String>("", "c").unwrap())
-        .collect();
+    // No table has a column a request's address or a player's name could
+    // go into: every table's whole list, so a new column has to be added
+    // here on purpose. An admin's name is the one name kept, and it is the
+    // admin's own (#311).
+    let columns = |table: &'static str| {
+        let db = service.db.clone();
+        let schema = service.schema.clone();
+        async move {
+            db.query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT column_name::text AS c FROM information_schema.columns \
+                 WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position",
+                [schema.into(), table.into()],
+            ))
+            .await
+            .unwrap()
+            .iter()
+            .map(|r| r.try_get::<String>("", "c").unwrap())
+            .collect::<Vec<String>>()
+        }
+    };
     assert_eq!(
-        columns,
+        columns("feedback_report").await,
         [
             "id",
             "created_at",
@@ -443,7 +449,20 @@ async fn a_malformed_report_is_refused_and_nothing_about_the_caller_is_kept() {
             "client",
             "record",
             "record_complete",
+            "issue_number",
         ]
+    );
+    assert_eq!(
+        columns("feedback_admin").await,
+        ["id", "name", "password_hash", "created_at"]
+    );
+    assert_eq!(
+        columns("feedback_session").await,
+        ["token_hash", "admin_id", "created_at", "last_seen_at"]
+    );
+    assert_eq!(
+        columns("feedback_audit").await,
+        ["id", "at", "actor", "report_id", "action", "detail"]
     );
 
     service.close().await;

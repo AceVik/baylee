@@ -16,7 +16,7 @@ impl MigratorTrait for Migrator {
     }
 
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(Reports)]
+        vec![Box::new(Reports), Box::new(Admins)]
     }
 }
 
@@ -74,5 +74,69 @@ impl MigrationTrait for Reports {
             .execute_unprepared("DROP TABLE IF EXISTS feedback_report")
             .await
             .map(|_| ())
+    }
+}
+
+/// The second migration (#311): the web UI's admins, their sessions, what
+/// they changed, and a report's GitHub issue.
+///
+/// An admin is a name and an Argon2id hash, made only by the binary's
+/// `admin` subcommand. A session is kept as the SHA-256 of its token, so a
+/// copy of the table opens nothing. The audit names the admin (or `token`,
+/// for the admin token) and the report by id, and outlives the report: a
+/// deletion is the one change whose record has nowhere else to be.
+struct Admins;
+
+/// Named by hand: `DeriveMigrationName` names a migration after its file,
+/// and the first one already took this file's name.
+impl MigrationName for Admins {
+    fn name(&self) -> &'static str {
+        "m0002_admins_sessions_audit_issue"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for Admins {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "CREATE TABLE IF NOT EXISTS feedback_admin ( \
+                 id uuid PRIMARY KEY, \
+                 name text NOT NULL UNIQUE, \
+                 password_hash text NOT NULL, \
+                 created_at timestamptz NOT NULL DEFAULT now())",
+            "CREATE TABLE IF NOT EXISTS feedback_session ( \
+                 token_hash bytea PRIMARY KEY, \
+                 admin_id uuid NOT NULL REFERENCES feedback_admin (id) ON DELETE CASCADE, \
+                 created_at timestamptz NOT NULL, \
+                 last_seen_at timestamptz NOT NULL)",
+            "CREATE INDEX IF NOT EXISTS feedback_session_by_admin ON feedback_session (admin_id)",
+            "CREATE TABLE IF NOT EXISTS feedback_audit ( \
+                 id uuid PRIMARY KEY, \
+                 at timestamptz NOT NULL DEFAULT now(), \
+                 actor text NOT NULL, \
+                 report_id uuid NOT NULL, \
+                 action text NOT NULL, \
+                 detail text)",
+            "CREATE INDEX IF NOT EXISTS feedback_audit_by_report ON feedback_audit (report_id)",
+            "ALTER TABLE feedback_report ADD COLUMN IF NOT EXISTS issue_number integer \
+                 CHECK (issue_number > 0)",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "ALTER TABLE feedback_report DROP COLUMN IF EXISTS issue_number",
+            "DROP TABLE IF EXISTS feedback_audit",
+            "DROP TABLE IF EXISTS feedback_session",
+            "DROP TABLE IF EXISTS feedback_admin",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
     }
 }
