@@ -245,8 +245,12 @@ impl RateLimiter {
 
     /// True when the attempt is allowed (and recorded).
     pub fn allow(&self, key: &str) -> bool {
+        self.allow_at(key, Instant::now())
+    }
+
+    /// [`Self::allow`] at `now`, which the tests move on by hand.
+    pub(crate) fn allow_at(&self, key: &str, now: Instant) -> bool {
         let mut hits = self.hits.lock();
-        let now = Instant::now();
         // Periodically drop entries with no hits inside the window.
         let mut last = self.last_sweep.lock();
         if now.duration_since(*last) >= self.window {

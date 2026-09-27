@@ -66,8 +66,23 @@ impl Feedback {
     /// Reads the three variables.
     pub fn from_env() -> Self {
         let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
-        let token = var("BAYLEE_FEEDBACK_TOKEN").unwrap_or_default();
-        let key = var("BAYLEE_FEEDBACK_KEY").map_or_else(
+        Self::new(
+            var("BAYLEE_FEEDBACK_URL"),
+            var("BAYLEE_FEEDBACK_TOKEN").unwrap_or_default(),
+            var("BAYLEE_FEEDBACK_KEY").as_deref(),
+            var("BAYLEE_PUBLIC_URL"),
+        )
+    }
+
+    /// The service at `url`, taking reports with `token`; pseudonyms made
+    /// under `key`, or under one derived from `token` when there is none.
+    fn new(
+        url: Option<String>,
+        token: String,
+        key: Option<&str>,
+        public_url: Option<String>,
+    ) -> Self {
+        let key = key.map_or_else(
             || {
                 let mut h = Sha256::new();
                 h.update(b"baylee reporter pseudonym\0");
@@ -77,10 +92,10 @@ impl Feedback {
             |key| Sha256::digest(key.as_bytes()).into(),
         );
         Self {
-            url: var("BAYLEE_FEEDBACK_URL").map(|u| u.trim_end_matches('/').to_owned()),
+            url: url.map(|u| u.trim_end_matches('/').to_owned()),
             token,
             key,
-            public_url: var("BAYLEE_PUBLIC_URL"),
+            public_url,
             limiter: crate::auth::RateLimiter::new(REPORT_WINDOW, REPORTS_PER_WINDOW),
         }
     }
@@ -148,6 +163,38 @@ struct Report {
     client: serde_json::Value,
 }
 
+/// A request body as a report, or why not (`docs/feedback.md`, the table
+/// of answers). An empty `game_id` is no game id.
+fn validate(body: &[u8]) -> Result<Report, (StatusCode, &'static str)> {
+    if body.len() > MAX_BODY_BYTES {
+        return Err((StatusCode::PAYLOAD_TOO_LARGE, "the report is too large"));
+    }
+    let mut report: Report =
+        serde_json::from_slice(body).map_err(|_| (StatusCode::BAD_REQUEST, "not a report"))?;
+    if !report.client.is_object() {
+        return Err((StatusCode::BAD_REQUEST, "client must be an object"));
+    }
+    if report.text.chars().count() > MAX_TEXT_CHARS {
+        return Err((StatusCode::PAYLOAD_TOO_LARGE, "the text is too long"));
+    }
+    let client_bytes = serde_json::to_vec(&report.client).map_or(usize::MAX, |v| v.len());
+    if client_bytes > MAX_CLIENT_BYTES {
+        return Err((
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "the client details are too large",
+        ));
+    }
+    report.game_id = report.game_id.filter(|g| !g.is_empty());
+    if report
+        .game_id
+        .as_deref()
+        .is_some_and(|g| g.chars().count() > MAX_GAME_ID_CHARS)
+    {
+        return Err((StatusCode::BAD_REQUEST, "not a game id"));
+    }
+    Ok(report)
+}
+
 /// What the service is sent.
 #[derive(Serialize)]
 struct Forward<'a> {
@@ -210,31 +257,11 @@ pub async fn post_report(
             "reports are not configured",
         ));
     };
-    if body.len() > MAX_BODY_BYTES {
-        return Err(err(
-            StatusCode::PAYLOAD_TOO_LARGE,
-            "the report is too large",
-        ));
-    }
-    let report: Report =
-        serde_json::from_slice(&body).map_err(|_| err(StatusCode::BAD_REQUEST, "not a report"))?;
-    if !report.client.is_object() {
-        return Err(err(StatusCode::BAD_REQUEST, "client must be an object"));
-    }
-    if report.text.chars().count() > MAX_TEXT_CHARS {
-        return Err(err(StatusCode::PAYLOAD_TOO_LARGE, "the text is too long"));
-    }
-    let client_bytes = serde_json::to_vec(&report.client).map_or(usize::MAX, |v| v.len());
-    if client_bytes > MAX_CLIENT_BYTES {
-        return Err(err(
-            StatusCode::PAYLOAD_TOO_LARGE,
-            "the client details are too large",
-        ));
-    }
-    let game_id = report.game_id.as_deref().filter(|g| !g.is_empty());
-    if game_id.is_some_and(|g| g.chars().count() > MAX_GAME_ID_CHARS) {
-        return Err(err(StatusCode::BAD_REQUEST, "not a game id"));
-    }
+    let report = validate(&body).map_err(|(status, why)| err(status, why))?;
+    let game_id = report.game_id.as_deref();
+    // Checked after everything else, so a report refused for what it is
+    // costs nothing of the budget, and before anything is sent; and never
+    // given back unless this took it (`give_back` returns the latest).
     if !feedback.limiter.allow(&session.account_id) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many reports"));
     }
@@ -321,6 +348,165 @@ mod tests {
         assert_eq!(
             hex(&hmac_sha256(&key, b"what do ya want for nothing?")),
             "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+        );
+    }
+
+    fn body(
+        kind: &str,
+        text: &str,
+        game_id: serde_json::Value,
+        client: serde_json::Value,
+    ) -> Vec<u8> {
+        serde_json::json!({ "kind": kind, "text": text, "game_id": game_id, "client": client })
+            .to_string()
+            .into_bytes()
+    }
+
+    fn status(body: &[u8]) -> Option<StatusCode> {
+        validate(body).err().map(|(status, _)| status)
+    }
+
+    /// Every field's bound from both sides: the longest the gateway takes
+    /// and one more (`docs/feedback.md`).
+    #[test]
+    fn every_bound_holds_at_its_edge() {
+        let none = serde_json::Value::Null;
+        let empty = serde_json::json!({});
+        // Characters, not bytes: `é` is two.
+        let text = |n: usize| "é".repeat(n);
+        assert_eq!(
+            status(&body(
+                "bug",
+                &text(MAX_TEXT_CHARS),
+                none.clone(),
+                empty.clone()
+            )),
+            None
+        );
+        assert_eq!(
+            status(&body(
+                "bug",
+                &text(MAX_TEXT_CHARS + 1),
+                none.clone(),
+                empty.clone()
+            )),
+            Some(StatusCode::PAYLOAD_TOO_LARGE)
+        );
+        let game = |n: usize| serde_json::json!("g".repeat(n));
+        assert_eq!(
+            status(&body("bug", "", game(MAX_GAME_ID_CHARS), empty.clone())),
+            None
+        );
+        assert_eq!(
+            status(&body("bug", "", game(MAX_GAME_ID_CHARS + 1), empty.clone())),
+            Some(StatusCode::BAD_REQUEST)
+        );
+        // `{"l":"…"}` is 8 bytes around the value.
+        let client = |n: usize| serde_json::json!({ "l": "x".repeat(n - 8) });
+        assert_eq!(
+            status(&body("crash", "", none.clone(), client(MAX_CLIENT_BYTES))),
+            None
+        );
+        assert_eq!(
+            status(&body(
+                "crash",
+                "",
+                none.clone(),
+                client(MAX_CLIENT_BYTES + 1)
+            )),
+            Some(StatusCode::PAYLOAD_TOO_LARGE)
+        );
+        let mut huge = body("bug", "", none, empty);
+        huge.resize(MAX_BODY_BYTES + 1, b' ');
+        assert_eq!(status(&huge), Some(StatusCode::PAYLOAD_TOO_LARGE));
+    }
+
+    #[test]
+    fn a_report_is_read_as_the_contract_says() {
+        let empty = serde_json::json!({});
+        for kind in ["bug", "improvement", "feedback", "crash", "other"] {
+            let report = validate(&body(kind, "t", serde_json::Value::Null, empty.clone()))
+                .unwrap_or_else(|e| panic!("{kind}: {e:?}"));
+            assert_eq!(serde_json::to_value(report.kind).unwrap(), kind);
+        }
+        for bad in [
+            body("rant", "t", serde_json::Value::Null, empty.clone()),
+            body("Bug", "t", serde_json::Value::Null, empty.clone()),
+            body("bug", "t", serde_json::Value::Null, serde_json::json!([])),
+            body("bug", "t", serde_json::Value::Null, serde_json::json!("x")),
+            body("bug", "t", serde_json::json!(7), empty.clone()),
+            br#"{"kind":"bug","game_id":null,"client":{}}"#.to_vec(),
+            br#"{"kind":"bug","text":"t","game_id":null}"#.to_vec(),
+            b"not json".to_vec(),
+        ] {
+            assert_eq!(
+                status(&bad),
+                Some(StatusCode::BAD_REQUEST),
+                "{}",
+                String::from_utf8_lossy(&bad)
+            );
+        }
+        // No game, said three ways.
+        for game in [
+            br#"{"kind":"bug","text":"","client":{}}"#.to_vec(),
+            body("bug", "", serde_json::Value::Null, empty.clone()),
+            body("bug", "", serde_json::json!(""), empty.clone()),
+        ] {
+            assert_eq!(validate(&game).map(|r| r.game_id).ok(), Some(None));
+        }
+        assert_eq!(
+            validate(&body("bug", "", serde_json::json!("g1"), empty))
+                .map(|r| r.game_id)
+                .ok(),
+            Some(Some("g1".to_owned()))
+        );
+    }
+
+    /// Without a key the pseudonym is made under one derived from the
+    /// token, so rotating the token renames every reporter; with one, the
+    /// token can change and nobody is renamed.
+    #[test]
+    fn a_pseudonym_follows_the_key_and_not_the_token() {
+        let account = "0190a1b2-0000-7000-8000-000000000001";
+        let at = |token: &str, key: Option<&str>| {
+            Feedback::new(None, token.to_owned(), key, None).pseudonym(account)
+        };
+        assert_eq!(at("token-one", None), at("token-one", None));
+        assert_ne!(at("token-one", None), at("token-two", None));
+        assert_eq!(at("token-one", Some("key")), at("token-two", Some("key")));
+        assert_ne!(
+            at("token-one", Some("key")),
+            at("token-one", Some("other key"))
+        );
+        assert_ne!(at("token-one", Some("key")), at("token-one", None));
+        // HMAC under SHA-256 of the key, which a reader can check by hand.
+        let key: [u8; 32] = Sha256::digest(b"key").into();
+        assert_eq!(
+            at("anything", Some("key")),
+            hex(&hmac_sha256(&key, account.as_bytes()))
+        );
+    }
+
+    /// The budget: [`REPORTS_PER_WINDOW`] in a window, per account, a slot
+    /// given back is spendable again, and the window slides.
+    #[test]
+    fn the_budget_is_per_account_and_slides() {
+        let feedback = Feedback::new(Some("http://x".into()), "t".into(), None, None);
+        let limiter = &feedback.limiter;
+        let start = std::time::Instant::now();
+        for i in 0..REPORTS_PER_WINDOW {
+            assert!(limiter.allow_at("a", start), "report {i}");
+        }
+        assert!(!limiter.allow_at("a", start), "one past the budget");
+        assert!(limiter.allow_at("b", start), "another account");
+        limiter.give_back("a");
+        assert!(limiter.allow_at("a", start), "a slot given back");
+        assert!(!limiter.allow_at("a", start));
+        let almost = start + REPORT_WINDOW - Duration::from_millis(1);
+        assert!(!limiter.allow_at("a", almost), "the window has not passed");
+        assert!(
+            limiter.allow_at("a", start + REPORT_WINDOW),
+            "and now it has"
         );
     }
 
