@@ -21,6 +21,7 @@ use baylee_db::entity::prelude::*;
 use baylee_db::entity::{
     account, client_settings, confirmation, deck, deck_version, session_token, upload,
 };
+use baylee_db::invites;
 use baylee_db::migration::Migrator;
 use sea_orm::{
     ActiveValue::{NotSet, Set},
@@ -133,6 +134,7 @@ fn named(email: &str, display_name: &str) -> account::ActiveModel {
         confirmed_at: Set(None),
         lang: Set("de".to_owned()),
         guest: Set(false),
+        invite_id: Set(None),
     }
 }
 
@@ -759,7 +761,9 @@ async fn a_deletion_says_which_pictures_its_account_claimed() {
     let sandbox = Sandbox::open("delete_pictures").await;
     let mut players = Vec::new();
     for email in ["leaver@example.com", "stayer@example.com"] {
-        let account = an_account(email);
+        let mut account = an_account(email);
+        // A column from a later migration than this schema has.
+        account.invite_id = NotSet;
         let Set(id) = account.id else { unreachable!() };
         Account::insert(account).exec(&sandbox.db).await.unwrap();
         players.push(id);
@@ -861,7 +865,9 @@ async fn a_picture_on_a_deck_belongs_to_the_decks_player() {
     let (sleeve, mat, published) = ("aa".repeat(32), "bb".repeat(32), "cc".repeat(32));
     let mut players = Vec::new();
     for email in ["painter@example.com", "copier@example.com"] {
-        let account = an_account(email);
+        let mut account = an_account(email);
+        // A column from a later migration than this schema has.
+        account.invite_id = NotSet;
         let Set(id) = account.id else { unreachable!() };
         Account::insert(account).exec(&sandbox.db).await.unwrap();
         players.push(id);
@@ -1579,6 +1585,320 @@ async fn a_game_record_at_its_edges() {
             .unwrap()
             .data,
         b"abcd!?"
+    );
+
+    sandbox.close().await;
+}
+
+// ------------------------------------------------------ closed-beta keys
+
+/// A key's row as the gateway's command writes it (#317): `hash` stands in
+/// for the SHA-256 of a key, which this crate never sees made.
+fn an_invite(hash: &[u8], uses: i32, expires_at: Option<OffsetDateTime>) -> invites::NewInvite {
+    invites::NewInvite {
+        key_hash: hash.to_vec(),
+        note: Some("for Max".into()),
+        uses,
+        expires_at,
+    }
+}
+
+/// Registers `username` the way the gateway does in invite mode: the key's
+/// use and the account in one transaction, the use first. `Ok(None)` is a
+/// key that admitted nobody, and nothing was written.
+async fn register_with(
+    db: &DatabaseConnection,
+    hash: &[u8],
+    username: &str,
+    now: OffsetDateTime,
+) -> Result<Option<Uuid>, sea_orm::DbErr> {
+    use sea_orm::TransactionTrait as _;
+    let txn = db.begin().await?;
+    let Some(invite) = invites::redeem(&txn, hash, now).await? else {
+        return Ok(None);
+    };
+    let mut row = an_account("unused@example.com");
+    row.email = Set(None);
+    row.username = Set(Some(username.to_owned()));
+    row.username_key = Set(Some(username.to_lowercase()));
+    row.invite_id = Set(Some(invite));
+    let made = Account::insert(row).exec_with_returning(&txn).await?;
+    txn.commit().await?;
+    Ok(Some(made.id))
+}
+
+/// Made, listed with everything but the key, and revoked once (#317).
+#[tokio::test]
+async fn a_key_is_made_listed_and_revoked() {
+    let sandbox = Sandbox::open("invite_list").await;
+    let db = &sandbox.db;
+    let now = OffsetDateTime::now_utc();
+    let later = now + time::Duration::days(30);
+
+    let first = invites::create(db, &an_invite(b"one", 1, None))
+        .await
+        .unwrap();
+    let second = invites::create(
+        db,
+        &invites::NewInvite {
+            note: None,
+            ..an_invite(b"two", 5, Some(later))
+        },
+    )
+    .await
+    .unwrap();
+    let listed = invites::list(db).await.unwrap();
+    assert_eq!(
+        listed.iter().map(|i| i.id).collect::<Vec<_>>(),
+        [first, second],
+        "oldest first"
+    );
+    assert_eq!(listed[0].note.as_deref(), Some("for Max"));
+    assert_eq!((listed[0].uses_left, listed[0].expires_at), (1, None));
+    assert_eq!(listed[1].note, None);
+    assert_eq!(listed[1].uses_left, 5);
+    assert_eq!(
+        listed[1].expires_at.map(OffsetDateTime::unix_timestamp),
+        Some(later.unix_timestamp())
+    );
+    assert!(
+        listed
+            .iter()
+            .all(|i| i.revoked_at.is_none() && i.admitted == 0)
+    );
+
+    assert!(invites::revoke(db, first, now).await.unwrap());
+    assert!(
+        !invites::revoke(db, first, later).await.unwrap(),
+        "the first revocation stands"
+    );
+    assert!(
+        !invites::revoke(db, Uuid::now_v7(), now).await.unwrap(),
+        "no such key"
+    );
+    let listed = invites::list(db).await.unwrap();
+    assert_eq!(
+        listed[0].revoked_at.map(OffsetDateTime::unix_timestamp),
+        Some(now.unix_timestamp())
+    );
+    assert_eq!(listed[1].revoked_at, None, "only the one named");
+
+    sandbox.close().await;
+}
+
+/// Each account a key admits takes one use, and a key with none left, one
+/// past its expiry, or one revoked admits nobody and writes nothing (#317).
+#[tokio::test]
+async fn a_key_admits_as_many_as_it_has_uses_and_no_one_once_closed() {
+    let sandbox = Sandbox::open("invite_redeem").await;
+    let db = &sandbox.db;
+    let now = OffsetDateTime::now_utc();
+
+    let two = invites::create(db, &an_invite(b"two uses", 2, None))
+        .await
+        .unwrap();
+    let alice = register_with(db, b"two uses", "Alice", now)
+        .await
+        .unwrap()
+        .expect("the first use");
+    register_with(db, b"two uses", "Bob", now)
+        .await
+        .unwrap()
+        .expect("the second use");
+    assert_eq!(
+        register_with(db, b"two uses", "Carol", now).await.unwrap(),
+        None,
+        "no use left"
+    );
+    let listed = invites::list(db).await.unwrap();
+    assert_eq!((listed[0].uses_left, listed[0].admitted), (0, 2));
+    let admitted_by: Option<Uuid> = Account::find_by_id(alice)
+        .one(db)
+        .await
+        .unwrap()
+        .unwrap()
+        .invite_id;
+    assert_eq!(admitted_by, Some(two), "the account names its key");
+
+    invites::create(
+        db,
+        &an_invite(b"expired", 1, Some(now - time::Duration::seconds(1))),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        register_with(db, b"expired", "Dave", now).await.unwrap(),
+        None,
+        "past its expiry"
+    );
+    invites::create(
+        db,
+        &an_invite(b"expiring", 1, Some(now + time::Duration::seconds(60))),
+    )
+    .await
+    .unwrap();
+    assert!(
+        register_with(db, b"expiring", "Erin", now)
+            .await
+            .unwrap()
+            .is_some(),
+        "before its expiry"
+    );
+
+    let revoked = invites::create(db, &an_invite(b"revoked", 3, None))
+        .await
+        .unwrap();
+    invites::revoke(db, revoked, now).await.unwrap();
+    assert_eq!(
+        register_with(db, b"revoked", "Frank", now).await.unwrap(),
+        None,
+        "revoked"
+    );
+    assert_eq!(
+        register_with(db, b"no such key", "Gina", now)
+            .await
+            .unwrap(),
+        None,
+        "a key never made"
+    );
+    let uses_left: Vec<i32> = invites::list(db)
+        .await
+        .unwrap()
+        .iter()
+        .map(|i| i.uses_left)
+        .collect();
+    assert_eq!(uses_left, [0, 1, 0, 3], "a refusal takes no use");
+    assert_eq!(
+        Account::find().count(db).await.unwrap(),
+        3,
+        "Alice, Bob and Erin, and nobody refused"
+    );
+
+    sandbox.close().await;
+}
+
+/// **Two registrations racing for a key's one use: one account.** Each is
+/// its own transaction on its own connection, and both are in flight before
+/// either commits.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn two_registrations_racing_for_a_one_use_key_make_one_account() {
+    let sandbox = Sandbox::open("invite_race").await;
+    let now = OffsetDateTime::now_utc();
+    for round in 0..8 {
+        let hash = format!("race {round}").into_bytes();
+        invites::create(&sandbox.db, &an_invite(&hash, 1, None))
+            .await
+            .unwrap();
+        let (a, b) = (sandbox.db.clone(), sandbox.db.clone());
+        let (ha, hb) = (hash.clone(), hash.clone());
+        let (one, other) = tokio::join!(
+            tokio::spawn(async move { register_with(&a, &ha, &format!("left{round}"), now).await }),
+            tokio::spawn(
+                async move { register_with(&b, &hb, &format!("right{round}"), now).await }
+            ),
+        );
+        let made = [one.unwrap().unwrap(), other.unwrap().unwrap()];
+        assert_eq!(
+            made.iter().filter(|m| m.is_some()).count(),
+            1,
+            "round {round}: {made:?}"
+        );
+    }
+    assert_eq!(Account::find().count(&sandbox.db).await.unwrap(), 8);
+    assert!(
+        invites::list(&sandbox.db)
+            .await
+            .unwrap()
+            .iter()
+            .all(|i| i.uses_left == 0 && i.admitted == 1)
+    );
+
+    sandbox.close().await;
+}
+
+/// A registration that fails after the key's use (a taken name) gives the
+/// use back with its rollback.
+#[tokio::test]
+async fn a_registration_refused_after_its_key_gives_the_use_back() {
+    let sandbox = Sandbox::open("invite_rollback").await;
+    let db = &sandbox.db;
+    let now = OffsetDateTime::now_utc();
+    invites::create(db, &an_invite(b"key", 2, None))
+        .await
+        .unwrap();
+    register_with(db, b"key", "Alice", now)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        register_with(db, b"key", "alice", now).await.is_err(),
+        "the name is taken"
+    );
+    assert_eq!(invites::list(db).await.unwrap()[0].uses_left, 1);
+
+    sandbox.close().await;
+}
+
+/// An account's deletion leaves its key's row; a key's deletion leaves its
+/// accounts and forgets which key admitted them. A note is bounded by the
+/// table as well as by the command (#317).
+#[tokio::test]
+async fn a_key_and_its_accounts_outlive_each_other() {
+    let sandbox = Sandbox::open("invite_links").await;
+    let db = &sandbox.db;
+    let now = OffsetDateTime::now_utc();
+    let key = invites::create(db, &an_invite(b"key", 2, None))
+        .await
+        .unwrap();
+    let alice = register_with(db, b"key", "Alice", now)
+        .await
+        .unwrap()
+        .unwrap();
+    let bob = register_with(db, b"key", "Bob", now)
+        .await
+        .unwrap()
+        .unwrap();
+
+    baylee_db::accounts::delete(db, alice).await.unwrap();
+    let listed = invites::list(db).await.unwrap();
+    assert_eq!(listed.len(), 1, "the key stays");
+    assert_eq!(
+        (listed[0].uses_left, listed[0].admitted),
+        (0, 1),
+        "its use stays spent, and it counts the account that is left"
+    );
+
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "DELETE FROM invite WHERE id = $1",
+        [key.into()],
+    ))
+    .await
+    .unwrap();
+    let bob = Account::find_by_id(bob)
+        .one(db)
+        .await
+        .unwrap()
+        .expect("the account stays");
+    assert_eq!(bob.invite_id, None, "and forgets its key");
+
+    let long = invites::NewInvite {
+        note: Some("x".repeat(101)),
+        ..an_invite(b"long", 1, None)
+    };
+    assert!(invites::create(db, &long).await.is_err(), "101 characters");
+    let fits = invites::NewInvite {
+        note: Some("ü".repeat(100)),
+        ..an_invite(b"fits", 1, None)
+    };
+    invites::create(db, &fits)
+        .await
+        .expect("100 characters, whatever their bytes");
+    assert!(
+        invites::create(db, &an_invite(b"negative", -1, None))
+            .await
+            .is_err(),
+        "a negative count"
     );
 
     sandbox.close().await;

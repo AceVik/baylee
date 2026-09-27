@@ -462,6 +462,7 @@ pub async fn create_account(db: &DatabaseConnection, new: NewAccount) -> Result<
         confirmed_at: Set(None),
         lang: Set(new.lang),
         guest: Set(false),
+        invite_id: Set(None),
     };
     match Accounts::insert(row).exec_with_returning(db).await {
         Ok(made) => Ok(Some(made.into())),
@@ -498,6 +499,7 @@ pub async fn create_guest(
         confirmed_at: Set(None),
         lang: Set(new.lang),
         guest: Set(true),
+        invite_id: Set(None),
     })
     .exec_with_returning(&txn)
     .await?;

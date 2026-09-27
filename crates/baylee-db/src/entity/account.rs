@@ -56,6 +56,10 @@ pub struct Model {
     /// password, and gone once its last session is. The database holds a
     /// guest to exactly that.
     pub guest: bool,
+    /// The closed-beta key that admitted it (#317), if one did. Set once, as
+    /// the account is made, and forgotten (`ON DELETE SET NULL`) when the
+    /// key's row is removed.
+    pub invite_id: Option<Uuid>,
 }
 
 /// Everything that belongs to an account and dies with it.

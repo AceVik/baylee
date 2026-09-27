@@ -18,6 +18,7 @@ mod m20260924_000006_usernames;
 mod m20260925_000007_guests;
 mod m20260925_000008_upload_owners;
 mod m20260927_000009_game_records;
+mod m20260927_000010_invites;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -35,6 +36,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260925_000007_guests::Migration),
             Box::new(m20260925_000008_upload_owners::Migration),
             Box::new(m20260927_000009_game_records::Migration),
+            Box::new(m20260927_000010_invites::Migration),
         ]
     }
 }

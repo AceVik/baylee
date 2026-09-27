@@ -272,6 +272,8 @@ pub fn plan(legacy: &Legacy, now: OffsetDateTime) -> Plan {
                 lang: Set(a.lang.clone()),
                 // The old store had none.
                 guest: Set(false),
+                // Nor keys: an imported account was never admitted by one.
+                invite_id: Set(None),
             }
         })
         .collect();

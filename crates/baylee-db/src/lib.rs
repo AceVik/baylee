@@ -68,6 +68,7 @@ pub mod confirmations;
 pub mod entity;
 pub mod guests;
 pub mod import;
+pub mod invites;
 pub mod migration;
 pub mod pictures;
 pub mod records;
