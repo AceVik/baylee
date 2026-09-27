@@ -3,7 +3,8 @@
 //! `curl`, `flock`, `logger`): it builds the feedback service with the rest,
 //! installs and restarts it exactly when its unit is installed, and builds
 //! and installs its web UI before that restart when npm is there
-//! (`docs/feedback.md` §"Running it").
+//! (`docs/feedback.md` §"Running it"); and it installs the legal pages
+//! (`web/legal/`) where Caddy serves them (`scripts/server/legal.caddy`).
 
 #![cfg(unix)]
 
@@ -33,13 +34,21 @@ enum Npm {
     Fails,
 }
 
+/// The legal pages a tree carries (`web/legal/`), which `stage` installs.
+const LEGAL_PAGES: [&str; 3] = ["datenschutz.html", "impressum.html", "privacy.html"];
+
 /// Runs `stage` in a scratch tree; the deploy root and every command it
 /// ran, one per line.
 fn stage(feedback_installed: bool, npm: Npm) -> (PathBuf, String) {
+    stage_in(feedback_installed, npm, true)
+}
+
+/// [`stage`], in a tree that carries the legal pages or not.
+fn stage_in(feedback_installed: bool, npm: Npm, legal_pages: bool) -> (PathBuf, String) {
     // Tests run at once, some with the same arguments: each run its own tree.
     static RUN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let scratch = std::env::temp_dir().join(format!(
-        "baylee-deploy-test-{}-{}-{feedback_installed}-{npm:?}",
+        "baylee-deploy-test-{}-{}-{feedback_installed}-{npm:?}-{legal_pages}",
         std::process::id(),
         RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     ));
@@ -59,6 +68,12 @@ fn stage(feedback_installed: bool, npm: Npm) -> (PathBuf, String) {
         std::fs::write(root.join("src/target/release").join(binary), b"").unwrap();
     }
     std::fs::write(root.join("src/data/acceptance-decks.txt"), b"").unwrap();
+    if legal_pages {
+        std::fs::create_dir_all(root.join("src/web/legal")).unwrap();
+        for page in LEGAL_PAGES {
+            std::fs::write(root.join("src/web/legal").join(page), b"<!doctype html>").unwrap();
+        }
+    }
     let calls: PathBuf = scratch.join("calls");
 
     stub(
@@ -203,4 +218,87 @@ fn without_npm_or_with_a_failed_build_the_service_is_still_deployed() {
         );
         assert_eq!(ran.contains("npm run build"), npm == Npm::Fails, "{ran}");
     }
+}
+
+/// The privacy statement and imprint are installed at every stage, whether
+/// or not the feedback service is on this machine, where Caddy serves them;
+/// a tree from before them installs none and leaves what is there.
+#[test]
+fn stage_installs_the_legal_pages_where_caddy_serves_them() {
+    for feedback_installed in [true, false] {
+        let (root, ran) = stage(feedback_installed, Npm::Absent);
+        let legal = root.join("web/legal");
+        let legal = legal.display();
+        assert!(
+            ran.lines().any(|l| l == format!("sudo mkdir -p {legal}")),
+            "{ran}"
+        );
+        let install = ran
+            .lines()
+            .find(|l| l.starts_with("sudo install -m644 ") && l.ends_with(&format!(" {legal}/")))
+            .unwrap_or_else(|| panic!("the legal pages were not installed:\n{ran}"));
+        for page in LEGAL_PAGES {
+            assert!(
+                install.contains(&format!("web/legal/{page}")),
+                "{page} is missing from `{install}`"
+            );
+        }
+    }
+    let (root, ran) = stage_in(true, Npm::Absent, false);
+    let legal = root.join("web/legal");
+    assert!(
+        !ran.contains(&format!("{}", legal.display())),
+        "a tree without pages installed some:\n{ran}"
+    );
+}
+
+/// Caddy's snippet serves each legal path from a page this repository
+/// ships, and every page is served at a path: a renamed page or a dropped
+/// rewrite would be a 404 on the server that no build notices. It also
+/// holds no `log` directive, because the pages say the proxy keeps no
+/// access log.
+#[test]
+fn caddy_serves_every_legal_page_and_logs_nothing() {
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let snippet = std::fs::read_to_string(repo.join("scripts/server/legal.caddy")).unwrap();
+    let directives: Vec<&str> = snippet
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .collect();
+    let mut served: Vec<(&str, &str)> = directives
+        .iter()
+        .filter_map(|l| l.strip_prefix("rewrite "))
+        .filter_map(|l| l.split_once(' '))
+        .collect();
+    served.sort_unstable();
+    assert_eq!(
+        served,
+        [
+            ("/datenschutz", "/datenschutz.html"),
+            ("/impressum", "/impressum.html"),
+            ("/privacy", "/privacy.html"),
+        ]
+    );
+    let matcher = directives
+        .iter()
+        .find(|l| l.starts_with("@baylee_legal path "))
+        .expect("the matcher");
+    for (path, page) in served {
+        assert!(matcher.split(' ').any(|p| p == path), "{path} not matched");
+        let file = repo.join("web/legal").join(page.trim_start_matches('/'));
+        assert!(file.is_file(), "{} is not shipped", file.display());
+    }
+    let mut shipped: Vec<String> = std::fs::read_dir(repo.join("web/legal"))
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    shipped.sort_unstable();
+    assert_eq!(shipped, LEGAL_PAGES, "a page no path serves");
+    assert!(
+        !directives
+            .iter()
+            .any(|l| l.split_whitespace().next() == Some("log")),
+        "an access log in the snippet"
+    );
 }

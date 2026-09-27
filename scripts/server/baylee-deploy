@@ -30,7 +30,8 @@
 #
 # The feedback service (docs/feedback.md) holds no game, so stage replaces
 # it straight away, once its unit is installed, with its web UI when npm is
-# there to build it.
+# there to build it. The legal pages (web/legal/) hold none either and go
+# in at stage too.
 #
 # A waiting room nobody starts would hold a deploy forever, so rooms alone
 # stop blocking after BAYLEE_DEPLOY_ROOM_GRACE minutes (60). Running games
@@ -50,6 +51,9 @@ cargo=${CARGO:-$HOME/.cargo/bin/cargo}
 npm=${NPM:-npm}
 # Where the feedback web UI goes; FEEDBACK_WEB_DIR in /etc/baylee/feedback.env.
 web=$root/web/feedback
+# Where the legal pages go (web/legal/); Caddy serves them from there
+# (scripts/server/legal.caddy).
+legal=$root/web/legal
 
 log() { echo "baylee-deploy: $*"; logger -t baylee-deploy -- "$*" 2>/dev/null || true; }
 
@@ -104,6 +108,7 @@ stage() {
     sudo systemctl stop baylee-agent
     sudo install -m755 target/release/{baylee-agent,baylee-engine-server} "$bin/"
     sudo install -m755 scripts/server/baylee-deploy /usr/local/sbin/baylee-deploy
+    legal_pages
     log "staged ${rev:0:10}: agent and engine installed, agent off until the gateway follows"
     if installed baylee-feedback; then
         sudo install -m755 target/release/baylee-feedback "$bin/"
@@ -135,6 +140,20 @@ feedback_web() {
     sudo rm -rf "$web"
     sudo mv "$web.new" "$web"
     log "feedback web UI installed to $web"
+}
+
+# The privacy statement and imprint (web/legal/): static pages that hold no
+# game, so they go in at once. A tree from before them has none, and then
+# the pages installed last stay.
+legal_pages() {
+    local pages=(web/legal/*.html)
+    if [ ! -f "${pages[0]}" ]; then
+        log "no legal pages in this tree; the ones installed stay"
+        return 0
+    fi
+    sudo mkdir -p "$legal"
+    sudo install -m644 "${pages[@]}" "$legal/"
+    log "legal pages installed to $legal"
 }
 
 finish() {
