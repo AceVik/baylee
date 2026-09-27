@@ -388,6 +388,30 @@ jobs:
       - run: rustc --version && cargo --version
       - run: cargo check --workspace --all-targets
 
+  # The feedback service's web UI (web/feedback, #311): the lockfile's tree,
+  # the type check, lint, the unit and component tests, and the build the
+  # service would serve. No Rust and no browser: the end-to-end tests
+  # (`npm run e2e`) need the binary built and a Chromium downloaded, most of
+  # a cargo job again for eight tests, so they run on a developer's machine
+  # before a UI change is pushed.
+  web-feedback:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/feedback
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/feedback/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
   deny:
     runs-on: ubuntu-latest
     steps:
