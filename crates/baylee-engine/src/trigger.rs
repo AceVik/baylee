@@ -750,8 +750,8 @@ fn trigger_count(
 ///
 /// Every triggered ability an object has asks this, the printed ones
 /// through [`trigger_count`] and the keyword ones directly. Prowess is a
-/// triggered ability (CR 702.108a), and so are ward, undying and persist
-/// and a granted trigger; Katara, the Fearless multiplies "a triggered
+/// triggered ability (CR 702.108a), ward is one (CR 702.21a), undying
+/// (CR 702.93a) and persist (CR 702.79a) are, and so is a granted trigger; Katara, the Fearless multiplies "a triggered
 /// ability of an Ally you control", which is all of them. The keyword
 /// pushes used to build one trigger each and never ask, so Katara doubled
 /// Sokka's token and left his prowess, and every Ally's he granted, at one
