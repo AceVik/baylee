@@ -320,6 +320,10 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 | Report count per account | gateway memory | an hour | the limiter itself; a report the service did not take is not counted |
 | Report (kind, text, game id, the client's `client` object, the record of a game its reporter sat at) | the feedback service's own Postgres, `feedback_report` | until an admin deletes it | `DELETE /reports/{id}` on the service |
 | Reporter pseudonym | `feedback_report.reporter` | with the report | with the report |
+| Feedback admin (name, Argon2id password hash, since when) | the feedback service's `feedback_admin` | until removed | `baylee-feedback admin remove`, on the server only |
+| Feedback admin session (SHA-256 of the cookie token, sign-in and last-use times) | `feedback_session` | 12 hours unused, at most 7 days | sign-out, lapse (deleted when next shown and at every sign-in), or the admin's removal |
+| Triage audit (time, admin name or `token`, report id, action, its detail) | `feedback_audit` | indefinitely, also after the report is deleted (#311) | nothing yet |
+| Failed feedback sign-ins per address and per name | the service's memory | 15 minutes, a restart forgets them | the limiter itself; never written down |
 
 - **The record names nobody.** Seats are numbers; the seat names the engine
   was told never enter it. The only link to a person is `game_record_seat`,
@@ -334,6 +338,15 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   and what the player sent. Never a name, username, address, session or IP.
   The service has no column for an address or a name and logs no request's
   address.
+- **The feedback web UI (#311)** is for the service's admins, who are
+  developers, not players. Its one cookie (`__Host-baylee-feedback`,
+  `HttpOnly; Secure; SameSite=Strict`) holds the session token and is sent
+  only to the service's own origin; the page loads nothing from anywhere
+  else (no CDN, font or telemetry) and opens GitHub only when an admin
+  presses "New issue", with the report's text, kind, build, gateway, arrival time and
+  a link back to it, never its pseudonym or client details; the admin
+  reads it over on GitHub before submitting. The audit names the admin who
+  changed a report; it names no player.
 - **Open:** records have no deletion path yet, not even for a player who
   deletes their account; their account link is cut, the game stays.
 
