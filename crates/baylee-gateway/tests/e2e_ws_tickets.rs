@@ -456,8 +456,8 @@ async fn no_secret_reaches_the_log() {
     );
     let logs = gw.logs();
     assert!(
-        logs.contains("DEBUG") || logs.contains("INFO"),
-        "the gateway logged nothing, so this proves nothing: {logs:.400}"
+        logs.contains("DEBUG"),
+        "the gateway logged nothing at debug, so this proves nothing about it: {logs:.400}"
     );
     for (what, secret) in [
         ("session", &session),
