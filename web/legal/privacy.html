@@ -1,0 +1,221 @@
+<!doctype html>
+<!--
+  DRAFT privacy statement (Art. 13/14 GDPR), the English version of
+  datenschutz.html with the same content. Not yet legally reviewed. Where
+  the two differ, the German version is the one reviewed and in force.
+
+  Source of every fact: docs/privacy.md (the internal data inventory) and
+  docs/feedback.md. Change this page, datenschutz.html and docs/privacy.md
+  together.
+
+  Fill in before publishing: [NAME], [ADDRESS], [E-MAIL],
+  [SUPERVISORY AUTHORITY], [LOG RETENTION], [MINIMUM AGE]. Then remove the
+  draft note (class="draft").
+
+  No scripts, no external resources: the page loads nothing else.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>Privacy – Baylee</title>
+<style>
+:root {
+  --bg: #f6f1e7;
+  --ink: #23201b;
+  --muted: #5d564b;
+  --rule: #d8cdb8;
+  --link: #1f4f7a;
+  --panel: #efe7d7;
+  --mark: #fff3c4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1322;
+    --ink: #e4ddd0;
+    --muted: #a59d90;
+    --rule: #2a3548;
+    --link: #9cc3ea;
+    --panel: #121d31;
+    --mark: #3a3316;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.6 Georgia, "Times New Roman", serif;
+}
+main { max-width: 44rem; margin: 0 auto; padding: 2rem 16px 4rem; }
+nav { font: 15px/1.5 system-ui, sans-serif; color: var(--muted); margin-bottom: 1.5rem; }
+nav a { margin-right: 1rem; }
+h1, h2, h3 { font-family: system-ui, sans-serif; line-height: 1.25; }
+h1 { font-size: 1.8rem; margin: 0 0 .25rem; }
+h2 { font-size: 1.25rem; margin: 2.2rem 0 .5rem; padding-top: 1rem; border-top: 1px solid var(--rule); }
+h3 { font-size: 1.05rem; margin: 1.4rem 0 .3rem; }
+p, li { overflow-wrap: anywhere; }
+a { color: var(--link); }
+.stand { color: var(--muted); margin-top: 0; }
+.draft { background: var(--mark); border: 1px solid var(--rule); border-radius: 6px; padding: .6rem .9rem; font: 15px/1.5 system-ui, sans-serif; }
+.table { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+th, td { text-align: left; vertical-align: top; padding: .45rem .5rem; border-bottom: 1px solid var(--rule); }
+th { font-family: system-ui, sans-serif; font-size: .85rem; color: var(--muted); }
+code { font-size: .9em; background: var(--panel); padding: 0 .25em; border-radius: 3px; }
+footer { margin-top: 3rem; color: var(--muted); font: 14px/1.5 system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<main>
+<nav><a href="/impressum" hreflang="de">Imprint (Impressum)</a><a href="/datenschutz" hreflang="de" lang="de">Deutsch</a></nav>
+
+<h1>Privacy statement</h1>
+<p class="stand">Baylee – as of 27 September 2026</p>
+
+<p class="draft"><strong>Draft.</strong> This text has not been legally reviewed yet. Details in square brackets are filled in before publication. The German version is the authoritative one.</p>
+
+<p>Baylee is a privately run, free and unofficial fan project: a game server (the “gateway”) for a card game, a program to play it with (the “client”) and a service for bug reports. This statement says which data about you is processed, for what, on which legal basis and for how long. It covers the gateway <strong>Baylee Sanctuary</strong> at <code>https://baylee.acevik.de</code> and the feedback service at <code>https://feedback.baylee.acevik.de</code>. Whoever runs a gateway of their own is responsible for it themselves.</p>
+
+<h2>1. Controller</h2>
+<p>[NAME]<br>[ADDRESS]<br>E-mail: [E-MAIL]</p>
+<p>There is no data protection officer; none is required for a private project of this size. For every question about data protection and to exercise your rights, write to the address above.</p>
+
+<h2>2. In short</h2>
+<ul>
+<li>An account needs a username and a password; we do not ask for an e-mail address. A guest needs only a display name.</li>
+<li>The gateway sets no cookies. There is no advertising, no tracking and no analytics.</li>
+<li>The gateway writes no IP address to its database or its logs; the web server in front of it keeps no access log.</li>
+<li>You can delete your account in the client at any time. Records of games played stay afterwards without any link to your account (see <a href="#games">section 3.8</a>).</li>
+<li>Bug reports are sent only when you want, and carry only what you tick.</li>
+</ul>
+
+<h2>3. What we process</h2>
+
+<h3>3.1 Account</h3>
+<p>When you create an account we store: a random id, your username (to sign in with; never shown to other players), your display name with a tag (“Name#1a2b”, which is how others see you), a hash of your password (Argon2id; the password itself is not stored), your language and when the account was created. We do not ask for an e-mail address when you register; only accounts carried over from an earlier version of the gateway may still hold one. Such an address gets at most a confirmation mail, and only when you ask for one. The file those accounts were carried over from is still on the server.</p>
+<p>Other signed-in players can look your account up by “Name#tag” and then see the display name and the tag.</p>
+<p><strong>Purpose:</strong> signing in and playing. <strong>Legal basis:</strong> Art. 6(1)(b) GDPR (providing the service you asked for). <strong>Kept:</strong> until you delete the account.</p>
+
+<h3>3.2 Guests</h3>
+<p>Playing as a guest creates an account without username, password or e-mail address: only a display name (“Guest” unless you give one), a tag, your language and the time. Guests may not upload images. A guest account is deleted with its decks and settings automatically 29 to 30 days after it was last used, and at once when you sign out.</p>
+<p><strong>Legal basis:</strong> Art. 6(1)(b) GDPR.</p>
+
+<h3>3.3 Sign-ins (sessions)</h3>
+<p>After signing in your client gets a random key. We store only a hash of it (SHA-256), which account it belongs to and when it expires: 12 hours for an account, 30 days for a guest, each extended while it is used. Expired sessions are deleted regularly, at sign-out at once. We store no IP address, browser or device identifier and no time of last sign-in.</p>
+<p>Before each network connection (WebSocket) the client fetches a single-use ticket. The gateway keeps only a hash of it, for at most 45 seconds or until it is used, in memory only.</p>
+<p><strong>Legal basis:</strong> Art. 6(1)(b) GDPR.</p>
+
+<h3>3.4 Decks and settings</h3>
+<p>Decks you save are kept on the gateway with their name, format, description, card list, notes on single cards and their version history, and so are your settings (key bindings, automation, display and sound). Both stay until you delete them or your account. While you sit at a table, the others there see your deck's name.</p>
+<p><strong>Legal basis:</strong> Art. 6(1)(b) GDPR.</p>
+
+<h3>3.5 Uploaded images (sleeves and playmats)</h3>
+<p>Only registered accounts can upload images. We store the image re-encoded (without the original file's metadata) and note which account uploaded it. An image can be fetched by anyone who knows its id and may be kept by caches for up to a year; the players at your table see it. Please upload only images you hold the rights to and on which no other person can be recognised. An image is deleted once no account claims it any more.</p>
+<p><strong>Legal basis:</strong> Art. 6(1)(b) GDPR.</p>
+
+<h3>3.6 Tables in the lobby</h3>
+<p>Open and running tables are held in the gateway's memory only: who sits where (account), the name and a copy of the chosen deck, the table's name and, if one is set, a hash of the table password. Everyone signed in sees the table name, the host, the names of those seated and their deck names. A waiting table is gone after 2 hours at most, a finished game 1 hour after it ended, everything at a restart.</p>
+<p><strong>Legal basis:</strong> Art. 6(1)(b) GDPR.</p>
+
+<h3>3.7 The game being played</h3>
+<p>Each game runs in a process of its own on the same server. It is given the names of those seated (“Name#tag”), the decks and the moves, holds them in memory and ends with the game.</p>
+<p><strong>Legal basis:</strong> Art. 6(1)(b) GDPR.</p>
+
+<h3 id="games">3.8 Records of games played</h3>
+<p>The gateway records every game in full: the starting position, every move in order, the cards of all decks and hands. The record names nobody; the seats are numbered. Apart from it, the gateway notes which account sat in which seat. Nobody can fetch a record through the game or the lobby. It is passed on only when someone who sat at that game sends a bug report about it (<a href="#reports">section 3.9</a>).</p>
+<p><strong>Purpose:</strong> tracing bugs and replaying games. <strong>Legal basis:</strong> Art. 6(1)(f) GDPR; our legitimate interest is finding and fixing faults in the game's rules, which often show only in one particular game. <strong>Kept:</strong> without a time limit. When you delete your account, the note of which account sat in which seat is removed; the game itself stays, as a game between numbered seats. There is currently no way to delete a single record; contact us for that (section 1).</p>
+
+<h3 id="reports">3.9 Bug reports and crash reports</h3>
+<p>The client sends a report (a bug, an idea, feedback) only when you press “Send” in the report form, and only to the gateway you are signed in at. It always carries: the kind of report, your text, the client's version and, when you write it at a table, the game's id; the gateway adds that game's record if you sat at it. More is added only when you tick the box for it (all are off to begin with):</p>
+<ul>
+<li><em>System and hardware:</em> operating system, processor count, graphics adapter, window size, language;</li>
+<li><em>The table as you see it:</em> your view of the game (nothing hidden from you, no player names);</li>
+<li><em>Your game log:</em> with you as “You” and the others as “Player A”, “Player B”, …;</li>
+<li><em>Settings:</em> language, display, volume, the number of saved gateways and your game settings, never your username, addresses or keys;</li>
+<li><em>Screenshot:</em> the window as it looked when the form opened; it can show other players' names.</li>
+</ul>
+<p>If the client crashes, it leaves a crash file on your device (the error message, where in the program, the time, the version). At the next start it asks once whether crash reports may be sent; they are sent only if you say yes, otherwise the file is deleted.</p>
+<p>The gateway passes the report on to the feedback service, together with its own name and version and a pseudonym instead of your account (a keyed hash of the account id, from which the account cannot be read). Your name, username, e-mail address, IP address and sign-in key are not passed on. The gateway counts, in memory and for one hour, how many reports an account has sent (at most 64 an hour).</p>
+<p><strong>Legal basis:</strong> Art. 6(1)(a) GDPR (consent), for each category separately. You can withdraw consent at any time by unticking a box, or the crash reports, in the form; this holds from the next report on (Art. 7(3) GDPR). Reports already sent are deleted on request (section 1). <strong>Kept:</strong> in the feedback service until an administrator deletes them; they are not deleted automatically with your account.</p>
+
+<h3>3.10 The feedback service and its admin interface</h3>
+<p>The web interface at <code>https://feedback.baylee.acevik.de</code> is for the project's administrators only. Only there is a cookie set, and only once one of them signs in: <code>__Host-baylee-feedback</code>, strictly necessary, holding the session key and expiring after 12 hours unused, at the latest after 7 days. For administrators their name, password hash, sessions and a log of their changes to reports are stored; failed sign-ins are counted per address in memory for 15 minutes. None of this concerns players. The legal basis for the cookie is § 25(2) no. 2 TDDDG (German Telecommunications Digital Services Data Protection Act), for the rest Art. 6(1)(f) GDPR (securing the administration).</p>
+
+<h3>3.11 Protection against abuse</h3>
+<p>To limit mass sign-ups and password guessing, the gateway counts attempts in memory: per IP address for registration and guest access (10 in 5 minutes), per account or typed name for sign-in (8 in 5 minutes). These counts are dropped once their window has passed, and are never stored or logged.</p>
+<p><strong>Legal basis:</strong> Art. 6(1)(f) GDPR; our legitimate interest is the security of accounts and the availability of the service.</p>
+
+<h3>3.12 Server logs</h3>
+<p>When you reach a page or a service, the server technically sees your IP address. The web server in front (the reverse proxy) keeps <strong>no</strong> access log. The gateway logs operational messages: game ids, seat numbers, the label of connected game processes, counts (such as “guests deleted”), the id of an image whose file could not be removed, and database errors. No log line names a username, e-mail address, display name, account id, IP address or key. The feedback service logs the ids of reports received and deleted and administrators' names when they sign in and out, no sender addresses. Logs are kept [LOG RETENTION].</p>
+<p><strong>Legal basis:</strong> Art. 6(1)(f) GDPR (operation and troubleshooting).</p>
+
+<h3>3.13 Backups</h3>
+<p>The data of the gateway and of the feedback service is backed up on the same server. Backups are kept in tiers: 48 hours, 14 days, 8 weeks and 12 months. Deleted data, a deleted account included, can therefore remain in backups for up to 12 months; it is not removed from them one by one, is used only to restore the service after a failure, and goes with the backup that holds it.</p>
+<p><strong>Legal basis:</strong> Art. 6(1)(f) GDPR; our legitimate interest is being able to restore the service after a fault (cf. Art. 32 GDPR).</p>
+
+<h3>3.14 On your device</h3>
+<p>The client keeps on your device: the language, the last username used, your list of gateways, for a guest its key, your consent for reports, settings, decks saved offline, cached card texts and card images, and, after a crash, a crash file. This data does not leave your device by itself; you can delete it at any time.</p>
+
+<h2>4. Recipients and third-party services</h2>
+<h3>4.1 Hosting</h3>
+<p>The gateway, the game processes, the feedback service, the databases and the backups run on a rented server of <strong>netcup GmbH</strong> (Karlsruhe) in Germany. netcup processes the data as a processor under Art. 28 GDPR.</p>
+<h3>4.2 Scryfall (card images and card data)</h3>
+<p>Card images and card data come from Scryfall (Scryfall LLC, USA). The gateway fetches them itself, with nothing about you. In some cases, though, <strong>your client connects to Scryfall directly</strong> (<code>cards.scryfall.io</code>, <code>backs.scryfall.io</code>, <code>api.scryfall.com</code>):</p>
+<ul>
+<li>card images: always in the browser version; in the installed client when you are not signed in at a gateway (for example when playing offline) or the gateway serves no images;</li>
+<li>card text in languages other than English, when the gateway does not supply it;</li>
+<li>the list of a card's printings in the deck builder, when the gateway does not know them all.</li>
+</ul>
+<p>Scryfall then learns your IP address, the client's version and which card is asked about, but neither your account nor a sign-in key. Scryfall is responsible for these connections itself; see <a href="https://scryfall.com/docs/privacy">Scryfall's privacy policy</a>.</p>
+<h3>4.3 GitHub (download and source code)</h3>
+<p>The client is offered for download on GitHub (GitHub, Inc., USA), where the source code is kept too. When you download it or open the source code link, your device connects to GitHub, under <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>. The client itself does not contact GitHub.</p>
+<h3>4.4 Transfers to third countries</h3>
+<p>We ourselves transfer no personal data to countries outside the EU and the EEA. When your device connects to Scryfall or GitHub as described above, your IP address and the request go directly from your device to these providers in the USA.</p>
+<h3>4.5 Other players</h3>
+<p>Other players see what the game has to show them: your display name with its tag, your deck's name, your uploaded images at their table, and the cards that are face up in the game.</p>
+
+<h2>5. How long, at a glance</h2>
+<div class="table"><table>
+<tr><th>Data</th><th>Kept</th></tr>
+<tr><td>Account, decks, settings</td><td>until you delete them</td></tr>
+<tr><td>Guest account</td><td>29–30 days after last use, at once on sign-out</td></tr>
+<tr><td>Session</td><td>12 hours (account) or 30 days (guest), extended while used</td></tr>
+<tr><td>Connection ticket</td><td>at most 45 seconds, in memory only</td></tr>
+<tr><td>Confirmation link (only carried-over accounts with an e-mail)</td><td>24 hours</td></tr>
+<tr><td>Uploaded image</td><td>while an account claims it</td></tr>
+<tr><td>Tables in the lobby</td><td>at most 2 hours waiting, 1 hour after a game ends, in memory only</td></tr>
+<tr><td>Counts against abuse</td><td>5 minutes, in memory only</td></tr>
+<tr><td>Record of a game</td><td>without a time limit; its link to your account ends when the account is deleted</td></tr>
+<tr><td>Bug and crash reports</td><td>until an administrator deletes them</td></tr>
+<tr><td>Server logs</td><td>[LOG RETENTION]</td></tr>
+<tr><td>Backups</td><td>48 hours / 14 days / 8 weeks / 12 months</td></tr>
+</table></div>
+
+<h2>6. Deleting your account</h2>
+<p>In the client, under <em>Settings → Delete account</em>. A registered account confirms with its password; a guest is also deleted at once when it signs out. Deleted in one step: the account, its sessions, decks with their version history, settings and its claims on uploaded images; an image no other account claims is deleted with its file. Your seats at every table are freed; a running game is played to its end for you by the computer.</p>
+<p>Not deleted are the records of games played: only the note of which account sat in which seat is removed from them (<a href="#games">section 3.8</a>). Also not deleted automatically are bug reports already sent (<a href="#reports">section 3.9</a>), and backups until they expire (section 3.13).</p>
+
+<h2>7. Your rights</h2>
+<p>You have the right of access (Art. 15 GDPR), rectification (Art. 16), erasure (Art. 17), restriction of processing (Art. 18) and data portability (Art. 20). Where we process data on the basis of Art. 6(1)(f) GDPR you may <strong>object</strong> at any time on grounds relating to your particular situation (Art. 21 GDPR). You may withdraw a consent at any time with effect for the future (Art. 7(3) GDPR). Write to the address in section 1. So that we can match you to an account, please give your display name with its tag (“Name#1a2b”).</p>
+<p>You also have the right to lodge a complaint with a data protection supervisory authority (Art. 77 GDPR), in particular in the member state where you live. The authority responsible for us is: [SUPERVISORY AUTHORITY].</p>
+
+<h2>8. Whether you must provide data; automated decisions</h2>
+<p>You are under no obligation to give us data. Without an account or guest access you cannot play on the gateway; playing the computer offline needs no account at all. There is no automated decision-making, including profiling, within the meaning of Art. 22 GDPR. The computer opponents only make moves in the game.</p>
+
+<h2>9. Age</h2>
+<p>We do not ask for or check anyone's age. [MINIMUM AGE]</p>
+
+<h2>10. Cookies, tracking</h2>
+<p>The gateway sets no cookies and embeds no advertising, analytics or tracking service; the client contains no telemetry. The project's only cookie is the feedback service's admin interface's (section 3.10). This page loads no fonts, scripts or images from other servers.</p>
+
+<h2>11. Changes</h2>
+<p>When what we process changes, we update this statement. The version with the date above applies.</p>
+
+<footer>Baylee is an unofficial fan project, not affiliated with Wizards of the Coast. · <a href="/impressum" hreflang="de">Imprint</a> · <a href="/source">Source code</a></footer>
+</main>
+</body>
+</html>

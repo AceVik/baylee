@@ -1,0 +1,112 @@
+<!doctype html>
+<!--
+  ENTWURF eines Impressums für https://baylee.acevik.de. Noch nicht
+  rechtlich geprüft; keine Rechtsberatung.
+
+  Ist ein Impressum vorgeschrieben?
+  - § 5 DDG (Digitale-Dienste-Gesetz, ersetzt seit Mai 2024 § 5 TMG) gilt
+    für "geschäftsmäßige, in der Regel gegen Entgelt angebotene digitale
+    Dienste". Ein privates, kostenloses Projekt ohne Einnahmen fällt
+    wahrscheinlich nicht darunter; die Grenze ist in der Rechtsprechung aber
+    nicht scharf, und schon Werbung oder Spenden können sie verschieben.
+  - § 18 Abs. 1 MStV (Medienstaatsvertrag) verlangt Namen und Anschrift von
+    allen Anbietern von Telemedien, die nicht ausschließlich persönlichen
+    oder familiären Zwecken dienen. Ein öffentlich erreichbarer Spielserver,
+    bei dem sich jeder anmelden kann, dient wahrscheinlich nicht
+    ausschließlich persönlichen Zwecken. Ein Impressum mit Name und
+    ladungsfähiger Anschrift ist deshalb wahrscheinlich geboten, jedenfalls
+    vorsorglich ratsam.
+  - § 18 Abs. 2 MStV (Verantwortlicher für journalistisch-redaktionell
+    gestaltete Angebote) greift wahrscheinlich nicht: der Dienst ist ein
+    Spiel, kein redaktionelles Angebot. Die Zeile unten ist deshalb
+    auskommentiert und nur einzufügen, wenn das Projekt z. B. Neuigkeiten
+    oder Artikel veröffentlicht.
+  Zur Prüfung durch eine rechtskundige Person, siehe docs/legal.md §4.
+
+  Auszufüllen: [NAME], [ANSCHRIFT], [E-MAIL]. Eine Postfach-Adresse genügt
+  nach herrschender Meinung nicht (ladungsfähige Anschrift). Danach den
+  Entwurfshinweis (class="draft") entfernen.
+
+  Keine Skripte, keine externen Ressourcen.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>Impressum – Baylee</title>
+<style>
+:root {
+  --bg: #f6f1e7;
+  --ink: #23201b;
+  --muted: #5d564b;
+  --rule: #d8cdb8;
+  --link: #1f4f7a;
+  --panel: #efe7d7;
+  --mark: #fff3c4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1322;
+    --ink: #e4ddd0;
+    --muted: #a59d90;
+    --rule: #2a3548;
+    --link: #9cc3ea;
+    --panel: #121d31;
+    --mark: #3a3316;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.6 Georgia, "Times New Roman", serif;
+}
+main { max-width: 44rem; margin: 0 auto; padding: 2rem 16px 4rem; }
+nav { font: 15px/1.5 system-ui, sans-serif; color: var(--muted); margin-bottom: 1.5rem; }
+nav a { margin-right: 1rem; }
+h1, h2 { font-family: system-ui, sans-serif; line-height: 1.25; }
+h1 { font-size: 1.8rem; margin: 0 0 1rem; }
+h2 { font-size: 1.15rem; margin: 2rem 0 .4rem; padding-top: 1rem; border-top: 1px solid var(--rule); }
+p { overflow-wrap: anywhere; }
+a { color: var(--link); }
+.draft { background: var(--mark); border: 1px solid var(--rule); border-radius: 6px; padding: .6rem .9rem; font: 15px/1.5 system-ui, sans-serif; }
+code { font-size: .9em; background: var(--panel); padding: 0 .25em; border-radius: 3px; }
+footer { margin-top: 3rem; color: var(--muted); font: 14px/1.5 system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<main>
+<nav><a href="/datenschutz">Datenschutz</a><a href="/privacy" hreflang="en" lang="en">Privacy (English)</a></nav>
+
+<h1>Impressum</h1>
+
+<p class="draft"><strong>Entwurf.</strong> Noch nicht rechtlich geprüft. Angaben in eckigen Klammern werden vor der Veröffentlichung ausgefüllt.</p>
+
+<h2>Anbieter</h2>
+<p>Angaben gemäß § 5 DDG und § 18 Abs. 1 MStV:</p>
+<p>[NAME]<br>[ANSCHRIFT]</p>
+
+<h2>Kontakt</h2>
+<p>E-Mail: [E-MAIL]</p>
+
+<!--
+<h2>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h2>
+<p>[NAME]<br>[ANSCHRIFT]</p>
+-->
+
+<h2>Über das Angebot</h2>
+<p>Baylee ist ein privates, nicht kommerzielles Open-Source-Projekt. Unter dieser Adresse läuft der Spielserver „Baylee Sanctuary“; der Client wird kostenlos über GitHub angeboten.</p>
+<p>baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</p>
+<p>Kartenbilder und Kartendaten werden von <a href="https://scryfall.com">Scryfall</a> bereitgestellt.</p>
+
+<h2>Quellcode</h2>
+<p>Baylee steht unter der GNU Affero General Public License, Version 3 (AGPL-3.0). Den Quellcode genau der Version, die auf diesem Server läuft, nennt <a href="/source"><code>https://baylee.acevik.de/source</code></a>; das Repository liegt unter <a href="https://github.com/AceVik/baylee">github.com/AceVik/baylee</a>.</p>
+
+<footer><a href="/datenschutz">Datenschutzerklärung</a> · <a href="/privacy" hreflang="en">Privacy statement (English)</a></footer>
+</main>
+</body>
+</html>

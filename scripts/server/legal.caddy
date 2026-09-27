@@ -1,0 +1,45 @@
+# The legal pages (web/legal/, docs/privacy.md), served by Caddy ahead of
+# the gateway at https://baylee.acevik.de/datenschutz, /privacy and
+# /impressum. `baylee-deploy stage` installs the files to
+# /opt/baylee/web/legal; this file is not installed by it. Copy it to
+# /etc/caddy/legal.caddy once and import it inside the site block, before
+# the gateway's own `handle`:
+#
+#   baylee.acevik.de {
+#       import /etc/caddy/legal.caddy
+#       handle {
+#           reverse_proxy 127.0.0.1:28766
+#       }
+#   }
+#
+# `handle` blocks are mutually exclusive, so a request for one of the three
+# paths never reaches the gateway, and every other request never reaches
+# these files. The gateway has no route at those paths
+# (`e2e_health::info_names_the_gateway_and_the_versions_a_client_decides_on`
+# asserts a 404 there), so nothing of the gateway's is hidden by them.
+#
+# There is no `log` directive, here or in the site block: the pages say the
+# reverse proxy keeps no access log, and that stays true only while nobody
+# adds one.
+#
+# Then point the gateway at them in /etc/baylee/gateway.env, so /info names
+# them and the client links them:
+#
+#   BAYLEE_PRIVACY_URL=https://baylee.acevik.de/datenschutz
+#   BAYLEE_IMPRINT_URL=https://baylee.acevik.de/impressum
+
+@baylee_legal path /datenschutz /privacy /impressum
+handle @baylee_legal {
+	root * /opt/baylee/web/legal
+	rewrite /datenschutz /datenschutz.html
+	rewrite /privacy /privacy.html
+	rewrite /impressum /impressum.html
+	header {
+		# The pages carry their style inline and load nothing else.
+		Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		Cache-Control "no-cache"
+	}
+	file_server
+}

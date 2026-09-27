@@ -1,0 +1,221 @@
+<!doctype html>
+<!--
+  ENTWURF der Datenschutzerklärung (Art. 13/14 DSGVO) für den Gateway
+  "Baylee Sanctuary" (https://baylee.acevik.de) und den Feedback-Dienst
+  (https://feedback.baylee.acevik.de). Noch nicht rechtlich geprüft.
+
+  Quelle aller Tatsachen: docs/privacy.md (das interne Datenverzeichnis) und
+  docs/feedback.md. Diese Seite und privacy.html (englisch, gleicher Inhalt)
+  werden zusammen mit docs/privacy.md geändert.
+
+  Vor der Veröffentlichung auszufüllen: [NAME], [ANSCHRIFT], [E-MAIL],
+  [AUFSICHTSBEHÖRDE], [LOG-AUFBEWAHRUNG], [MINDESTALTER]. Danach den
+  Entwurfshinweis (class="draft") entfernen.
+
+  Keine Skripte, keine externen Ressourcen: die Seite lädt nichts nach.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>Datenschutz – Baylee</title>
+<style>
+:root {
+  --bg: #f6f1e7;
+  --ink: #23201b;
+  --muted: #5d564b;
+  --rule: #d8cdb8;
+  --link: #1f4f7a;
+  --panel: #efe7d7;
+  --mark: #fff3c4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1322;
+    --ink: #e4ddd0;
+    --muted: #a59d90;
+    --rule: #2a3548;
+    --link: #9cc3ea;
+    --panel: #121d31;
+    --mark: #3a3316;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.6 Georgia, "Times New Roman", serif;
+}
+main { max-width: 44rem; margin: 0 auto; padding: 2rem 16px 4rem; }
+nav { font: 15px/1.5 system-ui, sans-serif; color: var(--muted); margin-bottom: 1.5rem; }
+nav a { margin-right: 1rem; }
+h1, h2, h3 { font-family: system-ui, sans-serif; line-height: 1.25; }
+h1 { font-size: 1.8rem; margin: 0 0 .25rem; }
+h2 { font-size: 1.25rem; margin: 2.2rem 0 .5rem; padding-top: 1rem; border-top: 1px solid var(--rule); }
+h3 { font-size: 1.05rem; margin: 1.4rem 0 .3rem; }
+p, li { overflow-wrap: anywhere; }
+a { color: var(--link); }
+.stand { color: var(--muted); margin-top: 0; }
+.draft { background: var(--mark); border: 1px solid var(--rule); border-radius: 6px; padding: .6rem .9rem; font: 15px/1.5 system-ui, sans-serif; }
+.table { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+th, td { text-align: left; vertical-align: top; padding: .45rem .5rem; border-bottom: 1px solid var(--rule); }
+th { font-family: system-ui, sans-serif; font-size: .85rem; color: var(--muted); }
+code { font-size: .9em; background: var(--panel); padding: 0 .25em; border-radius: 3px; }
+footer { margin-top: 3rem; color: var(--muted); font: 14px/1.5 system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<main>
+<nav><a href="/impressum">Impressum</a><a href="/privacy" hreflang="en" lang="en">English</a></nav>
+
+<h1>Datenschutzerklärung</h1>
+<p class="stand">Baylee – Stand: 27. September 2026</p>
+
+<p class="draft"><strong>Entwurf.</strong> Dieser Text ist noch nicht rechtlich geprüft. Angaben in eckigen Klammern werden vor der Veröffentlichung ausgefüllt.</p>
+
+<p>Baylee ist ein privat betriebenes, kostenloses und inoffizielles Fan-Projekt: ein Spielserver („Gateway“) für ein Kartenspiel, ein Programm zum Spielen („Client“) und ein Dienst für Fehlerberichte. Diese Erklärung sagt, welche Daten dabei über dich verarbeitet werden, wozu, auf welcher Rechtsgrundlage und wie lange. Sie gilt für den Gateway <strong>Baylee Sanctuary</strong> unter <code>https://baylee.acevik.de</code> und den Feedback-Dienst unter <code>https://feedback.baylee.acevik.de</code>. Wer einen eigenen Gateway betreibt, ist für diesen selbst verantwortlich.</p>
+
+<h2>1. Verantwortlicher</h2>
+<p>[NAME]<br>[ANSCHRIFT]<br>E-Mail: [E-MAIL]</p>
+<p>Einen Datenschutzbeauftragten gibt es nicht; für ein privates Projekt dieser Größe ist keiner vorgeschrieben. Für alle Fragen zum Datenschutz und zur Ausübung deiner Rechte schreib an die oben genannte Adresse.</p>
+
+<h2>2. Das Wichtigste in Kürze</h2>
+<ul>
+<li>Für ein Konto brauchst du einen Benutzernamen und ein Passwort; eine E-Mail-Adresse fragen wir nicht ab. Als Gast genügt ein Anzeigename.</li>
+<li>Der Gateway setzt keine Cookies. Es gibt keine Werbung, kein Tracking und keine Analyse-Werkzeuge.</li>
+<li>Der Gateway schreibt keine IP-Adressen in die Datenbank oder in Protokolle; der vorgeschaltete Webserver führt kein Zugriffsprotokoll.</li>
+<li>Du kannst dein Konto jederzeit im Client löschen. Aufzeichnungen gespielter Partien bleiben danach ohne Bezug zu deinem Konto erhalten (siehe <a href="#partien">Abschnitt 3.8</a>).</li>
+<li>Fehlerberichte werden nur gesendet, wenn du es willst, und enthalten nur, was du ankreuzt.</li>
+</ul>
+
+<h2>3. Welche Daten wir verarbeiten</h2>
+
+<h3>3.1 Konto</h3>
+<p>Beim Anlegen eines Kontos speichern wir: eine zufällige Kennung, deinen Benutzernamen (zum Anmelden; anderen Spielern wird er nie gezeigt), deinen Anzeigenamen mit einem Kürzel („Name#1a2b“, so sehen dich andere), einen Hash deines Passworts (Argon2id; das Passwort selbst wird nicht gespeichert), deine Sprache sowie den Zeitpunkt der Anlage. Eine E-Mail-Adresse erfragen wir bei der Registrierung nicht; nur Konten, die aus einer früheren Version des Gateways übernommen wurden, können noch eine enthalten. An solche Adressen geht höchstens eine Bestätigungsmail, wenn du sie ausdrücklich anforderst. Die Datei, aus der diese Konten übernommen wurden, liegt noch auf dem Server.</p>
+<p>Andere angemeldete Spieler können dein Konto über „Name#Kürzel“ finden und sehen dabei Anzeigenamen und Kürzel.</p>
+<p><strong>Zweck:</strong> Anmeldung und Spielen. <strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO (Bereitstellung des von dir gewünschten Dienstes). <strong>Dauer:</strong> bis du das Konto löschst.</p>
+
+<h3>3.2 Gäste</h3>
+<p>Als Gast wird ein Konto ohne Benutzernamen, Passwort und E-Mail-Adresse angelegt: nur ein Anzeigename (sonst „Guest“), ein Kürzel, deine Sprache und der Zeitpunkt. Gäste dürfen keine Bilder hochladen. Ein Gastkonto wird mit seinen Decks und Einstellungen automatisch gelöscht, wenn es 29 bis 30 Tage lang nicht benutzt wurde, und sofort, wenn du dich abmeldest.</p>
+<p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO.</p>
+
+<h3>3.3 Anmeldungen (Sitzungen)</h3>
+<p>Nach der Anmeldung erhält dein Client einen zufälligen Schlüssel. Wir speichern davon nur einen Hash (SHA-256), die Zuordnung zu deinem Konto und das Ablaufdatum: 12 Stunden bei einem Konto, 30 Tage bei einem Gast, jeweils bei Benutzung verlängert. Abgelaufene Sitzungen werden regelmäßig gelöscht, beim Abmelden sofort. IP-Adresse, Browser- oder Gerätekennung und Zeitpunkt der letzten Anmeldung speichern wir nicht.</p>
+<p>Für jede Netzwerkverbindung (WebSocket) holt der Client zuvor ein Einmal-Ticket. Der Gateway hält davon nur einen Hash, für höchstens 45 Sekunden oder bis zur Benutzung, ausschließlich im Arbeitsspeicher.</p>
+<p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO.</p>
+
+<h3>3.4 Decks und Einstellungen</h3>
+<p>Decks, die du speicherst, liegen mit Name, Format, Beschreibung, Kartenliste, Notizen zu einzelnen Karten und ihrer Versionsgeschichte auf dem Gateway, ebenso deine Einstellungen (Tastenbelegung, Automatik, Anzeige und Ton). Beides bleibt, bis du es löschst oder dein Konto löschst. Sitzt du an einem Tisch, sehen die anderen dort den Namen deines Decks.</p>
+<p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO.</p>
+
+<h3>3.5 Hochgeladene Bilder (Kartenhüllen und Spielmatten)</h3>
+<p>Nur registrierte Konten können Bilder hochladen. Wir speichern das Bild neu kodiert (ohne Metadaten der Originaldatei) und vermerken, welches Konto es hochgeladen hat. Ein Bild ist für jeden abrufbar, der seine Kennung kennt, und darf von Zwischenspeichern bis zu einem Jahr aufbewahrt werden; die Mitspieler an deinem Tisch sehen es. Bitte lade nur Bilder hoch, an denen du die Rechte hast und auf denen keine anderen Personen erkennbar sind. Gelöscht wird ein Bild, sobald kein Konto es mehr beansprucht.</p>
+<p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO.</p>
+
+<h3>3.6 Tische in der Lobby</h3>
+<p>Offene und laufende Tische hält der Gateway nur im Arbeitsspeicher: wer wo sitzt (Konto), der Name und eine Kopie des gewählten Decks, der Tischname und, falls gesetzt, ein Hash des Tischpassworts. Alle Angemeldeten sehen Tischname, Gastgeber, die Namen der Sitzenden und ihre Decknamen. Ein wartender Tisch verschwindet nach spätestens 2 Stunden, ein beendetes Spiel 1 Stunde nach dem Ende, alles bei einem Neustart.</p>
+<p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO.</p>
+
+<h3>3.7 Das laufende Spiel</h3>
+<p>Jede Partie läuft in einem eigenen Prozess auf demselben Server. Er erhält die Namen der Sitzenden („Name#Kürzel“), die Decks und die Spielzüge, hält sie im Arbeitsspeicher und endet mit der Partie.</p>
+<p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO.</p>
+
+<h3 id="partien">3.8 Aufzeichnungen gespielter Partien</h3>
+<p>Der Gateway zeichnet jede Partie vollständig auf: Ausgangslage, alle Spielzüge in Reihenfolge, die Karten aller Decks und Hände. Die Aufzeichnung nennt keine Namen; die Plätze sind nummeriert. Getrennt davon ist vermerkt, welches Konto auf welchem Platz saß. Die Aufzeichnung kann niemand über das Spiel oder die Lobby abrufen. Sie wird nur weitergegeben, wenn jemand, der an dieser Partie saß, einen Fehlerbericht dazu sendet (<a href="#berichte">Abschnitt 3.9</a>).</p>
+<p><strong>Zweck:</strong> Fehler nachvollziehen und Partien wiederholen können. <strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, Fehler im Regelwerk des Spiels finden und beheben zu können, die sich oft erst in einer bestimmten Partie zeigen. <strong>Dauer:</strong> Die Aufzeichnungen werden ohne zeitliche Grenze aufbewahrt. Löschst du dein Konto, wird der Vermerk, welches Konto auf welchem Platz saß, entfernt; die Partie selbst bleibt als Spiel zwischen nummerierten Plätzen erhalten. Ein Weg, einzelne Aufzeichnungen zu löschen, besteht derzeit nicht; wende dich dazu an uns (Abschnitt 1).</p>
+
+<h3 id="berichte">3.9 Fehlerberichte und Absturzberichte</h3>
+<p>Einen Bericht (Fehler, Idee, Rückmeldung) sendet der Client nur, wenn du im Berichtsformular auf „Senden“ drückst, und nur an den Gateway, an dem du angemeldet bist. Er enthält immer: die Art des Berichts, deinen Text, die Version des Clients und, wenn du ihn an einem Tisch schreibst, die Kennung der Partie; der Gateway fügt die Aufzeichnung dieser Partie hinzu, wenn du dort saßt. Weitere Angaben kommen nur hinzu, wenn du das jeweilige Kästchen ankreuzt (alle sind anfangs aus):</p>
+<ul>
+<li><em>System und Hardware:</em> Betriebssystem, Prozessoranzahl, Grafikkarte, Fenstergröße, Sprache;</li>
+<li><em>Der Tisch, wie du ihn siehst:</em> dein Blick auf das Spiel (nichts, was vor dir verborgen ist, keine Spielernamen);</li>
+<li><em>Dein Spielprotokoll:</em> mit dir als „Du“ und den anderen als „Spieler A“, „Spieler B“ …;</li>
+<li><em>Einstellungen:</em> Sprache, Anzeige, Lautstärke, die Anzahl gespeicherter Gateways und deine Spieleinstellungen, nie Benutzername, Adressen oder Schlüssel;</li>
+<li><em>Bildschirmfoto:</em> das Fenster, wie es beim Öffnen des Formulars aussah; es kann Namen anderer Spieler zeigen.</li>
+</ul>
+<p>Stürzt der Client ab, legt er eine Absturzdatei auf deinem Gerät ab (Fehlermeldung, Stelle im Programm, Zeitpunkt, Version). Beim nächsten Start fragt er einmal, ob Absturzberichte gesendet werden sollen; nur mit deinem Ja werden sie gesendet, sonst wird die Datei gelöscht.</p>
+<p>Der Gateway leitet den Bericht an den Feedback-Dienst weiter, zusammen mit seinem eigenen Namen und seiner Version und einem Pseudonym statt deines Kontos (ein Schlüssel-Hash der Kontokennung, aus dem sich das Konto nicht ablesen lässt). Name, Benutzername, E-Mail-Adresse, IP-Adresse und Anmeldeschlüssel werden nicht weitergegeben. Der Gateway zählt nur für eine Stunde im Arbeitsspeicher, wie viele Berichte ein Konto gesendet hat (höchstens 64 pro Stunde).</p>
+<p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. a DSGVO (Einwilligung), für jede Kategorie einzeln. Du kannst die Einwilligung jederzeit widerrufen, indem du ein Kästchen oder die Absturzberichte im Formular wieder abwählst; das gilt ab dem nächsten Bericht (Art. 7 Abs. 3 DSGVO). Bereits gesendete Berichte löschen wir auf Anfrage (Abschnitt 1). <strong>Dauer:</strong> Berichte bleiben im Feedback-Dienst, bis sie von einem Administrator gelöscht werden; sie werden nicht automatisch mit deinem Konto gelöscht.</p>
+
+<h3>3.10 Der Feedback-Dienst und seine Verwaltungsoberfläche</h3>
+<p>Die Weboberfläche unter <code>https://feedback.baylee.acevik.de</code> ist nur für die Administratoren des Projekts. Nur dort wird ein Cookie gesetzt, und nur nach deren Anmeldung: <code>__Host-baylee-feedback</code>, technisch notwendig, es enthält den Sitzungsschlüssel und läuft nach 12 Stunden Nichtbenutzung, spätestens nach 7 Tagen ab. Für Administratoren werden Name, Passwort-Hash, Sitzungen und ein Protokoll ihrer Änderungen an Berichten gespeichert; fehlgeschlagene Anmeldungen werden 15 Minuten lang je Adresse im Arbeitsspeicher gezählt. Spielerinnen und Spieler betrifft das nicht. Rechtsgrundlage für das Cookie ist § 25 Abs. 2 Nr. 2 TDDDG, für die übrige Verarbeitung Art. 6 Abs. 1 lit. f DSGVO (Sicherheit der Verwaltung).</p>
+
+<h3>3.11 Schutz vor Missbrauch</h3>
+<p>Um Massenanmeldungen und das Erraten von Passwörtern zu begrenzen, zählt der Gateway im Arbeitsspeicher Versuche: je IP-Adresse für Registrierung und Gastzugang (10 in 5 Minuten), je Konto oder eingegebenem Namen für die Anmeldung (8 in 5 Minuten). Diese Zähler werden nach Ablauf des Zeitfensters verworfen, nie gespeichert und nie protokolliert.</p>
+<p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist die Sicherheit der Konten und die Verfügbarkeit des Dienstes.</p>
+
+<h3>3.12 Server-Protokolle</h3>
+<p>Beim Aufruf einer Seite oder eines Dienstes sieht der Server technisch deine IP-Adresse. Der vorgeschaltete Webserver (Reverse Proxy) führt <strong>kein</strong> Zugriffsprotokoll. Der Gateway protokolliert Betriebsmeldungen: Kennungen von Partien, Platznummern, die Bezeichnung angeschlossener Spielprozesse, Anzahlen (etwa „gelöschte Gäste“), die Kennung eines Bildes, dessen Datei nicht gelöscht werden konnte, und Datenbankfehler. Keine Protokollzeile nennt einen Benutzernamen, eine E-Mail-Adresse, einen Anzeigenamen, eine Kontokennung, eine IP-Adresse oder einen Schlüssel. Der Feedback-Dienst protokolliert die Kennungen eingegangener und gelöschter Berichte und die Namen der Administratoren bei An- und Abmeldung, keine Absenderadressen. Die Protokolle werden [LOG-AUFBEWAHRUNG] aufbewahrt.</p>
+<p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. f DSGVO (Betrieb und Fehlersuche).</p>
+
+<h3>3.13 Sicherungskopien</h3>
+<p>Die Daten des Gateways und des Feedback-Dienstes werden auf demselben Server gesichert. Die Sicherungen werden gestaffelt aufbewahrt: 48 Stunden, 14 Tage, 8 Wochen und 12 Monate. Gelöschte Daten, auch ein gelöschtes Konto, können deshalb noch bis zu 12 Monate in Sicherungen enthalten sein; sie werden daraus nicht einzeln entfernt, nur zur Wiederherstellung nach einem Ausfall verwendet und verschwinden mit der jeweiligen Sicherung.</p>
+<p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, den Dienst nach einem Fehler wiederherstellen zu können (vgl. Art. 32 DSGVO).</p>
+
+<h3>3.14 Auf deinem Gerät</h3>
+<p>Der Client speichert auf deinem Gerät: Sprache, den zuletzt benutzten Benutzernamen, die Liste deiner Gateways, bei einem Gast dessen Schlüssel, deine Einwilligungen für Berichte, Einstellungen, offline gespeicherte Decks, zwischengespeicherte Kartentexte und Kartenbilder und gegebenenfalls eine Absturzdatei. Diese Daten verlassen dein Gerät nicht von selbst; du kannst sie jederzeit löschen.</p>
+
+<h2>4. Empfänger und Dienste Dritter</h2>
+<h3>4.1 Hosting</h3>
+<p>Gateway, Spielprozesse, Feedback-Dienst, Datenbanken und Sicherungen laufen auf einem gemieteten Server der <strong>netcup GmbH</strong> (Karlsruhe) in Deutschland. netcup verarbeitet die Daten als Auftragsverarbeiter nach Art. 28 DSGVO.</p>
+<h3>4.2 Scryfall (Kartenbilder und Kartendaten)</h3>
+<p>Kartenbilder und Kartendaten stammen von Scryfall (Scryfall LLC, USA). Der Gateway ruft sie selbst ab, ohne Angaben über dich. In einigen Fällen verbindet sich aber <strong>dein Client direkt</strong> mit Scryfall (<code>cards.scryfall.io</code>, <code>backs.scryfall.io</code>, <code>api.scryfall.com</code>):</p>
+<ul>
+<li>Kartenbilder: in der Browser-Version immer; im installierten Client, wenn du nicht an einem Gateway angemeldet bist (etwa beim Spiel offline) oder der Gateway keine Bilder bereitstellt;</li>
+<li>Kartentexte in anderen Sprachen als Englisch, wenn der Gateway sie nicht liefert;</li>
+<li>die Liste der Druckversionen einer Karte im Deckbau, wenn der Gateway sie nicht vollständig kennt.</li>
+</ul>
+<p>Scryfall erfährt dabei deine IP-Adresse, die Version des Clients und welche Karte angefragt wird, aber weder dein Konto noch einen Anmeldeschlüssel. Für diese Verbindungen ist Scryfall selbst verantwortlich; siehe die <a href="https://scryfall.com/docs/privacy">Datenschutzerklärung von Scryfall</a>.</p>
+<h3>4.3 GitHub (Download und Quellcode)</h3>
+<p>Der Client wird über GitHub (GitHub, Inc., USA) zum Herunterladen angeboten, und der Quellcode liegt dort. Beim Download oder beim Öffnen des Quellcode-Links verbindet sich dein Gerät mit GitHub; dafür gilt die <a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement">Datenschutzerklärung von GitHub</a>. Der Client selbst fragt GitHub nicht ab.</p>
+<h3>4.4 Übermittlung in Drittländer</h3>
+<p>Wir selbst übermitteln keine personenbezogenen Daten in Länder außerhalb der EU und des EWR. Wenn dein Gerät sich wie oben beschrieben mit Scryfall oder GitHub verbindet, gehen deine IP-Adresse und die jeweilige Anfrage direkt von deinem Gerät an diese Anbieter in den USA.</p>
+<h3>4.5 Andere Spieler</h3>
+<p>Mitspieler sehen, was das Spiel ihnen zeigen muss: deinen Anzeigenamen mit Kürzel, deinen Decknamen, deine hochgeladenen Bilder an ihrem Tisch und die Karten, die im Spiel offen liegen.</p>
+
+<h2>5. Speicherdauer im Überblick</h2>
+<div class="table"><table>
+<tr><th>Daten</th><th>Dauer</th></tr>
+<tr><td>Konto, Decks, Einstellungen</td><td>bis zur Löschung durch dich</td></tr>
+<tr><td>Gastkonto</td><td>29–30 Tage nach der letzten Benutzung, sofort beim Abmelden</td></tr>
+<tr><td>Sitzung</td><td>12 Stunden (Konto) bzw. 30 Tage (Gast), bei Benutzung verlängert</td></tr>
+<tr><td>Verbindungsticket</td><td>höchstens 45 Sekunden, nur im Arbeitsspeicher</td></tr>
+<tr><td>Bestätigungslink (nur übernommene Konten mit E-Mail)</td><td>24 Stunden</td></tr>
+<tr><td>Hochgeladenes Bild</td><td>solange ein Konto es beansprucht</td></tr>
+<tr><td>Tische in der Lobby</td><td>höchstens 2 Stunden wartend, 1 Stunde nach Spielende, nur im Arbeitsspeicher</td></tr>
+<tr><td>Zähler gegen Missbrauch</td><td>5 Minuten, nur im Arbeitsspeicher</td></tr>
+<tr><td>Aufzeichnung einer Partie</td><td>ohne zeitliche Grenze; der Bezug zu deinem Konto endet mit dessen Löschung</td></tr>
+<tr><td>Fehler- und Absturzberichte</td><td>bis ein Administrator sie löscht</td></tr>
+<tr><td>Server-Protokolle</td><td>[LOG-AUFBEWAHRUNG]</td></tr>
+<tr><td>Sicherungskopien</td><td>48 Stunden / 14 Tage / 8 Wochen / 12 Monate</td></tr>
+</table></div>
+
+<h2>6. Dein Konto löschen</h2>
+<p>Im Client unter <em>Einstellungen → Konto löschen</em>. Ein registriertes Konto bestätigt die Löschung mit seinem Passwort; ein Gast wird auch beim Abmelden sofort gelöscht. Gelöscht werden in einem Schritt: das Konto, seine Sitzungen, Decks samt Versionsgeschichte, Einstellungen und seine Ansprüche an hochgeladenen Bildern; ein Bild, das kein anderes Konto mehr beansprucht, wird mitsamt Datei gelöscht. Deine Plätze an allen Tischen werden geräumt; eine laufende Partie spielt der Computer für dich zu Ende.</p>
+<p>Nicht gelöscht werden die Aufzeichnungen gespielter Partien: Bei ihnen wird nur der Vermerk entfernt, welches Konto auf welchem Platz saß (<a href="#partien">Abschnitt 3.8</a>). Ebenfalls nicht automatisch gelöscht werden bereits gesendete Fehlerberichte (<a href="#berichte">Abschnitt 3.9</a>) sowie Sicherungskopien bis zu ihrem Ablauf (Abschnitt 3.13).</p>
+
+<h2>7. Deine Rechte</h2>
+<p>Du hast das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18) und Datenübertragbarkeit (Art. 20). Soweit wir Daten auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO verarbeiten, kannst du aus Gründen, die sich aus deiner besonderen Situation ergeben, jederzeit <strong>widersprechen</strong> (Art. 21 DSGVO). Eine Einwilligung kannst du jederzeit mit Wirkung für die Zukunft widerrufen (Art. 7 Abs. 3 DSGVO). Schreib dazu an die Adresse in Abschnitt 1. Damit wir dich einem Konto zuordnen können, nenne uns bitte deinen Anzeigenamen mit Kürzel („Name#1a2b“).</p>
+<p>Du hast außerdem das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu beschweren (Art. 77 DSGVO), insbesondere in dem Mitgliedstaat deines Aufenthaltsorts. Für uns zuständig ist: [AUFSICHTSBEHÖRDE].</p>
+
+<h2>8. Pflicht zur Bereitstellung, automatisierte Entscheidungen</h2>
+<p>Du bist nicht verpflichtet, uns Daten zu geben. Ohne Konto oder Gastzugang kannst du auf dem Gateway nicht spielen; gegen den Computer offline zu spielen geht ohne jedes Konto. Eine automatisierte Entscheidungsfindung einschließlich Profiling im Sinne von Art. 22 DSGVO findet nicht statt. Die Computergegner treffen nur Spielzüge.</p>
+
+<h2>9. Alter</h2>
+<p>Wir fragen kein Alter ab und prüfen es nicht. [MINDESTALTER]</p>
+
+<h2>10. Cookies, Tracking</h2>
+<p>Der Gateway setzt keine Cookies und bindet keine Werbe-, Analyse- oder Tracking-Dienste ein; der Client enthält keine Telemetrie. Das einzige Cookie des Projekts ist das der Verwaltungsoberfläche des Feedback-Dienstes (Abschnitt 3.10). Diese Seite lädt keine Schriften, Skripte oder Bilder von anderen Servern.</p>
+
+<h2>11. Änderungen</h2>
+<p>Ändert sich, was wir verarbeiten, passen wir diese Erklärung an. Es gilt die Fassung mit dem obigen Stand.</p>
+
+<footer>Baylee ist ein inoffizielles Fan-Projekt und steht in keiner Verbindung zu Wizards of the Coast. · <a href="/impressum">Impressum</a> · <a href="/source">Quellcode</a></footer>
+</main>
+</body>
+</html>
