@@ -322,6 +322,46 @@ fn cli(scoped: &str, args: &[&str], stdin: &str) -> (bool, String, String) {
     )
 }
 
+/// The admin commands run with the server's env file, `RUST_LOG=info`
+/// included; its notices once buried the one line saying the password was
+/// refused. Only that line may reach the terminal.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_admin_cli_says_only_what_happened_even_under_rust_log_info() {
+    let service = Service::start("cli-quiet", None).await;
+    let scoped = service.scoped.clone();
+    let (ok, out, err) = tokio::task::spawn_blocking(move || {
+        let child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-feedback"))
+            .args(["admin", "add", "shorty"])
+            .env("FEEDBACK_DATABASE_URL", &scoped)
+            .env("RUST_LOG", "info")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("the binary runs");
+        child.stdin.as_ref().unwrap().write_all(b"short\n").unwrap();
+        let out = child.wait_with_output().unwrap();
+        (
+            out.status.success(),
+            String::from_utf8_lossy(&out.stdout).into_owned(),
+            String::from_utf8_lossy(&out.stderr).into_owned(),
+        )
+    })
+    .await
+    .unwrap();
+    assert!(!ok);
+    assert!(out.is_empty(), "{out}");
+    assert_eq!(err.lines().count(), 1, "one line, the refusal:\n{err}");
+    assert!(err.contains("at least 12 characters"), "{err}");
+
+    let scoped = service.scoped.clone();
+    let (ok, out, _) = tokio::task::spawn_blocking(move || cli(&scoped, &["admin", "list"], ""))
+        .await
+        .unwrap();
+    assert!(ok);
+    assert!(!out.contains("shorty"), "{out}");
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn the_admin_cli_adds_lists_and_removes_admins_and_their_sessions() {
     let service = Service::start("cli", None).await;
