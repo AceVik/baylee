@@ -332,18 +332,19 @@ pub async fn post_report(
 /// slow or gone. The record attached is then what was stored before, and
 /// `complete` says what it said before: whether the game's end is in it.
 async fn flush_record(state: &Shared, game_id: &str, account_id: &str) -> bool {
-    // The link is cloned out, so no lock is held across the wait.
+    // The link is cloned out, so no lock is held across the wait. A game
+    // has one exactly while it goes on: it is set when the engine attaches
+    // and cleared when the game ends (`LobbyGame::finish`), after the last
+    // piece.
     let engine = {
         let lobby = state.lobby.lock();
         lobby
             .games
             .get(game_id)
             .filter(|game| {
-                game.state == crate::LobbyState::Playing
-                    && game
-                        .seats
-                        .iter()
-                        .any(|seat| seat.account_id.as_deref() == Some(account_id))
+                game.seats
+                    .iter()
+                    .any(|seat| seat.account_id.as_deref() == Some(account_id))
             })
             .and_then(|game| game.engine.clone())
     };
