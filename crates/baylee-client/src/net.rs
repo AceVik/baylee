@@ -29,12 +29,13 @@
 mod clock;
 
 use crate::host::{DuelHost, HostMessage, LinkState, host_message};
+use baylee_client_core::wsticket::{Socket as TicketSocket, Step, TicketAnswer, TicketDial};
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::PlayerAction;
 use baylee_protocol::v1::{self, Envelope};
 use ewebsock::{WsEvent, WsMessage};
 use prost::Message as _;
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 
 /// The largest frame this client will accept.
 ///
@@ -81,12 +82,13 @@ pub(crate) fn ws_base(gateway: &str) -> String {
 }
 
 impl SeatTicket {
-    /// The websocket URL this ticket opens, saying which protocol this
-    /// client speaks (#271).
+    /// The websocket URL this seat opens with a socket ticket from
+    /// [`request_ticket`] (#294), saying which protocol this client speaks
+    /// (#271). The seat token itself never goes into an address.
     #[must_use]
-    pub fn socket_url(&self) -> String {
+    pub fn socket_url(&self, ticket: &str) -> String {
         let base = ws_base(&self.gateway);
-        let path = baylee_protocol::seat_socket_path(&self.game_id, &self.seat_token);
+        let path = baylee_protocol::seat_socket_path(&self.game_id, ticket);
         format!("{base}{path}")
     }
 
@@ -185,6 +187,49 @@ pub(crate) fn wrap_sender(sender: crate::transport::WsSender) -> SocketSender {
     send_wrapper::SendWrapper::new(sender)
 }
 
+/// A socket-ticket request under way (#294): the answer lands here from
+/// whatever thread (or browser callback) the request finished on, and the
+/// frame loop picks it up with [`PendingTicket::take`]. Dropping it forgets
+/// the request; a late answer then lands nowhere.
+pub(crate) struct PendingTicket(Arc<Mutex<Option<TicketAnswer>>>);
+
+impl PendingTicket {
+    /// The answer, once it has come.
+    pub(crate) fn take(&self) -> Option<TicketAnswer> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).take()
+    }
+}
+
+/// Asks `gateway` for a ticket to open `socket` with, proving it with
+/// `bearer` in `Authorization` — the session for the lobby feed, the seat
+/// token for a seat. A header, never the address: this is the one request
+/// that still carries the long-lived secret, and it is an ordinary one.
+pub(crate) fn request_ticket(gateway: &str, bearer: &str, socket: TicketSocket) -> PendingTicket {
+    let slot = Arc::new(Mutex::new(None));
+    let url = format!(
+        "{}{}",
+        gateway.trim_end_matches('/'),
+        baylee_protocol::WS_TICKET_PATH
+    );
+    let mut request = ehttp::Request::post(url, socket.request_body().into_bytes());
+    request.headers = ehttp::Headers::new(&[
+        ("Accept", "application/json"),
+        ("Content-Type", "application/json"),
+    ]);
+    request
+        .headers
+        .insert("Authorization", format!("Bearer {bearer}"));
+    let landed = Arc::clone(&slot);
+    crate::transport::fetch(request, move |result| {
+        let answer = match result {
+            Ok(response) => TicketAnswer::read(response.status, &response.bytes),
+            Err(err) => TicketAnswer::Failed(err),
+        };
+        *landed.lock().unwrap_or_else(PoisonError::into_inner) = Some(answer);
+    });
+    PendingTicket(slot)
+}
+
 /// One live connection.
 struct Link {
     /// Outgoing frames.
@@ -193,13 +238,13 @@ struct Link {
     receiver: ewebsock::WsReceiver,
 }
 
-/// Opens a socket for a ticket.
-fn dial(ticket: &SeatTicket) -> Result<Link, String> {
+/// Opens a seat's socket at `url`.
+fn open_socket(url: String) -> Result<Link, String> {
     let options = ewebsock::Options {
         max_incoming_frame_size: MAX_FRAME_BYTES,
         ..ewebsock::Options::default()
     };
-    let (sender, receiver) = crate::transport::ws_connect(ticket.socket_url(), options)?;
+    let (sender, receiver) = crate::transport::ws_connect(url, options)?;
     Ok(Link {
         sender: wrap_sender(sender),
         receiver,
@@ -241,12 +286,16 @@ impl Connection {
 pub struct NetworkHost {
     /// How to reach the table, and how to prove which chair this is.
     ticket: SeatTicket,
-    /// The socket.
+    /// The socket, once a ticket has been had for it (#294).
     ///
     /// Behind a `Mutex` only to be `Sync`, which a Bevy resource must be; the
     /// host is never actually shared, so every access is `get_mut` and no lock
     /// is ever taken.
-    link: Mutex<Link>,
+    link: Mutex<Option<Link>>,
+    /// The ticket request of the dial under way, if one is waiting.
+    pending: Option<PendingTicket>,
+    /// Where this dial stands: fetching a ticket, opening the socket, open.
+    dial: TicketDial,
     /// The seat, as last confirmed by the table.
     seat: PlayerId,
     /// Highest sequence number seen, so a reconnect can ask for the rest.
@@ -276,19 +325,31 @@ pub struct NetworkHost {
 impl NetworkHost {
     /// Connects to the table named by a ticket.
     ///
-    /// Returns as soon as the socket is being opened — nothing here waits for
-    /// a handshake, because a frame is the only place this client is allowed
-    /// to wait. The first messages arrive through [`DuelHost::poll`].
+    /// Returns as soon as the socket's ticket has been asked for — nothing
+    /// here waits for an answer or a handshake, because a frame is the only
+    /// place this client is allowed to wait. The socket is opened by
+    /// [`DuelHost::poll`] once the ticket has come (#294), and the first
+    /// messages arrive there too.
     ///
     /// # Errors
-    /// When the socket cannot be created at all: a malformed URL, or (on
-    /// native) a thread that could not be spawned.
+    /// Never, today: a socket that cannot be created is a failed dial, which
+    /// the link reports. Kept a `Result` for the callers that already handle
+    /// one.
     pub fn connect(ticket: SeatTicket) -> Result<Self, String> {
-        let link = dial(&ticket)?;
+        let (dial, _) = TicketDial::start();
+        let pending = Some(request_ticket(
+            &ticket.gateway,
+            &ticket.seat_token,
+            TicketSocket::Seat {
+                game_id: &ticket.game_id,
+            },
+        ));
         Ok(Self {
             seat: ticket.seat,
             ticket,
-            link: Mutex::new(link),
+            link: Mutex::new(None),
+            pending,
+            dial,
             last_seq: 0,
             connection: Connection::default(),
             outbox: Vec::new(),
@@ -311,11 +372,16 @@ impl NetworkHost {
     /// player is still sitting there, and a host that redialled by itself
     /// would hammer a gateway that is down.
     ///
+    /// Every redial asks for a fresh socket ticket first (#294): the last
+    /// one was spent on the socket that just went away.
+    ///
     /// # Errors
-    /// When the socket cannot be created at all.
+    /// Never, today; see [`NetworkHost::connect`].
     pub fn redial(&mut self) -> Result<(), String> {
-        let link = dial(&self.ticket)?;
-        *self.link.get_mut().unwrap_or_else(PoisonError::into_inner) = link;
+        *self.link.get_mut().unwrap_or_else(PoisonError::into_inner) = None;
+        let (dial, _) = TicketDial::start();
+        self.dial = dial;
+        self.fetch_ticket();
         self.connection.open = false;
         self.clock = clock::Clock::default();
         self.next_probe = 0;
@@ -339,6 +405,59 @@ impl NetworkHost {
         // sent — an answer arriving ahead of the request to be caught up.
         self.outbox.insert(0, resume);
         Ok(())
+    }
+
+    /// Asks for a ticket for this seat's socket.
+    fn fetch_ticket(&mut self) {
+        self.pending = Some(request_ticket(
+            &self.ticket.gateway,
+            &self.ticket.seat_token,
+            TicketSocket::Seat {
+                game_id: &self.ticket.game_id,
+            },
+        ));
+    }
+
+    /// Picks up the ticket request's answer, if it has come, and acts on it.
+    fn collect_ticket(&mut self) {
+        let Some(answer) = self.pending.as_ref().and_then(PendingTicket::take) else {
+            return;
+        };
+        self.pending = None;
+        let step = self.dial.answered(answer);
+        self.perform(step);
+    }
+
+    /// Does what the dial said to do next.
+    fn perform(&mut self, mut step: Step) {
+        loop {
+            match step {
+                Step::Dial(ticket) => match open_socket(self.ticket.socket_url(&ticket)) {
+                    Ok(link) => {
+                        *self.link.get_mut().unwrap_or_else(PoisonError::into_inner) = Some(link);
+                        return;
+                    }
+                    Err(reason) => {
+                        bevy::log::warn!(reason, "could not open the seat socket");
+                        step = self.dial.failed();
+                    }
+                },
+                Step::FetchTicket => {
+                    *self.link.get_mut().unwrap_or_else(PoisonError::into_inner) = None;
+                    self.fetch_ticket();
+                    return;
+                }
+                // A seat token the gateway no longer takes is a chair that is
+                // not this client's any more; to the player it is the same
+                // link that will not come back as a refused upgrade was
+                // before #294, and the reconnect schedule says so.
+                Step::Unauthorized | Step::GiveUp => {
+                    self.connection.observe(&WsEvent::Error("no socket".into()));
+                    return;
+                }
+                Step::Wait => return,
+            }
+        }
     }
 
     /// Whether the socket has opened and not since closed.
@@ -384,7 +503,14 @@ impl NetworkHost {
         if !self.connection.open || self.outbox.is_empty() {
             return;
         }
-        let link = self.link.get_mut().unwrap_or_else(PoisonError::into_inner);
+        let Some(link) = self
+            .link
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_mut()
+        else {
+            return;
+        };
         for envelope in self.outbox.drain(..) {
             link.sender
                 .send(WsMessage::Binary(envelope.encode_to_vec()));
@@ -395,11 +521,35 @@ impl NetworkHost {
 impl DuelHost for NetworkHost {
     fn poll(&mut self) -> Vec<HostMessage> {
         let mut out = std::mem::take(&mut self.pending_out);
-        let events: Vec<WsEvent> = {
-            let link = self.link.get_mut().unwrap_or_else(PoisonError::into_inner);
-            std::iter::from_fn(|| link.receiver.try_recv()).collect()
+        self.collect_ticket();
+        let events: Vec<WsEvent> = match self
+            .link
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_mut()
+        {
+            Some(link) => std::iter::from_fn(|| link.receiver.try_recv()).collect(),
+            None => Vec::new(),
         };
         for event in events {
+            match &event {
+                WsEvent::Opened => self.dial.opened(),
+                WsEvent::Error(_) | WsEvent::Closed if self.dial.in_flight() => {
+                    // Refused before it opened: most likely a ticket that
+                    // expired or was spent. A fresh one, silently, while the
+                    // retries last (#294); the rest of this socket's events
+                    // belong to a dial that is over.
+                    let step = self.dial.failed();
+                    if step == Step::FetchTicket {
+                        self.perform(step);
+                        break;
+                    }
+                }
+                WsEvent::Error(_) | WsEvent::Closed => {
+                    let _ = self.dial.failed();
+                }
+                WsEvent::Message(_) => {}
+            }
             self.connection.observe(&event);
             match event {
                 WsEvent::Message(WsMessage::Binary(bytes)) => {
@@ -552,9 +702,9 @@ mod tests {
     #[test]
     fn a_plain_gateway_becomes_a_plain_socket() {
         assert_eq!(
-            ticket("http://127.0.0.1:28766").socket_url(),
+            ticket("http://127.0.0.1:28766").socket_url("t1"),
             format!(
-                "ws://127.0.0.1:28766/games/0199-abc/ws?token=deadbeef&protocol={}",
+                "ws://127.0.0.1:28766/games/0199-abc/ws?ticket=t1&protocol={}",
                 baylee_protocol::PROTOCOL_VERSION
             )
         );
@@ -566,12 +716,33 @@ mod tests {
     #[test]
     fn a_tls_gateway_becomes_a_tls_socket() {
         assert_eq!(
-            ticket("https://play.example/").socket_url(),
+            ticket("https://play.example/").socket_url("t1"),
             format!(
-                "wss://play.example/games/0199-abc/ws?token=deadbeef&protocol={}",
+                "wss://play.example/games/0199-abc/ws?ticket=t1&protocol={}",
                 baylee_protocol::PROTOCOL_VERSION
             )
         );
+    }
+
+    /// No socket address this client builds carries a secret (#294): not the
+    /// seat's, not the session's. Every builder is handed a ticket, and the
+    /// URLs are scanned for the tokens the client holds.
+    #[test]
+    fn no_socket_url_carries_a_token() {
+        const SEAT_TOKEN: &str = "deadbeef";
+        const SESSION: &str = "5e55105e55105e55";
+        let seat = ticket("https://play.example").socket_url("tkt");
+        let lobby = crate::lobby::feed_url(
+            "https://play.example",
+            "tkt",
+            &baylee_client_core::lobby::GameQuery::default(),
+        );
+        for url in [&seat, &lobby] {
+            assert!(url.contains("ticket=tkt"), "{url}");
+            assert!(!url.contains("token="), "{url}");
+            assert!(!url.contains(SEAT_TOKEN), "the seat token is in {url}");
+            assert!(!url.contains(SESSION), "the session is in {url}");
+        }
     }
 
     #[test]

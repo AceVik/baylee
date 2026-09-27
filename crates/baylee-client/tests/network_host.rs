@@ -25,6 +25,8 @@ use prost::Message as _;
 const SEAT: PlayerId = PlayerId::new(0);
 /// The game id the table hands out.
 const GAME: &str = "test-table";
+/// The seat token the lobby handed this seat: what buys its socket tickets.
+const SEAT_TOKEN: &str = "0123456789abcdef";
 /// Seat names, so the roster is checkable.
 fn names() -> Vec<String> {
     vec!["You".to_string(), "House AI".to_string()]
@@ -74,15 +76,45 @@ fn duel_preset() -> GamePreset {
     }
 }
 
+/// How the fake gateway in front of the table behaves at its door (#294).
+#[derive(Clone, Copy, Default)]
+struct Door {
+    /// How many upgrades to refuse as a stale ticket before letting one in,
+    /// however good the ticket.
+    refuse_upgrades: usize,
+    /// Answer every ticket request with this status instead of a ticket.
+    ticket_status: Option<u16>,
+}
+
+/// What the fake gateway saw: every ticket request's `Authorization`
+/// header and every upgrade's path and query.
+#[derive(Default)]
+struct Seen {
+    ticket_requests: Vec<String>,
+    upgrades: Vec<String>,
+    issued: Vec<String>,
+}
+
+type Witness = std::sync::Arc<std::sync::Mutex<Seen>>;
+
 /// Starts a table on a free port and returns it.
 ///
 /// Connections are served one at a time on purpose: the reconnect test needs
 /// the *same* session to still be there when the second socket arrives, which
 /// is exactly what a gateway guarantees and a fresh game would not.
 fn spawn_table() -> u16 {
+    spawn_table_behind(Door::default()).0
+}
+
+/// The same, behind a door that sells single-use tickets as the gateway does
+/// (#294): `POST /ws-ticket` with the seat token as a bearer, then the
+/// upgrade with `?ticket=`, spent on use.
+fn spawn_table_behind(door: Door) -> (u16, Witness) {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
     let port = listener.local_addr().expect("addr").port();
     listener.set_nonblocking(true).expect("nonblocking");
+    let seen = Witness::default();
+    let witness = seen.clone();
     std::thread::spawn(move || {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -92,19 +124,153 @@ fn spawn_table() -> u16 {
             let listener = tokio::net::TcpListener::from_std(listener).expect("listener");
             let mut session = Session::new(&duel_preset()).expect("session");
             session.describe(GAME.to_string(), names());
+            let mut refusals = door.refuse_upgrades;
             while let Ok((stream, _)) = listener.accept().await {
-                serve(stream, &mut session).await;
+                let mut head = [0u8; 4];
+                if stream.peek(&mut head).await.is_ok() && &head == b"POST" {
+                    sell_ticket(stream, door, &seen).await;
+                    continue;
+                }
+                let Some(ws) = admit(stream, &seen, &mut refusals).await else {
+                    continue;
+                };
+                serve(ws, &mut session).await;
             }
         });
     });
-    port
+    (port, witness)
+}
+
+/// Answers one `POST /ws-ticket`: a fresh ticket for the seat token this
+/// test hands out, a `401` for any other bearer.
+async fn sell_ticket(mut stream: tokio::net::TcpStream, door: Door, seen: &Witness) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut raw = Vec::new();
+    let mut buf = [0u8; 1024];
+    let (head, start, length) = loop {
+        let Ok(n) = stream.read(&mut buf).await else {
+            return;
+        };
+        if n == 0 {
+            return;
+        }
+        raw.extend_from_slice(&buf[..n]);
+        let text = String::from_utf8_lossy(&raw).into_owned();
+        if let Some(end) = text.find("\r\n\r\n") {
+            let length = text[..end]
+                .lines()
+                .find_map(|l| {
+                    l.to_ascii_lowercase()
+                        .strip_prefix("content-length:")
+                        .map(|v| v.trim().parse::<usize>().unwrap_or(0))
+                })
+                .unwrap_or(0);
+            break (text[..end].to_string(), end + 4, length);
+        }
+    };
+    while raw.len() < start + length {
+        let Ok(n) = stream.read(&mut buf).await else {
+            return;
+        };
+        if n == 0 {
+            break;
+        }
+        raw.extend_from_slice(&buf[..n]);
+    }
+    let body = String::from_utf8_lossy(&raw[start.min(raw.len())..(start + length).min(raw.len())])
+        .into_owned();
+    let bearer = head
+        .lines()
+        .find_map(|l| {
+            let (name, value) = l.split_once(':')?;
+            name.eq_ignore_ascii_case("authorization")
+                .then(|| value.trim().to_string())
+        })
+        .unwrap_or_default();
+    let path_ok = head.starts_with(&format!("POST {} ", baylee_protocol::WS_TICKET_PATH));
+    let (status, answer) = {
+        let mut seen = seen.lock().expect("witness");
+        seen.ticket_requests.push(bearer.clone());
+        match door.ticket_status {
+            Some(status) => (status, r#"{"error":"no"}"#.to_string()),
+            None if path_ok
+                && bearer == format!("Bearer {SEAT_TOKEN}")
+                && body.contains(r#""socket":"seat""#)
+                && body.contains(GAME) =>
+            {
+                let ticket = format!("tkt{}", seen.issued.len());
+                seen.issued.push(ticket.clone());
+                (200, format!(r#"{{"ticket":"{ticket}","expires_in":45}}"#))
+            }
+            None => (401, r#"{"error":"invalid seat token"}"#.to_string()),
+        }
+    };
+    let reply = format!(
+        "HTTP/1.1 {status} X\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",
+        answer.len()
+    );
+    let _ = stream.write_all(reply.as_bytes()).await;
+    let _ = stream.shutdown().await;
+}
+
+/// The upgrade: let in only a ticket this door sold and nobody has spent,
+/// unless it was told to refuse the next few whatever they carry.
+#[allow(clippy::result_large_err)] // tungstenite's handshake callback, as it is declared
+async fn admit(
+    stream: tokio::net::TcpStream,
+    seen: &Witness,
+    refusals: &mut usize,
+) -> Option<tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>> {
+    use tokio_tungstenite::tungstenite::http;
+    let refuse = if *refusals > 0 {
+        *refusals -= 1;
+        true
+    } else {
+        false
+    };
+    let seen = seen.clone();
+    tokio_tungstenite::accept_hdr_async(
+        stream,
+        move |request: &tokio_tungstenite::tungstenite::handshake::server::Request, response| {
+            let asked = request.uri().to_string();
+            let ticket = request
+                .uri()
+                .query()
+                .unwrap_or_default()
+                .split('&')
+                .find_map(|pair| pair.strip_prefix("ticket="))
+                .unwrap_or_default()
+                .to_string();
+            let mut seen = seen.lock().expect("witness");
+            seen.upgrades.push(asked);
+            // Spent on presentation, as the gateway spends it.
+            let known = seen.issued.iter().position(|t| *t == ticket);
+            let sold = known.is_some_and(|i| {
+                seen.issued[i] = String::new();
+                true
+            });
+            if sold && !refuse {
+                Ok(response)
+            } else {
+                Err(http::Response::builder()
+                    .status(401)
+                    .body(Some(format!(
+                        r#"{{"error":"{}"}}"#,
+                        baylee_protocol::TICKET_REFUSED
+                    )))
+                    .expect("a response"))
+            }
+        },
+    )
+    .await
+    .ok()
 }
 
 /// One connection: the opening payload, then answers until the socket closes.
-async fn serve(stream: tokio::net::TcpStream, session: &mut Session) {
-    let Ok(mut ws) = tokio_tungstenite::accept_async(stream).await else {
-        return;
-    };
+async fn serve(
+    mut ws: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
+    session: &mut Session,
+) {
     let mut opening = vec![session.game_static_envelope(SEAT)];
     opening.extend(mine(session.pump()));
     for envelope in opening {
@@ -179,7 +345,7 @@ fn ticket(port: u16) -> SeatTicket {
         gateway: format!("http://127.0.0.1:{port}"),
         game_id: GAME.to_string(),
         seat: SEAT,
-        seat_token: "0123456789abcdef".to_string(),
+        seat_token: SEAT_TOKEN.to_string(),
     }
 }
 
@@ -266,7 +432,13 @@ fn spawn_refusing_table(table: u32) -> (u16, std::sync::mpsc::Receiver<String>) 
             .expect("runtime");
         runtime.block_on(async move {
             let listener = tokio::net::TcpListener::from_std(listener).expect("listener");
+            let tickets = Witness::default();
             while let Ok((stream, _)) = listener.accept().await {
+                let mut head = [0u8; 4];
+                if stream.peek(&mut head).await.is_ok() && &head == b"POST" {
+                    sell_ticket(stream, Door::default(), &tickets).await;
+                    continue;
+                }
                 let asked = asked.clone();
                 let Ok(mut ws) = tokio_tungstenite::accept_hdr_async(
                     stream,
@@ -304,9 +476,18 @@ fn a_table_that_refuses_the_protocol_is_not_dialled_again() {
     let table = baylee_protocol::PROTOCOL_VERSION + 1;
     let (port, asked) = spawn_refusing_table(table);
     let mut host = NetworkHost::connect(ticket(port)).expect("connect");
-    let query = asked
-        .recv_timeout(WAIT_BUDGET)
-        .expect("the table was dialled");
+    // Polled while waiting: the socket is opened by the frame that picks up
+    // its ticket (#294), not by `connect`.
+    let mut query = None;
+    for _ in 0..WAIT_TRIES {
+        host.poll();
+        if let Ok(asked) = asked.try_recv() {
+            query = Some(asked);
+            break;
+        }
+        std::thread::sleep(WAIT_STEP);
+    }
+    let query = query.expect("the table was dialled");
     assert!(
         query.ends_with(&format!("&protocol={}", baylee_protocol::PROTOCOL_VERSION)),
         "the socket did not say its protocol: {query}"
@@ -474,4 +655,135 @@ fn a_reconnect_returns_to_the_same_table() {
 fn the_networked_host_names_its_seat_token_to_the_report_form() {
     let host = NetworkHost::connect(ticket(1)).expect("connect");
     assert_eq!(host.seat_token(), Some("0123456789abcdef"));
+}
+
+/// A seat's socket is opened with a ticket bought with its seat token in a
+/// header, and the token itself is in no address the client dials (#294).
+#[test]
+fn a_seat_socket_is_opened_with_a_ticket_and_never_with_its_token() {
+    let (port, seen) = spawn_table_behind(Door::default());
+    let mut host = NetworkHost::connect(ticket(port)).expect("connect");
+    poll_until(&mut host, "the opening", |m| !views(m).is_empty());
+    let seen = seen.lock().expect("witness");
+    assert_eq!(
+        seen.ticket_requests,
+        vec![format!("Bearer {SEAT_TOKEN}")],
+        "one ticket, bought with the seat token in Authorization"
+    );
+    assert_eq!(seen.upgrades.len(), 1, "{:?}", seen.upgrades);
+    for url in &seen.upgrades {
+        assert!(url.contains("ticket=tkt0"), "{url}");
+        assert!(!url.contains(SEAT_TOKEN), "the seat token is in {url}");
+        assert!(!url.contains("token="), "{url}");
+    }
+}
+
+/// An upgrade refused as a stale ticket is dialled again with a fresh one,
+/// and the player never sees the link go down: the owner's "the client
+/// recovers without the player doing anything".
+#[test]
+fn a_stale_ticket_is_replaced_and_the_player_sees_nothing() {
+    let (port, seen) = spawn_table_behind(Door {
+        refuse_upgrades: 2,
+        ticket_status: None,
+    });
+    let mut host = NetworkHost::connect(ticket(port)).expect("connect");
+    let mut all = Vec::new();
+    for _ in 0..WAIT_TRIES {
+        all.extend(host.poll());
+        assert_ne!(
+            host.link(),
+            LinkState::Down,
+            "a stale ticket showed the player a lost link"
+        );
+        if !views(&all).is_empty() {
+            break;
+        }
+        std::thread::sleep(WAIT_STEP);
+    }
+    assert!(!views(&all).is_empty(), "never dealt in: {all:#?}");
+    assert_eq!(host.link(), LinkState::Up);
+    let seen = seen.lock().expect("witness");
+    assert_eq!(seen.ticket_requests.len(), 3, "a fresh ticket per attempt");
+    let tickets: Vec<&str> = seen
+        .upgrades
+        .iter()
+        .filter_map(|u| u.split("ticket=").nth(1))
+        .map(|rest| rest.split('&').next().unwrap_or_default())
+        .collect();
+    assert_eq!(
+        tickets,
+        ["tkt0", "tkt1", "tkt2"],
+        "never the same ticket twice"
+    );
+}
+
+/// Past the retries, the dial gives up and the ordinary reconnect schedule
+/// takes over: the link is down, and says so.
+#[test]
+fn the_stale_ticket_retries_run_out_into_the_ordinary_schedule() {
+    let (port, seen) = spawn_table_behind(Door {
+        refuse_upgrades: 1 + usize::from(baylee_client_core::wsticket::STALE_TICKET_RETRIES),
+        ticket_status: None,
+    });
+    let mut host = NetworkHost::connect(ticket(port)).expect("connect");
+    for _ in 0..WAIT_TRIES {
+        host.poll();
+        if host.link() == LinkState::Down {
+            break;
+        }
+        std::thread::sleep(WAIT_STEP);
+    }
+    assert_eq!(host.link(), LinkState::Down);
+    assert_eq!(seen.lock().expect("witness").ticket_requests.len(), 3);
+    // And the schedule's redial buys a ticket of its own and gets in.
+    host.reconnect().expect("redial");
+    poll_until(&mut host, "the table after the schedule's redial", |m| {
+        !views(m).is_empty()
+    });
+}
+
+/// A seat token the gateway no longer takes (`401` on the ticket request)
+/// is a link that is down, and no socket is dialled with nothing to show.
+#[test]
+fn a_refused_ticket_request_is_a_link_that_is_down() {
+    let (port, seen) = spawn_table_behind(Door {
+        refuse_upgrades: 0,
+        ticket_status: Some(401),
+    });
+    let mut host = NetworkHost::connect(ticket(port)).expect("connect");
+    for _ in 0..WAIT_TRIES {
+        host.poll();
+        if host.link() == LinkState::Down {
+            break;
+        }
+        std::thread::sleep(WAIT_STEP);
+    }
+    assert_eq!(host.link(), LinkState::Down);
+    let seen = seen.lock().expect("witness");
+    assert_eq!(seen.ticket_requests.len(), 1, "asked once, not in a loop");
+    assert!(seen.upgrades.is_empty(), "no socket without a ticket");
+}
+
+/// Every reconnect buys a fresh ticket: the last one was spent on the
+/// socket that went away.
+#[test]
+fn a_reconnect_buys_a_fresh_ticket() {
+    let (port, seen) = spawn_table_behind(Door::default());
+    let mut host = NetworkHost::connect(ticket(port)).expect("connect");
+    poll_until(&mut host, "the first question", |m| !choices(m).is_empty());
+    host.reconnect().expect("redial");
+    poll_until(&mut host, "the table again", |m| !statics(m).is_empty());
+    let seen = seen.lock().expect("witness");
+    assert_eq!(seen.ticket_requests.len(), 2);
+    assert!(
+        seen.upgrades[0].contains("ticket=tkt0"),
+        "{:?}",
+        seen.upgrades
+    );
+    assert!(
+        seen.upgrades[1].contains("ticket=tkt1"),
+        "{:?}",
+        seen.upgrades
+    );
 }

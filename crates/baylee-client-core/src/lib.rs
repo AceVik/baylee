@@ -79,6 +79,7 @@ pub mod textbuf;
 pub mod textface;
 pub mod timing;
 pub mod touch;
+pub mod wsticket;
 pub mod zones;
 
 /// View builders for tests.

@@ -464,6 +464,8 @@ mod editing;
 mod empty;
 mod entrance;
 mod feed;
+#[cfg(test)]
+pub(crate) use feed::feed_url;
 mod front;
 mod gateway;
 mod hint;
