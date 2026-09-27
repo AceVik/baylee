@@ -368,6 +368,29 @@ message GameRecordChunk {
   bool last = 4;
 }
 
+// Gateway → engine: send what has gathered of the record now, as a
+// `GameRecordChunk` that is not `last`, and then say so with a
+// `RecordFlushed` carrying the same `nonce` (#323). Asked for a bug report
+// filed at a game that goes on, so the record attached reaches the moment
+// of the report. Never forwarded to a seat. An engine from before it reads
+// an envelope with no message and does nothing.
+message FlushRecord {
+  string game_id = 1;
+  // The gateway's, echoed back; says which ask an answer is for.
+  uint64 nonce = 2;
+}
+
+// Engine → gateway: everything of the record up to the `FlushRecord` with
+// this `nonce` was sent before this frame, on the same socket (#323). Sent
+// for every `FlushRecord`, also when nothing was waiting (then with no
+// piece before it), before the game is built, and after it ended.
+message RecordFlushed {
+  string game_id = 1;
+  uint64 nonce = 2;
+  // How many pieces the engine has sent so far: the next piece's `seq`.
+  uint32 pieces = 3;
+}
+
 message Envelope {
   // 1 was `Hello`, which nothing ever sent (#271).
   reserved 1;
@@ -407,6 +430,10 @@ message Envelope {
     TableLoading table_loading = 29;
     // Engine → gateway only (#315). An older gateway ignores it.
     GameRecordChunk game_record_chunk = 30;
+    // Engine link only (#323). An engine or gateway from before them
+    // decodes either as an envelope with no message and passes over it.
+    FlushRecord flush_record = 31;
+    RecordFlushed record_flushed = 32;
   }
 
 }
