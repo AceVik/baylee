@@ -1,0 +1,62 @@
+# The browser client at https://<gateway host>/play/ (#327).
+#
+# Directives for the gateway's own site block, served ahead of the gateway:
+# everything under /play is these files, everything else is the gateway
+# (which answers 404 there, crates/baylee-gateway/tests/e2e_play.rs).
+# `baylee-deploy` builds the client and installs it to /opt/baylee/web/play
+# with the gateway; docs/client.md §"Serving it at /play/" has the rest.
+#
+# Install (once, as root):
+#
+#   install -m644 scripts/server/play.caddy /etc/caddy/baylee-play.caddy
+#
+# and in the gateway's site block (the file under /etc/caddy/sites/), import
+# it first and put the proxy in a `handle` of its own, so the two never both
+# answer one request:
+#
+#   baylee.acevik.de {
+#       import /etc/caddy/baylee-play.caddy
+#       handle {
+#           reverse_proxy 127.0.0.1:28766
+#       }
+#   }
+#
+# then `caddy validate --config /etc/caddy/Caddyfile` and
+# `systemctl reload caddy`. Not under sites/: that directory is imported at
+# the top level, where these directives mean nothing.
+#
+# No `log` here, on purpose: a page address can carry a seat token
+# (`?game=…&token=…`, docs/privacy.md), and an access log would keep it.
+
+redir /play /play/ 308
+
+handle_path /play/* {
+	root * /opt/baylee/web/play
+
+	# Every file trunk names by its content (`baylee-client-<hash>.js`,
+	# `…_bg.wasm`, `…-<hash>.css`) never changes under that name; the rest
+	# (the page, `assets/`) is asked again each time and answered 304 when
+	# nothing changed.
+	@hashed path_regexp -[0-9a-f]{16}(_bg)?\.(js|wasm|css)$
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	@unhashed not path_regexp -[0-9a-f]{16}(_bg)?\.(js|wasm|css)$
+	header @unhashed Cache-Control "no-cache"
+
+	# WebAssembly.instantiateStreaming refuses any other type.
+	@wasm path *.wasm
+	header @wasm Content-Type application/wasm
+
+	# What the page may do. 'wasm-unsafe-eval' compiles the client and allows
+	# no JavaScript eval; connect-src is this gateway (HTTP and its sockets)
+	# and the three Scryfall hosts the client fetches art, printings and card
+	# text from (baylee_client_core::images::SCRYFALL_*): a browser takes its
+	# art from Scryfall, not the mirror (docs/protocol.md §"Card art").
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' wss://{host} https://cards.scryfall.io https://backs.scryfall.io https://api.scryfall.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+
+	encode zstd gzip
+	file_server
+}
