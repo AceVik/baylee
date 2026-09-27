@@ -982,9 +982,10 @@ pub(super) fn gear_menu(
     commands.entity(all).entry::<Node>().and_modify(|mut node| {
         node.justify_content = JustifyContent::Center;
     });
+    let report = crate::report::button(commands, fonts, metrics, lang);
     commands
         .entity(menu)
-        .add_children(&[caption, languages, rule, music, all]);
+        .add_children(&[caption, languages, rule, music, report, all]);
     commands.entity(holder).add_children(&[veil, menu]);
     holder
 }

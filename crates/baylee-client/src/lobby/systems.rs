@@ -432,8 +432,12 @@ pub(super) fn keyboard(
     mut paste: Local<Option<super::editing::Paste>>,
     entrance: Res<super::entrance::Entrance>,
     journey: Option<Res<crate::arrival::Journey>>,
+    desk: Option<Res<crate::report::ReportDesk>>,
 ) {
-    if journey.as_ref().is_some_and(|j| j.active()) || entrance.active() {
+    if journey.as_ref().is_some_and(|j| j.active())
+        || entrance.active()
+        || desk.is_some_and(|desk| desk.holds_keyboard())
+    {
         keys.clear();
         return;
     }

@@ -71,7 +71,7 @@ futures-util.workspace = true
 # control socket inside a game binary is a cheat vector, and the only
 # guarantee worth having is that the code is not in the shipped build at
 # all; the loopback bind is the second lock, not the first.
-dev-control = ["dep:image"]
+dev-control = []
 
 # Two development features that trade a slower first build for a faster loop,
 # both off by default and neither ever in a shipped build.
@@ -137,8 +137,9 @@ name = "baylee-client"
 path = "src/main.rs"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# Only reached through the `dev-control` feature; see its comment above.
-image = { workspace = true, optional = true }
+# The report form's screenshot (`src/report/shot.rs`, #309) and the
+# `dev-control` harness's: PNG only.
+image.workspace = true
 # Card art over HTTP(S) with a disk cache (`src/artreader.rs`, #250).
 # `platform-verifier` so a gateway's mirror is trusted the way the system
 # trusts it, as bevy's reader did.

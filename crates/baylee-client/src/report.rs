@@ -1,0 +1,547 @@
+//! Reporting a problem (#309) and a crash (#310) to the gateway.
+//!
+//! Everything that decides — what a report carries, what the player allowed,
+//! whose names are replaced, what the gateway's answer means — is in
+//! `baylee_client_core::bugreport` and tested there. This is the shell round
+//! it: the form over whatever screen is up (`form`), collecting what the
+//! form may offer ([`gather`]), the request, the panic hook and the courier
+//! that sends a crash report on the next start.
+//!
+//! One form for the lobby and the table, opened by `F8` (`Action::Report`),
+//! by the row in the table's game menu and by the buttons beside the music
+//! controls in the lobby. It sends to the gateway the lobby is signed in to,
+//! with that session; without one it says so and sends nothing.
+
+use std::sync::{Arc, Mutex};
+
+use baylee_client_core::bugreport::{
+    self, Build, Category, Consent, CrashConsent, CrashFile, CrashStep, Game, Gathered, Holding,
+    ReportForm, Secret, Settings, Status, System, Table,
+};
+use baylee_client_core::i18n::Lang;
+use baylee_client_core::lobby::gateway_list;
+use baylee_client_core::prefs::Action;
+use bevy::prelude::*;
+
+use crate::lobby::LobbyState;
+use crate::settings::ClientSettings;
+
+mod form;
+mod shot;
+
+/// Where the panic hook leaves a crash, beside the settings.
+const CRASH_FILE: &str = "crash-report.json";
+
+/// The gateway the lobby is signed in to, for the panic hook to write down.
+///
+/// A static because the hook may read nothing from the world: the world may
+/// be what broke. Written by [`remember_the_gateway`] whenever the session
+/// changes.
+static SIGNED_IN_AT: Mutex<Option<String>> = Mutex::new(None);
+
+/// The report form and everything it holds between frames.
+#[derive(Resource, Default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is a different thing standing open or pending, as on `Duel`"
+)]
+pub struct ReportDesk {
+    /// Whether the form is up.
+    pub open: bool,
+    /// Keys go to the form this frame even though it just closed, so the
+    /// `Esc` that closed it does not also reach the screen under it.
+    swallow: bool,
+    /// The form's state.
+    form: ReportForm,
+    /// What the form may attach, collected when it opened.
+    gathered: Gathered,
+    /// Whether the screenshot is still being taken.
+    shooting: bool,
+    /// Frames the form has waited for the screenshot before drawing itself,
+    /// so the picture is of the screen and not of the form.
+    waited: u32,
+    /// The crash found at start, while it waits for a session or an answer.
+    crash: Option<CrashFile>,
+    /// Whether the player is being asked about crash reports.
+    asking: bool,
+    /// Whether this start already tried to send the crash.
+    crash_tried: bool,
+    /// Asked for from elsewhere (a button, the game menu): open next frame.
+    pub asked: bool,
+}
+
+impl ReportDesk {
+    /// Whether the keyboard belongs to the form (or the crash question)
+    /// this frame. Every other key handler asks this first.
+    #[must_use]
+    pub fn holds_keyboard(&self) -> bool {
+        self.open || self.asking || self.swallow
+    }
+}
+
+/// The gateway's answers, from the HTTP thread.
+#[derive(Resource, Default, Clone)]
+struct Answers(Arc<Mutex<Vec<Answer>>>);
+
+/// One answer: to the form's report, or to the crash report.
+enum Answer {
+    Form(u16, String),
+    Crash(u16),
+}
+
+/// Installs the form, the courier and the start-up check.
+pub(crate) fn install(app: &mut App) {
+    if app.world().contains_resource::<ReportDesk>() {
+        return;
+    }
+    // A headless test builds the lobby without a settings file, and the
+    // consent lives there: no settings, no form.
+    let settled = resource_exists::<ClientSettings>;
+    // And one without the input plugin: the form reads keys and the wheel.
+    app.add_message::<bevy::input::keyboard::KeyboardInput>()
+        .add_message::<bevy::input::mouse::MouseWheel>();
+    app.init_resource::<ReportDesk>()
+        .init_resource::<Answers>()
+        .add_systems(Startup, find_a_crash.run_if(settled))
+        .add_systems(PreUpdate, keys.after(bevy::input::InputSystems))
+        .add_systems(
+            Update,
+            (
+                open_when_asked,
+                remember_the_gateway,
+                answers,
+                send_the_crash,
+                form::draw,
+                form::scroll,
+            )
+                .chain()
+                .run_if(settled),
+        );
+}
+
+/// Opens the form on `F8` (or whatever the player bound it to), and hands
+/// every key to it while it is up.
+fn keys(
+    codes: Res<ButtonInput<KeyCode>>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut typed: MessageReader<bevy::input::keyboard::KeyboardInput>,
+    mut desk: ResMut<ReportDesk>,
+) {
+    desk.swallow = false;
+    if desk.asking {
+        typed.clear();
+        return;
+    }
+    if !desk.open {
+        let opened = prefs.is_some_and(|prefs| {
+            crate::keys::Binds::new(&codes, prefs.keymap()).just_pressed(Action::Report)
+        });
+        if opened {
+            desk.asked = true;
+        }
+        typed.clear();
+        return;
+    }
+    if form::typing(&mut desk, &codes, &mut typed) {
+        desk.open = false;
+        desk.swallow = true;
+    }
+}
+
+/// Opens the form a button or the game menu asked for, gathering what it
+/// may offer.
+#[allow(clippy::too_many_arguments)] // one reader per thing a report can carry
+fn open_when_asked(
+    mut commands: Commands,
+    mut desk: ResMut<ReportDesk>,
+    duel: Option<ResMut<crate::Duel>>,
+    host: Option<Res<crate::InstalledHost>>,
+    settings: Res<ClientSettings>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
+) {
+    let mut duel = duel;
+    let from_menu = duel.as_ref().is_some_and(|d| d.report_asked);
+    if let Some(duel) = duel.as_mut().filter(|_| from_menu) {
+        duel.report_asked = false;
+        duel.game_menu = false;
+    }
+    if !(desk.asked || from_menu) || desk.open {
+        desk.asked = false;
+        return;
+    }
+    desk.asked = false;
+    desk.open = true;
+    desk.form.status = Status::Editing;
+    desk.form.preview = false;
+    let at_table = phase.is_some_and(|phase| *phase.get() != crate::DuelPhase::Closed);
+    let duel = duel.as_deref().filter(|_| at_table);
+    desk.gathered = gather(
+        duel,
+        host.as_deref(),
+        &settings,
+        prefs.as_deref(),
+        windows.single().ok(),
+        adapter.as_deref(),
+    );
+    // Taken before the form is drawn over it, and whether or not the box is
+    // ticked: it stays on this machine unless it is.
+    desk.shooting = shot::take(&mut commands);
+    desk.waited = 0;
+}
+
+/// Everything the form may offer, read now.
+fn gather(
+    duel: Option<&crate::Duel>,
+    host: Option<&crate::InstalledHost>,
+    settings: &ClientSettings,
+    prefs: Option<&crate::prefs::Prefs>,
+    window: Option<&Window>,
+    adapter: Option<&bevy::render::renderer::RenderAdapterInfo>,
+) -> Gathered {
+    let networked = host.is_some_and(|h| h.0.link() != crate::host::LinkState::Local);
+    let statics = duel.and_then(|d| d.statics.as_ref());
+    let game = duel.and_then(|duel| {
+        let view = duel.view.clone()?;
+        Some(Game {
+            table: Table {
+                seat: view.seat.get(),
+                seq: view.seq,
+                when: format!("turn {}, {:?}", view.turn, view.step),
+            },
+            pending: duel.interaction.as_ref().map(|i| i.pending().clone()),
+            holding: Holding {
+                selected: duel
+                    .interaction
+                    .as_ref()
+                    .map_or(0, |i| i.selected().count()),
+                armed: duel.armed.as_ref().map(|armed| format!("{:?}", armed.deed)),
+                mana_run: duel.mana_run.is_some(),
+                outbox: duel.outbox().len(),
+                last_error: duel
+                    .last_error
+                    .as_ref()
+                    .map(|refusal| refusal.text(Lang::En)),
+            },
+            view,
+        })
+    });
+    let log = duel.and_then(|duel| {
+        let seat = duel.view.as_ref()?.seat;
+        let none = |_: baylee_core::ids::CardIndex, _: u8| None;
+        Some(bugreport::seat_log(&duel.log, statics, seat, &none))
+    });
+    Gathered {
+        build: build(),
+        game_id: statics
+            .filter(|_| networked)
+            .map(|statics| statics.game_id.clone()),
+        system: Some(system(window, adapter, &settings.lang)),
+        game,
+        log,
+        settings: Some(Settings {
+            lang: settings.lang.clone(),
+            preview_scale: settings.preview_scale,
+            prefer_text_view: settings.prefer_text_view,
+            zone_view: format!("{:?}", settings.zone_view),
+            music: format!("{:?}", settings.music),
+            saved_gateways: settings.gateways.len(),
+            preferences: prefs.and_then(|p| serde_json::from_str(&p.all().to_json()).ok()),
+        }),
+        screenshot: None,
+    }
+}
+
+/// Which build this is.
+fn build() -> Build {
+    Build {
+        version: baylee_build::short().to_string(),
+        commit: Some(baylee_build::COMMIT.to_string()).filter(|c| !c.is_empty()),
+    }
+}
+
+/// What this runs on.
+fn system(
+    window: Option<&Window>,
+    adapter: Option<&bevy::render::renderer::RenderAdapterInfo>,
+    lang: &str,
+) -> System {
+    System {
+        platform: format!("{}/{}", std::env::consts::OS, std::env::consts::ARCH),
+        cpus: std::thread::available_parallelism().ok().map(usize::from),
+        adapter: adapter.map(|a| a.name.clone()),
+        backend: adapter.map(|a| format!("{:?}", a.backend)),
+        window: window.map_or((0, 0), |w| {
+            (
+                w.resolution.width().round() as u32,
+                w.resolution.height().round() as u32,
+            )
+        }),
+        scale: window.map_or(1.0, |w| w.resolution.scale_factor()),
+        lang: lang.to_string(),
+    }
+}
+
+/// The session the report is sent with, and the gateway it belongs to.
+fn session(lobby: Option<&LobbyState>) -> Option<(String, String)> {
+    let lobby = lobby?;
+    if lobby.offline.is_some() {
+        return None;
+    }
+    let token = lobby.lobby.token()?;
+    Some((lobby.gateway.clone(), token.to_string()))
+}
+
+/// Every secret this client holds that a report must not carry: the
+/// session, a seat's token, and every guest kept on this device.
+fn secrets<'a>(
+    token: &'a str,
+    lobby: Option<&'a LobbyState>,
+    settings: &'a ClientSettings,
+) -> Vec<Secret<'a>> {
+    let mut secrets = vec![Secret {
+        label: "session token",
+        value: token,
+    }];
+    if let Some(seat) = lobby.and_then(|l| l.lobby.awaiting()) {
+        secrets.push(Secret {
+            label: "seat token",
+            value: &seat.seat_token,
+        });
+    }
+    for guest in settings.guests.values() {
+        secrets.push(Secret {
+            label: "guest token",
+            value: &guest.token,
+        });
+    }
+    secrets
+}
+
+/// Sends the form's report: sealed here, answered into [`Answers`].
+fn send(
+    desk: &mut ReportDesk,
+    lobby: Option<&LobbyState>,
+    settings: &ClientSettings,
+    answers: &Answers,
+) {
+    let Some((gateway, token)) = session(lobby) else {
+        return;
+    };
+    let secrets = secrets(&token, lobby, settings);
+    let consent = settings.reports.clone();
+    let gathered = desk.gathered.clone();
+    let Some(json) = desk.form.prepare(&gathered, &consent, &secrets) else {
+        return;
+    };
+    post(&gateway, &token, json, answers, Answer::Form);
+}
+
+/// `POST {gateway}/reports` with the session, its answer posted back.
+fn post(
+    gateway: &str,
+    token: &str,
+    body: String,
+    answers: &Answers,
+    answer: impl FnOnce(u16, String) -> Answer + Send + 'static,
+) {
+    let mut request = ehttp::Request::post(
+        format!("{}/reports", gateway.trim_end_matches('/')),
+        body.into_bytes(),
+    );
+    request.headers = ehttp::Headers::new(&[
+        ("Accept", "application/json"),
+        ("Content-Type", "application/json"),
+    ]);
+    request
+        .headers
+        .insert("Authorization", format!("Bearer {token}"));
+    let slot = Arc::clone(&answers.0);
+    crate::transport::fetch(request, move |result| {
+        let (status, body) = match result {
+            Ok(response) => (
+                response.status,
+                response.text().unwrap_or_default().to_string(),
+            ),
+            Err(_) => (0, String::new()),
+        };
+        if let Ok(mut slot) = slot.lock() {
+            slot.push(answer(status, body));
+        }
+    });
+}
+
+/// Hands the gateway's answers to the form and the courier.
+fn answers(answers: Res<Answers>, mut desk: ResMut<ReportDesk>) {
+    let drained: Vec<Answer> = answers
+        .0
+        .lock()
+        .map(|mut slot| slot.drain(..).collect())
+        .unwrap_or_default();
+    for answer in drained {
+        match answer {
+            Answer::Form(status, body) => desk.form.answered(status, &body),
+            Answer::Crash(status) => {
+                // Received, or refused for good: either way this crash is
+                // done. Anything else keeps the file for the next start.
+                if matches!(status, 200 | 201 | 400 | 413) {
+                    crate::settings::store::remove_named(CRASH_FILE);
+                }
+                desk.crash = None;
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ crashes
+
+/// Writes a crash down where the next start will find it (#310).
+///
+/// Installed first thing by [`crate::standalone::run`], and chained to the
+/// hook that was there, so the panic is still printed. Nothing here touches
+/// the network or the world: a file, and the message in it.
+pub(crate) fn install_panic_hook() {
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap_or_default();
+        let message = info
+            .payload()
+            .downcast_ref::<&str>()
+            .map(|s| (*s).to_string())
+            .or_else(|| info.payload().downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "panic".to_string());
+        let file = CrashFile {
+            gateway: SIGNED_IN_AT.lock().ok().and_then(|g| g.clone()),
+            build: build(),
+            record: bugreport::CrashRecord {
+                message: bugreport::scrub_home(&message, &home),
+                location: info
+                    .location()
+                    .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column())),
+                backtrace: None,
+                at_unix: web_time::SystemTime::now()
+                    .duration_since(web_time::UNIX_EPOCH)
+                    .map_or(0, |d| d.as_secs()),
+                platform: format!("{}/{}", std::env::consts::OS, std::env::consts::ARCH),
+                thread: std::thread::current().name().map(str::to_string),
+            },
+        };
+        crate::settings::store::write_named(CRASH_FILE, &file.to_text());
+        previous(info);
+    }));
+}
+
+/// Keeps [`SIGNED_IN_AT`] on the gateway the lobby is signed in to.
+fn remember_the_gateway(lobby: Option<Res<LobbyState>>, mut last: Local<Option<String>>) {
+    let now = session(lobby.as_deref()).map(|(gateway, _)| gateway);
+    if *last != now {
+        if let Ok(mut slot) = SIGNED_IN_AT.lock() {
+            slot.clone_from(&now);
+        }
+        *last = now;
+    }
+}
+
+/// At start: a crash file, and what the player said to do with one.
+fn find_a_crash(mut desk: ResMut<ReportDesk>, settings: Res<ClientSettings>) {
+    let text = crate::settings::store::read_named(CRASH_FILE);
+    let file = text.as_deref().and_then(CrashFile::from_text);
+    if text.is_some() && file.is_none() {
+        crate::settings::store::remove_named(CRASH_FILE);
+    }
+    match bugreport::crash_step(settings.reports.crashes, file.is_some()) {
+        CrashStep::Nothing => {}
+        CrashStep::Discard => crate::settings::store::remove_named(CRASH_FILE),
+        CrashStep::Ask => {
+            desk.crash = file;
+            desk.asking = true;
+        }
+        CrashStep::Send => desk.crash = file,
+    }
+}
+
+/// The crash question's answer, from the form's buttons.
+fn answer_the_crash_question(desk: &mut ReportDesk, settings: &mut ClientSettings, send: bool) {
+    desk.asking = false;
+    desk.swallow = true;
+    settings.reports.crashes = if send {
+        CrashConsent::Send
+    } else {
+        CrashConsent::Never
+    };
+    settings.save();
+    if !send {
+        desk.crash = None;
+        crate::settings::store::remove_named(CRASH_FILE);
+    }
+}
+
+/// Sends a waiting crash once the lobby is signed in where it belongs.
+fn send_the_crash(
+    mut desk: ResMut<ReportDesk>,
+    lobby: Option<Res<LobbyState>>,
+    settings: Res<ClientSettings>,
+    answers: Res<Answers>,
+) {
+    if desk.crash_tried || desk.asking || settings.reports.crashes != CrashConsent::Send {
+        return;
+    }
+    let Some(file) = desk.crash.clone() else {
+        return;
+    };
+    let Some((gateway, token)) = session(lobby.as_deref()) else {
+        return;
+    };
+    if !file.sends_to(&gateway, gateway_list::PINNED) {
+        return;
+    }
+    desk.crash_tried = true;
+    let system = settings
+        .reports
+        .allows(Category::System)
+        .then(|| system(None, None, &settings.lang));
+    let secrets = secrets(&token, lobby.as_deref(), &settings);
+    if let Ok((json, _)) = bugreport::crash_submission(&file, system).sealed(&secrets) {
+        post(&gateway, &token, json, &answers, |status, _| {
+            Answer::Crash(status)
+        });
+    }
+}
+
+/// The lobby's "report a problem" button, beside the music controls.
+pub(crate) fn button(
+    commands: &mut Commands,
+    fonts: &crate::hud::UiFonts,
+    metrics: crate::lobby::Metrics,
+    lang: Lang,
+) -> Entity {
+    let id = crate::lobby::button(
+        commands,
+        fonts,
+        metrics,
+        baylee_client_core::i18n::Phrase::ReportButton.text(lang),
+        crate::lobby::Press::PickerNothing,
+        crate::hud::palette::PANEL,
+        true,
+    );
+    commands
+        .entity(id)
+        .remove::<crate::lobby::Press>()
+        .insert(Button)
+        .observe(
+            |mut click: On<Pointer<Click>>, mut desk: ResMut<ReportDesk>| {
+                click.propagate(false);
+                desk.asked = true;
+            },
+        );
+    id
+}
+
+/// The consent this device keeps, as the form edits it.
+fn consent_mut(settings: &mut ClientSettings) -> &mut Consent {
+    &mut settings.reports
+}

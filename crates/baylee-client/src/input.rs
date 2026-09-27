@@ -815,6 +815,7 @@ fn abilities_of(duel: &Duel, object: ObjectId) -> Option<Vec<crate::abilities::A
 /// at all, and it also removed the `if !shift` guards that used to be sprayed
 /// through here — `W` and `⇧W` are two chords, and telling them apart is the
 /// keymap's job, not this function's.
+#[allow(clippy::too_many_arguments)] // the eighth is the report form's claim on the keys
 pub fn keyboard(
     keys: Res<ButtonInput<KeyCode>>,
     mut typed: MessageReader<KeyboardInput>,
@@ -823,7 +824,13 @@ pub fn keyboard(
     mut rig: ResMut<crate::table::CameraRig>,
     mut settings: ResMut<crate::settings::ClientSettings>,
     mut had_keyboard: Local<bool>,
+    desk: Option<Res<crate::report::ReportDesk>>,
 ) {
+    // The report form, when it is up, has every key (#309).
+    if desk.is_some_and(|desk| desk.holds_keyboard()) {
+        typed.clear();
+        return;
+    }
     let fired = Fired::of(&keys, prefs.keymap());
     // The keystroke that opened the panel is not a keystroke for the box.
     // `G` opens the sheet on a frame where nothing here reads the message
@@ -2623,6 +2630,7 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // and the renderer reads it rather than owning it.
         MenuAction::ToggleGameMenu => duel.game_menu = !duel.game_menu,
         MenuAction::ToggleLog => duel.log_open = !duel.log_open,
+        MenuAction::Report => duel.report_asked = true,
         // Two presses, because there is no undo behind this one. The panel
         // stays open between them — nothing here closes it — which is the
         // whole reason it is not a child of the shelf: the arming press

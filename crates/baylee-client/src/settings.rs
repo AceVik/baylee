@@ -122,6 +122,12 @@ pub struct ClientSettings {
     /// with it playing, at the default level.
     #[serde(default)]
     pub music: baylee_client_core::music::MusicLevel,
+    /// What this device lets a report carry, and whether it sends crash
+    /// reports (#309, #310). Per device, like the music: the form is open
+    /// before anybody signs in, and a crash happens whoever is signed in.
+    /// A file from before it allows nothing and has not been asked.
+    #[serde(default)]
+    pub reports: baylee_client_core::bugreport::Consent,
 }
 
 impl Default for ClientSettings {
@@ -137,6 +143,7 @@ impl Default for ClientSettings {
             gateway_uses: baylee_client_core::lobby::gateway_use::GatewayUses::default(),
             guests: std::collections::BTreeMap::new(),
             music: baylee_client_core::music::MusicLevel::default(),
+            reports: baylee_client_core::bugreport::Consent::default(),
         }
     }
 }
@@ -355,6 +362,13 @@ pub(crate) mod store {
         }
     }
 
+    /// Removes one named document, if it is there.
+    pub fn remove_named(name: &str) {
+        if let Some(path) = path(name) {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+
     /// Puts a document that could not be read out of the way, once.
     ///
     /// The moment a player's work is actually lost is not the crash — it is
@@ -488,6 +502,11 @@ pub(crate) mod store {
         write_key(&format!("baylee:{name}"), text);
     }
 
+    /// Removes one named document, under the same namespace.
+    pub fn remove_named(name: &str) {
+        remove_key(&format!("baylee:{name}"));
+    }
+
     /// Puts a document that could not be read out of the way, once.
     ///
     /// The native back end's note explains why this exists. There is no
@@ -597,6 +616,11 @@ mod tests {
                 music.set_muted(true);
                 music
             },
+            reports: baylee_client_core::bugreport::Consent {
+                log: true,
+                crashes: baylee_client_core::bugreport::CrashConsent::Never,
+                ..baylee_client_core::bugreport::Consent::default()
+            },
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
@@ -618,6 +642,11 @@ mod tests {
         assert_eq!(
             read.music, written.music,
             "a player who silenced the front door's music has it silent on the next start"
+        );
+        assert_eq!(
+            read.reports, written.reports,
+            "what a player allowed a report to carry, and a \"don't send\" for crashes, \
+             is remembered on this device (#309, #310)"
         );
         assert_eq!(read.gateway_uses.of("https://example.test").count, 1);
         assert_eq!(read.guests, written.guests, "the guest comes back");

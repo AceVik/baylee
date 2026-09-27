@@ -76,6 +76,8 @@ impl Plugin for LobbyPlugin {
         crate::vista::install(app);
         // The same orchestra continues through the lobby and every table.
         crate::music::install(app);
+        // The report form stands over the lobby and every table (#309).
+        crate::report::install(app);
         crate::loading::install(app);
         crate::flip::install(app);
         app.init_resource::<thumbnails::Cache>()
