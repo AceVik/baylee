@@ -1843,6 +1843,24 @@ pub(crate) const Z_PREVIEW: i32 = 10;
 /// [`hand`]'s spread rather than an inset.
 pub(crate) const EDGE: f32 = 12.0;
 
+/// The end screen's root rung: over every other root of the table
+/// (`GlobalZIndex(0)`, the seat bars at -1). See [`finish`].
+pub(crate) const G_FINISH: i32 = 1;
+/// The hover preview's root rung while the end screen stands.
+///
+/// The end screen writes the game's whole log, and a card its lines name is
+/// a link that opens the table's preview, as the log panel's does. The
+/// preview is a child of [`HudRoot`] and was ordered with it, at
+/// `GlobalZIndex(0)`: under the end screen it was opened from, where a
+/// player hovering the link saw it only through the veil, behind the sheet.
+/// A preview describes whatever is under the pointer and stands over all of
+/// it ([`Z_PREVIEW`]); once the end screen is up, that includes the sheet.
+pub(crate) const G_PREVIEW_OVER_FINISH: i32 = 2;
+const _: () = assert!(
+    G_PREVIEW_OVER_FINISH > G_FINISH,
+    "a preview opened from the end screen stands over it"
+);
+
 /// A card's corner radius for a given rendered width.
 ///
 /// The number is the printed one — 3 mm on a 63 mm card, 4.76% — and it has

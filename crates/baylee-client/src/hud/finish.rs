@@ -335,8 +335,11 @@ pub(crate) fn spawn_finish(
             // other root in this client sits at `GlobalZIndex(0)` — the seat
             // bars at -1 — so one is enough to stand over all of them, and it
             // says what it means instead of continuing the ladder of `ZIndex`
-            // numbers that only ever order siblings.
-            GlobalZIndex(1),
+            // numbers that only ever order siblings. Two things stand over
+            // it on purpose: a preview opened from this sheet's log
+            // ([`G_PREVIEW_OVER_FINISH`]) and the report button and form
+            // (`crate::report`), which are over everything.
+            GlobalZIndex(G_FINISH),
             Pickable::IGNORE,
         ))
         .id();

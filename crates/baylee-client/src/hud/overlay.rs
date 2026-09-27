@@ -1118,6 +1118,19 @@ pub fn sync_overlay(
                 commands.entity(tooltip).add_child(sheet);
             }
             commands.entity(root).add_child(tooltip);
+            // Over the end screen once it stands: its log's links open this
+            // preview, and one drawn at the overlay's own rung is behind the
+            // sheet the pointer is on. Everything below that hangs off the
+            // preview stands with it.
+            let over_the_finish = duel.ending().is_some();
+            let lift = |commands: &mut Commands, node: Entity| {
+                if over_the_finish {
+                    commands
+                        .entity(node)
+                        .insert(GlobalZIndex(G_PREVIEW_OVER_FINISH));
+                }
+            };
+            lift(&mut commands, tooltip);
 
             // What the preview stands in, with the card underneath a copy
             // once it stands beside it: the cards attached to it go beside
@@ -1209,6 +1222,7 @@ pub fn sync_overlay(
                     .entity(beside)
                     .insert_recursive::<Children>(Pickable::IGNORE);
                 commands.entity(root).add_child(beside);
+                lift(&mut commands, beside);
             }
 
             // ---- the cards attached to it (#305) -----------------------
@@ -1311,6 +1325,7 @@ pub fn sync_overlay(
                     .entity(beside)
                     .insert_recursive::<Children>(Pickable::IGNORE);
                 commands.entity(root).add_child(beside);
+                lift(&mut commands, beside);
             }
 
             // The speech-bubble tail, pointing down at the hovered card —
@@ -1336,6 +1351,7 @@ pub fn sync_overlay(
                     ))
                     .id();
                 commands.entity(root).add_child(tail);
+                lift(&mut commands, tail);
             }
         }
     }
@@ -2992,6 +3008,61 @@ mod tests {
         app.world_mut().resource_mut::<Duel>().hovered_log = None;
         app.update();
         assert_eq!(previews(&mut app), 0, "the preview outlived the hover");
+    }
+
+    /// The rung a UI node is drawn at among the roots: its own
+    /// `GlobalZIndex`, else its nearest ancestor's, else the root's zero.
+    /// Bevy orders the roots and every node carrying one by it, and walks
+    /// everything else inside its parent.
+    fn drawn_at(app: &App, node: Entity) -> i32 {
+        let mut at = Some(node);
+        while let Some(node) = at {
+            if let Some(z) = app.world().get::<GlobalZIndex>(node) {
+                return z.0;
+            }
+            at = app.world().get::<ChildOf>(node).map(ChildOf::parent);
+        }
+        0
+    }
+
+    /// A card link in the end screen's log opens its preview over the end
+    /// screen, not behind it: the owner hovered one and saw the card through
+    /// the veil, under the sheet he was pointing at. And while the game is
+    /// going the preview keeps the overlay's own rung, under the ability
+    /// sheet and the other roots it was ordered against before.
+    #[test]
+    fn a_preview_opened_from_the_end_screen_s_log_stands_over_the_end_screen() {
+        let preview_rung = |over: bool| {
+            let mut duel = duel_with(over);
+            duel.statics = Some(baylee_client_core::test_support::statics(8));
+            let mut app = bar_of(duel);
+            app.update();
+            let span = app.world_mut().spawn_empty().id();
+            app.world_mut().resource_mut::<Duel>().hovered_log = Some(super::super::LogHover {
+                span,
+                link: super::super::LogLink {
+                    card: Some(baylee_view::CardIdentity {
+                        index: baylee_core::ids::CardIndex::new(7),
+                        print: baylee_core::ids::PrintRef::new(3),
+                        face: 0,
+                    }),
+                    token: None,
+                },
+                at: Vec2::new(300.0, 200.0),
+            });
+            app.update();
+            let mut q = app
+                .world_mut()
+                .query_filtered::<Entity, With<PreviewResize>>();
+            let previews: Vec<Entity> = q.iter(app.world()).collect();
+            assert_eq!(previews.len(), 1, "the link opened one preview");
+            drawn_at(&app, previews[0])
+        };
+        assert!(
+            preview_rung(true) > G_FINISH,
+            "the preview is drawn under the end screen"
+        );
+        assert_eq!(preview_rung(false), 0, "and in play, with the overlay");
     }
 
     /// The shelf is built once and stands; everything else on the overlay is
