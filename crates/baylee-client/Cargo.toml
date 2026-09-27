@@ -157,6 +157,12 @@ webpki-roots = "1"
 blocking.workspace = true
 sha2.workspace = true
 
+# The updater (#326): a desktop build checks GitHub for a newer release and
+# replaces itself on exit. Not in a browser, whose page is the update, nor on
+# a phone, whose store is (`docs/client.md` §"Updating").
+[target.'cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))'.dependencies]
+baylee-update.workspace = true
+
 # Android never calls `main`: it loads a shared object and calls
 # `android_main`, and `android-activity` — winit's door to that — refuses to
 # compile at all until one of its two activity kinds has been chosen (six

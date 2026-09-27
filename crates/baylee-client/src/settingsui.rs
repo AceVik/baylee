@@ -89,6 +89,9 @@ pub(crate) fn screen(
     commands.entity(root).add_child(music);
     let report = crate::report::button(commands, fonts, metrics, lang);
     commands.entity(root).add_child(report);
+    if let Some(update) = crate::update::controls(commands, fonts, metrics, lang) {
+        commands.entity(root).add_child(update);
+    }
 
     let columns = commands
         .spawn((

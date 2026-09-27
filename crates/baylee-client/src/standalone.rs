@@ -157,6 +157,10 @@ pub fn run() {
             app.add_plugins(LobbyPlugin);
         }
     }
+    // The updater (#326): after the lobby, so its notice stands over it.
+    // A browser or phone build has none (`docs/client.md` §"Updating").
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    app.add_plugins(crate::update::native::NativeUpdatePlugin);
     app.run();
 }
 

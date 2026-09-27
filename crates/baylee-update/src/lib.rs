@@ -25,6 +25,12 @@
 //! its own and [`apply`] after its window has closed. `docs/client.md`
 //! §"Updating" is the design; `docs/releasing.md` §"Signing" the other end.
 
+/// The version type every function here takes.
+pub use semver::Version;
+
+/// The public key type the signature checks take.
+pub use ed25519_dalek::VerifyingKey;
+
 pub mod apply;
 pub mod archive;
 pub mod check;

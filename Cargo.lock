@@ -834,6 +834,7 @@ dependencies = [
  "baylee-engine",
  "baylee-gamehost",
  "baylee-protocol",
+ "baylee-update",
  "baylee-view",
  "bevy",
  "blocking",

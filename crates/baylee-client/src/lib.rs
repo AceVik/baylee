@@ -100,6 +100,7 @@ pub mod textures;
 pub mod tokenart;
 pub mod touch;
 pub(crate) mod transport;
+pub mod update;
 pub mod vista;
 
 use baylee_client_core::automation::{self, AutoPilot, Situation};

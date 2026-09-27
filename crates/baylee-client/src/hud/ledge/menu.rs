@@ -164,7 +164,7 @@ impl Default for MenuZoom {
 /// fourth: the panel changes when the menu is opened, when the concession is
 /// armed and when this seat gains or loses priority, and the shelf changes
 /// when the question does. One counter would have to lie about one of them.
-#[derive(Resource, Default, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Resource, Default, Clone, PartialEq, Eq, Debug)]
 // Five bools, and they are five independent questions about one panel rather
 // than a state that wants an enum: the menu can be open while the game is
 // over, armed while a draw cannot be offered, and every pair of them occurs.
@@ -183,6 +183,8 @@ pub struct MenuRevision {
     can_offer_draw: bool,
     /// The interface language, which is every label in here.
     lang: Option<Lang>,
+    /// The updater's notice (#326), which is a line of its own.
+    update: Option<crate::update::Shown>,
 }
 
 /// Where the panel stands.
@@ -294,6 +296,7 @@ pub fn sync_menu(
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     mut revision: ResMut<MenuRevision>,
+    update: Option<Res<crate::update::UpdateNotice>>,
     mut panel: Query<(Entity, Option<&Children>, &Visibility, &mut MenuZoom), With<MenuPanel>>,
 ) {
     let Ok((panel, standing, seen, mut fold)) = panel.single_mut() else {
@@ -315,6 +318,7 @@ pub fn sync_menu(
         armed: duel.concede_armed,
         can_offer_draw: duel.can_offer_draw(),
         lang: Some(lang),
+        update: update.as_ref().and_then(|u| u.shown.clone()),
     };
     // Whether the panel is *showing*, which is not whether it is visible: one
     // in the middle of folding away is still on the screen and is already
@@ -337,7 +341,7 @@ pub fn sync_menu(
         fold.closing = !next.open;
         fold.t = 0.0;
     }
-    *revision = next;
+    (*revision).clone_from(&next);
 
     if let Some(kids) = standing {
         for kid in kids {
@@ -403,6 +407,11 @@ pub fn sync_menu(
         lang,
     );
     commands.entity(panel).add_child(music);
+    if let Some(line) =
+        crate::update::menu_line(&mut commands, &fonts, lang, update.as_deref(), VERSION_PT)
+    {
+        commands.entity(panel).add_child(line);
+    }
     for part in version_block(&mut commands, &fonts, lang) {
         commands.entity(panel).add_child(part);
     }

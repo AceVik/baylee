@@ -363,6 +363,83 @@ messages! {
     /// The button that changes the interface language.
     Language { en: "Language", de: "Sprache" },
 
+    // ---- updating (#326)
+    /// A newer release is downloaded, verified and waiting. `{0}` its version.
+    UpdateReady {
+        en: "Update {0} ready – installs when you quit",
+        de: "Update {0} bereit – wird beim Beenden installiert",
+    },
+    /// A newer release exists and will not install itself. `{0}` its version.
+    UpdateAvailable {
+        en: "Update {0} available – download it here",
+        de: "Update {0} verfügbar – hier herunterladen",
+    },
+    /// Shown once, at the first start after an update. `{0}` the version.
+    UpdatedTo { en: "Updated to {0}", de: "Aktualisiert auf {0}" },
+    /// Why an update is only a link: the player switched installing off.
+    UpdateWhyOff {
+        en: "Automatic updates are off in the settings.",
+        de: "Automatische Updates sind in den Einstellungen aus.",
+    },
+    /// Why: a development build.
+    UpdateWhyDev {
+        en: "This is a development build: it checks, and never installs by itself.",
+        de: "Das ist ein Entwicklungs-Build: Er sucht, installiert aber nie selbst.",
+    },
+    /// Why: the folder it runs from cannot be written by this user.
+    UpdateWhyFolder {
+        en: "Baylee cannot write to its own folder, so it cannot replace itself.",
+        de: "Baylee darf seinen eigenen Ordner nicht beschreiben und sich darum nicht ersetzen.",
+    },
+    /// Why: macOS runs the app from a read-only copy (App Translocation).
+    UpdateWhyMoveApp {
+        en: "macOS runs Baylee from a read-only copy. Move Baylee.app (into Applications, say) and it can update itself.",
+        de: "macOS startet Baylee aus einer schreibgeschützten Kopie. Verschiebe Baylee.app (etwa nach „Programme“), dann kann es sich selbst aktualisieren.",
+    },
+    /// Why: the download's signature or checksum did not verify.
+    UpdateWhyNotVerified {
+        en: "The download could not be verified as ours, so it was not installed.",
+        de: "Der Download ließ sich nicht als unserer bestätigen und wurde nicht installiert.",
+    },
+    /// Why: anything else (no archive for this system, no signature, a
+    /// failed download or install).
+    UpdateWhyOther {
+        en: "This update cannot be installed automatically.",
+        de: "Dieses Update lässt sich nicht automatisch installieren.",
+    },
+    /// Opens the release page.
+    ReleaseNotes { en: "Release notes", de: "Versionshinweise" },
+    /// Puts the notice away for this session.
+    UpdateHide { en: "Hide", de: "Ausblenden" },
+    /// Settings: the per-device switch for asking GitHub.
+    UpdateAutoCheck {
+        en: "Check for updates automatically",
+        de: "Automatisch nach Updates suchen",
+    },
+    /// Under it: what that costs in privacy (`docs/privacy.md`).
+    UpdateAutoCheckWhy {
+        en: "Asks GitHub at start and every six hours. GitHub sees your IP address and this version. Off: no request at all.",
+        de: "Fragt GitHub beim Start und alle sechs Stunden. GitHub sieht dabei deine IP-Adresse und diese Version. Aus: gar keine Anfrage.",
+    },
+    /// Settings: the per-device switch for installing.
+    UpdateAutoInstall { en: "Update automatically", de: "Automatisch aktualisieren" },
+    /// Under it.
+    UpdateAutoInstallWhy {
+        en: "Downloads a signed update and installs it when you quit.",
+        de: "Lädt ein signiertes Update herunter und installiert es beim Beenden.",
+    },
+    /// Settings: asks now.
+    UpdateCheckNow { en: "Check for updates", de: "Nach Updates suchen" },
+    /// While a check runs.
+    UpdateChecking { en: "Checking…", de: "Suche läuft…" },
+    /// A check found nothing newer.
+    UpdateUpToDate { en: "Baylee is up to date.", de: "Baylee ist aktuell." },
+    /// A check that could not ask (offline, rate limited).
+    UpdateCheckFailed {
+        en: "Could not check for updates.",
+        de: "Die Suche nach Updates hat nicht geklappt.",
+    },
+
     // ---- the table screen
     /// Leaves the account.
     SignOut { en: "Sign out", de: "Abmelden" },

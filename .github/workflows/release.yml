@@ -102,7 +102,12 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
+      # BAYLEE_RELEASE_BUILD marks the one kind of build that may replace
+      # itself with a newer release; any other build of the client only
+      # checks and links (`docs/client.md` §"Updating").
       - shell: bash
+        env:
+          BAYLEE_RELEASE_BUILD: '1'
         run: cargo build --locked -p baylee-client --profile dist --target ${{ matrix.target }}
       - id: pack
         shell: bash
