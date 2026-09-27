@@ -596,7 +596,13 @@ async fn a_report_at_a_game_that_goes_on_asks_its_engine_for_the_moment() {
     assert_eq!(report(port, Some(&token), other).0, 201);
     assert_eq!(probe.flushes(), 0, "none of those asks the engine");
 
+    let started = std::time::Instant::now();
     assert_eq!(report(port, Some(&token), &naming).0, 201);
+    assert!(
+        started.elapsed() < FLUSH_WAIT,
+        "an answered ask ends the wait: {:?}",
+        started.elapsed()
+    );
     assert_eq!(probe.flushes(), 1, "the reporter's own game is asked once");
     {
         let inbox = inbox.lock();
