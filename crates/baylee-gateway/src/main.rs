@@ -17,6 +17,7 @@ mod lobby;
 mod mail;
 mod pool;
 mod record;
+mod report;
 mod room;
 mod seatrate;
 mod store;
@@ -148,6 +149,10 @@ struct AppState {
     /// `spawn_blocking`: decoding a photograph on the runtime's thread
     /// would stall every socket the gateway is holding.
     deck_images: Arc<cosmetics::Store>,
+    /// Where `POST /reports` sends a report (#307), from
+    /// `BAYLEE_FEEDBACK_URL`, `BAYLEE_FEEDBACK_TOKEN`, `BAYLEE_FEEDBACK_KEY`,
+    /// and how many each account has sent.
+    feedback: report::Feedback,
 }
 
 impl AppState {
@@ -221,6 +226,7 @@ async fn main() {
         texts: texts::TextCache::default(),
         art: Arc::new(art::ArtCache::from_env()),
         deck_images: Arc::new(cosmetics::Store::from_env()),
+        feedback: report::Feedback::from_env(),
     });
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;
@@ -232,6 +238,7 @@ async fn main() {
         .route("/info", get(info))
         .merge(account_routes())
         .merge(deck_routes())
+        .merge(report::routes())
         .route("/lobby/games", get(list_games).post(create_game))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/lobby/games/{id}/configure", post(room::configure))
