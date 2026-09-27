@@ -9,8 +9,14 @@
   werden zusammen mit docs/privacy.md geändert.
 
   Vor der Veröffentlichung auszufüllen: [NAME], [ANSCHRIFT], [E-MAIL],
-  [AUFSICHTSBEHÖRDE], [LOG-AUFBEWAHRUNG], [MINDESTALTER]. Danach den
-  Entwurfshinweis (class="draft") entfernen.
+  [AUFSICHTSBEHÖRDE], [LOG-AUFBEWAHRUNG], [MINDESTALTER], [AVV MIT NETCUP].
+  Danach den Entwurfshinweis (class="draft") entfernen.
+
+  [AUFSICHTSBEHÖRDE]: Für eine Privatperson als Verantwortlichen (nicht-
+  öffentliche Stelle) ist wahrscheinlich die Landesdatenschutzbehörde des
+  Bundeslands zuständig, in dem der Verantwortliche wohnt, nicht der BfDI;
+  z. B. BayLDA (Bayern), LfDI Baden-Württemberg, LDI NRW, BlnBDI (Berlin),
+  HmbBfDI (Hamburg). Name und Anschrift der Behörde eintragen.
 
   Keine Skripte, keine externen Ressourcen: die Seite lädt nichts nach.
 -->
@@ -139,6 +145,7 @@ footer { margin-top: 3rem; color: var(--muted); font: 14px/1.5 system-ui, sans-s
 <li><em>Bildschirmfoto:</em> das Fenster, wie es beim Öffnen des Formulars aussah; es kann Namen anderer Spieler zeigen.</li>
 </ul>
 <p>Stürzt der Client ab, legt er eine Absturzdatei auf deinem Gerät ab (Fehlermeldung, Stelle im Programm, Zeitpunkt, Version). Beim nächsten Start fragt er einmal, ob Absturzberichte gesendet werden sollen; nur mit deinem Ja werden sie gesendet, sonst wird die Datei gelöscht.</p>
+<p>Um einen Fehler zu verfolgen, kann ein Administrator den Text eines Berichts mit Art, Version und Eingangszeit in ein öffentliches Ticket (Issue) im Repository des Projekts bei GitHub übernehmen. Pseudonym, die angekreuzten Angaben, Spielaufzeichnung und Bildschirmfoto werden dabei nicht übernommen. Schreib deshalb bitte nichts Persönliches in den Berichtstext.</p>
 <p>Der Gateway leitet den Bericht an den Feedback-Dienst weiter, zusammen mit seinem eigenen Namen und seiner Version und einem Pseudonym statt deines Kontos (ein Schlüssel-Hash der Kontokennung, aus dem sich das Konto nicht ablesen lässt). Name, Benutzername, E-Mail-Adresse, IP-Adresse und Anmeldeschlüssel werden nicht weitergegeben. Der Gateway zählt nur für eine Stunde im Arbeitsspeicher, wie viele Berichte ein Konto gesendet hat (höchstens 64 pro Stunde).</p>
 <p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. a DSGVO (Einwilligung), für jede Kategorie einzeln. Du kannst die Einwilligung jederzeit widerrufen, indem du ein Kästchen oder die Absturzberichte im Formular wieder abwählst; das gilt ab dem nächsten Bericht (Art. 7 Abs. 3 DSGVO). Bereits gesendete Berichte löschen wir auf Anfrage (Abschnitt 1). <strong>Dauer:</strong> Berichte bleiben im Feedback-Dienst, bis sie von einem Administrator gelöscht werden; sie werden nicht automatisch mit deinem Konto gelöscht.</p>
 
@@ -162,7 +169,7 @@ footer { margin-top: 3rem; color: var(--muted); font: 14px/1.5 system-ui, sans-s
 
 <h2>4. Empfänger und Dienste Dritter</h2>
 <h3>4.1 Hosting</h3>
-<p>Gateway, Spielprozesse, Feedback-Dienst, Datenbanken und Sicherungen laufen auf einem gemieteten Server der <strong>netcup GmbH</strong> (Karlsruhe) in Deutschland. netcup verarbeitet die Daten als Auftragsverarbeiter nach Art. 28 DSGVO.</p>
+<p>Gateway, Spielprozesse, Feedback-Dienst, Datenbanken und Sicherungen laufen auf einem gemieteten Server der <strong>netcup GmbH</strong> (Karlsruhe) in Deutschland. netcup verarbeitet die Daten als Auftragsverarbeiter nach Art. 28 DSGVO. [AVV MIT NETCUP]</p>
 <h3>4.2 Scryfall (Kartenbilder und Kartendaten)</h3>
 <p>Kartenbilder und Kartendaten stammen von Scryfall (Scryfall LLC, USA). Der Gateway ruft sie selbst ab, ohne Angaben über dich. In einigen Fällen verbindet sich aber <strong>dein Client direkt</strong> mit Scryfall (<code>cards.scryfall.io</code>, <code>backs.scryfall.io</code>, <code>api.scryfall.com</code>):</p>
 <ul>
@@ -174,7 +181,7 @@ footer { margin-top: 3rem; color: var(--muted); font: 14px/1.5 system-ui, sans-s
 <h3>4.3 GitHub (Download und Quellcode)</h3>
 <p>Der Client wird über GitHub (GitHub, Inc., USA) zum Herunterladen angeboten, und der Quellcode liegt dort. Beim Download oder beim Öffnen des Quellcode-Links verbindet sich dein Gerät mit GitHub; dafür gilt die <a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement">Datenschutzerklärung von GitHub</a>. Der Client selbst fragt GitHub nicht ab.</p>
 <h3>4.4 Übermittlung in Drittländer</h3>
-<p>Wir selbst übermitteln keine personenbezogenen Daten in Länder außerhalb der EU und des EWR. Wenn dein Gerät sich wie oben beschrieben mit Scryfall oder GitHub verbindet, gehen deine IP-Adresse und die jeweilige Anfrage direkt von deinem Gerät an diese Anbieter in den USA.</p>
+<p>Wir selbst übermitteln personenbezogene Daten nur in einem Fall in ein Land außerhalb der EU und des EWR: wenn ein Administrator den Text eines Fehlerberichts in ein öffentliches GitHub-Ticket übernimmt (Abschnitt 3.9); GitHub sitzt in den USA. Wenn dein Gerät sich wie oben beschrieben mit Scryfall oder GitHub verbindet, gehen deine IP-Adresse und die jeweilige Anfrage direkt von deinem Gerät an diese Anbieter in den USA.</p>
 <h3>4.5 Andere Spieler</h3>
 <p>Mitspieler sehen, was das Spiel ihnen zeigen muss: deinen Anzeigenamen mit Kürzel, deinen Decknamen, deine hochgeladenen Bilder an ihrem Tisch und die Karten, die im Spiel offen liegen.</p>
 

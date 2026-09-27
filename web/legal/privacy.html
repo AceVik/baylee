@@ -9,8 +9,14 @@
   together.
 
   Fill in before publishing: [NAME], [ADDRESS], [E-MAIL],
-  [SUPERVISORY AUTHORITY], [LOG RETENTION], [MINIMUM AGE]. Then remove the
-  draft note (class="draft").
+  [SUPERVISORY AUTHORITY], [LOG RETENTION], [MINIMUM AGE],
+  [DPA WITH NETCUP]. Then remove the draft note (class="draft").
+
+  [SUPERVISORY AUTHORITY]: for a private person as controller (a
+  non-public body) this is likely the data protection authority of the
+  German state (Bundesland) the controller lives in, not the federal BfDI;
+  e.g. BayLDA (Bavaria), LfDI Baden-Württemberg, LDI NRW, BlnBDI (Berlin),
+  HmbBfDI (Hamburg). Same entry as in datenschutz.html.
 
   No scripts, no external resources: the page loads nothing else.
 -->
@@ -139,6 +145,7 @@ footer { margin-top: 3rem; color: var(--muted); font: 14px/1.5 system-ui, sans-s
 <li><em>Screenshot:</em> the window as it looked when the form opened; it can show other players' names.</li>
 </ul>
 <p>If the client crashes, it leaves a crash file on your device (the error message, where in the program, the time, the version). At the next start it asks once whether crash reports may be sent; they are sent only if you say yes, otherwise the file is deleted.</p>
+<p>To track a fault, an administrator may copy a report's text, with its kind, version and arrival time, into a public ticket (issue) in the project's repository on GitHub. The pseudonym, the ticked details, the game record and the screenshot are not copied. So please write nothing personal in the report's text.</p>
 <p>The gateway passes the report on to the feedback service, together with its own name and version and a pseudonym instead of your account (a keyed hash of the account id, from which the account cannot be read). Your name, username, e-mail address, IP address and sign-in key are not passed on. The gateway counts, in memory and for one hour, how many reports an account has sent (at most 64 an hour).</p>
 <p><strong>Legal basis:</strong> Art. 6(1)(a) GDPR (consent), for each category separately. You can withdraw consent at any time by unticking a box, or the crash reports, in the form; this holds from the next report on (Art. 7(3) GDPR). Reports already sent are deleted on request (section 1). <strong>Kept:</strong> in the feedback service until an administrator deletes them; they are not deleted automatically with your account.</p>
 
@@ -162,7 +169,7 @@ footer { margin-top: 3rem; color: var(--muted); font: 14px/1.5 system-ui, sans-s
 
 <h2>4. Recipients and third-party services</h2>
 <h3>4.1 Hosting</h3>
-<p>The gateway, the game processes, the feedback service, the databases and the backups run on a rented server of <strong>netcup GmbH</strong> (Karlsruhe) in Germany. netcup processes the data as a processor under Art. 28 GDPR.</p>
+<p>The gateway, the game processes, the feedback service, the databases and the backups run on a rented server of <strong>netcup GmbH</strong> (Karlsruhe) in Germany. netcup processes the data as a processor under Art. 28 GDPR. [DPA WITH NETCUP]</p>
 <h3>4.2 Scryfall (card images and card data)</h3>
 <p>Card images and card data come from Scryfall (Scryfall LLC, USA). The gateway fetches them itself, with nothing about you. In some cases, though, <strong>your client connects to Scryfall directly</strong> (<code>cards.scryfall.io</code>, <code>backs.scryfall.io</code>, <code>api.scryfall.com</code>):</p>
 <ul>
@@ -174,7 +181,7 @@ footer { margin-top: 3rem; color: var(--muted); font: 14px/1.5 system-ui, sans-s
 <h3>4.3 GitHub (download and source code)</h3>
 <p>The client is offered for download on GitHub (GitHub, Inc., USA), where the source code is kept too. When you download it or open the source code link, your device connects to GitHub, under <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>. The client itself does not contact GitHub.</p>
 <h3>4.4 Transfers to third countries</h3>
-<p>We ourselves transfer no personal data to countries outside the EU and the EEA. When your device connects to Scryfall or GitHub as described above, your IP address and the request go directly from your device to these providers in the USA.</p>
+<p>We ourselves transfer personal data to a country outside the EU and the EEA in one case only: when an administrator copies a bug report's text into a public GitHub issue (section 3.9); GitHub is in the USA. When your device connects to Scryfall or GitHub as described above, your IP address and the request go directly from your device to these providers in the USA.</p>
 <h3>4.5 Other players</h3>
 <p>Other players see what the game has to show them: your display name with its tag, your deck's name, your uploaded images at their table, and the cards that are face up in the game.</p>
 
