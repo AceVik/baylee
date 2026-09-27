@@ -24,11 +24,19 @@ const USAGE: &str = "usage: baylee-feedback [admin add <name> | admin remove <na
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    // The admin commands answer a person at a terminal: only warnings, so
+    // the migrator's and Postgres's notices never bury the one line that
+    // says what happened (a refused password went unseen that way).
+    let filter = match args.first() {
+        Some(&"admin") => EnvFilter::new("warn"),
+        _ => EnvFilter::from_default_env(),
+    };
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .init();
     match args.as_slice() {
         [] => serve().await,
         ["admin", rest @ ..] => admin(rest).await,
@@ -125,7 +133,11 @@ async fn admin(args: &[&str]) -> anyhow::Result<()> {
         }
         ["list"] => {
             let db = database().await?;
-            for admin in baylee_feedback::admin::list(&db).await? {
+            let admins = baylee_feedback::admin::list(&db).await?;
+            if admins.is_empty() {
+                println!("(no admins)");
+            }
+            for admin in admins {
                 println!(
                     "{}\tsince {}\t{} session(s)",
                     admin.name, admin.created, admin.sessions
