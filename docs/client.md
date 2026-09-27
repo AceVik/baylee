@@ -1331,11 +1331,15 @@ does nothing — because either alone is a guess.
 
 What no printing of these three covers is a choice stated **inside** one
 sentence: "you may tap or untap target permanent", "put your choice of a
-+1/+1 counter or two charge counters". There neither mode *is* a sentence, so
-the number is the honest label and the reader refuses. Derevi and Inspirit,
-Flagship Vessel are the two, and they are named in a list
-(`MODES_PRINTED_INLINE`) rather than tolerated as a count, so that the next
-card reading as unknown stops a build instead of joining them in silence.
++1/+1 counter or two charge counters". There neither mode *is* a sentence, and
+the reader refuses. Derevi, Inspirit, Flagship Vessel and Tireless Provisioner
+are the three, and they are named in a hand-written table
+(`lines::MODES_PRINTED_INLINE`) rather than tolerated as a count, so that the
+next card reading as unknown stops a build instead of joining them in silence.
+The table also carries each mode's own words, "a +1/+1 counter" and "two
+charge counters", as verbatim slices of the English Oracle sentence
+(`every_inline_mode_is_printed_in_its_own_sentence` holds them against the
+compiled Oracle), which is what the cast chooser draws for them (#319).
 
 An alternative cost is printed either as a sentence — and the two
 templates are themselves the discriminator, "without
@@ -4349,11 +4353,16 @@ which is the client describing a button rather than the card saying
 anything; the row now draws the face's mana cost as pips beside an empty
 label, and a spell cast for nothing draws `{0}` rather than an empty row. An
 alternative cost whose card the view cannot name has no words either (it
-said "Alternative cost"). A **mode** with no sentence keeps its number,
-"Mode 2", because there the number is the only thing that tells two rows
-apart: Derevi, Inspirit and Tireless Provisioner state their choice inside
-one sentence (`lines::MODES_PRINTED_INLINE`), a mode that declines prints
-nothing, and a trigger's mode costs nothing to draw instead.
+said "Alternative cost"). A **mode printed inside a sentence** (Derevi,
+Inspirit, Tireless Provisioner) draws the card's own English words for it,
+"a +1/+1 counter" (`lines::inline_mode_words`): English, because nothing can
+say where inside a translated sentence the choice sits, and English is the
+fallback everywhere card text cannot be paired. It drew "Modus 1" and
+"Modus 2" until the owner reported it (#319). Only a mode that is neither
+keeps its number, "Mode 2": one whose card the view cannot name, and the
+effect-less mode that declines "choose up to one", which no card prints.
+`choices::tests::every_mode_in_the_pool_is_a_row_in_the_card_s_words` walks
+every modal ability in the pool and holds each row to words its card prints.
 
 **A prepared cast is the spell it casts** (#212). Emeritus of Woe offers a
 copy of Demonic Tutor under the reserved `PREPARED_CAST`, which is no
@@ -7393,6 +7402,25 @@ start `crash_step` reads the file against `CrashConsent`: ask once, send,
 or discard. A send waits for a session at `CrashFile::sends_to`'s gateway
 and is tried once per start.
 
+**The text box wraps, and its caret is a bar of its own (#320).** Until then
+it was one text node with `▏` spliced in at the caret: neither shipped face
+has that glyph, so no caret was drawn, and the node would not shrink below its
+widest line, so the text ran out of the box to the right. Now the box
+(`form::text_box`) is a paragraph as wide as the box that breaks lines
+(`LineBreak::WordOrCharacter`), as three spans (before the selection, the
+selection, after it; the last ends in one space nobody sees), with the caret
+as an absolute node beside it. The box grows from four lines to ten and
+then scrolls (`Overflow::scroll_y`); where it was scrolled is carried across the
+rebuild every keystroke makes (`ReportDesk::box_scroll`). After layout,
+`form::place_the_caret` reads the spans' laid-out runs and asks
+`client-core::caretspot` where the caret stands. The answer is the start of the
+first run after it, except before a line break: a blank line lays out no run,
+so there the caret ends the text before it, or starts the line that text's own
+breaks open (`Seam`). Then `caretspot::follow` scrolls the box just far enough
+to keep the caret in it. The caret blinks at the lobby's rate and holds still
+under `reduce_motion` (`lobby::caret_lit`). The box has no Up/Down: the buffer
+moves by character, word and line end only, as it did before.
+
 ## Embedding (the open-world plan)
 
 `DuelPlugin` creates no window and no schedule of its own. An application adds
@@ -7454,11 +7482,30 @@ that forgot where its table was would be worse than one that never knew.
 `settings::forget_gateway()` clears it.
 
 The same missing filesystem is why settings take a second back end. Natively
-they are a JSON file under `~/.config/baylee/`; in a browser the identical
+they are JSON files in the client's config directory; in a browser the identical
 JSON lives in `localStorage` under `baylee:client-settings`, scoped to the
 origin the client is served from. Both are best-effort — a corrupt file, a
 private window, a browser set to block site data — so `ClientSettings::load`
 falls back to defaults rather than failing a launch.
+
+**Where the files live** (`client-settings.json`, `preferences.json`,
+`offline-decks.json`, `crash-report.json`, …) is one pure function,
+`client-core::userdirs::user_dir`, over the operating system and an
+environment lookup, so every system's answer is tested on whichever machine
+runs the tests:
+
+| System | Settings | Card-art cache |
+|---|---|---|
+| any, when set | `$XDG_CONFIG_HOME/baylee` | `$XDG_CACHE_HOME/baylee` (absolute only) |
+| Windows | `%APPDATA%\Baylee`, else `%USERPROFILE%\AppData\Roaming\Baylee` | `%LOCALAPPDATA%\baylee` |
+| macOS, iOS | `~/.config/baylee` | `~/Library/Caches/baylee` |
+| Linux | `~/.config/baylee` | `~/.cache/baylee` |
+| Android | `~/.config/baylee` when `HOME` is set, else none | the app's cache directory |
+
+Until #324 the settings read only `XDG_CONFIG_HOME` and `HOME`, which Windows
+normally sets neither of, so a Windows client saved nothing: no settings, no
+kept guest, no saved gateway, no report consent, no crash report. Every other
+system answers what it did before, so no player's files move.
 
 **Only the player's client opens that store.** Both back ends answer nothing
 and write nothing until `settings::open_store()` is called, and only

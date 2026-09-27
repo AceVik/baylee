@@ -1169,9 +1169,26 @@ pub(super) fn colophon(
         source.insert(Pickable::IGNORE);
     }
     let source = source.id();
+    // Scryfall's attribution, which its terms ask of a client that shows
+    // its data and images (`docs/legal.md` §3, #325): ours to translate,
+    // unlike the quoted notice above it.
+    let credit = commands
+        .spawn((
+            Text::new(Phrase::ScryfallCredit.text(state.lobby.lang())),
+            Node {
+                width: percent(100),
+                max_width: px(960),
+                ..default()
+            },
+            tf(fonts, 12.5),
+            TextColor(palette::INK),
+            TextLayout::justify(Justify::Center),
+            Pickable::IGNORE,
+        ))
+        .id();
     commands
         .entity(colophon)
-        .add_children(&[build, notice, source]);
+        .add_children(&[build, notice, credit, source]);
     if let Some(code) = code.filter(|_| metrics.frame != Frame::Phone) {
         #[allow(clippy::cast_precision_loss)] // a code is at most 177 modules a side
         let side = px(code.side as f32 * super::source::MODULE_PX);

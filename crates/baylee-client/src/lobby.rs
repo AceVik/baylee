@@ -500,6 +500,7 @@ mod ui;
 /// other direction, and it was found the same way: by compiling both.
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub(crate) use ui::DuelExit;
+pub(crate) use ui::caret_lit;
 
 #[cfg(test)]
 mod tests;

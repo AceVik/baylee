@@ -199,6 +199,75 @@ pub fn mode_line(card: CardIndex, face: usize, mode: usize) -> Option<AbilityLin
     })
 }
 
+/// A modal ability whose choice is printed **inside** one sentence, and the
+/// words of that sentence each mode is.
+///
+/// Derevi prints "you may tap or untap target permanent", Inspirit "put your
+/// choice of a +1/+1 counter or two charge counters" and Tireless Provisioner
+/// "create a Food token or a Treasure token": one sentence carrying every
+/// mode, so no mode *is* a sentence and [`mode_line`] rightly has nothing to
+/// say. A chooser that had only that drew "Mode 1" and "Mode 2" (#319) — two
+/// numbers on a card the player may never have seen.
+///
+/// What a row can say instead is the card's own words for the option, and
+/// only those: every entry is a verbatim slice of the English Oracle sentence
+/// the ability was printed as, which
+/// `tests::every_inline_mode_is_printed_in_its_own_sentence` holds against
+/// the compiled Oracle, so a reworded card or a typo here stops a build
+/// rather than drawing a sentence the card never said. English, because that
+/// is the only text this table can be checked against — the catalog can say
+/// what a sentence is in German, not where inside it the choice sits — and
+/// English is what a row falls back to whenever the player's language has
+/// nothing to offer.
+///
+/// Hand-written, and the list is closed from the other side too:
+/// `tests::every_mode_and_alternative_cost_knows_its_printed_sentence` names
+/// every modal ability with a mode that knows no sentence, and each must be
+/// here.
+pub struct InlineModes {
+    /// The card.
+    pub card: CardIndex,
+    /// The face the modal ability is on.
+    pub face: u8,
+    /// Per mode, in `SpellMode` order: the words that mode is.
+    pub words: &'static [&'static str],
+}
+
+/// Every modal ability in the pool whose modes are printed inside one
+/// sentence. See [`InlineModes`].
+pub static MODES_PRINTED_INLINE: &[InlineModes] = &[
+    InlineModes {
+        card: baylee_core::generated::index::DEREVI_EMPYRIAL_TACTICIAN,
+        face: 0,
+        words: &["tap", "untap"],
+    },
+    InlineModes {
+        card: baylee_core::generated::index::INSPIRIT_FLAGSHIP_VESSEL,
+        face: 0,
+        words: &["a +1/+1 counter", "two charge counters"],
+    },
+    InlineModes {
+        card: baylee_core::generated::index::TIRELESS_PROVISIONER,
+        face: 0,
+        words: &["a Food token", "a Treasure token"],
+    },
+];
+
+/// The card's own English words for one mode printed inside a sentence, if
+/// this is such a mode. See [`InlineModes`].
+///
+/// Bound-checked like [`mode_line`]: an unknown card, face or mode answers
+/// `None`.
+#[must_use]
+pub fn inline_mode_words(card: CardIndex, face: usize, mode: usize) -> Option<&'static str> {
+    MODES_PRINTED_INLINE
+        .iter()
+        .find(|entry| entry.card == card && usize::from(entry.face) == face)?
+        .words
+        .get(mode)
+        .copied()
+}
+
 /// Which printed sentence one **alternative cost** is stated by, if it is
 /// known.
 ///
@@ -685,24 +754,103 @@ mod tests {
         }
     }
 
-    /// The pool's modal abilities whose choice is printed **inside** one
-    /// sentence instead of as a bulleted list.
+    /// The names of [`super::MODES_PRINTED_INLINE`], sorted — what the
+    /// pool walk below must find, no more and no fewer.
     ///
-    /// Derevi prints "you may tap or untap target permanent" and Inspirit
-    /// "put your choice of a +1/+1 counter or two charge counters" — one
-    /// sentence carrying both modes, so neither mode *is* a sentence and
-    /// the number a chooser falls back to is the honest label. A named
-    /// list rather than a tolerance, so that a modal card added tomorrow
-    /// that reads as unknown stops a build and is looked at, rather than
-    /// joining these two in silence. Tireless Provisioner is the third and
-    /// arrived exactly that way — "create a Food token or a Treasure token"
-    /// is one sentence and two modes, read and admitted rather than
-    /// tolerated.
-    const MODES_PRINTED_INLINE: &[&str] = &[
-        "Derevi, Empyrial Tactician",
-        "Inspirit, Flagship Vessel",
-        "Tireless Provisioner",
-    ];
+    /// A named list rather than a tolerance, so that a modal card added
+    /// tomorrow whose modes read as unknown stops a build and is looked at,
+    /// rather than joining these in silence and drawing "Mode 1" (#319).
+    /// Tireless Provisioner arrived exactly that way — "create a Food token
+    /// or a Treasure token" is one sentence and two modes, read and admitted
+    /// rather than tolerated.
+    fn modes_printed_inline() -> Vec<&'static str> {
+        let mut names: Vec<&str> = super::MODES_PRINTED_INLINE
+            .iter()
+            .map(|entry| {
+                crate::by_index(entry.card)
+                    .expect("an inline-mode entry names a card of the pool")
+                    .name()
+            })
+            .collect();
+        names.sort_unstable();
+        names
+    }
+
+    /// Every entry of [`super::MODES_PRINTED_INLINE`] is the card's own
+    /// words: one per mode, each a verbatim slice of the English Oracle
+    /// sentence its modal ability was printed as, no two alike.
+    ///
+    /// This is what keeps the table from being a place to word a mode:
+    /// retyped, abbreviated or translated words fail here, and so does a
+    /// card whose Oracle text is reworded under the entry.
+    #[test]
+    fn every_inline_mode_is_printed_in_its_own_sentence() {
+        assert!(
+            !super::MODES_PRINTED_INLINE.is_empty(),
+            "the pool prints modes inside a sentence (Derevi, Inspirit, Tireless Provisioner)"
+        );
+        for entry in super::MODES_PRINTED_INLINE {
+            let def = crate::by_index(entry.card).expect("a card of the pool");
+            let face = usize::from(entry.face);
+            let abilities = def.abilities_for_face(face);
+            let modes = super::face_modes(abilities);
+            assert_eq!(
+                entry.words.len(),
+                modes.len(),
+                "{}: one entry per mode",
+                def.name()
+            );
+            // The sentence carrying every mode at once. Looked for rather
+            // than taken from the table: Inspirit's trigger is printed
+            // behind its station threshold ("1+ | At the beginning of …")
+            // and has no line of its own there.
+            let oracle = crate::oracle::face(entry.card, face).expect("a pool card has its Oracle");
+            let count = u8::try_from(baylee_core::oracle::sentence_count(oracle))
+                .expect("a face has few sentences");
+            let sentence = (0..count)
+                .filter_map(|line| crate::oracle::sentence(entry.card, face, line))
+                .find(|sentence| entry.words.iter().all(|words| sentence.contains(words)))
+                .unwrap_or_else(|| {
+                    panic!(
+                        "{}: no one sentence of {oracle:?} carries all of {:?}",
+                        def.name(),
+                        entry.words
+                    )
+                });
+            for (mode, words) in entry.words.iter().enumerate() {
+                assert!(
+                    !words.trim().is_empty(),
+                    "{} mode {mode}: words, not a blank",
+                    def.name()
+                );
+                assert!(
+                    sentence.contains(words),
+                    "{} mode {mode}: {words:?} is not in {sentence:?}",
+                    def.name()
+                );
+                assert_eq!(
+                    super::inline_mode_words(entry.card, face, mode),
+                    Some(*words),
+                    "{} mode {mode}: the lookup answers the entry",
+                    def.name()
+                );
+            }
+            let mut distinct = entry.words.to_vec();
+            distinct.sort_unstable();
+            distinct.dedup();
+            assert_eq!(
+                distinct.len(),
+                entry.words.len(),
+                "{}: two modes, two different rows",
+                def.name()
+            );
+            assert_eq!(
+                super::inline_mode_words(entry.card, face, entry.words.len()),
+                None,
+                "one past the last mode"
+            );
+        }
+    }
 
     /// Every mode and every alternative cost in the pool knows which
     /// sentence it is, or there is a printed reason it cannot.
@@ -723,7 +871,7 @@ mod tests {
     /// Two printings answer to nothing this table can hold: a mode that
     /// does nothing, which is how a player declines "choose up to one" and
     /// which is printed nowhere (Ertai Resurrected's third), and a choice
-    /// stated inside one sentence ([`MODES_PRINTED_INLINE`]). Both are
+    /// stated inside one sentence ([`super::MODES_PRINTED_INLINE`]). Both are
     /// asserted from the side that says which — an effect-less mode must
     /// know *no* sentence, and the inline ones are named — so the
     /// exception cannot quietly widen.
@@ -782,8 +930,10 @@ mod tests {
         inline.sort_unstable();
         inline.dedup();
         assert_eq!(
-            inline, MODES_PRINTED_INLINE,
-            "a modal trigger whose modes have no printed sentence is named here or it is a defect"
+            inline,
+            modes_printed_inline(),
+            "a modal trigger whose modes have no printed sentence is named in \
+             `MODES_PRINTED_INLINE`, with its words, or it is a defect"
         );
         assert!(
             modal_faces >= 10,

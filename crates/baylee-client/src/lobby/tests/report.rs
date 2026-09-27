@@ -106,7 +106,12 @@ fn form_words(app: &mut App) -> String {
     let mut stack = roots;
     while let Some(entity) = stack.pop() {
         if let Some(text) = app.world().get::<Text>(entity) {
+            // A paragraph of spans (the text box) reads as one line: its
+            // root and then its spans, in order.
             out.push_str(&text.0);
+            for span in spans(app, entity) {
+                out.push_str(&span);
+            }
             out.push('\n');
         }
         if let Some(children) = app.world().get::<Children>(entity) {
@@ -114,6 +119,39 @@ fn form_words(app: &mut App) -> String {
         }
     }
     out
+}
+
+/// The spans under a text entity, in order.
+fn spans(app: &App, text: Entity) -> Vec<String> {
+    app.world()
+        .get::<Children>(text)
+        .map(|children| {
+            children
+                .iter()
+                .filter_map(|child| app.world().get::<TextSpan>(child).map(|s| s.0.clone()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The report box's paragraph and its three spans.
+fn box_spans(app: &mut App) -> (Entity, Vec<String>) {
+    let text = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<Entity, With<crate::report::DeskText>>();
+        q.single(app.world()).expect("one paragraph in the box")
+    };
+    (text, spans(app, text))
+}
+
+/// The report box's caret: its entity and what it wears.
+fn box_caret(app: &mut App) -> (Entity, bool, Color) {
+    let mut q = app
+        .world_mut()
+        .query::<(Entity, &crate::report::DeskCaret, &BackgroundColor)>();
+    let (entity, caret, colour) = q.single(app.world()).expect("one caret in the box");
+    (entity, caret.placed, colour.0)
 }
 
 /// `F8` opens the form over the sign-in screen, what is typed goes into its
@@ -596,5 +634,135 @@ fn the_courier_sends_a_crash_once_signed_in_where_it_belongs() {
     assert!(
         desk(&app).crash_tried(),
         "not sent once signed in where it belongs"
+    );
+}
+
+/// The owner's PS on report 01a0e3ec (#320): the box had no visible caret.
+///
+/// It was `▏` spliced into the text, a glyph neither shipped face has. The
+/// caret is now a bar of its own, and the text is three spans — before the
+/// caret, the selection, after it — that it stands between; no glyph of the
+/// text stands for it.
+#[test]
+fn the_box_s_caret_is_a_bar_between_the_spans_and_no_glyph() {
+    let mut app = with_settings();
+    open_form(&mut app);
+    keys(&mut app, [typed('h'), typed('i')]);
+    keys(&mut app, [pressed(KeyCode::ArrowLeft, Key::ArrowLeft)]);
+    let (_, parts) = box_spans(&mut app);
+    // The tail ends in the one space the caret's reading leans on.
+    assert_eq!(parts, ["h", "", "i "], "head, selection, tail");
+    let words = form_words(&mut app);
+    assert!(
+        !words.contains('\u{258f}'),
+        "no caret glyph in the text: {words:?}"
+    );
+    let (caret, _, _) = box_caret(&mut app);
+    let node = app.world().get::<Node>(caret).expect("the caret is a node");
+    assert_eq!(node.position_type, PositionType::Absolute);
+    assert!(
+        matches!(node.width, Val::Px(w) if w > 0.0),
+        "a bar with a width"
+    );
+
+    // A selection is its own span, painted, with the caret at its held end.
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::ShiftLeft);
+    keys(&mut app, [pressed(KeyCode::ArrowLeft, Key::ArrowLeft)]);
+    let (text, parts) = box_spans(&mut app);
+    assert_eq!(parts, ["", "h", "i "]);
+    let selected = app.world().get::<Children>(text).expect("spans")[1];
+    assert!(
+        app.world()
+            .get::<bevy::text::TextBackgroundColor>(selected)
+            .is_some(),
+        "the selection is painted"
+    );
+}
+
+/// The other half of the PS: the text ran out of the box to the right.
+///
+/// The box's paragraph is as wide as the box and wraps (a word too long for
+/// a line breaks inside itself rather than overflowing), and the box has a
+/// height past which it scrolls instead of growing without end.
+#[test]
+fn the_box_wraps_its_text_and_scrolls_past_its_height() {
+    let mut app = with_settings();
+    open_form(&mut app);
+    keys(&mut app, "word ".repeat(40).chars().map(typed));
+    let (text, _) = box_spans(&mut app);
+    let layout = app.world().get::<TextLayout>(text).expect("a layout");
+    assert_eq!(
+        layout.linebreak,
+        bevy::text::LineBreak::WordOrCharacter,
+        "wraps, and breaks a word no line can hold"
+    );
+    let node = app.world().get::<Node>(text).expect("a node");
+    assert_eq!(node.width, percent(100), "as wide as the box, no wider");
+    let boxed = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&Node, With<crate::report::DeskBox>>();
+        q.single(app.world()).expect("one text box").clone()
+    };
+    assert_eq!(boxed.overflow.y, OverflowAxis::Scroll, "scrolls down");
+    assert!(
+        matches!((boxed.min_height, boxed.max_height), (Val::Px(lo), Val::Px(hi)) if hi > lo),
+        "grows with its text up to a height, then scrolls"
+    );
+}
+
+/// A rebuild keeps the box where it was scrolled: every keystroke rebuilds
+/// the form, and a long text thrown back to its first line on each one
+/// would hide the line being typed.
+#[test]
+fn a_keystroke_keeps_the_box_where_it_was_scrolled() {
+    let mut app = with_settings();
+    open_form(&mut app);
+    desk_mut(&mut app).set_box_scroll(57.0);
+    keys(&mut app, [typed('x')]);
+    let scrolled = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&ScrollPosition, With<crate::report::DeskBox>>();
+        q.single(app.world()).expect("one text box").y
+    };
+    assert!((scrolled - 57.0).abs() < f32::EPSILON, "{scrolled}");
+}
+
+/// The caret blinks at the rate every text box here blinks at, lit again
+/// the moment it moves, and holds still under `reduce_motion`.
+#[test]
+fn the_box_s_caret_blinks_unless_asked_to_hold_still() {
+    fn colours(app: &mut App, frames: usize) -> Vec<Color> {
+        (0..frames)
+            .map(|_| {
+                app.update();
+                box_caret(app).2
+            })
+            .collect()
+    }
+    let mut app = with_settings();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_millis(200),
+    ));
+    open_form(&mut app);
+    // An empty box is laid out as soon as it is drawn: its caret stands at
+    // the start, where no text has to be measured to find it.
+    let (_, placed, _) = box_caret(&mut app);
+    assert!(placed, "the empty box's caret is placed");
+    let seen = colours(&mut app, 8);
+    assert!(seen.contains(&palette::INK), "lit: {seen:?}");
+    assert!(seen.contains(&Color::NONE), "and dark: {seen:?}");
+
+    app.world_mut()
+        .resource_mut::<crate::prefs::Prefs>()
+        .edit()
+        .reduce_motion = true;
+    let still = colours(&mut app, 8);
+    assert!(
+        still.iter().all(|c| *c == palette::INK),
+        "reduce_motion holds it lit: {still:?}"
     );
 }

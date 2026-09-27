@@ -1,7 +1,8 @@
 //! Client-side settings, remembered across launches.
 //!
 //! Natively they persist as a small JSON file in the platform config dir
-//! (`~/.config/baylee/`); in a browser the same JSON lives in `localStorage`,
+//! (`~/.config/baylee/`, `%APPDATA%\Baylee` on Windows; the choice is
+//! `baylee_client_core::userdirs`); in a browser the same JSON lives in `localStorage`,
 //! scoped to the origin the client is served from. Both back ends are
 //! best-effort by design: a corrupt, missing or unreadable store must never
 //! stop the game from starting.
@@ -401,16 +402,12 @@ pub(crate) mod store {
         resolve(name)
     }
 
-    /// Where `name` lives in the platform config dir, door or no door.
+    /// Where `name` lives in the platform config dir, door or no door:
+    /// `baylee_client_core::userdirs` decides which directory that is on
+    /// this system (`%APPDATA%\Baylee` on Windows since #324).
     fn resolve(name: &str) -> Option<std::path::PathBuf> {
-        let base = std::env::var("XDG_CONFIG_HOME")
-            .ok()
-            .filter(|v| !v.is_empty())
-            .map_or_else(
-                || std::env::var("HOME").ok().map(|h| format!("{h}/.config")),
-                Some,
-            )?;
-        Some(std::path::PathBuf::from(base).join("baylee").join(name))
+        use baylee_client_core::userdirs::{Kind, Os, real_env, user_dir};
+        Some(user_dir(Kind::Config, Os::current(), &real_env)?.join(name))
     }
 
     #[cfg(test)]

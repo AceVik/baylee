@@ -321,8 +321,9 @@ decks and settings as JSON.
 ## The client
 
 - **Native** (`crates/baylee-client/src/settings.rs`): under the config
-  directory (`$XDG_CONFIG_HOME/baylee` or `~/.config/baylee`), the client
-  keeps:
+  directory (`$XDG_CONFIG_HOME/baylee` when set; else `%APPDATA%\Baylee` on
+  Windows and `~/.config/baylee` elsewhere, `client-core::userdirs`), the
+  client keeps:
   - `client-settings.json`: the language, the last username (for an older
     file, possibly an e-mail), the gateway list and how often each was used,
     per gateway a kept guest's token and handle, and what reports may carry

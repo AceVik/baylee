@@ -47,6 +47,7 @@ pub mod cardcrest;
 pub mod cardplate;
 pub mod cardquery;
 pub mod cardrail;
+pub mod caretspot;
 pub mod combat;
 pub mod commanderdamage;
 pub mod cue;
@@ -79,6 +80,7 @@ pub mod textbuf;
 pub mod textface;
 pub mod timing;
 pub mod touch;
+pub mod userdirs;
 pub mod wsticket;
 pub mod zones;
 

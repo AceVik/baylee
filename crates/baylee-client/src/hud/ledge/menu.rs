@@ -403,7 +403,7 @@ pub fn sync_menu(
         lang,
     );
     commands.entity(panel).add_child(music);
-    for part in version_block(&mut commands, &fonts) {
+    for part in version_block(&mut commands, &fonts, lang) {
         commands.entity(panel).add_child(part);
     }
 }
@@ -416,7 +416,11 @@ pub fn sync_menu(
 ///
 /// Three things set it apart from the rows above and no more: a rule, a
 /// quieter ink, and no box at all. It is not pressable and does not warm.
-fn version_block(commands: &mut Commands, fonts: &UiFonts) -> [Entity; 2] {
+///
+/// Under it, Scryfall's attribution (`docs/legal.md` §3, #325): a client
+/// seated straight into a game never shows the front door that carries it
+/// too, and shows Scryfall's images all the same.
+fn version_block(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> [Entity; 3] {
     let rule = commands
         .spawn((
             Node {
@@ -440,7 +444,19 @@ fn version_block(commands: &mut Commands, fonts: &UiFonts) -> [Entity; 2] {
             Pickable::IGNORE,
         ))
         .id();
-    [rule, line]
+    let credit = commands
+        .spawn((
+            Text::new(Phrase::ScryfallCredit.text(lang)),
+            tf(fonts, VERSION_PT),
+            TextColor(palette::DIALOG_SOFT),
+            Node {
+                width: percent(100),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    [rule, line, credit]
 }
 
 /// Opens the panel and shuts it, and is the only thing that shows or hides it.

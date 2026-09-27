@@ -29,6 +29,44 @@ pub(crate) struct DeskRoot;
 #[derive(Component)]
 pub(super) struct DeskScroll;
 
+/// The report's text box: it scrolls on its own, and keeps the caret in view
+/// ([`place_the_caret`]).
+#[derive(Component)]
+pub(crate) struct DeskBox;
+
+/// The paragraph inside [`DeskBox`]: the text as three spans — before the
+/// selection, the selection, after it — which is what the caret is placed
+/// between.
+#[derive(Component)]
+pub(crate) struct DeskText;
+
+/// The caret in [`DeskBox`]: a bar of its own, stood where the paragraph was
+/// laid out ([`place_the_caret`]) and blinked by [`blink`].
+///
+/// It was the glyph `▏` inside the text until #320, which neither of the
+/// faces this client ships has, so nothing was drawn where the caret was.
+#[derive(Component, Default)]
+pub(crate) struct DeskCaret {
+    /// Whether it has been stood where the text is. Until then it is not
+    /// drawn: a bar at the box's corner over a line of text is a caret in
+    /// the wrong place for a frame.
+    pub(crate) placed: bool,
+}
+
+/// The spans of [`DeskText`], as the renderer numbers its sections: the
+/// empty root is 0.
+const HEAD: usize = 1;
+const SELECTED: usize = 2;
+const TAIL: usize = 3;
+
+/// The text box's height in lines of text before it scrolls, and the height
+/// it keeps when empty.
+const BOX_LINES_MIN: f32 = 4.0;
+const BOX_LINES_MAX: f32 = 10.0;
+
+/// The caret's width, in logical pixels.
+const CARET_WIDTH: f32 = 1.5;
+
 /// What a button on the form does.
 #[derive(Component, Clone, Copy, Debug)]
 pub(crate) enum DeskPress {
@@ -182,6 +220,7 @@ fn signature(desk: &ReportDesk, settings: &ClientSettings, signed_in: bool, widt
     format!("{:?}", desk.form.kind).hash(&mut hash);
     desk.form.text.text().hash(&mut hash);
     desk.form.text.cursor().hash(&mut hash);
+    desk.form.text.selection().hash(&mut hash);
     format!("{:?}", desk.form.status).hash(&mut hash);
     desk.form.preview.hash(&mut hash);
     format!("{:?}{:?}", settings.reports, settings.lang).hash(&mut hash);
@@ -430,37 +469,7 @@ fn form(
     }
     parts.push(kinds);
 
-    // The text box: the buffer with its caret, or the prompt when empty.
-    let buffer = &desk.form.text;
-    let (shown, ink) = if buffer.is_empty() {
-        (
-            format!("▏{}", Phrase::ReportTextHint.text(lang)),
-            palette::MUTED,
-        )
-    } else {
-        let text = buffer.text();
-        let at = buffer.cursor().min(text.len());
-        (format!("{}▏{}", &text[..at], &text[at..]), palette::INK)
-    };
-    let field = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                min_height: px(metrics.tap * 3.0),
-                padding: UiRect::all(px(metrics.gap)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(6)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BorderColor::all(palette::ACCENT),
-            BackgroundColor(palette::PANEL_LIT),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let inside = words(commands, tf(fonts, metrics.text), shown, ink);
-    commands.entity(field).add_child(inside);
-    parts.push(field);
+    parts.push(text_box(commands, desk, fonts, metrics, lang));
     let count = Phrase::ReportChars.fill(
         lang,
         &[&desk.form.chars().to_string(), &MAX_TEXT_CHARS.to_string()],
@@ -645,6 +654,245 @@ fn form(
     commands.entity(actions).add_children(&[close, send]);
     parts.push(actions);
     commands.entity(panel).add_children(&parts);
+}
+
+/// The text box: a paragraph that wraps inside it, a caret, and a scroll of
+/// its own once the text is longer than the box.
+///
+/// The paragraph is three spans with the caret between two of them
+/// ([`DeskText`], [`DeskCaret`]); the empty box shows the prompt as the text
+/// after the caret, muted, the way a placeholder stands behind a caret.
+///
+/// Until #320 this was one text node holding the buffer with `▏` spliced in
+/// at the caret: the glyph is in neither face this client ships, so no
+/// caret was drawn, and the node would not shrink below its widest line, so
+/// the text ran out of the box to the right instead of wrapping.
+fn text_box(
+    commands: &mut Commands,
+    desk: &ReportDesk,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    lang: Lang,
+) -> Entity {
+    let font = tf(fonts, metrics.text);
+    let line = line_height(&font);
+    let field = commands
+        .spawn((
+            DeskBox,
+            Node {
+                width: percent(100),
+                min_height: px(line * BOX_LINES_MIN + metrics.gap * 2.0),
+                max_height: px(line * BOX_LINES_MAX + metrics.gap * 2.0),
+                padding: UiRect::all(px(metrics.gap)),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(6)),
+                flex_shrink: 0.0,
+                flex_direction: FlexDirection::Column,
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            // Where the box was scrolled to before this rebuild, so a
+            // keystroke does not throw a long text back to its first line.
+            ScrollPosition(Vec2::new(0.0, desk.box_scroll)),
+            BorderColor::all(palette::ACCENT),
+            BackgroundColor(palette::PANEL_LIT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let page = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let buffer = &desk.form.text;
+    let seg = buffer.segments();
+    let (head, selected, tail, ink) = if buffer.is_empty() {
+        (
+            String::new(),
+            String::new(),
+            Phrase::ReportTextHint.text(lang).to_string(),
+            palette::MUTED,
+        )
+    } else {
+        // One space the player never sees ends the tail, so the text after
+        // the caret is never empty and its first run is where the caret
+        // stands, even at the very end after a line break
+        // (`baylee_client_core::caretspot`).
+        (
+            seg.head.to_string(),
+            seg.selected.to_string(),
+            format!("{} ", seg.tail),
+            palette::INK,
+        )
+    };
+    let text = commands
+        .spawn((
+            DeskText,
+            Text::new(""),
+            font.clone(),
+            TextColor(palette::INK),
+            TextLayout::linebreak(bevy::text::LineBreak::WordOrCharacter),
+            Node {
+                width: percent(100),
+                ..default()
+            },
+            Pickable::IGNORE,
+            children![
+                (TextSpan::new(head), font.clone(), TextColor(palette::INK)),
+                (
+                    TextSpan::new(selected),
+                    font.clone(),
+                    TextColor(palette::INK),
+                    bevy::text::TextBackgroundColor(palette::SELECTION),
+                ),
+                (TextSpan::new(tail), font, TextColor(ink)),
+            ],
+        ))
+        .id();
+    let caret = commands
+        .spawn((
+            DeskCaret::default(),
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                top: px(0),
+                width: px(CARET_WIDTH),
+                height: px(line),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(page).add_children(&[text, caret]);
+    commands.entity(field).add_child(page);
+    field
+}
+
+/// How tall a line of `font` is laid out, in logical pixels: bevy's default
+/// line height is 1.2 times the size.
+fn line_height(font: &TextFont) -> f32 {
+    match font.font_size {
+        bevy::text::FontSize::Px(size) => size * 1.2,
+        _ => 20.0,
+    }
+}
+
+/// Stands the caret where the paragraph was laid out, and scrolls the box so
+/// the caret is in it.
+///
+/// After the text is laid out (`UiSystems::PostLayout`): the runs it reads
+/// are this frame's, and what it writes is laid out on the next.
+pub(super) fn place_the_caret(
+    mut desk: ResMut<ReportDesk>,
+    texts: Query<&bevy::text::TextLayoutInfo, With<DeskText>>,
+    mut carets: Query<(&mut Node, &mut DeskCaret)>,
+    mut boxes: Query<(&mut ScrollPosition, &ComputedNode), With<DeskBox>>,
+) {
+    let (Ok(layout), Ok((mut node, mut caret))) = (texts.single(), carets.single_mut()) else {
+        return;
+    };
+    if layout.run_geometry.is_empty() && !desk.form.text.is_empty() {
+        // Not laid out yet: no font, or the first frame of the tree.
+        return;
+    }
+    let scale = layout.scale_factor.max(f32::EPSILON);
+    let runs: Vec<baylee_client_core::caretspot::Run> = layout
+        .run_geometry
+        .iter()
+        .map(|run| baylee_client_core::caretspot::Run {
+            section: run.section_index,
+            left: run.bounds.min.x / scale,
+            top: run.bounds.min.y / scale,
+            right: run.bounds.max.x / scale,
+            bottom: run.bounds.max.y / scale,
+        })
+        .collect();
+    let seg = desk.form.text.segments();
+    let (before, after, seam): (&[usize], &[usize], _) = if seg.caret_after_selection {
+        let before = format!("{}{}", seg.head, seg.selected);
+        (
+            &[HEAD, SELECTED],
+            &[TAIL],
+            baylee_client_core::caretspot::Seam::between(&before, seg.tail),
+        )
+    } else {
+        let after = format!("{}{}", seg.selected, seg.tail);
+        (
+            &[HEAD],
+            &[SELECTED, TAIL],
+            baylee_client_core::caretspot::Seam::between(seg.head, &after),
+        )
+    };
+    let line = match &node.height {
+        Val::Px(height) => *height,
+        _ => 20.0,
+    };
+    let spot = baylee_client_core::caretspot::spot(&runs, before, after, seam, line);
+    node.left = px(spot.x - CARET_WIDTH / 2.0);
+    node.top = px(spot.top);
+    node.height = px(spot.height);
+    caret.placed = true;
+    if let Ok((mut scroll, computed)) = boxes.single_mut() {
+        let inverse = computed.inverse_scale_factor();
+        let inset = computed.padding().min_inset.y
+            + computed.padding().max_inset.y
+            + computed.border().min_inset.y
+            + computed.border().max_inset.y;
+        let viewport = (computed.size().y - inset) * inverse;
+        if viewport <= 0.0 {
+            // Not measured yet: nothing to keep the caret inside.
+            return;
+        }
+        let followed = baylee_client_core::caretspot::follow(scroll.y, viewport, spot);
+        if (followed - scroll.y).abs() > f32::EPSILON {
+            scroll.y = followed;
+        }
+        desk.box_scroll = followed;
+    }
+}
+
+/// What the caret last stood at: cursor, selection, text length. A change
+/// in any of them is a caret that moved, lit again from the start.
+type Drawn = (usize, Option<std::ops::Range<usize>>, usize);
+
+/// Blinks the report's caret: lit while it moves, then on and off at the
+/// rate every other text box here blinks at, and still under
+/// `reduce_motion` (`lobby::caret_lit`).
+pub(super) fn blink(
+    time: Res<Time>,
+    desk: Res<ReportDesk>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut carets: Query<(&DeskCaret, &mut BackgroundColor)>,
+    mut since: Local<f32>,
+    mut drawn: Local<Option<Drawn>>,
+) {
+    let Ok((caret, mut colour)) = carets.single_mut() else {
+        *drawn = None;
+        return;
+    };
+    let text = &desk.form.text;
+    let now = Some((text.cursor(), text.selection(), text.text().len()));
+    *since = if *drawn == now {
+        *since + time.delta_secs()
+    } else {
+        0.0
+    };
+    *drawn = now;
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let want = if caret.placed && crate::lobby::caret_lit(*since, still) {
+        palette::INK
+    } else {
+        Color::NONE
+    };
+    if colour.0 != want {
+        colour.0 = want;
+    }
 }
 
 /// The one-time question after a crash.

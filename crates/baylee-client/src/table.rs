@@ -3022,17 +3022,28 @@ pub fn sync_zones(
     });
 }
 
+/// What [`despawn_stage`] takes down: everything spawned for the duel, and
+/// every card, which carries both markers.
+type StageOrCard = Or<(With<DuelStage>, With<CardVisual>)>;
+
 /// Tears the stage down.
+///
+/// Every entity is despawned **once**. A card wears both [`DuelStage`] and
+/// [`CardVisual`], and this used to walk the two lists one after the other,
+/// so every card on the table was despawned twice and the second command
+/// found nothing: one "Entity despawned … is invalid" warning per card, 46
+/// of them in one millisecond at the owner's table on leaving it (#321).
+/// One query over either marker yields each entity once, and
+/// [`despawn_tops`] leaves out anything a despawned ancestor already takes
+/// with it, which is the same fault one level down.
 pub fn despawn_stage(
     mut commands: Commands,
-    stage: Query<Entity, With<DuelStage>>,
-    cards: Query<Entity, With<CardVisual>>,
+    stage: Query<Entity, StageOrCard>,
+    parents: Query<&ChildOf>,
     mut index: ResMut<SceneIndex>,
     mut watch: ResMut<ZoneWatch>,
 ) {
-    for entity in stage.iter().chain(cards.iter()) {
-        commands.entity(entity).despawn();
-    }
+    despawn_tops(&mut commands, stage.iter(), &parents);
     index.cards.clear();
     index.materials.clear();
     index.face_materials.clear();
@@ -3053,6 +3064,29 @@ pub fn despawn_stage(
     // it; what is left is the bookkeeping that would otherwise point at
     // entities that no longer exist.
     index.zones.clear();
+}
+
+/// Despawns each of `doomed` once, and none whose ancestor is among them.
+///
+/// A despawn takes the entity's descendants with it, so a second command for
+/// a descendant — or for the same entity, named twice — lands on an entity
+/// that is already gone and bevy warns about it. Which ones a caller's
+/// queries overlap on is a fact about every spawner in the client rather
+/// than about the caller, so this asks the hierarchy instead of trusting it.
+pub(crate) fn despawn_tops(
+    commands: &mut Commands,
+    doomed: impl IntoIterator<Item = Entity>,
+    parents: &Query<&ChildOf>,
+) {
+    let doomed: std::collections::BTreeSet<Entity> = doomed.into_iter().collect();
+    for &entity in &doomed {
+        let taken_by_an_ancestor = parents
+            .iter_ancestors(entity)
+            .any(|ancestor| doomed.contains(&ancestor));
+        if !taken_by_an_ancestor {
+            commands.entity(entity).despawn();
+        }
+    }
 }
 
 /// Puts the printed back on a material that was built without one.

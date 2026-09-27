@@ -216,6 +216,11 @@ messages! {
     /// Under the Fan Content notice: where the source is, the AGPL's §13
     /// offer (#270). `{0}` is the address, drawn as it came.
     SourceCode { en: "Source code (AGPL-3.0): {0}", de: "Quellcode (AGPL-3.0): {0}" },
+    /// Scryfall's attribution, which its terms ask of every client that
+    /// shows its data or images (`docs/legal.md` §3, #325). Under the Fan
+    /// Content notice, and under the version in the game menu, which a
+    /// client seated straight into a game shows instead of the front door.
+    ScryfallCredit { en: "Card data and images provided by Scryfall.", de: "Kartendaten und -bilder bereitgestellt von Scryfall." },
     /// Gateway selection: an address is asked about itself before it is saved.
     GatewayChecking { en: "Checking {0}…", de: "Prüfe {0} …" },
     /// Gateway selection: the address answered and is saved.
@@ -3085,6 +3090,26 @@ pub fn seat_name(lang: Lang, statics: Option<&GameStatic>, player: PlayerId) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `docs/legal.md` §3: Scryfall's terms ask a client for the words
+    /// "data and images provided by Scryfall" (#325). The English is those
+    /// words; every language names Scryfall.
+    #[test]
+    fn scryfall_is_credited_in_its_own_words() {
+        assert!(
+            Phrase::ScryfallCredit
+                .text(Lang::En)
+                .contains("data and images provided by Scryfall"),
+            "{:?}",
+            Phrase::ScryfallCredit.text(Lang::En)
+        );
+        for lang in Lang::ALL {
+            assert!(
+                Phrase::ScryfallCredit.text(lang).contains("Scryfall"),
+                "{lang:?}"
+            );
+        }
+    }
 
     /// The whole point of the macro: there is no such thing as a phrase with
     /// no German. This test cannot fail — it would not compile — and is here
