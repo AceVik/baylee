@@ -1713,10 +1713,10 @@ door, key or no key.
   - a key that is malformed, unknown, used up, expired or revoked, all in
     one sentence so a guess learns nothing: `this closed beta key is not
     valid`.
-  A key try counts against the sign-in limiter under the caller's address
-  (eight in five minutes, then `429` `too many attempts`, before the key is
-  even read); a key that admits somebody clears that count, as a right
-  password does. The ordinary per-address limit of registration and guests
+  Every key offered (a missing or blank one is not a try) counts against the
+  sign-in limiter under the caller's address: eight in five minutes, then
+  `429` `too many attempts` before the key is even read. A key that admits
+  somebody clears that count, as a right password does. The ordinary per-address limit of registration and guests
   still applies too.
 - **Kept as a hash.** The table `invite` holds SHA-256 of the key's
   canonical sixteen characters, never the key, with a note, the uses left
