@@ -255,6 +255,13 @@ fn the_tables_menu_has_a_line_only_when_there_is_news() {
         text.0,
         "Update 0.1.0-beta.3 bereit – wird beim Beenden installiert"
     );
+    assert_eq!(
+        app.world().get::<UpdateButton>(line),
+        Some(&UpdateButton::Open(
+            "https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.3".into()
+        )),
+        "pressing it opens the release notes"
+    );
 }
 
 #[test]
