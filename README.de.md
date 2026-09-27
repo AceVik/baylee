@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/hero.webp" alt="Baylees Eingang: ein mondbeschienener Wintergarten mit dem Anmeldefenster" width="100%">
+  <img src="docs/images/readme/hero.webp" alt="Baylees Eingang: ein mondbeschienener Wintergarten mit der Gateway-Liste" width="100%">
 </p>
 
 <h1 align="center">Baylee</h1>
@@ -92,9 +92,10 @@ Was Baylee ausmacht:
 - **Kartentext in 19 Sprachen**, wenn das Gateway den Kartenkatalog hat. Die
   Oberfläche gibt es auf Deutsch und Englisch.
 
-Der Kartenpool wächst Stapel für Stapel. Karten, die die Engine noch nicht
-vollständig spielen kann, sind im Deckbau markiert. Als spielbar gilt eine
-Karte erst, wenn jeder ihrer Sätze umgesetzt ist.
+Der Kartenpool wächst Stapel für Stapel; diese Version kennt rund 2.700
+Karten. Der Deckbau kann sich auf spielbare Karten beschränken und warnt,
+wenn ein Deck Karten enthält, die noch nicht vollständig umgesetzt sind und
+deshalb nicht wie gedruckt spielen.
 
 ## Bilder
 
@@ -102,19 +103,26 @@ Die Bilder vom Tisch zeigen Baylees **Textansicht**. Sie zeichnet jede Karte
 aus ihrem Regeltext statt aus dem gedruckten Kartenbild (warum, steht unter
 [Lizenz und Rechtliches](#lizenz-und-rechtliches)). Im Spiel kommen die
 Kartenbilder von Scryfall, und `T` schaltet zwischen den beiden Ansichten um.
+Aufgenommen wurden die Bilder mit Version 0.1.0-beta.2 an einem lokalen
+Test-Gateway mit erfundenen Spielern; das Bild ganz oben und das Anmeldefenster zeigen das echte
+Gateway Baylee Sanctuary.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/readme/front-door.webp" alt="Eingang mit dem Anmeldeformular"><br><sub><b>Der Eingang.</b> Gateway wählen, dann anmelden, registrieren oder als Gast spielen. Unten stehen der Fan-Content-Hinweis und der Link zum Quellcode.</sub></td>
-    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="Lobby mit Decks und Räumen"><br><sub><b>Die Lobby.</b> Deine Decks, offene Räume und die Haus-KI.</sub></td>
+    <td width="50%"><img src="docs/images/readme/front-door.webp" alt="Anmeldefenster des Beta-Gateways"><br><sub><b>Anmelden.</b> Das Beta-Gateway verlangt von neuen Spielern einen Schlüssel; wer schon ein Konto hat, meldet sich mit Benutzername und Passwort an. Unten stehen der Fan-Content-Hinweis und der Link zum Quellcode.</sub></td>
+    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="Lobby mit einem Deck und offenen Tischen"><br><sub><b>Die Lobby.</b> Links deine Decks, rechts die offenen Tische, dazu <i>Gegen das Haus</i> für eine schnelle Partie gegen die KI.</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/images/readme/deck-builder.webp" alt="Deckbau"><br><sub><b>Der Deckbau.</b> Den Kartenpool durchsuchen, Hauptdeck und Sideboard zählen, die Manakurve ansehen.</sub></td>
-    <td><img src="docs/images/readme/table-duel.webp" alt="Ein laufendes Duell in der Textansicht"><br><sub><b>Ein Duell</b> gegen die Haus-KI, mitten in der Partie.</sub></td>
+    <td width="50%"><img src="docs/images/readme/room.webp" alt="Ein Tisch wird eingerichtet: Plätze, KI-Stufen, Lebenspunkte"><br><sub><b>Einen Tisch einrichten.</b> Der Gastgeber legt Plätze, Startlebenspunkte und Mulligans fest und gibt jedem KI-Platz eine Stufe von novice bis expert.</sub></td>
+    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="Deckbau mit Statistik und Kartensuche"><br><sub><b>Der Deckbau.</b> Kommandeur, Hauptdeck und Sideboard, Manakurve und Länderstatistik, dazu eine Suche über den ganzen Pool. (Die Bildfelder sind leer, weil die Kartenbilder für diese Aufnahmen abgeschaltet waren.)</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/images/readme/table-ring.webp" alt="Ein Tisch mit vier Plätzen in der Textansicht"><br><sub><b>Vier Plätze.</b> Größere Tische sitzen im Kreis.</sub></td>
-    <td><img src="docs/images/readme/report.webp" alt="Meldeformular"><br><sub><b>Einen Fehler melden</b> (<kbd>F8</kbd>). Jede zusätzliche Angabe hat ein eigenes Kästchen, und alle sind anfangs leer.</sub></td>
+    <td width="50%"><img src="docs/images/readme/table-duel.webp" alt="Ein laufendes Duell, Kartenvorschau in der Textansicht"><br><sub><b>Ein Duell</b> gegen die Haus-KI. Mit der Maus über einer Karte erscheint sie groß, hier in der Textansicht.</sub></td>
+    <td width="50%"><img src="docs/images/readme/game-log.webp" alt="Das Spielprotokoll neben dem Tisch"><br><sub><b>Das Spielprotokoll</b> (<kbd>L</kbd>) liest sich wie ein Chat; jeder Kartenname öffnet die Vorschau der Karte.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/readme/table-ring.webp" alt="Ein Tisch mit vier Plätzen"><br><sub><b>Vier Plätze.</b> Größere Tische sitzen im Kreis um den Filz.</sub></td>
+    <td width="50%"><img src="docs/images/readme/report.webp" alt="Meldeformular mit freiwilligen Kästchen"><br><sub><b>Einen Fehler melden</b> (<kbd>F8</kbd>). Jede zusätzliche Angabe hat ein eigenes Kästchen, und alle sind anfangs leer.</sub></td>
   </tr>
 </table>
 

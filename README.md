@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/hero.webp" alt="Baylee's front door: a moonlit conservatory garden with the sign-in panel" width="100%">
+  <img src="docs/images/readme/hero.webp" alt="Baylee's front door: a moonlit conservatory garden with the gateway list" width="100%">
 </p>
 
 <h1 align="center">Baylee</h1>
@@ -86,29 +86,35 @@ Some things that set it apart:
 - **Card text in 19 languages** when the gateway has the card catalog. The
   interface is available in English and German.
 
-The card pool grows batch by batch. A card the engine cannot fully play yet is
-marked in the deck builder, and a card is offered as playable only when every
-clause of it is implemented.
+The card pool grows batch by batch; this build knows about 2,700 cards. The
+deck builder can show only playable cards, and it warns when a deck holds
+cards that are not fully implemented yet and will not play as printed.
 
 ## Screenshots
 
-The table screenshots show Baylee's **text view**, which draws each card from
-its rules text instead of the printed card image (see
-[License and legal](#license-and-legal) for why). In the game, the scans
-come from Scryfall, and `T` switches between the two views.
+The screenshots show Baylee's **text view**, which draws each card from its
+rules text instead of the printed card image ([License and legal](#license-and-legal)
+explains why). In the game, the card images come from Scryfall, and `T`
+switches between the two views. The screenshots were taken with version
+0.1.0-beta.2 against a local test gateway with made-up players; the picture at the top and
+the sign-in panel show the real Baylee Sanctuary gateway.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/readme/front-door.webp" alt="Front door with the sign-in form"><br><sub><b>The front door.</b> Choose a gateway, then sign in, create an account or play as a guest. The fan-content notice and the source link are at the bottom.</sub></td>
-    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="Lobby with decks and rooms"><br><sub><b>The lobby.</b> Your decks, open rooms and the house AI.</sub></td>
+    <td width="50%"><img src="docs/images/readme/front-door.webp" alt="Sign-in panel of the closed-beta gateway"><br><sub><b>Signing in.</b> The closed-beta gateway asks new players for a key; returning players sign in with username and password. The fan-content notice and the source link stay at the bottom.</sub></td>
+    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="Lobby with a deck and open tables"><br><sub><b>The lobby.</b> Your decks on the left, open tables on the right, and <i>Play the house</i> for a quick game against the AI.</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/images/readme/deck-builder.webp" alt="Deck builder"><br><sub><b>The deck builder.</b> Search the card pool, count main deck and sideboard, and look at the mana curve.</sub></td>
-    <td><img src="docs/images/readme/table-duel.webp" alt="A duel in progress, text view"><br><sub><b>A duel</b> against the house AI, mid-game.</sub></td>
+    <td width="50%"><img src="docs/images/readme/room.webp" alt="A room being arranged: seats, AI levels, starting life"><br><sub><b>Arranging a table.</b> The host sets chairs, starting life and mulligans, and gives each AI chair a level from novice to expert.</sub></td>
+    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="Deck builder with statistics and card search"><br><sub><b>The deck builder.</b> Commander, main deck and sideboard, mana curve and land statistics, and a search over the whole pool. (The picture slots are empty here because card scans were switched off for these screenshots.)</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/images/readme/table-ring.webp" alt="A four-seat table, text view"><br><sub><b>Four seats.</b> Larger tables sit in a ring.</sub></td>
-    <td><img src="docs/images/readme/report.webp" alt="Report form"><br><sub><b>Reporting a problem</b> (<kbd>F8</kbd>). Every extra piece of data is its own checkbox, and all of them start unticked.</sub></td>
+    <td width="50%"><img src="docs/images/readme/table-duel.webp" alt="A duel in progress, card preview in text view"><br><sub><b>A duel</b> against the house AI. Hovering a card shows it large; here in the text view.</sub></td>
+    <td width="50%"><img src="docs/images/readme/game-log.webp" alt="The game log beside the table"><br><sub><b>The game log</b> (<kbd>L</kbd>) reads like a chat, with each card name a link to its preview.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/readme/table-ring.webp" alt="A four-seat table"><br><sub><b>Four seats.</b> Larger tables sit in a ring around the felt.</sub></td>
+    <td width="50%"><img src="docs/images/readme/report.webp" alt="Report form with opt-in checkboxes"><br><sub><b>Reporting a problem</b> (<kbd>F8</kbd>). Every extra piece of data is its own checkbox, and all of them start unticked.</sub></td>
   </tr>
 </table>
 
