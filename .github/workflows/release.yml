@@ -7,6 +7,13 @@
 # These jobs produce binaries other people run, so the one third-party action
 # on the path is pinned to a commit rather than a tag a push could move, and
 # no cache is restored into a build: a release is built from source alone.
+#
+# Every archive is signed (Ed25519, `<archive>.sig`) before it is published,
+# because the client installs updates by itself, and only ever an archive
+# whose signature verifies against the keys it was compiled with (#326,
+# `docs/releasing.md` §"Signing"). The seed is the repository secret
+# BAYLEE_UPDATE_SIGNING_KEY. Without it a tag fails in `sign` and nothing is
+# published; a dry run says so and goes on unsigned.
 name: release
 
 on:
@@ -113,8 +120,40 @@ jobs:
             ${{ steps.pack.outputs.archive }}.sha256
           if-no-files-found: error
 
-  publish:
+  # Signs every archive, then checks each signature against the keys the
+  # client is compiled with, so a secret that is not the client's key fails
+  # here and not in every player's updater. One job for all archives, on
+  # both triggers: the secret reaches this job alone, and a dry run
+  # exercises the step a tag takes.
+  sign:
     needs: [version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      # The same pinned toolchain as the builds; the signer is the client's
+      # own verifier (`baylee-update`), built from this commit.
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - shell: bash
+        env:
+          BAYLEE_UPDATE_SIGNING_KEY: ${{ secrets.BAYLEE_UPDATE_SIGNING_KEY }}
+        run: scripts/release/sign-archives.sh out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signatures
+          path: out/*.sig
+          # A dry run without the secret has none.
+          if-no-files-found: ${{ github.ref_type == 'tag' && 'error' || 'warn' }}
+
+  publish:
+    needs: [version, build, sign]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
@@ -130,11 +169,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
+          # No archive goes out without its signature: the updater would
+          # only link to it, and every player would install it by hand.
+          for archive in out/*.zip out/*.tar.gz; do
+            [ -s "$archive.sig" ] || { echo "::error::$archive has no .sig"; exit 1; }
+          done
           cat > notes.md <<EOF
           Unofficial fan content, not affiliated with Wizards of the Coast.
 
           One archive per system. Unpack it and start \`baylee-client\` (on macOS: \`Baylee.app\`); \`README.txt\` in each archive has the first-start steps.
           The builds are not code-signed, so macOS and Windows warn on first start.
+          Each archive has a \`.sig\` beside it, the Ed25519 signature a client checks before it installs an update by itself.
           Every binary names its commit and CI run in its build stamp. The run number is this workflow's, not \`ci\`'s.
           EOF
           ls -l out

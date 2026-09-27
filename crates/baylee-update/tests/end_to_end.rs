@@ -218,7 +218,10 @@ fn a_tampered_archive_is_refused_and_nothing_changes() {
 #[test]
 fn a_checksum_that_does_not_match_is_refused() {
     let why = refused(Publish::BadChecksum, vec![test_key().verifying_key()]);
-    assert!(matches!(why, Manual::NotOurs(ref w) if w.contains("checksum")), "{why:?}");
+    assert!(
+        matches!(why, Manual::NotOurs(ref w) if w.contains("checksum")),
+        "{why:?}"
+    );
 }
 
 #[test]
