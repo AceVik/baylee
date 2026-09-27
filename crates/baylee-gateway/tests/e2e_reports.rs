@@ -13,6 +13,7 @@ mod common;
 
 use std::io::Read as _;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
@@ -27,14 +28,40 @@ use prost::Message;
 /// What the stub service was sent: the `Authorization` header and the body.
 type Inbox = Arc<Mutex<Vec<(String, serde_json::Value)>>>;
 
+/// How the stub answers: [`TAKES`], [`FAILS`] (500) or [`NO_ID`] (201
+/// without a `report_id`).
+type Mood = Arc<AtomicU8>;
+const TAKES: u8 = 0;
+const FAILS: u8 = 1;
+const NO_ID: u8 = 2;
+
 /// A feedback service that takes every report, numbering them `r0`, `r1`, …
 async fn stub_service() -> (String, Inbox) {
+    let (url, inbox, _) = moody_service().await;
+    (url, inbox)
+}
+
+/// The same, answering as its [`Mood`] says; only a report it took is kept.
+async fn moody_service() -> (String, Inbox, Mood) {
     let inbox: Inbox = Arc::default();
+    let mood: Mood = Arc::default();
     let app = axum::Router::new()
         .route(
             "/intake/reports",
             axum::routing::post(
-                |State(inbox): State<Inbox>, headers: HeaderMap, body: axum::body::Bytes| async move {
+                |State((inbox, mood)): State<(Inbox, Mood)>,
+                 headers: HeaderMap,
+                 body: axum::body::Bytes| async move {
+                    match mood.load(Ordering::SeqCst) {
+                        FAILS => {
+                            return (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                axum::Json(serde_json::json!({})),
+                            );
+                        }
+                        NO_ID => return (StatusCode::CREATED, axum::Json(serde_json::json!({}))),
+                        _ => {}
+                    }
                     let auth = headers
                         .get("authorization")
                         .and_then(|v| v.to_str().ok())
@@ -52,11 +79,11 @@ async fn stub_service() -> (String, Inbox) {
             ),
         )
         .layer(axum::extract::DefaultBodyLimit::max(16 * 1024 * 1024))
-        .with_state(inbox.clone());
+        .with_state((inbox.clone(), mood.clone()));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     tokio::spawn(async move { axum::serve(listener, app).await });
-    (url, inbox)
+    (url, inbox, mood)
 }
 
 fn with_service(label: &str, url: &str) -> Gateway {
@@ -313,11 +340,73 @@ async fn a_report_is_refused_for_what_it_is() {
     .to_string();
     assert_eq!(report(port, Some(&token), &heavy).0, 413);
 
-    // The budget is per account: one more than it allows is refused.
-    for _ in 1..64 {
-        assert_eq!(report(port, Some(&token), fine).0, 201);
+    // A game id of exactly 128 characters is one; "" is none.
+    let longest = format!(
+        r#"{{"kind":"bug","text":"x","game_id":"{}","client":{{}}}}"#,
+        "g".repeat(128)
+    );
+    assert_eq!(report(port, Some(&token), &longest).0, 201);
+    assert_eq!(
+        report(
+            port,
+            Some(&token),
+            r#"{"kind":"bug","text":"x","game_id":"","client":{}}"#
+        )
+        .0,
+        201
+    );
+    let inbox = inbox.lock();
+    assert_eq!(inbox.len(), 3, "only what was taken arrived");
+    assert_eq!(inbox[1].1["game_id"], "g".repeat(128));
+    assert!(inbox[2].1["game_id"].is_null(), "an empty id is no id");
+    drop(inbox);
+
+    // A service that is not there takes nothing.
+    let gone = with_service("reports-gone", "http://127.0.0.1:9");
+    let token = login(gone.port, "ruth", "Ruth");
+    assert_eq!(report(gone.port, Some(&token), fine).0, 502);
+}
+
+/// The budget (`REPORTS_PER_WINDOW`, 64 an hour): an account's 65th report
+/// is refused and another account's first is not; a report the service did
+/// not take, or that the gateway's database could not look up, costs
+/// nothing of it, however many there are.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_budget_is_64_per_account_and_only_what_was_taken_counts() {
+    let (url, inbox, mood) = moody_service().await;
+    let gw = with_service("reports-budget", &url);
+    let port = gw.port;
+    let token = login(port, "pia", "Pia");
+    let fine = r#"{"kind":"bug","text":"x","game_id":null,"client":{}}"#;
+
+    // Seventy the service refused, seventy it answered without an id, and
+    // seventy the gateway could not look the game up for.
+    mood.store(FAILS, Ordering::SeqCst);
+    for _ in 0..70 {
+        assert_eq!(report(port, Some(&token), fine).0, 502);
     }
-    assert_eq!(report(port, Some(&token), fine).0, 429);
+    mood.store(NO_ID, Ordering::SeqCst);
+    for _ in 0..70 {
+        assert_eq!(report(port, Some(&token), fine).0, 502);
+    }
+    mood.store(TAKES, Ordering::SeqCst);
+    gw.sql("ALTER TABLE game_record RENAME TO game_record_away");
+    let about_a_game = r#"{"kind":"bug","text":"x","game_id":"g1","client":{}}"#;
+    for _ in 0..70 {
+        assert_eq!(report(port, Some(&token), about_a_game).0, 503);
+    }
+    gw.sql("ALTER TABLE game_record_away RENAME TO game_record");
+    assert!(inbox.lock().is_empty());
+
+    for i in 0..64 {
+        assert_eq!(report(port, Some(&token), fine).0, 201, "report {i}");
+    }
+    assert_eq!(report(port, Some(&token), fine).0, 429, "the 65th");
+    assert_eq!(
+        report(port, Some(&token), about_a_game).0,
+        429,
+        "whatever it is about"
+    );
     let other = login(port, "quin", "Quin");
     assert_eq!(
         report(port, Some(&other), fine).0,
@@ -325,14 +414,6 @@ async fn a_report_is_refused_for_what_it_is() {
         "another account is not held"
     );
     assert_eq!(inbox.lock().len(), 65);
-
-    // A service that is not there takes nothing, and a report it did not
-    // take costs nothing of the budget.
-    let gone = with_service("reports-gone", "http://127.0.0.1:9");
-    let token = login(gone.port, "ruth", "Ruth");
-    for _ in 0..70 {
-        assert_eq!(report(gone.port, Some(&token), fine).0, 502);
-    }
 }
 
 /// The same path into the real service rather than the stub: what the
