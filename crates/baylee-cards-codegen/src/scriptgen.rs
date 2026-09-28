@@ -780,6 +780,22 @@ impl Tx<'_> {
                     )],
                 }
             }
+            "Discard" => {
+                // Refuse other modes instead of turning a chosen discard
+                // into a random one. Unconsumed qualifiers also refuse it.
+                if p.take("Mode").as_deref() != Some("Random") {
+                    return None;
+                }
+                let n = amount(
+                    p.take("NumCards").as_deref().unwrap_or("1"),
+                    self.svars,
+                    self.has_x,
+                )?;
+                let who = Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
+                vec![format!(
+                    "Effect::DiscardRandom {{ who: {who}, count: {n} }}"
+                )]
+            }
             "Mill" => {
                 let n = amount(&p.take("NumCards")?, self.svars, self.has_x)?;
                 let who = Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
@@ -3582,6 +3598,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "GainLife",
     "LoseLife",
     "Draw",
+    "Discard",
     "Mill",
     "Scry",
     "Surveil",
@@ -3886,6 +3903,35 @@ mod tests {
               target = Some(TargetSpec::Object(&Filter::CREATURE)))"
             ]
         );
+    }
+
+    #[test]
+    fn random_discard_reads_x_and_refuses_a_chosen_discard() {
+        let generated = read(
+            "Name:Test
+ManaCost:X B
+Types:Sorcery
+A:SP$ Discard | ValidTgts$ Player | NumCards$ X | Mode$ Random
+SVar:X:Count$xPaid",
+        );
+        assert!(
+            generated
+                .abilities
+                .iter()
+                .any(|a| a.contains("Effect::DiscardRandom")
+                    && a.contains("Amount::X")
+                    && a.contains("PlayerRel::Chosen")),
+            "{generated:?}"
+        );
+        for extra in [
+            "",
+            " | Mode$ TgtChoose",
+            " | Mode$ Random | RevealNumber$ 2",
+        ] {
+            assert!(refused(&format!(
+                "Name:Test\nManaCost:B\nTypes:Sorcery\nA:SP$ Discard | ValidTgts$ Player | NumCards$ 1{extra}"
+            )));
+        }
     }
 
     /// `K:ETBReplacement:Other:<svar>` is a **pointer**, and the rule is what

@@ -55,7 +55,13 @@ fn thrun_indestructibility_expires_and_returns_at_turn_boundaries() {
     for active in [me, PlayerId::new(1), me] {
         assert!(walk_to_own_main(&mut engine, active));
         assert_eq!(
-            engine.state().object(troll).unwrap().characteristics().keywords.contains(KeywordSet::INDESTRUCTIBLE),
+            engine
+                .state()
+                .object(troll)
+                .unwrap()
+                .characteristics()
+                .keywords
+                .contains(KeywordSet::INDESTRUCTIBLE),
             active == me
         );
         // Advance out of this main phase before looking for the next one.

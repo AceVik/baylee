@@ -6,6 +6,16 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-09-28 — A paid spell can still be a stub
+
+Mind Twist had an X mana cost but no effect. Test the complete cast path:
+announce X, choose a player, spend mana, resolve, then compare every seat's
+hand. Random discard uses the engine RNG and never asks either player to
+choose. Test X=0, oversized X and identical replay seeds. Generated stubs
+are repaired through the reader; `adopt` deliberately refuses an unfinished
+stub. Its refusal tests must call `refused`, not the helper that expects a
+fully transcoded card.
+
 ## 2026-09-28 — Recheck partial-card notes against today's DSL
 
 Thrun still claimed conditional static abilities could not be expressed,

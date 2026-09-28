@@ -1753,6 +1753,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::Regenerate { .. }
         | Effect::DestroyChosenForPlayers { .. }
         | Effect::DiscardForPlayers { .. }
+        | Effect::DiscardRandom { .. }
         | Effect::SacrificeFilter { .. }
         | Effect::ReturnChosenToHand { .. }
         | Effect::AllGraveyardCreaturesToBattlefield

@@ -694,6 +694,25 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 prompt: ChoicePrompt::Generic,
             })
         }
+        Effect::DiscardRandom { who, count } => {
+            let count = amount2(&count, state, you, res) as usize;
+            if count == 0 {
+                return None;
+            }
+            for player in players_of(who, state, you, res) {
+                let mut hand = state.zones.list(ZoneLocation::Hand(player)).clone();
+                state.rng.shuffle(&mut hand);
+                for card in hand.into_iter().take(count) {
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Graveyard(player),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+            }
+            None
+        }
         Effect::AllGraveyardCreaturesToBattlefield => {
             // Under `you`'s control, so nowhere once they have left
             // (CR 800.4b).

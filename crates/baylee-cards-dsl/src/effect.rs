@@ -895,6 +895,13 @@ pub enum Effect {
         /// How many cards.
         count: u8,
     },
+    /// Discard random cards, using the game's seeded RNG (Mind Twist).
+    DiscardRandom {
+        /// Players whose hands lose cards.
+        who: PlayerRel,
+        /// Number of cards, capped by each hand's size.
+        count: Amount,
+    },
     /// Put all creature cards from all graveyards onto the battlefield
     /// under your control (The True Scriptures III).
     AllGraveyardCreaturesToBattlefield,
@@ -2076,6 +2083,7 @@ impl Effect {
             | Effect::ExchangeControlOrSacrifice
             | Effect::DestroyChosenForPlayers { .. }
             | Effect::DiscardForPlayers { .. }
+            | Effect::DiscardRandom { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
             | Effect::ExileSelfReturnAsFace { .. }
             | Effect::SacrificeFilter { .. }
