@@ -435,7 +435,8 @@ fn prototype_is_castable_for_three_and_ward_uses_its_actual_power() {
 #[test]
 fn thorins_story_counts_permanents_once_and_keeps_the_designation() {
     for (artifacts, earns) in [
-        (vec![card("Sol Ring")], false),
+        // The legendary artifact qualifies twice but counts as one permanent.
+        (vec![card("The One Ring")], false),
         (vec![card("Sol Ring"), card("Arcane Signet")], true),
     ] {
         let mut battlefield = vec![card("Thorin Oakenshield")];

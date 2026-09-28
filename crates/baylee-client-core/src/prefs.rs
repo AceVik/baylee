@@ -496,6 +496,7 @@ impl Keymap {
         map.bindings.remove(&Action::HoldForTurn);
         map.bindings.remove(&Action::ActivateGroup);
         map.bindings.remove(&Action::Report);
+        map.bindings.remove(&Action::ConfirmTargetBatch);
         map
     }
 

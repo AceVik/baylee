@@ -945,8 +945,9 @@ messages! {
     SoundOff { en: "Off", de: "Aus" },
     /// Do the obvious thing
     ActPrimary { en: "Do the obvious thing", de: "Das Naheliegende tun" },
-    /// Confirm / pass priority
+    /// Explicit shortcut for the current repeated targeting series.
     ActConfirmTargetBatch { en: "Confirm targets for this series", de: "Ziele für diese Serie bestätigen" },
+    /// Ordinary confirmation or priority pass.
     ActConfirm { en: "Confirm / pass priority", de: "Bestätigen / Priorität abgeben" },
     /// Cancel
     ActCancel { en: "Cancel", de: "Abbrechen" },
