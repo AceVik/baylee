@@ -1707,9 +1707,9 @@ impl<L: CardLookup> Engine<L> {
         // whose condition failed. (CR 613.6 also carries one ability's
         // effect on into its later layers; the DSL writes each layer's part
         // as a static of its own, so a printed ability that spans layer 4
-        // and layer 7 is not told apart here and loses its layer-7 part.) That reads the projection, so it is made
-        // current first: the effect that took the abilities may have been
-        // registered a moment ago.
+        // and layer 7 is not told apart here and loses its layer-7 part.)
+        // That reads the projection, so it is made current first: the effect
+        // that took the abilities may have been registered a moment ago.
         self.state.refresh_characteristics();
         let ids: Vec<ObjectId> = self.state.zones.list(ZoneLocation::Battlefield).clone();
         let mut to_register = Vec::new();
@@ -1757,8 +1757,12 @@ impl<L: CardLookup> Engine<L> {
         for fx in to_register {
             self.state.effects.register(fx);
         }
-        // Sync replacement rules (drop rules of departed sources, register
-        // new ones).
+        self.sync_replacement_rules();
+    }
+
+    /// Drops the replacement rules of sources that left the battlefield or
+    /// lost their abilities (CR 613.1f) and registers the new ones.
+    fn sync_replacement_rules(&mut self) {
         let gone_rules: Vec<ObjectId> = self
             .state
             .replacement_rules
