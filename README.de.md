@@ -249,9 +249,10 @@ Hand: Lade das neue Archiv herunter und ersetze den alten Ordner (oder
 `Baylee.app`) durch den neuen.
 
 Deine Einstellungen bleiben dabei erhalten, weil sie nicht neben dem Programm
-liegen. Der Client speichert sie in `baylee/` unter `$XDG_CONFIG_HOME`, oder
-unter `~/.config/baylee/`, wenn diese Variable nicht gesetzt ist. Das gilt
-auch auf macOS. Dort liegen:
+liegen. Unter Windows speichert der Client sie in `%APPDATA%\Baylee`, unter
+Linux und macOS in `~/.config/baylee/`. Ist `$XDG_CONFIG_HOME` gesetzt,
+verwendet er auf allen drei Systemen stattdessen `$XDG_CONFIG_HOME/baylee`.
+Dort liegen:
 
 - `client-settings.json`: Sprache, Gateway-Liste, Einwilligungen für
   Meldungen und die Sitzung eines Gastes;
@@ -264,13 +265,6 @@ Kartenbilder werden getrennt davon zwischengespeichert, in
 `~/.cache/baylee` (Linux). Dein Konto und die online gebauten Decks liegen auf
 dem Gateway, nicht auf deinem Rechner. Wenn du dich anmeldest, lädt der
 Client deine Tastenbelegung und Vorlieben vom Gateway.
-
-> [!WARNING]
-> **Windows:** Der Pfad für die Einstellungen kommt aus der Umgebungsvariable
-> `HOME` (oder `XDG_CONFIG_HOME`), die Windows meist nicht setzt. Prüfe, ob
-> deine Einstellungen einen Neustart überleben, bevor du dich darauf
-> verlässt. Dein Konto und deine Online-Decks betrifft das nicht, denn die
-> liegen auf dem Gateway.
 
 Jede Version zeigt ihre Versionsnummer und ihren Commit in der Lobby. Eine
 neue Minor-Version (0.1 → 0.2) kann mit einem älteren Gateway unter Umständen

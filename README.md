@@ -236,9 +236,9 @@ the new archive and replace the old folder (or `Baylee.app`) with the new
 one.
 
 Replacing the program keeps your settings, because they are not stored next
-to it. The client keeps them in `baylee/` under `$XDG_CONFIG_HOME`, or
-under `~/.config/baylee/` when that variable is not set. This applies on
-macOS too. The files there are:
+to it. On Windows, the client keeps them in `%APPDATA%\Baylee`; on Linux
+and macOS, in `~/.config/baylee/`. Setting `$XDG_CONFIG_HOME` overrides
+that location with `$XDG_CONFIG_HOME/baylee` on all three systems. The files are:
 
 - `client-settings.json`: language, gateway list, report consent, and a
   guest's session;
@@ -251,13 +251,6 @@ Card images are cached separately, in `~/Library/Caches/baylee` (macOS),
 and the decks you built online are stored on the gateway, not on your
 computer. When you sign in, your key bindings and preferences are loaded from
 the gateway.
-
-> [!WARNING]
-> **Windows:** the settings path is taken from the `HOME` (or
-> `XDG_CONFIG_HOME`) environment variable, which Windows usually does not set.
-> Check whether your settings survive a restart before relying on it.
-> Your account and online decks are unaffected, because they live on the
-> gateway.
 
 Every build shows its version and commit in the lobby. A new minor version
 (0.1 → 0.2) may be unable to talk to an older gateway, so update when a new
