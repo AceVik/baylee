@@ -477,6 +477,9 @@ pub struct GameState {
     /// while a list that is empty in almost every game state is a `Vec`
     /// header once.
     pub ltb_abilities: Vec<(ObjectId, crate::object::AbilityList)>,
+    /// Mana values immediately before battlefield departures. Captured by
+    /// triggers before this bounded look-back store is cleared.
+    pub ltb_mana_values: Vec<(ObjectId, u32)>,
     /// What was attached to a permanent the moment it left the battlefield.
     ///
     /// The other half of CR 603.10a, and it is needed for the same reason and
@@ -779,6 +782,7 @@ impl GameState {
             commander_casts: vec![0; preset.seats.len()],
             commander_redirect: Vec::new(),
             pending_copied_faces: Vec::new(),
+            ltb_mana_values: Vec::new(),
             ltb_abilities: Vec::new(),
             ltb_counters: Vec::new(),
             ltb_attachments: Vec::new(),
@@ -1647,6 +1651,13 @@ impl GameState {
     /// again only on a departure from the battlefield, so each describes the
     /// last such departure and no earlier one.
     fn record_last_known(&mut self, id: ObjectId, from_zone: Zone) {
+        self.ltb_mana_values.retain(|(other, _)| *other != id);
+        if from_zone == Zone::Battlefield
+            && let Some(object) = self.object(id)
+        {
+            self.ltb_mana_values
+                .push((id, object.characteristics().mana_cost.cmc()));
+        }
         if from_zone == Zone::Battlefield {
             let power = self
                 .object(id)
@@ -2085,6 +2096,7 @@ impl GameState {
             commander_casts,
             commander_redirect,
             pending_copied_faces,
+            ltb_mana_values,
             ltb_abilities,
             ltb_attachments,
             ltb_counters,
@@ -2179,6 +2191,7 @@ impl GameState {
         }
         ltb_attachments.hash(&mut h);
         ltb_counters.hash(&mut h);
+        ltb_mana_values.hash(&mut h);
         hash_unordered(
             &mut h,
             restriction_info.iter(),
@@ -3789,6 +3802,9 @@ mod tests {
             }),
             ("ltb_attachments", |s, id| {
                 s.ltb_attachments.push((id, Vec::new()));
+            }),
+            ("ltb_mana_values", |s, id| {
+                s.ltb_mana_values.push((id, 3));
             }),
             ("ltb_counters", |s, id| {
                 s.ltb_counters.push((id, Counters::default()));

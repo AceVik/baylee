@@ -568,6 +568,9 @@ impl<L: CardLookup> Engine<L> {
                         }
                         self.push_ability_to_stack(controller, source, ability_index, targets);
                         self.set_top_mode(mode);
+                        if let Some(t) = &queued {
+                            self.bind_top_trigger(t);
+                        }
                         // Player targets ride beside the object ones. The
                         // ability is on the stack now, so the seats are
                         // written onto it directly rather than threaded

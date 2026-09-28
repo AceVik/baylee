@@ -604,6 +604,17 @@ pub fn target_options(
         TargetSpec::CardInGraveyard(filter, rel) => {
             graveyard_options(filter, *rel, state, you, this)
         }
+        TargetSpec::CardInGraveyardBelowEvent(..) => Vec::new(),
+        TargetSpec::CardInGraveyardBelowValue(filter, rel, limit) => {
+            graveyard_options(filter, *rel, state, you, this)
+                .into_iter()
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| o.characteristics().mana_cost.cmc() < *limit)
+                })
+                .collect()
+        }
         TargetSpec::StackOrBattlefield(filter) => {
             let mut out: Vec<ObjectId> = state
                 .zones

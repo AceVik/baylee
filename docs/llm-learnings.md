@@ -1642,3 +1642,15 @@ reading 17 000 lines of card tests. So before a card goes to the lane, grep
 `crates/baylee-engine/src/engine/*_tests.rs` (recursively) for its
 `oracle_id`. A card that already has a test gets its existing test extended
 by hand, or nothing at all.
+
+### 2026-09-28 — event-dependent graveyard targets
+
+Scrap Trawler compares against the departed artifact, not against Trawler.
+Capture its last battlefield mana value before copying is erased, then bind
+that value to this trigger's target requirement. Re-reading either card at
+resolution is wrong. Test a copied Effigy returning its own printed card,
+simultaneous deaths with different values, an equal-value refusal, and the
+event card moving again while its trigger waits. Source: Wizards' [Aether
+Revolt release notes](https://magic.wizards.com/en/news/feature/aether-revolt-release-notes-2017-01-06),
+Scrap Trawler rulings. The old partial-coverage test expected the dead Sol Ring
+to return itself; a passing legacy test can pin the bug rather than the rule.

@@ -238,6 +238,8 @@ fn target_filter(spec: TargetSpec) -> Option<&'static Filter> {
         | TargetSpec::Spell(f)
         | TargetSpec::StackOrBattlefield(f)
         | TargetSpec::CardInGraveyard(f, _)
+        | TargetSpec::CardInGraveyardBelowEvent(f, _)
+        | TargetSpec::CardInGraveyardBelowValue(f, _, _)
         | TargetSpec::AbilityOnStack(f)
         | TargetSpec::SpellOrAbility(f) => Some(f),
         // A player, the source, or the event's own object: no filter, and
@@ -284,6 +286,8 @@ fn can_target_an_object(spec: TargetSpec) -> bool {
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)
+        | TargetSpec::CardInGraveyardBelowEvent(..)
+        | TargetSpec::CardInGraveyardBelowValue(..)
         | TargetSpec::AbilityOnStack(_)
         | TargetSpec::SpellOrAbility(_)
         | TargetSpec::ThisObject

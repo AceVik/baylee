@@ -431,6 +431,12 @@ pub enum TargetSpec {
     StackOrBattlefield(&'static Filter),
     /// A card in a graveyard matching the filter.
     CardInGraveyard(&'static Filter, PlayerRel),
+    /// A graveyard card below the triggering permanent's last battlefield
+    /// mana value. The engine binds this before offering targets.
+    CardInGraveyardBelowEvent(&'static Filter, PlayerRel),
+    /// A captured strict mana-value bound, retained on a stacked trigger
+    /// for target rechecks and copies. Card definitions use `BelowEvent`.
+    CardInGraveyardBelowValue(&'static Filter, PlayerRel, u32),
     /// The source object.
     ThisObject,
     /// An activated/triggered ability on the stack (Tishana's Tidebinder).

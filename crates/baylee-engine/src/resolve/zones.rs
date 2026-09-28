@@ -82,6 +82,8 @@ fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)
+        | TargetSpec::CardInGraveyardBelowEvent(..)
+        | TargetSpec::CardInGraveyardBelowValue(..)
         | TargetSpec::AbilityOnStack(_)
         | TargetSpec::SpellOrAbility(_)
         | TargetSpec::Player(_)

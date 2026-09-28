@@ -596,7 +596,9 @@ mod tests {
                         | TargetSpec::StackOrBattlefield(f)
                         | TargetSpec::AbilityOnStack(f)
                         | TargetSpec::SpellOrAbility(f)
-                        | TargetSpec::CardInGraveyard(f, _) => *f,
+                        | TargetSpec::CardInGraveyard(f, _)
+                        | TargetSpec::CardInGraveyardBelowEvent(f, _)
+                        | TargetSpec::CardInGraveyardBelowValue(f, _, _) => *f,
                     };
                     let name = def.faces[0].name;
                     if legal_targets(&view, &req.spec).is_none() {

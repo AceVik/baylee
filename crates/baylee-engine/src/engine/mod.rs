@@ -702,6 +702,13 @@ impl<L: CardLookup> Engine<L> {
     pub fn snapshot_hash(&self) -> u64 {
         let base = self.state.snapshot_hash();
         let mut extra = self.trigger_scan_seq;
+        for trigger in &self.trigger_queue {
+            extra = extra.wrapping_mul(31).wrapping_add(
+                trigger
+                    .event_mana_value
+                    .map_or(0, |value| u64::from(value) + 1),
+            );
+        }
         if let Some(r) = &self.resolution {
             extra = extra
                 .wrapping_mul(31)
@@ -1052,3 +1059,6 @@ mod ward_tests;
 mod waterbend_tests;
 #[cfg(test)]
 mod werewolf_tests;
+
+#[cfg(test)]
+mod scrap_trawler_tests;

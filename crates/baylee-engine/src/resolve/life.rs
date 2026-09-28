@@ -78,6 +78,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 | TargetSpec::Spell(_)
                 | TargetSpec::StackOrBattlefield(_)
                 | TargetSpec::CardInGraveyard(..)
+                | TargetSpec::CardInGraveyardBelowEvent(..)
+                | TargetSpec::CardInGraveyardBelowValue(..)
                 | TargetSpec::ThisObject
                 | TargetSpec::AbilityOnStack(_)
                 | TargetSpec::SpellOrAbility(_)

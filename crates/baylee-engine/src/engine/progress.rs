@@ -1938,6 +1938,21 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Preserve event context independently of the source and event object.
+    pub(crate) fn bind_top_trigger(&mut self, trigger: &crate::trigger::PendingTrigger) {
+        let Some(top) = self.state.zones.list(ZoneLocation::Stack).last().copied() else {
+            return;
+        };
+        let bound = self.stack_target_req(top).map(|mut req| {
+            req.spec = trigger.bind_target(req.spec);
+            req
+        });
+        if let Some(object) = self.state.object_mut(top) {
+            object.event_object = trigger.event_object;
+            object.target_req = bound;
+        }
+    }
+
     /// The modes of a queued trigger, if it is a modal one.
     fn modal_trigger_modes(
         &self,
@@ -1969,7 +1984,13 @@ impl<L: CardLookup> Engine<L> {
         if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
             return t.event_object.is_some();
         }
-        let objects = eval::target_options(&req.spec, &self.state, t.controller, t.source).len();
+        let objects = eval::target_options(
+            &t.bind_target(req.spec),
+            &self.state,
+            t.controller,
+            t.source,
+        )
+        .len();
         let players = eval::target_player_options(&self.state, &req.spec, t.controller).len();
         objects + players >= req.min as usize
     }
@@ -2010,6 +2031,7 @@ impl<L: CardLookup> Engine<L> {
                 .retain(|(id, _)| !gone.contains(id));
         }
         self.state.ceased.clear();
+        self.state.ltb_mana_values.clear();
         self.trigger_queue.extend(found);
         let active = self.state.turn.active.get();
         let seats = self.state.players.len() as u8;
@@ -2028,6 +2050,7 @@ impl<L: CardLookup> Engine<L> {
             self.trigger_queue.clear();
             self.trigger_scan_seq = self.state.journal.last_seq();
             self.state.ceased.clear();
+            self.state.ltb_mana_values.clear();
             return;
         }
         self.queue_new_triggers();
@@ -2128,6 +2151,7 @@ impl<L: CardLookup> Engine<L> {
                     self.hand_over_trigger_abilities(&t);
                     self.push_ability_to_stack(t.controller, t.source, t.ability_index, targets);
                     self.set_top_mode(t.chosen_mode);
+                    self.bind_top_trigger(&t);
                     if let Some(event_object) = t.event_object {
                         let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
                         if let Some(top) = top
@@ -2138,7 +2162,12 @@ impl<L: CardLookup> Engine<L> {
                     }
                     continue;
                 }
-                let options = eval::target_options(&req.spec, &self.state, t.controller, t.source);
+                let options = eval::target_options(
+                    &t.bind_target(req.spec),
+                    &self.state,
+                    t.controller,
+                    t.source,
+                );
                 // A trigger may point at a player as readily as a spell does
                 // ("it deals 1 damage to target opponent"), and "any target"
                 // offers both lists at once (CR 115.4). The choice is one
@@ -2206,7 +2235,8 @@ impl<L: CardLookup> Engine<L> {
             if t.synthetic_effects.is_some()
                 && let Some(spec) = t.synthetic_target
             {
-                let options = eval::target_options(&spec, &self.state, t.controller, t.source);
+                let options =
+                    eval::target_options(&t.bind_target(spec), &self.state, t.controller, t.source);
                 if options.is_empty() {
                     // No legal target, so the trigger is removed (CR 603.3d)
                     // — and it is *already* removed: the pop above took this
@@ -2296,6 +2326,7 @@ impl<L: CardLookup> Engine<L> {
                     SmallVec::new(),
                 );
                 self.set_top_mode(t.chosen_mode);
+                self.bind_top_trigger(&t);
                 // Carry the event object onto the fresh stack object.
                 if let Some(event_object) = t.event_object {
                     let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
@@ -2373,7 +2404,7 @@ impl<L: CardLookup> Engine<L> {
     /// have all been settled and the object is where they were settled.
     fn stack_target_req(&self, on_stack: ObjectId) -> Option<TargetReq> {
         let obj = self.state.object(on_stack)?;
-        if obj.kind != ObjectKind::AbilityOnStack {
+        if obj.target_req.is_some() || obj.kind != ObjectKind::AbilityOnStack {
             return obj.target_req;
         }
         let loc = obj.ability?;
@@ -3436,7 +3467,9 @@ impl<L: CardLookup> Engine<L> {
             obj.event_object = t.event_object;
             // What the targets were chosen against. CR 608.2b re-checks
             // them against it at resolution, as it does a spell's.
-            obj.target_req = t.synthetic_target.map(TargetReq::one);
+            obj.target_req = t
+                .synthetic_target
+                .map(|spec| TargetReq::one(t.bind_target(spec)));
             obj
         });
         self.synthetic_fx.insert(id, synthetic);
@@ -3677,6 +3710,7 @@ impl<L: CardLookup> Engine<L> {
         for ability_index in &hits {
             self.trigger_queue
                 .push_back(crate::trigger::PendingTrigger {
+                    event_mana_value: None,
                     source: id,
                     ability_index: *ability_index,
                     abilities: None,

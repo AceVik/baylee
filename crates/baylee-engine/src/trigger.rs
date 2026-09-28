@@ -31,6 +31,8 @@ pub struct PendingTrigger {
     pub timestamp: u64,
     /// The object the triggering event was about (if any).
     pub event_object: Option<ObjectId>,
+    /// The event permanent's mana value before leaving the battlefield.
+    pub event_mana_value: Option<u32>,
     /// What an untargeted synthetic trigger puts first among its targets,
     /// which is what its `Filter::This` and its "target" words then name
     /// (`resolve::this_object`).
@@ -155,6 +157,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                         let event_object = event_object_of(&entry.event);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
+                                event_mana_value: None,
                                 source: emblem,
                                 ability_index: index as u32,
                                 abilities: Some(crate::object::AbilityList {
@@ -201,6 +204,15 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     // has left those too.
     let departed: Vec<ObjectId> = state.ceased.iter().map(|o| o.id).collect();
     collect_for_objects(state, lookup, &departed, events, false, &mut triggers);
+    for trigger in &mut triggers {
+        trigger.event_mana_value = trigger.event_object.and_then(|id| {
+            state
+                .ltb_mana_values
+                .iter()
+                .find(|(object, _)| *object == id)
+                .map(|(_, value)| *value)
+        });
+    }
     // APNAP: active player first, then in turn order; same controller by
     // timestamp (M2: player ordering choice).
     let active = state.turn.active;
@@ -249,6 +261,7 @@ fn monarch_triggers(
         return;
     };
     let inherent = |effects, event_object| PendingTrigger {
+        event_mana_value: None,
         source: ObjectId::NO_SOURCE,
         ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
         abilities: None,
@@ -483,6 +496,7 @@ fn collect_for_objects(
                         permanent,
                     ) {
                         triggers.push(PendingTrigger {
+                            event_mana_value: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: obj.controller,
@@ -581,6 +595,7 @@ fn collect_for_objects(
                             permanent,
                         ) {
                             triggers.push(PendingTrigger {
+                                event_mana_value: None,
                                 source: permanent,
                                 ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                                 controller: obj.controller,
@@ -626,6 +641,7 @@ fn collect_for_objects(
                         * repeats(&entry.event);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
+                            event_mana_value: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: obj.controller,
@@ -668,6 +684,7 @@ fn collect_for_objects(
                         permanent,
                     ) {
                         triggers.push(PendingTrigger {
+                            event_mana_value: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: obj.controller,
@@ -714,6 +731,7 @@ fn collect_for_objects(
                     let event_object = event_object_of(&entry.event);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
+                            event_mana_value: None,
                             source: permanent,
                             ability_index: index as u32,
                             abilities: Some(list),
@@ -1063,6 +1081,24 @@ fn matches(
             }
         }
         _ => false,
+    }
+}
+
+impl PendingTrigger {
+    pub(crate) fn bind_target(
+        &self,
+        spec: baylee_cards_dsl::TargetSpec,
+    ) -> baylee_cards_dsl::TargetSpec {
+        match spec {
+            baylee_cards_dsl::TargetSpec::CardInGraveyardBelowEvent(filter, rel) => {
+                baylee_cards_dsl::TargetSpec::CardInGraveyardBelowValue(
+                    filter,
+                    rel,
+                    self.event_mana_value.unwrap_or(0),
+                )
+            }
+            other => other,
+        }
     }
 }
 
