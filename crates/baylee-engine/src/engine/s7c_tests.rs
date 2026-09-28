@@ -278,7 +278,11 @@ fn kicked_rite_makes_five_tokens() {
         guard += 1;
         assert!(guard < 40, "rite never cast");
     }
-    // Target the cleric, then answer the kicker yes/no with yes.
+    // Choose the kicker before choosing the spell's targets.
+    let Pending::YesNo { .. } = engine.pending().clone() else {
+        panic!("expected kicker choice, got {:?}", engine.pending())
+    };
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
         panic!("expected targets, got {:?}", engine.pending())
     };
@@ -291,11 +295,6 @@ fn kicked_rite_makes_five_tokens() {
             },
         )
         .unwrap();
-    let Pending::YesNo { .. } = engine.pending().clone() else {
-        panic!("expected kicker choice, got {:?}", engine.pending())
-    };
-    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
-
     // Resolve: 5 cleric tokens.
     let p1 = PlayerId::new(1);
     let Pending::Priority { player, .. } = engine.pending().clone() else {

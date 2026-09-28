@@ -2615,3 +2615,9 @@ for example Reflections of Littjara or Cavern of Souls. The choice is public
 and is shown to every seat. A missing field decodes as `None`. Clients keep
 permanents with different named types in separate groups and label the choice
 on the battlefield using their own language.
+
+Target-changing kicker spells now offer `CastModeKind::Kicked` with the complete
+base-plus-kicker mana cost before choosing their targets. This is part of the
+unreleased protocol 7 changes. The client plans that whole cost and preserves
+the chosen mode while floating mana; the gateway still treats seat frames as
+opaque.

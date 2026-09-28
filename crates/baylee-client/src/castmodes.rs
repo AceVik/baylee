@@ -130,8 +130,19 @@ pub fn reachable_modes(
     // CR 202.1b: a face with no printed cost has no printed way to be cast,
     // which is the rule `casting::has_a_printed_cost` states engine-side and
     // the one that keeps a suspend-only card off this list.
-    if face.mana_cost.symbols().next().is_some() {
+    if face.mana_cost.symbols().next().is_some()
+        && (face.kicked_targets.is_none()
+            || !crate::targeting::ordinary_targetless(view, hand.card))
+    {
         offer(CastModeKind::Normal, face.mana_cost);
+    }
+    if let Some(req) = face.kicked_targets
+        && crate::targeting::requirement_possible(view, req)
+    {
+        offer(
+            CastModeKind::Kicked,
+            baylee_engine::casting::kicked_mana_cost(face),
+        );
     }
     if let Some(prototype) = face.prototype {
         offer(CastModeKind::Prototype, prototype.cost);
@@ -250,6 +261,7 @@ mod tests {
     /// with exactly one basic type.
     fn basic(slot: u32, name: &str, subtype: baylee_core::ids::SubtypeId) -> PublicObject {
         let mut o = token(slot, 0, name, 0, 0);
+        o.card = Some(card_in_hand(slot, name, &[]).card);
         o.types = TypeSet::LAND;
         o.subtypes = SubtypeSet::from_slice(&[subtype]);
         o.power = None;
@@ -304,6 +316,38 @@ mod tests {
 
     fn kinds(modes: &[ReachableMode]) -> Vec<CastModeKind> {
         modes.iter().map(|m| m.kind).collect()
+    }
+
+    #[test]
+    fn tear_asunder_plans_the_complete_kicker_price_before_targeting() {
+        let mut hand = card_in_hand(1, "Tear Asunder", &[Color::Green]);
+        hand.types = TypeSet::INSTANT;
+        let (mut view, mut legal) = lands_of(vec![hand.clone()], 2, "Forest", land::FOREST);
+        let mut elf = token(300, 1, "Llanowar Elves", 1, 1);
+        elf.card = Some(card_in_hand(300, "Llanowar Elves", &[Color::Green]).card);
+        view.battlefield.push(elf);
+        assert!(
+            reachable_modes(&view, &legal, hand.id).is_empty(),
+            "two mana cannot reach the only legal kicked targets"
+        );
+        for id in [102, 103] {
+            let swamp = basic(id, "Swamp", land::SWAMP);
+            legal.mana_abilities.push(swamp.id);
+            view.battlefield.push(swamp);
+        }
+        let modes = reachable_modes(&view, &legal, hand.id);
+        assert_eq!(kinds(&modes), [CastModeKind::Kicked]);
+        assert_eq!(modes[0].plan.steps.len(), 4);
+        assert_eq!(modes[0].cost, ManaCost::parse("{2}{B}{G}"));
+        assert!(!crate::targeting::provably_targetless(&view, hand.card));
+        let mut artifact = token(301, 1, "Artifact", 0, 0);
+        artifact.types = TypeSet::ARTIFACT;
+        artifact.card = Some(card_in_hand(301, "Mind Stone", &[]).card);
+        view.battlefield.push(artifact);
+        let modes = reachable_modes(&view, &legal, hand.id);
+        assert_eq!(kinds(&modes), [CastModeKind::Normal, CastModeKind::Kicked]);
+        assert_eq!(modes[0].plan.steps.len(), 2);
+        assert_eq!(modes[1].plan.steps.len(), 4);
     }
 
     #[test]

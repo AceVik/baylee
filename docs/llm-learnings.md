@@ -1654,3 +1654,13 @@ event card moving again while its trigger waits. Source: Wizards' [Aether
 Revolt release notes](https://magic.wizards.com/en/news/feature/aether-revolt-release-notes-2017-01-06),
 Scrap Trawler rulings. The old partial-coverage test expected the dead Sol Ring
 to return itself; a passing legacy test can pin the bug rather than the rule.
+
+### 2026-09-28 — kicker can replace the target requirement
+
+Tear Asunder needs its kicker decision before targets, and the offer must
+combine an affordable price with the targets of that same way of casting.
+A cheap ordinary price plus targets found only by the dearer kicked cast is
+not a legal offer. Carry the selected requirement onto the stack for rechecks,
+and let the client's cast chooser plan the complete kicked price. Free casts
+waive the base mana cost but still pay optional additional costs.
+Source: Wizards’ [Dominaria United release notes](https://magic.wizards.com/en/news/feature/dominaria-united-release-notes-2022-08-26), Tear Asunder and Stenn rulings.

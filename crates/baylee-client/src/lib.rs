@@ -2224,6 +2224,13 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
     // card that lights up and then does nothing when it is clicked. The
     // graveyard's price is the flashback cost, for the reason given there.
     let cost = if let Some(hand_card) = view.hand.iter().find(|c| c.id == card) {
+        if baylee_cards::by_index(hand_card.card.index)
+            .is_some_and(|def| def.faces[0].kicked_targets.is_some())
+        {
+            return castmodes::reachable_modes(view, legal, card)
+                .first()
+                .map(|mode| mode.plan.clone());
+        }
         manasources::hand_cost(hand_card)?
     } else if let Some(buried) = view
         .graveyards
@@ -2604,6 +2611,11 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 || !castmodes::reachable_modes(view, legal, card.id).is_empty()
         })
         .filter(|card| {
+            if baylee_cards::by_index(card.card.index)
+                .is_some_and(|def| def.faces[0].kicked_targets.is_some())
+            {
+                return !castmodes::reachable_modes(view, legal, card.id).is_empty();
+            }
             manasources::hand_cost(card).is_some_and(&affordable)
                 || !castmodes::reachable_modes(view, legal, card.id).is_empty()
         })

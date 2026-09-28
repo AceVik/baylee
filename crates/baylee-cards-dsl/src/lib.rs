@@ -243,6 +243,9 @@ pub struct FaceDef {
     pub alternative_costs: &'static [crate::cost::AlternativeCost],
     /// Optional additional costs offered at cast (kicker, CR 702.33).
     pub additional_costs: &'static [crate::cost::Cost],
+    /// Replaces the first target requirement when kicker is paid. Such
+    /// spells offer ordinary and kicked casts with their complete prices.
+    pub kicked_targets: Option<crate::effect::TargetReq>,
     /// Mandatory additional cost parts paid at cast (Toxic Deluge's
     /// "pay X life").
     pub mandatory_additional_costs: &'static [crate::cost::CostPart],
@@ -325,6 +328,7 @@ impl FaceDef {
         loyalty: None,
         alternative_costs: &[],
         additional_costs: &[],
+        kicked_targets: None,
         mandatory_additional_costs: &[],
         enter_modifiers: &[],
         abilities: &[],

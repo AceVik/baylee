@@ -350,13 +350,7 @@ fn a_standing_answer_never_reaches_a_cost_decision() {
         .unwrap();
     assert!(walk_to_own_main(&mut engine, P0), "p0 reaches its own main");
     cast_from_hand(&mut engine, P0, rite_of_replication());
-    // The wizard asks for the target before the additional cost.
-    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
-        panic!("expected the target question, got {:?}", engine.pending())
-    };
-    engine
-        .apply(P0, PlayerAction::ChooseObjects { objects: options })
-        .unwrap();
+    // Kicker is announced before targets and never answered by a stored preference.
     assert!(
         matches!(
             engine.pending(),

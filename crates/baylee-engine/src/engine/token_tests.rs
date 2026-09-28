@@ -396,6 +396,9 @@ fn a_copys_ability_is_addressed_by_no_card() {
     engine
         .apply(p0, PlayerAction::CastSpell { card: rite })
         .unwrap();
+    // Rite's kicker is an optional additional cost; five more mana is not
+    // what this board is for.
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
     let cleric = super::testkit::on_battlefield(&engine, p0, ondu_cleric()).expect("the cleric");
     engine
         .apply(
@@ -406,9 +409,6 @@ fn a_copys_ability_is_addressed_by_no_card() {
             },
         )
         .unwrap();
-    // Rite's kicker is an optional additional cost; five more mana is not
-    // what this board is for.
-    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
     // Both seats pass, the Rite resolves, and the rallies go on the stack.
     super::testkit::pass_until(&mut engine, |e| {
         e.state()

@@ -257,6 +257,8 @@ pub struct CastModeDesc {
 pub enum CastModeKind {
     /// Printed cost.
     Normal,
+    /// Printed cost plus kicker, chosen before its replacement targets.
+    Kicked,
     /// An alternative cost (pitch, evoke, …).
     Alternative(usize),
     /// A spell mode (overload and friends).

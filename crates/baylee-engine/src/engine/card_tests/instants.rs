@@ -4799,12 +4799,8 @@ fn sejiri_shelter_stub_casts_and_resolves_into_graveyard() {
 /// Tear Asunder (`Coverage::Partial`): "Exile target artifact or
 /// enchantment."
 ///
-/// Kicker `{1}{B}` and the widened "exile target nonland permanent instead"
-/// are the partial — a spell carries one target requirement, so the kicked
-/// mode cannot widen it — and what is left is a plain exile with a filter on
-/// it. The filter is the thing worth playing: an empty board makes the spell
-/// uncastable, and a Mox Opal makes it castable, which is the same sentence
-/// read from both sides.
+/// The ordinary cast keeps its artifact/enchantment filter. Kicked casts
+/// and their replacement targets are exercised in `tear_asunder_tests`.
 #[test]
 fn tear_asunder_exiles_an_artifact_and_refuses_an_empty_board() {
     let p0 = PlayerId::new(0);

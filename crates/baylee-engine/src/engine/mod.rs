@@ -1062,3 +1062,6 @@ mod werewolf_tests;
 
 #[cfg(test)]
 mod scrap_trawler_tests;
+
+#[cfg(test)]
+mod tear_asunder_tests;

@@ -537,7 +537,8 @@ fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::CastMenu> {
         || modes.first().is_some_and(|m| {
             matches!(
                 m.kind,
-                baylee_engine::choice::CastModeKind::Prototype
+                baylee_engine::choice::CastModeKind::Kicked
+                    | baylee_engine::choice::CastModeKind::Prototype
                     | baylee_engine::choice::CastModeKind::Disguise
             )
         }))

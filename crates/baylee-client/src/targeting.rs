@@ -76,6 +76,21 @@ use baylee_view::{CardIdentity, PlayerView, PublicObject, StackItem};
 /// graveyard card with flashback is asked the same question (#242).
 #[must_use]
 pub fn provably_targetless(view: &PlayerView, card: CardIdentity) -> bool {
+    if let Some(req) = baylee_cards::by_index(card.index)
+        .and_then(|def| def.faces.get(card.face as usize))
+        .and_then(|face| face.kicked_targets)
+        && requirement_possible(view, req)
+    {
+        return false;
+    }
+    ordinary_targetless(view, card)
+}
+
+pub(crate) fn requirement_possible(view: &PlayerView, req: baylee_cards_dsl::TargetReq) -> bool {
+    legal_targets(view, &req.spec).is_none_or(|count| count >= usize::from(req.min))
+}
+
+pub(crate) fn ordinary_targetless(view: &PlayerView, card: CardIdentity) -> bool {
     let Some(def) = baylee_cards::by_index(card.index) else {
         return false;
     };

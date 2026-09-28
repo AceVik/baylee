@@ -355,6 +355,7 @@ fn cast_label(
     use baylee_engine::choice::CastModeKind as K;
     match kind {
         K::Normal => String::new(),
+        K::Kicked => Phrase::CastKicked.text(lang).to_string(),
         K::Alternative(i) => {
             printed_sentence(names, object, baylee_cards::lines::alternative_line, i)
                 .unwrap_or_default()

@@ -272,8 +272,46 @@ pub fn face_has_a_legal_target(
     // Every instance of the word has to be satisfiable (CR 601.2c): Khalni
     // Ambush with no creature on the other side of the table is not a spell
     // that can be cast, however many of the caster's own it could name.
-    requirement_is_reachable(req, state, player, card)
+    (requirement_is_reachable(req, state, player, card)
+        || def
+            .faces
+            .get(face)
+            .and_then(|f| f.kicked_targets)
+            .is_some_and(|req| requirement_is_reachable(Some(req), state, player, card)))
         && requirement_is_reachable(second, state, player, card)
+}
+
+/// Whether the ordinary spell target requirement can be satisfied.
+pub(crate) fn ordinary_targets_reachable(
+    state: &GameState,
+    def: &baylee_cards_dsl::CardDef,
+    player: PlayerId,
+    card: ObjectId,
+) -> bool {
+    def.abilities.iter().all(|ability| match ability {
+        baylee_cards_dsl::AbilityDef::Spell {
+            targets,
+            second_targets,
+            ..
+        } => {
+            requirement_is_reachable(*targets, state, player, card)
+                && requirement_is_reachable(*second_targets, state, player, card)
+        }
+        _ => true,
+    })
+}
+
+/// Complete printed mana price of a kicked spell, before increases/reductions.
+#[must_use]
+pub fn kicked_mana_cost(face: &baylee_cards_dsl::FaceDef) -> ManaCost {
+    let total = face
+        .additional_costs
+        .iter()
+        .fold(face.mana_cost, |cost, extra| cost.combine(&extra.mana));
+    // One generic symbol also keeps the complete price readable in the chooser.
+    total
+        .with_less_generic(total.generic_total())
+        .with_more_generic(total.generic_total())
 }
 
 /// Whether one mode of a modal spell (CR 700.2) can be pointed at anything.
@@ -345,7 +383,7 @@ pub fn modes_are_the_only_way(def: &baylee_cards_dsl::CardDef, face: usize) -> b
 /// no requirement at all, a minimum of zero, an X-counted requirement whose
 /// number nobody has picked yet, and anything naming a *player*, who is not
 /// an object and is never absent. All of those stay the wizard's problem.
-fn requirement_is_reachable(
+pub(crate) fn requirement_is_reachable(
     req: Option<baylee_cards_dsl::TargetReq>,
     state: &GameState,
     player: PlayerId,
@@ -964,6 +1002,28 @@ pub(crate) fn can_cast_form(
             &cost.with_more_generic(tax).with_less_generic(reduction),
         )
     };
+    if let Some(def) = printed
+        && let Some(req) = def.faces[0].kicked_targets
+    {
+        let ordinary = ordinary_targets_reachable(state, def, player, card)
+            && probe(
+                &c.mana_cost
+                    .with_less_generic(printed_reduction(state, &def.faces[0], player))
+                    .with_x(0),
+            );
+        let kicked_cost = kicked_mana_cost(&def.faces[0]).with_less_generic(printed_reduction(
+            state,
+            &def.faces[0],
+            player,
+        ));
+        let kicked = requirement_is_reachable(Some(req), state, player, card)
+            && probe(&kicked_cost.with_x(0));
+        return if ordinary || kicked {
+            Ok(())
+        } else {
+            Err(CastError::NoWayToCast)
+        };
+    }
     // A disturb cast is not the front face at any price. CR 702.146 casts the
     // card *transformed*, for the back's disturb cost, and `cast_options` has
     // always known it — its disturb branch returns the backs and nothing

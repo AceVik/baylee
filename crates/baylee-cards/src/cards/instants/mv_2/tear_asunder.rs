@@ -2,8 +2,7 @@
 //! Oracle: Kicker {1}{B} (You may pay an additional {1}{B} as you cast this spell.)
 //! Oracle: Exile target artifact or enchantment. If this spell was kicked, exile target nonland permanent instead.
 //! Set: EOC #109 — Edge of Eternities Commander | Scryfall ID: e408c673-4a1f-45db-827a-75c501e1b3d6 | Oracle ID: 610af0f7-b5e3-43fb-9d02-7c59bd99034c
-// PARTIAL — "Exile target artifact or enchantment" is built; the kicker and its
-// "exile target nonland permanent instead" are left off, see NOT SUPPORTED.
+// IMPLEMENTED — kicker replaces the target requirement before choosing a target.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -16,12 +15,10 @@ card!(
         name = "Tear Asunder",
         mana_cost = mana!("{1}{G}"),
         types = TypeSet::INSTANT,
+        additional_costs = &[cost!("{1}{B}")],
+        kicked_targets = Some(TargetReq::one(TargetSpec::Object(&Filter::NONLAND))),
     ),],
-    coverage = Coverage::Partial(
-        "the kicked mode targets any nonland permanent where the unkicked mode targets an \
-         artifact or enchantment, and AbilityDef::Spell carries one TargetReq for the whole \
-         spell"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[spell!(
         &[Effect::exile(TargetSpec::Object(
             &Filter::ARTIFACT_OR_ENCHANTMENT
@@ -31,8 +28,3 @@ card!(
         )))
     )],
 );
-
-// NOT SUPPORTED: "Kicker {1}{B}" and "If this spell was kicked, exile target
-// nonland permanent instead" — a spell has one target requirement, so the
-// kicked mode cannot widen its target set, and a kicker whose payment changed
-// nothing would be an offer the engine cannot apply.

@@ -1745,6 +1745,8 @@ messages! {
     TargetingSelected { en: "Selected: {0}", de: "Ausgewählt: {0}" },
     /// Target selection explanation or explicit shortcut.
     TargetingPage { en: "Choices {0}–{1} of {2}. You can also select on the table.", de: "Ziele {0}–{1} von {2}. Auswahl auch direkt am Tisch möglich." },
+    /// Cast with its optional additional kicker cost paid.
+    CastKicked { en: "With kicker", de: "Mit Bonuskosten" },
     /// Cast face down using disguise.
     CastDisguise { en: "Disguise — 2/2, ward {2}", de: "Verkleidung — 2/2, Abwehr {2}" },
     /// Face-up special action.

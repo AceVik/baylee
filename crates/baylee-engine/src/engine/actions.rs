@@ -232,6 +232,7 @@ impl<L: CardLookup> Engine<L> {
                     return Err(EngineError::IllegalAction("no such cast mode"));
                 };
                 wizard.option = Some(option);
+                wizard.kicked = option == crate::choice::CastModeKind::Kicked;
                 // CR 601.2b announces the mode and *then* the value of X, in
                 // the same step: choosing how to cast the spell does not
                 // answer what X is. Going to `Targets` here skipped the
@@ -276,7 +277,7 @@ impl<L: CardLookup> Engine<L> {
                 }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
                 wizard.x = n;
-                wizard.stage = cast_wizard::WizardStage::Targets;
+                wizard.stage = cast_wizard::WizardStage::Kicker;
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
             }
@@ -444,7 +445,7 @@ impl<L: CardLookup> Engine<L> {
                         // The second instance of "target" is objects only in
                         // every shape that prints one, so no seat is kept.
                         wizard.second_targets = objects.into_iter().collect();
-                        wizard.stage = cast_wizard::WizardStage::Kicker;
+                        wizard.stage = cast_wizard::WizardStage::PitchChoice;
                     } else {
                         wizard.targets = objects.into_iter().collect();
                         wizard.target_players = players.into_iter().collect();
@@ -1009,7 +1010,7 @@ impl<L: CardLookup> Engine<L> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.kicked = answer;
-                    wizard.stage = cast_wizard::WizardStage::PitchChoice;
+                    wizard.stage = cast_wizard::WizardStage::Targets;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }

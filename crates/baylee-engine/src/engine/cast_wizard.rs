@@ -1,6 +1,6 @@
 //! The casting wizard: multi-step spell casting (CR 601.2a–h).
 //!
-//! Modes/alternative costs → X → targets → kicker → pitch choices →
+//! Modes/alternative costs → X → kicker → targets → pitch choices →
 //! payment. Each step suspends into a pending request; the wizard resumes
 //! on the answer. Everything ends in one `SpellCast` event — atomic from
 //! the outside.
@@ -162,6 +162,7 @@ impl<L: CardLookup> Engine<L> {
         };
         if wizard.options.len() == 1 {
             wizard.option = Some(wizard.options[0].kind);
+            wizard.kicked = wizard.option == Some(CastModeKind::Kicked);
             wizard.stage = WizardStage::XValue;
         }
         self.cast_wizard = Some(wizard);
@@ -247,7 +248,7 @@ impl<L: CardLookup> Engine<L> {
             // Straight past `XValue`, and deliberately: a spell cast paying
             // neither its mana cost nor an alternative cost with X in it has
             // exactly one legal X, which is 0 (CR 107.3b).
-            stage: WizardStage::Targets,
+            stage: WizardStage::Kicker,
             options: Vec::new(),
             free: true,
         };
@@ -371,12 +372,27 @@ impl<L: CardLookup> Engine<L> {
             && casting::can_cast_form(&self.state, &self.lookup, player, card, None).is_ok()
             && casting::has_a_printed_cost(&face.mana_cost)
             && afford(&normal_cost.with_x(0))
+            && (face.kicked_targets.is_none()
+                || casting::ordinary_targets_reachable(&self.state, def, player, card))
         {
             options.push(CastModeDesc {
                 index: 0,
                 kind: CastModeKind::Normal,
                 cost: normal_cost.with_more_generic(tax),
             });
+        }
+        if let Some(req) = face.kicked_targets {
+            let cost = casting::kicked_mana_cost(face)
+                .with_less_generic(casting::printed_reduction(&self.state, face, player));
+            if afford(&cost.with_x(0))
+                && casting::requirement_is_reachable(Some(req), &self.state, player, card)
+            {
+                options.push(CastModeDesc {
+                    index: options.len() as u8,
+                    kind: CastModeKind::Kicked,
+                    cost: cost.with_more_generic(tax),
+                });
+            }
         }
         if let Some(prototype) = face.prototype
             && casting::can_cast_form(
@@ -607,7 +623,7 @@ impl<L: CardLookup> Engine<L> {
                     return Ok(());
                 }
                 let mut wizard = wizard;
-                wizard.stage = WizardStage::Targets;
+                wizard.stage = WizardStage::Kicker;
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
             }
@@ -686,7 +702,7 @@ impl<L: CardLookup> Engine<L> {
                 // that doesn't.
                 let Some(req) = self.wizard_second_target_req(&wizard) else {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Kicker;
+                    wizard.stage = WizardStage::PitchChoice;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 };
@@ -700,7 +716,7 @@ impl<L: CardLookup> Engine<L> {
                     // "Up to one" with nothing to point at: the empty answer
                     // is the only one, for the reason the first stage gives.
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Kicker;
+                    wizard.stage = WizardStage::PitchChoice;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
@@ -735,9 +751,11 @@ impl<L: CardLookup> Engine<L> {
             }
             WizardStage::Kicker => {
                 let face = self.wizard_face(&wizard);
-                if face.additional_costs.is_empty() {
+                if face.additional_costs.is_empty()
+                    || (face.kicked_targets.is_some() && !wizard.free)
+                {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::PitchChoice;
+                    wizard.stage = WizardStage::Targets;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
@@ -916,6 +934,11 @@ impl<L: CardLookup> Engine<L> {
             Some(CastModeKind::Face(i)) => i.min(def.faces.len() - 1),
             _ => 0,
         };
+        if wizard.kicked
+            && let Some(req) = def.faces[face_index].kicked_targets
+        {
+            return Some(req);
+        }
         let abilities = def.abilities_for_face(face_index);
         match wizard.option {
             Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
@@ -995,7 +1018,7 @@ impl<L: CardLookup> Engine<L> {
         if reduction > 0 {
             total = reduce_generic(&total, reduction);
         }
-        if !wizard.free {
+        if !wizard.free || wizard.kicked {
             // Restricted mana (Cavern of Souls & co.) is spent where the
             // spell may spend it, and a rider applies for each entry that
             // actually paid. A failed payment has touched nothing.
@@ -1323,7 +1346,7 @@ fn wizard_cost(wizard: &CastWizard) -> ManaCost {
 /// the variable into generic mana before this is read).
 fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> ManaCost {
     let mut total = wizard_cost(wizard);
-    if wizard.kicked {
+    if wizard.kicked && wizard.option != Some(CastModeKind::Kicked) {
         for add in face.additional_costs {
             total = total.combine(&add.mana);
         }
