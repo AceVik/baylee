@@ -57,6 +57,10 @@ fn plains() -> CardIndex {
     card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
 }
 
+fn sol_ring() -> CardIndex {
+    card_index("6ad8011d-3471-4369-9d68-b264cc027487")
+}
+
 fn island() -> CardIndex {
     card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
 }

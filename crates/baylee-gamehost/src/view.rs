@@ -3821,6 +3821,111 @@ mod tests {
         );
     }
 
+    /// Play the actual spell: its public reveal includes lands, its chooser
+    /// receives only legal options, and unrelated hidden hands stay hidden.
+    #[test]
+    fn thoughtseize_reveals_only_the_target_hand_to_every_seat() {
+        let entry = |name: &str| DeckEntry {
+            card: baylee_cards::generated::ALL
+                .iter()
+                .find(|(_, card)| card.name() == name)
+                .unwrap()
+                .1
+                .index,
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats.push(preset.seats[1].clone());
+        preset.seats[0].starting_hand = Some(vec![entry("Thoughtseize")]);
+        preset.seats[0].starting_battlefield = vec![entry("Swamp")];
+        preset.seats[1].starting_hand = Some(vec![entry("Island"), entry("Sol Ring")]);
+        preset.seats[2].starting_hand = Some(vec![entry("Lightning Bolt")]);
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        let view = settle(&mut engine, None);
+        let (me, them, other) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
+        let target_hand = engine.state().zones.list(ZoneLocation::Hand(them)).clone();
+        let mut log = GameLog::new(engine.state());
+        let from = log.len();
+        engine
+            .apply(
+                me,
+                PlayerAction::ActivateManaAbility {
+                    source: view.battlefield[0].id,
+                },
+            )
+            .unwrap();
+        let spell = view
+            .hand
+            .iter()
+            .find(|o| o.name == "Thoughtseize")
+            .unwrap()
+            .id;
+        engine
+            .apply(me, PlayerAction::CastSpell { card: spell })
+            .unwrap();
+        engine.apply(me, PlayerAction::ChoosePlayer(them)).unwrap();
+        for _ in 0..6 {
+            if let Pending::Priority { player, .. } = engine.pending() {
+                engine.apply(*player, PlayerAction::PassPriority).unwrap();
+            } else {
+                break;
+            }
+        }
+        log.consume(engine.state());
+        let Pending::ChooseCards {
+            player, options, ..
+        } = engine.pending()
+        else {
+            panic!("Thoughtseize must ask its controller");
+        };
+        assert_eq!(*player, me);
+        let chosen = options[0];
+        for seat in [me, them, other] {
+            let events = told_since(&log, seat, from);
+            let revealed: Vec<ObjectId> = events
+                .iter()
+                .filter_map(|event| match event {
+                    LogEvent::Revealed { cards, .. } => Some(cards.iter().filter_map(handle)),
+                    _ => None,
+                })
+                .flatten()
+                .collect();
+            assert_eq!(
+                revealed, target_hand,
+                "all and only the targeted hand is revealed"
+            );
+            let shown = seen_by(&engine, seat);
+            if seat == me {
+                assert_eq!(shown.looking_at.len(), 1);
+                assert_eq!(shown.looking_at[0].name, "Sol Ring");
+            } else {
+                assert!(
+                    shown.looking_at.is_empty(),
+                    "only the caster gets the chooser"
+                );
+            }
+            assert!(
+                shown
+                    .hand
+                    .iter()
+                    .all(|card| engine.state().object(card.id).unwrap().owner == seat)
+            );
+        }
+        engine
+            .apply(
+                me,
+                PlayerAction::ChooseObjects {
+                    objects: vec![chosen],
+                },
+            )
+            .unwrap();
+        assert!(
+            seen_by(&engine, me).looking_at.is_empty(),
+            "temporary access ends with the choice"
+        );
+        assert_eq!(seen_by(&engine, me).graveyards[1][0].name, "Sol Ring");
+    }
+
     /// A card taken from a library to a hand is the searcher's to know. Once
     /// revealed on the way, as a search for anything narrower than "a card"
     /// has to be, it is everyone's.

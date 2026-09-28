@@ -694,6 +694,41 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 prompt: ChoicePrompt::Generic,
             })
         }
+        Effect::RevealHandDiscard { filter } => {
+            let player = res.chosen_player?;
+            let hand = state.zones.list(ZoneLocation::Hand(player)).clone();
+            let options: Vec<ObjectId> = hand
+                .iter()
+                .copied()
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|obj| eval::matches(filter, state, obj, you, res.source))
+                })
+                .collect();
+            // Reveal *all* the cards, including those that cannot be selected.
+            // The public log carries their identities to every seat; only the
+            // controller receives the pending choice and can answer it.
+            state.journal.record(GameEvent::Revealed {
+                player,
+                cards: hand,
+            });
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::DiscardChain {
+                player,
+                count: 1,
+                remaining: Vec::new(),
+            });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
         Effect::DiscardRandom { who, count } => {
             let count = amount2(&count, state, you, res) as usize;
             if count == 0 {

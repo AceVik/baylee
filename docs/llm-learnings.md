@@ -6,6 +6,16 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-09-28 — Revealing and choosing are separate permissions
+
+Thoughtseize's partial implementation only charged life. A discard choice
+must belong to the caster, while the whole target hand (including lands)
+is revealed publicly. Reuse the public reveal journal event and the existing
+private chooser projection; do not expose entire hands in every view. Test
+the actual cast at three seats, invalid answers from the victim/bystander,
+land rejection, empty and land-only hands, and self-targeting. A host test
+checks each seat's log and view and that temporary chooser access expires.
+
 ## 2026-09-28 — Trigger scope and incomplete keyword implementations
 
 A death look-back must name a source that left in the current event batch;

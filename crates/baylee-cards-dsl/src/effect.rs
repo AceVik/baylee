@@ -895,6 +895,13 @@ pub enum Effect {
         /// How many cards.
         count: u8,
     },
+    /// The chosen player reveals their entire hand; this spell's controller
+    /// chooses one matching card for that player to discard (Thoughtseize).
+    /// If none match, reveal the hand without asking an impossible choice.
+    RevealHandDiscard {
+        /// Which cards the controller may choose from the revealed hand.
+        filter: &'static Filter,
+    },
     /// Discard random cards, using the game's seeded RNG (Mind Twist).
     DiscardRandom {
         /// Players whose hands lose cards.
@@ -2084,6 +2091,7 @@ impl Effect {
             | Effect::DestroyChosenForPlayers { .. }
             | Effect::DiscardForPlayers { .. }
             | Effect::DiscardRandom { .. }
+            | Effect::RevealHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
             | Effect::ExileSelfReturnAsFace { .. }
             | Effect::SacrificeFilter { .. }

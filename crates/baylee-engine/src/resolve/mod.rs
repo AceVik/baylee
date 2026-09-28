@@ -1757,6 +1757,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::DestroyChosenForPlayers { .. }
         | Effect::DiscardForPlayers { .. }
         | Effect::DiscardRandom { .. }
+        | Effect::RevealHandDiscard { .. }
         | Effect::SacrificeFilter { .. }
         | Effect::ReturnChosenToHand { .. }
         | Effect::AllGraveyardCreaturesToBattlefield
