@@ -2587,3 +2587,23 @@ The host's occupied seat is ready once it has a deck and a seat token. Guest
 readiness remains explicit. Listings and Start use the same predicate, including
 a rematch's reserved-seat check; host succession automatically transfers this
 readiness behavior to the new host.
+
+### Target context and bounded repeated answers (view 37)
+
+The chooser's `PlayerView.targeting` names the source, its captured printed
+rules, an optional `StackText`, `whole_spell`, `second` and `batch_count`.
+Other seats receive no targeting context. `whole_spell` requests the full
+non-modal spell face; a selected mode/ability uses the exact text locator.
+
+`PlayerAction::ChooseTargetBatch { objects, players, count }` explicitly
+answers 2 or more consecutive identical triggered-ability target questions.
+The engine checks the current chooser, advertised count, target membership,
+cardinality and duplicates. Each occurrence takes the ordinary answer path;
+intervening choices, different effects and invalidated targets stop the batch.
+There is no persistent automatic targeting policy. Replay records retain this
+action and deterministically expand it through the same path.
+
+View 37 also adds `LogEvent::TurnedFaceUp`. Prototype and disguise extend
+`CastModeKind`; `TURN_FACE_UP` is a reserved ability-menu index naming a
+special action, not a stack-using activated ability. These changes share the
+unreleased protocol-7 batch; no release/tag is created by this work.

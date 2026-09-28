@@ -526,11 +526,22 @@ fn open_pile(duel: &mut Duel, object: ObjectId) -> bool {
 fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::CastMenu> {
     let view = duel.view.as_ref()?;
     let legal = duel.interaction.as_ref()?.legal_actions()?;
-    if !legal.castable.contains(&object) && !duel.reachable.contains(&object) {
+    if !legal.castable.contains(&object)
+        && !legal.lands.contains(&object)
+        && !duel.reachable.contains(&object)
+    {
         return None;
     }
     let modes = crate::castmodes::reachable_modes(view, legal, object);
-    (modes.len() > 1).then_some(crate::CastMenu {
+    (modes.len() > 1
+        || modes.first().is_some_and(|m| {
+            matches!(
+                m.kind,
+                baylee_engine::choice::CastModeKind::Prototype
+                    | baylee_engine::choice::CastModeKind::Disguise
+            )
+        }))
+    .then_some(crate::CastMenu {
         card: object,
         modes,
         pick: 0,
@@ -2480,6 +2491,33 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
         take_cast_row(duel, index);
         return;
     }
+    if let Some(i) = duel.interaction.as_mut()
+        && matches!(
+            i.pending(),
+            baylee_engine::choice::Pending::ChooseTargets { .. }
+        )
+    {
+        let options = baylee_client_core::targeting::options(i.pending());
+        if index == baylee_client_core::targeting::PREVIOUS {
+            duel.target_page = duel.target_page.saturating_sub(1);
+            return;
+        }
+        if index == baylee_client_core::targeting::NEXT {
+            duel.target_page = (duel.target_page + 1)
+                .min(options.len().saturating_sub(1) / baylee_client_core::targeting::PAGE_SIZE);
+            return;
+        }
+        match options.get(index) {
+            Some(baylee_client_core::targeting::Target::Object(id)) => {
+                i.toggle(*id);
+            }
+            Some(baylee_client_core::targeting::Target::Player(id)) => {
+                i.toggle_player(*id);
+            }
+            None => {}
+        }
+        return;
+    }
     let offered = duel
         .interaction
         .as_ref()
@@ -2537,6 +2575,14 @@ fn take_cast_row(duel: &mut Duel, at: usize) {
         return;
     };
     duel.cast_menu = None;
+    if matches!(
+        mode.kind,
+        baylee_engine::choice::CastModeKind::PlayLandFace(_)
+    ) {
+        duel.cast_answer = None;
+        arm(duel, card, Deed::Play);
+        return;
+    }
     duel.cast_answer = Some((card, mode.kind));
     arm(
         duel,
@@ -3020,7 +3066,7 @@ fn shift_held(keys: Option<&ButtonInput<KeyCode>>) -> bool {
 /// pending choice: it selects a target, declares an attacker, or plays a card.
 /// Resolving that here rather than in the renderer keeps one place where a
 /// click becomes an action.
-#[allow(clippy::too_many_arguments)] // one query per clickable widget kind
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one branch per clickable widget kind
 pub fn pointer(
     mut clicks: MessageReader<Pointer<Click>>,
     cards: Query<&CardVisual>,
@@ -3129,6 +3175,11 @@ pub fn pointer(
                     .as_ref()
                     .and_then(|i| i.answer_mulligan(false)),
                 PromptAction::Confirm => committed_answer(&duel),
+                PromptAction::TargetBatch => duel
+                    .interaction
+                    .as_ref()
+                    .zip(duel.view.as_ref())
+                    .and_then(|(i, v)| baylee_client_core::targeting::batch_answer(i, v)),
                 // Aiming changes nothing the engine can hear; it moves the
                 // focus the next declaration will use.
                 PromptAction::AimNext => {

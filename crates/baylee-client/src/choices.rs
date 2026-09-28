@@ -369,8 +369,49 @@ fn cast_label(
         K::PlayLandFace(i) => names
             .of(object, i)
             .unwrap_or_else(|| Phrase::CastLandFace.text(lang).to_string()),
+        K::Disguise => Phrase::CastDisguise.text(lang).to_string(),
+        K::Prototype => Phrase::CastPrototype.text(lang).to_string(),
         K::Miracle => Phrase::CastMiracle.text(lang).to_string(),
     }
+}
+
+/// The same source and effect explanation on the table and in a zone chooser.
+pub(crate) fn target_explanation(
+    view: &baylee_view::PlayerView,
+    lang: Lang,
+    texts: &crate::cardtext::CardTexts,
+) -> Vec<String> {
+    let Some(context) = &view.targeting else {
+        return Vec::new();
+    };
+    let mut lines = vec![
+        Phrase::TargetingFor.fill(lang, &[&crate::face::name_of(&context.source, view, texts)]),
+    ];
+    let blocks = context.source.rules.and_then(|rules| {
+        if context.whole_spell {
+            texts
+                .face(rules.card, rules.face)
+                .map(|text| baylee_client_core::card_face::split_blocks(&text.oracle_text))
+        } else {
+            context
+                .text
+                .and_then(|sentence| crate::cardtext::sentence(Some(texts), rules.card, sentence))
+        }
+    });
+    if let Some(blocks) = blocks {
+        let text = blocks
+            .iter()
+            .filter_map(|b| match b {
+                baylee_client_core::card_face::TextBlock::Rules(s) => Some(s.as_str()),
+                baylee_client_core::card_face::TextBlock::Reminder(_) => None,
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        if !text.is_empty() {
+            lines.push(text);
+        }
+    }
+    lines
 }
 
 #[cfg(test)]

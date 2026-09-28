@@ -368,6 +368,7 @@ impl<L: CardLookup> Engine<L> {
         // option offered here that the offer does not know about is a mode a
         // player can pick and be refused for.
         if !modal_only
+            && casting::can_cast_form(&self.state, &self.lookup, player, card, None).is_ok()
             && casting::has_a_printed_cost(&face.mana_cost)
             && afford(&normal_cost.with_x(0))
         {
@@ -376,6 +377,40 @@ impl<L: CardLookup> Engine<L> {
                 kind: CastModeKind::Normal,
                 cost: normal_cost.with_more_generic(tax),
             });
+        }
+        if let Some(prototype) = face.prototype
+            && casting::can_cast_form(
+                &self.state,
+                &self.lookup,
+                player,
+                card,
+                Some(casting::SpellForm::Prototype(prototype)),
+            )
+            .is_ok()
+        {
+            options.push(CastModeDesc {
+                index: options.len() as u8,
+                kind: CastModeKind::Prototype,
+                cost: prototype.cost.with_more_generic(tax),
+            });
+        }
+        if face.disguise.is_some() {
+            let cost = const { ManaCost::parse("{3}") };
+            if casting::can_cast_form(
+                &self.state,
+                &self.lookup,
+                player,
+                card,
+                Some(casting::SpellForm::Disguise),
+            )
+            .is_ok()
+            {
+                options.push(CastModeDesc {
+                    index: options.len() as u8,
+                    kind: CastModeKind::Disguise,
+                    cost: cost.with_more_generic(tax),
+                });
+            }
         }
         // Alternative costs (pitch, evoke, conditional free).
         for (i, alt) in face.alternative_costs.iter().enumerate() {
@@ -868,6 +903,9 @@ impl<L: CardLookup> Engine<L> {
     }
 
     pub(super) fn wizard_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
+        if matches!(wizard.option, Some(CastModeKind::Disguise)) {
+            return None;
+        }
         let def = self
             .state
             .object(wizard.card)
@@ -964,7 +1002,16 @@ impl<L: CardLookup> Engine<L> {
             let Some(spent) = casting::pay_mana_for(
                 &mut self.state,
                 player,
-                casting::SpendFor::Spell(wizard.card),
+                match wizard.option {
+                    Some(CastModeKind::Prototype) => casting::SpendFor::SpellAs(
+                        wizard.card,
+                        casting::SpellForm::Prototype(face.prototype.expect("prototype option")),
+                    ),
+                    Some(CastModeKind::Disguise) => {
+                        casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Disguise)
+                    }
+                    _ => casting::SpendFor::Spell(wizard.card),
+                },
                 &total,
             ) else {
                 self.cast_wizard = None;
@@ -1133,8 +1180,25 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state
             .move_object(card, ZoneLocation::Stack, ZonePosition::Top, Cause::Spell)?;
+        if matches!(wizard.option, Some(CastModeKind::Prototype))
+            && let Some(prototype) = face.prototype
+            && let Some(obj) = self.state.object_mut(card)
+        {
+            obj.original_base = Some(std::sync::Arc::clone(&obj.base));
+            obj.prototyped = true;
+            let base = obj.base_mut();
+            base.mana_cost = prototype.cost;
+            base.colors = prototype.cost.colors();
+            base.power = Some(prototype.power);
+            base.toughness = Some(prototype.toughness);
+            obj.cache.clear();
+        }
+        if matches!(wizard.option, Some(CastModeKind::Disguise)) {
+            self.make_disguised(card);
+        }
         // Per-turn tracking for conditional triggers (Esper Sentinel).
-        if !face.types.contains(baylee_core::types::TypeSet::CREATURE)
+        if !matches!(wizard.option, Some(CastModeKind::Disguise))
+            && !face.types.contains(baylee_core::types::TypeSet::CREATURE)
             && let Some(v) = self
                 .state
                 .per_turn

@@ -382,6 +382,8 @@ pub struct ManaRestriction {
     /// anything, and only a spell `filter` matches sets the rider off
     /// (#232).
     pub restricts: bool,
+    /// This mana survives step and phase boundaries until end of turn.
+    pub until_end_of_turn: bool,
 }
 
 /// What a reflexive triggered ability waits for (CR 603.12): an event
@@ -1915,6 +1917,7 @@ impl Effect {
                 filter,
                 rider,
                 restricts: true,
+                until_end_of_turn: false,
             }),
         }
     }
@@ -1950,6 +1953,7 @@ impl Effect {
                 filter,
                 rider,
                 restricts: false,
+                until_end_of_turn: false,
             }),
         }
     }

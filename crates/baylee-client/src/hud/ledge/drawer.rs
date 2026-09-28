@@ -42,9 +42,6 @@ use super::*;
 use baylee_client_core::Prompt;
 use baylee_engine::choice::Pending;
 
-/// The narrowest the panel is drawn, so a two-word answer is still a panel.
-const MIN_W: f32 = 320.0;
-
 /// The widest, which is the slip's old ceiling: past this a line of prose
 /// stops being one line and starts being a paragraph.
 const MAX_W: f32 = 620.0;
@@ -58,11 +55,6 @@ const PAD_Y: f32 = 10.0;
 
 /// Between one row and the next.
 const ROW_GAP: f32 = 7.0;
-
-/// The widest a row inside the panel may be: the panel's ceiling less its
-/// padding and its two borders. A row that does not bound itself is a row
-/// that makes the panel wider than the panel is allowed to be.
-const INNER_W: f32 = MAX_W - 2.0 * (PAD_X + 1.0);
 
 /// A written line that is about the choice rather than being one of its
 /// answers: the pick hint.
@@ -312,6 +304,10 @@ pub fn sync_drawer(
 
     for line in &revision.lines {
         let written = sentence(&mut commands, &fonts, &line.text, line.size, line.ink);
+        commands.entity(written).insert(Node {
+            max_width: percent(100),
+            ..default()
+        });
         commands.entity(panel).add_child(written);
     }
 
@@ -350,8 +346,9 @@ fn spawn_panel(
                 ..default()
             },
             Node {
-                min_width: px(MIN_W),
-                max_width: px(MAX_W),
+                width: px(MAX_W),
+                min_width: px(0),
+                max_width: percent(96),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 row_gap: px(ROW_GAP),
@@ -532,7 +529,7 @@ fn reading(
     // `Prompt::CastMode` itself whenever this client did not get there first,
     // and a drawer that dropped one and kept the other would draw one question
     // in two different places depending on how it had arrived.
-    let rows = duel
+    let mut rows = duel
         .interaction
         .as_ref()
         .filter(|_| !waiting)
@@ -551,6 +548,9 @@ fn reading(
             )
         })
         .unwrap_or_default();
+    if !waiting && !elsewhere {
+        target_reading(duel, lang, texts, &mut lines, &mut rows);
+    }
     // The cursor of the one chooser this drawer still draws. `CastMenu::pick`
     // went with its rows to the sheet.
     let picked = duel
@@ -733,6 +733,7 @@ fn chooser(
                 flex_wrap: FlexWrap::Wrap,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                max_width: percent(100),
                 ..default()
             },
             Pickable::IGNORE,
@@ -774,7 +775,7 @@ fn chooser(
                     // drops the marks onto a second line instead of squeezing
                     // the words into a column beside them. Nothing in the pool
                     // prints both today, so it says what happens when one does.
-                    max_width: px(INNER_W),
+                    max_width: percent(100),
                     min_width: px(0),
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
@@ -819,10 +820,226 @@ const fn pick_hint(prompt: &Prompt) -> Option<Phrase> {
         // The seat's own hand, which the engine does not enumerate because it
         // is already private — `Interaction::selectable` is empty for both.
         Prompt::Discard { .. } | Prompt::BottomCards { .. } => Some(Phrase::HintClickHand),
-        Prompt::ChooseCards { .. } | Prompt::ChooseTargets { .. } | Prompt::LegendRule => {
-            Some(Phrase::HintClickBoard)
-        }
+        Prompt::ChooseCards { .. } | Prompt::LegendRule => Some(Phrase::HintClickBoard),
         Prompt::ChooseSubtype { .. } => Some(Phrase::HintTypeToFilter),
         _ => None,
+    }
+}
+
+fn target_seat_name(
+    duel: &Duel,
+    lang: Lang,
+    view: &baylee_view::PlayerView,
+    seat: baylee_core::ids::PlayerId,
+) -> String {
+    use baylee_client_core::board::SeatRole;
+    let role = duel
+        .statics
+        .as_ref()
+        .and_then(|s| s.seats.iter().find(|s| s.player == seat))
+        .map_or(SeatRole::Present, SeatRole::of);
+    crate::hud::seatbar::called(lang, view, duel.statics.as_ref(), seat, role)
+}
+
+/// Source, exact sentence, selected identities and every legal option.
+#[allow(clippy::too_many_lines)] // one reading in visual order
+fn target_reading(
+    duel: &Duel,
+    lang: Lang,
+    texts: &crate::cardtext::CardTexts,
+    lines: &mut Vec<Line>,
+    rows: &mut Vec<crate::choices::ChoiceOption>,
+) {
+    use baylee_client_core::targeting::{self, Target};
+    let Some(i) = duel.interaction.as_ref() else {
+        return;
+    };
+    let Pending::ChooseTargets {
+        min,
+        max,
+        reason: baylee_engine::choice::TargetPrompt::Targets,
+        ..
+    } = i.pending()
+    else {
+        return;
+    };
+    let Some(view) = duel.view.as_ref() else {
+        return;
+    };
+    let mut say = |text: String| {
+        lines.push(Line {
+            text,
+            size: LINE_PT,
+            ink: palette::DOCK_INK,
+        });
+    };
+    if let Some(context) = &view.targeting {
+        for line in crate::choices::target_explanation(view, lang, texts) {
+            say(line);
+        }
+        if context.second {
+            say(Phrase::TargetingSecond.text(lang).to_string());
+        }
+    }
+    let options = targeting::options(i.pending());
+    let label = |target: Target| match target {
+        Target::Player(p) => target_seat_name(duel, lang, view, p),
+        Target::Object(id) => view.object(id).map_or_else(
+            || format!("#{id:?}"),
+            |o| {
+                format!(
+                    "{} — {}",
+                    crate::face::name_of(o, view, texts),
+                    target_seat_name(duel, lang, view, o.controller)
+                )
+            },
+        ),
+    };
+    let selected = |target: Target| match target {
+        Target::Player(p) => i.is_seat_selected(p),
+        Target::Object(o) => i.is_selected(o),
+    };
+    let chosen = options
+        .iter()
+        .copied()
+        .filter(|t| selected(*t))
+        .map(label)
+        .collect::<Vec<_>>();
+    let tally = if min == max {
+        Phrase::TargetingExactly
+    } else {
+        Phrase::TargetingChoices
+    };
+    say(tally.fill(
+        lang,
+        &[
+            &min.to_string(),
+            &max.to_string(),
+            &options.len().to_string(),
+            &chosen.len().to_string(),
+        ],
+    ));
+    if !chosen.is_empty() {
+        say(Phrase::TargetingSelected.fill(lang, &[&chosen.join("; ")]));
+        if let Some(context) = &view.targeting
+            && context.batch_count > 1
+        {
+            say(Phrase::TargetingBatchHint.fill(lang, &[&context.batch_count.to_string()]));
+        }
+    }
+    let start = duel
+        .target_page
+        .min(options.len().saturating_sub(1) / targeting::PAGE_SIZE)
+        * targeting::PAGE_SIZE;
+    let end = (start + targeting::PAGE_SIZE).min(options.len());
+    if options.len() > targeting::PAGE_SIZE {
+        say(Phrase::TargetingPage.fill(
+            lang,
+            &[
+                &(start + 1).to_string(),
+                &end.to_string(),
+                &options.len().to_string(),
+            ],
+        ));
+    }
+    *rows = options
+        .iter()
+        .copied()
+        .enumerate()
+        .skip(start)
+        .take(targeting::PAGE_SIZE)
+        .map(|(index, t)| crate::choices::ChoiceOption {
+            index,
+            label: format!("{}{}", if selected(t) { "[x] " } else { "" }, label(t)),
+            pip: None,
+            cost: None,
+        })
+        .collect();
+    if start > 0 {
+        rows.push(crate::choices::ChoiceOption {
+            index: targeting::PREVIOUS,
+            label: "←".into(),
+            pip: None,
+            cost: None,
+        });
+    }
+    if end < options.len() {
+        rows.push(crate::choices::ChoiceOption {
+            index: targeting::NEXT,
+            label: "→".into(),
+            pip: None,
+            cost: None,
+        });
+    }
+}
+
+#[cfg(test)]
+mod targeting_tests {
+    use super::*;
+    use baylee_client_core::{
+        Interaction, targeting,
+        test_support::{ViewBuilder, token},
+    };
+    use baylee_core::ids::{ObjectId, PlayerId};
+    use baylee_engine::choice::{PlayerAction, TargetPrompt};
+
+    fn choices() -> Duel {
+        let objects: Vec<_> = (10..29).map(|id| token(id, 1, "Bear", 2, 2)).collect();
+        let view = ViewBuilder::new(3).with_battlefield(1, objects).build();
+        let pending = Pending::ChooseTargets {
+            player: view.seat,
+            options: view.battlefield.iter().map(|o| o.id).collect(),
+            player_options: vec![PlayerId::new(0), PlayerId::new(2)],
+            min: 1,
+            max: 1,
+            reason: TargetPrompt::Targets,
+        };
+        Duel {
+            interaction: Some(Interaction::new(pending, view.seat)),
+            view: Some(view),
+            ..Duel::default()
+        }
+    }
+    fn read(duel: &Duel) -> (Vec<Line>, Vec<crate::choices::ChoiceOption>) {
+        let mut lines = vec![];
+        let mut rows = vec![];
+        target_reading(
+            duel,
+            Lang::En,
+            &crate::cardtext::CardTexts::default(),
+            &mut lines,
+            &mut rows,
+        );
+        (lines, rows)
+    }
+    #[test]
+    fn pages_reach_every_target_and_navigation_never_submits() {
+        let mut duel = choices();
+        let (_, rows) = read(&duel);
+        assert_eq!(rows.len(), targeting::PAGE_SIZE + 1);
+        assert_eq!(rows[0].index, 0);
+        crate::input::pick_choice(&mut duel, targeting::NEXT);
+        assert_eq!(duel.target_page, 1);
+        assert!(duel.outbox.is_empty());
+        let (_, rows) = read(&duel);
+        assert_eq!(rows[0].index, 8);
+        crate::input::pick_choice(&mut duel, 8);
+        assert!(duel.outbox.is_empty(), "a row selects; confirmation sends");
+        assert!(
+            duel.interaction
+                .as_ref()
+                .unwrap()
+                .is_selected(ObjectId::new(16, 0))
+        );
+        let (lines, rows) = read(&duel);
+        assert!(lines.iter().any(|l| l.text.contains("Selected:")));
+        assert!(rows[0].label.starts_with("[x]"));
+        crate::input::pick_choice(&mut duel, targeting::NEXT);
+        let (_, rows) = read(&duel);
+        assert_eq!(rows.last().unwrap().index, targeting::PREVIOUS);
+        assert!(rows.iter().any(|r| r.index == 20));
+        assert!(
+            matches!(duel.interaction.as_ref().unwrap().confirm(), Some(PlayerAction::ChooseObjects { objects }) if objects == vec![ObjectId::new(16, 0)])
+        );
     }
 }

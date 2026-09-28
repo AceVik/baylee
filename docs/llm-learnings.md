@@ -6,6 +6,23 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-09-28 — Audit the ways a ward source can exist
+
+Auditing the pool's eight Ward/disguise cards exposed three related gaps:
+Fleshgorger's prototype, Branch of Vitu-Ghazi's disguise and Thorin's
+enduring story. Test the actual cast form and zones, not just a Ward DSL
+node. Prototype and disguise must use their announced characteristics for
+casting prohibitions and restricted mana as well as after payment. A
+face-up special action does not use the stack; its resulting trigger does.
+Retained mana needs a cleanup boundary and a spent-unit test.
+
+Target shortcuts are explicit, bounded answers over already queued identical
+triggers, never a preference for future effects. Compare batch and manual
+snapshot hashes in 2/3/6-seat games. Target explanations use captured printed
+rules; ordinary spells need the full face because the ability-line table maps
+stacked abilities, not every sentence of a spell. Keep AI seat names identical
+on the board and in the chooser, and test the UI with real repeated ETBs.
+
 ## 2026-09-28 — Ward is a target-acquisition trigger
 
 Test casts, activated abilities, copies and retargeting separately: a copy
@@ -14,8 +31,7 @@ not trigger again, and targeting the same permanent in two slots triggers
 only once per acquisition. Use the engine's opponent relation, not unequal
 seat IDs. Dynamic life costs must be evaluated at resolution, with source
 last-known information preserved across a blink. Hall of Storm Giants now
-grants timed ward; Fleshgorger now pays life, while its prototype gap stays
-explicit. Tests exercise actual payments and resulting zones, not just DSL
+grants timed ward; Fleshgorger pays life using its current power. Tests exercise actual payments and resulting zones, not just DSL
 variants.
 
 ## Process rules (baseline)

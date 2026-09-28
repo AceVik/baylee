@@ -710,6 +710,8 @@ pub struct GameObject {
     pub kicked: bool,
     /// Whether this spell was cast for an alternative cost (evoke checks).
     pub alt_cast: bool,
+    /// Uses secondary prototype characteristics until leaving stack/battlefield.
+    pub prototyped: bool,
     /// A chosen target player (player-targeting spells).
     pub chosen_player: Option<PlayerId>,
     /// Players chosen as targets, beside `targets` ("any target").
@@ -853,6 +855,7 @@ impl GameObject {
             x_value: 0,
             kicked: false,
             alt_cast: false,
+            prototyped: false,
             chosen_player: None,
             target_players: baylee_core::ids::SeatSet::new(),
             mode_index: None,
@@ -957,6 +960,9 @@ impl GameObject {
     /// an emblem answers `None`.
     #[must_use]
     pub fn printed_face(&self) -> Option<PrintedFace> {
+        if self.status.contains(Status::FACE_DOWN) {
+            return None;
+        }
         if self.own_abilities.is_some() {
             return self.own_face;
         }
@@ -1000,6 +1006,9 @@ impl GameObject {
         &self,
         lookup: &impl crate::state::CardLookup,
     ) -> &'static [baylee_cards_dsl::AbilityDef] {
+        if self.status.contains(Status::FACE_DOWN) {
+            return crate::engine::disguise::WARD;
+        }
         // An emblem has no card, and a copy has one it must not answer with.
         if let Some(abilities) = self.own_abilities {
             return abilities;

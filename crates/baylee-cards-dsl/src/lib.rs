@@ -204,10 +204,25 @@ impl Default for CardDef {
     }
 }
 
+/// Prototype's alternative characteristics (CR 718.3).
+#[derive(Clone, Copy, Debug)]
+pub struct Prototype {
+    /// Mana cost, which also determines color and mana value.
+    pub cost: ManaCost,
+    /// Base power.
+    pub power: i16,
+    /// Base toughness.
+    pub toughness: i16,
+}
+
 /// One face of a card.
 #[derive(Debug)]
 #[allow(clippy::struct_excessive_bools)] // card faces accumulate boolean rule markers
 pub struct FaceDef {
+    /// Secondary copiable cost and size when cast prototyped (CR 718).
+    pub prototype: Option<Prototype>,
+    /// Disguise cost to turn this permanent face up (CR 702.168).
+    pub disguise: Option<ManaCost>,
     /// Face name.
     pub name: &'static str,
     /// Mana cost (`ManaCost::ZERO` for lands/MDFC backs without cost).
@@ -298,6 +313,8 @@ impl FaceDef {
     /// `castable_from_hand` defaults to `true` because that is what a printed
     /// face normally is; only disturb/adventure backs opt out.
     pub const DEFAULT: Self = Self {
+        prototype: None,
+        disguise: None,
         name: "",
         mana_cost: ManaCost::ZERO,
         types: TypeSet::EMPTY,
@@ -535,6 +552,7 @@ keywords! {
     // evasion ability on the creature being blocked, and neither
     // sentence implies the other.
     CANT_BLOCK = 34, "Can't block.";
+    STORIED = 35, "Storied (CR 702.195).";
 }
 
 impl KeywordSet {

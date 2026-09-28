@@ -802,6 +802,14 @@ impl<L: CardLookup> Engine<L> {
     /// # Errors
     /// [`EngineError`] on mismatched/illegal actions.
     pub fn apply(&mut self, player: PlayerId, action: PlayerAction) -> Result<(), EngineError> {
+        if let PlayerAction::ChooseTargetBatch {
+            objects,
+            players,
+            count,
+        } = action
+        {
+            return self.apply_target_batch(player, &objects, &players, count);
+        }
         if matches!(self.pending, Pending::GameOver(_)) {
             return Err(EngineError::GameOver);
         }
@@ -882,6 +890,9 @@ impl<L: CardLookup> Engine<L> {
 
 mod abilities;
 mod decision;
+pub(crate) mod disguise;
+mod storied;
+mod targeting;
 pub use decision::DecisionContext;
 mod actions;
 mod cast_wizard;

@@ -415,6 +415,8 @@ pub enum HoverSpot {
 // comparisons.
 #[allow(clippy::struct_excessive_bools)]
 pub struct Duel {
+    /// Page of the current legal target list.
+    pub target_page: usize,
     /// Stable random surface for this local duel lifetime.
     pub table_pattern: feltmat::TablePattern,
     /// Local, explicit ordering of the visible hand.
@@ -993,6 +995,7 @@ impl Duel {
     }
 
     pub(crate) fn receive_choice(&mut self, pending: Pending) {
+        self.target_page = 0;
         let seat = self.seat().unwrap_or(PlayerId::new(0));
         if !matches!(pending, Pending::ChooseSubtype { .. }) {
             self.subtype_filter.clear();
@@ -2597,8 +2600,12 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         // — this is the client not offering what that will refuse.
         .filter(|card| {
             manasources::hand_cost(card).is_some_and(|cost| cost.symbols().next().is_some())
+                || !castmodes::reachable_modes(view, legal, card.id).is_empty()
         })
-        .filter(|card| manasources::hand_cost(card).is_some_and(&affordable))
+        .filter(|card| {
+            manasources::hand_cost(card).is_some_and(&affordable)
+                || !castmodes::reachable_modes(view, legal, card.id).is_empty()
+        })
         // And there has to be something to point it at (CR 601.2c). Last in
         // the chain because it is the only filter here that walks the
         // battlefield, so it is asked only about a card the rest already

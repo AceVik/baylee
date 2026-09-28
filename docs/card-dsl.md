@@ -522,7 +522,7 @@ has built.
   The implicit subject is the offending stack object; it is not a chosen
   target. `Amount::SourcePower` is read at resolution, using last known
   power if the source left while the ability waited. See Phyrexian
-  Fleshgorger (prototype remains unsupported). Temporary ward uses
+  Fleshgorger, including its prototype form. Temporary ward uses
   `Modifier::GrantTriggered` with `Trigger::Ward` (Hall of Storm Giants).
   Each instance triggers separately, including on copies and retargeting;
   teammates are not opponents. **Undying** and **persist** are the same

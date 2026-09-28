@@ -938,7 +938,12 @@ pub(in crate::hud) fn called(
     // German player was being shown. A chair that is merely *held* keeps its
     // player's name, which is the whole reason `away` is not `is_ai`.
     let printed = if role == SeatRole::House {
-        Phrase::SeatHouse.text(lang).to_string()
+        let house = Phrase::SeatHouse.text(lang);
+        if statics.is_some_and(|s| s.seats.iter().filter(|s| s.is_ai).count() > 1) {
+            format!("{house} {}", player.get() + 1)
+        } else {
+            house.to_string()
+        }
     } else {
         printed
     };

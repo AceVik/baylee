@@ -116,6 +116,7 @@ impl ViewBuilder {
                 combat: CombatView::default(),
                 looking_at: Vec::new(),
                 owed: None,
+                targeting: None,
                 sorcery_lock: None,
             },
         }

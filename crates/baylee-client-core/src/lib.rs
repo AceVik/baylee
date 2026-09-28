@@ -119,3 +119,6 @@ pub use prefs::{Action, AutoRule, AutoRules, Chord, Keymap, Preferences};
 pub use baylee_view as view;
 
 pub mod tableicons;
+
+/// Explicit targeting shortcuts and selectable identities.
+pub mod targeting;

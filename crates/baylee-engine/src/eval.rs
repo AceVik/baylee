@@ -427,6 +427,10 @@ pub fn condition_holds(
         Condition::CountersOnSelfExactly(kind, n) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) == u16::from(n)),
+        Condition::EnduringStory => state
+            .players
+            .get(usize::from(you.get()))
+            .is_some_and(|p| p.enduring_story),
         Condition::Station(min) => state.object(source).is_some_and(|o| {
             o.counters.get(baylee_cards_dsl::CounterKind::Charge) >= u16::from(min)
         }),

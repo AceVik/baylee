@@ -194,6 +194,8 @@ pub enum PromptAction {
     Mulligan,
     /// Confirm / pass / OK.
     Confirm,
+    /// Confirm the displayed finite series of identical target decisions.
+    TargetBatch,
     /// Declare no attackers, or no blockers.
     DeclareNothing,
     /// Aim the next declaration at the next defender (or attacker).
@@ -223,12 +225,13 @@ impl PromptAction {
     /// values anything builds are `+1` and `-1` — a stepper moves by one.
     /// Listing them is what lets [`shortcut_for`] be tested over the whole
     /// enum rather than over the variants somebody remembered.
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 11] = [
         Self::Yes,
         Self::No,
         Self::Keep,
         Self::Mulligan,
         Self::Confirm,
+        Self::TargetBatch,
         Self::DeclareNothing,
         Self::AimNext,
         Self::SkipTurn,
@@ -262,7 +265,7 @@ pub const fn shortcut_for(action: PromptAction) -> Option<Action> {
         PromptAction::SkipTurn => Action::NextTurn,
         PromptAction::Step(1) => Action::NumberUp,
         PromptAction::Step(-1) => Action::NumberDown,
-        PromptAction::Step(_) => return None,
+        PromptAction::Step(_) | PromptAction::TargetBatch => return None,
     })
 }
 

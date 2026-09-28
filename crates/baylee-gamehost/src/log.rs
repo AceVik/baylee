@@ -588,6 +588,10 @@ impl GameLog {
                     Vec::new(),
                 );
             }
+            GameEvent::TurnedFaceUp { object } => {
+                let (object, sees) = self.refer(state, *object);
+                self.push(LogEvent::TurnedFaceUp { object }, vec![sees]);
+            }
             GameEvent::Transformed { object, .. } => {
                 let (object, sees) = self.refer(state, *object);
                 self.push(LogEvent::Transformed { object }, vec![sees]);

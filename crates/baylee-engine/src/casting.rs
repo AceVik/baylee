@@ -392,10 +392,55 @@ pub(crate) fn affordable(state: &GameState, pool: &ManaPool, cost: &ManaCost) ->
 /// for nothing else, so the same pool answers two payments two ways. The
 /// offer and the payment have to put the same question to it, or a spell
 /// is offered in `LegalActions` and refused the moment it is taken.
+/// Characteristics used to announce a special casting form, before payment.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum SpellForm {
+    Prototype(baylee_cards_dsl::Prototype),
+    Disguise,
+}
+
+impl SpellForm {
+    pub(crate) fn project(self, object: &crate::object::GameObject) -> crate::object::GameObject {
+        let mut object = object.clone();
+        object.base = std::sync::Arc::new(object.characteristics().clone());
+        object.cache.clear();
+        let base = object.base_mut();
+        match self {
+            Self::Prototype(p) => {
+                base.mana_cost = p.cost;
+                base.colors = p.cost.colors();
+                base.power = Some(p.power);
+                base.toughness = Some(p.toughness);
+            }
+            Self::Disguise => {
+                base.mana_cost = ManaCost::ZERO;
+                base.colors = baylee_core::color::ColorSet::EMPTY;
+                base.types = TypeSet::CREATURE;
+                base.supertypes = baylee_core::types::SupertypeSet::EMPTY;
+                base.subtypes = baylee_core::types::SubtypeSet::EMPTY;
+                base.keywords = baylee_cards_dsl::KeywordSet::EMPTY;
+                base.power = Some(2);
+                base.toughness = Some(2);
+                base.loyalty = None;
+            }
+        }
+        object
+    }
+
+    fn cost(self) -> ManaCost {
+        match self {
+            Self::Prototype(p) => p.cost,
+            Self::Disguise => const { ManaCost::parse("{3}") },
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum SpendFor {
     /// Casting this spell (CR 601.2h).
     Spell(ObjectId),
+    /// An announced prototype or face-down creature.
+    SpellAs(ObjectId, SpellForm),
     /// Activating an ability of this source (CR 602.2b, CR 113.7).
     Ability(
         #[expect(
@@ -422,12 +467,16 @@ fn admitted(
     player: PlayerId,
     what: SpendFor,
 ) -> SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]> {
-    let SpendFor::Spell(card) = what else {
+    let (card, form) = match what {
+        SpendFor::Spell(card) => (card, None),
+        SpendFor::SpellAs(card, form) => (card, Some(form)),
+        _ => return SmallVec::new(),
+    };
+    let Some(original) = state.object(card) else {
         return SmallVec::new();
     };
-    let Some(spell) = state.object(card) else {
-        return SmallVec::new();
-    };
+    let projected = form.map(|f| f.project(original));
+    let spell = projected.as_ref().unwrap_or(original);
     state.players[player.get() as usize]
         .mana_pool
         .restricted()
@@ -452,12 +501,16 @@ fn ridden_for(
     player: PlayerId,
     what: SpendFor,
 ) -> SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]> {
-    let SpendFor::Spell(card) = what else {
+    let (card, form) = match what {
+        SpendFor::Spell(card) => (card, None),
+        SpendFor::SpellAs(card, form) => (card, Some(form)),
+        _ => return SmallVec::new(),
+    };
+    let Some(original) = state.object(card) else {
         return SmallVec::new();
     };
-    let Some(spell) = state.object(card) else {
-        return SmallVec::new();
-    };
+    let projected = form.map(|f| f.project(original));
+    let spell = projected.as_ref().unwrap_or(original);
     state.players[player.get() as usize]
         .mana_pool
         .ridden()
@@ -774,12 +827,44 @@ pub fn flashback_granted(state: &GameState, card: ObjectId) -> bool {
 ///
 /// # Errors
 /// [`CastError`] describing the first legality violation.
-#[allow(clippy::too_many_lines)] // one gate per rule; splitting hides the list
 pub fn can_cast(
     state: &GameState,
     lookup: &impl crate::state::CardLookup,
     player: PlayerId,
     card: ObjectId,
+) -> Result<(), CastError> {
+    let normal = can_cast_form(state, lookup, player, card, None);
+    if normal.is_ok() {
+        return normal;
+    }
+    if let Some(face) = state
+        .object(card)
+        .and_then(|o| o.card)
+        .and_then(|c| lookup.card(c.index))
+        .and_then(|d| d.faces.first())
+    {
+        for form in [
+            face.prototype.map(SpellForm::Prototype),
+            face.disguise.map(|_| SpellForm::Disguise),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if can_cast_form(state, lookup, player, card, Some(form)).is_ok() {
+                return Ok(());
+            }
+        }
+    }
+    normal
+}
+
+#[allow(clippy::too_many_lines)] // one gate per casting rule
+pub(crate) fn can_cast_form(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+    form: Option<SpellForm>,
 ) -> Result<(), CastError> {
     let obj = state.object(card).ok_or(CastError::NotInHand)?;
     let in_hand = obj.zone == Zone::Hand && obj.zone_owner == Some(player);
@@ -821,8 +906,9 @@ pub fn can_cast(
     if !in_hand && !flashback_ok && !disturb_ok && !adventure_ok && !takeover_ok && !commander_ok {
         return Err(CastError::NotInHand);
     }
+    let projected = form.map(|f| f.project(obj));
+    let obj = projected.as_ref().unwrap_or(obj);
     let c = obj.characteristics();
-    // Lands can never be cast as spells (CR 305.1).
     if c.types.contains(TypeSet::LAND) {
         return Err(CastError::BadTiming);
     }
@@ -841,7 +927,11 @@ pub fn can_cast(
     }
     // Restricted mana this spell may be paid with counts towards it; see
     // [`spendable_pool`].
-    let with_restricted = spendable_pool(state, player, SpendFor::Spell(card));
+    let with_restricted = spendable_pool(
+        state,
+        player,
+        form.map_or(SpendFor::Spell(card), |f| SpendFor::SpellAs(card, f)),
+    );
     let pool = with_restricted
         .as_ref()
         .unwrap_or(&state.players[player.get() as usize].mana_pool);
@@ -850,6 +940,13 @@ pub fn can_cast(
     // (CR 601.2f) — which is why it is folded into each probe below rather
     // than into the first one.
     let tax = commander_tax(state, player, card);
+    if let Some(form) = form {
+        return if affordable(state, pool, &form.cost().with_more_generic(tax)) {
+            Ok(())
+        } else {
+            Err(CastError::NotEnoughMana)
+        };
+    }
     // Convoke and delve are *reductions* of the generic part, so they go on
     // the same probes the tax does and in the other direction. Read off the
     // printed face: a granted convoke does not exist.
@@ -1755,6 +1852,52 @@ mod tests {
         assert!(
             !cast_is_forbidden(&state, me(), state.object(creature).expect("there")),
             "and a creature is not"
+        );
+    }
+
+    #[test]
+    fn disguise_uses_creature_characteristics_for_restrictions_and_payment() {
+        let mut state = state();
+        main_phase_of(&mut state, me());
+        let card = card_in_hand(&mut state, me(), "land", TypeSet::LAND);
+        register(
+            &mut state,
+            them(),
+            Modifier::OpponentsCantCast(&Filter::NONCREATURE),
+        );
+        let original = state.object(card).unwrap();
+        assert!(cast_is_forbidden(&state, me(), original));
+        assert!(!cast_is_forbidden(
+            &state,
+            me(),
+            &SpellForm::Disguise.project(original)
+        ));
+        let id = baylee_core::mana::RestrictionId(42);
+        state
+            .restriction_info
+            .insert(42, (card, &Filter::CREATURE, SpendRider::None));
+        state.players[0].mana_pool.add_restricted(RestrictedMana {
+            color: ManaColor::Colorless,
+            amount: 3,
+            flags: ManaFlags::default(),
+            restriction: id,
+        });
+        let cost = ManaCost::parse("{3}");
+        assert!(pay_mana_for(&mut state, me(), SpendFor::Spell(card), &cost).is_none());
+        assert!(
+            pay_mana_for(
+                &mut state,
+                me(),
+                SpendFor::SpellAs(card, SpellForm::Disguise),
+                &cost
+            )
+            .is_some()
+        );
+        assert!(state.players[0].mana_pool.restricted().is_empty());
+        assert_eq!(
+            state.object(card).unwrap().characteristics().types,
+            TypeSet::LAND,
+            "a probe never changes the card"
         );
     }
 

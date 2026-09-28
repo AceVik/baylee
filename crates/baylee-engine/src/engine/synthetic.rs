@@ -40,6 +40,8 @@ pub fn land_face(name: &'static str) -> FaceDef {
         toughness: None,
         loyalty: None,
         alternative_costs: &[],
+        prototype: None,
+        disguise: None,
         additional_costs: &[],
         mandatory_additional_costs: &[],
         enter_modifiers: &[],

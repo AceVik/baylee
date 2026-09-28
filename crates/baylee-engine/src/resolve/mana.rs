@@ -96,6 +96,7 @@ pub(super) fn add(
         filter,
         rider,
         restricts,
+        until_end_of_turn,
     }) = restriction
     {
         let id = state.next_restriction_id;
@@ -106,11 +107,17 @@ pub(super) fn add(
         let mana = baylee_core::mana::RestrictedMana {
             color,
             amount,
-            flags: if snow {
+            flags: (if snow {
                 baylee_core::mana::ManaFlags::SNOW
             } else {
                 baylee_core::mana::ManaFlags::default()
-            },
+            })
+            .union(if until_end_of_turn {
+                baylee_core::mana::ManaFlags::UNTIL_END_OF_TURN
+                    .union(baylee_core::mana::ManaFlags::NO_EMPTY)
+            } else {
+                baylee_core::mana::ManaFlags::NONE
+            }),
             restriction: baylee_core::mana::RestrictionId(id),
         };
         let pool = &mut state.players[you.get() as usize].mana_pool;

@@ -1320,7 +1320,18 @@ fn answers_for(
                     .as_ref()
                     .is_some_and(baylee_client_core::Interaction::can_confirm) =>
         {
-            vec![say(PromptAction::Confirm, Phrase::ConfirmOk)]
+            let mut answers = vec![say(PromptAction::Confirm, Phrase::ConfirmOk)];
+            if let Some((i, v)) = duel.interaction.as_ref().zip(duel.view.as_ref())
+                && let Some(baylee_engine::choice::PlayerAction::ChooseTargetBatch {
+                    count, ..
+                }) = baylee_client_core::targeting::batch_answer(i, v)
+            {
+                answers.push((
+                    Says::Answer(PromptAction::TargetBatch),
+                    Phrase::TargetingBatch.fill(lang, &[&count.to_string()]),
+                ));
+            }
+            answers
         }
         _ => Vec::new(),
     }

@@ -575,6 +575,8 @@ impl ManaFlags {
     pub const NO_EMPTY: Self = Self(1);
     /// Produced by a snow source.
     pub const SNOW: Self = Self(2);
+    /// `NO_EMPTY` expires during cleanup of this turn.
+    pub const UNTIL_END_OF_TURN: Self = Self(4);
 
     /// Whether all flags of `other` are set.
     #[must_use]
@@ -799,9 +801,28 @@ impl ManaPool {
     pub fn empty_at_step_end(&mut self) {
         self.plain = [0; 6];
         self.snow = [0; 6];
-        self.ridden.clear();
+        self.ridden
+            .retain(|r| r.flags.contains(ManaFlags::NO_EMPTY));
+        for r in &self.ridden {
+            self.plain[r.color.index()] += r.amount;
+            if r.flags.contains(ManaFlags::SNOW) {
+                self.snow[r.color.index()] += r.amount;
+            }
+        }
         self.restricted
             .retain(|r| r.flags.contains(ManaFlags::NO_EMPTY));
+    }
+
+    /// End the temporary retention effect; the next step end empties the mana.
+    pub fn expire_turn_retention(&mut self) {
+        for r in self.ridden.iter_mut().chain(self.restricted.iter_mut()) {
+            if r.flags.contains(ManaFlags::UNTIL_END_OF_TURN) {
+                r.flags = ManaFlags(
+                    r.flags.bits()
+                        & !(ManaFlags::NO_EMPTY.bits() | ManaFlags::UNTIL_END_OF_TURN.bits()),
+                );
+            }
+        }
     }
 
     /// Restricted entries (engine payment solver).
@@ -903,6 +924,35 @@ mod tests {
 
     /// A payment that names the rider's units takes them out of the plain
     /// counters with it, and leaves the rest of the entry where it was.
+    #[test]
+    fn turn_retained_mana_preserves_only_unspent_units_and_expires_at_cleanup() {
+        let mut pool = ManaPool::new();
+        pool.add_ridden(RestrictedMana {
+            flags: ManaFlags::NO_EMPTY
+                .union(ManaFlags::UNTIL_END_OF_TURN)
+                .union(ManaFlags::SNOW),
+            ..ridden(ManaColor::Blue, 2, 8)
+        });
+        pool.add(ManaColor::Blue, 1);
+        pool.add(ManaColor::Red, 1);
+        pool.empty_at_step_end();
+        assert_eq!(pool.available(ManaColor::Blue), 2);
+        assert_eq!(pool.snow_available(ManaColor::Blue), 2);
+        assert_eq!(pool.available(ManaColor::Red), 0);
+        assert!(pool.spend_snow(ManaColor::Blue));
+        pool.empty_at_step_end();
+        assert_eq!(
+            pool.available(ManaColor::Blue),
+            1,
+            "spent mana does not return"
+        );
+        assert_eq!(pool.snow_available(ManaColor::Blue), 1);
+        pool.expire_turn_retention();
+        pool.empty_at_step_end();
+        assert!(pool.is_empty());
+        assert!(pool.ridden().is_empty());
+    }
+
     #[test]
     fn taking_rider_units_spends_them() {
         let mut pool = ManaPool::new();

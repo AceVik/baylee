@@ -165,6 +165,8 @@ pub enum Condition {
     /// (CR 113.7a). An Inspirit, Flagship Vessel destroyed in response to
     /// its own combat trigger still puts the counters on its target.
     Station(u8),
+    /// The controller has earned an enduring story (CR 702.195).
+    EnduringStory,
     /// The source itself matches the filter — "if this land is tapped".
     ///
     /// The other four sentences here count something the source is not;
@@ -199,6 +201,8 @@ pub enum Condition {
 /// Trigger conditions for triggered abilities.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Trigger {
+    /// This permanent is turned face up (not transformed or entering).
+    TurnedFaceUp,
     /// An object matching the filter enters the battlefield.
     EntersBattlefield(&'static Filter),
     /// An object matching the filter leaves the battlefield.

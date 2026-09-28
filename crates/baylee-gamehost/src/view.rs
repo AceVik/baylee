@@ -198,7 +198,7 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         // nobody announced, and `CommanderView::object` names its handle, so
         // blanking one field still leaves it identifiable by cross-reference
         // against the face-down permanent. That needs the handle hidden too,
-        // and nothing sets `FACE_DOWN` yet.
+        // disguise is announced from hand, so this case does not apply.
         commander: is_commander(state, id),
         status: ObjectStatus::from_bits(obj.status.bits()),
         types: chars.types,
@@ -934,6 +934,7 @@ pub fn player_view(
         // spell, asked once per view so the seat can be told before it spends
         // anything. It is the effect's *source* that travels, not a flag: the
         // client owes the player the card to point at.
+        targeting: None,
         sorcery_lock: state
             .effects
             .iter()
@@ -1007,6 +1008,48 @@ pub fn game_static(
             })
             .collect(),
     }
+}
+
+/// Explains only the current chooser's decision; never another seat's hand.
+pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
+    engine: &baylee_engine::engine::Engine<L>,
+    seat: PlayerId,
+) -> Option<baylee_view::TargetingContext> {
+    if !matches!(
+        engine.pending_for(seat),
+        Some(Pending::ChooseTargets { .. })
+    ) {
+        return None;
+    }
+    let context = engine.decision_context();
+    let id = context.source?;
+    let mut source = public_object(engine.state(), id, seat)?;
+    if let Some(printed) = context.printed {
+        source.rules = Some(rules_face(printed));
+    }
+    let text = source.rules.and_then(|rules| {
+        let line = if let Some(mode) = context.mode {
+            baylee_cards::lines::mode_line(rules.card, usize::from(rules.face), mode)
+        } else {
+            baylee_cards::lines::ability_line(
+                rules.card,
+                usize::from(rules.face),
+                context.ability_index?,
+            )
+        }?;
+        Some(baylee_view::StackText {
+            face: rules.face,
+            line: line.line,
+            of: line.of,
+        })
+    });
+    Some(baylee_view::TargetingContext {
+        source,
+        text,
+        whole_spell: context.whole_spell,
+        second: context.second_instance,
+        batch_count: engine.target_batch_count(),
+    })
 }
 
 #[cfg(test)]
@@ -1106,6 +1149,54 @@ mod tests {
         by_oracle_id("ae7604bb-4818-45a3-960c-cf3d83f15964")
             .unwrap()
             .index
+    }
+
+    #[test]
+    fn target_explanation_names_the_cast_and_is_only_sent_to_its_chooser() {
+        let entry = |name: &str| DeckEntry {
+            card: baylee_cards::generated::ALL
+                .iter()
+                .find(|(_, c)| c.name() == name)
+                .unwrap()
+                .1
+                .index,
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_hand = Some(vec![entry("Swords to Plowshares")]);
+        preset.seats[0].starting_battlefield = vec![entry("Plains")];
+        preset.seats[1].starting_battlefield = vec![entry("Ondu Cleric")];
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        let view = settle(&mut engine, None);
+        let me = PlayerId::new(0);
+        engine
+            .apply(
+                me,
+                PlayerAction::ActivateManaAbility {
+                    source: view.battlefield[0].id,
+                },
+            )
+            .unwrap();
+        let spell = view.hand[0].id;
+        engine
+            .apply(me, PlayerAction::CastSpell { card: spell })
+            .unwrap();
+        let context = targeting_context(&engine, me).expect("target explanation");
+        assert_eq!(context.source.id, spell);
+        assert_eq!(context.source.name, "Swords to Plowshares");
+        assert!(
+            context.whole_spell,
+            "all sentences of the spell explain the effect"
+        );
+        assert_eq!(
+            context.batch_count, 0,
+            "a cast is never an identical-trigger series"
+        );
+        assert!(!context.second);
+        assert!(
+            targeting_context(&engine, PlayerId::new(1)).is_none(),
+            "no private casting choice crosses seats"
+        );
     }
 
     /// A preset with a Teferi, Time Raveler standing on seat 1's battlefield.

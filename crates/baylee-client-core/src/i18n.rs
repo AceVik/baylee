@@ -1721,6 +1721,30 @@ messages! {
     /// Mulligan
     TakeMulligan { en: "Mulligan", de: "Mulligan" },
     /// OK
+    /// Target selection explanation or explicit shortcut.
+    TargetingFor { en: "Targets for {0}", de: "Ziele für {0}" },
+    /// Target selection explanation or explicit shortcut.
+    TargetingSecond { en: "Second target clause", de: "Zweites Ziel des Effekts" },
+    /// Target selection explanation or explicit shortcut.
+    /// Exact target count, available choices and current selection.
+    TargetingExactly { en: "Selected: {3}/{0} • {2} available targets", de: "Ausgewählt: {3}/{0} • {2} mögliche Ziele" },
+    /// Permitted target range and current selection.
+    TargetingChoices { en: "Choose {0}–{1} • {2} legal choices • {3} selected", de: "Wähle {0}–{1} • {2} gültige Ziele • {3} ausgewählt" },
+    /// Target selection explanation or explicit shortcut.
+    TargetingBatch { en: "Confirm for all {0}", de: "Für alle {0} bestätigen" },
+    /// Target selection explanation or explicit shortcut.
+    TargetingBatchHint { en: "{0} identical triggers waiting. Confirm once, or use this selection for all {0}.", de: "{0} gleiche Auslöser warten. Einzeln bestätigen oder diese Auswahl für alle {0} übernehmen." },
+    /// Target selection explanation or explicit shortcut.
+    TargetingSelected { en: "Selected: {0}", de: "Ausgewählt: {0}" },
+    /// Target selection explanation or explicit shortcut.
+    TargetingPage { en: "Choices {0}–{1} of {2}. You can also select on the table.", de: "Ziele {0}–{1} von {2}. Auswahl auch direkt am Tisch möglich." },
+    /// Cast face down using disguise.
+    CastDisguise { en: "Disguise — 2/2, ward {2}", de: "Verkleidung — 2/2, Abwehr {2}" },
+    /// Face-up special action.
+    TurnFaceUp { en: "Turn face up", de: "Aufdecken" },
+    /// Cast using prototype characteristics.
+    CastPrototype { en: "Prototype", de: "Prototyp" },
+    /// Confirm the current selection.
     ConfirmOk { en: "OK", de: "OK" },
     /// Pass
     PassPriority { en: "Pass", de: "Passen" },
@@ -2794,6 +2818,9 @@ messages! {
     /// Another seat gained control of a permanent.
     LogControl { en: "{0} gained control of {1}", de: "{0} hat die Kontrolle über {1} übernommen" },
     /// A permanent transformed. `{1}` is it.
+    /// A face-down permanent becomes public.
+    LogTurnedFaceUp { en: "{1} turned face up", de: "{1} wurde aufgedeckt" },
+    /// A permanent transforms.
     LogTransformed { en: "{1} transformed", de: "{1} hat sich verwandelt" },
     /// The reading seat revealed cards. `{1}` is the list.
     LogRevealedYou { en: "{7} revealed {1}", de: "{7} hast {1} offen vorgezeigt" },

@@ -37,6 +37,8 @@ pub struct Player {
     pub poison: u16,
     /// Energy counters.
     pub energy: u16,
+    /// Persistent designation earned through storied (CR 702.195).
+    pub enduring_story: bool,
     /// Mana pool.
     pub mana_pool: ManaPool,
     /// Maximum hand size modifier (Reliquary Tower & co.).
@@ -752,6 +754,7 @@ impl GameState {
                     life: s.starting_life.unwrap_or(default_life),
                     poison: 0,
                     energy: 0,
+                    enduring_story: false,
                     mana_pool: ManaPool::new(),
                     hand_modifier: 0,
                     lands_played_this_turn: 0,
@@ -1779,7 +1782,13 @@ impl GameState {
             // `own_abilities` *is* the object — an emblem (CR 114.2) and a
             // triggered ability on the stack (CR 113.7a, which is why it
             // captured its list) have no card to fall back to.
-            if obj.card.is_some() {
+            if obj.card.is_some()
+                && !((obj.prototyped || obj.status.contains(crate::object::Status::FACE_DOWN))
+                    && from_zone == Zone::Stack
+                    && to.zone() == Zone::Battlefield)
+            {
+                obj.prototyped = false;
+                obj.status.remove(crate::object::Status::FACE_DOWN);
                 if let Some(original) = obj.original_base.take() {
                     obj.base = original;
                 }
@@ -2251,6 +2260,7 @@ impl GameState {
             h.i32(p.life);
             h.u16(p.poison);
             h.u16(p.energy);
+            h.boolean(p.enduring_story);
             h.i8(p.hand_modifier);
             h.boolean(p.has_lost());
             for color in ManaColor::ALL {
@@ -2534,6 +2544,7 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     h.u8(obj.zone_owner.map_or(255, PlayerId::get));
     h.u8(obj.kind as u8);
     h.u8(obj.face_index);
+    h.boolean(obj.prototyped);
     match &obj.card {
         Some(c) => {
             h.u8(1);
@@ -2676,6 +2687,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         life,
         poison,
         energy,
+        enduring_story,
         mana_pool,
         hand_modifier,
         lands_played_this_turn,
@@ -2691,6 +2703,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     life.hash(h);
     poison.hash(h);
     energy.hash(h);
+    enduring_story.hash(h);
     mana_pool.hash(h);
     hand_modifier.hash(h);
     lands_played_this_turn.hash(h);
@@ -2773,6 +2786,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         x_value,
         kicked,
         alt_cast,
+        prototyped,
         chosen_player,
         target_players,
         mode_index,
@@ -2848,6 +2862,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     x_value.hash(h);
     kicked.hash(h);
     alt_cast.hash(h);
+    prototyped.hash(h);
     chosen_player.hash(h);
     target_players.hash(h);
     mode_index.hash(h);

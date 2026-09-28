@@ -220,6 +220,14 @@ impl<L: CardLookup> Engine<L> {
             if obj.controller != player {
                 continue;
             }
+            if let Some(cost) = self.disguise_cost(id)
+                && crate::mana_pay::can_pay(
+                    &self.state.players[player.get() as usize].mana_pool,
+                    &cost,
+                )
+            {
+                legal.abilities.push((id, crate::choice::TURN_FACE_UP));
+            }
             // A token's abilities come from its definition rather than from a
             // card; everything below reads the same `AbilityDef`s either way.
             let offered: &[AbilityDef] = if locked {
@@ -1077,6 +1085,9 @@ impl<L: CardLookup> Engine<L> {
         let chosen_players = std::mem::take(&mut self.activation_target_players);
         // Prepared cast (`choice::PREPARED_CAST`): pay the linked
         // spell's cost, put a copy on the stack, unprepare the source.
+        if ability_index == crate::choice::TURN_FACE_UP {
+            return self.turn_face_up(player, source);
+        }
         if ability_index == crate::choice::PREPARED_CAST {
             return self.start_prepared_cast(player, source);
         }
@@ -1950,6 +1961,7 @@ impl<L: CardLookup> Engine<L> {
         let card = self
             .state
             .object(source)
+            .filter(|o| !o.status.contains(crate::object::Status::FACE_DOWN))
             .and_then(|o| o.card)
             .map(|c| c.index);
         let name = self

@@ -45,17 +45,10 @@
 //!
 //! # And what it does not reach
 //!
-//! Only [`CastModeKind::Normal`] and [`CastModeKind::Alternative`], out of a
-//! card in **hand**. The other four kinds are deliberately left to the
-//! engine's own chooser:
-//!
-//! - [`CastModeKind::Mode`] — a modal spell — needs
-//!   `casting::mode_has_a_legal_target`, which takes the `GameState` this
-//!   client does not have and must not approximate. Damn's overload is
-//!   therefore still cast the cheap way, and that is **AM1**'s to close.
-//! - [`CastModeKind::Face`] and [`CastModeKind::PlayLandFace`] ask the same
-//!   question about a back face; [`CastModeKind::Miracle`] is not a choice a
-//!   click makes.
+//! From hand this reads normal, alternative, prototype and disguise costs,
+//! plus legal land faces. Modal spell effects and nonland back faces stay
+//! with the engine's own chooser because their legality needs the game state.
+//! Miracle is not a choice a hand click makes.
 //!
 //! Nothing here reads convoke, delve or a printed cost reduction either —
 //! the same three [`crate::mana_for`] and [`crate::reachable`] already do not
@@ -139,6 +132,19 @@ pub fn reachable_modes(
     // the one that keeps a suspend-only card off this list.
     if face.mana_cost.symbols().next().is_some() {
         offer(CastModeKind::Normal, face.mana_cost);
+    }
+    if let Some(prototype) = face.prototype {
+        offer(CastModeKind::Prototype, prototype.cost);
+    }
+    if face.disguise.is_some() {
+        offer(CastModeKind::Disguise, const { ManaCost::parse("{3}") });
+    }
+    if legal.lands.contains(&card) {
+        for (index, face) in def.faces.iter().enumerate() {
+            if face.types.contains(baylee_core::types::TypeSet::LAND) {
+                offer(CastModeKind::PlayLandFace(index), ManaCost::ZERO);
+            }
+        }
     }
     for (i, alt) in face.alternative_costs.iter().enumerate() {
         if condition_holds(view, alt.condition) && parts_payable(view, card, alt.cost.parts) {
@@ -298,6 +304,39 @@ mod tests {
 
     fn kinds(modes: &[ReachableMode]) -> Vec<CastModeKind> {
         modes.iter().map(|m| m.kind).collect()
+    }
+
+    #[test]
+    fn prototype_uses_three_swamps_and_disguise_keeps_the_land_option() {
+        let (view, legal) = lands_of(
+            vec![card_in_hand(1, "Phyrexian Fleshgorger", &[])],
+            3,
+            "Swamp",
+            land::SWAMP,
+        );
+        let modes = reachable_modes(&view, &legal, ObjectId::new(1, 0));
+        assert_eq!(kinds(&modes), [CastModeKind::Prototype]);
+        assert_eq!(modes[0].plan.steps.len(), 3);
+        for (name, expected) in [
+            (
+                "Branch of Vitu-Ghazi",
+                vec![CastModeKind::Disguise, CastModeKind::PlayLandFace(0)],
+            ),
+            (
+                "Boggart Trawler",
+                vec![CastModeKind::Normal, CastModeKind::PlayLandFace(1)],
+            ),
+        ] {
+            let (view, mut legal) =
+                lands_of(vec![card_in_hand(1, name, &[])], 3, "Swamp", land::SWAMP);
+            legal.lands.push(ObjectId::new(1, 0));
+            let modes = reachable_modes(&view, &legal, ObjectId::new(1, 0));
+            assert_eq!(kinds(&modes), expected, "{name}");
+            assert!(
+                modes[1].plan.steps.is_empty(),
+                "playing a land floats no mana"
+            );
+        }
     }
 
     /// The measurement in the report: seven open mana and Reveillark's two

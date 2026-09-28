@@ -14,6 +14,14 @@ use baylee_core::mana::ManaCost;
 pub struct DecisionContext<'a> {
     /// The object whose spell or ability is asking.
     pub source: Option<ObjectId>,
+    /// Captured printed rules, including copies and a chosen back face.
+    pub printed: Option<crate::object::PrintedFace>,
+    /// Printed ability and mode responsible for this decision.
+    pub ability_index: Option<u32>,
+    /// Selected modal branch, if any.
+    pub mode: Option<usize>,
+    /// A non-modal spell is explained by its whole face, not one ability sentence.
+    pub whole_spell: bool,
     /// The selected effects, rather than every mode the card could have used.
     pub effects: &'a [Effect],
     /// Mana cost before substituting X, when the choice belongs to a cast.
@@ -112,13 +120,25 @@ impl<L: CardLookup> Engine<L> {
             _ => None,
         };
         if let Some((source, index, mode)) = handle {
-            let abilities = self
-                .activating_abilities
-                .filter(|(id, _)| *id == source)
-                .map(|(_, list)| list.abilities)
+            let captured = if matches!(self.pending_plan, Some(PlanKind::Trigger { .. })) {
+                self.trigger_queue.front().and_then(|t| t.abilities)
+            } else {
+                self.activating_abilities
+                    .filter(|(id, _)| *id == source)
+                    .map(|(_, list)| list)
+            };
+            let abilities = captured
+                .map(|list| list.abilities)
                 .or_else(|| self.state.object(source).map(|o| o.abilities(&self.lookup)));
             return DecisionContext {
                 source: Some(source),
+                printed: captured.and_then(|list| list.printed).or_else(|| {
+                    self.state
+                        .object(source)
+                        .and_then(crate::object::GameObject::printed_face)
+                }),
+                ability_index: Some(index),
+                mode,
                 effects: abilities
                     .and_then(|a| a.get(index as usize))
                     .map_or(&[], |a| effects(a, mode)),
@@ -133,11 +153,19 @@ impl<L: CardLookup> Engine<L> {
         }
         self.resolution
             .as_ref()
-            .map_or_else(DecisionContext::default, |res| DecisionContext {
-                source: Some(res.source),
-                effects: res.effects.get(res.pc..).unwrap_or_default(),
-                x: res.x.unwrap_or(0),
-                ..DecisionContext::default()
+            .map_or_else(DecisionContext::default, |res| {
+                let stack = self.state.object(res.on_stack);
+                let mode = stack.and_then(|o| o.mode_index).map(usize::from);
+                DecisionContext {
+                    source: Some(res.source),
+                    printed: stack.and_then(crate::object::GameObject::printed_face),
+                    ability_index: stack.and_then(|o| o.ability).map(|a| a.index),
+                    mode,
+                    whole_spell: stack.is_some_and(|o| o.ability.is_none()) && mode.is_none(),
+                    effects: res.effects.get(res.pc..).unwrap_or_default(),
+                    x: res.x.unwrap_or(0),
+                    ..DecisionContext::default()
+                }
             })
     }
 
@@ -164,6 +192,16 @@ impl<L: CardLookup> Engine<L> {
         };
         DecisionContext {
             source: Some(wizard.card),
+            printed: u8::try_from(face)
+                .ok()
+                .and_then(|face| crate::object::PrintedFace::new(def.index, face)),
+            ability_index: def
+                .abilities_for_face(face)
+                .iter()
+                .position(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. }))
+                .and_then(|i| u32::try_from(i).ok()),
+            mode,
+            whole_spell: mode.is_none(),
             effects: def
                 .abilities_for_face(face)
                 .iter()

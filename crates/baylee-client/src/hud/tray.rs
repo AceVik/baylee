@@ -1721,7 +1721,18 @@ pub(super) fn spawn_tray(
     // the controls rather than over the list, because it is what the box in
     // that row holds: a panel floating over the cards would be a second
     // window, and this is a mode of the field above it.
-    commands.entity(head).add_children(&[title_row, controls]);
+    commands.entity(head).add_child(title_row);
+    if answering.is_some() {
+        for text in crate::choices::target_explanation(view, lang, faces.texts) {
+            let line = dialog_text(commands, fonts, &text, 11.0, palette::DIALOG_INK);
+            commands.entity(line).insert(Node {
+                max_width: percent(100),
+                ..default()
+            });
+            commands.entity(head).add_child(line);
+        }
+    }
+    commands.entity(head).add_child(controls);
     if let Some(panel) = browser.builder() {
         let built = crate::filterui::build(
             commands,
@@ -1850,7 +1861,7 @@ pub(super) fn spawn_tray(
     }
 
     // ---- the footer ----
-    let foot = spawn_footer(commands, fonts, lang, answering);
+    let foot = spawn_footer(commands, fonts, lang, answering, view);
 
     // The corner, in the same shape and the same place the card preview's is:
     // one handle, bottom right, both axes. A second handle on every edge is
@@ -1976,11 +1987,13 @@ fn spawn_rows(
 /// is answered by sending one, and a question that will not has no way out to
 /// offer, so a dialog that drew the button anyway would be promising what the
 /// engine cannot deliver.
+#[allow(clippy::too_many_lines)] // ordinary, batch and empty-answer confirmations
 fn spawn_footer(
     commands: &mut Commands,
     fonts: &UiFonts,
     lang: Lang,
     interaction: Option<&baylee_client_core::Interaction>,
+    view: &PlayerView,
 ) -> Option<Entity> {
     let it = interaction?;
     let (min, _max) = it.bounds()?;
@@ -2059,6 +2072,20 @@ fn spawn_footer(
         commands.entity(confirm).insert(Pickable::IGNORE);
     }
     commands.entity(foot).add_child(confirm);
+    if let Some(baylee_engine::choice::PlayerAction::ChooseTargetBatch { count, .. }) =
+        baylee_client_core::targeting::batch_answer(it, view)
+    {
+        let batch = spawn_control(
+            commands,
+            fonts,
+            PromptButton {
+                action: PromptAction::TargetBatch,
+            },
+            &Phrase::TargetingBatch.fill(lang, &[&count.to_string()]),
+            11.0,
+        );
+        commands.entity(foot).add_child(batch);
+    }
 
     if min == 0 {
         let out = dialog_label(

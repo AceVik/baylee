@@ -251,6 +251,9 @@ impl<L: CardLookup> Engine<L> {
             self.sync_static_effects();
             let moved = self.state.characteristics_generation != self.state.effects.generation;
             self.state.refresh_characteristics();
+            if self.state.award_enduring_stories() {
+                continue;
+            }
             // What a player who has left still controls is exiled as the
             // last effect giving it to somebody else ends (CR 800.4c). Not a
             // state-based action, so before them and before the game-over
@@ -2239,6 +2242,7 @@ impl<L: CardLookup> Engine<L> {
                 let card = self
                     .state
                     .object(t.source)
+                    .filter(|o| !o.status.contains(crate::object::Status::FACE_DOWN))
                     .and_then(|o| o.card)
                     .map(|c| c.index);
                 let name = self.synthetic_source_name(t.source);
@@ -3410,6 +3414,7 @@ impl<L: CardLookup> Engine<L> {
         let card = self
             .state
             .object(t.source)
+            .filter(|o| !o.status.contains(crate::object::Status::FACE_DOWN))
             .and_then(|o| o.card)
             .map(|c| c.index);
         let name = self.synthetic_source_name(t.source);
@@ -4300,6 +4305,9 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .effects
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
+        for player in &mut self.state.players {
+            player.mana_pool.expire_turn_retention();
+        }
         // A temporary copy (Cursed Mirror) reverts in *two* places here, and
         // only the characteristics half is the line above: that half is a
         // `Layer::Copy` continuous effect with `Duration::UntilEndOfTurn`, so

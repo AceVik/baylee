@@ -950,6 +950,9 @@ impl Writer<'_> {
                 Phrase::LogControl,
                 vec![self.object(object)],
             ),
+            LogEvent::TurnedFaceUp { object } => {
+                self.about_nobody(Phrase::LogTurnedFaceUp, vec![self.object(object)])
+            }
             LogEvent::Transformed { object } => {
                 self.about_nobody(Phrase::LogTransformed, vec![self.object(object)])
             }
@@ -1859,6 +1862,7 @@ mod tests {
             LogEvent::Attacked { .. } => 18,
             LogEvent::Blocked { .. } => 19,
             LogEvent::ControlChanged { .. } => 20,
+            LogEvent::TurnedFaceUp { .. } => 29,
             LogEvent::Transformed { .. } => 21,
             LogEvent::Revealed { .. } => 22,
             LogEvent::Shuffled { .. } => 23,
@@ -1870,7 +1874,7 @@ mod tests {
         }
     }
 
-    const VARIANTS: usize = 29;
+    const VARIANTS: usize = 30;
 
     /// Every kind of line, about `player`, with every answer, cause, zone and
     /// counter a line can carry.
@@ -1953,6 +1957,9 @@ mod tests {
                 object: card.clone(),
                 old: PlayerId::new(2),
                 new: player,
+            },
+            LogEvent::TurnedFaceUp {
+                object: card.clone(),
             },
             LogEvent::Transformed {
                 object: card.clone(),
@@ -2195,6 +2202,7 @@ mod tests {
                 ..
             }
             | LogEvent::Blocked { .. }
+            | LogEvent::TurnedFaceUp { .. }
             | LogEvent::Transformed { .. }
             | LogEvent::GameOver { .. }
             | LogEvent::LoopDetected { .. }

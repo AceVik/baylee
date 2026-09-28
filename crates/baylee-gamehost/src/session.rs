@@ -852,6 +852,7 @@ impl Session {
             },
             &self.house_answered,
         );
+        view.targeting = crate::view::targeting_context(&self.engine, seat);
         self.show_hands(&mut view, seat);
         let mut out = Vec::new();
         let tail = self.log_tail(seat);
@@ -1468,6 +1469,7 @@ impl Session {
             },
             &self.house_answered,
         );
+        view.targeting = crate::view::targeting_context(&self.engine, seat);
         self.show_hands(&mut view, seat);
         let mut out = state_frames(self.seq, &view, log);
         let over = Some(self.engine.pending()).filter(|p| matches!(p, Pending::GameOver(_)));

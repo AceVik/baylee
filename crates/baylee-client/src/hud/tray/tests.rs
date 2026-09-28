@@ -361,7 +361,14 @@ fn the_footer_offers_only_what_the_question_allows() {
         let mut queue = bevy::ecs::world::CommandQueue::default();
         let foot = {
             let mut commands = Commands::new(&mut queue, app.world());
-            spawn_footer(&mut commands, &fonts, Lang::En, Some(it)).expect("a question has one")
+            spawn_footer(
+                &mut commands,
+                &fonts,
+                Lang::En,
+                Some(it),
+                &baylee_client_core::test_support::ViewBuilder::new(2).build(),
+            )
+            .expect("a question has one")
         };
         queue.apply(app.world_mut());
         let kids: Vec<_> = app

@@ -113,7 +113,8 @@ use serde::{Deserialize, Serialize};
 /// the host wrote a line; where a land was played or a spell cast from
 /// ([`LogFrom`]); where in a library a card went ([`LogPlace`]); and which
 /// registry token a line names.
-pub const VIEW_VERSION: u32 = 36;
+/// 37: face-up log events and authoritative targeting context.
+pub const VIEW_VERSION: u32 = 37;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1361,6 +1362,9 @@ impl CombatView {
 /// diff two snapshots itself without the host having to be correct about it.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct PlayerView {
+    /// Source and printed effect of this seat's current target decision.
+    #[serde(default)]
+    pub targeting: Option<TargetingContext>,
     /// Monotonic sequence number; a client drops out-of-order snapshots.
     pub seq: u64,
     /// The seat this view was built for.
@@ -1580,6 +1584,21 @@ pub struct PlayerView {
     pub sorcery_lock: Option<ObjectId>,
 }
 
+/// Authoritative context, sent only to the seat choosing targets.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TargetingContext {
+    /// Visible source snapshot; its identity follows ordinary visibility rules.
+    pub source: PublicObject,
+    /// Exact printed sentence, where known.
+    pub text: Option<StackText>,
+    /// Read the full spell face when it has no selected mode.
+    pub whole_spell: bool,
+    /// Whether this asks about the second target clause.
+    pub second: bool,
+    /// Maximum currently waiting consecutive identical triggers.
+    pub batch_count: u32,
+}
+
 impl PlayerView {
     /// Every printing this view actually shows.
     ///
@@ -1661,6 +1680,7 @@ impl PlayerView {
             .chain(self.exile.iter().flatten())
             .chain(self.command.iter().flatten())
             .chain(&self.looking_at)
+            .chain(self.targeting.iter().map(|t| &t.source))
     }
 
     /// Every permanent controlled by a seat, in battlefield order.
@@ -2115,6 +2135,12 @@ pub enum LogEvent {
         new: PlayerId,
     },
     /// A permanent turned over (CR 701.27).
+    /// A permanent was turned face up.
+    TurnedFaceUp {
+        /// The now-public object.
+        object: LogObject,
+    },
+    /// A permanent changed to its other printed face.
     Transformed {
         /// The permanent, as it is now.
         object: LogObject,
@@ -2194,6 +2220,7 @@ impl LogEvent {
             | Self::Counters { object: o, .. }
             | Self::Attacked { attacker: o, .. }
             | Self::ControlChanged { object: o, .. }
+            | Self::TurnedFaceUp { object: o }
             | Self::Transformed { object: o } => out.push(o),
             Self::Drew { cards, .. } | Self::Revealed { cards, .. } => out.extend(cards),
             Self::Damage { source, target, .. } => {
@@ -2238,6 +2265,7 @@ impl LogEvent {
             | Self::Counters { object: o, .. }
             | Self::Attacked { attacker: o, .. }
             | Self::ControlChanged { object: o, .. }
+            | Self::TurnedFaceUp { object: o }
             | Self::Transformed { object: o } => out.push(o),
             Self::Drew { cards, .. } | Self::Revealed { cards, .. } => out.extend(cards),
             Self::Damage { source, target, .. } => {
@@ -2338,6 +2366,7 @@ mod tests {
             combat: CombatView::default(),
             looking_at: Vec::new(),
             owed: None,
+            targeting: None,
             sorcery_lock: None,
         }
     }
@@ -3004,7 +3033,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (36, 0x8ce2_485a_966b_9112);
+        const RECORDED: (u32, u64) = (37, 0xe2a1_d478_3708_4cc7);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

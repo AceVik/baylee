@@ -272,6 +272,10 @@ pub enum CastModeKind {
     Face(usize),
     /// Play a specific land face of an MDFC (pathways; CR 712.12).
     PlayLandFace(usize),
+    /// Cast with prototype characteristics (CR 718).
+    Prototype,
+    /// Cast face down as a 2/2 creature with ward {2}.
+    Disguise,
     /// Miracle cast (CR 702.94).
     Miracle,
 }
@@ -772,6 +776,8 @@ pub const fn granted_slot(index: u32) -> Option<u32> {
 /// when that block grew — these indices are per-session, chosen fresh in
 /// every `LegalActions`, so nothing outside a running game holds one.
 pub const PREPARED_CAST: u32 = u32::MAX - GRANTED_SLOTS;
+/// A face-up special action, carried by the existing permanent action menu.
+pub const TURN_FACE_UP: u32 = PREPARED_CAST - 1;
 
 // The indices in this module are **not** `AbilityRef` indices, and that is
 // the distinction to keep before adding another one here. They name a slot in
@@ -914,6 +920,18 @@ pub enum PlayerAction {
         objects: Vec<ObjectId>,
         /// The chosen player targets.
         players: Vec<PlayerId>,
+    },
+    /// Use these targets for a bounded, currently waiting series of the
+    /// same triggered ability. Each choice is validated again; this never
+    /// establishes a standing policy for future triggers.
+    ChooseTargetBatch {
+        /// Object targets for each occurrence.
+        objects: Vec<ObjectId>,
+        /// Player targets for each occurrence.
+        players: Vec<PlayerId>,
+        /// Maximum number of occurrences the player confirmed, including
+        /// the current one. New arrivals cannot increase this number.
+        count: u32,
     },
     /// Suspend a card from hand with time counters.
     Suspend {

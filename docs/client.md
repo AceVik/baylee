@@ -94,6 +94,22 @@ hand cells. Legal targets receive a gold outline and selected players remain
 lit; an invalid target click cannot move the camera. Outside a target choice,
 the existing seat-focus behavior remains available.
 
+Target decisions now name their source and show the selected ability or
+mode's printed text (the full face for a non-modal spell). The drawer lists
+all legal player and object targets, the allowed count and the current
+selection. Long lists have pages; board and player-summary clicks remain
+available. A row selects without submitting. The ordinary confirmation
+answers one decision. When the engine identifies consecutive identical
+triggers, a separate **Confirm for all N** button reuses the selection for
+that already waiting series only. Every occurrence is validated again;
+a changed effect or illegal target stops the shortcut and asks normally.
+No opponent is assumed in a duel, and no choice carries into later spells
+or turns. This also keeps self-targets and teammates available when legal.
+
+Prototype and disguise are offered as named casting forms, and modal lands
+can explicitly be played as lands or cast as their spell face. Turning a
+disguised permanent face up is a named special action with its printed cost.
+
 Graveyard and exile previews show the four newest cards with shallow tilt and
 a small hover offset that keeps the card under the cursor. The library uses
 the same bounded preview with backs; authorized search/scry cards continue to

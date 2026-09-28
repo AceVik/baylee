@@ -836,6 +836,7 @@ fn matches(
     you: PlayerId,
 ) -> bool {
     match (trigger, event) {
+        (Trigger::TurnedFaceUp, GameEvent::TurnedFaceUp { object }) => *object == source,
         (
             Trigger::EntersBattlefield(filter),
             GameEvent::ZoneChanged {

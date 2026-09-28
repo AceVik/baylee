@@ -600,6 +600,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         // One generation compare when nothing moved, which is every effect
         // that did not just change a characteristic.
         state.refresh_characteristics();
+        state.award_enduring_stories();
         if let Some(pending) = exec(state, res, op) {
             return Flow::Wait(pending);
         }

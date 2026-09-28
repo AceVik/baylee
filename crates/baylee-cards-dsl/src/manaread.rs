@@ -399,6 +399,7 @@ mod tests {
                 filter: &ALLY,
                 rider: SpendRider::None,
                 restricts: true,
+                until_end_of_turn: false,
             }),
         }];
         assert_eq!(

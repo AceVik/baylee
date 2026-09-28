@@ -126,6 +126,7 @@ impl AbilityOption {
             return None;
         };
         if baylee_engine::choice::granted_slot(ability_index).is_some()
+            || ability_index == baylee_engine::choice::TURN_FACE_UP
             || ability_index == baylee_engine::choice::PREPARED_CAST
         {
             return None;
@@ -444,6 +445,8 @@ pub fn options_for(
                     }
                 }
             })
+        } else if index == baylee_engine::choice::TURN_FACE_UP {
+            (Phrase::TurnFaceUp.text(lang).to_string(), false)
         } else if index == baylee_engine::choice::PREPARED_CAST {
             (prepared_label(view, object), false)
         } else {
@@ -1012,6 +1015,14 @@ pub fn grant_words(
 /// [`AbilityOption::cost`] for an offered index: a prepared cast's is the
 /// spell's mana cost, anything else's its [`cost_key`].
 fn offered_cost(view: &PlayerView, object: ObjectId, index: u32) -> Option<String> {
+    if index == baylee_engine::choice::TURN_FACE_UP {
+        let card = view.object(object)?.card?;
+        return baylee_cards::by_index(card.index)?
+            .faces
+            .get(usize::from(card.face))?
+            .disguise
+            .map(|c| c.to_string());
+    }
     if index == baylee_engine::choice::PREPARED_CAST {
         prepared_of(view, object).and_then(spell_cost)
     } else {

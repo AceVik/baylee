@@ -302,6 +302,12 @@ pub enum GameEvent {
     /// queues and the one daybound/nightbound take immediately. Without it
     /// a client's `face_index` would be right while nothing that reads the
     /// journal — triggers, replays — knew a transform had happened.
+    /// A face-down permanent was turned face up without changing zones.
+    TurnedFaceUp {
+        /// The permanent.
+        object: ObjectId,
+    },
+    /// A permanent transformed to its other printed face.
     Transformed {
         /// The permanent.
         object: ObjectId,

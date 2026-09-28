@@ -383,3 +383,263 @@ fn hall_loses_its_granted_ward_at_end_of_turn() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(engine.state().object(hall).unwrap().zone, Zone::Graveyard);
 }
+
+#[test]
+fn prototype_is_castable_for_three_and_ward_uses_its_actual_power() {
+    let mut engine = Duel::new(421, card("Swamp"))
+        .battlefield(0, &[card("Swamp"); 3])
+        .hand(0, &[card("Phyrexian Fleshgorger")])
+        .battlefield(1, &[card("Plains")])
+        .hand(1, &[card("Swords to Plowshares")])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat(0));
+    cast_from_hand(&mut engine, seat(0), card("Phyrexian Fleshgorger"));
+    let flesh = engine.state().zones.list(ZoneLocation::Stack)[0];
+    let assert_prototype = |engine: &Engine<RegistryLookup>| {
+        let obj = engine.state().object(flesh).unwrap();
+        assert!(obj.prototyped);
+        assert_eq!(obj.characteristics().power, Some(3));
+        assert_eq!(obj.characteristics().toughness, Some(3));
+        assert_eq!(
+            obj.characteristics().mana_cost,
+            baylee_core::mana::ManaCost::try_parse("{1}{B}{B}").unwrap()
+        );
+        assert_eq!(
+            obj.characteristics().colors,
+            baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Black])
+        );
+    };
+    assert_prototype(&engine);
+    pass_until(&mut engine, stack_is_empty);
+    assert_prototype(&engine);
+    reach_their_main_phase(&mut engine, seat(1));
+    cast_from_hand(&mut engine, seat(1), card("Swords to Plowshares"));
+    aim(&mut engine, flesh);
+    wait_for_payment(&mut engine);
+    assert!(matches!(
+        engine.pending(),
+        Pending::YesNo {
+            prompt: YesNoPrompt::PayLife { amount: 3 },
+            ..
+        }
+    ));
+    engine.apply(seat(1), PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let exiled = engine.state().object(flesh).unwrap();
+    assert!(!exiled.prototyped);
+    assert_eq!(exiled.characteristics().power, Some(7));
+    assert_eq!(engine.state().players[1].life, 17);
+}
+
+#[test]
+fn thorins_story_counts_permanents_once_and_keeps_the_designation() {
+    for (artifacts, earns) in [
+        (vec![card("Sol Ring")], false),
+        (vec![card("Sol Ring"), card("Arcane Signet")], true),
+    ] {
+        let mut battlefield = vec![card("Thorin Oakenshield")];
+        battlefield.extend(artifacts);
+        let mut engine = Duel::new(422, card("Plains"))
+            .battlefield(0, &battlefield)
+            .battlefield(1, &[card("Plains"); 2])
+            .hand(1, &[card("Swords to Plowshares")])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_their_main_phase(&mut engine, seat(1));
+        assert_eq!(engine.state().players[0].enduring_story, earns);
+        assert!(!engine.state().players[1].enduring_story);
+        let thorin = on_battlefield(&engine, seat(0), card("Thorin Oakenshield")).unwrap();
+        cast_from_hand(&mut engine, seat(1), card("Swords to Plowshares"));
+        aim(&mut engine, thorin);
+        if earns {
+            wait_for_payment(&mut engine);
+            engine.apply(seat(1), PlayerAction::YesNo(true)).unwrap();
+        }
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(engine.state().object(thorin).unwrap().zone, Zone::Exile);
+        assert_eq!(engine.state().players[0].enduring_story, earns);
+    }
+}
+
+fn disguised_branch() -> (Engine<RegistryLookup>, ObjectId) {
+    let mut engine = Duel::new(423, card("Plains"))
+        .battlefield(0, &[card("Plains"); 6])
+        .hand(0, &[card("Branch of Vitu-Ghazi")])
+        .battlefield(1, &[card("Plains"); 3])
+        .hand(1, &[card("Swords to Plowshares")])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat(0));
+    cast_from_hand(&mut engine, seat(0), card("Branch of Vitu-Ghazi"));
+    pass_until(&mut engine, stack_is_empty);
+    let branch = on_battlefield(&engine, seat(0), card("Branch of Vitu-Ghazi")).unwrap();
+    let o = engine.state().object(branch).unwrap();
+    assert!(o.status.contains(crate::object::Status::FACE_DOWN));
+    assert_eq!(o.characteristics().power, Some(2));
+    assert_eq!(
+        o.characteristics().types,
+        baylee_core::types::TypeSet::CREATURE
+    );
+    assert_eq!(
+        o.characteristics().mana_cost,
+        baylee_core::mana::ManaCost::ZERO
+    );
+    (engine, branch)
+}
+
+#[test]
+fn disguised_land_has_ward_two_and_not_its_printed_mana_ability() {
+    let (mut engine, branch) = disguised_branch();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority");
+    };
+    assert!(!legal.mana_abilities.contains(&branch));
+    assert!(!legal.abilities.contains(&(branch, 0)));
+    reach_their_main_phase(&mut engine, seat(1));
+    cast_from_hand(&mut engine, seat(1), card("Swords to Plowshares"));
+    aim(&mut engine, branch);
+    let ward = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .copied()
+        .unwrap();
+    let ward = engine.state().object(ward).unwrap();
+    let loc = ward.ability.expect("ward must be a stack ability");
+    assert_eq!(loc.card, None, "ward must not reveal the face-down card");
+    assert_eq!(ward.printed_face(), None);
+    wait_for_payment(&mut engine);
+    assert!(matches!(
+        engine.pending(),
+        Pending::YesNo { source: None, .. }
+    ));
+    engine.apply(seat(1), PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(branch).unwrap().zone,
+        Zone::Battlefield
+    );
+}
+
+#[test]
+fn disguise_turns_face_up_as_a_special_action_and_mana_lasts_only_this_turn() {
+    let (mut engine, branch) = disguised_branch();
+    let version = engine.state().object(branch).unwrap().version;
+    engine
+        .apply(
+            seat(0),
+            PlayerAction::ActivateAbility {
+                source: branch,
+                ability_index: crate::choice::TURN_FACE_UP,
+            },
+        )
+        .unwrap();
+    let o = engine.state().object(branch).unwrap();
+    assert!(!o.status.contains(crate::object::Status::FACE_DOWN));
+    assert_eq!(o.version, version, "turning face up is not a zone change");
+    assert_eq!(o.characteristics().types, baylee_core::types::TypeSet::LAND);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).len(),
+        1,
+        "only the face-up trigger goes on the stack"
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseColor { .. })
+    });
+    engine
+        .apply(
+            seat(0),
+            PlayerAction::ChooseColor(baylee_core::mana::ManaColor::Blue),
+        )
+        .unwrap();
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(baylee_core::mana::ManaColor::Blue),
+        2
+    );
+    pass_until(&mut engine, |e| {
+        e.state().turn.phase == crate::turn::Phase::SecondMain
+    });
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(baylee_core::mana::ManaColor::Blue),
+        2
+    );
+    reach_their_main_phase(&mut engine, seat(1));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(baylee_core::mana::ManaColor::Blue),
+        0
+    );
+}
+
+#[test]
+fn every_printed_mana_ward_card_in_the_pool_counters_a_declined_hostile_spell() {
+    for name in [
+        "Twining Twins",
+        "Tyrranax Rex",
+        "Roaming Throne",
+        "Storm of Saruman",
+    ] {
+        let mut engine = Duel::new(425, card("Plains"))
+            .battlefield(0, &[card(name)])
+            .battlefield(1, &[card("Plains"); 10])
+            .hand(
+                1,
+                &[card(if name == "Storm of Saruman" {
+                    "Disenchant"
+                } else {
+                    "Swords to Plowshares"
+                })],
+            )
+            .start();
+        keep_mulligans(&mut engine);
+        if let Pending::ChooseSubtype {
+            player,
+            ref options,
+        } = *engine.pending()
+        {
+            engine
+                .apply(player, PlayerAction::ChooseSubtype(options[0]))
+                .unwrap();
+        }
+        reach_their_main_phase(&mut engine, seat(1));
+        let target = on_battlefield(&engine, seat(0), card(name)).unwrap();
+        cast_from_hand(
+            &mut engine,
+            seat(1),
+            card(if name == "Storm of Saruman" {
+                "Disenchant"
+            } else {
+                "Swords to Plowshares"
+            }),
+        );
+        aim(&mut engine, target);
+        wait_for_payment(&mut engine);
+        engine.apply(seat(1), PlayerAction::YesNo(false)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            engine.state().object(target).unwrap().zone,
+            Zone::Battlefield,
+            "{name}"
+        );
+        assert!(
+            in_graveyard(
+                &engine,
+                seat(1),
+                card(if name == "Storm of Saruman" {
+                    "Disenchant"
+                } else {
+                    "Swords to Plowshares"
+                })
+            )
+            .is_some(),
+            "{name}"
+        );
+    }
+}
