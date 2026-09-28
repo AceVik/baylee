@@ -526,6 +526,17 @@ pub enum CopyMod {
     AddKeyword(crate::KeywordSet),
     /// Enters with counters of a kind.
     AddCounter(crate::CounterKind, u16),
+    /// Enters with **X** counters of a kind: Altered Ego's "except it enters
+    /// with X additional +1/+1 counters on it".
+    ///
+    /// X is the value announced for the spell that became this permanent
+    /// (CR 107.3m), which is what the entering object's X holds by the time
+    /// the copy is made; a copier put onto the battlefield from anywhere but
+    /// the stack has an X of 0 (CR 107.3g) and gets none. The counters come
+    /// with the copy and only with it, which is why this is not
+    /// `EnterModifier::WithCounters`: an Ego that declines to copy is the
+    /// 0/0 it prints.
+    AddCounterX(crate::CounterKind),
     /// Keeps the copier's own printed **static** abilities beside the
     /// copied ones ("except it has Sakashima's other abilities").
     ///

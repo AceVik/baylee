@@ -13943,10 +13943,12 @@ fn altered_ego() -> CardIndex {
 
 /// `Altered Ego` prints `This spell can't be countered.` and `You may have this creature enter as a copy of any creature on the battlefield, except it enters with X additional +1/+1 counters on it.`
 ///
-/// Marked `Coverage::Partial`, it carries `KeywordSet::UNCOUNTERABLE`: a `counterspell()` may still point at it and resolves without countering it (#243).
-/// Through `AbilityDef::CopyOnEnter`, it enters copying `young_wolf()`, but under `Coverage::Partial` the X additional `CounterKind::P1P1` counters are omitted.
+/// It carries `KeywordSet::UNCOUNTERABLE`: a `counterspell()` may still point at it and resolves without countering it (#243).
+/// Through `AbilityDef::CopyOnEnter`, it enters copying `young_wolf()` with the X = 1
+/// announced for the spell as one additional `CounterKind::P1P1` counter (CR 107.3m).
+/// This test pinned the missing counters until `CopyMod::AddCounterX` said them.
 #[test]
-fn altered_ego_is_uncounterable_and_copies_creature_without_x_counters() {
+fn altered_ego_is_uncounterable_and_copies_creature_with_x_counters() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
@@ -14022,14 +14024,72 @@ fn altered_ego_is_uncounterable_and_copies_creature_without_x_counters() {
     assert_ne!(ego, wolf);
     assert_eq!(
         pt(&engine, ego),
-        (1, 1),
-        "enters as a 1/1 copy of young wolf"
+        (2, 2),
+        "a copy of the 1/1 Young Wolf with one additional +1/+1 counter"
     );
     assert_eq!(
         counters_on(&engine, ego, CounterKind::P1P1),
-        0,
-        "under `Coverage::Partial` X additional counters are omitted"
+        1,
+        "X was announced as 1, so one additional counter"
     );
+}
+
+/// The counters are the copy's "except" and nothing else's: an Altered Ego
+/// that declines to copy is the 0/0 it prints, whatever X was, and dies to
+/// the state-based action (CR 704.5f).
+#[test]
+fn altered_ego_that_copies_nothing_gets_no_counters_and_dies() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                island(),
+                island(),
+                young_wolf(),
+            ],
+        )
+        .hand(0, &[altered_ego()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    let card = in_hand(&engine, p0, altered_ego()).expect("altered ego in hand");
+    engine.apply(p0, PlayerAction::CastSpell { card }).unwrap();
+    let Pending::ChooseNumber { .. } = engine.pending().clone() else {
+        panic!("expected ChooseNumber prompt, got {:?}", engine.pending());
+    };
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { min, .. } = engine.pending().clone() else {
+        unreachable!("the predicate above matched a target choice")
+    };
+    assert_eq!(
+        min, 0,
+        "\"you may have\" — naming nothing declines the copy"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, altered_ego()).is_none(),
+        "a 0/0 with no counters does not survive"
+    );
+    assert!(in_graveyard(&engine, p0, altered_ego()).is_some());
 }
 
 fn badgermole_cub() -> CardIndex {

@@ -1433,6 +1433,14 @@ impl<L: CardLookup> Engine<L> {
                         crate::replacement::put_counters(&mut self.state, id, kind, n);
                         continue;
                     }
+                    baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
+                        let x = self.state.object(id).map_or(0, |o| o.x_value);
+                        let n = u16::try_from(x).unwrap_or(u16::MAX);
+                        if n > 0 {
+                            crate::replacement::put_counters(&mut self.state, id, kind, n);
+                        }
+                        continue;
+                    }
                     // Two different reasons for one empty arm. There is no
                     // `Modifier` that takes a supertype away; and keeping
                     // the copier's own abilities is not a modification of
@@ -1525,6 +1533,13 @@ impl<L: CardLookup> Engine<L> {
                     // counter, and under a Doubling Season it enters with
                     // two of whichever it can hold.
                     crate::replacement::put_counters(&mut self.state, id, kind, n);
+                }
+                // CR 107.3m: the X announced for the spell that became it.
+                baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
+                    let n = u16::try_from(obj.x_value).unwrap_or(u16::MAX);
+                    if n > 0 {
+                        crate::replacement::put_counters(&mut self.state, id, kind, n);
+                    }
                 }
                 // Paid before this loop, for the reason the temporary
                 // branch's twin gives.

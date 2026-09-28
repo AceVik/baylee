@@ -2,9 +2,10 @@
 //! Oracle: This spell can't be countered.
 //! Oracle: You may have this creature enter as a copy of any creature on the battlefield, except it enters with X additional +1/+1 counters on it.
 //! Set: SOC #292 — Secrets of Strixhaven Commander | Scryfall ID: d51e076a-be33-4b2b-b52f-fe7b5bc56206 | Oracle ID: 7c35f3fd-c64e-4944-a4d5-37ce916d23c3
-// PARTIAL — "can't be countered" is the uncounterable keyword bit and the
-// optional copy is AbilityDef::CopyOnEnter; the X counters that copy clause
-// adds have no variant, so the ability below carries a NOT SUPPORTED line.
+// IMPLEMENTED — "can't be countered" is the uncounterable keyword bit, the
+// optional copy is AbilityDef::CopyOnEnter, and its "except" clause is
+// CopyMod::AddCounterX: X +1/+1 counters, X being the one announced for the
+// spell (CR 107.3m), and only when the copy is made.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -23,19 +24,9 @@ card!(
         toughness = Some(0),
     ),],
     keywords = KeywordSet::UNCOUNTERABLE,
-    coverage = Coverage::Partial(
-        "\"except it enters with X additional +1/+1 counters on it\": CopyOnEnter's \
-         mods carry CopyMod::AddCounter(CounterKind, u16) — a fixed count (it is \
-         Spark Double's single counter) — and no Amount, so the X this card adds to \
-         the copy cannot be said"
-    ),
-    // NOT SUPPORTED: "except it enters with X additional +1/+1 counters on it."
-    // The copy itself is exact; the counters are the part no variant reaches.
-    // EnterModifier::WithCounters does carry an Amount, but it is
-    // unconditional, and the printed "except" ties those counters to the copy
-    // being made — an Altered Ego that declined the copy would still be an X/X.
+    coverage = Coverage::Implemented,
     abilities = &[AbilityDef::CopyOnEnter {
         target: TargetSpec::Object(&Filter::CREATURE),
-        mods: &[],
+        mods: &[CopyMod::AddCounterX(CounterKind::P1P1)],
     }],
 );
