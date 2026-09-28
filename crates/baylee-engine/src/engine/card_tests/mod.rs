@@ -1414,6 +1414,64 @@ fn crop_rotation() -> CardIndex {
     card_index("28b46183-c62f-47b1-9fee-3ba148202cab")
 }
 
+fn natural_order() -> CardIndex {
+    card_index("8c1fe337-375a-4add-93b6-0ac39ed72b4f")
+}
+
+fn eldritch_evolution() -> CardIndex {
+    card_index("0f77c0c9-4dc4-489a-b547-e93287c4d1a5")
+}
+
+fn neoform() -> CardIndex {
+    card_index("420c6dcf-966d-4a4c-a0ef-23037ab8b325")
+}
+
+fn birthing_pod() -> CardIndex {
+    card_index("f8b9dd54-0837-47f4-ad14-7a0322d46d5f")
+}
+
+fn imperial_recruiter() -> CardIndex {
+    card_index("4d6a1391-817a-4ddc-840d-886b138eeb3f")
+}
+
+fn bribery() -> CardIndex {
+    card_index("6d194882-ca37-49bb-ac9f-a751c53850a8")
+}
+
+/// Ornithopter: a creature of mana value 0, the smallest a sacrifice can
+/// hand a "plus the sacrificed creature's mana value" bound.
+fn ornithopter() -> CardIndex {
+    card_index("a3a98bc9-caa0-49b7-951c-fe4e4f54e4ba")
+}
+
+/// Canopy Spider: a green creature of mana value 2.
+fn canopy_spider() -> CardIndex {
+    card_index("37f3733e-cc4e-4d84-b29b-d474f6e254a2")
+}
+
+/// Land Leeches: a green creature of mana value 3 and power 2.
+fn land_leeches() -> CardIndex {
+    card_index("228f0afa-146b-4564-a380-71595cdf1ef4")
+}
+
+/// Passes priority until a card choice is asked, and returns it.
+///
+/// Not `pass_until`: that walker answers or panics on a library search, and
+/// the search is what these tests are about.
+#[track_caller]
+fn pass_to_card_choice(engine: &mut Engine<RegistryLookup>) -> Pending {
+    for _ in 0..20 {
+        match engine.pending().clone() {
+            choice @ Pending::ChooseCards { .. } => return choice,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("expected priority or a card choice, got {other:?}"),
+        }
+    }
+    panic!("no card choice was asked within twenty passes")
+}
+
 fn heroes_downfall() -> CardIndex {
     card_index("03df6a57-37c9-46d3-83b3-4a6240100714")
 }

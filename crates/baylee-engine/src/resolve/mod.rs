@@ -203,6 +203,17 @@ pub enum AwaitingOp {
         /// card that reveals matches that rule, and none that keeps its
         /// find secret does — so a card cannot get it wrong.
         reveal: bool,
+        /// **Whose library was searched**, which is the one shuffled —
+        /// not always the controller's, for the reason
+        /// [`AwaitingOp::Scry`]'s `player` gives: Path to Exile's victim
+        /// searches their own library, and shuffling the caster's instead
+        /// left the searched library in the order its owner had just seen.
+        library: PlayerId,
+        /// Who the finds are for: the hand a find goes to and the player
+        /// who controls one put onto the battlefield. The searcher, except
+        /// that Bribery's caster searches an opponent's library and takes
+        /// the creature.
+        receiver: PlayerId,
     },
     /// Scry: chosen cards go to the bottom, the rest stays on top.
     Scry {
@@ -290,6 +301,10 @@ pub enum AwaitingOp {
         finds: &'static [baylee_cards_dsl::effect::Find],
         /// See [`AwaitingOp::SearchLibrary`].
         reveal: bool,
+        /// The searching player, whose own library it is — the one the
+        /// agent is controlling while they search (a takeover reaches only
+        /// a player searching their own library).
+        library: PlayerId,
     },
     /// After `DiscardForPlayers`: discard the chosen cards, then ask the
     /// next remaining player.
@@ -374,6 +389,130 @@ pub enum AwaitingOp {
     },
 }
 
+/// One library search, as the two search effects describe it.
+#[derive(Clone, Copy)]
+struct Search {
+    /// Whose library.
+    library: PlayerId,
+    /// Who chooses, and who gets what is found.
+    searcher: PlayerId,
+    /// What may be found.
+    filter: &'static baylee_cards_dsl::Filter,
+    /// A mana-value bound the resolution computed, on top of `filter`.
+    bound: Option<(baylee_cards_dsl::ManaValueCmp, u32)>,
+    /// Where each find goes.
+    finds: &'static [baylee_cards_dsl::effect::Find],
+    /// Whether fewer than `finds.len()` may be found.
+    optional: bool,
+}
+
+/// Opens a library search: the question, or nothing when there is nothing
+/// to find or nobody may search.
+fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> Option<Pending> {
+    let Search {
+        library,
+        searcher,
+        filter,
+        bound,
+        finds,
+        optional,
+    } = search;
+    // Ashiok, Dream Render: "spells and abilities your opponents control
+    // can't cause their controller to search their library". The one
+    // search it reaches is the controller's own of their own library — a
+    // Boseiju that makes *its victim* search, or a Bribery through someone
+    // else's library, is not that sentence.
+    let you = res.controller;
+    if searcher == you
+        && library == you
+        && state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::OpponentsCantSearch)
+                && state.is_opponent(fx.controller, you)
+        })
+    {
+        return None;
+    }
+    // Opposition Agent: an opponent of the searching player takes the
+    // search over — they choose, and the find goes to exile playable by
+    // them. That is controlling the searching player (CR 722.2), which a
+    // player who has left the game does not (CR 800.4b). The card reaches a
+    // player searching *their* library, so a search through somebody
+    // else's is left alone.
+    let takeover = (searcher == library)
+        .then(|| {
+            state
+                .effects
+                .iter()
+                .filter(|fx| {
+                    matches!(fx.modifier, baylee_cards_dsl::Modifier::SearchTakeover)
+                        && state.is_opponent(fx.controller, searcher)
+                        && !state.has_left(fx.controller)
+                })
+                // Multiple player-control effects overwrite in timestamp
+                // order; the newest Agent gets the searching player's choices.
+                .max_by_key(|fx| fx.timestamp)
+                .map(|fx| fx.controller)
+        })
+        .flatten();
+    let options: Vec<ObjectId> = state
+        .zones
+        .list(ZoneLocation::Library(library))
+        .iter()
+        .filter(|id| {
+            state.object(**id).is_some_and(|o| {
+                eval::matches(filter, state, o, searcher, res.source)
+                    && bound.is_none_or(|(cmp, n)| {
+                        let mv = o.characteristics().mana_cost.cmc();
+                        match cmp {
+                            baylee_cards_dsl::ManaValueCmp::AtMost => mv <= n,
+                            baylee_cards_dsl::ManaValueCmp::Exactly => mv == n,
+                        }
+                    })
+            })
+        })
+        .copied()
+        .collect();
+    if options.is_empty() {
+        // Hidden zone: failing to find is always legal (CR 701.23b).
+        state.shuffle_library(library);
+        return None;
+    }
+    // How many cards this search may produce, and how few it may settle
+    // for: "up to two" is optional with two finds, "search for a basic land
+    // card" is one find and mandatory.
+    let want = u8::try_from(finds.len()).unwrap_or(u8::MAX);
+    let least = if optional { 0 } else { want };
+    let reveal = reveals(filter, finds);
+    if let Some(agent) = takeover {
+        res.awaiting = Some(AwaitingOp::SearchTakeover {
+            agent,
+            finds,
+            reveal,
+            library,
+        });
+        return Some(Pending::ChooseCards {
+            player: agent,
+            options,
+            min: least,
+            max: want,
+            prompt: ChoicePrompt::SearchLibrary,
+        });
+    }
+    res.awaiting = Some(AwaitingOp::SearchLibrary {
+        finds,
+        reveal,
+        library,
+        receiver: searcher,
+    });
+    Some(Pending::ChooseCards {
+        player: searcher,
+        options,
+        min: least,
+        max: want,
+        prompt: ChoicePrompt::SearchLibrary,
+    })
+}
+
 /// Whether a search shows what it found.
 ///
 /// The printed cards agree on a rule rather than deciding one by one: a
@@ -447,6 +586,16 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .first()
             .and_then(|t| state.object(*t))
             .map_or(0, |o| o.characteristics().mana_cost.cmc()),
+        // Off the stack object, which is where the payment wrote it — a
+        // spell's own, or the ability's rather than its permanent's.
+        Amount::SacrificedManaValue => state
+            .object(res.on_stack)
+            .and_then(|o| o.paid.as_ref())
+            .and_then(|p| p.sacrificed_mana_value)
+            .unwrap_or(0),
+        // A wrapper around one of the above has to reach it through this
+        // reader and not through `eval::amount`, which has no stack object.
+        Amount::Plus { base, offset } => amount2(base, state, you, res).saturating_add(*offset),
         other => eval::amount(other, state, you, res.source, res.x),
     }
 }
@@ -943,11 +1092,16 @@ pub fn resume_targets(
 pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) -> Flow {
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
-        AwaitingOp::SearchLibrary { finds, reveal } => {
+        AwaitingOp::SearchLibrary {
+            finds,
+            reveal,
+            library,
+            receiver,
+        } => {
             if reveal && !chosen.is_empty() {
                 // Shown from the library, before they go anywhere.
                 state.journal.record(GameEvent::Revealed {
-                    player: res.controller,
+                    player: receiver,
                     cards: chosen.to_vec(),
                 });
             }
@@ -962,7 +1116,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             // For a find that leaves the library (Cultivate's battlefield and
             // hand) the order is unobservable: the card is gone either way,
             // and the rest is a shuffled library in both readings.
-            state.shuffle_library(res.controller);
+            state.shuffle_library(library);
             // Positional: the first card found takes the first destination.
             // Cultivate names the battlefield first and the hand second, and
             // finding only one card then puts that one onto the battlefield —
@@ -973,7 +1127,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     SearchDest::Hand => {
                         let _ = state.move_object(
                             card,
-                            ZoneLocation::Hand(res.controller),
+                            ZoneLocation::Hand(receiver),
                             ZonePosition::Top,
                             Cause::Effect,
                         );
@@ -981,14 +1135,19 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     SearchDest::TopOfLibrary => {
                         let _ = state.move_object(
                             card,
-                            ZoneLocation::Library(res.controller),
+                            ZoneLocation::Library(library),
                             ZonePosition::Top,
                             Cause::Effect,
                         );
                     }
                     SearchDest::Battlefield => {
+                        // Under the receiver's control, written where it
+                        // arrives: the searcher's own card for every search
+                        // but Bribery's, where "under your control" is the
+                        // point of the card.
                         if let Some(obj) = state.object_mut(card) {
                             obj.kind = ObjectKind::Permanent;
+                            obj.set_controller(receiver);
                         }
                         if tapped {
                             state.set_tapped(card, true);
@@ -999,6 +1158,16 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                             ZonePosition::Top,
                             Cause::Effect,
                         );
+                        // After the move, for `GraveyardToBattlefield`'s
+                        // reason: the move clears a permanent's counters.
+                        if let Some((kind, n)) = find.counter
+                            && n > 0
+                            && state
+                                .object(card)
+                                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                        {
+                            crate::replacement::put_counters(state, card, kind, n);
+                        }
                     }
                 }
             }
@@ -1276,6 +1445,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ScryFor { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
+        | Effect::SearchLibraryOf { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
@@ -1296,77 +1466,47 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             filter,
             finds,
             optional,
-        } => {
-            // Ashiok, Dream Render: opponents can't search libraries.
-            if state.effects.iter().any(|fx| {
-                matches!(fx.modifier, baylee_cards_dsl::Modifier::OpponentsCantSearch)
-                    && state.is_opponent(fx.controller, you)
-            }) {
-                return None;
-            }
-            // Opposition Agent: an opponent of the searching player takes
-            // the search over — they choose, and the find goes to exile
-            // playable by them. That is controlling the searching player
-            // (CR 722.2), which a player who has left the game does not
-            // (CR 800.4b).
-            let takeover = state
-                .effects
-                .iter()
-                .filter(|fx| {
-                    matches!(fx.modifier, baylee_cards_dsl::Modifier::SearchTakeover)
-                        && state.is_opponent(fx.controller, you)
-                        && !state.has_left(fx.controller)
-                })
-                // Multiple player-control effects overwrite in timestamp
-                // order; the newest Agent gets the searching player's choices.
-                .max_by_key(|fx| fx.timestamp)
-                .map(|fx| fx.controller);
-            let options: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Library(you))
-                .iter()
-                .filter(|id| {
-                    state
-                        .object(**id)
-                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
-                })
-                .copied()
-                .collect();
-            if options.is_empty() {
-                // Hidden zone: failing to find is always legal (CR 701.23b).
-                state.shuffle_library(you);
-                return None;
-            }
-            // How many cards this search may produce, and how few it may
-            // settle for: "up to two" is optional with two finds, "search for
-            // a basic land card" is one find and mandatory.
-            let want = u8::try_from(finds.len()).unwrap_or(u8::MAX);
-            let least = if optional { 0 } else { want };
-            if let Some(agent) = takeover {
-                res.awaiting = Some(AwaitingOp::SearchTakeover {
-                    agent,
-                    finds,
-                    reveal: reveals(filter, finds),
-                });
-                return Some(Pending::ChooseCards {
-                    player: agent,
-                    options,
-                    min: least,
-                    max: want,
-                    prompt: ChoicePrompt::SearchLibrary,
-                });
-            }
-            res.awaiting = Some(AwaitingOp::SearchLibrary {
+        } => begin_search(
+            state,
+            res,
+            Search {
+                library: you,
+                searcher: you,
+                filter,
+                bound: None,
                 finds,
-                reveal: reveals(filter, finds),
-            });
-            Some(Pending::ChooseCards {
-                player: you,
-                options,
-                min: least,
-                max: want,
-                prompt: ChoicePrompt::SearchLibrary,
-            })
+                optional,
+            },
+        ),
+        Effect::SearchLibraryOf {
+            library,
+            owner_searches,
+            filter,
+            mana_value,
+            finds,
+            optional,
+        } => {
+            // A player the relation cannot name (a target that has gone)
+            // searches nothing.
+            let library = players_of(library, state, you, res).first().copied()?;
+            // Ours to search and to take, or theirs to do both.
+            let searcher = if owner_searches { library } else { you };
+            // The number is the resolution's, read once as the search
+            // begins: the sacrifice was paid before any of this, and a
+            // search does not change it.
+            let bound = mana_value.map(|b| (b.cmp, amount2(&b.amount, state, you, res)));
+            begin_search(
+                state,
+                res,
+                Search {
+                    library,
+                    searcher,
+                    filter,
+                    bound,
+                    finds,
+                    optional,
+                },
+            )
         }
         Effect::ScryFor { player, amount } => {
             let player = players_of(player, state, you, res).first().copied()?;
@@ -1587,9 +1727,12 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 return None;
             }
             // Onto the battlefield, where everyone sees it anyway.
+            // The searcher's own library, and theirs to shuffle.
             res.awaiting = Some(AwaitingOp::SearchLibrary {
                 finds: ONTO_BATTLEFIELD_TAPPED,
                 reveal: false,
+                library: player,
+                receiver: player,
             });
             Some(Pending::ChooseCards {
                 player,
@@ -2278,6 +2421,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ScryFor { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
+        | Effect::SearchLibraryOf { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }

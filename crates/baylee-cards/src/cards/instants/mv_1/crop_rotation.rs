@@ -2,7 +2,9 @@
 //! Oracle: As an additional cost to cast this spell, sacrifice a land.
 //! Oracle: Search your library for a land card, put that card onto the battlefield, then shuffle.
 //! Set: DMR #154 — Dominaria Remastered | Scryfall ID: 523414cb-f8db-407a-808a-01454e03d8b9 | Oracle ID: 28b46183-c62f-47b1-9fee-3ba148202cab
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — the land is sacrificed as the spell's additional cost (the
+// cast wizard's `Sacrifice` stage asks which), and the search puts any land
+// card onto the battlefield untapped.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -15,7 +17,12 @@ card!(
         name = "Crop Rotation",
         mana_cost = mana!("{G}"),
         types = TypeSet::INSTANT,
+        mandatory_additional_costs = &[CostPart::Sacrifice(&Filter::LAND)],
     ),],
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[Effect::SearchLibrary {
+        filter: &Filter::LAND,
+        finds: &[Find::BATTLEFIELD],
+        optional: false,
+    }])],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

@@ -238,6 +238,20 @@ object grows by the eight its alignment rounds them to. The budget was raised
 to 288 deliberately. `state/clone` was not re-benched, on the argument the
 entry above makes for the same eight bytes.
 
+## What was paid for a spell (29.09.2026)
+
+`GameObject` **288 → 296 B**. "The sacrificed creature's mana value"
+(Eldritch Evolution, Neoform, Birthing Pod) and "the amount of mana spent to
+cast this spell" are read back from the stack object as it resolves, and by
+then the sacrificed creature is a card in a graveyard. The payment writes a
+`PaidRecord` onto the stack object, behind one `Option<Box<…>>` for the reason
+`second` is: null on every object that is not a paid-for spell or ability on
+the stack, and dropped at every zone change. The eight bytes of the pointer
+are the whole cost in a clone (plus one small allocation per spell cast for
+mana); the budget was raised to 296 deliberately.
+`state/clone` was not re-benched, on the argument the two entries above make
+for the same eight bytes.
+
 ## The snapshot hash names every field (24.09.2026, #122)
 
 `GameState::snapshot_hash` now takes every struct it walks apart by name, so

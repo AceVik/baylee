@@ -440,7 +440,7 @@ impl<L: CardLookup> Engine<L> {
                 if let Some(mut wizard) = self.cast_wizard.take() {
                     if wizard.stage == cast_wizard::WizardStage::Convoke {
                         wizard.convoke_taps = objects.into_iter().collect();
-                        wizard.stage = cast_wizard::WizardStage::Done;
+                        wizard.stage = cast_wizard::WizardStage::Sacrifice;
                     } else if wizard.stage == cast_wizard::WizardStage::SecondTargets {
                         // The second instance of "target" is objects only in
                         // every shape that prints one, so no seat is kept.
@@ -1070,6 +1070,19 @@ impl<L: CardLookup> Engine<L> {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.delve_exiles = objects.into_iter().collect();
                     wizard.stage = cast_wizard::WizardStage::Convoke;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
+                // Wizard path: what pays the additional cost's sacrifice. The
+                // stage stays where it is and asks about the next part, if
+                // the face prints one; it moves on when there is none.
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Sacrifice)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.sacrifices.extend(objects);
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }

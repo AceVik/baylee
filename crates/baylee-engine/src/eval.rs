@@ -286,6 +286,16 @@ pub fn amount(
             .and_then(|o| o.characteristics().power)
             .map_or(0, |p| p.max(0) as u32),
         Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
+        // The object the payment wrote it on. A resolution asks
+        // `resolve::amount2`, which reads the stack object: an activated
+        // ability's source is the permanent and its payment is on the
+        // ability. Here, with no resolution, `this` is all there is, which
+        // answers for a spell (its own source) and 0 for anything else.
+        Amount::SacrificedManaValue => state
+            .object(this)
+            .and_then(|o| o.paid.as_ref())
+            .and_then(|p| p.sacrificed_mana_value)
+            .unwrap_or(0),
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
                 ZoneSel::Battlefield => state.zones.list(ZoneLocation::Battlefield).clone(),

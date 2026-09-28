@@ -1445,7 +1445,7 @@ impl<L: CardLookup> Engine<L> {
         // line up: the number belongs to this activation and to no other.
         let x = self.activation_x.take().unwrap_or(0);
         self.activation_targets_answered = false;
-        self.pay_cost(player, source, &cost, &answers, x)?;
+        let sacrificed_mana_value = self.pay_cost(player, source, &cost, &answers, x)?;
         // "Activate only once each turn" is spent *here* and not at the
         // offer, because this is the line the rules count: CR 602.2 makes
         // activating an ability putting it on the stack and paying its
@@ -1519,6 +1519,17 @@ impl<L: CardLookup> Engine<L> {
                 && let Some(obj) = self.state.object_mut(ability)
             {
                 obj.x_value = x;
+            }
+            // What the cost sacrificed, carried on the ability for the
+            // effect that asks (Birthing Pod's "1 plus the sacrificed
+            // creature's mana value"), the way a spell carries its own.
+            if sacrificed_mana_value.is_some()
+                && let Some(obj) = self.state.object_mut(ability)
+            {
+                obj.paid = Some(Box::new(crate::object::PaidRecord {
+                    sacrificed_mana_value,
+                    mana_spent: 0,
+                }));
             }
             // The seats that were targeted, written onto the ability now
             // that there is one — the same two fields the trigger path
@@ -1766,6 +1777,11 @@ impl<L: CardLookup> Engine<L> {
     /// beside this one, and a cost paid in two places is a cost that can be
     /// paid twice.
     ///
+    /// Answers with the mana value of the permanent a `Sacrifice` part
+    /// sacrificed, as it last existed (CR 608.2h), for the ability to carry
+    /// ([`crate::object::PaidRecord`]); `None` when nothing chosen was
+    /// sacrificed.
+    ///
     /// # Errors
     /// [`EngineError::IllegalAction`] when the mana is not there, when a
     /// move refuses, or when an asking part has no answer left — the last of
@@ -1781,8 +1797,9 @@ impl<L: CardLookup> Engine<L> {
         cost: &Cost,
         chosen: &[ObjectId],
         x: u32,
-    ) -> Result<(), EngineError> {
+    ) -> Result<Option<u32>, EngineError> {
         let mut answers = chosen.iter().copied();
+        let mut sacrificed_mana_value = None;
         if !cost.mana.is_empty() {
             // CR 107.3a, second half: while an activated ability is on the
             // stack, any X in its activation cost equals the announced
@@ -1935,11 +1952,20 @@ impl<L: CardLookup> Engine<L> {
                             "a cost that has to ask reached the payer unanswered",
                         ));
                     };
+                    // "The sacrificed creature's mana value" (Birthing Pod)
+                    // is read off the permanent as it last existed on the
+                    // battlefield (CR 608.2h), so before it goes.
+                    if matches!(part, CostPart::Sacrifice(_)) {
+                        sacrificed_mana_value = self
+                            .state
+                            .object(card)
+                            .map(|o| o.characteristics().mana_cost.cmc());
+                    }
                     cost_wizard::pay(&mut self.state, player, part, card)?;
                 }
             }
         }
-        Ok(())
+        Ok(sacrificed_mana_value)
     }
 
     /// Puts one of `source`'s abilities on the stack (CR 603.3 for a
