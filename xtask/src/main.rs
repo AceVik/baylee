@@ -4110,6 +4110,10 @@ const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
         "Karn, the Great Creator",
         "the lock is a player rule; see karns_lock_spares_a_teammate",
     ),
+    (
+        "Leovold, Emissary of Trest",
+        "the opponent controls the spell or ability, and `Trigger::TargetedByOpponent` asks that of its controller, not of a permanent",
+    ),
 ];
 
 /// What the card says about *whose* permanents it reaches, against what it
