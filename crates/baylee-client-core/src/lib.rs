@@ -80,6 +80,7 @@ pub mod textbuf;
 pub mod textface;
 pub mod timing;
 pub mod touch;
+pub mod type_names;
 pub mod userdirs;
 pub mod wsticket;
 pub mod zones;

@@ -2093,6 +2093,7 @@ pub struct TrayTree<'w, 's> {
 }
 
 mod card;
+pub(crate) mod chosen_type;
 mod finish;
 mod hand;
 mod ledge;

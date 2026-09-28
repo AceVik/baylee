@@ -204,6 +204,7 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         types: chars.types,
         supertypes: chars.supertypes,
         subtypes: chars.subtypes,
+        chosen_subtype: obj.chosen_subtype,
         // The engine holds the definition; the client needs the number, and
         // this crate is the one that can see both.
         token: obj.token.map(baylee_cards::tokens::token_id),
@@ -1191,6 +1192,58 @@ mod tests {
             targeting_context(&engine, PlayerId::new(1)).is_none(),
             "no private casting choice crosses seats"
         );
+    }
+
+    #[test]
+    fn reflections_chosen_type_reaches_every_seat_after_casting() {
+        let reflections = baylee_cards::decks::by_name("Reflections of Littjara").unwrap();
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_hand = Some(vec![DeckEntry {
+            card: reflections,
+            print: PrintRef::new(0),
+        }]);
+        preset.seats[0].starting_battlefield = vec![
+            DeckEntry {
+                card: island(),
+                print: PrintRef::new(0)
+            };
+            5
+        ];
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        let view = settle(&mut engine, None);
+        let me = PlayerId::new(0);
+        for object in &view.battlefield {
+            engine
+                .apply(me, PlayerAction::ActivateManaAbility { source: object.id })
+                .unwrap();
+        }
+        let card = view
+            .hand
+            .iter()
+            .find(|o| o.card.index == reflections)
+            .unwrap()
+            .id;
+        engine.apply(me, PlayerAction::CastSpell { card }).unwrap();
+        for _ in 0..5 {
+            if let Pending::Priority { player, .. } = engine.pending() {
+                engine.apply(*player, PlayerAction::PassPriority).unwrap();
+            } else {
+                break;
+            }
+        }
+        assert!(matches!(engine.pending(), Pending::ChooseSubtype { .. }));
+        let ally = baylee_core::generated::subtypes::creature::ALLY;
+        engine.apply(me, PlayerAction::ChooseSubtype(ally)).unwrap();
+        for seat in [me, PlayerId::new(1)] {
+            let view = seen_by(&engine, seat);
+            assert_eq!(view.object(card).unwrap().chosen_subtype, Some(ally));
+            assert!(
+                view.battlefield
+                    .iter()
+                    .filter(|o| o.id != card)
+                    .all(|o| o.chosen_subtype.is_none())
+            );
+        }
     }
 
     /// A preset with a Teferi, Time Raveler standing on seat 1's battlefield.

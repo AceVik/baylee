@@ -2607,3 +2607,11 @@ View 37 also adds `LogEvent::TurnedFaceUp`. Prototype and disguise extend
 `CastModeKind`; `TURN_FACE_UP` is a reserved ability-menu index naming a
 special action, not a stack-using activated ability. These changes share the
 unreleased protocol-7 batch; no release/tag is created by this work.
+
+### Chosen creature type (view 38)
+
+`PublicObject.chosen_subtype` carries the creature type named for a permanent,
+for example Reflections of Littjara or Cavern of Souls. The choice is public
+and is shown to every seat. A missing field decodes as `None`. Clients keep
+permanents with different named types in separate groups and label the choice
+on the battlefield using their own language.

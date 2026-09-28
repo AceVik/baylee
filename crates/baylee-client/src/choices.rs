@@ -18,7 +18,7 @@
 //!
 //! [`Prompt`] is what it reads, not [`baylee_engine::choice::Pending`] — the
 //! prompt already carries every option the engine offered, in the engine's
-//! order, and that order is the answer, so nothing here may sort.
+//! order. Each row retains that original index even when subtype labels are sorted.
 //!
 //! **A creature type is the awkward one.** [`Prompt::ChooseSubtype`] offers all
 //! three hundred and fifty of them, and three hundred and fifty buttons is not
@@ -184,7 +184,7 @@ impl ChoiceOption {
 /// line under the headline is what says so.
 pub const SUBTYPE_ROWS: usize = 12;
 
-/// The creature types matching `filter`, in the engine's order.
+/// The creature types matching `filter`, alphabetized in the client language.
 ///
 /// A prefix match and not a substring one, because typing `el` to be offered
 /// "Elf" and "Elemental" is the behaviour a player predicts; `Rebel` turning
@@ -192,22 +192,26 @@ pub const SUBTYPE_ROWS: usize = 12;
 /// row — by its number, the same rule as a seat the statics do not describe —
 /// because the alternative is an option the engine offered and nobody can
 /// pick.
-fn subtype_rows(options: &[SubtypeId], filter: &str) -> Vec<ChoiceOption> {
-    let needle = filter.trim().to_ascii_lowercase();
-    options
+fn subtype_rows(options: &[SubtypeId], filter: &str, lang: Lang) -> Vec<ChoiceOption> {
+    let needle = filter.trim().to_lowercase();
+    let mut rows: Vec<_> = options
         .iter()
         .enumerate()
         .filter_map(|(i, id)| match subtypes::name(*id) {
-            Some(name) => name
-                .to_ascii_lowercase()
-                .starts_with(&needle)
-                .then(|| ChoiceOption::text(i, name.to_string())),
+            Some(name) => {
+                let translated = baylee_client_core::type_names::name(name, lang);
+                (translated.to_lowercase().starts_with(&needle)
+                    || name.to_lowercase().starts_with(&needle))
+                .then(|| ChoiceOption::text(i, translated.to_string()))
+            }
             None => needle
                 .is_empty()
                 .then(|| ChoiceOption::text(i, format!("#{}", id.get()))),
         })
-        .take(SUBTYPE_ROWS)
-        .collect()
+        .collect();
+    rows.sort_by_cached_key(|row| (row.label.starts_with('#'), row.label.to_lowercase()));
+    rows.truncate(SUBTYPE_ROWS);
+    rows
 }
 
 /// The symbol for one colour of mana.
@@ -295,7 +299,7 @@ pub fn options(
                 })
                 .collect(),
         ),
-        Prompt::ChooseSubtype { options } => Some(subtype_rows(options, filter)),
+        Prompt::ChooseSubtype { options } => Some(subtype_rows(options, filter, lang)),
         _ => None,
     }
 }
@@ -682,10 +686,16 @@ mod tests {
             SUBTYPE_ROWS,
             "the bar holds twelve, not four hundred"
         );
-        // Cut from the front, in the engine's order, so the indices are the
-        // engine's own.
-        assert_eq!(rows[0].index, 0);
-        assert_eq!(rows[SUBTYPE_ROWS - 1].index, SUBTYPE_ROWS - 1);
+        assert!(
+            rows.windows(2)
+                .all(|pair| pair[0].label.to_lowercase() <= pair[1].label.to_lowercase())
+        );
+        for row in rows {
+            assert_eq!(
+                subtypes::name(all_subtypes()[row.index]),
+                Some(row.label.as_str())
+            );
+        }
     }
 
     /// The property the whole `index` field exists for: once a filter has
@@ -708,6 +718,25 @@ mod tests {
         assert_eq!(rows[0].label, "Elf", "a prefix match, case-insensitively");
         assert_ne!(rows[0].index, 0, "an elf is not the first creature type");
         assert_eq!(rows[0].index, elf, "the row answers the engine's option");
+    }
+
+    #[test]
+    fn creature_types_search_in_both_languages_and_keep_the_original_answer() {
+        let offered = vec![
+            subtypes::creature::ELF,
+            subtypes::creature::ALLY,
+            subtypes::creature::WIZARD,
+        ];
+        for needle in ["verb", "VERBÜ", "ally"] {
+            let rows = subtype_rows(&offered, needle, Lang::De);
+            assert_eq!(rows.len(), 1);
+            assert_eq!(rows[0].index, 1);
+            assert_eq!(rows[0].label, "Verbündeter");
+        }
+        let rows = subtype_rows(&offered, "zaub", Lang::De);
+        assert_eq!((rows[0].index, rows[0].label.as_str()), (2, "Zauberer"));
+        assert!(subtype_rows(&offered, "verb", Lang::En).is_empty());
+        assert_eq!(subtype_rows(&offered, "ally", Lang::En)[0].label, "Ally");
     }
 
     #[test]

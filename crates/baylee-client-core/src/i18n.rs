@@ -2013,6 +2013,8 @@ messages! {
     ManaPool { en: "Mana pool", de: "Manavorrat" },
     /// Badge on the player whose turn is in progress (not merely priority).
     ActiveTurn { en: "Turn", de: "Am Zug" },
+    /// The creature type publicly named for this permanent.
+    ChosenType { en: "Chosen: {0}", de: "Gewählt: {0}" },
     /// Tap for {0}, spendable only on some spells
     ///
     /// Cavern of Souls and its kin. The label has to say *both* halves: a

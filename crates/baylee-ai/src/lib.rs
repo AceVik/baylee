@@ -3723,6 +3723,7 @@ mod tests {
             types: TypeSet::CREATURE,
             supertypes: SupertypeSet::EMPTY,
             subtypes: SubtypeSet::EMPTY,
+            chosen_subtype: None,
             token: None,
             colors: ColorSet::EMPTY,
             mana_value: 1,

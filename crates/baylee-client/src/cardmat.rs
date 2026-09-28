@@ -1019,6 +1019,7 @@ pub(crate) mod tests {
             types,
             supertypes: SupertypeSet::EMPTY,
             subtypes: SubtypeSet::EMPTY,
+            chosen_subtype: None,
             token: None,
             colors: ColorSet::default(),
             keywords: 0,

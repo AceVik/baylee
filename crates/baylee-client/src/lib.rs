@@ -1364,6 +1364,7 @@ fn add_present_systems(app: &mut App) {
                     hud::sync_seat_bars,
                     hud::place_seat_bars,
                     hud::stretch_step_tiles,
+                    hud::chosen_type::sync.after(table::glide),
                     hud::describe_phase,
                     hud::highlight_player,
                 )

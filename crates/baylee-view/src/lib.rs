@@ -114,7 +114,8 @@ use serde::{Deserialize, Serialize};
 /// ([`LogFrom`]); where in a library a card went ([`LogPlace`]); and which
 /// registry token a line names.
 /// 37: face-up log events and authoritative targeting context.
-pub const VIEW_VERSION: u32 = 37;
+/// 38 adds the public creature type named for a permanent.
+pub const VIEW_VERSION: u32 = 38;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -696,6 +697,9 @@ pub struct PublicObject {
     /// genuinely a `Creature — Elemental`, and a card that gained a type keeps
     /// its printed ones — only the projection knows the answer.
     pub subtypes: SubtypeSet,
+    /// Creature type named for this permanent (Reflections of Littjara, Cavern of Souls).
+    #[serde(default)]
+    pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     /// Which token this is, for permanents with no card behind them.
     ///
     /// The index into `baylee_cards::tokens::ALL`. A token has no printing
@@ -959,6 +963,7 @@ impl PublicObject {
             types: self.types,
             supertypes: self.supertypes,
             subtypes: self.subtypes,
+            chosen_subtype: self.chosen_subtype,
             colors: self.colors,
             keywords: self.keywords,
             power: self.power,
@@ -1000,6 +1005,7 @@ pub struct ObjectSummaryKey {
     types: TypeSet,
     supertypes: SupertypeSet,
     subtypes: SubtypeSet,
+    chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     colors: ColorSet,
     keywords: u128,
     power: Option<i16>,
@@ -1030,6 +1036,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.commander.hash(state);
         self.status.hash(state);
         self.types.hash(state);
+        self.chosen_subtype.hash(state);
         self.power.hash(state);
         self.toughness.hash(state);
         self.damage.hash(state);
@@ -2301,6 +2308,7 @@ mod tests {
             types: TypeSet::CREATURE,
             supertypes: SupertypeSet::default(),
             subtypes: SubtypeSet::EMPTY,
+            chosen_subtype: None,
             token: None,
             colors: ColorSet::default(),
             keywords: 0,
@@ -2458,6 +2466,28 @@ mod tests {
         let mut boss = obj(6, 0);
         boss.commander = true;
         assert_ne!(a.summary_key(), boss.summary_key());
+    }
+
+    #[test]
+    fn different_chosen_types_never_share_a_board_pile() {
+        let mut a = obj(1, 0);
+        let mut b = obj(2, 0);
+        assert_eq!(a.summary_key(), b.summary_key());
+        a.chosen_subtype = Some(baylee_core::generated::subtypes::creature::ALLY);
+        assert_ne!(a.summary_key(), b.summary_key());
+        b.chosen_subtype = a.chosen_subtype;
+        assert_eq!(a.summary_key(), b.summary_key());
+        b.chosen_subtype = Some(baylee_core::generated::subtypes::creature::ELF);
+        assert_ne!(a.summary_key(), b.summary_key());
+    }
+
+    #[test]
+    fn an_older_public_object_without_a_chosen_type_still_decodes() {
+        let object = obj(1, 0);
+        let mut json = serde_json::to_value(&object).unwrap();
+        json.as_object_mut().unwrap().remove("chosen_subtype");
+        let decoded: PublicObject = serde_json::from_value(json).unwrap();
+        assert_eq!(decoded, object);
     }
 
     #[test]
@@ -2635,6 +2665,9 @@ mod tests {
             ("supertypes", |o| o.supertypes = SupertypeSet::LEGENDARY),
             ("subtypes", |o| {
                 o.subtypes.insert(baylee_core::ids::SubtypeId::new(1));
+            }),
+            ("chosen_subtype", |o| {
+                o.chosen_subtype = Some(baylee_core::generated::subtypes::creature::ALLY);
             }),
             ("colors", |o| o.colors = ColorSet::ALL),
             ("keywords", |o| o.keywords = 1),
@@ -3033,7 +3066,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (37, 0xe2a1_d478_3708_4cc7);
+        const RECORDED: (u32, u64) = (38, 0x6f38_a578_57b5_e0fc);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

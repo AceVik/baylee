@@ -86,6 +86,7 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         types: face.types,
         supertypes: face.supertypes,
         subtypes,
+        chosen_subtype: None,
         token: None,
         colors: held.colors,
         mana_value: held.mana_value,

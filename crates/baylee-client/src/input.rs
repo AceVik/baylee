@@ -863,7 +863,12 @@ pub fn keyboard(
     // Before the quiet check, and not after it: a letter typed into the type
     // filter is usually bound to no action at all, so `Fired` is empty for
     // exactly the keys the box cares about most.
-    if subtype_keys(fired, &mut typed, &mut duel) {
+    if subtype_keys(
+        fired,
+        &mut typed,
+        &mut duel,
+        baylee_client_core::Lang::of(&settings.lang),
+    ) {
         return;
     }
     // Same reason, and the same place in the order: a digit is bound to no
@@ -1347,18 +1352,17 @@ fn number_keys(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> boo
     touched
 }
 
-/// The creature types still on screen, in the engine's order.
-fn visible_types(duel: &Duel) -> Vec<crate::choices::ChoiceOption> {
+/// The same localized, sorted creature-type rows the renderer shows.
+fn visible_types(duel: &Duel, lang: baylee_client_core::Lang) -> Vec<crate::choices::ChoiceOption> {
     duel.interaction
         .as_ref()
         .map(Interaction::prompt)
         .and_then(|p| {
-            // Neither the language nor the face names are plumbed here, for
-            // the one reason: this reads the *shape* of a creature-type list
-            // and never its labels. The renderer is where a row is written.
+            // Filtering must use the renderer's language too: a German
+            // prefix must select the same rows with keyboard and pointer.
             crate::choices::options(
                 &p,
-                baylee_client_core::Lang::En,
+                lang,
                 duel.statics.as_ref(),
                 &duel.subtype_filter,
                 crate::choices::FaceNames::default(),
@@ -1376,7 +1380,12 @@ fn visible_types(duel: &Duel) -> Vec<crate::choices::ChoiceOption> {
 /// takes the highlighted one, Cancel empties the box.
 ///
 /// Returns whether it consumed the frame.
-fn subtype_keys(fired: Fired, typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bool {
+fn subtype_keys(
+    fired: Fired,
+    typed: &mut MessageReader<KeyboardInput>,
+    duel: &mut Duel,
+    lang: baylee_client_core::Lang,
+) -> bool {
     if !matches!(
         duel.interaction.as_ref().map(Interaction::prompt),
         Some(Prompt::ChooseSubtype { .. })
@@ -1398,7 +1407,7 @@ fn subtype_keys(fired: Fired, typed: &mut MessageReader<KeyboardInput>, duel: &m
             _ => {}
         }
     }
-    let rows = visible_types(duel);
+    let rows = visible_types(duel, lang);
     if duel.subtype_filter != before {
         // The highlight follows the list. A row that has just been filtered
         // away must not stay picked, or Confirm answers a type the player can
