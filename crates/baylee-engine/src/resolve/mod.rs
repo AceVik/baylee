@@ -1071,7 +1071,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 obj.targets.clear();
                 obj.targets.extend(chosen.iter().copied());
             }
-            retarget::record_new_targets(state, copy, &[]);
+            retarget::record_new_targets(state, copy, &[], &[]);
         }
         AwaitingOp::NewTargets(_) => {
             unreachable!("a change of targets resumes via resume_targets")
@@ -2252,7 +2252,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         });
                     }
                 }
-                retarget::record_new_targets(state, id, &[]);
+                retarget::record_new_targets(state, id, &[], &[]);
             }
             None
         }

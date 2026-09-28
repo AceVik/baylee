@@ -151,9 +151,11 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                     continue;
                 }
                 for entry in events {
-                    if matches(trigger, &entry.event, events, state, emblem, obj.controller) {
+                    let hit = hits(trigger, &entry.event, events, state, emblem, obj.controller);
+                    if hit > 0 {
                         let times = trigger_count(state, trigger, emblem, obj.controller)
-                            * repeats(&entry.event);
+                            * repeats(&entry.event)
+                            * hit;
                         let event_object = event_object_of(&entry.event);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
@@ -384,6 +386,7 @@ fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::SpellCast { object, .. }
         | GameEvent::AbilityTriggered { object, .. }
         | GameEvent::BecameTarget { object, .. }
+        | GameEvent::PlayerBecameTarget { object, .. }
         | GameEvent::BecameAttacker { object, .. }
         | GameEvent::BecameBlocker { object, .. } => Some(*object),
         _ => None,
@@ -414,6 +417,88 @@ fn targeting(
             .filter(|o| o.targets_object(target))
             .map(|_| (object, controller)),
         _ => None,
+    }
+}
+
+/// How many times one event fires `trigger` for this source.
+///
+/// Once when [`matches`] says so, for every trigger but the one that counts
+/// what an event targeted: "whenever you or a permanent you control becomes
+/// the target of a spell or ability an opponent controls" fires once for each
+/// of them, so one spell aimed at you and at a creature of yours fires it
+/// twice.
+fn hits(
+    trigger: &Trigger,
+    event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
+    state: &GameState,
+    source: ObjectId,
+    you: PlayerId,
+) -> u32 {
+    match trigger {
+        Trigger::TargetedByOpponent {
+            filter,
+            you: counts_you,
+        } => targeted_by_opponent(event, state, filter, *counts_you, source, you),
+        _ => u32::from(matches(trigger, event, batch, state, source, you)),
+    }
+}
+
+/// [`Trigger::TargetedByOpponent`]'s count: the fitting targets an
+/// opponent's spell or ability acquired in this event.
+///
+/// A cast or an activation announces its targets in its own event, and a
+/// copy or a retargeting effect journals each target it newly acquired
+/// ([`GameEvent::BecameTarget`], [`GameEvent::PlayerBecameTarget`]). An
+/// object counts only while it is a permanent: a card in a graveyard a spell
+/// targets is not "a permanent you control".
+fn targeted_by_opponent(
+    event: &GameEvent,
+    state: &GameState,
+    filter: &baylee_cards_dsl::Filter,
+    counts_you: bool,
+    source: ObjectId,
+    you: PlayerId,
+) -> u32 {
+    let fits = |target: ObjectId| {
+        state.object(target).is_some_and(|o| {
+            o.zone == Zone::Battlefield && eval::matches(filter, state, o, you, source)
+        })
+    };
+    match *event {
+        GameEvent::BecameTarget {
+            target, controller, ..
+        } => u32::from(state.is_opponent(controller, you) && fits(target)),
+        GameEvent::PlayerBecameTarget {
+            player, controller, ..
+        } => u32::from(counts_you && player == you && state.is_opponent(controller, you)),
+        GameEvent::SpellCast {
+            object,
+            player: controller,
+        }
+        | GameEvent::AbilityTriggered {
+            object, controller, ..
+        } => {
+            if !state.is_opponent(controller, you) {
+                return 0;
+            }
+            let Some(obj) = state.object(object) else {
+                return 0;
+            };
+            let mut targets: Vec<ObjectId> = obj
+                .targets
+                .iter()
+                .chain(obj.second_targets())
+                .copied()
+                .collect();
+            targets.sort_unstable();
+            targets.dedup();
+            let objects = targets.into_iter().filter(|t| fits(*t)).count();
+            let player =
+                counts_you && (obj.target_players.contains(you) || obj.chosen_player == Some(you));
+            u32::try_from(objects).unwrap_or(u32::MAX) + u32::from(player)
+        }
+        _ => 0,
     }
 }
 
@@ -628,17 +713,19 @@ fn collect_for_objects(
                 continue;
             }
             for entry in events {
-                if matches(
+                let hit = hits(
                     trigger,
                     &entry.event,
                     events,
                     state,
                     permanent,
                     obj.controller,
-                ) {
+                );
+                if hit > 0 {
                     let event_object = event_object_of(&entry.event);
                     let times = trigger_count(state, trigger, permanent, obj.controller)
-                        * repeats(&entry.event);
+                        * repeats(&entry.event)
+                        * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             event_mana_value: None,
@@ -718,16 +805,18 @@ fn collect_for_objects(
                 continue;
             }
             for entry in events {
-                if matches(
+                let hit = hits(
                     trigger,
                     &entry.event,
                     events,
                     state,
                     permanent,
                     obj.controller,
-                ) {
+                );
+                if hit > 0 {
                     let times = trigger_count(state, trigger, permanent, obj.controller)
-                        * repeats(&entry.event);
+                        * repeats(&entry.event)
+                        * hit;
                     let event_object = event_object_of(&entry.event);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {

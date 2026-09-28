@@ -2,7 +2,9 @@
 //! Oracle: Each opponent can't draw more than one card each turn.
 //! Oracle: Whenever you or a permanent you control becomes the target of a spell or ability an opponent controls, you may draw a card.
 //! Set: UMA #202 — Ultimate Masters | Scryfall ID: cedfc5b7-9242-4680-b284-debc8b5a9bc7 | Oracle ID: d5d91377-fd66-4dbe-a092-07f2ea379ca7
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — the draw limit is `Modifier::DrawLimitPerTurn` over each
+// opponent, and the draw is `Trigger::TargetedByOpponent`, which fires once
+// per fitting target (you and each permanent you control) and asks "you may".
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -22,6 +24,23 @@ card!(
         power = Some(3),
         toughness = Some(3),
     ),],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        static_ability!(
+            Filter::Any,
+            Modifier::DrawLimitPerTurn {
+                who: PlayerRel::EachOpponent,
+                limit: 1,
+            }
+        ),
+        triggered!(
+            Trigger::TargetedByOpponent {
+                filter: &Filter::ControlledByYou,
+                you: true,
+            },
+            &[Effect::MayDo {
+                effects: &[Effect::draw(1)],
+            }]
+        ),
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

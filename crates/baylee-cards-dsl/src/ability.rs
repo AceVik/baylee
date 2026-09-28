@@ -219,6 +219,21 @@ pub enum Trigger {
     /// This permanent becomes a target of an opponent's spell or ability.
     /// Its implicit resolution subject is that stack object (ward).
     Ward,
+    /// "Whenever you or a permanent you control becomes the target of a
+    /// spell or ability an opponent controls" (Leovold, Emissary of Trest).
+    ///
+    /// It fires once **per target** that fits, not once per spell: a spell
+    /// that targets you and one of your permanents triggers it twice, and so
+    /// does one that targets two of your permanents (Leovold's Scryfall
+    /// rulings). `filter` names the permanents that count, read against
+    /// the controller of this ability; `you` is whether the controller
+    /// counts as well.
+    TargetedByOpponent {
+        /// The permanents whose targeting fires this.
+        filter: &'static Filter,
+        /// Whether "you" — this ability's controller — counts too.
+        you: bool,
+    },
     /// A creature matching the filter is exiled from the battlefield
     /// (Soulherder).
     ExiledFromBattlefield(&'static Filter),
