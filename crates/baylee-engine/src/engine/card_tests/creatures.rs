@@ -3739,6 +3739,52 @@ fn the_apprentice_skips_fabricate_and_drains_only_for_another_permanent_of_yours
     );
 }
 
+#[test]
+fn an_apprentice_sees_simultaneous_deaths_but_not_later_deaths_from_the_graveyard() {
+    let me = PlayerId::new(0);
+    let mut engine = Duel::new(928, forest())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                marionette_apprentice(),
+                llanowar_elves(),
+                llanowar_elves(),
+                mind_stone(),
+            ],
+        )
+        .hand(0, &[toxic_deluge()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, me));
+    let stone = on_battlefield(&engine, me, mind_stone()).unwrap();
+    tap_mana_except(&mut engine, me, stone);
+    let life = engine.state().players[1].life;
+    let deluge = in_hand(&engine, me, toxic_deluge()).unwrap();
+    engine
+        .apply(me, PlayerAction::CastSpell { card: deluge })
+        .unwrap();
+    engine.apply(me, PlayerAction::ChooseNumber(2)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, me, marionette_apprentice()).is_some());
+    assert_eq!(
+        engine.state().players[1].life,
+        life - 2,
+        "the dying Apprentice sees both other creatures die with it"
+    );
+    activate(&mut engine, me, mind_stone(), 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, me, mind_stone()).is_some());
+    assert_eq!(
+        engine.state().players[1].life,
+        life - 2,
+        "a later sacrifice cannot trigger an Apprentice already in the graveyard"
+    );
+}
+
 // oracle_id = "056b651e-e0e2-4333-9235-d1ffe8fcca29"
 fn stingcaster_mage() -> baylee_core::ids::CardIndex {
     card_index("056b651e-e0e2-4333-9235-d1ffe8fcca29")

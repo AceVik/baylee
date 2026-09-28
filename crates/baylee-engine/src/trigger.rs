@@ -417,6 +417,21 @@ fn collect_for_objects(
     triggers: &mut Vec<PendingTrigger>,
 ) {
     for &permanent in objects {
+        // The look-back applies only to sources that left during this
+        // event batch. A card already in a graveyard has no battlefield
+        // ability to observe a later death. Keep the whole batch so a
+        // dying source still observes creatures dying alongside it.
+        if !all_kinds
+            && !events.iter().any(|entry| {
+                matches!(
+                    entry.event,
+                    GameEvent::ZoneChanged { object, from: Zone::Battlefield, .. }
+                        if object == permanent
+                )
+            })
+        {
+            continue;
+        }
         // `object_or_departed` and not `object`: with `all_kinds` false this
         // is the look-back scan, and one of the lists it walks is the objects
         // that have ceased to exist (CR 111.7). On the battlefield pass the
