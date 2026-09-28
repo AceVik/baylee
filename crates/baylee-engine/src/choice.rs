@@ -406,6 +406,11 @@ pub enum YesNoPrompt {
         /// Generic mana to pay.
         mana: u16,
     },
+    /// Make mana for a pact's debt. Declining loses the game.
+    PayPact {
+        /// The full, possibly colored cost.
+        cost: baylee_core::mana::ManaCost,
+    },
     /// Pay life for a resolving ability (including ward).
     PayLife {
         /// Life to pay.
@@ -498,7 +503,9 @@ impl YesNoPrompt {
             | Self::DrawOffer { .. }
             | Self::MayDo
             | Self::Generic => true,
-            Self::CommanderZone { .. } | Self::CommanderReplace { .. } => false,
+            Self::CommanderZone { .. } | Self::CommanderReplace { .. } | Self::PayPact { .. } => {
+                false
+            }
         }
     }
 }
@@ -1237,6 +1244,7 @@ mod choice_tests {
                     YesNoPrompt::Kicker => 1,
                     YesNoPrompt::PayTax { .. } => 2,
                     YesNoPrompt::PayLife { .. } => 9,
+                    YesNoPrompt::PayPact { .. } => 10,
                     YesNoPrompt::Miracle { .. } => 3,
                     YesNoPrompt::DrawOffer { .. } => 4,
                     YesNoPrompt::CommanderZone { .. } => 5,
@@ -1427,6 +1435,7 @@ mod choice_tests {
                 | YesNoPrompt::Kicker
                 | YesNoPrompt::PayTax { .. }
                 | YesNoPrompt::PayLife { .. }
+                | YesNoPrompt::PayPact { .. }
                 | YesNoPrompt::Miracle { .. }
                 | YesNoPrompt::DrawOffer { .. }
                 | YesNoPrompt::CommanderReplace { .. }

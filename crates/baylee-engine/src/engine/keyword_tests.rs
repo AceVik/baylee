@@ -707,7 +707,7 @@ fn a_payment_window_is_part_of_the_engine_snapshot() {
     assert!(asked.payment_window().is_none(), "one is still being asked");
     assert_eq!(
         open.payment_window(),
-        Some((p1, 1)),
+        Some((p1, baylee_core::mana::ManaCost::from_symbol_generic(1))),
         "and the other is inside a window for the tax it just agreed to"
     );
     assert_eq!(
@@ -740,7 +740,7 @@ fn a_payment_window_is_part_of_the_engine_snapshot() {
     );
     after.mana_window = Some(PaymentWindow {
         player: PlayerId::new(0),
-        suspended,
+        suspended: PaymentContinuation::Tax(suspended),
     });
     assert_ne!(
         before.snapshot_hash(),
@@ -779,12 +779,10 @@ fn the_resolution_a_payment_window_holds_is_part_of_the_engine_snapshot() {
          below a statement about one field"
     );
 
-    after
-        .mana_window
-        .as_mut()
-        .expect("the window is open on both")
-        .suspended
-        .pc += 1;
+    let PaymentContinuation::Tax(res) = &mut after.mana_window.as_mut().unwrap().suspended else {
+        panic!("tax window")
+    };
+    res.pc += 1;
     assert_ne!(
         before.snapshot_hash(),
         after.snapshot_hash(),

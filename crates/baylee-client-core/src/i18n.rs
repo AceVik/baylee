@@ -1636,6 +1636,11 @@ messages! {
     PayLife { en: "Pay {0} life?", de: "{0} Lebenspunkte bezahlen?" },
     /// Pay {{0}}?
     PayTax { en: "Pay {{0}}?", de: "{{0}} zahlen?" },
+    /// The player may activate mana abilities before paying a pact.
+    PayPact {
+        en: "Pact: pay {0}. Make mana now? If you decline or finish without enough mana, you lose the game.",
+        de: "Pakt: {0} bezahlen. Jetzt Mana erzeugen? Wenn du ablehnst oder ohne genug Mana abschließt, verlierst du das Spiel.",
+    },
     /// Cast it for its miracle cost?
     CastForMiracle { en: "Cast it for its miracle cost?", de: "Für die Wunderkosten wirken?" },
     /// {0} offers a draw. Accept?

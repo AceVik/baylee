@@ -277,29 +277,15 @@ fn a_delayed_upkeep_payment_is_demanded_after_the_upkeep_priority_window_not_bef
     engine
         .apply(me, PlayerAction::ActivateManaAbility { source })
         .unwrap();
-    let mut asked = false;
     for _ in 0..8 {
-        match engine.pending().clone() {
-            Pending::YesNo { player, .. } => {
-                assert_eq!(player, me, "the debt is seat 0's");
-                assert_eq!(
-                    engine.state().turn.step,
-                    Step::Upkeep,
-                    "and it is demanded in the step it triggered in"
-                );
-                engine.apply(me, PlayerAction::YesNo(true)).unwrap();
-                asked = true;
-                break;
-            }
-            Pending::Priority { player, .. } => {
-                engine.apply(player, PlayerAction::PassPriority).unwrap();
-            }
-            other => {
-                panic!("only priority stands between the mana and the question: {other:?}")
-            }
+        if engine.state().players[0].mana_pool.total() == 0 {
+            break;
         }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("available mana must pay automatically")
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
     }
-    assert!(asked, "the upkeep payment was never demanded");
     assert!(
         !engine.state().players[0].has_lost(),
         "the Island's mana paid it"

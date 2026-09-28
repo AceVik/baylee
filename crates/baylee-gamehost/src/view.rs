@@ -669,19 +669,13 @@ fn looking_at(state: &GameState, seat: PlayerId, pending: Option<&Pending>) -> V
 /// does not charge. Every caller of [`player_view`] that has an `Engine` in
 /// hand passes this.
 ///
-/// The engine charges generic mana and nothing else here, so what comes out
-/// is a generic cost. It is a `ManaCost` rather than the engine's `u16`
-/// because that `u16` is about *when* an amount is known — a tax can be its
-/// own source's power until resolution evaluates it — and by the time a
-/// window is open the number is settled, while both readers on the far side
-/// (`manapip::cost`, `manaplan::plan`) already take a cost.
+/// Includes colored debts such as Pact of Negation's {3}{U}{U}; the client
+/// must plan for the actual symbols, not just the total amount.
 #[must_use]
 pub fn owed_payment<L: baylee_engine::state::CardLookup>(
     engine: &baylee_engine::engine::Engine<L>,
 ) -> Option<ManaCost> {
-    engine
-        .payment_window()
-        .map(|(_, mana)| ManaCost::from_symbol_generic(u32::from(mana)))
+    engine.payment_window().map(|(_, cost)| cost)
 }
 
 /// The seats still deciding their opening mulligan, for

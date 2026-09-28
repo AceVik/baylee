@@ -237,7 +237,12 @@ impl<L: CardLookup> Engine<L> {
         // the meantime goes with them (#167 put it in the resolution slot).
         if let Some(window) = self.mana_window.take() {
             self.resolution = None;
-            let mut res = *window.suspended;
+            let super::PaymentContinuation::Tax(res) = window.suspended else {
+                self.awaiting_answer = false;
+                self.run_until_choice();
+                return;
+            };
+            let mut res = *res;
             let flow = resolve::resume_tax_choice(&mut self.state, &mut res, false);
             self.go_on_with(res, flow);
             return;

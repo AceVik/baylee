@@ -686,3 +686,22 @@ fn life_ward_is_a_localized_explicit_payment_and_only_the_payer_may_answer() {
     );
     assert!(!YesNoPrompt::PayLife { amount: 7 }.automatable());
 }
+
+#[test]
+fn pact_question_names_the_colored_cost_and_warns_about_losing() {
+    let i = interaction(Pending::YesNo {
+        player: me(),
+        prompt: baylee_engine::choice::YesNoPrompt::PayPact {
+            cost: baylee_core::mana::ManaCost::parse("{3}{U}{U}"),
+        },
+        source: None,
+    });
+    for (lang, warning) in [
+        (Lang::En, "lose the game"),
+        (Lang::De, "verlierst du das Spiel"),
+    ] {
+        let text = i.prompt().headline(lang, Turn::Mine, None, false);
+        assert!(text.contains("{3}{U}{U}"), "{text}");
+        assert!(text.contains(warning), "{text}");
+    }
+}

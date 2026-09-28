@@ -681,6 +681,7 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         YesNoPrompt::Kicker => Phrase::PayAdditionalCost.text(lang).to_string(),
         YesNoPrompt::PayLife { amount } => Phrase::PayLife.fill(lang, &[&amount.to_string()]),
         YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
+        YesNoPrompt::PayPact { cost } => Phrase::PayPact.fill(lang, &[&cost.to_string()]),
         YesNoPrompt::Miracle { .. } => Phrase::CastForMiracle.text(lang).to_string(),
         // The `..` here is what the whole repair was: `proposer` travels with
         // the question and was dropped one line short of the sentence.

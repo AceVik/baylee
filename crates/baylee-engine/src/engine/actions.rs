@@ -1,7 +1,8 @@
 use super::{
     AbilityDef, AttackerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError, GameEvent,
-    ObjectId, ObjectKind, PaymentWindow, Pending, PlanKind, PlayerAction, PlayerId, SmallVec, Zone,
-    ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay, resolve, sba,
+    ObjectId, ObjectKind, PaymentContinuation, PaymentWindow, Pending, PlanKind, PlayerAction,
+    PlayerId, SmallVec, Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay,
+    resolve, sba,
 };
 use crate::choice::CastModeKind;
 
@@ -816,15 +817,19 @@ impl<L: CardLookup> Engine<L> {
                     let Some(PlanKind::DelayedPay { cost }) = self.pending_plan.take() else {
                         unreachable!()
                     };
-                    // `pay` mutates the pool — never hide the call behind
-                    // `debug_assert!`, which is not evaluated in release.
-                    let paid = answer
-                        && mana_pay::pay(
-                            &mut self.state.players[player.get() as usize].mana_pool,
-                            &cost,
-                        );
-                    debug_assert!(!answer || paid, "pact cost was offered as payable");
-                    if !paid {
+                    if answer {
+                        let mut legal = self.compute_legal(player);
+                        self.narrow_to_mana(&mut legal);
+                        self.mana_window = Some(PaymentWindow {
+                            player,
+                            suspended: PaymentContinuation::Pact(cost),
+                        });
+                        self.pending = Pending::Priority {
+                            player,
+                            legal: Box::new(legal),
+                        };
+                        self.awaiting_answer = true;
+                    } else {
                         let _ = sba::lose_by_effect(&mut self.state, player);
                     }
                     return Ok(());
@@ -917,7 +922,7 @@ impl<L: CardLookup> Engine<L> {
                                     .expect("the arm above matched on it being suspended");
                                 self.mana_window = Some(PaymentWindow {
                                     player,
-                                    suspended: Box::new(suspended),
+                                    suspended: PaymentContinuation::Tax(Box::new(suspended)),
                                 });
                                 self.pending = Pending::Priority {
                                     player,
@@ -1287,7 +1292,18 @@ impl<L: CardLookup> Engine<L> {
         let Some(window) = self.mana_window.take() else {
             return;
         };
-        let mut res = *window.suspended;
+        let mut res = match window.suspended {
+            PaymentContinuation::Tax(res) => *res,
+            PaymentContinuation::Pact(cost) => {
+                if !mana_pay::pay(
+                    &mut self.state.players[window.player.get() as usize].mana_pool,
+                    &cost,
+                ) {
+                    let _ = sba::lose_by_effect(&mut self.state, window.player);
+                }
+                return;
+            }
+        };
         let paid = self.can_settle_tax(&res);
         match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {
             resolve::Flow::Wait(pending) => {

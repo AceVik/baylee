@@ -3873,21 +3873,19 @@ impl<L: CardLookup> Engine<L> {
     /// echo and at the same moment. Returns `true` when a question was put.
     fn demand_pact(&mut self, cost: baylee_core::mana::ManaCost) -> bool {
         let active = self.state.turn.active;
-        // Asked only now, after the upkeep's priority window (see
-        // `upkeep_payments`): the player has had the chance to make
-        // the mana, which this engine pays from the pool. A pool that
-        // still cannot cover it is a payment that is not made, and
-        // "if you don't, you lose the game" is all that is left.
-        let can_pay =
-            mana_pay::can_pay(&self.state.players[active.get() as usize].mana_pool, &cost);
-        if !can_pay {
-            let _ = sba::lose_by_effect(&mut self.state, active);
+        // This is "pay", not "you may pay": available mana must be spent.
+        // An empty pool is not a refusal. CR 605.3a allows mana abilities
+        // while an effect asks for payment, including this delayed debt.
+        if mana_pay::pay(
+            &mut self.state.players[active.get() as usize].mana_pool,
+            &cost,
+        ) {
             return false;
         }
         self.pending_plan = Some(PlanKind::DelayedPay { cost });
         self.pending = Pending::YesNo {
             player: active,
-            prompt: YesNoPrompt::Generic,
+            prompt: YesNoPrompt::PayPact { cost },
             // A pact's "pay or lose" must never be automatable:
             // a standing "no" here is a standing loss.
             source: None,

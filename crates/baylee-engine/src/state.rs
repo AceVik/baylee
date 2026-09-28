@@ -3074,6 +3074,12 @@ fn hash_counter(h: &mut Hasher, kind: CounterKind) {
     }
 }
 
+pub(crate) fn mana_cost_fingerprint(cost: &baylee_core::mana::ManaCost) -> u64 {
+    let mut h = Hasher::new();
+    hash_mana_cost(&mut h, cost);
+    h.finish()
+}
+
 fn hash_mana_cost(h: &mut Hasher, cost: &baylee_core::mana::ManaCost) {
     h.u8(cost.len());
     for s in cost.symbols() {

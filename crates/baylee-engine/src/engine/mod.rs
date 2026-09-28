@@ -83,34 +83,25 @@ enum Cleanup {
     Open,
 }
 
-/// A CR 605.3a payment window, and the resolution it was opened over.
+/// A CR 605.3a payment window and the operation waiting for its mana.
 ///
-/// The resolution travels *with* the window rather than staying in
-/// [`Engine::resolution`], because that slot belongs to whatever is resolving
-/// **now** — and a window is precisely the moment when something else can be.
-/// A seat told to make mana may activate a mana ability that asks a question:
-/// Badlands asks which of its two colours, and such an ability suspends a
-/// resolution of its own. Sharing one slot, it overwrote the tax it was being
-/// made for and then completed, leaving nothing for `close_mana_window` to
-/// settle. The `expect` there is the only thing that noticed (#167) — without
-/// it the payment is silently lost, with the mana still floating and the
-/// spell escaping a ward that was paid for.
-///
-/// Holding the two together is what makes that unrepresentable rather than
-/// merely repaired: there is no window without its resolution, and no way to
-/// lose one while the other stands.
-///
-/// It nests exactly once. A window is opened only by a tax, only a mana
-/// ability may be activated inside one, and no mana ability in this pool
-/// charges a tax — which is a claim about all of the cards rather than about
-/// this struct, so it is a scan and not this sentence:
-/// `offer_tests::no_mana_ability_in_the_pool_opens_a_payment_window`.
+/// Keep the continuation outside `Engine::resolution`: a mana ability can
+/// ask for a color and suspend its own resolution without replacing the
+/// debt it was activated to pay (#167). Only mana abilities are offered;
+/// passing settles this payment instead of passing ordinary priority.
 #[derive(Clone, Debug)]
 struct PaymentWindow {
     /// The seat that said it would pay.
     player: PlayerId,
     /// The resolution waiting for that payment.
-    suspended: Box<crate::resolve::Resolution>,
+    suspended: PaymentContinuation,
+}
+
+/// Kept outside the active resolution so a mana ability can ask a question.
+#[derive(Clone, Debug)]
+enum PaymentContinuation {
+    Tax(Box<crate::resolve::Resolution>),
+    Pact(baylee_core::mana::ManaCost),
 }
 
 /// A deterministic, self-contained game of Magic.
@@ -630,15 +621,21 @@ impl<L: CardLookup> Engine<L> {
     /// one. There is no such moment to confuse this with any more: a
     /// resolution only reaches this field once the seat has said yes (#167).
     #[must_use]
-    pub fn payment_window(&self) -> Option<(PlayerId, u16)> {
+    pub fn payment_window(&self) -> Option<(PlayerId, baylee_core::mana::ManaCost)> {
         let window = self.mana_window.as_ref()?;
-        match window.suspended.awaiting {
-            Some(crate::resolve::AwaitingOp::PlayerMayPay {
-                player: payer,
-                mana,
-                ..
-            }) if payer == window.player => Some((window.player, mana)),
-            _ => None,
+        match &window.suspended {
+            PaymentContinuation::Pact(cost) => Some((window.player, *cost)),
+            PaymentContinuation::Tax(resolution) => match resolution.awaiting {
+                Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. })
+                    if player == window.player =>
+                {
+                    Some((
+                        player,
+                        baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
+                    ))
+                }
+                _ => None,
+            },
         }
     }
 
@@ -750,11 +747,12 @@ impl<L: CardLookup> Engine<L> {
         // taxes comparing equal, which is the divergence with the longest
         // fuse here: it breaks a replay rather than a test.
         if let Some(w) = &self.mana_window {
-            extra = extra
-                .wrapping_mul(31)
-                .wrapping_add(w.suspended.pc as u64)
-                .wrapping_add(u64::from(w.suspended.on_stack.slot()))
-                .wrapping_add(u64::from(w.suspended.controller.get()));
+            extra = extra.wrapping_mul(31).wrapping_add(match &w.suspended {
+                PaymentContinuation::Tax(r) => (r.pc as u64)
+                    .wrapping_add(u64::from(r.on_stack.slot()))
+                    .wrapping_add(u64::from(r.controller.get())),
+                PaymentContinuation::Pact(cost) => crate::state::mana_cost_fingerprint(cost),
+            });
         }
         // A cleanup step's check and its window close differently: nothing
         // performed ends the turn in the one, a round of passes begins
@@ -986,6 +984,8 @@ mod miracle_tests;
 mod monarch_tests;
 #[cfg(test)]
 mod offer_tests;
+#[cfg(test)]
+mod pact_payment_tests;
 #[cfg(test)]
 mod phasing_tests;
 #[cfg(test)]

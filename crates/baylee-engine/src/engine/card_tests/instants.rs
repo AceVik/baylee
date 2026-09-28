@@ -18339,68 +18339,31 @@ fn pact_of_negation_counters_a_spell_now_and_charges_for_it_at_the_next_upkeep()
     );
     let cast_turn = engine.state().turn.number;
 
-    // The deferred half. Tapping every mana ability whose whole price is its
-    // own {T} each time this seat holds priority leaves a pool ready for the
-    // question wherever it lands, since CR 500.5 only empties a pool when a
-    // step ends — and the question is the whole reading, so a walk that never
-    // meets one is a finding.
-    let mut asked = false;
-    for _ in 0..600 {
-        match engine.pending().clone() {
-            Pending::YesNo { player, .. } => {
-                assert_eq!(
-                    player, p0,
-                    "the debt belongs to the seat that cast the Pact"
-                );
-                assert_ne!(
-                    engine.state().turn.number,
-                    cast_turn,
-                    "\"at the beginning of your next upkeep\": the price is not \
-                     demanded in the turn the Pact was cast"
-                );
-                let before = engine.state().players[0].mana_pool.total();
-                assert!(
-                    before >= 5,
-                    "{{3}}{{U}}{{U}} is five mana and the pool holds {before}"
-                );
-                engine
-                    .apply(p0, PlayerAction::YesNo(true))
-                    .expect("the pool covers the printed cost");
-                assert_eq!(
-                    engine.state().players[0].mana_pool.total(),
-                    before - 5,
-                    "{{3}}{{U}}{{U}} took exactly five mana out of the pool"
-                );
-                assert!(
-                    !matches!(engine.pending(), Pending::GameOver(_)),
-                    "paying is the other half of \"if you don't, you lose the \
-                     game\", so the seat is still in it"
-                );
-                asked = true;
-                break;
+    // Do not float mana speculatively in upkeep: the payment itself must
+    // offer a mana window, even to a client that passed normal priority.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::PayPact { .. },
+                ..
             }
-            Pending::Priority { player, .. } => {
-                if player == p0 {
-                    tap_all_mana(&mut engine, p0);
-                }
-                engine
-                    .apply(player, PlayerAction::PassPriority)
-                    .expect("passing priority is always legal");
-            }
-            Pending::ChooseAttackers { player, .. } => {
-                engine
-                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
-                    .unwrap();
-            }
-            Pending::ChooseBlockers { player, .. } => {
-                engine
-                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
-                    .unwrap();
-            }
-            other => panic!("unexpected on the way to the deferred upkeep cost: {other:?}"),
-        }
-    }
-    assert!(asked, "the deferred pay-or-lose cost was never demanded");
+        )
+    });
+    assert!(engine.state().turn.number > cast_turn);
+    assert_eq!(engine.state().turn.step, crate::turn::Step::Upkeep);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    assert_eq!(
+        engine.payment_window(),
+        Some((p0, baylee_core::mana::ManaCost::parse("{3}{U}{U}")))
+    );
+    tap_all_mana(&mut engine, p0);
+    let before = engine.state().players[0].mana_pool.total();
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(!engine.state().players[0].has_lost());
+    assert_eq!(engine.state().players[0].mana_pool.total(), before - 5);
+    assert!(engine.payment_window().is_none());
 }
 
 /// Casts Pact of Negation at p0's own Llanowar Elves, the one spell a duel
@@ -18453,7 +18416,8 @@ fn a_pact_nobody_pays_for_loses_the_game_to_its_own_effect() {
     let mut board = vec![island(); 8];
     board.push(forest());
     for has_the_mana in [true, false] {
-        let mut engine = a_pact_owed_by_p0(&board, &[]);
+        let poor_board = [forest()];
+        let mut engine = a_pact_owed_by_p0(if has_the_mana { &board } else { &poor_board }, &[]);
         let mut asked = false;
         for _ in 0..600 {
             match engine.pending().clone() {
@@ -18466,9 +18430,6 @@ fn a_pact_nobody_pays_for_loses_the_game_to_its_own_effect() {
                         .expect("declining is an answer");
                 }
                 Pending::Priority { player, .. } => {
-                    if has_the_mana && player == p0 {
-                        tap_all_mana(&mut engine, p0);
-                    }
                     engine
                         .apply(player, PlayerAction::PassPriority)
                         .expect("passing priority is always legal");
@@ -18486,9 +18447,9 @@ fn a_pact_nobody_pays_for_loses_the_game_to_its_own_effect() {
                 other => panic!("unexpected on the way to the deferred upkeep cost: {other:?}"),
             }
         }
-        assert_eq!(
-            asked, has_the_mana,
-            "the question is put exactly when the pool could pay"
+        assert!(
+            asked,
+            "declining a pact must be an explicit choice, even with an empty pool"
         );
         assert_eq!(
             engine.state().players[0].loss,
@@ -18571,8 +18532,8 @@ fn a_pact_left_unpaid_under_everybody_lives_costs_nothing() {
         }
         assert!(protected, "the upkeep the debt is due in was never reached");
         assert_eq!(
-            asked, has_the_mana,
-            "the question is put exactly when the pool could pay"
+            asked, !has_the_mana,
+            "available mana pays the mandatory debt; otherwise ask before losing"
         );
         assert_eq!(
             engine.state().players[0].loss,

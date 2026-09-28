@@ -478,6 +478,8 @@ impl HeuristicAgent {
                 YesNoPrompt::PayTax { mana } => {
                     PlayerAction::YesNo(policy::pays_tax(view, mana, context))
                 }
+                // Attempt payment; the owed-mana planner handles the window.
+                YesNoPrompt::PayPact { .. } => PlayerAction::YesNo(true),
                 // Kicker and "you may waterbend" alike: paid when the pool
                 // already covers it, because the engine pays from the pool
                 // alone and a short one loses the whole cast.
