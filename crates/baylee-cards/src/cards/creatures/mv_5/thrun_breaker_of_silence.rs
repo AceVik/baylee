@@ -4,8 +4,8 @@
 //! Oracle: Thrun can't be the target of nongreen spells your opponents control or abilities from nongreen sources your opponents control.
 //! Oracle: During your turn, Thrun has indestructible.
 //! Set: ONE #186 — Phyrexia: All Will Be One | Scryfall ID: 6d9f51dd-0393-4b3c-bea5-8f74634ab0e5 | Oracle ID: 789b7af5-ac15-40b6-b5b7-f3fcdcfb52e1
-// PARTIAL — "can't be countered" and trample are two keyword bits the engine
-// reads; the other two sentences have no DSL spelling.
+// PARTIAL — uncounterable, trample and indestructible during its controller's
+// turn are implemented. The nongreen targeting restriction remains below.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -15,10 +15,6 @@ use baylee_core::generated::subtypes;
 // Modifier narrows targeting. `hexproof` is wider (it stops every colour) and
 // `ProtectionFrom` is a different sentence: it also prevents damage and
 // blocking, which this card does not print.
-// NOT SUPPORTED: "During your turn, Thrun has indestructible." — a
-// StaticAbility carries no Condition, so a keyword cannot be granted for one
-// player's turn only; writing it unconditionally would be a strictly stronger
-// card.
 
 card!(
     index = index::THRUN_BREAKER_OF_SILENCE,
@@ -36,8 +32,13 @@ card!(
         toughness = Some(5),
     ),],
     keywords = KeywordSet::UNCOUNTERABLE.union(KeywordSet::TRAMPLE),
+    abilities = &[static_ability!(
+        Filter::This,
+        Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE),
+        condition = Some(Condition::YourTurn)
+    )],
     coverage = Coverage::Partial(
         "can't be the target of nongreen spells and abilities from nongreen \
-         sources, and indestructible during your turn, are not expressible"
+         sources is not expressible"
     ),
 );

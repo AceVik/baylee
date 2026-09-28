@@ -6,6 +6,14 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-09-28 — Recheck partial-card notes against today's DSL
+
+Thrun still claimed conditional static abilities could not be expressed,
+although Station and Thorin already had that machinery. Add the missing
+turn predicate and use the existing static layer path. Prove destruction
+on both players' turns, plus expiry and reapplication at turn boundaries;
+a keyword assertion on the initial board would miss the important failure.
+
 ## 2026-09-28 — Audit the ways a ward source can exist
 
 Auditing the pool's eight Ward/disguise cards exposed three related gaps:

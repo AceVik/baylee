@@ -353,6 +353,7 @@ pub fn condition_holds(
     condition: Condition,
 ) -> bool {
     match condition {
+        Condition::YourTurn => state.turn.active == you,
         Condition::ControlCount(filter, min) => {
             let count = state
                 .zones

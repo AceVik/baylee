@@ -80,6 +80,8 @@ pub enum StepKind {
 /// as it resolves.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Condition {
+    /// It is the current controller's turn (not necessarily the owner's).
+    YourTurn,
     /// You control at least N permanents matching the filter.
     ControlCount(&'static Filter, u8),
     /// You control **at most** N permanents matching the filter —

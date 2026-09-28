@@ -1031,6 +1031,8 @@ mod tests;
 #[cfg(test)]
 mod this_object_tests;
 #[cfg(test)]
+mod thrun_tests;
+#[cfg(test)]
 mod token_tests;
 #[cfg(test)]
 mod undying_tests;
