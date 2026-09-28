@@ -85020,6 +85020,7 @@ fn savage_gorilla_sacrifices_itself_to_shrink_a_creature_and_draw_a_card() {
         "shrinking a creature is no mana ability, so the ability is on the stack"
     );
 
+    pay_life_ward(&mut engine, p0, 7);
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(

@@ -22,6 +22,7 @@ card!(
             at_most: 1,
         }],
     )],
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
         activated!(

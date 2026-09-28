@@ -1680,3 +1680,23 @@ pub fn look_answer(cards: &[ObjectId], away: &[ObjectId]) -> PlayerAction {
         piles: vec![top, away.to_vec()],
     }
 }
+
+/// Explicitly pays a life ward on a fixture creature before the tested spell
+/// or ability resolves. Ordinary passing must never silently pay its costs.
+#[track_caller]
+pub fn pay_life_ward(engine: &mut Engine<RegistryLookup>, payer: PlayerId, amount: u16) {
+    pass_until(engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    assert!(
+        matches!(engine.pending(), Pending::YesNo {
+        player, prompt: crate::choice::YesNoPrompt::PayLife { amount: offered }, ..
+    } if *player == payer && *offered == amount),
+        "{:?}",
+        engine.pending()
+    );
+    let before = engine.state().players[payer.get() as usize].life;
+    engine.apply(payer, PlayerAction::YesNo(true)).unwrap();
+    assert_eq!(
+        engine.state().players[payer.get() as usize].life,
+        before - i32::from(amount)
+    );
+}

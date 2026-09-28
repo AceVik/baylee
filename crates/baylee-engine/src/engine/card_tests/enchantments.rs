@@ -5119,6 +5119,7 @@ fn greels_caress_casts_at_flash_speed_to_weaken_only_the_creature_it_enchants() 
         .expect("the creature the question offered");
     let aura = on_stack(&engine, greels_caress()).expect("the Aura spell is on the stack");
 
+    pay_life_ward(&mut engine, p0, 7);
     pass_until(&mut engine, |e| {
         e.state()
             .object(aura)
@@ -6879,6 +6880,7 @@ fn weakness_shrinks_the_creature_it_enchants_and_no_other() {
         )
         .expect("the Wurm was one of the options it published");
 
+    pay_life_ward(&mut engine, p0, 7);
     pass_until(&mut engine, |e| on_battlefield(e, p0, weakness()).is_some());
     let aura = on_battlefield(&engine, p0, weakness()).expect("the Aura resolved onto the table");
     assert_eq!(

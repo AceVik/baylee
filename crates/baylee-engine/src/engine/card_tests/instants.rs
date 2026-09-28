@@ -6933,6 +6933,7 @@ fn heat_ray_deals_the_x_its_controller_names_to_the_creature_it_names() {
          paid rather than labelled"
     );
 
+    pay_life_ward(&mut engine, p0, 7);
     pass_until(&mut engine, stack_is_empty);
     assert!(
         in_graveyard(&engine, p1, fleshgorger()).is_some(),

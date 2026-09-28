@@ -2154,6 +2154,23 @@ impl Effect {
 #[cfg(test)]
 mod verb_tests {
     use super::*;
+
+    #[test]
+    fn life_payment_fallback_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::PlayerMayPayLifeOr {
+            player: PlayerRel::ControllerOfTarget,
+            life: Amount::SourcePower,
+            effect: &Effect::CounterTargetSpellOrAbility,
+        }];
+        let mut seen = 0;
+        let mut counter_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            counter_seen |= matches!(effect, Effect::CounterTargetSpellOrAbility);
+        });
+        assert_eq!(seen, 2);
+        assert!(counter_seen);
+    }
+
     use crate::ability::Trigger;
     use crate::static_ability::{Duration, Layer, Modifier};
 

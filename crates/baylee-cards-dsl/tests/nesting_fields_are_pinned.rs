@@ -19,7 +19,7 @@
 //! the author of the thing it checks shares that author's blind spot, which
 //! is the same house rule `scripts/llm/README.md` states for card batches.
 
-/// What `Effect`'s body declares today: thirteen `&'static [Effect]` and two
+/// What `Effect`'s body declares today: thirteen `&'static [Effect]` and three
 /// `&'static Effect`.
 ///
 /// Derived twice from the source rather than recalled — once here and once by
@@ -30,9 +30,11 @@
 /// `lints::a_reflexive_fault_fires_on_each_bad_shape` finds a reflexive
 /// trigger written inside another one's body, which only a walk through that
 /// body can reach.
-const NESTING_FIELDS: usize = 15;
+/// Raised 15 → 16 for `PlayerMayPayLifeOr`; its fallback walk is tested in
+/// `verb_tests::life_payment_fallback_is_visited`.
+const NESTING_FIELDS: usize = 16;
 
-/// How many variants those fifteen fields are spread across.
+/// How many variants those sixteen fields are spread across.
 ///
 /// Pinned **beside** the field count rather than instead of it, because the
 /// two move for different reasons and only one of them describes the defect
@@ -51,7 +53,7 @@ const NESTING_FIELDS: usize = 15;
 ///
 /// `Reflexive` moved both again on 2026-09-24: one new carrier, one new
 /// branch.
-const CARRYING_VARIANTS: usize = 12;
+const CARRYING_VARIANTS: usize = 13;
 
 /// The floor under the reader itself.
 ///
