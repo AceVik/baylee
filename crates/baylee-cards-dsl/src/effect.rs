@@ -925,6 +925,16 @@ pub enum Effect {
     /// Put all creature cards from all graveyards onto the battlefield
     /// under your control (The True Scriptures III).
     AllGraveyardCreaturesToBattlefield,
+    /// "Transform this creature" (CR 701.27a): the source turns over to its
+    /// other face where it stands. Only a permanent represented by a
+    /// transforming double-faced card does (CR 701.27c) — a token copy or a
+    /// clone of one turns over nothing.
+    TransformSource,
+    /// "Transform [this] at the beginning of the next upkeep" (Archangel
+    /// Avacyn): a delayed trigger that fires in the next upkeep whoever's
+    /// turn it is, and does nothing if the permanent has left or has already
+    /// transformed since it was created (CR 701.27f).
+    TransformSourceAtNextUpkeep,
     /// Exile the source, then return it to the battlefield under its
     /// owner's control as the given face (transform; Sheoldred's flip,
     /// saga final chapters).
@@ -2106,6 +2116,8 @@ impl Effect {
             | Effect::DiscardRandom { .. }
             | Effect::RevealHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
+            | Effect::TransformSource
+            | Effect::TransformSourceAtNextUpkeep
             | Effect::ExileSelfReturnAsFace { .. }
             | Effect::SacrificeFilter { .. }
             | Effect::ReturnChosenToHand { .. }

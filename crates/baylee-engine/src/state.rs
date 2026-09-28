@@ -175,6 +175,9 @@ pub struct DelayedTrigger {
 pub enum DelayedWhen {
     /// At the controller's next upkeep.
     NextUpkeep,
+    /// At the beginning of the next upkeep, whoever's turn it is
+    /// (Archangel Avacyn's delayed transform).
+    NextUpkeepOfAnyone,
     /// At the controller's next first main phase (Mana Drain).
     NextFirstMain,
     /// At the beginning of the next end step (Venser +2).
@@ -213,6 +216,18 @@ pub enum DelayedAction {
         color: baylee_core::mana::ManaColor,
         /// Amount.
         amount: u16,
+    },
+    /// Transform a permanent (Archangel Avacyn), unless it has left the
+    /// battlefield (`version`, CR 400.7) or no longer shows `face`, the face
+    /// it showed when this was created — it has transformed since, and the
+    /// instruction is ignored (CR 701.27f).
+    Transform {
+        /// The permanent.
+        card: ObjectId,
+        /// Its identity when this was created.
+        version: u32,
+        /// The face it showed then.
+        face: u8,
     },
     /// Return an exiled card to the battlefield under its owner's control
     /// (Venser +2).
@@ -280,6 +295,12 @@ pub struct PreviousTurn {
     pub active: PlayerId,
     /// How many spells that player cast during it.
     pub spells_cast: u32,
+    /// How many spells every player together cast during it — the
+    /// werewolves' "if no spells were cast last turn".
+    pub spells_by_all: u32,
+    /// The most spells any one player cast during it — "if a player cast
+    /// two or more spells last turn".
+    pub most_by_one: u32,
 }
 
 /// A registered replacement rule from a permanent on the battlefield.
@@ -2321,6 +2342,8 @@ impl GameState {
         h.u8(self.day_night.map_or(255, |d| d as u8));
         h.u8(self.previous_turn.map_or(255, |p| p.active.get()));
         h.u32(self.previous_turn.map_or(0, |p| p.spells_cast));
+        h.u32(self.previous_turn.map_or(0, |p| p.spells_by_all));
+        h.u32(self.previous_turn.map_or(0, |p| p.most_by_one));
         h.usize(self.players.len());
         for p in &self.players {
             h.u8(p.id.get());

@@ -1786,6 +1786,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::SacrificeFilter { .. }
         | Effect::ReturnChosenToHand { .. }
         | Effect::AllGraveyardCreaturesToBattlefield
+        | Effect::TransformSource
+        | Effect::TransformSourceAtNextUpkeep
         | Effect::ExileSelfReturnAsFace { .. }
         | Effect::ReturnLinkedToBattlefield
         | Effect::ExileTargetsCreateTokens { .. }
