@@ -23,6 +23,58 @@ use crate::event::GameEvent;
 use crate::state::GameState;
 use baylee_core::ids::{ObjectId, PlayerId};
 
+/// Replaces a card's arrival in an opponent's graveyard. Registered rules
+/// survive the current simultaneous event even if their source moves first.
+/// Tokens and spell copies are not cards; their deaths still happen.
+pub(crate) fn graveyard_destination(
+    state: &GameState,
+    id: ObjectId,
+    to: crate::zone::ZoneLocation,
+) -> (
+    crate::zone::ZoneLocation,
+    Option<baylee_cards_dsl::CounterKind>,
+) {
+    use crate::{
+        object::{Rider, Status},
+        zone::ZoneLocation,
+    };
+    let ZoneLocation::Graveyard(player) = to else {
+        return (to, None);
+    };
+    let Some(card) = state.object(id) else {
+        return (to, None);
+    };
+    if card.card.is_none() || card.riders.contains(&Rider::SpellCopy) {
+        return (to, None);
+    }
+    for entry in &state.replacement_rules {
+        if let baylee_cards_dsl::ReplacementRule::ExileOpponentsGraveyard { counter } = entry.rule
+            && state.is_opponent(player, entry.controller)
+            && !state
+                .object(entry.source)
+                .is_some_and(|o| o.status.contains(Status::PHASED_OUT))
+        {
+            return (ZoneLocation::Exile(card.owner), counter);
+        }
+    }
+    (to, None)
+}
+
+/// The next instruction is a new event: a Voidwalker that died in the
+/// previous instruction cannot keep replacing later discards or the resolving
+/// spell's own departure. Other rules keep their existing LKI lifetime.
+pub(crate) fn expire_graveyard_rules(state: &mut GameState) {
+    // phasing: retain phased-out sources so their rules resume when they
+    // phase in; graveyard_destination independently excludes them meanwhile.
+    let battlefield = state.zones.list(crate::zone::ZoneLocation::Battlefield);
+    state.replacement_rules.retain(|entry| {
+        !matches!(
+            entry.rule,
+            baylee_cards_dsl::ReplacementRule::ExileOpponentsGraveyard { .. }
+        ) || battlefield.contains(&entry.source)
+    });
+}
+
 /// How many times over an effect creating tokens under `recipient`'s
 /// control actually creates them (CR 614.1).
 ///

@@ -114,6 +114,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("haste", K::HASTE),                   // combat::summoning_sick
         ("hexproof", K::HEXPROOF),             // eval::untargetable_by
         ("shroud", K::SHROUD),                 // eval::untargetable_by
+        ("shadow", K::SHADOW),                 // combat::can_block (both directions)
         ("indestructible", K::INDESTRUCTIBLE), // sba::run
         ("lifelink", K::LIFELINK),             // combat::deal_combat_damage
         ("menace", K::MENACE),                 // combat::can_block

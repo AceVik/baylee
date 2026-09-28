@@ -515,6 +515,12 @@ pub enum Duration {
 /// Panharmonicon, Elesh Norn, Roaming Throne).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ReplacementRule {
+    /// Cards destined for an opponent's graveyard go to exile instead,
+    /// optionally with the specified counter (Dauthi Voidwalker).
+    ExileOpponentsGraveyard {
+        /// Counter placed on the card in exile.
+        counter: Option<crate::CounterKind>,
+    },
     /// "If an effect would create tokens under your control, it creates
     /// twice that many" (Doubling Season). Filter applies to the affected
     /// controller.

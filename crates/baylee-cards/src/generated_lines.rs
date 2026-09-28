@@ -35642,7 +35642,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[Some(0), Some(1)],
         alternatives: &[],
     }],
-    &[],
+    // Dauthi Voidwalker
+    &[FaceLines {
+        sentences: 3,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],

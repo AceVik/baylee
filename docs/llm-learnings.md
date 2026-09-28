@@ -1674,3 +1674,25 @@ makes the library browsable. Multi-card draws record each formerly public card.
 CR 401.5 delays revealing a changed top during casting, activation and special
 actions; keep the pre-action top through a shockland's entry choice so paying
 life cannot peek at the next card. Source: [Comprehensive Rules, 401.5](https://media.wizards.com/2026/downloads/MagicCompRules%2020260619.pdf).
+
+### Feedback, 28 September: shadow
+
+Shadow is a symmetric blocker/attacker restriction, not unconditional
+unblockability. The same pairing predicate must feed the client's offer and
+validate its submitted declaration. Test both directions with the actual card,
+including a flying non-shadow artifact creature and a three-seat game; combine
+shadow with flying/reach rather than letting either keyword bypass the other.
+Source: [Dauthi Voidwalker release notes](https://magic.wizards.com/en/news/feature/marvel-super-heroes-release-notes).
+Unfinished generated cards are transferred through `xtask codegen --adopt-stub`
+before editing, leaving coverage honest until their remaining rules are done.
+
+Dauthi's graveyard replacement belongs in the zone-move door, not in death
+triggers: it covers discards, mills and resolved spells as well as permanents.
+Read the destination graveyard's player, not the departing object's controller;
+exclude tokens and spell copies and retain the replacement through a simultaneous
+wipe, then expire it before the next instruction. Discard events must still be
+recorded even when the destination is replaced. The named void counter uses the
+custom-counter registry and disappears when its card leaves exile. Tests cover
+three seats, teams, phasing, real Mind Twist/Dark Ritual/Toxic Deluge resolutions,
+and a destroy-all followed by milling in one resolution. Dauthi stays explicitly
+partial: its activated permission to play an exiled card remains unimplemented.

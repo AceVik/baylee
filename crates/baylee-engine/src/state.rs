@@ -1753,6 +1753,7 @@ impl GameState {
         // is left is to spend it.
         let to = self.flashback_destination(id, from_zone, to);
         let to = self.take_commander_redirect(id, to);
+        let (to, exile_counter) = crate::replacement::graveyard_destination(self, id, to);
         let from_loc = ZoneLocation::of(from_zone, from_player);
         // Record each exposed card before it leaves, including each draw of
         // a multi-card draw. Only the top was public, never the whole library.
@@ -1806,8 +1807,10 @@ impl GameState {
                 obj.damage = 0;
                 obj.deathtouched = false;
                 obj.regeneration_shields = 0;
-                obj.counters = crate::object::Counters::default();
                 obj.attached_to = None;
+            }
+            if matches!(from_zone, Zone::Battlefield | Zone::Exile) {
+                obj.counters = crate::object::Counters::default();
             }
             // The same rule for the other thing a copy replaced. Copiable
             // values are fixed while the copy exists (CR 707.2a) and the
@@ -1921,6 +1924,9 @@ impl GameState {
             cause,
             place,
         });
+        if let Some(kind) = exile_counter {
+            crate::replacement::put_counters(self, id, kind, 1);
+        }
         Ok(id)
     }
 

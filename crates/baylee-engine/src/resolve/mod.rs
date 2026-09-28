@@ -602,8 +602,10 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         state.refresh_characteristics();
         state.award_enduring_stories();
         if let Some(pending) = exec(state, res, op) {
+            crate::replacement::expire_graveyard_rules(state);
             return Flow::Wait(pending);
         }
+        crate::replacement::expire_graveyard_rules(state);
         res.pc += 1;
     }
     Flow::Complete
@@ -1094,6 +1096,10 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             remaining,
         } => {
             for &card in chosen {
+                state.journal.record(GameEvent::Discarded {
+                    object: card,
+                    player,
+                });
                 let _ = state.move_object(
                     card,
                     ZoneLocation::Graveyard(player),

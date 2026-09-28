@@ -3427,6 +3427,7 @@ fn keyword_const(line: &str) -> Option<&'static str> {
         "Defender" => "KeywordSet::DEFENDER",
         "Flash" => "KeywordSet::FLASH",
         "Shroud" => "KeywordSet::SHROUD",
+        "Shadow" => "KeywordSet::SHADOW",
         "Prowess" => "KeywordSet::PROWESS",
         "Changeling" => "KeywordSet::CHANGELING",
         _ => return None,
@@ -4188,6 +4189,13 @@ SVar:X:Count$xPaid",
             body.abilities,
             ["mana_ability!(&[Effect::mana_of_any_color()])"]
         );
+    }
+
+    #[test]
+    fn shadow_is_a_keyword_bit_rather_than_unblockable() {
+        let body = read("Name:Shadow Test\nTypes:Creature Rogue\nPT:1/1\nK:Shadow\nOracle:Shadow");
+        assert_eq!(body.keywords, ["KeywordSet::SHADOW"]);
+        assert!(body.abilities.is_empty());
     }
 
     #[test]

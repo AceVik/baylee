@@ -251,6 +251,11 @@ pub fn can_block(
     }
     let kw =
         |o: &GameObject, k: baylee_cards_dsl::KeywordSet| o.characteristics().keywords.contains(k);
+    // Shadow restricts both sides of the pair. It does not replace flying
+    // or any other evasion restriction (Dauthi Voidwalker's release notes).
+    if kw(a, K::SHADOW) != kw(b, K::SHADOW) {
+        return false;
+    }
     // Flying can only be blocked by flying/reach (CR 702.9).
     if kw(a, K::FLYING) && !kw(b, K::FLYING) && !kw(b, K::REACH) {
         return false;
@@ -1358,6 +1363,40 @@ mod tests {
             .insert(Status::PHASED_OUT);
         assert!(!can_attack(&state, p0, attacker));
         assert!(!can_block(&state, p1, blocker, attacker));
+    }
+
+    #[test]
+    fn shadow_restricts_both_sides_and_does_not_bypass_flying() {
+        for attacker_shadow in [false, true] {
+            for blocker_shadow in [false, true] {
+                for flying in [false, true] {
+                    let mut state = empty_state();
+                    let mut attacker_kw = KeywordSet::EMPTY;
+                    if attacker_shadow {
+                        attacker_kw = attacker_kw.union(KeywordSet::SHADOW);
+                    }
+                    if flying {
+                        attacker_kw = attacker_kw.union(KeywordSet::FLYING);
+                    }
+                    let blocker_kw = if blocker_shadow {
+                        KeywordSet::SHADOW
+                    } else {
+                        KeywordSet::EMPTY
+                    };
+                    let attacker = creature(&mut state, P0, 3, 2, attacker_kw);
+                    let blocker = creature(&mut state, P1, 2, 2, blocker_kw);
+                    assert_eq!(
+                        can_block(&state, P1, blocker, attacker),
+                        attacker_shadow == blocker_shadow && !flying
+                    );
+                    let reach = creature(&mut state, P1, 2, 2, blocker_kw.union(KeywordSet::REACH));
+                    assert_eq!(
+                        can_block(&state, P1, reach, attacker),
+                        attacker_shadow == blocker_shadow
+                    );
+                }
+            }
+        }
     }
 
     #[test]

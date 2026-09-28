@@ -1153,3 +1153,6 @@ mod scrap_trawler_tests;
 mod courser_tests;
 #[cfg(test)]
 mod tear_asunder_tests;
+
+#[cfg(test)]
+mod dauthi_tests;

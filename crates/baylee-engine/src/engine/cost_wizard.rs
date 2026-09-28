@@ -277,6 +277,12 @@ pub(crate) fn pay(
         CostPart::ExileFromGraveyard(_) => ZoneLocation::Exile(owner),
         _ => ZoneLocation::Graveyard(owner),
     };
+    if matches!(part, CostPart::Discard(_)) {
+        state.journal.record(GameEvent::Discarded {
+            object: chosen,
+            player,
+        });
+    }
     state.move_object(chosen, to, ZonePosition::Top, Cause::Cost)?;
     Ok(())
 }

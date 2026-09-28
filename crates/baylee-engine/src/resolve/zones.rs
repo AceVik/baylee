@@ -740,6 +740,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 let mut hand = state.zones.list(ZoneLocation::Hand(player)).clone();
                 state.rng.shuffle(&mut hand);
                 for card in hand.into_iter().take(count) {
+                    state.journal.record(GameEvent::Discarded {
+                        object: card,
+                        player,
+                    });
                     let _ = state.move_object(
                         card,
                         ZoneLocation::Graveyard(player),

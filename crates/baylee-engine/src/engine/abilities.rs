@@ -1822,6 +1822,10 @@ impl<L: CardLookup> Engine<L> {
                 }
                 CostPart::DiscardSelf => {
                     let owner = self.state.object(source).map_or(player, |o| o.owner);
+                    self.state.journal.record(GameEvent::Discarded {
+                        object: source,
+                        player,
+                    });
                     self.state.move_object(
                         source,
                         ZoneLocation::Graveyard(owner),

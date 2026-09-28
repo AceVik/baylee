@@ -467,3 +467,50 @@ fn a_creature_that_cannot_block_is_absent_beside_a_twin_that_can() {
         )
         .expect("the Excavator is a legal block, which is the same rule saying yes");
 }
+
+/// The printed Dauthi in a three-seat game: the view's legal pairings and
+/// the action validator agree, including a forged block with a non-shadow
+/// artifact creature. Flying still does not bridge the shadow boundary.
+#[test]
+fn dauthi_shadow_is_enforced_in_the_offer_and_the_declaration_in_both_directions() {
+    let dauthi = baylee_cards::decks::by_name("Dauthi Voidwalker").unwrap();
+    let thopter = baylee_cards::decks::by_name("Ornithopter").unwrap();
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for attack_card in [dauthi, thopter] {
+        let mut engine = Duel::table(996, swamp(), 3)
+            .battlefield(0, &[attack_card])
+            .battlefield(1, &[dauthi, thopter])
+            .start();
+        keep_mulligans(&mut engine);
+        let offered = attack_and_reach_blockers(&mut engine, p0, p1);
+        let attacker = engine.state.combat.attackers[0].creature;
+        let legal = creatures_of(&engine, p1, attack_card)[0];
+        let illegal_card = if attack_card == dauthi {
+            thopter
+        } else {
+            dauthi
+        };
+        let illegal = creatures_of(&engine, p1, illegal_card)[0];
+        assert_eq!(offered.len(), 1);
+        assert_eq!(offered[0].blocker, legal);
+        assert!(offered[0].attackers.contains(&attacker));
+        assert!(
+            engine
+                .apply(
+                    p1,
+                    PlayerAction::DeclareBlockers {
+                        blockers: vec![(illegal, attacker)]
+                    }
+                )
+                .is_err()
+        );
+        engine
+            .apply(
+                p1,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(legal, attacker)],
+                },
+            )
+            .unwrap();
+    }
+}

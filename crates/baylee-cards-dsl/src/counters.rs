@@ -73,6 +73,9 @@ pub const DREAD: CounterKind = CounterKind::Custom(7);
 /// Landmark counters (Treasure Map).
 pub const LANDMARK: CounterKind = CounterKind::Custom(8);
 
+/// Void counters (Dauthi Voidwalker).
+pub const VOID: CounterKind = CounterKind::Custom(9);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -87,6 +90,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("hatchling", HATCHLING),
     ("dread", DREAD),
     ("landmark", LANDMARK),
+    ("void", VOID),
 ];
 
 #[cfg(test)]
