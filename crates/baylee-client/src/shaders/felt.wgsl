@@ -33,6 +33,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::globals
+#import "embedded://baylee_client/shaders/noise.wgsl"::{hash2}
 
 struct FeltParams {
     /// The phase lamp: `rgb` its colour, `a` how much of it there is.
@@ -187,10 +188,6 @@ fn to_linear(c: vec3<f32>) -> vec3<f32> {
     return select(lo, hi, c > vec3<f32>(0.04045));
 }
 
-fn hash2(p: vec2<f32>) -> f32 {
-    return fract(sin(dot(p, vec2<f32>(127.1, 311.7))) * 43758.5453);
-}
-
 fn vnoise(p: vec2<f32>) -> f32 {
     let i = floor(p);
     let f = fract(p);
@@ -203,7 +200,7 @@ fn vnoise(p: vec2<f32>) -> f32 {
 }
 
 /// Four octaves, normalised back to 0..1 so callers can centre it on a half.
-fn fbm2(p: vec2<f32>) -> f32 {
+fn fbm(p: vec2<f32>) -> f32 {
     var sum = 0.0;
     var amplitude = 0.5;
     var total = 0.0;
@@ -267,7 +264,7 @@ fn glass_at(p: vec2<f32>) -> vec3<f32> {
     let axis = vec2<f32>(cos(angle), sin(angle));
     let domain = vec2<f32>(dot(p, axis), dot(p, vec2<f32>(-axis.y, axis.x)))
         * (0.85 + params.pattern.w * (0.30 / 256.0)) + params.pattern.xy;
-    let warp = domain + vec2<f32>(fbm2(domain * 0.32), fbm2(domain * 0.32 + 19.4)) * 3.4;
+    let warp = domain + vec2<f32>(fbm(domain * 0.32), fbm(domain * 0.32 + 19.4)) * 3.4;
     let trunk = vein_distance(warp * 0.28);
     let capillary = vein_distance(warp * 0.73 + 8.3);
     // Fine branches fade between the larger vessels instead of filling every
@@ -278,12 +275,12 @@ fn glass_at(p: vec2<f32>) -> vec3<f32> {
     let lava_d = branch * 24.0 + (1.0 - smoothstep(0.36, 0.56, heat)) * 0.95;
     let water = 1.0 - smoothstep(0.42, 1.25, water_d);
     let lava = 1.0 - smoothstep(0.30, 0.98, lava_d);
-    let silt = fbm2(p * 0.34);
+    let silt = fbm(p * 0.34);
     var colour = mix(vec3<f32>(0.012, 0.023, 0.029), vec3<f32>(0.035, 0.046, 0.050), silt);
 
     // Advected ripples, refracted caustics and narrow reflected crests.
     let flow = vec2<f32>(warp.x * 2.4, warp.y * 1.4 - t * 0.34);
-    let current = fbm2(flow);
+    let current = fbm(flow);
     let ripple = sin(flow.y * 18.0 + sin(flow.x * 4.0 + current * 8.0) * 0.8);
     let crest = pow(max(ripple, 0.0), 14.0);
     let depth = (1.0 - smoothstep(0.0, 1.3, water_d));
@@ -296,7 +293,7 @@ fn glass_at(p: vec2<f32>) -> vec3<f32> {
 
     // Slower molten flow carries dark crust islands over glowing seams.
     let molten_uv = vec2<f32>(warp.x * 4.5, warp.y * 2.5 - t * 0.23);
-    let crust = fbm2(molten_uv);
+    let crust = fbm(molten_uv);
     let crack = 1.0 - smoothstep(0.008, 0.09, abs(crust - 0.49));
     let core = 1.0 - smoothstep(0.1, 1.0, lava_d);
     var molten = mix(vec3<f32>(0.10, 0.023, 0.006), vec3<f32>(0.30, 0.075, 0.012), crack);
@@ -371,7 +368,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         // And a little brighter on the near side, which is the one edge of a
         // table anybody ever sees at this camera.
         let faces = clamp(in.world_normal.z * 0.5 + 0.5, 0.0, 1.0);
-        let grain = fbm2(vec2<f32>(table.x + table.y, in.world_position.y * 6.0) * 2.0);
+        let grain = fbm(vec2<f32>(table.x + table.y, in.world_position.y * 6.0) * 2.0);
         let shade = mix(1.15, 0.42, drop) * mix(0.78, 1.0, faces);
         let trim = 1.0 - smoothstep(0.025, 0.09, abs(drop - 0.28));
         let apron = to_linear(APRON * shade + vec3<f32>((grain - 0.5) * 0.012) + ENGRAVING * trim * 0.22);

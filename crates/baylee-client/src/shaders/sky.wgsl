@@ -28,6 +28,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{globals, view}
+#import "embedded://baylee_client/shaders/noise.wgsl"::{hash2}
 
 struct SkyParams {
     /// 0 is full night, 1 is full day. `baylee_client_core::sky::phase`.
@@ -96,19 +97,6 @@ fn to_linear(c: vec3<f32>) -> vec3<f32> {
     let hi = pow((c + 0.055) / 1.055, vec3<f32>(2.4));
     let lo = c / 12.92;
     return select(lo, hi, c > vec3<f32>(0.04045));
-}
-
-/// A hash with no trigonometry in it.
-///
-/// `sin`-based hashes differ between drivers — the same page can grain
-/// differently on two machines, and the table's own cloth already made the
-/// argument that everyone should see the same surface.
-fn hash2(p: vec2<f32>) -> f32 {
-    var h = dot(p, vec2<f32>(127.1, 311.7));
-    h = fract(h * 0.1031);
-    h *= h + 33.33;
-    h *= h + h;
-    return fract(h);
 }
 
 fn vnoise(p: vec2<f32>) -> f32 {

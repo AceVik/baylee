@@ -848,7 +848,9 @@ struct VertexOutput {
 struct Globals { time: f32 };
 @group(0) @binding(11) var<uniform> globals: Globals;
 ";
-    crate::cardmat::tests::check_wgsl(include_str!("../shaders/felt.wgsl"), prelude);
+    // `check_wgsl` strips `#import` lines: the shared hash goes back by hand.
+    let prelude = format!("{prelude}{}", include_str!("../shaders/noise.wgsl"));
+    crate::cardmat::tests::check_wgsl(include_str!("../shaders/felt.wgsl"), &prelude);
 }
 
 /// `PILE_REACH` is chosen in the model crate, which cannot see the mat's

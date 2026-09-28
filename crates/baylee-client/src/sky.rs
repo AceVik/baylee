@@ -380,13 +380,54 @@ mod shader_tests {
     fn sky_shader_compiles() {
         crate::cardmat::tests::check_wgsl(
             include_str!("shaders/sky.wgsl"),
-            "
+            &format!(
+                "{}{}",
+                "
 struct VertexOutput { @builtin(position) position: vec4<f32>, };
 struct Globals { time: f32 };
 struct View { viewport: vec4<f32> };
 @group(0) @binding(11) var<uniform> globals: Globals;
 @group(0) @binding(0) var<uniform> view: View;
 ",
+                include_str!("shaders/noise.wgsl")
+            ),
         );
+    }
+
+    /// Every value noise under the table and in the sky hashes its lattice
+    /// with the one integer hash in `noise.wgsl`. The sky and the felt each
+    /// kept a float hash of their own, and one Windows machine drew the sky
+    /// and the table as squares with them (report of 28 September): a hash
+    /// whose float rounding a compiler may change gives a corner two values.
+    #[test]
+    fn the_sky_and_the_felt_hash_their_lattice_in_integers() {
+        for (name, source) in [
+            ("sky.wgsl", include_str!("shaders/sky.wgsl")),
+            ("felt.wgsl", include_str!("shaders/felt.wgsl")),
+        ] {
+            assert!(
+                !source.contains("fn hash2"),
+                "{name} keeps a hash of its own instead of noise.wgsl's"
+            );
+            assert!(
+                source
+                    .lines()
+                    .any(|line| line.starts_with("#import") && line.contains("noise.wgsl")),
+                "{name} does not import noise.wgsl's hash"
+            );
+        }
+        let noise = include_str!("shaders/noise.wgsl");
+        let start = noise.find("fn hash2").expect("noise.wgsl defines hash2");
+        let body = &noise[start..start + noise[start..].find("\n}").expect("hash2 ends")];
+        assert!(
+            body.contains("vec2<i32>(floor(p))"),
+            "hash2 hashes the cell in integers"
+        );
+        for float_step in ["dot(", "sin(", "fract(h"] {
+            assert!(
+                !body.contains(float_step),
+                "hash2 does float arithmetic: {float_step}"
+            );
+        }
     }
 }

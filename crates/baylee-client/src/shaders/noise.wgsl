@@ -6,19 +6,45 @@
 // then the arithmetic is the thing that has to be consistent. Two surfaces
 // that grained differently would be two authors.
 //
-// **No trigonometry in the hash.** A `sin`-based hash differs between
-// drivers, so the same window can grain differently on two machines — and the
-// table's own felt already made the argument that everyone should see the
-// same surface. `tabletop.rs` computes its buffers in Rust with a seeded
+// **No trigonometry in the hash, and no float arithmetic.** A `sin`-based
+// hash differs between drivers, so the same window can grain differently on
+// two machines — and the table's own felt already made the argument that
+// everyone should see the same surface. `hash2` says why floats went too.
+// The sky and the felt import it rather than keep a copy. `tabletop.rs` computes its buffers in Rust with a seeded
 // value noise for exactly the same reason.
 
-/// A hash with no trigonometry in it.
+/// A hash in integers, 0..1.
+///
+/// **No float arithmetic in the hash either.** The one before this was
+/// `fract` over a `dot` and two products. At the coordinates the sky's
+/// clouds reach (hundreds of cells) it kept a few bits of the point, and
+/// WGSL lets a compiler reassociate and fuse float arithmetic (§15.7), so
+/// the two cells either side of an edge could hash their shared corner
+/// differently. Value noise with corners that disagree is a field of
+/// squares, which is what a Windows player on an RTX 4070 Ti under Vulkan
+/// saw in the sky and in the table (report of 28 September); the Mac drew
+/// the same code smoothly. Integer operations have one answer on every GPU,
+/// and the mixing constants are `tabletop.rs`'s, whose Rust hash grains the
+/// cloth's buffers.
+///
+/// `p` is split into its cell and its place in the cell. A lattice point
+/// has no place (`fract` of an integer-valued float is 0, and a negative
+/// zero is folded into it), so a corner hashes the same from either side;
+/// a caller that adds a fraction to draw a second value from the same cell
+/// (`id + 7.1`) still gets a different one.
 fn hash2(p: vec2<f32>) -> f32 {
-    var h = dot(p, vec2<f32>(127.1, 311.7));
-    h = fract(h * 0.1031);
-    h *= h + 33.33;
-    h *= h + h;
-    return fract(h);
+    let cell = bitcast<vec2<u32>>(vec2<i32>(floor(p)));
+    let off = fract(p);
+    let place = select(bitcast<vec2<u32>>(off), vec2<u32>(0u), off == vec2<f32>(0.0));
+    var h = (cell.x * 0x27d4eb2du) ^ (cell.y * 0x165667b1u)
+        ^ ((place.x ^ (place.y * 0x85ebca6bu)) * 0x9e3779b9u);
+    h = h ^ (h >> 15u);
+    h = h * 0x2c1b3c6du;
+    h = h ^ (h >> 12u);
+    h = h * 0x29745c65u;
+    h = h ^ (h >> 15u);
+    // 24 bits, the most an `f32` holds exactly.
+    return f32(h >> 8u) * (1.0 / 16777216.0);
 }
 
 /// Value noise, smoothed with the usual quintic so the derivative is
