@@ -537,6 +537,12 @@ has built.
   bits on `keywords`, and `trigger.rs` reads them the way it reads prowess.
   A card prints one of them by setting the bit and writing no ability —
   `keywords = KeywordSet::UNDYING` is the whole of Young Wolf
+- `AbilityDef::Toxic { poison }` — toxic N (CR 702.164), a static ability
+  with a number, so data like ward and not a bit. The engine reads it where
+  combat damage is dealt (`Engine::deal_combat_damage`): each journalled
+  combat `DamageDealt` to a player gives that player poison counters equal
+  to the source's total toxic value, summed over every `Toxic` it has
+  (CR 702.164b). Tyrranax Rex
 - `AbilityDef::Suspend { counters }`
 
 #### Write them through the macros

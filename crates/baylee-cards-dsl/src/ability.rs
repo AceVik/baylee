@@ -363,6 +363,15 @@ pub enum AbilityDef {
         /// Generic mana to pay.
         mana: u16,
     },
+    /// Toxic N (CR 702.164a): a static ability. Combat damage this
+    /// creature deals to a player also gives that player poison counters
+    /// equal to its total toxic value, the sum over every toxic ability it
+    /// has (CR 702.164b–c). Read by the engine where combat damage is
+    /// dealt; like ward, a keyword with a number is data and not a bit.
+    Toxic {
+        /// N.
+        poison: u8,
+    },
     /// Static/continuous ability (layers, CR 613).
     /// An activated ability with a precondition (Mox Opal's metalcraft,
     /// Bleachbone Verge's Plains/Swamp check).

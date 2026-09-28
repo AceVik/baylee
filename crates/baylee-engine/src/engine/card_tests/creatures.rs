@@ -16110,6 +16110,93 @@ fn tyrranax_rex_wards_an_opponents_removal_for_four() {
          the Rex is still there"
     );
 }
+/// Attacks `p1` with `p0`'s Tyrranax Rex, has `p1` answer the blockers
+/// question with `blocks`, and walks to the end of combat.
+fn rex_attacks(
+    engine: &mut Engine<RegistryLookup>,
+    rex: ObjectId,
+    blocks: Vec<(ObjectId, ObjectId)>,
+) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let offered = attack_and_collect_blocks(engine, rex, p1);
+    for (blocker, attacker) in &blocks {
+        assert!(
+            offered
+                .iter()
+                .any(|o| o.blocker == *blocker && o.attackers.contains(attacker)),
+            "the block is on the offer: {offered:?}"
+        );
+    }
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: blocks })
+        .expect("the blocks came off the offer");
+    pass_until(engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatEnd || e.state().turn.active != p0
+    });
+}
+
+/// Tyrranax Rex: "Toxic 4 (Players dealt combat damage by this creature also
+/// get four poison counters.)" Unblocked, the Rex deals eight: the defending
+/// player loses eight life **and** gets four poison counters, and the
+/// attacking player gets none.
+#[test]
+fn tyrranax_rex_gives_four_poison_counters_with_its_combat_damage() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(397, forest())
+        .battlefield(0, &[tyrranax_rex()])
+        .start();
+    keep_mulligans(&mut engine);
+    let rex = on_battlefield(&engine, p0, tyrranax_rex()).expect("the Rex is seated");
+    let life = engine.state().players[1].life;
+
+    rex_attacks(&mut engine, rex, vec![]);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        life - 8,
+        "the damage's other result still happens"
+    );
+    assert_eq!(
+        engine.state().players[1].poison,
+        4,
+        "and the player dealt combat damage gets four poison counters"
+    );
+    assert_eq!(
+        engine.state().players[0].poison,
+        0,
+        "its controller gets none"
+    );
+}
+
+/// Toxic is about damage dealt **to a player** (CR 702.164c). Blocked by
+/// the opponent's own Rex, the two deal their damage to each other and
+/// nobody gets a poison counter, though both creatures have toxic.
+#[test]
+fn tyrranax_rex_blocked_gives_nobody_poison() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(398, forest())
+        .battlefield(0, &[tyrranax_rex()])
+        .battlefield(1, &[tyrranax_rex()])
+        .start();
+    keep_mulligans(&mut engine);
+    let rex = on_battlefield(&engine, p0, tyrranax_rex()).expect("p0's Rex");
+    let theirs = on_battlefield(&engine, p1, tyrranax_rex()).expect("p1's Rex");
+    let life = engine.state().players[1].life;
+
+    rex_attacks(&mut engine, rex, vec![(theirs, rex)]);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        life,
+        "eight to eight: nothing tramples over"
+    );
+    assert_eq!(
+        engine.state().players[1].poison,
+        0,
+        "no damage to p1, no poison"
+    );
+    assert_eq!(engine.state().players[0].poison, 0, "nor to p0");
+}
 
 /// Maelstrom Wanderer: "creatures you control have haste", which is only
 /// visible on a creature that has just arrived.

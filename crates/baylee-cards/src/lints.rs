@@ -167,6 +167,7 @@ fn printed_branches(ability: &AbilityDef) -> Vec<Branch> {
         // choice made as the permanent enters.
         AbilityDef::Unimplemented
         | AbilityDef::Ward { .. }
+        | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
         | AbilityDef::Static(_)
@@ -477,6 +478,7 @@ fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], bool, Door)>
         }
         AbilityDef::Unimplemented
         | AbilityDef::Ward { .. }
+        | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
         | AbilityDef::Replacement(_)
@@ -775,6 +777,7 @@ fn ability_colors(ability: &AbilityDef) -> ColorSet {
         | AbilityDef::Spell { .. }
         | AbilityDef::Triggered { .. }
         | AbilityDef::Ward { .. }
+        | AbilityDef::Toxic { .. }
         | AbilityDef::SagaChapter { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Static(_)
