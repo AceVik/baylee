@@ -28,6 +28,7 @@ jobs:
         with:
           components: rustfmt
       - run: cargo fmt --all -- --check
+      - run: python3 -m unittest discover -s scripts/release/tests -v
 
   clippy:
     runs-on: ubuntu-latest
@@ -39,7 +40,9 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
+          shared-key: tests-debug
           cache-on-failure: true
+          save-if: false
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
   # The gateway keeps its accounts in PostgreSQL, so the suite needs one.
@@ -76,7 +79,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
+          shared-key: tests-debug
           cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
       - uses: taiki-e/install-action@nextest
       # nextest rather than `cargo test`: 48 s against 104 s for the same 2828
       # tests on the developer's machine, and it reports per *test* instead of
@@ -91,10 +96,11 @@ jobs:
       # `--no-fail-fast` because a CI run that stops at the first failure hides
       # how much else is broken, and a second push to find out is the expensive
       # way to learn it.
-      - run: cargo nextest run --workspace --all-targets --no-fail-fast
+      - run: cargo nextest run --locked --workspace --all-targets --no-fail-fast
 
   # Debug-only behavior has bitten before (a `debug_assert!` hid the mana
-  # payment from every release build), so the suite also runs in release.
+  # payment from every release build), so the suite also runs optimized
+  # with release assertions/overflow semantics, without per-test LTO.
   test-release:
     runs-on: ubuntu-latest
     services:
@@ -120,8 +126,31 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
       - uses: taiki-e/install-action@nextest
-      - run: cargo nextest run --workspace --all-targets --no-fail-fast --release
+      - run: cargo nextest run --locked --workspace --all-targets --no-fail-fast --cargo-profile ci-release
+
+  # Main builds the actual dist packages once. Tags promote those exact
+  # artifacts; PRs retain the quicker native debug/link matrix below.
+  packages:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/client-packages.yml
+    permissions:
+      contents: read
+      actions: read
+
+  macos-intel:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
+      - run: cargo build --locked --workspace --bins --target x86_64-apple-darwin
 
   # Every platform this is meant to run on, on its own architecture.
   #
@@ -136,6 +165,7 @@ jobs:
   # six times would re-prove what the two jobs above already prove while
   # making every pull request wait on six Bevy builds.
   build:
+    if: github.event_name == 'pull_request'
     name: build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -176,6 +206,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
           key: ${{ matrix.os }}
       - run: cargo build --workspace --bins
       # `--bins` links every binary; this is the half it does not reach, and
@@ -214,8 +245,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
+          shared-key: tests-debug
           cache-on-failure: true
-          shared-key: xtask
+          save-if: false
       # `validate` reads a cache it cannot fill. It looks every printing up
       # through `cached_printing`, a pure read with no network at all, so on a
       # cold cache it compares nothing and says so ("only 0 comparisons were
@@ -262,6 +294,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
       - run: >-
           cargo check
           -p baylee-cardtext
@@ -324,7 +357,9 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
+          shared-key: tests-debug
           cache-on-failure: true
+          save-if: false
       - run: ./scripts/gate-features.sh
 
   # Benches run in CI so they never silently rot; the numbers land in the
@@ -339,6 +374,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
       # `--bench basics` names the target on purpose. Without it `cargo bench`
       # runs every bench target in the crate, the lib's own libtest harness
       # included, and that harness answers `--quick` with "Unrecognized
@@ -383,6 +419,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
       # In the log, so the next person reading a green tick can see which
       # compiler earned it. This is the line whose absence hid the bug.
       - run: rustc --version && cargo --version

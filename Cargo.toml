@@ -238,6 +238,15 @@ inherits = "release"
 debug = "line-tables-only"
 strip = "none"
 
+# Optimized CI tests retain release semantics without repeating LTO for every
+# test executable. Shipping binaries still use the unchanged dist profile.
+[profile.ci-release]
+inherits = "release"
+lto = "off"
+codegen-units = 16
+debug-assertions = false
+overflow-checks = false
+
 [profile.dev]
 # Line tables instead of full debug info. A backtrace keeps its file and line
 # numbers — which is all a panicking test is ever read for — while the

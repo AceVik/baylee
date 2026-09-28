@@ -1,0 +1,115 @@
+# The sole desktop packaging recipe. CI builds; a tag copies verified CI
+# artifacts without checking out a compiler or restoring executable caches.
+name: client-packages
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        default: ''
+      source-run:
+        type: string
+        default: ''
+permissions:
+  contents: read
+  actions: read
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+jobs:
+  package:
+    name: package (${{ matrix.target }})
+    runs-on: ${{ inputs.source-run != '' && 'ubuntu-latest' || matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+          - os: macos-latest
+            target: aarch64-apple-darwin
+    env:
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          version=$REQUESTED_VERSION
+          if [ -z "$version" ]; then
+            version=$(sed -n '/^\[workspace\.package\]/,/^\[/{s/^version = "\(.*\)"$/\1/p;}' Cargo.toml)
+          fi
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+[-+a-zA-Z0-9.]*$ ]]
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+      - if: inputs.source-run != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source-run }}
+        run: python3 scripts/release/ci_artifacts.py verify-run "$SOURCE_RUN"
+      - if: inputs.source-run != ''
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source-run }}
+          name: client-${{ matrix.target }}
+          path: out
+      - if: inputs.source-run != ''
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.value }}
+          PACKAGE_TARGET: ${{ matrix.target }}
+          SOURCE_RUN: ${{ inputs.source-run }}
+        run: python3 scripts/release/ci_artifacts.py verify out "$PACKAGE_VERSION" "$PACKAGE_TARGET" "$SOURCE_RUN"
+      - if: inputs.source-run == ''
+        uses: ./.github/actions/linux-deps
+      - if: inputs.source-run == ''
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - if: inputs.source-run == ''
+        uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c
+        with:
+          shared-key: desktop-dist-${{ matrix.os }}-${{ matrix.target }}
+          cache-on-failure: true
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      # All native binaries still link on every supported platform. The client
+      # and launcher from this exact invocation become the published package.
+      - if: inputs.source-run == ''
+        shell: bash
+        env:
+          BAYLEE_RELEASE_BUILD: '1'
+          PACKAGE_TARGET: ${{ matrix.target }}
+        run: cargo build --locked --workspace --bins --profile dist --target "$PACKAGE_TARGET"
+      - if: inputs.source-run == ''
+        shell: bash
+        env:
+          PACKAGE_TARGET: ${{ matrix.target }}
+        run: cargo check --locked --workspace --all-targets --target "$PACKAGE_TARGET"
+      - if: inputs.source-run == ''
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.value }}
+          PACKAGE_TARGET: ${{ matrix.target }}
+        run: |
+          archive=$(scripts/package-client.sh "target/$PACKAGE_TARGET/dist" "$PACKAGE_TARGET" "$PACKAGE_VERSION")
+          mkdir -p out
+          cp "$archive" out/
+          python3 scripts/release/ci_artifacts.py write out "$PACKAGE_VERSION" "$PACKAGE_TARGET"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client-${{ matrix.target }}
+          path: out/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

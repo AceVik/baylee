@@ -4,8 +4,10 @@ The PM owns releases and the workspace version (`docs/dictionary.md`, Revier).
 
 ## What a release is
 
-A tag `v<version>` on a commit that `ci` passed on makes
-`.github/workflows/release.yml` publish a GitHub Release. The release has one
+A push to `main` builds the desktop packages once, alongside the CI checks.
+A tag `v<version>` on that green commit makes `.github/workflows/release.yml`
+promote those exact archives, sign them and publish a GitHub Release. The tag
+never rebuilds the client. The release has one
 archive per desktop target (Linux, Windows x86_64/aarch64 and macOS aarch64),
 each with a `.sha256` and a signature (`.sig`, §"Signing") beside it. Every
 archive holds a permanent launcher (`baylee-client` / `baylee-client.exe`),
@@ -38,13 +40,78 @@ While the version is `0.x`:
 
 1. On `main`, bump `version` in `[workspace.package]` in its own commit
    (`chore(release): 0.2.0`) and push it.
-2. Wait for `ci` to go green on that commit. The workflow refuses a tag on a
-   commit without a passing `ci`, and a tag that differs from the version.
+2. Wait for `ci` to go green on that commit, including `packages`. The workflow
+   refuses a tag without a successful **push to this repository's main** CI run
+   at that exact SHA, and a tag that differs from the workspace version. A green
+   PR run is insufficient.
 3. `git tag -a v0.2.0 -m "Baylee 0.2.0" && git push origin v0.2.0`.
 
 To dry-run, start `release` by hand (`gh workflow run release.yml`). It does
 the same builds and uploads them as workflow artifacts, versioned
 `<version>-dev.<commit>`, and publishes nothing.
+
+## Build reuse and caches
+
+`.github/workflows/client-packages.yml` is the one packaging recipe. Main CI
+links every workspace binary in `dist` on each of the five shipping targets,
+checks their test-only code, and uploads the client/launcher archives. The Intel
+macOS link check stays in its own parallel job. PRs keep their debug platform
+matrix and cannot supply release archives.
+
+Each package artifact includes its archive, SHA-256 checksum and a manifest
+naming repository, commit, source CI run, version and architecture. Promotion
+checks the source run through GitHub's API, requires all five unexpired artifacts,
+and verifies every file and manifest before signing. It rejects unexpected
+files and wrong hashes; artifacts from another commit are never a fallback.
+The build number displayed by the client belongs to the **source CI run**, not
+the later signing run. Promotion preserves the archive bytes unchanged.
+
+Package artifacts are kept for **14 days**. If they expire, rerun the original
+main CI run at that commit, wait for success, then rerun the release workflow.
+Commits from before this packaging workflow do not have promotable artifacts.
+A manual release dry run still builds `<version>-dev.<commit>` packages and
+publishes nothing; it does not masquerade as a trusted main push. To test the
+promotion/signing path after a green main CI without cutting another release:
+`gh workflow run release.yml --ref main -f promote-ci=true`. This reuses the
+workspace-version archives; the publish job remains tag-only.
+
+The five desktop package builds now cache compiled dependencies; the old
+release build restored no cache at all. Cache keys separate runner OS/target and
+compiler configuration. Only main push jobs write the dist caches. Ordinary
+PR check jobs keep their own PR-scoped caches, which main and tag runs cannot
+restore. Dry runs restore main caches without writing them.
+
+The full debug-test job writes a shared cache consumed read-only by Clippy,
+feature tests, validation and the signer. One writer avoids an immutable key
+being filled first by an incomplete Clippy-only build. Workspace crates are
+not added to every compiler cache: the repository already used about 9.9 GB
+before this change, and larger duplicated caches would evict each other. Exact
+finished client packages instead live in the 14-day artifact store. Cache
+eviction or compiler/profile changes can still cause cold builds. No signing
+key enters a cache, and reuse never skips Cargo's freshness checks.
+The [rust-cache inputs](https://github.com/Swatinem/rust-cache#example-usage) and
+[GitHub cache scoping](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache)
+describe the underlying behavior.
+
+`ci-release` inherits release optimization (`opt-level=3`) and explicitly keeps
+debug assertions and overflow checks disabled, but disables LTO and uses 16
+codegen units. This avoids whole-program optimization for every test executable.
+It is a release-semantics regression check, not a claim to test the exact shipping
+link configuration: `dist` packages retain thin LTO and one codegen unit.
+See [Cargo profiles](https://doc.rust-lang.org/cargo/reference/profiles.html).
+
+Baseline for beta.3: CI's optimized test job took 55 minutes (actual tests: 110
+seconds), followed by 33.5 minutes for the slowest desktop release build and
+4.2 minutes for signing. The new tag path removes the second desktop compilation.
+Cold and warm timings still need comparison on GitHub; no fixed speedup is promised.
+
+Local checks for pipeline changes:
+
+```sh
+python3 -m unittest discover -s scripts/release/tests -v
+cargo test --locked -p baylee-update --test sign_script
+actionlint
+```
 
 ## Signing
 
@@ -55,7 +122,7 @@ archive gets a `<archive>.sig` (base64 of the 64-byte signature) before it is
 published. The `.sha256` beside it only catches a broken download; anyone who
 can replace an archive can replace its checksum.
 
-In `release.yml` the `sign` job downloads every build's archive and runs
+In `release.yml` the `sign` job downloads the promoted archives and runs
 `scripts/release/sign-archives.sh`, which signs them with the seed in the
 repository secret `BAYLEE_UPDATE_SIGNING_KEY` and then verifies each
 signature against the compiled keys. A secret that is not the client's key
@@ -102,7 +169,7 @@ older builds update by hand once.
 ## Desktop launcher and recovery
 
 `package-client.sh` requires both the Bevy client and `baylee-launch` in
-its input directory. The release workflow builds both with the dist profile.
+its input directory. The main CI package workflow builds both with the dist profile.
 On macOS both live in `Baylee.app/Contents/MacOS`; `CFBundleExecutable`
 continues to name `baylee-client`, now the launcher. The runtime is signed
 before the enclosing bundle. Automatic updates never alter this original

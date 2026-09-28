@@ -236,10 +236,11 @@ fn the_release_workflow_signs_before_it_publishes() {
     assert!(publish.contains(".sig"), "{publish}");
     // Only the release build may replace itself (the client's
     // `update::native::is_release_build`): the build step says so.
-    let build = job("build");
+    let build =
+        std::fs::read_to_string(root().join(".github/workflows/client-packages.yml")).unwrap();
     assert!(
         build.contains("BAYLEE_RELEASE_BUILD: '1'")
-            && build.contains("cargo build --locked -p baylee-client --profile dist"),
+            && build.contains("cargo build --locked --workspace --bins --profile dist"),
         "{build}"
     );
 }
