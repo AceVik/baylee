@@ -235,8 +235,7 @@ fn competing_process_cannot_activate_while_the_first_owns_staging() {
             checksum: None,
         }),
     };
-    let mut checker =
-        baylee_update::check::Checker::new("http://127.0.0.1:9/never", "1.0.0");
+    let mut checker = baylee_update::check::Checker::new("http://127.0.0.1:9/never", "1.0.0");
     let result = checker.stage(&fixture.install, &offer, &[]);
     assert!(
         matches!(result, Err(baylee_update::check::Manual::Download(ref why)) if why.contains("another process"))
