@@ -38,6 +38,25 @@ pub fn is_machine_owned(content: &str) -> bool {
     content.contains(STUB_MARKER) || content.contains(OWNED_MARKER)
 }
 
+/// Hand over exactly one generated stub without changing its card data or
+/// coverage. A finished generated card must use `xtask adopt` instead.
+#[must_use]
+pub fn adopt_stub(content: &str) -> Option<String> {
+    if content.contains(OWNED_MARKER) {
+        return None;
+    }
+    let mut markers = content.lines().filter(|line| line.starts_with(STUB_MARKER));
+    let marker = markers.next()?;
+    if markers.next().is_some() {
+        return None;
+    }
+    Some(content.replacen(
+        marker,
+        "// HAND-OWNED STUB — adopted with `xtask codegen --adopt-stub`; still unimplemented.",
+        1,
+    ))
+}
+
 /// Registry metadata for one generated stub.
 #[derive(Debug, Clone)]
 pub struct StubInfo {
@@ -938,6 +957,22 @@ pub fn render_registry(stubs: &[StubInfo], slots: usize) -> String {
 mod tests {
     use super::*;
     use crate::layout::LandCycles;
+
+    #[test]
+    fn adopting_an_unfinished_stub_preserves_everything_except_ownership() {
+        let marker = format!("{STUB_MARKER} — implement abilities + tests, see docs/card-dsl.md.");
+        let input = format!("//! Oracle: printed rules\n{marker}\ncard!(index = index::TEST);\n");
+        let output = adopt_stub(&input).unwrap();
+        assert!(!is_machine_owned(&output));
+        assert!(output.contains("still unimplemented"));
+        assert_eq!(input.lines().next(), output.lines().next());
+        assert_eq!(input.lines().last(), output.lines().last());
+        assert!(!output.contains("Coverage::Implemented"));
+        assert!(adopt_stub(&output).is_none(), "cannot silently adopt twice");
+        assert!(adopt_stub(&format!("{OWNED_MARKER}: done.\n")).is_none());
+        assert!(adopt_stub(&format!("{marker}\n{marker}\n")).is_none());
+        assert!(adopt_stub(&format!("//! quoted {marker}\n")).is_none());
+    }
 
     /// A retired index leaves a hole, and the hole must reach the generated
     /// table as a `None` rather than closing up — closing it would slide every

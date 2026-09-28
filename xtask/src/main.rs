@@ -23,6 +23,10 @@ struct Cli {
 enum Cmd {
     /// Regenerate subtype constants, card stubs, registry, and the script index.
     Codegen {
+        /// Transfer an unfinished generated card to hand ownership, without
+        /// claiming it is implemented. No other files are regenerated.
+        #[arg(long, conflicts_with_all = ["check", "tables"])]
+        adopt_stub: Option<String>,
         /// Verify generated files are up to date instead of writing (CI).
         #[arg(long)]
         check: bool,
@@ -492,11 +496,15 @@ fn main() -> anyhow::Result<()> {
         .to_path_buf();
     match cli.cmd {
         Cmd::Codegen {
+            adopt_stub,
             check,
             tables,
             scripts,
             cache,
-        } => codegen(&root, check, tables, &scripts, &cache),
+        } => match adopt_stub {
+            Some(name) => adopt_stub_card(&root, &name),
+            None => codegen(&root, check, tables, &scripts, &cache),
+        },
         Cmd::Ledger {
             corpus,
             check,
@@ -3872,7 +3880,22 @@ fn check_search_tapped_matches_text(slug: &str, content: &str, problems: &mut us
     }
 }
 
-/// Validates card-file conventions across the registry.
+/// Transfers one unfinished stub through codegen without changing coverage.
+fn adopt_stub_card(root: &Path, name: &str) -> anyhow::Result<()> {
+    let cards_dir = root.join("crates/baylee-cards/src/cards");
+    let files = card_files(&cards_dir)?;
+    let slug = front_face_slug(name);
+    let path = files
+        .get(&slug)
+        .ok_or_else(|| anyhow::anyhow!("no card file for {name}"))?;
+    let text = fs::read_to_string(path)?;
+    let adopted = stubgen::adopt_stub(&text)
+        .ok_or_else(|| anyhow::anyhow!("{name} is not an unfinished generated stub"))?;
+    fs::write(path, adopted)?;
+    println!("adopted unfinished {name}; implement and test it before claiming coverage");
+    Ok(())
+}
+
 /// Strips the ownership marker from one generated card, handing the file to
 /// whoever asked for it.
 ///

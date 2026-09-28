@@ -303,6 +303,13 @@ from a stub. Reach for it when the card genuinely needs something the reader
 cannot say — not to get past a transcoding bug, which belongs in the reader
 where it also fixes the cards you have not looked at.
 
+For an unfinished generated stub, use
+`cargo run -p xtask -- codegen --adopt-stub "<card>"` before editing it.
+This transfers ownership only: the card stays unimplemented until its rules
+and tests are written. It preserves the generated identity and printing data
+and refuses finished or already hand-owned cards. Do not remove a generated
+marker by hand.
+
 `xtask validate` reports the split, which is the number to watch: **1365
 cards, 590 finished — 207 hand-owned, 383 machine-owned — and 775 stubs.**
 
