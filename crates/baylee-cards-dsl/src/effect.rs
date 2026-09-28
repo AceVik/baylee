@@ -1251,6 +1251,20 @@ pub enum Effect {
         /// How many per object.
         amount: Amount,
     },
+    /// Double the number of counters of a kind on every permanent a filter
+    /// matches (Bristly Bill's "double the number of +1/+1 counters on each
+    /// creature you control").
+    ///
+    /// CR 701.10e: each gets as many of those counters as it already has,
+    /// and that is *putting* counters, so a Doubling Season has its say
+    /// (Bristly Bill's ruling) — the counters go through the same door as
+    /// [`Self::AddCounterFilter`]'s.
+    DoubleCountersFilter {
+        /// Which permanents.
+        filter: &'static Filter,
+        /// Which counters.
+        kind: CounterKind,
+    },
     /// Return a target object (battlefield or stack) to its owner's hand.
     ReturnToHand {
         /// What.
@@ -2132,6 +2146,7 @@ impl Effect {
             | Effect::GrantSubtype { .. }
             | Effect::AddCounter { .. }
             | Effect::AddCounterFilter { .. }
+            | Effect::DoubleCountersFilter { .. }
             | Effect::ReturnToHand { .. }
             | Effect::ReturnAllToHand { .. }
             | Effect::DestroyAll { .. }

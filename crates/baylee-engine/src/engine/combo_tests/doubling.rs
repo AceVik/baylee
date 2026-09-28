@@ -471,3 +471,70 @@ fn a_spark_double_under_a_doubling_season_enters_with_two_of_each_counter() {
     assert_eq!(doubled, (3, 3), "two +1/+1 counters under the Season");
     assert_eq!(doubled_loyalty, 2, "and two loyalty counters");
 }
+
+/// Bristly Bill's "double the number of +1/+1 counters" is **putting**
+/// counters (CR 701.10e; Bristly Bill's ruling), so a Doubling Season under
+/// the same controller doubles what the doubling puts: two counters become
+/// two plus twice two. A resolver that wrote the doubled count straight onto
+/// the permanent would leave four.
+#[test]
+fn bristly_bills_doubling_is_doubled_again_by_a_doubling_season() {
+    let p0 = PlayerId::new(0);
+    let bill = card_index("d3b2d8a2-d3bc-448c-9cf6-6bead6010c28");
+    let mut engine = Duel::new(92, forest())
+        .battlefield(
+            0,
+            &[
+                bill,
+                doubling_season(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let id = on_battlefield(&engine, p0, bill).expect("Bill is seated");
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness sets boards up");
+    state
+        .object_mut(id)
+        .expect("Bill")
+        .counters
+        .set(baylee_cards_dsl::CounterKind::P1P1, 2);
+
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let (source, ability_index) = legal
+        .abilities
+        .iter()
+        .copied()
+        .find(|(source, _)| *source == id)
+        .expect("the doubling is offered");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .expect("five Forests pay {3}{G}{G}");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine
+            .state()
+            .object(id)
+            .expect("Bill")
+            .counters
+            .get(baylee_cards_dsl::CounterKind::P1P1),
+        6,
+        "two, and the doubling's two doubled by the Season to four"
+    );
+}

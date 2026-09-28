@@ -1778,6 +1778,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::DelayedManaAtNextFirstMain { .. } => mana::exec(state, res, op),
         Effect::AddCounter { .. }
         | Effect::AddCounterFilter { .. }
+        | Effect::DoubleCountersFilter { .. }
         | Effect::DrainAllCountersIntoSelf
         | Effect::SetPTFilter { .. }
         | Effect::PumpFilter { .. }

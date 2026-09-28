@@ -205,6 +205,7 @@ fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
         | Effect::ReturnAllToHand { filter, .. }
         | Effect::SetPTFilter { filter, .. }
         | Effect::AddCounterFilter { filter, .. }
+        | Effect::DoubleCountersFilter { filter, .. }
         | Effect::PumpFilter { filter, .. }
         | Effect::SacrificeFilter { filter, .. }
         | Effect::DealDamageEach { filter, .. }
