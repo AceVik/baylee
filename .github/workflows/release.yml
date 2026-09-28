@@ -116,6 +116,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: signatures
+          overwrite: true
           path: out/*.sig
           # A dry run without the secret has none.
           if-no-files-found: ${{ github.ref_type == 'tag' && 'error' || 'warn' }}
