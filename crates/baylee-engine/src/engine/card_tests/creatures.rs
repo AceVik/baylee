@@ -14352,7 +14352,7 @@ fn murderous_rider() -> CardIndex {
 
 /// `Murderous Rider` prints `Lifelink`, `When this creature dies, put it on the bottom of its owner's library.`, and `Destroy target creature or planeswalker. You lose 2 life. (Then exile this card. You may cast the creature later from exile.)`
 ///
-/// Marked `Coverage::Partial` for the dies trigger (#240). Swift End is cast via
+/// The dies trigger is played in the two tests below this one. Swift End is cast via
 /// `Pending::ChooseCastMode` with `CastModeKind::Face(1)`: it destroys the opponent's
 /// `llanowar_elves()`, its caster loses 2 life, and the card goes on its adventure — exiled
 /// with the rider that lets the creature be cast from there (CR 715.3d), not into the
@@ -14460,6 +14460,130 @@ fn murderous_rider_swift_end_goes_on_an_adventure_and_the_rider_follows_from_exi
     );
 }
 
+/// Bolts `victim` from `seat`'s hand and walks until it is in a graveyard, so
+/// its dies trigger is the one waiting on the stack.
+fn bolt_to_death(engine: &mut Engine<RegistryLookup>, seat: PlayerId, victim: ObjectId) {
+    let bolt = in_hand(engine, seat, lightning_bolt()).expect("the Bolt is in hand");
+    let mountains = all_of(engine, seat, mountain());
+    tap_mana_where(engine, seat, |id| mountains.contains(&id));
+    engine
+        .apply(seat, PlayerAction::CastSpell { card: bolt })
+        .expect("the Bolt is castable");
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: vec![victim],
+                players: vec![],
+            },
+        )
+        .expect("the creature is a legal target");
+    pass_until(engine, |e| {
+        e.state()
+            .object(victim)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard)
+    });
+}
+
+fn engine_card_is(engine: &Engine<RegistryLookup>, id: ObjectId, card: CardIndex) -> bool {
+    engine
+        .state()
+        .object(id)
+        .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+}
+
+/// Murderous Rider: "When this creature dies, put it on the bottom of its
+/// owner's library." Bolted, it goes to the graveyard, the trigger resolves,
+/// and the card is the bottom card of its owner's library — not the top, and
+/// not in the graveyard.
+#[test]
+fn murderous_rider_dies_and_goes_to_the_bottom_of_its_owners_library() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(388, island())
+        .battlefield(0, &[murderous_rider()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let rider = on_battlefield(&engine, p0, murderous_rider()).expect("the Rider is seated");
+
+    bolt_to_death(&mut engine, p1, rider);
+    assert!(!stack_is_empty(&engine), "the dies trigger is waiting");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, murderous_rider()).is_none(),
+        "the Rider left the graveyard"
+    );
+    let library = engine.state().zones.list(ZoneLocation::Library(p0));
+    assert!(
+        engine_card_is(&engine, library[0], murderous_rider()),
+        "and is the bottom card of its owner's library"
+    );
+    assert!(
+        !engine_card_is(&engine, library[library.len() - 1], murderous_rider()),
+        "not the top one"
+    );
+}
+
+/// #240: the trigger names the card that died and nothing else. A Scavenging
+/// Ooze exiles the Rider out of the graveyard in response; exile is a public
+/// zone, so the object keeps its handle, and a resolver that did not ask where
+/// it was would pull it out of exile onto the library. CR 400.7 makes it a new
+/// object there, so it stays exiled.
+#[test]
+fn murderous_rider_exiled_in_response_stays_in_exile() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(389, island())
+        .battlefield(0, &[murderous_rider()])
+        .battlefield(1, &[mountain(), forest(), scavenging_ooze()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let rider = on_battlefield(&engine, p0, murderous_rider()).expect("the Rider is seated");
+
+    bolt_to_death(&mut engine, p1, rider);
+    assert!(!stack_is_empty(&engine), "the dies trigger is waiting");
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player, p1,
+        "the active player holds priority over the trigger"
+    );
+    let forests = all_of(&engine, p1, forest());
+    tap_mana_where(&mut engine, p1, |id| forests.contains(&id));
+    activate(&mut engine, p1, scavenging_ooze(), 0);
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![rider],
+                players: vec![],
+            },
+        )
+        .expect("the Rider is a card in a graveyard");
+    pass_until(&mut engine, stack_is_empty);
+
+    let library = engine.state().zones.list(ZoneLocation::Library(p0));
+    assert!(
+        library
+            .iter()
+            .all(|id| !engine_card_is(&engine, *id, murderous_rider())),
+        "the trigger found no Rider in the graveyard and moved nothing"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p0))
+            .iter()
+            .any(|id| engine_card_is(&engine, *id, murderous_rider())),
+        "the Rider is still in exile"
+    );
+}
 fn nantuko_mentor() -> CardIndex {
     card_index("b79378e7-99db-403f-8f63-4d71ebdb3f6c")
 }

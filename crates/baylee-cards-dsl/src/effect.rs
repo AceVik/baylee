@@ -801,6 +801,20 @@ pub enum Effect {
     /// Put each target on the bottom of its owner's library (Banishing
     /// Stroke).
     PutTargetOnBottomOfLibrary,
+    /// Put a card that is in a graveyard on the bottom of its owner's
+    /// library: Murderous Rider's "when this creature dies, put it on the
+    /// bottom of its owner's library", where "it" is
+    /// [`TargetSpec::EventObject`] and nothing is targeted.
+    ///
+    /// Its own variant rather than [`Self::PutTargetOnBottomOfLibrary`]
+    /// aimed at the card that died, because that one moves its target from
+    /// wherever it is: a card that left the graveyard in response is a new
+    /// object (CR 400.7) the trigger knows nothing about, and it stays where
+    /// it went (#240).
+    PutOnBottomOfLibraryFromGraveyard {
+        /// Which card, read at resolution.
+        target: TargetSpec,
+    },
     /// The first target (a card in a graveyard) gains flashback with
     /// flashback cost = its mana cost until end of turn (Snapcaster
     /// Mage).
@@ -2078,6 +2092,7 @@ impl Effect {
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }
             | Effect::PutTargetOnBottomOfLibrary
+            | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
             | Effect::GrantFlashback
             | Effect::TakeExtraTurn
             | Effect::ExileSource

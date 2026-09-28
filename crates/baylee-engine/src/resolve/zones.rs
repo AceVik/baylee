@@ -513,6 +513,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::PutOnBottomOfLibraryFromGraveyard { target } => {
+            // CR 400.7, as `GraveyardToBattlefield` asks it: a card that left
+            // the graveyard in response is a new object, and "it" is gone.
+            let moves: Vec<(ObjectId, ZoneLocation)> = spec_objects(res, target)
+                .into_iter()
+                .filter_map(|card| {
+                    let obj = state.object(card)?;
+                    (obj.zone == crate::zone::Zone::Graveyard)
+                        .then_some((card, ZoneLocation::Library(obj.owner)))
+                })
+                .collect();
+            // CR 903.9b: a commander's owner may put it in the command zone.
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            for (card, to) in moves {
+                let _ = state.move_object(card, to, ZonePosition::Bottom, Cause::Effect);
+            }
+            None
+        }
         Effect::ExileSource => {
             let owner = state.object(res.source).map_or(you, |o| o.owner);
             if let Some(obj) = state.object_mut(res.source) {

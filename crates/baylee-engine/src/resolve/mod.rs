@@ -1754,6 +1754,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ExileLinked { .. }
         | Effect::SacrificeSelf
         | Effect::PutTargetOnBottomOfLibrary
+        | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
         | Effect::ExileSource
         | Effect::ExileAndReturnAtEndStep
         | Effect::ExileLibraryAndShuffleHand { .. }

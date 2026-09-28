@@ -253,6 +253,7 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
     const READ: &[&str] = &[
         "spec: EventObject",
         "GraveyardToBattlefield { target: EventObject",
+        "PutOnBottomOfLibraryFromGraveyard { target: EventObject",
     ];
 
     let mut unread = Vec::new();
