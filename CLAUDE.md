@@ -122,8 +122,9 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - `baylee-view` depends only on `baylee-core` ids, serde.
 - `baylee-client-core` is the client brain, knows no renderer, holds most client tests. Only `baylee-client` needs a GPU.
 - `baylee-protocol`: protobuf `Envelope`; `Pending`/`PlayerAction` ride as `serde_json`; shared by `LocalHost` and both servers.
+- `baylee-deckio` (core → deckio → client-core): deck documents in four formats (Baylee text, JSON, YAML, Moxfield text), auto-detect, and a registry of deck-link sources that answer an instruction or a fetch plan; pure, never fetches (Moxfield is its text export only). `docs/deck-format.md`.
 - `baylee-cardtext` sits under core, links only serde: `/catalog/text` wire shape and sentence pairing (`pick`, `align`, `verify`, `split_cost`) for catalog and client.
-- Must build for `wasm32-unknown-unknown`: `baylee-cardtext`, `-core`, `-protocol`, `-view`, `-client-core`, `-client`.
+- Must build for `wasm32-unknown-unknown`: `baylee-cardtext`, `-core`, `-deckio`, `-protocol`, `-view`, `-client-core`, `-client`.
 
 ### Engine
 
