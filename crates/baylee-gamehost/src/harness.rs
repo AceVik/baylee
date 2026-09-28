@@ -302,6 +302,7 @@ pub fn play_report<L: CardLookup>(
                 deciding: crate::view::deciding(&engine),
                 held: engine.automation(player).hold.suppresses(),
                 owed: crate::view::owed_payment(&engine),
+                library_reveal_blocked: engine.library_reveal_blocked(),
                 decision_remaining_ms: None,
                 policy_acts: &[],
             },
@@ -554,6 +555,7 @@ mod tests {
                 &crate::view::SeatContext {
                     awaiting: pending_player(engine.pending()),
                     owed: crate::view::owed_payment(engine),
+                    library_reveal_blocked: engine.library_reveal_blocked(),
                     ..Default::default()
                 },
                 &[],
@@ -935,6 +937,7 @@ mod tests {
                     deciding: crate::view::deciding(&engine),
                     held: engine.automation(player).hold.suppresses(),
                     owed: crate::view::owed_payment(&engine),
+                    library_reveal_blocked: engine.library_reveal_blocked(),
                     decision_remaining_ms: None,
                     policy_acts: &[],
                 },

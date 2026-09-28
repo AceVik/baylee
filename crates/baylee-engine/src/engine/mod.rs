@@ -187,6 +187,8 @@ pub struct Engine<L: CardLookup> {
     trigger_scan_seq: u64,
     /// A cast/activation waiting for its target choice.
     pending_plan: Option<PlanKind>,
+    /// Library tops at the start of a cast, activation or land play (CR 401.5).
+    library_action_tops: Option<Vec<Option<ObjectId>>>,
     /// A player chosen for a pending loyalty `AnyPlayer` target.
     loyalty_player_choice: Option<PlayerId>,
     /// The seats named by a pending activation's target choice.
@@ -560,6 +562,7 @@ impl<L: CardLookup> Engine<L> {
             mana_window: None,
             trigger_scan_seq,
             pending_plan: None,
+            library_action_tops: None,
             agreed_draw: false,
             loyalty_player_choice: None,
             activation_target_players: Vec::new(),
@@ -702,6 +705,13 @@ impl<L: CardLookup> Engine<L> {
     pub fn snapshot_hash(&self) -> u64 {
         let base = self.state.snapshot_hash();
         let mut extra = self.trigger_scan_seq;
+        if self.library_announcement_open() {
+            for top in self.library_action_tops.iter().flatten() {
+                extra = extra.wrapping_mul(31).wrapping_add(top.map_or(0, |id| {
+                    ((u64::from(id.generation()) << 24) | u64::from(id.slot())) + 1
+                }));
+            }
+        }
         for trigger in &self.trigger_queue {
             extra = extra.wrapping_mul(31).wrapping_add(
                 trigger
@@ -874,8 +884,35 @@ impl<L: CardLookup> Engine<L> {
         }
         let answered_priority =
             matches!(self.pending, Pending::Priority { player: holder, .. } if holder == player);
+        let old_tops = self.library_action_tops.clone();
+        if !self.library_announcement_open()
+            && matches!(
+                action,
+                PlayerAction::PlayLand { .. }
+                    | PlayerAction::CastSpell { .. }
+                    | PlayerAction::ActivateAbility { .. }
+                    | PlayerAction::ActivateManaAbility { .. }
+            )
+        {
+            self.library_action_tops = Some(
+                self.state
+                    .players
+                    .iter()
+                    .map(|p| {
+                        self.state
+                            .zones
+                            .list(ZoneLocation::Library(p.id))
+                            .last()
+                            .copied()
+                    })
+                    .collect(),
+            );
+        }
         self.awaiting_answer = false;
-        self.apply_inner(player, action)?;
+        if let Err(error) = self.apply_inner(player, action) {
+            self.library_action_tops = old_tops;
+            return Err(error);
+        }
         if answered_priority && let Some(seat) = self.automation.get_mut(player.get() as usize) {
             seat.priority_paused = false;
         }
@@ -889,7 +926,56 @@ impl<L: CardLookup> Engine<L> {
         // priority it owes instead now, and the hand-rolled copy goes with
         // the reason for it.
         self.run_until_choice();
+        if !self.library_announcement_open() {
+            self.library_action_tops = None;
+        }
         Ok(())
+    }
+
+    fn library_announcement_open(&self) -> bool {
+        self.cast_wizard.is_some()
+            || matches!(
+                self.pending_plan,
+                Some(
+                    PlanKind::ActivateAbility { .. }
+                        | PlanKind::ActivateAbilitySecondTargets { .. }
+                        | PlanKind::ChooseActivationX { .. }
+                        | PlanKind::PayActivationCost { .. }
+                        | PlanKind::LoyaltyPlayer { .. }
+                        | PlanKind::EntryTap { .. }
+                        | PlanKind::EntryReveal { .. }
+                        | PlanKind::CopyOnEnter { .. }
+                        | PlanKind::ChooseSubtype { .. }
+                        | PlanKind::ChooseColor { .. }
+                        | PlanKind::IntrinsicMana { .. }
+                        | PlanKind::PlayLandFace { .. }
+                )
+            )
+    }
+
+    /// Changed library tops that CR 401.5 keeps hidden until the current
+    /// cast, activation or special action is complete. Unchanged tops stay visible.
+    #[must_use]
+    pub fn library_reveal_blocked(&self) -> baylee_core::ids::SeatSet {
+        if !self.library_announcement_open() {
+            return baylee_core::ids::SeatSet::new();
+        }
+        self.library_action_tops
+            .iter()
+            .flatten()
+            .enumerate()
+            .filter_map(|(seat, old)| {
+                let p = self.state.players[seat].id;
+                (self
+                    .state
+                    .zones
+                    .list(ZoneLocation::Library(p))
+                    .last()
+                    .copied()
+                    != *old)
+                    .then_some(p)
+            })
+            .collect()
     }
 }
 
@@ -1063,5 +1149,7 @@ mod werewolf_tests;
 #[cfg(test)]
 mod scrap_trawler_tests;
 
+#[cfg(test)]
+mod courser_tests;
 #[cfg(test)]
 mod tear_asunder_tests;

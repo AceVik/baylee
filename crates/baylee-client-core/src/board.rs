@@ -1571,6 +1571,9 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
             // one lying on top of the pile — which is the one to draw.
             let top = match &command {
                 Some(objects) => objects.last().copied(),
+                None if kind == PileKind::Library => {
+                    view.library_tops.iter().find(|o| o.owner == player)
+                }
                 None => list.and_then(<[PublicObject]>::last),
             };
             let count = match (kind, &command) {

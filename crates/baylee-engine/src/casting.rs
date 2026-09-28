@@ -1220,8 +1220,27 @@ pub fn land_zone_open(state: &GameState, player: PlayerId, zone: Zone) -> bool {
                     baylee_cards_dsl::Modifier::PlayLandsFromGraveyard
                 )
         }),
+        Zone::Library => state.effects.iter().any(|fx| {
+            fx.controller == player
+                && matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::PlayLandsFromLibraryTop
+                )
+        }),
         _ => false,
     }
+}
+
+/// The zone permission plus the particular card restriction. A library
+/// permission never grants access to a card below the top.
+#[must_use]
+pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
+    state.object(card).is_some_and(|obj| {
+        obj.zone_owner == Some(player)
+            && land_zone_open(state, player, obj.zone)
+            && (obj.zone != Zone::Library
+                || state.zones.list(ZoneLocation::Library(player)).last() == Some(&card))
+    })
 }
 
 /// Plays a land (special action, no stack).
@@ -1237,7 +1256,7 @@ pub fn play_land(
     card: ObjectId,
 ) -> Result<(), CastFailure> {
     let obj = state.object(card).ok_or(CastFailure::NoSuchObject)?;
-    if !land_zone_open(state, player, obj.zone) || obj.zone_owner != Some(player) {
+    if !land_card_open(state, player, card) {
         return Err(CastFailure::Legality(CastError::NotInHand));
     }
     if !obj.characteristics().types.contains(TypeSet::LAND) {

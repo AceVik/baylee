@@ -2341,6 +2341,7 @@ fn check_optional_clauses_are_offered(
         "ReorderTopLibrary",
         "SearchTakeover",
         "PlayLandsFromGraveyard",
+        "PlayLandsFromLibraryTop",
         "ExtraLandDrops",
     ];
     if !def.is_implemented() {

@@ -101,6 +101,10 @@ pub enum Modifier {
     /// left may play nothing, from their graveyard or anywhere else
     /// (CR 305.2b).
     PlayLandsFromGraveyard,
+    /// The controller may play a land from the top of their library.
+    PlayLandsFromLibraryTop,
+    /// All players can see the top card of the controller's library.
+    RevealLibraryTop,
     /// The effect's controller may play this many lands beyond the one the
     /// rules allow (Exploration: 1; Azusa: 2).
     ///
@@ -408,6 +412,8 @@ impl Modifier {
             // No layer: rules-modifying effects.
             Self::LegendRuleOff
             | Self::PlayLandsFromGraveyard
+            | Self::PlayLandsFromLibraryTop
+            | Self::RevealLibraryTop
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
             | Self::OpponentsCantCast(_)
@@ -691,6 +697,8 @@ mod tests {
         for modifier in [
             Modifier::LegendRuleOff,
             Modifier::PlayLandsFromGraveyard,
+            Modifier::PlayLandsFromLibraryTop,
+            Modifier::RevealLibraryTop,
             Modifier::ExtraLandDrops(2),
             Modifier::OpponentsCastAsSorcery,
             Modifier::PlayersCantLose,

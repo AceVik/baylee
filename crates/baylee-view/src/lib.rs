@@ -116,7 +116,8 @@ use serde::{Deserialize, Serialize};
 /// 37: face-up log events and authoritative targeting context.
 /// 38 adds the public creature type named for a permanent.
 /// 39 adds the public suspend state of exiled cards.
-pub const VIEW_VERSION: u32 = 39;
+/// 40 adds explicitly revealed library tops, never library contents.
+pub const VIEW_VERSION: u32 = 40;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1581,6 +1582,9 @@ pub struct PlayerView {
     /// Empty in every view where nothing is being shown, which is nearly all
     /// of them.
     pub looking_at: Vec<PublicObject>,
+    /// At most one explicitly public top card per library; no hidden cards.
+    #[serde(default)]
+    pub library_tops: Vec<PublicObject>,
     /// The permanent holding this seat to sorcery speed, if one is
     /// (Teferi, Time Raveler's static — CR 613.1, a layer-2-and-beyond
     /// continuous effect the engine reads off its own effect table).
@@ -1695,6 +1699,7 @@ impl PlayerView {
             .chain(self.exile.iter().flatten())
             .chain(self.command.iter().flatten())
             .chain(&self.looking_at)
+            .chain(&self.library_tops)
             .chain(self.targeting.iter().map(|t| &t.source))
     }
 
@@ -1725,6 +1730,7 @@ impl PlayerView {
             .chain(self.exile.iter().flatten())
             .chain(self.command.iter().flatten())
             .chain(self.looking_at.iter())
+            .chain(self.library_tops.iter())
             .find(|o| o.id == id)
     }
 
@@ -2382,6 +2388,7 @@ mod tests {
             command: vec![vec![]; seats as usize],
             combat: CombatView::default(),
             looking_at: Vec::new(),
+            library_tops: Vec::new(),
             owed: None,
             targeting: None,
             sorcery_lock: None,
@@ -3076,7 +3083,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (39, 0x1943_7a2b_3bfd_7ef1);
+        const RECORDED: (u32, u64) = (40, 0x3178_cd1b_09a6_6612);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

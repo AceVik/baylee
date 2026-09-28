@@ -13440,10 +13440,10 @@ fn courser_of_kruphix() -> CardIndex {
 
 /// `Courser of Kruphix` prints `Play with the top card of your library revealed.`, `You may play lands from the top of your library.`, and `Landfall — Whenever a land you control enters, you gain 1 life.`
 ///
-/// Marked `Coverage::Partial`, its Landfall ability is implemented through `Trigger::EntersBattlefield` on `Filter::YOUR_LAND`, gaining 1 life when a `forest()` enters under your control.
-/// The unmodelled library-top land play ability is omitted, leaving `legal.lands` empty once the hand has no land cards.
+/// Landfall applies to a land played from hand too, and the ordinary land
+/// limit still applies when Courser opens the top of the library.
 #[test]
-fn courser_of_kruphix_gains_life_on_land_entry_and_omits_library_play() {
+fn courser_of_kruphix_gains_life_on_land_entry_and_respects_the_land_limit() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[courser_of_kruphix()])
@@ -13468,7 +13468,7 @@ fn courser_of_kruphix_gains_life_on_land_entry_and_omits_library_play() {
     };
     assert!(
         legal.lands.is_empty(),
-        "under `Coverage::Partial` playing lands from the top of the library is omitted"
+        "the normal land drop was already used"
     );
 }
 

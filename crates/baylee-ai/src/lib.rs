@@ -3870,6 +3870,7 @@ mod tests {
             command: vec![vec![]; lives.len()],
             combat: CombatView::default(),
             looking_at: Vec::new(),
+            library_tops: Vec::new(),
             owed: None,
             targeting: None,
             sorcery_lock: None,

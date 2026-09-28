@@ -580,6 +580,8 @@ fn apply(
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::LegendRuleOff
         | Modifier::PlayLandsFromGraveyard
+        | Modifier::PlayLandsFromLibraryTop
+        | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
         | Modifier::OpponentsCastAsSorcery

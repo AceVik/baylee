@@ -146,7 +146,10 @@ An anthem, a clone, or an animated land arrives already resolved.
 
 Hidden information is unrepresentable rather than merely omitted: library
 contents have no field, another seat's hand is a count, and a face-down
-permanent's `card` is `None` for anyone not entitled to look.
+permanent's `card` is `None` for anyone not entitled to look. `library_tops`
+contains only an explicitly revealed top card (Courser of Kruphix), never the
+cards beneath it. A playable top land uses the ordinary land-play gesture;
+revealing a nonland does not grant permission to cast it.
 
 `GameStatic` (seats + print table) is sent once; `PlayerView` is a full
 snapshot per change, which makes reconnects trivial.
@@ -854,7 +857,10 @@ gone, twenty Forests read as one Forest on a dark block until #298 widened
 the jog and striped the edges (`a_pile_shows_its_layers`). In a fan a pile
 lies over its neighbour as its card does: a slab has no print, only an edge.
 The library stays backs all the way down, face down (CR 401.2;
-`a_library_is_backs_all_the_way_down`).
+`a_library_is_backs_all_the_way_down`), except for an explicitly revealed top.
+That face can be previewed; the library still cannot be browsed. A changed top
+stays hidden through a land's entry decisions, including a shockland's life
+payment (CR 401.5).
 
 The deck follows the count. `sync_stack` rebuilds the slabs and the
 contact shadow when the count changes, and nothing when it does not — rebuilt

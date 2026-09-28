@@ -133,6 +133,14 @@ impl<L: CardLookup> Engine<L> {
             .iter()
             .map(|c| (c, true))
             .chain(graveyard.iter().map(|c| (c, false)))
+            .chain(
+                self.state
+                    .zones
+                    .list(ZoneLocation::Library(player))
+                    .last()
+                    .filter(|card| casting::land_card_open(&self.state, player, **card))
+                    .map(|card| (card, false)),
+            )
         {
             let Some(obj) = self.state.object(card) else {
                 continue;

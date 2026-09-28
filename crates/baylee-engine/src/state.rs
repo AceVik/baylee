@@ -1715,6 +1715,19 @@ impl GameState {
         }
     }
 
+    /// Whether a static permission makes this player's library top public.
+    #[must_use]
+    pub fn library_top_revealed(&self, player: PlayerId) -> bool {
+        self.effects.iter().any(|fx| {
+            fx.controller == player
+                && matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealLibraryTop)
+                && fx.source.is_none_or(|source| {
+                    self.object(source)
+                        .is_some_and(|o| o.zone == Zone::Battlefield)
+                })
+        })
+    }
+
     /// Moves an object between zones (CR 400.7: `version` bumps — it
     /// becomes a new object for rules that track identity).
     ///
@@ -1741,6 +1754,17 @@ impl GameState {
         let to = self.flashback_destination(id, from_zone, to);
         let to = self.take_commander_redirect(id, to);
         let from_loc = ZoneLocation::of(from_zone, from_player);
+        // Record each exposed card before it leaves, including each draw of
+        // a multi-card draw. Only the top was public, never the whole library.
+        if from_zone == Zone::Library
+            && self.library_top_revealed(from_player)
+            && self.zones.list(from_loc).last() == Some(&id)
+        {
+            self.journal.record(GameEvent::Revealed {
+                player: from_player,
+                cards: vec![id],
+            });
+        }
         self.zones.remove(id, from_loc);
         self.timestamp += 1;
         let ts = self.timestamp;

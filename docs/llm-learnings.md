@@ -1664,3 +1664,13 @@ not a legal offer. Carry the selected requirement onto the stack for rechecks,
 and let the client's cast chooser plan the complete kicked price. Free casts
 waive the base mana cost but still pay optional additional costs.
 Source: Wizards’ [Dominaria United release notes](https://magic.wizards.com/en/news/feature/dominaria-united-release-notes-2022-08-26), Tear Asunder and Stenn rulings.
+
+### 2026-09-28 — Courser and public library tops
+
+A zone permission is insufficient for playing from the library: both the offer
+and `PlayLand` must validate that this exact card is still on top. The view sends
+only an explicitly revealed top, includes its art/text entitlement, and never
+makes the library browsable. Multi-card draws record each formerly public card.
+CR 401.5 delays revealing a changed top during casting, activation and special
+actions; keep the pre-action top through a shockland's entry choice so paying
+life cannot peek at the next card. Source: [Comprehensive Rules, 401.5](https://media.wizards.com/2026/downloads/MagicCompRules%2020260619.pdf).

@@ -18,3 +18,40 @@ fn a_library_is_never_browsable_however_full_it_is() {
     graveyard.count = 1;
     assert!(graveyard.is_browsable());
 }
+
+#[test]
+fn courser_library_top_is_one_face_with_the_real_count_and_no_browsable_contents() {
+    let mut view = ViewBuilder::new(3).build();
+    view.seats[1].library_count = 51;
+    let top = printed(120, 1, "Forest", 9);
+    view.library_tops.push(top.clone());
+    let board = model(&view);
+    let pod = board
+        .pods
+        .iter()
+        .find(|p| p.player == PlayerId::new(1))
+        .unwrap();
+    let pile = pod
+        .piles
+        .iter()
+        .find(|p| p.kind == PileKind::Library)
+        .unwrap();
+    assert_eq!(pile.count, 51);
+    assert_eq!(pile.top, Some(top.id));
+    assert!(pile.art.is_some());
+    assert!(pile.fan.is_empty(), "no lower cards can be fanned face up");
+    assert!(!pile.is_browsable());
+    view.library_tops.clear();
+    let board = model(&view);
+    let pile = board
+        .pods
+        .iter()
+        .find(|p| p.player == PlayerId::new(1))
+        .unwrap()
+        .piles
+        .iter()
+        .find(|p| p.kind == PileKind::Library)
+        .unwrap();
+    assert_eq!(pile.count, 51);
+    assert!(pile.top.is_none() && pile.art.is_none());
+}

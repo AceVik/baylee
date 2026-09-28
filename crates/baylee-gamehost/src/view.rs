@@ -752,6 +752,8 @@ pub fn awaiting_for<L: baylee_engine::state::CardLookup>(
 /// the two that should go red when the next field arrives.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SeatContext<'a> {
+    /// Libraries whose changed top must stay hidden until announcement ends (CR 401.5).
+    pub library_reveal_blocked: SeatSet,
     /// The seat the table is waiting for, as this seat's view tells it. Pass
     /// [`awaiting_for`], which is per seat during the opening mulligans.
     pub awaiting: Option<PlayerId>,
@@ -929,6 +931,15 @@ pub fn player_view(
                 .collect(),
         },
         looking_at: looking_at(state, seat, pending),
+        library_tops: state
+            .players
+            .iter()
+            .filter(|p| {
+                state.library_top_revealed(p.id) && !ctx.library_reveal_blocked.contains(p.id)
+            })
+            .filter_map(|p| state.zones.list(ZoneLocation::Library(p.id)).last())
+            .filter_map(|id| public_object(state, *id, seat))
+            .collect(),
         // The same question `casting::timing_allows` asks before it refuses a
         // spell, asked once per view so the seat can be told before it spends
         // anything. It is the effect's *source* that travels, not a flag: the
@@ -1196,6 +1207,100 @@ mod tests {
             targeting_context(&engine, PlayerId::new(1)).is_none(),
             "no private casting choice crosses seats"
         );
+    }
+
+    #[test]
+    fn courser_reveals_only_the_top_to_all_seats_and_hides_the_next_during_shock_choice() {
+        use baylee_engine::{choice::PlayerAction, event::Cause, zone::ZonePosition};
+        let entry = |name| DeckEntry {
+            card: baylee_cards::decks::by_name(name).unwrap(),
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats.push(preset.seats[1].clone());
+        preset.seats[0].starting_battlefield = vec![entry("Courser of Kruphix")];
+        preset.seats[0].starting_hand = Some(vec![entry("Breeding Pool")]);
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        let view = settle(&mut engine, None);
+        let me = PlayerId::new(0);
+        let shock = view
+            .hand
+            .iter()
+            .find(|o| o.card.index == entry("Breeding Pool").card)
+            .unwrap()
+            .id;
+        engine
+            .dev_state_mut(me)
+            .unwrap()
+            .move_object(
+                shock,
+                ZoneLocation::Library(me),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .unwrap();
+        engine.refresh_offer();
+        let hidden = engine
+            .state()
+            .zones
+            .list(ZoneLocation::Library(me))
+            .iter()
+            .copied()
+            .filter(|id| *id != shock)
+            .collect::<Vec<_>>();
+        for seat in 0..3 {
+            let view = seen_by(&engine, PlayerId::new(seat));
+            assert_eq!(view.library_tops.len(), 1);
+            assert_eq!(view.library_tops[0].id, shock);
+            assert!(view.cards().any(|c| c == entry("Breeding Pool").card));
+            for id in &hidden {
+                assert!(view.object(*id).is_none());
+            }
+        }
+        engine
+            .apply(me, PlayerAction::PlayLand { card: shock })
+            .unwrap();
+        for seat in 0..3 {
+            assert!(
+                seen_by(&engine, PlayerId::new(seat))
+                    .library_tops
+                    .is_empty()
+            );
+        }
+        engine.apply(me, PlayerAction::YesNo(false)).unwrap();
+        for seat in 0..3 {
+            let view = seen_by(&engine, PlayerId::new(seat));
+            assert_eq!(view.library_tops.len(), 1);
+            assert_ne!(view.library_tops[0].id, shock);
+        }
+        let courser = engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .find(|id| {
+                engine.state().object(*id).unwrap().card.unwrap().index
+                    == entry("Courser of Kruphix").card
+            })
+            .unwrap();
+        engine
+            .dev_state_mut(me)
+            .unwrap()
+            .move_object(
+                courser,
+                ZoneLocation::Graveyard(me),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .unwrap();
+        for seat in 0..3 {
+            assert!(
+                seen_by(&engine, PlayerId::new(seat))
+                    .library_tops
+                    .is_empty()
+            );
+        }
     }
 
     #[test]
@@ -1605,6 +1710,7 @@ mod tests {
                 ids.extend(zone.iter().map(|o| o.id));
             }
         }
+        ids.extend(view.library_tops.iter().map(|o| o.id));
         ids.extend(view.combat.attackers.iter().map(|a| a.creature));
         ids.extend(view.combat.blockers.iter().map(|b| b.blocker));
         ids
@@ -1682,6 +1788,7 @@ mod tests {
         let ctx = SeatContext {
             awaiting: awaiting_for(engine, seat),
             deciding: deciding(engine),
+            library_reveal_blocked: engine.library_reveal_blocked(),
             ..SeatContext::default()
         };
         player_view(engine.state(), seat, 1, engine.pending_for(seat), &ctx, &[])
