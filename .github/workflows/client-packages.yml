@@ -105,7 +105,9 @@ jobs:
           archive=$(scripts/package-client.sh "target/$PACKAGE_TARGET/dist" "$PACKAGE_TARGET" "$PACKAGE_VERSION")
           mkdir -p out
           cp "$archive" out/
-          python3 scripts/release/ci_artifacts.py write out "$PACKAGE_VERSION" "$PACKAGE_TARGET"
+          python_cmd=python3
+          if [ "$RUNNER_OS" = Windows ]; then python_cmd=python; fi
+          "$python_cmd" scripts/release/ci_artifacts.py write out "$PACKAGE_VERSION" "$PACKAGE_TARGET"
       - uses: actions/upload-artifact@v4
         with:
           name: client-${{ matrix.target }}
