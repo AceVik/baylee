@@ -36,6 +36,7 @@ pub(crate) fn screen(
     lang: Lang,
     fonts: &UiFonts,
     metrics: Metrics,
+    scroll: f32,
 ) {
     let header = row(commands, metrics, true);
     let title = heading(commands, fonts, metrics, Phrase::SettingsTitle.text(lang));
@@ -81,6 +82,26 @@ pub(crate) fn screen(
         commands.entity(header).add_children(&[gap, delete]);
     }
     commands.entity(root).add_child(header);
+    // Overflow clips by itself. Give the complete form a real scroll target
+    // and keep Back outside it, so short windows can reach every setting.
+    let content = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_grow: 1.0,
+                min_height: px(0),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(metrics.gap),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            ScrollPosition(Vec2::new(0.0, scroll)),
+            crate::lobby::Scrollable(crate::lobby::List::Settings),
+            Pickable::default(),
+        ))
+        .id();
+    crate::lobby::scrollbars::attach(commands, root, content, metrics);
+    let root = content;
     // The language sits above the two columns, because it is the one
     // setting on this screen that decides how the rest of it reads.
     let tongue = language_row(commands, lang, fonts, metrics);
@@ -97,7 +118,7 @@ pub(crate) fn screen(
         .spawn((
             Node {
                 width: percent(100),
-                flex_grow: 1.0,
+                flex_shrink: 0.0,
                 flex_direction: if metrics.frame == crate::lobby::Frame::Phone {
                     FlexDirection::Column
                 } else {
@@ -105,7 +126,6 @@ pub(crate) fn screen(
                 },
                 column_gap: px(metrics.gap),
                 row_gap: px(metrics.gap),
-                overflow: Overflow::scroll_y(),
                 ..default()
             },
             Pickable::IGNORE,

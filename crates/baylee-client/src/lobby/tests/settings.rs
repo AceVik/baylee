@@ -236,3 +236,74 @@ fn music_controls_live_in_quick_settings_and_full_settings() {
     press(&mut app, Press::OpenSettings);
     assert!(labels(&mut app).iter().any(|l| l == "50 %"));
 }
+
+#[test]
+fn settings_scroll_by_wheel_and_swipe_and_keep_the_offset_after_an_edit() {
+    for width in [390.0, 1400.0] {
+        let mut app = headless();
+        stocked(&mut app);
+        sized(&mut app, width);
+        app.update();
+        press(&mut app, Press::FrontMenu);
+        press(&mut app, Press::OpenSettings);
+        let list = app
+            .world_mut()
+            .query::<(Entity, &Scrollable)>()
+            .iter(app.world())
+            .find(|(_, s)| s.0 == List::Settings)
+            .unwrap()
+            .0;
+        assert_eq!(
+            app.world().get::<Node>(list).unwrap().overflow.y,
+            OverflowAxis::Scroll
+        );
+        app.world_mut().entity_mut(list).insert(ComputedNode {
+            size: Vec2::new(width, 300.0),
+            content_size: Vec2::new(width, 1900.0),
+            ..default()
+        });
+        let row = press_target(&mut app, Press::ResetAllBindings);
+        app.world_mut()
+            .resource_mut::<Messages<Pointer<Scroll>>>()
+            .write(aimed(
+                row,
+                Scroll {
+                    unit: MouseScrollUnit::Pixel,
+                    x: 0.0,
+                    y: -80.0,
+                    hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+                    phase: bevy::input::touch::TouchPhase::Moved,
+                },
+            ));
+        app.update();
+        assert!((app.world().get::<ScrollPosition>(list).unwrap().y - 80.0).abs() < 0.01);
+        app.world_mut()
+            .resource_mut::<Messages<Pointer<Drag>>>()
+            .write(aimed(
+                row,
+                Drag {
+                    button: PointerButton::Primary,
+                    distance: Vec2::new(0.0, -40.0),
+                    delta: Vec2::new(0.0, -40.0),
+                },
+            ));
+        app.update();
+        assert!((app.world().get::<ScrollPosition>(list).unwrap().y - 120.0).abs() < 0.01);
+        press(
+            &mut app,
+            Press::Rebind(baylee_client_core::prefs::Action::Confirm),
+        );
+        let position = app
+            .world_mut()
+            .query::<(&Scrollable, &ScrollPosition)>()
+            .iter(app.world())
+            .find(|(s, _)| s.0 == List::Settings)
+            .unwrap()
+            .1
+            .y;
+        assert!(
+            (position - 120.0).abs() < 0.01,
+            "settings edit reset scroll: {position}"
+        );
+    }
+}

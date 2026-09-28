@@ -1590,6 +1590,7 @@ pub(crate) enum List {
     Library,
     PickerSets,
     PickerPanel,
+    Settings,
 }
 
 /// Where each list was left, across rebuilds of the node tree.
@@ -1608,6 +1609,7 @@ pub(crate) struct Scrolled {
     games: f32,
     library: f32,
     picker_panel: f32,
+    settings: f32,
 }
 
 impl Scrolled {
@@ -1621,6 +1623,7 @@ impl Scrolled {
             List::RoomCards | List::PickerSets => 0.0,
             List::Library => self.library,
             List::PickerPanel => self.picker_panel,
+            List::Settings => self.settings,
         }
     }
 
@@ -1634,6 +1637,7 @@ impl Scrolled {
             List::RoomCards | List::PickerSets => {}
             List::Library => self.library = at,
             List::PickerPanel => self.picker_panel = at,
+            List::Settings => self.settings = at,
         }
     }
 }

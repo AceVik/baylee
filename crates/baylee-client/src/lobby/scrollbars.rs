@@ -63,7 +63,7 @@ pub(super) fn remember(
     for (position, which) in &rows {
         if matches!(
             which.0,
-            List::Deck | List::Pool | List::Gateways | List::Games | List::Table
+            List::Deck | List::Pool | List::Gateways | List::Games | List::Table | List::Settings
         ) && (memory.get(which.0) - position.y).abs() > f32::EPSILON
         {
             memory.set(which.0, position.y);

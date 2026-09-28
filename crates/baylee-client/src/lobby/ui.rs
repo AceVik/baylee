@@ -334,6 +334,7 @@ pub(super) fn ui(
             state.lobby.lang(),
             &fonts,
             metrics,
+            scrolled_to.get(List::Settings),
         );
         super::confirm::draw_deletion(&mut commands, root, &state, &fonts, metrics);
         return;
