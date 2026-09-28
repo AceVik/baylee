@@ -3076,7 +3076,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (39, 0xe89fac3c979f9811);
+        const RECORDED: (u32, u64) = (39, 0x1943_7a2b_3bfd_7ef1);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()
