@@ -3838,6 +3838,23 @@ impl<L: CardLookup> Engine<L> {
                 }
                 false
             }
+            crate::state::DelayedAction::Sacrifice { card, version } => {
+                let owner = self.state.object(card).and_then(|o| {
+                    (o.zone == crate::zone::Zone::Battlefield
+                        && o.version == version
+                        && o.controller == controller)
+                        .then_some(o.owner)
+                });
+                if let Some(owner) = owner {
+                    let _ = self.state.move_object(
+                        card,
+                        ZoneLocation::Graveyard(owner),
+                        ZonePosition::Top,
+                        crate::event::Cause::Effect,
+                    );
+                }
+                false
+            }
             crate::state::DelayedAction::ReturnToBattlefield { card } => {
                 if self
                     .state

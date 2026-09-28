@@ -116,6 +116,35 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::CreateTokenCopyOfTarget {
+            mods,
+            sacrifice_at_next_end_step,
+        } => {
+            if let Some(original) = res.targets.first().copied()
+                && let Some(base) = crate::layers::copiable_values(state, original)
+            {
+                let mut modified = (*base).clone();
+                for m in mods {
+                    apply_copy_mod(&mut modified, m);
+                }
+                let made =
+                    create_token_copies(state, you, original, &std::sync::Arc::new(modified), 1);
+                // One delayed trigger per token, naming that token and no
+                // other object: a token that has left and been replaced is
+                // not "it" (CR 400.7), and the version says so.
+                if sacrifice_at_next_end_step {
+                    for id in made {
+                        let version = state.object(id).map_or(0, |o| o.version);
+                        state.delayed.push(crate::state::DelayedTrigger {
+                            controller: you,
+                            when: crate::state::DelayedWhen::NextEndStep,
+                            action: crate::state::DelayedAction::Sacrifice { card: id, version },
+                        });
+                    }
+                }
+            }
+            None
+        }
         Effect::CreateTokenCopyOfEquipped { kicked_bonus, mods } => {
             let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };

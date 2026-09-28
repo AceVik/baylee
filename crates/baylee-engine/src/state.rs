@@ -229,6 +229,16 @@ pub enum DelayedAction {
         /// The face it showed then.
         face: u8,
     },
+    /// Sacrifice a permanent (Kiki-Jiki's token at the next end step), if
+    /// it is still that object (`version`, CR 400.7) and still controlled
+    /// by the delayed trigger's controller — a player sacrifices only a
+    /// permanent they control (CR 701.21a).
+    Sacrifice {
+        /// The permanent.
+        card: ObjectId,
+        /// Its identity when this was created.
+        version: u32,
+    },
     /// Return an exiled card to the battlefield under its owner's control
     /// (Venser +2).
     ReturnToBattlefield {

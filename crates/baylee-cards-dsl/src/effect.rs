@@ -1390,6 +1390,19 @@ pub enum Effect {
         /// bonus tokens for a total of 5).
         kicked_bonus: u8,
     },
+    /// "Create a token that's a copy of target …, except …" with the
+    /// exceptions as copy modifications (CR 707.9), and, when
+    /// `sacrifice_at_next_end_step`, "Sacrifice it at the beginning of the
+    /// next end step" as a delayed trigger that follows the token and no
+    /// other object (Kiki-Jiki, Mirror Breaker; Reflection of Kiki-Jiki).
+    /// Reads the first target.
+    CreateTokenCopyOfTarget {
+        /// The "except" clauses, applied to the copiable values before the
+        /// token is made.
+        mods: &'static [crate::ability::CopyMod],
+        /// "Sacrifice it at the beginning of the next end step."
+        sacrifice_at_next_end_step: bool,
+    },
     /// Create a token that's a copy of the creature the source is attached
     /// to (Helm of the Host).
     CreateTokenCopyOfEquipped {
@@ -2151,6 +2164,7 @@ impl Effect {
             | Effect::PutSourceOnTopOfLibrary
             | Effect::CreateTokenCopyOf { .. }
             | Effect::CreateTokenCopyOfEquipped { .. }
+            | Effect::CreateTokenCopyOfTarget { .. }
             | Effect::CreateTokenCopyOfFirstToken
             | Effect::BottomCardFromHand { .. }
             | Effect::CopyTargetSpell { .. }
