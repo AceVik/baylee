@@ -1200,6 +1200,48 @@ mod tests {
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::{GRANTED_ABILITY, LegalActions, PREPARED_CAST, Pending};
 
+    #[test]
+    fn an_effigy_copying_harabaz_keeps_its_variable_mana_as_a_written_choice() {
+        let effigy = baylee_cards::decks::by_name("Machine God's Effigy").unwrap();
+        let druid = baylee_cards::decks::by_name("Harabaz Druid").unwrap();
+        let mut object = baylee_client_core::test_support::printed(1, 0, "Harabaz Druid", 1);
+        object.card.as_mut().unwrap().index = effigy;
+        object.rules = Some(baylee_view::RulesFace {
+            card: druid,
+            face: 0,
+        });
+        object.granted_mana = Some(baylee_view::GrantedMana {
+            slot: 0,
+            colors: vec![ManaColor::Blue],
+            amount: 1,
+        });
+        let id = object.id;
+        let view = ViewBuilder::new(2).with_battlefield(0, [object]).build();
+        let interaction = offering(vec![(id, 0), (id, GRANTED_ABILITY)], vec![id]);
+        let options = options(Lang::En, &view, &interaction, id);
+        assert_eq!(Split::of(&options), Split { pips: 1, rows: 1 });
+        let pour = options[0].pour.as_ref().unwrap();
+        assert_eq!(pour.color, ManaColor::Blue);
+        assert_eq!(pour.step.tap, Tap::Ability(GRANTED_ABILITY));
+        assert_eq!(options[1].printed_index(), Some(0));
+        assert!(options[1].mana);
+        assert!(
+            options[1].pour.is_none(),
+            "the X-mana ability remains an explicit choice"
+        );
+        let colors = options_for(Lang::En, &view, &interaction, id, Some(0));
+        assert_eq!(colors.len(), 5);
+        let blue = colors
+            .iter()
+            .find_map(|o| o.pour.as_ref().filter(|p| p.color == ManaColor::Blue))
+            .unwrap();
+        assert_eq!(
+            blue.step.tap,
+            Tap::Ability(0),
+            "choosing blue on Harabaz still uses Harabaz, not the grant"
+        );
+    }
+
     /// A bundle is drawn as what arrives, and the five-colour case is the one
     /// that matters.
     ///

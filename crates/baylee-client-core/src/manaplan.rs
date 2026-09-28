@@ -189,10 +189,11 @@ pub struct Pour {
 /// whose pour is a number — Harabaz Druid under a Great Divide Guide offers
 /// all five colours twice over, once as "one mana" and once as "X mana, where
 /// X is the number of Allies you control", and a header built out of the
-/// second is a header nobody can read. Where an unpredictable tap is the
-/// **only** cover for a colour it takes that pip all the same, which is not
-/// an exception: a Harabaz Druid on its own is a bubble of five, and that is
-/// what the owner asked for.
+/// second is a header nobody can read. If a fixed tap exists, variable taps
+/// remain written abilities, even when they can make additional colors.
+/// This prevents an Effigy copying Harabaz from silently hiding "X blue"
+/// behind a blue pip that actually makes only one. Without any fixed tap,
+/// Harabaz on its own still offers its five-color bubble.
 ///
 /// Then the tap that will **not stop to ask**: a source of one colour is one
 /// action, where a source of five is an action and then an answer. Where that
@@ -213,11 +214,13 @@ pub fn pours(id: ObjectId, offers: &[Offer]) -> Vec<Pour> {
             matches!(offer.tap, Tap::Ability(_)),
         )
     }
+    let has_fixed = offers.iter().any(|offer| offer.fixed);
     ManaColor::ALL
         .into_iter()
         .filter_map(|color| {
             let best = offers
                 .iter()
+                .filter(|offer| !has_fixed || offer.fixed)
                 .filter(|offer| offer.colors.contains(&color))
                 .min_by_key(|offer| patience(offer))?;
             Some(Pour {
