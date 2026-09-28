@@ -24,10 +24,11 @@ rm -rf "$stage"
 mkdir -p "$stage"
 
 case "$target" in
-*-windows-*) exe=baylee-client.exe ;;
-*) exe=baylee-client ;;
+*-windows-*) exe=baylee-client.exe; launcher=baylee-launch.exe; runtime=baylee-runtime.exe ;;
+*) exe=baylee-client; launcher=baylee-launch; runtime=baylee-runtime ;;
 esac
 [ -f "$bin_dir/$exe" ] || { echo "no $bin_dir/$exe" >&2; exit 1; }
+[ -f "$bin_dir/$launcher" ] || { echo "no $bin_dir/$launcher" >&2; exit 1; }
 
 readme() {
     cat <<EOF
@@ -70,7 +71,8 @@ case "$target" in
     # MacOS holds a link, because codesign treats everything in MacOS as code.
     app="$stage/Baylee.app/Contents"
     mkdir -p "$app/MacOS" "$app/Resources"
-    cp "$bin_dir/$exe" "$app/MacOS/"
+    cp "$bin_dir/$exe" "$app/MacOS/$runtime"
+    cp "$bin_dir/$launcher" "$app/MacOS/$exe"
     cp -R crates/baylee-client/assets "$app/Resources/assets"
     cp crates/baylee-client/assets/brand/baylee.icns "$app/Resources/Baylee.icns"
     ln -s ../Resources/assets "$app/MacOS/assets"
@@ -95,6 +97,7 @@ EOF
     # Ad hoc, which costs nothing and is not an identity: without a seal
     # over the bundle a downloaded app reads as "damaged" rather than as
     # "unidentified developer", and only the second has a way past it.
+    codesign --force --sign - "$app/MacOS/$runtime"
     codesign --force --sign - "$stage/Baylee.app"
     # Symbols for a crash report, beside the app rather than in it.
     if [ -d "$bin_dir/$exe.dSYM" ]; then
@@ -102,7 +105,8 @@ EOF
     fi
     ;;
 *)
-    cp "$bin_dir/$exe" "$stage/"
+    cp "$bin_dir/$exe" "$stage/$runtime"
+    cp "$bin_dir/$launcher" "$stage/$exe"
     cp -R crates/baylee-client/assets "$stage/assets"
     # MSVC keeps the line tables in a .pdb beside the .exe.
     if [ -f "$bin_dir/baylee_client.pdb" ]; then

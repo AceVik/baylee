@@ -108,7 +108,9 @@ jobs:
       - shell: bash
         env:
           BAYLEE_RELEASE_BUILD: '1'
-        run: cargo build --locked -p baylee-client --profile dist --target ${{ matrix.target }}
+        run: |
+          cargo build --locked -p baylee-client --profile dist --target ${{ matrix.target }}
+          cargo build --locked -p baylee-update --bin baylee-launch --profile dist --target ${{ matrix.target }}
       - id: pack
         shell: bash
         run: |

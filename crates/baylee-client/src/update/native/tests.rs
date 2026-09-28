@@ -2,7 +2,7 @@
 
 use super::*;
 use baylee_update::apply::Staged;
-use baylee_update::plan::{NEW, STAGE};
+use baylee_update::plan::NEW;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicU32;
@@ -62,8 +62,9 @@ fn installed() -> (PathBuf, Install) {
     ));
     let _ = fs::remove_dir_all(&base);
     fs::create_dir_all(&base).expect("a scratch folder");
-    fs::write(base.join("baylee-client"), "old").expect("the old program");
+    fs::write(base.join("baylee-runtime"), "old").expect("the old program");
     let install = Install {
+        state: None,
         os: Os::Linux,
         base: base.clone(),
         program: "baylee-client".into(),
@@ -75,7 +76,7 @@ fn installed() -> (PathBuf, Install) {
 fn stage(install: &Install) {
     let new = install.stage().join(NEW);
     fs::create_dir_all(&new).expect("the stage");
-    fs::write(new.join("baylee-client"), "new").expect("the new program");
+    fs::write(new.join("baylee-runtime"), "new").expect("the new program");
     apply::mark_staged(
         install,
         &Staged {
@@ -101,7 +102,13 @@ fn build(install: &Install, dev: bool) -> Build {
 }
 
 fn program(base: &std::path::Path) -> String {
-    fs::read_to_string(base.join("baylee-client")).expect("a program")
+    let install = Install {
+        state: None,
+        os: Os::Linux,
+        base: base.to_path_buf(),
+        program: "baylee-client".into(),
+    };
+    fs::read_to_string(launch::selected(&install).unwrap()).expect("a program")
 }
 
 #[test]
@@ -135,7 +142,10 @@ fn the_exit_installs_and_the_next_start_says_so_once() {
         })
     );
     assert_eq!(on_start(&build(&install, false)).shown, None, "only once");
-    assert!(!base.join(STAGE).exists(), "nothing of ours is left");
+    assert!(
+        install.stage().join("current.json").exists(),
+        "the launcher retains its pointer"
+    );
     assert!(
         !base.join("baylee-client.old").exists(),
         "the old one is gone"

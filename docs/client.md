@@ -7449,27 +7449,33 @@ build is offered stable releases only, a pre-release build both, ordered by
 semver precedence (`0.1.0-beta.10` after `beta.9`).
 
 **Staging.** For a newer release it downloads the archive for its own target
-into `<installation>/.baylee-update/`, checks the size, the `.sha256` (a
+into its per-user state directory, checks the size, the `.sha256` (a
 sanity check against a broken download, nothing more) and then the Ed25519
 `.sig` against the keys compiled into the client (`sign::TRUSTED_KEYS`, a
 list so a key can be rotated). Only an archive whose signature verifies is
 unpacked (no path out of the folder, no link out of it) into `new/`, and
+the signed internal folder must name the exact offered version and target;
 only then is `staged.json` written. An unsigned archive is never
 downloaded, and a refused one is deleted; the notice then only links to the
 release page.
 
-**Installing on exit.** When the program ends (`AppExit`, the window
-already closed), a staged update replaces the installation by renames
-within one folder: every entry of the new tree first sets the old one aside
-(`<name>.old`; the running Windows program as `baylee-client.old.exe`,
-which Windows lets one rename but not delete), then moves in. On macOS only
-`Baylee.app` and the files that shipped beside it are replaced; whatever
-else is in the folder (`/Applications`, say) is not touched. Each step is
-recorded in `journal.json` before the next one. At the next start, before
-anything reads the installation, `apply::recover` finishes an interrupted
-update when every remaining source is still there and otherwise undoes it;
-then the set-aside files are deleted and "Updated to X" is shown once. A
-version that failed to install is not tried again.
+**Installing on exit.** The public executable is a permanent launcher; the
+real client is `baylee-runtime`. On exit the updater places the verified
+release in an immutable generation and atomically selects it with
+`current.json`. The original executable and macOS bundle are never renamed
+or modified. `activation.json` lets the launcher resume an interrupted
+activation before starting the runtime; failed recovery retains its records
+and leaves the previous client launchable. State and payloads are per-user,
+isolated by the original package's canonical path (`docs/releasing.md`
+§"Desktop launcher and recovery"). A read-only package still starts, with
+automatic installation disabled.
+
+OS locks serialize staging and activation. Launcher and runtime both retain
+a lifetime lease, including if the launcher dies first. A second launch is
+refused while either is active. Once neither is active, the next launcher
+may delete obsolete generations; it keeps the selected version, its
+predecessor, and the untouched original package. The legacy rename journal
+is not used for new installations; its rollback remains retryable on error.
 
 **When it only links.** The notice says why: installing switched off, a
 development build, a folder this user cannot write (the client never asks

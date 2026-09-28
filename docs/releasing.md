@@ -8,7 +8,8 @@ A tag `v<version>` on a commit that `ci` passed on makes
 `.github/workflows/release.yml` publish a GitHub Release. The release has one
 archive per desktop target (Linux, Windows x86_64/aarch64 and macOS aarch64),
 each with a `.sha256` and a signature (`.sig`, §"Signing") beside it. Every
-archive holds the client, `assets/` (the fonts load from there at run time,
+archive holds a permanent launcher (`baylee-client` / `baylee-client.exe`),
+the real client (`baylee-runtime` / `baylee-runtime.exe`), `assets/` (the fonts load from there at run time,
 together with their licences),
 `LICENSE`, `NOTICE` and a `README.txt`. `scripts/package-client.sh` builds the
 archive and also runs locally.
@@ -97,3 +98,61 @@ The seed never enters the repository, a log or an issue.
 
 A key that leaked is removed from the list at once instead, and players on
 older builds update by hand once.
+
+## Desktop launcher and recovery
+
+`package-client.sh` requires both the Bevy client and `baylee-launch` in
+its input directory. The release workflow builds both with the dist profile.
+On macOS both live in `Baylee.app/Contents/MacOS`; `CFBundleExecutable`
+continues to name `baylee-client`, now the launcher. The runtime is signed
+before the enclosing bundle. Automatic updates never alter this original
+bundle, its resource seal, or the normal launch executable.
+
+The launcher stores each user's state under `$XDG_STATE_HOME/baylee` (or
+`$HOME/.local/state/baylee`) on Unix and `$LOCALAPPDATA/baylee` on Windows.
+A hash of the canonical installed launch path isolates installations.
+Moving or renaming the original package starts a separate state directory.
+The original client always remains in the package; downloaded complete
+release trees live in `versions/<UUIDv7>` in the state directory.
+
+The archive's **signed internal root name** must exactly equal the expected
+`baylee-client-<version>-<target>` name. A valid signature for another release
+or CPU architecture is insufficient. Checksums and release metadata alone
+cannot establish that identity.
+
+`activation.json` records intent before the staged tree moves. Files are
+flushed, the whole tree is renamed into a new generation, and `current.json`
+is atomically replaced to select it. The permanent launcher resumes pending
+activation before starting a client. If recovery cannot finish, it retains
+its intent and payload and starts the previously selected client. The
+original launch path is never part of the transaction. These guarantees
+cover process termination; hardware/power-loss durability also depends on
+the filesystem (directory flushes are best effort, unavailable via this
+implementation on Windows).
+
+Permanent OS file locks serialize mutations. An admission lock and shared
+lifetime leases in both launcher and client prevent simultaneous launches,
+including when a launcher is killed but its child remains alive. A session
+token rejects a late child of a superseded launcher. Only while holding an
+exclusive lifetime lease does the launcher prune old generations; it keeps
+the selected generation and its predecessor. Cleanup failures are retried
+at the next launch. The untouched original package is retained separately.
+A read-only original installation still starts, including an already selected
+payload, but its session disables automatic installation. A directly started
+runtime also cannot auto-install; use the normal packaged launch path.
+
+The old rename journal code remains for explicit legacy recovery. Rollback
+has a persisted direction and progress; failed reverse renames retain the
+journal and required files, and neither staging nor a new legacy transaction
+may erase an outstanding recovery. It is no longer the native installation
+path. Packages predating the launcher must be replaced manually once; a
+launcher protocol change likewise requires a new manual package for now.
+
+Focused regressions: `cargo test -p baylee-update --all-targets` includes
+actual launcher/runtime subprocesses, killed activation processes,
+concurrent activation and startup, an orphaned runtime, read-only Unix
+installations, bounded cleanup, signed version/architecture replay, and
+retryable legacy rollback. Run this on each desktop OS. Before release,
+additionally smoke-test the real packaged Bevy app via Finder/Explorer/the
+normal Linux entry, since a test runtime cannot prove GUI activation,
+platform security dialogs, or the macOS bundle's runtime behavior.

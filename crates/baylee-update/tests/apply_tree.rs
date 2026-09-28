@@ -75,8 +75,8 @@ fn each_system_is_replaced_by_its_new_tree() {
         assert_eq!((told.from.as_str(), told.to.as_str()), (OLD, NEWER));
         assert_eq!(apply::take_applied(&install), None);
         assert!(
-            !install.stage().exists(),
-            "{os:?}: the staging directory stays"
+            install.stage().join("mutation.lock").exists(),
+            "{os:?}: the permanent lock must stay"
         );
     }
 }
@@ -170,7 +170,13 @@ fn a_crash_after_any_step_is_finished_at_the_next_start() {
                     // The rename happened; the process died before the
                     // journal said so.
                     let step = &journal.steps[done];
-                    let at = |rel: &[String]| rel.iter().fold(base.clone(), |p, s| p.join(s));
+                    let at = |rel: &[String]| {
+                        if rel.first().is_some_and(|s| s == STAGE) {
+                            rel[1..].iter().fold(install.stage(), |p, s| p.join(s))
+                        } else {
+                            rel.iter().fold(base.clone(), |p, s| p.join(s))
+                        }
+                    };
                     std::fs::rename(at(&step.from), at(&step.to)).unwrap();
                 }
                 let recovered = apply::recover(&install);
@@ -216,7 +222,7 @@ fn a_crash_that_cannot_be_finished_is_rolled_back_to_the_old_client() {
             assert_eq!(snapshot(&base), expected(&old), "{os:?} after {done} steps");
             assert_eq!(apply::failed(&install).unwrap().version, NEWER);
             assert_eq!(apply::staged(&install), None);
-            assert!(!base.join(STAGE).join("journal.json").exists());
+            assert!(!install.stage().join("journal.json").exists());
         }
     }
 }
@@ -302,4 +308,51 @@ fn an_unwritable_folder_is_reported() {
     assert!(!install.stage().exists());
     std::fs::set_permissions(&base, std::fs::Permissions::from_mode(0o755)).unwrap();
     assert!(install.writable().is_ok());
+}
+
+#[test]
+fn rollback_failure_retains_journal_and_payload_until_a_retry_succeeds() {
+    let (base, install, old) = installed(Os::Linux, OLD, "rollback-retry");
+    stage(&install);
+    let mut journal = Journal::begin(&install, OLD).unwrap();
+    journal.step(&install).unwrap(); // LICENSE -> LICENSE.old
+    journal.step(&install).unwrap(); // new/LICENSE -> LICENSE
+    // Force rollback, then obstruct its first reverse rename.
+    std::fs::remove_file(install.stage().join(NEW).join("baylee-client")).unwrap();
+    let obstruction = install.stage().join(NEW).join("LICENSE");
+    std::fs::write(&obstruction, "obstruction").unwrap();
+    assert_eq!(apply::recover(&install), Recovery::Deferred);
+    let path = install.stage().join("journal.json");
+    let saved: Journal = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert!(saved.rolling_back);
+    assert_eq!(saved.done, 2);
+    assert!(install.stage().join(NEW).exists());
+    assert!(base.join("LICENSE.old").exists());
+    std::fs::remove_file(obstruction).unwrap();
+    assert_eq!(apply::recover(&install), Recovery::RolledBack);
+    assert!(!path.exists());
+    assert_eq!(snapshot(&base), expected(&old));
+}
+
+#[test]
+fn crash_after_reverse_rename_before_recording_it_resumes_rollback() {
+    let (base, install, old) = installed(Os::Linux, OLD, "rollback-crash");
+    stage(&install);
+    let mut journal = Journal::begin(&install, OLD).unwrap();
+    journal.step(&install).unwrap();
+    journal.step(&install).unwrap();
+    journal.rolling_back = true;
+    std::fs::write(
+        install.stage().join("journal.json"),
+        serde_json::to_vec(&journal).unwrap(),
+    )
+    .unwrap();
+    // The first reverse rename happened, its counter write did not.
+    std::fs::rename(
+        base.join("LICENSE"),
+        install.stage().join(NEW).join("LICENSE"),
+    )
+    .unwrap();
+    assert_eq!(apply::recover(&install), Recovery::RolledBack);
+    assert_eq!(snapshot(&base), expected(&old));
 }

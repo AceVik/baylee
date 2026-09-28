@@ -298,8 +298,20 @@ impl Checker {
         let version = offer.version.to_string();
         // One stager per directory; the service is the only caller, so a
         // claim already held means a check is still running.
-        let _claim = apply::Claim::take(install.stage())
-            .ok_or_else(|| Manual::Download("a check is already staging".into()))?;
+        let _claim = apply::Claim::take(&install.stage()).map_err(|err| {
+            if err.kind() == io::ErrorKind::WouldBlock {
+                Manual::Download("another process owns the update directory".into())
+            } else {
+                Manual::NotWritable(err.to_string())
+            }
+        })?;
+        if install.stage().join("journal.json").exists()
+            || install.stage().join("activation.json").exists()
+        {
+            return Err(Manual::Download(
+                "installation recovery must finish first".into(),
+            ));
+        }
         if let Some(failed) = apply::failed(install)
             && failed.version == version
         {
@@ -348,7 +360,20 @@ impl Checker {
         drop(bytes);
 
         let unpacked = stage.join("unpack");
-        let result = unpack_into_new(&archive_path, format, &unpacked, &stage.join(NEW), install);
+        let expected_root = files
+            .archive
+            .name
+            .strip_suffix(".tar.gz")
+            .or_else(|| files.archive.name.strip_suffix(".zip"))
+            .ok_or(Manual::NoArchive)?;
+        let result = unpack_into_new(
+            &archive_path,
+            format,
+            &unpacked,
+            &stage.join(NEW),
+            install,
+            expected_root,
+        );
         let _ = fs::remove_file(&archive_path);
         let _ = fs::remove_dir_all(&unpacked);
         if let Err(err) = result {
@@ -452,6 +477,7 @@ fn unpack_into_new(
     unpacked: &Path,
     new: &Path,
     install: &Install,
+    expected_root: &str,
 ) -> io::Result<()> {
     let _ = fs::remove_dir_all(unpacked);
     fs::create_dir_all(unpacked)?;
@@ -464,6 +490,11 @@ fn unpack_into_new(
         (Some(top), true) if top.path().is_dir() => top.path(),
         _ => return Err(io::Error::other("the archive is not one folder")),
     };
+    if top.file_name().and_then(|name| name.to_str()) != Some(expected_root) {
+        return Err(io::Error::other(
+            "signed archive version/target does not match the offer",
+        ));
+    }
     if !top.join(install.os.program()).exists() {
         return Err(io::Error::other(format!(
             "the archive has no {}",

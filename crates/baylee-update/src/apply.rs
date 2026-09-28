@@ -1,7 +1,11 @@
-//! Replacing the installation, under a journal.
+//! Legacy rename-journal recovery and shared staging primitives.
+//!
+//! New native installs use [`crate::launch`], which keeps a permanent launch
+//! path. These legacy renames require an independently runnable recovery
+//! caller; they do not themselves keep the normal executable path present.
 //!
 //! The steps are [`plan`](crate::plan::plan)'s renames. Before the first
-//! one the whole list is written to `<base>/.baylee-update/journal.json`,
+//! one the whole list is written to the installation state directory as `journal.json`,
 //! and after each one the count done is written again; every write goes to
 //! a temporary file that is renamed over the journal, so the journal is
 //! always one whole version or the other.
@@ -11,9 +15,9 @@
 //! checked on the disk: if its source is gone and its target is there, it
 //! happened. From there the update is **finished** when every remaining
 //! step can still be done (its source there, its target free), and **rolled
-//! back** otherwise, each done step renamed back. Both leave a program in
-//! place: the new one, or the old one. Which of the two binaries runs the
-//! recovery does not matter; both carry this code.
+//! back** otherwise. Rollback direction and progress are durable too; an
+//! error leaves the journal and payload for a later retry, rather than
+//! claiming that restoration succeeded.
 //!
 //! The files beside the journal:
 //!
@@ -30,35 +34,38 @@ use std::fs;
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
 
-/// The staging directories an update is being staged into right now.
-///
-/// Claimed while an update is downloaded and unpacked, and asked for (never
-/// waited for) before one is applied: a client closed in the middle of a
-/// download leaves it unfinished rather than installing a tree that is
-/// still being written. A staging directory belongs to one process, so a
-/// process-wide set is the whole of it; per directory, so two tests in one
-/// process do not wait on each other.
-static STAGING: std::sync::Mutex<BTreeSet<PathBuf>> = std::sync::Mutex::new(BTreeSet::new());
-
-/// A claim on one staging directory, released when dropped.
-pub(crate) struct Claim(PathBuf);
-
-impl Claim {
-    /// Claims `stage`, or `None` while it is claimed already.
-    pub(crate) fn take(stage: PathBuf) -> Option<Self> {
-        let mut busy = STAGING
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        busy.insert(stage.clone()).then_some(Self(stage))
-    }
+/// An OS-backed claim. The lock file is permanent: unlinking it would let
+/// another process lock a different inode while the first still owns it.
+pub(crate) struct Claim {
+    _file: fs::File,
 }
 
-impl Drop for Claim {
-    fn drop(&mut self) {
-        STAGING
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .remove(&self.0);
+impl Claim {
+    pub(crate) fn wait(stage: &Path, name: &str) -> io::Result<Self> {
+        fs::create_dir_all(stage)?;
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(stage.join(name))?;
+        file.lock()?;
+        Ok(Self { _file: file })
+    }
+    pub(crate) fn take(stage: &Path) -> io::Result<Self> {
+        Self::named(stage, "mutation.lock")
+    }
+
+    pub(crate) fn named(stage: &Path, name: &str) -> io::Result<Self> {
+        fs::create_dir_all(stage)?;
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(stage.join(name))?;
+        file.try_lock().map_err(io::Error::from)?;
+        Ok(Self { _file: file })
     }
 }
 
@@ -68,8 +75,11 @@ const APPLIED: &str = "applied.json";
 const FAILED: &str = "failed.json";
 
 /// Where the running client is installed.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Install {
+    /// Launcher-managed per-user state; legacy callers stage beside the app.
+    #[serde(default)]
+    pub state: Option<PathBuf>,
     /// The system, which picks the plan.
     pub os: Os,
     /// The folder the archive was unpacked into ([`crate::plan`]).
@@ -82,6 +92,10 @@ pub struct Install {
 /// Why the running client cannot be updated where it is.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Unplaceable {
+    /// The original installation is read-only; launch normally, link updates.
+    ReadOnly,
+    /// Started without the permanent launcher; no installation lease.
+    NotLaunched,
     /// On macOS, a program that is not inside a `.app` bundle (a
     /// development build started by `cargo run`).
     NotABundle,
@@ -97,6 +111,8 @@ pub enum Unplaceable {
 impl std::fmt::Display for Unplaceable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
+            Self::ReadOnly => "the installation is read-only",
+            Self::NotLaunched => "start the client through its packaged launcher to update",
             Self::NotABundle => "the program is not inside an app bundle",
             Self::Translocated => "macOS runs this app from a read-only copy (App Translocation)",
             Self::NoFolder => "the program has no folder",
@@ -115,12 +131,22 @@ impl Install {
     ///
     /// [`Unplaceable`] when there is no installation to replace.
     pub fn around(exe: &Path, os: Os) -> Result<Self, Unplaceable> {
+        if os == Os::MacOs && exe.to_string_lossy().contains("/AppTranslocation/") {
+            return Err(Unplaceable::Translocated);
+        }
+        Self::around_launcher(exe, os)
+    }
+
+    /// Locate the original package even under macOS App Translocation.
+    /// The launcher may start a read-only package; its session separately
+    /// disables installation. The updater's [`Self::around`] stays strict.
+    ///
+    /// # Errors
+    /// A malformed package layout or missing parent directory.
+    pub fn around_launcher(exe: &Path, os: Os) -> Result<Self, Unplaceable> {
         let name = |p: &Path| p.file_name().map(|n| n.to_string_lossy().into_owned());
         match os {
             Os::MacOs => {
-                if exe.to_string_lossy().contains("/AppTranslocation/") {
-                    return Err(Unplaceable::Translocated);
-                }
                 let macos = exe.parent().ok_or(Unplaceable::NoFolder)?;
                 let contents = macos.parent().ok_or(Unplaceable::NotABundle)?;
                 let bundle = contents.parent().ok_or(Unplaceable::NotABundle)?;
@@ -133,12 +159,14 @@ impl Install {
                     return Err(Unplaceable::NotABundle);
                 }
                 Ok(Self {
+                    state: None,
                     os,
                     base: bundle.parent().ok_or(Unplaceable::NoFolder)?.to_path_buf(),
                     program: name(bundle).ok_or(Unplaceable::NotABundle)?,
                 })
             }
             Os::Windows | Os::Linux => Ok(Self {
+                state: None,
                 os,
                 base: exe.parent().ok_or(Unplaceable::NoFolder)?.to_path_buf(),
                 program: name(exe).ok_or(Unplaceable::NoFolder)?,
@@ -146,13 +174,20 @@ impl Install {
         }
     }
 
-    /// `<base>/.baylee-update`.
+    /// Per-user launcher state, or `<base>/.baylee-update/<program>` for legacy callers.
     #[must_use]
     pub fn stage(&self) -> PathBuf {
-        self.base.join(STAGE)
+        self.state
+            .clone()
+            .unwrap_or_else(|| self.base.join(STAGE).join(&self.program))
     }
 
     fn at(&self, rel: &[String]) -> PathBuf {
+        if rel.first().is_some_and(|part| part == STAGE) {
+            return rel[1..]
+                .iter()
+                .fold(self.stage(), |path, part| path.join(part));
+        }
         rel.iter()
             .fold(self.base.clone(), |path, part| path.join(part))
     }
@@ -221,6 +256,9 @@ pub struct Journal {
     pub steps: Vec<Rename>,
     /// How many of them are known to be done.
     pub done: usize,
+    /// Rollback is itself a durable transaction, resumed after a crash.
+    #[serde(default)]
+    pub rolling_back: bool,
 }
 
 /// Why an update was not installed.
@@ -257,7 +295,7 @@ impl From<io::Error> for ApplyError {
 
 /// Writes `value` as JSON at `path` whole or not at all: a temporary file,
 /// flushed to disk, renamed over the old one.
-fn write_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
+pub(crate) fn write_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
     let tmp = path.with_extension("json.tmp");
     let mut file = fs::File::create(&tmp)?;
     file.write_all(&serde_json::to_vec_pretty(value).map_err(io::Error::other)?)?;
@@ -268,13 +306,13 @@ fn write_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
     Ok(())
 }
 
-fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
+pub(crate) fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
     serde_json::from_slice(&fs::read(path).ok()?).ok()
 }
 
 /// Makes a rename in `dir` durable. Best effort: a directory cannot be
 /// opened for this on Windows, whose renames are durable when they return.
-fn sync_dir(dir: &Path) {
+pub(crate) fn sync_dir(dir: &Path) {
     #[cfg(unix)]
     if let Ok(handle) = fs::File::open(dir) {
         let _ = handle.sync_all();
@@ -364,6 +402,7 @@ impl Journal {
             to: staged.version,
             steps,
             done: 0,
+            rolling_back: false,
         };
         write_json(&Self::path(install), &journal)?;
         Ok(journal)
@@ -401,25 +440,33 @@ impl Journal {
             .is_some_and(|step| !there(&install.at(&step.from)) && there(&install.at(&step.to)))
     }
 
-    /// Renames every done step back, newest first. Best effort: a step that
-    /// cannot be undone is left, and the rest are still tried.
-    fn roll_back(&mut self, install: &Install) {
+    /// Reverse steps durably; preserve all evidence on any failure.
+    fn roll_back(&mut self, install: &Install) -> io::Result<()> {
+        self.rolling_back = true;
+        write_json(&Self::path(install), self)?;
         while self.done > 0 {
-            self.done -= 1;
-            let step = &self.steps[self.done];
+            let step = &self.steps[self.done - 1];
             let (from, to) = (install.at(&step.from), install.at(&step.to));
             if there(&to) && !there(&from) {
                 // The staged tree may be gone (that is one reason to roll
                 // back): its folder is made again to move the new entry
                 // back into, so the old one's name is free.
                 if let Some(parent) = from.parent() {
-                    let _ = fs::create_dir_all(parent);
+                    fs::create_dir_all(parent)?;
                 }
-                let _ = fs::rename(&to, &from);
+                fs::rename(&to, &from)?;
+                sync_dir(to.parent().unwrap_or(&install.base));
+                sync_dir(from.parent().unwrap_or(&install.base));
+            } else if !there(&from) || there(&to) {
+                return Err(io::Error::other(
+                    "rollback paths are ambiguous; retained journal",
+                ));
             }
+            self.done -= 1;
+            write_json(&Self::path(install), self)?;
         }
         sync_dir(&install.base);
-        let _ = fs::remove_file(Self::path(install));
+        fs::remove_file(Self::path(install))
     }
 
     /// Records the update as finished and clears the staging directory of
@@ -447,16 +494,24 @@ impl Journal {
 
 /// Installs the staged update. Called after the client's window closed.
 ///
-/// On any failure every done step is renamed back, the version is recorded
-/// as failed, and the old client is exactly as it was.
+/// On failure rollback is attempted. If a reverse step fails too, the
+/// journal and all recovery files remain; [`recover`] must retry before any
+/// new transaction. Native clients use [`crate::launch::activate`] instead.
 ///
 /// # Errors
 ///
 /// Why nothing was installed.
 pub fn apply(install: &Install, from: &str) -> Result<Applied, ApplyError> {
-    let Some(_claim) = Claim::take(install.stage()) else {
+    let _claim = Claim::take(&install.stage()).map_err(|err| {
+        if err.kind() == io::ErrorKind::WouldBlock {
+            ApplyError::Busy
+        } else {
+            ApplyError::Io(err)
+        }
+    })?;
+    if Journal::path(install).exists() {
         return Err(ApplyError::Busy);
-    };
+    }
     let version = staged(install).map(|s| s.version);
     let mut journal = match Journal::begin(install, from) {
         Ok(journal) => journal,
@@ -475,7 +530,7 @@ pub fn apply(install: &Install, from: &str) -> Result<Applied, ApplyError> {
             Ok(false) => break,
             Err(err) => {
                 let to = journal.to.clone();
-                journal.roll_back(install);
+                journal.roll_back(install)?;
                 mark_failed(install, &to, &err.to_string());
                 let _ = remove_any(&install.stage().join(NEW));
                 let _ = fs::remove_file(install.stage().join(STAGED));
@@ -489,6 +544,8 @@ pub fn apply(install: &Install, from: &str) -> Result<Applied, ApplyError> {
 /// What [`recover`] found.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Recovery {
+    /// Another updater owns the installation, or recovery needs a retry.
+    Deferred,
     /// No update was under way.
     Nothing,
     /// An interrupted update was finished.
@@ -501,18 +558,28 @@ pub enum Recovery {
 /// before anything reads a file of the installation.
 #[must_use]
 pub fn recover(install: &Install) -> Recovery {
+    let Ok(_claim) = Claim::take(&install.stage()) else {
+        return Recovery::Deferred;
+    };
     let Some(mut journal) = read_json::<Journal>(&Journal::path(install)) else {
-        return Recovery::Nothing;
+        return if Journal::path(install).exists() {
+            Recovery::Deferred
+        } else {
+            Recovery::Nothing
+        };
     };
     journal.done = journal.done.min(journal.steps.len());
-    if journal.done < journal.steps.len() && journal.looks_done(install, journal.done) {
+    if !journal.rolling_back
+        && journal.done < journal.steps.len()
+        && journal.looks_done(install, journal.done)
+    {
         journal.done += 1;
     }
     // Finish when every remaining source is still there; a step that then
     // fails anyway (its target taken, a permission) undoes them all.
     let finishable =
         (journal.done..journal.steps.len()).all(|i| there(&install.at(&journal.steps[i].from)));
-    if finishable {
+    if finishable && !journal.rolling_back {
         let mut ok = true;
         loop {
             match journal.step(install) {
@@ -529,7 +596,9 @@ pub fn recover(install: &Install) -> Recovery {
         }
     }
     let to = journal.to.clone();
-    journal.roll_back(install);
+    if journal.roll_back(install).is_err() {
+        return Recovery::Deferred;
+    }
     mark_failed(install, &to, "an interrupted update was undone");
     let _ = remove_any(&install.stage().join(NEW));
     let _ = fs::remove_file(install.stage().join(STAGED));
@@ -541,15 +610,14 @@ pub fn recover(install: &Install) -> Recovery {
 /// among it, now that it no longer runs) and the record itself.
 #[must_use]
 pub fn take_applied(install: &Install) -> Option<Applied> {
+    let _claim = Claim::take(&install.stage()).ok()?;
     let path = install.stage().join(APPLIED);
     let applied: Applied = read_json(&path)?;
     for aside in &applied.asides {
         let _ = remove_any(&install.at(aside));
     }
     let _ = fs::remove_file(&path);
-    // Nothing else is ours in there once an update finished; an empty
-    // directory is removed, anything else is left for the next check.
-    let _ = fs::remove_dir(install.stage());
+    // Keep the directory and its permanent lock inode.
     Some(applied)
 }
 

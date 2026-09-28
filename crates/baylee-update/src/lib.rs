@@ -13,16 +13,17 @@
 //!   staging directory, symlinks and executable bits kept.
 //! - [`plan`]: which renames replace an installation, per system, as a pure
 //!   function over names.
-//! - [`apply`]: doing those renames under a journal, so a crash half way
-//!   leaves a client that starts (the old one or the new one), and the next
-//!   start finishes or rolls back.
+//! - [`apply`]: staging records, OS-backed mutation claims, and retryable
+//!   legacy rename-journal recovery.
+//! - [`launch`]: a permanent entry executable, immutable payloads, atomic
+//!   activation and process lifetime coordination.
 //! - [`check`]: the HTTP half: asking GitHub, downloading, verifying,
 //!   staging.
 //! - [`service`]: the thread that checks at start and every six hours, and
 //!   never with automatic checks off.
 //!
 //! The client (`baylee-client/src/update/`) runs [`check`] on a thread of
-//! its own and [`apply`] after its window has closed. `docs/client.md`
+//! its own and [`launch::activate`] after its window has closed. `docs/client.md`
 //! §"Updating" is the design; `docs/releasing.md` §"Signing" the other end.
 
 /// The version type every function here takes.
@@ -34,6 +35,7 @@ pub use ed25519_dalek::VerifyingKey;
 pub mod apply;
 pub mod archive;
 pub mod check;
+pub mod launch;
 pub mod plan;
 pub mod release;
 pub mod service;

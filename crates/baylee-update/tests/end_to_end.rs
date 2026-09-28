@@ -28,6 +28,10 @@ fn stranger() -> SigningKey {
 /// How a release is published on the stub.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Publish {
+    /// Authentic old release relabelled as the advertised newer version.
+    WrongVersion,
+    /// Authentic same-OS release for another CPU relabelled as this target.
+    WrongArchitecture,
     /// Archive, `.sig` by the test key, `.sha256`.
     Signed,
     /// No `.sig` at all.
@@ -44,7 +48,14 @@ enum Publish {
 
 /// Serves a releases list with `NEWER` for `os` and its files.
 fn publish(stub: &Stub, os: Os, how: Publish) {
-    let (name, mut bytes) = support::archive(os, NEWER);
+    let name = baylee_update::release::archive_name(NEWER, support::target(os));
+    let (_, mut bytes) = match how {
+        Publish::WrongVersion => support::archive(os, OLD),
+        Publish::WrongArchitecture => {
+            support::archive_for_target(os, NEWER, "aarch64-unknown-linux-gnu")
+        }
+        _ => support::archive(os, NEWER),
+    };
     let signer = if how == Publish::SignedByAStranger {
         stranger()
     } else {
@@ -419,4 +430,15 @@ fn with_automatic_checks_on_it_asks_at_start_and_every_period() {
         "asked again after being switched off"
     );
     drop(service);
+}
+
+#[test]
+fn authentic_signatures_cannot_relabel_a_version_or_architecture() {
+    for how in [Publish::WrongVersion, Publish::WrongArchitecture] {
+        let why = refused(how, vec![test_key().verifying_key()]);
+        assert!(
+            matches!(why, Manual::Download(ref reason) if reason.contains("version/target")),
+            "{why:?}"
+        );
+    }
 }

@@ -17,11 +17,13 @@
 use super::{Asked, Shown, UpdateNotice, UpdatePlugin, UpdatePrefs, UpdateRequest, Why};
 use baylee_update::apply::{self, Install, Recovery, Unplaceable};
 use baylee_update::check::{Context, GITHUB_RELEASES, Manual, Outcome};
+use baylee_update::launch;
 use baylee_update::plan::Os;
 use baylee_update::service::{self, Command, Service, Settings};
 use baylee_update::{VerifyingKey, Version, sign};
 use bevy::prelude::*;
 use std::sync::Mutex;
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Whether this build may replace itself: built by the release workflow,
@@ -101,6 +103,10 @@ impl Build {
     fn overrides(&mut self) {}
 }
 
+// Statics live until OS process teardown: clearing Bevy's world must not
+// release an orphaned runtime's lifetime lease while other destructors run.
+static CLIENT_LEASE: OnceLock<launch::ClientLease> = OnceLock::new();
+
 /// The thread's door, and what the exit needs.
 #[derive(Resource)]
 struct Updater {
@@ -118,10 +124,33 @@ pub struct NativeUpdatePlugin;
 impl Plugin for NativeUpdatePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(UpdatePlugin);
-        let Some(build) = Build::this() else {
+        let Some(mut build) = Build::this() else {
             warn!("updates: no archive exists for {}", baylee_build::TARGET);
             return;
         };
+        let lease = match launch::join() {
+            Ok(Some((install, lease))) => {
+                build.install = if lease.writable() {
+                    Ok(install)
+                } else {
+                    Err(Unplaceable::ReadOnly)
+                };
+                Some(lease)
+            }
+            Ok(None) => {
+                build.install = Err(Unplaceable::NotLaunched);
+                None
+            }
+            Err(err) => {
+                // A child of a killed launcher may have been superseded.
+                // It must stop before touching installation state.
+                eprintln!("updates: cannot join the launcher session: {err}");
+                std::process::exit(1);
+            }
+        };
+        if let Some(lease) = lease {
+            let _ = CLIENT_LEASE.set(lease);
+        }
         let prefs = *app.world().resource::<UpdatePrefs>();
         let notice = on_start(&build);
         app.insert_resource(notice);
@@ -146,11 +175,21 @@ pub fn on_start(build: &Build) -> UpdateNotice {
         return notice;
     };
     match apply::recover(install) {
+        Recovery::Deferred => {
+            warn!("updates: legacy recovery deferred; keeping its journal and files");
+            return notice;
+        }
         Recovery::Nothing => {}
         Recovery::Finished(applied) => {
             info!("updates: finished the interrupted update to {}", applied.to);
         }
         Recovery::RolledBack => warn!("updates: undid an interrupted update"),
+    }
+    if let Ok(Some(version)) = launch::take_updated(install) {
+        notice.shown = Some(Shown::Updated {
+            page: Some(release_page(&version)),
+            version,
+        });
     }
     if let Some(applied) = apply::take_applied(install) {
         info!("updates: updated from {} to {}", applied.from, applied.to);
@@ -289,7 +328,7 @@ fn why_of(manual: &Manual) -> Why {
     match manual {
         Manual::Off => Why::Off,
         Manual::DevBuild => Why::DevBuild,
-        Manual::NotWritable(_) => Why::Folder,
+        Manual::NotWritable(_) | Manual::Unplaceable(Unplaceable::ReadOnly) => Why::Folder,
         Manual::Unplaceable(Unplaceable::Translocated) => Why::MoveApp,
         Manual::Unsigned | Manual::NotOurs(_) => Why::NotVerified,
         Manual::NoArchive
@@ -347,8 +386,8 @@ pub(crate) fn exit_with(install: &Install, from: &str, allowed: bool, dev: bool)
             staged.version
         ));
     }
-    Some(match apply::apply(install, from) {
-        Ok(applied) => format!("installed {}; it starts next time", applied.to),
+    Some(match launch::activate(install, from) {
+        Ok(version) => format!("installed {version}; it starts next time"),
         Err(err) => format!("did not install {}: {err}", staged.version),
     })
 }

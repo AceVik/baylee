@@ -31,7 +31,7 @@ the pointers, because line numbers move.
 | Game record | Postgres, written by the gateway (#315) | without a time limit | nothing |
 | Crash file | the player's device, `crash-report.json` | until the next start sends or discards it | the client |
 | Update check (#326) | leaves a desktop client for `api.github.com` and GitHub's download hosts | GitHub's own terms | switching "Check for updates automatically" off |
-| Update choice and stage | the player's device: `update.json`; `.baylee-update/` beside the installation | until changed; the stage until the update is installed | the player; the client after installing |
+| Update choice and payloads | the player's device: `update.json`; per-user updater state (paths below) | choices until changed; active and previous payload retained; older payloads removed on a safe next launch | the player; the launcher when no runtime is using them |
 
 ## Accounts
 
@@ -375,9 +375,16 @@ decks and settings as JSON.
     (`update.json` beside the settings, per device, default on) turns every
     such request off; "Check for updates" then asks once. "Update
     automatically" (default on) decides only whether a download is
-    installed. The downloaded update waits in `.baylee-update/` beside the
-    installation until it is installed; a browser or phone build makes no
-    such request.
+    downloaded and installed. Updater state is under
+    `$XDG_STATE_HOME/baylee` (or `$HOME/.local/state/baylee`) on Unix and
+    `$LOCALAPPDATA/baylee` on Windows, in a directory keyed by a hash of the
+    canonical installed launch path. It holds the staged download, complete
+    versioned payloads, activation records, and local process-coordination
+    files. The selected payload and its predecessor remain; older payloads
+    are removed at a subsequent launch only when no runtime can use them.
+    Interrupted recovery keeps its records and required files until it can
+    finish. The original package stays untouched. None of this local state
+    is uploaded; a browser or phone build makes no updater request.
 - **No tracking:** no cookie is set by the gateway, no analytics or
   telemetry library is linked, and the CORS policy allows no credentials.
 

@@ -100,6 +100,12 @@ pub fn release_tree(os: Os, version: &str) -> Tree {
             );
         }
     }
+    let runtime = match os {
+        Os::MacOs => "Baylee.app/Contents/MacOS/baylee-runtime",
+        Os::Windows => "baylee-runtime.exe",
+        Os::Linux => "baylee-runtime",
+    };
+    tree.insert(runtime.into(), program(format!("runtime {version}")));
     if version.ends_with('3') {
         // A file only the newer release has, and (below) one only the
         // older one had, so "replaced" is told apart from "merged".
@@ -240,7 +246,11 @@ pub fn target(os: Os) -> &'static str {
 /// The archive the release workflow would publish for `os` at `version`:
 /// its name and bytes, the tree inside a versioned top folder.
 pub fn archive(os: Os, version: &str) -> (String, Vec<u8>) {
-    let target = target(os);
+    archive_for_target(os, version, target(os))
+}
+
+/// Make signed-content fixtures for an explicitly chosen architecture.
+pub fn archive_for_target(os: Os, version: &str, target: &str) -> (String, Vec<u8>) {
     let name = baylee_update::release::archive_name(version, target);
     let top = format!("baylee-client-{version}-{target}");
     let tree = release_tree(os, version);
