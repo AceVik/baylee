@@ -248,8 +248,12 @@ impl<L: CardLookup> Engine<L> {
             self.settle_copied_rules_text();
             // 0a. Continuous effects: sync statics with the battlefield and
             //    refresh characteristic caches (generation compare).
+            // `sync_static_effects` refreshes the projection it reads, so
+            // whether the effect set moved is asked before it as well.
+            let stale = self.state.characteristics_generation != self.state.effects.generation;
             self.sync_static_effects();
-            let moved = self.state.characteristics_generation != self.state.effects.generation;
+            let moved =
+                stale || self.state.characteristics_generation != self.state.effects.generation;
             self.state.refresh_characteristics();
             if self.state.award_enduring_stories() {
                 continue;
@@ -1336,7 +1340,7 @@ impl<L: CardLookup> Engine<L> {
             let Some(obj) = self.state.object(id) else {
                 return;
             };
-            let own = obj.abilities(&self.lookup);
+            let own = obj.printed_abilities(&self.lookup);
             let (mods, until_eot) = own
                 .iter()
                 .find_map(|a| match a {
@@ -1384,7 +1388,7 @@ impl<L: CardLookup> Engine<L> {
             let copied = self
                 .state
                 .object(target)
-                .map(|o| o.ability_list(&self.lookup));
+                .map(|o| o.printed_ability_list(&self.lookup));
             if let Some(copied) = copied
                 && let Some(obj) = self.state.object_mut(id)
             {
@@ -1474,7 +1478,7 @@ impl<L: CardLookup> Engine<L> {
         let Some(target_abilities) = self
             .state
             .object(target)
-            .map(|o| o.ability_list(&self.lookup))
+            .map(|o| o.printed_ability_list(&self.lookup))
         else {
             return;
         };
@@ -1694,6 +1698,19 @@ impl<L: CardLookup> Engine<L> {
         // registered on the pass that finds it true and removed on the pass
         // that finds it false. Both move the effect generation, which is the
         // projection's cache key, so no filter has to read the source.
+        //
+        // A permanent that has lost all its abilities (CR 613.1f) keeps only
+        // what its statics do in layers 1, 2, 4 and 5: those effects began
+        // before layer 6 took the abilities away and go on applying (CR
+        // 613.6). The rest — layer 6 on, and every rules effect parked in
+        // layer 3 — is gone with the ability, so it lapses like a static
+        // whose condition failed. (CR 613.6 also carries one ability's
+        // effect on into its later layers; the DSL writes each layer's part
+        // as a static of its own, so a printed ability that spans layer 4
+        // and layer 7 is not told apart here and loses its layer-7 part.) That reads the projection, so it is made
+        // current first: the effect that took the abilities may have been
+        // registered a moment ago.
+        self.state.refresh_characteristics();
         let ids: Vec<ObjectId> = self.state.zones.list(ZoneLocation::Battlefield).clone();
         let mut to_register = Vec::new();
         let mut lapsed = Vec::new();
@@ -1701,13 +1718,17 @@ impl<L: CardLookup> Engine<L> {
             let Some(obj) = self.state.object(id) else {
                 continue;
             };
-            for ability in obj.abilities(&self.lookup) {
+            let lost = obj.characteristics().abilities_lost.is_some();
+            for ability in obj.printed_abilities(&self.lookup) {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
                 };
                 let registered = self.state.effects.has_source_ability(id, sa.modifier);
-                if let Some(condition) = sa.condition
-                    && !crate::eval::condition_holds(&self.state, obj.controller, id, condition)
+                let gone_with_the_ability = lost && !outlives_its_ability(sa.layer);
+                if gone_with_the_ability
+                    || sa.condition.is_some_and(|condition| {
+                        !crate::eval::condition_holds(&self.state, obj.controller, id, condition)
+                    })
                 {
                     if registered {
                         lapsed.push((id, sa.modifier));
@@ -1744,9 +1765,9 @@ impl<L: CardLookup> Engine<L> {
             .iter()
             .map(|r| r.source)
             .filter(|s| {
-                self.state
-                    .object(*s)
-                    .is_none_or(|o| o.zone != Zone::Battlefield)
+                self.state.object(*s).is_none_or(|o| {
+                    o.zone != Zone::Battlefield || o.characteristics().abilities_lost.is_some()
+                })
             })
             .collect();
         self.state
@@ -1917,7 +1938,7 @@ impl<L: CardLookup> Engine<L> {
             || {
                 self.state
                     .object(t.source)
-                    .map_or(&[][..], |o| o.abilities(&self.lookup))
+                    .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
             },
             |list| list.abilities,
         )
@@ -2375,7 +2396,7 @@ impl<L: CardLookup> Engine<L> {
         let abilities = obj.own_abilities.unwrap_or_else(|| {
             self.state
                 .object(loc.source)
-                .map_or(&[][..], |o| o.abilities(&self.lookup))
+                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
         });
         let condition = match abilities.get(loc.index as usize) {
             Some(
@@ -2421,7 +2442,7 @@ impl<L: CardLookup> Engine<L> {
         let abilities = obj.own_abilities.unwrap_or_else(|| {
             self.state
                 .object(loc.source)
-                .map_or(&[][..], |o| o.abilities(&self.lookup))
+                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
         });
         match abilities.get(loc.index as usize)? {
             AbilityDef::Activated { targets, .. }
@@ -2465,7 +2486,7 @@ impl<L: CardLookup> Engine<L> {
         let abilities = obj.own_abilities.unwrap_or_else(|| {
             self.state
                 .object(loc.source)
-                .map_or(&[][..], |o| o.abilities(&self.lookup))
+                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
         });
         match abilities.get(loc.index as usize)? {
             AbilityDef::Activated { second_targets, .. }
@@ -2718,7 +2739,7 @@ impl<L: CardLookup> Engine<L> {
             let abilities = obj.own_abilities.unwrap_or_else(|| {
                 self.state
                     .object(loc.source)
-                    .map_or(&[][..], |o| o.abilities(&self.lookup))
+                    .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
             });
             let effects = if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
                 // Synthetic keyword trigger (prowess, ward): effects live
@@ -3137,7 +3158,7 @@ impl<L: CardLookup> Engine<L> {
         let printed = self
             .state
             .object(spell)
-            .map(|o| o.ability_list(&self.lookup));
+            .map(|o| o.printed_ability_list(&self.lookup));
         if let Some(obj) = self.state.object_mut(spell) {
             if obj.own_abilities.is_none()
                 && let Some(printed) = printed
@@ -3543,7 +3564,7 @@ impl<L: CardLookup> Engine<L> {
             .any(|o| {
                 o.ability.is_some_and(|loc| {
                     loc.source == source
-                        && o.abilities(&self.lookup)
+                        && o.printed_abilities(&self.lookup)
                             .get(loc.index as usize)
                             .is_some_and(|a| {
                                 matches!(a, baylee_cards_dsl::AbilityDef::SagaChapter { .. })
@@ -3560,7 +3581,7 @@ impl<L: CardLookup> Engine<L> {
         index != baylee_core::ids::AbilityRef::SYNTHETIC
             && self.state.object(source).is_some_and(|o| {
                 matches!(
-                    o.abilities(&self.lookup).get(index as usize),
+                    o.printed_abilities(&self.lookup).get(index as usize),
                     Some(baylee_cards_dsl::AbilityDef::SagaChapter { .. })
                 )
             })
@@ -4439,4 +4460,16 @@ fn forget_effects_on_moved_objects(state: &mut crate::state::GameState) {
                     if stale.contains(&(id, version)))
         });
     }
+}
+
+/// Whether a static ability's effect in `layer` goes on applying after the
+/// ability is gone (CR 613.6): the characteristic-changing layers before 6.
+/// Layer 3 is where rules effects are parked (`Modifier::layer`), and those
+/// are the ability itself, so they go with it.
+fn outlives_its_ability(layer: baylee_cards_dsl::Layer) -> bool {
+    use baylee_cards_dsl::Layer;
+    matches!(
+        layer,
+        Layer::Copy | Layer::Control | Layer::Type | Layer::Color
+    )
 }

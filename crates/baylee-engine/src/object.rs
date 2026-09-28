@@ -203,9 +203,32 @@ pub struct Characteristics {
     /// by an entry and says nothing about what the permanent does with it,
     /// so Reflecting Pool asks this before counting that colour as mana.
     pub produced_chosen: bool,
+    /// The timestamp of the latest effect under which this object lost all
+    /// its abilities (CR 613.1f), if one did; never a printed value.
+    ///
+    /// Not a characteristic either, and nothing a copy takes: layer 1 copies
+    /// from the target's copiable values, which no layer-6 effect reaches
+    /// (CR 707.2). It is what [`GameObject::abilities`] reads to answer with
+    /// nothing, and the timestamp is what lets a grant applied after it
+    /// still land (CR 613.7): `effects::applies_to` compares against it.
+    ///
+    /// A `NonZeroU32` so the `Option` is four bytes and fits the padding the
+    /// three flags above leave (`tests/footprint.rs`); a timestamp is never
+    /// zero, and a game four billion timestamps long saturates rather than
+    /// wraps (`lost_at`).
+    pub abilities_lost: Option<std::num::NonZeroU32>,
 }
 
 impl Characteristics {
+    /// The timestamp [`Self::abilities_lost`] stores for an effect's, which
+    /// is never zero; past `u32::MAX` it saturates, so a later effect never
+    /// sorts before an earlier one.
+    #[must_use]
+    pub fn lost_at(timestamp: u64) -> std::num::NonZeroU32 {
+        std::num::NonZeroU32::new(u32::try_from(timestamp).unwrap_or(u32::MAX))
+            .unwrap_or(std::num::NonZeroU32::MIN)
+    }
+
     /// Builds the base characteristics from a card definition face.
     #[must_use]
     #[allow(clippy::too_many_lines)] // the color scan is one flat table
@@ -367,6 +390,7 @@ impl Characteristics {
             produced_colors: produced,
             produced_chosen,
             produced_colorless,
+            abilities_lost: None,
         }
     }
 }
@@ -971,11 +995,23 @@ impl GameObject {
     }
 
     /// [`Self::abilities`] and [`Self::printed_face`] together — what an
-    /// ability put on the stack, or a copy made of this object, takes.
+    /// ability put on the stack, or a trigger, takes.
     #[must_use]
     pub fn ability_list(&self, lookup: &impl crate::state::CardLookup) -> AbilityList {
         AbilityList {
             abilities: self.abilities(lookup),
+            printed: self.printed_face(),
+        }
+    }
+
+    /// [`Self::printed_abilities`] and [`Self::printed_face`] together —
+    /// what a copy made of this object takes. A copy takes copiable values
+    /// (CR 707.2), and an effect that took the abilities away is not one of
+    /// them.
+    #[must_use]
+    pub fn printed_ability_list(&self, lookup: &impl crate::state::CardLookup) -> AbilityList {
+        AbilityList {
+            abilities: self.printed_abilities(lookup),
             printed: self.printed_face(),
         }
     }
@@ -1003,6 +1039,29 @@ impl GameObject {
     /// arm of this match rather than a sweep through the engine.
     #[must_use]
     pub fn abilities(
+        &self,
+        lookup: &impl crate::state::CardLookup,
+    ) -> &'static [baylee_cards_dsl::AbilityDef] {
+        // "Loses all abilities" (CR 613.1f): nothing to activate, nothing to
+        // trigger, nothing to register. What already left the object — an
+        // ability on the stack (CR 113.7a) — reads `printed_abilities`.
+        if self.characteristics().abilities_lost.is_some() {
+            return &[];
+        }
+        self.printed_abilities(lookup)
+    }
+
+    /// The abilities this object has before any layer-6 effect takes them
+    /// away: its card's (for its face), a token's definition's, or the list a
+    /// copy took (`own_abilities`).
+    ///
+    /// For every reader that is not asking what the object can do *now*: an
+    /// ability already on the stack resolving by its index (CR 113.7a), a
+    /// copy taking copiable values (CR 707.2), and a static ability's effects
+    /// in the layers before 6, which apply even once the ability is gone
+    /// (CR 613.6; `Engine::sync_static_effects` keeps those).
+    #[must_use]
+    pub fn printed_abilities(
         &self,
         lookup: &impl crate::state::CardLookup,
     ) -> &'static [baylee_cards_dsl::AbilityDef] {

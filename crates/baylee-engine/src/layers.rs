@@ -425,6 +425,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
             Modifier::AddKeyword(_)
                 | Modifier::RemoveKeyword(_)
                 | Modifier::LoseKeywords
+                | Modifier::LoseAllAbilities
                 | Modifier::AddKeywordIfCountersAtLeast { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
@@ -577,6 +578,10 @@ fn apply(
         Modifier::AddKeyword(k) => c.keywords = c.keywords.union(*k),
         Modifier::RemoveKeyword(k) => c.keywords = c.keywords.difference(*k),
         Modifier::LoseKeywords => c.keywords = KeywordSet::EMPTY,
+        Modifier::LoseAllAbilities => {
+            c.keywords = KeywordSet::EMPTY;
+            c.abilities_lost = Some(Characteristics::lost_at(fx.timestamp));
+        }
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::LegendRuleOff
         | Modifier::PlayLandsFromGraveyard

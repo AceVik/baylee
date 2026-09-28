@@ -81,8 +81,13 @@ pub enum Modifier {
     AddKeyword(KeywordSet),
     /// Removes keywords.
     RemoveKeyword(KeywordSet),
-    /// Removes all keyword abilities (Tishana's Tidebinder).
+    /// Removes all keyword abilities.
     LoseKeywords,
+    /// "Loses all abilities" (CR 613.1f): every ability the object has at
+    /// this point of layer 6, keywords and its printed activated, triggered
+    /// and static abilities alike (Tishana's Tidebinder, Oko, Thief of
+    /// Crowns). A grant applied later in layer 6 still lands (CR 613.7).
+    LoseAllAbilities,
     /// The legend rule doesn't apply to the effect's controller (Sakashima).
     LegendRuleOff,
     /// The effect's controller may play lands from their graveyard
@@ -393,6 +398,7 @@ impl Modifier {
             Self::AddKeyword(_)
             | Self::RemoveKeyword(_)
             | Self::LoseKeywords
+            | Self::LoseAllAbilities
             | Self::AddKeywordIfCountersAtLeast { .. }
             | Self::GrantActivated { .. }
             | Self::GrantsFlashback
@@ -645,6 +651,7 @@ mod tests {
             (Modifier::AddKeyword(KeywordSet::FLYING), Layer::Ability),
             (Modifier::RemoveKeyword(KeywordSet::FLYING), Layer::Ability),
             (Modifier::LoseKeywords, Layer::Ability),
+            (Modifier::LoseAllAbilities, Layer::Ability),
             (
                 Modifier::AddKeywordIfCountersAtLeast {
                     kind: crate::effect::CounterKind::Charge,

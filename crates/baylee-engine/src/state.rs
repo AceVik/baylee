@@ -974,6 +974,7 @@ impl GameState {
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
             produced_chosen: false,
+            abilities_lost: None,
         });
         Arc::make_mut(&mut self.bases)
             .bare
@@ -1015,6 +1016,7 @@ impl GameState {
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
             produced_chosen: false,
+            abilities_lost: None,
         });
         Arc::make_mut(&mut self.bases)
             .tokens
@@ -2785,6 +2787,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
         produced_colors,
         produced_colorless,
         produced_chosen,
+        abilities_lost,
     } = characteristics;
     name.hash(h);
     hash_mana_cost(h, mana_cost);
@@ -2800,6 +2803,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     produced_colors.hash(h);
     produced_colorless.hash(h);
     produced_chosen.hash(h);
+    abilities_lost.hash(h);
 }
 
 #[allow(clippy::too_many_lines)] // one line per field: the list is the guard
@@ -3951,6 +3955,9 @@ mod tests {
             }),
             ("produced_chosen", |s, id| {
                 fixture_object(s, id).base_mut().produced_chosen = true;
+            }),
+            ("abilities_lost", |s, id| {
+                fixture_object(s, id).base_mut().abilities_lost = std::num::NonZeroU32::new(7);
             }),
         ];
 

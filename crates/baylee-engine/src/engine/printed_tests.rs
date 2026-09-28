@@ -129,9 +129,10 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
             &[Field::Subtypes]
         }
         Modifier::AddColor(_) | Modifier::SetColor(_) => &[Field::Colors],
-        Modifier::AddKeyword(_) | Modifier::RemoveKeyword(_) | Modifier::LoseKeywords => {
-            &[Field::Keywords]
-        }
+        Modifier::AddKeyword(_)
+        | Modifier::RemoveKeyword(_)
+        | Modifier::LoseKeywords
+        | Modifier::LoseAllAbilities => &[Field::Keywords],
         Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
         | Modifier::SwitchPT

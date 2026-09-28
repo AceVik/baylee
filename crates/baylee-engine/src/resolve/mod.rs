@@ -2164,7 +2164,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         timestamp: ts,
                         duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
                         filter: crate::effects::EffectFilter::object(state, src),
-                        modifier: baylee_cards_dsl::Modifier::LoseKeywords,
+                        modifier: baylee_cards_dsl::Modifier::LoseAllAbilities,
                     });
                 }
             }

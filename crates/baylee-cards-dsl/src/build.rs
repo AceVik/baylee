@@ -1152,6 +1152,7 @@ mod tests {
             Modifier::AddKeyword(KeywordSet::HASTE),
             Modifier::RemoveKeyword(KeywordSet::HASTE),
             Modifier::LoseKeywords,
+            Modifier::LoseAllAbilities,
             Modifier::GrantsFlashback,
             Modifier::ProtectionFrom(&Filter::ARTIFACT),
             Modifier::GrantTriggered {
