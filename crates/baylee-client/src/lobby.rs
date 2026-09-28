@@ -102,7 +102,9 @@ impl Plugin for LobbyPlugin {
                     watch,
                     softkeys,
                     keyboard,
-                    clicks,
+                    // A press asks the clipboard or the disk; the ask is
+                    // answered in the same frame.
+                    (clicks, crate::buildui::transfer::act).chain(),
                     scrolls,
                     scrollbars::remember,
                     (hovers, hint::hint_hovers),
@@ -227,6 +229,9 @@ pub struct LobbyState {
     pub(crate) deck_actions_open: bool,
     pub(crate) completion: Option<usize>,
     pub(crate) completion_hidden: bool,
+    /// What the import and export dialogs asked of the clipboard and the
+    /// file system this frame, for `buildui::transfer::act` to carry out.
+    pub(crate) transfer_asks: Vec<crate::buildui::transfer::Ask>,
     pub(crate) commander_pick: Option<bool>, // false: primary; true: compatible partner
     /// Which half of the builder a phone is showing. Purely a matter of how
     /// much room there is, so it lives here and not in the state machine:
@@ -380,6 +385,7 @@ impl LobbyState {
             deck_actions_open: false,
             completion: None,
             completion_hidden: false,
+            transfer_asks: Vec::new(),
             commander_pick: None,
             pane: Pane::Cards,
             hub: Hub::Play,

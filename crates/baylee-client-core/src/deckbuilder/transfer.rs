@@ -20,7 +20,8 @@ use crate::i18n::{Lang, Phrase};
 use baylee_core::deckrow::Row;
 use baylee_deckio::document::CardError;
 use baylee_deckio::source::{Answer, Instruction, SourceId};
-use baylee_deckio::{Document, FormatId, Import, LossKind, Read, ReadError, Written};
+use baylee_deckio::{Document, Import, LossKind, Read, ReadError};
+pub use baylee_deckio::{FormatId, Written};
 
 /// The import or export dialog, whichever is open.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -696,4 +697,65 @@ fn loss_phrase(kind: LossKind) -> Phrase {
         LossKind::CollectorNumber => Phrase::LossCollectorNumber,
         LossKind::Maybeboard => Phrase::LossMaybeboard,
     }
+}
+
+/// The export as a `data:` URL, for a browser to download: what an anchor
+/// with a `download` name saves without the page holding a file of its own.
+///
+/// Percent-encoded byte by byte, every byte but the unreserved ones, so
+/// nothing in a card name or a note can end the URL or start a second one.
+#[must_use]
+pub fn data_url(media_type: &str, text: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = format!("data:{media_type};charset=utf-8,");
+    for byte in text.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            out.push(char::from(byte));
+        } else {
+            let _ = write!(out, "%{byte:02X}");
+        }
+    }
+    out
+}
+
+/// Writes an export into `dir` under `name`, never over a file that is
+/// already there: `Deck.txt`, then `Deck (2).txt`, and so on.
+///
+/// # Errors
+/// The file system's, when the folder cannot be made or the file written.
+pub fn save_to(
+    dir: &std::path::Path,
+    name: &str,
+    text: &str,
+) -> std::io::Result<std::path::PathBuf> {
+    use std::io::Write as _;
+    std::fs::create_dir_all(dir)?;
+    let path = std::path::Path::new(name);
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("deck");
+    let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("txt");
+    for n in 1..1000 {
+        let candidate = if n == 1 {
+            dir.join(format!("{stem}.{extension}"))
+        } else {
+            dir.join(format!("{stem} ({n}).{extension}"))
+        };
+        // `create_new` asks the file system, which is the one place the
+        // question "is it there" and the act "make it" cannot be raced.
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&candidate)
+        {
+            Ok(mut file) => {
+                file.write_all(text.as_bytes())?;
+                return Ok(candidate);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "a thousand exports of this deck are already there",
+    ))
 }

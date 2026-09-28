@@ -256,7 +256,10 @@ messages! {
     ExportDownloaded { en: "Downloading {0}", de: "{0} wird heruntergeladen" },
     /// Not saved. `{0}` the system's words.
     ExportSaveFailed { en: "Could not save the file: {0}", de: "Die Datei ließ sich nicht speichern: {0}" },
-    /// Destructive deck confirmation.
+    /// The import dialog's keys.
+    ImportKeys { en: "Ctrl/Cmd+V pastes · Enter imports · Esc closes", de: "Strg/Cmd+V fügt ein · Enter importiert · Esc schließt" },
+    /// The export dialog's keys.
+    ExportKeys { en: "← → format · Ctrl/Cmd+C copies · Ctrl/Cmd+S saves · Esc closes", de: "← → Format · Strg/Cmd+C kopiert · Strg/Cmd+S speichert · Esc schließt" },    /// Destructive deck confirmation.
     DeleteDeckQuestion { en: "Delete “{0}”?", de: "„{0}“ löschen?" },
     /// Destructive deck confirmation.
     ClearDeckQuestion { en: "Empty “{0}”?", de: "„{0}“ leeren?" },

@@ -26,6 +26,7 @@ use bevy::ui::{percent, px};
 pub(crate) mod autocomplete;
 pub(crate) mod print_picker;
 use print_picker::printing_picker;
+pub(crate) mod transfer;
 pub(crate) mod virtual_rows;
 
 /// The tallest a mana-curve bar gets, in logical pixels.
@@ -106,7 +107,7 @@ mod retained;
 pub(crate) use retained::Retained;
 
 /// The deck builder: the pool on one side, the deck on the other.
-#[allow(clippy::too_many_arguments)] // one screen: the tree, the state, the stores
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one screen: the tree, the state, the stores, its three dialogs
 pub(crate) fn builder(
     commands: &mut Commands,
     root: Entity,
@@ -215,7 +216,20 @@ pub(crate) fn builder(
         commands.entity(root).add_child(dialog);
         picker_node = Some(dialog);
     }
-    Retained::new(state, root, body, bar, deck_node, pool_node, picker_node)
+    let mut transfer_node = None;
+    if let Some(open) = deck.transfer() {
+        let dialog =
+            transfer::transfer_dialog(commands, fonts, metrics, lang, deck, open, scrolled_to);
+        commands.entity(root).add_child(dialog);
+        transfer_node = Some(dialog);
+    }
+    Retained::new(
+        state,
+        root,
+        body,
+        bar,
+        [deck_node, pool_node, picker_node, transfer_node],
+    )
 }
 
 /// The builder's top bar: out, what is being built, and save.
@@ -303,6 +317,23 @@ fn build_bar(
         true,
     );
     commands.entity(bar).add_child(settings);
+    // Import and export, beside the history: all three are about the deck
+    // as a whole rather than a card in it.
+    for (label, press) in [
+        (Phrase::ImportDeck, Press::OpenImport),
+        (Phrase::ExportDeck, Press::OpenExport),
+    ] {
+        let open = button(
+            commands,
+            fonts,
+            metrics,
+            label.text(lang),
+            press,
+            palette::PANEL_LIT,
+            !state.lobby.busy(),
+        );
+        commands.entity(bar).add_child(open);
+    }
     let mut history_hint = None;
     {
         let history = button(

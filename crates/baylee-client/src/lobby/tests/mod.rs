@@ -23,6 +23,7 @@ mod report;
 mod settings;
 mod sign_in;
 mod tables;
+mod transfer;
 
 #[allow(clippy::wildcard_imports)]
 use super::*;

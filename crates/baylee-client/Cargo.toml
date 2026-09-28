@@ -213,6 +213,9 @@ web-sys = { workspace = true, features = [
     "Document",
     "Element",
     "EventTarget",
+    # A deck export is saved as a download: an anchor with a `download`
+    # name and a `data:` URL, clicked once.
+    "HtmlAnchorElement",
     "HtmlElement",
     "HtmlInputElement",
     "KeyboardEvent",

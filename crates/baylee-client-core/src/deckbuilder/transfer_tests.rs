@@ -308,3 +308,25 @@ fn a_maybeboard_is_reported_not_kept() {
     assert_eq!(names(&b, Zone::Main), [("Forest".to_string(), 1)]);
     assert!(texts(&b.import_lines(Lang::En)).contains("Maybeboard rows not kept"));
 }
+
+#[test]
+fn a_data_url_carries_every_byte_and_ends_nowhere_early() {
+    let url = super::transfer::data_url("text/plain", "1 Jötun Grunt # a, b?\n");
+    assert_eq!(
+        url,
+        "data:text/plain;charset=utf-8,1%20J%C3%B6tun%20Grunt%20%23%20a%2C%20b%3F%0A"
+    );
+}
+
+#[test]
+fn a_saved_export_never_replaces_a_file_that_is_there() {
+    let dir = std::env::temp_dir().join(format!("baylee-export-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let first = super::transfer::save_to(&dir, "Deck.txt", "one").expect("saved");
+    let second = super::transfer::save_to(&dir, "Deck.txt", "two").expect("saved");
+    assert_eq!(first, dir.join("Deck.txt"));
+    assert_eq!(second, dir.join("Deck (2).txt"));
+    assert_eq!(std::fs::read_to_string(&first).unwrap(), "one");
+    assert_eq!(std::fs::read_to_string(&second).unwrap(), "two");
+    let _ = std::fs::remove_dir_all(&dir);
+}

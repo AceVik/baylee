@@ -291,7 +291,9 @@ pub(super) fn softkeys(
     // shared counter would open the keyboard on the way between the screens.
     if matches!(state.lobby.screen(), Screen::Build) || state.lobby.builder().picker().is_some() {
         let builder = state.lobby.builder();
-        if builder.picker().is_some_and(|p| !p.set_open()) {
+        // The import and export dialogs have no field; the phone keyboard
+        // stays down while one stands over the builder.
+        if builder.picker().is_some_and(|p| !p.set_open()) || builder.transfer().is_some() {
             keys.close();
             drop(keys.drain());
             *build_epoch = builder.focus_epoch();
@@ -495,6 +497,14 @@ pub(super) fn keyboard(
         if codes.just_pressed(KeyCode::Escape) && !state.lobby.library().loading {
             state.lobby.close_library();
         }
+        return;
+    }
+    // Before the platform's typing: the import and export dialogs take no
+    // text, only chords, and answer them the same everywhere.
+    if matches!(state.lobby.screen(), Screen::Build)
+        && super::editing::transfer_keys(&codes, &mut state, &mut scrolled)
+    {
+        keys.clear();
         return;
     }
     if SoftKeyboard::owns_typing() {
@@ -1321,9 +1331,11 @@ pub(super) fn clicks(
                 let request = state.lobby.play_offline();
                 dispatch(&mut state, &mailbox, request);
             }
-            // Game-over actions are handled by `leave_clicks`. An empty
-            // part of the artwork dialog dismisses its set autocomplete.
-            Press::Leave | Press::PlayAgain => {}
+            // Game-over actions are handled by `leave_clicks`; a press on
+            // the transfer dialog's panel only keeps it from reaching the
+            // shade behind. An empty part of the artwork dialog dismisses
+            // its set autocomplete.
+            Press::Leave | Press::PlayAgain | Press::TransferNothing => {}
             Press::PickerNothing => state.lobby.builder_mut().picker_close_sets(),
             Press::NewDeck => {
                 state.commander_pick = None;
@@ -1331,6 +1343,41 @@ pub(super) fn clicks(
                 let request = state.lobby.build_deck();
                 dispatch(&mut state, &mailbox, request);
             }
+            Press::ImportDeck => {
+                state.commander_pick = None;
+                state.pane = Pane::Deck;
+                let request = state.lobby.build_deck();
+                dispatch(&mut state, &mailbox, request);
+                if matches!(state.lobby.screen(), Screen::Build) {
+                    scrolled.set(List::Transfer, 0.0);
+                    state.lobby.builder_mut().open_import();
+                }
+            }
+            Press::OpenImport => {
+                scrolled.set(List::Transfer, 0.0);
+                state.lobby.builder_mut().open_import();
+            }
+            Press::OpenExport => {
+                scrolled.set(List::Transfer, 0.0);
+                state.lobby.builder_mut().open_export();
+            }
+            Press::TransferClose => state.lobby.builder_mut().close_transfer(),
+            Press::ImportPaste => state
+                .transfer_asks
+                .push(crate::buildui::transfer::Ask::Paste),
+            Press::ImportClear => state.lobby.builder_mut().import_clear(),
+            Press::ImportTake => {
+                let lang = state.lobby.lang();
+                state.lobby.builder_mut().import_confirm(lang);
+                scrolled.set(List::Deck, 0.0);
+            }
+            Press::ExportFormat(format) => state.lobby.builder_mut().export_choose(format),
+            Press::ExportCopy => state
+                .transfer_asks
+                .push(crate::buildui::transfer::Ask::Copy),
+            Press::ExportSave => state
+                .transfer_asks
+                .push(crate::buildui::transfer::Ask::Save),
             Press::EditDeck(index) => {
                 state.commander_pick = None;
                 state.pane = Pane::Deck;
@@ -1591,6 +1638,8 @@ pub(crate) enum List {
     PickerSets,
     PickerPanel,
     Settings,
+    /// The import or export dialog.
+    Transfer,
 }
 
 /// Where each list was left, across rebuilds of the node tree.
@@ -1610,6 +1659,7 @@ pub(crate) struct Scrolled {
     library: f32,
     picker_panel: f32,
     settings: f32,
+    transfer: f32,
 }
 
 impl Scrolled {
@@ -1624,6 +1674,7 @@ impl Scrolled {
             List::Library => self.library,
             List::PickerPanel => self.picker_panel,
             List::Settings => self.settings,
+            List::Transfer => self.transfer,
         }
     }
 
@@ -1638,6 +1689,7 @@ impl Scrolled {
             List::Library => self.library = at,
             List::PickerPanel => self.picker_panel = at,
             List::Settings => self.settings = at,
+            List::Transfer => self.transfer = at,
         }
     }
 }
@@ -2006,6 +2058,29 @@ pub(crate) enum Press {
     SetRail(baylee_client_core::automation::RailPreset),
     /// Open the builder on a new deck.
     NewDeck,
+    /// Open the builder on a new deck with the import dialog over it.
+    ImportDeck,
+    /// Open the import dialog over the builder.
+    OpenImport,
+    /// Open the export dialog over the builder.
+    OpenExport,
+    /// Put the import or export dialog away.
+    TransferClose,
+    /// Nothing: carried by the dialog's own panel, so a tap inside it is not
+    /// also a tap on the shade behind it.
+    TransferNothing,
+    /// Read the clipboard into the import box.
+    ImportPaste,
+    /// Empty the import box.
+    ImportClear,
+    /// Take the read deck into the builder.
+    ImportTake,
+    /// Show the export in this format.
+    ExportFormat(baylee_client_core::deckbuilder::transfer::FormatId),
+    /// Put the export on the clipboard.
+    ExportCopy,
+    /// Save the export as a file.
+    ExportSave,
     /// Open the builder on a saved deck, by its index in the list.
     EditDeck(usize),
     /// Throw a saved deck away, by its index in the list.
