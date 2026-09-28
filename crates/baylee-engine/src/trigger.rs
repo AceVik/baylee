@@ -149,7 +149,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                     continue;
                 }
                 for entry in events {
-                    if matches(trigger, &entry.event, state, emblem, obj.controller) {
+                    if matches(trigger, &entry.event, events, state, emblem, obj.controller) {
                         let times = trigger_count(state, trigger, emblem, obj.controller)
                             * repeats(&entry.event);
                         let event_object = event_object_of(&entry.event);
@@ -613,7 +613,14 @@ fn collect_for_objects(
                 continue;
             }
             for entry in events {
-                if matches(trigger, &entry.event, state, permanent, obj.controller) {
+                if matches(
+                    trigger,
+                    &entry.event,
+                    events,
+                    state,
+                    permanent,
+                    obj.controller,
+                ) {
                     let event_object = event_object_of(&entry.event);
                     let times = trigger_count(state, trigger, permanent, obj.controller)
                         * repeats(&entry.event);
@@ -694,7 +701,14 @@ fn collect_for_objects(
                 continue;
             }
             for entry in events {
-                if matches(trigger, &entry.event, state, permanent, obj.controller) {
+                if matches(
+                    trigger,
+                    &entry.event,
+                    events,
+                    state,
+                    permanent,
+                    obj.controller,
+                ) {
                     let times = trigger_count(state, trigger, permanent, obj.controller)
                         * repeats(&entry.event);
                     let event_object = event_object_of(&entry.event);
@@ -846,6 +860,7 @@ fn times_triggered(
 fn matches(
     trigger: &Trigger,
     event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
     state: &GameState,
     source: ObjectId,
     you: PlayerId,
@@ -949,6 +964,16 @@ fn matches(
         (Trigger::Attacks(filter), GameEvent::BecameAttacker { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        (Trigger::AttacksAlone(filter), GameEvent::BecameAttacker { object, .. }) => {
+            batch
+                .iter()
+                .filter(|entry| matches!(entry.event, GameEvent::BecameAttacker { .. }))
+                .count()
+                == 1
+                && state
+                    .object(*object)
+                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
         (Trigger::DrawsExceptFirst(rel), GameEvent::CardsDrawn { player, .. }) => {
             let count = state
                 .per_turn

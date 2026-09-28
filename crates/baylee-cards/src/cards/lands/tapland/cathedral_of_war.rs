@@ -18,36 +18,14 @@ card!(
     ),],
     coverage = Coverage::Implemented,
     abilities = &[
-        // Exalted (CR 702.83a): "Whenever a creature you control attacks
-        // alone, that creature gets +1/+1 until end of turn."
-        //
-        // "Attacks alone" is the only creature *declared* as an attacker
-        // (CR 702.83b, CR 506.5), and the only spelling for it is an
-        // intervening `if` on the attack trigger: you control at most one
-        // attacking creature. CR 603.4 asks that again on resolution, where
-        // exalted does not — but in this engine a creature becomes attacking
-        // only by being declared (`declare_attackers` is the one writer of
-        // `combat.attackers`; everything else removes), so the count can only
-        // fall between the two checks and the second cannot fail where the
-        // first held. The day something is put onto the battlefield
-        // attacking (CR 508.4), this spelling is wrong and exalted needs a
-        // trigger of its own. Grasping Shadows asks the same question the
-        // same way.
-        //
-        // "That creature" is the event object (no target is chosen,
-        // CR 115.10a), which `Filter::This` resolves to.
         triggered!(
-            Trigger::Attacks(&Filter::YOUR_CREATURE),
+            Trigger::AttacksAlone(&Filter::YOUR_CREATURE),
             &[Effect::continuous(
                 &Filter::This,
                 Modifier::ModifyPT(1, 1),
                 Duration::UntilEndOfTurn
             )],
             targets = Some(TargetReq::one(TargetSpec::EventObject)),
-            condition = Some(Condition::ControlCountAtMost(
-                &Filter::ATTACKING_CREATURE,
-                1
-            )),
         ),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],

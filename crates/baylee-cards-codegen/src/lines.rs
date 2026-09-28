@@ -562,6 +562,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::BecomesTapped(_) => &["tap"],
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
         T::Attacks(_) => &["attack"],
+        T::AttacksAlone(_) => &["exalted", "attacks alone"],
         // The step, not the word "beginning" — every one of these sentences
         // opens with it, so on its own it says nothing and a card printing
         // two of them was a coin toss. Mana Vault prints an upkeep sentence
@@ -645,6 +646,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::LeavesBattlefield(filter)
         | Trigger::Dies(filter)
         | Trigger::Attacks(filter)
+        | Trigger::AttacksAlone(filter)
         | Trigger::BecomesTapped(filter)
         | Trigger::ExiledFromBattlefield(filter)
         | Trigger::DealsCombatDamageToPlayer(filter)

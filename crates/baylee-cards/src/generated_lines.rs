@@ -19949,8 +19949,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Noble Hierarch
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -35682,8 +35682,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Ignoble Hierarch
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), None],
         modes: &[],
         alternatives: &[],
     }],

@@ -14007,10 +14007,10 @@ fn ignoble_hierarch() -> CardIndex {
 
 /// `Ignoble Hierarch` prints `Exalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)` and `{{T}}: Add {{B}}, {{R}}, or {{G}}.`
 ///
-/// Marked `Coverage::Partial`, activating its printed mana ability prompts via `Pending::ChooseColor` with `ManaColor::Black`, `ManaColor::Red`, and `ManaColor::Green`, producing the chosen mana and tapping `Ignoble Hierarch`.
-/// When a controlled `young_wolf()` attacks alone, Exalted is omitted under `Coverage::Partial`, leaving its body at 1/1.
+/// Activating its printed mana ability prompts via `Pending::ChooseColor` with `ManaColor::Black`, `ManaColor::Red`, and `ManaColor::Green`, producing the chosen mana and tapping `Ignoble Hierarch`.
+/// When a controlled `young_wolf()` attacks alone, exalted makes it 2/2 for the turn.
 #[test]
-fn ignoble_hierarch_produces_mana_choice_and_omits_exalted() {
+fn ignoble_hierarch_produces_mana_choice_and_exalts_the_lone_attacker() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
@@ -14059,9 +14059,55 @@ fn ignoble_hierarch_produces_mana_choice_and_omits_exalted() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
         pt(&engine, wolf),
-        (1, 1),
-        "under `Coverage::Partial` exalted is omitted, attacker receives no pump"
+        (2, 2),
+        "exalted gives the lone attacker +1/+1"
     );
+}
+
+#[test]
+fn exalted_stacks_in_multiplayer_but_not_when_attacking_two_opponents() {
+    let me = PlayerId::new(0);
+    for alone in [true, false] {
+        let mut engine = Duel::table(928, forest(), 3)
+            .battlefield(
+                0,
+                &[
+                    ignoble_hierarch(),
+                    noble_hierarch(),
+                    cathedral_of_war(),
+                    young_wolf(),
+                    llanowar_elves(),
+                ],
+            )
+            .start();
+        keep_mulligans(&mut engine);
+        assert!(walk_to_own_main(&mut engine, me));
+        let wolf = on_battlefield(&engine, me, young_wolf()).unwrap();
+        let elf = on_battlefield(&engine, me, llanowar_elves()).unwrap();
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseAttackers { .. })
+        });
+        let mut attackers = vec![(wolf, Defender::Player(PlayerId::new(1)))];
+        if !alone {
+            attackers.push((elf, Defender::Player(PlayerId::new(2))));
+        }
+        engine
+            .apply(me, PlayerAction::DeclareAttackers { attackers })
+            .unwrap();
+        assert_eq!(
+            engine.state().zones.list(ZoneLocation::Stack).len(),
+            if alone { 3 } else { 0 }
+        );
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(pt(&engine, wolf), if alone { (4, 4) } else { (1, 1) });
+        assert_eq!(pt(&engine, elf), (1, 1));
+        pass_until(&mut engine, |e| e.state().turn.active != me);
+        assert_eq!(
+            pt(&engine, wolf),
+            (1, 1),
+            "all three pumps expire at end of turn"
+        );
+    }
 }
 
 fn altered_ego() -> CardIndex {
@@ -14658,10 +14704,10 @@ fn noble_hierarch() -> CardIndex {
 
 /// `Noble Hierarch` prints `Exalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)` and `{{T}}: Add {{G}}, {{W}}, or {{U}}.`
 ///
-/// Marked `Coverage::Partial`, activating its printed mana ability prompts via `Pending::ChooseColor` with `ManaColor::Green`, `ManaColor::White`, and `ManaColor::Blue`, producing the chosen mana and tapping `Noble Hierarch`.
-/// When a controlled `young_wolf()` attacks alone, Exalted is omitted under `Coverage::Partial`, leaving its body at 1/1.
+/// Activating its printed mana ability prompts via `Pending::ChooseColor` with `ManaColor::Green`, `ManaColor::White`, and `ManaColor::Blue`, producing the chosen mana and tapping `Noble Hierarch`.
+/// When a controlled `young_wolf()` attacks alone, exalted makes it 2/2 for the turn.
 #[test]
-fn noble_hierarch_produces_mana_choice_and_omits_exalted() {
+fn noble_hierarch_produces_mana_choice_and_exalts_the_lone_attacker() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
@@ -14709,8 +14755,8 @@ fn noble_hierarch_produces_mana_choice_and_omits_exalted() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
         pt(&engine, wolf),
-        (1, 1),
-        "under `Coverage::Partial` exalted is omitted, attacker receives no pump"
+        (2, 2),
+        "exalted gives the lone attacker +1/+1"
     );
 }
 

@@ -6,6 +6,19 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-09-28 — Trigger scope and incomplete keyword implementations
+
+A death look-back must name a source that left in the current event batch;
+scanning every graveyard card made an old Marionette Apprentice drain for
+later deaths. Pair a simultaneous-death test with a later sacrifice. When
+multiple Opposition Agents exist, test reversed seat orders: storage order
+is not timestamp order. Exalted needs a declaration-time trigger, not an
+intervening-if condition checked again on resolution. Count declaration
+events, so a creature removed before trigger collection cannot turn a
+multi-creature attack into an attack alone. Update both Hierarchs and the
+existing Cathedral implementation together, retaining tests for their mana
+abilities and adding a three-player, three-instance exalted scenario.
+
 ## 2026-09-28 — A paid spell can still be a stub
 
 Mind Twist had an X mana cost but no effect. Test the complete cast path:

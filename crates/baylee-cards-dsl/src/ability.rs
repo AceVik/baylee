@@ -242,6 +242,9 @@ pub enum Trigger {
     DrawsExceptFirst(crate::effect::PlayerRel),
     /// An object matching the filter attacks (Sun Titan).
     Attacks(&'static Filter),
+    /// A matching creature is the sole declared attacker (exalted).
+    /// This is checked when attacking, not again when the trigger resolves.
+    AttacksAlone(&'static Filter),
     /// The first noncreature spell cast by a player each turn (Esper
     /// Sentinel).
     FirstNoncreatureSpellCast(crate::effect::PlayerRel),
