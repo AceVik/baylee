@@ -369,8 +369,37 @@ fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
     match event {
         GameEvent::ZoneChanged { object, .. }
         | GameEvent::SpellCast { object, .. }
+        | GameEvent::AbilityTriggered { object, .. }
+        | GameEvent::BecameTarget { object, .. }
         | GameEvent::BecameAttacker { object, .. }
         | GameEvent::BecameBlocker { object, .. } => Some(*object),
+        _ => None,
+    }
+}
+
+/// The stack object that has just acquired this target, and its controller.
+/// Retargeting names only newly acquired targets; retaining one never retriggers ward.
+fn targeting(
+    event: &GameEvent,
+    state: &GameState,
+    target: ObjectId,
+) -> Option<(ObjectId, PlayerId)> {
+    match *event {
+        GameEvent::BecameTarget {
+            object,
+            target: acquired,
+            controller,
+        } => (acquired == target).then_some((object, controller)),
+        GameEvent::SpellCast {
+            object,
+            player: controller,
+        }
+        | GameEvent::AbilityTriggered {
+            object, controller, ..
+        } => state
+            .object(object)
+            .filter(|o| o.targets_object(target))
+            .map(|_| (object, controller)),
         _ => None,
     }
 }
@@ -580,7 +609,9 @@ fn collect_for_objects(
                             controller: obj.controller,
                             timestamp: obj.timestamp,
                             event_object,
-                            implicit_target: None,
+                            implicit_target: matches!(trigger, Trigger::Ward)
+                                .then_some(event_object)
+                                .flatten(),
                             abilities: None,
                             synthetic_effects: Some(effects),
                             synthetic_target: *target,
@@ -605,17 +636,10 @@ fn collect_for_objects(
                 continue; // a ward cost past the table's ceiling
             };
             for entry in events {
-                let (target_obj, caster) = match &entry.event {
-                    GameEvent::SpellCast { object, player } => (*object, Some(*player)),
-                    GameEvent::AbilityTriggered {
-                        object, controller, ..
-                    } => (*object, Some(*controller)),
-                    _ => continue,
+                let Some((target_obj, caster)) = targeting(&entry.event, state, permanent) else {
+                    continue;
                 };
-                let targets_this = state
-                    .object(target_obj)
-                    .is_some_and(|o| o.targets_object(permanent));
-                if targets_this && caster != Some(obj.controller) {
+                if state.is_opponent(caster, obj.controller) {
                     for _ in 0..times_triggered(
                         state,
                         baylee_cards_dsl::TriggerEventKind::Any,
@@ -667,7 +691,9 @@ fn collect_for_objects(
                             controller: obj.controller,
                             timestamp: obj.timestamp,
                             event_object,
-                            implicit_target: None,
+                            implicit_target: matches!(trigger, Trigger::Ward)
+                                .then_some(event_object)
+                                .flatten(),
                             synthetic_effects: None,
                             once_per_turn: firing.once_per_turn,
                             synthetic_target: None,
@@ -888,14 +914,9 @@ fn matches(
                     .object(*object)
                     .is_some_and(|o| eval::matches(filter, state, o, you, source))
         }
-        (Trigger::BecomesTarget, GameEvent::SpellCast { object, .. }) => {
-            state
-                .object(*object)
-                .is_some_and(|o| o.targets_object(source))
-                || matches!(event, GameEvent::AbilityTriggered { object, .. } if {
-                    state.object(*object).is_some_and(|o| o.targets_object(source))
-                })
-        }
+        (Trigger::BecomesTarget, _) => targeting(event, state, source).is_some(),
+        (Trigger::Ward, _) => targeting(event, state, source)
+            .is_some_and(|(_, controller)| state.is_opponent(controller, you)),
         (
             Trigger::EntersBattlefieldEvoked,
             GameEvent::ZoneChanged {

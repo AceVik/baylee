@@ -1630,6 +1630,8 @@ messages! {
     },
     /// Pay the additional cost?
     PayAdditionalCost { en: "Pay the additional cost?", de: "Die zusätzlichen Kosten zahlen?" },
+    /// Optional life payment for a resolving ability.
+    PayLife { en: "Pay {0} life?", de: "{0} Lebenspunkte bezahlen?" },
     /// Pay {{0}}?
     PayTax { en: "Pay {{0}}?", de: "{{0}} zahlen?" },
     /// Cast it for its miracle cost?

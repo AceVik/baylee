@@ -210,6 +210,9 @@ pub enum Trigger {
     /// The source becomes the target of a spell or ability (ward,
     /// Phantasmal Image).
     BecomesTarget,
+    /// This permanent becomes a target of an opponent's spell or ability.
+    /// Its implicit resolution subject is that stack object (ward).
+    Ward,
     /// A creature matching the filter is exiled from the battlefield
     /// (Soulherder).
     ExiledFromBattlefield(&'static Filter),

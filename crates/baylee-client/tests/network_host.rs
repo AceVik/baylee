@@ -110,6 +110,10 @@ fn spawn_table() -> u16 {
 /// (#294): `POST /ws-ticket` with the seat token as a bearer, then the
 /// upgrade with `?ticket=`, spent on use.
 fn spawn_table_behind(door: Door) -> (u16, Witness) {
+    spawn_table_with_preset(door, duel_preset())
+}
+
+fn spawn_table_with_preset(door: Door, preset: GamePreset) -> (u16, Witness) {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
     let port = listener.local_addr().expect("addr").port();
     listener.set_nonblocking(true).expect("nonblocking");
@@ -122,7 +126,7 @@ fn spawn_table_behind(door: Door) -> (u16, Witness) {
             .expect("runtime");
         runtime.block_on(async move {
             let listener = tokio::net::TcpListener::from_std(listener).expect("listener");
-            let mut session = Session::new(&duel_preset()).expect("session");
+            let mut session = Session::new(&preset).expect("session");
             session.describe(GAME.to_string(), names());
             let mut refusals = door.refuse_upgrades;
             while let Ok((stream, _)) = listener.accept().await {
@@ -786,4 +790,92 @@ fn a_reconnect_buys_a_fresh_ticket() {
         "{:?}",
         seen.upgrades
     );
+}
+
+/// A real Session sends Ward through websocket framing and the native host;
+/// the same client interaction model used by the buttons answers it.
+#[test]
+fn life_ward_payment_round_trips_from_session_through_the_client() {
+    use baylee_client_core::interaction::Interaction;
+    use baylee_engine::choice::YesNoPrompt;
+
+    let entry = |name: &str| DeckEntry {
+        card: baylee_cards::generated::ALL
+            .iter()
+            .find(|(_, def)| def.name() == name)
+            .unwrap()
+            .1
+            .index,
+        print: PrintRef::new(0),
+    };
+    for pay in [false, true] {
+        let mut preset = duel_preset();
+        preset.seats[0].starting_hand = Some(vec![entry("Swords to Plowshares")]);
+        preset.seats[0].starting_battlefield = vec![entry("Plains")];
+        preset.seats[1].starting_battlefield = vec![entry("Phyrexian Fleshgorger")];
+        let (port, _) = spawn_table_with_preset(Door::default(), preset);
+        let mut host = NetworkHost::connect(ticket(port)).expect("connect");
+        let mut cast = false;
+        let mut answered = false;
+        let mut finished = false;
+        for _ in 0..40 {
+            let messages = poll_until(&mut host, "a Ward game choice", |m| !choices(m).is_empty());
+            assert!(
+                !messages.iter().any(|m| matches!(m, HostMessage::Failed(_))),
+                "{messages:?}"
+            );
+            if answered {
+                let view = views(&messages).last().copied().expect("updated view");
+                if view.stack.is_empty() {
+                    assert_eq!(view.seats[0].life, if pay { 13 } else { 20 });
+                    let flesh = view.battlefield.iter().any(|object| {
+                        object
+                            .card
+                            .as_ref()
+                            .is_some_and(|c| c.index == entry("Phyrexian Fleshgorger").card)
+                    });
+                    assert_eq!(flesh, !pay);
+                    finished = true;
+                    break;
+                }
+            }
+            let pending = (*choices(&messages).last().unwrap()).clone();
+            let action = match &pending {
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                Pending::Priority { legal, .. } if !cast && !legal.castable.is_empty() => {
+                    cast = true;
+                    PlayerAction::CastSpell {
+                        card: legal.castable[0],
+                    }
+                }
+                Pending::Priority { legal, .. } if !cast && !legal.mana_abilities.is_empty() => {
+                    PlayerAction::ActivateManaAbility {
+                        source: legal.mana_abilities[0],
+                    }
+                }
+                Pending::Priority { .. } => PlayerAction::PassPriority,
+                Pending::ChooseTargets { options, .. } => PlayerAction::ChooseObjects {
+                    objects: vec![options[0]],
+                },
+                Pending::YesNo {
+                    player,
+                    prompt: YesNoPrompt::PayLife { amount: 7 },
+                    ..
+                } => {
+                    assert_eq!(*player, SEAT);
+                    assert!(!answered);
+                    answered = true;
+                    Interaction::new(pending.clone(), SEAT)
+                        .answer_yes_no(pay)
+                        .unwrap()
+                }
+                other => panic!("unexpected choice: {other:?}"),
+            };
+            host.submit(action);
+        }
+        assert!(
+            cast && answered && finished,
+            "the payment and its result must actually be reached"
+        );
+    }
 }

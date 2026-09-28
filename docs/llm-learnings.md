@@ -6,6 +6,18 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-09-28 — Ward is a target-acquisition trigger
+
+Test casts, activated abilities, copies and retargeting separately: a copy
+is not cast, but still acquires its final targets. Retaining a target must
+not trigger again, and targeting the same permanent in two slots triggers
+only once per acquisition. Use the engine's opponent relation, not unequal
+seat IDs. Dynamic life costs must be evaluated at resolution, with source
+last-known information preserved across a blink. Hall of Storm Giants now
+grants timed ward; Fleshgorger now pays life, while its prototype gap stays
+explicit. Tests exercise actual payments and resulting zones, not just DSL
+variants.
+
 ## Process rules (baseline)
 
 1. First batch per model is verified card-by-card; afterwards only special

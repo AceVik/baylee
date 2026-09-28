@@ -3,6 +3,14 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## Ward life payments (protocol 7)
+
+`Pending::YesNo` can carry `PayLife { amount }`. The client displays the
+resolved life cost and sends the ordinary `PlayerAction::YesNo` answer.
+It must not automatically answer this optional payment. Protocol 7 refuses
+older clients, which cannot decode this enum; deploy the engine, gateway,
+agent and clients together in the next release. No view fields changed.
+
 ## Is it up? (`GET /health`)
 
 Unauthenticated, and it has to be: a monitor that needs a token is a monitor

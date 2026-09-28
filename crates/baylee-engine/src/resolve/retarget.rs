@@ -38,9 +38,6 @@
 //! - **Only the first instance of "target"** is asked about. A second one
 //!   (a fight's other creature) keeps its target, which is a legal answer
 //!   under 115.7d and a gap under 115.7a.
-//! - **Nothing "becomes the target".** `Trigger::BecomesTarget` fires on a
-//!   cast, and no event is journalled here, so a ward on the new target
-//!   does not trigger.
 //!
 //! [`Effect::ChangeTarget`]: baylee_cards_dsl::Effect::ChangeTarget
 //! [`Effect::ChooseNewTargets`]: baylee_cards_dsl::Effect::ChooseNewTargets
@@ -204,6 +201,13 @@ fn options(
 /// kept it: an object in `targets`, in its place, and a player in
 /// `target_players` or `chosen_player`, whichever held it.
 fn write(state: &mut GameState, retarget: &Retarget) {
+    let previous = state.object(retarget.spell).map_or_else(Vec::new, |obj| {
+        obj.targets
+            .iter()
+            .chain(obj.second_targets())
+            .copied()
+            .collect()
+    });
     let Some(obj) = state.object_mut(retarget.spell) else {
         return;
     };
@@ -241,6 +245,7 @@ fn write(state: &mut GameState, retarget: &Retarget) {
             }
         }
     }
+    record_new_targets(state, retarget.spell, &previous);
 }
 
 /// `set` without `player`.
@@ -250,4 +255,86 @@ fn without(set: SeatSet, player: PlayerId) -> SeatSet {
         out.insert(p);
     }
     out
+}
+
+/// Journal each newly acquired object target once. Copies pass an empty previous
+/// set after choosing their final targets (CR 707.10c); retargeting passes both
+/// original target groups, so a retained target cannot trigger a second ward.
+pub(super) fn record_new_targets(state: &mut GameState, spell: ObjectId, previous: &[ObjectId]) {
+    let Some(obj) = state.object(spell) else {
+        return;
+    };
+    let controller = obj.controller;
+    let mut targets: Vec<_> = obj
+        .targets
+        .iter()
+        .chain(obj.second_targets())
+        .copied()
+        .filter(|id| !previous.contains(id))
+        .collect();
+    targets.sort_unstable();
+    targets.dedup();
+    for target in targets {
+        state.journal.record(crate::event::GameEvent::BecameTarget {
+            object: spell,
+            target,
+            controller,
+        });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use crate::event::GameEvent;
+    use crate::object::ObjectKind;
+    use crate::zone::ZoneLocation;
+
+    #[test]
+    fn target_acquisition_ignores_retained_targets_and_deduplicates_both_slots() {
+        let mut state =
+            GameState::from_preset(&preset(408, &[]), &SyntheticLookup::new(vec![])).unwrap();
+        let player = PlayerId::new(1);
+        let name = state.names.intern("copy");
+        let spell = state.create_bare(player, ObjectKind::Spell, name, ZoneLocation::Stack);
+        let first = ObjectId::new(100, 0);
+        let second = ObjectId::new(101, 0);
+        let obj = state.object_mut(spell).unwrap();
+        obj.targets.extend([first, second]);
+        obj.set_second(smallvec::smallvec![second], None);
+        let start = state.journal.len();
+        record_new_targets(&mut state, spell, &[second, first]);
+        assert_eq!(
+            state.journal.len(),
+            start,
+            "keeping or reordering targets is not acquiring them"
+        );
+        record_new_targets(&mut state, spell, &[first]);
+        assert_eq!(
+            state.journal.entries()[start..]
+                .iter()
+                .map(|e| &e.event)
+                .collect::<Vec<_>>(),
+            vec![&GameEvent::BecameTarget {
+                object: spell,
+                target: second,
+                controller: player
+            }]
+        );
+        let start = state.journal.len();
+        record_new_targets(&mut state, spell, &[]);
+        let targets: Vec<_> = state.journal.entries()[start..]
+            .iter()
+            .map(|e| match e.event {
+                GameEvent::BecameTarget { target, .. } => target,
+                _ => panic!("only targeting events"),
+            })
+            .collect();
+        assert_eq!(
+            targets,
+            [first, second],
+            "a copy acquires both targets, each just once"
+        );
+    }
 }

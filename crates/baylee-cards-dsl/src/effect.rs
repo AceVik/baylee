@@ -1412,6 +1412,16 @@ pub enum Effect {
         /// What happens when they don't pay.
         effect: &'static Effect,
     },
+    /// A player may pay life; declining or being unable to pay runs `effect`.
+    /// The amount is evaluated on resolution, including a ward source's power.
+    PlayerMayPayLifeOr {
+        /// Who pays.
+        player: PlayerRel,
+        /// Life cost, evaluated when resolving.
+        life: Amount,
+        /// Unpaid consequence.
+        effect: &'static Effect,
+    },
     /// "… unless you <pay something that is not mana>."
     ///
     /// The sibling of [`Effect::PlayerMayPayOr`] and deliberately not a
@@ -2020,6 +2030,7 @@ impl Effect {
                 mana: _,
                 effect,
             }
+            | Effect::PlayerMayPayLifeOr { effect, .. }
             | Effect::PlayerMayPayCostOr {
                 player: _,
                 cost: _,

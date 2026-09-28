@@ -153,7 +153,12 @@ pub fn line_shape(line: &str) -> LineShape {
     // given the wrong sentence, so it is latent today — and it is the next
     // hole of the kind [`ability_colon`] closed, not a second instance of
     // that one.
-    if lower.starts_with("when") || lower.starts_with("at ") || lower.starts_with("as ") {
+    if lower.starts_with("when")
+        || lower.starts_with("at ")
+        || lower.starts_with("as ")
+        || lower.starts_with("ward ")
+        || lower.starts_with("ward—")
+    {
         return LineShape::Triggered;
     }
     // A chapter's separator is an em dash, not a colon.
@@ -313,7 +318,9 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
     use baylee_cards_dsl::AbilityDef as A;
     match ability {
         A::Loyalty { .. } => LineShape::Loyalty,
-        A::Triggered { .. } | A::ModalTriggered { .. } | A::Echo { .. } => LineShape::Triggered,
+        A::Triggered { .. } | A::ModalTriggered { .. } | A::Echo { .. } | A::Ward { .. } => {
+            LineShape::Triggered
+        }
         A::Activated { mana_ability, .. } | A::ActivatedConditional { mana_ability, .. } => {
             if *mana_ability {
                 LineShape::Mana
@@ -548,6 +555,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Dies(_) => &["die", "put into a graveyard"],
         T::SpellCast(_) | T::NthSpellCast { .. } | T::FirstNoncreatureSpellCast(_) => &["cast"],
         T::BecomesTarget => &["becomes the target"],
+        T::Ward => &["ward"],
         T::ExiledFromBattlefield(_) => &["exiled"],
         T::DealsCombatDamageToPlayer(_) => &["damage"],
         T::BecomesTapped(_) => &["tap"],
@@ -687,6 +695,7 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
         // taking the neighbouring "When this creature enters" — which is
         // exactly what Karmic Guide's table did before this line existed.
         A::Echo { .. } => line.to_lowercase().contains("echo"),
+        A::Ward { .. } => line.to_lowercase().starts_with("ward"),
         // A grant's cost is the one inside the quotation marks, which is the
         // granted ability's and printed as its head (CR 113.10a).
         A::Static(_) | A::CopyOnEnter { .. } | A::CopyOnEnterUntilEot { .. } => {
@@ -1068,6 +1077,29 @@ mod tests {
     use baylee_cards_dsl::effect::{Amount, Effect};
     use baylee_cards_dsl::filter::Filter;
     use baylee_cards_dsl::loyalty;
+
+    #[test]
+    fn life_ward_maps_to_its_printed_sentence_for_the_client() {
+        use baylee_cards_dsl::{PlayerRel, Trigger, triggered};
+        let ability = triggered!(
+            Trigger::Ward,
+            &[Effect::PlayerMayPayLifeOr {
+                player: PlayerRel::ControllerOfTarget,
+                life: Amount::SourcePower,
+                effect: &Effect::CounterTargetSpellOrAbility,
+            }]
+        );
+        let oracle = "Menace, lifelink\nWard—Pay life equal to this creature's power.";
+        assert_eq!(map(&[ability], oracle).lines, [Some(1)]);
+        assert_eq!(
+            map(&[AbilityDef::Ward { mana: 3 }], "Ward {3}").lines,
+            [Some(0)]
+        );
+        assert!(!content_fits(
+            &ability,
+            "Whenever this creature attacks, draw a card."
+        ));
+    }
 
     /// A mana ability whose "add" opens the body's second sentence is still
     /// a mana line — and one that targets is not, whatever it adds.

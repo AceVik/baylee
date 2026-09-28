@@ -362,7 +362,8 @@ impl GameLog {
         came: &BTreeMap<ObjectId, Zone>,
     ) {
         match event {
-            GameEvent::GameStarted { .. }
+            GameEvent::BecameTarget { .. }
+            | GameEvent::GameStarted { .. }
             | GameEvent::StepChanged { .. }
             | GameEvent::ManaProduced { .. }
             | GameEvent::ObjectTapped { .. }

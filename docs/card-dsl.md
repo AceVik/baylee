@@ -516,7 +516,16 @@ has built.
 - `AbilityDef::ModalTriggered { trigger, modes, once_per_turn }` — "choose
   one/up to one" ETB triggers (decline = an empty mode)
 - `AbilityDef::Ward { mana }` — engine-level synthetic trigger (like
-  prowess), supports ward {1}/{2}. **Undying** and **persist** are the same
+  prowess), supports generic mana ward from {0} through {10}. For a
+  variable life payment, use `Trigger::Ward` with `PlayerMayPayLifeOr`,
+  `PlayerRel::ControllerOfTarget`, and `CounterTargetSpellOrAbility`.
+  The implicit subject is the offending stack object; it is not a chosen
+  target. `Amount::SourcePower` is read at resolution, using last known
+  power if the source left while the ability waited. See Phyrexian
+  Fleshgorger (prototype remains unsupported). Temporary ward uses
+  `Modifier::GrantTriggered` with `Trigger::Ward` (Hall of Storm Giants).
+  Each instance triggers separately, including on copies and retargeting;
+  teammates are not opponents. **Undying** and **persist** are the same
   shape one step further along: they are not an `AbilityDef` at all but two
   bits on `keywords`, and `trigger.rs` reads them the way it reads prowess.
   A card prints one of them by setting the bit and writing no ability —

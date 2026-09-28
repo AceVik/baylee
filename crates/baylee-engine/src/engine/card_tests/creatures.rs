@@ -10312,8 +10312,8 @@ fn phyrexian_fleshgorger() -> CardIndex {
 }
 
 /// Phyrexian Fleshgorger is `{7}` for a 7/5 artifact creature with menace and
-/// lifelink; prototype and ward—pay life equal to its power are the two
-/// clauses the DSL cannot carry, which is what `Coverage::Partial` says.
+/// lifelink; prototype remains unsupported (`Coverage::Partial`).
+/// Life-cost ward is exercised separately in `ward_tests`.
 /// What *is* written is played here in full: seven Forests pay the printed
 /// cost, the Wurm resolves onto the battlefield, and the reading is taken off
 /// the layer projection rather than off the card file — an artifact *and* a

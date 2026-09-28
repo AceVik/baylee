@@ -3,8 +3,8 @@
 //! Oracle: Menace, lifelink
 //! Oracle: Ward—Pay life equal to this creature's power.
 //! Set: BRO #121 — The Brothers' War | Scryfall ID: 62d37423-3445-412a-9abd-0480da404637 | Oracle ID: d3a5a830-cd14-49da-9412-c50049c74c92
-// PARTIAL — the {7} 7/5 body with menace and lifelink is built; prototype and
-// the ward cost are not expressible in the DSL and are flagged below.
+// PARTIAL — the {7} body, menace, lifelink and ward life payment work;
+// prototype remains unsupported. Ward is tested in engine::ward_tests.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -15,10 +15,6 @@ use baylee_core::generated::subtypes;
 // `AlternativeCost` swaps the mana paid and nothing else; `SpellMode`'s
 // `cost_override` belongs to a modal spell and carries no characteristics
 // either.
-// NOT SUPPORTED: "Ward—Pay life equal to this creature's power." —
-// `AbilityDef::Ward` takes a fixed amount of generic mana, and this ward is
-// paid in life equal to a value computed off the source (7 here, 3 in
-// prototype form), which no ward variant carries.
 
 card!(
     index = index::PHYREXIAN_FLESHGORGER,
@@ -34,7 +30,15 @@ card!(
         toughness = Some(5),
         keywords = KeywordSet::MENACE.union(KeywordSet::LIFELINK),
     ),],
+    abilities = &[triggered!(
+        Trigger::Ward,
+        &[Effect::PlayerMayPayLifeOr {
+            player: PlayerRel::ControllerOfTarget,
+            life: Amount::SourcePower,
+            effect: &Effect::CounterTargetSpellOrAbility,
+        }],
+    )],
     coverage = Coverage::Partial(
-        "prototype (an alternative cast with a different mana cost, color and size) and ward—pay life equal to this creature's power"
+        "prototype (an alternative cast with a different mana cost, color and size)"
     ),
 );

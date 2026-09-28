@@ -1032,6 +1032,8 @@ mod w1_tests;
 #[cfg(test)]
 mod walker_tests;
 #[cfg(test)]
+mod ward_tests;
+#[cfg(test)]
 mod waterbend_tests;
 #[cfg(test)]
 mod werewolf_tests;

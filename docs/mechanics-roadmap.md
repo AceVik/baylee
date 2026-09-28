@@ -27,7 +27,7 @@ Size classes: **S** (< 100 engine LOC), **M** (100–400), **L** (> 400).
 
 Keywords: flying, first/double strike, deathtouch, lifelink, vigilance,
 haste, hexproof, shroud, defender, indestructible, menace, reach, flash,
-unblockable, changeling, prowess (synthetic), rebound, ward {1}/{2},
+unblockable, changeling, prowess (synthetic), rebound, generic-mana ward and variable life-cost ward,
 legendary/basic supertypes, legend rule.
 
 Every keyword in that list is read by a rule and covered by a test. The

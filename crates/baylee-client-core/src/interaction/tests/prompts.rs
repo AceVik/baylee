@@ -657,3 +657,32 @@ fn a_scry_and_a_surveil_say_what_they_are_and_where_the_rest_goes() {
         assert!(de.iter().all(|w| german.contains(w)), "{german}");
     }
 }
+
+#[test]
+fn life_ward_is_a_localized_explicit_payment_and_only_the_payer_may_answer() {
+    let payer = PlayerId::new(1);
+    let pending = Pending::YesNo {
+        player: payer,
+        prompt: YesNoPrompt::PayLife { amount: 7 },
+        source: None,
+    };
+    // Use the wire decoder so the new enum must survive serialization too.
+    let pending: Pending = serde_json::from_slice(&serde_json::to_vec(&pending).unwrap()).unwrap();
+    let mine = Interaction::new(pending.clone(), payer);
+    assert_eq!(mine.answer_yes_no(true), Some(PlayerAction::YesNo(true)));
+    assert_eq!(mine.answer_yes_no(false), Some(PlayerAction::YesNo(false)));
+    let other = Interaction::new(pending, PlayerId::new(0));
+    assert_eq!(other.answer_yes_no(true), None);
+    let prompt = Prompt::YesNo {
+        question: YesNoPrompt::PayLife { amount: 7 },
+    };
+    assert_eq!(
+        prompt.headline(Lang::En, Turn::Theirs, None, false),
+        "Pay 7 life?"
+    );
+    assert_eq!(
+        prompt.headline(Lang::De, Turn::Theirs, None, false),
+        "7 Lebenspunkte bezahlen?"
+    );
+    assert!(!YesNoPrompt::PayLife { amount: 7 }.automatable());
+}

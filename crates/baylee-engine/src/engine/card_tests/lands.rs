@@ -14848,7 +14848,7 @@ fn a_checkland_asks_only_about_its_controller_s_permanents() {
 }
 
 /// Hall of Storm Giants: "If you control two or more other lands, this land enters tapped." / "{T}: Add {U}." / "{5}{U}: Until end of turn, this land becomes a 7/7 blue Giant creature with ward {3}. It's still a land."
-/// Under `Coverage::Partial`, ward `{3}` is omitted from the animation effect because no modifier grants ward.
+/// The granted ward `{3}` and stacked animations are exercised in `ward_tests`.
 /// After untapping, paying `{5}{U}` animates the land into a 7/7 blue Giant creature that remains a land.
 #[test]
 fn hall_of_storm_giants_animates_into_giant() {

@@ -465,10 +465,12 @@ impl HeuristicAgent {
                 piles: default_arrangement(&cards, &piles).unwrap_or_else(|| vec![cards.clone()]),
             },
             Pending::YesNo { prompt, .. } => match prompt {
-                YesNoPrompt::PayLifeOrEnterTapped { amount } => PlayerAction::YesNo(
-                    view.seat(player)
-                        .is_some_and(|s| s.life > i32::from(amount) + 5),
-                ),
+                YesNoPrompt::PayLifeOrEnterTapped { amount } | YesNoPrompt::PayLife { amount } => {
+                    PlayerAction::YesNo(
+                        view.seat(player)
+                            .is_some_and(|s| s.life > i32::from(amount) + 5),
+                    )
+                }
                 YesNoPrompt::Miracle { card } => PlayerAction::YesNo(Self::miracle(view, card)),
                 // What refusing a tax costs is not the same question for
                 // every tax, so it is asked of the effect rather than of the
@@ -994,6 +996,21 @@ mod tests {
             },
             "with the tax covered the bigger threat is worth {{2}} again"
         );
+    }
+
+    #[test]
+    fn life_ward_preserves_the_house_agents_life_reserve() {
+        let pending = Pending::YesNo {
+            player: PlayerId::new(0),
+            prompt: YesNoPrompt::PayLife { amount: 7 },
+            source: None,
+        };
+        for (life, pay) in [(20, true), (12, false), (7, false), (6, false)] {
+            assert_eq!(
+                agent().act(&view(0, &[life, 20], vec![]), &pending),
+                PlayerAction::YesNo(pay)
+            );
+        }
     }
 
     /// Ward's question arrives at the caster as `YesNoPrompt::PayTax`, and

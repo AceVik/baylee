@@ -39936,7 +39936,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Phyrexian Fleshgorger
+    &[FaceLines {
+        sentences: 3,
+        stackable: 1,
+        lines: &[Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -40518,7 +40525,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Tyrranax Rex
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
+        stackable: 1,
         lines: &[None],
         modes: &[],
         alternatives: &[],
@@ -41443,8 +41450,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Storm of Saruman
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[None, Some(1)],
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -41881,7 +41888,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 1,
-            stackable: 0,
+            stackable: 1,
             lines: &[None],
             modes: &[],
             alternatives: &[],
@@ -42772,8 +42779,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Roaming Throne
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[None, None],
+        stackable: 1,
+        lines: &[Some(0), None],
         modes: &[],
         alternatives: &[],
     }],

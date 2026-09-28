@@ -16,9 +16,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Partial(
-        "storied is not supported: no enduring story player designation or conditional ward grant",
-    ),
+    coverage = Coverage::Partial("storied is not supported: no enduring story player designation",),
     faces = &[face!(
         name = "Thorin Oakenshield",
         mana_cost = mana!("{R}{W}"),
@@ -34,5 +32,5 @@ card!(
 // legendaries, and/or Sagas, you have an enduring story for the rest of the
 // game." The DSL has no player designation for enduring story.
 // NOT SUPPORTED: "As long as you have an enduring story, artifacts and
-// creatures you control have ward {1}." AbilityDef::Ward is a permanent-level
-// synthetic trigger, not an ability that can be conditionally granted via a static modifier.
+// creatures you control have ward {1}." Trigger::Ward can now be granted,
+// but the enduring-story designation and its condition are still missing.

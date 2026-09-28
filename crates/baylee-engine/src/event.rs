@@ -48,6 +48,16 @@ pub enum DamageTarget {
 /// A single game event.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum GameEvent {
+    /// A copy or retargeted stack object acquired an object target.
+    /// Casting/activation already announce their targets in their own events.
+    BecameTarget {
+        /// The spell or ability on the stack.
+        object: ObjectId,
+        /// The newly targeted object, once even if chosen in multiple slots.
+        target: ObjectId,
+        /// Controller of the spell or ability, not the retargeting effect.
+        controller: PlayerId,
+    },
     /// The game was set up from a preset.
     GameStarted {
         /// RNG seed.

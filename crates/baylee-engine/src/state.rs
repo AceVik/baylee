@@ -1638,6 +1638,21 @@ impl GameState {
     /// again only on a departure from the battlefield, so each describes the
     /// last such departure and no earlier one.
     fn record_last_known(&mut self, id: ObjectId, from_zone: Zone) {
+        if from_zone == Zone::Battlefield {
+            let power = self
+                .object(id)
+                .and_then(|o| o.characteristics().power)
+                .unwrap_or(0);
+            let stack = self.zones.list(ZoneLocation::Stack).clone();
+            for waiting in stack {
+                if let Some(obj) = self.object_mut(waiting)
+                    && obj.ability.is_some_and(|loc| loc.source == id)
+                    && obj.source_power_lki.is_none()
+                {
+                    obj.source_power_lki = Some(power);
+                }
+            }
+        }
         // What the object could *do*.
         let departing = self.object(id).and_then(|o| {
             o.own_abilities.map(|abilities| crate::object::AbilityList {
@@ -2554,6 +2569,7 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     // about, and two boards that differ only in how many destructions a
     // creature will survive are different situations.
     h.u8(obj.regeneration_shields);
+    h.option_u32(obj.source_power_lki.map(|p| p as u32));
     h.option_u32(obj.attached_to.map(position));
     h.usize(obj.targets.len());
     for t in &obj.targets {
@@ -2753,6 +2769,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         second,
         original_base,
         ability,
+        source_power_lki,
         x_value,
         kicked,
         alt_cast,
@@ -2827,6 +2844,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     target_req.hash(h);
     second.hash(h);
     ability.hash(h);
+    source_power_lki.hash(h);
     x_value.hash(h);
     kicked.hash(h);
     alt_cast.hash(h);

@@ -237,6 +237,15 @@ pub enum AwaitingOp {
         /// The effect to run when they don't pay.
         effect: &'static Effect,
     },
+    /// Optional life payment, distinct from mana payment windows.
+    PlayerMayPayLife {
+        /// Paying player.
+        player: PlayerId,
+        /// Resolved life amount.
+        amount: u16,
+        /// Effect of not paying.
+        effect: &'static Effect,
+    },
     /// A player decides whether to pay a non-mana cost by naming what pays
     /// it ([`Effect::PlayerMayPayCostOr`]). Naming nothing is declining.
     PlayerMayPayCost {
@@ -418,6 +427,13 @@ fn target_chars<'a>(
 /// Amount evaluation with target context ([`Amount::TargetPower`]).
 pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> u32 {
     match amount {
+        Amount::SourcePower => state
+            .object(res.on_stack)
+            .and_then(|o| o.source_power_lki)
+            .map_or_else(
+                || eval::amount(amount, state, you, res.source, res.x),
+                |p| p.max(0) as u32,
+            ),
         Amount::TargetPower => target_chars(res, state)
             .and_then(|c| c.power)
             .map_or(0, |p| p.max(0) as u32),
@@ -687,6 +703,20 @@ fn next_commander_ask(
 /// When the suspended operation is not a yes/no choice.
 #[must_use]
 pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) -> Flow {
+    if let Some(AwaitingOp::PlayerMayPayLife {
+        player,
+        amount,
+        effect,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        if answer && state.can_pay_life(player, i32::from(amount)) {
+            state.change_life(player, -i32::from(amount), Cause::Cost);
+            res.pc += 1;
+            return run(state, res);
+        }
+        return run_fallback(state, res, effect);
+    }
     // CR 903.9b: record what this owner said, then either ask the next one
     // or run the operation that has been waiting for all of them.
     if matches!(res.awaiting, Some(AwaitingOp::CommanderReplace { .. })) {
@@ -1038,6 +1068,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 obj.targets.clear();
                 obj.targets.extend(chosen.iter().copied());
             }
+            retarget::record_new_targets(state, copy, &[]);
         }
         AwaitingOp::NewTargets(_) => {
             unreachable!("a change of targets resumes via resume_targets")
@@ -1194,6 +1225,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         AwaitingOp::ControlRotation { .. }
         | AwaitingOp::ManaChoice { .. }
         | AwaitingOp::PayLifeOrTapSelf { .. }
+        | AwaitingOp::PlayerMayPayLife { .. }
         | AwaitingOp::MayDo { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
@@ -1238,6 +1270,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PutFromHandOnTop { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::PlayerMayPayOr { .. }
+        | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddMana { .. }
@@ -1435,6 +1468,27 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             Some(Pending::YesNo {
                 player,
                 prompt: YesNoPrompt::PayTax { mana },
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::PlayerMayPayLifeOr {
+            player,
+            life,
+            effect,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            let amount = u16::try_from(amount2(&life, state, you, res)).unwrap_or(u16::MAX);
+            if !state.can_pay_life(player, i32::from(amount)) {
+                return run_nested(state, res, std::slice::from_ref(effect));
+            }
+            res.awaiting = Some(AwaitingOp::PlayerMayPayLife {
+                player,
+                amount,
+                effect,
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayLife { amount },
                 source: resolving_ability(state, res),
             })
         }
@@ -2186,6 +2240,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         });
                     }
                 }
+                retarget::record_new_targets(state, id, &[]);
             }
             None
         }
@@ -2212,6 +2267,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::PutFromHandOnTop { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::PlayerMayPayOr { .. }
+        | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddMana { .. }

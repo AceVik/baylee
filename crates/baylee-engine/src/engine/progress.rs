@@ -2299,6 +2299,7 @@ impl<L: CardLookup> Engine<L> {
                         && let Some(obj) = self.state.object_mut(top)
                     {
                         obj.event_object = Some(event_object);
+                        obj.targets.extend(t.implicit_target);
                     }
                 }
             }

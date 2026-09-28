@@ -701,6 +701,9 @@ pub struct GameObject {
     pub original_base: Option<Arc<Characteristics>>,
     /// Which ability this is (`AbilityOnStack` objects only).
     pub ability: Option<AbilityLoc>,
+    /// Source power frozen when it leaves the battlefield while this ability waits.
+    /// Once frozen it survives a blink: the returning object is a new source.
+    pub source_power_lki: Option<i16>,
     /// The value of X chosen at cast time (spells).
     pub x_value: u32,
     /// Whether the kicker/additional cost was paid (spells).
@@ -846,6 +849,7 @@ impl GameObject {
             original_base: None,
             event_object: None,
             ability: None,
+            source_power_lki: None,
             x_value: 0,
             kicked: false,
             alt_cast: false,

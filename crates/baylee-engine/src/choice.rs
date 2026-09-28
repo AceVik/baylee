@@ -402,6 +402,11 @@ pub enum YesNoPrompt {
         /// Generic mana to pay.
         mana: u16,
     },
+    /// Pay life for a resolving ability (including ward).
+    PayLife {
+        /// Life to pay.
+        amount: u16,
+    },
     /// "Reveal and cast for its miracle cost?" (CR 702.94).
     Miracle {
         /// The drawn card.
@@ -484,6 +489,7 @@ impl YesNoPrompt {
             Self::PayLifeOrEnterTapped { .. }
             | Self::Kicker
             | Self::PayTax { .. }
+            | Self::PayLife { .. }
             | Self::Miracle { .. }
             | Self::DrawOffer { .. }
             | Self::MayDo
@@ -1056,6 +1062,7 @@ mod choice_tests {
             ),
             (yes_no(YesNoPrompt::Kicker), no.clone()),
             (yes_no(YesNoPrompt::PayTax { mana: 1 }), no.clone()),
+            (yes_no(YesNoPrompt::PayLife { amount: 7 }), no.clone()),
             (yes_no(YesNoPrompt::Miracle { card: object() }), no.clone()),
             (yes_no(YesNoPrompt::DrawOffer { proposer: p }), no.clone()),
             (yes_no(YesNoPrompt::MayDo), no.clone()),
@@ -1211,6 +1218,7 @@ mod choice_tests {
                     YesNoPrompt::PayLifeOrEnterTapped { .. } => 0,
                     YesNoPrompt::Kicker => 1,
                     YesNoPrompt::PayTax { .. } => 2,
+                    YesNoPrompt::PayLife { .. } => 9,
                     YesNoPrompt::Miracle { .. } => 3,
                     YesNoPrompt::DrawOffer { .. } => 4,
                     YesNoPrompt::CommanderZone { .. } => 5,
@@ -1400,6 +1408,7 @@ mod choice_tests {
                 YesNoPrompt::PayLifeOrEnterTapped { .. }
                 | YesNoPrompt::Kicker
                 | YesNoPrompt::PayTax { .. }
+                | YesNoPrompt::PayLife { .. }
                 | YesNoPrompt::Miracle { .. }
                 | YesNoPrompt::DrawOffer { .. }
                 | YesNoPrompt::CommanderReplace { .. }
@@ -1412,6 +1421,7 @@ mod choice_tests {
             YesNoPrompt::Kicker,
             YesNoPrompt::PayLifeOrEnterTapped { amount: 1 },
             YesNoPrompt::PayTax { mana: 2 },
+            YesNoPrompt::PayLife { amount: 7 },
             YesNoPrompt::Miracle { card: object() },
             YesNoPrompt::CommanderZone { card: object() },
             YesNoPrompt::CommanderReplace {
