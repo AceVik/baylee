@@ -2060,19 +2060,26 @@ fn bridgeworks_battle_pumps_my_creature_and_it_fights_theirs() {
     );
 }
 
-/// `Maelstrom Pulse` (`Coverage::Partial`): "Destroy target nonland permanent and all
-/// other permanents with the same name as that permanent."
+/// `Maelstrom Pulse`: "Destroy target nonland permanent and all other
+/// permanents with the same name as that permanent."
 ///
-/// Under `Coverage::Partial`, `Maelstrom Pulse` destroys the targeted nonland permanent
-/// while the same-name sweep is omitted due to lack of a name filter in the DSL.
-/// The test targets one of two opponent `llanowar_elves()`, verifies that lands cannot be
-/// targeted, and confirms that only the targeted permanent is destroyed upon resolution.
+/// One of the opponent's two Llanowar Elves is the target. "All other
+/// permanents" is everyone's, so the caster's own Elves goes too, and a
+/// creature with another name stays. Lands are not targets.
 #[test]
-fn maelstrom_pulse_destroys_target_nonland_permanent_and_omits_name_sweep() {
+fn maelstrom_pulse_destroys_its_target_and_every_permanent_of_that_name() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(475, forest())
-        .battlefield(0, &[swamp(), swamp(), forest()])
-        .battlefield(1, &[forest(), llanowar_elves(), llanowar_elves()])
+        .battlefield(0, &[swamp(), swamp(), forest(), llanowar_elves()])
+        .battlefield(
+            1,
+            &[
+                forest(),
+                llanowar_elves(),
+                llanowar_elves(),
+                festering_goblin(),
+            ],
+        )
         .hand(0, &[maelstrom_pulse()])
         .start();
     keep_mulligans(&mut engine);
@@ -2081,6 +2088,8 @@ fn maelstrom_pulse_destroys_target_nonland_permanent_and_omits_name_sweep() {
     let their_land = on_battlefield(&engine, p1, forest()).expect("opponent land");
     let their_elves = all_on_battlefield(&engine, p1, llanowar_elves());
     assert_eq!(their_elves.len(), 2, "opponent has two elves");
+    let my_elves = on_battlefield(&engine, p0, llanowar_elves()).expect("p0's own Elves");
+    let goblin = on_battlefield(&engine, p1, festering_goblin()).expect("the Goblin");
 
     cast_from_hand(&mut engine, p0, maelstrom_pulse());
 
@@ -2107,26 +2116,29 @@ fn maelstrom_pulse_destroys_target_nonland_permanent_and_omits_name_sweep() {
 
     pass_until(&mut engine, stack_is_empty);
 
-    // By id and not by card: there are several Elves here, so
-    // `on_battlefield(.., llanowar_elves())` would find one of the others
-    // and say nothing about the one that was targeted. And off the
-    // battlefield rather than out of the arena — a destroyed permanent is
-    // still an object, which is a token's test and not this one.
+    // By id: a destroyed permanent is still an object, in its owner's
+    // graveyard, so "is it an object" says nothing — "is it on the
+    // battlefield" does.
+    let battlefield = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .clone();
     assert!(
-        !engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Battlefield)
-            .contains(&their_elves[0]),
+        !battlefield.contains(&their_elves[0]),
         "the targeted creature was destroyed"
     );
     assert!(
-        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "and it is in its owner's graveyard"
+        !battlefield.contains(&their_elves[1]),
+        "the opponent's other Llanowar Elves shares its name"
     );
     assert!(
-        engine.state().object(their_elves[1]).is_some(),
-        "under `Coverage::Partial` the other permanent with the same name survives"
+        !battlefield.contains(&my_elves),
+        "and so does the caster's own: \"all other permanents\" is everyone's"
+    );
+    assert!(
+        battlefield.contains(&goblin),
+        "a permanent with another name stays"
     );
     assert!(
         in_graveyard(&engine, p0, maelstrom_pulse()).is_some(),

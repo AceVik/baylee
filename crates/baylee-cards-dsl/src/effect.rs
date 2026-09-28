@@ -1285,6 +1285,21 @@ pub enum Effect {
         /// [`Effect::Destroy::no_regen`].
         no_regen: bool,
     },
+    /// "…and all other permanents with the same name as that permanent"
+    /// (Maelstrom Pulse): destroy every permanent other than the object
+    /// `target` names that shares its name.
+    ///
+    /// The name is the target's **current** one, read as this resolves, so
+    /// it goes before the effect that destroys the target: a Clone copying
+    /// a Llanowar Elves is named Llanowar Elves only while it is on the
+    /// battlefield. A nameless permanent (a face-down one, CR 708.2a) shares
+    /// a name with nothing (CR 201.2a), so it sweeps nothing. The sweep
+    /// targets nothing but the one permanent, so hexproof or protection on
+    /// the others does not stop it.
+    DestroyOthersNamedLike {
+        /// The permanent whose name is swept.
+        target: TargetSpec,
+    },
     /// Regenerate a permanent (CR 701.19a): the next time it would be
     /// destroyed this turn, instead remove all damage marked on it, its
     /// controller taps it, and if it is attacking or blocking it is
@@ -2150,6 +2165,7 @@ impl Effect {
             | Effect::ReturnToHand { .. }
             | Effect::ReturnAllToHand { .. }
             | Effect::DestroyAll { .. }
+            | Effect::DestroyOthersNamedLike { .. }
             | Effect::ExileGraveyard { .. }
             | Effect::GraveyardToTop { .. }
             | Effect::GraveyardToHand { .. }

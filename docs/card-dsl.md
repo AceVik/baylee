@@ -1118,7 +1118,11 @@ is the source of its own damage, so deathtouch and protection apply; and it
 is not combat damage (CR 701.14d), so combat-only lifelink does not fire —
 noncombat lifelink (CR 702.15b) is not implemented yet and no card in the
 pool that fights has it.
-Removal: `Destroy`, `DestroyAll`, `Regenerate`, `Exile`, `CounterTargetSpell`,
+Removal: `Destroy`, `DestroyAll`, `DestroyOthersNamedLike { target }`
+(Maelstrom Pulse's "and all other permanents with the same name as that
+permanent": it reads the target's name as it resolves, so it is written
+*before* the `Destroy` that moves the target; a nameless target sweeps
+nothing, CR 201.2a), `Regenerate`, `Exile`, `CounterTargetSpell`,
 `CounterTargetAbility`, `CounterTargetSpellOrAbility`,
 `TargetSourceLosesAbilities` (Tishana's Tidebinder: it reaches the permanent
 whose ability an *earlier* `CounterTargetAbility` in the same effect list
