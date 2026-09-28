@@ -480,6 +480,18 @@ pub struct GameState {
     /// Mana values immediately before battlefield departures. Captured by
     /// triggers before this bounded look-back store is cleared.
     pub ltb_mana_values: Vec<(ObjectId, u32)>,
+    /// Who controlled a permanent immediately before it left the
+    /// battlefield (CR 603.10a) — what `PlayerRel::ControllerOfEvent`
+    /// reads for Massacre Wurm's "whenever a creature an opponent controls
+    /// dies, **that player** loses 2 life".
+    ///
+    /// The object cannot answer for itself: a card in a graveyard is
+    /// controlled by nobody and the refresh settles its field back to its
+    /// owner, and a token that died has ceased to exist (CR 704.5d) before
+    /// its trigger resolves. Same lifecycle as [`Self::ltb_mana_values`]:
+    /// cleared for an object on every move and written again only on a
+    /// departure from the battlefield.
+    pub ltb_controllers: Vec<(ObjectId, PlayerId)>,
     /// What was attached to a permanent the moment it left the battlefield.
     ///
     /// The other half of CR 603.10a, and it is needed for the same reason and
@@ -783,6 +795,7 @@ impl GameState {
             commander_redirect: Vec::new(),
             pending_copied_faces: Vec::new(),
             ltb_mana_values: Vec::new(),
+            ltb_controllers: Vec::new(),
             ltb_abilities: Vec::new(),
             ltb_counters: Vec::new(),
             ltb_attachments: Vec::new(),
@@ -1652,11 +1665,14 @@ impl GameState {
     /// last such departure and no earlier one.
     fn record_last_known(&mut self, id: ObjectId, from_zone: Zone) {
         self.ltb_mana_values.retain(|(other, _)| *other != id);
+        self.ltb_controllers.retain(|(other, _)| *other != id);
         if from_zone == Zone::Battlefield
             && let Some(object) = self.object(id)
         {
+            let controller = object.controller;
             self.ltb_mana_values
                 .push((id, object.characteristics().mana_cost.cmc()));
+            self.ltb_controllers.push((id, controller));
         }
         if from_zone == Zone::Battlefield {
             let power = self
@@ -2127,6 +2143,7 @@ impl GameState {
             commander_redirect,
             pending_copied_faces,
             ltb_mana_values,
+            ltb_controllers,
             ltb_abilities,
             ltb_attachments,
             ltb_counters,
@@ -2222,6 +2239,7 @@ impl GameState {
         ltb_attachments.hash(&mut h);
         ltb_counters.hash(&mut h);
         ltb_mana_values.hash(&mut h);
+        ltb_controllers.hash(&mut h);
         hash_unordered(
             &mut h,
             restriction_info.iter(),
@@ -3835,6 +3853,9 @@ mod tests {
             }),
             ("ltb_mana_values", |s, id| {
                 s.ltb_mana_values.push((id, 3));
+            }),
+            ("ltb_controllers", |s, id| {
+                s.ltb_controllers.push((id, PlayerId::new(1)));
             }),
             ("ltb_counters", |s, id| {
                 s.ltb_counters.push((id, Counters::default()));

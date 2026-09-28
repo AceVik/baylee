@@ -183,7 +183,9 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
             .filter(|p| !p.has_lost())
             .map(|p| p.id)
             .collect(),
-        PlayerRel::ControllerOfTarget | PlayerRel::Chosen => return None,
+        PlayerRel::ControllerOfTarget | PlayerRel::ControllerOfEvent | PlayerRel::Chosen => {
+            return None;
+        }
     })
 }
 

@@ -416,6 +416,13 @@ pub enum PlayerRel {
     EachOpponent,
     /// The controller of the first target.
     ControllerOfTarget,
+    /// The player who controlled the object the triggering event was about,
+    /// as the event happened — Massacre Wurm's "whenever a creature an
+    /// opponent controls dies, **that player** loses 2 life". Nothing is
+    /// targeted (CR 115.1): the seat is read off the trigger's event, and
+    /// last-known (CR 603.10a) because a creature that died is no longer
+    /// controlled by anyone and a token that died no longer exists at all.
+    ControllerOfEvent,
     /// The player chosen via `Pending::ChoosePlayer`.
     Chosen,
 }

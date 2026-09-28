@@ -535,6 +535,25 @@ pub(super) fn players_of(
             .first()
             .and_then(|t| state.object(*t))
             .map_or_else(Vec::new, |o| vec![o.controller]),
+        // Last known first (CR 603.10a): the object left the battlefield,
+        // and what it is now — a card in a graveyard, or no object at all —
+        // is controlled by nobody. An event about a permanent that is still
+        // there (an enter trigger) has no look-back entry and answers with
+        // the controller it has now. A player who has since left the game
+        // is nobody's "that player" (CR 800.4a).
+        PlayerRel::ControllerOfEvent => res
+            .event_object
+            .and_then(|id| {
+                state
+                    .ltb_controllers
+                    .iter()
+                    .find(|(object, _)| *object == id)
+                    .map(|(_, seat)| *seat)
+                    .or_else(|| state.object(id).map(|o| o.controller))
+            })
+            .filter(|seat| !state.has_left(*seat))
+            .into_iter()
+            .collect(),
         other => eval::players(other, state, you)
             .expect("the two context relations are matched above this arm"),
     }
