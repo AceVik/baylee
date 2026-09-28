@@ -123,3 +123,6 @@ pub mod tableicons;
 
 /// Explicit targeting shortcuts and selectable identities.
 pub mod targeting;
+
+/// All players' publicly suspended cards and countdowns.
+pub mod suspended;

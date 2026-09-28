@@ -192,3 +192,16 @@ fn the_logger_sees_a_double_despawn() {
         "the second despawn is warned about exactly once"
     );
 }
+
+#[test]
+fn leaving_a_table_removes_detached_hud_roots_and_their_contents() {
+    let _alone = ONE_AT_A_TIME
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut app = a_table();
+    let root = app.world_mut().spawn(crate::hud::DetachedHud).id();
+    let child = app.world_mut().spawn(ChildOf(root)).id();
+    close(&mut app);
+    assert!(app.world().get_entity(root).is_err());
+    assert!(app.world().get_entity(child).is_err());
+}

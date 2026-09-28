@@ -93,6 +93,7 @@ pub(crate) fn sync(
             }
             commands.spawn((
                 ChosenTypeLabel(id),
+                super::DetachedHud,
                 node,
                 Text::new(label),
                 tf(&fonts, 13.0),

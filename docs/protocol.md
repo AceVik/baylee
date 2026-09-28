@@ -2621,3 +2621,11 @@ base-plus-kicker mana cost before choosing their targets. This is part of the
 unreleased protocol 7 changes. The client plans that whole cost and preserves
 the chosen mode while floating mana; the gateway still treats seat frames as
 opaque.
+
+### Public suspend state (view 39)
+
+`PublicObject.suspended` marks a face-up exiled card with an active suspend
+countdown. Every seat receives the same public flag and time counters. The
+client keeps a scrollable list of these cards, with their owners and counters,
+independent of the camera's current seat; a click opens that owner's exile.
+The flag defaults to false when absent. No hidden zone is added to the view.

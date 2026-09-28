@@ -3724,6 +3724,7 @@ mod tests {
             supertypes: SupertypeSet::EMPTY,
             subtypes: SubtypeSet::EMPTY,
             chosen_subtype: None,
+            suspended: false,
             token: None,
             colors: ColorSet::EMPTY,
             mana_value: 1,

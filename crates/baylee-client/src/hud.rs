@@ -2093,6 +2093,10 @@ pub struct TrayTree<'w, 's> {
 }
 
 mod card;
+/// Independent HUD roots that must leave with the table.
+#[derive(Component)]
+pub struct DetachedHud;
+
 pub(crate) mod chosen_type;
 mod finish;
 mod hand;
@@ -2105,6 +2109,7 @@ pub(crate) mod seatbar;
 mod sheet;
 mod slip;
 mod stack;
+pub(crate) mod suspended;
 mod tray;
 
 #[cfg(test)]

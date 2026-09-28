@@ -1711,7 +1711,11 @@ messages! {
     /// card's own: Ancestral Vision prints no mana cost and suspends for
     /// `{U}`.
     ArmedSuspend { en: "Pay {0} and suspend", de: "{0} zahlen und aussetzen" },
-    /// The armed button for suspending when the cost is already floating.
+    /// Heading of the public suspend queue.
+    SuspendedCards { en: "Suspended cards", de: "Ausgesetzte Karten" },
+    /// Card name, owner and remaining time counters.
+    SuspendedCard { en: "{0} · {1}\n{2} time counters · inspect", de: "{0} · {1}\n{2} Zeitmarken · ansehen" },
+    /// Confirm a suspend action with no outstanding mana payment.
     ArmedSuspendNow { en: "Suspend this card", de: "Diese Karte aussetzen" },
     /// The button that puts an armed deed back, with nothing sent.
     ArmedCancel { en: "Not yet", de: "Doch nicht" },

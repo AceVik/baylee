@@ -200,7 +200,7 @@ type PreviewObjects<'w> = (
 /// than compare against it.
 pub fn despawn_overlay(
     mut commands: Commands,
-    existing: Query<Entity, With<HudRoot>>,
+    existing: Query<Entity, HudRoots>,
     mut revision: ResMut<HudRevision>,
     mut ledge: ResMut<ledge::LedgeRevision>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
@@ -232,6 +232,9 @@ pub fn despawn_overlay(
         shells.clear();
     }
 }
+
+/// Every top-level node owned by the table's HUD.
+pub type HudRoots = Or<(With<HudRoot>, With<super::DetachedHud>)>;
 
 /// Everything this bar paints *with* that only exists when there is a render
 /// world to paint in.

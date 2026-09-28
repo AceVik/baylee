@@ -205,6 +205,10 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         supertypes: chars.supertypes,
         subtypes: chars.subtypes,
         chosen_subtype: obj.chosen_subtype,
+        suspended: known
+            && obj.zone == Zone::Exile
+            && obj.riders.contains(&baylee_engine::object::Rider::Suspend)
+            && obj.counters.get(baylee_cards_dsl::CounterKind::Time) > 0,
         // The engine holds the definition; the client needs the number, and
         // this crate is the one that can see both.
         token: obj.token.map(baylee_cards::tokens::token_id),
@@ -1192,6 +1196,52 @@ mod tests {
             targeting_context(&engine, PlayerId::new(1)).is_none(),
             "no private casting choice crosses seats"
         );
+    }
+
+    #[test]
+    fn suspended_cards_and_their_countdowns_are_public_to_every_seat() {
+        let vision = baylee_cards::decks::by_name("Ancestral Vision").unwrap();
+        let mut preset = mixed_print_preset();
+        preset.seats.push(preset.seats[1].clone());
+        preset.seats[0].starting_hand = Some(vec![DeckEntry {
+            card: vision,
+            print: PrintRef::new(0),
+        }]);
+        preset.seats[0].starting_battlefield = vec![DeckEntry {
+            card: island(),
+            print: PrintRef::new(0),
+        }];
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        let view = settle(&mut engine, None);
+        let me = PlayerId::new(0);
+        let card = view
+            .hand
+            .iter()
+            .find(|o| o.card.index == vision)
+            .unwrap()
+            .id;
+        engine
+            .apply(
+                me,
+                PlayerAction::ActivateManaAbility {
+                    source: view.battlefield[0].id,
+                },
+            )
+            .unwrap();
+        engine.apply(me, PlayerAction::Suspend { card }).unwrap();
+        for seat in 0..3 {
+            let view = seen_by(&engine, PlayerId::new(seat));
+            let shown = view.exile[0].iter().find(|o| o.id == card).unwrap();
+            assert!(shown.suspended);
+            assert_eq!(shown.name, "Ancestral Vision");
+            assert!(
+                shown
+                    .counters
+                    .iter()
+                    .any(|c| c.kind == CounterKind::Time && c.count == 4)
+            );
+            assert!(view.battlefield.iter().all(|o| !o.suspended));
+        }
     }
 
     #[test]

@@ -115,7 +115,8 @@ use serde::{Deserialize, Serialize};
 /// registry token a line names.
 /// 37: face-up log events and authoritative targeting context.
 /// 38 adds the public creature type named for a permanent.
-pub const VIEW_VERSION: u32 = 38;
+/// 39 adds the public suspend state of exiled cards.
+pub const VIEW_VERSION: u32 = 39;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -700,6 +701,9 @@ pub struct PublicObject {
     /// Creature type named for this permanent (Reflections of Littjara, Cavern of Souls).
     #[serde(default)]
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    /// Whether this face-up exiled card is suspended. Its time counters are public.
+    #[serde(default)]
+    pub suspended: bool,
     /// Which token this is, for permanents with no card behind them.
     ///
     /// The index into `baylee_cards::tokens::ALL`. A token has no printing
@@ -964,6 +968,7 @@ impl PublicObject {
             supertypes: self.supertypes,
             subtypes: self.subtypes,
             chosen_subtype: self.chosen_subtype,
+            suspended: self.suspended,
             colors: self.colors,
             keywords: self.keywords,
             power: self.power,
@@ -983,6 +988,7 @@ impl PublicObject {
 
 /// Grouping key produced by [`PublicObject::summary_key`].
 #[derive(Clone, PartialEq, Eq, Debug)]
+#[allow(clippy::struct_excessive_bools)] // independent public facts, not states of one machine
 pub struct ObjectSummaryKey {
     card: Option<(CardIndex, u8)>,
     /// A token has no `card`, so without this a Soldier with lifelink and
@@ -1006,6 +1012,7 @@ pub struct ObjectSummaryKey {
     supertypes: SupertypeSet,
     subtypes: SubtypeSet,
     chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    suspended: bool,
     colors: ColorSet,
     keywords: u128,
     power: Option<i16>,
@@ -1037,6 +1044,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.status.hash(state);
         self.types.hash(state);
         self.chosen_subtype.hash(state);
+        self.suspended.hash(state);
         self.power.hash(state);
         self.toughness.hash(state);
         self.damage.hash(state);
@@ -2309,6 +2317,7 @@ mod tests {
             supertypes: SupertypeSet::default(),
             subtypes: SubtypeSet::EMPTY,
             chosen_subtype: None,
+            suspended: false,
             token: None,
             colors: ColorSet::default(),
             keywords: 0,
@@ -2666,6 +2675,7 @@ mod tests {
             ("subtypes", |o| {
                 o.subtypes.insert(baylee_core::ids::SubtypeId::new(1));
             }),
+            ("suspended", |o| o.suspended = true),
             ("chosen_subtype", |o| {
                 o.chosen_subtype = Some(baylee_core::generated::subtypes::creature::ALLY);
             }),
@@ -3066,7 +3076,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (38, 0x6f38_a578_57b5_e0fc);
+        const RECORDED: (u32, u64) = (39, 0xe89fac3c979f9811);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()
