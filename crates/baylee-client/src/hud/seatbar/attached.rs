@@ -7,7 +7,7 @@ use super::*;
 
 const HEADER_H: f32 = 60.0;
 const HEADER_W: f32 = 240.0;
-const TRACK_W: f32 = 52.0;
+const TRACK_W: f32 = 80.0;
 const TRACK_H: f32 = 520.0;
 
 /// Minimum clear space around the identity and phase groups.
@@ -134,7 +134,7 @@ pub(crate) fn pose_on(corners: [Vec2; 4], panel: Panel) -> (Vec2, f32, f32) {
     let depth = near_a.midpoint(near_b).distance(far_a.midpoint(far_b));
     // A shared scale keeps identity and phases separated as the band narrows.
     let scale = (width / (HEADER_W + TRACK_H + BAND_GAP * 3.0))
-        .min(depth * 0.85 / HEADER_H)
+        .min(depth * 0.85 / HEADER_H.max(TRACK_W))
         .min(1.0);
     let middle = match panel {
         Panel::Identity => left + axis * (HEADER_W * scale * 0.5 + BAND_GAP * scale),
@@ -333,6 +333,10 @@ fn spawn_identity(
     commands
         .entity(status)
         .add_children(&[vitality, hand_count, priority]);
+    if view.active == seat.player {
+        let turn = spawn_turn_badge(commands, fonts, lang);
+        commands.entity(status).add_child(turn);
+    }
     commands.entity(identity).add_children(&[label, status]);
 
     for (mark, amount) in [
@@ -357,6 +361,17 @@ fn spawn_identity(
             .id();
         commands.entity(status).add_child(counter);
     }
+}
+
+fn spawn_turn_badge(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
+    commands
+        .spawn((
+            Text::new(Phrase::ActiveTurn.text(lang)),
+            tf_bold(fonts, 14.0),
+            TextColor(palette::ACTIVE),
+            Pickable::IGNORE,
+        ))
+        .id()
 }
 
 fn spawn_counts(
@@ -441,23 +456,7 @@ fn spawn_phases(
         ..default()
     });
     let current = RailRow::current(view.phase, view.step);
-    let caption = commands
-        .spawn((
-            PhaseCaption {
-                player: seat.player,
-                current,
-                lang,
-            },
-            Text::new(current.name().text(lang)),
-            tf_bold(fonts, 12.0),
-            TextColor(if view.active == seat.player {
-                palette::CANDLE
-            } else {
-                palette::DOCK_INK.with_alpha(0.45)
-            }),
-            Pickable::IGNORE,
-        ))
-        .id();
+    let caption = spawn_phase_caption(commands, fonts, lang, current, seat.player, view.active);
     let timeline = commands
         .spawn((
             Node {
@@ -469,7 +468,10 @@ fn spawn_phases(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(track).add_children(&[caption, timeline]);
+    let pool = spawn_seat_pool(commands, fonts, lang, &seat.mana_pool);
+    commands
+        .entity(track)
+        .add_children(&[caption, timeline, pool]);
     let side = if same_team(statics, seat.player, view.seat) {
         RailSide::Mine
     } else {
@@ -530,6 +532,98 @@ fn spawn_phases(
     }
 }
 
+fn spawn_phase_caption(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    current: RailRow,
+    player: PlayerId,
+    active: PlayerId,
+) -> Entity {
+    commands
+        .spawn((
+            PhaseCaption {
+                player,
+                current,
+                lang,
+            },
+            Text::new(current.name().text(lang)),
+            tf_bold(fonts, 12.0),
+            TextColor(if active == player {
+                palette::CANDLE
+            } else {
+                palette::DOCK_INK.with_alpha(0.45)
+            }),
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+/// Every seat's floating mana is public. Keep the same color/count and
+/// restricted-mana convention as the local player's larger pool strip.
+fn spawn_seat_pool(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    pool: &baylee_view::ManaPoolView,
+) -> Entity {
+    let row = commands
+        .spawn((
+            Node {
+                height: px(20),
+                align_items: AlignItems::Center,
+                column_gap: px(6),
+                ..default()
+            },
+            BackgroundColor(palette::DOCK_GROUND.with_alpha(0.85)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let label = commands
+        .spawn((
+            Text::new(format!(
+                "{}: {}",
+                Phrase::ManaPool.text(lang),
+                if pool.total() == 0 { "0" } else { "" }
+            )),
+            tf(fonts, 14.0),
+            TextColor(palette::CANDLE),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(row).add_child(label);
+    for mana in baylee_client_core::manapool::row(pool) {
+        let group = commands
+            .spawn((
+                Node {
+                    align_items: AlignItems::Center,
+                    column_gap: px(2),
+                    border: UiRect::all(px(1)),
+                    ..default()
+                },
+                BorderColor::all(if mana.restricted {
+                    palette::CANDLE
+                } else {
+                    Color::NONE
+                }),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let pip = crate::manaui::spawn_pip(commands, fonts, mana.pip, 16.0);
+        let count = commands
+            .spawn((
+                Text::new(mana.count.to_string()),
+                tf_bold(fonts, 14.0),
+                TextColor(palette::CANDLE),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(group).add_children(&[pip, count]);
+        commands.entity(row).add_child(group);
+    }
+    row
+}
+
 #[derive(Component)]
 pub(crate) struct PhaseHint {
     player: PlayerId,
@@ -587,16 +681,24 @@ pub(crate) fn highlight_player(
             .as_ref()
             .is_some_and(|i| i.is_seat_selected(tab.player));
         let hovered = *hover != bevy::picking::hover::PickingInteraction::None;
+        let active = duel.view.as_ref().is_some_and(|v| v.active == tab.player);
         let alpha = if selected {
             0.24
         } else if hovered {
             0.12
         } else if offered {
             0.06
+        } else if active {
+            0.18
         } else {
             0.0
         };
-        let tint = palette::CANDLE.with_alpha(alpha);
+        let tint = if selected || offered || hovered {
+            palette::CANDLE
+        } else {
+            palette::ACTIVE
+        }
+        .with_alpha(alpha);
         if background.0 != tint {
             background.0 = tint;
         }
@@ -604,6 +706,8 @@ pub(crate) fn highlight_player(
             0.95
         } else if offered || hovered {
             0.55
+        } else if active {
+            0.9
         } else {
             0.0
         }));
@@ -637,6 +741,84 @@ pub(super) fn spawn_turn(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_seats_pool_is_drawn_and_the_turn_highlight_moves_between_seats() {
+        let mut app = App::new();
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(3).build();
+        view.active = PlayerId::new(1);
+        view.seats[1].mana_pool.blue = 7;
+        view.seats[2].mana_pool.restricted[0] = 9;
+        let fonts = UiFonts {
+            text: default(),
+            medium: default(),
+            bold: default(),
+            italic: default(),
+            medium_italic: default(),
+            serif: default(),
+            serif_italic: default(),
+            icons: default(),
+            mana: default(),
+        };
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, app.world());
+        let root = commands.spawn_empty().id();
+        for seat in &view.seats {
+            spawn(
+                &mut commands,
+                root,
+                Lang::De,
+                &view,
+                None,
+                seat,
+                SeatRole::Present,
+                &PhaseOrders::default(),
+                &fonts,
+            );
+        }
+        queue.apply(app.world_mut());
+        let words: Vec<_> = app
+            .world_mut()
+            .query::<&Text>()
+            .iter(app.world())
+            .map(|t| t.0.clone())
+            .collect();
+        assert_eq!(words.iter().filter(|t| *t == "Am Zug").count(), 1);
+        assert!(
+            words.iter().any(|t| t == "7"),
+            "opponent's ordinary mana is shown"
+        );
+        assert!(
+            words.iter().any(|t| t == "9"),
+            "opponent's restricted mana is shown"
+        );
+        assert!(
+            words.iter().any(|t| t == "Manavorrat: 0"),
+            "an empty pool is explicit"
+        );
+        app.insert_resource(Duel {
+            view: Some(view),
+            ..default()
+        });
+        app.add_systems(Update, highlight_player);
+        for active in [1, 2, 0] {
+            app.world_mut()
+                .resource_mut::<Duel>()
+                .view
+                .as_mut()
+                .unwrap()
+                .active = PlayerId::new(active);
+            app.update();
+            let mut query = app
+                .world_mut()
+                .query::<(&PlayerTab, &Panel, &BackgroundColor)>();
+            for (tab, panel, color) in query.iter(app.world()) {
+                if matches!(panel, Panel::Identity) {
+                    assert_eq!(color.0.alpha() > 0.1, tab.player == PlayerId::new(active));
+                }
+            }
+        }
+    }
 
     /// A band as [`crate::table::Lens`] hands it over: the two corners on the
     /// rim first, then the two that meet the lane behind it. `flip` is the
