@@ -946,6 +946,7 @@ messages! {
     /// Do the obvious thing
     ActPrimary { en: "Do the obvious thing", de: "Das Naheliegende tun" },
     /// Confirm / pass priority
+    ActConfirmTargetBatch { en: "Confirm targets for this series", de: "Ziele für diese Serie bestätigen" },
     ActConfirm { en: "Confirm / pass priority", de: "Bestätigen / Priorität abgeben" },
     /// Cancel
     ActCancel { en: "Cancel", de: "Abbrechen" },

@@ -449,3 +449,7 @@ empty. Reading the row is what makes both cases one rule.
 Every `Pending` variant is operable without a pointer device; focus is always
 visible; no action requires drag-and-drop (drag has a keyboard equivalent).
 Unbinding an action is allowed — a pointer can still reach everything.
+
+Repeated target choices: `Shift+Enter` explicitly confirms the selected targets
+for the current series (rebindable in Settings). Normal confirmation still answers
+only one choice.

@@ -131,6 +131,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("uncounterable", K::UNCOUNTERABLE),   // object::can_be_countered
         ("rebound", K::REBOUND),               // progress.rs (rider)
         ("daybound", K::DAYBOUND),             // progress::day_night_statics
+        ("storied", K::STORIED),               // storied::award_enduring_stories
         ("nightbound", K::NIGHTBOUND),         // progress::day_night_statics
     ]
 };

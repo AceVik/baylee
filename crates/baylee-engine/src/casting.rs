@@ -413,6 +413,7 @@ impl SpellForm {
                 base.toughness = Some(p.toughness);
             }
             Self::Disguise => {
+                base.name = crate::state::NAMELESS;
                 base.mana_cost = ManaCost::ZERO;
                 base.colors = baylee_core::color::ColorSet::EMPTY;
                 base.types = TypeSet::CREATURE;
@@ -422,6 +423,9 @@ impl SpellForm {
                 base.power = Some(2);
                 base.toughness = Some(2);
                 base.loyalty = None;
+                base.produced_colors = baylee_core::color::ColorSet::EMPTY;
+                base.produced_colorless = false;
+                base.produced_chosen = false;
             }
         }
         object
@@ -1866,6 +1870,15 @@ mod tests {
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
         );
         let original = state.object(card).unwrap();
+        let disguise = SpellForm::Disguise.project(original);
+        assert!(!crate::eval::matches(
+            &Filter::Named("land"),
+            &state,
+            &disguise,
+            me(),
+            card
+        ));
+        assert_eq!(state.names.get(disguise.characteristics().name), "");
         assert!(cast_is_forbidden(&state, me(), original));
         assert!(!cast_is_forbidden(
             &state,

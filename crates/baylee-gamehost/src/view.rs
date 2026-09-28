@@ -3068,10 +3068,9 @@ mod tests {
                 continue;
             };
             assert_eq!(object.card.is_some(), entitled);
-            assert_eq!(
-                object.rules.is_some(),
-                entitled,
-                "the card a face-down permanent's abilities are printed on is the card"
+            assert!(
+                object.rules.is_none(),
+                "a face-down permanent has its face-down rules, not its printed abilities; the owner can still inspect object.card"
             );
         }
     }

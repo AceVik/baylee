@@ -45,6 +45,8 @@ pub enum Action {
     /// choice keeps this key for ticking a row, and an *empty* combat
     /// declaration is sent only by [`Action::CombatNone`].
     Confirm,
+    /// Explicitly confirm the selected targets for the current repeated series.
+    ConfirmTargetBatch,
     /// Take back the answer being built, close a preview, drop a selection.
     Cancel,
     /// Act on the card under the cursor.
@@ -107,9 +109,10 @@ pub enum Action {
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 30] = [
+    pub const ALL: [Self; 31] = [
         Self::Primary,
         Self::Confirm,
+        Self::ConfirmTargetBatch,
         Self::Cancel,
         Self::ActivateCard,
         Self::ActivateGroup,
@@ -150,6 +153,7 @@ impl Action {
         match self {
             Self::Primary => Phrase::ActPrimary,
             Self::Confirm => Phrase::ActConfirm,
+            Self::ConfirmTargetBatch => Phrase::ActConfirmTargetBatch,
             Self::Cancel => Phrase::ActCancel,
             Self::ActivateCard => Phrase::ActActivateCard,
             Self::ActivateGroup => Phrase::ActActivateGroup,
@@ -191,6 +195,7 @@ impl Action {
         match self {
             Self::Primary
             | Self::Confirm
+            | Self::ConfirmTargetBatch
             | Self::Cancel
             | Self::ActivateCard
             | Self::ActivateGroup => Phrase::GroupAnswering,
@@ -429,6 +434,7 @@ impl Keymap {
         };
         bind(Action::Primary, vec![Chord::key("Enter")]);
         bind(Action::Confirm, vec![Chord::key("Space")]);
+        bind(Action::ConfirmTargetBatch, vec![Chord::shift("Enter")]);
         bind(Action::Cancel, vec![Chord::key("Escape")]);
         bind(Action::ActivateCard, vec![Chord::key("KeyE")]);
         bind(Action::ActivateGroup, vec![Chord::shift("KeyE")]);

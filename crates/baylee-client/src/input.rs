@@ -1945,6 +1945,17 @@ fn committed_answer(duel: &Duel) -> Option<PlayerAction> {
 /// actually asked — so a key bound to "yes" does nothing at all during
 /// combat, without this function knowing what combat is.
 fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::Prefs) {
+    if fired.has(Action::ConfirmTargetBatch)
+        && let Some(answer) = duel
+            .interaction
+            .as_ref()
+            .zip(duel.view.as_ref())
+            .and_then(|(i, v)| baylee_client_core::targeting::batch_answer(i, v))
+    {
+        duel.submit(answer);
+        return;
+    }
+
     // Confirm / pass priority. Never toggles anything else, so it is the one
     // key that always means "I am done here" — with the one exception
     // [`committed_answer`] names.

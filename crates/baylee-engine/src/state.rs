@@ -116,6 +116,9 @@ pub enum Side {
     Solo(PlayerId),
 }
 
+/// Reserved by every game before any card name is interned.
+pub(crate) const NAMELESS: NameRef = NameRef::new(0);
+
 /// Deterministic name interner (rules identity, not display).
 #[derive(Clone, Debug, Default)]
 pub struct Names {
@@ -799,6 +802,9 @@ impl GameState {
             projected_cross_zone: false,
             token_cleanup: Vec::new(),
         };
+        // Casting probes need the nameless face without mutating this interner.
+        let nameless = state.names.intern("");
+        debug_assert_eq!(nameless, NAMELESS);
         state.journal.record(GameEvent::GameStarted {
             seed: preset.seed,
             seats,

@@ -258,6 +258,7 @@ pub const fn shortcut_for(action: PromptAction) -> Option<Action> {
         PromptAction::Keep => Action::MulliganKeep,
         PromptAction::Mulligan => Action::MulliganTake,
         PromptAction::Confirm => Action::Confirm,
+        PromptAction::TargetBatch => Action::ConfirmTargetBatch,
         PromptAction::DeclareNothing => Action::CombatNone,
         PromptAction::AimNext => Action::CombatFocusNext,
         // Both of these hand the turn to the client's own autopilot; the
@@ -265,7 +266,7 @@ pub const fn shortcut_for(action: PromptAction) -> Option<Action> {
         PromptAction::SkipTurn => Action::NextTurn,
         PromptAction::Step(1) => Action::NumberUp,
         PromptAction::Step(-1) => Action::NumberDown,
-        PromptAction::Step(_) | PromptAction::TargetBatch => return None,
+        PromptAction::Step(_) => return None,
     })
 }
 
@@ -578,6 +579,7 @@ mod tests {
     fn no_two_answers_in_one_question_wear_the_same_key() {
         for row in [
             vec![PromptAction::Confirm, PromptAction::SkipTurn],
+            vec![PromptAction::Confirm, PromptAction::TargetBatch],
             vec![
                 PromptAction::Confirm,
                 PromptAction::AimNext,
