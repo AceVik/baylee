@@ -653,6 +653,11 @@ mod tests {
     /// Shadows' Lair spends a dread counter to draw once `counters::DREAD`
     /// gave the word an id. Hand-written again, one card, no generator
     /// round.
+    ///
+    /// Read again on 29.09.2026, at **sixteen**: Huntmaster of the Fells and
+    /// Archangel Avacyn, hand-written with `Trigger::TransformsIntoThis` —
+    /// a transforming back face prints the trigger that fires as it turns
+    /// up, so both backs reach the stack. Two cards, no generator round.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -668,6 +673,8 @@ mod tests {
         assert_eq!(
             named,
             [
+                "Huntmaster of the Fells",
+                "Archangel Avacyn",
                 "Conqueror's Galleon",
                 "Treasure Map",
                 "Vance's Blasting Cannons",
