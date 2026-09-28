@@ -118,7 +118,12 @@ cd "$out"
 case "$target" in
 *-apple-*)
     rm -f "$name.zip"
-    ditto -c -k --keepParent "$name" "$name.zip"
+    # Without --norsrc --noextattr, ditto stores every file's extended
+    # attributes (com.apple.provenance, on a Mac that ran the build) as
+    # `._<name>` entries. Unpacked by anything but Finder, and by the
+    # updater (#326), they land as files inside Baylee.app and break its
+    # code-signature seal ("a sealed resource is missing or invalid").
+    ditto -c -k --norsrc --noextattr --keepParent "$name" "$name.zip"
     echo "$out/$name.zip"
     ;;
 *-windows-*)
