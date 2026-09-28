@@ -1523,6 +1523,12 @@ impl Browser {
                 // would light up every graveyard card in the game as a
                 // legal discard.
                 let selectable = mine.is_some_and(|it| it.selectable().contains(&object.id));
+                // A chooser lists answers, not the entire graveyard. Manual
+                // browsing still shows every public card, even while another
+                // player has a question or this seat holds normal priority.
+                if self.open == Opening::ForChoice && mine.is_some() && !selectable {
+                    continue;
+                }
                 out.push(BrowseRow {
                     id: object.id,
                     name: shown,

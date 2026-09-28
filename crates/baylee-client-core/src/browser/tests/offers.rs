@@ -177,3 +177,40 @@ fn a_choice_for_another_seat_offers_nothing() {
         "watching another seat choose is not choosing"
     );
 }
+
+#[test]
+fn graveyard_target_chooser_hides_ineligible_cards_but_manual_browsing_keeps_them() {
+    let view = ViewBuilder::new(2)
+        .with_graveyard(
+            0,
+            vec![
+                printed(1, 0, "Creature", 1),
+                printed(2, 0, "Instant", 2),
+                printed(3, 0, "Sorcery", 3),
+            ],
+        )
+        .build();
+    let it = Interaction::new(
+        Pending::ChooseTargets {
+            player: me(),
+            options: vec![obj(2), obj(3)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: TargetPrompt::Targets,
+        },
+        me(),
+    );
+    let mut browser = Browser::new();
+    browser.follow(&view, Some(&it));
+    let rows = browser.rows(&view, Some(&it), Names::projected());
+    assert_eq!(
+        rows.iter().map(|r| r.id).collect::<Vec<_>>(),
+        vec![obj(2), obj(3)]
+    );
+    assert!(rows.iter().all(|r| r.standing.selectable));
+    // After answering, reopening the pile is an ordinary inspection again.
+    browser.follow(&view, None);
+    browser.open_at(BrowseZone::Graveyard(me()));
+    assert_eq!(browser.rows(&view, None, Names::projected()).len(), 3);
+}
