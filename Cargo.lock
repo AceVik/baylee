@@ -902,6 +902,7 @@ dependencies = [
  "baylee-cards-dsl",
  "baylee-cardtext",
  "baylee-core",
+ "baylee-deckio",
  "baylee-engine",
  "baylee-protocol",
  "baylee-view",

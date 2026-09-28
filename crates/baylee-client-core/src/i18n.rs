@@ -142,6 +142,120 @@ messages! {
     HistoryAccountHint { en: "History is available for account decks after signing in.", de: "Historie gibt es nach der Anmeldung für Account-Decks." },
     /// New deck without a persisted identity.
     HistorySaveHint { en: "Save this deck to start its history.", de: "Speichere das Deck, um seine Historie zu beginnen." },
+    /// The builder's and the deck list's button that opens the import dialog.
+    ImportDeck { en: "Import", de: "Importieren" },
+    /// The builder's button that opens the export dialog.
+    ExportDeck { en: "Export", de: "Exportieren" },
+    /// Heading of the import dialog.
+    ImportTitle { en: "Import a deck", de: "Deck importieren" },
+    /// Heading of the export dialog.
+    ExportTitle { en: "Export this deck", de: "Dieses Deck exportieren" },
+    /// Puts the clipboard's text into the import box.
+    PasteFromClipboard { en: "Paste", de: "Einfügen" },
+    /// Empties the import box.
+    ImportClear { en: "Clear", de: "Leeren" },
+    /// Takes the read deck into the builder.
+    ImportTake { en: "Import deck", de: "Deck übernehmen" },
+    /// Closes the import or export dialog.
+    TransferClose { en: "Close", de: "Schließen" },
+    /// Copies the export to the clipboard.
+    CopyToClipboard { en: "Copy", de: "Kopieren" },
+    /// Saves the export as a file.
+    SaveToFile { en: "Save file", de: "Als Datei speichern" },
+    /// What the import box shows while empty.
+    ImportBoxEmpty { en: "Nothing pasted yet", de: "Noch nichts eingefügt" },
+    /// Baylee's own text format, as the format chooser names it.
+    FormatBaylee { en: "Baylee text", de: "Baylee-Text" },
+    /// The name an imported deck gets when its file names none.
+    ImportedDeckName { en: "Imported deck", de: "Importiertes Deck" },
+    /// The import dialog's instructions before anything is pasted.
+    ImportHowTo { en: "Copy a deck list, a Baylee, JSON or YAML export, or a Moxfield export (More → Export → Copy for Moxfield), then paste it here with Paste or Ctrl/Cmd+V. The format is recognised by itself.", de: "Kopiere eine Deckliste, einen Baylee-, JSON- oder YAML-Export oder einen Moxfield-Export (More → Export → Copy for Moxfield) und füge ihn hier mit Einfügen oder Strg/Cmd+V ein. Das Format wird selbst erkannt." },
+    /// A paste read as a deck. `{0}` the format, `{1}` rows, `{2}` cards.
+    ImportReadAs { en: "Read as {0}. Rows: {1} · Cards: {2}", de: "Gelesen als {0}. Zeilen: {1} · Karten: {2}" },
+    /// Warns that importing replaces what is in the builder.
+    ImportReplaces { en: "Importing replaces the deck in the builder with a new, unsaved deck. The saved deck stays as it is.", de: "Der Import ersetzt das Deck im Editor durch ein neues, ungespeichertes Deck. Das gespeicherte Deck bleibt, wie es ist." },
+    /// A pasted Moxfield deck link. `{0}` is the site's name.
+    ImportMoxfieldLink { en: "That is a link to a deck on {0}, which Baylee cannot read directly. Open the deck on {0} → More → Export → Copy for Moxfield, then paste it here.", de: "Das ist ein Link zu einem Deck auf {0}, das Baylee nicht direkt lesen kann. Öffne das Deck auf {0} → More → Export → Copy for Moxfield und füge es dann hier ein." },
+    /// A link to a site with an API this build does not fetch yet. `{0}` the site.
+    ImportNotFetched { en: "Decks linked from {0} cannot be fetched by this version yet. Export the deck there as text and paste it here.", de: "Decks von {0} kann diese Version noch nicht abrufen. Exportiere das Deck dort als Text und füge ihn hier ein." },
+    /// A link to a site no source knows. `{0}` the host.
+    ImportUnknownLink { en: "Baylee cannot read decks from {0}. Export the deck there as a text list and paste the list here.", de: "Baylee kann keine Decks von {0} lesen. Exportiere das Deck dort als Textliste und füge die Liste hier ein." },
+    /// A deck taken. `{0}` rows, `{1}` cards, `{2}` the format.
+    ImportTook { en: "Imported from {2}. Rows: {0} · Cards: {1}", de: "Aus {2} importiert. Zeilen: {0} · Karten: {1}" },
+    /// The pool has not arrived, so names are not resolved yet.
+    ImportWaitingForPool { en: "Waiting for the card pool to check the names…", de: "Warte auf den Kartenpool, um die Namen zu prüfen …" },
+    /// Cards the pool does not have. `{0}` how many.
+    ImportUnknownCards { en: "Not in this gateway's card pool: {0}. Remove them before saving:", de: "Nicht im Kartenpool dieses Gateways: {0}. Vor dem Speichern entfernen:" },
+    /// Lines that were not rows. `{0}` how many.
+    ImportSkipped { en: "Lines that are not deck rows: {0}", de: "Zeilen, die keine Deckzeilen sind: {0}" },
+    /// One such line. `{0}` its number, `{1}` its text.
+    ImportSkippedLine { en: "  line {0}: {1}", de: "  Zeile {0}: {1}" },
+    /// Maybeboard rows, not kept. `{0}` how many.
+    ImportMaybeNotKept { en: "Maybeboard rows not kept, as Baylee stores no maybeboard: {0}", de: "Vielleicht-Zeilen nicht übernommen, da Baylee keine speichert: {0}" },
+    /// A commander the rules will not seat. `{0}` its name.
+    ImportNotALeader { en: "{0} cannot lead a deck, so it is not marked as commander.", de: "{0} kann kein Deck anführen und ist deshalb nicht als Commander markiert." },
+    /// The file named no deck. `{0}` the name given.
+    ImportNamedForYou { en: "The file names no deck, so it is called “{0}”.", de: "Die Datei nennt keinen Decknamen, daher heißt es „{0}“." },
+    /// Rows with no printing. `{0}` how many.
+    ImportDefaultPrinting { en: "Rows without a printing play the default printing: {0}", de: "Zeilen ohne Druck spielen den Standarddruck: {0}" },
+    /// Rows with no language. `{0}` how many.
+    ImportDefaultLanguage { en: "Rows without a language are English: {0}", de: "Zeilen ohne Sprache sind englisch: {0}" },
+    /// A hundred-card main deck without a commander.
+    ImportNoCommander { en: "The file names no commander. For a Commander deck, set one in the deck list's card menu.", de: "Die Datei nennt keinen Commander. Für ein Commander-Deck lege ihn im Kartenmenü der Deckliste fest." },
+    /// More entries than the list shows. `{0}` how many more.
+    AndMore { en: "  and {0} more", de: "  und {0} weitere" },
+    /// A paste over the document limit.
+    ImportTooLarge { en: "That text is too large for a deck: at most 256 KiB.", de: "Der Text ist zu groß für ein Deck: höchstens 256 KiB." },
+    /// A document with too many rows. `{0}` how many.
+    ImportTooManyRows { en: "A deck file holds at most 1000 rows; this one holds {0}.", de: "Eine Deckdatei hat höchstens 1000 Zeilen; diese hat {0}." },
+    /// Nothing but blank lines and comments.
+    ImportNothing { en: "There is no deck in that text.", de: "In dem Text steht kein Deck." },
+    /// Not one line was a row. `{0}` the first line's number, `{1}` its text.
+    ImportUnreadable { en: "No deck rows found. Line {0} reads: {1}", de: "Keine Deckzeilen gefunden. Zeile {0} lautet: {1}" },
+    /// JSON or YAML that did not parse. `{0}` the parser's words.
+    ImportSyntax { en: "The file could not be read: {0}", de: "Die Datei ließ sich nicht lesen: {0}" },
+    /// A document version this build does not read. `{0}` the version.
+    ImportVersion { en: "This is a deck document of version {0}; this build reads version 1. Update Baylee to import it.", de: "Das ist ein Deckdokument der Version {0}; diese Version liest Version 1. Aktualisiere Baylee, um es zu importieren." },
+    /// A deck name that is too long or holds a line break.
+    ImportDeckName { en: "The deck's name is too long or holds a line break.", de: "Der Deckname ist zu lang oder enthält einen Zeilenumbruch." },
+    /// One card refused. `{0}` its position, `{1}` why.
+    ImportCardRefused { en: "Card {0} cannot be imported: {1}", de: "Karte {0} lässt sich nicht importieren: {1}" },
+    /// Why: no name.
+    ImportCardName { en: "it has no name.", de: "sie hat keinen Namen." },
+    /// Why: a bad count.
+    ImportCardCount { en: "its count must be from 1 to 1000000.", de: "ihre Anzahl muss zwischen 1 und 1000000 liegen." },
+    /// Why: a long note.
+    ImportCardNote { en: "its note is longer than 500 characters.", de: "ihre Notiz ist länger als 500 Zeichen." },
+    /// Why: a field a stored row could not say back.
+    ImportCardUnstorable { en: "its name or printing cannot be stored as written.", de: "ihr Name oder Druck lässt sich so nicht speichern." },
+    /// The export says everything.
+    ExportComplete { en: "This format keeps everything about the deck.", de: "Dieses Format behält alles am Deck." },
+    /// The export leaves things out. `{0}` the format.
+    ExportLeavesOut { en: "{0} cannot say everything; left out:", de: "{0} kann nicht alles ausdrücken; weggelassen:" },
+    /// Loss: the deck's name.
+    LossName { en: "the deck's name", de: "der Deckname" },
+    /// Loss: languages. `{0}` rows.
+    LossLang { en: "languages, rows: {0}", de: "Sprachen, Zeilen: {0}" },
+    /// Loss: printing ids. `{0}` rows.
+    LossScryfallId { en: "exact printing ids, rows: {0}", de: "genaue Druck-IDs, Zeilen: {0}" },
+    /// Loss: notes. `{0}` rows.
+    LossNote { en: "notes, rows: {0}", de: "Notizen, Zeilen: {0}" },
+    /// Loss: a finish written as non-foil. `{0}` rows.
+    LossFinish { en: "holographic, glitter and galaxy finishes, written as non-foil, rows: {0}", de: "Holo-, Glitzer- und Galaxy-Veredelungen, als nicht-foil geschrieben, Zeilen: {0}" },
+    /// Loss: collector numbers without a set. `{0}` rows.
+    LossCollectorNumber { en: "collector numbers without a set, rows: {0}", de: "Sammlernummern ohne Set, Zeilen: {0}" },
+    /// Loss: the maybeboard. `{0}` rows.
+    LossMaybeboard { en: "the maybeboard, rows: {0}", de: "das Vielleicht-Board, Zeilen: {0}" },
+    /// The export is on the clipboard.
+    ExportCopied { en: "Copied to the clipboard.", de: "In die Zwischenablage kopiert." },
+    /// The clipboard refused.
+    ExportCopyFailed { en: "The clipboard could not be written. Save it as a file instead.", de: "Die Zwischenablage ließ sich nicht beschreiben. Speichere es stattdessen als Datei." },
+    /// Saved. `{0}` the path.
+    ExportSavedTo { en: "Saved as {0}", de: "Gespeichert als {0}" },
+    /// Handed to the browser. `{0}` the file name.
+    ExportDownloaded { en: "Downloading {0}", de: "{0} wird heruntergeladen" },
+    /// Not saved. `{0}` the system's words.
+    ExportSaveFailed { en: "Could not save the file: {0}", de: "Die Datei ließ sich nicht speichern: {0}" },
     /// Destructive deck confirmation.
     DeleteDeckQuestion { en: "Delete “{0}”?", de: "„{0}“ löschen?" },
     /// Destructive deck confirmation.
