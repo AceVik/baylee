@@ -1464,6 +1464,21 @@ messages! {
     PutOnBottom { en: "Put {0} cards on the bottom", de: "Lege {0} Karten nach unten" },
     /// Declare attackers
     DeclareAttackers { en: "Declare attackers", de: "Angreifer deklarieren" },
+    /// Current attack aim and the number already assigned there.
+    AttackAim { en: "Aim: {0} · {1} assigned", de: "Angriffsziel: {0} · {1} zugewiesen" },
+    /// Adds undeclared creatures only; other assignments are preserved.
+    AttackRemaining { en: "Send remaining creatures to {0}", de: "Übrige Kreaturen gegen {0}" },
+    /// Clears the draft without submitting it.
+    AttackWithdrawAll { en: "Withdraw all attackers", de: "Alle Angreifer zurückziehen" },
+    /// A single unassigned creature.
+    AttackSend { en: "Attack: {0} → {1}", de: "Angreifen: {0} → {1}" },
+    /// A single assigned creature, naming its existing defender.
+    AttackWithdraw { en: "Withdraw: {0} → {1}", de: "Zurückziehen: {0} → {1}" },
+    /// Instructions for the reversible draft.
+    AttackDraftHint {
+        en: "Choose a defender, then creatures. Withdraw an attacker here to reassign it. Confirm when ready.",
+        de: "Angriffsziel wählen, dann Kreaturen. Zum Umverteilen hier zurückziehen. Zum Schluss bestätigen.",
+    },
     /// Declare blockers
     DeclareBlockers { en: "Declare blockers", de: "Blocker deklarieren" },
     /// Discard {0} card

@@ -40,6 +40,9 @@ use baylee_engine::choice::{
 use baylee_engine::win::{EndReason, GameResult, Victor};
 use baylee_view::{GameStatic, HouseAnswer, LossCause, PlayerView, SeatView};
 
+mod attack;
+pub use attack::AttackOption;
+
 /// What a combat declaration is currently pointed at.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum CombatFocus {

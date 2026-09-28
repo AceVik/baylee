@@ -2512,6 +2512,9 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
         take_cast_row(duel, index);
         return;
     }
+    if pick_attack_choice(duel, index) {
+        return;
+    }
     if let Some(i) = duel.interaction.as_mut()
         && matches!(
             i.pending(),
@@ -2569,6 +2572,34 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
     if let Some(action) = action {
         duel.submit(action);
     }
+}
+
+/// Combat rows edit a draft; the ordinary confirmation remains the only send.
+fn pick_attack_choice(duel: &mut Duel, index: usize) -> bool {
+    use baylee_client_core::targeting::{NEXT, PAGE_SIZE, PREVIOUS};
+    let Some(i) = duel.interaction.as_mut() else {
+        return false;
+    };
+    if !matches!(
+        i.pending(),
+        baylee_engine::choice::Pending::ChooseAttackers { .. }
+    ) {
+        return false;
+    }
+    let options = i.attack_options();
+    match index {
+        PREVIOUS => duel.target_page = duel.target_page.saturating_sub(1),
+        NEXT => {
+            duel.target_page =
+                (duel.target_page + 1).min(options.len().saturating_sub(1) / PAGE_SIZE);
+        }
+        _ => {
+            if let Some(option) = options.get(index) {
+                i.edit_attack(*option);
+            }
+        }
+    }
+    true
 }
 
 /// Takes one row of the cast chooser: the way is remembered, the deed is

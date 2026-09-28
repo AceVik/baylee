@@ -323,3 +323,60 @@ fn a_stack_of_blockers_fills_in_front_of_the_focus_as_far_as_it_may() {
         "the one that may not block the focus was left out, not sent"
     );
 }
+
+#[test]
+fn explicit_attack_controls_preserve_split_attacks_and_withdraw_individually() {
+    let walker = Defender::Planeswalker(obj(80));
+    let mut i = interaction(attack_choice(
+        (1..=50).map(obj).collect(),
+        vec![seat(1), seat(2), walker],
+    ));
+    let original_options = i.attack_options();
+    assert!(i.edit_attack(AttackOption::Toggle(obj(1))));
+    assert!(i.edit_attack(AttackOption::Aim(seat(2))));
+    assert!(i.edit_attack(AttackOption::AddRemaining));
+    assert_eq!(i.declared(), 50);
+    assert_eq!(i.assignment(obj(1)), Some(CombatFocus::Defender(seat(1))));
+    assert_eq!(i.assignment(obj(50)), Some(CombatFocus::Defender(seat(2))));
+    i.edit_attack(AttackOption::AddRemaining);
+    assert_eq!(
+        i.declared(),
+        50,
+        "bulk addition never duplicates or withdraws"
+    );
+    i.edit_attack(AttackOption::Toggle(obj(1)));
+    i.edit_attack(AttackOption::Aim(walker));
+    i.edit_attack(AttackOption::Toggle(obj(1)));
+    assert_eq!(i.assignment(obj(1)), Some(CombatFocus::Defender(walker)));
+    assert_eq!(
+        i.attack_options(),
+        original_options,
+        "row identities stay stable"
+    );
+    i.edit_attack(AttackOption::WithdrawAll);
+    assert_eq!(i.declared(), 0);
+    assert_eq!(i.combat_focus(), CombatFocus::Defender(walker));
+    assert!(!i.edit_attack(AttackOption::Aim(seat(9))));
+    assert!(!i.edit_attack(AttackOption::Toggle(obj(99))));
+}
+
+#[test]
+fn attack_controls_work_in_a_duel_but_never_for_another_seat_or_prompt() {
+    let pending = attack_choice(vec![obj(1)], vec![seat(1)]);
+    let mut other = Interaction::new(pending.clone(), PlayerId::new(1));
+    assert!(other.attack_options().is_empty());
+    assert!(!other.edit_attack(AttackOption::AddRemaining));
+    let mut mine = interaction(pending);
+    mine.edit_attack(AttackOption::AddRemaining);
+    assert_eq!(
+        mine.confirm(),
+        Some(PlayerAction::DeclareAttackers {
+            attackers: vec![(obj(1), seat(1))]
+        })
+    );
+    mine.edit_attack(AttackOption::WithdrawAll);
+    assert!(mine.can_confirm());
+    let mut blockers = interaction(block_choice(vec![]));
+    assert!(blockers.attack_options().is_empty());
+    assert!(!blockers.edit_attack(AttackOption::WithdrawAll));
+}

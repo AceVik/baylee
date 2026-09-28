@@ -42,6 +42,8 @@ use super::*;
 use baylee_client_core::Prompt;
 use baylee_engine::choice::Pending;
 
+mod attack;
+
 /// The widest, which is the slip's old ceiling: past this a line of prose
 /// stops being one line and starts being a paragraph.
 const MAX_W: f32 = 620.0;
@@ -550,6 +552,7 @@ fn reading(
         .unwrap_or_default();
     if !waiting && !elsewhere {
         target_reading(duel, lang, texts, &mut lines, &mut rows);
+        attack::reading(duel, lang, texts, &mut lines, &mut rows);
     }
     // The cursor of the one chooser this drawer still draws. `CastMenu::pick`
     // went with its rows to the sheet.
