@@ -25,6 +25,7 @@ card!(
     )],
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
+    coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::ETB,
         &[

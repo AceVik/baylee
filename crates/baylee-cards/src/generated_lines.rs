@@ -32350,8 +32350,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Oko, Thief of Crowns
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[Some(0)],
+        stackable: 3,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

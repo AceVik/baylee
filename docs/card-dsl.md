@@ -1096,7 +1096,8 @@ a fight is the one sentence whose two creatures are two *different* instances
 of "target": Khalni Ambush's "target creature you control fights target
 creature you don't control" is two requirements, not one requirement for two
 objects. The second is written `second_targets = Some(TargetReq::…)` on
-`spell!` or `activated!`, beside `targets`/`target` — never on a mana
+`spell!`, `activated!` or `loyalty!` (Oko, Thief of Crowns' −5), beside
+`targets`/`target` — never on a mana
 ability, which may not target at all (CR 605.1a) and which
 `lints::mana_ability_fault` refuses through either instance.
 It is asked after the first, is its own list at every layer, and is never
@@ -1155,7 +1156,10 @@ seat is a choice no `Filter` can be told about), `PumpTarget`
 (the spell's or ability's targets, all of them — Giant Growth), both of which
 carry a `KeywordSet` so "+2/+2 and gains trample" is one effect,
 `SetPTFilter`, `ChangeController`, `AllCreaturesToOwner`,
-`ExchangeControlOrSacrifice` (Gilded Drake), `PhaseOut`, `AttachSelf`.
+`ExchangeControlOrSacrifice` (Gilded Drake), `ExchangeControl` (the first
+target's controller and the second's swap them, CR 701.12a–b: all or
+nothing, and nothing between two permanents of one player), `PhaseOut`,
+`AttachSelf`.
 Tokens/copy: `CreateToken`, `CreateTokenN`, `CreateTokenForTargetController`,
 `CreateTokenFromLinked`, `CreateTokenCopyOf`, `CreateTokenCopyOfEquipped`,
 `CreateTokenCopyOfFirstToken`, `CopyTargetSpell`, `Amass`.
@@ -1233,13 +1237,22 @@ Modal/sequence: `Sequence(&[..])`.
 ### Modifiers (layer effects)
 
 `AddType`, `RemoveType`, `AddSubtype`, `AllCreatureTypes`,
-`AllBasicLandTypes`, `AddColor`, `SetColor`, `AddKeyword`, `RemoveKeyword`,
-`LoseKeywords`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
+`AllBasicLandTypes`, `BecomeType { types, subtype }`, `AddColor`, `SetColor`,
+`AddKeyword`, `RemoveKeyword`, `LoseKeywords`, `LoseAllAbilities`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
 `CantActivateArtifacts`, `OpponentsCastAsSorcery`, `PlayersCantLose`,
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
 `DrawLimitPerTurn`.
+
+`BecomeType` is "becomes a [subtype] [type]" with nothing retained (CR
+205.1a): the card types and subtypes are replaced, supertypes stay, so
+Oko's Elk is still legendary and no longer an artifact. A sentence that
+says "in addition to its other types" or "still a …" (CR 205.1b) is
+`AddType`/`AddSubtype` instead. `LoseAllAbilities` (CR 613.1f) takes
+keywords and printed abilities alike; a static of the object keeps only its
+parts in layers 1, 2, 4 and 5 (CR 613.6), and a grant with a later
+timestamp still lands (CR 613.7).
 
 `DrawLimitPerTurn { who, limit }` is "each player can't draw more than one
 card each turn" (Spirit of the Labyrinth) and its opponents-only twin

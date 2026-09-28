@@ -1815,6 +1815,25 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::ExchangeControl => {
+            // CR 608.2b has already dropped a target that became illegal, and
+            // CR 701.12a makes an exchange all or nothing: one side missing
+            // is no exchange. Two permanents of one player swap nothing
+            // (CR 701.12b).
+            let controller_of = |id: Option<&ObjectId>| {
+                id.and_then(|id| state.object(*id))
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                    .map(|o| (o.id, o.controller))
+            };
+            if let (Some((a, a_ctrl)), Some((b, b_ctrl))) = (
+                controller_of(res.targets.first()),
+                controller_of(res.second_targets.first()),
+            ) && a_ctrl != b_ctrl
+            {
+                gain_control(state, &[(a, b_ctrl), (b, a_ctrl)]);
+            }
+            None
+        }
         Effect::ChangeController { new_controller } => {
             // Two readings that were both wrong, and each looked right from
             // the other side. The seat was *always* the effect's controller,

@@ -71,6 +71,17 @@ pub enum Modifier {
     AddSubtype(SubtypeId),
     /// Affected creatures are every creature type (Maskwood Nexus).
     AllCreatureTypes,
+    /// "Becomes a [subtype] [types]" with nothing retained (CR 205.1a):
+    /// `types` replace every card type (an instant or sorcery keeps its
+    /// own) and `subtype` replaces every subtype, since those of the card
+    /// types it lost go with them. Supertypes stay (Oko, Thief of Crowns:
+    /// "becomes a green Elk creature" keeps legendary, loses artifact).
+    BecomeType {
+        /// The card types it has now.
+        types: TypeSet,
+        /// Its one subtype now.
+        subtype: SubtypeId,
+    },
     /// Affected lands are every basic land type (Great Divide Guide).
     AllBasicLandTypes,
     /// Adds colors.
@@ -391,6 +402,7 @@ impl Modifier {
             | Self::AddSubtype(_)
             | Self::AllCreatureTypes
             | Self::AllBasicLandTypes
+            | Self::BecomeType { .. }
             | Self::AddTypeIfCountersAtLeast { .. } => Layer::Type,
             // Layer 5: color-changing effects.
             Self::AddColor(_) | Self::SetColor(_) => Layer::Color,
@@ -638,6 +650,13 @@ mod tests {
             (Modifier::AddSubtype(SubtypeId::new(1)), Layer::Type),
             (Modifier::AllCreatureTypes, Layer::Type),
             (Modifier::AllBasicLandTypes, Layer::Type),
+            (
+                Modifier::BecomeType {
+                    types: TypeSet::CREATURE,
+                    subtype: SubtypeId::new(1),
+                },
+                Layer::Type,
+            ),
             (
                 Modifier::AddTypeIfCountersAtLeast {
                     kind: crate::effect::CounterKind::Charge,

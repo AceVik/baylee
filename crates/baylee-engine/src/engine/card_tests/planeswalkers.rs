@@ -512,15 +512,10 @@ fn grist_the_hunger_tide_activates_minus_five_to_drain_life_for_graveyard_creatu
     );
 }
 
-/// `Oko, Thief of Crowns` (`Coverage::Partial`):
-/// "+2: Create a Food token.
-/// +1: Target artifact or creature loses all abilities and becomes a green Elk creature with base power and toughness 3/3.
-/// −5: Exchange control of target artifact or creature you control and target creature an opponent controls with power 3 or less."
-///
-/// Under `Coverage::Partial`, the +1 elk transformation and −5 control exchange are omitted.
-/// The +2 ability is implemented. The test casts `Oko, Thief of Crowns` with 4 starting loyalty,
-/// activates the +2 loyalty ability to tick Oko up to 6 loyalty, and confirms that a Food artifact token
-/// is created under the player's control.
+/// `Oko, Thief of Crowns` +2: "Create a Food token." The test casts Oko
+/// with 4 starting loyalty, activates the +2 to tick it up to 6, and
+/// confirms that a Food artifact token is created under the player's
+/// control.
 #[test]
 fn oko_thief_of_crowns_ticks_up_and_creates_food_token() {
     let p0 = PlayerId::new(0);
@@ -556,6 +551,174 @@ fn oko_thief_of_crowns_ticks_up_and_creates_food_token() {
         types(&engine, tokens[0]).contains(TypeSet::ARTIFACT),
         "created token is an artifact"
     );
+}
+
+/// Casts Oko from a hand of Forest, Island, Forest and hands back the walker.
+fn oko_on_the_battlefield(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> ObjectId {
+    keep_mulligans(engine);
+    reach_main_phase(engine, seat);
+    cast_from_hand(engine, seat, oko_thief_of_crowns());
+    pass_until(engine, stack_is_empty);
+    on_battlefield(engine, seat, oko_thief_of_crowns()).expect("Oko on battlefield")
+}
+
+/// Answers the target question in front of `seat` with `objects`.
+#[track_caller]
+fn choose(engine: &mut Engine<RegistryLookup>, seat: PlayerId, objects: Vec<ObjectId>) {
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects,
+                players: vec![],
+            },
+        )
+        .expect("the targets are legal");
+}
+
+fn elk_only() -> baylee_core::types::SubtypeSet {
+    let mut elk = baylee_core::types::SubtypeSet::EMPTY;
+    elk.insert(baylee_core::generated::subtypes::creature::ELK);
+    elk
+}
+
+/// Oko +1 on an artifact: "loses all abilities and becomes a green Elk
+/// creature with base power and toughness 3/3". The ruling: it loses every
+/// other card type, so Sol Ring stops being an artifact, and with its
+/// abilities goes its mana ability. Indefinitely: still so a turn later.
+#[test]
+fn oko_plus_one_turns_sol_ring_into_a_plain_green_elk() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(106, forest())
+        .battlefield(0, &[forest(), island(), forest(), sol_ring()])
+        .hand(0, &[oko_thief_of_crowns()])
+        .start();
+    let oko = oko_on_the_battlefield(&mut engine, p0);
+    let ring = on_battlefield(&engine, p0, sol_ring()).expect("Sol Ring is out");
+
+    activate(&mut engine, p0, oko_thief_of_crowns(), 1);
+    choose(&mut engine, p0, vec![ring]);
+    assert_eq!(counters_on(&engine, oko, CounterKind::Loyalty), 5);
+    pass_until(&mut engine, stack_is_empty);
+
+    let check = |engine: &Engine<RegistryLookup>, when: &str| {
+        let c = engine
+            .state()
+            .object(ring)
+            .expect("Sol Ring stayed")
+            .characteristics();
+        assert_eq!(
+            c.types,
+            TypeSet::CREATURE,
+            "{when}: a creature and nothing else"
+        );
+        assert_eq!(c.subtypes, elk_only(), "{when}: an Elk");
+        assert_eq!(
+            c.colors,
+            baylee_core::color::ColorSet::of(baylee_core::color::Color::Green),
+            "{when}: green"
+        );
+        assert!(c.abilities_lost.is_some(), "{when}: it lost its abilities");
+        assert_eq!(pt(engine, ring), (3, 3), "{when}: base 3/3");
+    };
+    check(&engine, "on resolution");
+    pass_until(&mut engine, |e| e.state().turn.active != p0);
+    pass_until(&mut engine, |e| e.state().turn.active == p0);
+    check(&engine, "a turn later");
+}
+
+/// Oko +1 on a legendary creature: the Elk keeps its supertypes (the
+/// ruling), and its creature types are replaced, not added to (CR 205.1a).
+#[test]
+fn oko_plus_one_keeps_legendary_and_replaces_the_creature_types() {
+    let balthor = card_index("23669721-fe9e-49d7-9504-ae6164de723a");
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(107, forest())
+        .battlefield(0, &[forest(), island(), forest()])
+        .battlefield(1, &[balthor])
+        .hand(0, &[oko_thief_of_crowns()])
+        .start();
+    oko_on_the_battlefield(&mut engine, p0);
+    let lord = on_battlefield(&engine, p1, balthor).expect("Balthor is out");
+
+    activate(&mut engine, p0, oko_thief_of_crowns(), 1);
+    choose(&mut engine, p0, vec![lord]);
+    pass_until(&mut engine, stack_is_empty);
+
+    let c = engine
+        .state()
+        .object(lord)
+        .expect("Balthor stayed")
+        .characteristics();
+    assert!(
+        c.supertypes.contains(SupertypeSet::LEGENDARY),
+        "still legendary"
+    );
+    assert_eq!(c.subtypes, elk_only(), "no longer a Dwarf Barbarian");
+    assert_eq!(pt(&engine, lord), (3, 3));
+    assert_eq!(
+        engine.state().object(lord).unwrap().controller,
+        p1,
+        "the +1 takes nothing"
+    );
+}
+
+/// Oko −5: "Exchange control of target artifact or creature you control and
+/// target creature an opponent controls with power 3 or less." Two
+/// instances of "target", asked one after the other; the second offers only
+/// the opponent's small creatures, and the exchange is permanent.
+#[test]
+fn oko_minus_five_exchanges_an_artifact_for_a_small_creature() {
+    let balthor = card_index("23669721-fe9e-49d7-9504-ae6164de723a");
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(108, forest())
+        .battlefield(0, &[forest(), island(), forest(), sol_ring()])
+        .battlefield(1, &[balthor, rootbreaker_wurm()])
+        .hand(0, &[oko_thief_of_crowns()])
+        .start();
+    let oko = oko_on_the_battlefield(&mut engine, p0);
+    // Up to 6 this turn, so that the −5 can be paid on the next one.
+    activate(&mut engine, p0, oko_thief_of_crowns(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    pass_until(&mut engine, |e| e.state().turn.active != p0);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.phase == Phase::FirstMain
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    let ring = on_battlefield(&engine, p0, sol_ring()).expect("Sol Ring is out");
+    let lord = on_battlefield(&engine, p1, balthor).expect("Balthor is out");
+    let wurm = on_battlefield(&engine, p1, rootbreaker_wurm()).expect("the Wurm is out");
+
+    activate(&mut engine, p0, oko_thief_of_crowns(), 2);
+    assert_eq!(counters_on(&engine, oko, CounterKind::Loyalty), 1, "6 − 5");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the first target, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&ring),
+        "Sol Ring is an artifact you control"
+    );
+    assert!(!options.contains(&lord), "Balthor is not yours");
+    choose(&mut engine, p0, vec![ring]);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the second target, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&lord), "Balthor has power 2");
+    assert!(!options.contains(&wurm), "the Wurm's power is over 3");
+    assert!(
+        !options.contains(&ring),
+        "the second target is an opponent's"
+    );
+    choose(&mut engine, p0, vec![lord]);
+    pass_until(&mut engine, stack_is_empty);
+
+    let controller = |e: &Engine<RegistryLookup>, id| e.state().object(id).unwrap().controller;
+    assert_eq!(controller(&engine, ring), p1, "Sol Ring went across");
+    assert_eq!(controller(&engine, lord), p0, "Balthor came over");
+    pass_until(&mut engine, |e| e.state().turn.active != p0);
+    assert_eq!(controller(&engine, lord), p0, "the exchange lasts");
 }
 
 /// `Wrenn and Realmbreaker` (`Coverage::Partial`):

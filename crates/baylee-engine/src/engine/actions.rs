@@ -311,7 +311,12 @@ impl<L: CardLookup> Engine<L> {
                 }) = self.pending_plan.take()
                 {
                     self.loyalty_player_choice = Some(chosen);
-                    self.finish_loyalty_activation(player, source, ability_index, SmallVec::new());
+                    self.continue_loyalty_activation(
+                        player,
+                        source,
+                        ability_index,
+                        SmallVec::new(),
+                    );
                     return Ok(());
                 }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
@@ -490,9 +495,20 @@ impl<L: CardLookup> Engine<L> {
                         targets: first,
                         target_players,
                     } => {
-                        self.activation_second_targets = Some(targets.into_iter().collect());
-                        self.activation_target_players = target_players;
-                        self.start_activation(player, source, ability_index, first)?;
+                        let second = targets.into_iter().collect();
+                        if self.loyalty_second_targets(source, ability_index).is_some() {
+                            self.finish_loyalty_activation(
+                                player,
+                                source,
+                                ability_index,
+                                first,
+                                second,
+                            );
+                        } else {
+                            self.activation_second_targets = Some(second);
+                            self.activation_target_players = target_players;
+                            self.start_activation(player, source, ability_index, first)?;
+                        }
                     }
                     PlanKind::ActivateAbility {
                         source,
@@ -512,7 +528,12 @@ impl<L: CardLookup> Engine<L> {
                                 .and_then(|abilities| abilities.get(ability_index as usize)),
                             Some(AbilityDef::Loyalty { .. })
                         ) {
-                            self.finish_loyalty_activation(player, source, ability_index, targets);
+                            self.continue_loyalty_activation(
+                                player,
+                                source,
+                                ability_index,
+                                targets,
+                            );
                         } else {
                             // Only on this arm. A loyalty ability shares the
                             // plan and finishes elsewhere, so setting the

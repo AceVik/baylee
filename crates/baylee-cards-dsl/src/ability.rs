@@ -449,6 +449,10 @@ pub enum AbilityDef {
         /// card that cannot be drawn, and for Karn a loyalty tick that cannot
         /// be taken.
         targets: Option<crate::effect::TargetReq>,
+        /// A second instance of the word "target", as on
+        /// [`AbilityDef::Spell::second_targets`] (Oko, Thief of Crowns' −5:
+        /// one of yours, one of theirs).
+        second_targets: Option<crate::effect::TargetReq>,
     },
     /// A triggered ability with modes: the controller chooses one when it
     /// triggers (Charming Prince, Aether Channeler).
@@ -719,6 +723,7 @@ mod tests {
                 cost: 1,
                 effects: NOTHING,
                 targets: None,
+                second_targets: None,
             },
             AbilityDef::ModalTriggered {
                 trigger: Trigger::ETB,

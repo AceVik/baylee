@@ -413,6 +413,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::AddSubtype(_)
                 | Modifier::AllCreatureTypes
                 | Modifier::AllBasicLandTypes
+                | Modifier::BecomeType { .. }
                 | Modifier::AddTypeIfCountersAtLeast { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
@@ -572,6 +573,12 @@ fn apply(
         Modifier::RemoveType(t) => c.types = c.types.difference(*t),
         Modifier::AddSubtype(s) => c.subtypes.insert(*s),
         Modifier::AllCreatureTypes => c.subtypes = c.subtypes.union(SubtypeSet::ALL_CREATURE),
+        Modifier::BecomeType { types, subtype } => {
+            let kept = c.types.intersection(baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY));
+            c.types = types.union(kept);
+            c.subtypes = SubtypeSet::EMPTY;
+            c.subtypes.insert(*subtype);
+        }
         Modifier::AllBasicLandTypes => c.subtypes = c.subtypes.union(SubtypeSet::BASIC_LANDS),
         Modifier::AddColor(col) => c.colors = c.colors.union(*col),
         Modifier::SetColor(col) => c.colors = *col,

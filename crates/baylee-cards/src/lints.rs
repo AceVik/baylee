@@ -1163,6 +1163,7 @@ mod tests {
             targets: Some(TargetReq::up_to_one(TargetSpec::Object(
                 &NONCREATURE_ARTIFACT,
             ))),
+            second_targets: None,
         };
         assert!(
             target_reuse(&broken).is_some(),
@@ -1176,6 +1177,7 @@ mod tests {
             targets: Some(TargetReq::up_to_one(TargetSpec::Object(
                 &NONCREATURE_ARTIFACT,
             ))),
+            second_targets: None,
         };
         assert!(
             target_reuse(&fixed).is_none(),
@@ -1271,6 +1273,7 @@ mod tests {
             cost: -1,
             effects: &MILL_THE_CONTROLLER,
             targets: Some(TargetReq::one(TargetSpec::AnyPlayer)),
+            second_targets: None,
         };
         assert_eq!(
             controller_of_a_player_target(&broken),
@@ -1283,6 +1286,7 @@ mod tests {
             cost: -1,
             effects: &MILL_THE_CHOSEN,
             targets: Some(TargetReq::one(TargetSpec::AnyPlayer)),
+            second_targets: None,
         };
         assert!(
             controller_of_a_player_target(&fixed).is_none(),
@@ -1295,6 +1299,7 @@ mod tests {
             cost: -1,
             effects: &MILL_THE_CONTROLLER,
             targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+            second_targets: None,
         };
         assert!(
             controller_of_a_player_target(&object).is_none(),

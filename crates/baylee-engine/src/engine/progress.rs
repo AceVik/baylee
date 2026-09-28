@@ -2494,7 +2494,8 @@ impl<L: CardLookup> Engine<L> {
         });
         match abilities.get(loc.index as usize)? {
             AbilityDef::Activated { second_targets, .. }
-            | AbilityDef::ActivatedConditional { second_targets, .. } => *second_targets,
+            | AbilityDef::ActivatedConditional { second_targets, .. }
+            | AbilityDef::Loyalty { second_targets, .. } => *second_targets,
             _ => None,
         }
     }

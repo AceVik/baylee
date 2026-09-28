@@ -125,6 +125,7 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
         // A copy effect is layer 1 and replaces the lot (CR 613.2).
         Modifier::BecomeCopyOf(_) => EVERYTHING,
         Modifier::AddType(_) | Modifier::RemoveType(_) => &[Field::Types],
+        Modifier::BecomeType { .. } => &[Field::Types, Field::Subtypes],
         Modifier::AddSubtype(_) | Modifier::AllCreatureTypes | Modifier::AllBasicLandTypes => {
             &[Field::Subtypes]
         }

@@ -296,6 +296,9 @@ pub struct LoyaltyParts {
     pub effects: &'static [Effect],
     /// What it targets, if anything.
     pub targets: Option<crate::effect::TargetReq>,
+    /// A second instance of the word "target"; see
+    /// [`AbilityDef::Loyalty::second_targets`].
+    pub second_targets: Option<crate::effect::TargetReq>,
 }
 
 impl LoyaltyParts {
@@ -306,6 +309,7 @@ impl LoyaltyParts {
             cost,
             effects,
             targets: None,
+            second_targets: None,
         }
     }
 
@@ -316,6 +320,7 @@ impl LoyaltyParts {
             cost: self.cost,
             effects: self.effects,
             targets: self.targets,
+            second_targets: self.second_targets,
         }
     }
 }

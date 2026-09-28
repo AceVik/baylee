@@ -885,6 +885,10 @@ pub enum Effect {
     /// Drake); if no exchange happens (no/illegal target), sacrifice the
     /// source.
     ExchangeControlOrSacrifice,
+    /// Exchange control of the first target and the second (Oko, Thief of
+    /// Crowns' −5). CR 701.12a–b: if either is gone or both have one
+    /// controller, nothing changes hands.
+    ExchangeControl,
     /// For each player in `who`, that player chooses up to one matching
     /// permanent they control and it is destroyed (The True
     /// Scriptures I).
@@ -2094,6 +2098,7 @@ impl Effect {
             | Effect::ChangeTarget { .. }
             | Effect::ChooseNewTargets
             | Effect::ExchangeControlOrSacrifice
+            | Effect::ExchangeControl
             | Effect::DestroyChosenForPlayers { .. }
             | Effect::DiscardForPlayers { .. }
             | Effect::DiscardRandom { .. }
