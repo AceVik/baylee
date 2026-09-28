@@ -1306,11 +1306,14 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             let takeover = state
                 .effects
                 .iter()
-                .find(|fx| {
+                .filter(|fx| {
                     matches!(fx.modifier, baylee_cards_dsl::Modifier::SearchTakeover)
                         && state.is_opponent(fx.controller, you)
                         && !state.has_left(fx.controller)
                 })
+                // Multiple player-control effects overwrite in timestamp
+                // order; the newest Agent gets the searching player's choices.
+                .max_by_key(|fx| fx.timestamp)
                 .map(|fx| fx.controller);
             let options: Vec<ObjectId> = state
                 .zones

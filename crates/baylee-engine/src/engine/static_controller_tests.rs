@@ -248,6 +248,52 @@ fn a_drakes_opposition_agent_takes_searches_over_for_its_new_controller() {
     assert_eq!(player, seat(0), "seat 0 controls seat 1 while it searches");
 }
 
+#[test]
+fn the_newest_opposition_agent_controls_a_search_with_multiple_agents() {
+    for (first, last) in [(0u8, 1u8), (1, 0)] {
+        let mut engine = Duel::table(928, swamp(), 3)
+            .battlefield(usize::from(first), &[opposition_agent()])
+            .battlefield(usize::from(last), &[swamp(), swamp(), swamp()])
+            .hand(usize::from(last), &[opposition_agent()])
+            .battlefield(2, &[swamp(), swamp(), swamp()])
+            .hand(2, &[grim_tutor()])
+            .start();
+        keep_mulligans(&mut engine);
+        assert!(walk_to_own_main(&mut engine, seat(last)));
+        cast_from_hand(&mut engine, seat(last), opposition_agent());
+        pass_until(&mut engine, stack_is_empty);
+        assert!(walk_to_own_main(&mut engine, seat(2)));
+        cast_from_hand(&mut engine, seat(2), grim_tutor());
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseCards { .. })
+        });
+        let Pending::ChooseCards {
+            player, options, ..
+        } = engine.pending().clone()
+        else {
+            unreachable!()
+        };
+        assert_eq!(
+            player,
+            seat(last),
+            "entry order, not seat or effect storage order, wins"
+        );
+        engine
+            .apply(
+                player,
+                PlayerAction::ChooseObjects {
+                    objects: vec![options[0]],
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            engine.state().object(options[0]).unwrap().zone,
+            crate::zone::Zone::Exile
+        );
+    }
+}
+
 /// One refresh settles every controller before any later layer reads one
 /// (CR 613.1b before 613.1c–f): forcing a second refresh at the same
 /// generation changes nothing. The taken Elf is the case a single walk
