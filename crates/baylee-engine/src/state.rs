@@ -1883,6 +1883,12 @@ impl GameState {
         self.timestamp += 1;
         let ts = self.timestamp;
         self.record_last_known(id, from_zone);
+        // CR 400.7 for the turn's per-ability tally: what the old object
+        // used this turn is not the new object's. An id is stable for the
+        // whole game and only `version` moves, so the tally keyed by id kept
+        // counting across a blink — Omnath returned by Ephemerate took its
+        // second landfall for the second time this turn, not the first.
+        self.ability_fires.retain(|(object, _), _| *object != id);
         {
             let obj = self.object_mut(id).expect("checked above");
             obj.zone = to.zone();

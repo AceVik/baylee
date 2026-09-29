@@ -92352,3 +92352,67 @@ fn omnath_counts_its_resolutions_afresh_each_turn() {
         reach_their_main_phase(&mut engine, p0);
     }
 }
+
+/// CR 400.7: Omnath exiled and returned by Ephemerate is a new object, and
+/// its landfall has resolved no times this turn. The Mesa's own landfall was
+/// the old Omnath's first; the Plains the Mesa fetches is the new Omnath's
+/// first too, so it gains 4 life again and adds no mana. The tally used to
+/// be keyed by the object's id alone, which a blink does not change.
+#[test]
+fn omnath_blinked_counts_from_the_first_time_again() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[omnath_locus_of_creation(), plains()])
+        .hand(0, &[arid_mesa(), ephemerate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let life = |e: &Engine<RegistryLookup>| e.state().players[0].life;
+    let before = life(&engine);
+    let mesa = in_hand(&engine, p0, arid_mesa()).unwrap();
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: mesa })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life(&engine), before + 4);
+
+    let omnath = on_battlefield(&engine, p0, omnath_locus_of_creation()).unwrap();
+    tap_all_mana_but(&mut engine, p0, None);
+    cast_with_floating(&mut engine, p0, ephemerate());
+    let _ = aim_at(&mut engine, p0, omnath);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, omnath_locus_of_creation()).is_some());
+
+    let mesa = on_battlefield(&engine, p0, arid_mesa()).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: mesa,
+                ability_index: 0,
+            },
+        )
+        .unwrap();
+    let Pending::ChooseCards { options, .. } = pass_to_card_choice(&mut engine) else {
+        unreachable!()
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life(&engine),
+        before + 4 - 1 + 4,
+        "the new Omnath's first time: 4 life again"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and not the old Omnath's second time"
+    );
+}
