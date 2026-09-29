@@ -175,6 +175,23 @@ pub(crate) fn this_to_affect(state: &GameState, res: &Resolution) -> Option<Obje
     this_object(res).filter(|&id| state.object(id).is_some())
 }
 
+/// Whether `you` still control the permanent this resolution's ability came
+/// from, as the object it was when the ability was put on the stack.
+///
+/// The second half is the stack object's own record: a source that left the
+/// battlefield while its ability waited froze its power onto it
+/// (`GameObject::source_power_lki`), and that record outlives a blink, which
+/// brings back a new object (CR 400.7) under the same id.
+fn source_still_yours(state: &GameState, res: &Resolution, you: PlayerId) -> bool {
+    let never_left = state
+        .object(res.on_stack)
+        .is_none_or(|o| o.source_power_lki.is_none());
+    never_left
+        && state
+            .object(res.source)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield && o.controller == you)
+}
+
 /// The one destination Path to Exile's basic-land search uses.
 static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
     &[baylee_cards_dsl::effect::Find::BATTLEFIELD_TAPPED];
@@ -2325,6 +2342,12 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             modifier: baylee_cards_dsl::Modifier::GainControl,
             ..
         } if state.has_left(you) => None,
+        // CR 611.2b: a "for as long as you control" that is already over
+        // does nothing.
+        Effect::CreateContinuousEffect {
+            duration: baylee_cards_dsl::Duration::WhileYouControlSource,
+            ..
+        } if !source_still_yours(state, res, you) => None,
         Effect::CreateContinuousEffect {
             layer,
             filter,

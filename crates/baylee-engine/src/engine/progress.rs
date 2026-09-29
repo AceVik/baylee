@@ -1659,6 +1659,7 @@ impl<L: CardLookup> Engine<L> {
             matches!(fx.duration, Duration::WhileSourceOnBattlefield)
                 && fx.source.is_some_and(|s| gone.contains(&s))
         });
+        end_control_durations(&mut self.state);
         forget_effects_on_moved_objects(&mut self.state);
         // Collect statics of permanents not yet registered (then apply,
         // so the borrow of `state` ends before mutation).
@@ -4581,6 +4582,34 @@ impl<L: CardLookup> Engine<L> {
         self.state.board_state_changed();
         self.combat_declared = CombatDeclared::None;
         self.begin_turn(false);
+    }
+}
+
+/// Ends every "for as long as you control [the source]" whose controller no
+/// longer controls its source (CR 611.2b). The source leaving is handled as
+/// it moves (`GameState::move_object`); this is the other half, a change of
+/// control, which moves nothing.
+fn end_control_durations(state: &mut crate::state::GameState) {
+    use baylee_cards_dsl::Duration;
+    let lost: Vec<(ObjectId, PlayerId)> = state
+        .effects
+        .iter()
+        .filter(|fx| matches!(fx.duration, Duration::WhileYouControlSource))
+        .filter_map(|fx| {
+            let source = fx.source?;
+            let held = state
+                .object(source)
+                .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == fx.controller);
+            (!held).then_some((source, fx.controller))
+        })
+        .collect();
+    if !lost.is_empty() {
+        state.effects.remove_where(|fx| {
+            matches!(fx.duration, Duration::WhileYouControlSource)
+                && fx
+                    .source
+                    .is_some_and(|s| lost.contains(&(s, fx.controller)))
+        });
     }
 }
 

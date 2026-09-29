@@ -2027,6 +2027,18 @@ impl GameState {
         if to.zone() == Zone::Battlefield {
             self.per_turn.entered_battlefield.push(id);
         }
+        // "For as long as you control [this]" ends as its source leaves
+        // (CR 611.2b), here rather than at the next pass over the effect
+        // table: a blink is back before any pass runs, and what returns is a
+        // new object (CR 400.7) that the effect never named.
+        if from_zone == Zone::Battlefield {
+            self.effects.remove_where(|fx| {
+                matches!(
+                    fx.duration,
+                    baylee_cards_dsl::Duration::WhileYouControlSource
+                ) && fx.source == Some(id)
+            });
+        }
         if to.zone() == Zone::Graveyard {
             self.per_turn.entered_graveyard.push(id);
         }

@@ -559,6 +559,12 @@ pub struct StaticAbility {
 pub enum Duration {
     /// While the source permanent is on the battlefield.
     WhileSourceOnBattlefield,
+    /// "For as long as you control this creature" (Extraction Specialist,
+    /// CR 611.2b): over once the source leaves the battlefield or another
+    /// player gains control of it. A duration that is already over as the
+    /// effect would begin never starts, and the effect does nothing — the
+    /// source left while the ability waited, or is somebody else's.
+    WhileYouControlSource,
     /// Until end of turn (cleanup).
     UntilEndOfTurn,
     /// Until end of combat.
