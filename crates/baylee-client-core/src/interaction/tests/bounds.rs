@@ -150,3 +150,93 @@ fn a_question_that_takes_nothing_is_answered_with_nothing() {
         "Cancel sent the card the player had just decided against"
     );
 }
+
+/// A crew short of the total power the question states (CR 702.122a) is
+/// complete by its count and still not sent: the question names the fault,
+/// Confirm stays unlit, and two Elves' worth of power lights it.
+#[test]
+fn a_crew_short_of_its_stated_total_is_held_back() {
+    let mut i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(1), obj(2), obj(3)],
+        min: 1,
+        max: 3,
+        prompt: ChoicePrompt::CostCrew { power: 2 },
+        total: Some(baylee_engine::choice::CardTotal {
+            of: baylee_engine::choice::Measure::Power,
+            weights: vec![1, 1, 2],
+            at_least: Some(2),
+            at_most: None,
+        }),
+    });
+    i.toggle(obj(1));
+    assert_eq!(
+        i.answer_fault(),
+        Some(baylee_engine::choice::AnswerFault::TotalTooLow)
+    );
+    assert!(!i.can_confirm(), "one power-1 creature does not crew 2");
+    assert_eq!(i.confirm(), None);
+    i.toggle(obj(2));
+    assert_eq!(i.answer_fault(), None);
+    assert!(i.can_confirm());
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::ChooseObjects {
+            objects: vec![obj(1), obj(2)]
+        })
+    );
+}
+
+/// One creature blocking an attacker the question bounds to two or more
+/// (menace, CR 702.111b) is not sent; a second one makes it an answer.
+#[test]
+fn a_lone_blocker_on_a_bounded_attacker_is_held_back() {
+    let mut pending = block_choice(vec![
+        BlockOption {
+            blocker: obj(1),
+            attackers: vec![obj(9)],
+        },
+        BlockOption {
+            blocker: obj(2),
+            attackers: vec![obj(9)],
+        },
+    ]);
+    if let Pending::ChooseBlockers { bounds, .. } = &mut pending {
+        bounds.push(baylee_engine::choice::AttackerBound {
+            attacker: obj(9),
+            min_blockers: 2,
+            max_blockers: u32::MAX,
+        });
+    }
+    let mut i = interaction(pending);
+    assert!(i.can_confirm(), "blocking nothing is an answer");
+    assert!(i.declare_blocker(obj(1), obj(9)));
+    assert_eq!(
+        i.answer_fault(),
+        Some(baylee_engine::choice::AnswerFault::TooFewBlockers)
+    );
+    assert!(!i.can_confirm());
+    assert_eq!(i.confirm(), None);
+    assert!(i.declare_blocker(obj(2), obj(9)));
+    assert!(i.can_confirm());
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::DeclareBlockers {
+            blockers: vec![(obj(1), obj(9)), (obj(2), obj(9))]
+        })
+    );
+}
+
+/// Once a hand would open with zero cards the question takes no further
+/// mulligan (CR 103.5), and the interaction does not build one.
+#[test]
+fn no_mulligan_is_built_past_the_last_the_question_allows() {
+    let i = interaction(Pending::Mulligan {
+        player: me(),
+        taken: 8,
+        next_is_free: false,
+        can_take: false,
+    });
+    assert_eq!(i.answer_mulligan(false), None);
+    assert_eq!(i.answer_mulligan(true), Some(PlayerAction::MulliganKeep));
+}

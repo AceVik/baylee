@@ -2072,6 +2072,19 @@ fn spawn_footer(
         commands.entity(confirm).insert(Pickable::IGNORE);
     }
     commands.entity(foot).add_child(confirm);
+    // Complete, and held back by a bound the question states (a crew short
+    // of its power): the question's own reason beside the unlit Confirm,
+    // which is what the engine would have answered the click with.
+    if let Some(fault) = it.answer_fault() {
+        let why = dialog_label(
+            commands,
+            fonts,
+            &baylee_client_core::i18n::server_message(lang, fault.reason()),
+            11.0,
+            palette::DIALOG_SOFT,
+        );
+        commands.entity(foot).add_child(why);
+    }
     if let Some(baylee_engine::choice::PlayerAction::ChooseTargetBatch { count, .. }) =
         baylee_client_core::targeting::batch_answer(it, view)
     {

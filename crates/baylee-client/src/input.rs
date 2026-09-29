@@ -1946,6 +1946,22 @@ fn committed_answer(duel: &Duel) -> Option<PlayerAction> {
     interaction.confirm()
 }
 
+/// Why a Confirm sent nothing, where a bound the question states held the
+/// answer back (creatures short of a crew's power, one creature blocking an
+/// attacker with menace): the reason the engine would have refused it with,
+/// said on the table instead of sent.
+fn say_why_held_back(duel: &mut Duel) {
+    if let Some(fault) = duel
+        .interaction
+        .as_ref()
+        .and_then(baylee_client_core::Interaction::answer_fault)
+    {
+        duel.last_error = Some(baylee_client_core::i18n::Refusal::Verbatim(
+            fault.reason().to_string(),
+        ));
+    }
+}
+
 /// Every straight answer to a pending choice.
 ///
 /// Each goes through the interaction, which refuses it unless the engine
@@ -1966,11 +1982,12 @@ fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::
     // Confirm / pass priority. Never toggles anything else, so it is the one
     // key that always means "I am done here" — with the one exception
     // [`committed_answer`] names.
-    if fired.has(Action::Confirm)
-        && let Some(action) = committed_answer(duel)
-    {
-        duel.submit(action);
-        return;
+    if fired.has(Action::Confirm) {
+        if let Some(action) = committed_answer(duel) {
+            duel.submit(action);
+            return;
+        }
+        say_why_held_back(duel);
     }
     for (action, answer) in [(Action::MulliganKeep, true), (Action::MulliganTake, false)] {
         if fired.has(action)
@@ -3223,7 +3240,13 @@ pub fn pointer(
                     .interaction
                     .as_ref()
                     .and_then(|i| i.answer_mulligan(false)),
-                PromptAction::Confirm => committed_answer(&duel),
+                PromptAction::Confirm => {
+                    let answer = committed_answer(&duel);
+                    if answer.is_none() {
+                        say_why_held_back(&mut duel);
+                    }
+                    answer
+                }
                 PromptAction::TargetBatch => duel
                     .interaction
                     .as_ref()

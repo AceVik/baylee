@@ -1256,10 +1256,15 @@ fn answers_for(
         .as_ref()
         .map(baylee_client_core::Interaction::pending)
     {
-        Some(Pending::Mulligan { .. }) => vec![
-            say(PromptAction::Keep, Phrase::KeepHand),
-            say(PromptAction::Mulligan, Phrase::TakeMulligan),
-        ],
+        // No further mulligan once the hand would open with zero cards
+        // (CR 103.5): the question says so, and the button goes with it.
+        Some(Pending::Mulligan { can_take, .. }) => {
+            let mut row = vec![say(PromptAction::Keep, Phrase::KeepHand)];
+            if *can_take {
+                row.push(say(PromptAction::Mulligan, Phrase::TakeMulligan));
+            }
+            row
+        }
         Some(Pending::YesNo { .. }) => vec![
             say(PromptAction::Yes, Phrase::ActAnswerYes),
             say(PromptAction::No, Phrase::ActAnswerNo),
@@ -2473,6 +2478,40 @@ mod tests {
             ],
             "a declaration standing is what the commit button is for"
         );
+    }
+
+    /// The mulligan row offers a further mulligan only while the question
+    /// allows one (CR 103.5, `Pending::Mulligan::can_take`).
+    #[test]
+    fn the_mulligan_button_goes_when_the_question_takes_no_further_one() {
+        use baylee_core::ids::PlayerId;
+        use baylee_engine::choice::Pending;
+        let me = PlayerId::new(0);
+        for (can_take, offered) in [
+            (true, vec![PromptAction::Keep, PromptAction::Mulligan]),
+            (false, vec![PromptAction::Keep]),
+        ] {
+            let duel = Duel {
+                interaction: Some(baylee_client_core::interaction::Interaction::new(
+                    Pending::Mulligan {
+                        player: me,
+                        taken: 8,
+                        next_is_free: false,
+                        can_take,
+                    },
+                    me,
+                )),
+                ..Duel::default()
+            };
+            let answers: Vec<PromptAction> = answers_for(&duel, Lang::En, false, false, false)
+                .into_iter()
+                .filter_map(|(says, _)| match says {
+                    Says::Answer(action) => Some(action),
+                    Says::Command(_) => None,
+                })
+                .collect();
+            assert_eq!(answers, offered, "can_take {can_take}");
+        }
     }
 
     /// The countdown stands in the button the clock presses, wherever the
