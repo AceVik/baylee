@@ -85,3 +85,8 @@ required-features = ["play"]
 name = "arena"
 path = "src/bin/arena.rs"
 required-features = ["onnx"]
+
+[[bin]]
+name = "league"
+path = "src/bin/league.rs"
+required-features = ["onnx"]

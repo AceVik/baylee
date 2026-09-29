@@ -152,12 +152,15 @@ def main() -> None:
     ap.add_argument("--eval-slice", type=int, default=30_000)
     ap.add_argument("--eval-max", type=int, default=300_000)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--init", help="start from this net.pt's weights (same shape)")
+    ap.add_argument("--resume", action="store_true", help="continue the run in --out from its last.pt")
+    ap.add_argument("--ckpt-minutes", type=float, default=30.0, help="how often last.pt is written")
     args = ap.parse_args()
 
     torch.manual_seed(args.seed)
     torch.backends.cuda.matmul.allow_tf32 = True
     out = Path(args.out).expanduser()
-    out.mkdir(parents=True, exist_ok=False)
+    out.mkdir(parents=True, exist_ok=args.resume)
     t0 = time.time()
     ds = D3.load(Path(args.data).expanduser())
     train_idx, held_idx = D3.split_by_game(ds)
@@ -179,15 +182,34 @@ def main() -> None:
                   ff=args.ff, dropout=args.dropout, id_dropout=args.id_dropout).cuda()
     params = sum(p.numel() for p in net.parameters())
     log(f"{params / 1e6:.2f}M parameters")
+    if args.init:
+        net.load_state_dict(torch.load(Path(args.init).expanduser(), weights_only=False)["state"])
+        log(f"weights from {args.init}")
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.wd, fused=True)
     loader = D3.Loader(ds, train_idx, args.batch, args.entities, shuffle=True, seed=args.seed)
     total = max(int(len(loader) * args.epochs), 1)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=args.lr, total_steps=total, pct_start=0.03)
     watch = np.sort(np.random.default_rng(2).choice(held_idx, size=min(args.eval_slice, len(held_idx)), replace=False))
     best, curve = {"loss": float("inf"), "step": 0}, []
+    step, run_p, run_v = 0, None, None
+    last = out / "last.pt"
+    if args.resume and last.exists():
+        ck = torch.load(last, weights_only=False)
+        net.load_state_dict(ck["state"])
+        opt.load_state_dict(ck["opt"])
+        sched.load_state_dict(ck["sched"])
+        step, best, curve, run_p, run_v = ck["step"], ck["best"], ck["curve"], ck["run_p"], ck["run_v"]
+        loader.start = step
+        log(f"resumed at step {step:,}")
     log(f"{total:,} steps of {args.batch}")
 
-    step, t_start, run_p, run_v = 0, time.time(), None, None
+    def checkpoint() -> None:
+        tmp = out / "last.pt.tmp"
+        torch.save({"state": net.state_dict(), "opt": opt.state_dict(), "sched": sched.state_dict(), "step": step,
+                    "best": best, "curve": curve, "run_p": run_p, "run_v": run_v}, tmp)
+        tmp.replace(last)
+
+    t_start, t_ckpt, step0 = time.time(), time.time(), step
     while step < total:
         for b in loader:
             with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -203,8 +225,9 @@ def main() -> None:
             run_v = val.item() if run_v is None else 0.98 * run_v + 0.02 * val.item()
             if step % 500 == 0 or step == total:
                 el = time.time() - t_start
+                done = max(step - step0, 1)
                 log(f"step {step:,}/{total:,} · policy {run_p:.4f} · value {run_v:.4f} · "
-                    f"{step * args.batch / el:,.0f} steps/s · eta {(total - step) * el / step / 60:.0f} min")
+                    f"{done * args.batch / el:,.0f} steps/s · eta {(total - step) * el / done / 60:.0f} min")
             if step % args.eval_every == 0 or step == total:
                 held, hits, usable, side = evaluate(net, ds, watch, args.entities, args.value_weight)
                 agree = float(hits[usable].mean()) if usable.any() else float("nan")
@@ -216,6 +239,9 @@ def main() -> None:
                     torch.save(net.state_dict(), out / "best.state")
                     mark = " · best"
                 log(f"held out @ {step:,}: loss {held:.4f} · agreement {agree:.4f} · value Brier {brier:.4f}{mark}")
+            if time.time() - t_ckpt > args.ckpt_minutes * 60:
+                checkpoint()
+                t_ckpt = time.time()
             if step >= total:
                 break
 

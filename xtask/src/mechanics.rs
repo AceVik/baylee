@@ -108,7 +108,7 @@ fn sources(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
             let path = entry?.path();
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
             if path.is_dir() {
-                if !matches!(name, "generated" | "card_tests" | "combo_tests") {
+                if name != "generated" && !name.ends_with("_tests") {
                     todo.push(path);
                 }
             } else if path.extension().is_some_and(|x| x == "rs")

@@ -219,16 +219,24 @@ def to_device(raw: dict[str, np.ndarray], idx: np.ndarray, device: str) -> Batch
 class Loader:
     """Batches of `idx` in a shuffled order, gathered on a background thread."""
 
-    def __init__(self, ds, idx, batch, entities, deck=128, shuffle=True, seed=0, prefetch=4):
+    def __init__(self, ds, idx, batch, entities, deck=128, shuffle=True, seed=0, prefetch=4, start=0):
         self.ds, self.idx, self.batch, self.entities, self.deck = ds, idx, batch, entities, deck
         self.shuffle, self.rng, self.prefetch = shuffle, np.random.default_rng(seed), prefetch
+        # Batches to skip before the first one yielded (a resumed run's
+        # step): whole epochs are skipped by drawing their permutations.
+        self.start = start
 
     def __len__(self) -> int:
         return (len(self.idx) + self.batch - 1) // self.batch
 
     def __iter__(self):
+        per_epoch = len(self)
+        while self.start >= per_epoch and self.shuffle:
+            self.rng.permutation(self.idx)
+            self.start -= per_epoch
         order = self.rng.permutation(self.idx) if self.shuffle else self.idx
         chunks = [order[i : i + self.batch] for i in range(0, len(order), self.batch)]
+        chunks, self.start = chunks[self.start :], 0
         q: queue.Queue = queue.Queue(self.prefetch)
 
         def work():

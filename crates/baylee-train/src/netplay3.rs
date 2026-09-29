@@ -95,6 +95,19 @@ pub struct NetPlayer3 {
     entities: usize,
     /// The house profile the net is asked to play as (0 novice … 4 expert).
     pub profile: i64,
+    /// Smaller exports of the same net (`buckets` in the export's JSON),
+    /// by the rows each takes: a decision runs on the smallest that holds
+    /// its rows.
+    buckets: Vec<(usize, Session)>,
+    /// 0 plays the best-scored option; above 0 samples from the softmax of
+    /// the scores over this temperature (self-play's exploration).
+    pub temperature: f32,
+    rng: crate::deckgen::Rng,
+    /// Questions answered, and of them how many offered one option only and
+    /// were answered without running the net.
+    pub asked: u64,
+    /// See [`Self::asked`].
+    pub forced: u64,
 }
 
 impl NetPlayer3 {
@@ -104,6 +117,36 @@ impl NetPlayer3 {
     /// # Errors
     /// When ONNX Runtime cannot load the model.
     pub fn load(model: &Path, entities: usize, profile: i64) -> anyhow::Result<Self> {
+        let meta: Option<serde_json::Value> = std::fs::read(model.with_extension("onnx.json"))
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok());
+        let open = |path: &Path| -> anyhow::Result<Session> {
+            let builder = Session::builder().map_err(ort_error)?;
+            let builder = builder
+                .with_optimization_level(GraphOptimizationLevel::Level3)
+                .map_err(ort_error)?;
+            let mut builder = builder.with_intra_threads(1).map_err(ort_error)?;
+            builder
+                .commit_from_file(path)
+                .map_err(ort_error)
+                .with_context(|| format!("loading {}", path.display()))
+        };
+        let mut buckets = Vec::new();
+        for b in meta
+            .as_ref()
+            .and_then(|m| m["buckets"].as_array())
+            .into_iter()
+            .flatten()
+        {
+            let (Some(rows), Some(file)) = (b["entities"].as_u64(), b["file"].as_str()) else {
+                continue;
+            };
+            let rows = usize::try_from(rows).unwrap_or(usize::MAX);
+            if rows < entities {
+                buckets.push((rows, open(&model.with_file_name(file))?));
+            }
+        }
+        buckets.sort_by_key(|(rows, _)| *rows);
         let builder = Session::builder().map_err(ort_error)?;
         let builder = builder
             .with_optimization_level(GraphOptimizationLevel::Level3)
@@ -117,11 +160,31 @@ impl NetPlayer3 {
             session,
             entities,
             profile,
+            buckets,
+            temperature: 0.0,
+            rng: crate::deckgen::Rng::new(0x5e1f_91a7),
+            asked: 0,
+            forced: 0,
         })
     }
 
+    /// Seeds the sampling (a game's number, so a run replays).
+    pub fn seed(&mut self, seed: u64) {
+        self.rng = crate::deckgen::Rng::new(seed ^ 0x5e1f_91a7);
+    }
+
+    /// The rows a decision runs on: the smallest bucket that holds its
+    /// rows, else the export's full count.
+    fn rows_for(&self, enc: &Encoded) -> usize {
+        self.buckets
+            .iter()
+            .map(|(rows, _)| *rows)
+            .find(|rows| *rows >= enc.cards.len())
+            .unwrap_or(self.entities)
+    }
+
     fn tables(&mut self, enc: &Encoded) -> anyhow::Result<Tables> {
-        let e = self.entities;
+        let e = self.rows_for(enc);
         let kept = enc.cards.len().min(e);
         let mut cards = vec![0_i64; e];
         let mut feats = vec![0_i16; e * ENT_COLS.len()];
@@ -163,7 +226,11 @@ impl NetPlayer3 {
             "deck_mask" => Tensor::from_array(([1, k], deck_mask)).map_err(ort_error)?,
             "profile" => Tensor::from_array(([1], vec![self.profile])).map_err(ort_error)?,
         ];
-        let outputs = self.session.run(inputs).map_err(ort_error)?;
+        let session = match self.buckets.iter_mut().find(|(rows, _)| *rows == e) {
+            Some((_, s)) => s,
+            None => &mut self.session,
+        };
+        let outputs = session.run(inputs).map_err(ort_error)?;
         let mut t = Vec::with_capacity(TABLES.len());
         let mut d = 0;
         for name in TABLES {
@@ -197,8 +264,22 @@ impl NetPlayer3 {
         let mut picked = Picked::default();
         let mut picks: Vec<Choice> = Vec::new();
         let mut value = f32::NAN;
+        self.asked += 1;
         loop {
             let enc = encode(view, pending, &picked, table);
+            let offered = options(&enc, view, pending, &picked);
+            // One option: the answer is the question's, not the net's.
+            if picks.is_empty() && offered.len() == 1 && !is_multi(pending) {
+                let (choice, _) = offered[0];
+                self.forced += 1;
+                return Ok(policy::assemble(pending, &[choice])
+                    .ok()
+                    .map(|action| Answer {
+                        action,
+                        picks: 1,
+                        value: f32::NAN,
+                    }));
+            }
             let tables = self.tables(&enc)?;
             if picks.is_empty() {
                 let side: Vec<bool> = (0..MAX_SEATS)
@@ -210,19 +291,19 @@ impl NetPlayer3 {
                     .collect();
                 value = tables.side_chance(&side);
             }
-            let e = self.entities;
+            let e = self.rows_for(&enc);
             let fits = |o: &Opt| {
                 let row_heads = [head::ENTITY, head::ABILITY, head::PAIR, head::ATTACK_PLAYER];
                 !row_heads.contains(&o.head)
                     || (usize::try_from(o.a).is_ok_and(|a| a < e)
                         && (o.head != head::PAIR || usize::try_from(o.b).is_ok_and(|b| b < e)))
             };
-            let best = options(&enc, view, pending, &picked)
+            let scored: Vec<(Choice, f32)> = offered
                 .into_iter()
                 .filter(|(_, o)| fits(o))
                 .map(|(c, o)| (c, tables.score(o)))
-                .max_by(|x, y| x.1.total_cmp(&y.1));
-            let Some((choice, _)) = best else {
+                .collect();
+            let Some(choice) = self.pick(&scored) else {
                 return Ok(None);
             };
             picks.push(choice);
@@ -238,6 +319,36 @@ impl NetPlayer3 {
             value,
         }))
     }
+}
+
+impl NetPlayer3 {
+    /// The best-scored option, or at a temperature one sampled from the
+    /// softmax of the scores.
+    fn pick(&mut self, scored: &[(Choice, f32)]) -> Option<Choice> {
+        let best = scored.iter().max_by(|x, y| x.1.total_cmp(&y.1))?;
+        if self.temperature <= 0.0 || scored.len() == 1 {
+            return Some(best.0);
+        }
+        let weights: Vec<f64> = scored
+            .iter()
+            .map(|(_, s)| f64::from((s - best.1) / self.temperature).exp())
+            .collect();
+        Some(scored[self.rng.weighted(&weights)].0)
+    }
+}
+
+/// Whether `pending` takes an answer of several picks.
+fn is_multi(pending: &Pending) -> bool {
+    matches!(
+        pending,
+        Pending::ChooseAttackers { .. }
+            | Pending::ChooseBlockers { .. }
+            | Pending::MulliganBottom { .. }
+            | Pending::DiscardChoice { .. }
+            | Pending::LegendChoice { .. }
+            | Pending::ChooseCards { .. }
+            | Pending::ChooseTargets { .. }
+    )
 }
 
 /// ONNX Runtime's error, as `anyhow` takes it.

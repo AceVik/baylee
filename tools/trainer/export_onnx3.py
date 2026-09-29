@@ -44,6 +44,9 @@ def main() -> None:
     ap.add_argument("--data", required=True)
     ap.add_argument("--entities", type=int, default=192)
     ap.add_argument("--check", type=int, default=64, help="held-out decisions compared")
+    ap.add_argument("--buckets", default="32,64,96,128",
+                    help="smaller row counts exported beside --entities; the player runs a decision on the "
+                         "smallest that holds its rows (the tracing exporter fixes the sequence length)")
     args = ap.parse_args()
     out = Path(args.model).expanduser()
     ckpt = torch.load(out / "net.pt", weights_only=False)
@@ -69,8 +72,8 @@ def main() -> None:
     _, held = D3.split_by_game(ds)
     idx = np.sort(np.random.default_rng(3).choice(held, size=args.check, replace=False))
 
-    def feeds_of(i: int) -> dict[str, np.ndarray]:
-        r = D3.gather(ds, np.array([i]), E, ds.meta["max_deck"])
+    def feeds_of(i: int, rows: int = E) -> dict[str, np.ndarray]:
+        r = D3.gather(ds, np.array([i]), rows, ds.meta["max_deck"])
         prof = np.array([max(int(ds.col("profile")[i]), 0)], dtype=np.int64)
         return {"cards": r["cards"], "feats": r["feats"], "mask": r["mask"], "seats": r["seats"],
                 "glob": r["glob"], "deck_cards": r["deck_cards"], "deck_feats": r["deck_feats"],
@@ -78,17 +81,30 @@ def main() -> None:
 
     example = tuple(torch.from_numpy(v) for v in feeds_of(int(idx[0])).values())
     path = out / "net.onnx"
-    torch.onnx.export(wrapped, example, str(path), input_names=list(INPUTS), output_names=list(M.Net.TABLES),
-                      opset_version=18, dynamo=False)
+    buckets = sorted({int(b) for b in args.buckets.split(",") if b} | {E})
+    buckets = [b for b in buckets if b <= E]
+    files = {}
+    for rows in buckets:
+        name = "net.onnx" if rows == E else f"net-e{rows}.onnx"
+        ex = tuple(torch.from_numpy(v) for v in feeds_of(int(idx[0]), rows).values())
+        torch.onnx.export(wrapped, ex, str(out / name), input_names=list(INPUTS),
+                          output_names=list(M.Net.TABLES), opset_version=18, dynamo=False)
+        files[rows] = name
+    path = out / "net.onnx"
 
     import onnxruntime as ort
 
-    sess = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
+    sessions = {rows: ort.InferenceSession(str(out / name), providers=["CPUExecutionProvider"])
+                for rows, name in files.items()}
     worst = 0.0
     with torch.inference_mode():
         for i in idx:
-            feeds = feeds_of(int(i))
-            got = sess.run(None, feeds)
+            # Each decision on the smallest bucket that holds its rows, as
+            # the Rust player runs it.
+            n = int(ds.ent_off[i + 1] - ds.ent_off[i])
+            rows = next((b for b in buckets if b >= n), E)
+            feeds = feeds_of(int(i), rows)
+            got = sessions[rows].run(None, feeds)
             want = wrapped(*[torch.from_numpy(feeds[k]) for k in INPUTS])
             for g, w in zip(got, want):
                 w = w.numpy()
@@ -100,6 +116,7 @@ def main() -> None:
         "encoder_version": ds.meta["encoder_version"],
         "walk_version": ds.meta["walk_version"],
         "entities": E,
+        "buckets": [{"entities": rows, "file": name} for rows, name in files.items()],
         "max_seats": ds.meta["max_seats"],
         "max_deck": ds.meta["max_deck"],
         "inputs": {
@@ -125,7 +142,8 @@ def main() -> None:
     print(f"[export3] {path} ({path.stat().st_size / 1e6:.1f} MB); torch vs onnxruntime on {len(idx)} "
           f"held-out decisions: max |diff| {worst:.2e}")
     if worst > 1e-3:
-        path.unlink()
+        for name in files.values():
+            (out / name).unlink()
         raise SystemExit("the export disagrees with torch; removed it")
 
 
