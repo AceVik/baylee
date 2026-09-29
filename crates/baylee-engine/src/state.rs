@@ -1244,7 +1244,7 @@ impl GameState {
     /// its controller's most recent turn began, so *any* control change
     /// makes it summoning-sick again — including the one at end of turn
     /// that hands a stolen creature back.
-    fn restart_summoning_sickness(&mut self, id: ObjectId) {
+    pub(crate) fn restart_summoning_sickness(&mut self, id: ObjectId) {
         let ts = self.next_timestamp();
         if let Some(obj) = self.object_mut(id) {
             obj.timestamp = ts;

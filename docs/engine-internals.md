@@ -758,7 +758,18 @@ once it has phased in, and not before. Its controller stays the one it
 phased out under, which decides the untap step it phases in at: a creature
 stolen until end of turn and phased out comes back at the thief's untap
 step and is then its owner's again, because the theft ended while it was
-away (CR 702.26f). Both helpers invalidate the projection. One consequence is
+away (CR 702.26f). The one reader that must see past the freeze is a
+player leaving: the effects that gave them control end (CR 800.4a), so
+`GameState::release_from_the_departed`, first in
+`sba::exile_what_the_departed_control`, reads layer 2 again for a
+phased-out permanent whose controller has left. What they control by
+default is exiled with the rest (CR 702.26n); what they had through an
+effect goes back and phases in at its controller's untap step. CR 702.26n
+says "the next untap step after that player's next turn would have begun",
+which can be a round later; the engine keeps no such turn. Nor does it
+phase in an Aura that phased out indirectly with a permanent that then left
+the game with its owner (CR 702.26k): the rules say nothing of it, and it
+stays phased out. Both helpers invalidate the projection. One consequence is
 seen only in the view: a permanent that phased out under an anthem that has
 since left still shows the anthem's +1/+1 until it phases in, which is when
 the rules look at it again.

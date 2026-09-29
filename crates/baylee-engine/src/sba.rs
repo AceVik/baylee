@@ -684,6 +684,9 @@ pub fn eliminate_player(
 /// battlefield this way triggers what leaving the battlefield triggers.
 pub fn exile_what_the_departed_control(state: &mut GameState) -> Vec<baylee_core::ids::ObjectId> {
     state.refresh_characteristics();
+    // The projection leaves phased-out permanents as they were; one whose
+    // controller left is read again (CR 702.26n).
+    state.release_from_the_departed();
     let departed = |state: &GameState, id: baylee_core::ids::ObjectId| {
         state
             .object(id)

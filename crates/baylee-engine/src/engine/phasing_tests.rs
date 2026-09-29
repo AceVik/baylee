@@ -704,6 +704,81 @@ fn a_permanent_phases_in_under_the_player_it_phased_out_under() {
     );
 }
 
+fn mountain() -> baylee_core::ids::CardIndex {
+    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+}
+
+/// `{3}{R}{R}` "Gain control of target creature until end of turn. Untap
+/// that creature. It gains haste until end of turn": the pool's Threaten.
+fn song_mad_treachery() -> baylee_core::ids::CardIndex {
+    card_index("81b61770-2ed5-4a50-84d0-97790002fc5a")
+}
+
+/// A player who leaves takes with them the effects that gave them control
+/// of something, and what they still control is exiled (CR 800.4a). A
+/// permanent that phased out under them and is not theirs by default is
+/// not among it: it "phases in during the next untap step after that
+/// player's next turn would have begun" (CR 702.26n). Three seats, so the
+/// game outlives the leaver: seat 0 takes seat 1's Elf until end of turn,
+/// phases it out and concedes. The Elf is seat 1's again, still on the
+/// battlefield, and back by seat 1's second turn at the latest.
+#[test]
+fn a_permanent_phased_out_under_a_player_who_leaves_stays_and_comes_back() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let engine = &mut Duel::table(281, quiet_creature(), 3)
+        .battlefield(0, &[mountain(); 5])
+        .battlefield(1, &[quiet_creature()])
+        .hand(0, &[song_mad_treachery()])
+        .start();
+    keep_mulligans(engine);
+    assert!(
+        walk_to_own_main(engine, p0),
+        "seat 0 reaches its main phase"
+    );
+    let elf = on_battlefield(engine, p1, quiet_creature()).expect("seat 1's Elf");
+    tap_all_mana(engine, p0);
+    cast_with_floating(engine, p0, song_mad_treachery());
+    if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
+        let slot = options
+            .iter()
+            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Face(0)))
+            .expect("the front face is one of the ways to play it");
+        engine.apply(p0, PlayerAction::ChooseMode(slot)).unwrap();
+    }
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the Elf is a target");
+    pass_until(engine, stack_is_empty);
+    let controller =
+        |engine: &Engine<RegistryLookup>| engine.state().object(elf).map(|o| o.controller);
+    assert_eq!(
+        controller(engine),
+        Some(p0),
+        "the control: seat 0 took the Elf"
+    );
+
+    phase_out(engine, elf);
+    engine
+        .apply(p0, PlayerAction::Concede)
+        .expect("seat 0 concedes");
+    assert_eq!(
+        engine.state().object(elf).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield),
+        "the Elf was exiled with what seat 0 controlled, but seat 0's control ended as it left"
+    );
+    assert!(is_phased_out(engine, elf), "and it is still phased out");
+    assert_eq!(controller(engine), Some(p1), "it is seat 1's again");
+
+    reach_their_main_phase(engine, p1);
+    if is_phased_out(engine, elf) {
+        reach_their_main_phase(engine, PlayerId::new(2));
+        reach_their_main_phase(engine, p1);
+    }
+    assert!(!is_phased_out(engine, elf), "the Elf never phased in again");
+    assert_eq!(controller(engine), Some(p1), "seat 1's");
+}
+
 /// A phased-out permanent is not offered as a target (CR 702.26b; the
 /// target menu reads `battlefield_view`). This held before indirect phasing
 /// and the walk audit and is pinned here beside them: Icy Manipulator may

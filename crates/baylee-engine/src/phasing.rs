@@ -75,6 +75,51 @@ impl GameState {
         self.invalidate_projections();
     }
 
+    /// Gives each phased-out permanent whose controller has left the game
+    /// the controller layer 2 gives it now.
+    ///
+    /// A phased-out permanent is not projected, so its controller is the one
+    /// it phased out under. When that player leaves, the effects that gave
+    /// them control of it end (CR 800.4a), and "game rules may cause a
+    /// phased-out permanent to leave the game or to be exiled once a player
+    /// leaves the game" (CR 702.26n): what they control by default is exiled
+    /// with the rest, and what was only theirs through an effect is not. So
+    /// the controller is read again here, before the exile asks it, and the
+    /// permanent phases in at the untap step of the player it belongs to
+    /// now. CR 702.26n has it phase in "during the next untap step after
+    /// that player's next turn would have begun", which can be a round
+    /// later; the engine does not keep that turn.
+    pub(crate) fn release_from_the_departed(&mut self) {
+        let stranded: Vec<ObjectId> = self
+            .zones
+            // phasing: the walk is for the permanents that are phased out.
+            .list(crate::zone::ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|&id| {
+                self.object(id).is_some_and(|o| {
+                    o.status.contains(Status::PHASED_OUT) && self.has_left(o.controller)
+                })
+            })
+            .collect();
+        if stranded.is_empty() {
+            return;
+        }
+        let plan = crate::layers::LayerPlan::build(&self.effects);
+        for id in stranded {
+            let Some(obj) = self.object(id) else {
+                continue;
+            };
+            let controller = crate::layers::recompute_with(self, obj, &plan).controller;
+            if obj.controller != controller {
+                if let Some(obj) = self.object_mut(id) {
+                    obj.controller = controller;
+                }
+                self.restart_summoning_sickness(id);
+            }
+        }
+    }
+
     /// Phases `id` in, and with it everything that phased out indirectly
     /// attached to it, transitively.
     pub(crate) fn phase_in(&mut self, id: ObjectId) {
