@@ -31,6 +31,9 @@ play = [
 # Not default and in no gate: it downloads the runtime when it builds, and
 # only the trainer's machine needs it.
 onnx = ["play", "dep:ort"]
+# The same on NVIDIA GPUs (CUDA 13; the runtime finds the CUDA and cuDNN
+# libraries on LD_LIBRARY_PATH). `BAYLEE_EP=cpu` keeps a build of it on the CPU.
+onnx-cuda = ["onnx", "ort/cuda"]
 
 [dependencies]
 anyhow.workspace = true

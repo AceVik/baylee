@@ -97,6 +97,10 @@ struct Played {
     refused: u64,
     net_ms: f64,
     record: Vec<u8>,
+    /// The net's refused answers: what was asked, what it answered, why the
+    /// engine refused, and whether the answer is made of options the question
+    /// enumerated (it must be; `false` is a trainer bug, `true` an engine one).
+    refusals: Vec<serde_json::Value>,
 }
 
 /// 95 % Wilson interval for `k` of `n`. Game counts stay far below 2^52.
@@ -247,6 +251,7 @@ fn main() -> anyhow::Result<()> {
                     let started = Instant::now();
                     let (mut net_answers, mut fallbacks, mut refused, mut net_time) =
                         (0, 0, 0, Duration::ZERO);
+                    let mut refusals = Vec::new();
                     let outcome = loop {
                         if let Pending::GameOver(result) = session.pending() {
                             let winners = session.winning_seats(*result);
@@ -273,8 +278,22 @@ fn main() -> anyhow::Result<()> {
                                     .house_action(me)
                                     .context("a question has an answer")?
                             };
-                            if session.act(me, action).is_err() {
+                            let hand: Vec<baylee_core::ids::ObjectId> =
+                                view.hand.iter().map(|h| h.id).collect();
+                            let enumerated =
+                                baylee_train::policy::steps(&pending, &hand, &action).is_ok();
+                            if let Err(why) = session.act(me, action.clone()) {
                                 refused += 1;
+                                refusals.push(json!({
+                                    "game": i,
+                                    "decision": session.decision_seq(),
+                                    "kind": baylee_train::features::PENDING_KINDS
+                                        [baylee_train::features::question(&pending, view.hand.len()).0 as usize],
+                                    "pending": format!("{pending:?}").chars().take(600).collect::<String>(),
+                                    "answer": format!("{action:?}"),
+                                    "refusal": why,
+                                    "enumerated": enumerated,
+                                }));
                                 let fallback = session
                                     .house_action(me)
                                     .context("a question has an answer")?;
@@ -295,6 +314,7 @@ fn main() -> anyhow::Result<()> {
                         refused,
                         net_ms: net_time.as_secs_f64() * 1e3,
                         record: session.take_record(),
+                        refusals,
                     })
                 })();
                 if tx.send(result).is_err() {
@@ -310,6 +330,10 @@ fn main() -> anyhow::Result<()> {
         Compression::new(6),
     );
     let mut games_log = File::create(args.out.join("games.jsonl"))?;
+    let mut refusals_log = File::create(args.out.join("refusals.jsonl"))?;
+    // Refusals by question kind, and whether the refused answer was made of
+    // enumerated options (true: the engine refused what it offered).
+    let mut refusal_kinds: BTreeMap<String, [u64; 2]> = BTreeMap::new();
     // Per opponent: wins, losses, draws, other.
     let mut tally: BTreeMap<usize, [u64; 4]> = BTreeMap::new();
     let (mut answers, mut fallbacks, mut refused, mut net_ms) = (0_u64, 0_u64, 0_u64, 0.0_f64);
@@ -331,6 +355,12 @@ fn main() -> anyhow::Result<()> {
         refused += p.refused;
         net_ms += p.net_ms;
         records.write_all(&p.record)?;
+        for r in &p.refusals {
+            writeln!(refusals_log, "{r}")?;
+            let kind = r["kind"].as_str().unwrap_or("?").to_owned();
+            let enumerated = r["enumerated"].as_bool().unwrap_or(false);
+            refusal_kinds.entry(kind).or_default()[usize::from(enumerated)] += 1;
+        }
         writeln!(
             games_log,
             "{}",
@@ -371,6 +401,7 @@ fn main() -> anyhow::Result<()> {
     let report = json!({
         "model": args.model, "as_profile": args.as_profile, "games": done, "results": results,
         "net_answers": answers, "house_fallbacks": fallbacks, "refused": refused,
+        "refused_by_kind": refusal_kinds.iter().map(|(k, [not_enumerated, enumerated])| (k.clone(), json!({"enumerated": enumerated, "not_enumerated": not_enumerated}))).collect::<BTreeMap<_, _>>(),
         "ms_per_answer": net_ms / answers.max(1) as f64, "seconds": started.elapsed().as_secs_f64(),
         "build": baylee_build::short(), "working_hash": working.hash(),
     });

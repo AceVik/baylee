@@ -120,6 +120,14 @@ impl NetPlayer {
         profile: i64,
     ) -> anyhow::Result<Self> {
         let builder = Session::builder().map_err(ort_error)?;
+        #[cfg(feature = "onnx-cuda")]
+        let builder = if std::env::var("BAYLEE_EP").as_deref() == Ok("cpu") {
+            builder
+        } else {
+            builder
+                .with_execution_providers([ort::ep::CUDA::default().build().error_on_failure()])
+                .map_err(ort_error)?
+        };
         let builder = builder
             .with_optimization_level(GraphOptimizationLevel::Level3)
             .map_err(ort_error)?;
