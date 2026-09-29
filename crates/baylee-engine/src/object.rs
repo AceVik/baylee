@@ -799,15 +799,16 @@ impl Rider {
             | Self::ExileInsteadOfGraveyard
             | Self::Uncounterable
             | Self::Prepared
-            | Self::SpellCopy => false,
+            | Self::SpellCopy
             // How the spell was cast, written before it moves to the stack:
             // a dashed spell cast out of exile (an impulse's permission)
             // carries its dash to the stack and the battlefield, and
             // `move_object` ends these where the spell's object ends.
-            Self::Dashed | Self::Escaped => false,
+            | Self::Dashed
+            | Self::Escaped
             // "That player" of a triggered ability on the stack, which is
             // never in exile.
-            Self::EventPlayer(_) => false,
+            | Self::EventPlayer(_) => false,
         }
     }
 }
