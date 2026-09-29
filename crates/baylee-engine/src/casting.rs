@@ -1416,6 +1416,34 @@ pub fn intrinsic_mana_offer(
     colors
 }
 
+/// The colours `player` may tap `source` for through the CR 305.6 shortcut
+/// right now, and so what `PlayerAction::ActivateManaAbility` does with it:
+/// empty when the shortcut is closed (a land it cannot activate now, or one
+/// whose own card prints every colour its types give it), one colour to add,
+/// several to ask.
+///
+/// The one predicate for the offer (`legal.mana_abilities`) and for `apply`.
+/// They used to ask two: the offer this, and `apply` only
+/// [`can_activate_mana`]. A dual land prints its own "Add {G} or {U}", so its
+/// shortcut is empty and it is offered through that printed ability; under
+/// Chromatic Lantern it is also in `mana_abilities` for the granted "{T}: Add
+/// one mana of any color". `apply` saw an untapped land with basic types,
+/// took the shortcut, found no colour in it and refused the press the offer
+/// had just listed (Breeding Pool, Stomping Ground, Canopy Vista: 63 refusals
+/// in 10,000 fuzzed games), where the granted ability was the one to take.
+#[must_use]
+pub fn intrinsic_mana_choices(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    source: ObjectId,
+) -> Vec<ManaColor> {
+    if !can_activate_mana(state, player, source) {
+        return Vec::new();
+    }
+    intrinsic_mana_offer(state, lookup, source)
+}
+
 /// The one color a land's basic types entitle it to, where there is exactly
 /// one and so nothing to ask.
 ///

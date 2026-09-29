@@ -1279,8 +1279,15 @@ impl<L: CardLookup> Engine<L> {
                 //
                 // Intrinsic first, because a land with a granted ability on
                 // top of its own basic type still taps for its own colour
-                // unless the player names the other ability by index.
-                if casting::can_activate_mana(&self.state, player, source) {
+                // unless the player names the other ability by index. Asked
+                // of the offer's own predicate: a dual land under Chromatic
+                // Lantern is listed for the grant alone, its shortcut empty
+                // because its card prints both colours, and asking only
+                // whether the land could be tapped sent it down this branch
+                // to be refused.
+                let colors =
+                    casting::intrinsic_mana_choices(&self.state, &self.lookup, player, source);
+                if !colors.is_empty() {
                     // CR 305.6 gives the land one mana ability per basic
                     // type, so a land with several is a question. It is
                     // asked *here* and not inside `activate_mana`, which is
@@ -1289,7 +1296,6 @@ impl<L: CardLookup> Engine<L> {
                     // cost and the colour is the effect, exactly as a
                     // printed "add one mana of any color" pays first and
                     // asks second.
-                    let colors = casting::intrinsic_mana_offer(&self.state, &self.lookup, source);
                     if colors.len() > 1 {
                         self.state.set_tapped(source, true);
                         self.state.journal.record(GameEvent::ObjectTapped {
@@ -1304,10 +1310,8 @@ impl<L: CardLookup> Engine<L> {
                         self.awaiting_answer = true;
                         return Ok(());
                     }
-                    let [only] = colors.as_slice() else {
-                        return Err(EngineError::IllegalAction("mana ability not activatable"));
-                    };
-                    casting::add_intrinsic_mana(&mut self.state, player, source, *only);
+                    // Exactly one colour: nothing to ask.
+                    casting::add_intrinsic_mana(&mut self.state, player, source, colors[0]);
                     self.after_action(player);
                     return Ok(());
                 }

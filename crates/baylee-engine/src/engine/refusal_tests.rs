@@ -714,3 +714,62 @@ fn a_press_refused_at_its_payment_moves_no_field_of_the_engine() {
     let moved = before.differing(&engine.fingerprint());
     assert!(moved.is_empty(), "a refused press moved {moved:?}");
 }
+
+/// A land the offer lists in `mana_abilities` is taken when it is pressed.
+///
+/// The fuzzer's repro, Allytifact v Schwarzrand at seed 1198: at decision
+/// 1251 the sweep's driver pressed a dual land the offer listed for
+/// Chromatic Lantern's grant, and `apply` refused it. The offer asked whether
+/// the CR 305.6 shortcut had a colour to give; `apply` asked only whether the
+/// land could be tapped, and a dual's shortcut is empty because the card
+/// prints both colours. The two questions first disagree at decision 1115;
+/// the driver presses the no-index door at a twentieth of its priorities, and
+/// its first press of such a land is the repro's.
+#[test]
+fn a_dual_land_listed_for_the_lanterns_grant_is_taken_when_pressed() {
+    let (a, b) = (0, 4);
+    let first = house_deck(DECKS[a].0, DECKS[a].1);
+    let second = house_deck(DECKS[b].0, DECKS[b].1);
+    let seed = seed(a, b, 2);
+    assert_eq!(seed, 1_198, "the fuzzer's seed");
+    let preset = baylee_cards::decks::preset_for(seed, &first, &second);
+    let mut engine = Engine::new(&preset, RegistryLookup).expect("house decks start a game");
+    let mut dice = Dice(seed ^ 0x5EED);
+    for decision in 0..1_500 {
+        let pending = engine.pending().clone();
+        let asked = pending.asked().expect("the game runs past the repro");
+        // `play`'s draws, in `play`'s order: the whole print, then the answers.
+        let _ = dice.chance(WHOLE_PERCENT);
+        let answers = offered(&engine, &pending, &mut dice);
+        if let Some(&PlayerAction::ActivateManaAbility { source }) = answers.first()
+            && crate::casting::can_activate_mana(engine.state(), asked, source)
+            && crate::casting::intrinsic_mana_offer(engine.state(), &RegistryLookup, source)
+                .is_empty()
+        {
+            assert_eq!(decision, 1_251, "the fuzzer's decision");
+            engine
+                .apply(asked, PlayerAction::ActivateManaAbility { source })
+                .expect("a press the offer listed is taken");
+            let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+                panic!("the Lantern asks for a colour: {:?}", engine.pending())
+            };
+            assert_eq!(options.len(), 5, "any colour: {options:?}");
+            engine
+                .apply(asked, PlayerAction::ChooseColor(options[0]))
+                .expect("a colour the engine offered");
+            assert!(
+                engine
+                    .state()
+                    .object(source)
+                    .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED)),
+                "the land paid its {{T}}"
+            );
+            return;
+        }
+        let answered = answers
+            .into_iter()
+            .any(|action| engine.apply(asked, action).is_ok());
+        assert!(answered, "decision {decision} has an answer");
+    }
+    panic!("the driver never pressed a dual land for the Lantern's grant");
+}

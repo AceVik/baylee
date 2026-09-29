@@ -249,8 +249,8 @@ impl<L: CardLookup> Engine<L> {
             // rider below offers a spell.
             let locked = self.artifact_activations_are_locked(id);
             if !locked
-                && casting::can_activate_mana(&self.state, player, id)
-                && !casting::intrinsic_mana_offer(&self.state, &self.lookup, id).is_empty()
+                && !casting::intrinsic_mana_choices(&self.state, &self.lookup, player, id)
+                    .is_empty()
             {
                 legal.mana_abilities.push(id);
             }
