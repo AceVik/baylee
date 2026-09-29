@@ -1007,6 +1007,7 @@ fn matches(
         ) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        // The three leaves-the-battlefield triggers look back (CR 603.10a).
         (
             Trigger::LeavesBattlefield(filter),
             GameEvent::ZoneChanged {
@@ -1014,13 +1015,22 @@ fn matches(
                 from: Zone::Battlefield,
                 ..
             },
-        ) => departed_matches(filter, state, *object, you, source),
-        (
+        )
+        | (
             Trigger::ExiledFromBattlefield(filter),
             GameEvent::ZoneChanged {
                 object,
                 from: Zone::Battlefield,
                 to: Zone::Exile,
+                ..
+            },
+        )
+        | (
+            Trigger::Dies(filter),
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                to: Zone::Graveyard,
                 ..
             },
         ) => departed_matches(filter, state, *object, you, source),
@@ -1052,15 +1062,6 @@ fn matches(
                     .object(*object)
                     .is_some_and(|o| eval::matches(filter, state, o, you, source))
         }
-        (
-            Trigger::Dies(filter),
-            GameEvent::ZoneChanged {
-                object,
-                from: Zone::Battlefield,
-                to: Zone::Graveyard,
-                ..
-            },
-        ) => departed_matches(filter, state, *object, you, source),
         (Trigger::SpellCast(filter), GameEvent::SpellCast { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),

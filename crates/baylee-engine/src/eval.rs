@@ -364,6 +364,7 @@ pub fn amount(
 /// upkeep, which is where this clause is commonest — the sweep is the next
 /// thing that runs and the two are the same moment.
 #[must_use]
+#[allow(clippy::too_many_lines)] // one arm per `Condition`: the match is the list
 pub fn condition_holds(
     state: &GameState,
     you: PlayerId,
