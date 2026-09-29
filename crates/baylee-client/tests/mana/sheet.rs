@@ -145,6 +145,13 @@ fn sweep_preset(cards: &[&'static CardDef]) -> GamePreset {
             board.push(deck_entry(by_name(name)));
         }
     }
+    // A creature on every board, so an equip ability always has something
+    // to target. Without it a batch that happened to hold no creature left
+    // its equipment unoffered, and which batch that was moved every time a
+    // card joined the pool: Sword of Hearth and Home fell out of the list
+    // below when Kiki-Jiki shifted it into a batch of lands. Steadfast
+    // Guard prints vigilance and nothing else, so it offers no row itself.
+    board.push(deck_entry(by_name("Steadfast Guard")));
     board.extend(cards.iter().map(|def| deck_entry(def.index)));
     preset.seats[0].starting_battlefield = board;
     preset
@@ -1148,20 +1155,26 @@ fn every_written_row_draws_its_printed_cost_or_its_whole_sentence() {
 /// whole with no column. Held equal by the sweep above.
 ///
 /// Every one a keyword line whose cost stands after the keyword and whose
-/// only colon is in its reminder: Equip on sixteen of them, Level up
-/// (Hexdrinker), Reconfigure (Rabbit Battery), Station (U.S.S. Enterprise-D).
-/// Measured 24.09.2026 over the compiled English Oracle: 1302 rows drew a
-/// printed head, these 19 cards drew whole, none was refused.
+/// only colon is in its reminder: Equip on twenty of them, Level up
+/// (Hexdrinker), Reconfigure (Rabbit Battery), Station (U.S.S. Enterprise-D,
+/// Inspirit). Measured 24.09.2026 over the compiled English Oracle: 1302 rows
+/// drew a printed head, 19 cards drew whole, none was refused. Five more
+/// since 29.09.2026, when every board got a creature: before, an equip or
+/// station ability in a batch without one was never offered.
 const DRAWN_WHOLE: &[&str] = &[
     "Basilisk Collar",
     "Bonesplitter",
+    "Dowsing Dagger",
     "Fireshrieker",
+    "Helm of the Host",
     "Hexdrinker",
+    "Inspirit, Flagship Vessel",
     "Leonin Scimitar",
     "Lightning Greaves",
     "Loxodon Warhammer",
     "Nettlecyst",
     "Neurok Hoversail",
+    "Nim Deathmantle",
     "No-Dachi",
     "Rabbit Battery",
     "Shuko",
@@ -1169,6 +1182,7 @@ const DRAWN_WHOLE: &[&str] = &[
     "Slagwurm Armor",
     "Swiftfoot Boots",
     "Sword of Hearth and Home",
+    "Sword of the Meek",
     "U.S.S. Enterprise-D, Galaxy-Class",
     "Vulshok Battlegear",
     "Vulshok Morningstar",
