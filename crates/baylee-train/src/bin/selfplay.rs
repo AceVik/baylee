@@ -64,8 +64,10 @@ struct Args {
     /// Answers a game may take before it is stopped.
     #[arg(long, default_value_t = 20_000)]
     max_answers: u64,
-    /// Seconds a game may take before it is stopped.
-    #[arg(long, default_value_t = 60)]
+    /// Seconds a game may take before it is stopped. A duel of the house
+    /// decks takes about 40 ms; a game still going after this long has
+    /// found an engine that got slow, which is a report, not data.
+    #[arg(long, default_value_t = 15)]
     max_secs: u64,
     /// Games per record shard.
     #[arg(long, default_value_t = 1000)]
@@ -79,6 +81,15 @@ struct Args {
     /// own basic lands. The games are training data.
     #[arg(long, conflicts_with = "allow_failing")]
     working_only: bool,
+    /// Play only these game numbers (comma-separated) instead of
+    /// `0..games`: with the same `--name` and arguments, each is the game
+    /// that number was in that run, move for move.
+    #[arg(long, value_delimiter = ',')]
+    only: Vec<u64>,
+    /// The run's name, which every game's id starts with and its agents are
+    /// seeded from; defaults to the name of `--out`.
+    #[arg(long)]
+    name: Option<String>,
     /// Where the run is written; must not exist yet.
     #[arg(long)]
     out: PathBuf,
@@ -252,12 +263,22 @@ fn main() -> anyhow::Result<()> {
         answers: args.max_answers,
         wall: Duration::from_secs(args.max_secs),
     };
-    let run = args
-        .out
-        .file_name()
-        .and_then(|n| n.to_str())
-        .context("--out names a directory")?
-        .to_owned();
+    let run = match &args.name {
+        Some(name) => name.clone(),
+        None => args
+            .out
+            .file_name()
+            .and_then(|n| n.to_str())
+            .context("--out names a directory")?
+            .to_owned(),
+    };
+    // The game numbers this run plays, in the order workers take them.
+    let order: Arc<Vec<u64>> = Arc::new(if args.only.is_empty() {
+        (0..args.games).collect()
+    } else {
+        args.only.clone()
+    });
+    let total = order.len() as u64;
     let records = args.out.join("records");
     fs::create_dir_all(&records)?;
 
@@ -279,7 +300,8 @@ fn main() -> anyhow::Result<()> {
         "training_data": !failing_any,
         "decks": deck_json,
         "profiles": profiles.iter().map(|(n, p)| json!({"name": n, "profile": p})).collect::<Vec<_>>(),
-        "games": args.games,
+        "games": total,
+        "only": args.only,
         "first_seed": args.first_seed,
         "caps": {"answers": caps.answers, "secs": args.max_secs},
         "threads": threads,
@@ -290,8 +312,7 @@ fn main() -> anyhow::Result<()> {
         serde_json::to_vec_pretty(&manifest)?,
     )?;
     eprintln!(
-        "[selfplay] {run}: {} games on {threads} threads · build {} · {} of {} pool cards work (hash {})",
-        args.games,
+        "[selfplay] {run}: {total} games on {threads} threads · build {} · {} of {} pool cards work (hash {})",
         baylee_build::short(),
         working.cards.len(),
         working.pool,
@@ -309,23 +330,23 @@ fn main() -> anyhow::Result<()> {
     let playing: Watch = Arc::new(Mutex::new(vec![None; threads]));
     let (tx, rx) = mpsc::channel::<anyhow::Result<Done>>();
     for worker in 0..threads {
-        let (schedule, decks, next, playing, tx) = (
+        let (schedule, decks, next, playing, tx, order) = (
             schedule.clone(),
             decks.clone(),
             next.clone(),
             playing.clone(),
             tx.clone(),
+            order.clone(),
         );
-        let (records, run, games, shard_games) =
-            (records.clone(), run.clone(), args.games, args.shard_games);
+        let (records, run, shard_games) = (records.clone(), run.clone(), args.shard_games);
         std::thread::spawn(move || {
             let mut shard: Option<Shard> = None;
             let mut shards = 0;
             loop {
-                let i = next.fetch_add(1, Ordering::Relaxed);
-                if i >= games {
+                let taken = next.fetch_add(1, Ordering::Relaxed);
+                let Some(&i) = order.get(taken as usize) else {
                     break;
-                }
+                };
                 playing.lock().expect("the watch lock")[worker] = Some((i, Instant::now()));
                 let result = (|| -> anyhow::Result<Done> {
                     let game = schedule.game(i);
@@ -382,7 +403,7 @@ fn main() -> anyhow::Result<()> {
     let mut last_report = Instant::now();
     let mut stuck: Vec<u64> = Vec::new();
     let stuck_after = caps.wall.saturating_mul(10).max(Duration::from_secs(60));
-    while received + (stuck.len() as u64) < args.games {
+    while received + (stuck.len() as u64) < total {
         match rx.recv_timeout(Duration::from_secs(1)) {
             Ok(done) => {
                 let done = done?;
@@ -433,7 +454,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         if last_report.elapsed() >= Duration::from_secs(5)
-            || received + (stuck.len() as u64) == args.games
+            || received + (stuck.len() as u64) == total
         {
             last_report = Instant::now();
             let secs = started.elapsed().as_secs_f64();
@@ -441,7 +462,7 @@ fn main() -> anyhow::Result<()> {
             let pct = |n: u64| 100.0 * ratio(n, received);
             eprintln!(
                 "[selfplay] {received}/{} games · {:.1} games/s · seat 0 wins {:.1}% of decided · draw {:.1}% · answer cap {:.1}% · time cap {:.1}% · panics {} · stuck {}",
-                args.games,
+                total,
                 ratio(received, 1) / secs.max(1e-9),
                 100.0 * ratio(seat0_wins, decided),
                 pct(kinds.get("draw").copied().unwrap_or(0)),

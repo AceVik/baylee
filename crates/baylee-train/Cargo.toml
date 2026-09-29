@@ -44,3 +44,8 @@ sha2.workspace = true
 name = "selfplay"
 path = "src/bin/selfplay.rs"
 required-features = ["play"]
+
+[[bin]]
+name = "inspect"
+path = "src/bin/inspect.rs"
+required-features = ["play"]
