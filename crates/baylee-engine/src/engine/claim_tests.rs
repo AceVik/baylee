@@ -507,6 +507,19 @@ fn claims_in(line: &Line) -> Vec<Claim> {
         "exile" => claim(Kind::Exile, None),
         _ => {}
     }
+    // A sweep promises one destruction per object it names, and the board
+    // decides how many that is: "Destroy all enchantments" cast on a board
+    // with none does everything it says by doing nothing. Tranquility on
+    // the probe board found it. "Target" is different in kind — no target,
+    // no cast (CR 601.2c) — so only the quantifier is let off.
+    if at(&words, 1) == "all" {
+        for sweep in out
+            .iter_mut()
+            .filter(|c| matches!(c.kind, Kind::Destroy | Kind::Exile))
+        {
+            sweep.conditional = true;
+        }
+    }
     out
 }
 
@@ -1074,6 +1087,11 @@ fn the_vocabulary_reads_the_sentences_it_was_written_for() {
     assert_eq!(
         found("Exile target creature."),
         vec![(Kind::Exile, None, false)]
+    );
+    assert_eq!(
+        found("Destroy all enchantments."),
+        vec![(Kind::Destroy, None, true)],
+        "a sweep over an empty set keeps its word by doing nothing"
     );
     assert_eq!(
         found("Create a 1/1 white Soldier creature token."),

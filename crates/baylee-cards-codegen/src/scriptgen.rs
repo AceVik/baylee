@@ -345,6 +345,47 @@ fn pump_amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -> Opti
     })
 }
 
+/// A colour word in a valid-string, and whether it is negated: `Black` is
+/// `(false, "Black")` and `nonBlack` is `(true, "Black")`, the second half
+/// being the `Color` variant's name.
+fn color_atom(atom: &str) -> Option<(bool, &'static str)> {
+    let (negated, word) = atom
+        .strip_prefix("non")
+        .map_or((false, atom), |rest| (true, rest));
+    let color = match word {
+        "White" => "White",
+        "Blue" => "Blue",
+        "Black" => "Black",
+        "Red" => "Red",
+        "Green" => "Green",
+        _ => return None,
+    };
+    Some((negated, color))
+}
+
+/// A power or toughness compared with a fixed number (`powerLE2`,
+/// `toughnessGE4`), as the `Filter` that asks it. The strict comparisons
+/// become the inclusive ones a step over, because the filters compare
+/// inclusively and a power is a whole number.
+fn stat_atom(atom: &str) -> Option<String> {
+    let lower = atom.to_ascii_lowercase();
+    let (stat, rest) = if let Some(rest) = lower.strip_prefix("power") {
+        ("Power", rest)
+    } else {
+        ("Toughness", lower.strip_prefix("toughness")?)
+    };
+    let (cmp, number) = rest.split_at_checked(2)?;
+    let n: i16 = number.parse().ok()?;
+    let (bound, n) = match cmp {
+        "le" => ("AtMost", n),
+        "lt" => ("AtMost", n.checked_sub(1)?),
+        "ge" => ("AtLeast", n),
+        "gt" => ("AtLeast", n.checked_add(1)?),
+        _ => return None,
+    };
+    Some(format!("Filter::{stat}{bound}({n})"))
+}
+
 fn plain_number(raw: &str, svars: &BTreeMap<String, String>) -> Option<i64> {
     let raw = raw.trim().trim_start_matches('+');
     raw.parse::<i64>()
@@ -460,7 +501,31 @@ impl Tx<'_> {
                         "Filter::Not(&Filter::HasSupertype(SupertypeSet::LEGENDARY))".to_string()
                     }
                     "Snow" => "Filter::HasSupertype(SupertypeSet::SNOW)".to_string(),
+                    // The two card types a noun cannot say "not" to on its
+                    // own ("nonartifact, nonblack creature").
+                    "nonArtifact" => "Filter::LacksType(TypeSet::ARTIFACT)".to_string(),
+                    "nonEnchantment" => "Filter::LacksType(TypeSet::ENCHANTMENT)".to_string(),
+                    "Colorless" => "Filter::IsColorless".to_string(),
                     "" => continue,
+                    // A colour word (CR 105.2): "black creatures", "target
+                    // green spell", "nonblack creature". A colour is not a
+                    // subtype, so it is asked before the subtype arm below,
+                    // which would otherwise refuse `Black` as an unknown type.
+                    other if color_atom(other).is_some() => {
+                        let (negated, color) = color_atom(other).unwrap_or_default();
+                        let has =
+                            format!("Filter::HasColor(ColorSet::from_slice(&[Color::{color}]))");
+                        if negated {
+                            format!("Filter::Not(&{has})")
+                        } else {
+                            has
+                        }
+                    }
+                    // A number the printed words compare against ("power 2
+                    // or less", "power 3 or greater"). Only a fixed number:
+                    // "toughness less than this creature's power" is a
+                    // comparison with another object, and is refused.
+                    other if stat_atom(other).is_some() => stat_atom(other).unwrap_or_default(),
                     // `Creature.Goblin` puts the subtype after the base, so
                     // an atom can name one too — and it is the commonest
                     // shape in the corpus, not a corner.
@@ -879,6 +944,23 @@ impl Tx<'_> {
                     "destroy"
                 };
                 vec![format!("Effect::{verb}({aimed})")]
+            }
+            // "Destroy all lands", "destroy all creatures. They can't be
+            // regenerated": every permanent the valid-string names, none of
+            // them a target (so an ability that also targets is refused
+            // rather than read as a sweep of its target). `NoRegen$` is the
+            // same two doors as the single destroy above (CR 701.19c).
+            "DestroyAll" => {
+                if target.is_some() {
+                    return None;
+                }
+                let filter = self.filter_expr(&p.take("ValidCards")?)?;
+                let verb = match p.take("NoRegen").as_deref() {
+                    None => "destroy_all",
+                    Some("True") => "destroy_all_no_regen",
+                    Some(_) => return None,
+                };
+                vec![format!("Effect::{verb}(&{filter})")]
             }
             "Regenerate" => {
                 // Bare `AB$ Regenerate` is "regenerate CARDNAME" — 181 of
@@ -2173,9 +2255,62 @@ impl Tx<'_> {
             self.body.keywords.push(bit.to_string());
             return Some(());
         }
+        if let Some(from) = self.protection_filter(line) {
+            self.body.abilities.push(Self::static_expr(
+                "Filter::This",
+                &format!("Modifier::ProtectionFrom(&{from})"),
+            ));
+            return Some(());
+        }
         let head = line.split(':').next().unwrap_or(line);
         let head = head.split(' ').next().unwrap_or(head);
         self.deny(format!("keyword `{head}`"))
+    }
+
+    /// What a protection keyword protects from, as the `Filter` asked of a
+    /// source (CR 702.16a: "protection from [quality]").
+    ///
+    /// Two spellings. `Protection from black` names a colour, the commonest
+    /// shape by far (153 of the corpus's keyword lines). The other is
+    /// `Protection:<valid>[:<prose>[:<exception>]]`, where the valid-string
+    /// is the quality ("Artifact", "Creature") and is read by
+    /// [`Self::filter_expr`] like any other. The one exception understood is
+    /// the host card itself, which is how the Alpha Wards print "This effect
+    /// doesn't remove this Aura": protection from white, except from the
+    /// white Aura that grants it, so the Aura stays attached (CR 702.16c
+    /// would otherwise put it into the graveyard). `Filter::This` names that
+    /// Aura, the static's source. Any other exception is refused.
+    fn protection_filter(&self, word: &str) -> Option<String> {
+        if let Some(color) = word.trim().strip_prefix("Protection from ") {
+            let color = match color {
+                "white" => "White",
+                "blue" => "Blue",
+                "black" => "Black",
+                "red" => "Red",
+                "green" => "Green",
+                _ => return None,
+            };
+            return Some(format!(
+                "Filter::HasColor(ColorSet::from_slice(&[Color::{color}]))"
+            ));
+        }
+        let rest = word.trim().strip_prefix("Protection:")?;
+        let mut fields = rest.split(':');
+        let quality = self.filter_expr(fields.next()?)?;
+        let _prose = fields.next();
+        let filter = match fields.next() {
+            None => quality,
+            Some("Card.CardUID_HostCardUID") => {
+                format!("Filter::And(&[{quality}, Filter::Not(&Filter::This)])")
+            }
+            Some(other) => {
+                return self.deny(format!("a protection that excepts `{other}`"));
+            }
+        };
+        if fields.next().is_some() {
+            return self.deny("a protection keyword with a fifth field".to_string());
+        }
+        Some(filter)
     }
 
     /// `K:Equip:<cost>` as the activated ability the keyword is.
@@ -2724,16 +2859,30 @@ impl Tx<'_> {
             // rule reads.
             let mut bits = Vec::new();
             for word in raw.split(" & ") {
+                // Protection is granted as the static ability it is (CR
+                // 702.16a), never as a bit; removing it is a different
+                // sentence and is refused.
+                if modifier == "AddKeyword"
+                    && let Some(from) = self.protection_filter(word)
+                {
+                    out.push(Self::static_expr(
+                        filter,
+                        &format!("Modifier::ProtectionFrom(&{from})"),
+                    ));
+                    continue;
+                }
                 let Some(bit) = keyword_const(word) else {
                     self.note(format!("static ability granting keyword `{word}`"));
                     return None;
                 };
                 bits.push(bit.to_string());
             }
-            let set = bits.split_first().map(|(head, tail)| {
+            let Some(set) = bits.split_first().map(|(head, tail)| {
                 tail.iter()
                     .fold(head.clone(), |acc, b| format!("{acc}.union({b})"))
-            })?;
+            }) else {
+                continue;
+            };
             out.push(Self::static_expr(
                 filter,
                 &format!("Modifier::{modifier}({set})"),
@@ -3619,6 +3768,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Surveil",
     "Mana",
     "Destroy",
+    "DestroyAll",
     "Regenerate",
     "Tap",
     "Untap",
@@ -5963,6 +6113,120 @@ SVar:X:Count$xPaid",
             a.contains("Filter::ControlledByYou"),
             "and so is \"you control\": {a}"
         );
+    }
+
+    /// A colour word is a colour (CR 105.2), not an unknown subtype: Bad
+    /// Moon, Crusade, Terror and Northern Paladin were all refused over it.
+    #[test]
+    fn a_colour_word_in_a_valid_string_is_the_colour() {
+        let body = read(
+            "Name:X\nTypes:Enchantment\n\
+             S:Mode$ Continuous | Affected$ Creature.Black | AddPower$ 1 | AddToughness$ 1 | \
+             Description$ Black creatures get +1/+1.\n",
+        );
+        assert_eq!(
+            body.abilities,
+            ["static_ability!(Filter::And(&[Filter::CREATURE, \
+              Filter::HasColor(ColorSet::from_slice(&[Color::Black]))]), Modifier::ModifyPT(1, 1))"]
+        );
+        let terror = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Destroy | ValidTgts$ Creature.nonArtifact+nonBlack | NoRegen$ True\n",
+        );
+        let text = format!("{}{}", terror.statics, terror.abilities.join("\n"));
+        assert!(
+            text.contains("Filter::LacksType(TypeSet::ARTIFACT)"),
+            "{text}"
+        );
+        assert!(
+            text.contains("Filter::Not(&Filter::HasColor(ColorSet::from_slice(&[Color::Black])))"),
+            "{text}"
+        );
+        // A fixed number compared with a power is read; one compared with
+        // another object's power is not.
+        assert_eq!(
+            stat_atom("powerLE2").as_deref(),
+            Some("Filter::PowerAtMost(2)")
+        );
+        assert_eq!(
+            stat_atom("PowerGE3").as_deref(),
+            Some("Filter::PowerAtLeast(3)")
+        );
+        assert_eq!(
+            stat_atom("toughnessLT3").as_deref(),
+            Some("Filter::ToughnessAtMost(2)")
+        );
+        assert_eq!(stat_atom("toughnessLTX"), None);
+        assert_eq!(color_atom("nonWhite"), Some((true, "White")));
+        assert_eq!(color_atom("Goblin"), None);
+    }
+
+    /// "Destroy all lands" and "destroy all creatures. They can't be
+    /// regenerated" (Armageddon, Wrath of God): a sweep, not a target.
+    #[test]
+    fn destroy_all_sweeps_what_its_valid_string_names() {
+        let body = read("Name:X\nTypes:Sorcery\nA:SP$ DestroyAll | ValidCards$ Land\n");
+        assert_eq!(
+            body.abilities,
+            ["spell!(&[Effect::destroy_all(&Filter::LAND)])"]
+        );
+        let wrath = read(
+            "Name:X\nTypes:Sorcery\nA:SP$ DestroyAll | ValidCards$ Creature | NoRegen$ True\n",
+        );
+        assert_eq!(
+            wrath.abilities,
+            ["spell!(&[Effect::destroy_all_no_regen(&Filter::CREATURE)])"]
+        );
+        // "Destroy all Forests" is the land type, and the Disk's three
+        // types are an `or`.
+        let disk = read(
+            "Name:X\nTypes:Artifact\n\
+             A:AB$ DestroyAll | Cost$ 1 T | ValidCards$ Artifact,Creature,Enchantment\n",
+        );
+        assert!(
+            disk.abilities[0].contains("Effect::destroy_all("),
+            "{:?}",
+            disk.abilities
+        );
+        assert!(
+            read("Name:X\nTypes:Sorcery\nA:SP$ DestroyAll | ValidCards$ Forest\n").abilities[0]
+                .contains("Filter::HasSubtype(")
+        );
+        assert!(refused(
+            "Name:X\nTypes:Sorcery\nA:SP$ DestroyAll | ValidCards$ Land | NoRegen$ Maybe\n"
+        ));
+    }
+
+    /// Protection (CR 702.16a) is a static ability with a quality, printed
+    /// or granted: the Knights print it, the Wards grant it with the one
+    /// exception that keeps the Ward itself attached.
+    #[test]
+    fn protection_from_a_quality_is_a_static_ability() {
+        let knight = read("Name:X\nTypes:Creature\nK:First Strike\nK:Protection from black\n");
+        assert_eq!(knight.keywords, ["KeywordSet::FIRST_STRIKE"]);
+        assert_eq!(
+            knight.abilities,
+            ["static_ability!(Filter::This, Modifier::ProtectionFrom(\
+              &Filter::HasColor(ColorSet::from_slice(&[Color::Black]))))"]
+        );
+        let ward = read(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ Continuous | Affected$ Creature.EnchantedBy | \
+             AddKeyword$ Protection:Card.White:white:Card.CardUID_HostCardUID | \
+             Description$ Enchanted creature has protection from white.\n",
+        );
+        let a = ward.abilities.join("\n");
+        assert!(
+            a.contains(
+                "Modifier::ProtectionFrom(&Filter::And(&[Filter::HasColor(\
+                 ColorSet::from_slice(&[Color::White])), Filter::Not(&Filter::This)]))"
+            ),
+            "{a}"
+        );
+        assert!(a.contains("Filter::AttachedToBySource"), "{a}");
+        assert!(refused(
+            "Name:X\nTypes:Creature\nK:Protection:Card.White:white:Card.Other\n"
+        ));
     }
 
     #[test]
