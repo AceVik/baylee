@@ -79,6 +79,22 @@ the type is chosen one question later — so `ChooseSubtype` calls
 does. `card_tests::rules::a_cached_projection_is_what_a_fresh_one_would_compute`
 is the guard for both: a recompute may not disagree with the cache.
 
+**A characteristic-defining ability works in every zone** (CR 604.3), and
+a static is registered only while its source is on the battlefield, so a
+card whose power and toughness are `*` was its printed 0 in a library, a
+hand or a graveyard. Recruiter of the Guard offered a 3/3 Ashaya as a
+creature with toughness 2 or less. `GameState::printed_pt_cda` holds, per
+card object, the `Modifier::CharacteristicPT` its front face prints on
+itself (CR 712.8a: off the battlefield a card has only its front face),
+read once in `create_card`. `layers::recompute_with` applies it in layer 7a
+wherever the card is *not* on the battlefield; there the registered static
+does, so an effect that removes abilities still removes it. Those cards
+join the ids of every refresh, and any move of one invalidates the
+projection, since the move cleared its cache (a drawn Ashaya read 0/0 until
+something else moved). Only a printed `Filter::This` P/T with no condition
+qualifies; `Modifier::SetPTToCount` is granted, and CR 604.3a counts only
+printed, token-made, copied or text-changed characteristic-defining abilities.
+
 Layer 2 is not cached separately: the refresh writes the projected
 controller straight into `GameObject::controller`, so every rule that asks
 "who controls this" reads one field and none of them has to know that

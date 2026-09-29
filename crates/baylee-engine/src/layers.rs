@@ -164,6 +164,19 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
                 apply(&mut c, &mut controller, fx, state, obj);
             }
         }
+        // CR 604.3: a characteristic-defining P/T works in every zone. On
+        // the battlefield it is a registered static and applied above; off
+        // it, nothing is registered, so the card applies its own here.
+        if layer == Layer::PtCda
+            && let Some(Modifier::CharacteristicPT {
+                count,
+                toughness_plus,
+            }) = state.off_battlefield_pt_cda(obj)
+        {
+            let n = pt_count(state, obj, &c, controller, count);
+            c.power = Some(n);
+            c.toughness = Some(n.saturating_add(i16::from(toughness_plus)));
+        }
         if layer == Layer::PtCounters {
             apply_pt_counters(&mut c, obj);
         }

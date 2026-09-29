@@ -1466,8 +1466,17 @@ hashes, layers and does nothing. This paragraph said THREE until
   - `CardTypesInAllGraveyards`
 
   Power is the count, and toughness is the count plus `toughness_plus`
-  (Pyrogoyf: `+1`). Like every static ability, it works only on the
-  battlefield. A graveyard change invalidates the projection.
+  (Pyrogoyf: `+1`). A characteristic-defining ability works in every zone
+  (CR 604.3), so this one does too: written on the card itself
+  (`Filter::This`, no condition, front face), it is read at setup into
+  `GameState::printed_pt_cda`, and the projection applies it to the card in
+  a library, a hand, a graveyard, exile or on the stack. On the battlefield
+  it is an ordinary registered static, so an effect that removes abilities
+  removes it. Recruiter of the Guard's "toughness 2 or less" and
+  Reveillark's "power 2 or less" read the real number. A graveyard change,
+  and every move of such a card, invalidates the projection.
+  `SetPTToCount` is granted, so it is never characteristic-defining (see
+  above) and stays a battlefield static.
 - **`Effect::EventObjectDealsDamageEqualToPower { target }`**: "that creature
   deals damage equal to its power to any target". The dealer is the event's
   object, and its power is read now, or as it last existed on the

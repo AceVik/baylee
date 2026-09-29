@@ -88894,6 +88894,157 @@ fn recruiter_of_the_guard_finds_the_cheap_creature_and_leaves_the_expensive_one(
     );
 }
 
+/// Recruiter of the Guard's search menu over a library holding a Llanowar
+/// Elves, an Ashaya and a Pyrogoyf, with three Plains on p0's side. With
+/// `two_types`, the graveyards hold a land card and a creature card first.
+/// Returns what the menu offered, as cards.
+fn recruiter_menu_over_defined_bodies(two_types: bool) -> Vec<CardIndex> {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains(), plains()])
+        .hand(
+            0,
+            &[
+                recruiter_of_the_guard(),
+                llanowar_elves(),
+                ashaya_soul_of_the_wild(),
+                pyrogoyf(),
+                juzam_djinn(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // In hand already: "equal to the number of lands you control" counts
+    // the three Plains wherever the card is (CR 604.3).
+    let ashaya = in_hand(&engine, p0, ashaya_soul_of_the_wild()).expect("Ashaya starts in hand");
+    assert_eq!(
+        pt(&engine, ashaya),
+        (3, 3),
+        "Ashaya in hand is as big as p0's lands"
+    );
+
+    let moves: Vec<(ObjectId, ZoneLocation)> =
+        [llanowar_elves(), ashaya_soul_of_the_wild(), pyrogoyf()]
+            .into_iter()
+            .map(|card| {
+                (
+                    in_hand(&engine, p0, card).expect("dealt into the hand"),
+                    ZoneLocation::Library(p0),
+                )
+            })
+            .chain(two_types.then(|| {
+                (
+                    in_hand(&engine, p0, juzam_djinn()).expect("dealt into the hand"),
+                    ZoneLocation::Graveyard(p0),
+                )
+            }))
+            .collect();
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        for (card, to) in moves {
+            state
+                .move_object(
+                    card,
+                    to,
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                )
+                .expect("the harness moves a card");
+        }
+    }
+    if two_types {
+        // A Forest off the top of p1's library: the land type beside the
+        // Djinn's creature type.
+        seed_graveyard(&mut engine, p1, 1);
+    }
+    engine.refresh_offer();
+
+    cast_from_hand(&mut engine, p0, recruiter_of_the_guard());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched");
+    };
+    options
+        .iter()
+        .filter_map(|id| engine.state().object(*id).and_then(|o| o.card))
+        .map(|card| card.index)
+        .collect()
+}
+
+/// CR 604.3: a characteristic-defining ability works in every zone, so
+/// "toughness 2 or less" reads the number the card defines, not its printed
+/// `*` as 0. In the library Ashaya is a 3/3 beside three Plains and is never
+/// offered; Pyrogoyf is a 0/1 over empty graveyards and is, and a 2/3 once
+/// the graveyards hold a land card and a creature card, and is not. The
+/// Elves are on every menu, so an empty one proves nothing.
+///
+/// Before, a static defining P/T was registered only on the battlefield,
+/// and both cards were offered at toughness 0 every time.
+#[test]
+fn recruiter_of_the_guard_reads_a_toughness_its_card_defines_in_the_library() {
+    let empty = recruiter_menu_over_defined_bodies(false);
+    assert!(empty.contains(&llanowar_elves()), "{empty:?}");
+    assert!(
+        !empty.contains(&ashaya_soul_of_the_wild()),
+        "Ashaya is a 3/3 in the library: {empty:?}"
+    );
+    assert!(
+        empty.contains(&pyrogoyf()),
+        "Pyrogoyf over empty graveyards is a 0/1: {empty:?}"
+    );
+
+    let two = recruiter_menu_over_defined_bodies(true);
+    assert!(two.contains(&llanowar_elves()), "{two:?}");
+    assert!(!two.contains(&ashaya_soul_of_the_wild()), "{two:?}");
+    assert!(
+        !two.contains(&pyrogoyf()),
+        "a land card and a creature card in the graveyards make Pyrogoyf a \
+         2/3: {two:?}"
+    );
+}
+
+/// A card that defines its own size is that size the moment it is drawn.
+/// The draw clears the card's projection, and nothing else on this board
+/// moves to start another refresh, so without the draw asking for one the
+/// Ashaya in hand read its printed 0/0 until a land was played.
+#[test]
+fn a_drawn_ashaya_is_its_size_in_hand_at_once() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains()])
+        .hand(0, &[ashaya_soul_of_the_wild()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let card = in_hand(&engine, p0, ashaya_soul_of_the_wild()).expect("Ashaya starts in hand");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            card,
+            ZoneLocation::Library(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("onto the top of the library");
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert!(walk_to_own_main(&mut engine, p0), "p0's next main phase");
+    let drawn = in_hand(&engine, p0, ashaya_soul_of_the_wild()).expect("drawn again");
+    assert_eq!(pt(&engine, drawn), (2, 2), "as big as the two Plains");
+}
+
 /// Roaming Throne — {4} — Artifact Creature — Golem — 4/4, ward {2}, "As this
 /// creature enters, choose a creature type", "This creature is the chosen type
 /// in addition to its other types", and "If a triggered ability of another

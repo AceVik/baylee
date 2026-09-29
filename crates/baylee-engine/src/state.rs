@@ -695,6 +695,22 @@ pub struct GameState {
     /// Whether the preceding refresh touched off-board objects. Cache-only:
     /// the first refresh after a cross-zone effect ends must clear them too.
     projected_cross_zone: bool,
+    /// The cards whose front face prints a characteristic-defining power
+    /// and toughness ("Ashaya's power and toughness are each equal to the
+    /// number of lands you control"), with the modifier that defines them.
+    ///
+    /// CR 604.3 has a characteristic-defining ability function in every
+    /// zone, but a static is registered only while its source is on the
+    /// battlefield, so in a library, a hand, a graveyard, exile or on the
+    /// stack the card had its printed `*` as 0 — the toughness Recruiter of
+    /// the Guard and the power Reveillark read. The projection applies these
+    /// itself wherever the card is **not** on the battlefield
+    /// (`layers::recompute_with`); on the battlefield the registered static
+    /// does it, so an effect that takes the abilities away still takes this
+    /// one. Written once per card in [`Self::create_card`], front face only
+    /// (CR 712.8a), and never changed: a list the size of a handful of
+    /// cards.
+    pub printed_pt_cda: Vec<(ObjectId, baylee_cards_dsl::Modifier)>,
     /// Objects that may have become a token outside the battlefield
     /// (CR 704.5d), queued for the next state-based-action pass.
     ///
@@ -876,6 +892,7 @@ impl GameState {
             characteristics_generation: u64::MAX,
             projection_ids: Vec::new(),
             projected_cross_zone: false,
+            printed_pt_cda: Vec::new(),
             token_cleanup: Vec::new(),
         };
         // Casting probes need the nameless face without mutating this interner.
@@ -1117,6 +1134,9 @@ impl GameState {
             obj.timestamp = ts;
             obj
         });
+        if let Some(modifier) = printed_pt_cda(def) {
+            self.printed_pt_cda.push((id, modifier));
+        }
         Ok(id)
     }
 
@@ -1446,6 +1466,12 @@ impl GameState {
                     .chain(self.zones.stack_projectable().iter())
                     .copied(),
             );
+            // And the cards that define their own power and toughness,
+            // wherever else they are (CR 604.3).
+            ids.extend(self.printed_pt_cda.iter().map(|(id, _)| *id).filter(|id| {
+                self.object(*id)
+                    .is_some_and(|o| !matches!(o.zone, Zone::Battlefield | Zone::Stack))
+            }));
         }
         // Layer 2 decides the controller every later layer reads, of this
         // object and of every other one (CR 613.1b before 613.1c–f), and a
@@ -1503,7 +1529,7 @@ impl GameState {
             let Some(obj) = self.object(id) else {
                 continue;
             };
-            if crate::layers::needs_projection(plan, obj) {
+            if crate::layers::needs_projection(plan, obj) || self.defines_pt_off_battlefield(obj) {
                 let projection = crate::layers::recompute_with(self, obj, plan);
                 let obj = self.object_mut(id).expect("zone object exists");
                 moved |= settle_controller(obj, projection.controller, was);
@@ -1601,6 +1627,23 @@ impl GameState {
         self.arena
             .get(id)
             .or_else(|| self.ceased.iter().find(|o| o.id == id))
+    }
+
+    /// The characteristic-defining P/T `obj` applies itself, which it does
+    /// wherever it is but on the battlefield ([`Self::printed_pt_cda`]).
+    #[must_use]
+    pub fn off_battlefield_pt_cda(&self, obj: &GameObject) -> Option<baylee_cards_dsl::Modifier> {
+        if obj.zone == Zone::Battlefield {
+            return None;
+        }
+        self.printed_pt_cda
+            .iter()
+            .find(|(card, _)| *card == obj.id)
+            .map(|(_, modifier)| *modifier)
+    }
+
+    fn defines_pt_off_battlefield(&self, obj: &GameObject) -> bool {
+        self.off_battlefield_pt_cda(obj).is_some()
     }
 
     /// What `id` was as it last left the battlefield, if that is the last
@@ -2018,6 +2061,13 @@ impl GameState {
         {
             self.invalidate_projections();
         }
+        // A card that defines its own power and toughness is projected in
+        // every zone (CR 604.3), and the move just cleared its cache: a
+        // drawn Ashaya would read its printed 0/0 until something else
+        // moved.
+        if self.printed_pt_cda.iter().any(|(card, _)| *card == id) {
+            self.invalidate_projections();
+        }
         if to.zone() == Zone::Battlefield {
             self.per_turn.entered_battlefield.push(id);
         }
@@ -2274,6 +2324,9 @@ impl GameState {
             projection_ids: _,
             // A cache flag, derived from the effects hashed below.
             projected_cross_zone: _,
+            // Read off the cards at setup and never written again; each
+            // object's card is hashed with the object.
+            printed_pt_cda: _,
             // Drained by every pass, before anyone can look.
             token_cleanup: _,
         } = self;
@@ -3097,6 +3150,29 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
 
 /// Whether a DSL filter mentions non-battlefield zones (then its effect
 /// needs cross-zone projection).
+/// The characteristic-defining power and toughness a card's front face
+/// prints (CR 604.3a): a static on the card itself, unconditional, that
+/// defines P/T in layer 7a. Front face only, because a card off the
+/// battlefield and the stack has only its front face's characteristics
+/// (CR 712.8a).
+fn printed_pt_cda(def: &CardDef) -> Option<baylee_cards_dsl::Modifier> {
+    def.abilities_for_face(0)
+        .iter()
+        .find_map(|ability| match ability {
+            baylee_cards_dsl::AbilityDef::Static(sa)
+                if sa.filter == baylee_cards_dsl::Filter::This
+                    && sa.condition.is_none()
+                    && matches!(
+                        sa.modifier,
+                        baylee_cards_dsl::Modifier::CharacteristicPT { .. }
+                    ) =>
+            {
+                Some(sa.modifier)
+            }
+            _ => None,
+        })
+}
+
 pub(crate) fn filter_reaches_other_zones(filter: &baylee_cards_dsl::Filter) -> bool {
     use baylee_cards_dsl::{Filter, ZoneRef};
     match filter {
