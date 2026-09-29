@@ -3338,7 +3338,7 @@ them:
 | `AllGraveyardCreaturesToBattlefield` | you | matches (The True Scriptures III) |
 | `ExileAndReturnAtEndStep` (delayed return) | owner | matches Eerie Interlude and Twining Twins. Venser +2 and Charming Prince print "your", and are right only because the target must be owned by you |
 | `ReturnLinkedToBattlefield`, monarch release | owner | fixed (above) |
-| `ExileSelfReturnAsFace` | owner | **not fixed**, see below |
+| `ExileSelfReturnAsFace` | owner | fixed in 62 |
 | `SearchLibrary*` to battlefield, `PutFromHandOntoBattlefield` | the receiver / you | matches, Bribery included |
 | `RevealTopAndSort` (`put_found`) | the revealer | fixed (above) |
 | token creation and token copies | you, or the target's controller / the linked card's owner where printed | matches |
@@ -3364,7 +3364,8 @@ commander in exile (`commander_tests::a_blinked_commander_returns_…` pins it).
   this" cards it stands in for, since a transform keeps its controller. Golden
   Guardian stolen with Song-Mad Treachery shows it. The fix is the same field,
   but it touches 26 hand-owned cards, and `c42/cards-library` is rewriting
-  Fable, so it waits for its own branch.
+  Fable, so it waits for its own branch. Fixed in 62, which also corrects the
+  Golden Guardian and Conqueror's Galleon part.
 - Werefox Bodyguard (`Implemented`) never returns what it exiles "until this
   creature leaves the battlefield": nothing returns a linked card when its
   host leaves. Fixed in 61.
@@ -3489,3 +3490,68 @@ and `a_card_that_left_exile_does_not_come_back_as_its_old_host_leaves`;
 and `resolve::zones::arrival_control_tests::what_a_card_was_in_exile_ends_as_it_leaves_exile`.
 `cast_face_tests::the_adventure_is_not_offered_again_from_the_exile_it_was_cast_into`
 held the stale rider as its premise and now holds that it is gone.
+
+### 62. A permanent that exiled itself and came back went home to its owner — FIXED
+
+Found in entry 60's sweep. `Effect::ExileSelfReturnAsFace { face }` set the
+controller of every card it returned to the card's owner. Sheoldred's
+`{4}{B}` and the Ojers' dies triggers print "under its owner's control" and
+were right. Fable of the Mirror-Breaker III, Welcome to … III and Journey to
+Eternity print "under your control", so a stolen Fable went home at
+chapter III. The True Scriptures III prints "return it to the battlefield
+(front face up)" and names nobody: the card enters under the player the
+effect instructs (CR 110.2a), the chapter ability's controller (CR 603.3a).
+
+**Fixed as the DSL, the way entry 60 fixed the blink.** The effect takes
+`owner_control`, the field `Blink` and `GraveyardToBattlefield` have. The
+resolver writes the controller as the card's default before it arrives, since
+the card that comes back is a new object (CR 400.7), and it returns nothing
+under a player who has left the game (CR 800.4b). Only control is chosen: the
+owner never changes (CR 108.3).
+
+Each of the 15 uses on 13 cards was set from its own printed sentence:
+
+| Card | Sentence | `owner_control` |
+|---|---|---|
+| Sheoldred `{4}{B}`, Ojer Axonil and Ojer Pakpatiq dies | "… under its owner's control" | `true` |
+| Fable of the Mirror-Breaker III, Welcome to … III, Journey to Eternity | "… under your control" | `false` |
+| The True Scriptures III | names nobody (CR 110.2a, 603.3a) | `false` |
+| Dowsing Dagger, Thaumatic Compass, Twists and Turns, Growing Rites of Itlimoc, Storm the Vault, Vance's Blasting Cannons (triggers); Temple of Cyclical Time, Temple of Cultivation (activations) | "transform this …" | `false` |
+
+The last row is the stand-in for a transform (#206). A transform keeps the
+permanent and its controller (CR 712.18), and the ability's controller is that
+controller when the ability triggered (CR 603.3a) or the activator
+(CR 602.2a). So `false` names the right player at the moment of return, where
+`true` would hand a stolen permanent back at once. It is still not a
+transform. The control effect over the old object ends with it, so a
+permanent stolen "until end of turn" stays with the thief after that turn,
+where a transformed one would go back. `Effect::TransformSource` now turns a
+permanent over in place, so these eight can become real transforms. That is
+a separate change, since it also keeps counters, attachments and every other
+effect on the permanent.
+
+Entry 60 says Golden Guardian stolen with Song-Mad Treachery shows the fault.
+It could not have. Neither Golden Guardian nor Conqueror's Galleon
+constructs this effect: both are `Partial`, with the return NOT SUPPORTED.
+When they are built, both print "under your control". No card reader
+(`scriptgen`, `landgen`, `lines.rs`, `manaread`) emits the effect, so no
+machine-owned card changed.
+
+The tests:
+
+- `resolve::zones::arrival_control_tests` has three rule tests. A stolen
+  permanent that returns itself under your control stays with the thief,
+  one that returns under its owner's control goes home, and a return under
+  your control for a player who has left stays in exile.
+- `card_tests::enchantments::a_stolen_fable_returns_under_the_thiefs_control`
+  checks the trigger path (CR 603.3a).
+- `card_tests::creatures::a_stolen_temple_of_cyclical_time_turns_back_into_the_god_under_the_thief`
+  checks the activation path (CR 602.2a).
+- The first rule test and both card tests failed on the old resolver.
+- `lints::every_self_return_comes_back_under_the_control_its_sentence_prints`
+  holds each use's field to its printed sentence, with its count pinned
+  (15 today). A printed ability with no known sentence fails it.
+
+The other cards' own tests play them on a board where owner and controller
+are one seat, so a controller assertion there would pass on the old code.
+The lint is what checks their field.

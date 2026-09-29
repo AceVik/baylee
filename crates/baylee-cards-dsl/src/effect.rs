@@ -1460,12 +1460,40 @@ pub enum Effect {
     /// turn it is, and does nothing if the permanent has left or has already
     /// transformed since it was created (CR 701.27f).
     TransformSourceAtNextUpkeep,
-    /// Exile the source, then return it to the battlefield under its
-    /// owner's control as the given face (transform; Sheoldred's flip,
-    /// saga final chapters).
+    /// Exile the source, then return it to the battlefield as the given face
+    /// (Sheoldred's flip, the Ojers' dies triggers, saga final chapters), and
+    /// the stand-in for "transform this" until a permanent can turn over in
+    /// place (#206).
     ExileSelfReturnAsFace {
         /// The face to return as (0 = front).
         face: u8,
+        /// Under whose control the card comes back: its owner's (`true`) or
+        /// that of the player who controls the resolving ability (`false`).
+        ///
+        /// The same field, and the same question, as [`Effect::Blink`]'s and
+        /// [`Effect::GraveyardToBattlefield`]'s. The card that returns is a
+        /// new object (CR 400.7), so a control effect that held the one that
+        /// was exiled is gone with it, and the new one enters under the
+        /// control the sentence names. Sheoldred's `{4}{B}` and the Ojers'
+        /// dies triggers print "under its owner's control" and take `true`;
+        /// Fable of the Mirror-Breaker III, Welcome to … III and Journey to
+        /// Eternity print "under your control" and take `false`, and so does
+        /// The True Scriptures III, whose "return it to the battlefield"
+        /// names nobody: the player the effect instructs puts it there
+        /// (CR 110.2a), the Saga's controller (CR 603.3a).
+        ///
+        /// The transform stand-ins take `false` as well, and are right only
+        /// at the moment of return. A permanent that transforms is the same
+        /// object and every effect on it goes on applying (CR 712.18), so a
+        /// stolen one stays stolen and goes home when the steal ends. The
+        /// stand-in brings back a new object whose own default is the
+        /// ability's controller (its source's controller, CR 602.2a,
+        /// CR 603.3a), which keeps it with the thief after an "until end of
+        /// turn" steal would have ended. `true` would be wrong sooner: at
+        /// once.
+        ///
+        /// Only control is chosen here. The owner never changes (CR 108.3).
+        owner_control: bool,
     },
     /// Each player in `who` sacrifices a permanent they control matching
     /// the filter (their choice; Sheoldred's Edict).
