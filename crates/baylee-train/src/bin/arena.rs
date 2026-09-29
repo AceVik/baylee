@@ -229,62 +229,66 @@ fn main() -> anyhow::Result<()> {
                 if i >= games {
                     break;
                 }
-                let result = (|| -> anyhow::Result<Played> {
-                    let seed = first_seed + i;
-                    let opp = (i / 2) as usize % against.len();
-                    let net_seat = (i % 2) as u8;
-                    let deck_order = ((i / 2) / against.len() as u64) % 2;
-                    let (a, b) = if deck_order == 0 {
-                        (&decks[0], &decks[1])
-                    } else {
-                        (&decks[1], &decks[0])
-                    };
-                    let mut profiles = [against[opp]; 2];
-                    profiles[usize::from(net_seat)] =
-                        AIProfile::named("expert").unwrap_or(against[opp]);
-                    let preset = table(seed, a, b, profiles);
-                    let mut session = Session::new_recorded(&preset, baylee_build::short())
-                        .context("the preset builds")?;
-                    session.describe(format!("{run}-{i:07}"), vec!["0".into(), "1".into()]);
-                    let me = PlayerId::new(net_seat);
-                    session.take_over(me);
-                    let started = Instant::now();
-                    let (mut net_answers, mut fallbacks, mut refused, mut net_time) =
-                        (0, 0, 0, Duration::ZERO);
-                    let mut refusals = Vec::new();
-                    let outcome = loop {
-                        if let Pending::GameOver(result) = session.pending() {
-                            let winners = session.winning_seats(*result);
-                            break match winners.as_slice() {
-                                [w] if *w == me => "win",
-                                [_] => "loss",
-                                _ => "draw",
-                            };
-                        }
-                        if started.elapsed() > wall {
-                            break "time_cap";
-                        }
-                        session.pump_at_most(32);
-                        if let Some((pending, view)) = session.view_for(me) {
-                            let t = Instant::now();
-                            let answer = net.answer(&view, &pending)?;
-                            net_time += t.elapsed();
-                            let action = if let Some(a) = answer {
-                                net_answers += 1;
-                                a.action
-                            } else {
-                                fallbacks += 1;
-                                session
-                                    .house_action(me)
-                                    .context("a question has an answer")?
-                            };
-                            let hand: Vec<baylee_core::ids::ObjectId> =
-                                view.hand.iter().map(|h| h.id).collect();
-                            let enumerated =
-                                baylee_train::policy::steps(&pending, &hand, &action).is_ok();
-                            if let Err(why) = session.act(me, action.clone()) {
-                                refused += 1;
-                                refusals.push(json!({
+                // A game that panics the engine is a finding, not the end of this
+                // worker: it is reported with its seed and decks, and the next
+                // game is played.
+                let played = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+                    || -> anyhow::Result<Played> {
+                        let seed = first_seed + i;
+                        let opp = (i / 2) as usize % against.len();
+                        let net_seat = (i % 2) as u8;
+                        let deck_order = ((i / 2) / against.len() as u64) % 2;
+                        let (a, b) = if deck_order == 0 {
+                            (&decks[0], &decks[1])
+                        } else {
+                            (&decks[1], &decks[0])
+                        };
+                        let mut profiles = [against[opp]; 2];
+                        profiles[usize::from(net_seat)] =
+                            AIProfile::named("expert").unwrap_or(against[opp]);
+                        let preset = table(seed, a, b, profiles);
+                        let mut session = Session::new_recorded(&preset, baylee_build::short())
+                            .context("the preset builds")?;
+                        session.describe(format!("{run}-{i:07}"), vec!["0".into(), "1".into()]);
+                        let me = PlayerId::new(net_seat);
+                        session.take_over(me);
+                        let started = Instant::now();
+                        let (mut net_answers, mut fallbacks, mut refused, mut net_time) =
+                            (0, 0, 0, Duration::ZERO);
+                        let mut refusals = Vec::new();
+                        let outcome = loop {
+                            if let Pending::GameOver(result) = session.pending() {
+                                let winners = session.winning_seats(*result);
+                                break match winners.as_slice() {
+                                    [w] if *w == me => "win",
+                                    [_] => "loss",
+                                    _ => "draw",
+                                };
+                            }
+                            if started.elapsed() > wall {
+                                break "time_cap";
+                            }
+                            session.pump_at_most(32);
+                            if let Some((pending, view)) = session.view_for(me) {
+                                let t = Instant::now();
+                                let answer = net.answer(&view, &pending)?;
+                                net_time += t.elapsed();
+                                let action = if let Some(a) = answer {
+                                    net_answers += 1;
+                                    a.action
+                                } else {
+                                    fallbacks += 1;
+                                    session
+                                        .house_action(me)
+                                        .context("a question has an answer")?
+                                };
+                                let hand: Vec<baylee_core::ids::ObjectId> =
+                                    view.hand.iter().map(|h| h.id).collect();
+                                let enumerated =
+                                    baylee_train::policy::steps(&pending, &hand, &action).is_ok();
+                                if let Err(why) = session.act(me, action.clone()) {
+                                    refused += 1;
+                                    refusals.push(json!({
                                     "game": i,
                                     "decision": session.decision_seq(),
                                     "kind": baylee_train::features::PENDING_KINDS
@@ -294,29 +298,56 @@ fn main() -> anyhow::Result<()> {
                                     "refusal": why,
                                     "enumerated": enumerated,
                                 }));
-                                let fallback = session
-                                    .house_action(me)
-                                    .context("a question has an answer")?;
-                                if session.act(me, fallback).is_err() {
-                                    break "stuck";
+                                    let fallback = session
+                                        .house_action(me)
+                                        .context("a question has an answer")?;
+                                    if session.act(me, fallback).is_err() {
+                                        break "stuck";
+                                    }
                                 }
                             }
-                        }
-                    };
+                        };
+                        Ok(Played {
+                            i,
+                            against: opp,
+                            net_seat,
+                            outcome,
+                            turn: session.state().turn.number,
+                            net_answers,
+                            house_fallbacks: fallbacks,
+                            refused,
+                            net_ms: net_time.as_secs_f64() * 1e3,
+                            record: session.take_record(),
+                            refusals,
+                        })
+                    },
+                ));
+                let result = played.unwrap_or_else(|panic| {
+                    let seed = first_seed + i;
+                    let deck_order = ((i / 2) / against.len() as u64) % 2;
+                    let message = panic
+                        .downcast_ref::<&str>()
+                        .map(ToString::to_string)
+                        .or_else(|| panic.downcast_ref::<String>().cloned())
+                        .unwrap_or_default();
+                    eprintln!(
+                        "[arena] game {i} (seed {seed}, deck order {deck_order}, net seat {}) panicked: {message}",
+                        i % 2
+                    );
                     Ok(Played {
                         i,
-                        against: opp,
-                        net_seat,
-                        outcome,
-                        turn: session.state().turn.number,
-                        net_answers,
-                        house_fallbacks: fallbacks,
-                        refused,
-                        net_ms: net_time.as_secs_f64() * 1e3,
-                        record: session.take_record(),
-                        refusals,
+                        against: (i / 2) as usize % against.len(),
+                        net_seat: (i % 2) as u8,
+                        outcome: "panicked",
+                        turn: 0,
+                        net_answers: 0,
+                        house_fallbacks: 0,
+                        refused: 0,
+                        net_ms: 0.0,
+                        record: Vec::new(),
+                        refusals: vec![json!({"game": i, "seed": seed, "deck_order": deck_order, "panic": message})],
                     })
-                })();
+                });
                 if tx.send(result).is_err() {
                     break;
                 }
