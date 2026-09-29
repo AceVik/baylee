@@ -445,6 +445,10 @@ pub fn condition_holds(
                     .count()
                     >= min as usize
             }),
+        Condition::LandsPlayedThisTurnAtLeast(n) => state
+            .players
+            .get(you.get() as usize)
+            .is_some_and(|p| p.lands_played_this_turn >= n),
         Condition::HandSizeAtMost(max) => {
             state.zones.list(ZoneLocation::Hand(you)).len() <= max as usize
         }

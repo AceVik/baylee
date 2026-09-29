@@ -2323,29 +2323,79 @@ fn rancor_pumps_its_host_and_comes_back_when_it_dies() {
     );
 }
 
-/// Fastbond: "any number of lands", which is the half the card claims.
+/// Fastbond: "You may play any number of lands on each of your turns.
+/// Whenever you play a land, if it wasn't the first land you played this
+/// turn, this enchantment deals 1 damage to you."
 ///
-/// `Modifier::ExtraLandDrops(u8::MAX)` is the whole expressible sentence; the
-/// damage trigger is refused by name for want of a "you play a land" event.
-/// Three lands in one turn is what separates it from Aesi's single extra
-/// drop, and from no Fastbond at all.
+/// Three Forests out of the hand: the first triggers nothing at all (the
+/// `if` is an intervening one, CR 603.4, so nothing even goes on the stack),
+/// the second and the third cost a point each. A Forest Rampant Growth puts
+/// onto the battlefield is not played and costs nothing; a Forest played out
+/// of the graveyard under Crucible of Worlds is played, and costs one.
 #[test]
-fn fastbond_plays_three_lands_in_one_turn() {
+fn fastbond_plays_any_number_of_lands_and_charges_for_all_but_the_first() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(398, forest())
-        .battlefield(0, &[fastbond()])
-        .hand(0, &[forest(), forest(), forest()])
+        .battlefield(0, &[fastbond(), crucible_of_worlds()])
+        .hand(0, &[forest(), forest(), forest(), rampant_growth()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    let life = |engine: &Engine<RegistryLookup>| engine.state().players[0].life;
 
-    for nth in 1..=3 {
+    play_land(&mut engine, p0, forest());
+    assert!(
+        engine.state().zones.list(ZoneLocation::Stack).is_empty(),
+        "the first land of the turn does not trigger at all"
+    );
+    assert_eq!(life(&engine), 20);
+    for (nth, left) in [(2, 19), (3, 18)] {
         let card = in_hand(&engine, p0, forest()).expect("a Forest is in hand");
         engine
             .apply(p0, PlayerAction::PlayLand { card })
             .unwrap_or_else(|err| panic!("land drop {nth} was refused: {err:?}"));
         pass_until(&mut engine, stack_is_empty);
+        assert_eq!(life(&engine), left, "land {nth} deals 1 damage to you");
     }
+
+    // A land an effect puts onto the battlefield is not played.
+    cast_from_hand(&mut engine, p0, rampant_growth());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched");
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .expect("a basic land from the library");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(options[0]).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "Rampant Growth put its Forest onto the battlefield"
+    );
+    assert_eq!(life(&engine), 18, "which nobody played");
+
+    // A land played out of the graveyard is played.
+    seed_graveyard(&mut engine, p0, 1);
+    let buried = in_graveyard(&engine, p0, forest()).expect("a Forest in the graveyard");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: buried })
+        .expect("Crucible of Worlds lets it be played");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life(&engine), 17, "the fourth land played this turn");
 
     let lands = engine
         .state()
@@ -2359,16 +2409,36 @@ fn fastbond_plays_three_lands_in_one_turn() {
                 .is_some_and(|o| o.characteristics().types.intersects(TypeSet::LAND))
         })
         .count();
-    assert_eq!(
-        lands, 3,
-        "three land drops in one turn, and no damage taken"
+    assert_eq!(lands, 5, "four played and one put there");
+}
+
+/// The first land played on a turn is the first whatever came before: the
+/// count is per turn, so the next turn's first Forest is free again.
+#[test]
+fn fastbond_forgives_the_first_land_of_every_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(399, forest())
+        .battlefield(0, &[fastbond()])
+        .hand(0, &[forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    play_land(&mut engine, p0, forest());
+    play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 19);
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 reaches its next main"
     );
-    assert_eq!(
-        engine.state().players[0].life,
-        20,
-        "the printed \"deals 1 damage to you\" is refused by name, so nothing \
-         charged for the second and third"
+    play_land(&mut engine, p0, forest());
+    assert!(
+        engine.state().zones.list(ZoneLocation::Stack).is_empty(),
+        "a new turn's first land"
     );
+    assert_eq!(engine.state().players[0].life, 19);
 }
 
 /// Mirri's Guile: the upkeep question, and the library it leaves alone.

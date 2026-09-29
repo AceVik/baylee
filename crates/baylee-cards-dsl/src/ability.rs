@@ -134,6 +134,14 @@ pub enum Condition {
     /// threshold below, so the count is a parameter rather than a fixed
     /// nought and nothing here may read the word.
     HandSizeAtMost(u8),
+    /// The controller has played at least N lands this turn (CR 305.2).
+    /// Fastbond's "if it wasn't the first land you played this turn" is 2:
+    /// a trigger on the play is collected after the land it is about was
+    /// counted, and the count only grows within a turn, so the second ask
+    /// at resolution (CR 603.4) answers as the first did. The count is
+    /// reset as its player's own turn begins, which is the only turn this
+    /// engine lets a player play lands on.
+    LandsPlayedThisTurnAtLeast(u8),
     /// You have **exactly** N cards in hand (Library of Alexandria).
     ///
     /// The sibling of the line above for the same reason
@@ -301,6 +309,11 @@ pub enum Trigger {
     },
     /// A player draws a card.
     Draws(crate::effect::PlayerRel),
+    /// "Whenever [a player] plays a land" (Fastbond): the special action of
+    /// playing a land (CR 116.2a, 305.1), from whatever zone a permission
+    /// allows, and never a land an effect puts onto the battlefield, which
+    /// is not played. The relation names whose play: `You` for "you".
+    PlaysLand(crate::effect::PlayerRel),
     /// A player draws a card except the first one they draw each turn
     /// (Orcish Bowmasters).
     DrawsExceptFirst(crate::effect::PlayerRel),

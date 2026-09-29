@@ -564,6 +564,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // Druid Class, "When this Class becomes level 3".
         T::CountersReach { .. } => &["becomes level"],
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
+        // Fastbond, "Whenever you play a land".
+        T::PlaysLand(_) => &["play a land"],
         T::Attacks(_) => &["attack"],
         T::AttacksAlone(_) => &["exalted", "attacks alone"],
         // The step, not the word "beginning" — every one of these sentences
@@ -639,6 +641,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         // sentence.
         Trigger::Draws(rel)
         | Trigger::DrawsExceptFirst(rel)
+        | Trigger::PlaysLand(rel)
         | Trigger::FirstNoncreatureSpellCast(rel)
         | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),

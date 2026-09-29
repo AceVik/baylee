@@ -862,7 +862,15 @@ land under a Doubling Season enters with four charge counters.
 `SpellCast(filter)`, `Draws(rel)`, `DrawsExceptFirst(rel)`,
 `FirstNoncreatureSpellCast(rel)`, `Attacks(filter)`, `BecomesTarget`,
 `EntersBattlefieldEvoked`, `StepBegin { step, whose }`,
-`CountersReach { kind, n }`.
+`CountersReach { kind, n }`, `PlaysLand(rel)`.
+
+`PlaysLand(rel)` is "whenever [a player] plays a land" (Fastbond): the
+special action (CR 116.2a, 305.1), out of the hand or from wherever a
+permission allows (Crucible of Worlds), and never a land an effect puts
+onto the battlefield, which a landfall `EntersBattlefield` would also see.
+Fastbond's "if it wasn't the first land you played this turn" is the
+intervening `condition = Some(Condition::LandsPlayedThisTurnAtLeast(2))`:
+the land the trigger is about is already counted when it is collected.
 
 `CountersReach { kind, n }` fires when the source's count of `kind` goes
 from below `n` to `n` or more, the window CR 714.2b writes out for a
