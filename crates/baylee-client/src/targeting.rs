@@ -358,6 +358,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // When a permanent arrived is history, and a view carries no
         // journal — the same refusal as the rest of this list.
         | Filter::EnteredThisTurn
+        | Filter::PutIntoGraveyardThisTurn
         | Filter::InZone(_) => return None,
     })
 }

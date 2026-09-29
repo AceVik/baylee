@@ -267,6 +267,10 @@ pub struct PerTurn {
     /// battlefield is journaled: [`GameState::move_object`] and a token's
     /// arrival.
     pub entered_battlefield: Vec<ObjectId>,
+    /// What was put into a graveyard this turn, from anywhere, in arrival
+    /// order (`Filter::PutIntoGraveyardThisTurn`). Written by
+    /// [`GameState::move_object`], beside `entered_battlefield`.
+    pub entered_graveyard: Vec<ObjectId>,
 }
 
 impl PerTurn {
@@ -280,6 +284,7 @@ impl PerTurn {
             creatures_died: 0,
             draws: vec![0; players],
             entered_battlefield: Vec::new(),
+            entered_graveyard: Vec::new(),
         }
     }
 
@@ -291,6 +296,7 @@ impl PerTurn {
         self.life_lost.iter_mut().for_each(|v| *v = false);
         self.creatures_died = 0;
         self.entered_battlefield.clear();
+        self.entered_graveyard.clear();
     }
 }
 
@@ -1981,6 +1987,9 @@ impl GameState {
         if to.zone() == Zone::Battlefield {
             self.per_turn.entered_battlefield.push(id);
         }
+        if to.zone() == Zone::Graveyard {
+            self.per_turn.entered_graveyard.push(id);
+        }
         // Read off `to` after the redirects above, so a commander that went
         // to the command zone instead names no place in a library.
         let place = match to {
@@ -3139,6 +3148,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         // different effects, and a tag table that left it out would make
         // them one.
         F::EnteredThisTurn => h.u8(30),
+        F::PutIntoGraveyardThisTurn => h.u8(35),
         F::WithSingleTarget => h.u8(34),
         // Its own tag rather than a payload on `CmcAtMost`: the bound is
         // read from the source at match time, so two filters that differ
@@ -3891,6 +3901,9 @@ mod tests {
         let mutations: &[Mutation] = &[
             ("per_turn", |s, _| s.per_turn.creatures_died += 1),
             ("per_turn.life_lost", |s, _| s.per_turn.life_lost[0] = true),
+            ("per_turn.entered_graveyard", |s, id| {
+                s.per_turn.entered_graveyard.push(id);
+            }),
             ("per_turn.entered_battlefield", |s, id| {
                 s.per_turn.entered_battlefield.push(id);
             }),

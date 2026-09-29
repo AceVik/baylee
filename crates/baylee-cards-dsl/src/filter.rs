@@ -91,6 +91,13 @@ pub enum Filter {
     /// engine's enumerated options instead, which is what they already do
     /// for every filter they cannot read.
     EnteredThisTurn,
+    /// Was put into a graveyard, from anywhere, during the current turn
+    /// (Garna, the Bloodflame: "all creature cards in your graveyard that
+    /// were put there from anywhere this turn").
+    ///
+    /// History like [`Self::EnteredThisTurn`], kept in the same per-turn
+    /// record and refused by a view for the same reason.
+    PutIntoGraveyardThisTurn,
     /// Has the subtype the SOURCE object chose as it entered ("the chosen
     /// type" — Roaming Throne, Reflections of Littjara, Cavern of Souls).
     MatchesChosenTypeOfSource,

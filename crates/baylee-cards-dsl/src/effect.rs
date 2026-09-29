@@ -1464,6 +1464,13 @@ pub enum Effect {
         /// What (`CardInGraveyard`).
         target: TargetSpec,
     },
+    /// "Return to your hand all [filter] cards in your graveyard" (Garna,
+    /// the Bloodflame). No target: every matching card in the controller's
+    /// graveyard as the effect resolves.
+    GraveyardAllToHand {
+        /// Which cards.
+        filter: &'static Filter,
+    },
     /// Put a graveyard card onto the battlefield (reanimation).
     GraveyardToBattlefield {
         /// What: a `CardInGraveyard` the spell or ability targeted, or an
@@ -2339,6 +2346,7 @@ impl Effect {
             | Effect::DiscardRandom { .. }
             | Effect::RevealHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
+            | Effect::GraveyardAllToHand { .. }
             | Effect::TransformSource
             | Effect::TransformSourceAtNextUpkeep
             | Effect::ExileSelfReturnAsFace { .. }

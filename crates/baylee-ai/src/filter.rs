@@ -16,7 +16,7 @@
 //! rule exists to prevent one level up, where an unread clause refuses the
 //! card instead of shipping a wrong one.
 //!
-//! Five variants are principled refusals rather than gaps to fill in later:
+//! Six variants are principled refusals rather than gaps to fill in later:
 //!
 //! - [`Filter::MatchesChosenTypeOfSource`] reads `chosen_subtype` off the
 //!   source object. The view carries no such field for any object, so there
@@ -42,8 +42,10 @@
 //!   battlefield and not when it got there, so there is nothing to read
 //!   from — and guessing `true` would plan a pump for a creature the engine
 //!   will refuse as a target.
+//! - [`Filter::PutIntoGraveyardThisTurn`] is the same history for the
+//!   graveyards: a view shows the cards there and not when they arrived.
 //!
-//! [`Filter::IsToken`] is a sixth refusal, and only sometimes. The engine
+//! [`Filter::IsToken`] is a seventh refusal, and only sometimes. The engine
 //! asks `card.is_none()`, which in a view is three objects and not one: a
 //! registry token, which says so through `token`; a permanent the seat may
 //! not look at, which has no card because it is not entitled to one; and a
@@ -167,13 +169,14 @@ impl HeuristicAgent {
             // The view lists every instance's targets and every player on a
             // stack object, which is the count CR 115.9a asks for.
             Filter::WithSingleTarget => Some(object.targets.len() == 1),
-            // The five the view cannot answer. Named in this module's own
+            // The six the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
             Filter::MatchesChosenTypeOfSource
             | Filter::AttachedToBySource
             | Filter::CmcAtMostX
             | Filter::EnteredThisTurn
+            | Filter::PutIntoGraveyardThisTurn
             | Filter::SharesSubtypeWithCommander => None,
         }
     }

@@ -302,6 +302,29 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::GraveyardAllToHand { filter } => {
+            // Chosen before anything moves: CR 903.9b's question comes
+            // first, and its last answer re-enters here with the same list.
+            let moves: Vec<(ObjectId, ZoneLocation)> = state
+                .zones
+                .list(ZoneLocation::Graveyard(you))
+                .iter()
+                .copied()
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                })
+                .map(|id| (id, ZoneLocation::Hand(you)))
+                .collect();
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            for (card, to) in moves {
+                let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
+            }
+            None
+        }
         Effect::GraveyardToTop { .. } => {
             if let Some(&target_id) = res.targets.first() {
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
