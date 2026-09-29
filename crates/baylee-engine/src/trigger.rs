@@ -33,6 +33,9 @@ pub struct PendingTrigger {
     pub event_object: Option<ObjectId>,
     /// The event permanent's mana value before leaving the battlefield.
     pub event_mana_value: Option<u32>,
+    /// The player a damage event dealt damage to, and how much: "that
+    /// player" and "that much" of a combat-damage trigger (Questing Beast).
+    pub event_damage: Option<(PlayerId, u16)>,
     /// What an untargeted synthetic trigger puts first among its targets,
     /// which is what its `Filter::This` and its "target" words then name
     /// (`resolve::this_object`).
@@ -155,9 +158,11 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                         let times = trigger_count(state, trigger, emblem, obj.controller)
                             * repeats(&entry.event);
                         let event_object = event_object_of(&entry.event);
+                        let event_damage = event_damage_of(&entry.event);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
                                 event_mana_value: None,
+                                event_damage,
                                 source: emblem,
                                 ability_index: index as u32,
                                 abilities: Some(crate::object::AbilityList {
@@ -262,6 +267,7 @@ fn monarch_triggers(
     };
     let inherent = |effects, event_object| PendingTrigger {
         event_mana_value: None,
+        event_damage: None,
         source: ObjectId::NO_SOURCE,
         ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
         abilities: None,
@@ -376,6 +382,19 @@ static WARD_PAY_OR_COUNTER: [[baylee_cards_dsl::Effect; 1]; 11] = [
 /// remembers into a build failure the day a set prints a bigger one.
 #[cfg(test)]
 pub(crate) const WARD_CEILING: usize = WARD_PAY_OR_COUNTER.len() - 1;
+
+/// The player a damage event dealt damage to and the amount, if it is one
+/// dealt to a player.
+fn event_damage_of(event: &GameEvent) -> Option<(PlayerId, u16)> {
+    match event {
+        GameEvent::DamageDealt {
+            target: crate::event::DamageTarget::Player(player),
+            amount,
+            ..
+        } => Some((*player, *amount)),
+        _ => None,
+    }
+}
 
 /// The object an event is about, if any.
 fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
@@ -497,6 +516,7 @@ fn collect_for_objects(
                     ) {
                         triggers.push(PendingTrigger {
                             event_mana_value: None,
+                            event_damage: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: obj.controller,
@@ -596,6 +616,7 @@ fn collect_for_objects(
                         ) {
                             triggers.push(PendingTrigger {
                                 event_mana_value: None,
+                                event_damage: None,
                                 source: permanent,
                                 ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                                 controller: obj.controller,
@@ -642,6 +663,7 @@ fn collect_for_objects(
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             event_mana_value: None,
+                            event_damage: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: obj.controller,
@@ -685,6 +707,7 @@ fn collect_for_objects(
                     ) {
                         triggers.push(PendingTrigger {
                             event_mana_value: None,
+                            event_damage: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: obj.controller,
@@ -729,9 +752,11 @@ fn collect_for_objects(
                     let times = trigger_count(state, trigger, permanent, obj.controller)
                         * repeats(&entry.event);
                     let event_object = event_object_of(&entry.event);
+                    let event_damage = event_damage_of(&entry.event);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             event_mana_value: None,
+                            event_damage,
                             source: permanent,
                             ability_index: index as u32,
                             abilities: Some(list),
@@ -931,6 +956,20 @@ fn matches(
         ) => state
             .object(*damage_source)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        (
+            Trigger::DealsCombatDamageToOpponent(filter),
+            GameEvent::DamageDealt {
+                source: Some(damage_source),
+                target: crate::event::DamageTarget::Player(player),
+                is_combat: true,
+                ..
+            },
+        ) => {
+            state.is_opponent(*player, you)
+                && state
+                    .object(*damage_source)
+                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
         (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => {
             *object == source
                 && state
@@ -1101,6 +1140,14 @@ impl PendingTrigger {
                     self.event_mana_value.unwrap_or(0),
                 )
             }
+            // "That player": the one the event dealt damage to. With no such
+            // event it stays unbound and offers nothing.
+            baylee_cards_dsl::TargetSpec::ObjectOfEventPlayer(filter) => match self.event_damage {
+                Some((player, _)) => {
+                    baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player)
+                }
+                None => spec,
+            },
             other => other,
         }
     }

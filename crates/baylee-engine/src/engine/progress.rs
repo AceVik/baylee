@@ -1974,6 +1974,9 @@ impl<L: CardLookup> Engine<L> {
         });
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
+            object.event_amount = trigger
+                .event_damage
+                .and_then(|(_, n)| core::num::NonZeroU16::new(n));
             object.target_req = bound;
         }
     }
@@ -3774,6 +3777,7 @@ impl<L: CardLookup> Engine<L> {
             self.trigger_queue
                 .push_back(crate::trigger::PendingTrigger {
                     event_mana_value: None,
+                    event_damage: None,
                     source: id,
                     ability_index: *ability_index,
                     abilities: None,

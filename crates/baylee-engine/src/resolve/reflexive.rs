@@ -53,6 +53,7 @@ pub(super) fn arm(
     for _ in 0..times {
         state.reflexive.push(PendingTrigger {
             event_mana_value: None,
+            event_damage: None,
             source: res.source,
             ability_index: AbilityRef::SYNTHETIC,
             abilities: None,

@@ -89824,6 +89824,143 @@ fn questing_beast_s_combat_damage_goes_through_a_maze_of_ith() {
     );
 }
 
+/// Both players cast an Oko, Thief of Crowns (4 loyalty); the opponent's
+/// ticks up to 6. Questing Beast then attacks the opponent on its
+/// controller's second turn. Returns the engine at the declared attack,
+/// its controller's Oko and the opponent's.
+fn questing_beast_against_an_oko() -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[questing_beast(), forest(), island(), forest()])
+        .hand(0, &[oko_thief_of_crowns()])
+        .battlefield(1, &[forest(), island(), forest()])
+        .hand(1, &[oko_thief_of_crowns()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, oko_thief_of_crowns());
+    pass_until(&mut engine, stack_is_empty);
+    let mine = on_battlefield(&engine, p0, oko_thief_of_crowns()).expect("its own Oko");
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, oko_thief_of_crowns());
+    pass_until(&mut engine, stack_is_empty);
+    let theirs = on_battlefield(&engine, p1, oko_thief_of_crowns()).expect("their Oko");
+    activate(&mut engine, p1, oko_thief_of_crowns(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(counters_on(&engine, theirs, CounterKind::Loyalty), 6, "+2");
+
+    let beast = on_battlefield(&engine, p0, questing_beast()).unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { attackers, .. } if attackers.contains(&beast)),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(beast, Defender::Player(p1))],
+            },
+        )
+        .expect("at the opponent");
+    (engine, mine, theirs)
+}
+
+/// "Whenever Questing Beast deals combat damage to an opponent, it deals that
+/// much damage to target planeswalker that player controls." The 4 combat
+/// damage to the opponent asks for a target among that player's
+/// planeswalkers — its own controller's Oko is not offered — and the Oko
+/// named is dealt that much: 6 loyalty down to 2.
+#[test]
+fn questing_beast_deals_that_much_to_a_planeswalker_of_the_player_it_hit() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, mine, theirs) = questing_beast_against_an_oko();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    assert_eq!(engine.state().players[1].life, 16, "4 combat damage");
+    let Pending::ChooseTargets {
+        player,
+        options,
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!()
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options, vec![theirs], "a planeswalker that player controls");
+    assert!(!options.contains(&mine));
+    assert!(player_options.is_empty(), "a planeswalker, not a player");
+    assert_eq!((min, max), (1, 1));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![theirs],
+                players: vec![],
+            },
+        )
+        .expect("their Oko");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        counters_on(&engine, theirs, CounterKind::Loyalty),
+        2,
+        "that much: 4 of its 6"
+    );
+    assert_eq!(counters_on(&engine, mine, CounterKind::Loyalty), 4);
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "no second hit on the player"
+    );
+}
+
+/// Combat damage to a planeswalker is not combat damage to an opponent: the
+/// Beast sent at the opponent's Oko deals it 4 and asks nothing more.
+#[test]
+fn questing_beast_hitting_a_planeswalker_does_not_trigger() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[questing_beast()])
+        .battlefield(1, &[forest(), island(), forest()])
+        .hand(1, &[oko_thief_of_crowns()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, oko_thief_of_crowns());
+    pass_until(&mut engine, stack_is_empty);
+    let theirs = on_battlefield(&engine, p1, oko_thief_of_crowns()).unwrap();
+    activate(&mut engine, p1, oko_thief_of_crowns(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    let beast = on_battlefield(&engine, p0, questing_beast()).unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { attackers, .. } if attackers.contains(&beast)),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(beast, Defender::Planeswalker(theirs))],
+            },
+        )
+        .expect("at the Oko");
+    // `pass_until` panics on a target question, so reaching the next turn
+    // is the assertion that none was asked.
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    assert_eq!(engine.state().players[1].life, 20);
+    assert_eq!(
+        counters_on(&engine, theirs, CounterKind::Loyalty),
+        2,
+        "6 − 4"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Maik's European Highlander: Delney, Streetwise Lookout.
 // ---------------------------------------------------------------------------

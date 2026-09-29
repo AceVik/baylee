@@ -609,6 +609,12 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .first()
             .and_then(|t| state.object(*t))
             .map_or(0, |o| o.characteristics().mana_cost.cmc()),
+        // Off the triggered ability, where stacking it wrote the event's
+        // amount.
+        Amount::EventAmount => state
+            .object(res.on_stack)
+            .and_then(|o| o.event_amount)
+            .map_or(0, |n| u32::from(n.get())),
         // Off the stack object, which is where the payment wrote it — a
         // spell's own, or the ability's rather than its permanent's.
         Amount::SacrificedManaValue => state

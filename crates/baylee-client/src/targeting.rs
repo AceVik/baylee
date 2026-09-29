@@ -626,6 +626,7 @@ mod tests {
                         | TargetSpec::ObjectOfEachOpponent(f)
                         | TargetSpec::ObjectOfFirstTargetsPlayer(f)
                         | TargetSpec::ObjectControlledBy(f, _)
+                        | TargetSpec::ObjectOfEventPlayer(f)
                         | TargetSpec::Spell(f)
                         | TargetSpec::StackOrBattlefield(f)
                         | TargetSpec::AbilityOnStack(f)

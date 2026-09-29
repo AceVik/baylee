@@ -2931,6 +2931,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         token,
         pending_face_change,
         event_object,
+        event_amount,
         cast_from_hand,
     } = obj;
     id.hash(h);
@@ -3005,6 +3006,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     face_index.hash(h);
     pending_face_change.hash(h);
     event_object.hash(h);
+    event_amount.hash(h);
     cast_from_hand.hash(h);
     // What the object can do when it is not what its card says: a copy's
     // list, an emblem's, an ability's captured one. `own_face` names it.
@@ -4014,6 +4016,9 @@ mod tests {
             }),
             ("event_object", |s, id| {
                 fixture_object(s, id).event_object = Some(id);
+            }),
+            ("event_amount", |s, id| {
+                fixture_object(s, id).event_amount = core::num::NonZeroU16::new(3);
             }),
             ("cast_from_hand", |s, id| {
                 let object = fixture_object(s, id);

@@ -157,6 +157,7 @@ fn deal_to_spec(
         TargetSpec::Object(_)
         | TargetSpec::ObjectOfEachOpponent(_)
         | TargetSpec::ObjectControlledBy(..)
+        | TargetSpec::ObjectOfEventPlayer(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)

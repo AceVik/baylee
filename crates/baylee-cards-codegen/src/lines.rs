@@ -559,7 +559,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::TransformsIntoThis => &["transforms into"],
         T::Ward => &["ward"],
         T::ExiledFromBattlefield(_) => &["exiled"],
-        T::DealsCombatDamageToPlayer(_) => &["damage"],
+        T::DealsCombatDamageToPlayer(_) | T::DealsCombatDamageToOpponent(_) => &["damage"],
         T::BecomesTapped(_) => &["tap"],
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
         T::Attacks(_) => &["attack"],
@@ -651,6 +651,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::BecomesTapped(filter)
         | Trigger::ExiledFromBattlefield(filter)
         | Trigger::DealsCombatDamageToPlayer(filter)
+        | Trigger::DealsCombatDamageToOpponent(filter)
         | Trigger::SpellCast(filter) => {
             if matches!(filter, baylee_cards_dsl::Filter::This) {
                 !about_someone_else()

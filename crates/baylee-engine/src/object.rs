@@ -871,6 +871,13 @@ pub struct GameObject {
     pub pending_face_change: Option<u8>,
     /// The object a triggering event was about (event-driven triggers).
     pub event_object: Option<ObjectId>,
+    /// "That much": the amount of damage the triggering event dealt, on a
+    /// triggered ability that was put on the stack for one (Questing
+    /// Beast), read by `Amount::EventAmount`. Never zero: a source that
+    /// would deal 0 damage deals none (CR 120.8), so no damage event carries
+    /// it. The field is two bytes, but `GameObject` had no padding left and
+    /// the object grew by eight (`tests/footprint.rs`).
+    pub event_amount: Option<core::num::NonZeroU16>,
     /// Whether the spell was cast from the hand (rebound condition).
     pub cast_from_hand: bool,
 }
@@ -909,6 +916,7 @@ impl GameObject {
             second: None,
             original_base: None,
             event_object: None,
+            event_amount: None,
             ability: None,
             source_power_lki: None,
             paid: None,

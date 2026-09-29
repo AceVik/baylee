@@ -255,6 +255,10 @@ pub enum Amount {
     CountersOnSource(CounterKind),
     /// The mana value of the first target (Reanimate's life loss).
     TargetCmc,
+    /// "That much": the amount of damage the triggering event dealt
+    /// (Questing Beast's redirect). Carried from the event onto the
+    /// triggered ability as it goes on the stack; 0 anywhere else.
+    EventAmount,
     /// "The sacrificed creature's mana value": the mana value, as it last
     /// existed on the battlefield (CR 608.2h), of the permanent sacrificed
     /// to pay the cost of the spell or ability that is resolving (Eldritch
@@ -474,6 +478,12 @@ pub enum TargetSpec {
     /// so the resolution-time re-check (CR 608.2b) asks the same question
     /// the offer did.
     ObjectControlledBy(&'static Filter, baylee_core::ids::PlayerId),
+    /// "Target [filter] that player controls", where "that player" is the
+    /// one the triggering event dealt damage to (Questing Beast: "it deals
+    /// that much damage to target planeswalker that player controls"). The
+    /// engine binds it to [`Self::ObjectControlledBy`] as the trigger is
+    /// put on the stack.
+    ObjectOfEventPlayer(&'static Filter),
     /// A spell on the stack matching the filter.
     Spell(&'static Filter),
     /// A spell on the stack OR a permanent on the battlefield (Venser).

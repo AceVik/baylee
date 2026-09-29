@@ -56,7 +56,15 @@ const CACHE_BUDGET: usize = 32;
 /// spent), which an effect reads back after the paid-for object has left
 /// the battlefield. One `Option<Box<PaidRecord>>`, null on every object
 /// that is not a paid-for spell or ability on the stack.
-const OBJECT_BUDGET: usize = 296;
+///
+/// Raised 296 → 304 on 2026-09-29 by "that much" damage a triggering event
+/// dealt (`GameObject::event_amount`, Questing Beast), carried onto the
+/// triggered ability as it is put on the stack. The field is an
+/// `Option<NonZeroU16>`, two bytes, and still cost eight: 296 was packed to
+/// the byte, so any field at all rounds the object up by its alignment, and
+/// a `Box` would cost the same eight. Folding it and `event_object` into one
+/// boxed record would win them back.
+const OBJECT_BUDGET: usize = 304;
 
 #[test]
 fn game_object_stays_within_its_budget() {

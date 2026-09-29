@@ -293,7 +293,8 @@ pub fn amount(
         Amount::CountersOnSource(kind) => state
             .object(this)
             .map_or(0, |o| u32::from(o.counters.get(*kind))),
-        Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
+        // Resolved in resolve.rs, which has the stack object these read.
+        Amount::TargetPower | Amount::TargetCmc | Amount::EventAmount => 0,
         // The object the payment wrote it on. A resolution asks
         // `resolve::amount2`, which reads the stack object: an activated
         // ability's source is the permanent and its payment is on the
@@ -660,9 +661,11 @@ pub fn target_options(
             mine.retain(|id| state.object(*id).is_some_and(|o| o.controller == *player));
             mine
         }
-        // Unbound, "that player" is nobody yet: the engine asks this
-        // instance only after binding it to `ObjectControlledBy`.
-        TargetSpec::ObjectOfFirstTargetsPlayer(_) => Vec::new(),
+        // Unbound, "that player" is nobody yet: the engine asks these only
+        // after binding them to `ObjectControlledBy`.
+        TargetSpec::ObjectOfFirstTargetsPlayer(_) | TargetSpec::ObjectOfEventPlayer(_) => {
+            Vec::new()
+        }
         TargetSpec::Spell(filter) => state
             .zones
             .list(ZoneLocation::Stack)

@@ -32494,8 +32494,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Questing Beast
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[None, None],
+        stackable: 1,
+        lines: &[None, None, None],
         modes: &[],
         alternatives: &[],
     }],

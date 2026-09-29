@@ -246,6 +246,11 @@ pub enum Trigger {
     /// A source matching the filter deals combat damage to a player
     /// (Sword of Hearth and Home: the equipped creature).
     DealsCombatDamageToPlayer(&'static Filter),
+    /// A source matching the filter deals combat damage to an **opponent**
+    /// of the ability's controller (Questing Beast). The player dealt to
+    /// and the amount ride on the trigger, for "that player" and "that
+    /// much".
+    DealsCombatDamageToOpponent(&'static Filter),
     /// The source becomes tapped (City of Brass).
     BecomesTapped(&'static Filter),
     /// The controller casts their Nth spell this turn (Storm of

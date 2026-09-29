@@ -85,6 +85,7 @@ fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
         | TargetSpec::ObjectOfEachOpponent(_)
         | TargetSpec::OpponentOrObject(_)
         | TargetSpec::ObjectControlledBy(..)
+        | TargetSpec::ObjectOfEventPlayer(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)
