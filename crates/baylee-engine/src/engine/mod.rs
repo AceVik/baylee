@@ -734,6 +734,14 @@ impl<L: CardLookup> Engine<L> {
         for player in &mut engine.state.players {
             player.turn_start_timestamp = stamp;
         }
+        // Every seat is asked its mulligan now and is shown its hand and the
+        // board with the question, but the engine's loop, whose first step
+        // refreshes the projection, does not run until the window closes.
+        // What the preset dealt moved the projection's inputs: a starting
+        // battlefield, and a card defining its own power and toughness drawn
+        // into an opening hand. An Ashaya in hand with two Forests out was
+        // asked about as the 0/0 its card prints.
+        engine.state.refresh_characteristics();
         Ok(engine)
     }
 
@@ -1477,6 +1485,8 @@ mod keyword_tests;
 mod land_mana_tests;
 #[cfg(test)]
 mod land_play_tests;
+#[cfg(test)]
+mod leave_probe_tests;
 #[cfg(test)]
 mod leave_tests;
 #[cfg(test)]

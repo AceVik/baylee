@@ -1640,7 +1640,7 @@ impl GameState {
     /// its controller's most recent turn began, so *any* control change
     /// makes it summoning-sick again — including the one at end of turn
     /// that hands a stolen creature back.
-    fn restart_summoning_sickness(&mut self, id: ObjectId) {
+    pub(crate) fn restart_summoning_sickness(&mut self, id: ObjectId) {
         let ts = self.next_timestamp();
         if let Some(obj) = self.object_mut(id) {
             obj.timestamp = ts;
@@ -1988,8 +1988,19 @@ impl GameState {
         ids.clear();
         // Cached off-board projections must be revisited after the last
         // cross-zone effect disappears (#120).
+        //
+        // A phased-out permanent is not projected at all: it can't be
+        // affected by anything (CR 702.26b), so what it was as it phased out
+        // is what it stays, and so is its controller, the player it phases
+        // in under (CR 502.1). `phase_in` invalidates, and the next refresh
+        // takes it back in.
         if cross_zone || self.projected_cross_zone {
-            ids.extend(self.arena.iter().map(|(id, _)| id));
+            ids.extend(
+                self.arena
+                    .iter()
+                    .filter(|(_, o)| !o.status.contains(crate::object::Status::PHASED_OUT))
+                    .map(|(id, _)| id),
+            );
         } else {
             // The stack contributes only its *spells*. An ability on the
             // stack has no characteristic a layer can touch, and this pass
@@ -1997,11 +2008,8 @@ impl GameState {
             // triggers to establish that, every time a counter moves, is
             // the difference between a long game and no game at all.
             ids.extend(
-                self.zones
-                    .list(ZoneLocation::Battlefield)
-                    .iter()
-                    .chain(self.zones.stack_projectable().iter())
-                    .copied(),
+                self.battlefield_seen()
+                    .chain(self.zones.stack_projectable().iter().copied()),
             );
             // And the cards that define their own power and toughness,
             // wherever else they are (CR 604.3).
@@ -2513,15 +2521,14 @@ impl GameState {
         // What was attached to it.
         self.ltb_attachments.retain(|(other, _)| *other != id);
         if from_zone == Zone::Battlefield {
+            // A phased-out Aura was attached to nothing the rules can
+            // see (CR 702.26b), so nothing looks back at it.
             let worn: Vec<ObjectId> = self
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
+                .battlefield_seen()
                 .filter(|other| {
-                    self.object(**other)
+                    self.object(*other)
                         .is_some_and(|o| o.attached_to == Some(id))
                 })
-                .copied()
                 .collect();
             if !worn.is_empty() {
                 self.ltb_attachments.push((id, worn));
@@ -2795,22 +2802,32 @@ impl GameState {
         // changes what a permanent that stayed projects to.
         //
         // The battlefield and the stack, which is exactly what the refresh
-        // pass revisits — a card drawn changes no projection unless a
-        // cross-zone effect is registered, and that pass projects every
-        // zone anyway. And the graveyards, because a permanent's projection
-        // may count them: Pyrogoyf is as big as the card types among cards
-        // in all graveyards (`PtCount::CardTypesInAllGraveyards`), so a card
-        // milled or discarded grows a permanent that never moved. And exile,
-        // for the same reason one zone over: Unlicensed Hearse is as big as
-        // the cards exiled with it (`PtCount::ExiledWithThis`), and one of
-        // them leaving exile shrinks it.
+        // pass revisits. And the graveyards, because a permanent's
+        // projection may count them: Pyrogoyf is as big as the card types
+        // among cards in all graveyards (`PtCount::CardTypesInAllGraveyards`),
+        // so a card milled or discarded grows a permanent that never moved.
+        // And exile, for the same reason one zone over: Unlicensed Hearse is
+        // as big as the cards exiled with it (`PtCount::ExiledWithThis`), and
+        // one of them leaving exile shrinks it.
+        //
+        // And every zone at all while a cross-zone effect is registered
+        // (Maskwood Nexus: "Creatures you control are every creature type.
+        // The same is true for creature spells you control and creature
+        // cards you own that aren't on the battlefield."). The pass that
+        // honours one projects every object, but it runs only when the
+        // generation moved, and a card drawn, tutored, wished for or put
+        // back moves none: the move above cleared its cache, so a creature
+        // card drawn under a Nexus read as its printed self in hand until
+        // something else moved. `projected_cross_zone` says whether the last
+        // pass was such a pass.
         if matches!(
             from_zone,
             Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile
         ) || matches!(
             to.zone(),
             Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile
-        ) {
+        ) || self.projected_cross_zone
+        {
             self.invalidate_projections();
         }
         // A card that defines its own power and toughness is projected in
@@ -3674,42 +3691,56 @@ fn hash_ability_list(
 }
 
 fn hash_effects(h: &mut Hasher, table: &crate::effects::EffectTable) {
-    let (effects, next_id, generation) = table.hashed_parts();
+    let (effects, parked, next_id, generation) = table.hashed_parts();
     next_id.hash(h);
     generation.hash(h);
     h.usize(effects.len());
     for fx in effects {
-        let crate::effects::ContinuousEffect {
-            id,
-            source,
-            controller,
-            origin,
-            layer,
-            timestamp,
-            duration,
-            filter,
-            modifier,
-        } = fx;
-        id.hash(h);
-        source.hash(h);
-        controller.hash(h);
-        origin.hash(h);
-        layer.hash(h);
-        timestamp.hash(h);
-        duration.hash(h);
-        match filter {
-            crate::effects::EffectFilter::Dsl(filter) => {
-                h.u8(0);
-                filter_hash(h, filter);
-            }
-            crate::effects::EffectFilter::ObjectIs(id, version) => {
-                h.u8(1);
-                id.hash(h);
-                version.hash(h);
-            }
-        }
-        hash_modifier(h, modifier);
+        hash_effect(h, fx);
     }
+    // The statics parked while their sources are phased out. Nothing is
+    // written while nothing is parked, so a game without phasing hashes as
+    // it did before the table could park; the length above already moves
+    // when an effect is parked.
+    if !parked.is_empty() {
+        h.usize(parked.len());
+        for fx in parked {
+            hash_effect(h, fx);
+        }
+    }
+}
+
+fn hash_effect(h: &mut Hasher, fx: &crate::effects::ContinuousEffect) {
+    let crate::effects::ContinuousEffect {
+        id,
+        source,
+        controller,
+        origin,
+        layer,
+        timestamp,
+        duration,
+        filter,
+        modifier,
+    } = fx;
+    id.hash(h);
+    source.hash(h);
+    controller.hash(h);
+    origin.hash(h);
+    layer.hash(h);
+    timestamp.hash(h);
+    duration.hash(h);
+    match filter {
+        crate::effects::EffectFilter::Dsl(filter) => {
+            h.u8(0);
+            filter_hash(h, filter);
+        }
+        crate::effects::EffectFilter::ObjectIs(id, version) => {
+            h.u8(1);
+            id.hash(h);
+            version.hash(h);
+        }
+    }
+    hash_modifier(h, modifier);
 }
 
 fn hash_player(h: &mut Hasher, player: &Player) {

@@ -383,3 +383,86 @@ fn the_nexus_makes_a_copied_creature_spell_every_type() {
     );
     assert!(engine.projection_is_fresh(), "and nothing else is behind");
 }
+
+/// A creature card drawn under Maskwood Nexus is every creature type in
+/// hand from the moment it is drawn: "The same is true for … creature cards
+/// you own that aren't on the battlefield."
+///
+/// The refresh that honours a cross-zone effect projects every zone, but
+/// only runs when something tells it to, and a draw told it nothing: a card
+/// moving from a library to a hand touches neither the battlefield, the
+/// stack, a graveyard nor exile. The move itself had cleared the card's
+/// cache, so the Elf Druid in the library, every type there, arrived in the
+/// hand as the Elf Druid its card prints and stayed one until something
+/// else moved. Read at the priority after the draw step's draw, from the
+/// engine's own refresh and none run by hand.
+#[test]
+fn the_nexus_makes_a_drawn_creature_card_every_type() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(71, forest())
+        .battlefield(1, &[maskwood_nexus()])
+        .hand(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elves = in_hand(&engine, p1, llanowar_elves()).expect("dealt into seat 1's hand");
+    engine
+        .dev_state_mut(p1)
+        .expect("the harness may set boards up")
+        .move_object(
+            elves,
+            ZoneLocation::Library(p1),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("the Elves go on top of seat 1's library");
+    let (ally, wizard) = (
+        baylee_core::generated::subtypes::creature::ALLY,
+        baylee_core::generated::subtypes::creature::WIZARD,
+    );
+    let every_type = |engine: &Engine<RegistryLookup>, id: ObjectId| {
+        let subtypes = engine
+            .state()
+            .object(id)
+            .expect("the Elves")
+            .characteristics()
+            .subtypes;
+        subtypes.contains(ally) && subtypes.contains(wizard)
+    };
+
+    // The pass runs the engine's loop, whose refresh projects the library.
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let in_library = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(p1))
+        .last()
+        .expect("seat 1 has a library");
+    assert_eq!(
+        engine
+            .state()
+            .object(in_library)
+            .and_then(|o| o.card)
+            .map(|c| c.index),
+        Some(llanowar_elves()),
+        "the Elves are on top"
+    );
+    assert!(
+        every_type(&engine, in_library),
+        "in the library the Elves are every creature type already"
+    );
+
+    pass_until(&mut engine, |e| in_hand(e, p1, llanowar_elves()).is_some());
+    assert_eq!(
+        engine.state().turn.active,
+        p1,
+        "seat 1 drew them in its own turn"
+    );
+    let drawn = in_hand(&engine, p1, llanowar_elves()).expect("drawn");
+    assert!(
+        every_type(&engine, drawn),
+        "drawn, the Elves are still every creature type"
+    );
+    assert!(engine.projection_is_fresh(), "and nothing else is behind");
+}

@@ -636,6 +636,11 @@ impl Status {
     pub const PHASED_OUT: Self = Self(4);
     /// Flipped (flip cards).
     pub const FLIPPED: Self = Self(8);
+    /// Beside [`Self::PHASED_OUT`]: phased out *indirectly*, with the
+    /// permanent it is attached to (CR 702.26g), so it phases in with that
+    /// permanent and never by itself. Not a status of CR 110.5, which has
+    /// four; the view leaves it out ([`Self::public`]).
+    pub const PHASED_OUT_INDIRECTLY: Self = Self(16);
 
     /// Whether all bits of `other` are set.
     #[must_use]
@@ -657,6 +662,14 @@ impl Status {
     #[must_use]
     pub const fn bits(self) -> u8 {
         self.0
+    }
+
+    /// The four statuses of CR 110.5, which is what a player is shown: how
+    /// a permanent phased out is the engine's bookkeeping for when it phases
+    /// in, and "phased out" says all a player can see of it.
+    #[must_use]
+    pub const fn public(self) -> Self {
+        Self(self.0 & !Self::PHASED_OUT_INDIRECTLY.0)
     }
 }
 
@@ -1522,13 +1535,14 @@ mod object_tests {
 
     // ---- status flags --------------------------------------------------
 
-    /// The four flags a permanent can wear, so a test can say "each" and a
-    /// fifth one added to `Status` is one line away from being covered.
-    const FLAGS: [(&str, Status); 4] = [
+    /// The five flags a permanent can wear, so a test can say "each" and a
+    /// sixth one added to `Status` is one line away from being covered.
+    const FLAGS: [(&str, Status); 5] = [
         ("tapped", Status::TAPPED),
         ("face down", Status::FACE_DOWN),
         ("phased out", Status::PHASED_OUT),
         ("flipped", Status::FLIPPED),
+        ("phased out indirectly", Status::PHASED_OUT_INDIRECTLY),
     ];
 
     #[test]
@@ -1619,5 +1633,27 @@ mod object_tests {
             status.remove(flag);
         }
         assert_eq!(status.bits(), Status::NONE.bits());
+    }
+
+    #[test]
+    fn a_player_is_shown_the_four_statuses_and_not_how_it_phased_out() {
+        for (name, flag) in FLAGS {
+            let mut status = Status::NONE;
+            status.insert(flag);
+            let shown = flag != Status::PHASED_OUT_INDIRECTLY;
+            assert_eq!(
+                status.public().contains(flag),
+                shown,
+                "{name}: shown is {shown}"
+            );
+        }
+        let mut indirect = Status::NONE;
+        indirect.insert(Status::PHASED_OUT);
+        indirect.insert(Status::PHASED_OUT_INDIRECTLY);
+        assert_eq!(
+            indirect.public().bits(),
+            Status::PHASED_OUT.bits(),
+            "an Aura phased out with its creature shows as phased out"
+        );
     }
 }

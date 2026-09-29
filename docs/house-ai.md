@@ -59,8 +59,9 @@ counter back for a threat that has not been cast. So a Counterspell is
 traded for a lone Dark Ritual whose caster has nothing left to spend the
 mana on; `a_counterspell_is_not_spent_on_a_spell_that_only_replaces_itself`
 pins that as a limitation.
-Removal needs something opposing on the battlefield, and a deferred pay-or-lose obligation is declined: the
-current stateless policy cannot plan its future payment. An "unless" price
+Removal needs something opposing on the battlefield, and a deferred pay-or-lose
+obligation (a pact) is cast only as described under "A pact is a counter paid
+for next turn" below. An "unless" price
 paid by naming an object — a sacrifice, a discard, a card exiled from the
 graveyard — is the opposite case and is paid, with the least valuable card on
 the menu: it asks with `min: 0` because naming nothing is the refusal, and
@@ -89,6 +90,26 @@ already agreed to lose. It reads `awaiting` beside `owed`, because both ride
 in every view and a seat taking one without the other pays for its
 opponent's window. `crates/baylee-gamehost/tests/ai_ward.rs` plays it out
 against the real engine.
+
+**A pact is a counter paid for next turn.** Pact of Negation's
+`Effect::PayCostOrLoseLater` used to refuse the cast outright. `policy::spell_score`
+now casts it as a counterspell on two further conditions: every mana source
+this seat has, untapped again, makes the price (`pays_next_turn`, CR 502.3),
+and the best opponent's spell it could counter (its material plus what of this
+seat's it is aimed at) is worth more than the price at 150 a mana, which is
+then taken off the counter's value. The engine asks for the price once a round
+of passes on an empty stack closes the upkeep, from what is still untapped,
+and nothing in the view says a price is coming, so this seat spends nothing in
+its own upkeep on an empty stack (`a_seat_spends_nothing_in_its_own_upkeep`: a
+fetchland is cracked in the draw step instead). Inside the window a dual
+land's colour question is answered for the price
+(`a_colour_named_in_a_payment_window_keeps_the_price_payable`). It used to be
+answered for the spells in hand, so under `{3}{U}{U}` owed a Hallowed Fountain
+named white, the Islands left could not make both blue, and the seat lost the
+game it had agreed to pay for. Before that fix, casting pacts cost SHARP,
+EXPERT and STEADY four to five points on the allytifact–victory pairing
+against never casting them; after it, every profile is within two points of
+never casting them (360 games each, 29.09.2026).
 
 **An optional additional cost is paid when the pool already holds it.**
 Kicker (CR 702.33a) and "you may waterbend" (CR 701.67a) are one question,
@@ -193,19 +214,22 @@ covers it, so taking `Normal` there spent floating mana on a free spell. A pitch
 so it keeps the printed cost when that can be paid.
 
 **What a card says includes what it says behind a price.** Every reader here
-that walks an effect list — `tactics::meaning`, `activate::gains`,
-`harmless`, `draws`, `intelligence::sweeper` — asks
+that walks an effect list — `tactics::meaning`, `worth::effect_worth`,
+`intelligence::sweeper` — asks
 `baylee_cards_dsl::Effect::branches` which effects run another effect, rather
-than listing them itself. Each of them used to carry its own list, each list
-was short, and all five stopped at `Sequence` and `MayDo`: an effect printed
+than listing them itself. Each of them used to carry its own list (there were
+five readers then: `activate`'s `gains`, `harmless` and `draws` are one table
+in `worth` now), each list was short, and all five stopped at `Sequence` and
+`MayDo`: an effect printed
 behind "unless you pay" sits in a variant carrying a single effect rather
 than a list, so it was read by none of them. Thirty-five effects in the pool
 are there — twenty-nine of them a Karoo land sacrificing itself — and two are
 counterspells, Flusterstorm and Malevolent Hermit, which the agent held for
-ever because `policy` only casts one it knows is a counterspell. `draws` sums
-both halves of a two-branch effect although only one of them runs, which is
-wrong in the one direction it is allowed to be wrong in: over-counting
-refuses a safe draw, under-counting decks the seat out (CR 704.5b).
+ever because `policy` only casts one it knows is a counterspell. `worth`
+averages the two halves of an effect only one of which runs, and prices a
+draw that would empty the library as the loss it is (CR 704.5b), large enough
+that half of it still refuses: over-counting refuses a safe draw,
+under-counting decks the seat out, and only the first is allowed.
 
 **What an object can do is printed on `rules`, and which card it is on
 `card`.** The two part for a copy (CR 707.2), and an offered ability is a
@@ -214,8 +238,8 @@ refuses a safe draw, under-counting decks the seat out (CR 704.5b).
 Fox's second ability up on a Mimic that prints one, so the copy was never
 used, and where the card underneath did print something at that index the
 agent weighed one ability and pressed another (#214). So every reader asking
-what an object does — `activate::printed_list`, and through it the whitelist,
-the loyalty ultimate and the mana estimate; `filter`'s modal modes;
+what an object does — `activate::printed_list`, and through it `worth`,
+the shallow loyalty rule and the mana estimate; `filter`'s modal modes;
 `tactics`' ward and counter clock — reads `PublicObject::rules`, and `card`
 stays where the question is the card itself: a spell cast from hand, a
 commander's colours, `IsToken`. A token copy has `rules` and no `card`, so
@@ -225,15 +249,98 @@ may not look at names neither. A registry token has neither, and its
 abilities are its definition's (CR 111.3), which `token` names, so a Treasure
 is a mana source (#223). A face-down one has no text (CR 708.2).
 
-**A card is not given up for a small gain.** `activate::useful` takes an
-ability whose cost changes the board and whose effect it knows as a gain. A
-sacrifice changes the board, and every gain on that list (a card, a scry, a
-few life, a counter, a token) is worth no more than the permanent or card it
-costs. Before this rule, with nothing to cast, Zuran Orb was fed four Forests
-on turn 1 for 8 life, and Viscera Seer sacrificed itself to scry 1. So
-`gives_up_a_card` refuses any cost that sacrifices, discards or exiles from
-hand a card other than the source. A source that pays for itself (a
-fetchland, cycling) is doing what that ability is for.
+**What using an ability is worth is one measure, net of what it costs.**
+`worth.rs` answers three questions that used to be answered three ways:
+whether an activation is taken (`activate::choose`), which loyalty ability a
+deep profile uses, and which target an activation names once taken
+(`HeuristicAgent::ability_targets`, asked from `tactics::targets`). The first
+was a whitelist of effects that are gains wherever they land (a draw, a token,
+a search) and a refusal of every cost that sacrificed, discarded or exiled
+another card (`activate::useful`, `gives_up_a_card`); the third ranked
+candidates by the sign of the effect list. So an ability that is good or bad
+by its target or its cost was never taken: no Wasteland, Maze of Ith,
+Recurring Nightmare or equip, and no Sea Gate Loremaster, whose "a card for
+each Ally" was an amount the whitelist could not count. Now
+`activation_worth` is the effects at their best target (`aimed_worth`) less
+`cost_worth`, taken when it clears `worth::THRESHOLD` (25), and the target
+question is answered from the engine's offer by the same numbers, so the
+target named is the one the activation was valued for.
+
+The currency is the crate's usual one: a card is 400, a permanent is
+`tactics::material`, a point of life is `worth::life_price` (30 above ten
+life, 60 down to six, 150 at five and below), and an effect that ends the game
+is `LETHAL` or, for a draw from a library too short, `DECKED`. A draw trigger
+on the table (Orcish Bowmasters, Sheoldred) works for whoever controls it. A
+land is not a body: `land_worth` is a mana a turn, worth more the fewer lands
+its controller has, and more again when it does anything besides make mana,
+which is Wasteland's reason to exist. Costs are priced by what they give up
+now: a mana by `mana_price` (little on an opponent's turn, almost nothing in
+an end step, more while an instant is in hand); tapping a creature by the
+blocker it stops being, and not at all before its own attack, where the answer
+is still "after combat"; a sacrifice by `given_up`, which is nothing for a
+permanent already `doomed` (an opponent's spell or ability points at it, or
+this combat kills it). What the table cannot read is `None` and the ability is
+left alone, as the whitelist left it, so a mechanic added tomorrow is inert
+rather than misplayed; `the_table_reads_most_of_what_the_pool_activates`
+counts the share read over the pool (878 of 1,010 activated and loyalty
+abilities on 29.09.2026) between a floor and a ceiling, and pins one it must
+not read (Aminatou's −6, a control rotation).
+
+The zero point is doing nothing, which is why several rows stay unused on
+purpose, each with a test for both sides in `src/tests/worth_tests.rs`:
+Homeward Path is used when it brings home more than it hands back; Loran of
+the Third Path's draw for both players only when a draw trigger of this
+seat's makes the opponent's card cost them; and Liquimetal Coating and
+Liquimetal Torque not at all, because a type change is worth nothing until a
+card asks about the type, and no card in these decks does. Before this rule,
+with nothing to cast, Zuran Orb was fed four Forests on turn 1 for 8 life,
+and Viscera Seer sacrificed itself to scry 1; both are still refused, now
+because a land on turn 1 and a creature are each worth more than what they
+buy (`a_card_is_not_given_up_for_a_small_gain`).
+
+**Loyalty is a price, and the walker's life.** SHARP and EXPERT choose among
+loyalty abilities by the same measure, at a floor of nought, since the cost is
+already charged: 45 a counter, 300 more for a minus that empties the walker.
+A text the table cannot read is weighed by `effect_value`, as the deep
+profiles weighed every loyalty ability before, because left alone Teferi,
+Time Raveler's +1 and Karn, the Great Creator's +1 were never used and both
+walkers spent themselves on their minus. Loyalty is also what an attack
+removes (CR 306.8): `reach` sums the power of every hostile creature that can
+attack, and a change that takes the walker into that reach costs half its
+material, one that lifts it out gains as much, and one that leaves it where
+it stands costs nothing. So Venser, the Sojourner's −1 is used when the
+unblockable attack kills and its +2 otherwise, Elspeth, Storm Slayer's 0 when
+its flying makes the attack lethal, and Aminatou's −1 to bring home a
+creature an opponent holds. Jace, the Mind Sculptor's Brainstorm is now used
+more and its bounce less than before (221 and 12 uses against 132 and 88 over
+the scoreboard below): a card is worth more than a creature's tempo unless the
+creature is what kills. NOVICE, CASUAL and STEADY keep the old rule (the
+ultimate when affordable, else the largest plus), and a scry, surveil or
+reorder is valued only at `mulligan_skill >= 2` (STEADY and up); both are designed
+differences, not gaps.
+
+**Open: an ability with a mana cost is taken only when the mana already
+floats.** The engine offers such an ability only once the pool covers it
+(`Engine::can_afford`), and nothing in the agent floats mana for an ability
+the way `policy::aim` floats it for a spell. So these rows stay at or near
+nought whatever `worth` makes of them: Riptide Laboratory (worth using only
+to save a doomed Wizard, which is at instant speed in answer to removal),
+Sensei's Divining Top (a reorder, worth something from STEADY up),
+General Tazri's five-colour pump, and the equip costs of Sword of Hearth and
+Home and Helm of the Host (taken the few times the mana floated). Two rows
+have no reader either: nothing in the agent answers the engine's suspend
+offer (`LegalActions::suspendable`: Ancestral Vision, Profane Tutor), and
+Raffine's Tower's cycling is a card in hand, which `activate::printed` does
+not reach. The planner is the next slice.
+
+**Inspirit, Flagship Vessel is a card finding, not an agent one.** Station
+is "tap another untapped creature you control" as a cost (CR 702.184a). The
+card writes the tap as an effect, `TapTarget` under `Cost::FREE`, and its
+target filter (`ANOTHER_CREATURE_YOU_CONTROL`) does not say untapped. A free
+cost with no parts is the one shape `activate` refuses outright, since the
+same offer returns unchanged, so the agent never stations; and the engine
+lets an already tapped creature be named again, which a real station cost
+would not.
 
 **An attacker the view cannot describe is unknown, not absent.** `Fighter::of`
 is three `?` in a row — the object, its power, its toughness — and every
@@ -414,15 +521,20 @@ how Petty Theft gets cast on two mana: the right face, and not a decision.
 Which half is better needs a value model for "a creature now against a bounce
 now" that this crate does not have, so the behaviour is pinned by
 `an_adventure_is_offered_and_the_agent_takes_the_printed_front` rather than
-claimed, and the row stays open.
+claimed, and the row stays open. The same cause will show on two more rows
+once `c42/cards-library`'s cast modes reach this branch: the agent always
+casts Ragavan for its mana cost over Dash (`CastModeKind::Dash`), and under
+Muldrotha it casts Uro for its mana cost rather than escaping it, so Uro is
+sacrificed as it enters. The rule wanted is the same for all three: when
+several cast modes are offered, value what each leads to.
 
 `act(&PlayerView, &Pending)` remains available and needs no hidden information.
 Hosted AI seats additionally receive the selected spell/ability effects from
 `Engine::decision_context`, covering cast modes and triggered or copied abilities.
 This lets targeting distinguish beneficial counters and buffs from removal,
-rank threats, and take lethal burn over a smaller permanent. Skilled planeswalkers
-price the actual effect and loyalty spent; Jace can bounce a threat instead of
-always ticking up. Creature-type choices follow the hand, battlefield and all
+rank threats, and take lethal burn over a smaller permanent. SHARP and EXPERT
+planeswalkers price the actual effect, the loyalty spent and the walker's
+exposure (see "Loyalty is a price, and the walker's life"). Creature-type choices follow the hand, battlefield and all
 commanders. Counterspells distinguish spells from activated or triggered
 abilities, and beneficial player-targeted draw goes to the caster. X uses
 affordable coloured mana and the number of distinct legal targets; life-X
@@ -604,6 +716,27 @@ opening-hand selection, commander tax, convoke payment, menace blocks, and a blo
 mistaken for lethal. The original landless-hand, mana-colour, and false-lethal
 tests were run against the old policy and failed. The scoreboard's loss
 mapping was also deliberately broken and its injected-loss test failed.
+
+**`worth` against the agent before it** (29.09.2026). Each profile played the
+agent at 23fc46ff with the same profile, same seeds, both seats and both deck
+orders: allytifact–victory seeds 1–90, and maik–schwarzrand,
+schwarzrand–victory and weltenbaum–allytifact seeds 1–30, 720 games a profile,
+with a paired runner kept outside the repository. Wins for the new agent, with
+Wilson 95 % intervals over decided games:
+
+| Profile | New wins | Interval | Mean turns | Unfinished |
+| --- | ---: | --- | ---: | ---: |
+| NOVICE | 57.2 % | 53.5–60.7 | 27.6 | 1 |
+| CASUAL | 56.3 % | 52.7–59.9 | 26.6 | 1 |
+| STEADY | 53.9 % | 50.2–57.5 | 25.4 | 2 |
+| SHARP | 51.7 % | 48.0–55.3 | 25.9 | 0 |
+| EXPERT | 54.7 % | 51.1–58.3 | 26.5 | 0 |
+
+No game reached a turn cap or repeated a position. The four unfinished games
+are one engine panic, `expect("target plan set")` after a Spark Double that
+copied a planeswalker activated a loyalty ability, fixed by 31263242, which
+the measured build did not have yet; the new seat activated in two of them and the
+old seat in two.
 
 ## Decision benchmarks
 
