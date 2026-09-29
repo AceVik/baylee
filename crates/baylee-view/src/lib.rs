@@ -820,7 +820,10 @@ pub struct PublicObject {
     /// the turn in the graveyard beside an untapped Island (#242).
     ///
     /// A printed flashback is priced at what the card prints (Memory Deluge's
-    /// `{5}{U}{U}`); a granted one at the card's own mana cost.
+    /// `{5}{U}{U}`); a granted one at the card's own mana cost, and so is a
+    /// permanent card a graveyard permission lets the seat cast (Muldrotha,
+    /// Wrenn and Realmbreaker's emblem), which is no flashback but is the
+    /// same question for the planner.
     ///
     /// Graveyard only, and per viewer: `None` unless this seat may cast the
     /// card, which is only ever from its own graveyard.

@@ -288,15 +288,19 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         // off the graveyard, so the view never says "castable" of a card the
         // engine would refuse for being somewhere else. The price is what
         // the cast charges: a printed flashback's own cost (CR 702.34a), or
-        // for a granted one the card's mana cost.
+        // for a granted one the card's mana cost. A permanent card that
+        // Muldrotha or Wrenn's emblem lets the seat cast from there is
+        // priced at its own mana cost too.
         flashback: (obj.zone == Zone::Graveyard && obj.zone_owner == Some(seat))
             .then(|| {
                 obj.card
                     .and_then(|c| baylee_cards::by_index(c.index))
                     .and_then(|def| def.faces[0].flashback)
                     .or_else(|| {
-                        baylee_engine::casting::flashback_granted(state, id)
-                            .then_some(chars.mana_cost)
+                        (baylee_engine::casting::flashback_granted(state, id)
+                            || baylee_engine::casting::graveyard_cast_permission(state, seat, obj)
+                                .is_some())
+                        .then_some(chars.mana_cost)
                     })
             })
             .flatten(),
@@ -3807,6 +3811,78 @@ mod tests {
             flashback_for(&engine, me, opt),
             None,
             "until end of turn: seat 0's next main phase has no grant left"
+        );
+    }
+
+    /// Muldrotha's door to [`PublicObject::flashback`]: a permanent card its
+    /// owner may cast from the graveyard is priced at its own mana cost, to
+    /// its owner alone, and only while the allowance lasts. Without it the
+    /// client's planner never tapped for a graveyard creature, because the
+    /// engine offers it in `castable` only once the mana is floating (#242's
+    /// reason, one permission further on).
+    #[test]
+    fn a_graveyard_permission_is_priced_for_the_owner_while_it_lasts() {
+        use baylee_engine::{event::Cause, zone::ZonePosition};
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let entry = |name| DeckEntry {
+            card: baylee_cards::decks::by_name(name).unwrap(),
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_battlefield = vec![entry("Muldrotha, the Gravetide")];
+        preset.seats[0].starting_hand = Some(vec![entry("Llanowar Elves")]);
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        let view = settle(&mut engine, None);
+        let elf = view
+            .hand
+            .iter()
+            .find(|o| o.name == "Llanowar Elves")
+            .expect("the Elves in hand")
+            .id;
+        engine
+            .dev_state_mut(me)
+            .unwrap()
+            .move_object(
+                elf,
+                ZoneLocation::Graveyard(me),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .unwrap();
+        engine.refresh_offer();
+        let printed = baylee_cards::by_index(entry("Llanowar Elves").card)
+            .expect("Llanowar Elves")
+            .faces[0]
+            .mana_cost;
+        assert_eq!(
+            (
+                flashback_for(&engine, me, elf),
+                flashback_for(&engine, them, elf)
+            ),
+            (Some(printed), None),
+            "the owner is told the Elves' own cost, the opponent nothing"
+        );
+
+        for _ in 0..40 {
+            if engine.state().turn.active == them {
+                break;
+            }
+            match engine.pending().clone() {
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                Pending::ChooseAttackers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                        .unwrap();
+                }
+                other => panic!("unexpected question: {other:?}"),
+            }
+        }
+        assert_eq!(
+            flashback_for(&engine, me, elf),
+            None,
+            "\"during each of your turns\": not on the opponent's"
         );
     }
 

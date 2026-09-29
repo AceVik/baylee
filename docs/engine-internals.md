@@ -24,7 +24,10 @@ apply matching `ContinuousEffect`s by layer (1 copy, 2 control, 3 text,
 dependency topological order within a layer. Cache validity = one
 `u64` generation compare. Durations: `WhileSourceOnBattlefield`
 (deregistered structurally on the source's zone change), `UntilEndOfTurn`,
-`Indefinitely`, conditions. Subtypes are a 1024-bit bitmap (changeling =
+`Indefinitely`, conditions. An emblem's static abilities function in the
+command zone (CR 114.4): `sync_static_effects` registers them once, as
+`Indefinitely` effects (`progress::emblem_statics`), and nothing removes
+them, because an emblem never leaves. Subtypes are a 1024-bit bitmap (changeling =
 one mask OR, not a scan), and the ids in it are **append-only** since #43:
 `ALL_CREATURE_TYPES` is the mask a changeling gets and it is a generated
 list rather than a range, because a new creature type no longer sits next to
@@ -654,6 +657,13 @@ Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing
 override) + `PendingCast` (with expiry) + `DelayedTrigger` + `ExileRider`.
 Keywords exist on stack objects (rebound can be granted).
+Casting a permanent card from a graveyard under a player's permission
+(Muldrotha, Wrenn and Realmbreaker's emblem) has one reader,
+`casting::graveyard_cast_permission`, which the offer, `can_cast_form`, the
+cast wizard and the view's graveyard price all ask. Muldrotha's plays are
+written down per source and version in `PerTurn::graveyard_plays`; the
+emblem's are not, and it is asked first, so a cast under it leaves
+Muldrotha's allowance whole.
 
 ## Loop detection
 A real endless loop is a *repeat*, not a long run. Every mandatory loop in
