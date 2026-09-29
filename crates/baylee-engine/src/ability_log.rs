@@ -39,6 +39,7 @@ use baylee_core::ids::{AbilityRef, CardIndex, EffectId, ObjectId};
 use baylee_core::mana::ManaColor;
 use std::cell::RefCell;
 use std::collections::HashSet;
+use std::fmt::Write as _;
 use std::io::Write as _;
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
@@ -164,7 +165,9 @@ pub(crate) fn json_str(s: &str) -> String {
         match c {
             '"' => out.push_str("\\\""),
             '\\' => out.push_str("\\\\"),
-            c if u32::from(c) < 0x20 => out.push_str(&format!("\\u{:04x}", u32::from(c))),
+            c if u32::from(c) < 0x20 => {
+                let _ = write!(out, "\\u{:04x}", u32::from(c));
+            }
             c => out.push(c),
         }
     }

@@ -44,6 +44,8 @@ pub(crate) fn projection_is_fresh(state: &GameState) -> bool {
         matches!(fx.filter, EffectFilter::Dsl(f) if crate::state::filter_reaches_other_zones(f))
     });
     let on_board = |id| {
+        // phasing: the refresh projects phased-out permanents too, so the
+        // check of its output has to look at them.
         state.zones.list(ZoneLocation::Battlefield).contains(&id)
             || state.zones.stack_projectable().contains(&id)
     };

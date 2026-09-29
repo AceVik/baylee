@@ -81,7 +81,11 @@ fn from_env() -> Option<Mutant> {
     });
     match made {
         Ok((def, index, mutant)) => {
-            eprintln!(
+            // Past libtest's capture too, so a run whose tests all passed
+            // still shows that the mutant was in place (a survivor, not a
+            // switch that never applied).
+            let _ = writeln!(
+                std::io::stderr(),
                 "{VAR}: {} (card {}) has ability {} replaced by Unimplemented",
                 def.name(),
                 def.index.get(),
@@ -93,8 +97,8 @@ fn from_env() -> Option<Mutant> {
             })
         }
         Err(why) => {
-            // Straight to the process's stderr: libtest captures `eprintln!`
-            // per test and would drop it with the process.
+            // Straight to the process's stderr, as above: libtest captures
+            // `eprintln!` per test and would drop it with the process.
             let _ = writeln!(
                 std::io::stderr(),
                 "{VAR}={spec}: {why}; stopping with status {INVALID_MUTANT_EXIT}"

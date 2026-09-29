@@ -13,8 +13,11 @@
 
 use super::testkit::card_index;
 use crate::ability_log::{self, Kind, json_str};
-use baylee_cards_dsl::{AbilityDef, CardDef, ReplacementRule};
+use baylee_cards_dsl::{AbilityDef, CardDef, Cost, FaceDef, ReplacementRule};
+use baylee_core::generated::subtypes::land;
 use baylee_core::ids::AbilityRef;
+use baylee_core::mana::ManaColor;
+use baylee_core::types::TypeSet;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -104,6 +107,21 @@ fn a_mutant_of_a_cards_ability_fails_the_cards_own_test() {
         code,
         Some(baylee_cards::mutate::INVALID_MUTANT_EXIT),
         "Bolt has no ability 7, which is neither a survived nor a killed mutant:\n{out}"
+    );
+
+    // The survivor the inventory's `"intrinsic": true` exists for. Mountain's
+    // "({T}: Add {R}.)" is the ability CR 305.6 gives every Mountain, and the
+    // engine taps a land for its basic land types through that rule
+    // (`casting::intrinsic_mana_offer`), not through the printed entry: Bolt
+    // is still cast with the entry gone. The run also shows that a survivor
+    // says its mutant was in place, so "passed" cannot mean "never applied".
+    let spec = format!("{}:0", card_index(MOUNTAIN).get());
+    let (code, out) = run_child(&[BOLT_TEST], &[(baylee_cards::mutate::VAR, Some(&spec))]);
+    assert_eq!(code, Some(0), "{spec} survives Bolt's test:\n{out}");
+    assert!(out.contains("1 passed"), "and the test ran:\n{out}");
+    assert!(
+        out.contains("replaced by Unimplemented"),
+        "with the mutant in place:\n{out}"
     );
 }
 
@@ -244,6 +262,57 @@ const fn variant(ability: &AbilityDef) -> &'static str {
     }
 }
 
+/// Whether `ability`, printed on `face`, is the mana ability CR 305.6 gives a
+/// land for its basic land types: `{T}`, and every colour it makes is one of
+/// those types' colours.
+///
+/// The engine taps a land for its basic land types through that rule
+/// (`casting::intrinsic_mana_offer`) whether the entry is there or not, so
+/// replacing the entry takes nothing away and its L5 mutant survives by the
+/// rules rather than by a hole in the tests. The recorder does credit the
+/// entry when the land taps (it is the one ability, printed as reminder
+/// text), so L4 holds it like any other.
+fn intrinsic(face: Option<&FaceDef>, ability: &AbilityDef) -> bool {
+    let Some(face) = face.filter(|f| f.types.contains(TypeSet::LAND)) else {
+        return false;
+    };
+    let basic: Vec<ManaColor> = [
+        (land::PLAINS, ManaColor::White),
+        (land::ISLAND, ManaColor::Blue),
+        (land::SWAMP, ManaColor::Black),
+        (land::MOUNTAIN, ManaColor::Red),
+        (land::FOREST, ManaColor::Green),
+    ]
+    .into_iter()
+    .filter(|(subtype, _)| face.subtypes.contains(subtype))
+    .map(|(_, color)| color)
+    .collect();
+    match ability {
+        AbilityDef::Activated {
+            mana_ability: true,
+            cost,
+            effects,
+            ..
+        } => {
+            *cost == Cost::TAP
+                && baylee_cards_dsl::mana_made(cost, effects).is_some_and(|(made, _)| {
+                    !made.colors.is_empty() && made.colors.iter().all(|c| basic.contains(c))
+                })
+        }
+        _ => false,
+    }
+}
+
+/// One entry of a card's row.
+struct Entry {
+    index: u32,
+    position: u32,
+    variant: &'static str,
+    kind: Option<Kind>,
+    intrinsic: bool,
+    faces: Vec<usize>,
+}
+
 /// One card's row: every entry any of its faces answers with, as the
 /// recorder would log it.
 ///
@@ -251,7 +320,7 @@ const fn variant(ability: &AbilityDef) -> &'static str {
 /// lists the faces that hold it; a back face whose entry at the same
 /// position is another kind is another entry.
 fn inventory_row(def: &CardDef) -> String {
-    let mut entries: Vec<(u32, u32, &'static str, Option<Kind>, Vec<usize>)> = Vec::new();
+    let mut entries: Vec<Entry> = Vec::new();
     for face in 0..def.faces.len().max(1) {
         for (at, ability) in def.abilities_for_face(face).iter().enumerate() {
             let position = u32::try_from(at).expect("a short list");
@@ -263,13 +332,20 @@ fn inventory_row(def: &CardDef) -> String {
             };
             if let Some(entry) = entries
                 .iter_mut()
-                .find(|e| e.0 == index && e.3 == kind && e.2 == variant(ability))
+                .find(|e| e.index == index && e.kind == kind && e.variant == variant(ability))
             {
-                if !entry.4.contains(&face) {
-                    entry.4.push(face);
+                if !entry.faces.contains(&face) {
+                    entry.faces.push(face);
                 }
             } else {
-                entries.push((index, position, variant(ability), kind, vec![face]));
+                entries.push(Entry {
+                    index,
+                    position,
+                    variant: variant(ability),
+                    kind,
+                    intrinsic: intrinsic(def.faces.get(face), ability),
+                    faces: vec![face],
+                });
             }
         }
     }
@@ -280,13 +356,19 @@ fn inventory_row(def: &CardDef) -> String {
         def.oracle_id,
         def.is_implemented()
     );
-    for (n, (index, position, variant, kind, faces)) in entries.iter().enumerate() {
-        let kind = kind.map_or_else(|| "null".to_owned(), |k| format!("\"{}\"", k.name()));
-        let faces: Vec<String> = faces.iter().map(ToString::to_string).collect();
+    for (n, e) in entries.iter().enumerate() {
+        let kind = e
+            .kind
+            .map_or_else(|| "null".to_owned(), |k| format!("\"{}\"", k.name()));
+        let faces: Vec<String> = e.faces.iter().map(ToString::to_string).collect();
         let _ = write!(
             row,
-            "{}{{\"index\":{index},\"position\":{position},\"variant\":\"{variant}\",\"kind\":{kind},\"faces\":[{}]}}",
+            "{}{{\"index\":{},\"position\":{},\"variant\":\"{}\",\"kind\":{kind},\"intrinsic\":{},\"faces\":[{}]}}",
             if n == 0 { "" } else { "," },
+            e.index,
+            e.position,
+            e.variant,
+            e.intrinsic,
             faces.join(",")
         );
     }
@@ -312,10 +394,21 @@ fn pool_inventory() {
         .expect("Bolt has a row");
     assert!(
         bolt_row.contains(&format!(
-            "{{\"index\":{},\"position\":0,\"variant\":\"Spell\",\"kind\":\"spell\",\"faces\":[0]}}",
+            "{{\"index\":{},\"position\":0,\"variant\":\"Spell\",\"kind\":\"spell\",\"intrinsic\":false,\"faces\":[0]}}",
             AbilityRef::SPELL
         )),
         "{bolt_row}"
+    );
+    let mountain = card_index(MOUNTAIN).get();
+    let mountain_row = rows
+        .iter()
+        .find(|r| r.starts_with(&format!("{{\"card\":{mountain},")))
+        .expect("Mountain has a row");
+    assert!(
+        mountain_row.contains(
+            "{\"index\":0,\"position\":0,\"variant\":\"Activated\",\"kind\":\"mana\",\"intrinsic\":true,\"faces\":[0]}"
+        ),
+        "a Mountain's red is CR 305.6's: {mountain_row}"
     );
     assert!(
         rows.iter()

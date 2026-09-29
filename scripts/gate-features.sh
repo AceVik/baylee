@@ -3,14 +3,16 @@
 #
 # `cargo clippy --workspace --all-targets`, `cargo test --workspace
 # --all-targets` and CI's jobs for both compile each crate with its
-# **default** features. Six non-default ones are declared here:
+# **default** features. Eight non-default ones are declared here:
 #
 #   baylee-client          dev-control, dev-reload, dev-dylink
 #   baylee-client-android  dev-control
 #   baylee-gateway         dev-table
 #   baylee-client-core     test-support
+#   baylee-engine          fuzz
+#   baylee-cards           mutate
 #
-# so six pieces of this workspace were compiled by nobody. It fails in
+# so eight pieces of this workspace were compiled by nobody. It fails in
 # **both** directions, which is the half that is easy to miss. A feature adds
 # code the default build never sees — `devctl.rs` broke on `Option<Refusal>`
 # with the whole gate green, and the commit had to be pulled back out of a
@@ -166,6 +168,47 @@ fi
 # reaching for something only `cfg(test)` provides would break.
 step test-support \
     cargo clippy -p baylee-client-core --features test-support --lib -- -D warnings
+
+# --- the card-verification hooks (docs/verification-hooks.md) ---------------
+#
+# Both are `cfg(any(test, feature = …))`, so the `test-support` reasoning
+# above is theirs too: `--all-targets` compiles them through `test`, and the
+# shape to check is the library with the feature on and `cfg(test)` off.
+# `fuzz` is how a fuzzer crate links the engine (`projection_is_fresh`);
+# `mutate` is how the engine's test binary links the card registry
+# (`BAYLEE_MUTATE`).
+step fuzz \
+    cargo clippy -p baylee-engine --features fuzz --lib -- -D warnings
+step mutate \
+    cargo clippy -p baylee-cards --features mutate --lib -- -D warnings
+
+# And neither may reach a build that ships. `mutate` is enabled by
+# `baylee-engine`'s dev-dependencies and nothing else, `fuzz` by nothing, so
+# the workspace's feature graph without dev edges — how every binary and
+# library is built — names neither. The graph *with* the engine's dev edges
+# must name `mutate`: that is the control proving the pattern matches what
+# `cargo tree` prints, without which a renamed feature or a changed output
+# format would count zero leaks forever. Each `cargo tree` is read only if it
+# succeeded, because a failed one prints nothing that matches either.
+t0=$SECONDS
+tree=$(mktemp)
+if cargo tree --workspace -e features,normal,build >"$tree" 2>"$log" \
+    && leaks=$(grep -cE 'feature "(mutate|fuzz)"' "$tree"; true) \
+    && cargo tree -p baylee-engine -e features >"$tree" 2>"$log" \
+    && control=$(grep -c 'baylee-cards feature "mutate"' "$tree"; true); then
+    if [ "$leaks" -eq 0 ] && [ "$control" -gt 0 ]; then
+        echo "STEP verification-hooks-shipped ok (0 in the shipped graph, $control in the engine's dev graph, $((SECONDS - t0))s)"
+    else
+        echo "STEP verification-hooks-shipped FAILED - $leaks mentions of mutate/fuzz in the graph"
+        echo "  without dev edges (must be 0), $control of mutate in baylee-engine's dev graph (must be >0)"
+        fail=1
+    fi
+else
+    echo "STEP verification-hooks-shipped FAILED - cargo tree did not run"
+    tail -40 "$log"
+    fail=1
+fi
+rm -f "$tree"
 
 if [ "$fail" -ne 0 ]; then
     echo "done rc=1"
