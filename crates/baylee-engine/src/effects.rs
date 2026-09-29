@@ -127,6 +127,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // hand, and a land milled after Crucible entered is as playable as
         // one already in the graveyard.
         | Modifier::PlayLandsFromGraveyard
+        | Modifier::CastPermanentSpellsFromGraveyard
+        | Modifier::PermanentOfEachTypeFromGraveyard
         | Modifier::PlayLandsFromLibraryTop
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
@@ -695,6 +697,8 @@ mod tests {
             Modifier::SwitchPT,
             Modifier::LegendRuleOff,
             Modifier::PlayLandsFromGraveyard,
+            Modifier::CastPermanentSpellsFromGraveyard,
+            Modifier::PermanentOfEachTypeFromGraveyard,
             Modifier::PlayLandsFromLibraryTop,
             Modifier::RevealLibraryTop,
             Modifier::ExtraLandDrops(2),
@@ -759,7 +763,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            48,
+            50,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -811,7 +815,7 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: twenty-five
-    /// modifiers lock the objects they found, twenty-three do not.
+    /// modifiers lock the objects they found, twenty-five do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -819,10 +823,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_five_modifiers_lock_a_set_and_twenty_three_do_not() {
+    fn twenty_five_modifiers_lock_a_set_and_twenty_five_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (25, 23));
+        assert_eq!((locking, all.len() - locking), (25, 25));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

@@ -1754,6 +1754,7 @@ impl<L: CardLookup> Engine<L> {
         for (source, modifier) in lapsed {
             self.state.effects.remove_static(source, modifier);
         }
+        to_register.extend(emblem_statics(&self.state));
         for fx in to_register {
             self.state.effects.register(fx);
         }
@@ -4583,6 +4584,48 @@ impl<L: CardLookup> Engine<L> {
 /// which has since moved: it is a new object the effect never named
 /// (CR 400.7), and a control change would otherwise sit in the hashed table
 /// for the rest of the game.
+/// The static abilities of emblems not yet registered. "Abilities of emblems
+/// function in the command zone" (CR 114.4), and an emblem never leaves it,
+/// so each is registered once and lasts the game (Wrenn and Realmbreaker's
+/// "You may play lands and cast permanent spells from your graveyard").
+fn emblem_statics(state: &crate::state::GameState) -> Vec<crate::effects::ContinuousEffect> {
+    let mut found = Vec::new();
+    for seat in 0..state.players.len() {
+        let zone = ZoneLocation::Command(PlayerId::new(seat as u8));
+        for &id in state.zones.list(zone) {
+            let Some(obj) = state.object(id) else {
+                continue;
+            };
+            if obj.kind != crate::object::ObjectKind::Emblem {
+                continue;
+            }
+            let Some(abilities) = obj.own_abilities else {
+                continue;
+            };
+            for ability in abilities {
+                let AbilityDef::Static(sa) = ability else {
+                    continue;
+                };
+                if state.effects.has_source_ability(id, sa.modifier) {
+                    continue;
+                }
+                found.push(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(id),
+                    controller: obj.controller,
+                    origin: crate::effects::EffectOrigin::Static,
+                    layer: sa.layer,
+                    timestamp: obj.timestamp,
+                    duration: baylee_cards_dsl::Duration::Indefinitely,
+                    filter: crate::effects::EffectFilter::Dsl(&sa.filter),
+                    modifier: sa.modifier,
+                });
+            }
+        }
+    }
+    found
+}
+
 fn forget_effects_on_moved_objects(state: &mut crate::state::GameState) {
     use baylee_cards_dsl::Duration;
     let stale: Vec<(ObjectId, u32)> = state

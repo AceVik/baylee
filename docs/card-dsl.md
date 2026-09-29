@@ -1327,7 +1327,8 @@ Modal/sequence: `Sequence(&[..])`.
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
-`DrawLimitPerTurn`.
+`DrawLimitPerTurn`, `CastPermanentSpellsFromGraveyard`,
+`PermanentOfEachTypeFromGraveyard`.
 
 `BecomeType` is "becomes a [subtype] [type]" with nothing retained (CR
 205.1a): the card types and subtypes are replaced, supertypes stay, so
@@ -1493,6 +1494,26 @@ hashes, layers and does nothing. This paragraph said THREE until
     modes and targets and ignores timing.
   - A card with nothing to target goes to the bottom instead.
   - Every card not cast goes to the bottom in a random order.
+- **`Modifier::CastPermanentSpellsFromGraveyard`** is "you may cast permanent
+  spells from your graveyard" (Wrenn and Realmbreaker's emblem), uncounted
+  and at the card's own price. `casting::graveyard_cast_permission` is the
+  one reader: the offer, `can_cast_form` and the cast wizard all ask it.
+- **`Modifier::PermanentOfEachTypeFromGraveyard`** is Muldrotha's "during
+  each of your turns, you may play a land and cast a permanent spell of each
+  permanent type from your graveyard". The engine writes each play under it
+  down (`PerTurn::graveyard_plays`, per source and version) and allows a
+  cast while the spells cast so far and this one can each be given a type of
+  their own. So an artifact creature takes whichever type is still open, and
+  the choice the rules make as it is cast (Muldrotha's ruling) is left open
+  until a later spell needs it. Land is a play of its own, once a turn.
+- **Emblem statics** register from the command zone (CR 114.4), once, with
+  `Duration::Indefinitely` (`progress::emblem_statics`). Before this, an
+  emblem's static ability compiled and did nothing.
+- **`Effect::MillMayTakeOne { amount, filter }`** is "mill `amount` cards. You
+  may put a [filter] card from among the milled cards into your hand" (Wrenn's
+  −2). A `ChooseCards` with `min: 0`, `max: 1`, prompt `PutIntoHand`, over the
+  milled cards that match and are found in the public zone they moved to
+  (CR 701.17c), which is the graveyard unless a replacement said exile.
 - **`Modifier::CharacteristicPT { count, toughness_plus }`** is a
   characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
   - `YouControl(filter)`

@@ -979,7 +979,11 @@ pub(crate) fn can_cast_form(
     } else {
         play_permission(state, player, card)
     };
+    // Wrenn's emblem and Muldrotha: a permanent card cast from its owner's
+    // graveyard at its own price.
+    let graveyard_ok = !in_hand && graveyard_cast_permission(state, player, obj).is_some();
     if !in_hand
+        && !graveyard_ok
         && !flashback_ok
         && !disturb_ok
         && !adventure_ok
@@ -1110,11 +1114,14 @@ pub(crate) fn can_cast_form(
                     && face_has_a_legal_target(state, lookup, player, card, i)
             })
         });
-        return if affordable_disturb {
-            Ok(())
-        } else {
-            Err(CastError::NotEnoughMana)
-        };
+        if affordable_disturb {
+            return Ok(());
+        }
+        // Muldrotha or Wrenn's emblem cast the *front* from the graveyard
+        // too, at its own price — the probes below.
+        if !graveyard_ok {
+            return Err(CastError::NotEnoughMana);
+        }
     }
     // Printed cost probed with X = 0, and after a reduction printed on the
     // card itself; the full payment is validated when the wizard finishes.
@@ -1271,6 +1278,156 @@ pub fn has_a_land_drop_left(state: &GameState, player: PlayerId) -> bool {
     state.players[player.get() as usize].lands_played_this_turn < land_drops_allowed(state, player)
 }
 
+/// The permanent types a spell can be cast "of" under Muldrotha's allowance:
+/// every permanent type but land, which is played and not cast (CR 305.9).
+const SPELL_PERMANENT_TYPES: [TypeSet; 5] = [
+    TypeSet::ARTIFACT,
+    TypeSet::CREATURE,
+    TypeSet::ENCHANTMENT,
+    TypeSet::PLANESWALKER,
+    TypeSet::BATTLE,
+];
+
+/// Whether each card in `cards` can be given a permanent type of its own,
+/// no two the same: "a permanent spell of each permanent type", with a card
+/// of several types using one of them. Five types at most, so the search is
+/// small enough to try every assignment.
+fn one_type_each(cards: &[TypeSet]) -> bool {
+    fn assign(cards: &[TypeSet], used: u8) -> bool {
+        let Some((first, rest)) = cards.split_first() else {
+            return true;
+        };
+        SPELL_PERMANENT_TYPES.iter().enumerate().any(|(i, t)| {
+            used & (1 << i) == 0 && first.contains(*t) && assign(rest, used | (1 << i))
+        })
+    }
+    cards.len() <= SPELL_PERMANENT_TYPES.len() && assign(cards, 0)
+}
+
+/// Which permission lets a card be played from its owner's graveyard, when
+/// the one that does is counted.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum GraveyardPermission {
+    /// Uncounted: Wrenn and Realmbreaker's emblem, Crucible of Worlds.
+    Unlimited,
+    /// Muldrotha's allowance, which this play uses up a part of.
+    EachType {
+        /// The allowance's source.
+        source: ObjectId,
+        /// Its version.
+        version: u32,
+    },
+}
+
+/// The Muldrotha-style allowances `player` holds right now: during their own
+/// turn only ("during each of your turns"), each with the plays already made
+/// under it this turn.
+fn each_type_allowances(
+    state: &GameState,
+    player: PlayerId,
+) -> impl Iterator<Item = (ObjectId, u32, Vec<TypeSet>)> + '_ {
+    let my_turn = state.turn.active == player;
+    state
+        .effects
+        .iter()
+        .filter(move |fx| {
+            my_turn
+                && fx.controller == player
+                && matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::PermanentOfEachTypeFromGraveyard
+                )
+        })
+        .filter_map(move |fx| {
+            let source = fx.source?;
+            let version = state.object(source)?.version;
+            let plays = state
+                .per_turn
+                .graveyard_plays
+                .iter()
+                .filter(|p| p.player == player && p.source == source && p.version == version)
+                .map(|p| p.types)
+                .collect();
+            Some((source, version, plays))
+        })
+}
+
+/// Which permission, if any, lets `player` cast the permanent card `obj`
+/// from their own graveyard: Wrenn's emblem first, because it costs nothing
+/// to use, then a Muldrotha allowance with a type still open for it.
+#[must_use]
+pub fn graveyard_cast_permission(
+    state: &GameState,
+    player: PlayerId,
+    obj: &crate::object::GameObject,
+) -> Option<GraveyardPermission> {
+    let types = obj.characteristics().types;
+    if obj.zone != Zone::Graveyard
+        || obj.zone_owner != Some(player)
+        || !types.is_permanent()
+        || types.contains(TypeSet::LAND)
+    {
+        return None;
+    }
+    if state.effects.iter().any(|fx| {
+        fx.controller == player
+            && matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::CastPermanentSpellsFromGraveyard
+            )
+    }) {
+        return Some(GraveyardPermission::Unlimited);
+    }
+    each_type_allowances(state, player).find_map(|(source, version, mut plays)| {
+        plays.retain(|t| !t.contains(TypeSet::LAND));
+        plays.push(types);
+        one_type_each(&plays).then_some(GraveyardPermission::EachType { source, version })
+    })
+}
+
+/// Which permission lets `player` play a land from their own graveyard:
+/// Crucible of Worlds' first, then a Muldrotha allowance whose land is still
+/// unplayed this turn.
+#[must_use]
+pub fn graveyard_land_permission(
+    state: &GameState,
+    player: PlayerId,
+) -> Option<GraveyardPermission> {
+    if state.effects.iter().any(|fx| {
+        fx.controller == player
+            && matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::PlayLandsFromGraveyard
+            )
+    }) {
+        return Some(GraveyardPermission::Unlimited);
+    }
+    each_type_allowances(state, player).find_map(|(source, version, plays)| {
+        (!plays.iter().any(|t| t.contains(TypeSet::LAND)))
+            .then_some(GraveyardPermission::EachType { source, version })
+    })
+}
+
+/// Writes down a play made under a Muldrotha allowance.
+pub fn note_graveyard_play(
+    state: &mut GameState,
+    player: PlayerId,
+    permission: Option<GraveyardPermission>,
+    types: TypeSet,
+) {
+    if let Some(GraveyardPermission::EachType { source, version }) = permission {
+        state
+            .per_turn
+            .graveyard_plays
+            .push(crate::state::GraveyardPlay {
+                player,
+                source,
+                version,
+                types,
+            });
+    }
+}
+
 /// Whether a land sitting in `zone` is one `player` may play (CR 305.1, and
 /// the permissions that widen it).
 ///
@@ -1283,13 +1440,7 @@ pub fn has_a_land_drop_left(state: &GameState, player: PlayerId) -> bool {
 pub fn land_zone_open(state: &GameState, player: PlayerId, zone: Zone) -> bool {
     match zone {
         Zone::Hand => true,
-        Zone::Graveyard => state.effects.iter().any(|fx| {
-            fx.controller == player
-                && matches!(
-                    fx.modifier,
-                    baylee_cards_dsl::Modifier::PlayLandsFromGraveyard
-                )
-        }),
+        Zone::Graveyard => graveyard_land_permission(state, player).is_some(),
         Zone::Library => state.effects.iter().any(|fx| {
             fx.controller == player
                 && matches!(
@@ -1361,6 +1512,12 @@ pub fn play_land(
     }
     if !has_a_land_drop_left(state, player) {
         return Err(CastFailure::Legality(CastError::BadTiming));
+    }
+    // A land from the graveyard under Muldrotha's allowance uses its land
+    // for the turn; one a permission for this very card opened does not.
+    if obj.zone == Zone::Graveyard && play_permission(state, player, card).is_none() {
+        let permission = graveyard_land_permission(state, player);
+        note_graveyard_play(state, player, permission, TypeSet::LAND);
     }
     state.players[player.get() as usize].lands_played_this_turn += 1;
     {

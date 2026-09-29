@@ -784,6 +784,18 @@ pub enum Effect {
         /// "Without paying its mana cost".
         free: bool,
     },
+    /// "Mill `amount` cards. You may put a [filter] card from among the
+    /// milled cards into your hand." (Wrenn and Realmbreaker's −2.) The
+    /// choice is a `ChooseCards` with `min: 0` over the milled cards that
+    /// match, found wherever they went if that zone is public — a
+    /// replacement's exile included (CR 701.17c) — and none matching asks
+    /// nothing.
+    MillMayTakeOne {
+        /// Cards milled.
+        amount: u32,
+        /// What may be taken.
+        filter: &'static Filter,
+    },
     /// Cascade's effect (CR 702.85a): "exile cards from the top of your
     /// library until you exile a nonland card whose mana value is less than
     /// this spell's mana value. You may cast that card without paying its
@@ -2460,6 +2472,7 @@ impl Effect {
             | Effect::RevealTopAndSort { .. }
             | Effect::RevealUntil { .. }
             | Effect::Cascade
+            | Effect::MillMayTakeOne { .. }
             | Effect::LookAtTopMayPut { .. }
             | Effect::DiscardUpToThenDraw { .. }
             | Effect::SearchLibraryOrGraveyard { .. }

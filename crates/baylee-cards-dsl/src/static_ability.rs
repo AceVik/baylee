@@ -117,6 +117,23 @@ pub enum Modifier {
     /// left may play nothing, from their graveyard or anywhere else
     /// (CR 305.2b).
     PlayLandsFromGraveyard,
+    /// The effect's controller may cast permanent spells from their
+    /// graveyard (Wrenn and Realmbreaker's emblem: "You may play lands and
+    /// cast permanent spells from your graveyard."). A permission like
+    /// [`Self::PlayLandsFromGraveyard`], and its casting half: the spell
+    /// is cast at its usual timing and for its usual costs, and nothing
+    /// exiles it afterwards — it is not flashback. How many is not limited.
+    CastPermanentSpellsFromGraveyard,
+    /// Muldrotha, the Gravetide: "During each of your turns, you may play a
+    /// land and cast a permanent spell of each permanent type from your
+    /// graveyard." Each such permission is its own allowance, counted per
+    /// source object and turn in the engine's per-turn record: one land,
+    /// and one spell for each of artifact, creature, enchantment,
+    /// planeswalker and battle. A card of two permanent types uses one of
+    /// them ("choose one as you play it"); the engine keeps the choice open
+    /// until a later card needs it, which lets through exactly the casts
+    /// some sequence of choices would have.
+    PermanentOfEachTypeFromGraveyard,
     /// The controller may play a land from the top of their library.
     PlayLandsFromLibraryTop,
     /// All players can see the top card of the controller's library.
@@ -471,6 +488,8 @@ impl Modifier {
             // No layer: rules-modifying effects.
             Self::LegendRuleOff
             | Self::PlayLandsFromGraveyard
+            | Self::CastPermanentSpellsFromGraveyard
+            | Self::PermanentOfEachTypeFromGraveyard
             | Self::PlayLandsFromLibraryTop
             | Self::RevealLibraryTop
             | Self::ExtraLandDrops(_)
@@ -784,6 +803,8 @@ mod tests {
         for modifier in [
             Modifier::LegendRuleOff,
             Modifier::PlayLandsFromGraveyard,
+            Modifier::CastPermanentSpellsFromGraveyard,
+            Modifier::PermanentOfEachTypeFromGraveyard,
             Modifier::PlayLandsFromLibraryTop,
             Modifier::RevealLibraryTop,
             Modifier::ExtraLandDrops(2),

@@ -679,6 +679,70 @@ fn reveal_on_entry(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: Ob
         .expect("a card the entry question put on the menu is a legal answer");
 }
 
+/// What the player holding priority may do now.
+#[track_caller]
+fn priority_offer(engine: &Engine<RegistryLookup>) -> crate::choice::LegalActions {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    *legal
+}
+
+/// Casts the object `card` (wherever it is) off floating mana and lets it
+/// resolve.
+#[track_caller]
+fn cast_object_and_resolve(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: ObjectId) {
+    engine
+        .apply(seat, PlayerAction::CastSpell { card })
+        .expect("the offer listed the card");
+    pass_until(engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(card).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "the permanent spell resolved"
+    );
+}
+
+/// Puts `card` from `seat`'s hand on top of its library, the harness way.
+fn hand_to_library_top(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> ObjectId {
+    hand_to(engine, seat, card, ZoneLocation::Library(seat))
+}
+
+/// Puts `card` from `seat`'s hand into its graveyard, the harness way, and
+/// refreshes the offer the graveyard is now part of.
+fn hand_to_graveyard(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> ObjectId {
+    let id = hand_to(engine, seat, card, ZoneLocation::Graveyard(seat));
+    engine.refresh_offer();
+    id
+}
+
+fn hand_to(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+    to: ZoneLocation,
+) -> ObjectId {
+    let id = in_hand(engine, seat, card).expect("the card starts in hand");
+    engine
+        .state
+        .move_object(
+            id,
+            to,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("the harness moves a card");
+    id
+}
+
 /// Plays `card` out of `seat`'s hand and answers with the object it became.
 #[track_caller]
 fn play_land(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> ObjectId {

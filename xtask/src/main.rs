@@ -2340,6 +2340,14 @@ fn check_player_targets_match_the_printing(
 ///   in the engine, not in the definition; and "you may discard up to two
 ///   cards" (Fable of the Mirror-Breaker) — `DiscardUpToThenDraw`, the
 ///   same `min: 0` question over the hand.
+/// - "you may play a land and cast a permanent spell of each permanent type
+///   from your graveyard" (Muldrotha) and "you may … cast permanent spells
+///   from your graveyard" (Wrenn and Realmbreaker's emblem) —
+///   `PermanentOfEachTypeFromGraveyard` and `CastPermanentSpellsFromGraveyard`,
+///   the Crucible argument for casting: a permission, not a decision.
+/// - "you may put a permanent card from among the milled cards into your
+///   hand" (Wrenn's −2) — `MillMayTakeOne`, the `min: 0` question asked in
+///   the engine.
 ///
 /// A stub claims nothing and a `Partial` card has said in writing that it
 /// diverges, so both are skipped — the same two exemptions the checks above
@@ -2383,6 +2391,9 @@ fn check_optional_clauses_are_offered(
         "LookAtTopKeepBottomPlay",
         "LookAtTopMayPut",
         "DiscardUpToThenDraw",
+        "PermanentOfEachTypeFromGraveyard",
+        "CastPermanentSpellsFromGraveyard",
+        "MillMayTakeOne",
     ];
     if !def.is_implemented() {
         return;

@@ -439,7 +439,14 @@ impl<L: CardLookup> Engine<L> {
                     });
                 }
             }
-            return Ok(options);
+            // A graveyard permission for the front (Muldrotha, Wrenn's
+            // emblem) is a second way, offered below beside the backs.
+            let front_too = self.state.object(card).is_some_and(|o| {
+                casting::graveyard_cast_permission(&self.state, player, o).is_some()
+            });
+            if !front_too {
+                return Ok(options);
+            }
         }
         // Printed flashback (CR 702.34a) from the graveyard: its own cost,
         // "rather than paying its mana cost" — and beside it, where a grant
@@ -518,7 +525,7 @@ impl<L: CardLookup> Engine<L> {
                 || casting::ordinary_targets_reachable(&self.state, def, player, card))
         {
             options.push(CastModeDesc {
-                index: 0,
+                index: options.len() as u8,
                 kind: CastModeKind::Normal,
                 cost: normal_cost.with_more_generic(tax),
             });
@@ -1379,6 +1386,19 @@ impl<L: CardLookup> Engine<L> {
             // the command zone was not cast from a hand, and rebound reads
             // this (CR 702.88a).
             obj.cast_from_hand = !wizard.free && obj.zone == crate::zone::Zone::Hand;
+            // A permanent spell cast from the graveyard under Muldrotha's
+            // allowance uses a type of it for the turn. Not a disturb back,
+            // and not a card a permission of its own opened.
+            if obj.zone == crate::zone::Zone::Graveyard
+                && !matches!(wizard.option, Some(CastModeKind::Face(_)))
+                && casting::play_permission(&self.state, player, card).is_none()
+            {
+                let obj = self.state.object(card).expect("wizard card exists");
+                let permission = casting::graveyard_cast_permission(&self.state, player, obj);
+                let types = obj.characteristics().types;
+                casting::note_graveyard_play(&mut self.state, player, permission, types);
+            }
+            let obj = self.state.object_mut(card).expect("wizard card exists");
             // Flashback (CR 702.34): a spell cast from the graveyard via a
             // grant is exiled instead of hitting the graveyard again.
             if obj.zone == crate::zone::Zone::Graveyard {

@@ -647,6 +647,8 @@ fn apply(
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::LegendRuleOff
         | Modifier::PlayLandsFromGraveyard
+        | Modifier::CastPermanentSpellsFromGraveyard
+        | Modifier::PermanentOfEachTypeFromGraveyard
         | Modifier::PlayLandsFromLibraryTop
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)

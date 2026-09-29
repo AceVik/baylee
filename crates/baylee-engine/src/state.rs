@@ -297,6 +297,27 @@ pub struct PerTurn {
     /// resolved this turn"). Written by the stack's resolution of an
     /// ability and nothing else; see [`AbilityResolved`].
     pub resolved: Vec<AbilityResolved>,
+    /// What each Muldrotha-style allowance has let its controller play from
+    /// the graveyard this turn ([`GraveyardPlay`]).
+    pub graveyard_plays: Vec<GraveyardPlay>,
+}
+
+/// One card played or cast from a graveyard under a
+/// `Modifier::PermanentOfEachTypeFromGraveyard` allowance.
+///
+/// The allowance is the source's, as the object it is (CR 400.7): a Muldrotha
+/// that left and came back gives a fresh one.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct GraveyardPlay {
+    /// Who played it.
+    pub player: PlayerId,
+    /// The permission's source.
+    pub source: ObjectId,
+    /// The source's version.
+    pub version: u32,
+    /// The card's permanent types: `LAND` for a land played, the rest for a
+    /// spell cast, of which it used one.
+    pub types: baylee_core::types::TypeSet,
 }
 
 /// One ability of one object, and how many times it has resolved this turn.
@@ -352,6 +373,7 @@ impl PerTurn {
             drawn: Vec::new(),
             playable: Vec::new(),
             resolved: Vec::new(),
+            graveyard_plays: Vec::new(),
         }
     }
 
@@ -396,6 +418,7 @@ impl PerTurn {
         self.drawn.clear();
         self.playable.clear();
         self.resolved.clear();
+        self.graveyard_plays.clear();
     }
 }
 
@@ -4003,6 +4026,14 @@ mod tests {
             ("per_turn.drawn", |s, id| s.per_turn.drawn.push((id, 0))),
             ("per_turn.resolved", |s, id| {
                 s.per_turn.note_resolution(id, 0, 0);
+            }),
+            ("per_turn.graveyard_plays", |s, id| {
+                s.per_turn.graveyard_plays.push(GraveyardPlay {
+                    player: PlayerId::new(0),
+                    source: id,
+                    version: 0,
+                    types: baylee_core::types::TypeSet::LAND,
+                });
             }),
             ("per_turn.playable", |s, id| {
                 s.per_turn.playable.push(PlayPermission {

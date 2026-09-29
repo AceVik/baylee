@@ -225,6 +225,8 @@ pub enum AwaitingOp {
     /// After `DiscardUpToThenDraw`: the chosen cards are discarded and as
     /// many are drawn.
     DiscardThenDraw,
+    /// After `MillMayTakeOne`: the card named goes to its owner's hand.
+    TakeMilled,
     /// After `Cascade` exiled its hit and asked whether to cast it: the
     /// rest of what it exiled goes to the bottom either way, the hit with
     /// them unless the answer was yes.
@@ -1664,6 +1666,27 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             library,
             receiver,
         } => finish_split(state, &found, chosen, library, receiver),
+        AwaitingOp::TakeMilled => {
+            for &card in chosen {
+                let owner = state
+                    .object(card)
+                    .filter(|o| {
+                        matches!(
+                            o.zone,
+                            crate::zone::Zone::Graveyard | crate::zone::Zone::Exile
+                        )
+                    })
+                    .map(|o| o.owner);
+                if let Some(owner) = owner {
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Hand(owner),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+            }
+        }
         AwaitingOp::GraveyardOrLibrary { filter, find } => {
             let you = res.controller;
             match chosen.first() {
@@ -3091,6 +3114,49 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
             put_found(state, you, top, if fits { matched } else { otherwise });
             None
+        }
+        Effect::MillMayTakeOne { amount, filter } => {
+            let top: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .iter()
+                .rev()
+                .take(amount as usize)
+                .copied()
+                .collect();
+            for &card in &top {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Graveyard(you),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            // "From among the milled cards", found where they went if that
+            // zone is public (CR 701.17c), and of them the ones the filter
+            // names.
+            let milled: Vec<ObjectId> = top
+                .into_iter()
+                .filter(|&card| {
+                    state.object(card).is_some_and(|o| {
+                        matches!(
+                            o.zone,
+                            crate::zone::Zone::Graveyard | crate::zone::Zone::Exile
+                        ) && eval::matches(filter, state, o, you, res.source)
+                    })
+                })
+                .collect();
+            if milled.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::TakeMilled);
+            Some(Pending::ChooseCards {
+                player: you,
+                options: milled,
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::PutIntoHand,
+            })
         }
         Effect::Cascade => {
             // "This spell's mana value", X included while it is on the
