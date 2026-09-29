@@ -1265,8 +1265,10 @@ of "target": Khalni Ambush's "target creature you control fights target
 creature you don't control" is two requirements, not one requirement for two
 objects. The second is written `second_targets = Some(TargetReq::…)` on
 `spell!`, `activated!` or `loyalty!` (Oko, Thief of Crowns' −5), or on a
-modal spell's `mode!` (Archdruid's Charm's second mode), beside
-`targets`/`target` — never on a modal trigger's mode, which is put on the
+choose-one modal spell's `mode!` (Archdruid's Charm's second mode), beside
+`targets`/`target` — never on a mode of a spell that chooses several,
+whose chosen modes take one instance each (`lints::modes_fault`), never on
+a modal trigger's mode, which is put on the
 stack without the cast wizard that asks it
 (`no_modal_trigger_mode_prints_a_second_target`), and never on a mana
 ability, which may not target at all (CR 605.1a) and which
@@ -1797,6 +1799,112 @@ hashes, layers and does nothing. This paragraph said THREE until
   the controller for a color as it resolves (`Pending::ChooseColor`). It then
   grants layer-6 protection from that color to the first target for
   `duration`.
+
+### Pieces added for Maik's deck, second round (29.09.2026)
+
+Choosing modes:
+
+- **`AbilityDef::ModalSpell { modes, choose }`.** `choose` is a `ModeCount`
+  saying how many modes are chosen (CR 700.2):
+  - `ModeCount::ONE` is "Choose one —". Every modal spell before Farewell
+    has it.
+  - `ModeCount::TWO` is "Choose two —".
+  - `ModeCount::ONE_OR_MORE` is "Choose one or more —", and also what spree
+    means (CR 702.172a).
+
+  A spell that chooses several is cast as one set of modes
+  (`CastModeKind::Modes(bits)`, bit `i` for mode `i`, no mode twice,
+  CR 700.2d). The chosen modes happen in printed order (CR 608.2c),
+  whatever order they were picked in. At most two chosen modes may say
+  "target": the first takes the spell's first instance of the word, the
+  second its second (CR 700.2c, 115.3). The second may name objects only,
+  and no mode of such a spell may print `second_targets` of its own.
+  `lints::modes_fault` holds all of this.
+- **`SpellMode::additional_cost`** is the cost printed before a mode:
+  spree's "+ {1} —" (CR 700.2h). It is added to the card's cost when the
+  mode is chosen. It is not an alternative cost, so a spell cast without
+  paying its mana cost still pays it (CR 118.9d). It never goes with
+  `cost_override` (overload), and only on a spell that chooses several.
+  Codegen reads the "+ {cost} —" lines as that card's list of modes, the way
+  it reads bullets.
+
+Effects:
+
+- **`Effect::ExileAll { filter }`** is "Exile all [permanents]" (Farewell).
+  Nothing is targeted.
+- **`Effect::ChooseYoursThen { filter, then }`** is "Choose a creature you
+  control. It …" (Final Showdown). The choice is made as the effect
+  resolves (CR 608.2d), is not a target, and must be made if it can be.
+  Inside `then`, `Filter::This` is the chosen permanent. With nothing to
+  choose, nothing happens (CR 609.3). `then` holds only effects that ask
+  nothing, which is `lints::chosen_then_fault`; today that means
+  `CreateContinuousEffect`.
+- **`Effect::DealDamageDivided { amount }`** is "deals N damage divided as
+  you choose among any number of targets" (Fury). The division is asked as
+  the triggered ability goes on the stack, one share per target
+  (`Pending::ChooseNumber` with `NumberPrompt::DivideDamage`), and the last
+  target takes the rest. A target that is illegal at resolution gets
+  nothing, and its share goes to nobody (CR 608.2b). Only a triggered
+  ability may divide (`lints::every_divided_damage_is_a_trigger_that_can_divide`).
+- **`Effect::Discover { mana_value }`** is discover N (Trumpeting
+  Carnosaur, CR 701.57a). The cast is offered after the resolution, before
+  anyone gets priority. A modal spell cast this way picks its mode, and a
+  spree spell pays its mode costs.
+- **`Effect::RevealTopOnePerType { count }`** (Atraxa, Grand Unifier) asks
+  one question per card type among the revealed cards (CR 205.2a).
+- **`Effect::MayDoOnceEachTurn { effects }`** is "You may …. Do this only
+  once each turn." (The Reaper, King No More). Only a yes uses the turn's
+  go.
+- **`Effect::NthResolutionThisTurn { effects }`** runs the nth effect on
+  the ability's nth resolution this turn (Omnath, Locus of Creation).
+- **`Effect::IfTargetMatches { filter, then }`** is "… target … if it's
+  [filter]" (Prismatic Ending). It is not a targeting restriction.
+- **`Effect::OwnerPutsOnTopOrBottom { target }`** (Subtlety): the owner,
+  not the controller, picks the end of the library.
+- **`Effect::ExileIfDiesThisTurn { target }`** (Mawloc) is a replacement
+  effect on that object for the rest of the turn.
+- **`Effect::GraveyardAllToHand { filter }`** (Garna, the Bloodflame)
+  returns every matching card in your graveyard. Nothing is targeted.
+
+Triggers, reflexive events and amounts:
+
+- **`Trigger::CycledThis`** is "When you cycle this card" (CR 702.29c).
+  What counts as cycling is `AbilityDef::is_cycling`: from the hand, the
+  cost discards the card, and the effect draws one card. Typecycling is not
+  read.
+- **`Trigger::DealsCombatDamageToOpponent(filter)`** (Questing Beast)
+  carries the player and the amount on the trigger. **`Amount::EventAmount`**
+  is "that much".
+- **`ReflexiveEvent::ExiledThis`** is "You may exile it. When you do, …"
+  (The Balrog of Moria). The action is `Effect::ExileSource`.
+
+Targets:
+
+- **`TargetSpec::OpponentOrObject(filter)`** is "target opponent or
+  [filter]" (Ravager of the Fells).
+- **`TargetSpec::ObjectOfFirstTargetsPlayer(filter)`** is a second instance
+  of "target" limited to the player the first instance named. It is
+  written only as `second_targets`, which triggered abilities now have too.
+- **`TargetSpec::ObjectOfEventPlayer(filter)`** is "target [filter] that
+  player controls", where that player is the one the event dealt damage to
+  (Questing Beast).
+- `TargetSpec::ObjectControlledBy(filter, player)` is what the engine binds
+  those two to. It is never written on a card.
+
+Filters, conditions, modifiers and durations:
+
+- **`Filter::PutIntoGraveyardThisTurn`** (Garna).
+- **`Filter::HasCounter(kind)`** (The Reaper). For a permanent that just
+  left the battlefield it reads the counters it had as it left
+  (CR 603.10a).
+- **`Filter::CmcAtMostColorsSpent`** is converge's count (Prismatic
+  Ending).
+- **`Condition::XAtLeast(n)`** is "if X is N or more", read off the
+  source's announced X.
+- **`Modifier::ModifyPTPerGraveyardCard { filter, p, t }`** (Fiend
+  Artisan) is layer 7c.
+- **`Duration::WhileYouControlSource`** is "for as long as you control this
+  creature" (Extraction Specialist, CR 611.2b).
 
 ## Worked examples
 

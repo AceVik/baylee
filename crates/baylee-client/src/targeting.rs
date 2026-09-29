@@ -357,9 +357,16 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::AttachedToBySource
         | Filter::HasKeyword(_)
         | Filter::CmcAtMostX
+        // Bounded by what the source's payment spent, which no view carries
+        // either.
+        | Filter::CmcAtMostColorsSpent
         // When a permanent arrived is history, and a view carries no
         // journal — the same refusal as the rest of this list.
         | Filter::EnteredThisTurn
+        | Filter::PutIntoGraveyardThisTurn
+        // The engine's counter kind against the view's wire kind, and the
+        // translation is gamehost's; `baylee-ai` refuses it for that reason.
+        | Filter::HasCounter(_)
         | Filter::InZone(_) => return None,
     })
 }
@@ -617,6 +624,7 @@ mod tests {
                         TargetSpec::Player(_)
                         | TargetSpec::AnyPlayer
                         | TargetSpec::AnyOpponent
+                        | TargetSpec::OpponentOrObject(_)
                         | TargetSpec::AnyTarget
                         | TargetSpec::ThisObject
                         | TargetSpec::EventObject => {
@@ -625,6 +633,9 @@ mod tests {
                         }
                         TargetSpec::Object(f)
                         | TargetSpec::ObjectOfEachOpponent(f)
+                        | TargetSpec::ObjectOfFirstTargetsPlayer(f)
+                        | TargetSpec::ObjectControlledBy(f, _)
+                        | TargetSpec::ObjectOfEventPlayer(f)
                         | TargetSpec::Spell(f)
                         | TargetSpec::StackOrBattlefield(f)
                         | TargetSpec::AbilityOnStack(f)

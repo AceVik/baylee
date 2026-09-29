@@ -57,11 +57,23 @@ const CACHE_BUDGET: usize = 32;
 /// the battlefield. One `Option<Box<PaidRecord>>`, null on every object
 /// that is not a paid-for spell or ability on the stack.
 ///
+/// Raised 296 → 304 on 2026-09-29 by "that much" damage a triggering event
+/// dealt (`GameObject::event_amount`, Questing Beast), carried onto the
+/// triggered ability as it is put on the stack. The field is an
+/// `Option<NonZeroU16>`, two bytes, and still cost eight: 296 was packed to
+/// the byte, so any field at all rounds the object up by its alignment, and
+/// a `Box` would cost the same eight. Folding it and `event_object` into one
+/// boxed record would win them back.
+///
 /// Raised 296 → 304 on 2026-09-29 by the card name chosen as a permanent
 /// entered (`GameObject::chosen_name`, Pithing Needle), which the lock reads
 /// and a client shows. Packed like `own_face` into a `NonZeroU32`, so its
 /// `Option` is four bytes, and the object grows by the eight its alignment
 /// rounds them to: there was no four-byte hole left to put it in.
+///
+/// The two raises were made on two branches the same day, each from 296.
+/// Merged, both fields sit in the one eight-byte step (six of its bytes),
+/// and the object measured 304 with both.
 const OBJECT_BUDGET: usize = 304;
 
 #[test]

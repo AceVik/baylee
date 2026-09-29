@@ -148,10 +148,51 @@ fn printed_sentence(
     // is computed against the English text and is unaffected; only what the
     // row draws is.
     let said = said.join(" ");
-    let said = said
-        .trim_start_matches(['\u{2022}', '*', '\u{30fb}', ' '])
-        .trim();
+    let said = without_spree_cost(
+        said.trim_start_matches(['\u{2022}', '*', '\u{30fb}', ' '])
+            .trim(),
+    );
     (!said.is_empty()).then(|| said.to_string())
+}
+
+/// A spree mode's words without the plus sign and the mode's own cost in
+/// front of them: "+ {1} — Destroy all creatures." is drawn "Destroy all
+/// creatures.", because the row draws beside it what the whole set of modes
+/// costs, and the mode's share of that is not what the player pays.
+///
+/// Anything that does not have the whole shape — the sign, one or more
+/// symbols, a dash — is returned as it was.
+fn without_spree_cost(said: &str) -> &str {
+    let Some(rest) = said.strip_prefix('+') else {
+        return said;
+    };
+    let mut rest = rest.trim_start();
+    let mut symbols = 0;
+    while let Some(after) = rest.strip_prefix('{') {
+        let Some(end) = after.find('}') else {
+            return said;
+        };
+        rest = &after[end + 1..];
+        symbols += 1;
+    }
+    let rest = rest.trim_start();
+    match rest.strip_prefix(['\u{2014}', '\u{2013}', '-']) {
+        Some(words) if symbols > 0 => words.trim_start(),
+        _ => said,
+    }
+}
+
+/// What one mode of a modal card says: its printed sentence, the card's own
+/// words for a choice made inside one sentence, and failing both its number.
+fn mode_label(lang: Lang, object: ObjectId, names: FaceNames<'_>, i: usize) -> String {
+    // One-based in the fallback, because the printed card numbers its
+    // modes from one and a player reads the card, not the index.
+    printed_sentence(names, object, baylee_cards::lines::mode_line, i)
+        .or_else(|| {
+            let card = cast_card(names, object)?;
+            baylee_cards::lines::inline_mode_words(card, CAST_FACE, i).map(str::to_string)
+        })
+        .unwrap_or_else(|| Phrase::CastModeNumber.fill(lang, &[&(i + 1).to_string()]))
 }
 
 /// One row of an indexed chooser.
@@ -496,14 +537,16 @@ fn cast_label(
             printed_sentence(names, object, baylee_cards::lines::alternative_line, i)
                 .unwrap_or_default()
         }
-        // One-based in the fallback, because the printed card numbers its
-        // modes from one and a player reads the card, not the index.
-        K::Mode(i) => printed_sentence(names, object, baylee_cards::lines::mode_line, i)
-            .or_else(|| {
-                let card = cast_card(names, object)?;
-                baylee_cards::lines::inline_mode_words(card, CAST_FACE, i).map(str::to_string)
-            })
-            .unwrap_or_else(|| Phrase::CastModeNumber.fill(lang, &[&(i + 1).to_string()])),
+        K::Mode(i) => mode_label(lang, object, names, i),
+        // Several modes at once (Farewell, a spree card): each one's own
+        // words, in the order the card prints them, which is the order they
+        // happen in (CR 608.2c), joined by the plus a spree card lists them
+        // under.
+        K::Modes(set) => (0..u8::BITS as usize)
+            .filter(|i| set & (1 << i) != 0)
+            .map(|i| mode_label(lang, object, names, i))
+            .collect::<Vec<_>>()
+            .join(" + "),
         K::Face(i) => names
             .of(object, i)
             .unwrap_or_else(|| Phrase::CastBackFace.text(lang).to_string()),
@@ -1102,6 +1145,35 @@ mod tests {
         assert_eq!(
             rows[0].label,
             "Jeder Gegner opfert einen Kreaturenspielstein, den er bestimmt."
+        );
+    }
+
+    /// A row for several modes says each one's words, in printed order, and
+    /// for a spree card without the plus sign and the mode's own cost in
+    /// front of them: the row draws beside it what the whole set costs.
+    #[test]
+    fn a_row_of_several_modes_says_each_without_its_own_cost() {
+        let (view, texts, object) = asking_about(
+            "7e7ec3d6-a84f-4cc3-93f4-4d181d41e126",
+            "en",
+            "Spree (Choose one or more additional costs.)\n\
+             + {1} — All creatures lose all abilities until end of turn.\n\
+             + {1} — Choose a creature you control. It gains indestructible \
+             until end of turn.\n\
+             + {3}{W}{W} — Destroy all creatures.",
+        );
+        let rows = cast_rows(
+            object,
+            &[CastModeKind::Modes(0b101)],
+            FaceNames {
+                view: Some(&view),
+                texts: Some(&texts),
+            },
+            Lang::En,
+        );
+        assert_eq!(
+            rows[0].label,
+            "All creatures lose all abilities until end of turn. + Destroy all creatures."
         );
     }
 

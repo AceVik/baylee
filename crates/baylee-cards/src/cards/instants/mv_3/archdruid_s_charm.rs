@@ -25,6 +25,7 @@ card!(
     ),],
     coverage = Coverage::Implemented,
     abilities = &[AbilityDef::ModalSpell {
+        choose: ModeCount::ONE,
         modes: &[
             mode!(&[Effect::SearchLibrary {
                 filter: &CREATURE_OR_LAND,

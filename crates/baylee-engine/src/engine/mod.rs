@@ -397,6 +397,24 @@ enum PlanKind {
         /// `None` for every other trigger.
         per_opponent: Option<Box<PerOpponent>>,
     },
+    /// A trigger's second instance of "target", asked once the trigger is on
+    /// the stack with its first (Ravager of the Fells).
+    TriggerSecondTarget {
+        /// The triggered ability on the stack.
+        on_stack: ObjectId,
+    },
+    /// A triggered ability's "damage divided as you choose", asked target
+    /// by target once it is on the stack with its targets (CR 601.2d).
+    DivideDamage {
+        /// The triggered ability on the stack.
+        on_stack: ObjectId,
+        /// Its targets, in the order they were chosen.
+        targets: SmallVec<[ObjectId; 2]>,
+        /// The shares given so far, one per target from the first.
+        shares: Vec<u32>,
+        /// The damage divided.
+        total: u32,
+    },
     /// A shockland entry choice (pay life or enter tapped).
     EntryTap {
         /// The entering land.
@@ -482,6 +500,12 @@ enum PlanKind {
         /// The drawn card.
         card: ObjectId,
     },
+    /// A discovered card offered for a cast without paying its mana cost
+    /// (CR 701.57a); no puts it into its owner's hand.
+    Discovered {
+        /// The card, in exile.
+        card: ObjectId,
+    },
     /// A commander offered its way back to the command zone (CR 903.9a).
     CommanderZone {
         /// The commander card, in a graveyard or in exile.
@@ -491,6 +515,10 @@ enum PlanKind {
     SyntheticTriggerTarget {
         /// The queued trigger.
         trigger: crate::trigger::PendingTrigger,
+        /// A reflexive trigger's `TargetSpec::ObjectOfEachOpponent`, asked
+        /// one opponent at a time as the printed path asks it (The Balrog of
+        /// Moria); `None` for the one-object question.
+        per_opponent: Option<Box<PerOpponent>>,
     },
     /// The untap step's own determination (CR 502.3), waiting for the
     /// active player to say which permanents stay tapped.

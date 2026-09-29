@@ -273,30 +273,47 @@ impl<L: CardLookup> Engine<L> {
         self.advance_cast_wizard()
     }
 
-    /// Starts a free cast (rebound at upkeep, suspend finish): no payment,
-    /// but targets and other choices still run through the wizard.
+    /// Starts a free cast (rebound at upkeep, suspend finish, a discovered
+    /// card): no payment, but targets and other choices still run through
+    /// the wizard.
     pub(crate) fn start_free_cast(
         &mut self,
         player: PlayerId,
         card: ObjectId,
     ) -> Result<(), EngineError> {
-        if self
+        let Some(def) = self
             .state
             .object(card)
             .filter(|o| o.zone == crate::zone::Zone::Exile)
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index))
-            .is_none()
-        {
+        else {
             return Err(EngineError::IllegalAction("no card to cast from exile"));
-        }
+        };
         if !casting::may_begin_casting(&self.state, player) {
             return Err(EngineError::IllegalAction("no more spells this turn"));
         }
+        // A spell whose every effect sits under a mode is cast *in* a mode
+        // (CR 700.2), a free cast included: cast `Normal`, Damn went to the
+        // stack as a spell with nothing to do and resolved to nothing.
+        let options = if casting::modes_are_the_only_way(def, 0) {
+            let options = self.free_modes(player, card, def);
+            if options.is_empty() {
+                return Err(EngineError::IllegalAction("no way to cast this spell"));
+            }
+            options
+        } else {
+            Vec::new()
+        };
+        let (option, stage) = match options.as_slice() {
+            [] => (Some(CastModeKind::Normal), WizardStage::Kicker),
+            [only] => (Some(only.kind), WizardStage::Kicker),
+            _ => (None, WizardStage::ChooseMode),
+        };
         let mut wizard = CastWizard {
             card,
             player,
-            option: Some(CastModeKind::Normal),
+            option,
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -310,9 +327,11 @@ impl<L: CardLookup> Engine<L> {
             sacrifices: SmallVec::new(),
             // Straight past `XValue`, and deliberately: a spell cast paying
             // neither its mana cost nor an alternative cost with X in it has
-            // exactly one legal X, which is 0 (CR 107.3b).
-            stage: WizardStage::Kicker,
-            options: Vec::new(),
+            // exactly one legal X, which is 0 (CR 107.3b). A mode chosen
+            // from several comes back through `XValue`, which asks nothing:
+            // every mode offered here costs nothing.
+            stage,
+            options,
             free: true,
             by_effect: None,
         };
@@ -341,35 +360,16 @@ impl<L: CardLookup> Engine<L> {
         if !casting::may_begin_casting(&self.state, player) {
             return Err(EngineError::IllegalAction("no more spells this turn"));
         }
-        let face = &def.faces[0];
-        let abilities = def.abilities_for_face(0);
-        let modal_only = abilities
-            .iter()
-            .any(|a| matches!(a, AbilityDef::ModalSpell { .. }))
-            && !abilities
-                .iter()
-                .any(|a| matches!(a, AbilityDef::Spell { .. }))
-            && !face.types.is_permanent();
-        let mut options = Vec::new();
-        if modal_only {
-            for ability in def.abilities {
-                let AbilityDef::ModalSpell { modes } = ability else {
-                    continue;
-                };
-                for i in 0..modes.len() {
-                    if casting::mode_has_a_legal_target(&self.state, &self.lookup, player, card, i)
-                    {
-                        options.push(CastModeDesc {
-                            index: options.len() as u8,
-                            kind: CastModeKind::Mode(i),
-                            cost: ManaCost::ZERO,
-                        });
-                    }
-                }
-            }
-            if options.is_empty() {
-                return Err(EngineError::IllegalAction("no way to cast this spell"));
-            }
+        // The modes a free cast may choose, as `start_free_cast` offers them
+        // (`free_modes`): each at no cost, a spree's sets with their own.
+        let modal_only = casting::modes_are_the_only_way(def, 0);
+        let options = if modal_only {
+            self.free_modes(player, card, def)
+        } else {
+            Vec::new()
+        };
+        if modal_only && options.is_empty() {
+            return Err(EngineError::IllegalAction("no way to cast this spell"));
         }
         let single = options.len() <= 1;
         let option = if modal_only {
@@ -462,6 +462,106 @@ impl<L: CardLookup> Engine<L> {
         };
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
+    }
+
+    /// The modes a modal spell may be cast in without paying its mana cost,
+    /// each at no cost.
+    ///
+    /// Not a mode with a cost of its own: overload is an alternative cost
+    /// (CR 702.96a), "without paying its mana cost" is one too (CR 118.9),
+    /// and only one alternative cost can be applied to a spell (CR 118.9a).
+    /// A mode no target can be found for is not offered either, as
+    /// `cast_options` offers none.
+    fn free_modes(
+        &self,
+        player: PlayerId,
+        card: ObjectId,
+        def: &baylee_cards_dsl::CardDef,
+    ) -> Vec<CastModeDesc> {
+        let mut options = Vec::new();
+        for ability in def.abilities_for_face(0) {
+            let AbilityDef::ModalSpell { modes, choose } = ability else {
+                continue;
+            };
+            if !choose.is_one() {
+                // A set of modes, and each mode's own cost with it: those
+                // are additional costs, added to the alternative cost a free
+                // cast is (CR 118.9d), so a free Final Showdown still pays
+                // {1} for each "+ {1}" it chooses. Offered only when the pool
+                // already holds it, as every cost in the wizard is.
+                let with_restricted =
+                    casting::spendable_pool(&self.state, player, casting::SpendFor::Spell(card));
+                let pool = with_restricted
+                    .as_ref()
+                    .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
+                for set in casting::mode_sets(modes, *choose) {
+                    let cost = casting::mode_set_cost(ManaCost::ZERO, modes, set);
+                    if casting::wild_or_not(casting::mana_is_wild(&self.state), pool, &cost)
+                        && casting::mode_set_has_legal_targets(
+                            &self.state,
+                            &self.lookup,
+                            player,
+                            card,
+                            set,
+                        )
+                    {
+                        options.push(CastModeDesc {
+                            index: u8::try_from(options.len()).unwrap_or(u8::MAX),
+                            kind: CastModeKind::Modes(set),
+                            cost,
+                        });
+                    }
+                }
+                continue;
+            }
+            for (i, mode) in modes.iter().enumerate() {
+                if mode.cost_override.is_none()
+                    && casting::mode_has_a_legal_target(&self.state, &self.lookup, player, card, i)
+                {
+                    options.push(CastModeDesc {
+                        index: u8::try_from(options.len()).unwrap_or(u8::MAX),
+                        kind: CastModeKind::Mode(i),
+                        cost: ManaCost::ZERO,
+                    });
+                }
+            }
+        }
+        options
+    }
+
+    /// Whether [`Self::start_free_cast`] can put `card` on the stack for
+    /// `player` right now: the probe a discovered card is offered on
+    /// (CR 701.57a), so that "cast it?" is only asked of a card that can be.
+    ///
+    /// The refusals the wizard can meet with nothing to pay: a land (never a
+    /// spell), a cast an effect forbids (CR 601.3a), a mode or target that
+    /// cannot be chosen (CR 601.2c), and an additional sacrifice with nothing
+    /// to sacrifice (CR 601.2h). Timing is not one of them: a spell cast
+    /// while something resolves ignores it (CR 608.2g).
+    pub(crate) fn free_cast_possible(&self, player: PlayerId, card: ObjectId) -> bool {
+        let Some(obj) = self.state.object(card) else {
+            return false;
+        };
+        let Some(def) = obj.card.and_then(|c| self.lookup.card(c.index)) else {
+            return false;
+        };
+        if obj
+            .characteristics()
+            .types
+            .contains(baylee_core::types::TypeSet::LAND)
+            || casting::cast_is_forbidden(&self.state, player, obj)
+        {
+            return false;
+        }
+        if additional_sacrifices(&def.faces[0])
+            .any(|part| super::cost_wizard::options(&self.state, player, card, part).is_empty())
+        {
+            return false;
+        }
+        if casting::modes_are_the_only_way(def, 0) {
+            return !self.free_modes(player, card, def).is_empty();
+        }
+        casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
     }
 
     /// All legal ways to cast `card` right now.
@@ -729,11 +829,34 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
-        // Modal spells (overload & friends): one option per mode.
+        // Modal spells (overload & friends): one option per mode — or, for a
+        // spell that chooses more than one, one per set of modes it may be
+        // cast with, each priced with its modes' own costs (CR 700.2h).
         for ability in def.abilities {
-            let AbilityDef::ModalSpell { modes } = ability else {
+            let AbilityDef::ModalSpell { modes, choose } = ability else {
                 continue;
             };
+            if !choose.is_one() {
+                for set in casting::mode_sets(modes, *choose) {
+                    let cost = casting::mode_set_cost(face.mana_cost, modes, set);
+                    if afford(&cost.with_x(0))
+                        && casting::mode_set_has_legal_targets(
+                            &self.state,
+                            &self.lookup,
+                            player,
+                            card,
+                            set,
+                        )
+                    {
+                        options.push(CastModeDesc {
+                            index: (options.len()) as u8,
+                            kind: CastModeKind::Modes(set),
+                            cost: cost.with_more_generic(tax),
+                        });
+                    }
+                }
+                continue;
+            }
             for (i, mode) in modes.iter().enumerate() {
                 let cost = mode.cost_override.unwrap_or(face.mana_cost);
                 // Affordable *and* pointable. Every other option in this
@@ -1313,11 +1436,15 @@ impl<L: CardLookup> Engine<L> {
         let abilities = def.abilities_for_face(face_index);
         match wizard.option {
             Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
-                AbilityDef::ModalSpell { modes } => {
+                AbilityDef::ModalSpell { modes, .. } => {
                     modes.get(i).and_then(|m: &SpellMode| m.targets)
                 }
                 _ => None,
             }),
+            // Several modes: the first of them that says "target" is the
+            // spell's first instance of the word (CR 700.2c), the second
+            // its second — `wizard_second_target_req`.
+            Some(CastModeKind::Modes(set)) => targeted_mode(abilities, set, 0),
             _ => abilities.iter().find_map(|a| match a {
                 AbilityDef::Spell { targets, .. } => *targets,
                 _ => None,
@@ -1326,8 +1453,10 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// The spell's requirement for a second instance of the word "target",
-    /// if it prints one: [`AbilityDef::Spell`]'s, or the chosen mode's
-    /// (Archdruid's Charm's second mode says "target" twice).
+    /// if it prints one: [`AbilityDef::Spell`]'s, the chosen mode's
+    /// (Archdruid's Charm's second mode says "target" twice), or, for a set
+    /// of chosen modes, the second of them that says "target" (Three Steps
+    /// Ahead, CR 700.2c).
     pub(super) fn wizard_second_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
         let def = self
             .state
@@ -1342,11 +1471,12 @@ impl<L: CardLookup> Engine<L> {
         let abilities = def.abilities_for_face(face_index);
         match wizard.option {
             Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
-                AbilityDef::ModalSpell { modes } => {
+                AbilityDef::ModalSpell { modes, .. } => {
                     modes.get(i).and_then(|m: &SpellMode| m.second_targets)
                 }
                 _ => None,
             }),
+            Some(CastModeKind::Modes(set)) => targeted_mode(abilities, set, 1),
             _ => abilities.iter().find_map(|a| match a {
                 AbilityDef::Spell { second_targets, .. } => *second_targets,
                 _ => None,
@@ -1390,7 +1520,14 @@ impl<L: CardLookup> Engine<L> {
         if reduction > 0 {
             total = reduce_generic(&total, reduction);
         }
-        if pays_mana(wizard) {
+        // What the pool held of each color before the payment, restricted
+        // units included: the colors it holds less of afterwards are the
+        // colors spent (converge).
+        let held_before = units_by_color(&self.state.players[player.get() as usize].mana_pool);
+        // A free cast pays nothing but what is added to it: a kicker, the
+        // replicate cost, or the costs of the modes it chose (CR 118.9d).
+        let owed = pays_mana(wizard) || total != ManaCost::ZERO;
+        if owed {
             // Restricted mana (Cavern of Souls & co.) is spent where the
             // spell may spend it, and a rider applies for each entry that
             // actually paid. A failed payment has touched nothing.
@@ -1616,6 +1753,10 @@ impl<L: CardLookup> Engine<L> {
                 Some(CastModeKind::Mode(i)) => Some(i.try_into().expect("mode index fits u8")),
                 _ => None,
             };
+            obj.modes = match wizard.option {
+                Some(CastModeKind::Modes(set)) => set,
+                _ => 0,
+            };
         }
         // Commander-cast tracking: casts from the command zone count, once
         // for the seat (Commander's Insight) and once for the commander
@@ -1653,13 +1794,22 @@ impl<L: CardLookup> Engine<L> {
         // gives it up: the spell on the stack is the object that reads it.
         // A free cast spent no mana (CR 601.2h pays nothing it was not
         // asked for), whatever its printed cost says.
-        let mana_spent = if pays_mana(wizard) { total.cmc() } else { 0 };
+        let mana_spent = if owed { total.cmc() } else { 0 };
+        let held_after = units_by_color(&self.state.players[player.get() as usize].mana_pool);
+        let colors_spent = baylee_core::color::Color::ALL
+            .into_iter()
+            .zip(held_before.into_iter().zip(held_after))
+            .filter(|(_, (before, after))| after < before)
+            .fold(baylee_core::color::ColorSet::EMPTY, |set, (color, _)| {
+                set.union(baylee_core::color::ColorSet::of(color))
+            });
         if (mana_spent > 0 || sacrificed_mana_value.is_some())
             && let Some(obj) = self.state.object_mut(card)
         {
             obj.paid = Some(Box::new(crate::object::PaidRecord {
                 sacrificed_mana_value,
                 mana_spent,
+                colors_spent,
                 tapped: None,
             }));
         }
@@ -1826,6 +1976,35 @@ fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> M
         total = times(total, &replicate, u32::from(wizard.replicated));
     }
     total
+}
+
+/// How many units of each color `pool` holds, plain and restricted alike,
+/// in [`baylee_core::color::Color::ALL`]'s order.
+fn units_by_color(pool: &baylee_core::mana::ManaPool) -> [u32; 5] {
+    baylee_core::color::Color::ALL.map(|color| {
+        let mana = baylee_core::mana::ManaColor::from_color(color);
+        u32::from(pool.available(mana))
+            + pool
+                .restricted()
+                .iter()
+                .filter(|r| r.color == mana)
+                .map(|r| u32::from(r.amount))
+                .sum::<u32>()
+    })
+}
+
+/// The `nth` of the chosen modes that says "target" (0 or 1), and what it
+/// asks for: a spell cast with several modes points each of up to two of
+/// them at something, as its first and second instance of the word
+/// (CR 700.2c). `lints::modes_fault` holds a spell that chooses several to
+/// at most two such modes.
+fn targeted_mode(abilities: &'static [AbilityDef], set: u8, nth: usize) -> Option<TargetReq> {
+    abilities.iter().find_map(|a| match a {
+        AbilityDef::ModalSpell { modes, .. } => casting::chosen_modes(modes, set)
+            .filter_map(|(_, mode)| mode.targets)
+            .nth(nth),
+        _ => None,
+    })
 }
 
 /// `total` with `cost` added `n` times: the replicate cost paid `n` times

@@ -12,7 +12,7 @@ use crate::event::PolicyAnswer;
 use crate::state::Side;
 use crate::turn::DayNight;
 use crate::win::Victor;
-use baylee_cards_dsl::{Filter, PlayerRel, SpellMode, TargetReq, TargetSpec};
+use baylee_cards_dsl::{Effect, Filter, PlayerRel, SpellMode, TargetReq, TargetSpec};
 use baylee_core::ids::{AbilityRef, SeatSet};
 use baylee_core::preset::LoopPolicy;
 
@@ -1712,6 +1712,7 @@ impl<L: CardLookup> Engine<L> {
             matches!(fx.duration, Duration::WhileSourceOnBattlefield)
                 && fx.source.is_some_and(|s| gone.contains(&s))
         });
+        end_control_durations(&mut self.state);
         forget_effects_on_moved_objects(&mut self.state);
         // Collect statics of permanents not yet registered (then apply,
         // so the borrow of `state` ends before mutation).
@@ -2008,7 +2009,7 @@ impl<L: CardLookup> Engine<L> {
     /// target requirement, and two of the three doors to the stack — at four
     /// different moments, and the object underneath is free to change between
     /// them, so all four ask here.
-    fn trigger_abilities(
+    pub(super) fn trigger_abilities(
         &self,
         t: &crate::trigger::PendingTrigger,
     ) -> &'static [baylee_cards_dsl::AbilityDef] {
@@ -2048,6 +2049,9 @@ impl<L: CardLookup> Engine<L> {
         });
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
+            object.event_amount = trigger
+                .event_damage
+                .and_then(|(_, n)| core::num::NonZeroU16::new(n));
             object.target_req = bound;
         }
     }
@@ -2130,6 +2134,7 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             }
             let mut res = crate::resolve::Resolution {
+                retarget_left: None,
                 source: t.source,
                 on_stack: t.source,
                 controller: t.controller,
@@ -2344,6 +2349,9 @@ impl<L: CardLookup> Engine<L> {
                             obj.event_object = Some(event_object);
                         }
                     }
+                    if self.ask_trigger_second_target() {
+                        return;
+                    }
                     continue;
                 }
                 let options = eval::target_options(
@@ -2396,14 +2404,16 @@ impl<L: CardLookup> Engine<L> {
                         gathered: SmallVec::new(),
                         remaining: opponents,
                     };
+                    let (source, ability_index, mode) = (t.source, t.ability_index, t.chosen_mode);
                     if self
-                        .ask_next_opponent(
-                            t.controller,
-                            t.source,
-                            t.ability_index,
-                            t.chosen_mode,
-                            first,
-                        )
+                        .ask_next_opponent(t.controller, t.source, first, |asking| {
+                            PlanKind::Trigger {
+                                source,
+                                ability_index,
+                                mode,
+                                per_opponent: Some(asking),
+                            }
+                        })
                         .is_none()
                     {
                         return;
@@ -2441,6 +2451,33 @@ impl<L: CardLookup> Engine<L> {
             if t.synthetic_effects.is_some()
                 && let Some(spec) = t.synthetic_target
             {
+                // "For each opponent, … up to one target creature that player
+                // controls": one question per opponent, as the printed path
+                // asks it, and the trigger stacks even when nobody had
+                // anything to point at — "up to one" can always be targeted
+                // legally (CR 603.3d removes only a trigger that cannot).
+                if let TargetSpec::ObjectOfEachOpponent(_) = spec {
+                    let first = super::PerOpponent {
+                        spec: t.bind_target(spec),
+                        gathered: SmallVec::new(),
+                        remaining: self.opponents_in_turn_order(t.controller),
+                    };
+                    let plan_t = t.clone();
+                    let gathered =
+                        self.ask_next_opponent(t.controller, t.source, first, |asking| {
+                            PlanKind::SyntheticTriggerTarget {
+                                trigger: plan_t,
+                                per_opponent: Some(asking),
+                            }
+                        });
+                    match gathered {
+                        None => return,
+                        Some(all) => {
+                            self.push_synthetic_trigger_with_targets(&t, all);
+                            continue;
+                        }
+                    }
+                }
                 let options =
                     eval::target_options(&t.bind_target(spec), &self.state, t.controller, t.source);
                 if options.is_empty() {
@@ -2452,7 +2489,10 @@ impl<L: CardLookup> Engine<L> {
                     continue;
                 }
                 let plan_t = t.clone();
-                self.pending_plan = Some(PlanKind::SyntheticTriggerTarget { trigger: plan_t });
+                self.pending_plan = Some(PlanKind::SyntheticTriggerTarget {
+                    trigger: plan_t,
+                    per_opponent: None,
+                });
                 self.pending = Pending::ChooseTargets {
                     player: t.controller,
                     options,
@@ -2543,6 +2583,9 @@ impl<L: CardLookup> Engine<L> {
                         obj.targets.extend(t.implicit_target);
                     }
                 }
+                if self.ask_trigger_second_target() {
+                    return;
+                }
             }
         }
     }
@@ -2632,6 +2675,29 @@ impl<L: CardLookup> Engine<L> {
         crate::object::ability_target_req(abilities, loc.index, obj.mode_index)
     }
 
+    /// The damage a triggered ability on the stack divides as its controller
+    /// chooses ([`baylee_cards_dsl::Effect::DealDamageDivided`]), read off
+    /// the list it was put on the stack with, as its second target is.
+    pub(super) fn stack_divided_amount(&self, on_stack: ObjectId) -> Option<u32> {
+        let obj = self.state.object(on_stack)?;
+        let loc = obj.ability?;
+        if obj.kind != ObjectKind::AbilityOnStack || loc.index == AbilityRef::SYNTHETIC {
+            return None;
+        }
+        let abilities = obj.own_abilities.unwrap_or_else(|| {
+            self.state
+                .object(loc.source)
+                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
+        });
+        let AbilityDef::Triggered { effects, .. } = abilities.get(loc.index as usize)? else {
+            return None;
+        };
+        effects.iter().find_map(|effect| match effect {
+            baylee_cards_dsl::Effect::DealDamageDivided { amount } => Some(*amount),
+            _ => None,
+        })
+    }
+
     /// What the top of the stack may target with its **second** instance of
     /// the word "target", read from the same places [`Self::stack_target_req`]
     /// reads the first: the spell's own object, or the ability's definition.
@@ -2639,9 +2705,13 @@ impl<L: CardLookup> Engine<L> {
     /// Two arms and not the whole list, because only two shapes can say it —
     /// [`AbilityDef::Spell`] through the object and the activated twins here.
     /// Both twins, for the reason `stack_target_req` gives.
-    fn stack_second_target_req(&self, on_stack: ObjectId) -> Option<TargetReq> {
+    pub(super) fn stack_second_target_req(&self, on_stack: ObjectId) -> Option<TargetReq> {
         let obj = self.state.object(on_stack)?;
-        if obj.kind != ObjectKind::AbilityOnStack {
+        // A requirement written on the object wins: the cast wizard writes a
+        // spell's, and a trigger's is written bound to the player its first
+        // instance named (`Engine::ask_trigger_second_target`), which is the
+        // question its re-check has to ask again.
+        if obj.kind != ObjectKind::AbilityOnStack || obj.second_target_req().is_some() {
             return obj.second_target_req();
         }
         let loc = obj.ability?;
@@ -2656,7 +2726,8 @@ impl<L: CardLookup> Engine<L> {
         match abilities.get(loc.index as usize)? {
             AbilityDef::Activated { second_targets, .. }
             | AbilityDef::ActivatedConditional { second_targets, .. }
-            | AbilityDef::Loyalty { second_targets, .. } => *second_targets,
+            | AbilityDef::Loyalty { second_targets, .. }
+            | AbilityDef::Triggered { second_targets, .. } => *second_targets,
             _ => None,
         }
     }
@@ -3001,6 +3072,7 @@ impl<L: CardLookup> Engine<L> {
                     mana_ability: false,
                     countered_source: None,
                     target_lki: None,
+                    retarget_left: None,
                 };
                 match resolve::run(&mut self.state, &mut res) {
                     resolve::Flow::Complete => self.finish_resolution(&res),
@@ -3033,6 +3105,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
+                retarget_left: None,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
@@ -3059,32 +3132,20 @@ impl<L: CardLookup> Engine<L> {
                 abilities.iter().find_map(|a| match a {
                     AbilityDef::Spell {
                         effects, targets, ..
-                    } if !effects.is_empty() => Some((*effects, targets.is_some())),
+                    } if !effects.is_empty() => {
+                        Some((resolve::flatten(effects), targets.is_some(), None))
+                    }
                     _ => None,
                 })
             })
-            .or_else(|| {
-                let mode_index = self.state.object(top)?.mode_index?;
-                let face = self.state.object(top)?.face_index as usize;
-                let def = self
-                    .state
-                    .object(top)
-                    .and_then(|o| o.card)
-                    .and_then(|c| self.lookup.card(c.index))?;
-                def.abilities_for_face(face).iter().find_map(|a| match a {
-                    AbilityDef::ModalSpell { modes } => modes
-                        .get(mode_index as usize)
-                        .map(|m| (m.effects, m.targets.is_some())),
-                    _ => None,
-                })
-            });
-        if let Some((fx, targeted)) = spell_fx {
+            .or_else(|| self.modal_program(top));
+        if let Some((program, targeted, retarget_left)) = spell_fx {
             let obj = self.state.object(top).expect("stack object exists");
             let mut res = Resolution {
                 source: top,
                 on_stack: top,
                 controller: obj.controller,
-                effects: resolve::flatten(fx),
+                effects: program,
                 pc: 0,
                 targets: obj.targets.clone(),
                 second_targets: SmallVec::from_slice(obj.second_targets()),
@@ -3097,6 +3158,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
+                retarget_left,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
@@ -3109,6 +3171,45 @@ impl<L: CardLookup> Engine<L> {
         } else {
             self.finalize_spell(top);
         }
+    }
+
+    /// What a modal spell on the stack does: its chosen mode's effects, or,
+    /// for a spell cast with several (`GameObject::modes`), every chosen
+    /// mode's, in the order they are printed and not the order they were
+    /// picked in (CR 608.2c).
+    ///
+    /// Beside the program, whether it targets, and where the second of its
+    /// modes that says "target" begins: that mode's targets were chosen as
+    /// the spell's second instance of the word, and from there on they are
+    /// the ones "target" means (`Resolution::retarget_left`).
+    fn modal_program(&self, top: ObjectId) -> Option<(Vec<Effect>, bool, Option<usize>)> {
+        let obj = self.state.object(top)?;
+        let def = obj.card.and_then(|c| self.lookup.card(c.index))?;
+        let modes = def
+            .abilities_for_face(obj.face_index as usize)
+            .iter()
+            .find_map(|a| match a {
+                AbilityDef::ModalSpell { modes, .. } => Some(*modes),
+                _ => None,
+            })?;
+        if obj.modes != 0 {
+            let mut program = Vec::new();
+            let mut targeting = 0_usize;
+            let mut second = None;
+            for (_, mode) in crate::casting::chosen_modes(modes, obj.modes) {
+                if mode.targets.is_some() {
+                    if targeting == 1 {
+                        second = Some(program.len());
+                    }
+                    targeting += 1;
+                }
+                program.extend(resolve::flatten(mode.effects));
+            }
+            let left = second.map(|at| program.len() - at);
+            return Some((program, targeting > 0, left));
+        }
+        let mode = modes.get(usize::from(obj.mode_index?))?;
+        Some((resolve::flatten(mode.effects), mode.targets.is_some(), None))
     }
 
     /// Applies a face switch queued by a resolution effect (transforms).
@@ -3291,6 +3392,17 @@ impl<L: CardLookup> Engine<L> {
                 self.delayed_queue
                     .push_front((trigger.controller, trigger.action));
             }
+        }
+        // A card this resolution discovered is offered once it is over
+        // (CR 701.57a), through the queue step 3b of `run_machine` drains
+        // before anybody receives priority. CR 608.2g casts it *during* the
+        // resolution; the difference is only in what the resolution's own
+        // triggers see, which step 3 stacks first.
+        for (player, card, version) in self.state.discovered.drain(..) {
+            self.delayed_queue.push_back((
+                player,
+                crate::state::DelayedAction::CastDiscovered { card, version },
+            ));
         }
         // A copy of a synthetic ability (CR 707.10) takes the original's
         // effects, which live here and not on the object the resolver made.
@@ -3654,8 +3766,8 @@ impl<L: CardLookup> Engine<L> {
             .map_or(NameRef::new(0), |o| o.base.name)
     }
 
-    /// Pushes a synthetic trigger (prowess, ward, granted abilities) with
-    /// explicitly chosen targets onto the stack.
+    /// Pushes a synthetic trigger (prowess, ward, granted abilities, a
+    /// reflexive one) with explicitly chosen targets onto the stack.
     pub(crate) fn push_synthetic_trigger_with_targets(
         &mut self,
         t: &crate::trigger::PendingTrigger,
@@ -3693,7 +3805,7 @@ impl<L: CardLookup> Engine<L> {
             // them against it at resolution, as it does a spell's.
             obj.target_req = t
                 .synthetic_target
-                .map(|spec| TargetReq::one(t.bind_target(spec)));
+                .map(|spec| synthetic_target_req(t.bind_target(spec)));
             obj
         });
         self.synthetic_fx.insert(id, synthetic);
@@ -3935,6 +4047,7 @@ impl<L: CardLookup> Engine<L> {
             self.trigger_queue
                 .push_back(crate::trigger::PendingTrigger {
                     event_mana_value: None,
+                    event_damage: None,
                     source: id,
                     ability_index: *ability_index,
                     abilities: None,
@@ -4084,6 +4197,80 @@ impl<L: CardLookup> Engine<L> {
         true
     }
 
+    /// Offers a discovered card's cast to the player who discovered it
+    /// (CR 701.57a), if it is still the card in exile that was found
+    /// (`version`) — or puts it into the hand without asking when it cannot
+    /// be cast. Returns `true` when the question is out.
+    fn offer_discovered(&mut self, player: PlayerId, card: ObjectId, version: u32) -> bool {
+        if !self
+            .state
+            .object(card)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Exile && o.version == version)
+        {
+            return false;
+        }
+        if !self.free_cast_possible(player, card) {
+            self.discovered_to_hand(card);
+            return false;
+        }
+        self.pending_plan = Some(PlanKind::Discovered { card });
+        self.pending = Pending::YesNo {
+            player,
+            prompt: crate::choice::YesNoPrompt::Discover { card },
+            source: None,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    /// A discovered card that is not cast goes to its owner's hand
+    /// (CR 701.57a), if it is still in exile.
+    ///
+    /// A priority grant already out is asked again: this runs after a free
+    /// cast the wizard refused, which resumes the game on its way out, and
+    /// the card joins a hand that grant's legal actions did not see.
+    pub(crate) fn discovered_to_hand(&mut self, card: ObjectId) {
+        let Some(owner) = self
+            .state
+            .object(card)
+            .filter(|o| o.zone == crate::zone::Zone::Exile)
+            .map(|o| o.owner)
+        else {
+            return;
+        };
+        let _ = self.state.move_object(
+            card,
+            ZoneLocation::Hand(owner),
+            ZonePosition::Top,
+            Cause::Effect,
+        );
+        if let Pending::Priority { player, .. } = self.pending {
+            self.pending = Pending::Priority {
+                player,
+                legal: Box::new(self.compute_legal(player)),
+            };
+        }
+    }
+
+    /// A delayed "transform it": only the permanent it was made for, on the
+    /// battlefield as the same object and still showing the same face
+    /// (CR 400.7), turns over.
+    fn transform_if_unchanged(&mut self, card: ObjectId, version: u32, face: u8) {
+        let still_there = self.state.object(card).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Battlefield && o.version == version && o.face_index == face
+        });
+        if still_there
+            && let Some(def) = self
+                .state
+                .object(card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+        {
+            self.state
+                .transform(card, def, 1 - usize::from(face.min(1)));
+        }
+    }
+
     /// Processes one queued delayed action; returns `true` when a pending
     /// choice was produced.
     #[allow(clippy::too_many_lines)] // one arm per delayed action; splitting hides the list
@@ -4125,21 +4312,7 @@ impl<L: CardLookup> Engine<L> {
                 version,
                 face,
             } => {
-                let still_there = self.state.object(card).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield
-                        && o.version == version
-                        && o.face_index == face
-                });
-                if still_there
-                    && let Some(def) = self
-                        .state
-                        .object(card)
-                        .and_then(|o| o.card)
-                        .and_then(|c| self.lookup.card(c.index))
-                {
-                    self.state
-                        .transform(card, def, 1 - usize::from(face.min(1)));
-                }
+                self.transform_if_unchanged(card, version, face);
                 false
             }
             crate::state::DelayedAction::Sacrifice { card, version } => {
@@ -4158,6 +4331,9 @@ impl<L: CardLookup> Engine<L> {
                     );
                 }
                 false
+            }
+            crate::state::DelayedAction::CastDiscovered { card, version } => {
+                self.offer_discovered(controller, card, version)
             }
             crate::state::DelayedAction::ReturnToBattlefield { card } => {
                 if self
@@ -4222,6 +4398,7 @@ impl<L: CardLookup> Engine<L> {
     ) {
         self.trigger_queue
             .push_back(crate::trigger::PendingTrigger {
+                event_damage: None,
                 event_mana_value: None,
                 source,
                 ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -4852,6 +5029,34 @@ impl<L: CardLookup> Engine<L> {
     }
 }
 
+/// Ends every "for as long as you control [the source]" whose controller no
+/// longer controls its source (CR 611.2b). The source leaving is handled as
+/// it moves (`GameState::move_object`); this is the other half, a change of
+/// control, which moves nothing.
+fn end_control_durations(state: &mut crate::state::GameState) {
+    use baylee_cards_dsl::Duration;
+    let lost: Vec<(ObjectId, PlayerId)> = state
+        .effects
+        .iter()
+        .filter(|fx| matches!(fx.duration, Duration::WhileYouControlSource))
+        .filter_map(|fx| {
+            let source = fx.source?;
+            let held = state
+                .object(source)
+                .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == fx.controller);
+            (!held).then_some((source, fx.controller))
+        })
+        .collect();
+    if !lost.is_empty() {
+        state.effects.remove_where(|fx| {
+            matches!(fx.duration, Duration::WhileYouControlSource)
+                && fx
+                    .source
+                    .is_some_and(|s| lost.contains(&(s, fx.controller)))
+        });
+    }
+}
+
 /// Drops every effect for as long as the game lasts that names one object
 /// which has since moved: it is a new object the effect never named
 /// (CR 400.7), and a control change would otherwise sit in the hashed table
@@ -4931,4 +5136,16 @@ fn outlives_its_ability(layer: baylee_cards_dsl::Layer) -> bool {
         layer,
         Layer::Copy | Layer::Control | Layer::Type | Layer::Color
     )
+}
+
+/// What a synthetic trigger's targets were chosen against, for the
+/// resolution-time re-check (CR 608.2b): one object, or up to one per
+/// opponent for `ObjectOfEachOpponent` — the count the questions asked, and
+/// written as the printed cards write it (`TargetReq::up_to(spec,
+/// u8::MAX)`), so a second opponent's answer is not trimmed as a surplus.
+fn synthetic_target_req(spec: TargetSpec) -> TargetReq {
+    match spec {
+        TargetSpec::ObjectOfEachOpponent(_) => TargetReq::up_to(spec, u8::MAX),
+        _ => TargetReq::one(spec),
+    }
 }

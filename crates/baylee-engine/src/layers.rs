@@ -463,6 +463,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::SwitchPT
                 | Modifier::CharacteristicPT { .. }
                 | Modifier::ModifyPTPerCount { .. }
+                | Modifier::ModifyPTPerGraveyardCard { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
         // Layer 2 moves a permanent from one side of the table to the
@@ -497,9 +498,12 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::Untapped
         | Filter::Attacking
         | Filter::EnteredThisTurn
+        | Filter::PutIntoGraveyardThisTurn
+        | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::CmcAtMost(_)
         | Filter::CmcAtMostX
+        | Filter::CmcAtMostColorsSpent
         | Filter::CmcAtLeast(_)
         | Filter::InZone(_) => false,
     }
@@ -645,6 +649,22 @@ fn apply(
         }
         Modifier::ModifyPTPerCount { filter, p, t } => {
             let count = count_controlled(state, obj, c, fx.controller, filter);
+            let count = i16::try_from(count).unwrap_or(i16::MAX);
+            if let Some(pow) = &mut c.power {
+                *pow = pow.saturating_add(count.saturating_mul(*p));
+            }
+            if let Some(tou) = &mut c.toughness {
+                *tou = tou.saturating_add(count.saturating_mul(*t));
+            }
+        }
+        Modifier::ModifyPTPerGraveyardCard { filter, p, t } => {
+            let count = state
+                .zones
+                .list(crate::zone::ZoneLocation::Graveyard(fx.controller))
+                .iter()
+                .filter_map(|id| state.object(*id))
+                .filter(|o| crate::eval::matches(filter, state, o, fx.controller, obj.id))
+                .count();
             let count = i16::try_from(count).unwrap_or(i16::MAX);
             if let Some(pow) = &mut c.power {
                 *pow = pow.saturating_add(count.saturating_mul(*p));

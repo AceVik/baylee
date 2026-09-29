@@ -74,6 +74,27 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
         "Choose a number (0–50)"
     );
 
+    // Fury's division: which target, of how many, and what is left.
+    let i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 1,
+        max: 2,
+        reason: baylee_engine::choice::NumberPrompt::DivideDamage {
+            target: obj(1),
+            index: 0,
+            of: 3,
+            left: 4,
+        },
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Damage to target 1 of 3, 4 left to divide (1–2)"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Schaden an Ziel 1 von 3, noch 4 zu verteilen (1–2)"
+    );
+
     // The same question counting replicate payments says so, and what each
     // one costs: "choose a number" over a Lose Focus did not.
     let i = interaction(Pending::ChooseNumber {
@@ -353,6 +374,19 @@ fn four_card_choices_read_as_four_different_decisions() {
     assert_eq!(
         line(ChoicePrompt::CostExile, 1, 1, Lang::De),
         "Wähle 1 Karte aus deinem Friedhof, die ins Exil geschickt wird"
+    );
+
+    // Atraxa asks once per card type, and the type is the question.
+    let creature = ChoicePrompt::OneOfType {
+        card_type: baylee_core::types::TypeSet::CREATURE,
+    };
+    assert_eq!(
+        line(creature, 0, 1, Lang::En),
+        "Put up to one Creature card into your hand"
+    );
+    assert_eq!(
+        line(creature, 0, 1, Lang::De),
+        "Nimm bis zu eine Karte vom Typ Kreatur auf deine Hand"
     );
 
     // And the whole of AS's second half: one card is never "card(s)".

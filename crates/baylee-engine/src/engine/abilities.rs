@@ -1277,6 +1277,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: true,
                 countered_source: None,
                 target_lki: None,
+                retarget_left: None,
             };
             match crate::resolve::run(&mut self.state, &mut res) {
                 crate::resolve::Flow::Complete => {}
@@ -1455,6 +1456,13 @@ impl<L: CardLookup> Engine<L> {
         // in once determined. The offer asked the same helper, so the ability
         // is charged what it was offered at.
         let cost = self.activation_price(player, source, &cost, cost_reduction);
+        // Read before the cost moves the card (CR 702.29c needs to know,
+        // after the discard, that it paid a cycling ability's cost).
+        let cycling = self.state.object(source).is_some_and(|o| {
+            o.abilities(&self.lookup)
+                .get(ability_index as usize)
+                .is_some_and(AbilityDef::is_cycling)
+        });
         // Read before any cost is paid, because a cost may move the source
         // and a moved copy is no longer one — see `Engine::activating_abilities`.
         self.activating_abilities = self
@@ -1820,6 +1828,16 @@ impl<L: CardLookup> Engine<L> {
             self.state
                 .change_life(player, -phyrexian_life, crate::event::Cause::Cost);
         }
+        // "When you cycle this card" is "when you discard this card to pay
+        // an activation cost of a cycling ability" (CR 702.29c), and this is
+        // the one place that knows both halves: `pay_cost` sees a cost, not
+        // whose ability it is.
+        if cycling {
+            self.state.journal.record(GameEvent::Cycled {
+                object: source,
+                player,
+            });
+        }
         // "Activate only once each turn" is spent *here* and not at the
         // offer, because this is the line the rules count: CR 602.2 makes
         // activating an ability putting it on the stack and paying its
@@ -1861,6 +1879,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: true,
                 countered_source: None,
                 target_lki: None,
+                retarget_left: None,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => {}

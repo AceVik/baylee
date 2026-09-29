@@ -407,6 +407,18 @@ pub enum Modifier {
         /// Toughness per match.
         t: i16,
     },
+    /// The affected object gets +P/+T for each card in its controller's
+    /// graveyard that matches the filter (Fiend Artisan: "+1/+1 for each
+    /// creature card in your graveyard"). Layer 7c like
+    /// [`Self::ModifyPTPerCount`], which counts permanents instead.
+    ModifyPTPerGraveyardCard {
+        /// What to count.
+        filter: &'static crate::Filter,
+        /// Power per match.
+        p: i16,
+        /// Toughness per match.
+        t: i16,
+    },
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.
@@ -539,7 +551,9 @@ impl Modifier {
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } => Layer::PtCda,
             Self::SetPT(..) | Self::SetPTToCount(_) => Layer::PtSet,
-            Self::ModifyPT(..) | Self::ModifyPTPerCount { .. } => Layer::PtModify,
+            Self::ModifyPT(..)
+            | Self::ModifyPTPerCount { .. }
+            | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
             Self::LegendRuleOff
@@ -615,6 +629,12 @@ pub struct StaticAbility {
 pub enum Duration {
     /// While the source permanent is on the battlefield.
     WhileSourceOnBattlefield,
+    /// "For as long as you control this creature" (Extraction Specialist,
+    /// CR 611.2b): over once the source leaves the battlefield or another
+    /// player gains control of it. A duration that is already over as the
+    /// effect would begin never starts, and the effect does nothing — the
+    /// source left while the ability waited, or is somebody else's.
+    WhileYouControlSource,
     /// Until end of turn (cleanup).
     UntilEndOfTurn,
     /// Until end of combat.

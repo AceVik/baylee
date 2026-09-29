@@ -372,6 +372,9 @@ impl GameLog {
             | GameEvent::PhaseChanged { .. }
             | GameEvent::StackObjectResolved { .. }
             | GameEvent::DevCommandApplied { .. }
+            // The discard it paid is a line of its own, and the draw is the
+            // ability's.
+            | GameEvent::Cycled { .. }
             // What a seat's own policy answered for it is told to that seat
             // alone, in its view (#234). A line here would reach every seat,
             // or, kept to one, stop an automated loop from folding for all
@@ -1087,6 +1090,7 @@ mod tests {
                 },
                 effects: BLINK_SELF,
                 targets: Some(TargetReq::one(TargetSpec::ThisObject)),
+                second_targets: None,
                 once_per_turn: false,
                 condition: None,
             },
@@ -1094,6 +1098,7 @@ mod tests {
                 trigger: Trigger::EntersBattlefield(&SELF_ONLY),
                 effects: BLINK_SELF,
                 targets: Some(TargetReq::one(TargetSpec::ThisObject)),
+                second_targets: None,
                 once_per_turn: false,
                 condition: None,
             },

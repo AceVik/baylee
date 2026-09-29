@@ -300,6 +300,16 @@ pub enum DelayedAction {
         /// The card in exile.
         card: ObjectId,
     },
+    /// Offer the cast of a discovered card (CR 701.57a) to the player who
+    /// discovered it, without paying its mana cost; a card that cannot be
+    /// cast, or that the player declines, goes to its owner's hand. Nothing
+    /// happens if the card has left exile since (`version`, CR 400.7).
+    CastDiscovered {
+        /// The card in exile.
+        card: ObjectId,
+        /// Its identity on arriving there.
+        version: u32,
+    },
     /// A delayed triggered ability that goes on the stack (CR 603.7): its
     /// source and its effects. The source is the source of the ability
     /// that created it (CR 603.7e), and the object its trigger event was
@@ -355,6 +365,14 @@ pub struct PerTurn {
     /// What each Muldrotha-style allowance has let its controller play from
     /// the graveyard this turn ([`GraveyardPlay`]).
     pub graveyard_plays: Vec<GraveyardPlay>,
+    /// What was put into a graveyard this turn, from anywhere, in arrival
+    /// order (`Filter::PutIntoGraveyardThisTurn`). Written by
+    /// [`GameState::move_object`], beside `entered_battlefield`.
+    pub entered_graveyard: Vec<ObjectId>,
+    /// The objects that are exiled if they would die this turn, each with
+    /// its version (`Effect::ExileIfDiesThisTurn`, CR 400.7): read by
+    /// `replacement::graveyard_destination`.
+    pub exile_if_dies: Vec<(ObjectId, u32)>,
 }
 
 /// One card played or cast from a graveyard under a
@@ -430,6 +448,8 @@ impl PerTurn {
             playable: Vec::new(),
             resolved: Vec::new(),
             graveyard_plays: Vec::new(),
+            entered_graveyard: Vec::new(),
+            exile_if_dies: Vec::new(),
         }
     }
 
@@ -485,6 +505,8 @@ impl PerTurn {
         self.playable.clear();
         self.resolved.clear();
         self.graveyard_plays.clear();
+        self.entered_graveyard.clear();
+        self.exile_if_dies.clear();
     }
 }
 
@@ -823,6 +845,26 @@ pub struct GameState {
     /// `snapshot_hash` nor `loop_signature` reads it. It rests on a rule the
     /// build enforces, not on which cards happen to exist.
     pub reflexive: Vec<crate::trigger::PendingTrigger>,
+    /// Cards a resolving discover (CR 701.57a) exiled and stopped at:
+    /// `(the discovering player, the card, its version in exile)`.
+    ///
+    /// Only `Effect::Discover` fills it, during a stack resolution, and
+    /// `Engine::finish_resolution` hands each entry to the delayed queue as
+    /// that resolution ends, where the cast is offered before anybody
+    /// receives priority. Unlike [`Self::reflexive`] nothing keeps a
+    /// discover last in its list, so a resolution can suspend on a later
+    /// question with an entry here: `snapshot_hash` reads it, and
+    /// `loop_signature`, taken only at priority grants, has nothing to read.
+    pub discovered: Vec<(PlayerId, ObjectId, u32)>,
+    /// The announced division of each ability on the stack that deals
+    /// damage "divided as you choose" (CR 601.2d): its targets, each with
+    /// its share. Written as the ability is put on the stack
+    /// (`Engine::ask_trigger_division`) and read as it resolves; an entry
+    /// whose object has left the stack is dropped as the next resolution
+    /// ends. Off the object because no other object has one, and
+    /// `tests/footprint.rs` holds `GameObject` to its size. Nothing copies a
+    /// triggered ability, so no copy has to carry one (CR 115.7f).
+    pub divided: Vec<(ObjectId, Vec<(ObjectId, u32)>)>,
     /// Copies of synthetic abilities made by the resolution in progress, as
     /// `(original, copy)` (CR 707.10).
     ///
@@ -864,11 +906,15 @@ pub struct GameState {
     /// How often an ability of an object has been used this turn, cleared as
     /// a turn begins.
     ///
-    /// Two clauses share it because they are the same count: "this ability
-    /// triggers only once each turn" (Jin-Gitaxias) and "activate only once
-    /// each turn" (Wall of Roots). The key is the object and the ability
-    /// index, so a permanent that leaves the battlefield and comes back
-    /// starts over — CR 400.7 rather than a convenience.
+    /// Four clauses share it because each is one ability's count of one
+    /// thing it does in a turn: "this ability triggers only once each turn"
+    /// (Jin-Gitaxias), "activate only once each turn" (Wall of Roots), "do
+    /// this only once each turn" (The Reaper, King No More: set by the yes)
+    /// and "if this is the first time this ability has resolved this turn"
+    /// (Omnath, Locus of Creation: its resolutions). No ability says two of
+    /// them. The key is the object and the ability index, so a permanent
+    /// that leaves the battlefield and comes back starts over — CR 400.7
+    /// rather than a convenience.
     ///
     /// It is hashed into [`Self::loop_signature`], because what is left of a
     /// limit decides what is offered. `Engine::loyalty_used_this_turn` is
@@ -1081,6 +1127,8 @@ impl GameState {
             ltb_attachments: Vec::new(),
             ceased: Vec::new(),
             reflexive: Vec::new(),
+            discovered: Vec::new(),
+            divided: Vec::new(),
             synthetic_copies: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
@@ -2195,6 +2243,12 @@ impl GameState {
         self.timestamp += 1;
         let ts = self.timestamp;
         self.record_last_known(id, from_zone);
+        // CR 400.7 for the turn's per-ability tally: what the old object
+        // used this turn is not the new object's. An id is stable for the
+        // whole game and only `version` moves, so the tally keyed by id kept
+        // counting across a blink — Omnath returned by Ephemerate took its
+        // second landfall for the second time this turn, not the first.
+        self.ability_fires.retain(|(object, _), _| *object != id);
         {
             let obj = self.object_mut(id).expect("checked above");
             obj.zone = to.zone();
@@ -2368,6 +2422,21 @@ impl GameState {
         }
         if to.zone() == Zone::Battlefield {
             self.per_turn.entered_battlefield.push(id);
+        }
+        // "For as long as you control [this]" ends as its source leaves
+        // (CR 611.2b), here rather than at the next pass over the effect
+        // table: a blink is back before any pass runs, and what returns is a
+        // new object (CR 400.7) that the effect never named.
+        if from_zone == Zone::Battlefield {
+            self.effects.remove_where(|fx| {
+                matches!(
+                    fx.duration,
+                    baylee_cards_dsl::Duration::WhileYouControlSource
+                ) && fx.source == Some(id)
+            });
+        }
+        if to.zone() == Zone::Graveyard {
+            self.per_turn.entered_graveyard.push(id);
         }
         // Read off `to` after the redirects above, so a commander that went
         // to the command zone instead names no place in a library.
@@ -2599,6 +2668,8 @@ impl GameState {
             // Empty whenever a question is out, by a rule the build
             // enforces; the field says which.
             reflexive: _,
+            discovered,
+            divided,
             synthetic_copies,
             commanders,
             monarch,
@@ -2679,6 +2750,10 @@ impl GameState {
         // this hash is taken at.
         commander_redirect.hash(&mut h);
         pending_copied_faces.hash(&mut h);
+        // A discovered card waiting for the resolution that found it to end.
+        discovered.hash(&mut h);
+        // How an ability on the stack divides its damage.
+        divided.hash(&mut h);
         // The look-back lists are not scan bookkeeping that a priority
         // grant clears: an entry stays until its object moves again, and
         // `eval::matches` consults `ltb_attachments` in general.
@@ -3114,6 +3189,7 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     // two-drop and after a five-drop are two different futures.
     h.option_u32(obj.paid.as_ref().and_then(|p| p.sacrificed_mana_value));
     h.u32(obj.paid.as_ref().map_or(0, |p| p.mana_spent));
+    h.u8(obj.paid.as_ref().map_or(0, |p| p.colors_spent.bits()));
     // And which creature station tapped: its power is what the counters
     // will be.
     let tapped = obj.paid.as_ref().and_then(|p| p.tapped);
@@ -3336,6 +3412,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         chosen_player,
         target_players,
         mode_index,
+        modes,
         chosen_subtype,
         chosen_color,
         chosen_name,
@@ -3347,6 +3424,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         token,
         pending_face_change,
         event_object,
+        event_amount,
         cast_from_hand,
     } = obj;
     id.hash(h);
@@ -3422,6 +3500,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     chosen_player.hash(h);
     target_players.hash(h);
     mode_index.hash(h);
+    modes.hash(h);
     chosen_subtype.hash(h);
     chosen_color.hash(h);
     chosen_name.hash(h);
@@ -3429,6 +3508,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     face_index.hash(h);
     pending_face_change.hash(h);
     event_object.hash(h);
+    event_amount.hash(h);
     cast_from_hand.hash(h);
     // What the object can do when it is not what its card says: a copy's
     // list, an emblem's, an ability's captured one. `own_face` names it.
@@ -3584,11 +3664,17 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         // different effects, and a tag table that left it out would make
         // them one.
         F::EnteredThisTurn => h.u8(30),
+        F::PutIntoGraveyardThisTurn => h.u8(35),
+        F::HasCounter(kind) => {
+            h.u8(36);
+            hash_counter(h, *kind);
+        }
         F::WithSingleTarget => h.u8(34),
         // Its own tag rather than a payload on `CmcAtMost`: the bound is
         // read from the source at match time, so two filters that differ
         // only in *where* the number comes from are different filters.
         F::CmcAtMostX => h.u8(28),
+        F::CmcAtMostColorsSpent => h.u8(37),
         F::CmcAtMost(n) | F::CmcAtLeast(n) => {
             h.u8(if matches!(f, F::CmcAtMost(_)) { 22 } else { 23 });
             h.u32(*n);
@@ -4339,6 +4425,12 @@ mod tests {
             ("per_turn.no_more_spells", |s, _| {
                 s.per_turn.no_more_spells[0] = true;
             }),
+            ("per_turn.entered_graveyard", |s, id| {
+                s.per_turn.entered_graveyard.push(id);
+            }),
+            ("per_turn.exile_if_dies", |s, id| {
+                s.per_turn.exile_if_dies.push((id, 0));
+            }),
             ("per_turn.entered_battlefield", |s, id| {
                 s.per_turn.entered_battlefield.push(id);
             }),
@@ -4475,6 +4567,9 @@ mod tests {
             ("mode_index", |s, id| {
                 fixture_object(s, id).mode_index = Some(1);
             }),
+            ("modes", |s, id| {
+                fixture_object(s, id).modes = 0b101;
+            }),
             ("chosen_subtype", |s, id| {
                 fixture_object(s, id).chosen_subtype = Some(SubtypeId::new(1));
             }),
@@ -4504,6 +4599,9 @@ mod tests {
             }),
             ("event_object", |s, id| {
                 fixture_object(s, id).event_object = Some(id);
+            }),
+            ("event_amount", |s, id| {
+                fixture_object(s, id).event_amount = core::num::NonZeroU16::new(3);
             }),
             ("cast_from_hand", |s, id| {
                 let object = fixture_object(s, id);

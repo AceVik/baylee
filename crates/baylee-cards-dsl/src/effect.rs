@@ -259,6 +259,10 @@ pub enum Amount {
     CountersOnSource(CounterKind),
     /// The mana value of the first target (Reanimate's life loss).
     TargetCmc,
+    /// "That much": the amount of damage the triggering event dealt
+    /// (Questing Beast's redirect). Carried from the event onto the
+    /// triggered ability as it goes on the stack; 0 anywhere else.
+    EventAmount,
     /// "The sacrificed creature's mana value": the mana value, as it last
     /// existed on the battlefield (CR 608.2h), of the permanent sacrificed
     /// to pay the cost of the spell or ability that is resolving (Eldritch
@@ -428,16 +432,20 @@ pub struct ManaRestriction {
 ///
 /// "When you do" names the action printed directly before it, and the
 /// event is what makes the sentence a trigger rather than an `if`. The
-/// enum has one variant because this pool needs one. Grist's −2 ("you may
-/// sacrifice a creature. When you do, …") needs `Sacrificed(&Filter)`, and
-/// Agatha's Soul Cauldron ("when a creature card is exiled this way")
-/// needs `Exiled(&Filter)`. Both come with their cards, and each brings its
-/// own action clause to the placement lint.
+/// enum has the variants this pool needs. Grist's −2 ("you may sacrifice a
+/// creature. When you do, …") needs `Sacrificed(&Filter)`, and Agatha's
+/// Soul Cauldron ("when a creature card is exiled this way") needs
+/// `Exiled(&Filter)`. Both come with their cards, and each brings its own
+/// action clause to the placement lint.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ReflexiveEvent {
     /// "Sacrifice it. When you do, …" / "Then you may sacrifice this land.
     /// When you do, …": this resolution sacrificed its own source.
     SacrificedThis,
+    /// "You may exile it. When you do, …" (The Balrog of Moria, whose dies
+    /// trigger exiles the card from the graveyard): this resolution exiled
+    /// its own source, by `Effect::ExileSource`.
+    ExiledThis,
 }
 
 /// Relative player references.
@@ -479,6 +487,31 @@ pub enum TargetSpec {
     /// one list. Written with `TargetReq::up_to(spec, u8::MAX)`; the count
     /// is the opponents' (CR 601.2c, 115.1).
     ObjectOfEachOpponent(&'static Filter),
+    /// "Target opponent or [filter]" (Ravager of the Fells: "target opponent
+    /// or planeswalker"): one choice over the opponents and the permanents
+    /// the filter matches, offered together the way "any target" offers its
+    /// two lists (CR 115.1d).
+    OpponentOrObject(&'static Filter),
+    /// "Target [filter] that player or that planeswalker's controller
+    /// controls" — a **second** instance of "target" whose permanents are
+    /// those of the player the first instance named, or of the controller of
+    /// the permanent it named (Ravager of the Fells). Written only as an
+    /// ability's `second_targets`; the engine binds it to
+    /// [`Self::ObjectControlledBy`] once the first answer is in, since the
+    /// targets of one instance are chosen before the next (CR 601.2c).
+    ObjectOfFirstTargetsPlayer(&'static Filter),
+    /// A permanent matching the filter that one named player controls. Never
+    /// written on a card: it is what a spec that names "that player" becomes
+    /// once the engine knows which player that is, kept on the stack object
+    /// so the resolution-time re-check (CR 608.2b) asks the same question
+    /// the offer did.
+    ObjectControlledBy(&'static Filter, baylee_core::ids::PlayerId),
+    /// "Target [filter] that player controls", where "that player" is the
+    /// one the triggering event dealt damage to (Questing Beast: "it deals
+    /// that much damage to target planeswalker that player controls"). The
+    /// engine binds it to [`Self::ObjectControlledBy`] as the trigger is
+    /// put on the stack.
+    ObjectOfEventPlayer(&'static Filter),
     /// A spell on the stack matching the filter.
     Spell(&'static Filter),
     /// A spell on the stack OR a permanent on the battlefield (Venser).
@@ -800,6 +833,27 @@ pub enum Effect {
     Exile {
         /// What.
         target: TargetSpec,
+    },
+    /// "It deals `amount` damage divided as you choose among any number of
+    /// target creatures and/or planeswalkers" (Fury): the ability's targets
+    /// share the damage as its controller divided it.
+    ///
+    /// The division is announced as the ability is put on the stack, after
+    /// its targets (CR 601.2d, which CR 603.3d applies to a triggered
+    /// ability), and every target is given at least 1 — so the ability's
+    /// `TargetReq` asks for at most `amount` of them. It is asked target by
+    /// target in the order they were chosen; the last one takes the rest.
+    /// At resolution a target that has become illegal is dealt nothing, and
+    /// its share goes to nobody else (CR 608.2b).
+    ///
+    /// A fixed amount, and only on a triggered ability: nothing in the cast
+    /// wizard asks a division yet, so Fire // Ice's "2 damage divided as you
+    /// choose among one or two targets" and Shatterskull Smashing's X are
+    /// not said by this. `lints::every_divided_damage_is_a_trigger_that_can_divide`
+    /// holds both halves.
+    DealDamageDivided {
+        /// The damage divided.
+        amount: u32,
     },
     /// Exile a target and return it to the battlefield immediately
     /// (Ephemerate).
@@ -1182,6 +1236,54 @@ pub enum Effect {
     /// Exile each target; return it to the battlefield under its owner's
     /// control at the beginning of the next end step (Venser +2).
     ExileAndReturnAtEndStep,
+    /// "Its owner puts it on their choice of the top or bottom of their
+    /// library" (Subtlety). The target leaves the stack or the battlefield
+    /// for its owner's library, and the **owner** picks the end, whoever
+    /// controls this ability. Not a counter: a spell that can't be countered
+    /// goes all the same.
+    OwnerPutsOnTopOrBottom {
+        /// What (a spell or a permanent the ability targeted).
+        target: TargetSpec,
+    },
+    /// "If that creature would die this turn, exile it instead" (Mawloc):
+    /// a replacement effect (CR 614.1a) on each object the spec names, for
+    /// the rest of the turn and for that object only — a creature that left
+    /// the battlefield and came back is a new object (CR 400.7) and dies as
+    /// usual. A token is exiled instead as well, and does not die.
+    ExileIfDiesThisTurn {
+        /// Which creature.
+        target: TargetSpec,
+    },
+    /// Discover N (CR 701.57a): "Exile cards from the top of your library
+    /// until you exile a nonland card with mana value N or less. You may
+    /// cast that card without paying its mana cost if the resulting spell's
+    /// mana value is less than or equal to N. If you don't cast it, put
+    /// that card into your hand. Put the remaining exiled cards on the
+    /// bottom of your library in a random order." (Trumpeting Carnosaur.)
+    ///
+    /// The exiling and the random bottom happen as the ability resolves;
+    /// the cast is offered as soon as the resolution is over, before anybody
+    /// receives priority (the engine's `GameState::discovered`), and a card
+    /// that cannot be cast, or that its owner declines, goes to the hand.
+    Discover {
+        /// N: the highest mana value that stops the exiling.
+        mana_value: u8,
+    },
+    /// "Reveal the top `count` cards of your library. For each card type,
+    /// you may put a card of that type from among the revealed cards into
+    /// your hand. Put the rest on the bottom of your library in a random
+    /// order." (Atraxa, Grand Unifier.)
+    ///
+    /// One question per card type (CR 205.2a) that a revealed card still in
+    /// the library has, in that rule's order: up to one card of that type.
+    /// A card taken for one type is out of the later questions, which is
+    /// what "a card of that type" for each type means for a card with two:
+    /// it is put into the hand once, for one of them, and every set of
+    /// cards the sentence allows is some sequence of answers.
+    RevealTopOnePerType {
+        /// How many cards are revealed.
+        count: u8,
+    },
     /// Counter a spell on the stack; it goes to exile instead of the
     /// graveyard (Force of Negation).
     CounterTargetSpellToExile,
@@ -1399,6 +1501,20 @@ pub enum Effect {
         /// What happens on a yes.
         effects: &'static [Effect],
     },
+    /// "You may …. Do this only once each turn." (The Reaper, King No More.)
+    ///
+    /// The ability still triggers every time; what is limited is the
+    /// optional action. A yes uses the turn's one go and a no does not, so
+    /// the question is asked again the next time the ability resolves. A
+    /// source that has used it this turn is not asked at all, and neither is
+    /// one whose action has become impossible (CR 608.2d): the card to put
+    /// onto the battlefield has left the graveyard. The limit is kept per
+    /// object, so a source that left the battlefield and came back is a new
+    /// object with a fresh turn (CR 400.7).
+    MayDoOnceEachTurn {
+        /// What happens on a yes.
+        effects: &'static [Effect],
+    },
     /// "When you do, …": creates a reflexive triggered ability
     /// (CR 603.12). It is written as the **last** op of a list that
     /// resolves off the stack, directly after the action it waits for. It
@@ -1428,8 +1544,11 @@ pub enum Effect {
         /// Its target. It is chosen as the ability is put on the stack
         /// (CR 603.3d, which applies CR 601.2c), not while the resolution
         /// that created it runs. It is `Option<TargetSpec>` and not a
-        /// [`TargetReq`] because that is what a synthetic trigger carries,
-        /// and every reflexive target in the pool is exactly one object.
+        /// [`TargetReq`] because that is what a synthetic trigger carries.
+        /// The spec says how many: exactly one object, or
+        /// [`TargetSpec::ObjectOfEachOpponent`]'s up to one per opponent
+        /// (The Balrog of Moria), asked opponent by opponent as the printed
+        /// path asks it.
         target: Option<TargetSpec>,
     },
     /// Branch on whether the spell was kicked (paid its additional cost).
@@ -1468,9 +1587,39 @@ pub enum Effect {
         /// Effects when it does not.
         otherwise: &'static [Effect],
     },
+    /// "…if this is the first time this ability has resolved this turn. If
+    /// it's the second time, …. If it's the third time, …." (Omnath, Locus
+    /// of Creation.) The nth effect runs as this ability resolves for the
+    /// nth time this turn, and a resolution past the end of the list does
+    /// nothing.
+    ///
+    /// The count is the ability's own, kept per object and ability index in
+    /// the turn's tally (`GameState::ability_fires` in the engine), so a
+    /// source that left the battlefield and came back starts over
+    /// (CR 400.7). It is counted as this effect runs, which is the ability
+    /// resolving when the effect is the whole of it, as Omnath's is.
+    NthResolutionThisTurn {
+        /// One effect per resolution, the first time first.
+        effects: &'static [Effect],
+    },
     /// The source gains the prepared marker (Emeritus of Woe's
     /// re-prepare trigger).
     BecomePrepared,
+    /// "… target … if it's [filter]": the effects run only when the first
+    /// target, as it is when this runs, matches `filter` (Prismatic Ending:
+    /// "Exile target nonland permanent if its mana value is less than or
+    /// equal to the number of colors of mana spent to cast this spell").
+    ///
+    /// The condition is not a targeting restriction: the target is chosen
+    /// by the requirement alone (CR 601.2c), before the costs are paid
+    /// (CR 601.2h) that converge counts, and a target that fails `filter`
+    /// is still a legal one — the spell resolves and does nothing to it.
+    IfTargetMatches {
+        /// What the target has to be.
+        filter: &'static crate::Filter,
+        /// Effects when it is.
+        then: &'static [Effect],
+    },
     /// Branch when at least N creatures died this turn (Emeritus of
     /// Woe's re-prepare condition).
     IfCreaturesDiedAtLeast {
@@ -1681,6 +1830,31 @@ pub enum Effect {
         /// Only objects controlled by opponents (Cyclonic Rift style).
         opponents_only: bool,
     },
+    /// "Exile all [permanents]" (Farewell): every permanent `filter`
+    /// matches as this resolves. Nothing is targeted (CR 115.1a names a
+    /// target by the word), so hexproof and protection do not stop it.
+    ExileAll {
+        /// What.
+        filter: &'static Filter,
+    },
+    /// "Choose a creature you control. It gains indestructible until end of
+    /// turn." (Final Showdown): as this resolves its controller chooses one
+    /// permanent they control that `filter` matches (CR 608.2d), and `then`
+    /// happens to it — the chosen permanent is what `Filter::This` names
+    /// inside `then`. A choice and not a target (CR 115.1a), so hexproof
+    /// does not stop it; with nothing to choose, `then` does nothing
+    /// (CR 609.3).
+    ///
+    /// `then` is run as a nested list with the choice as its object, and a
+    /// nested list that stops for a question hands the rest of itself back
+    /// to the outer one, which does not know the choice — so `then` holds
+    /// only effects that ask nothing (`lints::chosen_then_fault`).
+    ChooseYoursThen {
+        /// What may be chosen, among the permanents its controller controls.
+        filter: &'static Filter,
+        /// What happens to the chosen one.
+        then: &'static [Effect],
+    },
     /// Destroy all objects matching a filter (wraths).
     DestroyAll {
         /// What.
@@ -1737,6 +1911,13 @@ pub enum Effect {
     GraveyardToHand {
         /// What (`CardInGraveyard`).
         target: TargetSpec,
+    },
+    /// "Return to your hand all [filter] cards in your graveyard" (Garna,
+    /// the Bloodflame). No target: every matching card in the controller's
+    /// graveyard as the effect resolves.
+    GraveyardAllToHand {
+        /// Which cards.
+        filter: &'static Filter,
     },
     /// Put a graveyard card onto the battlefield (reanimation).
     GraveyardToBattlefield {
@@ -2618,12 +2799,16 @@ impl Effect {
             // has to read it.
             Effect::Sequence(effects)
             | Effect::MayDo { effects }
+            | Effect::MayDoOnceEachTurn { effects }
+            | Effect::NthResolutionThisTurn { effects }
             | Effect::Reflexive {
                 when: _,
                 effects,
                 target: _,
             } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
+            | Effect::ChooseYoursThen { filter: _, then }
+            | Effect::IfTargetMatches { filter: _, then }
             | Effect::IfNoCountersOnSelf { kind: _, then }
             | Effect::IfNotLostLifeThisTurn { then }
             | Effect::IfResolvedTimesThisTurn { times: _, then }
@@ -2693,6 +2878,11 @@ impl Effect {
             | Effect::UntapTarget
             | Effect::UntapSelf
             | Effect::ExileAndReturnAtEndStep
+            | Effect::OwnerPutsOnTopOrBottom { .. }
+            | Effect::ExileIfDiesThisTurn { .. }
+            | Effect::Discover { .. }
+            | Effect::RevealTopOnePerType { .. }
+            | Effect::DealDamageDivided { .. }
             | Effect::CounterTargetSpellToExile
             | Effect::CounterTargetSpell
             | Effect::CounterTargetAbility
@@ -2708,6 +2898,7 @@ impl Effect {
             | Effect::DiscardRandom { .. }
             | Effect::RevealHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
+            | Effect::GraveyardAllToHand { .. }
             | Effect::YourGraveyardToBattlefield { .. }
             | Effect::Earthbend(_)
             | Effect::ReturnToBattlefieldTapped { .. }
@@ -2736,6 +2927,7 @@ impl Effect {
             | Effect::ReturnToHand { .. }
             | Effect::ReturnAllToHand { .. }
             | Effect::DestroyAll { .. }
+            | Effect::ExileAll { .. }
             | Effect::DestroyOthersNamedLike { .. }
             | Effect::ExileGraveyard { .. }
             | Effect::GraveyardToTop { .. }
@@ -2842,6 +3034,78 @@ mod verb_tests {
         });
         assert_eq!(seen, 2);
         assert!(reveal_seen);
+    }
+
+    /// Each of the nth-resolution effects is walked.
+    #[test]
+    fn nth_resolution_effects_are_visited() {
+        static EFFECTS: &[Effect] = &[Effect::NthResolutionThisTurn {
+            effects: &[Effect::gain_life(4), Effect::draw(1)],
+        }];
+        let mut seen = 0;
+        let mut draw_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            draw_seen |= matches!(effect, Effect::DrawCards { .. });
+        });
+        assert_eq!(seen, 3);
+        assert!(draw_seen);
+    }
+
+    /// "You may …. Do this only once each turn." carries its body the way
+    /// `MayDo` does, and the walk goes into it.
+    #[test]
+    fn once_each_turn_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::MayDoOnceEachTurn {
+            effects: &[Effect::GraveyardToBattlefield {
+                target: TargetSpec::EventObject,
+                owner_control: false,
+                counters: None,
+            }],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::GraveyardToBattlefield { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
+    }
+
+    /// "Choose a creature you control. It …" carries what happens to the
+    /// chosen one the way a one-branch conditional does, and the walk goes
+    /// into it.
+    #[test]
+    fn chosen_permanent_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::ChooseYoursThen {
+            filter: &crate::Filter::CREATURE,
+            then: &[Effect::draw(1)],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::DrawCards { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
+    }
+
+    /// "… if it's [filter]" carries its effects the way the other one-branch
+    /// conditionals do, and the walk goes into them.
+    #[test]
+    fn if_target_matches_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::IfTargetMatches {
+            filter: &crate::Filter::CmcAtMostColorsSpent,
+            then: &[Effect::Exile {
+                target: TargetSpec::Object(&crate::Filter::NONLAND),
+            }],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::Exile { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
     }
 
     use crate::ability::Trigger;

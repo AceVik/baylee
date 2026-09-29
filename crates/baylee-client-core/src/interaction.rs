@@ -172,7 +172,8 @@ pub enum Prompt {
         /// The allowed colours.
         options: Vec<ManaColor>,
     },
-    /// Choose a number: X, or how many times to pay a replicate cost.
+    /// Choose a number: X, how many times to pay a replicate cost, or one
+    /// target's share of divided damage.
     ChooseNumber {
         /// Lowest legal value.
         min: u32,
@@ -380,6 +381,13 @@ impl Prompt {
                 reason: ChoicePrompt::CostCrew { power },
                 ..
             } => Phrase::CrewWithPower.fill(lang, &[&power.to_string()]),
+            // One card type at a time, and the type is the whole question:
+            // the menu is that type's cards, and the next question is the
+            // next type's.
+            Self::ChooseCards {
+                reason: ChoicePrompt::OneOfType { card_type },
+                ..
+            } => Phrase::TakeOneOfType.fill(lang, &[card_type_name(*card_type).text(lang)]),
             // Every other reason is said by the noun that is counted, which is
             // the one place in this sentence where it fits: "Wähle bis zu 2
             // Karten, die nach unten gehen". Without it a tutor, a scry, a
@@ -399,19 +407,7 @@ impl Prompt {
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
             Self::ChooseCardName => Phrase::ChooseCardName.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
-            Self::ChooseNumber {
-                min,
-                max,
-                reason: NumberPrompt::X,
-            } => Phrase::ChooseNumberIn.fill(lang, &[&min.to_string(), &max.to_string()]),
-            Self::ChooseNumber {
-                min,
-                max,
-                reason: NumberPrompt::Replicate { cost },
-            } => Phrase::ReplicateHowOften.fill(
-                lang,
-                &[&cost.to_string(), &min.to_string(), &max.to_string()],
-            ),
+            Self::ChooseNumber { min, max, reason } => number_line(lang, *min, *max, *reason),
             Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
             Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
             Self::ChoosePile { .. } => Phrase::ChoosePileForHand.text(lang).to_string(),
@@ -705,8 +701,53 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounCardFromGraveyard,
             Phrase::NounCardsFromGraveyard,
         ),
-        ChoicePrompt::Delve | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
+        ChoicePrompt::Delve | ChoicePrompt::OneOfType { .. } | ChoicePrompt::Generic => {
+            (Phrase::NounCard, Phrase::NounCards)
+        }
     }
+}
+
+/// The line a number question gets: the range to choose from, or, for one
+/// target's share of a division, that target by its place in the order the
+/// player chose them (the order the stack shows) and what is still to give.
+fn number_line(lang: Lang, min: u32, max: u32, reason: NumberPrompt) -> String {
+    let (min, max) = (min.to_string(), max.to_string());
+    match reason {
+        NumberPrompt::X => Phrase::ChooseNumberIn.fill(lang, &[&min, &max]),
+        NumberPrompt::Replicate { cost } => {
+            Phrase::ReplicateHowOften.fill(lang, &[&cost.to_string(), &min, &max])
+        }
+        NumberPrompt::DivideDamage {
+            index, of, left, ..
+        } => Phrase::DamageShare.fill(
+            lang,
+            &[
+                &(u32::from(index) + 1).to_string(),
+                &of.to_string(),
+                &left.to_string(),
+                &min,
+                &max,
+            ],
+        ),
+    }
+}
+
+/// The name of one card type, for a question asked about it.
+fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
+    use baylee_core::types::TypeSet;
+    [
+        (TypeSet::ARTIFACT, Phrase::KindArtifact),
+        (TypeSet::BATTLE, Phrase::KindBattle),
+        (TypeSet::CREATURE, Phrase::KindCreature),
+        (TypeSet::ENCHANTMENT, Phrase::KindEnchantment),
+        (TypeSet::INSTANT, Phrase::KindInstant),
+        (TypeSet::LAND, Phrase::KindLand),
+        (TypeSet::PLANESWALKER, Phrase::KindPlaneswalker),
+        (TypeSet::SORCERY, Phrase::KindSorcery),
+    ]
+    .into_iter()
+    .find_map(|(t, name)| card_type.contains(t).then_some(name))
+    .unwrap_or(Phrase::KindOther)
 }
 
 /// "Choose two cards", with the noun as an argument rather than glued on.
@@ -762,6 +803,12 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         // a second rendering of it here would be a translation of a
         // translation.
         YesNoPrompt::MayDo => Phrase::UseTheOptionalAbility.text(lang).to_string(),
+        // The owner answers, about a card that may be somebody else's
+        // spell's target: the answer names both ends, so "no" is not read
+        // as "leave it where it is".
+        YesNoPrompt::TopOfLibrary { .. } => Phrase::TopOfLibraryOrBottom.text(lang).to_string(),
+        // "No" is not "nothing": the card still leaves exile, for the hand.
+        YesNoPrompt::Discover { .. } => Phrase::CastDiscovered.text(lang).to_string(),
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
     }
 }

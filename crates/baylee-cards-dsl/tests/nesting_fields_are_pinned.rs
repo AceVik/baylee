@@ -19,7 +19,7 @@
 //! the author of the thing it checks shares that author's blind spot, which
 //! is the same house rule `scripts/llm/README.md` states for card batches.
 
-/// What `Effect`'s body declares today: fourteen `&'static [Effect]` and three
+/// What `Effect`'s body declares today: seventeen `&'static [Effect]` and three
 /// `&'static Effect`.
 ///
 /// Derived twice from the source rather than recalled — once here and once by
@@ -32,11 +32,21 @@
 /// body can reach.
 /// Raised 15 → 16 for `PlayerMayPayLifeOr`; its fallback walk is tested in
 /// `verb_tests::life_payment_fallback_is_visited`.
-/// Raised 16 → 17 for `IfResolvedTimesThisTurn` (Nissa, Resurgent
-/// Animist); its branch walk is `verb_tests::the_nth_resolution_branch_is_visited`.
-const NESTING_FIELDS: usize = 17;
+/// Raised 16 → 17 on 2026-09-29 for `MayDoOnceEachTurn` (The Reaper, King
+/// No More); its body's walk is tested in
+/// `verb_tests::once_each_turn_body_is_visited`.
+/// Raised 17 → 18 the same day for `NthResolutionThisTurn` (Omnath, Locus of
+/// Creation); `verb_tests::nth_resolution_effects_are_visited`.
+/// Raised 18 → 19 the same day for `IfTargetMatches` (Prismatic Ending);
+/// `verb_tests::if_target_matches_body_is_visited`.
+/// Raised 19 → 20 the same day for `ChooseYoursThen` (Final Showdown);
+/// `verb_tests::chosen_permanent_body_is_visited`.
+/// Raised 20 → 21 by the merge with the library group's
+/// `IfResolvedTimesThisTurn` (Nissa, Resurgent Animist); its branch walk is
+/// `verb_tests::the_nth_resolution_branch_is_visited`.
+const NESTING_FIELDS: usize = 21;
 
-/// How many variants those seventeen fields are spread across.
+/// How many variants those twenty-one fields are spread across.
 ///
 /// Pinned **beside** the field count rather than instead of it, because the
 /// two move for different reasons and only one of them describes the defect
@@ -54,8 +64,10 @@ const NESTING_FIELDS: usize = 17;
 /// to make a red test quiet.
 ///
 /// `Reflexive` moved both again on 2026-09-24: one new carrier, one new
-/// branch. `IfResolvedTimesThisTurn` did on 2026-09-29.
-const CARRYING_VARIANTS: usize = 14;
+/// branch. `MayDoOnceEachTurn`, `NthResolutionThisTurn`, `IfTargetMatches`
+/// and `ChooseYoursThen` moved both on 2026-09-29, the same shape, and so
+/// did `IfResolvedTimesThisTurn` the same day.
+const CARRYING_VARIANTS: usize = 18;
 
 /// The floor under the reader itself.
 ///

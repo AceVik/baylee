@@ -2208,9 +2208,18 @@ fn check_target_counts_match_the_printing(
         return;
     };
     tally.targets += 1;
-    if ["up_to_one(", "up_to(", "x_targets(", "min: 0"]
-        .iter()
-        .any(|way| content.contains(way))
+    // `ObjectOfEachOpponent` is "for each opponent, up to one target … that
+    // player controls" and nothing else: the engine asks it as up to one per
+    // opponent (`progress.rs`), so the spec is itself a minimum of none.
+    if [
+        "up_to_one(",
+        "up_to(",
+        "x_targets(",
+        "min: 0",
+        "ObjectOfEachOpponent(",
+    ]
+    .iter()
+    .any(|way| content.contains(way))
     {
         return;
     }
@@ -2266,10 +2275,13 @@ fn check_player_targets_match_the_printing(
         return;
     };
     tally.player_targets += 1;
+    // `OpponentOrObject` is "target opponent or [filter]" (Huntmaster of
+    // the Fells' back face): one instance of the word that may name a player.
     if [
         "TargetSpec::AnyPlayer",
         "TargetSpec::AnyOpponent",
         "TargetSpec::AnyTarget",
+        "TargetSpec::OpponentOrObject",
     ]
     .iter()
     .any(|spec| content.contains(spec))
@@ -2349,6 +2361,9 @@ fn check_player_targets_match_the_printing(
 /// - "you may put a permanent card from among the milled cards into your
 ///   hand" (Wrenn's −2) — `MillMayTakeOne`, the `min: 0` question asked in
 ///   the engine.
+/// - "for each card type, you may put a card of that type from among them
+///   into your hand" — `RevealTopOnePerType` (Atraxa, Grand Unifier), which
+///   asks once per card type with a minimum of none (`resolve::one_per_type`).
 ///
 /// A stub claims nothing and a `Partial` card has said in writing that it
 /// diverges, so both are skipped — the same two exemptions the checks above
@@ -2396,6 +2411,7 @@ fn check_optional_clauses_are_offered(
         "PermanentOfEachTypeFromGraveyard",
         "CastPermanentSpellsFromGraveyard",
         "MillMayTakeOne",
+        "RevealTopOnePerType",
     ];
     if !def.is_implemented() {
         return;
@@ -4245,7 +4261,17 @@ fn check_scope_matches_the_text(
     // Island", "if you control three or more artifacts" — would otherwise be
     // asked for a `ControlledByYou` that would change nothing, and eighteen
     // generated lands landed in one commit with exactly that shape.
-    let filters_you = built.contains("ControlledByYou") || built.contains("ControlCount(");
+    //
+    // Two more say it without a filter. `PtCount::YouControl` counts only
+    // what the ability's controller controls ("the number of creatures you
+    // control", `layers.rs`), and the rendering reaches into a token's
+    // abilities, so Voice of Resurgence's Elemental says it there.
+    // `Duration::WhileYouControlSource` is "for as long as you control this
+    // creature" (CR 611.2b): a duration, not a set of objects.
+    let filters_you = built.contains("ControlledByYou")
+        || built.contains("ControlCount(")
+        || built.contains("YouControl(")
+        || built.contains("WhileYouControlSource");
     let filters_theirs = built.contains("ControlledByOpponent");
 
     if says_you && !filters_you {

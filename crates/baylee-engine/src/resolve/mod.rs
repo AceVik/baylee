@@ -127,6 +127,25 @@ pub struct Resolution {
     /// It is `None` at every construction site for the same reason: nothing
     /// but `run` may decide when "the resolution began" was.
     pub target_lki: Option<Vec<TargetLki>>,
+    /// Where the effects of the second targeting mode of a spell cast with
+    /// several modes begin (CR 700.2a, `progress::modal_program`), counted
+    /// as the ops of the program still to run there: at that point
+    /// `targets` becomes what that mode chose, the spell's second instance
+    /// of the word "target". Its first mode's effects read the first
+    /// instance up to there. `None` for everything else.
+    ///
+    /// Counted from the end and not as a program counter because the one
+    /// thing that rewrites a program, a nested list that stops for a
+    /// question ([`run_nested_with`]), replaces the op at the counter with
+    /// what the nested list has left and moves everything after it; what
+    /// is left after the point stays exactly what it was.
+    ///
+    /// `target_lki` is taken of the first instance only. The pool's one
+    /// such spell, Three Steps Ahead, reads no last known information in
+    /// its second targeting mode — a token copy reads the permanent's
+    /// copiable values while it is there — so nothing would read a snapshot
+    /// of the second.
+    pub retarget_left: Option<usize>,
 }
 
 /// One target as it last existed where the resolution expected it.
@@ -173,6 +192,23 @@ pub(crate) fn this_object(res: &Resolution) -> Option<ObjectId> {
 /// nothing, as an ability that said "target" and got none does (#236).
 pub(crate) fn this_to_affect(state: &GameState, res: &Resolution) -> Option<ObjectId> {
     this_object(res).filter(|&id| state.object(id).is_some())
+}
+
+/// Whether `you` still control the permanent this resolution's ability came
+/// from, as the object it was when the ability was put on the stack.
+///
+/// The second half is the stack object's own record: a source that left the
+/// battlefield while its ability waited froze its power onto it
+/// (`GameObject::source_power_lki`), and that record outlives a blink, which
+/// brings back a new object (CR 400.7) under the same id.
+fn source_still_yours(state: &GameState, res: &Resolution, you: PlayerId) -> bool {
+    let never_left = state
+        .object(res.on_stack)
+        .is_none_or(|o| o.source_power_lki.is_none());
+    never_left
+        && state
+            .object(res.source)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield && o.controller == you)
 }
 
 /// What earthbend makes of its land (CR 701.66a): "a 0/0 land creature
@@ -320,6 +356,27 @@ pub enum AwaitingOp {
     MayDo {
         /// What runs on a yes.
         effects: &'static [Effect],
+        /// "Do this only once each turn" ([`Effect::MayDoOnceEachTurn`]):
+        /// the source and ability index a yes writes into
+        /// `GameState::ability_fires`, the per-turn tally that is cleared as
+        /// each turn begins. `None` for a plain "you may".
+        once_each_turn: Option<(ObjectId, u32)>,
+    },
+    /// A card's owner picks the end of their library it goes to
+    /// ([`Effect::OwnerPutsOnTopOrBottom`]).
+    TopOrBottom {
+        /// The card that is going.
+        card: ObjectId,
+        /// Its owner, whose library it is.
+        owner: PlayerId,
+    },
+    /// After one of `RevealTopOnePerType`'s questions: the chosen card goes
+    /// into the hand, and the next card type is asked.
+    OnePerType {
+        /// The revealed cards, in the order they were on top.
+        revealed: Vec<ObjectId>,
+        /// The position in [`CARD_TYPES`] to ask from next.
+        next: usize,
     },
     /// A player decides whether to pay for a tax effect.
     PlayerMayPay {
@@ -449,6 +506,11 @@ pub enum AwaitingOp {
     },
     /// After `UntapChosen`: untap what was chosen.
     UntapChosen,
+    /// After `ChooseYoursThen`: `then` happens to the chosen permanent.
+    ChooseYoursThen {
+        /// What happens to it.
+        then: &'static [Effect],
+    },
     /// After `Populate`: copy the chosen creature token.
     Populate,
     /// After `LookAtTopPick`: chosen go to hand, the rest to the bottom.
@@ -827,6 +889,12 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .first()
             .and_then(|t| state.object(*t))
             .map_or(0, |o| o.characteristics().mana_value()),
+        // Off the triggered ability, where stacking it wrote the event's
+        // amount.
+        Amount::EventAmount => state
+            .object(res.on_stack)
+            .and_then(|o| o.event_amount)
+            .map_or(0, |n| u32::from(n.get())),
         // Off the stack object, which is where the payment wrote it — a
         // spell's own, or the ability's rather than its permanent's.
         Amount::SacrificedManaValue => state
@@ -1004,6 +1072,14 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         );
     }
     while res.pc < res.effects.len() {
+        // The second targeting mode of a spell cast with several begins
+        // here: "target" means what that mode chose from now on.
+        if res.retarget_left == Some(res.effects.len() - res.pc) {
+            res.retarget_left = None;
+            res.targets = std::mem::take(&mut res.second_targets)
+                .into_iter()
+                .collect();
+        }
         let op = res.effects[res.pc];
         // Continuous effects apply at all times (CR 613), so an effect of
         // this resolution sees what the one before it did: Bridgeworks
@@ -1164,12 +1240,80 @@ fn next_commander_ask(
     Some((card, pending))
 }
 
-/// Resumes a yes/no choice (shockland payment and friends).
-///
-/// # Panics
-/// When the suspended operation is not a yes/no choice.
-#[must_use]
-pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) -> Flow {
+/// The card types a "for each card type" asks about, in CR 205.2a's order:
+/// the ones a card in a library can have.
+const CARD_TYPES: [baylee_core::types::TypeSet; 9] = [
+    baylee_core::types::TypeSet::ARTIFACT,
+    baylee_core::types::TypeSet::BATTLE,
+    baylee_core::types::TypeSet::CREATURE,
+    baylee_core::types::TypeSet::ENCHANTMENT,
+    baylee_core::types::TypeSet::INSTANT,
+    baylee_core::types::TypeSet::KINDRED,
+    baylee_core::types::TypeSet::LAND,
+    baylee_core::types::TypeSet::PLANESWALKER,
+    baylee_core::types::TypeSet::SORCERY,
+];
+
+/// Asks the next of `RevealTopOnePerType`'s questions, from the card type at
+/// `from` on: the first type one of the `revealed` cards still in the
+/// library has. When no type is left to ask about, the cards still there go
+/// to the bottom of the library in a random order and nothing is asked.
+fn one_per_type(
+    state: &mut GameState,
+    res: &mut Resolution,
+    revealed: Vec<ObjectId>,
+    from: usize,
+) -> Option<Pending> {
+    let still_there = |state: &GameState, card: ObjectId| {
+        state
+            .object(card)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Library)
+    };
+    for (i, &card_type) in CARD_TYPES.iter().enumerate().skip(from) {
+        let options: Vec<ObjectId> = revealed
+            .iter()
+            .copied()
+            .filter(|&card| {
+                still_there(state, card)
+                    && state
+                        .object(card)
+                        .is_some_and(|o| o.characteristics().types.contains(card_type))
+            })
+            .collect();
+        if options.is_empty() {
+            continue;
+        }
+        res.awaiting = Some(AwaitingOp::OnePerType {
+            revealed,
+            next: i + 1,
+        });
+        return Some(Pending::ChooseCards {
+            player: res.controller,
+            options,
+            min: 0,
+            max: 1,
+            prompt: ChoicePrompt::OneOfType { card_type },
+        });
+    }
+    let mut rest: Vec<ObjectId> = revealed
+        .into_iter()
+        .filter(|&card| still_there(state, card))
+        .collect();
+    state.rng.shuffle(&mut rest);
+    for card in rest {
+        let _ = state.move_object(
+            card,
+            ZoneLocation::Library(res.controller),
+            ZonePosition::Bottom,
+            Cause::Effect,
+        );
+    }
+    None
+}
+
+/// The two yes/no questions that offer a cast (`MayCastTarget`, cascade),
+/// resumed; `None` when the question out is another one.
+fn resume_cast_question(state: &mut GameState, res: &mut Resolution, answer: bool) -> Option<Flow> {
     // "You may cast that card": a yes is a cast the engine makes as this
     // resolution ends, after a payment window (CR 608.2g).
     if let Some(AwaitingOp::CastTarget {
@@ -1191,7 +1335,7 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
             });
         }
         res.pc += 1;
-        return run(state, res);
+        return Some(run(state, res));
     }
     // Cascade: the cards not cast go to the bottom now, and a yes is a cast
     // the engine makes as this resolution ends (CR 702.85a).
@@ -1215,7 +1359,19 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
         }
         bottom_in_random_order(state, you, rest);
         res.pc += 1;
-        return run(state, res);
+        return Some(run(state, res));
+    }
+    None
+}
+
+/// Resumes a yes/no choice (shockland payment and friends).
+///
+/// # Panics
+/// When the suspended operation is not a yes/no choice.
+#[must_use]
+pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) -> Flow {
+    if let Some(flow) = resume_cast_question(state, res, answer) {
+        return flow;
     }
     if let Some(AwaitingOp::PlayerMayPayLife {
         player,
@@ -1230,6 +1386,24 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
             return run(state, res);
         }
         return run_fallback(state, res, effect);
+    }
+    if let Some(AwaitingOp::TopOrBottom { card, owner }) = res.awaiting {
+        res.awaiting = None;
+        if let Some(obj) = state.object_mut(card) {
+            obj.kind = ObjectKind::Card;
+        }
+        let _ = state.move_object(
+            card,
+            ZoneLocation::Library(owner),
+            if answer {
+                ZonePosition::Top
+            } else {
+                ZonePosition::Bottom
+            },
+            Cause::Effect,
+        );
+        res.pc += 1;
+        return run(state, res);
     }
     // CR 903.9b: record what this owner said, then either ask the next one
     // or run the operation that has been waiting for all of them.
@@ -1276,10 +1450,18 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
 /// When the suspended operation is not an optional clause.
 #[must_use]
 pub fn resume_may_do(state: &mut GameState, res: &mut Resolution, yes: bool) -> Flow {
-    let AwaitingOp::MayDo { effects } = res.awaiting.take().expect("resume without awaiting op")
+    let AwaitingOp::MayDo {
+        effects,
+        once_each_turn,
+    } = res.awaiting.take().expect("resume without awaiting op")
     else {
         panic!("resume_may_do on a choice that is not an optional clause");
     };
+    // The yes uses the turn's one go, before the body runs: the body may
+    // suspend, and the go is spent by choosing to do it.
+    if yes && let Some(key) = once_each_turn {
+        state.ability_fires.insert(key, 1);
+    }
     if yes && let Some(pending) = run_nested(state, res, effects) {
         return Flow::Wait(pending);
     }
@@ -2124,6 +2306,19 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
         }
+        AwaitingOp::OnePerType { revealed, next } => {
+            if let Some(&card) = chosen.first() {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Hand(res.controller),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            if let Some(pending) = one_per_type(state, res, revealed, next) {
+                return Flow::Wait(pending);
+            }
+        }
         AwaitingOp::CopyNewTargets { copy } => {
             if let Some(obj) = state.object_mut(copy) {
                 obj.targets.clear();
@@ -2286,6 +2481,21 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 untap(state, id);
             }
         }
+        // The chosen permanent is what `then` is about, so it runs as a
+        // list of its own with the choice as its object — `Filter::This`
+        // names it there, as it names a target, which is what `targeted`
+        // says. The lint that keeps `then` from asking anything is what
+        // makes the nested run whole (`lints::chosen_then_fault`).
+        AwaitingOp::ChooseYoursThen { then } => {
+            if let Some(&id) = chosen.first() {
+                let targeted = std::mem::replace(&mut res.targeted, true);
+                let pending = run_nested_with(state, res, flatten(then), smallvec::smallvec![id]);
+                res.targeted = targeted;
+                if let Some(pending) = pending {
+                    return Flow::Wait(pending);
+                }
+            }
+        }
         AwaitingOp::Populate => {
             if let Some(&id) = chosen.first() {
                 tokens::populate(state, res.controller, id);
@@ -2305,6 +2515,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         | AwaitingOp::MayDo { .. }
         | AwaitingOp::CascadeCast { .. }
         | AwaitingOp::CastTarget { .. }
+        | AwaitingOp::TopOrBottom { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
@@ -2452,7 +2663,8 @@ fn copy_target_ability(
 /// A copy copies the spell's characteristics, as `mods` change them, and
 /// every decision made for it (CR 707.10): its targets in both instances of
 /// the word and the requirement they answer (which a later change of targets
-/// reads), the players it targets, its mode, X, the face it was cast as,
+/// reads), the players it targets, its mode or set of modes (CR 700.2g),
+/// X, the face it was cast as,
 /// whether it was kicked and how many times replicate was paid. Nothing that
 /// happened to the *card* comes with it: no rider it was cast with, nothing
 /// it paid (a copy is not cast, so no mana was spent to cast it), and no
@@ -2486,6 +2698,7 @@ fn copy_spell(
     let kicked = from.kicked;
     let replicated = from.replicated;
     let mode_index = from.mode_index;
+    let modes = from.modes;
     let face_index = from.face_index;
     for m in mods {
         tokens::apply_copy_mod(&mut base, m);
@@ -2511,6 +2724,7 @@ fn copy_spell(
         obj.kicked = kicked;
         obj.replicated = replicated;
         obj.mode_index = mode_index;
+        obj.modes = modes;
         obj.face_index = face_index;
         obj.zone = crate::zone::Zone::Stack;
         // CR 704.5e: it stops existing the moment it is anywhere but the
@@ -2544,6 +2758,8 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
+        | Effect::MayDoOnceEachTurn { .. }
+        | Effect::OwnerPutsOnTopOrBottom { .. }
         | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     }
@@ -2921,16 +3137,82 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
         }
         Effect::AddMana { .. } => mana::exec(state, res, op),
         Effect::MayDo { effects } => {
-            // CR 608.2d: "The player can't choose an option that's illegal
-            // or impossible." "You may sacrifice this land" after the land
-            // has gone is exactly that, so it is not asked, and the clause
-            // does not happen. Only this one body is read, and the
-            // predicate is the one the sacrifice itself checks. Any other
-            // "may" is still asked as before.
-            if effects == [Effect::SacrificeSelf] && !zones::can_sacrifice_self(state, res) {
+            if !may_clause_possible(state, res, effects) {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::MayDo { effects });
+            res.awaiting = Some(AwaitingOp::MayDo {
+                effects,
+                once_each_turn: None,
+            });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::MayDo,
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::OwnerPutsOnTopOrBottom { target: _ } => {
+            // The chosen target; CR 608.2b has already dropped the ability
+            // if it is gone. A spell or a permanent, and nothing else:
+            // anything the target moved to since is a new object anyway.
+            let card = res.targets.first().copied()?;
+            let obj = state.object(card)?;
+            if !matches!(
+                obj.zone,
+                crate::zone::Zone::Stack | crate::zone::Zone::Battlefield
+            ) {
+                return None;
+            }
+            let owner = obj.owner;
+            // CR 903.9b before the end is picked: a commander its owner
+            // sends home goes to the command zone, and which end of the
+            // library it would have gone to is no longer a question.
+            if let Some(pending) =
+                ask_commander_replace(state, res, &[(card, ZoneLocation::Library(owner))])
+            {
+                return Some(pending);
+            }
+            if state
+                .commander_redirect
+                .iter()
+                .any(|(o, home)| *o == card && *home)
+            {
+                if let Some(obj) = state.object_mut(card) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::TopOrBottom { card, owner });
+            // No handle a standing answer could be filed under: the owner is
+            // answering about somebody else's ability, and "always the top"
+            // for a card they do not control is not an answer they gave.
+            Some(Pending::YesNo {
+                player: owner,
+                prompt: YesNoPrompt::TopOfLibrary { card },
+                source: None,
+            })
+        }
+        Effect::MayDoOnceEachTurn { effects } => {
+            // The ability on the stack names its source and its index; a
+            // spell has neither, and no spell prints the sentence.
+            let key = state
+                .object(res.on_stack)
+                .and_then(|o| o.ability)
+                .map(|loc| (loc.source, loc.index));
+            if key.is_some_and(|key| state.ability_fires.contains_key(&key))
+                || !may_clause_possible(state, res, effects)
+            {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::MayDo {
+                effects,
+                once_each_turn: key,
+            });
             Some(Pending::YesNo {
                 player: you,
                 prompt: YesNoPrompt::MayDo,
@@ -2982,6 +3264,32 @@ pub fn resolving_ability(
         .map(|c| AbilityRef::new(c.index, AbilityRef::SPELL))
 }
 
+/// Whether an optional clause can still be done, asked before it is offered.
+///
+/// CR 608.2d: "The player can't choose an option that's illegal or
+/// impossible." "You may sacrifice this land" after the land has gone is
+/// that, and so is "you may put that card onto the battlefield" once the
+/// card has left the graveyard (CR 400.7). Neither is asked, and the clause
+/// does not happen; for "do this only once each turn" that also keeps the
+/// turn's one go. Only these two bodies are read, each with the predicate
+/// its own effect checks, and any other "may" is asked as before.
+fn may_clause_possible(state: &GameState, res: &Resolution, effects: &[Effect]) -> bool {
+    match effects {
+        [Effect::SacrificeSelf] => zones::can_sacrifice_self(state, res),
+        [
+            Effect::GraveyardToBattlefield {
+                target: TargetSpec::EventObject,
+                ..
+            },
+        ] => res.event_object.is_some_and(|card| {
+            state
+                .object(card)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard)
+        }),
+        _ => true,
+    }
+}
+
 /// Runs a nested branch (If*/kicked-style conditional effects) inline;
 /// a suspension inside the branch splices its remaining ops into the
 /// parent's program and propagates the choice.
@@ -3018,6 +3326,7 @@ fn run_nested_with(
         mana_ability: false,
         countered_source: res.countered_source,
         target_lki: None,
+        retarget_left: None,
     };
     match run(state, &mut nested) {
         Flow::Complete => None,
@@ -3058,15 +3367,19 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::DamageEqualToPower { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::DealDamageToTargetController { .. }
+        | Effect::DealDamageDivided { .. }
         | Effect::DealDamageEach { .. } => life::exec(state, res, op),
         Effect::Exile { .. }
         | Effect::Blink { .. }
         | Effect::ReturnToHand { .. }
         | Effect::ReturnAllToHand { .. }
         | Effect::DestroyAll { .. }
+        | Effect::ExileAll { .. }
+        | Effect::ChooseYoursThen { .. }
         | Effect::DestroyOthersNamedLike { .. }
         | Effect::ExileGraveyard { .. }
         | Effect::GraveyardToHand { .. }
+        | Effect::GraveyardAllToHand { .. }
         | Effect::GraveyardToTop { .. }
         | Effect::GraveyardToBattlefield { .. }
         | Effect::PutSourceOnTopOfLibrary
@@ -3237,6 +3550,19 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             let branch = if kicked { then } else { otherwise };
             run_nested(state, res, branch)
         }
+        // The first target as it is now; a target that is gone was dropped
+        // by CR 608.2b before anything here ran.
+        Effect::IfTargetMatches { filter, then } => {
+            let holds = res
+                .targets
+                .first()
+                .and_then(|&t| state.object(t))
+                .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
+            if holds {
+                return run_nested(state, res, then);
+            }
+            None
+        }
         Effect::IfCreaturesDiedAtLeast { n, then } => {
             if state.per_turn.creatures_died >= n {
                 return run_nested(state, res, then);
@@ -3304,6 +3630,81 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::ExileIfDiesThisTurn { target } => {
+            for id in zones::spec_objects(res, target) {
+                if let Some(obj) = state.object(id)
+                    && obj.zone == crate::zone::Zone::Battlefield
+                {
+                    let named = (id, obj.version);
+                    if !state.per_turn.exile_if_dies.contains(&named) {
+                        state.per_turn.exile_if_dies.push(named);
+                    }
+                }
+            }
+            None
+        }
+        Effect::Discover { mana_value } => {
+            // CR 701.57a, the part that is done as the ability resolves: the
+            // exiling, and the cards passed over put on the bottom in a
+            // random order. The cast is the engine's to offer once this
+            // resolution is over (`GameState::discovered`); the cards already
+            // under the library are the same cards in the same random order
+            // either way.
+            let you = res.controller;
+            let mut passed = Vec::new();
+            let mut found = None;
+            while let Some(&top) = state.zones.list(ZoneLocation::Library(you)).last() {
+                let _ = state.move_object(
+                    top,
+                    ZoneLocation::Exile(you),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                let Some(obj) = state.object(top) else {
+                    break;
+                };
+                // A card that did not leave the library would be exiled
+                // again and again: stop where the effect stops being able to
+                // do what it says.
+                if obj.zone != crate::zone::Zone::Exile {
+                    break;
+                }
+                let c = obj.characteristics();
+                if !c.types.contains(baylee_core::types::TypeSet::LAND)
+                    && c.mana_value() <= u32::from(mana_value)
+                {
+                    found = Some((top, obj.version));
+                    break;
+                }
+                passed.push(top);
+            }
+            state.rng.shuffle(&mut passed);
+            for card in passed {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(you),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+            if let Some((card, version)) = found {
+                state.discovered.push((you, card, version));
+            }
+            None
+        }
+        Effect::NthResolutionThisTurn { effects } => {
+            // This resolution is the ability's nth this turn, counted in the
+            // turn's per-ability tally. A spell has no ability to count.
+            let key = state
+                .object(res.on_stack)
+                .and_then(|o| o.ability)
+                .map(|loc| (loc.source, loc.index))?;
+            let nth = state.ability_fires.get(&key).copied().unwrap_or(0) + 1;
+            state.ability_fires.insert(key, nth);
+            let index = usize::try_from(nth - 1).ok()?;
+            let this_time = effects.get(index..=index)?;
+            run_nested(state, res, this_time)
+        }
         // The seat is the ability's controller and the source is its
         // object, which is the same pair `condition_holds` is handed at an
         // activation gate and at an intervening `if` — one reader, so a
@@ -3346,6 +3747,12 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             modifier: baylee_cards_dsl::Modifier::GainControl,
             ..
         } if state.has_left(you) => None,
+        // CR 611.2b: a "for as long as you control" that is already over
+        // does nothing.
+        Effect::CreateContinuousEffect {
+            duration: baylee_cards_dsl::Duration::WhileYouControlSource,
+            ..
+        } if !source_still_yours(state, res, you) => None,
         Effect::CreateContinuousEffect {
             layer,
             filter,
@@ -3715,6 +4122,26 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 },
             })
         }
+        Effect::RevealTopOnePerType { count } => {
+            let top: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .iter()
+                .rev()
+                .take(usize::from(count))
+                .copied()
+                .collect();
+            if top.is_empty() {
+                return None;
+            }
+            // Shown to every player where they are (CR 701.20a), before any
+            // of them moves.
+            state.journal.record(GameEvent::Revealed {
+                player: you,
+                cards: top.clone(),
+            });
+            one_per_type(state, res, top, 0)
+        }
         Effect::LookAtTopPick {
             count,
             pick,
@@ -4022,6 +4449,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
+        | Effect::MayDoOnceEachTurn { .. }
+        | Effect::OwnerPutsOnTopOrBottom { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }
@@ -4387,6 +4816,7 @@ mod created_for_the_departed_tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),
             event_object: None,
             awaiting: None,

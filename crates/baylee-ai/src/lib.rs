@@ -442,6 +442,12 @@ impl HeuristicAgent {
                 // what the floating pool pays beside the rest of the cast,
                 // and each payment is the spell once more (CR 702.56a).
                 baylee_engine::choice::NumberPrompt::Replicate { .. } => max,
+                // A share of a division: what the target needs to die, if it
+                // is an opponent's, within what the question allows; the
+                // least for anything else.
+                baylee_engine::choice::NumberPrompt::DivideDamage { target, .. } => {
+                    self.damage_share(view, target, min, max)
+                }
             }),
             Pending::ChoosePlayer { options, .. } => {
                 PlayerAction::ChoosePlayer(self.player_target(view, &options, context))
@@ -508,19 +514,26 @@ impl HeuristicAgent {
                 // nobody can reach into, and the {2} on the next cast is
                 // cheaper than the deck's whole plan being milled or
                 // exiled — a seat that would rather reanimate it needs the
-                // evaluator this agent does not have yet.
-                // A spell for nothing (cascade) is taken too. And a pact's
-                // payment is attempted: the owed-mana planner handles the
-                // window. So is a card this seat's own ability offered to
-                // cast (Conduit of Worlds): the activation was the choice,
-                // and a window it cannot fill casts nothing and costs
-                // nothing.
+                // evaluator this agent does not have yet. And the top of the
+                // library for a card of this seat's that somebody else's
+                // ability is sending away: on top it is the next draw, on
+                // the bottom it is gone for the game. And a discovered card
+                // (CR 701.57a): it is only offered when it can be cast, and a
+                // spell for nothing is worth more than the card in hand.
+                // A spell for nothing (cascade) is taken too. So is a card
+                // this seat's own ability offered to cast (Conduit of
+                // Worlds): the activation was the choice, and a window it
+                // cannot fill casts nothing and costs nothing.
                 YesNoPrompt::MayDo
                 | YesNoPrompt::CommanderZone { .. }
+                | YesNoPrompt::TopOfLibrary { .. }
+                | YesNoPrompt::Discover { .. }
                 | YesNoPrompt::CastWithoutPaying { .. }
                 | YesNoPrompt::CastPaying { .. }
-                | YesNoPrompt::PayPact { .. }
-                | YesNoPrompt::Generic => PlayerAction::YesNo(true),
+                | YesNoPrompt::Generic
+                // A pact: attempt payment; the owed-mana planner handles the
+                // window.
+                | YesNoPrompt::PayPact { .. } => PlayerAction::YesNo(true),
                 // CR 903.9b answers itself from the destination, which is
                 // why the prompt carries it. A library is the same loss the
                 // graveyard would have been, so it goes home. A *hand* is
@@ -941,6 +954,134 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Atraxa's "for each card type, you may put a card of that type … into
+    /// your hand": one of the type's cards is taken, and the best of them.
+    /// The Wurm is listed first on purpose, because the fallback answers
+    /// `options[..max]`; with no lands on the table the Elves are worth
+    /// 800 - 150 and the Wurm 800 - 750.
+    #[test]
+    fn a_card_of_a_revealed_type_is_taken_and_the_best_one() {
+        use baylee_engine::choice::ChoicePrompt;
+        let me = PlayerId::new(0);
+        let (elves, wurm) = (obj(1), obj(2));
+        let mut v = view(0, &[20, 20], vec![]);
+        v.graveyards[0] = vec![
+            carded(permanent(elves, me, 1), "Llanowar Elves", TypeSet::CREATURE),
+            carded(permanent(wurm, me, 6), "Endless Wurm", TypeSet::CREATURE),
+        ];
+        let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+            &v,
+            &Pending::ChooseCards {
+                player: v.seat,
+                options: vec![wurm, elves],
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::OneOfType {
+                    card_type: TypeSet::CREATURE,
+                },
+            },
+        );
+        assert_eq!(
+            action,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves]
+            }
+        );
+    }
+
+    /// A share of damage this seat divides (CR 601.2d): what finishes an
+    /// opponent's creature, its toughness less the damage already marked,
+    /// or a planeswalker's loyalty, within the question's bounds; the least
+    /// to one of its own, which leaves the most for the targets to come.
+    #[test]
+    fn a_divided_share_is_what_finishes_the_target() {
+        use baylee_engine::choice::NumberPrompt;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut hurt = permanent(obj(1), them, 3);
+        hurt.damage = 1;
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                hurt,
+                permanent(obj(2), them, 5),
+                walker(obj(3), them, 2),
+                permanent(obj(4), me, 1),
+            ],
+        );
+        for (target, expected, why) in [
+            (obj(1), 2, "a 3/3 with 1 marked"),
+            (obj(2), 3, "a 5/5 takes all the question allows"),
+            (obj(3), 2, "a planeswalker with 2 loyalty"),
+            (obj(4), 1, "the seat's own creature"),
+        ] {
+            let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+                &v,
+                &Pending::ChooseNumber {
+                    player: v.seat,
+                    min: 1,
+                    max: 3,
+                    reason: NumberPrompt::DivideDamage {
+                        target,
+                        index: 0,
+                        of: 2,
+                        left: 4,
+                    },
+                },
+            );
+            assert_eq!(action, PlayerAction::ChooseNumber(expected), "{why}");
+        }
+    }
+
+    /// Fury's targets: the opponent's creatures its 4 damage can finish,
+    /// the most valuable first, and not the 5/5 it cannot, which would
+    /// only take damage from one it can. With nothing it can finish, the
+    /// best of the opponent's takes it all; its own are never named.
+    #[test]
+    fn divided_damage_is_aimed_at_what_it_can_finish() {
+        use baylee_cards_dsl::Effect;
+        use baylee_engine::engine::DecisionContext;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let effects = [Effect::DealDamageDivided { amount: 4 }];
+        let context = DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        };
+        let aim = |battlefield: Vec<PublicObject>| {
+            let v = view(0, &[20, 20], battlefield);
+            let options = v.battlefield.iter().map(|o| o.id).collect();
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(
+                &v,
+                &Pending::ChooseTargets {
+                    player: v.seat,
+                    options,
+                    player_options: vec![],
+                    min: 0,
+                    max: 4,
+                    reason: baylee_engine::choice::TargetPrompt::Targets,
+                },
+                &context,
+            )
+        };
+        let chosen = |objects| PlayerAction::ChooseTargets {
+            objects,
+            players: vec![],
+        };
+        assert_eq!(
+            aim(vec![
+                permanent(obj(4), me, 1),
+                permanent(obj(1), them, 5),
+                permanent(obj(2), them, 3),
+                permanent(obj(3), them, 1),
+            ]),
+            chosen(vec![obj(2), obj(3)])
+        );
+        assert_eq!(
+            aim(vec![permanent(obj(4), me, 1), permanent(obj(1), them, 5)]),
+            chosen(vec![obj(1)])
+        );
     }
 
     #[test]
@@ -5179,6 +5320,122 @@ mod tests {
                 ),
                 PlayerAction::ChooseMode(expected),
                 "against {what}, only mode {expected} of Sheoldred's Edict does anything"
+            );
+        }
+    }
+
+    /// "Choose one or more —" is chosen by what each chosen mode reaches.
+    ///
+    /// Farewell's fifteen sets, as the engine offers them: bit `i` is mode
+    /// `i`, in increasing order. A set holding a mode that exiles nothing is
+    /// paid for and partly idle, so it loses to every set without one; of
+    /// the rest, the one reaching the most wins; and "exile all graveyards",
+    /// which this agent cannot read, is not bought for its own sake, because
+    /// the earlier (smaller) set breaks the tie. Against a lone creature that
+    /// is the creatures alone. Against an artifact creature it is artifacts
+    /// and creatures both, which is the half the first answer cannot pass
+    /// by accident. Against nothing at all it is the graveyards: the one
+    /// mode that may do something beats the first printed, which does
+    /// nothing.
+    #[test]
+    fn a_spell_of_several_modes_takes_the_set_that_reaches_the_most() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        let them = PlayerId::new(1);
+        let options: Vec<CastModeDesc> = (1..16_u8)
+            .map(|set| CastModeDesc {
+                index: set - 1,
+                kind: CastModeKind::Modes(set),
+                cost: baylee_core::mana::ManaCost::parse("{4}{W}{W}"),
+            })
+            .collect();
+        let strix = |types| vec![carded(permanent(obj(1), them, 2), "Baleful Strix", types)];
+        for (what, board, expected) in [
+            ("a creature", strix(TypeSet::CREATURE), 0b0010),
+            (
+                "an artifact creature",
+                strix(TypeSet::ARTIFACT.union(TypeSet::CREATURE)),
+                0b0011,
+            ),
+            ("nothing at all", vec![], 0b1000),
+        ] {
+            let mut v = view(0, &[20, 20], board);
+            v.stack = vec![carded(
+                permanent(obj(9), PlayerId::new(0), 0),
+                "Farewell",
+                TypeSet::SORCERY,
+            )];
+            let answer = agent().act(
+                &v,
+                &Pending::ChooseCastMode {
+                    player: v.seat,
+                    object: obj(9),
+                    options: options.clone(),
+                },
+            );
+            let PlayerAction::ChooseMode(slot) = answer else {
+                panic!("expected a set of modes, got {answer:?}")
+            };
+            assert_eq!(
+                options[slot].kind,
+                CastModeKind::Modes(expected),
+                "against {what}"
+            );
+        }
+    }
+
+    /// "Choose a creature you control" reaches something when there is one
+    /// of the agent's own to choose. Final Showdown against a board with a
+    /// creature on each side: the destruction reaches, and so does keeping
+    /// the agent's own creature out of it, so both are bought. With nothing
+    /// of its own the choice would find nothing, and the destruction is
+    /// cast alone.
+    #[test]
+    fn a_spree_spell_buys_the_mode_that_saves_its_own_creature() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let options: Vec<CastModeDesc> = (1..8_u8)
+            .map(|set| CastModeDesc {
+                index: set - 1,
+                kind: CastModeKind::Modes(set),
+                cost: baylee_core::mana::ManaCost::ZERO,
+            })
+            .collect();
+        let creature = |id, seat| {
+            carded(
+                permanent(obj(id), seat, 2),
+                "Baleful Strix",
+                TypeSet::CREATURE,
+            )
+        };
+        for (what, board, expected) in [
+            (
+                "a creature each",
+                vec![creature(1, me), creature(2, them)],
+                0b110,
+            ),
+            ("only theirs", vec![creature(2, them)], 0b100),
+        ] {
+            let mut v = view(0, &[20, 20], board);
+            v.stack = vec![carded(
+                permanent(obj(9), me, 0),
+                "Final Showdown",
+                TypeSet::INSTANT,
+            )];
+            let answer = agent().act(
+                &v,
+                &Pending::ChooseCastMode {
+                    player: v.seat,
+                    object: obj(9),
+                    options: options.clone(),
+                },
+            );
+            let PlayerAction::ChooseMode(slot) = answer else {
+                panic!("expected a set of modes, got {answer:?}")
+            };
+            assert_eq!(
+                options[slot].kind,
+                CastModeKind::Modes(expected),
+                "against {what}"
             );
         }
     }

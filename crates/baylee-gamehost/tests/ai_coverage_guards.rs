@@ -105,7 +105,7 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
         | AbilityDef::ActivatedConditional { effects, .. }
         | AbilityDef::SagaChapter { effects, .. }
         | AbilityDef::Loyalty { effects, .. } => vec![effects],
-        AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
             modes.iter().map(|mode| mode.effects).collect()
         }
         AbilityDef::Unimplemented
@@ -847,8 +847,8 @@ fn no_pool_face_states_two_mode_lists() {
             let mut lists: Vec<&'static [baylee_cards::dsl::SpellMode]> = Vec::new();
             let mut here = 0;
             for ability in def.abilities_for_face(index) {
-                let (AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. }) =
-                    ability
+                let (AbilityDef::ModalSpell { modes, .. }
+                | AbilityDef::ModalTriggered { modes, .. }) = ability
                 else {
                     continue;
                 };

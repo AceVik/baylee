@@ -1775,6 +1775,11 @@ messages! {
     ChooseColour { en: "Choose a colour", de: "Wähle eine Farbe" },
     /// Choose a number ({0}–{1})
     ChooseNumberIn { en: "Choose a number ({0}–{1})", de: "Wähle eine Zahl ({0}–{1})" },
+    /// One target's share of damage divided as the player chooses (Fury).
+    DamageShare {
+        en: "Damage to target {0} of {1}, {2} left to divide ({3}–{4})",
+        de: "Schaden an Ziel {0} von {1}, noch {2} zu verteilen ({3}–{4})",
+    },
     /// Replicate {0}: pay it how many times? ({1}–{2})
     ReplicateHowOften {
         en: "Replicate {0}: pay it how many times? ({1}–{2})",
@@ -1894,6 +1899,21 @@ messages! {
     UseTheOptionalAbility {
         en: "This ability is optional. Use it?",
         de: "Diese Fähigkeit ist optional. Einsetzen?",
+    },
+    /// Your card goes into your library: the top, or the bottom? (Subtlety)
+    TopOfLibraryOrBottom {
+        en: "Your card goes into your library. On top? (No puts it on the bottom.)",
+        de: "Deine Karte kommt in deine Bibliothek. Oben drauf? (Nein legt sie unter.)",
+    },
+    /// One card of a named card type into the hand, or none (Atraxa).
+    TakeOneOfType {
+        en: "Put up to one {0} card into your hand",
+        de: "Nimm bis zu eine Karte vom Typ {0} auf deine Hand",
+    },
+    /// Cast the discovered card for free, or take it into the hand?
+    CastDiscovered {
+        en: "You discovered this card. Cast it without paying its mana cost? (No puts it into your hand.)",
+        de: "Du hast diese Karte entdeckt. Ohne ihre Manakosten zu bezahlen wirken? (Nein nimmt sie auf deine Hand.)",
     },
     /// Yes or no?
     YesOrNo { en: "Yes or no?", de: "Ja oder nein?" },

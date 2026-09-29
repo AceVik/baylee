@@ -770,6 +770,11 @@ pub struct PaidRecord {
     /// How much mana was spent on the cost (CR 601.2h) — "the amount of mana
     /// spent to cast this spell" (Memory Deluge).
     pub mana_spent: u32,
+    /// The colors of the mana spent on the cost — "the number of colors of
+    /// mana spent to cast this spell" (converge). Colorless mana is a type
+    /// and not a color (CR 106.1a, CR 106.1b), and a creature tapped for
+    /// convoke is tapped rather than paying mana (CR 702.51a).
+    pub colors_spent: baylee_core::color::ColorSet,
     /// The permanent a `CostPart::TapOther` tapped, as the object it was
     /// then (id and version) — "the tapped creature" station counts the
     /// power of (CR 702.184a). `None` when the cost tapped nothing else.
@@ -922,6 +927,10 @@ pub struct GameObject {
     pub target_players: baylee_core::ids::SeatSet,
     /// The chosen spell mode (modal spells / overload).
     pub mode_index: Option<u8>,
+    /// The modes chosen for a spell that chooses more than one
+    /// (`CastModeKind::Modes`, CR 700.2a): bit `i` is mode `i`, and zero on
+    /// every other object. A choose-one spell's mode is `mode_index`.
+    pub modes: u8,
     /// The creature type chosen as this entered ("the chosen type" —
     /// Roaming Throne, Reflections of Littjara, Cavern of Souls).
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
@@ -1027,6 +1036,13 @@ pub struct GameObject {
     pub pending_face_change: Option<u8>,
     /// The object a triggering event was about (event-driven triggers).
     pub event_object: Option<ObjectId>,
+    /// "That much": the amount of damage the triggering event dealt, on a
+    /// triggered ability that was put on the stack for one (Questing
+    /// Beast), read by `Amount::EventAmount`. Never zero: a source that
+    /// would deal 0 damage deals none (CR 120.8), so no damage event carries
+    /// it. The field is two bytes, but `GameObject` had no padding left and
+    /// the object grew by eight (`tests/footprint.rs`).
+    pub event_amount: Option<core::num::NonZeroU16>,
     /// Whether the spell was cast from the hand (rebound condition).
     pub cast_from_hand: bool,
 }
@@ -1065,6 +1081,7 @@ impl GameObject {
             second: None,
             original_base: None,
             event_object: None,
+            event_amount: None,
             ability: None,
             source_power_lki: None,
             paid: None,
@@ -1076,6 +1093,7 @@ impl GameObject {
             chosen_player: None,
             target_players: baylee_core::ids::SeatSet::new(),
             mode_index: None,
+            modes: 0,
             chosen_subtype: None,
             chosen_color: None,
             chosen_name: None,

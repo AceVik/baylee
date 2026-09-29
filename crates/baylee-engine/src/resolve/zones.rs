@@ -78,8 +78,14 @@ fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
     match target {
         TargetSpec::ThisObject => Some(res.source),
         TargetSpec::EventObject => res.event_object,
+        // The one spec that is only ever a second instance of "target"
+        // names the object that instance chose.
+        TargetSpec::ObjectOfFirstTargetsPlayer(_) => res.second_targets.first().copied(),
         TargetSpec::Object(_)
         | TargetSpec::ObjectOfEachOpponent(_)
+        | TargetSpec::OpponentOrObject(_)
+        | TargetSpec::ObjectControlledBy(..)
+        | TargetSpec::ObjectOfEventPlayer(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)
@@ -108,9 +114,11 @@ fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
 /// The two implicit specs stay singular by construction: neither names a
 /// list, and `res.targets` for an untargeted synthetic trigger holds at most
 /// its one implicit target, so reading it here would add nothing.
-fn spec_objects(res: &Resolution, target: TargetSpec) -> SmallVec<[ObjectId; 2]> {
+pub(super) fn spec_objects(res: &Resolution, target: TargetSpec) -> SmallVec<[ObjectId; 2]> {
     match target {
-        TargetSpec::ThisObject | TargetSpec::EventObject => {
+        TargetSpec::ThisObject
+        | TargetSpec::EventObject
+        | TargetSpec::ObjectOfFirstTargetsPlayer(_) => {
             spec_object(res, target).into_iter().collect()
         }
         _ => res.targets.clone(),
@@ -256,6 +264,31 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        // Farewell's four sweeps. Nothing is targeted, and a phased-out
+        // permanent is treated as though it doesn't exist (CR 702.26b),
+        // which `battlefield_seen` is.
+        Effect::ExileAll { filter } => {
+            let all: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                })
+                .collect();
+            for id in all {
+                let Some(owner) = state.object(id).map(|o| o.owner) else {
+                    continue;
+                };
+                let _ = state.move_object(
+                    id,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
         // Maelstrom Pulse's sweep. The name is read now, off the projected
         // characteristics of the permanent still on the battlefield — the
         // card effect destroying it comes after this one — and a nameless
@@ -317,6 +350,29 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+            }
+            None
+        }
+        Effect::GraveyardAllToHand { filter } => {
+            // Chosen before anything moves: CR 903.9b's question comes
+            // first, and its last answer re-enters here with the same list.
+            let moves: Vec<(ObjectId, ZoneLocation)> = state
+                .zones
+                .list(ZoneLocation::Graveyard(you))
+                .iter()
+                .copied()
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                })
+                .map(|id| (id, ZoneLocation::Hand(you)))
+                .collect();
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            for (card, to) in moves {
+                let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
             }
             None
         }
@@ -737,6 +793,24 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             });
             Some(Pending::ChooseCards {
                 player,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
+        // "Choose a creature you control": a choice made as this resolves
+        // (CR 608.2d), and one that must be made when it can — the sentence
+        // is an instruction, so `min: 1`. Nothing to choose, nothing
+        // happens (CR 609.3), and nobody is asked an empty question.
+        Effect::ChooseYoursThen { filter, then } => {
+            let options = chosen::options(state, you, filter, you, res.source);
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::ChooseYoursThen { then });
+            Some(Pending::ChooseCards {
+                player: you,
                 options,
                 min: 1,
                 max: 1,

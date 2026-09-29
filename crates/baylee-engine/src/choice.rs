@@ -191,8 +191,8 @@ pub enum Pending {
         /// The legal cast options.
         options: Vec<CastModeDesc>,
     },
-    /// Choose a number: the value of X, or how many times to pay a
-    /// replicate cost. `reason` says which.
+    /// Choose a number: the value of X, how many times to pay a replicate
+    /// cost, or a share of a division. `reason` says which.
     ChooseNumber {
         /// Choosing player.
         player: PlayerId,
@@ -293,6 +293,11 @@ pub enum CastModeKind {
     Alternative(usize),
     /// A spell mode (overload and friends).
     Mode(usize),
+    /// Several modes of a spell that chooses more than one (CR 700.2a):
+    /// bit `i` is mode `i`. Announced as one set, and carried out in the
+    /// order the modes are printed (CR 608.2c). The option's cost is the
+    /// spell's plus every chosen mode's own (spree, CR 702.172a).
+    Modes(u8),
     /// Cast a non-front face for its own printed cost — an MDFC's back
     /// (CR 712.11b), an adventure (CR 715), a disturb back (CR 702.146).
     ///
@@ -393,6 +398,16 @@ pub enum ChoicePrompt {
     /// listing everything the player controls would ask them to re-confirm
     /// the whole board every turn.
     LeaveTapped,
+    /// Revealed cards of one card type, one of which may be put into the
+    /// hand (Atraxa, Grand Unifier: "for each card type, you may put a card
+    /// of that type … into your hand"). Asked once per type, and the type
+    /// is the question: the menu holds only that type's cards. Taking one is
+    /// never worse than leaving it, since the rest go to the bottom, so the
+    /// house AI takes the best.
+    OneOfType {
+        /// The card type asked about.
+        card_type: baylee_core::types::TypeSet,
+    },
     /// "You may reveal a matching card from your hand; if you don't, this
     /// land enters tapped."
     ///
@@ -450,10 +465,11 @@ pub enum ChoicePrompt {
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).
 ///
-/// Two questions share the variant because both are a bounded count the
-/// caster announces while casting (CR 601.2b), and the answer is
-/// [`PlayerAction::ChooseNumber`] either way; what they *mean* is this
-/// field, for the reason [`TargetPrompt`] gives about convoke. Without it a
+/// Three questions share the variant because each is a bounded number the
+/// player announces as the spell or ability is put on the stack (CR 601.2b,
+/// 601.2d), and the answer is [`PlayerAction::ChooseNumber`] every time;
+/// what they *mean* is this field, for the reason [`TargetPrompt`] gives
+/// about convoke. Without it a
 /// player casting Lose Focus with mana to spare was asked to "choose a
 /// number (0–2)" and nothing said what for.
 #[derive(
@@ -470,6 +486,20 @@ pub enum NumberPrompt {
     Replicate {
         /// The cost paid each time.
         cost: baylee_core::mana::ManaCost,
+    },
+    /// "Damage divided as you choose" (CR 601.2d): how much of what is left
+    /// goes to one target, asked target by target in the order they were
+    /// chosen. The last target takes the rest and is not asked, and each
+    /// target is given at least 1, which is what `min` and `max` say.
+    DivideDamage {
+        /// The target this share goes to.
+        target: ObjectId,
+        /// Its place among the targets, from 0.
+        index: u8,
+        /// How many targets share the damage.
+        of: u8,
+        /// The damage not yet given to a target.
+        left: u32,
     },
 }
 
@@ -565,6 +595,21 @@ pub enum YesNoPrompt {
     },
     /// "You may …" inside a resolving ability ([`baylee_cards_dsl::Effect::MayDo`]).
     MayDo,
+    /// "Its owner puts it on their choice of the top or bottom of their
+    /// library" ([`baylee_cards_dsl::Effect::OwnerPutsOnTopOrBottom`]),
+    /// asked of the owner: yes is the top, no the bottom.
+    TopOfLibrary {
+        /// The card that is going.
+        card: baylee_core::ids::ObjectId,
+    },
+    /// "You may cast that card without paying its mana cost. If you don't
+    /// cast it, put that card into your hand." (discover, CR 701.57a),
+    /// asked of the player who discovered it: yes casts it, no puts it
+    /// into their hand. Asked only of a card that can be cast.
+    Discover {
+        /// The discovered card, in exile.
+        card: baylee_core::ids::ObjectId,
+    },
     /// Generic yes/no (optional effects).
     Generic,
 }
@@ -606,7 +651,9 @@ impl YesNoPrompt {
     /// the "you may" not done, and a draw offer not accepted. The two
     /// commander questions are not: declining leaves the commander in a
     /// graveyard, in exile, or tucked into a library, which is a loss and
-    /// not a pause. The house answers those.
+    /// not a pause. The house answers those. Neither is
+    /// [`Self::TopOfLibrary`]: both answers move the card, and "no" is the
+    /// bottom rather than nothing.
     #[must_use]
     pub const fn declining_does_nothing(self) -> bool {
         match self {
@@ -620,9 +667,14 @@ impl YesNoPrompt {
             | Self::DrawOffer { .. }
             | Self::MayDo
             | Self::Generic => true,
-            Self::CommanderZone { .. } | Self::CommanderReplace { .. } | Self::PayPact { .. } => {
-                false
-            }
+            // Declining discover moves the card into the hand: a card for
+            // the player, but not nothing, and a free spell is not a
+            // question to answer by the clock.
+            Self::CommanderZone { .. }
+            | Self::CommanderReplace { .. }
+            | Self::PayPact { .. }
+            | Self::TopOfLibrary { .. }
+            | Self::Discover { .. } => false,
         }
     }
 }
@@ -1283,6 +1335,16 @@ mod choice_tests {
                 None,
             ),
             (
+                yes_no(YesNoPrompt::PayPact {
+                    cost: baylee_core::mana::ManaCost::ZERO,
+                }),
+                None,
+            ),
+            // Both answers move the card; the house picks the end.
+            (yes_no(YesNoPrompt::TopOfLibrary { card: object() }), None),
+            // No still moves the card, into the hand; the house casts it.
+            (yes_no(YesNoPrompt::Discover { card: object() }), None),
+            (
                 Pending::MulliganBottom {
                     player: p,
                     count: 1,
@@ -1406,7 +1468,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 18 + 13;
+    const KINDS: usize = 18 + 15;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -1436,18 +1498,20 @@ mod choice_tests {
                     YesNoPrompt::Kicker => 1,
                     YesNoPrompt::PayTax { .. } => 2,
                     YesNoPrompt::PayLife { .. } => 9,
-                    YesNoPrompt::PayPact { .. } => 11,
+                    YesNoPrompt::PayPact { .. } => 10,
                     YesNoPrompt::Miracle { .. } => 3,
                     YesNoPrompt::DrawOffer { .. } => 4,
                     YesNoPrompt::CommanderZone { .. } => 5,
                     YesNoPrompt::CommanderReplace { .. } => 6,
                     YesNoPrompt::MayDo => 7,
                     YesNoPrompt::Generic => 8,
-                    YesNoPrompt::CastWithoutPaying { .. } => 10,
-                    YesNoPrompt::CastPaying { .. } => 12,
+                    YesNoPrompt::TopOfLibrary { .. } => 11,
+                    YesNoPrompt::Discover { .. } => 12,
+                    YesNoPrompt::CastWithoutPaying { .. } => 13,
+                    YesNoPrompt::CastPaying { .. } => 14,
                 }
             }
-            Pending::ChoosePile { .. } => 17 + 13,
+            Pending::ChoosePile { .. } => 17 + 15,
         }
     }
 
@@ -1663,6 +1727,8 @@ mod choice_tests {
                 | YesNoPrompt::CastPaying { .. }
                 | YesNoPrompt::DrawOffer { .. }
                 | YesNoPrompt::CommanderReplace { .. }
+                | YesNoPrompt::TopOfLibrary { .. }
+                | YesNoPrompt::Discover { .. }
                 | YesNoPrompt::Generic => false,
             }
         }
@@ -1677,6 +1743,8 @@ mod choice_tests {
             YesNoPrompt::CastWithoutPaying { card: object() },
             YesNoPrompt::CastPaying { card: object() },
             YesNoPrompt::CommanderZone { card: object() },
+            YesNoPrompt::TopOfLibrary { card: object() },
+            YesNoPrompt::Discover { card: object() },
             YesNoPrompt::CommanderReplace {
                 card: object(),
                 to_library: true,

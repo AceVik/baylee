@@ -247,6 +247,10 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 m.damage = u32::try_from(amount(*n, x)).unwrap_or(0);
                 m.benefit = -1;
             }
+            Effect::DealDamageDivided { amount: n } => {
+                m.damage = *n;
+                m.benefit = -1;
+            }
             Effect::Blink { .. }
             | Effect::ExileAndReturnAtEndStep
             | Effect::UntapTarget
@@ -313,6 +317,23 @@ impl Meaning {
         self.clock = self.clock.or(other.clock);
         self.size_counter = self.size_counter.or(other.size_counter);
     }
+}
+
+/// The damage that finishes a creature (its toughness less what is marked on
+/// it) or a planeswalker (its loyalty); a creature planeswalker takes the
+/// larger. Never less than 1: a 0-toughness creature is already dying.
+pub(crate) fn damage_to_finish(o: &PublicObject) -> i64 {
+    let creature = if o.types.contains(TypeSet::CREATURE) {
+        i64::from(o.toughness.unwrap_or(0)) - i64::from(o.damage)
+    } else {
+        0
+    };
+    let walker = if o.types.contains(TypeSet::PLANESWALKER) {
+        i64::from(o.loyalty.unwrap_or(0))
+    } else {
+        0
+    };
+    creature.max(walker).max(1)
 }
 
 pub(crate) fn material(o: &PublicObject) -> i64 {
@@ -629,6 +650,12 @@ impl HeuristicAgent {
         if let Some(action) = self.stack_targets(view, offer, context) {
             return Some(action);
         }
+        if let Some(total) = context.effects.iter().find_map(|e| match e {
+            Effect::DealDamageDivided { amount } => Some(*amount),
+            _ => None,
+        }) {
+            return Some(self.divided_targets(view, offer, total));
+        }
         self.rank(
             view,
             offer,
@@ -636,6 +663,51 @@ impl HeuristicAgent {
             meaning(context.effects, context.x),
             &[],
         )
+    }
+
+    /// The targets for damage divided as this seat chooses (CR 601.2d): the
+    /// opponents' creatures and planeswalkers it can finish, most valuable
+    /// first, while the damage lasts — a target it cannot finish would only
+    /// take a share from one it can. Failing that, the single most valuable
+    /// opponent's permanent, which takes it all. Never one of this seat's
+    /// own unless the count demands it.
+    fn divided_targets(&self, view: &PlayerView, offer: Offer<'_>, total: u32) -> PlayerAction {
+        let Offer {
+            objects, min, max, ..
+        } = offer;
+        let mut hostile: Vec<&PublicObject> = objects
+            .iter()
+            .filter_map(|id| view.object(*id))
+            .filter(|o| self.hostile(o.controller, view.seat))
+            .collect();
+        hostile.sort_by_key(|o| (std::cmp::Reverse(material(o)), o.id));
+        let mut left = i64::from(total);
+        let mut chosen: Vec<ObjectId> = Vec::new();
+        for o in &hostile {
+            let need = damage_to_finish(o);
+            if chosen.len() < usize::from(max) && need <= left {
+                chosen.push(o.id);
+                left -= need;
+            }
+        }
+        if chosen.is_empty()
+            && max > 0
+            && let Some(o) = hostile.first()
+        {
+            chosen.push(o.id);
+        }
+        for id in objects {
+            if chosen.len() >= usize::from(min) {
+                break;
+            }
+            if !chosen.contains(id) {
+                chosen.push(*id);
+            }
+        }
+        PlayerAction::ChooseTargets {
+            objects: chosen,
+            players: Vec::new(),
+        }
     }
 
     /// Names the best of `offer` for an effect that means `m`, or `None`

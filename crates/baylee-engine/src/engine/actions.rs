@@ -296,13 +296,32 @@ impl<L: CardLookup> Engine<L> {
                 // tells them apart and it has to be read *before* the
                 // `expect` below — which is the whole reason the branch is
                 // here rather than after it.
-                if let Some(PlanKind::ChooseActivationX {
-                    source,
-                    ability_index,
-                }) = self.pending_plan.take()
-                {
-                    self.activation_x = Some(n);
-                    return self.start_activation(player, source, ability_index, SmallVec::new());
+                match self.pending_plan.take() {
+                    Some(PlanKind::ChooseActivationX {
+                        source,
+                        ability_index,
+                    }) => {
+                        self.activation_x = Some(n);
+                        return self.start_activation(
+                            player,
+                            source,
+                            ability_index,
+                            SmallVec::new(),
+                        );
+                    }
+                    // One target's share of a division; the next is asked,
+                    // or the last takes the rest.
+                    Some(PlanKind::DivideDamage {
+                        on_stack,
+                        targets,
+                        mut shares,
+                        total,
+                    }) => {
+                        shares.push(n);
+                        self.ask_division(player, on_stack, targets, shares, total);
+                        return Ok(());
+                    }
+                    _ => {}
                 }
                 // And the wizard asks two numbers, told apart by where it
                 // stands: X (CR 107.3) before the kicker, and how many times
@@ -656,9 +675,13 @@ impl<L: CardLookup> Engine<L> {
                                 match self.ask_next_opponent(
                                     controller,
                                     source,
-                                    ability_index,
-                                    mode,
                                     *asking,
+                                    |asking| PlanKind::Trigger {
+                                        source,
+                                        ability_index,
+                                        mode,
+                                        per_opponent: Some(asking),
+                                    },
                                 ) {
                                     None => return Ok(()),
                                     Some(all) => all,
@@ -712,6 +735,18 @@ impl<L: CardLookup> Engine<L> {
                                 obj.chosen_player = Some(only);
                             }
                         }
+                        // A second instance of "target" is asked now that the
+                        // first is on the stack object it binds against, and
+                        // a division once the targets are known.
+                        if !self.ask_trigger_second_target() {
+                            self.ask_trigger_division();
+                        }
+                    }
+                    PlanKind::TriggerSecondTarget { on_stack } => {
+                        if let Some(obj) = self.state.object_mut(on_stack) {
+                            let req = obj.second_target_req();
+                            obj.set_second(targets.into_iter().collect(), req);
+                        }
                     }
                     PlanKind::EntryTap { .. } => {
                         unreachable!("entry-tap plans are answered via YesNo")
@@ -752,7 +787,31 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::EntryReveal { .. } => {
                         unreachable!("entry-reveal plans are answered beside Pending::ChooseCards")
                     }
-                    PlanKind::SyntheticTriggerTarget { trigger } => {
+                    PlanKind::SyntheticTriggerTarget {
+                        trigger,
+                        per_opponent,
+                    } => {
+                        // One opponent answered; the next is asked, as on the
+                        // printed path above.
+                        let targets = match per_opponent {
+                            Some(mut asking) => {
+                                asking.gathered.extend(targets);
+                                let plan_t = trigger.clone();
+                                match self.ask_next_opponent(
+                                    trigger.controller,
+                                    trigger.source,
+                                    *asking,
+                                    |asking| PlanKind::SyntheticTriggerTarget {
+                                        trigger: plan_t,
+                                        per_opponent: Some(asking),
+                                    },
+                                ) {
+                                    None => return Ok(()),
+                                    Some(all) => all,
+                                }
+                            }
+                            None => targets,
+                        };
                         // No pop, unlike `PlanKind::Trigger` above. The
                         // ordinary targeted path publishes its question and
                         // returns *before* `collect_triggers` reaches the pop
@@ -777,8 +836,11 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::CommanderZone { .. } => {
                         unreachable!("command-zone plans are answered via YesNo")
                     }
-                    PlanKind::Miracle { .. } => {
-                        unreachable!("miracle plans are answered via YesNo")
+                    PlanKind::Miracle { .. } | PlanKind::Discovered { .. } => {
+                        unreachable!("miracle and discover plans are answered via YesNo")
+                    }
+                    PlanKind::DivideDamage { .. } => {
+                        unreachable!("division plans are answered via ChooseNumber")
                     }
                 }
                 Ok(())
@@ -1142,6 +1204,20 @@ impl<L: CardLookup> Engine<L> {
                     if answer {
                         return self.start_miracle_cast(player, card);
                     }
+                    return Ok(());
+                }
+                // A discovered card (CR 701.57a): yes casts it without paying
+                // its mana cost, and "if you don't cast it, put that card
+                // into your hand" — a no, or a cast the wizard refuses after
+                // all.
+                if matches!(self.pending_plan, Some(PlanKind::Discovered { .. })) {
+                    let Some(PlanKind::Discovered { card }) = self.pending_plan.take() else {
+                        unreachable!()
+                    };
+                    if answer && self.start_free_cast(player, card).is_ok() {
+                        return Ok(());
+                    }
+                    self.discovered_to_hand(card);
                     return Ok(());
                 }
                 // Shockland entry choice: pay life or enter tapped.

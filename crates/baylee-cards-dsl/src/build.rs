@@ -188,6 +188,8 @@ pub struct TriggeredParts {
     pub effects: &'static [Effect],
     /// What it targets, if anything.
     pub targets: Option<TargetReq>,
+    /// A second instance of "target", chosen after the first.
+    pub second_targets: Option<TargetReq>,
     /// Whether it fires at most once each turn.
     pub once_per_turn: bool,
     /// The intervening-`if` clause, if the card prints one (CR 603.4).
@@ -203,6 +205,7 @@ impl TriggeredParts {
             trigger,
             effects,
             targets: None,
+            second_targets: None,
             once_per_turn: false,
             condition: None,
         }
@@ -215,6 +218,7 @@ impl TriggeredParts {
             trigger: self.trigger,
             effects: self.effects,
             targets: self.targets,
+            second_targets: self.second_targets,
             once_per_turn: self.once_per_turn,
             condition: self.condition,
         }
@@ -426,6 +430,7 @@ impl SpellMode {
             targets: None,
             second_targets: None,
             cost_override: None,
+            additional_cost: None,
         }
     }
 }
@@ -917,7 +922,7 @@ macro_rules! crew {
 pub mod prelude {
     pub use crate::ability::{
         AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod,
-        SpellMode, StepKind, Trigger, TriggerEventKind,
+        ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind,
     };
     pub use crate::build::{
         ActivatedParts, EQUIP_TARGET, LoyaltyParts, ModalTriggeredParts, SagaChapterParts,

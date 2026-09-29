@@ -253,6 +253,16 @@ pub enum GameEvent {
         /// The player.
         player: PlayerId,
     },
+    /// A card was cycled: discarded to pay the cost of its own cycling
+    /// ability (CR 702.29c). Recorded after that discard's own
+    /// [`Self::Discarded`], which is the event every other reader of a
+    /// discard hears; this one exists for "when you cycle this card".
+    Cycled {
+        /// The card, wherever the discard put it.
+        object: ObjectId,
+        /// The player who cycled it.
+        player: PlayerId,
+    },
     /// Cards were drawn (drives "whenever you draw" triggers).
     CardsDrawn {
         /// The drawing player.

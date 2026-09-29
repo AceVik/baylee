@@ -252,6 +252,20 @@ mana); the budget was raised to 296 deliberately.
 `state/clone` was not re-benched, on the argument the two entries above make
 for the same eight bytes.
 
+## "That much" damage an event dealt (29.09.2026)
+
+`GameObject` **296 → 304 B**. Questing Beast deals "that much damage" as the
+combat damage that triggered it, so the amount rides from the event onto the
+triggered ability as it is put on the stack (`GameObject::event_amount`). It
+is an `Option<NonZeroU16>` (damage of 0 is never dealt, CR 120.8), two
+bytes; 296 had no padding left, so the object grew by the eight its alignment
+rounds to, and a `Box` would have cost the same pointer. The budget was
+raised to 304 deliberately. Folding `event_object` and `event_amount` into one
+`Option<Box<…>>`, null on every object that is not a triggered ability,
+would take the object back to 296 at the cost of touching every reader of
+`event_object`. `state/clone` was not re-benched, on the argument the entries
+above make for the same eight bytes.
+
 ## A chosen card name (29.09.2026)
 
 `GameObject` **296 → 304 B**. "As this artifact enters, choose a card name"
@@ -262,6 +276,10 @@ the `Option` is four bytes; the object had no four-byte hole left and grows by
 the eight its alignment rounds them to. The budget was raised to 304
 deliberately, and `state/clone` was not re-benched, on the argument the
 entries above make for the same eight bytes.
+
+These two entries were made on two branches, each from 296. Merged, the
+two fields share the one eight-byte step, and `GameObject` measured 304 B
+with both (`tests/footprint.rs`).
 
 ## The snapshot hash names every field (24.09.2026, #122)
 

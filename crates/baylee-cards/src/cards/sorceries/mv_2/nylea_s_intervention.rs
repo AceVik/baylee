@@ -35,5 +35,6 @@ card!(
                 filter: &Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::FLYING)]),
             }]),
         ],
+        choose: ModeCount::ONE,
     }],
 );

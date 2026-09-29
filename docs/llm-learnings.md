@@ -1851,6 +1851,39 @@ land type"; both are convention tests that fire on a first try.
   needs a pass into the other seat's turn first, or "this turn" is never
   over.
 
+### 2026-09-29 — Maik's European Highlander, second round
+
+- **An item inserted "before `fn x`" lands between `x`'s doc and `x`.** A
+  splice anchored on the `fn` line moves the doc comment onto the new item,
+  and the compiler says nothing. It happened four times in this round.
+  Anchor an insertion on the doc block's first line, and after a batch of
+  splices look for a `///` block followed by a different item than the one
+  it describes.
+- **`Duel::battlefield(seat, …)` replaces, it does not add.** A second call
+  for the same seat throws the first list away. Build one list per seat.
+- **`ManaCost::combine` does not merge generic symbols.** `{W}` plus `{1}`
+  plus `{1}` is `{1}{1}{W}`, which compares unequal to `{2}{W}` and is drawn
+  that way. Add generic mana with `with_more_generic`.
+- **A cast question with one answer is not asked.** When only one set of
+  modes is affordable and legal, the wizard takes it. A test that expects
+  `ChooseCastMode` there fails; assert the spell is on the stack instead.
+- **A copy must carry everything that was chosen for the original.** The
+  spell copy carried the targets but not the chosen mode, so a copied modal
+  spell resolved to nothing (CR 700.2g). Any new per-cast field
+  (`GameObject::modes`) goes into `CopyTargetSpell` too.
+- **An index into a program that gets spliced moves.** A nested list that
+  stops for a question replaces the op at the program counter with its own
+  remaining ops, so every later index shifts. Count such a point from the
+  end of the program: that part is never changed.
+- **Check each term of an AI score against the tie-break.** "Prefer a set
+  with no idle mode" never mattered while the earliest (smallest) set won
+  ties. Only an empty board, where every mode but the unreadable one is
+  idle, showed it doing anything. That board is the case in the test.
+- **Code no card reaches has no test to fail.** A snapshot of the second
+  target instance's last known information and a splice adjustment passed
+  every injection, because nothing in the pool read them. Both were taken
+  out, and the doc says what is not covered.
+
 ## 29.09.2026 — library group, round two: piles, a cast out of a graveyard, a single graveyard, crew
 
 - **After a hand edit to a card, run `xtask codegen --tables`, never full
