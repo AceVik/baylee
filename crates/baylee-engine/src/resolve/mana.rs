@@ -25,7 +25,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .targets
                 .first()
                 .and_then(|t| state.object(*t))
-                .map_or(0, |o| o.characteristics().mana_cost.cmc());
+                .map_or(0, |o| o.characteristics().mana_value());
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: res.controller,
                 when: crate::state::DelayedWhen::NextFirstMain,

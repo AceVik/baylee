@@ -126,7 +126,7 @@ impl AbilityOption {
             return None;
         };
         if baylee_engine::choice::granted_slot(ability_index).is_some()
-            || ability_index == baylee_engine::choice::TURN_FACE_UP
+            || baylee_engine::choice::is_special_action(ability_index)
             || ability_index == baylee_engine::choice::PREPARED_CAST
         {
             return None;
@@ -445,8 +445,8 @@ pub fn options_for(
                     }
                 }
             })
-        } else if index == baylee_engine::choice::TURN_FACE_UP {
-            (Phrase::TurnFaceUp.text(lang).to_string(), false)
+        } else if let Some(label) = special_label(lang, view, object, index) {
+            (label, false)
         } else if index == baylee_engine::choice::PREPARED_CAST {
             (prepared_label(view, object), false)
         } else {
@@ -894,6 +894,33 @@ pub fn prepared_spell(card: baylee_core::ids::CardIndex) -> Option<baylee_core::
 /// falls back to and what the sheet's redraw fingerprint reads. The sheet
 /// itself draws the spell's name and text in the player's language
 /// ([`prepared_words`]). Empty where no spell is linked.
+/// The label of a special action (CR 116.2): turning a permanent face up, or
+/// unlocking a door of a Room. Neither is a mana ability.
+fn special_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) -> Option<String> {
+    if index == baylee_engine::choice::TURN_FACE_UP {
+        return Some(Phrase::TurnFaceUp.text(lang).to_string());
+    }
+    let half = baylee_engine::choice::door_to_unlock(index)?;
+    Some(unlock_label(lang, view, object, half))
+}
+
+/// The half of a Room `half` names (0 the left, 1 the right).
+fn door(
+    view: &PlayerView,
+    object: ObjectId,
+    half: u8,
+) -> Option<&'static baylee_cards_dsl::FaceDef> {
+    baylee_cards::by_index(view.object(object)?.card?.index)?
+        .faces
+        .get(usize::from(half))
+}
+
+/// "Unlock Forgotten Cellar": the special action names the door it opens
+/// (CR 709.5e), in the pool's English, as a named card is.
+fn unlock_label(lang: Lang, view: &PlayerView, object: ObjectId, half: u8) -> String {
+    Phrase::UnlockDoor.fill(lang, &[door(view, object, half).map_or("", |f| f.name)])
+}
+
 fn prepared_label(view: &PlayerView, object: ObjectId) -> String {
     prepared_of(view, object)
         .and_then(baylee_cards::by_index)
@@ -1015,6 +1042,9 @@ pub fn grant_words(
 /// [`AbilityOption::cost`] for an offered index: a prepared cast's is the
 /// spell's mana cost, anything else's its [`cost_key`].
 fn offered_cost(view: &PlayerView, object: ObjectId, index: u32) -> Option<String> {
+    if let Some(half) = baylee_engine::choice::door_to_unlock(index) {
+        return door(view, object, half).map(|face| face.mana_cost.to_string());
+    }
     if index == baylee_engine::choice::TURN_FACE_UP {
         let card = view.object(object)?.card?;
         return baylee_cards::by_index(card.index)?
@@ -1432,6 +1462,50 @@ mod tests {
         let out = options(Lang::En, &view, &i, id);
         assert_eq!(out[0].label, "");
         assert!(!out[0].mana);
+    }
+
+    /// A Room's unlock is a row of its own (CR 709.5e): named by the door it
+    /// opens, priced at that half's mana cost, and neither a mana ability
+    /// nor a position in the card's ability list. Offered for the right half
+    /// of a Walk-In Closet, it reads "Unlock Forgotten Cellar" for
+    /// {3}{G}{G}, and the left half's would be the Closet's {2}{G}.
+    #[test]
+    fn a_rooms_unlock_is_named_by_its_door_and_costs_that_half() {
+        let mut room = crate::registry_printed(1, 0, "Walk-In Closet");
+        room.unlocked_doors = Some([false, false]);
+        let id = room.id;
+        let view = ViewBuilder::new(2).with_battlefield(0, [room]).build();
+        let i = offering(
+            vec![
+                (id, baylee_engine::choice::unlock_door(0)),
+                (id, baylee_engine::choice::unlock_door(1)),
+            ],
+            vec![],
+        );
+        let out = options(Lang::En, &view, &i, id);
+        let rows: Vec<(&str, Option<&str>, bool, Option<u32>)> = out
+            .iter()
+            .map(|o| {
+                (
+                    o.label.as_str(),
+                    o.cost.as_deref(),
+                    o.mana,
+                    o.printed_index(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            rows,
+            [
+                ("Unlock Walk-In Closet", Some("{2}{G}"), false, None),
+                ("Unlock Forgotten Cellar", Some("{3}{G}{G}"), false, None),
+            ]
+        );
+        assert_eq!(
+            options(Lang::De, &view, &i, id)[1].label,
+            "Forgotten Cellar aufschließen",
+            "the door by its English name, as a named card is"
+        );
     }
 
     /// Chromatic Lantern, msc #428, read from the catalog 2026-09-24.

@@ -266,6 +266,32 @@ none of them per face:
   dot printed on it.
 - `castable_from_hand`, above.
 
+### Rooms: two doors, one card
+
+A Room (CR 709.5) is a split card with one shared type line: each half is a
+face, and each face writes its own `abilities`. The card-level `abilities`
+is both halves' lists end to end, the left first, which is what the
+permanent has with both doors unlocked; `CardDef::door_abilities(unlocked)`
+reads the right list for each door state, and
+`lints::a_rooms_card_list_is_its_doors_lists_end_to_end` holds the union
+equal to the halves. `CardDef::has_shared_type_line` is how the engine knows
+a card is a Room: two faces, both with the `Room` subtype.
+
+"When you unlock this door" is `Trigger::UnlockThisDoor(n)`, written on the
+half that prints it with that half's number (0 the left, 1 the right). It
+hears the half being unlocked however that happens: the Room entering cast
+as that half (CR 709.5d, 709.5h), or its controller paying the half's mana
+cost later (CR 709.5e). Nothing else is written for the door mechanic; the
+engine does the rest from the faces.
+
+`Modifier::ExileInsteadOfYourGraveyard` is Forgotten Cellar's "if a card
+would be put into your graveyard from anywhere this turn, exile it
+instead", made by the trigger as
+`Effect::continuous(&Filter::Any, Modifier::ExileInsteadOfYourGraveyard,
+Duration::UntilEndOfTurn)`. It is its controller's, cards only (a token or a
+spell copy dies as usual), and it lasts its duration, not as long as a
+source.
+
 ## Generated cards, and why they may say `Implemented`
 
 Most card files are hand-written. Two of them are not, and the distinction
@@ -375,6 +401,13 @@ express at all yet.
   `convoke = true`, which taps creatures only, for the whole cost, and
   whether or not anything was kicked. `lints::waterbend_fault` holds the
   shape: `{N}` alone, no convoke beside it.
+- `replicate = Some(mana!("{U}"))` — "Replicate {U}" (CR 702.56a), Lose
+  Focus: an additional cost the caster may pay any number of times. The cast
+  asks how many after the kicker and before the targets, and the spell's cast
+  trigger copies it once per payment, each copy with the chance of new
+  targets. Nothing else is written for it: the trigger is the engine's, not
+  an ability on the face. A mana cost only, as every printed replicate cost
+  is.
 - `FaceDef.mandatory_additional_costs: &[CostPart]` — e.g. `PayLifeX`. Pays
   `PayLifeX` and `PayLife`, and is the one cost list nothing gates at all.
   `PayLifeX` is bounded where it is asked instead — the wizard offers X up to
@@ -567,6 +600,17 @@ has built.
   bits on `keywords`, and `trigger.rs` reads them the way it reads prowess.
   A card prints one of them by setting the bit and writing no ability —
   `keywords = KeywordSet::UNDYING` is the whole of Young Wolf
+- `AbilityDef::Toxic { poison }` — toxic N (CR 702.164), a static ability
+  with a number, so data like ward and not a bit. The engine reads it where
+  combat damage is dealt (`Engine::deal_combat_damage`): each journalled
+  combat `DamageDealt` to a player gives that player poison counters equal
+  to the source's total toxic value, summed over every `Toxic` it has
+  (CR 702.164b). Tyrranax Rex
+- `KeywordSet::SPLIT_SECOND` — split second (CR 702.61) is a bit and no
+  ability: while a spell whose projected keywords carry it is on the stack,
+  `Engine::compute_legal` offers no spell, no suspend and no activation but
+  mana abilities and turning a face-down permanent up (CR 702.61b, 116.2b).
+  Triggers still trigger. Krosan Grip
 - `AbilityDef::Suspend { counters }`
 
 #### Write them through the macros
@@ -698,11 +742,23 @@ reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
 `ControlDistinctNames(&filter, n)` counts names rather than permanents
 (Field of the Dead's "seven or more lands with different names"),
 `OpponentGraveyardCountAtLeast(n)` is Sheoldred's flip,
-`CountersOnSelf(kind, n)` and `CountersOnSelfExactly(kind, n)` read the
-permanent the ability is printed on, `SourceMatches(&filter)` points a
+`CountersOnSelf(kind, n)`, `CountersOnSelfExactly(kind, n)` and
+`CountersOnSelfBetween(kind, lo, hi)` read the permanent the ability is
+printed on, `SourceMatches(&filter)` points a
 filter back at that permanent — "if this land is tapped" — and
-`Any(&[..])` holds while **one** of the conditions it names does. One
-reader answers all of them, `eval::condition_holds`.
+`Any(&[..])` holds while **one** of the conditions it names does, and
+`Not(&c)` while `c` does not — the printed "unless". One reader answers
+all of them, `eval::condition_holds`.
+
+`CitysBlessing` is "you have the city's blessing" (CR 702.131). A permanent
+with ascend carries `KeywordSet::ASCEND`, and the engine gives its controller
+the blessing whenever they control ten or more permanents
+(`GameState::award_citys_blessings`, asked where enduring stories are).
+Wayward Swordtooth's "can't attack or block unless you have the city's
+blessing" is `static_ability!(Filter::This,
+Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)),
+condition = Some(Condition::Not(&Condition::CitysBlessing)))`: `CANT_ATTACK`
+is the mirror of `CANT_BLOCK`, read by `combat::can_attack`.
 
 There is no `All`, and that is not an omission. The printed sentence that
 needs a disjunction is real and prints as one — "activate only if this land
@@ -748,6 +804,29 @@ the effect exists only while it holds (the engine registers and removes it),
 and on a triggered ability it decides whether the ability triggers and is
 **not** asked again on resolution, because the ability on the stack no
 longer depends on its source (CR 113.7a).
+
+**Station itself is a cost, not a target.** "Station" is "Tap another
+untapped creature you control: Put a number of charge counters on this
+permanent equal to the tapped creature's power. Activate only as a sorcery"
+(CR 702.184a), and it is spelled that way:
+`activated!(cost!(TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)),
+&[Effect::AddCounter { kind: CounterKind::Charge, amount:
+Amount::TappedPower }], timing = ActivationTiming::SorcerySpeed)` (Evendo,
+Waking Haven). The cost wizard asks which creature with
+`ChoicePrompt::CostTap`, `pay_cost` writes it on the ability
+(`PaidRecord::tapped`), and `Amount::TappedPower` reads its power as the
+effect applies, or as it last existed on the battlefield when it has left by
+then (CR 608.2h). A station written with a `targets` requirement is wrong
+twice: hexproof would stop it, and a creature killed in response would
+fizzle the ability instead of counting.
+
+**A level symbol** is the same shape with a range. `{LEVEL N1-N2}` is
+`CountersOnSelfBetween(CounterKind::Level, n1, n2)` (CR 711.2a) and
+`{LEVEL N3+}` is `CountersOnSelf(CounterKind::Level, n3)` (CR 711.2b); each
+ability and the P/T box in the striation is its own
+`static_ability!(Filter::This, …, condition = Some(…))`, the P/T box as
+`Modifier::SetPT` ("base power and toughness"). Level up itself is the
+activated ability CR 702.87a spells out. Hexdrinker is the model.
 
 The vocabulary is the five sentences listed above and nothing else. A clause
 it cannot say yet is a `Coverage::Partial` with the reason written out, never
@@ -799,7 +878,10 @@ rule: a teammate is not an opponent and a player who has lost is out),
 on `obj.chosen_subtype`; creatures also gain the subtype in their base),
 `ChooseColor` and `ChooseColorExcept(c)` (Uncharted Haven, the Thriving
 cycle, the Gates — answer stored on `obj.chosen_color` and read back by
-`ManaSource::Chosen`), `Prepared` (Emeritus of Woe),
+`ManaSource::Chosen`), `ChooseCardName` (Pithing Needle — any face of any
+card of the pool, CR 201.4; answer stored on `obj.chosen_name` as the card
+and face it names, and read back by `Modifier::ChosenNameCantActivate`),
+`Prepared` (Emeritus of Woe),
 `TappedUnlessReveal(filter)` and
 `WithCounters { kind, amount }`.
 
@@ -872,7 +954,33 @@ land under a Doubling Season enters with four charge counters.
 `EntersBattlefield(filter)`, `LeavesBattlefield(filter)`, `Dies(filter)`,
 `SpellCast(filter)`, `Draws(rel)`, `DrawsExceptFirst(rel)`,
 `FirstNoncreatureSpellCast(rel)`, `Attacks(filter)`, `BecomesTarget`,
-`EntersBattlefieldEvoked`, `StepBegin { step, whose }`.
+`EntersBattlefieldEvoked`, `StepBegin { step, whose }`,
+`CountersReach { kind, n }`, `PlaysLand(rel)`, `TappedForMana(filter)`.
+
+`TappedForMana(filter)` is "whenever you tap [a permanent] for mana"
+(Badgermole Cub): its controller activated a mana ability of a permanent
+matching `filter` with {T} in the cost (CR 106.12), and it resolved and made
+mana (CR 106.12a) — once per activation, however many colours. Written with
+no target and effects that add mana, the ability is itself a mana ability
+(CR 605.1b, `AbilityDef::is_triggered_mana_ability`) and resolves as it
+triggers, off the stack (CR 605.4a): write it as a plain `triggered!`, with
+no flag. One that targets (Forbidden Orchard's) is an ordinary trigger.
+
+`PlaysLand(rel)` is "whenever [a player] plays a land" (Fastbond): the
+special action (CR 116.2a, 305.1), out of the hand or from wherever a
+permission allows (Crucible of Worlds), and never a land an effect puts
+onto the battlefield, which a landfall `EntersBattlefield` would also see.
+Fastbond's "if it wasn't the first land you played this turn" is the
+intervening `condition = Some(Condition::LandsPlayedThisTurnAtLeast(2))`:
+the land the trigger is about is already counted when it is collected.
+
+`CountersReach { kind, n }` fires when the source's count of `kind` goes
+from below `n` to `n` or more, the window CR 714.2b writes out for a
+chapter. It is Druid Class's "When this Class becomes level 3" (`Level`,
+`n: 2`, because a Class's level is kept as level counters over level 1). A
+level-up payoff that **targets** is this trigger, never an effect riding on
+the level-up activation: a target removed in response would take the level
+with it (CR 608.2b).
 
 `Trigger::ETB` is `EntersBattlefield(&Filter::This)`, which 99 of the pool's
 110 enter-triggers are. It is a constant and not a macro because there is
@@ -1153,8 +1261,11 @@ a fight is the one sentence whose two creatures are two *different* instances
 of "target": Khalni Ambush's "target creature you control fights target
 creature you don't control" is two requirements, not one requirement for two
 objects. The second is written `second_targets = Some(TargetReq::…)` on
-`spell!`, `activated!` or `loyalty!` (Oko, Thief of Crowns' −5), beside
-`targets`/`target` — never on a mana
+`spell!`, `activated!` or `loyalty!` (Oko, Thief of Crowns' −5), or on a
+modal spell's `mode!` (Archdruid's Charm's second mode), beside
+`targets`/`target` — never on a modal trigger's mode, which is put on the
+stack without the cast wizard that asks it
+(`no_modal_trigger_mode_prints_a_second_target`), and never on a mana
 ability, which may not target at all (CR 605.1a) and which
 `lints::mana_ability_fault` refuses through either instance.
 It is asked after the first, is its own list at every layer, and is never
@@ -1176,7 +1287,11 @@ is the source of its own damage, so deathtouch and protection apply; and it
 is not combat damage (CR 701.14d), so combat-only lifelink does not fire —
 noncombat lifelink (CR 702.15b) is not implemented yet and no card in the
 pool that fights has it.
-Removal: `Destroy`, `DestroyAll`, `Regenerate`, `Exile`, `CounterTargetSpell`,
+Removal: `Destroy`, `DestroyAll`, `DestroyOthersNamedLike { target }`
+(Maelstrom Pulse's "and all other permanents with the same name as that
+permanent": it reads the target's name as it resolves, so it is written
+*before* the `Destroy` that moves the target; a nameless target sweeps
+nothing, CR 201.2a), `Regenerate`, `Exile`, `CounterTargetSpell`,
 `CounterTargetAbility`, `CounterTargetSpellOrAbility`,
 `TargetSourceLosesAbilities` (Tishana's Tidebinder: it reaches the permanent
 whose ability an *earlier* `CounterTargetAbility` in the same effect list
@@ -1215,14 +1330,28 @@ names — one card per name is offered — revealed; an opponent sends `chosen`
 of them to the graveyard, prompt `PutIntoGraveyard`, and the rest go to the
 hand; at a table the caster names that opponent with a `ChoosePlayer`, and
 `chosen` or fewer found are all chosen), `Find::…with_counter(kind, n)` for a
-find that enters with counters (Neoform), `PutFromHandOntoBattlefield {
+find that enters with counters (Neoform), `Find::…when_matching(filter,
+&then)` for a find that forks on the card found (Archdruid's Charm: "onto
+the battlefield tapped if it's a land card. Otherwise, into your hand" is
+`Find::HAND.when_matching(&Filter::LAND, &Find::BATTLEFIELD_TAPPED)`, asked
+of the card as it is in the library), `Find::…any_number()` for "any number
+of" cards, the last find repeating for every card found, so the search may
+take as many as match (The World Tree's Gods, in an optional search),
+`PutFromHandOntoBattlefield {
 filter, mana_value, optional }` (Aether Vial, with `Amount::CountersOnSource`
 as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
 `GraveyardToTop`,
-`GraveyardToHand`, `GraveyardToBattlefield`, `ReturnAllFromGraveyard {
-filter, tapped }` ("return all land cards from your graveyard to the
-battlefield tapped", Lumra: every match read before any moves, tapped as it
-arrives), `ExileGraveyard`, `Blink`,
+`GraveyardToHand`, `GraveyardToBattlefield`, `YourGraveyardToBattlefield {
+filter, tapped }` (every matching card in your graveyard, untargeted, read
+before any moves and tapped as it arrives: World Shaper's and Lumra's
+"return all land cards from your graveyard to the battlefield tapped"),
+`Earthbend(n)` (CR 701.66a, on the ability's first
+target, `TargetReq::one(TargetSpec::Object(&Filter::YOUR_LAND))`: the land
+becomes a 0/0 land creature with haste, gets `n` +1/+1 counters, and a
+delayed trigger returns it tapped under your control when it dies or is
+exiled — Badgermole Cub, Ba Sing Se; never spell the three continuous
+effects out), `ReturnToBattlefieldTapped { target }` (that delayed trigger's
+own effect, on the `EventObject`; no card writes it), `ExileGraveyard`, `Blink`,
 `ExileLinked`, `ExileTargetsWithSource` (every target, each exiled with the
 source for good, CR 406.6: Unlicensed Hearse; `Rider::ExiledWith`, never
 `Linked`, which "until" exiles and the monarchy release),
@@ -1268,7 +1397,20 @@ disturb back) is `AbilityDef::Replacement(ReplacementRule::ExileSelfInsteadOfGra
 on that face: registered on the battlefield, carried on the stack by the cast.
 Tokens/copy: `CreateToken`, `CreateTokenN`, `CreateTokenForTargetController`,
 `CreateTokenFromLinked`, `CreateTokenCopyOf`, `CreateTokenCopyOfEquipped`,
-`CreateTokenCopyOfFirstToken`, `CopyTargetSpell`, `Amass`.
+`CreateTokenCopyOfFirstToken`, `CopyTargetSpell`, `CopyTargetAbility`,
+`Amass`. `CopyTargetAbility` is "copy target activated or triggered ability
+you control. You may choose new targets for the copy" (Vantress Visions),
+over `TargetSpec::AbilityOnStack(&Filter::ControlledByYou)`: the copy keeps
+every decision made for the original, mode, targets, X and what paid its
+costs (CR 707.10), and the same source (CR 707.10b); it is neither activated
+nor triggered, so nothing watching for either sees it; and its controller is
+then asked CR 115.7d's question target by target, naming nothing to keep one
+(CR 707.10c). `CopyTargetSpell` copies a spell the same way, through the one
+constructor `resolve::copy_spell`: mode, X, the face cast, a kicker, and its
+object and player targets (CR 707.10). `CopyThisSpell` is the engine's and
+never a card's: it is the replicate trigger's effect, one per payment, and
+copies the spell the trigger came from, by last known information once that
+spell has left the stack (CR 608.2h).
 Costs/taxes: `PlayerMayPayOr` and `PlayerMayPayCostOr` — the two halves of
 "… unless you <pay>", split by what the price is. The first charges *generic*
 mana in an `Amount`, because Esper Sentinel's tax is its own power and a
@@ -1284,6 +1426,17 @@ a `PayLife(2)` there
 would put up an empty menu and decline itself on every board, which
 `vocabulary_tests::every_price_paid_by_naming_an_object_puts_a_menu_up`
 refuses over the compiled pool.
+"That player" in a cast trigger's tax is `PlayerRel::ControllerOfEvent`
+— the one who cast the spell. `PlayerRel::Opponent` is the first living
+opponent, which is the same seat heads-up and the wrong one at a table of
+three (Mystic Remora).
+Cumulative upkeep (CR 702.24a) is no keyword of its own but the triggered
+ability it means: `Trigger::StepBegin { Upkeep, You }` with the printed
+intervening `if` as `Condition::SourceMatches(&Filter::InZone(
+ZoneRef::Battlefield))`, an `AddCounter` of `counters::AGE`, then
+`PlayerMayPayOr { player: You, mana: Amount::CountersOnSource(counters::AGE),
+effect: &Effect::SacrificeSelf }`. `Amount::CountersOnSource(kind)` reads
+the source's counters as it resolves, after the counter above went on.
 Also `AddCounter`, `AddCounterFilter`,
 `DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`,
 `DelayedManaAtNextFirstMain` (Mana Drain), `SacrificeSelf`,
@@ -1345,12 +1498,41 @@ Modal/sequence: `Sequence(&[..])`.
 `AddType`, `RemoveType`, `AddSubtype`, `AllCreatureTypes`,
 `AllBasicLandTypes`, `BecomeType { types, subtype }`, `AddColor`, `SetColor`,
 `AddKeyword`, `RemoveKeyword`, `LoseKeywords`, `LoseAllAbilities`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
-`CantActivateArtifacts`, `OpponentsCastAsSorcery`, `PlayersCantLose`,
+`CantActivateArtifacts`, `ChosenNameCantActivate`, `OpponentsCastAsSorcery`,
+`PlayersCantLose`,
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
 `DrawLimitPerTurn`, `CastPermanentSpellsFromGraveyard`,
-`PermanentOfEachTypeFromGraveyard`.
+`PermanentOfEachTypeFromGraveyard`, `CantBeTargetedBy`, `SetPTToCount`,
+`ExileInsteadOfYourGraveyard`.
+
+`ChosenNameCantActivate` is Pithing Needle's "activated abilities of sources
+with the chosen name can't be activated unless they're mana abilities",
+written `static_ability!(Filter::Any, Modifier::ChosenNameCantActivate)`
+beside `EnterModifier::ChooseCardName`, which writes the name it reads. It
+stops every activated ability the name reaches, every player's and in hand
+as well (cycling), a loyalty ability included, and spares a mana ability
+(CR 605.1a), turning a permanent face up and a prepared cast. A name chosen
+by a *trigger* ("when this land enters, choose a land card name", Petrified
+Hamlet) has no DSL yet.
+
+`SetPTToCount(count)` is "this creature's power and toughness are each equal
+to [count]" **granted** by an effect (Druid Class's animated land), with
+`count` a `PtCount` and "you" in it the affected object's controller. CR
+604.3a makes only a printed (or token-creating, or copied) ability
+characteristic-defining, so the granted sentence sets power and toughness in
+layer 7b; the printed one is `CharacteristicPT` in 7a (Ashaya, Soul of the
+Wild). Write a printed `*/*` with `CharacteristicPT`, never as
+`ModifyPTPerCount` over a 0/0 body: that is layer 7c and survives a 7b
+"becomes 1/1" it should lose to.
+
+`CantBeTargetedBy(&filter)` is "[this] can't be the target of [spells] or
+abilities from [sources]" — protection's targeting half alone (CR 702.16b),
+read at `eval::target_options` beside it. The filter is asked of the spell
+or of the ability's source, with the static's controller as "you", so
+Thrun, Breaker of Silence's "nongreen spells your opponents control or
+abilities from nongreen sources your opponents control" is one filter.
 
 `BecomeType` is "becomes a [subtype] [type]" with nothing retained (CR
 205.1a): the card types and subtypes are replaced, supertypes stay, so
@@ -1376,8 +1558,8 @@ damage itself is still dealt. `GameState::can_pay_life` refuses a payment
 before it is made (CR 119.8), which also caps a pay-X-life cost at X = 0.
 Either `who` may only name a relation the game state can answer on its own
 (`lints::a_continuous_player_relation_is_one_the_state_can_answer`):
-`Chosen` and `ControllerOfTarget` need a resolution, and a continuous
-effect has none.
+`Chosen`, `ControllerOfTarget` and `ControllerOfEvent` need a
+resolution, and a continuous effect has none.
 
 What makes it a variant rather than a replacement effect is the second
 sentence of CR 121.2b: the limit "applies to individual card draws", so an
@@ -1579,8 +1761,17 @@ hashes, layers and does nothing. This paragraph said THREE until
     (`ExileTargetsWithSource`; a Hearse that left and came back counts none).
 
   Power is the count, and toughness is the count plus `toughness_plus`
-  (Pyrogoyf: `+1`). Like every static ability, it works only on the
-  battlefield. A graveyard or exile change invalidates the projection.
+  (Pyrogoyf: `+1`). A characteristic-defining ability works in every zone
+  (CR 604.3), so this one does too: written on the card itself
+  (`Filter::This`, no condition, front face), it is read at setup into
+  `GameState::printed_pt_cda`, and the projection applies it to the card in
+  a library, a hand, a graveyard, exile or on the stack. On the battlefield
+  it is an ordinary registered static, so an effect that removes abilities
+  removes it. Recruiter of the Guard's "toughness 2 or less" and
+  Reveillark's "power 2 or less" read the real number. A graveyard or exile
+  change, and every move of such a card, invalidates the projection.
+  `SetPTToCount` is granted, so it is never characteristic-defining (see
+  above) and stays a battlefield static.
 - **`Effect::EventObjectDealsDamageEqualToPower { target }`**: "that creature
   deals damage equal to its power to any target". The dealer is the event's
   object, and its power is read now, or as it last existed on the

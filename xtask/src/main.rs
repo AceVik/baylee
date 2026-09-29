@@ -2314,7 +2314,8 @@ fn check_player_targets_match_the_printing(
 ///   `AlternativeCost`; a kicker is an additional cost.
 /// - "you may have this enter as a copy" — `CopyOnEnter`.
 /// - "you may choose new targets for the copy" — the copy effects, which ask
-///   on their own (`AwaitingOp::CopyNewTargets`).
+///   on their own (`AwaitingOp::CopyNewTargets`; a copied ability through
+///   `retarget::start_copy`, Vantress Visions).
 /// - "you may choose a nonland card from it" — `BottomCardFromHand`, which
 ///   offers a choice of none (Vendilion Clique).
 /// - "you may search your library" — an optional search.
@@ -2376,6 +2377,7 @@ fn check_optional_clauses_are_offered(
         "PlayerMayPayOr",
         "CopyOnEnter",
         "CopyTargetSpell",
+        "CopyTargetAbility",
         "CopySpell",
         "BottomCardFromHand",
         "OptionalBasicLandSearchFor",
@@ -2676,6 +2678,9 @@ const KEYWORD_WORDS: &[(baylee_cards::dsl::KeywordSet, &str)] = {
         (K::DAYBOUND, "daybound"),
         (K::NIGHTBOUND, "nightbound"),
         (K::CANT_BLOCK, "can't block"),
+        (K::SPLIT_SECOND, "split second"),
+        (K::ASCEND, "ascend"),
+        (K::CANT_ATTACK, "can't attack"),
         (K::UNDYING, "undying"),
         (K::PERSIST, "persist"),
     ]
@@ -4192,6 +4197,10 @@ const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
     (
         "Karn, the Great Creator",
         "the lock is a player rule; see karns_lock_spares_a_teammate",
+    ),
+    (
+        "Leovold, Emissary of Trest",
+        "the opponent controls the spell or ability, and `Trigger::TargetedByOpponent` asks that of its controller, not of a permanent",
     ),
 ];
 

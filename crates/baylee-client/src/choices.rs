@@ -27,10 +27,18 @@
 //! That is what [`ChoiceOption::index`] is for. Cavern of Souls asks this
 //! question as it *enters*, so a client that cannot answer it loses the game
 //! on a land drop.
+//!
+//! **A card name is the same shape, larger.** [`Prompt::ChooseCardName`]
+//! carries no list, because any card's name may be chosen (CR 201.4) and the
+//! pool is the list: this client's own, which is the engine's, since the two
+//! ship as one build. So the rows are every face of the pool, in one fixed
+//! order ([`card_name_at`]), narrowed by the same box, and a row's index is
+//! its place in that order. The model is told the card and face through
+//! [`pick`], which is the door every chooser press goes through.
 
 use baylee_client_core::card_face::TextBlock;
 use baylee_client_core::i18n::{Lang, Phrase, seat_name};
-use baylee_client_core::interaction::Prompt;
+use baylee_client_core::interaction::{Interaction, Prompt};
 use baylee_client_core::manapip::{self, Pip};
 use baylee_core::generated::subtypes;
 use baylee_core::ids::{CardIndex, ObjectId, SubtypeId};
@@ -323,8 +331,113 @@ pub fn options(
                 })
                 .collect(),
         ),
+        Prompt::ChooseCardName => Some(card_name_rows(filter)),
         _ => None,
     }
+}
+
+/// Picks row `index` of the chooser [`options`] draws for `interaction`'s
+/// prompt: by position for an indexed choice, and for a card name by the
+/// card and face that row stands for.
+///
+/// One door for every press, key and click alike, so a row can only ever
+/// answer what it says. Returns `false` when the row answers nothing.
+pub fn pick(interaction: &mut Interaction, index: usize) -> bool {
+    if matches!(interaction.prompt(), Prompt::ChooseCardName) {
+        return card_name_at(index)
+            .is_some_and(|(card, face)| interaction.choose_card_name(card, face));
+    }
+    interaction.choose_index(index)
+}
+
+/// The row that is picked, in the numbering [`options`] gives its rows.
+#[must_use]
+pub fn picked(interaction: &Interaction) -> Option<usize> {
+    interaction
+        .chosen_card_name()
+        .and_then(|(card, face)| card_name_row(card, face))
+        .or_else(|| interaction.chosen_index())
+}
+
+/// One face of the pool, as the card-name chooser lists it.
+struct NamedRow {
+    card: CardIndex,
+    face: u8,
+    name: &'static str,
+    /// The name as it is matched, lower-cased once.
+    lower: String,
+}
+
+/// Every name the pool prints, one row per face, alphabetized, a name two
+/// faces share listed once.
+///
+/// Built once: the pool is compiled in, and a chooser that rebuilt three
+/// thousand rows would do it every frame the box is open.
+fn card_names() -> &'static [NamedRow] {
+    static NAMES: std::sync::LazyLock<Vec<NamedRow>> = std::sync::LazyLock::new(|| {
+        let mut rows: Vec<NamedRow> = baylee_cards::all()
+            .flat_map(|def| {
+                def.faces
+                    .iter()
+                    .enumerate()
+                    .filter_map(move |(face, printed)| {
+                        Some(NamedRow {
+                            card: def.index,
+                            face: u8::try_from(face).ok()?,
+                            name: printed.name,
+                            lower: printed.name.to_lowercase(),
+                        })
+                    })
+            })
+            .collect();
+        rows.sort_by(|a, b| {
+            (&a.lower, a.name, a.card, a.face).cmp(&(&b.lower, b.name, b.card, b.face))
+        });
+        rows.dedup_by(|a, b| a.name == b.name);
+        rows
+    });
+    &NAMES
+}
+
+/// The card and face row `index` of the card-name chooser names.
+#[must_use]
+pub fn card_name_at(index: usize) -> Option<(CardIndex, u8)> {
+    card_names().get(index).map(|row| (row.card, row.face))
+}
+
+/// The row that names face `face` of `card`.
+fn card_name_row(card: CardIndex, face: u8) -> Option<usize> {
+    card_names()
+        .iter()
+        .position(|row| row.card == card && row.face == face)
+}
+
+/// The card names matching `filter`, cut to what the bar holds.
+///
+/// A name that begins with what was typed first, then one with a word that
+/// does, each alphabetized: typing `needle` is how a player looks for Pithing
+/// Needle, and a prefix match alone would never offer it. In the pool's
+/// English, which is the name's identity in the rules and the one every
+/// client has; nothing is matched inside a word.
+fn card_name_rows(filter: &str) -> Vec<ChoiceOption> {
+    let needle = filter.trim().to_lowercase();
+    let word_start = |lower: &str| {
+        lower
+            .split(|c: char| !c.is_alphanumeric())
+            .any(|word| word.starts_with(&needle))
+    };
+    let mut rows: Vec<(bool, ChoiceOption)> = card_names()
+        .iter()
+        .enumerate()
+        .filter_map(|(i, row)| {
+            let first = row.lower.starts_with(&needle);
+            (first || word_start(&row.lower))
+                .then(|| (!first, ChoiceOption::text(i, row.name.to_string())))
+        })
+        .collect();
+    rows.sort_by_key(|(later, _)| *later);
+    rows.truncate(SUBTYPE_ROWS);
+    rows.into_iter().map(|(_, row)| row).collect()
 }
 
 /// What one cast option is called.
@@ -762,6 +875,65 @@ mod tests {
         assert_eq!((rows[0].index, rows[0].label.as_str()), (2, "Zauberer"));
         assert!(subtype_rows(&offered, "verb", Lang::En).is_empty());
         assert_eq!(subtype_rows(&offered, "ally", Lang::En)[0].label, "Ally");
+    }
+
+    /// A card name is answered out of the pool: typing a word of the name
+    /// offers it, the row stands for its card and face, and picking it is
+    /// what the model sends.
+    #[test]
+    fn a_card_name_is_found_by_any_word_of_it_and_sent_as_its_card() {
+        let needle = baylee_cards::decks::by_name("Pithing Needle").expect("in the pool");
+        let rows = options(
+            &Prompt::ChooseCardName,
+            Lang::En,
+            None,
+            "needle",
+            FaceNames::default(),
+        )
+        .expect("a card name is a chooser");
+        let row = rows
+            .iter()
+            .find(|row| row.label == "Pithing Needle")
+            .expect("a word of the name finds it, not only its start");
+        assert_eq!(card_name_at(row.index), Some((needle, 0)));
+        assert!(rows.len() <= SUBTYPE_ROWS);
+
+        let pending = baylee_engine::choice::Pending::ChooseCardName {
+            player: baylee_core::ids::PlayerId::new(0),
+        };
+        let mut interaction = Interaction::new(pending, baylee_core::ids::PlayerId::new(0));
+        assert!(pick(&mut interaction, row.index));
+        assert_eq!(picked(&interaction), Some(row.index));
+        assert_eq!(
+            interaction.confirm(),
+            Some(baylee_engine::choice::PlayerAction::ChooseCardName {
+                card: needle,
+                face: 0
+            })
+        );
+        assert!(
+            !pick(&mut interaction, usize::MAX),
+            "a row past the pool answers nothing"
+        );
+    }
+
+    /// A back face's name is a name of its own (CR 201.4d), and a name that
+    /// begins with what was typed comes before one with a later word that does.
+    #[test]
+    fn a_back_face_is_named_and_a_leading_match_comes_first() {
+        let rebirth = baylee_cards::decks::by_name("Malakir Rebirth").expect("in the pool");
+        let rows = card_name_rows("malakir mire");
+        assert_eq!(
+            rows.first().and_then(|row| card_name_at(row.index)),
+            Some((rebirth, 1)),
+            "Malakir Mire is the back of Malakir Rebirth"
+        );
+        let rows = card_name_rows("pith");
+        assert_eq!(
+            rows.first().map(|row| row.label.as_str()),
+            Some("Pithing Needle")
+        );
+        assert!(card_name_rows("zzzzqq").is_empty());
     }
 
     #[test]

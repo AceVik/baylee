@@ -164,6 +164,19 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
                 apply(&mut c, &mut controller, fx, state, obj);
             }
         }
+        // CR 604.3: a characteristic-defining P/T works in every zone. On
+        // the battlefield it is a registered static and applied above; off
+        // it, nothing is registered, so the card applies its own here.
+        if layer == Layer::PtCda
+            && let Some(Modifier::CharacteristicPT {
+                count,
+                toughness_plus,
+            }) = state.off_battlefield_pt_cda(obj)
+        {
+            let n = pt_count(state, obj, &c, controller, count);
+            c.power = Some(n);
+            c.toughness = Some(n.saturating_add(i16::from(toughness_plus)));
+        }
         if layer == Layer::PtCounters {
             apply_pt_counters(&mut c, obj);
         }
@@ -258,7 +271,16 @@ const MAX_COPY_DEPTH: u8 = 8;
 /// and would want this function the day one does.
 #[must_use]
 pub fn copiable_values(state: &GameState, id: ObjectId) -> Option<Arc<Characteristics>> {
-    copiable_values_at(state, id, 0)
+    let values = copiable_values_at(state, id, 0)?;
+    // CR 202.3b and 712.8e: a copy of a nonmodal double-faced card's back
+    // face has mana value 0. The face's own mana value is its front face's,
+    // and that is the one thing about the face a copy does not take.
+    if values.front_mana_value.is_some_and(|value| value != 0) {
+        let mut copied = (*values).clone();
+        copied.front_mana_value = Some(0);
+        return Some(Arc::new(copied));
+    }
+    Some(values)
 }
 
 fn copiable_values_at(state: &GameState, id: ObjectId, depth: u8) -> Option<Arc<Characteristics>> {
@@ -437,6 +459,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
             modifier,
             Modifier::ModifyPT(..)
                 | Modifier::SetPT(..)
+                | Modifier::SetPTToCount(_)
                 | Modifier::SwitchPT
                 | Modifier::CharacteristicPT { .. }
                 | Modifier::ModifyPTPerCount { .. }
@@ -494,7 +517,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
 /// the lands you control at 7c, so it has to count **itself**, and a count
 /// off the cache left it one short for exactly one refresh. Every other
 /// object is read from the cache, which is that object's own finished
-/// projection.
+/// projection. Phased-out permanents are not there to count (CR 702.26b).
 fn count_controlled(
     state: &GameState,
     obj: &GameObject,
@@ -503,20 +526,37 @@ fn count_controlled(
     filter: &baylee_cards_dsl::Filter,
 ) -> usize {
     state
-        .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
-        .iter()
-        .filter(|id| {
-            state.object(**id).is_some_and(|o| {
-                o.controller == controller
-                    && if o.id == obj.id {
-                        crate::eval::matches_projected(filter, state, o, c, controller, **id)
-                    } else {
-                        crate::eval::matches(filter, state, o, controller, **id)
-                    }
-            })
+        .battlefield_seen()
+        .filter_map(|id| state.object(id))
+        .filter(|o| {
+            o.controller == controller
+                && if o.id == obj.id {
+                    crate::eval::matches_projected(filter, state, o, c, controller, o.id)
+                } else {
+                    crate::eval::matches(filter, state, o, controller, o.id)
+                }
         })
         .count()
+}
+
+/// The number a [`PtCount`](baylee_cards_dsl::PtCount) names, for
+/// `CharacteristicPT` (7a) and `SetPTToCount` (7b) alike; `you` is whose
+/// permanents `YouControl` counts.
+fn pt_count(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    you: PlayerId,
+    count: baylee_cards_dsl::PtCount,
+) -> i16 {
+    let n = match count {
+        baylee_cards_dsl::PtCount::YouControl(filter) => {
+            count_controlled(state, obj, c, you, filter)
+        }
+        baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => card_types_in_all_graveyards(state),
+        baylee_cards_dsl::PtCount::ExiledWithThis => cards_exiled_with(state, obj),
+    };
+    i16::try_from(n).unwrap_or(i16::MAX)
 }
 
 /// The number of card types (CR 205.2a) among cards in all graveyards.
@@ -599,16 +639,7 @@ fn apply(
         } => {
             // CR 604.3 and 613.4a: it defines the number, whatever the card
             // printed as its `*`, before anything in 7b–7e reads it.
-            let n = match count {
-                baylee_cards_dsl::PtCount::YouControl(filter) => {
-                    count_controlled(state, obj, c, fx.controller, filter)
-                }
-                baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => {
-                    card_types_in_all_graveyards(state)
-                }
-                baylee_cards_dsl::PtCount::ExiledWithThis => cards_exiled_with(state, obj),
-            };
-            let n = i16::try_from(n).unwrap_or(i16::MAX);
+            let n = pt_count(state, obj, c, fx.controller, *count);
             c.power = Some(n);
             c.toughness = Some(n.saturating_add(i16::from(*toughness_plus)));
         }
@@ -669,8 +700,10 @@ fn apply(
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
+        | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::CantBeTargetedBy(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
         | Modifier::CantLoseLife { .. }
@@ -691,7 +724,10 @@ fn apply(
         // CR 613.11: a rule, so there is no characteristic to write. The
         // untap step reads it (`progress::untap_step`).
         | Modifier::DoesNotUntap
-        | Modifier::MayChooseNotToUntap => {}
+        | Modifier::MayChooseNotToUntap
+        // A replacement, read where a card would reach a graveyard
+        // (`replacement::graveyard_destination`).
+        | Modifier::ExileInsteadOfYourGraveyard => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power = power.saturating_add(*p);
@@ -712,6 +748,18 @@ fn apply(
             if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
                 c.power = Some(*p);
                 c.toughness = Some(*t);
+            }
+        }
+        // CR 613.4b: the granted sentence sets power and toughness to the
+        // count, outright like `SetPT` and on a creature only. "You" is the
+        // object's own controller as layer 2 left it, because the ability
+        // is the object's: a land Druid Class animated, stolen, counts its
+        // new controller's lands.
+        Modifier::SetPTToCount(count) => {
+            if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
+                let n = pt_count(state, obj, c, *controller, *count);
+                c.power = Some(n);
+                c.toughness = Some(n);
             }
         }
         Modifier::SwitchPT => {

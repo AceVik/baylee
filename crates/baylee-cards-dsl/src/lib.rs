@@ -139,6 +139,41 @@ impl CardDef {
         }
     }
 
+    /// Whether this is a split card with one shared type line (CR 709.5), a
+    /// Room: two halves, each a door that is locked or unlocked on the
+    /// battlefield.
+    #[must_use]
+    pub fn has_shared_type_line(&self) -> bool {
+        self.faces.len() == 2
+            && self.faces.iter().all(|f| {
+                f.subtypes
+                    .contains(&baylee_core::generated::subtypes::enchantment::ROOM)
+            })
+    }
+
+    /// The rules text a permanent with a shared type line has while the
+    /// halves `unlocked` names are unlocked (bit 0 the left half, bit 1 the
+    /// right; CR 709.5c): a locked half has none (CR 709.5). One half is
+    /// that half's own list; both are the card-level list, which a Room
+    /// writes as its halves' lists end to end, the left first
+    /// (`lints::a_rooms_card_list_is_its_doors_lists_end_to_end` holds it).
+    ///
+    /// Each half's own list and never [`Self::abilities_for_face`], whose
+    /// face 0 falls back to the card-level list: a Room whose left half
+    /// prints nothing would have had the right half's text with only the
+    /// left door open.
+    #[must_use]
+    pub fn door_abilities(&self, unlocked: u8) -> &'static [crate::ability::AbilityDef] {
+        match unlocked & 0b11 {
+            0 => &[],
+            0b11 => self.abilities,
+            half => self
+                .faces
+                .get(usize::from(half >> 1))
+                .map_or(&[], |f| f.abilities),
+        }
+    }
+
     /// Keywords of a face, with [`Self::abilities_for_face`]'s rule: face 0
     /// falls back to the card-level set when it states none of its own, a
     /// back face uses only what it prints.
@@ -226,6 +261,19 @@ pub struct FaceDef {
     pub prototype: Option<Prototype>,
     /// Disguise cost to turn this permanent face up (CR 702.168).
     pub disguise: Option<ManaCost>,
+    /// Replicate (CR 702.56a): "as an additional cost to cast this spell,
+    /// you may pay [cost] any number of times" and "when you cast this
+    /// spell, if a replicate cost was paid for it, copy it for each time
+    /// its replicate cost was paid; if the spell has any targets, you may
+    /// choose new targets for any of the copies".
+    ///
+    /// A face field and not an ability, as miracle and disguise are: the
+    /// cast wizard asks how many times as it announces the additional costs
+    /// (CR 601.2b), the payment adds the cost that many times (CR 601.2f),
+    /// and the engine writes the cast trigger itself, one
+    /// `Effect::CopyThisSpell` for each payment. Every printed replicate
+    /// cost is mana.
+    pub replicate: Option<ManaCost>,
     /// Face name.
     pub name: &'static str,
     /// Mana cost (`ManaCost::ZERO` for lands/MDFC backs without cost).
@@ -274,8 +322,12 @@ pub struct FaceDef {
     /// nothing but this says so, so without it every werewolf stopped being
     /// green the moment it turned over.
     pub color_indicator: ColorSet,
-    /// Whether this face can be cast from the hand (false for disturb
-    /// backs — they are cast from the graveyard instead).
+    /// Whether this face can be cast from the hand. False exactly on a
+    /// nonmodal double-faced card's back face — a transforming back, which
+    /// is reached by turning over, and a disturb back, which is cast from
+    /// the graveyard (`xtask validate` holds it against Scryfall's
+    /// `layout`). The engine reads it as that: such a face's mana value is
+    /// its front face's (CR 202.3b, `Characteristics::front_mana_value`).
     pub castable_from_hand: bool,
     /// Miracle cost: when revealed as the first card drawn this turn, the
     /// card may be cast for this cost (CR 702.94).
@@ -322,10 +374,11 @@ impl FaceDef {
     /// file, and a card that does not care about the new rule keeps compiling.
     ///
     /// `castable_from_hand` defaults to `true` because that is what a printed
-    /// face normally is; only disturb/adventure backs opt out.
+    /// face normally is; only a nonmodal double-faced card's back opts out.
     pub const DEFAULT: Self = Self {
         prototype: None,
         disguise: None,
+        replicate: None,
         name: "",
         mana_cost: ManaCost::ZERO,
         types: TypeSet::EMPTY,
@@ -453,6 +506,14 @@ pub enum EnterModifier {
     /// "As this enters, choose a creature type" (Roaming Throne,
     /// Reflections of Littjara, Cavern of Souls).
     ChooseSubtype,
+    /// "As this enters, choose a card name" (Pithing Needle).
+    ///
+    /// Any card's name, and of any of its faces (CR 201.4, 201.4b–f); the
+    /// name of a token only when a card has it too, so the pool's cards are
+    /// the whole list a game can mean. The answer is kept on the permanent
+    /// as the card and face it was read off, and
+    /// [`crate::Modifier::ChosenNameCantActivate`] reads it back.
+    ChooseCardName,
     /// "As this enters, choose a color" (Uncharted Haven, Shimmerdrift Vale,
     /// the Gates).
     ///
@@ -566,6 +627,12 @@ keywords! {
     // sentence implies the other.
     CANT_BLOCK = 34, "Can't block.";
     STORIED = 35, "Storied (CR 702.195).";
+    SPLIT_SECOND = 36, "Split second (CR 702.61).";
+    ASCEND = 37, "Ascend (CR 702.131).";
+    // Not a printed keyword: the mirror of `CANT_BLOCK`, for the same
+    // reason. A static that grants it while a condition holds is
+    // "can't attack unless …" (Wayward Swordtooth).
+    CANT_ATTACK = 38, "Can't attack.";
 }
 
 impl KeywordSet {

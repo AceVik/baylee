@@ -58,6 +58,17 @@ pub enum GameEvent {
         /// Controller of the spell or ability, not the retargeting effect.
         controller: PlayerId,
     },
+    /// The same for a player a copy or a retargeting effect newly aimed a
+    /// spell or ability at: "whenever you … become the target" (Leovold)
+    /// reads it the way ward reads [`GameEvent::BecameTarget`].
+    PlayerBecameTarget {
+        /// The spell or ability on the stack.
+        object: ObjectId,
+        /// The newly targeted player.
+        player: PlayerId,
+        /// Controller of the spell or ability, not the retargeting effect.
+        controller: PlayerId,
+    },
     /// The game was set up from a preset.
     GameStarted {
         /// RNG seed.
@@ -313,6 +324,14 @@ pub enum GameEvent {
         object: ObjectId,
         /// The face it now shows.
         face: u8,
+    },
+    /// A Room was given a half's unlocked designation (CR 709.5c), as it
+    /// entered cast as that half or by the unlock special action.
+    DoorUnlocked {
+        /// The permanent.
+        object: ObjectId,
+        /// Which half: 0 the left, 1 the right.
+        half: u8,
     },
     /// A decision-free segment was found to repeat itself: a real endless
     /// loop rather than a large-but-finite pile of work (house rule, see

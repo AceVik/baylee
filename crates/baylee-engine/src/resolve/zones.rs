@@ -256,6 +256,32 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        // Maelstrom Pulse's sweep. The name is read now, off the projected
+        // characteristics of the permanent still on the battlefield — the
+        // card effect destroying it comes after this one — and a nameless
+        // one names nothing (CR 201.2a). Phased-out permanents are treated as
+        // though they don't exist (CR 702.26b), which `battlefield_seen` is.
+        Effect::DestroyOthersNamedLike { target } => {
+            let named = spec_object(res, target)?;
+            let name = state
+                .object(named)
+                .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                .map(|o| o.characteristics().name)
+                .filter(|n| *n != crate::state::NAMELESS)?;
+            let others: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|&id| {
+                    id != named
+                        && state.object(id).is_some_and(|o| {
+                            o.kind == ObjectKind::Permanent && o.characteristics().name == name
+                        })
+                })
+                .collect();
+            for id in others {
+                sba::destroy(state, id);
+            }
+            None
+        }
         Effect::ExileGraveyard { player } => {
             // Bojuka Bog says "target player's graveyard" — `Chosen`, which
             // `eval::players` answers with nothing at all. It shipped as a
@@ -535,6 +561,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     obj.kind = ObjectKind::Card;
                 }
                 let _ = state.move_object(target, to, ZonePosition::Bottom, Cause::Effect);
+            }
+            None
+        }
+        Effect::PutOnBottomOfLibraryFromGraveyard { target } => {
+            // CR 400.7, as `GraveyardToBattlefield` asks it: a card that left
+            // the graveyard in response is a new object, and "it" is gone.
+            let moves: Vec<(ObjectId, ZoneLocation)> = spec_objects(res, target)
+                .into_iter()
+                .filter_map(|card| {
+                    let obj = state.object(card)?;
+                    (obj.zone == crate::zone::Zone::Graveyard)
+                        .then_some((card, ZoneLocation::Library(obj.owner)))
+                })
+                .collect();
+            // CR 903.9b: a commander's owner may put it in the command zone.
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            for (card, to) in moves {
+                let _ = state.move_object(card, to, ZonePosition::Bottom, Cause::Effect);
             }
             None
         }
@@ -833,12 +879,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        // Every matching card at once, read before any moves: a card that
-        // arrives cannot change which others match. Tapped before the move,
-        // the way a search's `Find` taps what it fetches, so the permanent
-        // is tapped as it enters and an "enters untapped" reader never sees
-        // it otherwise.
-        Effect::ReturnAllFromGraveyard { filter, tapped } => {
+        Effect::YourGraveyardToBattlefield { filter, tapped } => {
+            // Your cards, under your control: nowhere once you have left
+            // the game, and your cards left with you (CR 800.4a).
             if state.has_left(you) {
                 return None;
             }
@@ -846,21 +889,58 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .zones
                 .list(ZoneLocation::Graveyard(you))
                 .iter()
+                .copied()
                 .filter(|id| {
                     state
-                        .object(**id)
+                        .object(*id)
                         .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
                 })
-                .copied()
                 .collect();
             for card in cards {
                 if let Some(obj) = state.object_mut(card) {
                     obj.kind = ObjectKind::Permanent;
                     obj.set_controller(you);
                 }
+                // Before the move, as a search's tapped find does it.
                 if tapped {
                     state.set_tapped(card, true);
                 }
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
+        Effect::ReturnToBattlefieldTapped { target } => {
+            // "Under your control": nowhere once you have left the game
+            // (CR 800.4b).
+            if state.has_left(you) {
+                return None;
+            }
+            for card in spec_objects(res, target) {
+                // Where the trigger event put it, or nowhere (CR 603.7c).
+                // The zone is asked and not the object's version, which a
+                // synthetic trigger does not carry: a card moved from the
+                // graveyard into exile in response would come back from
+                // exile. No card in the pool does that to its own lands.
+                if !state.object(card).is_some_and(|o| {
+                    matches!(
+                        o.zone,
+                        crate::zone::Zone::Graveyard | crate::zone::Zone::Exile
+                    )
+                }) {
+                    continue;
+                }
+                if let Some(obj) = state.object_mut(card) {
+                    obj.kind = ObjectKind::Permanent;
+                    obj.set_controller(you);
+                }
+                // Before the move, as World Shaper's lands and a search's
+                // tapped find do it.
+                state.set_tapped(card, true);
                 let _ = state.move_object(
                     card,
                     ZoneLocation::Battlefield,

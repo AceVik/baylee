@@ -114,6 +114,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ModifyPTPerCount { .. }
         | Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
+        | Modifier::SetPTToCount(_)
         | Modifier::SwitchPT => true,
         // Neither: a shield that prevents damage, and the rules a player
         // plays under. Teferi's `SorceriesHaveFlash` is the clearest of
@@ -133,8 +134,10 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
+        | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::CantBeTargetedBy(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
         | Modifier::CantLoseLife { .. }
@@ -152,7 +155,10 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // characteristics or control; this changes a rule, so a permanent
         // that arrives later and matches the filter is kept tapped too.
         | Modifier::DoesNotUntap
-        | Modifier::MayChooseNotToUntap => false,
+        | Modifier::MayChooseNotToUntap
+        // A replacement for a player's graveyard: the cards it catches are
+        // whichever arrive, not a set fixed as it began.
+        | Modifier::ExileInsteadOfYourGraveyard => false,
     }
 }
 
@@ -688,6 +694,7 @@ mod tests {
                 toughness_plus: 0,
             },
             Modifier::SetPT(2, 2),
+            Modifier::SetPTToCount(baylee_cards_dsl::PtCount::YouControl(&Filter::YOUR_LAND)),
             Modifier::ModifyPT(1, 1),
             Modifier::ModifyPTPerCount {
                 filter: &Filter::CREATURE,
@@ -703,8 +710,10 @@ mod tests {
             Modifier::RevealLibraryTop,
             Modifier::ExtraLandDrops(2),
             Modifier::CantActivateArtifacts,
+            Modifier::ChosenNameCantActivate,
             Modifier::OpponentsCastAsSorcery,
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
+            Modifier::CantBeTargetedBy(&Filter::CREATURE),
             Modifier::DrawLimitPerTurn {
                 who: baylee_cards_dsl::PlayerRel::EachPlayer,
                 limit: 1,
@@ -725,6 +734,7 @@ mod tests {
             Modifier::SearchTakeover,
             Modifier::DoesNotUntap,
             Modifier::MayChooseNotToUntap,
+            Modifier::ExileInsteadOfYourGraveyard,
         ]
     }
 
@@ -763,7 +773,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            50,
+            54,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -814,8 +824,8 @@ mod tests {
     }
 
     /// The counts, so that a change which flips a modifier from one side to
-    /// the other is a failure and not a quiet re-balancing: twenty-five
-    /// modifiers lock the objects they found, twenty-five do not.
+    /// the other is a failure and not a quiet re-balancing: twenty-six
+    /// modifiers lock the objects they found, twenty-eight do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -823,10 +833,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_five_modifiers_lock_a_set_and_twenty_five_do_not() {
+    fn twenty_six_modifiers_lock_a_set_and_twenty_eight_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (25, 25));
+        assert_eq!((locking, all.len() - locking), (26, 28));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

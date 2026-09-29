@@ -74,6 +74,10 @@ pub struct Retarget {
     /// What each of `was` becomes, as far as it has been asked about.
     /// `None` stays.
     now: Vec<Option<Aim>>,
+    /// A copy choosing its targets (CR 707.10c) and not a spell changing
+    /// them: nothing it holds has been journalled as its target yet, so
+    /// every target it ends with becomes one, kept or new.
+    copy: bool,
 }
 
 /// Starts a change of the first target's targets. `change_to` is `Some` for
@@ -85,6 +89,34 @@ pub(super) fn start(
     change_to: Option<&'static Filter>,
 ) -> Option<Pending> {
     let &spell = res.targets.first()?;
+    begin(state, res, spell, change_to, false)
+}
+
+/// "You may choose new targets for the copy" (CR 707.10c): the copy's
+/// controller may leave any number of its targets unchanged, even illegal
+/// ones, and change the rest to legal ones, which is CR 115.7d's question
+/// asked of `copy`. Once it is answered, every target the copy holds is
+/// journalled as newly targeted: the copy is a new object, and "becomes the
+/// target" sees it arrive with all of them.
+pub(super) fn start_copy(
+    state: &mut GameState,
+    res: &mut Resolution,
+    copy: ObjectId,
+) -> Option<Pending> {
+    if state.object(copy).is_none_or(|o| o.target_req.is_none()) {
+        record_new_targets(state, copy, &[], &[]);
+        return None;
+    }
+    begin(state, res, copy, None, true)
+}
+
+fn begin(
+    state: &mut GameState,
+    res: &mut Resolution,
+    spell: ObjectId,
+    change_to: Option<&'static Filter>,
+    copy: bool,
+) -> Option<Pending> {
     let obj = state.object(spell).filter(|o| o.zone == Zone::Stack)?;
     let req = obj.target_req?;
     let was: Vec<Aim> = obj
@@ -108,6 +140,7 @@ pub(super) fn start(
             change_to,
             was,
             now: Vec::new(),
+            copy,
         },
     )
 }
@@ -201,13 +234,20 @@ fn options(
 /// kept it: an object in `targets`, in its place, and a player in
 /// `target_players` or `chosen_player`, whichever held it.
 fn write(state: &mut GameState, retarget: &Retarget) {
-    let previous = state.object(retarget.spell).map_or_else(Vec::new, |obj| {
-        obj.targets
-            .iter()
-            .chain(obj.second_targets())
-            .copied()
-            .collect()
-    });
+    let previous = state
+        .object(retarget.spell)
+        .filter(|_| !retarget.copy)
+        .map_or_else(Vec::new, |obj| {
+            obj.targets
+                .iter()
+                .chain(obj.second_targets())
+                .copied()
+                .collect()
+        });
+    let previous_players = state
+        .object(retarget.spell)
+        .filter(|_| !retarget.copy)
+        .map_or_else(Vec::new, targeted_players);
     let Some(obj) = state.object_mut(retarget.spell) else {
         return;
     };
@@ -245,7 +285,17 @@ fn write(state: &mut GameState, retarget: &Retarget) {
             }
         }
     }
-    record_new_targets(state, retarget.spell, &previous);
+    record_new_targets(state, retarget.spell, &previous, &previous_players);
+}
+
+/// The players a spell or ability on the stack targets: those "any target"
+/// put beside its objects, and the one a "target player" or "target
+/// opponent" requirement chose.
+fn targeted_players(obj: &crate::object::GameObject) -> Vec<PlayerId> {
+    let mut players: Vec<_> = obj.target_players.iter().chain(obj.chosen_player).collect();
+    players.sort_unstable();
+    players.dedup();
+    players
 }
 
 /// `set` without `player`.
@@ -257,14 +307,24 @@ fn without(set: SeatSet, player: PlayerId) -> SeatSet {
     out
 }
 
-/// Journal each newly acquired object target once. Copies pass an empty previous
-/// set after choosing their final targets (CR 707.10c); retargeting passes both
-/// original target groups, so a retained target cannot trigger a second ward.
-pub(super) fn record_new_targets(state: &mut GameState, spell: ObjectId, previous: &[ObjectId]) {
+/// Journal each newly acquired target once, objects and players. Copies pass
+/// empty previous sets after choosing their final targets (CR 707.10c);
+/// retargeting passes both original target groups, so a retained target cannot
+/// trigger a second ward.
+pub(super) fn record_new_targets(
+    state: &mut GameState,
+    spell: ObjectId,
+    previous: &[ObjectId],
+    previous_players: &[PlayerId],
+) {
     let Some(obj) = state.object(spell) else {
         return;
     };
     let controller = obj.controller;
+    let players: Vec<_> = targeted_players(obj)
+        .into_iter()
+        .filter(|p| !previous_players.contains(p))
+        .collect();
     let mut targets: Vec<_> = obj
         .targets
         .iter()
@@ -280,6 +340,15 @@ pub(super) fn record_new_targets(state: &mut GameState, spell: ObjectId, previou
             target,
             controller,
         });
+    }
+    for player in players {
+        state
+            .journal
+            .record(crate::event::GameEvent::PlayerBecameTarget {
+                object: spell,
+                player,
+                controller,
+            });
     }
 }
 
@@ -304,13 +373,13 @@ mod tests {
         obj.targets.extend([first, second]);
         obj.set_second(smallvec::smallvec![second], None);
         let start = state.journal.len();
-        record_new_targets(&mut state, spell, &[second, first]);
+        record_new_targets(&mut state, spell, &[second, first], &[]);
         assert_eq!(
             state.journal.len(),
             start,
             "keeping or reordering targets is not acquiring them"
         );
-        record_new_targets(&mut state, spell, &[first]);
+        record_new_targets(&mut state, spell, &[first], &[]);
         assert_eq!(
             state.journal.entries()[start..]
                 .iter()
@@ -323,7 +392,7 @@ mod tests {
             }]
         );
         let start = state.journal.len();
-        record_new_targets(&mut state, spell, &[]);
+        record_new_targets(&mut state, spell, &[], &[]);
         let targets: Vec<_> = state.journal.entries()[start..]
             .iter()
             .map(|e| match e.event {
@@ -335,6 +404,34 @@ mod tests {
             targets,
             [first, second],
             "a copy acquires both targets, each just once"
+        );
+    }
+    /// A player a copy or a retarget newly aims at is journalled too, once,
+    /// whichever of the two fields holds it — and a player the spell already
+    /// held is not (Leovold reads this for "you … become the target").
+    #[test]
+    fn a_newly_targeted_player_is_journalled_and_a_kept_one_is_not() {
+        let mut state =
+            GameState::from_preset(&preset(409, &[]), &SyntheticLookup::new(vec![])).unwrap();
+        let caster = PlayerId::new(1);
+        let (kept, new) = (PlayerId::new(0), PlayerId::new(1));
+        let name = state.names.intern("copy");
+        let spell = state.create_bare(caster, ObjectKind::Spell, name, ZoneLocation::Stack);
+        let obj = state.object_mut(spell).unwrap();
+        obj.target_players.insert(kept);
+        obj.chosen_player = Some(new);
+        let start = state.journal.len();
+        record_new_targets(&mut state, spell, &[], &[kept]);
+        assert_eq!(
+            state.journal.entries()[start..]
+                .iter()
+                .map(|e| &e.event)
+                .collect::<Vec<_>>(),
+            vec![&GameEvent::PlayerBecameTarget {
+                object: spell,
+                player: new,
+                controller: caster
+            }]
         );
     }
 }

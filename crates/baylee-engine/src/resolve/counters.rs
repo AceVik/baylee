@@ -80,6 +80,25 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::DoubleCountersFilter { filter, kind } => {
+            // Each count is read before any counter lands, and each
+            // permanent gets as many as it had (CR 701.10e) — a doubler in
+            // play doubles what arrives, not what was there. A phased-out
+            // creature is treated as though it doesn't exist (CR 702.26b).
+            let objects: Vec<(ObjectId, u16)> = state
+                .battlefield_seen()
+                .filter_map(|id| {
+                    let o = state.object(id)?;
+                    eval::matches(filter, state, o, you, res.source)
+                        .then(|| (id, o.counters.get(kind)))
+                })
+                .filter(|(_, n)| *n > 0)
+                .collect();
+            for (id, n) in objects {
+                crate::replacement::put_counters(state, id, kind, n);
+            }
+            None
+        }
         Effect::DrainAllCountersIntoSelf => {
             let mut drained: u16 = 0;
             for id in state.zones.list(ZoneLocation::Battlefield).clone() {

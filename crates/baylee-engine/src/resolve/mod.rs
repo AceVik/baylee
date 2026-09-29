@@ -175,6 +175,22 @@ pub(crate) fn this_to_affect(state: &GameState, res: &Resolution) -> Option<Obje
     this_object(res).filter(|&id| state.object(id).is_some())
 }
 
+/// What earthbend makes of its land (CR 701.66a): "a 0/0 land creature
+/// with haste in addition to its other types". Three modifiers in three
+/// layers (4, 7b and 6), one effect each, sharing one timestamp.
+static EARTHBEND_ANIMATION: [baylee_cards_dsl::Modifier; 3] = [
+    baylee_cards_dsl::Modifier::AddType(baylee_core::types::TypeSet::CREATURE),
+    baylee_cards_dsl::Modifier::SetPT(0, 0),
+    baylee_cards_dsl::Modifier::AddKeyword(baylee_cards_dsl::KeywordSet::HASTE),
+];
+
+/// Earthbend's delayed trigger (CR 701.66a): "return it to the battlefield
+/// tapped under your control", "it" being the land that just died or was
+/// exiled.
+static EARTHBEND_RETURN: &[Effect] = &[Effect::ReturnToBattlefieldTapped {
+    target: TargetSpec::EventObject,
+}];
+
 /// The one destination Path to Exile's basic-land search uses.
 static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
     &[baylee_cards_dsl::effect::Find::BATTLEFIELD_TAPPED];
@@ -558,12 +574,29 @@ fn within(
     bound: Option<(baylee_cards_dsl::ManaValueCmp, u32)>,
 ) -> bool {
     bound.is_none_or(|(cmp, n)| {
-        let mv = o.characteristics().mana_cost.cmc();
+        let mv = o.characteristics().mana_value();
         match cmp {
             baylee_cards_dsl::ManaValueCmp::AtMost => mv <= n,
             baylee_cards_dsl::ManaValueCmp::Exactly => mv == n,
         }
     })
+}
+
+/// How many cards a search may find: a count the resolution read
+/// (`SearchLibraryUpTo`), as many as match for "any number of" (a repeating
+/// last find), and otherwise one per find.
+fn most_found(
+    count: Option<u8>,
+    finds: &[baylee_cards_dsl::effect::Find],
+    matching: usize,
+) -> usize {
+    if let Some(n) = count {
+        usize::from(n)
+    } else if finds.last().is_some_and(|f| f.repeats) {
+        matching.max(finds.len())
+    } else {
+        finds.len()
+    }
 }
 
 /// Opens a library search: the question, or nothing when there is nothing
@@ -649,7 +682,7 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
     // How many cards this search may produce, and how few it may settle
     // for: "up to two" is optional with two finds, "search for a basic land
     // card" is one find and mandatory.
-    let want = count.unwrap_or_else(|| u8::try_from(finds.len()).unwrap_or(u8::MAX));
+    let want = u8::try_from(most_found(count, finds, options.len())).unwrap_or(u8::MAX);
     if want == 0 {
         // "Up to X" with X = 0: the library is searched and nothing can be
         // found, which is a search that ends in a shuffle and asks nobody.
@@ -702,10 +735,41 @@ fn reveals(
     filter: &'static baylee_cards_dsl::Filter,
     finds: &[baylee_cards_dsl::effect::Find],
 ) -> bool {
-    !matches!(filter, baylee_cards_dsl::Filter::Any)
-        && finds
-            .iter()
-            .any(|f| matches!(f.dest, SearchDest::Hand | SearchDest::TopOfLibrary))
+    // A fork's other destination counts: Archdruid's Charm's creature goes
+    // to the hand, and the card says "reveal it".
+    fn hidden(find: &baylee_cards_dsl::effect::Find) -> bool {
+        matches!(find.dest, SearchDest::Hand | SearchDest::TopOfLibrary)
+            || find.instead_if.is_some_and(|(_, then)| hidden(then))
+    }
+    !matches!(filter, baylee_cards_dsl::Filter::Any) && finds.iter().any(hidden)
+}
+
+/// Where one found card goes: the find its position names — the last one
+/// again past the end — and then, if that find forks on the card, the
+/// branch the card matches. `None` only for a search with no finds.
+fn find_for(
+    state: &GameState,
+    res: &Resolution,
+    receiver: PlayerId,
+    finds: &'static [baylee_cards_dsl::effect::Find],
+    at: usize,
+    card: ObjectId,
+) -> Option<baylee_cards_dsl::effect::Find> {
+    // Past the end the last find again: for a repeating find ("any number
+    // of"), and for a search whose count the resolution read
+    // (`SearchLibraryUpTo`), which lists one find for every card. Any other
+    // search offers no more cards than it has finds.
+    let mut find = *finds.get(at).or_else(|| finds.last())?;
+    while let Some((filter, then)) = find.instead_if {
+        let matched = state
+            .object(card)
+            .is_some_and(|o| eval::matches(filter, state, o, receiver, res.source));
+        if !matched {
+            break;
+        }
+        find = *then;
+    }
+    Some(find)
 }
 
 /// The first target's characteristics, as the effect asking is entitled to
@@ -762,7 +826,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .targets
             .first()
             .and_then(|t| state.object(*t))
-            .map_or(0, |o| o.characteristics().mana_cost.cmc()),
+            .map_or(0, |o| o.characteristics().mana_value()),
         // Off the stack object, which is where the payment wrote it — a
         // spell's own, or the ability's rather than its permanent's.
         Amount::SacrificedManaValue => state
@@ -774,6 +838,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
+        Amount::TappedPower => eval::tapped_power(state, res.on_stack),
         // A wrapper around one of the above has to reach it through this
         // reader and not through `eval::amount`, which has no stack object.
         Amount::Plus { base, offset } => amount2(base, state, you, res).saturating_add(*offset),
@@ -950,6 +1015,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         // that did not just change a characteristic.
         state.refresh_characteristics();
         state.award_enduring_stories();
+        state.award_citys_blessings();
         if let Some(pending) = exec(state, res, op) {
             crate::replacement::expire_graveyard_rules(state);
             return Flow::Wait(pending);
@@ -1710,8 +1776,17 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             // finding only one card then puts that one onto the battlefield —
             // the same order the printed text reads in. A search whose count
             // the resolution read (`SearchLibraryUpTo`) lists one find, and
-            // every card it produces goes there.
-            for (&card, find) in chosen.iter().zip(finds.iter().cycle()) {
+            // every card it produces goes there (`find_for`).
+            // Where each card goes is read before any of them moves: a fork
+            // asks the card as it is in the library.
+            let placed: Vec<(ObjectId, baylee_cards_dsl::effect::Find)> = chosen
+                .iter()
+                .enumerate()
+                .filter_map(|(at, &card)| {
+                    find_for(state, res, receiver, finds, at, card).map(|find| (card, find))
+                })
+                .collect();
+            for (card, find) in placed {
                 let (dest, tapped) = (find.dest, find.tapped);
                 match dest {
                     SearchDest::Hand => {
@@ -2054,7 +2129,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 obj.targets.clear();
                 obj.targets.extend(chosen.iter().copied());
             }
-            retarget::record_new_targets(state, copy, &[]);
+            retarget::record_new_targets(state, copy, &[], &[]);
         }
         AwaitingOp::NewTargets(_) => {
             unreachable!("a change of targets resumes via resume_targets")
@@ -2317,6 +2392,137 @@ fn owner_is(state: &GameState, rel: PlayerRel, owner: PlayerId, you: PlayerId) -
         PlayerRel::EachPlayer => true,
         _ => false,
     }
+}
+
+/// "Copy target activated or triggered ability you control. You may choose
+/// new targets for the copy." (CR 707.10, 707.10c.)
+///
+/// The copy is the original object cloned, which is what "copies both the
+/// characteristics of the spell or ability and all decisions made for it"
+/// asks: its mode, targets, X, chosen player, the list of abilities it
+/// resolves from, its event object and what paid its costs all come along,
+/// and so does its source (CR 707.10b). It is put on the stack under `you`,
+/// newly timestamped, and journals no `AbilityTriggered`: a copy is neither
+/// activated nor triggered (CR 707.10), and `record_new_targets` journals
+/// what it targets once its targets are settled, so "becomes the target"
+/// sees it exactly once.
+///
+/// Its requirement is written onto the copy (`ability_target_req`), because
+/// an ability pushed from its definition carries none and the question
+/// about new targets is asked against it.
+fn copy_target_ability(
+    state: &mut GameState,
+    res: &mut Resolution,
+    you: PlayerId,
+) -> Option<Pending> {
+    let &original = res.targets.first()?;
+    let mut copy = state
+        .object(original)
+        .filter(|o| o.zone == crate::zone::Zone::Stack && o.kind == ObjectKind::AbilityOnStack)?
+        .clone();
+    let loc = copy.ability?;
+    if copy.target_req.is_none() && loc.index != baylee_core::ids::AbilityRef::SYNTHETIC {
+        copy.target_req = copy
+            .own_abilities
+            .and_then(|list| crate::object::ability_target_req(list, loc.index, copy.mode_index));
+    }
+    let timestamp = state.next_timestamp();
+    let id = state.arena.insert_with(|id| {
+        copy.id = id;
+        copy.owner = you;
+        copy.controller = you;
+        copy.base_controller = you;
+        copy.timestamp = timestamp;
+        copy.cache = crate::object::CachedChar::default();
+        copy
+    });
+    state
+        .zones
+        .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+    if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
+        state.synthetic_copies.push((original, id));
+    }
+    retarget::start_copy(state, res, id)
+}
+
+/// Puts a copy of the spell `original` onto the stack under `you`'s control
+/// and returns it: the one constructor of a spell copy, for "copy target
+/// spell" and for the copies a replicate trigger makes.
+///
+/// A copy copies the spell's characteristics, as `mods` change them, and
+/// every decision made for it (CR 707.10): its targets in both instances of
+/// the word and the requirement they answer (which a later change of targets
+/// reads), the players it targets, its mode, X, the face it was cast as,
+/// whether it was kicked and how many times replicate was paid. Nothing that
+/// happened to the *card* comes with it: no rider it was cast with, nothing
+/// it paid (a copy is not cast, so no mana was spent to cast it), and no
+/// `SpellCast` event (CR 707.10). Journalling one made every copy re-trigger
+/// "whenever you cast" abilities — Jin-Gitaxias copied its own copy without
+/// end — and made copies count towards Storm of Saruman's "second spell each
+/// turn".
+///
+/// The original need not still be on the stack. The spell-shaped fields
+/// survive its leaving (`GameState::move_object`), so a trigger whose spell
+/// was countered in response copies it as it last existed (CR 608.2h,
+/// 113.7a). Until this was one function the X, the mode, the face, the
+/// kicker and the player targets were left behind: a copied Fireball was
+/// cast for X = 0 and a copied Lightning Bolt aimed at a player had no
+/// target at all.
+fn copy_spell(
+    state: &mut GameState,
+    original: ObjectId,
+    you: PlayerId,
+    mods: &[baylee_cards_dsl::CopyMod],
+) -> Option<ObjectId> {
+    let from = state.object(original)?;
+    let mut base = (*from.base).clone();
+    let card = from.card;
+    let targets = from.targets.clone();
+    let target_req = from.target_req;
+    let second = from.second.clone();
+    let target_players = from.target_players;
+    let chosen_player = from.chosen_player;
+    let x_value = from.x_value;
+    let kicked = from.kicked;
+    let replicated = from.replicated;
+    let mode_index = from.mode_index;
+    let face_index = from.face_index;
+    for m in mods {
+        tokens::apply_copy_mod(&mut base, m);
+    }
+    let ts = state.next_timestamp();
+    let id = state.arena.insert_with(|oid| {
+        let mut obj = GameObject::new_bare(oid, you, ObjectKind::Spell, base);
+        obj.timestamp = ts;
+        obj
+    });
+    {
+        let obj = state.object_mut(id).expect("fresh copy");
+        obj.card = card;
+        // CR 707.10: a copy is put on the stack, not cast from hand.
+        // Rebound must not schedule a vanished copy.
+        obj.cast_from_hand = false;
+        obj.targets = targets;
+        obj.target_req = target_req;
+        obj.second = second;
+        obj.target_players = target_players;
+        obj.chosen_player = chosen_player;
+        obj.x_value = x_value;
+        obj.kicked = kicked;
+        obj.replicated = replicated;
+        obj.mode_index = mode_index;
+        obj.face_index = face_index;
+        obj.zone = crate::zone::Zone::Stack;
+        // CR 704.5e: it stops existing the moment it is anywhere but the
+        // stack or the battlefield. Carrying the copied card is what makes
+        // the marker necessary — without it the copy resolved into a
+        // graveyard and stayed there as a second, real card.
+        obj.riders.push(crate::object::Rider::SpellCopy);
+    }
+    state
+        .zones
+        .insert(id, ZoneLocation::Stack, ZonePosition::Top, true);
+    Some(id)
 }
 
 /// Executes one operation; returns `Some(pending)` when it suspends.
@@ -2858,6 +3064,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ReturnToHand { .. }
         | Effect::ReturnAllToHand { .. }
         | Effect::DestroyAll { .. }
+        | Effect::DestroyOthersNamedLike { .. }
         | Effect::ExileGraveyard { .. }
         | Effect::GraveyardToHand { .. }
         | Effect::GraveyardToTop { .. }
@@ -2870,6 +3077,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ExileTargetsWithSource
         | Effect::SacrificeSelf
         | Effect::PutTargetOnBottomOfLibrary
+        | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
         | Effect::ExileSource
         | Effect::ExileAndReturnAtEndStep
         | Effect::ExileLibraryAndShuffleHand { .. }
@@ -2884,7 +3092,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ReturnChosenToHand { .. }
         | Effect::UntapChosen { .. }
         | Effect::AllGraveyardCreaturesToBattlefield
-        | Effect::ReturnAllFromGraveyard { .. }
+        | Effect::YourGraveyardToBattlefield { .. }
+        | Effect::ReturnToBattlefieldTapped { .. }
         | Effect::TransformSource
         | Effect::TransformSourceAtNextUpkeep
         | Effect::ExileSelfReturnAsFace { .. }
@@ -2897,6 +3106,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::DelayedManaAtNextFirstMain { .. } => mana::exec(state, res, op),
         Effect::AddCounter { .. }
         | Effect::AddCounterFilter { .. }
+        | Effect::DoubleCountersFilter { .. }
         | Effect::DrainAllCountersIntoSelf
         | Effect::SetPTFilter { .. }
         | Effect::PumpFilter { .. }
@@ -3069,7 +3279,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 if !eval::matches(filter, state, obj, you, res.source) {
                     continue;
                 }
-                let cmc = obj.characteristics().mana_cost.cmc();
+                let cmc = obj.characteristics().mana_value();
                 if cmc > greatest {
                     greatest = cmc;
                     holds = obj.controller == you;
@@ -3130,6 +3340,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         // their control (CR 800.4b).
         Effect::CreateEmblem { .. }
         | Effect::CopyTargetSpell { .. }
+        | Effect::CopyTargetAbility
+        | Effect::CopyThisSpell
         | Effect::CreateContinuousEffect {
             modifier: baylee_cards_dsl::Modifier::GainControl,
             ..
@@ -3161,6 +3373,56 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     duration,
                     filter,
                     modifier,
+                });
+            }
+            None
+        }
+        Effect::Earthbend(n) => {
+            // CR 701.66a, in the order the rule says it. The land is the
+            // first target, still on the battlefield — a target that became
+            // illegal left the list at CR 608.2b.
+            let land = res.targets.first().copied().filter(|t| {
+                state
+                    .object(*t)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            })?;
+            let timestamp = state.next_timestamp();
+            for modifier in EARTHBEND_ANIMATION {
+                // Bound to the object, version and all: the land that comes
+                // back is a new object and none of this applies to it
+                // (CR 400.7), so it returns a land and not a 0/0 that dies
+                // again.
+                let filter = crate::effects::EffectFilter::object(state, land);
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(res.source),
+                    controller: you,
+                    origin: crate::effects::EffectOrigin::Resolution,
+                    layer: modifier.layer(),
+                    timestamp,
+                    duration: baylee_cards_dsl::Duration::Indefinitely,
+                    filter,
+                    modifier,
+                });
+            }
+            crate::replacement::put_counters(state, land, baylee_cards_dsl::CounterKind::P1P1, n);
+            // The delayed trigger, controlled by whoever controlled this
+            // ability and sourced where it is (CR 603.7d, 603.7e). Created
+            // after the counters, so nothing that happened before it can
+            // set it off (CR 603.7a).
+            if let Some(version) = state.object(land).map(|o| o.version) {
+                let after = state.journal.last_seq();
+                state.delayed.push(crate::state::DelayedTrigger {
+                    controller: you,
+                    when: crate::state::DelayedWhen::DiesOrIsExiled {
+                        card: land,
+                        version,
+                        after,
+                    },
+                    action: crate::state::DelayedAction::Trigger {
+                        source: res.source,
+                        effects: EARTHBEND_RETURN,
+                    },
                 });
             }
             None
@@ -3681,60 +3943,20 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             // with the original's targets and its controller may then choose
             // new ones (CR 707.10c), so this can suspend on a choice.
             if let Some(&target_id) = res.targets.first() {
-                let (card, mut base, targets, target_req, second) = {
-                    let obj = state.object(target_id)?;
+                let id = copy_spell(state, target_id, you, mods)?;
+                let (picks, target_req) = state.object(id).map_or((0, None), |obj| {
                     (
-                        obj.card,
-                        (*obj.base).clone(),
-                        obj.targets.clone(),
+                        u8::try_from(obj.targets.len()).unwrap_or(u8::MAX),
                         obj.target_req,
-                        obj.second.clone(),
                     )
-                };
-                for m in mods {
-                    tokens::apply_copy_mod(&mut base, m);
-                }
-                let name = base.name;
-                let ts = state.next_timestamp();
-                let id = state.arena.insert_with(|oid| {
-                    let mut obj = GameObject::new_bare(oid, you, ObjectKind::Spell, base);
-                    obj.timestamp = ts;
-                    obj
                 });
-                let picks = u8::try_from(targets.len()).unwrap_or(u8::MAX);
-                {
-                    let obj = state.object_mut(id).expect("fresh copy");
-                    obj.card = card;
-                    // CR 707.10: a copy is put on the stack, not cast from
-                    // hand. Rebound must not schedule a vanished copy.
-                    obj.cast_from_hand = false;
-                    obj.targets = targets;
-                    obj.target_req = target_req;
-                    // A copy copies its targets (CR 707.10), both instances
-                    // of the word. Only the first is offered for re-choosing
-                    // below, which is a gap and not a reading: CR 707.10c
-                    // lets the controller change either, and the answer path
-                    // has one `CopyNewTargets` question. The second keeps
-                    // what the original chose rather than being dropped,
-                    // which is the choice a player declining would make.
-                    obj.second = second;
-                    obj.zone = crate::zone::Zone::Stack;
-                    // CR 704.5e: it stops existing the moment it is anywhere
-                    // but the stack or the battlefield. Carrying the copied
-                    // card is what makes the marker necessary — without it
-                    // the copy resolved into a graveyard and stayed there as
-                    // a second, real card.
-                    obj.riders.push(crate::object::Rider::SpellCopy);
-                }
-                state
-                    .zones
-                    .insert(id, ZoneLocation::Stack, ZonePosition::Top, true);
-                // Deliberately no `SpellCast` event: a copy is *put* onto the
-                // stack, not cast (CR 707.10). Journalling one made every copy
-                // re-trigger "whenever you cast" abilities — Jin-Gitaxias
-                // copied its own copy without end — and made copies count
-                // towards Storm of Saruman's "second spell each turn".
-                let _ = name;
+                // Only the first instance of the word is offered for
+                // re-choosing below, which is a gap and not a reading:
+                // CR 707.10c lets the controller change either, and the
+                // answer path has one `CopyNewTargets` question. The second
+                // keeps what the original chose rather than being dropped,
+                // which is the choice a player declining would make.
+                //
                 // "You may choose new targets for the copy." Only worth asking
                 // when the copy targets objects at all and there is something
                 // legal to point it at; the player declines by re-picking what
@@ -3758,9 +3980,15 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         });
                     }
                 }
-                retarget::record_new_targets(state, id, &[]);
+                retarget::record_new_targets(state, id, &[], &[]);
             }
             None
+        }
+        Effect::CopyTargetAbility => copy_target_ability(state, res, you),
+        Effect::CopyThisSpell => {
+            let &original = res.targets.first()?;
+            let copy = copy_spell(state, original, you, &[])?;
+            retarget::start_copy(state, res, copy)
         }
         Effect::AttachSelf { .. } => {
             if let Some(&target_id) = res.targets.first()

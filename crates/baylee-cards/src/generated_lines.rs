@@ -181,8 +181,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Fastbond
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -2666,8 +2666,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Mystic Remora
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -16271,7 +16271,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Pithing Needle
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -27866,7 +27873,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Leovold, Emissary of Trest
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -29985,7 +29999,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None],
+        lines: &[None, None],
         modes: &[],
         alternatives: &[],
     }],
@@ -31719,7 +31733,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 7,
         stackable: 1,
-        lines: &[Some(0)],
+        lines: &[Some(0), None, None, None, None],
         modes: &[],
         alternatives: &[],
     }],
@@ -32455,8 +32469,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 2,
-            stackable: 0,
-            lines: &[],
+            stackable: 1,
+            lines: &[Some(1)],
             modes: &[],
             alternatives: &[],
         },
@@ -35220,8 +35234,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // The World Tree
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2), Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -36342,8 +36356,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Druid Class
     &[FaceLines {
         sentences: 6,
-        stackable: 3,
-        lines: &[None, Some(2), Some(4)],
+        stackable: 4,
+        lines: &[None, Some(2), None, Some(4), Some(5)],
         modes: &[],
         alternatives: &[],
     }],
@@ -36880,7 +36894,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 3,
             stackable: 0,
-            lines: &[],
+            lines: &[None, None],
             modes: &[],
             alternatives: &[],
         },
@@ -40722,7 +40736,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 4,
         stackable: 0,
-        lines: &[None],
+        lines: &[None, None],
         modes: &[],
         alternatives: &[],
     }],
@@ -40733,7 +40747,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None],
+        lines: &[None, None],
         modes: &[],
         alternatives: &[],
     }],
@@ -42130,7 +42144,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 1,
             stackable: 0,
-            lines: &[],
+            lines: &[None],
             modes: &[],
             alternatives: &[],
         },
@@ -43269,7 +43283,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         sentences: 4,
         stackable: 0,
         lines: &[None],
-        modes: &[],
+        modes: &[Some(1), Some(2), Some(3)],
         alternatives: &[],
     }],
     &[],
@@ -44112,8 +44126,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Bristly Bill, Spine Sower
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[None],
+        stackable: 2,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -46093,8 +46107,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Enduring Vitality
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -46448,8 +46462,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         },
         FaceLines {
             sentences: 2,
-            stackable: 0,
-            lines: &[],
+            stackable: 1,
+            lines: &[Some(0)],
             modes: &[],
             alternatives: &[],
         },
@@ -48261,8 +48275,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Evendo, Waking Haven
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(1), Some(3)],
+        stackable: 1,
+        lines: &[Some(1), Some(2), Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -48940,7 +48954,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[Some(0)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

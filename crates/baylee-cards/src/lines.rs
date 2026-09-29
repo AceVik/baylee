@@ -348,6 +348,7 @@ pub fn grants_in(
         // made as the permanent enters.
         AbilityDef::Unimplemented
         | AbilityDef::Ward { .. }
+        | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
         | AbilityDef::Replacement(_)
@@ -667,6 +668,11 @@ mod tests {
     /// whose Reflection of Kiki-Jiki copies a creature for `{1}, {T}` —
     /// written by hand once `CreateTokenCopyOfTarget` carried its haste and
     /// its end-step sacrifice. One card, no generator round.
+    /// Read again the same day, at **nineteen**: Walk-In Closet, whose right
+    /// half, Forgotten Cellar, prints "When you unlock this door" once Rooms
+    /// were written. A Room's second half is its "back" here only because a
+    /// card's second face is; it is cast as often as the first. One card,
+    /// no generator round.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -698,6 +704,7 @@ mod tests {
                 "Grasping Shadows",
                 "Ojer Kaslem, Deepest Growth",
                 "Ojer Pakpatiq, Deepest Epoch",
+                "Walk-In Closet",
                 "Balamb Garden, SeeD Academy",
                 "Sidequest: Catch a Fish"
             ],

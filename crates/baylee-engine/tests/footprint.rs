@@ -56,7 +56,13 @@ const CACHE_BUDGET: usize = 32;
 /// spent), which an effect reads back after the paid-for object has left
 /// the battlefield. One `Option<Box<PaidRecord>>`, null on every object
 /// that is not a paid-for spell or ability on the stack.
-const OBJECT_BUDGET: usize = 296;
+///
+/// Raised 296 → 304 on 2026-09-29 by the card name chosen as a permanent
+/// entered (`GameObject::chosen_name`, Pithing Needle), which the lock reads
+/// and a client shows. Packed like `own_face` into a `NonZeroU32`, so its
+/// `Option` is four bytes, and the object grows by the eight its alignment
+/// rounds them to: there was no four-byte hole left to put it in.
+const OBJECT_BUDGET: usize = 304;
 
 #[test]
 fn game_object_stays_within_its_budget() {

@@ -31,11 +31,11 @@
 
 use crate::arrange::{Arrangement, Nudge, Row};
 use crate::i18n::{Lang, Phrase, seat_name};
-use baylee_core::ids::{Defender, ObjectId, PlayerId, SeatSet, SubtypeId};
+use baylee_core::ids::{CardIndex, Defender, ObjectId, PlayerId, SeatSet, SubtypeId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
-    ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending,
-    PlayerAction, TargetPrompt, YesNoPrompt,
+    ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt, LegalActions,
+    NumberPrompt, Pending, PlayerAction, TargetPrompt, YesNoPrompt,
 };
 use baylee_engine::win::{EndReason, GameResult, Victor};
 use baylee_view::{GameStatic, HouseAnswer, LossCause, PlayerView, SeatView};
@@ -160,17 +160,26 @@ pub enum Prompt {
         /// this is the one indexed choice with a filter in front of it.
         options: Vec<SubtypeId>,
     },
+    /// Choose a card name (Pithing Needle).
+    ///
+    /// No list rides with it: any card's name may be chosen (CR 201.4), so
+    /// the pool is the list, and a renderer that links the card pool offers
+    /// it narrowed by what the player types. The model hears which card and
+    /// face was picked ([`Interaction::choose_card_name`]).
+    ChooseCardName,
     /// Choose a colour.
     ChooseColor {
         /// The allowed colours.
         options: Vec<ManaColor>,
     },
-    /// Choose a number, typically X.
+    /// Choose a number: X, or how many times to pay a replicate cost.
     ChooseNumber {
         /// Lowest legal value.
         min: u32,
         /// Highest legal value.
         max: u32,
+        /// What the number counts, which is what the headline says.
+        reason: NumberPrompt,
     },
     /// Choose a player.
     ChoosePlayer {
@@ -388,10 +397,21 @@ impl Prompt {
                 choose_line(lang, Phrase::NounTarget, Phrase::NounTargets, *min, *max)
             }
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
+            Self::ChooseCardName => Phrase::ChooseCardName.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
-            Self::ChooseNumber { min, max } => {
-                Phrase::ChooseNumberIn.fill(lang, &[&min.to_string(), &max.to_string()])
-            }
+            Self::ChooseNumber {
+                min,
+                max,
+                reason: NumberPrompt::X,
+            } => Phrase::ChooseNumberIn.fill(lang, &[&min.to_string(), &max.to_string()]),
+            Self::ChooseNumber {
+                min,
+                max,
+                reason: NumberPrompt::Replicate { cost },
+            } => Phrase::ReplicateHowOften.fill(
+                lang,
+                &[&cost.to_string(), &min.to_string(), &max.to_string()],
+            ),
             Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
             Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
             Self::ChoosePile { .. } => Phrase::ChoosePileForHand.text(lang).to_string(),
@@ -823,6 +843,12 @@ enum Mode {
     /// a creature type is not a thing on the table. Narrowing that list is
     /// the renderer's job; the model only ever hears which row was picked.
     Subtype { options: Vec<SubtypeId> },
+    /// A card name: the card and the face whose name it is, once one is
+    /// picked.
+    ///
+    /// Not an index, because there is no list to index: the pool is the
+    /// option set (CR 201.4), and the engine checks the answer against it.
+    CardName { named: Option<(CardIndex, u8)> },
     /// A yes-or-no answer.
     YesNo,
     /// Priority: an action menu rather than a selection.
@@ -1005,6 +1031,7 @@ impl Interaction {
             Pending::ChooseSubtype { options, .. } => Mode::Subtype {
                 options: options.clone(),
             },
+            Pending::ChooseCardName { .. } => Mode::CardName { named: None },
             Pending::GameOver(_) => Mode::GameOver,
         }
     }
@@ -1068,12 +1095,16 @@ impl Interaction {
             Pending::ChooseSubtype { options, .. } => Prompt::ChooseSubtype {
                 options: options.clone(),
             },
+            Pending::ChooseCardName { .. } => Prompt::ChooseCardName,
             Pending::ChooseColor { options, .. } => Prompt::ChooseColor {
                 options: options.clone(),
             },
-            Pending::ChooseNumber { min, max, .. } => Prompt::ChooseNumber {
+            Pending::ChooseNumber {
+                min, max, reason, ..
+            } => Prompt::ChooseNumber {
                 min: *min,
                 max: *max,
+                reason: *reason,
             },
             Pending::ChoosePlayer { options, .. } => Prompt::ChoosePlayer {
                 options: options.clone(),
@@ -1691,6 +1722,7 @@ impl Interaction {
             Mode::Arrange(arrangement) => {
                 arrangement.cancel();
             }
+            Mode::CardName { named } => *named = None,
             _ => {}
         }
     }
@@ -1816,6 +1848,29 @@ impl Interaction {
         true
     }
 
+    /// Names face `face` of `card` for a card-name question (Pithing
+    /// Needle).
+    ///
+    /// Returns `false` when no card name is being asked. Whether the pool
+    /// has that card and the card that face is the engine's to say, against
+    /// the pool it plays with; this model links no pool to ask.
+    pub fn choose_card_name(&mut self, card: CardIndex, face: u8) -> bool {
+        let Mode::CardName { named } = &mut self.mode else {
+            return false;
+        };
+        *named = Some((card, face));
+        true
+    }
+
+    /// The card name picked so far, as its card and face.
+    #[must_use]
+    pub const fn chosen_card_name(&self) -> Option<(CardIndex, u8)> {
+        match &self.mode {
+            Mode::CardName { named } => *named,
+            _ => None,
+        }
+    }
+
     /// Which row of an indexed choice is picked, if one is.
     ///
     /// A colour, a seat, a cast option and a creature type are all answered
@@ -1843,6 +1898,7 @@ impl Interaction {
             | Mode::Player { .. }
             | Mode::CastOption { .. }
             | Mode::Subtype { .. } => self.choice_index.is_some(),
+            Mode::CardName { named } => named.is_some(),
             Mode::Mulligan | Mode::YesNo | Mode::Idle | Mode::GameOver => false,
         }
     }
@@ -1894,6 +1950,9 @@ impl Interaction {
                 .get(self.choice_index?)
                 .copied()
                 .map(PlayerAction::ChooseSubtype),
+            Mode::CardName { named } => {
+                named.map(|(card, face)| PlayerAction::ChooseCardName { card, face })
+            }
             _ => None,
         }
     }
@@ -2019,6 +2078,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseCards { player, .. }
         | Pending::ChooseTargets { player, .. }
         | Pending::ChooseSubtype { player, .. }
+        | Pending::ChooseCardName { player }
         | Pending::ChooseColor { player, .. }
         | Pending::ChooseNumber { player, .. }
         | Pending::ChoosePlayer { player, .. }

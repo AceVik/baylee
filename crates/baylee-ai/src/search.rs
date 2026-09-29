@@ -592,7 +592,9 @@ fn attack_position(
             retaliation: if profile.lookahead >= 2 {
                 retaliation
                     .into_iter()
-                    .filter(|(_, f, _)| !has(*f, KeywordSet::DEFENDER))
+                    .filter(|(_, f, _)| {
+                        !has(*f, KeywordSet::DEFENDER) && !has(*f, KeywordSet::CANT_ATTACK)
+                    })
                     .map(|(mask, f, remaining)| Counterattack::new(mask, f, &defenders, remaining))
                     .collect()
             } else {

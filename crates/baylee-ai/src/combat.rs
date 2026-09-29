@@ -580,7 +580,9 @@ pub(crate) fn hold_back_for_the_crack_back(
         .map(|s| {
             creatures(view, s.player, |_| true)
                 .into_iter()
-                .filter(|f| !f.has(KeywordSet::DEFENDER) && f.power > 0)
+                .filter(|f| {
+                    !f.has(KeywordSet::DEFENDER) && !f.has(KeywordSet::CANT_ATTACK) && f.power > 0
+                })
                 .collect()
         })
         .collect();

@@ -119,7 +119,7 @@ pub fn matches_projected(
                 .any(|commander| obj_subs.intersects(commander.characteristics().subtypes))
         }
         Filter::HasKeyword(k) => chars.keywords.contains(*k),
-        Filter::CmcAtMost(n) => chars.mana_cost.cmc() <= *n,
+        Filter::CmcAtMost(n) => chars.mana_value() <= *n,
         // The bound is the announced X on the ability's own source, which is
         // where `cast_wizard` writes it and what `res.x` is read from one
         // layer up. A source that is gone, or that announced nothing, bounds
@@ -127,9 +127,9 @@ pub fn matches_projected(
         // whole library would be a tutor with no price.
         Filter::CmcAtMostX => {
             let x = state.object(this).map_or(0, |o| o.x_value);
-            chars.mana_cost.cmc() <= x
+            chars.mana_value() <= x
         }
-        Filter::CmcAtLeast(n) => chars.mana_cost.cmc() >= *n,
+        Filter::CmcAtLeast(n) => chars.mana_value() >= *n,
         Filter::ToughnessAtMost(n) => chars.toughness.is_some_and(|t| t <= *n),
         Filter::ToughnessAtLeast(n) => chars.toughness.is_some_and(|t| t >= *n),
         // `is_some_and`, so an object with no power at all — a land, an
@@ -239,6 +239,35 @@ fn graveyard_options(
     out
 }
 
+/// "The tapped creature's power" (station, CR 702.184a): the permanent the
+/// payment of `paid_on`'s cost tapped, at its power now if it is still on
+/// the battlefield as that object, and as it last existed there otherwise
+/// (CR 608.2h). Negative power puts no counters (CR 107.1b); nothing
+/// tapped, 0.
+#[must_use]
+pub fn tapped_power(state: &GameState, paid_on: ObjectId) -> u32 {
+    let Some((tapped, version)) = state
+        .object(paid_on)
+        .and_then(|o| o.paid.as_ref())
+        .and_then(|p| p.tapped)
+    else {
+        return 0;
+    };
+    let power = state
+        .object(tapped)
+        .filter(|o| o.zone == crate::zone::Zone::Battlefield && o.version == version)
+        .map(|o| o.characteristics().power.unwrap_or(0))
+        .or_else(|| {
+            state
+                .ltb_powers
+                .iter()
+                .find(|(id, _)| *id == tapped)
+                .map(|(_, power)| *power)
+        })
+        .unwrap_or(0);
+    u32::try_from(power.max(0)).unwrap_or(0)
+}
+
 /// Evaluates an [`Amount`].
 #[must_use]
 pub fn amount(
@@ -318,6 +347,7 @@ pub fn amount(
             .object(this)
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
+        Amount::TappedPower => tapped_power(state, this),
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
                 ZoneSel::Battlefield => state.zones.list(ZoneLocation::Battlefield).clone(),
@@ -378,6 +408,7 @@ pub fn amount(
 /// upkeep, which is where this clause is commonest — the sweep is the next
 /// thing that runs and the two are the same moment.
 #[must_use]
+#[allow(clippy::too_many_lines)] // one arm per `Condition`: the match is the list
 pub fn condition_holds(
     state: &GameState,
     you: PlayerId,
@@ -462,6 +493,10 @@ pub fn condition_holds(
                     .count()
                     >= min as usize
             }),
+        Condition::LandsPlayedThisTurnAtLeast(n) => state
+            .players
+            .get(you.get() as usize)
+            .is_some_and(|p| p.lands_played_this_turn >= n),
         Condition::HandSizeAtMost(max) => {
             state.zones.list(ZoneLocation::Hand(you)).len() <= max as usize
         }
@@ -486,10 +521,17 @@ pub fn condition_holds(
         Condition::CountersOnSelfExactly(kind, n) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) == u16::from(n)),
+        Condition::CountersOnSelfBetween(kind, min, max) => state
+            .object(source)
+            .is_some_and(|o| (u16::from(min)..=u16::from(max)).contains(&o.counters.get(kind))),
         Condition::EnduringStory => state
             .players
             .get(usize::from(you.get()))
             .is_some_and(|p| p.enduring_story),
+        Condition::CitysBlessing => state
+            .players
+            .get(usize::from(you.get()))
+            .is_some_and(|p| p.citys_blessing),
         Condition::Station(min) => state.object(source).is_some_and(|o| {
             o.counters.get(baylee_cards_dsl::CounterKind::Charge) >= u16::from(min)
         }),
@@ -501,6 +543,7 @@ pub fn condition_holds(
         Condition::Any(parts) => parts
             .iter()
             .any(|part| condition_holds(state, you, source, *part)),
+        Condition::Not(part) => !condition_holds(state, you, source, *part),
         Condition::SourceMatches(filter) => state
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),
@@ -533,6 +576,26 @@ pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> 
     };
     state.effects.iter().any(|fx| {
         let baylee_cards_dsl::Modifier::ProtectionFrom(f) = fx.modifier else {
+            return false;
+        };
+        crate::effects::applies_to(state, fx, obj)
+            && matches(f, state, src, fx.controller, fx.source.unwrap_or(source))
+    })
+}
+
+/// Does a static ability on `object` say it can't be the target of `source`
+/// ([`baylee_cards_dsl::Modifier::CantBeTargetedBy`], Thrun, Breaker of
+/// Silence)? `source` is the spell, or the source of the ability, doing the
+/// targeting, and the filter is asked of it with the effect's controller as
+/// "you" — the same reading [`protected_from`] gives protection, whose
+/// targeting half this is.
+#[must_use]
+pub fn untargetable_by_source(state: &GameState, object: ObjectId, source: ObjectId) -> bool {
+    let (Some(obj), Some(src)) = (state.object(object), state.object(source)) else {
+        return false;
+    };
+    state.effects.iter().any(|fx| {
+        let baylee_cards_dsl::Modifier::CantBeTargetedBy(f) = fx.modifier else {
             return false;
         };
         crate::effects::applies_to(state, fx, obj)
@@ -687,7 +750,7 @@ pub fn target_options(
                 .filter(|id| {
                     state
                         .object(*id)
-                        .is_some_and(|o| o.characteristics().mana_cost.cmc() < *limit)
+                        .is_some_and(|o| o.characteristics().mana_value() < *limit)
                 })
                 .collect()
         }
@@ -748,11 +811,16 @@ pub fn target_options(
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent => vec![],
     };
-    // Protection (CR 702.16b) keeps out matching sources; hexproof and
-    // shroud (CR 702.11b/702.18b) keep out whole classes of chooser.
+    // Protection (CR 702.16b) keeps out matching sources, and so does a
+    // printed "can't be the target of" sentence; hexproof and shroud
+    // (CR 702.11b/702.18b) keep out whole classes of chooser.
     options
         .into_iter()
-        .filter(|id| !protected_from(state, *id, this) && !untargetable_by(state, *id, you))
+        .filter(|id| {
+            !protected_from(state, *id, this)
+                && !untargetable_by_source(state, *id, this)
+                && !untargetable_by(state, *id, you)
+        })
         .collect()
 }
 
@@ -1516,6 +1584,31 @@ mod tests {
             source,
             Condition::CountersOnSelfExactly(kind, 2)
         ));
+    }
+
+    /// A leveler's `{LEVEL N1-N2}` band (CR 711.2a) is closed at both ends:
+    /// Hexdrinker's "LEVEL 3-7" holds at three and at seven and at neither
+    /// two nor eight.
+    #[test]
+    fn a_level_band_holds_at_both_ends_and_not_beyond_them() {
+        let mut state = empty_state();
+        let source = creature(&mut state, P0, KeywordSet::EMPTY);
+        let kind = baylee_cards_dsl::CounterKind::Level;
+        let band = Condition::CountersOnSelfBetween(kind, 3, 7);
+        let mut held = Vec::new();
+        for _ in 0..9 {
+            held.push(condition_holds(&state, P0, source, band));
+            state
+                .object_mut(source)
+                .expect("just made it")
+                .counters
+                .add(kind, 1);
+        }
+        assert_eq!(
+            held,
+            [false, false, false, true, true, true, true, true, false],
+            "levels 0 to 8"
+        );
     }
 
     /// CR 113.7a: an ability is a separate object from its source the

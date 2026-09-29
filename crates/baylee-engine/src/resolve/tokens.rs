@@ -250,7 +250,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         owner = Some(p);
                         cmc = state
                             .object(card)
-                            .map_or(0, |o| o.characteristics().mana_cost.cmc());
+                            .map_or(0, |o| o.characteristics().mana_value());
                         break 'scan;
                     }
                 }
@@ -302,6 +302,7 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
         // copy made "except it has …" would lose it here, and nothing in the
         // pool is one.
         baylee_cards_dsl::CopyMod::AddCounter(_, _)
+        | baylee_cards_dsl::CopyMod::AddCounterX(_)
         | baylee_cards_dsl::CopyMod::KeepOtherAbilities
         | baylee_cards_dsl::CopyMod::Grant(_) => {}
     }

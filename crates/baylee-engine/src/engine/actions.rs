@@ -278,6 +278,7 @@ impl<L: CardLookup> Engine<L> {
                     player: p,
                     min,
                     max,
+                    ..
                 },
                 PlayerAction::ChooseNumber(n),
             ) if *p == player => {
@@ -303,9 +304,17 @@ impl<L: CardLookup> Engine<L> {
                     self.activation_x = Some(n);
                     return self.start_activation(player, source, ability_index, SmallVec::new());
                 }
+                // And the wizard asks two numbers, told apart by where it
+                // stands: X (CR 107.3) before the kicker, and how many times
+                // replicate is paid (CR 702.56a) after it.
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
-                wizard.x = n;
-                wizard.stage = cast_wizard::WizardStage::Kicker;
+                if wizard.stage == cast_wizard::WizardStage::Replicate {
+                    wizard.replicated = u8::try_from(n).unwrap_or(u8::MAX);
+                    wizard.stage = cast_wizard::WizardStage::Targets;
+                } else {
+                    wizard.x = n;
+                    wizard.stage = cast_wizard::WizardStage::Kicker;
+                }
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
             }
@@ -756,6 +765,9 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::ChooseSubtype { .. } => {
                         unreachable!("subtype plans are answered via ChooseSubtype")
                     }
+                    PlanKind::ChooseCardName { .. } => {
+                        unreachable!("card-name plans are answered via ChooseCardName")
+                    }
                     PlanKind::ChooseColor { .. } | PlanKind::IntrinsicMana { .. } => {
                         unreachable!("color plans are answered via ChooseColor")
                     }
@@ -805,6 +817,27 @@ impl<L: CardLookup> Engine<L> {
                 // creature on the board keeps the projection it had before
                 // anybody chose, and the card does nothing at all.
                 self.state.invalidate_projections();
+                Ok(())
+            }
+            (
+                Pending::ChooseCardName { player: p },
+                PlayerAction::ChooseCardName { card, face },
+            ) if *p == player => {
+                // Any face of any card the pool has (CR 201.4, 201.4b–f).
+                let printed = self
+                    .lookup
+                    .card(card)
+                    .is_some_and(|def| usize::from(face) < def.faces.len());
+                let Some(named) = crate::object::PrintedFace::new(card, face).filter(|_| printed)
+                else {
+                    return Err(EngineError::IllegalAction("not a card name"));
+                };
+                let Some(PlanKind::ChooseCardName { object }) = self.pending_plan.take() else {
+                    return Err(EngineError::IllegalAction("no card-name choice pending"));
+                };
+                if let Some(obj) = self.state.object_mut(object) {
+                    obj.chosen_name = Some(named);
+                }
                 Ok(())
             }
             // Two questions wear one `Pending`. This arm is the entering
@@ -1133,7 +1166,7 @@ impl<L: CardLookup> Engine<L> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.kicked = answer;
-                    wizard.stage = cast_wizard::WizardStage::Targets;
+                    wizard.stage = cast_wizard::WizardStage::Replicate;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }

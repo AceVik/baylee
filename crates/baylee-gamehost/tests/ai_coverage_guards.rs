@@ -110,6 +110,7 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
         }
         AbilityDef::Unimplemented
         | AbilityDef::Ward { .. }
+        | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
         | AbilityDef::Static(_)
@@ -129,7 +130,10 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
 /// now 2731.
 fn counters_put(effects: &'static [Effect], seen: &mut usize, found: &mut Vec<CounterKind>) {
     Effect::walk(effects, seen, &mut |effect| {
-        if let Effect::AddCounter { kind, .. } | Effect::AddCounterFilter { kind, .. } = effect {
+        if let Effect::AddCounter { kind, .. }
+        | Effect::AddCounterFilter { kind, .. }
+        | Effect::DoubleCountersFilter { kind, .. } = effect
+        {
             found.push(*kind);
         }
     });

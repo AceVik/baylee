@@ -42,6 +42,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         alternative_costs: &[],
         prototype: None,
         disguise: None,
+        replicate: None,
         additional_costs: &[],
         kicked_targets: None,
         mandatory_additional_costs: &[],

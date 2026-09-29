@@ -1323,6 +1323,26 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             };
             (player, PlayerAction::ChooseColor(first))
         }
+        // Any card's name is an answer (CR 201.4), and the one the entering
+        // permanent is itself printed with is always a card of the pool.
+        Pending::ChooseCardName { player } => {
+            let own = match engine.pending_plan {
+                Some(super::PlanKind::ChooseCardName { object }) => {
+                    engine.state().object(object).and_then(|o| o.card)
+                }
+                _ => None,
+            };
+            let Some(card) = own else {
+                return Err(Rest::Unanswered("ChooseCardName"));
+            };
+            (
+                player,
+                PlayerAction::ChooseCardName {
+                    card: card.index,
+                    face: 0,
+                },
+            )
+        }
         Pending::ChoosePlayer { player, options } => {
             let Some(first) = options.first().copied() else {
                 return Err(Rest::Unanswered("ChoosePlayer"));

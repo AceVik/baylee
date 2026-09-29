@@ -46,7 +46,7 @@ card!(
                     amount: Amount::Fixed(4),
                     target: PlayerRel::You,
                 },
-                Effect::ReturnAllFromGraveyard {
+                Effect::YourGraveyardToBattlefield {
                     filter: &Filter::LAND,
                     tapped: true,
                 },

@@ -106,7 +106,6 @@ const UNAUDITED: &[(&str, usize)] = &[
     ("engine/abilities.rs", 1),
     ("engine/progress.rs", 11),
     ("eval.rs", 6),
-    ("layers.rs", 1),
     ("resolve/chosen.rs", 1),
     ("resolve/control.rs", 1),
     ("resolve/counters.rs", 2),

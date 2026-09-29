@@ -136,6 +136,7 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
         | Modifier::LoseAllAbilities => &[Field::Keywords],
         Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
+        | Modifier::SetPTToCount(_)
         | Modifier::SwitchPT
         | Modifier::CharacteristicPT { .. }
         | Modifier::ModifyPTPerCount { .. } => PT,
@@ -208,22 +209,35 @@ fn mismatch(
         let ids: Vec<u16> = set.iter().map(SubtypeId::get).collect();
         format!("{ids:?}")
     };
+    // A Room put onto the battlefield without being cast has neither door
+    // unlocked (CR 709.5d), and a locked half has no name, mana cost or
+    // rules text (CR 709.5): what it prints is on the card and not on the
+    // permanent. Its types are shared (CR 709.5a) and still compared.
+    let locked = def.has_shared_type_line();
+    let cost = if locked {
+        baylee_core::mana::ManaCost::ZERO
+    } else {
+        face.mana_cost
+    };
     let (same, printed, projected) = match field {
-        Field::Name => (
-            name == face.name,
-            format!("{:?}", face.name),
-            format!("{name:?}"),
-        ),
+        Field::Name => {
+            let want = if locked { "" } else { face.name };
+            (name == want, format!("{want:?}"), format!("{name:?}"))
+        }
         Field::ManaCost => (
-            c.mana_cost == face.mana_cost,
-            format!("{:?}", face.mana_cost),
+            c.mana_cost == cost,
+            format!("{cost:?}"),
             format!("{:?}", c.mana_cost),
         ),
         // CR 105.2, stated here a second time on purpose: a face's colors
         // are the colors of its cost, plus the indicator a face with no cost
         // prints instead of one.
         Field::Colors => {
-            let want: ColorSet = face.mana_cost.colors().union(face.color_indicator);
+            let want: ColorSet = if locked {
+                ColorSet::EMPTY
+            } else {
+                face.mana_cost.colors().union(face.color_indicator)
+            };
             (
                 c.colors == want,
                 format!("{want:?}"),
@@ -247,7 +261,9 @@ fn mismatch(
         // The other rule stated twice: a front face keeps the keywords it
         // prints and falls back to the card's list when it prints none.
         Field::Keywords => {
-            let want = if face.keywords.is_empty() {
+            let want = if locked {
+                baylee_cards_dsl::KeywordSet::EMPTY
+            } else if face.keywords.is_empty() {
                 def.keywords
             } else {
                 face.keywords

@@ -2,9 +2,8 @@
 //! Oracle: Whenever this creature attacks, you may mill three cards.
 //! Oracle: When this creature dies, return all land cards from your graveyard to the battlefield tapped.
 //! Set: OTC #214 — Outlaws of Thunder Junction Commander | Scryfall ID: cc765da4-4bca-4250-80e4-05575d6fa98c | Oracle ID: 3c075bb6-1831-4521-bd8d-4ed2825ae796
-// IMPLEMENTED — the attack trigger mills three if its controller says so;
-// the dies trigger returns every land card from its controller's graveyard
-// to the battlefield tapped (Lumra's sweep).
+// IMPLEMENTED — attack trigger mills three, optionally; when it dies, every
+// land card in its controller's graveyard comes back tapped.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -37,7 +36,7 @@ card!(
         // graveyard to the battlefield tapped."
         triggered!(
             Trigger::Dies(&Filter::This),
-            &[Effect::ReturnAllFromGraveyard {
+            &[Effect::YourGraveyardToBattlefield {
                 filter: &Filter::LAND,
                 tapped: true,
             }]

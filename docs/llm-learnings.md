@@ -1739,6 +1739,118 @@ land type"; both are convention tests that fire on a first try.
   token ledger (`generated_tokens.rs`) is written only by full codegen.
   Voice of Resurgence's */* Elemental is blocked on that.
 
+### 2026-09-29 — friends group: Ossi's Schwarzrand and Dominik's Weltenbaum
+
+- **`castable` lists only spells whose mana is already floating.** A test
+  that asks the offer before tapping reads an empty list and blames the
+  card. Tap first (`tap_all_mana`), then ask.
+- **`PlayerRel::Opponent` is the first living opponent, not "that player".**
+  In a cast trigger the player who cast the spell is `ControllerOfEvent`.
+  Heads-up both are the same seat, so only a three-seat test tells them
+  apart. Rhystic Study, Esper Sentinel and Smothering Tithe still use
+  `Opponent`.
+- **Run the sweeps a new walk or event reader trips.** `phasing_tests` counts
+  raw battlefield walks per file (`battlefield_seen` is the door), and
+  `this_object_tests` needs the `Debug` spelling of every new event-object
+  reader. Both fail on a first try; neither is about the card.
+- **`walk_to_own_main` returns at once when you are already in your own
+  main phase.** To reach the *next* one, walk to the opponent's first
+  (`reach_their_main_phase`).
+- **A leaves-the-battlefield trigger asks its filter of the object as it
+  was** (CR 603.10a). The card in the graveyard has lost every effect, so
+  before `ltb_characteristics` a Living Lands Forest died as a land and a
+  returned Enduring Vitality died as a creature. A "dies" filter that
+  depends on a type an effect gave is the case to test.
+- **A printed `*/*` is layer 7a, never a `ModifyPTPerCount` on 0/0.** The
+  pump is 7c and survives a 7b "becomes 1/1" that should win. Write it as
+  `CharacteristicPT`. The same sentence *granted* (Druid Class's land) is no
+  characteristic-defining ability (CR 604.3a) and is `SetPTToCount`, 7b.
+- **A level-up or class payoff that targets must be a trigger.** A static
+  cannot choose. Class levels are Level counters (level 2 = one counter),
+  and "when this Class becomes level N" is `Trigger::CountersReach`.
+- **Two agents built the same piece twice.** `ControllerOfEvent` and
+  `CharacteristicPT` from night-decks replaced this group's
+  `ControllerOfEventObject` and `DefinePTByCount` at the merge. Read the
+  integration branch's DSL before adding a variant, not only `main`'s.
+- **A filter over stack objects matches abilities too.** An ability on the
+  stack has a blank face, so `NONCREATURE` alone is true of it. "Noncreature
+  spells you control" also asks for a noncreature card type (Benevolent
+  Geist).
+
+### 2026-09-29 — friends group, round 2: Weltenbaum's rules pieces
+
+- **Set the harness's counters before walking to a step.** A counter put on
+  a permanent after `reach_main_phase` leaves the projection stale until
+  something else changes; the station test saw a 1/1 where the counters said
+  otherwise. Put them first, then walk.
+- **An ability with a mana cost is offered only once its mana floats.** Ask
+  the offer after tapping, as for `castable`. A test that asked first read
+  "not offered" and blamed the threshold it was written for.
+- **A back face is cast at its own timing** (CR 601.3e, 712.11c, 715.3a).
+  An instant on the back of an enchantment read as a sorcery for as long as
+  the front's timing was the only one asked. A card whose two faces differ
+  in speed is the case to test.
+- **A triggered ability journals `AbilityTriggered`, not `BecameTarget`.**
+  Count a copy's targets off `BecameTarget`, and expect the original's to be
+  missing from it.
+- **An ability on the stack is not projectable.** Insert one with
+  `projectable = false`, or `stack_projectable` panics as it drifts.
+- **A lock by name belongs on the offer, not in each door.** `apply` refuses
+  what `legal.abilities` does not hold, so one narrowing pass over it covers
+  printed, loyalty, granted and in-hand activations at once. Karn's lock
+  sits in every door separately and needed a comment per door.
+- **A board seated by `Duel::battlefield` enters tapped where the card
+  says so** (the Deserts): an older test comment says otherwise. Read the
+  status before tapping it for mana, or take the test to that seat's own
+  turn, after its untap step.
+- **A new field on `GameObject` can cost eight bytes for four.** The
+  footprint test measures alignment, not the field: an `Option<PrintedFace>`
+  grew the object from 296 to 304. Raise the budget deliberately, with a
+  line in `docs/perf-baseline.md`.
+
+### 2026-09-29 — friends group, round 2: Lose Focus and replicate
+
+- **One constructor for a spell copy.** `CopyTargetSpell` copied the object
+  and its object targets but not X, the mode, the face, a kicker or a player
+  target; a copied Blaze dealt 0 to nobody. Replicate needed the same copy,
+  so both go through `resolve::copy_spell` now, and a new copy effect should
+  too.
+- **A count fixed at cast time is a slice of a static table.** The
+  replicate trigger's effects are `&REPLICATE_COPIES[..n]`, one
+  `CopyThisSpell` each, so nothing has to allocate or read the count back
+  at resolution. Storm could take the same shape.
+- **A question that shares an answer with another says which it is.**
+  `ChooseNumber` answers X and replicate alike; the `reason` field is what
+  lets the client's headline and the AI tell them apart. The engine itself
+  tells them apart by the wizard stage.
+- **A trigger's source can be a spell on the stack below it.** An AI reader
+  that looked up "what is resolving" by the source id found the spell before
+  its trigger, and aimed the copy at the spell it was copying. Look for the
+  ability of the source first.
+- **Bound an optional count by what the payment reads.** The replicate
+  bound asks the same `can_pay_mana` with the same `spend_for` as
+  `finish_cast`, so restricted mana (Cavern of Souls) cannot make the offer
+  and the payment disagree.
+
+### 2026-09-29 — friends group, round 2: Walk-In Closet and Rooms
+
+- **A designation that changes the rules text must end what the old text
+  started.** `sync_static_effects` registers statics and drops them only
+  when their source leaves or a condition fails, so a Room placed uncast
+  kept the left door's static it was scanned with before its doors were
+  set. `set_doors` drops the Room's statics and lets the next scan
+  re-register them.
+- **"Enters with" belongs where enter modifiers are.** Giving the door in
+  `apply_enter_modifiers`, before the trigger scan of the same pass, is what
+  lets the Room's own "when you unlock this door" hear its entry.
+- **A reserved index needs one predicate.** Pithing Needle and split second
+  each kept `TURN_FACE_UP` by name; a second special action would have been
+  stopped by both. `choice::is_special_action` is the one question.
+- **A test's second turn must leave the first.** `reach_their_main_phase`
+  returns at once when the seat is already in its main phase; "next turn"
+  needs a pass into the other seat's turn first, or "this turn" is never
+  over.
+
 ## 29.09.2026 — library group, round two: piles, a cast out of a graveyard, a single graveyard, crew
 
 - **After a hand edit to a card, run `xtask codegen --tables`, never full
@@ -1758,9 +1870,11 @@ land type"; both are convention tests that fire on a first try.
   question was not about it. A pile question selects nothing, so the pile was
   invisible until `rows` exempted the Looking tab.
 - **A Partial's reason can go stale without anyone noticing.** World Shaper
-  named a missing effect that another card had already added
-  (`ReturnAllFromGraveyard`, Lumra's sweep). Grep for the machinery before
-  believing a reason.
+  named a missing effect that another card had already added (Lumra's
+  sweep). Grep for the machinery before believing a reason. The friends
+  group finished World Shaper the same night with a sweep of its own, so the
+  merge kept one of the two identical effects (`YourGraveyardToBattlefield`)
+  and dropped `ReturnAllFromGraveyard`.
 - **"You may cast that card" during a resolution is a delayed cast plus a
   payment window.** `Effect::MayCastTarget` asks `CastPaying`. A yes opens a
   CR 605.3a window for the card's mana cost as the resolution ends, and

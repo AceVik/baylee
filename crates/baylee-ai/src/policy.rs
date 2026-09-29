@@ -1072,6 +1072,9 @@ fn spell_cost(view: &PlayerView, id: ObjectId, face: &FaceDef) -> baylee_core::m
 /// before the cast. X is the largest the sources can make. A kicker is
 /// aimed for when it fits the budget, and cast only once floating, as with X:
 /// the engine asks the kicker question with no window to tap anything more.
+/// So is replicate, as many payments as the budget and the sources cover:
+/// the engine offers as many as the floating pool pays for (CR 702.56a),
+/// and the answer takes them all.
 fn aim(
     view: &PlayerView,
     card: CardIdentity,
@@ -1096,8 +1099,21 @@ fn aim(
             .unwrap_or_else(|| cost.with_x(0));
         return (x, true);
     }
-    kicked_price(view, face, spell_effects(card), cost, sources)
-        .filter(|net| net.cmc() <= budget && manaplan::plan(net, pool, sources).is_some())
+    let fits = |net: &baylee_core::mana::ManaCost| {
+        net.cmc() <= budget && manaplan::plan(net, pool, sources).is_some()
+    };
+    if let Some(net) = kicked_price(view, face, spell_effects(card), cost, sources).filter(fits) {
+        return (net, true);
+    }
+    // Every printed replicate cost is mana, so no more payments fit than
+    // the budget has mana.
+    face.replicate
+        .and_then(|each| {
+            (1..=budget.min(50))
+                .rev()
+                .map(|n| (0..n).fold(cost, |total, _| total.combine(&each)))
+                .find(fits)
+        })
         .map_or((cost, false), |net| (net, true))
 }
 
@@ -1263,10 +1279,11 @@ fn taps_needed(view: &PlayerView, context: &DecisionContext<'_>, max: usize) -> 
 
 /// Whether a tax is worth paying, asked of what refusing it would do.
 ///
-/// `YesNoPrompt::PayTax` carries a price and not a consequence, and the two
+/// `YesNoPrompt::PayTax` carries a price and not a consequence, and the
 /// taxes in this pool are not the same decision. Ward (CR 702.21) reaches
 /// the **caster** and counters the spell already on the stack, so refusing
-/// it throws away a whole card to keep two mana. A Rhystic tax gives an
+/// it throws away a whole card to keep two mana; cumulative upkeep
+/// (CR 702.24a) sacrifices the seat's own permanent, the same trade. A Rhystic tax gives an
 /// opponent one card, and that one stays refused: a stateless policy cannot
 /// tell mana it has to spare from mana its own curve needs this turn, and a
 /// card is the cheaper of the two to give up. The resolving effect is what
@@ -1282,17 +1299,20 @@ pub(crate) fn pays_tax(
     mana: u16,
     context: &baylee_engine::engine::DecisionContext<'_>,
 ) -> bool {
-    let refusal_counters = context.effects.iter().any(|effect| match effect {
+    let refusal_costs_a_card = context.effects.iter().any(|effect| match effect {
         Effect::PlayerMayPayOr { effect, .. } => matches!(
             effect,
             Effect::CounterTargetSpell
                 | Effect::CounterTargetSpellToExile
                 | Effect::CounterTargetAbility
                 | Effect::CounterTargetSpellOrAbility
+                // Cumulative upkeep (CR 702.24a): unpaid, the permanent that
+                // asks is sacrificed, which is a card of the seat's own.
+                | Effect::SacrificeSelf
         ),
         _ => false,
     });
-    if !refusal_counters {
+    if !refusal_costs_a_card {
         return false;
     }
     can_pay(

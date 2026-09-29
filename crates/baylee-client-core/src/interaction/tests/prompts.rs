@@ -67,10 +67,30 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
         player: me(),
         min: 0,
         max: 50,
+        reason: baylee_engine::choice::NumberPrompt::X,
     });
     assert_eq!(
         i.prompt().headline(Lang::En, Turn::Mine, None, false),
         "Choose a number (0–50)"
+    );
+
+    // The same question counting replicate payments says so, and what each
+    // one costs: "choose a number" over a Lose Focus did not.
+    let i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 2,
+        reason: baylee_engine::choice::NumberPrompt::Replicate {
+            cost: baylee_core::mana::ManaCost::parse("{U}"),
+        },
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Replicate {U}: pay it how many times? (0–2)"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Replikation {U}: wie oft zahlen? (0–2)"
     );
 
     let i = interaction(Pending::YesNo {
@@ -413,6 +433,7 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
             player: me(),
             min: 0,
             max: 1,
+            reason: baylee_engine::choice::NumberPrompt::X,
         },
         Pending::ChoosePlayer {
             player: me(),
@@ -579,6 +600,7 @@ fn owing_changes_the_priority_line_and_no_other() {
             player: me(),
             min: 0,
             max: 3,
+            reason: baylee_engine::choice::NumberPrompt::X,
         },
     ] {
         let i = interaction(pending);

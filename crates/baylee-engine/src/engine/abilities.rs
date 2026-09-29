@@ -275,6 +275,12 @@ impl<L: CardLookup> Engine<L> {
             {
                 legal.abilities.push((id, crate::choice::TURN_FACE_UP));
             }
+            // CR 709.5e: a locked door, as a sorcery, for its mana cost.
+            if sorcery_timing {
+                for half in self.unlockable_halves(id) {
+                    legal.abilities.push((id, crate::choice::unlock_door(half)));
+                }
+            }
             // A token's abilities come from its definition rather than from a
             // card; everything below reads the same `AbilityDef`s either way.
             let offered: &[AbilityDef] = if locked {
@@ -563,8 +569,108 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
+        self.narrow_under_chosen_names(&mut legal);
+        self.narrow_under_split_second(&mut legal);
         self.narrow_to_mana_window(player, &mut legal);
         legal
+    }
+
+    /// Pithing Needle: "Activated abilities of sources with the chosen name
+    /// can't be activated unless they're mana abilities" (CR 602.5).
+    ///
+    /// Narrowed here, where the offer is built, because `apply` refuses any
+    /// activation the offer does not hold: one probe read from both sides,
+    /// for the reason [`Engine::ability_has_a_target`] gives. Every door
+    /// onto `legal.abilities` is covered by it, printed, loyalty, granted and
+    /// a card's in hand alike. What stays is what the sentence does not
+    /// reach: a mana ability (CR 605.1a), turning a permanent face up and
+    /// unlocking a door (special actions, CR 116.2b, 116.2m), and a
+    /// prepared cast, which casts a spell.
+    /// The intrinsic CR 305.6 mana of `legal.mana_abilities` is mana too.
+    fn narrow_under_chosen_names(&self, legal: &mut LegalActions) {
+        let locked = self.names_locked_from_activating();
+        if locked.is_empty() {
+            return;
+        }
+        legal.abilities.retain(|&(source, index)| {
+            crate::choice::is_special_action(index)
+                || index == crate::choice::PREPARED_CAST
+                || self.is_mana_offer(source, index)
+                || !self
+                    .state
+                    .object(source)
+                    .is_some_and(|obj| locked.contains(&obj.characteristics().name))
+        });
+    }
+
+    /// The names every `Modifier::ChosenNameCantActivate` in force has
+    /// locked, each the name chosen as its source entered.
+    ///
+    /// Compared as interned names, so a source's projected name is what is
+    /// read (a copy is named what it copies, CR 707.2) and a chosen name no
+    /// object of the game has carried locks nothing, having never been
+    /// interned. A source that has no chosen name locks nothing either.
+    fn names_locked_from_activating(&self) -> SmallVec<[NameRef; 2]> {
+        let mut locked = SmallVec::new();
+        for fx in self.state.effects.iter() {
+            if !matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::ChosenNameCantActivate
+            ) {
+                continue;
+            }
+            let Some(chosen) = fx
+                .source
+                .and_then(|source| self.state.object(source))
+                .and_then(|source| source.chosen_name)
+            else {
+                continue;
+            };
+            let Some(name) = self
+                .lookup
+                .card(chosen.card())
+                .and_then(|def| def.faces.get(usize::from(chosen.face())))
+                .and_then(|face| self.state.names.find(face.name))
+            else {
+                continue;
+            };
+            if !locked.contains(&name) {
+                locked.push(name);
+            }
+        }
+        locked
+    }
+
+    /// Split second (CR 702.61a): "As long as this spell is on the stack,
+    /// players can't cast other spells or activate abilities that aren't
+    /// mana abilities."
+    ///
+    /// What stays is what CR 702.61b names: mana abilities, and special
+    /// actions — turning a face-down permanent face up, which its controller
+    /// may do any time they have priority (CR 116.2b). Suspending a card is a
+    /// special action too, but one taken "only if they could begin to cast
+    /// that card" (CR 116.2f), and under split second nobody can, so it goes
+    /// with the spells. A land is never offered with a spell on the stack.
+    ///
+    /// Read off the projected keywords of every spell on the stack, so a
+    /// copy of a split-second spell locks it too: a copy is a spell.
+    fn narrow_under_split_second(&self, legal: &mut LegalActions) {
+        let locked = self.state.zones.list(ZoneLocation::Stack).iter().any(|id| {
+            self.state.object(*id).is_some_and(|o| {
+                o.kind == ObjectKind::Spell
+                    && o.characteristics()
+                        .keywords
+                        .contains(baylee_cards_dsl::KeywordSet::SPLIT_SECOND)
+            })
+        });
+        if !locked {
+            return;
+        }
+        legal.castable.clear();
+        legal.suspendable.clear();
+        legal.abilities.retain(|&(source, index)| {
+            crate::choice::is_special_action(index) || self.is_mana_offer(source, index)
+        });
     }
 
     /// Inside a CR 605.3a payment window, the only thing a player may do is
@@ -614,19 +720,26 @@ impl<L: CardLookup> Engine<L> {
         legal.lands.clear();
         legal.castable.clear();
         legal.suspendable.clear();
-        legal.abilities.retain(|&(source, index)| {
-            let Some(obj) = self.state.object(source) else {
-                return false;
-            };
-            if let Some(slot) = crate::choice::granted_slot(index) {
-                return crate::effects::granted_activated(&self.state, source)
-                    .nth(slot as usize)
-                    .is_some_and(|granted| granted.mana_ability);
-            }
-            obj.abilities(&self.lookup)
-                .get(index as usize)
-                .is_some_and(AbilityDef::is_mana_ability)
-        });
+        legal
+            .abilities
+            .retain(|&(source, index)| self.is_mana_offer(source, index));
+    }
+
+    /// Whether the offered activation `(source, index)` is a mana ability,
+    /// asked of the object's own list or, for a granted slot, of the grants
+    /// — the one reading both narrowings share.
+    fn is_mana_offer(&self, source: ObjectId, index: u32) -> bool {
+        let Some(obj) = self.state.object(source) else {
+            return false;
+        };
+        if let Some(slot) = crate::choice::granted_slot(index) {
+            return crate::effects::granted_activated(&self.state, source)
+                .nth(slot as usize)
+                .is_some_and(|granted| granted.mana_ability);
+        }
+        obj.abilities(&self.lookup)
+            .get(index as usize)
+            .is_some_and(AbilityDef::is_mana_ability)
     }
 
     /// Whether a targeting ability has anything legal to point at
@@ -1235,6 +1348,9 @@ impl<L: CardLookup> Engine<L> {
         if ability_index == crate::choice::TURN_FACE_UP {
             return self.turn_face_up(player, source);
         }
+        if let Some(half) = crate::choice::door_to_unlock(ability_index) {
+            return self.unlock_door(player, source, half);
+        }
         if ability_index == crate::choice::PREPARED_CAST {
             return self.start_prepared_cast(player, source);
         }
@@ -1394,6 +1510,7 @@ impl<L: CardLookup> Engine<L> {
                 player,
                 min: 0,
                 max,
+                reason: crate::choice::NumberPrompt::X,
             };
             self.awaiting_answer = true;
             return Ok(());
@@ -1441,6 +1558,7 @@ impl<L: CardLookup> Engine<L> {
                 player,
                 min: 0,
                 max,
+                reason: crate::choice::NumberPrompt::X,
             };
             self.awaiting_answer = true;
             return Ok(());
@@ -1695,7 +1813,7 @@ impl<L: CardLookup> Engine<L> {
         let x = self.activation_x.take().unwrap_or(0);
         self.activation_targets_answered = false;
         self.activation_phyrexian.clear();
-        let sacrificed_mana_value = self.pay_cost(player, source, &cost, &answers, x)?;
+        let paid = self.pay_cost(player, source, &cost, &answers, x)?;
         // The life the Phyrexian symbols were paid with, beside the rest of
         // the cost (CR 601.2h; CR 119.4 was asked above).
         if phyrexian_life > 0 {
@@ -1776,16 +1894,14 @@ impl<L: CardLookup> Engine<L> {
             {
                 obj.x_value = x;
             }
-            // What the cost sacrificed, carried on the ability for the
-            // effect that asks (Birthing Pod's "1 plus the sacrificed
-            // creature's mana value"), the way a spell carries its own.
-            if sacrificed_mana_value.is_some()
+            // What the cost sacrificed or tapped, carried on the ability for
+            // the effect that asks (Birthing Pod's "1 plus the sacrificed
+            // creature's mana value", station's "the tapped creature's
+            // power"), the way a spell carries its own.
+            if paid != crate::object::PaidRecord::default()
                 && let Some(obj) = self.state.object_mut(ability)
             {
-                obj.paid = Some(Box::new(crate::object::PaidRecord {
-                    sacrificed_mana_value,
-                    mana_spent: 0,
-                }));
+                obj.paid = Some(Box::new(paid));
             }
             // The seats that were targeted, written onto the ability now
             // that there is one — the same two fields the trigger path
@@ -2055,10 +2171,10 @@ impl<L: CardLookup> Engine<L> {
     /// beside this one, and a cost paid in two places is a cost that can be
     /// paid twice.
     ///
-    /// Answers with the mana value of the permanent a `Sacrifice` part
-    /// sacrificed, as it last existed (CR 608.2h), for the ability to carry
-    /// ([`crate::object::PaidRecord`]); `None` when nothing chosen was
-    /// sacrificed.
+    /// Answers with what an effect of the ability may ask about the payment,
+    /// for the ability to carry ([`crate::object::PaidRecord`]): the mana
+    /// value of the permanent a `Sacrifice` part sacrificed, as it last
+    /// existed (CR 608.2h), and the permanent a `TapOther` part tapped.
     ///
     /// # Errors
     /// [`EngineError::IllegalAction`] when the mana is not there, when a
@@ -2075,9 +2191,9 @@ impl<L: CardLookup> Engine<L> {
         cost: &Cost,
         chosen: &[ObjectId],
         x: u32,
-    ) -> Result<Option<u32>, EngineError> {
+    ) -> Result<crate::object::PaidRecord, EngineError> {
         let mut answers = chosen.iter().copied();
-        let mut sacrificed_mana_value = None;
+        let mut paid = crate::object::PaidRecord::default();
         if !cost.mana.is_empty() {
             // CR 107.3a, second half: while an activated ability is on the
             // stack, any X in its activation cost equals the announced
@@ -2250,16 +2366,22 @@ impl<L: CardLookup> Engine<L> {
                     // is read off the permanent as it last existed on the
                     // battlefield (CR 608.2h), so before it goes.
                     if matches!(part, CostPart::Sacrifice(_)) {
-                        sacrificed_mana_value = self
+                        paid.sacrificed_mana_value = self
                             .state
                             .object(card)
-                            .map(|o| o.characteristics().mana_cost.cmc());
+                            .map(|o| o.characteristics().mana_value());
+                    }
+                    // "The tapped creature" (station, CR 702.184a): which
+                    // object, so its power can be read as the effect applies
+                    // (CR 608.2h).
+                    if matches!(part, CostPart::TapOther(_)) {
+                        paid.tapped = self.state.object(card).map(|o| (card, o.version));
                     }
                     cost_wizard::pay(&mut self.state, player, part, card)?;
                 }
             }
         }
-        Ok(sacrificed_mana_value)
+        Ok(paid)
     }
 
     /// Puts one of `source`'s abilities on the stack (CR 603.3 for a

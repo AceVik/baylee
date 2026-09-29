@@ -139,6 +139,20 @@ pub enum Pending {
         /// All creature types (ids 0..=349).
         options: Vec<baylee_core::ids::SubtypeId>,
     },
+    /// Choose a card name ("as this enters, choose a card name" — Pithing
+    /// Needle), answered with [`PlayerAction::ChooseCardName`].
+    ///
+    /// No list rides with the question. Any card's name may be chosen, of
+    /// any of its faces (CR 201.4, 201.4b–f), and the pool is the whole of
+    /// what a game can mean by one (a token's name only counts when a card
+    /// has it too), so the options are the card pool itself: a few thousand
+    /// faces every client and agent already has, which a list here would
+    /// send again with every frame that asks. The engine checks the answer
+    /// against the pool it plays with.
+    ChooseCardName {
+        /// Choosing player.
+        player: PlayerId,
+    },
     /// Choose a mana color (choice-restricted mana abilities).
     ChooseColor {
         /// Choosing player.
@@ -177,7 +191,8 @@ pub enum Pending {
         /// The legal cast options.
         options: Vec<CastModeDesc>,
     },
-    /// Choose the value of X for a spell.
+    /// Choose a number: the value of X, or how many times to pay a
+    /// replicate cost. `reason` says which.
     ChooseNumber {
         /// Choosing player.
         player: PlayerId,
@@ -185,6 +200,9 @@ pub enum Pending {
         min: u32,
         /// Maximum value.
         max: u32,
+        /// What the number is (UI hint). A frame without it is asking for X.
+        #[serde(default)]
+        reason: NumberPrompt,
     },
     /// Choose a target player.
     ChoosePlayer {
@@ -240,6 +258,7 @@ impl Pending {
             | Self::ChooseCards { player, .. }
             | Self::ChooseTargets { player, .. }
             | Self::ChooseSubtype { player, .. }
+            | Self::ChooseCardName { player }
             | Self::ChooseColor { player, .. }
             | Self::YesNo { player, .. }
             | Self::ChooseCastMode { player, .. }
@@ -427,6 +446,31 @@ pub enum ChoicePrompt {
     },
     /// Generic selection.
     Generic,
+}
+
+/// What a [`Pending::ChooseNumber`] counts (UI hint).
+///
+/// Two questions share the variant because both are a bounded count the
+/// caster announces while casting (CR 601.2b), and the answer is
+/// [`PlayerAction::ChooseNumber`] either way; what they *mean* is this
+/// field, for the reason [`TargetPrompt`] gives about convoke. Without it a
+/// player casting Lose Focus with mana to spare was asked to "choose a
+/// number (0–2)" and nothing said what for.
+#[derive(
+    Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
+)]
+pub enum NumberPrompt {
+    /// The value of X (CR 107.3): a spell's printed `{X}`, an activation's,
+    /// or the X of a counter cost.
+    #[default]
+    X,
+    /// How many times to pay a spell's replicate cost (CR 702.56a). The
+    /// maximum is the most the caster's floating mana pays for, and the
+    /// spell is copied once for each.
+    Replicate {
+        /// The cost paid each time.
+        cost: baylee_core::mana::ManaCost,
+    },
 }
 
 /// Why a [`Pending::ChooseTargets`] is presented (UI hint).
@@ -623,6 +667,7 @@ pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
         | Pending::ChooseCards { .. }
         | Pending::ChooseTargets { .. }
         | Pending::ChooseSubtype { .. }
+        | Pending::ChooseCardName { .. }
         | Pending::ChooseColor { .. }
         | Pending::ChooseCastMode { .. }
         | Pending::ChooseNumber { .. }
@@ -860,6 +905,43 @@ pub const PREPARED_CAST: u32 = u32::MAX - GRANTED_SLOTS;
 /// A face-up special action, carried by the existing permanent action menu.
 pub const TURN_FACE_UP: u32 = PREPARED_CAST - 1;
 
+/// How many unlock slots there are: one per half of a Room.
+pub const UNLOCK_SLOTS: u32 = 2;
+
+/// The index unlocking `half` of a Room (0 the left, 1 the right) is
+/// offered under: CR 709.5e's special action (CR 116.2m), carried by the
+/// permanent's action menu as turning one face up is.
+#[must_use]
+pub const fn unlock_door(half: u8) -> u32 {
+    // `u32::from` is not const.
+    #[allow(clippy::cast_lossless)]
+    let half = (half & 1) as u32;
+    TURN_FACE_UP - 1 - half
+}
+
+/// Which half `index` unlocks, if it names an unlock: the decoder half of
+/// [`unlock_door`], and the one place that partition is read.
+#[must_use]
+pub const fn door_to_unlock(index: u32) -> Option<u8> {
+    let n = (TURN_FACE_UP - 1).wrapping_sub(index);
+    // Below `UNLOCK_SLOTS`, so it fits.
+    #[allow(clippy::cast_possible_truncation)]
+    if n < UNLOCK_SLOTS {
+        Some(n as u8)
+    } else {
+        None
+    }
+}
+
+/// Whether `index` is a special action (CR 116.2): turning a permanent face
+/// up, or unlocking a door. Neither is an activated ability, so what stops
+/// activating one stops neither (Pithing Needle, CR 602.5; split second,
+/// CR 702.61a).
+#[must_use]
+pub const fn is_special_action(index: u32) -> bool {
+    index == TURN_FACE_UP || door_to_unlock(index).is_some()
+}
+
 // The indices in this module are **not** `AbilityRef` indices, and that is
 // the distinction to keep before adding another one here. They name a slot in
 // one `LegalActions` — chosen fresh every time it is built, held by nothing
@@ -1029,6 +1111,16 @@ pub enum PlayerAction {
     ChooseColor(baylee_core::mana::ManaColor),
     /// Choose a creature type (Roaming Throne & co.).
     ChooseSubtype(baylee_core::ids::SubtypeId),
+    /// Choose a card name: face `face` of the card `card` (Pithing Needle,
+    /// CR 201.4). Refused for a card the pool does not have and for a face
+    /// it does not print.
+    ChooseCardName {
+        /// The card whose name it is.
+        card: baylee_core::ids::CardIndex,
+        /// Which of its faces, since each face's name may be chosen
+        /// (CR 201.4b, 201.4d, 201.4f).
+        face: u8,
+    },
     /// Choose a cast option (index into `ChooseCastMode::options`).
     ChooseMode(usize),
     /// Choose a number (X values).
@@ -1246,6 +1338,7 @@ mod choice_tests {
                 },
                 None,
             ),
+            (Pending::ChooseCardName { player: p }, None),
             (
                 Pending::ChooseCastMode {
                     player: p,
@@ -1259,6 +1352,7 @@ mod choice_tests {
                     player: p,
                     min: 0,
                     max: 3,
+                    reason: NumberPrompt::X,
                 },
                 None,
             ),
@@ -1312,7 +1406,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 17 + 13;
+    const KINDS: usize = 18 + 13;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -1335,8 +1429,9 @@ mod choice_tests {
             Pending::ChoosePlayer { .. } => 13,
             Pending::Arrange { .. } => 14,
             Pending::GameOver(_) => 15,
+            Pending::ChooseCardName { .. } => 16,
             Pending::YesNo { prompt, .. } => {
-                16 + match prompt {
+                17 + match prompt {
                     YesNoPrompt::PayLifeOrEnterTapped { .. } => 0,
                     YesNoPrompt::Kicker => 1,
                     YesNoPrompt::PayTax { .. } => 2,
@@ -1352,7 +1447,7 @@ mod choice_tests {
                     YesNoPrompt::CastPaying { .. } => 12,
                 }
             }
-            Pending::ChoosePile { .. } => 16 + 13,
+            Pending::ChoosePile { .. } => 17 + 13,
         }
     }
 
@@ -1413,6 +1508,33 @@ mod choice_tests {
         for n in 0..GRANTED_SLOTS {
             assert_ne!(PREPARED_CAST, granted_ability(n));
         }
+    }
+
+    #[test]
+    fn the_unlock_slots_sit_below_turning_face_up_and_decode_to_their_halves() {
+        // A Room's two doors take the next two indices down. Each decodes
+        // to its own half, none of them is another reserved index, and no
+        // other reserved index or printed position decodes as a door: one
+        // that did would unlock a door when a player pressed something else.
+        assert_eq!(door_to_unlock(unlock_door(0)), Some(0));
+        assert_eq!(door_to_unlock(unlock_door(1)), Some(1));
+        assert_eq!(unlock_door(0), TURN_FACE_UP - 1);
+        assert_eq!(unlock_door(1), TURN_FACE_UP - UNLOCK_SLOTS);
+        let others = (0..GRANTED_SLOTS)
+            .map(granted_ability)
+            .chain([PREPARED_CAST, TURN_FACE_UP, TURN_FACE_UP - UNLOCK_SLOTS - 1])
+            .chain([0, 1, 2, 7, 100, 65_535]);
+        for index in others {
+            assert_eq!(
+                door_to_unlock(index),
+                None,
+                "index {index} decoded as a door"
+            );
+        }
+        assert!(is_special_action(TURN_FACE_UP));
+        assert!(is_special_action(unlock_door(1)));
+        assert!(!is_special_action(PREPARED_CAST));
+        assert!(!is_special_action(granted_ability(0)));
     }
 
     // ---- priority holds ------------------------------------------------

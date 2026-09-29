@@ -57,6 +57,7 @@ question_vocabulary!(
     ChooseCards,
     ChooseTargets,
     ChooseSubtype,
+    ChooseCardName,
     ChooseColor,
     YesNo,
     ChooseCastMode,
@@ -191,6 +192,11 @@ const COMMANDERS_INSIGHT: &str = "54d7d7f8-22cd-4859-b203-924d248b422b";
 /// `{3}{U}`: the house separates the top five into two piles and the seat
 /// takes one, which is `ChoosePile`, the one question asked about piles.
 const FACT_OR_FICTION: &str = "437b2dab-15e0-4b9a-a204-58622d37a3b3";
+/// `{1}` artifact, "as this artifact enters, choose a card name" — the one
+/// question whose options are the whole card pool rather than a list.
+const PITHING_NEEDLE: &str = "a188fe7e-68de-4c7c-806c-bfe8fc7b44bf";
+/// A planeswalker to name with it, across the table.
+const KARN: &str = "a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1";
 /// `{2}{W}` legendary. Two of them on the table is the whole legend rule.
 const LORAN: &str = "b3d81980-76f2-44e2-b1c9-01e30c726312";
 /// `{2}{U}{U}`, kicker `{5}`, "a copy of target creature" — two questions in
@@ -619,6 +625,31 @@ impl Client {
                     .choose_index(index)
                     .then(|| interaction.confirm())?
             }
+            // A card name the way a player gives one: type a word of the name
+            // of something across the table, take the row still on screen,
+            // and let the chooser say which card and face that row is.
+            Pending::ChooseCardName { .. } => {
+                let typed = self
+                    .view
+                    .as_ref()
+                    .and_then(|view| view.battlefield.iter().find(|o| o.controller != view.seat))
+                    .and_then(|o| o.name.split_whitespace().next().map(str::to_lowercase))
+                    .unwrap_or_else(|| "forest".to_string());
+                let rows = baylee_client::choices::options(
+                    &interaction.prompt(),
+                    baylee_client_core::Lang::En,
+                    self.statics.as_ref(),
+                    &typed,
+                    baylee_client::choices::FaceNames::default(),
+                )
+                .expect("a card name is a chooser");
+                assert!(
+                    !rows.is_empty(),
+                    "a word of a card's name on the table leaves it on screen"
+                );
+                baylee_client::choices::pick(interaction, rows[0].index)
+                    .then(|| interaction.confirm())?
+            }
             // Combat, driven the way `input.rs` drives it: aim, declare each
             // candidate against the aim, confirm. Nothing here reaches past
             // the interaction layer, so a client that cannot express an attack
@@ -819,6 +850,88 @@ fn a_cavern_of_souls_can_be_played_and_its_type_answered() {
     assert!(
         !matches!(client.pending, Some(Pending::ChooseSubtype { .. })),
         "the engine moved on, so the answer was accepted"
+    );
+}
+
+/// Pithing Needle in the opening hand, and a Karn across the table to name.
+fn needle_preset(seed: u64) -> GamePreset {
+    let mut preset = spellbook_preset(seed, &[PITHING_NEEDLE], &[]);
+    preset.seats[1].starting_battlefield = vec![entry(KARN)];
+    preset
+}
+
+/// Casting Pithing Needle asks for a card name, and the client answers it the
+/// way a player does: type a word of the name, take the row still on screen,
+/// and the chooser sends the card and face that row stands for. The engine
+/// takes it, and every seat's view then carries the name on the Needle.
+#[test]
+fn a_pithing_needle_can_be_cast_and_its_name_answered() {
+    let preset = needle_preset(15);
+    let mut host =
+        LocalHost::new(&preset, PlayerId::new(0), &["You", "House AI"]).expect("the duel starts");
+    let mut client = Client {
+        greedy: true,
+        ..Client::default()
+    };
+    client.absorb(host.poll());
+    for _ in 0..200 {
+        if matches!(client.pending, Some(Pending::ChooseCardName { .. })) {
+            break;
+        }
+        let Some(action) = client.answer(PlayerId::new(0)) else {
+            break;
+        };
+        host.submit(action);
+        client.absorb(host.poll());
+    }
+    let pending = client.pending.clone().expect("a choice");
+    assert!(
+        matches!(pending, Pending::ChooseCardName { player } if player == PlayerId::new(0)),
+        "the Needle entering asks its controller for a card name, got {pending:?}"
+    );
+
+    let mut interaction = Interaction::new(pending, PlayerId::new(0));
+    let rows = baylee_client::choices::options(
+        &interaction.prompt(),
+        baylee_client_core::Lang::En,
+        client.statics.as_ref(),
+        "creator",
+        baylee_client::choices::FaceNames::default(),
+    )
+    .expect("a card name is a chooser");
+    let karn = rows
+        .iter()
+        .find(|row| row.label == "Karn, the Great Creator")
+        .expect("a later word of the name finds it");
+    assert!(baylee_client::choices::pick(&mut interaction, karn.index));
+    let action = interaction.confirm().expect("a picked row is submittable");
+    assert_eq!(
+        action,
+        PlayerAction::ChooseCardName {
+            card: card(KARN),
+            face: 0
+        },
+        "the chooser answered the name the row showed"
+    );
+    host.submit(action);
+    client.absorb(host.poll());
+    assert!(
+        client.errors.is_empty(),
+        "the engine took it: {:?}",
+        client.errors
+    );
+    assert!(
+        !matches!(client.pending, Some(Pending::ChooseCardName { .. })),
+        "and moved on"
+    );
+    let view = client.view.as_ref().expect("a view");
+    assert!(
+        view.battlefield.iter().any(|o| o.chosen_name
+            == Some(baylee_view::NamedFace {
+                card: card(KARN),
+                face: 0
+            })),
+        "the Needle carries the name in the view"
     );
 }
 
@@ -1321,6 +1434,7 @@ fn every_question_this_suite_reaches_gets_an_answer() {
         &spellbook_preset(14, &[FACT_OR_FICTION], &[]),
         600
     ));
+    record!(run_greedily(&needle_preset(14), 400));
     // And the one question that is only asked of a player who says no twice:
     // the house rules give the first mulligan free, so one puts nothing back.
     record!(

@@ -258,6 +258,11 @@ impl<L: CardLookup> Engine<L> {
             if self.state.award_enduring_stories() {
                 continue;
             }
+            // CR 702.131d: continuous effects are reapplied after a player
+            // gets the city's blessing, before anything else is asked.
+            if self.state.award_citys_blessings() {
+                continue;
+            }
             // What a player who has left still controls is exiled as the
             // last effect giving it to somebody else ends (CR 800.4c). Not a
             // state-based action, so before them and before the game-over
@@ -773,6 +778,29 @@ impl<L: CardLookup> Engine<L> {
                 self.state.transform(id, def, 1);
                 changed = true;
             }
+            // A Room is given the unlocked designation of the half it was
+            // cast as as it enters, and neither when it was not cast
+            // (CR 709.5d). Here, like "enters transformed", so what the
+            // trigger scan later in this pass finds is the half that entered.
+            // The unlock is journalled because CR 709.5h triggers on the
+            // designation however it was given.
+            if let Some((def, half)) = self
+                .state
+                .object(id)
+                .filter(|o| o.zone == Zone::Battlefield && !o.doors.is_room())
+                .and_then(|o| Some((self.lookup.card(o.card?.index)?, o.face_index)))
+                .filter(|(def, _)| def.has_shared_type_line())
+            {
+                let cast = from_zone == Zone::Stack && half < 2;
+                self.state
+                    .set_doors(id, def, if cast { 1 << half } else { 0 });
+                if cast {
+                    self.state
+                        .journal
+                        .record(GameEvent::DoorUnlocked { object: id, half });
+                }
+                changed = true;
+            }
             // Echo (CR 702.30): register the pay-or-sacrifice choice at
             // the controller's next upkeep.
             if let Some(cost) = self.state.object(id).and_then(|o| {
@@ -985,6 +1013,7 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                     EnterModifier::ChooseSubtype
+                    | EnterModifier::ChooseCardName
                     | EnterModifier::ChooseColor
                     | EnterModifier::ChooseColorExcept(_)
                     | EnterModifier::TappedOrPayLife(_)
@@ -1001,6 +1030,12 @@ impl<L: CardLookup> Engine<L> {
                         player: controller,
                         options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
                     };
+                    self.awaiting_answer = true;
+                    return true; // one choice at a time
+                }
+                Some(EnterModifier::ChooseCardName) => {
+                    self.pending_plan = Some(PlanKind::ChooseCardName { object: id });
+                    self.pending = Pending::ChooseCardName { player: controller };
                     self.awaiting_answer = true;
                     return true; // one choice at a time
                 }
@@ -1445,6 +1480,14 @@ impl<L: CardLookup> Engine<L> {
                         crate::replacement::put_counters(&mut self.state, id, kind, n);
                         continue;
                     }
+                    baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
+                        let x = self.state.object(id).map_or(0, |o| o.x_value);
+                        let n = u16::try_from(x).unwrap_or(u16::MAX);
+                        if n > 0 {
+                            crate::replacement::put_counters(&mut self.state, id, kind, n);
+                        }
+                        continue;
+                    }
                     // Two different reasons for one empty arm. There is no
                     // `Modifier` that takes a supertype away; and keeping
                     // the copier's own abilities is not a modification of
@@ -1552,6 +1595,13 @@ impl<L: CardLookup> Engine<L> {
                     // counter, and under a Doubling Season it enters with
                     // two of whichever it can hold.
                     crate::replacement::put_counters(&mut self.state, id, kind, n);
+                }
+                // CR 107.3m: the X announced for the spell that became it.
+                baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
+                    let n = u16::try_from(obj.x_value).unwrap_or(u16::MAX);
+                    if n > 0 {
+                        crate::replacement::put_counters(&mut self.state, id, kind, n);
+                    }
                 }
                 // Paid before this loop, for the reason the temporary
                 // branch's twin gives.
@@ -2044,6 +2094,72 @@ impl<L: CardLookup> Engine<L> {
         objects + players >= req.min as usize
     }
 
+    /// Resolves every queued triggered mana ability at once, off the stack
+    /// (CR 605.4a): Badgermole Cub's "whenever you tap a creature for mana,
+    /// add an additional {G}" puts its {G} in the pool before the player who
+    /// tapped acts again, and before any ordinary trigger of the same batch
+    /// is asked about. Returns `true` when one suspended on a choice.
+    ///
+    /// Which triggers are mana abilities is `AbilityDef::is_triggered_mana_ability`'s
+    /// answer (CR 605.1b); every other trigger stays in the queue, in its order.
+    fn resolve_triggered_mana_abilities(&mut self) -> bool {
+        let mut i = 0;
+        while i < self.trigger_queue.len() {
+            let t = &self.trigger_queue[i];
+            let effects = if t.ability_index == baylee_core::ids::AbilityRef::SYNTHETIC {
+                None
+            } else {
+                match self.trigger_abilities(t).get(t.ability_index as usize) {
+                    Some(ability @ AbilityDef::Triggered { effects, .. })
+                        if ability.is_triggered_mana_ability() =>
+                    {
+                        Some(*effects)
+                    }
+                    _ => None,
+                }
+            };
+            let Some(effects) = effects else {
+                i += 1;
+                continue;
+            };
+            let Some(t) = self.trigger_queue.remove(i) else {
+                break;
+            };
+            // CR 800.4d, as for every trigger.
+            if self.state.has_left(t.controller) {
+                continue;
+            }
+            let mut res = crate::resolve::Resolution {
+                source: t.source,
+                on_stack: t.source,
+                controller: t.controller,
+                effects: crate::resolve::flatten(effects),
+                pc: 0,
+                targets: SmallVec::new(),
+                second_targets: SmallVec::new(),
+                x: None,
+                chosen_player: None,
+                target_players: baylee_core::ids::SeatSet::new(),
+                event_object: t.event_object,
+                targeted: false,
+                awaiting: None,
+                mana_ability: true,
+                countered_source: None,
+                target_lki: None,
+            };
+            match crate::resolve::run(&mut self.state, &mut res) {
+                crate::resolve::Flow::Complete => {}
+                crate::resolve::Flow::Wait(pending) => {
+                    self.resolution = Some(res);
+                    self.pending = pending;
+                    self.awaiting_answer = true;
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// Remember event-time abilities before a state-based action removes them.
     fn queue_new_triggers(&mut self) {
         if self.breaking_loop {
@@ -2081,6 +2197,22 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state.ceased.clear();
         self.state.ltb_mana_values.clear();
+        // A watch whose object has left the battlefield is spent, whether
+        // the scan just fired it or the object left some other way: the
+        // object it watched no longer exists (CR 400.7, 603.7b). Here and
+        // not in the scan, which reads the state and writes nothing.
+        let delayed = std::mem::take(&mut self.state.delayed);
+        self.state.delayed = delayed
+            .into_iter()
+            .filter(|d| match d.when {
+                crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. } => {
+                    self.state.object(card).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield && o.version == version
+                    })
+                }
+                _ => true,
+            })
+            .collect();
         self.trigger_queue.extend(found);
         let active = self.state.turn.active.get();
         let seats = self.state.players.len() as u8;
@@ -2103,6 +2235,9 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         self.queue_new_triggers();
+        if self.resolve_triggered_mana_abilities() {
+            return;
+        }
         while let Some(t) = self.trigger_queue.front().cloned() {
             // A triggered ability controlled by a player who has left the
             // game isn't put on the stack (CR 800.4d). Every queued trigger
@@ -2494,27 +2629,7 @@ impl<L: CardLookup> Engine<L> {
                 .object(loc.source)
                 .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
         });
-        match abilities.get(loc.index as usize)? {
-            AbilityDef::Activated { targets, .. }
-            | AbilityDef::ActivatedConditional { targets, .. }
-            | AbilityDef::Loyalty { targets, .. }
-            | AbilityDef::Triggered { targets, .. }
-            | AbilityDef::SagaChapter { targets, .. } => *targets,
-            AbilityDef::ModalTriggered { modes, .. } => {
-                // The same `expect` the resolution path below makes, and for
-                // the reason written there: the mode is announced as the
-                // ability goes on the stack (CR 603.3c), so one that reached
-                // resolution without it came off a push site that forgot to
-                // carry it. Falling back to the first mode is how a card
-                // resolves the wrong half of itself in silence.
-                let idx = obj
-                    .mode_index
-                    .expect("a modal trigger on the stack has its mode")
-                    as usize;
-                modes.get(idx).and_then(|m| m.targets)
-            }
-            _ => None,
-        }
+        crate::object::ability_target_req(abilities, loc.index, obj.mode_index)
     }
 
     /// What the top of the stack may target with its **second** instance of
@@ -3175,6 +3290,13 @@ impl<L: CardLookup> Engine<L> {
                 let trigger = self.state.delayed.remove(i);
                 self.delayed_queue
                     .push_front((trigger.controller, trigger.action));
+            }
+        }
+        // A copy of a synthetic ability (CR 707.10) takes the original's
+        // effects, which live here and not on the object the resolver made.
+        for (original, copy) in std::mem::take(&mut self.state.synthetic_copies) {
+            if let Some(&effects) = self.synthetic_fx.get(&original) {
+                self.synthetic_fx.insert(copy, effects);
             }
         }
         // A mana ability never went on the stack (CR 605.3b), and its
@@ -4078,7 +4200,41 @@ impl<L: CardLookup> Engine<L> {
                 self.demand_echo(cost, card)
             }
             crate::state::DelayedAction::PayCostOrLose { cost } => self.demand_pact(cost),
+            // A delayed triggered ability that uses the stack, come due at a
+            // step: it joins the trigger queue and is put on the stack from
+            // there, as any trigger is. Earthbend's watch is read off the
+            // journal (`trigger::watch_triggers`) and never reaches this
+            // queue; no step-timed one exists yet.
+            crate::state::DelayedAction::Trigger { source, effects } => {
+                self.queue_delayed_trigger(controller, source, effects);
+                false
+            }
         }
+    }
+
+    /// A delayed triggered ability come due at a step joins the trigger
+    /// queue, and is put on the stack from there (CR 603.7).
+    fn queue_delayed_trigger(
+        &mut self,
+        controller: PlayerId,
+        source: ObjectId,
+        effects: &'static [baylee_cards_dsl::Effect],
+    ) {
+        self.trigger_queue
+            .push_back(crate::trigger::PendingTrigger {
+                event_mana_value: None,
+                source,
+                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                abilities: None,
+                controller,
+                timestamp: self.state.object(source).map_or(0, |o| o.timestamp),
+                event_object: None,
+                implicit_target: None,
+                synthetic_effects: Some(effects),
+                once_per_turn: false,
+                synthetic_target: None,
+                chosen_mode: None,
+            });
     }
 
     /// Echo come due (CR 702.30a): "sacrifice it unless you pay [cost]",
@@ -4151,6 +4307,50 @@ impl<L: CardLookup> Engine<L> {
         };
         self.awaiting_answer = true;
         true
+    }
+
+    /// Deals one combat damage step's damage, and what toxic adds to it.
+    ///
+    /// "Combat damage dealt to a player by a creature with toxic causes that
+    /// creature's controller to give the player a number of poison counters
+    /// equal to that creature's total toxic value, in addition to the
+    /// damage's other results" (CR 702.164c, 120.3g). It is a result of the
+    /// damage, so it is read off what the step actually journalled: damage
+    /// prevented to nothing gives nothing, and damage a trampler assigned to
+    /// a planeswalker is not dealt to a player. The total is summed over the
+    /// creature's toxic abilities as it has them now (CR 702.164b), asked of
+    /// the object and not its card, so a copy's list answers.
+    fn deal_combat_damage(&mut self, first_strike_step: bool) {
+        let from = self.state.journal.len();
+        combat::deal_combat_damage(&mut self.state, first_strike_step);
+        let poisoned: Vec<(PlayerId, u16)> = self.state.journal.entries()[from..]
+            .iter()
+            .filter_map(|entry| match entry.event {
+                GameEvent::DamageDealt {
+                    source: Some(source),
+                    target: crate::event::DamageTarget::Player(player),
+                    amount,
+                    is_combat: true,
+                } if amount > 0 => {
+                    let toxic: u16 = self
+                        .state
+                        .object(source)?
+                        .abilities(&self.lookup)
+                        .iter()
+                        .map(|ability| match ability {
+                            baylee_cards_dsl::AbilityDef::Toxic { poison } => u16::from(*poison),
+                            _ => 0,
+                        })
+                        .sum();
+                    (toxic > 0).then_some((player, toxic))
+                }
+                _ => None,
+            })
+            .collect();
+        for (player, toxic) in poisoned {
+            let counters = &mut self.state.players[player.get() as usize].poison;
+            *counters = counters.saturating_add(toxic);
+        }
     }
 
     /// Ends the current step and begins the next one.
@@ -4253,15 +4453,15 @@ impl<L: CardLookup> Engine<L> {
             (_, Step::DeclareBlockers) => {
                 // Deal combat damage on entering the damage step(s).
                 if self.any_first_or_double_striker() {
-                    combat::deal_combat_damage(&mut self.state, true);
+                    self.deal_combat_damage(true);
                     (Phase::Combat, Step::CombatDamageFirst)
                 } else {
-                    combat::deal_combat_damage(&mut self.state, false);
+                    self.deal_combat_damage(false);
                     (Phase::Combat, Step::CombatDamage)
                 }
             }
             (_, Step::CombatDamageFirst) => {
-                combat::deal_combat_damage(&mut self.state, false);
+                self.deal_combat_damage(false);
                 (Phase::Combat, Step::CombatDamage)
             }
             (_, Step::CombatDamage) => (Phase::Combat, Step::CombatEnd),

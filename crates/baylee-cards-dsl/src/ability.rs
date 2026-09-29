@@ -141,6 +141,14 @@ pub enum Condition {
     /// threshold below, so the count is a parameter rather than a fixed
     /// nought and nothing here may read the word.
     HandSizeAtMost(u8),
+    /// The controller has played at least N lands this turn (CR 305.2).
+    /// Fastbond's "if it wasn't the first land you played this turn" is 2:
+    /// a trigger on the play is collected after the land it is about was
+    /// counted, and the count only grows within a turn, so the second ask
+    /// at resolution (CR 603.4) answers as the first did. The count is
+    /// reset as its player's own turn begins, which is the only turn this
+    /// engine lets a player play lands on.
+    LandsPlayedThisTurnAtLeast(u8),
     /// You have **exactly** N cards in hand (Library of Alexandria).
     ///
     /// The sibling of the line above for the same reason
@@ -175,6 +183,12 @@ pub enum Condition {
     CountersOnSelf(crate::effect::CounterKind, u8),
     /// The source has EXACTLY N counters of a kind (class level gating).
     CountersOnSelfExactly(crate::effect::CounterKind, u8),
+    /// The source has at least the first number and no more than the second
+    /// of a kind of counter: a leveler's `{LEVEL N1-N2}` band (CR 711.2a,
+    /// "As long as this creature has at least N1 level counters on it, but
+    /// no more than N2 level counters on it"). The open `{LEVEL N3+}` band
+    /// is [`Self::CountersOnSelf`] (CR 711.2b).
+    CountersOnSelfBetween(crate::effect::CounterKind, u8, u8),
     /// A station symbol, `{N+}`: the source has N or more charge counters
     /// on it (CR 721.2a, "As long as this permanent has N or more charge
     /// counters on it, it has [abilities]").
@@ -191,6 +205,8 @@ pub enum Condition {
     Station(u8),
     /// The controller has earned an enduring story (CR 702.195).
     EnduringStory,
+    /// The controller has the city's blessing (CR 702.131c).
+    CitysBlessing,
     /// The source itself matches the filter — "if this land is tapped".
     ///
     /// The other four sentences here count something the source is not;
@@ -225,6 +241,10 @@ pub enum Condition {
     /// as `Filter::CmcAtMostX` reads it; a source that is gone or announced
     /// none has X = 0.
     XAtLeast(u32),
+    /// Holds while the condition it names does not — the printed "unless":
+    /// Wayward Swordtooth "can't attack or block unless you have the city's
+    /// blessing" is a static that holds while `Not(&CitysBlessing)` does.
+    Not(&'static Condition),
 }
 
 /// Trigger conditions for triggered abilities.
@@ -238,6 +258,12 @@ pub enum Trigger {
     /// Fells' front and Ravager of the Fells' back each hear only their own
     /// half of the flip.
     TransformsIntoThis,
+    /// "When you unlock this door" (CR 709.5h), printed on half `n` of a
+    /// Room: 0 the left, 1 the right. It hears the permanent being given
+    /// that half's unlocked designation, however it was given: as the Room
+    /// enters cast as that half (CR 709.5d), or later, when its controller
+    /// pays the half's mana cost (CR 709.5e).
+    UnlockThisDoor(u8),
     /// An object matching the filter enters the battlefield.
     EntersBattlefield(&'static Filter),
     /// An object matching the filter leaves the battlefield.
@@ -252,6 +278,21 @@ pub enum Trigger {
     /// This permanent becomes a target of an opponent's spell or ability.
     /// Its implicit resolution subject is that stack object (ward).
     Ward,
+    /// "Whenever you or a permanent you control becomes the target of a
+    /// spell or ability an opponent controls" (Leovold, Emissary of Trest).
+    ///
+    /// It fires once **per target** that fits, not once per spell: a spell
+    /// that targets you and one of your permanents triggers it twice, and so
+    /// does one that targets two of your permanents (Leovold's Scryfall
+    /// rulings). `filter` names the permanents that count, read against
+    /// the controller of this ability; `you` is whether the controller
+    /// counts as well.
+    TargetedByOpponent {
+        /// The permanents whose targeting fires this.
+        filter: &'static Filter,
+        /// Whether "you" — this ability's controller — counts too.
+        you: bool,
+    },
     /// A creature matching the filter is exiled from the battlefield
     /// (Soulherder).
     ExiledFromBattlefield(&'static Filter),
@@ -260,6 +301,22 @@ pub enum Trigger {
     DealsCombatDamageToPlayer(&'static Filter),
     /// The source becomes tapped (City of Brass).
     BecomesTapped(&'static Filter),
+    /// The count of a kind of counter on the source rises from below `n`
+    /// to `n` or more — the window CR 714.2b writes out for a chapter
+    /// symbol, asked of any kind.
+    ///
+    /// Druid Class's "When this Class becomes level 3": this pool keeps a
+    /// Class's level as level counters over level 1 (Wizard Class), so
+    /// level 3 is `n: 2`. It is a trigger of its own and not a rider on
+    /// the level-up activation, because the ability it starts targets: a
+    /// target removed in response would otherwise take the level with it
+    /// (CR 608.2b).
+    CountersReach {
+        /// The kind counted.
+        kind: crate::effect::CounterKind,
+        /// The count that must be reached.
+        n: u8,
+    },
     /// The controller casts their Nth spell this turn (Storm of
     /// Saruman's second-spell trigger).
     NthSpellCast {
@@ -270,6 +327,21 @@ pub enum Trigger {
     },
     /// A player draws a card.
     Draws(crate::effect::PlayerRel),
+    /// "Whenever [a player] plays a land" (Fastbond): the special action of
+    /// playing a land (CR 116.2a, 305.1), from whatever zone a permission
+    /// allows, and never a land an effect puts onto the battlefield, which
+    /// is not played. The relation names whose play: `You` for "you".
+    PlaysLand(crate::effect::PlayerRel),
+    /// "Whenever you tap [a permanent matching the filter] for mana"
+    /// (Badgermole Cub): its controller activates a mana ability of it with
+    /// {T} in the cost (CR 106.12), and that ability resolves and produces
+    /// mana (CR 106.12a). Once per activation, however many colours it made.
+    ///
+    /// Without a target and with effects that add mana, the ability is
+    /// itself a mana ability (CR 605.1b) and resolves at once, off the
+    /// stack (CR 605.4a): "add an additional {G}" is in the pool before the
+    /// player acts again.
+    TappedForMana(&'static Filter),
     /// A player draws a card except the first one they draw each turn
     /// (Orcish Bowmasters).
     DrawsExceptFirst(crate::effect::PlayerRel),
@@ -383,6 +455,15 @@ pub enum AbilityDef {
     Ward {
         /// Generic mana to pay.
         mana: u16,
+    },
+    /// Toxic N (CR 702.164a): a static ability. Combat damage this
+    /// creature deals to a player also gives that player poison counters
+    /// equal to its total toxic value, the sum over every toxic ability it
+    /// has (CR 702.164b–c). Read by the engine where combat damage is
+    /// dealt; like ward, a keyword with a number is data and not a bit.
+    Toxic {
+        /// N.
+        poison: u8,
     },
     /// Static/continuous ability (layers, CR 613).
     /// An activated ability with a precondition (Mox Opal's metalcraft,
@@ -536,6 +617,31 @@ impl AbilityDef {
             }
         )
     }
+
+    /// Whether this is a **triggered** mana ability (CR 605.1b): it has no
+    /// target, it triggers from a mana ability — [`Trigger::TappedForMana`]
+    /// is the one trigger in the vocabulary that does — and it could add
+    /// mana. Such an ability resolves the moment it triggers, off the stack
+    /// (CR 605.4a).
+    ///
+    /// Derived, as [`Self::is_mana_ability`]'s flag is checked against the
+    /// same three questions by `lints::mana_ability_fault`: a "whenever you
+    /// tap this land for mana" that targets (Forbidden Orchard's) is an
+    /// ordinary trigger and goes on the stack.
+    #[must_use]
+    pub fn is_triggered_mana_ability(&self) -> bool {
+        matches!(
+            self,
+            Self::Triggered {
+                trigger: Trigger::TappedForMana(_),
+                targets: None,
+                effects,
+                ..
+            } if effects
+                .iter()
+                .any(|effect| matches!(effect, crate::effect::Effect::AddMana { .. }))
+        )
+    }
 }
 
 /// A modification applied after a clone copies its target.
@@ -562,6 +668,17 @@ pub enum CopyMod {
     /// "…with no mana cost" (embalm, eternalize): the copy has no mana
     /// cost, so its mana value is 0 (CR 202.3a).
     NoManaCost,
+    /// Enters with **X** counters of a kind: Altered Ego's "except it enters
+    /// with X additional +1/+1 counters on it".
+    ///
+    /// X is the value announced for the spell that became this permanent
+    /// (CR 107.3m), which is what the entering object's X holds by the time
+    /// the copy is made; a copier put onto the battlefield from anywhere but
+    /// the stack has an X of 0 (CR 107.3g) and gets none. The counters come
+    /// with the copy and only with it, which is why this is not
+    /// `EnterModifier::WithCounters`: an Ego that declines to copy is the
+    /// 0/0 it prints.
+    AddCounterX(crate::CounterKind),
     /// Keeps the copier's own printed **static** abilities beside the
     /// copied ones ("except it has Sakashima's other abilities").
     ///
@@ -637,6 +754,15 @@ pub struct SpellMode {
     /// target artifact", and read as exactly one that trigger vanishes off
     /// the stack on a board with no other artifact on it.
     pub targets: Option<crate::effect::TargetReq>,
+    /// A second instance of the word "target" in this mode, as on
+    /// [`crate::AbilityDef::Spell::second_targets`]: Archdruid's Charm's
+    /// "Put a +1/+1 counter on target creature you control. It deals damage
+    /// equal to its power to target creature you don't control."
+    ///
+    /// A modal **spell**'s only: the cast wizard asks it once the mode is
+    /// chosen. A modal trigger's mode never carries one, which
+    /// `no_modal_trigger_mode_prints_a_second_target` holds.
+    pub second_targets: Option<crate::effect::TargetReq>,
     /// Cost override for this mode (overload); `None` = the printed cost.
     pub cost_override: Option<baylee_core::mana::ManaCost>,
 }
