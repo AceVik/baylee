@@ -1886,9 +1886,10 @@ pub(crate) mod tests {
     /// to the question *after* went into the record in its place. The replay
     /// stood at the miracle and was handed a pass.
     ///
-    /// Here the seat is offered Temporal Mastery's miracle with nothing in
-    /// its pool, which the payment refuses: "yes" is the proposal the engine
-    /// turns down, and the answer that stands is the one that does nothing.
+    /// A "yes" the payment cannot follow is taken now, and the cast reversed,
+    /// so the proposal here is one no question takes: a mode, handed to
+    /// Temporal Mastery's miracle offer. The engine turns it down, and the
+    /// answer that stands is the offer's own fallback, "no".
     #[test]
     fn a_refused_house_proposal_leaves_a_record_that_replays() {
         let mastery = baylee_cards::by_oracle_id("5c58b8e6-c572-461e-893e-a8c05f20ba17")
@@ -1922,12 +1923,12 @@ pub(crate) mod tests {
                 assert!(
                     session
                         .engine
-                        .apply(seat, PlayerAction::YesNo(true))
+                        .apply(seat, PlayerAction::ChooseMode(0))
                         .is_err(),
-                    "an empty pool paid a miracle"
+                    "a mode answered a yes-or-no question"
                 );
                 assert_eq!(session.engine.snapshot_hash(), before);
-                session.apply_house_action(seat, PlayerAction::YesNo(true));
+                session.apply_house_action(seat, PlayerAction::ChooseMode(0));
                 session.pump();
                 refusals += 1;
                 continue;

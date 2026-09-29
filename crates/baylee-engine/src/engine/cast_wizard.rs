@@ -214,21 +214,20 @@ impl<L: CardLookup> Engine<L> {
     /// requires, which is what decides whether the miracle is offered.
     ///
     /// Choosing the targets is a step of casting (CR 601.2c), and a spell
-    /// that cannot take it cannot be cast: the attempt is illegal and the
-    /// game returns to the moment before it was proposed (CR 601.2, CR
-    /// 732.1). For a miracle that moment is the offer itself, where the only
-    /// answer left is "no" — so a "yes" is not an answer the offer can
-    /// take, and the offer is not made. Banishing Stroke drawn onto a board
-    /// with no artifact, creature or enchantment was asked anyway; the house
-    /// said yes, the engine refused it after spending the offer, and three
-    /// of r001's games could not be replayed.
+    /// that cannot take it cannot be cast: the attempt is illegal and is
+    /// reversed (CR 601.2, CR 732.1). A "yes" to such a miracle can only
+    /// come back as a "no", so the question has one outcome and is not
+    /// asked. Banishing Stroke drawn onto a board with no artifact, creature
+    /// or enchantment was asked anyway; the house said yes, the engine
+    /// refused it after spending the offer, and three of r001's games could
+    /// not be replayed.
     ///
     /// Read the way the wizard's own target stages read it — the same
     /// requirement, the same bounds at X = 0, the same enumerations — so the
     /// offer and the cast cannot disagree. X = 0 is the most any X spell
     /// could ask for less of. The cost is not checked here: whether it can
-    /// be paid is the payment's answer, and a "yes" it refuses leaves the
-    /// offer standing.
+    /// be paid is the payment's answer, and a "yes" it cannot pay is taken
+    /// and the cast reversed, which leaves the card in hand as a "no" does.
     pub(crate) fn miracle_targets_available(&self, player: PlayerId, card: ObjectId) -> bool {
         let Some(wizard) = self.miracle_wizard(player, card) else {
             return false;

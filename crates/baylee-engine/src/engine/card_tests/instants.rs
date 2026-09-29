@@ -19283,3 +19283,79 @@ fn dig_through_time_over_a_library_of_one_puts_that_one_into_hand() {
     );
     assert_eq!(library_size(&engine, p0), 0);
 }
+
+/// Heliod's Intervention with an X its pool cannot pay: the X is taken, so is
+/// the player it then names, and the cast is reversed.
+///
+/// CR 601.2b lets the caster announce any X, and a total cost they cannot
+/// then pay makes the cast illegal: it is reversed (CR 601.2h, 732.1), with
+/// the mana back in the pool and the card back in hand. The arena's net
+/// named X = 50 over five floating mana; the X was taken, and both players
+/// the lifegain mode then offered were refused with "cannot pay the total
+/// cost", a question no answer could leave (its third and fourth cases).
+#[test]
+fn heliods_intervention_over_an_x_it_cannot_pay_is_taken_and_reversed() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .hand(0, &[heliods_intervention()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    let floating = engine.state().players[0].mana_pool.total();
+    cast_with_floating(&mut engine, p0, heliods_intervention());
+    let mut named = None;
+    for _ in 0..12 {
+        match engine.pending().clone() {
+            Pending::ChooseNumber { player, max, .. } => {
+                assert!(max > floating, "the range ends where the pool does: {max}");
+                engine
+                    .apply(player, PlayerAction::ChooseNumber(max))
+                    .expect("an X the question offers is an answer");
+            }
+            Pending::ChooseCastMode {
+                player, options, ..
+            } => {
+                let slot = options
+                    .iter()
+                    .position(|o| matches!(o.kind, CastModeKind::Mode(1)))
+                    .expect("the lifegain mode is one of the ways to cast this card");
+                engine
+                    .apply(player, PlayerAction::ChooseMode(slot))
+                    .unwrap();
+            }
+            Pending::ChoosePlayer { player, options } => {
+                let chosen = options[0];
+                engine
+                    .apply(player, PlayerAction::ChoosePlayer(chosen))
+                    .expect("a player the question offers is an answer");
+                named = Some(chosen);
+                break;
+            }
+            other => panic!("unexpected while casting Heliod's Intervention: {other:?}"),
+        }
+    }
+    assert!(
+        named.is_some(),
+        "the lifegain mode never asked for its player"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the reversed cast gave the caster their priority back: {:?}",
+        engine.pending()
+    );
+    assert!(
+        engine.state().zones.stack_is_empty(),
+        "the unpayable spell reached the stack"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        floating,
+        "the reversed cast spent nothing"
+    );
+    assert!(
+        in_hand(&engine, p0, heliods_intervention()).is_some(),
+        "the card went back to hand"
+    );
+}

@@ -1071,15 +1071,19 @@ impl<L: CardLookup> Engine<L> {
                     let Some(PlanKind::Miracle { card }) = self.pending_plan.take() else {
                         unreachable!()
                     };
-                    // A "yes" the cast cannot follow through is refused
-                    // with the offer still standing, so the answer left to
-                    // give is "no" (CR 601.2: the game returns to the moment
-                    // before the cast was proposed, which is this
-                    // question). It used to spend the offer first, and the
-                    // refusal then moved the game on without a record of it.
-                    if answer && let Err(error) = self.start_miracle_cast(player, card) {
-                        self.pending_plan = Some(PlanKind::Miracle { card });
-                        return Err(error);
+                    // "Yes" is taken like every answer a question offers.
+                    // A cast it cannot follow through is reversed (CR 601.2,
+                    // 732.1) and the card stays in hand: the offer was the
+                    // miracle's one chance (CR 702.94a), so that is a "no".
+                    // It used to be refused, which a driver that proposes
+                    // yes again reads as a question with no answer (the
+                    // arena, Metamorphosis Fanatic), and before that it spent
+                    // the offer and then refused, which no record could
+                    // replay (r001 games 1581, 3288, 3554).
+                    if answer {
+                        // `start_miracle_cast` touches nothing on its way
+                        // to an error, so what is left is the declined offer.
+                        let _ = self.start_miracle_cast(player, card);
                     }
                     return Ok(());
                 }

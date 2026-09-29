@@ -90968,3 +90968,72 @@ fn delney_doubles_the_triggers_of_small_creatures_only() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(engine.state().players[0].life, 25, "a 5/3 triggers once");
 }
+
+/// Metamorphosis Fanatic's miracle over an untapped Sol Ring and Swamp, with
+/// nothing floating: "yes" is taken, and the card stays in hand.
+///
+/// By the rules this {1}{B} can be paid, because mana abilities may be
+/// activated while a spell's costs are paid (CR 601.2g). This engine pays a
+/// cast out of the pool alone, and a miracle is offered at the draw, before
+/// any priority in which the mana could be made; so the cast cannot be
+/// completed and is reversed (CR 732.1), which for a miracle is a "no". It
+/// was refused instead, and a driver that proposed "yes" again met a
+/// question with no answer it would give (the arena's first case). A pinned
+/// limitation: when a cast opens a window for its mana, this is the test
+/// that must change.
+#[test]
+fn metamorphosis_fanatics_miracle_yes_is_taken_over_mana_the_cast_cannot_tap() {
+    let mut engine = Duel::new(41, metamorphosis_fanatic())
+        .battlefield(0, &[sol_ring(), swamp()])
+        .battlefield(1, &[sol_ring(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    for _ in 0..200 {
+        match engine.pending().clone() {
+            Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::Miracle { card },
+                ..
+            } => {
+                engine
+                    .apply(player, PlayerAction::YesNo(true))
+                    .expect("an offered yes is an answer");
+                assert!(
+                    engine
+                        .state()
+                        .zones
+                        .list(ZoneLocation::Hand(player))
+                        .contains(&card),
+                    "the reversed cast left the card in hand"
+                );
+                assert!(
+                    engine.state().zones.stack_is_empty(),
+                    "an unpaid miracle reached the stack"
+                );
+                assert_eq!(
+                    engine.state().players[player.get() as usize]
+                        .mana_pool
+                        .total(),
+                    0,
+                    "nothing was made, so nothing floats"
+                );
+                return;
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected question: {other:?}"),
+        }
+    }
+    panic!("no miracle was offered");
+}
