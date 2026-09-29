@@ -721,6 +721,21 @@ pub enum Rider {
     /// it was copied from — and a token is the opposite thing, card-less
     /// and swept up by CR 704.5d.
     SpellCopy,
+    /// Cast for its dash cost (CR 702.109a): the spell, and the permanent
+    /// it becomes, which has haste while this is on it. Written by every
+    /// cast, set or cleared, and given up by every zone change but the one
+    /// from the stack to the battlefield (`GameState::move_object`).
+    Dashed,
+    /// "That player": the player the triggering event dealt damage to, on
+    /// a triggered ability put on the stack for one (Ragavan, Nimble
+    /// Pilferer), read by `PlayerRel::DamagedPlayer`. A rider and not a
+    /// field because `GameObject` had no byte to spare for it
+    /// (`tests/footprint.rs`), and a triggered ability carries no other.
+    EventPlayer(PlayerId),
+    /// Cast from a graveyard with escape (CR 702.138b): the spell, and the
+    /// permanent it becomes, "escaped". Kept and given up as
+    /// [`Rider::Dashed`] is.
+    Escaped,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -784,7 +799,16 @@ impl Rider {
             | Self::ExileInsteadOfGraveyard
             | Self::Uncounterable
             | Self::Prepared
-            | Self::SpellCopy => false,
+            | Self::SpellCopy
+            // How the spell was cast, written before it moves to the stack:
+            // a dashed spell cast out of exile (an impulse's permission)
+            // carries its dash to the stack and the battlefield, and
+            // `move_object` ends these where the spell's object ends.
+            | Self::Dashed
+            | Self::Escaped
+            // "That player" of a triggered ability on the stack, which is
+            // never in exile.
+            | Self::EventPlayer(_) => false,
         }
     }
 }

@@ -2101,6 +2101,11 @@ impl<L: CardLookup> Engine<L> {
             object.event_amount = trigger
                 .event_damage
                 .and_then(|(_, n)| core::num::NonZeroU16::new(n));
+            if let Some((player, _)) = trigger.event_damage {
+                object
+                    .riders
+                    .push(crate::object::Rider::EventPlayer(player));
+            }
             object.target_req = bound;
         }
     }
@@ -3611,6 +3616,22 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         if is_permanent {
+            // Dash (CR 702.109a): "return the permanent this spell becomes to
+            // its owner's hand at the beginning of the next end step" — a
+            // delayed triggered ability that uses the stack (CR 603.7), and
+            // asks as it resolves whether it is still that permanent.
+            if let Some(obj) = self.state.object(spell)
+                && obj.riders.contains(&crate::object::Rider::Dashed)
+            {
+                self.state.delayed.push(crate::state::DelayedTrigger {
+                    controller: obj.controller,
+                    when: crate::state::DelayedWhen::NextEndStep,
+                    action: crate::state::DelayedAction::Trigger {
+                        source: spell,
+                        effects: &DASH_RETURN,
+                    },
+                });
+            }
             self.a_copy_becomes_a_token(spell);
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Permanent;
@@ -4651,6 +4672,10 @@ impl<L: CardLookup> Engine<L> {
                     self.queue_first_main_delayed();
                     (Phase::FirstMain, Step::Main)
                 } else {
+                    // The draw step has begun when its draw is made, so the
+                    // draw is made in it: `draw_cards` reads the step to know
+                    // that this card is the step's first.
+                    self.state.turn.step = Step::Draw;
                     // Nobody draws for an active player who has left
                     // (CR 800.4j).
                     if !self.active_has_left() {
@@ -5215,3 +5240,17 @@ fn synthetic_target_req(spec: TargetSpec) -> TargetReq {
         _ => TargetReq::one(spec),
     }
 }
+
+/// Dash's delayed triggered ability (CR 702.109a): "return the permanent this
+/// spell becomes to its owner's hand at the beginning of the next end step".
+/// It asks as it resolves whether its source is still that permanent
+/// (`Condition::DashCostPaid`), because a permanent that has left the
+/// battlefield since is a new object (CR 400.7) and a card in a graveyard is
+/// not returned by it.
+static DASH_RETURN: [Effect; 1] = [Effect::IfCondition {
+    condition: baylee_cards_dsl::Condition::DashCostPaid,
+    then: &[Effect::ReturnToHand {
+        target: TargetSpec::ThisObject,
+    }],
+    otherwise: &[],
+}];

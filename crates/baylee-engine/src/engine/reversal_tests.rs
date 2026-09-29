@@ -306,3 +306,112 @@ fn a_reversed_sacrifice_puts_back_what_its_leaving_set_free() {
         "neither move is in the journal"
     );
 }
+
+/// "Escape—{G}{G}{U}{U}, Exile five other cards from your graveyard."
+fn uro_titan_of_nature_s_wrath() -> CardIndex {
+    card_index("ee302659-59ed-4eef-babe-451b9ccf7f14")
+}
+
+fn island() -> CardIndex {
+    card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+}
+
+/// Uro escaped with five other cards, the fifth of which is gone by the
+/// time the answer is paid: four were exiled and the mana was spent before
+/// the fifth refused. The cast is reversed (CR 732.1), and the four are back
+/// in the graveyard as they were, Uro with them, and the {G}{G}{U}{U} back
+/// in the pool. The gone card is named last on purpose, so the refusal
+/// comes after exiles that a reversal without the roll-back would keep.
+#[test]
+fn a_reversed_escape_puts_the_exiled_cards_back() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(3, forest())
+        .battlefield(0, &[forest(), forest(), island(), island()])
+        .hand(0, &[uro_titan_of_nature_s_wrath()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let uro = in_hand(&engine, p0, uro_titan_of_nature_s_wrath()).expect("Uro in hand");
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        state
+            .move_object(
+                uro,
+                ZoneLocation::Graveyard(p0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("the harness moves a card");
+    }
+    seed_graveyard(&mut engine, p0, 5);
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(pool(&engine, p0), 4);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: uro })
+        .expect("Uro escapes");
+    if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
+        let escape = options
+            .iter()
+            .position(|o| o.kind == crate::choice::CastModeKind::Escape)
+            .expect("escape is offered");
+        engine
+            .apply(p0, PlayerAction::ChooseMode(escape))
+            .expect("escape is chosen");
+    }
+    let Pending::ChooseCards {
+        options,
+        prompt: crate::choice::ChoicePrompt::CostExile,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("escape asks which five, got {:?}", engine.pending())
+    };
+    assert_eq!(options.len(), 5, "the five other cards: {options:?}");
+    let gone = options[4];
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        assert!(state.zones.remove(gone, ZoneLocation::Graveyard(p0)));
+        assert!(state.arena.remove(gone).is_some());
+    }
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: options.clone(),
+            },
+        )
+        .expect("an answer the question offered is taken");
+
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the cast is reversed and priority is the caster's: {:?}",
+        engine.pending()
+    );
+    assert!(stack_is_empty(&engine), "nothing was cast");
+    let graveyard = engine.state().zones.list(ZoneLocation::Graveyard(p0));
+    assert!(graveyard.contains(&uro), "Uro is back where it came from");
+    for card in &options[..4] {
+        assert!(
+            graveyard.contains(card),
+            "{card:?} was exiled for the cost and is back"
+        );
+    }
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p0))
+            .is_empty(),
+        "nothing stays exiled"
+    );
+    assert_eq!(
+        pool(&engine, p0),
+        4,
+        "the {{G}}{{G}}{{U}}{{U}} is back in the pool"
+    );
+}

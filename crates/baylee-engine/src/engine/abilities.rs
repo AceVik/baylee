@@ -241,7 +241,10 @@ impl<L: CardLookup> Engine<L> {
                     .card
                     .and_then(|c| self.lookup.card(c.index))
                     .is_some_and(|def| def.land_faces_from_hand().next().is_some());
-            if plays_as_land {
+            // A permission to cast and not to play (Ragavan) opens no land
+            // drop, and a land it names is not cast either (CR 305.9): the
+            // castable probe below says so for it.
+            if plays_as_land && !permission.cast_only {
                 if sorcery_timing
                     && casting::has_a_land_drop_left(&self.state, player)
                     && !legal.lands.contains(&card)

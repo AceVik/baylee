@@ -850,7 +850,9 @@ pub struct PublicObject {
     /// `{5}{U}{U}`); a granted one at the card's own mana cost, and so is a
     /// permanent card a graveyard permission lets the seat cast (Muldrotha,
     /// Wrenn and Realmbreaker's emblem), which is no flashback but is the
-    /// same question for the planner.
+    /// same question for the planner. A card with escape is priced at its
+    /// escape mana once its owner's graveyard holds the other cards it
+    /// exiles (Uro, Titan of Nature's Wrath), and at nothing before.
     ///
     /// Graveyard only, and per viewer: `None` unless this seat may cast the
     /// card, which is only ever from its own graveyard.

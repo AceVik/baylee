@@ -390,6 +390,11 @@ pub enum ManaSource {
     LandColor {
         /// `true` = your lands, `false` = opponents' lands.
         mine: bool,
+        /// `true` for "any **type**" (Reflecting Pool), which colorless mana
+        /// is (CR 106.1b); `false` for "any **color**" (Exotic Orchard,
+        /// Fellwar Stone), which colorless is not (CR 106.1a) — so a Wastes
+        /// across the table puts nothing on an Orchard's menu.
+        any_type: bool,
     },
     /// The color chosen as this permanent entered (Uncharted Haven).
     ///
@@ -474,6 +479,13 @@ pub enum PlayerRel {
     /// (Unlicensed Hearse): the activation asks which graveyard before it
     /// asks for the targets, and offers only that one's cards.
     Chosen,
+    /// "That player" of a trigger on damage dealt to a player — Ragavan,
+    /// Nimble Pilferer's "whenever Ragavan deals combat damage to a player,
+    /// … exile the top card of **that player's** library". Nothing is
+    /// targeted (CR 115.1): the seat is read off the event the ability
+    /// triggered on, and a player who has since left the game is nobody's
+    /// "that player" (CR 800.4a).
+    DamagedPlayer,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).
@@ -950,9 +962,8 @@ pub enum Effect {
     /// "Mill `amount` cards. You may put a [filter] card from among the
     /// milled cards into your hand." (Wrenn and Realmbreaker's −2.) The
     /// choice is a `ChooseCards` with `min: 0` over the milled cards that
-    /// match, found wherever they went if that zone is public — a
-    /// replacement's exile included (CR 701.17c) — and none matching asks
-    /// nothing.
+    /// match, found wherever they went if that zone is public (CR 701.17c),
+    /// a replacement's exile included, and none matching asks nothing.
     MillMayTakeOne {
         /// Cards milled.
         amount: u32,
@@ -2418,6 +2429,26 @@ pub enum Effect {
         /// How long.
         duration: crate::static_ability::Duration,
     },
+    /// "Tap all creatures your opponents control" (Cryptic Command): every
+    /// permanent `filter` matches as this resolves becomes tapped (CR
+    /// 701.26a). Nothing is targeted (CR 115.1a names a target by the
+    /// word), so hexproof and protection do not stop it, and a permanent
+    /// already tapped stays as it is.
+    TapAll {
+        /// What.
+        filter: &'static Filter,
+    },
+    /// "Exile the top card of that player's library. Until end of turn, you
+    /// may cast that card." (Ragavan, Nimble Pilferer): the top card of each
+    /// library `who` names goes to its owner's exile face up, and the
+    /// controller may cast it this turn, paying its costs (a
+    /// `PlayPermission` in the engine, cast only: a land exiled this way is
+    /// not played). Nothing is targeted, and an empty library exiles
+    /// nothing.
+    ExileTopMayCast {
+        /// Whose library: the owner's relation to you.
+        who: PlayerRel,
+    },
 }
 
 impl Effect {
@@ -2768,12 +2799,32 @@ impl Effect {
         }
     }
 
-    /// `Add one mana of any color that a land you control could produce`
-    /// (Reflecting Pool), or an opponent's (Exotic Orchard).
+    /// `Add one mana of any color that a land an opponent controls could
+    /// produce` (Exotic Orchard, Fellwar Stone), or you control. A colour,
+    /// so never colorless (CR 106.1a).
     #[must_use]
     pub const fn mana_land_color(mine: bool) -> Self {
         Self::AddMana {
-            source: ManaSource::LandColor { mine },
+            source: ManaSource::LandColor {
+                mine,
+                any_type: false,
+            },
+            amount: Amount::Fixed(1),
+            combination: false,
+            restriction: None,
+        }
+    }
+
+    /// `Add one mana of any type that a land you control could produce`
+    /// (Reflecting Pool), or an opponent's. A type, so colorless too
+    /// (CR 106.1b).
+    #[must_use]
+    pub const fn mana_land_type(mine: bool) -> Self {
+        Self::AddMana {
+            source: ManaSource::LandColor {
+                mine,
+                any_type: true,
+            },
             amount: Amount::Fixed(1),
             combination: false,
             restriction: None,
@@ -2969,6 +3020,8 @@ impl Effect {
             | Effect::TakeExtraTurn
             | Effect::ExileSource
             | Effect::TapTarget
+            | Effect::TapAll { .. }
+            | Effect::ExileTopMayCast { .. }
             | Effect::UntapTarget
             | Effect::UntapSelf
             | Effect::ExileAndReturnAtEndStep

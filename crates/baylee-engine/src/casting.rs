@@ -1089,6 +1089,12 @@ pub(crate) fn can_cast_form(
     let flashback_ok = !in_hand
         && in_own_graveyard
         && (printed_flashback.is_some() || flashback_granted(state, card));
+    // Escape (CR 702.138a): from its owner's graveyard, for its own cost.
+    let printed_escape = obj
+        .card
+        .and_then(|c| lookup.card(c.index))
+        .and_then(|def| def.faces[0].escape);
+    let escape_ok = !in_hand && in_own_graveyard && printed_escape.is_some();
     // Disturb (CR 702.146): a face with disturb is castable from the
     // owner's graveyard.
     let disturb_ok = !in_hand
@@ -1134,6 +1140,7 @@ pub(crate) fn can_cast_form(
     if !in_hand
         && !graveyard_ok
         && !flashback_ok
+        && !escape_ok
         && !disturb_ok
         && !adventure_ok
         && !takeover_ok
@@ -1252,6 +1259,23 @@ pub(crate) fn can_cast_form(
         }
         if !flashback_granted(state, card) {
             return Err(CastError::NotEnoughMana);
+        }
+    }
+    // Escape's price is its mana and the other cards it exiles; beside a
+    // graveyard permission (Muldrotha) the mana cost below is a second way.
+    if escape_ok && let Some(escape) = printed_escape {
+        let fodder = escape_exile_options(state, player, card).len() >= usize::from(escape.exile);
+        if fodder && probe(&escape.cost.with_x(0)) {
+            return Ok(());
+        }
+        // Too few other cards is a cost that cannot be paid (CR 601.2h),
+        // whatever the pool holds, as a missing sacrifice is above.
+        if !graveyard_ok {
+            return Err(if fodder {
+                CastError::NotEnoughMana
+            } else {
+                CastError::NoWayToCast
+            });
         }
     }
     if let Some(def) = printed
@@ -1402,7 +1426,9 @@ pub(crate) fn can_cast_form(
         // giving `CastError` a variant that does not call a target problem
         // "not enough mana".
         let any_face = a_back_face_castable();
-        if !any_alt && !any_mode && !any_face {
+        // Dash (CR 702.109a), the offer's `CastModeKind::Dash`.
+        let any_dash = face.dash.is_some_and(|dash| probe(&dash));
+        if !any_alt && !any_mode && !any_face && !any_dash {
             // Which of the two refused matters to whoever reads it. A mode
             // that was affordable and had nothing to point at is not a
             // player one land short, and telling them it is sends them
@@ -1654,6 +1680,20 @@ pub fn land_zone_open(state: &GameState, player: PlayerId, zone: Zone) -> bool {
     }
 }
 
+/// The cards `player` may exile to pay `card`'s escape cost: every other
+/// card in their graveyard (CR 702.138a, "exile [N] other cards"). The same
+/// list for the offer's count and the cast wizard's question.
+#[must_use]
+pub fn escape_exile_options(state: &GameState, player: PlayerId, card: ObjectId) -> Vec<ObjectId> {
+    state
+        .zones
+        .list(ZoneLocation::Graveyard(player))
+        .iter()
+        .copied()
+        .filter(|id| *id != card)
+        .collect()
+}
+
 /// The permission `player` holds to play `card` this turn, if any
 /// ([`crate::state::PlayPermission`]): one given for this very object, so a
 /// card that has moved since holds none (CR 400.7).
@@ -1675,10 +1715,17 @@ pub fn play_permission(
 /// The zone permission plus the particular card restriction. A library
 /// permission never grants access to a card below the top. A permission for
 /// the card itself ([`play_permission`]) opens it wherever it lies, an
-/// opponent's exile included.
+/// opponent's exile included — unless it lets the card be cast and nothing
+/// else (Ragavan, Nimble Pilferer), which plays no land (CR 601.1a).
 #[must_use]
 pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
-    if play_permission(state, player, card).is_some() {
+    let version = state.object(card).map(|o| o.version);
+    if state
+        .per_turn
+        .playable
+        .iter()
+        .any(|p| p.player == player && p.card == card && Some(p.version) == version && !p.cast_only)
+    {
         return true;
     }
     state.object(card).is_some_and(|obj| {

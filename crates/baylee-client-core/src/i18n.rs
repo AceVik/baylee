@@ -1811,6 +1811,10 @@ messages! {
     CastMiracle { en: "Miracle", de: "Wunder" },
     /// Flashback
     CastFlashback { en: "Flashback", de: "Rückblende" },
+    /// Dash (CR 702.109a), the keyword as the German printing names it
+    CastDash { en: "Dash", de: "Sturmangriff" },
+    /// Escape (CR 702.138a), the keyword as the German printing names it
+    CastEscape { en: "Escape", de: "Befreiung" },
     /// Click a card in your hand
     HintClickHand { en: "Click a card in your hand", de: "Klicke eine Karte auf deiner Hand an" },
     /// Click what you are choosing

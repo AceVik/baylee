@@ -61,6 +61,9 @@ pub(crate) enum WizardStage {
     Sacrifice,
     /// Ready to pay and cast.
     Done,
+    /// Escape's other cards to exile (CR 702.138a), between the pitch and
+    /// delve: skipped by every cast but `CastModeKind::Escape`.
+    Escape,
 }
 
 /// A spell being cast step by step.
@@ -91,6 +94,9 @@ pub(crate) struct CastWizard {
     pub pitch: SmallVec<[ObjectId; 2]>,
     /// Cards chosen to delve (exile-from-graveyard, {1} each).
     pub delve_exiles: SmallVec<[ObjectId; 8]>,
+    /// The other cards escape's cost exiles from the graveyard. They pay no
+    /// mana, which is what keeps them apart from `delve_exiles`.
+    pub escape_exiles: SmallVec<[ObjectId; 8]>,
     /// Permanents chosen to tap for convoke or a waterbend ({1} each).
     pub convoke_taps: SmallVec<[ObjectId; 8]>,
     /// Permanents chosen to pay the additional cost's sacrifices, one per
@@ -205,6 +211,7 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
             stage: WizardStage::ChooseMode,
@@ -309,6 +316,7 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
             // A miracle cost is paid "rather than its mana cost" (CR 702.94a),
@@ -373,6 +381,7 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
             // Straight past `XValue`, and deliberately: a spell cast paying
@@ -440,6 +449,7 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
             // `XValue` asks nothing of a free wizard (CR 107.3b); from there
@@ -495,6 +505,7 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
             stage: WizardStage::XValue,
@@ -705,6 +716,34 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object(card)
             .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard);
+        // Escape (CR 702.138a) from the graveyard: its mana and the other
+        // cards it exiles, the count asked of the list the wizard offers.
+        // Beside it, where a permission casts the card from there (Muldrotha,
+        // Wrenn's emblem), the mana cost as `Normal`.
+        if in_graveyard && let Some(escape) = face.escape {
+            let permitted = self.state.object(card).is_some_and(|o| {
+                casting::graveyard_cast_permission(&self.state, player, o).is_some()
+            });
+            if permitted && afford(&face.mana_cost.with_x(0)) {
+                options.push(CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::Normal,
+                    cost: face.mana_cost.with_more_generic(tax),
+                });
+            }
+            let fodder = casting::escape_exile_options(&self.state, player, card).len();
+            if afford(&escape.cost.with_x(0)) && fodder >= usize::from(escape.exile) {
+                options.push(CastModeDesc {
+                    index: options.len() as u8,
+                    kind: CastModeKind::Escape,
+                    cost: escape.cost.with_more_generic(tax),
+                });
+            }
+            if options.is_empty() {
+                return Err(EngineError::IllegalAction("no way to cast this spell"));
+            }
+            return Ok(options);
+        }
         if in_graveyard && let Some(flashback) = face.flashback {
             let at_mana_cost = casting::flashback_granted(&self.state, card)
                 || self.state.object(card).is_some_and(|o| {
@@ -855,6 +894,22 @@ impl<L: CardLookup> Engine<L> {
                 kind: CastModeKind::Alternative(i),
                 cost: alt.cost.mana.with_more_generic(tax),
             });
+        }
+        // Dash (CR 702.109a): its cost "rather than its mana cost", which is
+        // an alternative cost (CR 118.9) paid by the rules for one (601.2b,
+        // 601.2f–h) — asked of the pool the way the alternatives above are.
+        if let Some(dash) = face.dash {
+            let taxed = baylee_cards_dsl::Cost {
+                mana: dash.with_more_generic(tax),
+                parts: &[],
+            };
+            if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card)) {
+                options.push(CastModeDesc {
+                    index: (options.len()) as u8,
+                    kind: CastModeKind::Dash,
+                    cost: taxed.mana,
+                });
+            }
         }
         // MDFC backs (CR 712.11b) and adventures (CR 715), through the reader
         // `can_cast` uses — land faces are played and disturb backs came out
@@ -1357,9 +1412,40 @@ impl<L: CardLookup> Engine<L> {
                     return Ok(());
                 }
                 let mut wizard = wizard;
-                wizard.stage = WizardStage::Delve;
+                wizard.stage = WizardStage::Escape;
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
+            }
+            WizardStage::Escape => {
+                let exile = (wizard.option == Some(CastModeKind::Escape))
+                    .then(|| self.wizard_face(&wizard).escape)
+                    .flatten()
+                    .map(|escape| escape.exile);
+                let Some(n) = exile else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Delve;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                };
+                // The same list the offer counted, so the question is never
+                // shorter than its answer.
+                let options =
+                    casting::escape_exile_options(&self.state, wizard.player, wizard.card);
+                if options.len() < usize::from(n) {
+                    self.cast_wizard = None;
+                    return Err(EngineError::IllegalAction(
+                        "not enough other cards in the graveyard to escape",
+                    ));
+                }
+                self.pending = Pending::ChooseCards {
+                    player: wizard.player,
+                    options,
+                    min: n,
+                    max: n,
+                    prompt: ChoicePrompt::CostExile,
+                };
+                self.awaiting_answer = true;
+                Ok(())
             }
             WizardStage::Delve => {
                 let face = self.wizard_face(&wizard);
@@ -1652,7 +1738,7 @@ impl<L: CardLookup> Engine<L> {
             self.apply_spend_riders(player, wizard.card, &spent);
         }
         // The mana is paid, so the rest of the cost may now be spent.
-        for &card in &wizard.delve_exiles {
+        for &card in wizard.delve_exiles.iter().chain(&wizard.escape_exiles) {
             let _ = self.state.move_object(
                 card,
                 ZoneLocation::Exile(player),
@@ -1821,7 +1907,10 @@ impl<L: CardLookup> Engine<L> {
             // and not a card a permission of its own opened.
             if obj.zone == crate::zone::Zone::Graveyard
                 && wizard.by_effect.is_none()
-                && !matches!(wizard.option, Some(CastModeKind::Face(_)))
+                && !matches!(
+                    wizard.option,
+                    Some(CastModeKind::Face(_) | CastModeKind::Escape)
+                )
                 && casting::play_permission(&self.state, player, card).is_none()
             {
                 let obj = self.state.object(card).expect("wizard card exists");
@@ -1857,6 +1946,19 @@ impl<L: CardLookup> Engine<L> {
             // hand, front face up, is not exiled for what it once was.
             obj.riders
                 .retain(|r| *r != crate::object::Rider::ExileInsteadOfGraveyard);
+            // Dash (CR 702.109a): the spell was cast for its dash cost, and
+            // the permanent it becomes has haste and goes back at the next
+            // end step (`Engine::finalize_spell` writes that trigger).
+            obj.riders.retain(|r| *r != crate::object::Rider::Dashed);
+            if wizard.option == Some(CastModeKind::Dash) {
+                obj.riders.push(crate::object::Rider::Dashed);
+            }
+            // Escape (CR 702.138b): the spell escaped, and so will the
+            // permanent it becomes.
+            obj.riders.retain(|r| *r != crate::object::Rider::Escaped);
+            if wizard.option == Some(CastModeKind::Escape) {
+                obj.riders.push(crate::object::Rider::Escaped);
+            }
             if exiles_itself {
                 obj.riders
                     .push(crate::object::Rider::ExileInsteadOfGraveyard);

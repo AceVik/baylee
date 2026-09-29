@@ -139,6 +139,7 @@ pub fn needs_projection(plan: &LayerPlan, obj: &GameObject) -> bool {
     !plan.is_empty()
         || !obj.counters.is_empty()
         || obj.base.keywords.contains(KeywordSet::CHANGELING)
+        || obj.riders.contains(&crate::object::Rider::Dashed)
 }
 
 /// Recomputes an object's characteristics from its base plus all matching
@@ -154,6 +155,13 @@ pub fn recompute(state: &GameState, obj: &GameObject) -> Projection {
 /// Recomputes an object's characteristics against a prepared [`LayerPlan`].
 pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> Projection {
     let mut c = (*obj.base).clone();
+    // "As long as this permanent's dash cost was paid, it has haste"
+    // (CR 702.109a): an ability of the permanent itself, so it is there
+    // before any effect applies and an effect that removes abilities
+    // (layer 6) removes it too.
+    if obj.riders.contains(&crate::object::Rider::Dashed) {
+        c.keywords = c.keywords.union(KeywordSet::HASTE);
+    }
     // Layer 2 starts from the *base* controller, not from whatever the
     // last refresh projected: an effect that has since ended must leave
     // no trace.

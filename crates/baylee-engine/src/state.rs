@@ -329,6 +329,11 @@ pub struct PerTurn {
     pub noncreature_spells: Vec<u32>,
     /// Cards drawn this turn, per player.
     pub draws: Vec<u32>,
+    /// Whether the active player has drawn a card in this turn's draw step.
+    /// Only the active player has a draw step (CR 504.1), and a turn has one,
+    /// so the turn's reset starts each draw step clean. Only a draw made in
+    /// that step sets it: a card drawn in the upkeep does not.
+    pub drew_in_draw_step: bool,
     /// All spells cast this turn, per player (second-spell triggers).
     pub spells_cast: Vec<u32>,
     /// Players who may cast no further spells this turn (Conduit of
@@ -430,6 +435,11 @@ pub struct PlayPermission {
     /// "Without paying its mana cost" (Dauthi Voidwalker): a spell is cast
     /// through the free-cast path, and X is 0 (CR 107.3b).
     pub free: bool,
+    /// "You may **cast** that card" (Ragavan, Nimble Pilferer) rather than
+    /// "play": to play a card is to play it as a land or cast it as a spell
+    /// (CR 601.1a), and this permission is the second half only, so a land
+    /// exiled under it stays where it is (a land is never cast, CR 305.9).
+    pub cast_only: bool,
 }
 
 impl PerTurn {
@@ -443,6 +453,7 @@ impl PerTurn {
             life_lost: vec![false; players],
             creatures_died: 0,
             draws: vec![0; players],
+            drew_in_draw_step: false,
             entered_battlefield: Vec::new(),
             drawn: Vec::new(),
             playable: Vec::new(),
@@ -496,6 +507,7 @@ impl PerTurn {
     pub fn reset(&mut self) {
         self.noncreature_spells.iter_mut().for_each(|v| *v = 0);
         self.draws.iter_mut().for_each(|v| *v = 0);
+        self.drew_in_draw_step = false;
         self.spells_cast.iter_mut().for_each(|v| *v = 0);
         self.no_more_spells.iter_mut().for_each(|v| *v = false);
         self.life_lost.iter_mut().for_each(|v| *v = false);
@@ -2661,6 +2673,22 @@ impl GameState {
             if matches!(from_zone, Zone::Battlefield | Zone::Exile) {
                 obj.counters = crate::object::Counters::default();
             }
+            // How a spell was cast belongs to the spell and to the permanent
+            // it becomes, and to no later object (CR 400.7): a dashed
+            // creature blinked or bounced and put back has had no dash cost
+            // paid for it, and one that escaped and was blinked did not
+            // escape. The cast writes the rider before the card moves to the
+            // stack, so that move keeps it too.
+            if to.zone() != Zone::Stack
+                && !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield)
+            {
+                obj.riders.retain(|r| {
+                    !matches!(
+                        r,
+                        crate::object::Rider::Dashed | crate::object::Rider::Escaped
+                    )
+                });
+            }
             // What the card was in exile lasts only as long as the exile. A
             // card that leaves exile any other way than the return its host
             // makes (cast, put into a hand, shuffled away) is a new object
@@ -2978,9 +3006,20 @@ impl GameState {
             if let Some(v) = self.per_turn.draws.get_mut(player.get() as usize) {
                 *v = v.saturating_add(drawn.len() as u32);
             }
+            // "The first one they draw in each of their draw steps" is a
+            // fact about this draw, so it is written down now. The turn's
+            // count cannot stand in for it: a card drawn in the upkeep
+            // would make the draw step's first card the turn's second.
+            let in_own_draw_step =
+                self.turn.active == player && self.turn.step == crate::turn::Step::Draw;
+            let first_in_draw_step = in_own_draw_step && !self.per_turn.drew_in_draw_step;
+            if in_own_draw_step {
+                self.per_turn.drew_in_draw_step = true;
+            }
             self.journal.record(crate::event::GameEvent::CardsDrawn {
                 player,
                 count: drawn.len() as u16,
+                first_in_draw_step,
             });
         }
         drawn
@@ -3876,6 +3915,12 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 host.hash(h);
                 version.hash(h);
             }
+            Rider::Dashed => h.u8(14),
+            Rider::EventPlayer(p) => {
+                h.u8(15);
+                h.u8(p.get());
+            }
+            Rider::Escaped => h.u8(16),
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -4377,6 +4422,41 @@ mod tests {
         );
     }
 
+    /// Whether a draw opened its player's draw step is written as the draw
+    /// is made (CR 504.1). The active player's first card in their draw step
+    /// is flagged; a card drawn in their upkeep is not and does not use the
+    /// flag up; the step's next card is not; the other player's card in that
+    /// step is not; and the next turn's draw step starts clean.
+    #[test]
+    fn a_draw_says_whether_it_is_the_first_of_its_players_draw_step() {
+        use crate::turn::Step;
+        fn opened(state: &mut GameState, player: PlayerId, n: usize) -> bool {
+            assert_eq!(state.draw_cards(player, n).len(), n);
+            match state.journal.entries().last().map(|e| &e.event) {
+                Some(crate::event::GameEvent::CardsDrawn {
+                    player: drew,
+                    first_in_draw_step,
+                    ..
+                }) if *drew == player => *first_in_draw_step,
+                other => panic!("the draw's entry is last: {other:?}"),
+            }
+        }
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut state = at_a_fresh_turn(14);
+        state.turn.active = me;
+
+        state.turn.step = Step::Upkeep;
+        assert!(!opened(&mut state, me, 1), "an upkeep card");
+        state.turn.step = Step::Draw;
+        assert!(opened(&mut state, me, 1), "the step's first card");
+        assert!(!opened(&mut state, me, 2), "the step's next cards");
+        assert!(!opened(&mut state, them, 1), "the other player's card");
+
+        state.per_turn.reset();
+        assert!(!opened(&mut state, them, 1), "not their draw step");
+        assert!(opened(&mut state, me, 3), "the next turn's first card");
+    }
+
     /// The relation is read from the **effect's** controller, so the same
     /// modifier limits the table or only the other side of it.
     #[test]
@@ -4848,6 +4928,7 @@ mod tests {
                     card: id,
                     version: 0,
                     free: true,
+                    cast_only: false,
                 });
             }),
             ("delayed", |s, _| {

@@ -1803,8 +1803,8 @@ hashes, layers and does nothing. This paragraph said THREE until
 - **`Effect::MillMayTakeOne { amount, filter }`** is "mill `amount` cards. You
   may put a [filter] card from among the milled cards into your hand" (Wrenn's
   −2). A `ChooseCards` with `min: 0`, `max: 1`, prompt `PutIntoHand`, over the
-  milled cards that match and are found in the public zone they moved to
-  (CR 701.17c), which is the graveyard unless a replacement said exile.
+  milled cards that match, found in the public zone they moved to
+  (CR 701.17c): the graveyard, or wherever a replacement sent them.
 - **`Effect::RevealAndSeparate { count }`** is "reveal the top `count` cards
   of your library. An opponent separates those cards into two piles. Put one
   pile into your hand and the other into your graveyard" (Fact or Fiction).
@@ -1956,6 +1956,48 @@ Filters, conditions, modifiers and durations:
 - **`Duration::WhileYouControlSource`** is "for as long as you control this
   creature" (Extraction Specialist, CR 611.2b).
 
+### Pieces added for the friends' decks, last round (29.09.2026)
+
+- **`Effect::TapAll { filter }`** is "Tap all [permanents]" (Cryptic
+  Command's "Tap all creatures your opponents control", with
+  `Filter::OPPONENT_CREATURE`). Nothing is targeted, so hexproof does not
+  stop it; a permanent already tapped stays as it is (CR 701.26a). Cryptic
+  Command is `ModeCount::TWO`: a pair of its four modes, each pair at the
+  card's own cost.
+- **`Effect::ExileTopMayCast { who }`** is "exile the top card of [who]'s
+  library. Until end of turn, you may cast that card" (Ragavan, Nimble
+  Pilferer). The card goes to its owner's exile face up, and the controller
+  holds a cast-only `PlayPermission` for it: a spell is cast at its own
+  price and timing, and a land is neither played nor cast (CR 601.1a,
+  305.9). Nothing is targeted.
+- **`PlayerRel::DamagedPlayer`** is "that player" of a trigger on damage
+  dealt to a player (`Trigger::DealsCombatDamageToPlayer` and its
+  siblings): the seat the damage went to, read off the triggered ability.
+  At a table of three it is the one Ragavan hit, not "an opponent".
+- **`FaceDef.dash: Option<ManaCost>`** is "Dash [cost]" (CR 702.109a). The
+  cast offers `CastModeKind::Dash` beside the mana cost, from wherever the
+  card may be cast. The engine writes the rest: the permanent the spell
+  becomes has haste, and a delayed trigger returns it to its owner's hand at
+  the beginning of the next end step, if it is still that permanent (a
+  blinked or bounced one is a new object, CR 400.7). No card writes the
+  haste or the return. `Condition::DashCostPaid` is what that trigger asks;
+  no card prints it.
+- **`FaceDef.escape: Option<Escape>`** is "Escape—[mana], Exile [N] other
+  cards from your graveyard" (CR 702.138a): `Escape { cost, exile }`, the
+  shape every printed escape cost has. From its owner's graveyard the cast
+  offers `CastModeKind::Escape` once the mana is affordable and at least
+  `exile` other cards lie there; the cast then asks which, as
+  `ChoicePrompt::CostExile` with `min == max == exile`, and exiles them after
+  the mana is paid. Beside a graveyard permission (Muldrotha) the mana cost is
+  offered too, as `Normal`. From a hand nothing changes.
+- **`Condition::Escaped`** is "unless it escaped" and "if it escaped"
+  (CR 702.138b): the source is the spell cast with escape or the permanent
+  it became. A blinked or bounced one is a new object (CR 400.7) and did not
+  escape. Uro's "sacrifice it unless it escaped" is
+  `IfCondition { condition: Escaped, then: &[], otherwise: &[SacrificeSelf] }`
+  on an enters trigger. "Escapes with" counters (CR 702.138c) are not
+  written yet.
+
 ## Worked examples
 
 A land with two basic land types must print its own mana ability. CR 305.6
@@ -1988,7 +2030,8 @@ Effect::mana_choice(&[ManaColor::White, ManaColor::Black])  // Add {W} or {B}.
 Effect::mana_of_any_color()                            // Add one mana of any color.
 Effect::mana_combination(COLORS, Amount::Fixed(2))     // …in any combination of colors.
 Effect::mana_commander_identity()                      // …in your commander's color identity.
-Effect::mana_land_color(true)                          // …a land you control could produce.
+Effect::mana_land_color(false)                         // …any color that a land an opponent controls could produce.
+Effect::mana_land_type(true)                           // …any type that a land you control could produce.
 Effect::mana_dynamic(ManaColor::Black, Amount::CountOf { .. })
 Effect::mana_of_any_color().restricted(&FILTER, SpendRider::Uncounterable)
 Effect::mana(ManaColor::Colorless, 1).when_spent(&FILTER, SpendRider::Uncounterable)
@@ -2002,6 +2045,12 @@ and only a spell the filter matches sets its rider off, once per unit spent
 (CR 106.6, 106.6a; #232). A card printing a rider without "only" never uses
 `restricted`: that is the defect #232 fixed, where Path of Ancestry paid for
 almost nothing.
+
+`mana_land_color` and `mana_land_type` differ by one printed word, and the
+word is a rule: colorless mana is a type of mana and not a color (CR 106.1a,
+106.1b), so "any color that a land … could produce" never makes `{C}` and
+"any type" does. Exotic Orchard and Fellwar Stone offered `{C}` across a
+Wastes while the two were one constructor.
 
 `mana_combination` is not decoration: "in any combination of colors" is one
 color pick *per mana*, while a plain choice picks one color for the whole

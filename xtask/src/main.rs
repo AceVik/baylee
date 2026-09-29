@@ -2364,6 +2364,9 @@ fn check_player_targets_match_the_printing(
 /// - "for each card type, you may put a card of that type from among them
 ///   into your hand" — `RevealTopOnePerType` (Atraxa, Grand Unifier), which
 ///   asks once per card type with a minimum of none (`resolve::one_per_type`).
+/// - "until end of turn, you may cast that card" (Ragavan, Nimble Pilferer)
+///   — `ExileTopMayCast`, which leaves a cast-only permission: the
+///   `ChooseExiledToPlay` argument, the card is cast or it is not.
 ///
 /// A stub claims nothing and a `Partial` card has said in writing that it
 /// diverges, so both are skipped — the same two exemptions the checks above
@@ -2412,6 +2415,7 @@ fn check_optional_clauses_are_offered(
         "CastPermanentSpellsFromGraveyard",
         "MillMayTakeOne",
         "RevealTopOnePerType",
+        "ExileTopMayCast",
     ];
     if !def.is_implemented() {
         return;

@@ -198,7 +198,10 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
             .filter(|p| !p.has_lost())
             .map(|p| p.id)
             .collect(),
-        PlayerRel::ControllerOfTarget | PlayerRel::ControllerOfEvent | PlayerRel::Chosen => {
+        PlayerRel::ControllerOfTarget
+        | PlayerRel::ControllerOfEvent
+        | PlayerRel::Chosen
+        | PlayerRel::DamagedPlayer => {
             return None;
         }
     })
@@ -557,6 +560,21 @@ pub fn condition_holds(
             .iter()
             .any(|part| condition_holds(state, you, source, *part)),
         Condition::Not(part) => !condition_holds(state, you, source, *part),
+        // Dash's return (CR 702.109a): the rider the cast wrote goes with
+        // the permanent the spell became and is given up by every other
+        // move (`GameState::move_object`), so a permanent that left the
+        // battlefield and came back is not the one the dash cost was paid
+        // for (CR 400.7).
+        Condition::DashCostPaid => state.object(source).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Battlefield
+                && o.riders.contains(&crate::object::Rider::Dashed)
+        }),
+        // "Unless it escaped" (CR 702.138b): the rider the escape cast wrote,
+        // kept by the spell and the permanent it becomes and by nothing
+        // later (`GameState::move_object`).
+        Condition::Escaped => state
+            .object(source)
+            .is_some_and(|o| o.riders.contains(&crate::object::Rider::Escaped)),
         Condition::SourceMatches(filter) => state
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),
