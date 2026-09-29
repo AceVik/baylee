@@ -25,7 +25,7 @@ fn haven(state: &mut GameState, seat: PlayerId, chosen: ManaColor) -> ObjectId {
     id
 }
 
-/// What a Reflecting Pool (`LandColor { mine: true }`) sees beside `havens`
+/// What a Reflecting Pool (`LandColor { mine: true, any_type: true }`) sees beside `havens`
 /// and nothing else.
 fn seen_beside(havens: &[ManaColor]) -> Vec<ManaColor> {
     let mut engine = bench(7160, vec![], [Seat::default(), Seat::default()]);
@@ -37,7 +37,15 @@ fn seen_beside(havens: &[ManaColor]) -> Vec<ManaColor> {
         pool.get_or_insert(haven(state, me(), chosen));
     }
     let pool = pool.unwrap_or_else(|| haven(state, them(), ManaColor::Red));
-    crate::resolve::colors_of(state, me(), ManaSource::LandColor { mine: true }, pool)
+    crate::resolve::colors_of(
+        state,
+        me(),
+        ManaSource::LandColor {
+            mine: true,
+            any_type: true,
+        },
+        pool,
+    )
 }
 
 /// Each colour a land may have had chosen for it is the colour its

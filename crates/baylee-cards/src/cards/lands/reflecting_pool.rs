@@ -13,5 +13,5 @@ card!(
     scryfall_id = "18a1b3f5-473d-45ca-be0d-e67e77ba30ce",
     faces = &[face!(name = "Reflecting Pool", types = TypeSet::LAND,)],
     coverage = Coverage::Implemented,
-    abilities = &[mana_ability!(&[Effect::mana_land_color(true)])],
+    abilities = &[mana_ability!(&[Effect::mana_land_type(true)])],
 );

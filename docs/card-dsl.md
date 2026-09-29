@@ -1636,7 +1636,8 @@ Effect::mana_choice(&[ManaColor::White, ManaColor::Black])  // Add {W} or {B}.
 Effect::mana_of_any_color()                            // Add one mana of any color.
 Effect::mana_combination(COLORS, Amount::Fixed(2))     // …in any combination of colors.
 Effect::mana_commander_identity()                      // …in your commander's color identity.
-Effect::mana_land_color(true)                          // …a land you control could produce.
+Effect::mana_land_color(false)                         // …any color that a land an opponent controls could produce.
+Effect::mana_land_type(true)                           // …any type that a land you control could produce.
 Effect::mana_dynamic(ManaColor::Black, Amount::CountOf { .. })
 Effect::mana_of_any_color().restricted(&FILTER, SpendRider::Uncounterable)
 Effect::mana(ManaColor::Colorless, 1).when_spent(&FILTER, SpendRider::Uncounterable)
@@ -1650,6 +1651,12 @@ and only a spell the filter matches sets its rider off, once per unit spent
 (CR 106.6, 106.6a; #232). A card printing a rider without "only" never uses
 `restricted`: that is the defect #232 fixed, where Path of Ancestry paid for
 almost nothing.
+
+`mana_land_color` and `mana_land_type` differ by one printed word, and the
+word is a rule: colorless mana is a type of mana and not a color (CR 106.1a,
+106.1b), so "any color that a land … could produce" never makes `{C}` and
+"any type" does. Exotic Orchard and Fellwar Stone offered `{C}` across a
+Wastes while the two were one constructor.
 
 `mana_combination` is not decoration: "in any combination of colors" is one
 color pick *per mana*, while a plain choice picks one color for the whole
