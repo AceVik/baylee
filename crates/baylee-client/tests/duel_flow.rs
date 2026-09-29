@@ -507,6 +507,52 @@ impl Client {
         }
     }
 
+    /// A pile is chosen by what is in it: every card of every pile is on
+    /// the sheet the reveal opened, and every row names its cards.
+    fn choose_pile(
+        &self,
+        interaction: &mut Interaction,
+        piles: &[Vec<baylee_core::ids::ObjectId>],
+    ) -> Option<PlayerAction> {
+        let view = self.view.as_ref()?;
+        // In the order the client runs them: the view, then the
+        // question.
+        let mut browser = Browser::new();
+        browser.saw_reveal(view);
+        browser.follow(view, Some(interaction));
+        assert!(browser.is_open(), "the pile choice shut the sheet");
+        let shown = browser.rows(view, Some(interaction), Names::projected());
+        for id in piles.iter().flatten() {
+            assert!(
+                shown.iter().any(|r| r.id == *id),
+                "a pile holds {id:?} and the sheet does not draw it"
+            );
+        }
+        let rows = baylee_client::choices::options(
+            &interaction.prompt(),
+            baylee_client_core::Lang::En,
+            self.statics.as_ref(),
+            "",
+            baylee_client::choices::FaceNames {
+                view: Some(view),
+                texts: None,
+            },
+        )
+        .expect("a pile choice offers rows");
+        assert_eq!(rows.len(), piles.len(), "one row per pile");
+        assert!(
+            rows.iter().all(|r| !r.label.contains('?')),
+            "a row names a card it cannot see: {:?}",
+            rows.iter().map(|r| &r.label).collect::<Vec<_>>()
+        );
+        // The last pile: the house separates by putting its best
+        // card alone in the first, so the last is the bigger one.
+        let index = rows[rows.len() - 1].index;
+        interaction
+            .choose_index(index)
+            .then(|| interaction.confirm())?
+    }
+
     /// The rest of the same answer: the choices taken by *position* and the
     /// two taken by aim. Split off from `decide` for its length alone — the
     /// match simply continues here, and the catch-all lives at the bottom.
@@ -539,48 +585,8 @@ impl Client {
                     .choose_index(index)
                     .then(|| interaction.confirm())?
             }
-            // A pile is taken by position as well, and a player chooses it
-            // by what is in it: every card of every pile is on the sheet the
-            // reveal opens, and every row names its cards.
-            Pending::ChoosePile { piles, .. } => {
-                let view = self.view.as_ref()?;
-                // In the order the client runs them: the view, then the
-                // question.
-                let mut browser = Browser::new();
-                browser.saw_reveal(view);
-                browser.follow(view, Some(interaction));
-                assert!(browser.is_open(), "the pile choice shut the sheet");
-                let shown = browser.rows(view, Some(interaction), Names::projected());
-                for id in piles.iter().flatten() {
-                    assert!(
-                        shown.iter().any(|r| r.id == *id),
-                        "a pile holds {id:?} and the sheet does not draw it"
-                    );
-                }
-                let rows = baylee_client::choices::options(
-                    &interaction.prompt(),
-                    baylee_client_core::Lang::En,
-                    self.statics.as_ref(),
-                    "",
-                    baylee_client::choices::FaceNames {
-                        view: Some(view),
-                        texts: None,
-                    },
-                )
-                .expect("a pile choice offers rows");
-                assert_eq!(rows.len(), piles.len(), "one row per pile");
-                assert!(
-                    rows.iter().all(|r| !r.label.contains('?')),
-                    "a row names a card it cannot see: {:?}",
-                    rows.iter().map(|r| &r.label).collect::<Vec<_>>()
-                );
-                // The last pile: the house separates by putting its best
-                // card alone in the first, so the last is the bigger one.
-                let index = rows[rows.len() - 1].index;
-                interaction
-                    .choose_index(index)
-                    .then(|| interaction.confirm())?
-            }
+            // A pile is taken by position as well; see `choose_pile`.
+            Pending::ChoosePile { piles, .. } => self.choose_pile(interaction, piles),
             // A cast option has rows too, but only when the engine offered
             // any; an empty list would be a chooser with nothing in it.
             Pending::ChooseCastMode { .. } => {
