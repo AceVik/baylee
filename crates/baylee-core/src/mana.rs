@@ -365,6 +365,14 @@ impl ManaCost {
         self.len == 0
     }
 
+    /// Number of different symbols the cost holds: how many items
+    /// [`Self::runs`] yields, at most one per kind plus the generic mana.
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation)] // at most `KINDS + 1`, below 64
+    pub const fn kinds(&self) -> u8 {
+        self.present.count_ones() as u8 + self.generic.is_some() as u8
+    }
+
     /// Converted/mana value (CR 202.3).
     #[must_use]
     pub const fn cmc(&self) -> u32 {
@@ -1618,6 +1626,12 @@ mod tests {
              {S}{C}"
         );
         assert_eq!(ManaCost::try_parse(&every.to_string()), Ok(every));
+        // The most kinds a cost holds, each walked once.
+        assert_eq!(every.kinds(), 43);
+        assert_eq!(every.runs().count(), 43);
+        assert_eq!(ManaCost::ZERO.kinds(), 0);
+        assert_eq!(ManaCost::parse("{0}").kinds(), 1, "{{0}} is a symbol");
+        assert_eq!(ManaCost::parse("{2}{U}{U}").kinds(), 2);
     }
 
     /// On the wire a cost is its notation, of any length, and text that is
