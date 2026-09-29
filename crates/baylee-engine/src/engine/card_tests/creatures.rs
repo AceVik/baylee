@@ -10230,6 +10230,128 @@ fn malevolent_hermit_taxes_a_noncreature_spell_and_pays_for_it_with_itself() {
     );
 }
 
+/// Benevolent Geist, Malevolent Hermit's disturb back: "Disturb {2}{U}",
+/// "Flying", "Noncreature spells you control can't be countered." and "If
+/// Benevolent Geist would be put into a graveyard from anywhere, exile it
+/// instead." The Hermit is cast from the graveyard transformed for three
+/// mana and arrives as a 2/2 flying Geist. The shield is for spells: Soul
+/// Warden's trigger on the Geist's arrival is an ability of the same
+/// controller and stays counterable. A sorcery its controller casts then
+/// survives a Counterspell (which may still target it and is still spent),
+/// and the Geist that dies goes to exile, so it cannot be disturbed again.
+#[test]
+fn benevolent_geist_is_disturbed_shields_noncreature_spells_and_is_exiled() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(98, island())
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                soul_warden(),
+            ],
+        )
+        .hand(0, &[malevolent_hermit(), counsel_of_the_soratami()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Disturb: the harness puts the Hermit in the graveyard; how it got
+    // there is not what this test reads.
+    let card = in_hand(&engine, p0, malevolent_hermit()).expect("the Hermit is in hand");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            card,
+            ZoneLocation::Graveyard(p0),
+            ZonePosition::Top,
+            crate::event::Cause::DevCommand,
+        )
+        .expect("into the graveyard");
+    // Six blue float: three for the disturb cost, three for the sorcery.
+    tap_all_mana(&mut engine, p0);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("disturb is offered from the graveyard");
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, malevolent_hermit()).is_some()
+    });
+    let warden_trigger = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .expect("Soul Warden saw the Geist arrive");
+    // The Geist's static reaches the stack, so while it stands every
+    // refresh projects every object, the trigger included; the next spell
+    // moving would start one. The harness starts it here instead, with the
+    // trigger still waiting.
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may refresh the projection");
+    state.invalidate_projections();
+    state.refresh_characteristics();
+    assert!(
+        engine
+            .state()
+            .object(warden_trigger)
+            .is_some_and(crate::object::GameObject::can_be_countered),
+        "an ability is no noncreature spell"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    let geist = on_battlefield(&engine, p0, malevolent_hermit()).expect("the Geist is out");
+    assert_eq!(pt(&engine, geist), (2, 2), "Benevolent Geist is a 2/2");
+    assert!(
+        engine
+            .state()
+            .object(geist)
+            .unwrap()
+            .characteristics()
+            .keywords
+            .contains(KeywordSet::FLYING),
+        "with flying"
+    );
+
+    // The sorcery is countered in name only: Counterspell resolves, the
+    // Counsel stays, and then it draws its two cards.
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    cast_with_floating(&mut engine, p0, counsel_of_the_soratami());
+    let counsel = on_stack(&engine, counsel_of_the_soratami()).expect("the Counsel is cast");
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    cast_from_hand(&mut engine, p1, counterspell());
+    aim_at(&mut engine, p1, counsel);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        card_in(&engine, ZoneLocation::Graveyard(p1), counterspell()).is_some(),
+        "the Counterspell was cast and resolved"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before - 1 + 2,
+        "the Counsel was not countered: it drew two"
+    );
+
+    kill(&mut engine, geist);
+    assert!(
+        card_in(&engine, ZoneLocation::Graveyard(p0), malevolent_hermit()).is_none(),
+        "the Geist never reached the graveyard"
+    );
+    assert!(
+        card_in(&engine, ZoneLocation::Exile(p0), malevolent_hermit()).is_some(),
+        "it was exiled instead"
+    );
+}
+
 // oracle_id = "5d27c63e-d1ef-48af-b51d-01ebc6daeac9"
 fn mikaeus_the_unhallowed() -> CardIndex {
     card_index("5d27c63e-d1ef-48af-b51d-01ebc6daeac9")
