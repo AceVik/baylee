@@ -478,8 +478,6 @@ impl HeuristicAgent {
                 YesNoPrompt::PayTax { mana } => {
                     PlayerAction::YesNo(policy::pays_tax(view, mana, context))
                 }
-                // Attempt payment; the owed-mana planner handles the window.
-                YesNoPrompt::PayPact { .. } => PlayerAction::YesNo(true),
                 // Kicker and "you may waterbend" alike: paid when the pool
                 // already covers it, because the engine pays from the pool
                 // alone and a short one loses the whole cast.
@@ -496,9 +494,14 @@ impl HeuristicAgent {
                 // cheaper than the deck's whole plan being milled or
                 // exiled — a seat that would rather reanimate it needs the
                 // evaluator this agent does not have yet.
-                YesNoPrompt::MayDo | YesNoPrompt::CommanderZone { .. } | YesNoPrompt::Generic => {
-                    PlayerAction::YesNo(true)
-                }
+                // A spell for nothing (cascade) is taken too. And a pact's
+                // payment is attempted: the owed-mana planner handles the
+                // window.
+                YesNoPrompt::MayDo
+                | YesNoPrompt::CommanderZone { .. }
+                | YesNoPrompt::CastWithoutPaying { .. }
+                | YesNoPrompt::PayPact { .. }
+                | YesNoPrompt::Generic => PlayerAction::YesNo(true),
                 // CR 903.9b answers itself from the destination, which is
                 // why the prompt carries it. A library is the same loss the
                 // graveyard would have been, so it goes home. A *hand* is

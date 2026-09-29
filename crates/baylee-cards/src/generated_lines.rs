@@ -23317,8 +23317,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Maelstrom Wanderer
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 2,
+        lines: &[None, None, None],
         modes: &[],
         alternatives: &[],
     }],

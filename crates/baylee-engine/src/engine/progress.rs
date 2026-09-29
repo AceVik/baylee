@@ -3139,6 +3139,20 @@ impl<L: CardLookup> Engine<L> {
         // a question (an as-enters choice) before that runs, and the list
         // must be empty whenever a question is out.
         self.trigger_queue.extend(self.state.reflexive.drain(..));
+        // What this resolution left for the engine to do as it ends
+        // (cascade's cast, CR 702.85a), ahead of everything already queued.
+        let mut i = self.state.delayed.len();
+        while i > 0 {
+            i -= 1;
+            if matches!(
+                self.state.delayed[i].when,
+                crate::state::DelayedWhen::AsResolutionEnds
+            ) {
+                let trigger = self.state.delayed.remove(i);
+                self.delayed_queue
+                    .push_front((trigger.controller, trigger.action));
+            }
+        }
         // A mana ability never went on the stack (CR 605.3b), and its
         // `on_stack` is the source permanent itself. Falling through here
         // treated that permanent as a resolving spell: `finalize_spell`
@@ -3849,6 +3863,38 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Cascade's cast (CR 702.85a), as its resolution ends: the exiled
+    /// card is cast without paying its mana cost, or put on the bottom of
+    /// its owner's library when it cannot be. Returns whether a question is
+    /// out.
+    fn cast_free_or_bottom(&mut self, controller: PlayerId, card: ObjectId, version: u32) -> bool {
+        let in_exile = |state: &crate::state::GameState| {
+            state
+                .object(card)
+                .filter(|o| o.zone == crate::zone::Zone::Exile && o.version == version)
+                .map(|o| o.owner)
+        };
+        if in_exile(&self.state).is_none() {
+            return false;
+        }
+        // A spell nothing can be pointed at cannot be cast
+        // (CR 601.2c); asked first, so a refusal leaves no wizard
+        // behind to unwind.
+        let cast =
+            crate::casting::face_has_a_legal_target(&self.state, &self.lookup, controller, card, 0)
+                && self.start_permitted_free_cast(controller, card).is_ok();
+        if !cast && let Some(owner) = in_exile(&self.state) {
+            // "…that weren't cast on the bottom of your library."
+            let _ = self.state.move_object(
+                card,
+                ZoneLocation::Library(owner),
+                ZonePosition::Bottom,
+                Cause::Effect,
+            );
+        }
+        self.awaiting_answer
+    }
+
     /// Processes one queued delayed action; returns `true` when a pending
     /// choice was produced.
     pub(crate) fn process_delayed(&mut self) -> bool {
@@ -3875,6 +3921,9 @@ impl<L: CardLookup> Engine<L> {
                 let owner = object.owner;
                 let _ = self.start_free_cast(owner, card);
                 self.awaiting_answer
+            }
+            crate::state::DelayedAction::CastFreeOrBottom { card, version } => {
+                self.cast_free_or_bottom(controller, card, version)
             }
             crate::state::DelayedAction::Transform {
                 card,

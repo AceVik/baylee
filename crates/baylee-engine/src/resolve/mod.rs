@@ -225,6 +225,15 @@ pub enum AwaitingOp {
     /// After `DiscardUpToThenDraw`: the chosen cards are discarded and as
     /// many are drawn.
     DiscardThenDraw,
+    /// After `Cascade` exiled its hit and asked whether to cast it: the
+    /// rest of what it exiled goes to the bottom either way, the hit with
+    /// them unless the answer was yes.
+    CascadeCast {
+        /// The nonland card that stopped the exiling.
+        hit: ObjectId,
+        /// Every other card exiled on the way.
+        rest: Vec<ObjectId>,
+    },
     /// After `SearchLibraryOrGraveyard` offered its graveyard matches: the
     /// card named goes where `find` says; none named searches the library.
     GraveyardOrLibrary {
@@ -1066,6 +1075,30 @@ fn next_commander_ask(
 /// When the suspended operation is not a yes/no choice.
 #[must_use]
 pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) -> Flow {
+    // Cascade: the cards not cast go to the bottom now, and a yes is a cast
+    // the engine makes as this resolution ends (CR 702.85a).
+    if matches!(res.awaiting, Some(AwaitingOp::CascadeCast { .. })) {
+        let Some(AwaitingOp::CascadeCast { hit, mut rest }) = res.awaiting.take() else {
+            unreachable!("just matched")
+        };
+        let you = res.controller;
+        let hit_version = state
+            .object(hit)
+            .filter(|o| o.zone == crate::zone::Zone::Exile)
+            .map(|o| o.version);
+        match hit_version {
+            Some(version) if answer => state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::AsResolutionEnds,
+                action: crate::state::DelayedAction::CastFreeOrBottom { card: hit, version },
+            }),
+            Some(_) => rest.push(hit),
+            None => {}
+        }
+        bottom_in_random_order(state, you, rest);
+        res.pc += 1;
+        return run(state, res);
+    }
     if let Some(AwaitingOp::PlayerMayPayLife {
         player,
         amount,
@@ -1351,9 +1384,16 @@ fn reveal_until(
     if let Some(card) = hit {
         put_found(state, you, card, found);
     }
-    let mut rest: Vec<ObjectId> = revealed.into_iter().filter(|c| Some(*c) != hit).collect();
-    state.rng.shuffle(&mut rest);
-    for card in rest {
+    let rest: Vec<ObjectId> = revealed.into_iter().filter(|c| Some(*c) != hit).collect();
+    bottom_in_random_order(state, you, rest);
+    hit
+}
+
+/// "…on the bottom of your library in a random order": the table's
+/// generator orders the cards, and nobody is asked.
+fn bottom_in_random_order(state: &mut GameState, you: PlayerId, mut cards: Vec<ObjectId>) {
+    state.rng.shuffle(&mut cards);
+    for card in cards {
         let _ = state.move_object(
             card,
             ZoneLocation::Library(you),
@@ -1361,7 +1401,6 @@ fn reveal_until(
             Cause::Effect,
         );
     }
-    hit
 }
 
 /// The library half of `SearchLibraryOrGraveyard`: the search
@@ -2047,6 +2086,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::PlayerMayPayLife { .. }
         | AwaitingOp::MayDo { .. }
+        | AwaitingOp::CascadeCast { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
@@ -3051,6 +3091,48 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
             put_found(state, you, top, if fits { matched } else { otherwise });
             None
+        }
+        Effect::Cascade => {
+            // "This spell's mana value", X included while it is on the
+            // stack (CR 202.3e); once it has left, the card's own.
+            let bound = state.object(res.source).map_or(0, |o| {
+                let cost = o.characteristics().mana_cost;
+                if o.zone == crate::zone::Zone::Stack {
+                    cost.with_x(o.x_value).cmc()
+                } else {
+                    cost.cmc()
+                }
+            });
+            let library: Vec<ObjectId> = state.zones.list(ZoneLocation::Library(you)).clone();
+            let mut rest = Vec::new();
+            let mut hit = None;
+            for &card in library.iter().rev() {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Exile(you),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                let chars = state.object(card).map(|o| o.characteristics().clone());
+                if chars.is_some_and(|c| {
+                    !c.types.contains(baylee_core::types::TypeSet::LAND)
+                        && c.mana_cost.cmc() < bound
+                }) {
+                    hit = Some(card);
+                    break;
+                }
+                rest.push(card);
+            }
+            let Some(hit) = hit else {
+                bottom_in_random_order(state, you, rest);
+                return None;
+            };
+            res.awaiting = Some(AwaitingOp::CascadeCast { hit, rest });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::CastWithoutPaying { card: hit },
+                source: resolving_ability(state, res),
+            })
         }
         Effect::RevealUntil { filter, found } => {
             reveal_until(state, you, res.source, filter, found);

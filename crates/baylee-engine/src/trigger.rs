@@ -181,6 +181,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
         }
     }
     monarch_triggers(state, events, &mut triggers);
+    cast_this_spell_triggers(state, lookup, events, &mut triggers);
     // LTB/Dies triggers look back in time (CR 603.10): the source is no
     // longer on the battlefield when they fire.
     for seat in 0..state.players.len() {
@@ -414,6 +415,56 @@ fn targeting(
             .filter(|o| o.targets_object(target))
             .map(|_| (object, controller)),
         _ => None,
+    }
+}
+
+/// "When you cast this spell" (cascade, CR 702.85a): a trigger condition
+/// that cannot trigger from the battlefield functions where it can, which is
+/// the stack (CR 113.6k). Each spell cast in this batch is asked for its own
+/// `Trigger::SpellCast(&Filter::This)` abilities, and only for those — its
+/// other abilities do not function there.
+fn cast_this_spell_triggers(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    for entry in events {
+        let GameEvent::SpellCast { object, player } = entry.event else {
+            continue;
+        };
+        let Some(spell) = state.object(object).filter(|o| o.zone == Zone::Stack) else {
+            continue;
+        };
+        let list = spell.ability_list(lookup);
+        for (index, ability) in list.abilities.iter().enumerate() {
+            let Some(firing) = triggered_parts(ability) else {
+                continue;
+            };
+            if !matches!(
+                firing.trigger,
+                baylee_cards_dsl::Trigger::SpellCast(baylee_cards_dsl::Filter::This)
+            ) {
+                continue;
+            }
+            if !eval::intervening_if(state, firing.condition, player, object) {
+                continue;
+            }
+            triggers.push(PendingTrigger {
+                event_mana_value: None,
+                source: object,
+                ability_index: index as u32,
+                abilities: Some(list),
+                controller: player,
+                timestamp: spell.timestamp,
+                event_object: Some(object),
+                implicit_target: None,
+                synthetic_effects: None,
+                once_per_turn: firing.once_per_turn,
+                synthetic_target: None,
+                chosen_mode: None,
+            });
+        }
     }
 }
 

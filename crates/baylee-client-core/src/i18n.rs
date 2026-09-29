@@ -1828,6 +1828,11 @@ messages! {
     },
     /// Cast it for its miracle cost?
     CastForMiracle { en: "Cast it for its miracle cost?", de: "Für die Wunderkosten wirken?" },
+    /// Cast it without paying its mana cost? (cascade)
+    CastWithoutPaying {
+        en: "Cast it without paying its mana cost?",
+        de: "Ohne Zahlung seiner Manakosten wirken?",
+    },
     /// {0} offers a draw. Accept?
     ///
     /// Named rather than passive, and the name is the whole of the repair:

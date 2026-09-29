@@ -784,6 +784,21 @@ pub enum Effect {
         /// "Without paying its mana cost".
         free: bool,
     },
+    /// Cascade's effect (CR 702.85a): "exile cards from the top of your
+    /// library until you exile a nonland card whose mana value is less than
+    /// this spell's mana value. You may cast that card without paying its
+    /// mana cost if the resulting spell's mana value is less than this
+    /// spell's mana value. Then put all cards exiled this way that weren't
+    /// cast on the bottom of your library in a random order."
+    ///
+    /// The body of a `Trigger::SpellCast(&Filter::This)` ability — "when you
+    /// cast this spell" — so "this spell" is the ability's source. The cast
+    /// is asked as a `YesNoPrompt::CastWithoutPaying` and made the moment
+    /// the ability has finished resolving, through the free-cast wizard, so
+    /// targets and modes are chosen as for any spell; a card that turns out
+    /// not to be castable goes to the bottom with the rest. "Cascade,
+    /// cascade" is two of these abilities (CR 702.85c).
+    Cascade,
     /// "Reveal cards from the top of your library until you reveal a
     /// [filter] card. Put that card [where `found` says] and the rest on the
     /// bottom of your library in a random order." (Nissa, Resurgent
@@ -2444,6 +2459,7 @@ impl Effect {
             | Effect::PayLifeOrPutBackDrawn { .. }
             | Effect::RevealTopAndSort { .. }
             | Effect::RevealUntil { .. }
+            | Effect::Cascade
             | Effect::LookAtTopMayPut { .. }
             | Effect::DiscardUpToThenDraw { .. }
             | Effect::SearchLibraryOrGraveyard { .. }

@@ -483,6 +483,12 @@ pub enum YesNoPrompt {
         /// (CR 903.8), so the prompt has to say which is happening.
         to_library: bool,
     },
+    /// "You may cast that card without paying its mana cost" — cascade's
+    /// offer (CR 702.85a), about the card it just exiled.
+    CastWithoutPaying {
+        /// The exiled card.
+        card: baylee_core::ids::ObjectId,
+    },
     /// "You may …" inside a resolving ability ([`baylee_cards_dsl::Effect::MayDo`]).
     MayDo,
     /// Generic yes/no (optional effects).
@@ -535,6 +541,7 @@ impl YesNoPrompt {
             | Self::PayTax { .. }
             | Self::PayLife { .. }
             | Self::Miracle { .. }
+            | Self::CastWithoutPaying { .. }
             | Self::DrawOffer { .. }
             | Self::MayDo
             | Self::Generic => true,
@@ -1124,6 +1131,10 @@ mod choice_tests {
             (yes_no(YesNoPrompt::PayTax { mana: 1 }), no.clone()),
             (yes_no(YesNoPrompt::PayLife { amount: 7 }), no.clone()),
             (yes_no(YesNoPrompt::Miracle { card: object() }), no.clone()),
+            (
+                yes_no(YesNoPrompt::CastWithoutPaying { card: object() }),
+                no.clone(),
+            ),
             (yes_no(YesNoPrompt::DrawOffer { proposer: p }), no.clone()),
             (yes_no(YesNoPrompt::MayDo), no.clone()),
             (yes_no(YesNoPrompt::Generic), no),
@@ -1250,7 +1261,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 16 + 10;
+    const KINDS: usize = 16 + 11;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -1279,13 +1290,14 @@ mod choice_tests {
                     YesNoPrompt::Kicker => 1,
                     YesNoPrompt::PayTax { .. } => 2,
                     YesNoPrompt::PayLife { .. } => 9,
-                    YesNoPrompt::PayPact { .. } => 10,
+                    YesNoPrompt::PayPact { .. } => 11,
                     YesNoPrompt::Miracle { .. } => 3,
                     YesNoPrompt::DrawOffer { .. } => 4,
                     YesNoPrompt::CommanderZone { .. } => 5,
                     YesNoPrompt::CommanderReplace { .. } => 6,
                     YesNoPrompt::MayDo => 7,
                     YesNoPrompt::Generic => 8,
+                    YesNoPrompt::CastWithoutPaying { .. } => 10,
                 }
             }
         }
@@ -1472,6 +1484,7 @@ mod choice_tests {
                 | YesNoPrompt::PayLife { .. }
                 | YesNoPrompt::PayPact { .. }
                 | YesNoPrompt::Miracle { .. }
+                | YesNoPrompt::CastWithoutPaying { .. }
                 | YesNoPrompt::DrawOffer { .. }
                 | YesNoPrompt::CommanderReplace { .. }
                 | YesNoPrompt::Generic => false,
@@ -1485,6 +1498,7 @@ mod choice_tests {
             YesNoPrompt::PayTax { mana: 2 },
             YesNoPrompt::PayLife { amount: 7 },
             YesNoPrompt::Miracle { card: object() },
+            YesNoPrompt::CastWithoutPaying { card: object() },
             YesNoPrompt::CommanderZone { card: object() },
             YesNoPrompt::CommanderReplace {
                 card: object(),

@@ -1478,6 +1478,21 @@ hashes, layers and does nothing. This paragraph said THREE until
   source's id and version, CR 400.7) as the ability begins to resolve, so the
   resolution asking is counted. The branch runs at exactly `times`; a third
   resolution is not the second.
+- **"When you cast this spell"** is `Trigger::SpellCast(&Filter::This)`. A
+  trigger that cannot fire from the battlefield works from the stack
+  (CR 113.6k), so `trigger::collect` asks each spell cast in the batch for
+  these abilities, and only these. Its other abilities do not work there.
+- **`Effect::Cascade`** is cascade's effect (CR 702.85a), the body of such a
+  trigger. "Cascade, cascade" is two of them (CR 702.85c). It exiles from the
+  top until a nonland card whose mana value is less than the spell's (X
+  included while the spell is on the stack). Then it asks
+  `YesNoPrompt::CastWithoutPaying`.
+  - A yes is a `DelayedWhen::AsResolutionEnds` entry, which
+    `finish_resolution` hands to the engine ahead of everything queued. The
+    engine casts the card through `start_permitted_free_cast`, which asks for
+    modes and targets and ignores timing.
+  - A card with nothing to target goes to the bottom instead.
+  - Every card not cast goes to the bottom in a random order.
 - **`Modifier::CharacteristicPT { count, toughness_plus }`** is a
   characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
   - `YouControl(filter)`

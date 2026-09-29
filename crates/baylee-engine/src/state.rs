@@ -184,6 +184,11 @@ pub enum DelayedWhen {
     NextEndStep,
     /// At the controller's next cleanup.
     NextCleanup,
+    /// As the resolution that made it finishes — before anything else
+    /// happens, not at a step. Cascade's cast is made "while the ability is
+    /// resolving" (CR 702.85a), which a resolution that cannot start a cast
+    /// of its own hands to the engine this way.
+    AsResolutionEnds,
 }
 
 /// What a delayed trigger does.
@@ -196,6 +201,16 @@ pub enum DelayedAction {
         card: ObjectId,
         /// Its identity on arriving there; leaving exile invalidates this
         /// permission even if the same card returns (CR 400.7).
+        version: u32,
+    },
+    /// Cascade's cast (CR 702.85a): cast the exiled card without paying its
+    /// mana cost, or, when it cannot be cast after all, put it on the bottom
+    /// of its owner's library — "all cards exiled this way that weren't
+    /// cast" go there.
+    CastFreeOrBottom {
+        /// The card in exile.
+        card: ObjectId,
+        /// Its identity on arriving there (CR 400.7).
         version: u32,
     },
     /// Pay a cost or lose the game (Pact of Negation).
