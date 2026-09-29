@@ -146,16 +146,14 @@ pub fn line_shape(line: &str) -> LineShape {
     // `triggered!` here — so for the purpose of finding which sentence an
     // ability came from it is a third trigger word, not a fourth shape.
     //
-    // The word is not only that sentence's, and that is a known boundary
-    // rather than an oversight: "As long as …" opens a *static* ability and
-    // lands here too, which is how The World Tree and Riftstone Portal
-    // both read as `Triggered`. Neither card has a triggered ability to be
-    // given the wrong sentence, so it is latent today — and it is the next
-    // hole of the kind [`ability_colon`] closed, not a second instance of
-    // that one.
+    // The word is not only that sentence's: "As long as …" opens a
+    // *static* ability, and read as a trigger it left The World Tree's
+    // conditional grant without its sentence once the grant was built. It
+    // goes on to the colon test below, where a quoted ability makes it a
+    // grant.
     if lower.starts_with("when")
         || lower.starts_with("at ")
-        || lower.starts_with("as ")
+        || (lower.starts_with("as ") && !lower.starts_with("as long as "))
         || lower.starts_with("ward ")
         || lower.starts_with("ward—")
     {
@@ -1261,6 +1259,24 @@ mod tests {
             line_shape(r#"{2}, {T}: Target creature gains "flying" until end of turn."#),
             LineShape::Activated,
             "a quotation mark later in the line does not hide the cost's colon",
+        );
+    }
+
+    /// "As long as …" opens a static ability, never a trigger: The World
+    /// Tree's conditional grant was read as `Triggered`, and once the grant
+    /// was built no ability could claim its sentence. "As this creature
+    /// enters" stays the third trigger word it is.
+    #[test]
+    fn as_long_as_opens_a_static_and_as_it_enters_a_trigger() {
+        assert_eq!(
+            line_shape(
+                r#"As long as you control six or more lands, lands you control have "{T}: Add one mana of any color.""#
+            ),
+            LineShape::Grant,
+        );
+        assert_eq!(
+            line_shape("As this creature enters, choose a creature type."),
+            LineShape::Triggered,
         );
     }
 

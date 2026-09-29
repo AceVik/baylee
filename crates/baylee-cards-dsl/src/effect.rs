@@ -680,6 +680,19 @@ pub struct Find {
     /// the door `GraveyardToBattlefield`'s counter takes, so a doubler has
     /// its say (CR 614.16). Written with [`Find::with_counter`].
     pub counter: Option<(CounterKind, u16)>,
+    /// A fork on the card found: one that matches the filter goes where the
+    /// inner find says instead. Archdruid's Charm, "Put it onto the
+    /// battlefield tapped if it's a land card. Otherwise, put it into your
+    /// hand", is `Find::HAND.when_matching(&Filter::LAND,
+    /// &Find::BATTLEFIELD_TAPPED)`. Asked of the card once it is chosen, as
+    /// it is in the library. Written with [`Find::when_matching`].
+    pub instead_if: Option<(&'static Filter, &'static Find)>,
+    /// This find takes every further card the search finds as well, so the
+    /// search may find as many cards as match: The World Tree's "search
+    /// your library for any number of God cards, put them onto the
+    /// battlefield" is one repeating find in an optional search. Only the
+    /// last find of a search repeats. Written with [`Find::any_number`].
+    pub repeats: bool,
 }
 
 impl Find {
@@ -688,24 +701,32 @@ impl Find {
         dest: SearchDest::Hand,
         tapped: false,
         counter: None,
+        instead_if: None,
+        repeats: false,
     };
     /// Onto the battlefield, untapped (Nature's Lore, a fetchland).
     pub const BATTLEFIELD: Self = Self {
         dest: SearchDest::Battlefield,
         tapped: false,
         counter: None,
+        instead_if: None,
+        repeats: false,
     };
     /// Onto the battlefield tapped (Rampant Growth, Evolving Wilds).
     pub const BATTLEFIELD_TAPPED: Self = Self {
         dest: SearchDest::Battlefield,
         tapped: true,
         counter: None,
+        instead_if: None,
+        repeats: false,
     };
     /// On top of your library (a tutor that does not draw).
     pub const TOP_OF_LIBRARY: Self = Self {
         dest: SearchDest::TopOfLibrary,
         tapped: false,
         counter: None,
+        instead_if: None,
+        repeats: false,
     };
 
     /// The same find, entering with `n` counters of `kind` on it — "with an
@@ -714,6 +735,25 @@ impl Find {
     pub const fn with_counter(self, kind: CounterKind, n: u16) -> Self {
         Self {
             counter: Some((kind, n)),
+            ..self
+        }
+    }
+
+    /// The same find, except that a found card matching `filter` goes
+    /// where `then` says ([`Find::instead_if`]).
+    #[must_use]
+    pub const fn when_matching(self, filter: &'static Filter, then: &'static Self) -> Self {
+        Self {
+            instead_if: Some((filter, then)),
+            ..self
+        }
+    }
+
+    /// The same find, for "any number of" cards ([`Find::repeats`]).
+    #[must_use]
+    pub const fn any_number(self) -> Self {
+        Self {
+            repeats: true,
             ..self
         }
     }

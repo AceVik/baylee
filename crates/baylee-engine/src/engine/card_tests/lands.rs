@@ -15382,9 +15382,9 @@ fn susur_secundi_void_altar_enters_tapped_and_taps_for_black() {
     assert!(is_tapped(&engine, land));
 }
 
-/// The World Tree: "This land enters tapped." / "{T}: Add {G}." / "As long as you control six or more lands, lands you control have '{T}: Add one mana of any color.'"
-/// Under `Coverage::Partial`, the conditional land grant and the unbounded God search are omitted.
-/// Playing this land causes it to enter tapped, and after untapping on a subsequent turn it taps for green mana.
+/// The World Tree: "This land enters tapped." / "{T}: Add {G}."
+/// Playing this land causes it to enter tapped, and after untapping on a
+/// subsequent turn it taps for green mana.
 #[test]
 fn the_world_tree_enters_tapped_and_taps_for_green() {
     let p0 = PlayerId::new(0);
@@ -15408,6 +15408,231 @@ fn the_world_tree_enters_tapped_and_taps_for_green() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Green), 1);
     assert!(is_tapped(&engine, land));
+}
+
+/// Whether `land` is offered the any-colour ability The World Tree grants.
+fn offered_any_colour(engine: &Engine<RegistryLookup>, land: ObjectId) -> bool {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    legal
+        .abilities
+        .contains(&(land, crate::choice::GRANTED_ABILITY))
+}
+
+/// The World Tree: "As long as you control six or more lands, lands you
+/// control have '{T}: Add one mana of any color.'"
+///
+/// Five lands: nothing is granted. The sixth, a Strip Mine, played, turns
+/// it on for every land its controller has, the Tree included, and a Forest
+/// then taps for black. Six Mountains across the table count for nothing and
+/// gain nothing. The Strip Mine sacrificed makes five again, and the grant
+/// is gone.
+#[test]
+fn the_world_tree_colours_your_lands_from_the_sixth_on() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(212, forest())
+        .battlefield(
+            0,
+            &[the_world_tree(), forest(), forest(), forest(), forest()],
+        )
+        .hand(0, &[strip_mine()])
+        .battlefield(
+            1,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let tree = on_battlefield(&engine, p0, the_world_tree()).expect("the Tree is out");
+    let first = on_battlefield(&engine, p0, forest()).expect("a Forest is out");
+    let theirs = on_battlefield(&engine, p1, mountain()).expect("a Mountain across the table");
+    assert!(
+        !offered_any_colour(&engine, first),
+        "five lands: nothing is granted"
+    );
+
+    let sixth = play_land(&mut engine, p0, strip_mine());
+    assert!(
+        offered_any_colour(&engine, first),
+        "six lands: the Forest has it"
+    );
+    assert!(
+        offered_any_colour(&engine, sixth),
+        "and the land that made six"
+    );
+    assert!(offered_any_colour(&engine, tree), "and the Tree itself");
+    assert!(
+        !offered_any_colour(&engine, theirs),
+        "\"lands you control\": not the opponent's six"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: first,
+                ability_index: crate::choice::GRANTED_ABILITY,
+            },
+        )
+        .expect("the granted mana ability activates");
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected a colour choice, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5, "one mana of any color");
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black is a colour");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "a Forest made black"
+    );
+
+    // Back to five: Strip Mine, the sixth land, is sacrificed to destroy
+    // a Mountain across the table.
+    activate(&mut engine, p0, strip_mine(), 1);
+    aim_at(&mut engine, p0, theirs);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, strip_mine()).is_some());
+    let untapped = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|id| {
+            *id != first
+                && engine.state().object(*id).is_some_and(|o| {
+                    o.controller == p0
+                        && o.card.is_some_and(|c| c.index == forest())
+                        && !is_tapped(&engine, *id)
+                })
+        })
+        .expect("an untapped Forest");
+    assert!(
+        !offered_any_colour(&engine, untapped),
+        "five lands again: the grant is gone"
+    );
+    assert!(!offered_any_colour(&engine, tree));
+}
+
+/// "{W}{W}{U}{U}{B}{B}{R}{R}{G}{G}, {T}, Sacrifice this land: Search your
+/// library for any number of God cards, put them onto the battlefield, then
+/// shuffle."
+///
+/// Two Gods and a creature that is not one in the library: the search
+/// offers the two Gods and nothing else, may settle for none, may take
+/// both, and puts both onto the battlefield; the Tree is sacrificed.
+#[test]
+fn the_world_tree_finds_any_number_of_gods() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(213, forest())
+        .battlefield(
+            0,
+            &[
+                the_world_tree(),
+                plains(),
+                plains(),
+                island(),
+                island(),
+                swamp(),
+                swamp(),
+                mountain(),
+                mountain(),
+                forest(),
+                forest(),
+            ],
+        )
+        .hand(
+            0,
+            &[
+                ojer_kaslem_deepest_growth(),
+                ojer_taq_deepest_foundation(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let moves: Vec<ObjectId> = [
+        ojer_kaslem_deepest_growth(),
+        ojer_taq_deepest_foundation(),
+        llanowar_elves(),
+    ]
+    .into_iter()
+    .map(|card| in_hand(&engine, p0, card).expect("dealt into the hand"))
+    .collect();
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        for card in moves {
+            state
+                .move_object(
+                    card,
+                    ZoneLocation::Library(p0),
+                    ZonePosition::Top,
+                    crate::event::Cause::DevCommand,
+                )
+                .expect("into the library");
+        }
+    }
+    engine.refresh_offer();
+
+    let tree = on_battlefield(&engine, p0, the_world_tree()).expect("the Tree is out");
+    tap_mana_except(&mut engine, p0, tree);
+    activate(&mut engine, p0, the_world_tree(), 2);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched");
+    };
+    let offered: Vec<CardIndex> = options
+        .iter()
+        .filter_map(|id| engine.state().object(*id).and_then(|o| o.card))
+        .map(|c| c.index)
+        .collect();
+    assert_eq!(
+        offered.len(),
+        2,
+        "the two Gods and nothing else: {offered:?}"
+    );
+    assert!(offered.contains(&ojer_kaslem_deepest_growth()));
+    assert!(offered.contains(&ojer_taq_deepest_foundation()));
+    assert_eq!(
+        (min, max),
+        (0, 2),
+        "any number: none, or as many as there are"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: options })
+        .expect("both Gods");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, ojer_kaslem_deepest_growth()).is_some());
+    assert!(on_battlefield(&engine, p0, ojer_taq_deepest_foundation()).is_some());
+    assert!(
+        in_graveyard(&engine, p0, the_world_tree()).is_some(),
+        "the Tree was sacrificed"
+    );
 }
 
 /// Villainous Hideout: "{T}: Add {C}." / "{T}: Add one mana of any color. Spend this mana only to cast a Villain spell..." / "{3}, {T}: Target Villain you control connives."

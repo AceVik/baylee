@@ -502,8 +502,13 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
     }
     // How many cards this search may produce, and how few it may settle
     // for: "up to two" is optional with two finds, "search for a basic land
-    // card" is one find and mandatory.
-    let want = u8::try_from(finds.len()).unwrap_or(u8::MAX);
+    // card" is one find and mandatory. "Any number" is as many as match.
+    let most = if finds.last().is_some_and(|f| f.repeats) {
+        options.len().max(finds.len())
+    } else {
+        finds.len()
+    };
+    let want = u8::try_from(most).unwrap_or(u8::MAX);
     let least = if optional { 0 } else { want };
     let reveal = reveals(filter, finds);
     if let Some(agent) = takeover {
@@ -548,10 +553,40 @@ fn reveals(
     filter: &'static baylee_cards_dsl::Filter,
     finds: &[baylee_cards_dsl::effect::Find],
 ) -> bool {
-    !matches!(filter, baylee_cards_dsl::Filter::Any)
-        && finds
-            .iter()
-            .any(|f| matches!(f.dest, SearchDest::Hand | SearchDest::TopOfLibrary))
+    // A fork's other destination counts: Archdruid's Charm's creature goes
+    // to the hand, and the card says "reveal it".
+    fn hidden(find: &baylee_cards_dsl::effect::Find) -> bool {
+        matches!(find.dest, SearchDest::Hand | SearchDest::TopOfLibrary)
+            || find.instead_if.is_some_and(|(_, then)| hidden(then))
+    }
+    !matches!(filter, baylee_cards_dsl::Filter::Any) && finds.iter().any(hidden)
+}
+
+/// Where one found card goes: the find its position names — the last one
+/// again for a repeating find ("any number of") — and then, if that find
+/// forks on the card, the branch the card matches. `None` past the last
+/// find of a search that does not repeat.
+fn find_for(
+    state: &GameState,
+    res: &Resolution,
+    receiver: PlayerId,
+    finds: &'static [baylee_cards_dsl::effect::Find],
+    at: usize,
+    card: ObjectId,
+) -> Option<baylee_cards_dsl::effect::Find> {
+    let mut find = *finds
+        .get(at)
+        .or_else(|| finds.last().filter(|f| f.repeats))?;
+    while let Some((filter, then)) = find.instead_if {
+        let matched = state
+            .object(card)
+            .is_some_and(|o| eval::matches(filter, state, o, receiver, res.source));
+        if !matched {
+            break;
+        }
+        find = *then;
+    }
+    Some(find)
 }
 
 /// The first target's characteristics, as the effect asking is entitled to
@@ -1233,7 +1268,16 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             // Cultivate names the battlefield first and the hand second, and
             // finding only one card then puts that one onto the battlefield —
             // the same order the printed text reads in.
-            for (&card, find) in chosen.iter().zip(finds) {
+            // Where each card goes is read before any of them moves: a fork
+            // asks the card as it is in the library.
+            let placed: Vec<(ObjectId, baylee_cards_dsl::effect::Find)> = chosen
+                .iter()
+                .enumerate()
+                .filter_map(|(at, &card)| {
+                    find_for(state, res, receiver, finds, at, card).map(|find| (card, find))
+                })
+                .collect();
+            for (card, find) in placed {
                 let (dest, tapped) = (find.dest, find.tapped);
                 match dest {
                     SearchDest::Hand => {

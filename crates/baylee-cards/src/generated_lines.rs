@@ -35199,8 +35199,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // The World Tree
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2), Some(3)],
         modes: &[],
         alternatives: &[],
     }],

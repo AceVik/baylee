@@ -1210,7 +1210,14 @@ library … under your control" — or a `mana_value: Some(ManaValueBound { cmp,
 amount })` the resolution computes, such as `Amount::Plus { base:
 &Amount::SacrificedManaValue, offset: 2 }` for Eldritch Evolution; the
 library searched is the one shuffled), `Find::…with_counter(kind, n)` for a
-find that enters with counters (Neoform), `PutFromHandOntoBattlefield {
+find that enters with counters (Neoform), `Find::…when_matching(filter,
+&then)` for a find that forks on the card found (Archdruid's Charm: "onto
+the battlefield tapped if it's a land card. Otherwise, into your hand" is
+`Find::HAND.when_matching(&Filter::LAND, &Find::BATTLEFIELD_TAPPED)`, asked
+of the card as it is in the library), `Find::…any_number()` for "any number
+of" cards, the last find repeating for every card found, so the search may
+take as many as match (The World Tree's Gods, in an optional search),
+`PutFromHandOntoBattlefield {
 filter, mana_value, optional }` (Aether Vial, with `Amount::CountersOnSource`
 as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
 `GraveyardToTop`,
