@@ -73,8 +73,10 @@ Each line of a `.jsonl` file is one object, fields in this order:
 A spell ability is always logged under `4294967295`, never under its
 position. Every other kind is logged under its position. A line is written
 once per test for each `(card, index, kind)`, in the order they first fired.
-The recorder only reads the game; with or without it a game's state,
-journal and `snapshot_hash` are the same.
+The recorder only reads the game, by construction rather than by a test:
+every door takes the state by `&GameState` and writes only its files and
+thread-locals, so a game's state, journal and `snapshot_hash` are the same
+with or without it.
 
 ### What counts as fired
 
