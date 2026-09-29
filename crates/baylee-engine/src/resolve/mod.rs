@@ -378,14 +378,18 @@ pub enum AwaitingOp {
         /// The position in [`CARD_TYPES`] to ask from next.
         next: usize,
     },
-    /// A player decides whether to pay for a tax effect.
+    /// A player decides whether to pay generic mana: a tax
+    /// (`Effect::PlayerMayPayOr`, whose effect runs on a refusal) or a
+    /// price (`Effect::PlayerMayPayThen`, whose effects run on a payment).
     PlayerMayPay {
         /// The player deciding.
         player: PlayerId,
         /// Generic mana to pay.
         mana: u16,
-        /// The effect to run when they don't pay.
-        effect: &'static Effect,
+        /// The effects one of the two answers runs.
+        effects: &'static [Effect],
+        /// Whether paying is the answer that runs them.
+        on_payment: bool,
     },
     /// Optional life payment, distinct from mana payment windows.
     PlayerMayPayLife {
@@ -1401,7 +1405,7 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
             res.pc += 1;
             return run(state, res);
         }
-        return run_fallback(state, res, effect);
+        return run_fallback(state, res, std::slice::from_ref(effect));
     }
     if let Some(AwaitingOp::TopOrBottom { card, owner }) = res.awaiting {
         res.awaiting = None;
@@ -1572,8 +1576,8 @@ pub fn resume_arranged(
     run(state, res)
 }
 
-/// Resumes a tax choice (Rhystic Study & co.): `paid` means the player
-/// chose to pay the mana.
+/// Resumes a tax choice (Rhystic Study & co.) or a price (Crystal Rod):
+/// `paid` means the player chose to pay the mana.
 ///
 /// # Panics
 /// When the suspended operation is not a tax choice.
@@ -1582,7 +1586,8 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
     let AwaitingOp::PlayerMayPay {
         player,
         mana,
-        effect,
+        effects,
+        on_payment,
     } = res.awaiting.take().expect("resume without awaiting op")
     else {
         panic!("resume_tax_choice on non-tax choice");
@@ -1596,11 +1601,13 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
             &baylee_core::mana::ManaCost::parse(&format!("{{{mana}}}")),
         );
     debug_assert!(!paid || actually_paid, "tax was offered as payable");
-    if actually_paid {
+    // A tax runs its effect on a refusal and a price on a payment; the
+    // other answer is the ability doing nothing more.
+    if actually_paid != on_payment {
         res.pc += 1;
         return run(state, res);
     }
-    run_fallback(state, res, effect)
+    run_fallback(state, res, effects)
 }
 
 /// Runs the branch an "unless" effect takes when the player does not pay.
@@ -1609,8 +1616,8 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
 /// fallback that suspended on a choice has to splice its own remaining
 /// program into the resolution that called it, and a second copy of that
 /// splice would be a second place for the program counter to be wrong.
-fn run_fallback(state: &mut GameState, res: &mut Resolution, effect: &'static Effect) -> Flow {
-    if let Some(pending) = run_nested(state, res, std::slice::from_ref(effect)) {
+fn run_fallback(state: &mut GameState, res: &mut Resolution, effects: &'static [Effect]) -> Flow {
+    if let Some(pending) = run_nested(state, res, effects) {
         return Flow::Wait(pending);
     }
     res.pc += 1;
@@ -2562,7 +2569,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 .first()
                 .is_some_and(|&chosen| cost_wizard::pay(state, player, cost, chosen).is_ok());
             if !paid {
-                return run_fallback(state, res, effect);
+                return run_fallback(state, res, std::slice::from_ref(effect));
             }
         }
     }
@@ -2785,6 +2792,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::SearchLibraryUpTo { .. }
         | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
+        | Effect::PlayerMayPayThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::ReorderTopLibrary { .. }
@@ -3037,7 +3045,32 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             res.awaiting = Some(AwaitingOp::PlayerMayPay {
                 player,
                 mana,
-                effect,
+                effects: std::slice::from_ref(effect),
+                on_payment: false,
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayTax { mana },
+                source: resolving_ability(state, res),
+            })
+        }
+        // The same question and the same payment as the tax above, with the
+        // effects on the other answer: "you may pay {1}. If you do, you gain
+        // 1 life." A player who cannot pay is still asked, for the tax's
+        // reason (CR 605.3a lets them make the mana now), and one who says
+        // yes and then cannot pay has not paid.
+        Effect::PlayerMayPayThen {
+            player,
+            mana,
+            effects,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            let mana = u16::try_from(amount2(&mana, state, you, res)).unwrap_or(u16::MAX);
+            res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                player,
+                mana,
+                effects,
+                on_payment: true,
             });
             Some(Pending::YesNo {
                 player,
@@ -4528,6 +4561,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::SearchLibraryUpTo { .. }
         | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
+        | Effect::PlayerMayPayThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::ReorderTopLibrary { .. }
@@ -4641,6 +4675,118 @@ fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId)]) {
                 .journal
                 .record(GameEvent::ControllerChanged { object, old, new });
         }
+    }
+}
+
+/// "You may pay {1}. If you do, you gain 1 life" and its mirror, "… unless
+/// you pay {1}": one question, one payment, and the effects on opposite
+/// answers.
+#[cfg(test)]
+mod price_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_cards_dsl::Amount;
+    use baylee_core::ids::SeatSet;
+    use baylee_core::mana::ManaColor;
+
+    static GAIN: Effect = Effect::GainLife {
+        amount: Amount::Fixed(1),
+    };
+    static PRICE: &[Effect] = &[Effect::PlayerMayPayThen {
+        player: PlayerRel::You,
+        mana: Amount::Fixed(1),
+        effects: std::slice::from_ref(&GAIN),
+    }];
+    static TAX: &[Effect] = &[Effect::PlayerMayPayOr {
+        player: PlayerRel::You,
+        mana: Amount::Fixed(1),
+        effect: &GAIN,
+    }];
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+
+    /// A game with one mana floating in `me`'s pool and a resolution of
+    /// `effects` from a bare permanent of theirs.
+    fn asked(effects: &'static [Effect]) -> (GameState, Resolution) {
+        let mut state = GameState::from_preset(&preset(13, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let name = state.names.intern("Crystal Rod");
+        let source =
+            state.create_bare(me(), ObjectKind::Permanent, name, ZoneLocation::Battlefield);
+        state.players[0].mana_pool.add(ManaColor::Colorless, 1);
+        let mut res = Resolution {
+            source,
+            on_stack: source,
+            controller: me(),
+            effects: effects.to_vec(),
+            pc: 0,
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_players: SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: false,
+            mana_ability: false,
+            countered_source: None,
+            target_lki: None,
+            retarget_left: None,
+        };
+        let Flow::Wait(Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayTax { mana },
+            ..
+        }) = run(&mut state, &mut res)
+        else {
+            panic!("a payment is a question put as the ability resolves (CR 608.2d)");
+        };
+        assert_eq!((player, mana), (me(), 1));
+        (state, res)
+    }
+
+    fn life(state: &GameState) -> i32 {
+        state.players[0].life
+    }
+
+    #[test]
+    fn a_price_paid_buys_the_clause_and_a_price_declined_buys_nothing() {
+        let (mut state, mut res) = asked(PRICE);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, true);
+        assert_eq!(
+            life(&state),
+            before + 1,
+            "paid: \"if you do, you gain 1 life\""
+        );
+        assert_eq!(
+            state.players[0].mana_pool.total(),
+            0,
+            "and the {{1}} left the pool"
+        );
+
+        let (mut state, mut res) = asked(PRICE);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, false);
+        assert_eq!(life(&state), before, "declined: nothing bought");
+        assert_eq!(state.players[0].mana_pool.total(), 1, "and nothing paid");
+    }
+
+    /// The tax is the same question with the effect on the other answer,
+    /// and sharing its resumption must not have turned it round.
+    #[test]
+    fn a_tax_still_runs_its_effect_on_a_refusal() {
+        let (mut state, mut res) = asked(TAX);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, true);
+        assert_eq!(life(&state), before, "paid: the tax's effect is avoided");
+
+        let (mut state, mut res) = asked(TAX);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, false);
+        assert_eq!(life(&state), before + 1, "refused: the effect runs");
     }
 }
 

@@ -227,6 +227,11 @@ struct Tx<'a> {
     /// number and `Amount::X` would silently evaluate to nought. Set per
     /// line rather than per script, because one card writes both.
     has_x: bool,
+    /// Whether the rules line being read is a spell (`A:SP$`) rather than an
+    /// activated ability or a trigger. A spell has no "itself" to act on
+    /// once it resolves, so a clause that defaults to the source means
+    /// nothing on one.
+    on_a_spell: bool,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -1374,12 +1379,40 @@ impl Tx<'_> {
         // Purely an AI targeting hint (don't curse your own team); it moves
         // no rule, so reading it changes nothing.
         p.take("IsCurse");
-        Some(match p.take("Defined").as_deref() {
-            Some("Self") => vec![format!(
-                "Effect::PumpFilter {{ filter: &Filter::This, controlled_by: None, \
+        // A pump that names nobody and targets nothing is the source's own:
+        // the reference defaults an absent `Defined$` to the card itself,
+        // and 175 of its `AB$ Pump` lines are written that way — Shivan
+        // Dragon's "{R}: This creature gets +1/+0". A pump that moves
+        // nothing at all is a placeholder some other line does the work
+        // for (`SP$ Pump | StackDescription$ None`), and pumping the source
+        // by nought would claim a card that does nothing. A spell has no
+        // self to pump once it resolves, so its bare pump stays refused.
+        let empty = power == "Amount::Fixed(0)"
+            && toughness == "Amount::Fixed(0)"
+            && keywords == "KeywordSet::EMPTY";
+        let defined = match p.take("Defined") {
+            None if target == "TargetSpec::AnyPlayer" && !self.on_a_spell && !empty => {
+                Some("Self".to_string())
+            }
+            other => other,
+        };
+        // "Enchanted creature gets +1/+0 until end of turn" on an Aura's own
+        // activated ability (Firebreathing): the object the source is
+        // attached to, which `Filter::AttachedToBySource` binds to the
+        // resolving ability's source.
+        let whom = match defined.as_deref() {
+            Some("Self") => Some("Filter::This"),
+            Some("Enchanted" | "Equipped") => Some("Filter::AttachedToBySource"),
+            _ => None,
+        };
+        if let Some(whom) = whom {
+            return Some(vec![format!(
+                "Effect::PumpFilter {{ filter: &{whom}, controlled_by: None, \
                  power: {power}, toughness: {toughness}, keywords: {keywords}, \
                  duration: Duration::UntilEndOfTurn }}"
-            )],
+            )]);
+        }
+        Some(match defined.as_deref() {
             None | Some("Targeted") => {
                 // Without a target this would pump nothing at all.
                 if target == "TargetSpec::AnyPlayer" {
@@ -2409,6 +2442,7 @@ impl Tx<'_> {
 
     fn rule(&mut self, kind: char, spec: &str) -> Option<()> {
         self.has_x = kind == 'A';
+        self.on_a_spell = kind == 'A' && spec.trim_start().starts_with("SP$");
         match kind {
             'A' => self.activated_or_spell(spec),
             'T' => self.triggered(spec),
@@ -3300,6 +3334,17 @@ impl Tx<'_> {
         let Some(body) = self.svars.get(&execute).cloned() else {
             return self.deny(format!("`Execute$ {execute}` names no SVar"));
         };
+        // "You may pay {1}. If you do, you gain 1 life" (Crystal Rod): the
+        // reference writes the payment as a `Cost$` on the executed line and
+        // the "may" as `OptionalDecider$ You`. The two are one decision —
+        // the player who will not pay has declined — so the price replaces
+        // the `MayDo` rather than sitting inside it, which would ask twice.
+        // Generic mana only: a coloured price or a non-mana cost is another
+        // payment the effect cannot take, and stays unclaimed.
+        let (body, price) = match Self::optional_price(&body, may) {
+            Some((stripped, n)) => (stripped, Some(n)),
+            None => (body, None),
+        };
         let mut chain = Chain::default();
         self.chain(&body, &mut chain)?;
         if chain.effects.is_empty() {
@@ -3320,15 +3365,40 @@ impl Tx<'_> {
         // may gain life equal to the number of Allies you control" is one
         // decision, not one per operation it expands into.
         let effects = chain.effects.join(", ");
-        let effects = if may {
-            format!("Effect::MayDo {{ effects: &[{effects}] }}")
-        } else {
-            effects
+        let effects = match price {
+            Some(n) => format!(
+                "Effect::PlayerMayPayThen {{ player: PlayerRel::You, \
+                 mana: Amount::Fixed({n}), effects: &[{effects}] }}"
+            ),
+            None if may => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
+            None => effects,
         };
         self.body.abilities.push(format!(
             "triggered!({trigger}, &[{effects}]{targets}{condition})"
         ));
         Some(())
+    }
+
+    /// The executed line of a "you may pay {N}. If you do, …" trigger with
+    /// its price taken off, and the price: `AB$ GainLife | Cost$ 1 | …`
+    /// under `OptionalDecider$ You`. `None` for anything else — no "may",
+    /// no `Cost$`, or a cost that is not a plain number of generic mana —
+    /// which leaves the line as it was for the chain to read or refuse.
+    fn optional_price(body: &str, may: bool) -> Option<(String, u32)> {
+        if !may || !body.trim_start().starts_with("AB$") {
+            return None;
+        }
+        let parts: Vec<&str> = body.split(" | ").collect();
+        let cost = parts
+            .iter()
+            .find_map(|part| part.strip_prefix("Cost$"))?
+            .trim();
+        let n = cost.parse::<u32>().ok().filter(|n| *n > 0)?;
+        let rest: Vec<&str> = parts
+            .into_iter()
+            .filter(|part| !part.starts_with("Cost$"))
+            .collect();
+        Some((rest.join(" | "), n))
     }
 }
 
@@ -3663,6 +3733,7 @@ pub fn transcode(
         cats,
         tokens,
         has_x: false,
+        on_a_spell: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -3717,6 +3788,7 @@ pub fn refusal_reason(
         cats,
         tokens,
         has_x: false,
+        on_a_spell: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -4217,6 +4289,7 @@ SVar:X:Count$xPaid",
             cats: &cats,
             tokens: None,
             has_x: false,
+            on_a_spell: false,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         };
@@ -4543,6 +4616,40 @@ SVar:X:Count$xPaid",
                 "{lines}"
             );
         }
+    }
+
+    /// Crystal Rod: "Whenever a player casts a blue spell, you may pay {1}.
+    /// If you do, you gain 1 life." The price is the "may", so it replaces
+    /// the `MayDo` rather than sitting inside it. A coloured price is a
+    /// payment `PlayerMayPayThen` cannot take, and stays refused.
+    #[test]
+    fn a_may_with_a_generic_price_is_a_payment_that_buys_the_clause() {
+        let body = read(
+            "Name:X\nManaCost:1\nTypes:Artifact\n\
+             T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
+             | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
+             SVar:TrigGainLife:AB$ GainLife | Cost$ 1 | Defined$ You | LifeAmount$ 1",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains(
+                "Effect::PlayerMayPayThen { player: PlayerRel::You, mana: Amount::Fixed(1), \
+                 effects: &[Effect::gain_life(1)] }"
+            ),
+            "{text}"
+        );
+        assert!(!text.contains("MayDo"), "one question, not two: {text}");
+
+        let script = parse(
+            "Name:X\nManaCost:1\nTypes:Artifact\n\
+             T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
+             | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
+             SVar:TrigGainLife:AB$ GainLife | Cost$ U | Defined$ You | LifeAmount$ 1",
+        );
+        assert_eq!(
+            refusal_reason(&script, &cats(), None).as_deref(),
+            Some("unclaimed parameter `GainLife.Cost`")
+        );
     }
 
     #[test]
@@ -5219,6 +5326,36 @@ SVar:X:Count$xPaid",
         let text = body.abilities.join("\n");
         assert!(text.contains("Effect::PumpFilter"), "{text}");
         assert!(text.contains("filter: &Filter::This"), "{text}");
+    }
+
+    /// No `Defined$` and no target is the source too: Shivan Dragon's
+    /// "{R}: This creature gets +1/+0 until end of turn." A pump that
+    /// moves nothing stays refused, because pumping the source by nought
+    /// would be a card that claims to work and does nothing.
+    #[test]
+    fn a_pump_naming_nobody_is_the_sources_own() {
+        let body = read(
+            "Name:X\nManaCost:4 R R\nTypes:Creature Dragon\nPT:5/5\nK:Flying\n\
+             A:AB$ Pump | Cost$ R | NumAtt$ +1 | SpellDescription$ gets +1/+0.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("filter: &Filter::This"), "{text}");
+        assert!(text.contains("power: Amount::Fixed(1)"), "{text}");
+
+        let script = parse("Name:X\nTypes:Instant\nA:SP$ Pump | StackDescription$ None");
+        assert!(transcode(&script, &cats(), None).is_none());
+
+        // An Aura's "enchanted creature gets +1/+0" is the host, not the
+        // Aura: Firebreathing.
+        let body = read(
+            "Name:X\nManaCost:R\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             A:AB$ Pump | Cost$ R | Defined$ Enchanted | NumAtt$ +1\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("filter: &Filter::AttachedToBySource"),
+            "{text}"
+        );
     }
 
     /// The storage lands' own clause: `PresentDefined$ Self | IsPresent$
@@ -5923,6 +6060,7 @@ SVar:X:Count$xPaid",
             cats: &cats,
             tokens: None,
             has_x: false,
+            on_a_spell: false,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         };

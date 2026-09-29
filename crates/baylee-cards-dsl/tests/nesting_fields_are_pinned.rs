@@ -44,7 +44,9 @@
 /// Raised 20 → 21 by the merge with the library group's
 /// `IfResolvedTimesThisTurn` (Nissa, Resurgent Animist); its branch walk is
 /// `verb_tests::the_nth_resolution_branch_is_visited`.
-const NESTING_FIELDS: usize = 21;
+/// Raised 21 → 22 for `PlayerMayPayThen` (Crystal Rod: "you may pay {1}. If
+/// you do, …"); `verb_tests::a_price_paid_body_is_visited`.
+const NESTING_FIELDS: usize = 22;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -67,7 +69,9 @@ const NESTING_FIELDS: usize = 21;
 /// branch. `MayDoOnceEachTurn`, `NthResolutionThisTurn`, `IfTargetMatches`
 /// and `ChooseYoursThen` moved both on 2026-09-29, the same shape, and so
 /// did `IfResolvedTimesThisTurn` the same day.
-const CARRYING_VARIANTS: usize = 18;
+///
+/// `PlayerMayPayThen` moved both on 2026-09-29: one new carrier, one branch.
+const CARRYING_VARIANTS: usize = 19;
 
 /// The floor under the reader itself.
 ///

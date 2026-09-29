@@ -2198,6 +2198,23 @@ pub enum Effect {
         /// What happens when they don't pay.
         effect: &'static Effect,
     },
+    /// "You may pay {1}. If you do, you gain 1 life." (Crystal Rod and its
+    /// four siblings, Soul Net, Mana Vault's upkeep untap.)
+    ///
+    /// The mirror of [`Effect::PlayerMayPayOr`], and a variant of its own
+    /// rather than a flag on it, because the two run their effect on
+    /// opposite answers and a flag read the wrong way round is a card that
+    /// hands out its reward for nothing. The question and the payment are
+    /// the same ones: a yes-or-no put as the ability resolves (CR 608.2d),
+    /// paid in mana that the player may make right then (CR 605.3a).
+    PlayerMayPayThen {
+        /// Who decides and pays.
+        player: PlayerRel,
+        /// Generic mana to pay, evaluated when the ability resolves.
+        mana: Amount,
+        /// What happens when they pay.
+        effects: &'static [Effect],
+    },
     /// Create a continuous effect (Giant Growth style): applies `modifier`
     /// on `layer` to `filter` for `duration`. `filter = This` binds to the
     /// first target.
@@ -2950,6 +2967,12 @@ impl Effect {
                 when: _,
                 effects,
                 target: _,
+            }
+            // What the payment buys: the list runs on a yes.
+            | Effect::PlayerMayPayThen {
+                player: _,
+                mana: _,
+                effects,
             } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::ChooseYoursThen { filter: _, then }
@@ -3161,6 +3184,26 @@ mod verb_tests {
         });
         assert_eq!(seen, 2);
         assert!(counter_seen);
+    }
+
+    /// Crystal Rod's life gain sits behind the payment, and a pool walk has
+    /// to find it there.
+    #[test]
+    fn a_price_paid_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::PlayerMayPayThen {
+            player: PlayerRel::You,
+            mana: Amount::Fixed(1),
+            effects: &[Effect::GainLife {
+                amount: Amount::Fixed(1),
+            }],
+        }];
+        let mut seen = 0;
+        let mut gain_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            gain_seen |= matches!(effect, Effect::GainLife { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(gain_seen);
     }
 
     /// Nissa, Resurgent Animist's reveal sits inside

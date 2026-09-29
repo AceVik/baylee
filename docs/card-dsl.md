@@ -1481,6 +1481,10 @@ a `PayLife(2)` there
 would put up an empty menu and decline itself on every board, which
 `vocabulary_tests::every_price_paid_by_naming_an_object_puts_a_menu_up`
 refuses over the compiled pool.
+The mirror of the first is `PlayerMayPayThen { player, mana, effects }`:
+"you may pay {1}. If you do, you gain 1 life" (Crystal Rod, Soul Net). The
+same question and payment, with the effects on a yes; the price *is* the
+"may", so it is never wrapped in a `MayDo` as well, which would ask twice.
 "That player" in a cast trigger's tax is `PlayerRel::ControllerOfEvent`
 — the one who cast the spell. `PlayerRel::Opponent` is the first living
 opponent, which is the same seat heads-up and the wrong one at a table of

@@ -2412,6 +2412,7 @@ fn check_optional_clauses_are_offered(
         "min: 0",
         "PayLifeOrEnterTapped",
         "PlayerMayPayOr",
+        "PlayerMayPayThen",
         "CopyOnEnter",
         "CopyTargetSpell",
         "CopyTargetAbility",
@@ -5352,10 +5353,10 @@ fn transcode_report(
             refused += 1;
             let cause = refusal_cause(&script, &cats, tokens.as_ref());
             let wanted_cause = reason.is_none_or(|want| cause.contains(want));
-            *causes.entry(cause).or_insert(0usize) += 1;
+            *causes.entry(cause.clone()).or_insert(0usize) += 1;
             if shown < samples && wanted_cause {
                 shown += 1;
-                println!("--- refused: {}\n{text}", path.display());
+                println!("--- refused ({cause}): {}\n{text}", path.display());
             }
         }
     }
