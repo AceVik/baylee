@@ -707,6 +707,10 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         // a second rendering of it here would be a translation of a
         // translation.
         YesNoPrompt::MayDo => Phrase::UseTheOptionalAbility.text(lang).to_string(),
+        // The owner answers, about a card that may be somebody else's
+        // spell's target: the answer names both ends, so "no" is not read
+        // as "leave it where it is".
+        YesNoPrompt::TopOfLibrary { .. } => Phrase::TopOfLibraryOrBottom.text(lang).to_string(),
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
     }
 }

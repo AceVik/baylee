@@ -1002,6 +1002,15 @@ pub enum Effect {
     /// Exile each target; return it to the battlefield under its owner's
     /// control at the beginning of the next end step (Venser +2).
     ExileAndReturnAtEndStep,
+    /// "Its owner puts it on their choice of the top or bottom of their
+    /// library" (Subtlety). The target leaves the stack or the battlefield
+    /// for its owner's library, and the **owner** picks the end, whoever
+    /// controls this ability. Not a counter: a spell that can't be countered
+    /// goes all the same.
+    OwnerPutsOnTopOrBottom {
+        /// What (a spell or a permanent the ability targeted).
+        target: TargetSpec,
+    },
     /// Counter a spell on the stack; it goes to exile instead of the
     /// graveyard (Force of Negation).
     CounterTargetSpellToExile,
@@ -2394,6 +2403,7 @@ impl Effect {
             | Effect::UntapTarget
             | Effect::UntapSelf
             | Effect::ExileAndReturnAtEndStep
+            | Effect::OwnerPutsOnTopOrBottom { .. }
             | Effect::CounterTargetSpellToExile
             | Effect::CounterTargetSpell
             | Effect::CounterTargetAbility

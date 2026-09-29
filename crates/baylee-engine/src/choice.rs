@@ -452,6 +452,13 @@ pub enum YesNoPrompt {
     },
     /// "You may …" inside a resolving ability ([`baylee_cards_dsl::Effect::MayDo`]).
     MayDo,
+    /// "Its owner puts it on their choice of the top or bottom of their
+    /// library" ([`baylee_cards_dsl::Effect::OwnerPutsOnTopOrBottom`]),
+    /// asked of the owner: yes is the top, no the bottom.
+    TopOfLibrary {
+        /// The card that is going.
+        card: baylee_core::ids::ObjectId,
+    },
     /// Generic yes/no (optional effects).
     Generic,
 }
@@ -493,7 +500,9 @@ impl YesNoPrompt {
     /// the "you may" not done, and a draw offer not accepted. The two
     /// commander questions are not: declining leaves the commander in a
     /// graveyard, in exile, or tucked into a library, which is a loss and
-    /// not a pause. The house answers those.
+    /// not a pause. The house answers those. Neither is
+    /// [`Self::TopOfLibrary`]: both answers move the card, and "no" is the
+    /// bottom rather than nothing.
     #[must_use]
     pub const fn declining_does_nothing(self) -> bool {
         match self {
@@ -505,9 +514,10 @@ impl YesNoPrompt {
             | Self::DrawOffer { .. }
             | Self::MayDo
             | Self::Generic => true,
-            Self::CommanderZone { .. } | Self::CommanderReplace { .. } | Self::PayPact { .. } => {
-                false
-            }
+            Self::CommanderZone { .. }
+            | Self::CommanderReplace { .. }
+            | Self::PayPact { .. }
+            | Self::TopOfLibrary { .. } => false,
         }
     }
 }
@@ -1103,6 +1113,14 @@ mod choice_tests {
                 None,
             ),
             (
+                yes_no(YesNoPrompt::PayPact {
+                    cost: baylee_core::mana::ManaCost::ZERO,
+                }),
+                None,
+            ),
+            // Both answers move the card; the house picks the end.
+            (yes_no(YesNoPrompt::TopOfLibrary { card: object() }), None),
+            (
                 Pending::MulliganBottom {
                     player: p,
                     count: 1,
@@ -1217,7 +1235,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 16 + 10;
+    const KINDS: usize = 16 + 12;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -1253,6 +1271,7 @@ mod choice_tests {
                     YesNoPrompt::CommanderReplace { .. } => 6,
                     YesNoPrompt::MayDo => 7,
                     YesNoPrompt::Generic => 8,
+                    YesNoPrompt::TopOfLibrary { .. } => 11,
                 }
             }
         }
@@ -1441,6 +1460,7 @@ mod choice_tests {
                 | YesNoPrompt::Miracle { .. }
                 | YesNoPrompt::DrawOffer { .. }
                 | YesNoPrompt::CommanderReplace { .. }
+                | YesNoPrompt::TopOfLibrary { .. }
                 | YesNoPrompt::Generic => false,
             }
         }
@@ -1453,6 +1473,7 @@ mod choice_tests {
             YesNoPrompt::PayLife { amount: 7 },
             YesNoPrompt::Miracle { card: object() },
             YesNoPrompt::CommanderZone { card: object() },
+            YesNoPrompt::TopOfLibrary { card: object() },
             YesNoPrompt::CommanderReplace {
                 card: object(),
                 to_library: true,

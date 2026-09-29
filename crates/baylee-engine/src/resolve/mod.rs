@@ -264,6 +264,14 @@ pub enum AwaitingOp {
         /// each turn begins. `None` for a plain "you may".
         once_each_turn: Option<(ObjectId, u32)>,
     },
+    /// A card's owner picks the end of their library it goes to
+    /// ([`Effect::OwnerPutsOnTopOrBottom`]).
+    TopOrBottom {
+        /// The card that is going.
+        card: ObjectId,
+        /// Its owner, whose library it is.
+        owner: PlayerId,
+    },
     /// A player decides whether to pay for a tax effect.
     PlayerMayPay {
         /// The player deciding.
@@ -989,6 +997,24 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
         }
         return run_fallback(state, res, effect);
     }
+    if let Some(AwaitingOp::TopOrBottom { card, owner }) = res.awaiting {
+        res.awaiting = None;
+        if let Some(obj) = state.object_mut(card) {
+            obj.kind = ObjectKind::Card;
+        }
+        let _ = state.move_object(
+            card,
+            ZoneLocation::Library(owner),
+            if answer {
+                ZonePosition::Top
+            } else {
+                ZonePosition::Bottom
+            },
+            Cause::Effect,
+        );
+        res.pc += 1;
+        return run(state, res);
+    }
     // CR 903.9b: record what this owner said, then either ask the next one
     // or run the operation that has been waiting for all of them.
     if matches!(res.awaiting, Some(AwaitingOp::CommanderReplace { .. })) {
@@ -1576,6 +1602,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::PlayerMayPayLife { .. }
         | AwaitingOp::MayDo { .. }
+        | AwaitingOp::TopOrBottom { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
@@ -1627,6 +1654,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
         | Effect::MayDoOnceEachTurn { .. }
+        | Effect::OwnerPutsOnTopOrBottom { .. }
         | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     }
@@ -1962,6 +1990,53 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 player: you,
                 prompt: YesNoPrompt::MayDo,
                 source: resolving_ability(state, res),
+            })
+        }
+        Effect::OwnerPutsOnTopOrBottom { target: _ } => {
+            // The chosen target; CR 608.2b has already dropped the ability
+            // if it is gone. A spell or a permanent, and nothing else:
+            // anything the target moved to since is a new object anyway.
+            let card = res.targets.first().copied()?;
+            let obj = state.object(card)?;
+            if !matches!(
+                obj.zone,
+                crate::zone::Zone::Stack | crate::zone::Zone::Battlefield
+            ) {
+                return None;
+            }
+            let owner = obj.owner;
+            // CR 903.9b before the end is picked: a commander its owner
+            // sends home goes to the command zone, and which end of the
+            // library it would have gone to is no longer a question.
+            if let Some(pending) =
+                ask_commander_replace(state, res, &[(card, ZoneLocation::Library(owner))])
+            {
+                return Some(pending);
+            }
+            if state
+                .commander_redirect
+                .iter()
+                .any(|(o, home)| *o == card && *home)
+            {
+                if let Some(obj) = state.object_mut(card) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::TopOrBottom { card, owner });
+            // No handle a standing answer could be filed under: the owner is
+            // answering about somebody else's ability, and "always the top"
+            // for a card they do not control is not an answer they gave.
+            Some(Pending::YesNo {
+                player: owner,
+                prompt: YesNoPrompt::TopOfLibrary { card },
+                source: None,
             })
         }
         Effect::MayDoOnceEachTurn { effects } => {
@@ -2758,6 +2833,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
         | Effect::MayDoOnceEachTurn { .. }
+        | Effect::OwnerPutsOnTopOrBottom { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }

@@ -35914,7 +35914,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[Some(3)],
     }],
-    &[],
+    // Subtlety
+    &[FaceLines {
+        sentences: 4,
+        stackable: 2,
+        lines: &[Some(2), None],
+        modes: &[],
+        alternatives: &[Some(3)],
+    }],
     &[],
     &[],
     // Sword of Hearth and Home

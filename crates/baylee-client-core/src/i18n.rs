@@ -1804,6 +1804,11 @@ messages! {
         en: "This ability is optional. Use it?",
         de: "Diese Fähigkeit ist optional. Einsetzen?",
     },
+    /// Your card goes into your library: the top, or the bottom? (Subtlety)
+    TopOfLibraryOrBottom {
+        en: "Your card goes into your library. On top? (No puts it on the bottom.)",
+        de: "Deine Karte kommt in deine Bibliothek. Oben drauf? (Nein legt sie unter.)",
+    },
     /// Yes or no?
     YesOrNo { en: "Yes or no?", de: "Ja oder nein?" },
     /// Offer a draw
