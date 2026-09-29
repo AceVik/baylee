@@ -643,13 +643,14 @@ pub fn eliminate_player(
         ) && fx.controller == player
     });
     let exiled = exile_what_the_departed_control(state);
-    let attackers: Vec<_> = state
+    let mut gone: Vec<_> = state
         .combat
-        .attackers
+        .attackers()
         .iter()
-        .filter(|a| state.object(a.creature).is_some())
-        .copied()
+        .filter(|a| state.object(a.creature).is_none())
+        .map(|a| a.creature)
         .collect();
+    gone.sort_unstable();
     let blockers: Vec<_> = state
         .combat
         .blockers
@@ -657,7 +658,9 @@ pub fn eliminate_player(
         .filter(|b| state.object(b.blocker).is_some() && state.object(b.attacker).is_some())
         .copied()
         .collect();
-    state.combat.attackers = attackers;
+    state
+        .combat
+        .retain_attackers(|a| gone.binary_search(&a.creature).is_err());
     state.combat.blockers = blockers;
     // A delayed trigger they control can never be put on the stack again
     // (CR 800.4d), and one waiting for a turn of theirs would otherwise sit

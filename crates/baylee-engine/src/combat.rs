@@ -47,12 +47,36 @@ pub struct BlockerInfo {
 }
 
 /// The combat phase's mutable state.
-#[derive(Clone, Hash, Debug, Default)]
+///
+/// The attackers are private, and not for tidiness: beside the list, in
+/// declaration order (which the damage step and the defender both read),
+/// sits the same creatures sorted, which is what "is this attacking?"
+/// asks. `Filter::Attacking` is evaluated once per object whenever a filter
+/// is walked over the battlefield — every target enumeration, every layer
+/// refresh under an "attacking creatures get" effect — and a scan of the
+/// list there made each of those walks cost `permanents × attackers`. An
+/// Ally deck that attacks with a few thousand tokens against a Kor Haven
+/// (whose "target attacking creature" is probed at every priority grant)
+/// turned a pass into milliseconds. Every write goes through a method here,
+/// so the two lists cannot disagree.
+#[derive(Clone, Debug, Default)]
 pub struct CombatState {
-    /// Declared attackers.
-    pub attackers: Vec<AttackerInfo>,
+    /// Declared attackers, in declaration order.
+    attackers: Vec<AttackerInfo>,
+    /// The same creatures as `attackers`, sorted, for [`Self::is_attacking`].
+    attacking: Vec<ObjectId>,
     /// Declared blockers.
     pub blockers: Vec<BlockerInfo>,
+}
+
+/// The two declared lists and nothing else: `attacking` is derived from
+/// `attackers`, so the hash is the one the derived impl gave before the
+/// index existed (`GameState::snapshot_hash` hashes this).
+impl std::hash::Hash for CombatState {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.attackers.hash(state);
+        self.blockers.hash(state);
+    }
 }
 
 impl CombatState {
@@ -60,6 +84,41 @@ impl CombatState {
     #[must_use]
     pub fn is_active(&self) -> bool {
         !self.attackers.is_empty()
+    }
+
+    /// The declared attackers, in declaration order.
+    #[must_use]
+    pub fn attackers(&self) -> &[AttackerInfo] {
+        &self.attackers
+    }
+
+    /// Whether `id` is an attacking creature (CR 506.3), in `O(log n)`.
+    #[must_use]
+    pub fn is_attacking(&self, id: ObjectId) -> bool {
+        self.attacking.binary_search(&id).is_ok()
+    }
+
+    /// Declares attackers after the ones already declared, in the order
+    /// given, sorting the index once rather than inserting into it once
+    /// per attacker (a declaration can be tens of thousands of tokens).
+    pub fn declare_attackers(&mut self, infos: impl IntoIterator<Item = AttackerInfo>) {
+        self.attackers.extend(infos);
+        self.reindex();
+    }
+
+    /// Keeps the attackers `keep` says to, in their order.
+    pub fn retain_attackers(&mut self, mut keep: impl FnMut(&AttackerInfo) -> bool) {
+        self.attackers.retain(|a| keep(a));
+        self.reindex();
+    }
+
+    /// Rebuilds the sorted index from the declaration list.
+    fn reindex(&mut self) {
+        self.attacking.clear();
+        self.attacking
+            .extend(self.attackers.iter().map(|a| a.creature));
+        self.attacking.sort_unstable();
+        self.attacking.dedup();
     }
 
     /// Blockers assigned to an attacker, in declaration order.
@@ -115,7 +174,10 @@ impl CombatState {
     /// other attacker — that is a fact about the attacker, not about the
     /// blocker that has left.
     pub fn remove_from_combat(&mut self, id: ObjectId) {
-        self.attackers.retain(|a| a.creature != id);
+        if let Ok(at) = self.attacking.binary_search(&id) {
+            self.attacking.remove(at);
+            self.attackers.retain(|a| a.creature != id);
+        }
         self.blockers
             .retain(|b| b.blocker != id && b.attacker != id);
     }
@@ -230,6 +292,39 @@ pub fn summoning_sick(state: &GameState, obj: &GameObject) -> bool {
     obj.timestamp > began
 }
 
+/// Whether `b` could block anything at all for `defending`: the half of
+/// [`can_block`] that asks only about the blocker.
+fn ready_to_block(b: &GameObject, defending: PlayerId) -> bool {
+    b.zone == crate::zone::Zone::Battlefield
+        && b.controller == defending
+        && b.characteristics().types.contains(TypeSet::CREATURE)
+        && !b.status.contains(Status::TAPPED)
+        && !b.status.contains(Status::PHASED_OUT)
+}
+
+/// The permanents `defending` could declare as blockers at all, in
+/// battlefield order: every one [`can_block`] might answer `true` for,
+/// whatever the attacker.
+///
+/// The declare-blockers offer asks [`can_block`] of every candidate against
+/// every attacker, so its candidates are worked out once, here, and not by
+/// walking the whole battlefield per attacker. Over the battlefield that
+/// step cost permanents × attackers — 168,000 permanents against 33,600
+/// attackers took 18 s in one self-play game (r001 game 431) for a defender
+/// with a handful of creatures — where over these it costs the defender's
+/// untapped creatures × attackers.
+#[must_use]
+pub fn ready_blockers(state: &GameState, defending: PlayerId) -> Vec<ObjectId> {
+    state
+        .battlefield_seen()
+        .filter(|id| {
+            state
+                .object(*id)
+                .is_some_and(|b| ready_to_block(b, defending))
+        })
+        .collect()
+}
+
 /// Whether `blocker` may block `attacker` (keyword restrictions included).
 #[must_use]
 pub fn can_block(
@@ -241,11 +336,7 @@ pub fn can_block(
     let (Some(b), Some(a)) = (state.object(blocker), state.object(attacker)) else {
         return false;
     };
-    if b.zone != crate::zone::Zone::Battlefield
-        || b.controller != defending
-        || !b.characteristics().types.contains(TypeSet::CREATURE)
-        || b.status.contains(Status::TAPPED)
-        || b.status.contains(Status::PHASED_OUT)
+    if !ready_to_block(b, defending)
         || a.zone != crate::zone::Zone::Battlefield
         || a.status.contains(Status::PHASED_OUT)
         || !a.characteristics().types.contains(TypeSet::CREATURE)
@@ -316,22 +407,27 @@ pub fn can_block(
 ///
 /// The count is over distinct blockers and never over blocks: CR 702.111b
 /// asks for two or more *creatures*, so a single creature that may block an
-/// additional creature still answers it once. `take(2)` walks the
-/// battlefield, which holds each permanent once.
+/// additional creature still answers it once. `take(2)` walks `candidates`,
+/// which holds each permanent once: [`ready_blockers`], or any list of
+/// permanents that includes them (the whole battlefield answers the same,
+/// only slower, since [`can_block`] asks the blocker's half again).
 ///
 /// `true` for an attacker without menace, so callers may ask it of every
 /// attacker without asking twice.
 #[must_use]
-pub fn menace_satisfiable(state: &GameState, defending: PlayerId, attacker: ObjectId) -> bool {
+pub fn menace_satisfiable(
+    state: &GameState,
+    defending: PlayerId,
+    attacker: ObjectId,
+    candidates: &[ObjectId],
+) -> bool {
     let Some(a) = state.object(attacker) else {
         return false;
     };
     if !a.characteristics().keywords.contains(K::MENACE) {
         return true;
     }
-    state
-        .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+    candidates
         .iter()
         .copied()
         .filter(|blocker| can_block(state, defending, *blocker, attacker))
@@ -396,7 +492,7 @@ fn power_of(state: &GameState, id: ObjectId) -> i16 {
 /// of damage to assign to, though CR 510.1d has every blocking creature
 /// deal its damage regardless.
 pub fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
-    let attackers = state.combat.attackers.clone();
+    let attackers = state.combat.attackers().to_vec();
     for info in &attackers {
         if !strikes_now(state, info.creature, first_strike_step) {
             continue;
@@ -721,20 +817,20 @@ mod tests {
     }
 
     fn attack(state: &mut GameState, creature: ObjectId, defending: PlayerId) {
-        state.combat.attackers.push(AttackerInfo {
+        state.combat.declare_attackers([AttackerInfo {
             creature,
             defending: Defender::Player(defending),
             blocked: false,
-        });
+        }]);
     }
 
     /// Declares `creature` as attacking a planeswalker instead of a seat.
     fn attack_walker(state: &mut GameState, creature: ObjectId, walker: ObjectId) {
-        state.combat.attackers.push(AttackerInfo {
+        state.combat.declare_attackers([AttackerInfo {
             creature,
             defending: Defender::Planeswalker(walker),
             blocked: false,
-        });
+        }]);
     }
 
     /// A planeswalker on the battlefield with `loyalty` counters.
@@ -958,7 +1054,7 @@ mod tests {
             .expect("returned");
         assert!(on_battlefield(&state, titan), "the blink brought it back");
         assert!(
-            state.combat.attackers.is_empty(),
+            state.combat.attackers().is_empty(),
             "it is not attacking any more"
         );
         assert!(
@@ -970,6 +1066,47 @@ mod tests {
         assert_eq!(damage(&state, wall), 0, "it dealt no damage");
         assert_eq!(damage(&state, titan), 0, "and took none");
         assert_eq!(state.players[1].life, 20, "nor did anything get through");
+    }
+
+    /// `is_attacking` answers from a sorted index kept beside the attacker
+    /// list, so each door that changes the list must move the index with it:
+    /// a declaration out of id order, a creature leaving combat, and the
+    /// filter a player leaving the game runs (CR 800.4a).
+    #[test]
+    fn the_attacking_index_follows_every_change_to_the_attackers() {
+        let mut state = empty_state();
+        let ids: Vec<ObjectId> = (0..4)
+            .map(|_| creature(&mut state, P0, 1, 1, KeywordSet::EMPTY))
+            .collect();
+        let idle = creature(&mut state, P0, 1, 1, KeywordSet::EMPTY);
+        let agree = |state: &GameState| {
+            for id in ids.iter().chain([&idle]) {
+                assert_eq!(
+                    state.combat.is_attacking(*id),
+                    state.combat.attackers().iter().any(|a| a.creature == *id),
+                    "the index and the list disagree about {id:?}"
+                );
+            }
+        };
+        for id in ids.iter().rev() {
+            attack(&mut state, *id, P1);
+        }
+        agree(&state);
+        assert!(!state.combat.is_attacking(idle), "it was never declared");
+        assert_eq!(
+            state.combat.attackers()[0].creature,
+            ids[3],
+            "the list keeps declaration order; only the index is sorted"
+        );
+
+        state.combat.remove_from_combat(ids[1]);
+        agree(&state);
+        assert!(!state.combat.is_attacking(ids[1]));
+
+        state.combat.retain_attackers(|a| a.creature != ids[2]);
+        agree(&state);
+        assert!(!state.combat.is_attacking(ids[2]));
+        assert!(state.combat.is_attacking(ids[0]) && state.combat.is_attacking(ids[3]));
     }
 
     /// The other half, and the asymmetry that makes it its own case
@@ -1489,7 +1626,7 @@ mod tests {
         let attacker = creature(&mut state, PlayerId::new(0), 4, 4, KeywordSet::default());
         attack(&mut state, attacker, PlayerId::new(1));
         phase_out(&mut state, attacker);
-        assert!(state.combat.attackers.is_empty());
+        assert!(state.combat.attackers().is_empty());
         deal_combat_damage(&mut state, false);
         assert_eq!(state.players[1].life, 20);
         assert!(

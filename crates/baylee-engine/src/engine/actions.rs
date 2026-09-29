@@ -1413,7 +1413,10 @@ impl<L: CardLookup> Engine<L> {
         // an opponent's planeswalker that has since left, a player who has
         // lost, or the attacking player themself.
         let legal = combat::defender_options(&self.state, player);
-        let mut seen = Vec::with_capacity(attackers.len());
+        // A set and not a list: a declaration can name tens of thousands of
+        // tokens, and a `contains` per attacker made it quadratic (33,600
+        // attackers cost 190 ms in self-play, r001 game 431).
+        let mut seen = std::collections::BTreeSet::new();
         for (creature, defending) in &attackers {
             if !combat::can_attack(&self.state, player, *creature) {
                 return Err(EngineError::IllegalAction("creature cannot attack"));
@@ -1421,12 +1424,11 @@ impl<L: CardLookup> Engine<L> {
             if !legal.contains(defending) {
                 return Err(EngineError::IllegalAction("invalid defender"));
             }
-            if seen.contains(creature) {
+            if !seen.insert(*creature) {
                 return Err(EngineError::IllegalAction("duplicate attacker"));
             }
-            seen.push(*creature);
         }
-        for (creature, defending) in attackers {
+        for &(creature, defending) in &attackers {
             let vigilance = self.state.object(creature).is_some_and(|o| {
                 o.characteristics()
                     .keywords
@@ -1439,16 +1441,22 @@ impl<L: CardLookup> Engine<L> {
                     cause: Cause::TurnBased,
                 });
             }
-            self.state.combat.attackers.push(AttackerInfo {
-                creature,
-                defending,
-                blocked: false,
-            });
             self.state.journal.record(GameEvent::BecameAttacker {
                 object: creature,
                 defending,
             });
         }
+        self.state
+            .combat
+            .declare_attackers(
+                attackers
+                    .into_iter()
+                    .map(|(creature, defending)| AttackerInfo {
+                        creature,
+                        defending,
+                        blocked: false,
+                    }),
+            );
         // `Filter::Attacking` is read by the layer system (Orcish Oriflamme's
         // "attacking creatures you control get +1/+0"), and which permanents
         // match it just changed without the effect table moving — the same
@@ -1465,24 +1473,18 @@ impl<L: CardLookup> Engine<L> {
         defending: PlayerId,
         blockers: Vec<(ObjectId, ObjectId)>,
     ) -> Result<(), EngineError> {
-        let mut seen = Vec::with_capacity(blockers.len());
+        // A set for the reason `declare_attackers` keeps one.
+        let mut seen = std::collections::BTreeSet::new();
         for (blocker, attacker) in &blockers {
-            if !self
-                .state
-                .combat
-                .attackers
-                .iter()
-                .any(|a| a.creature == *attacker)
-            {
+            if !self.state.combat.is_attacking(*attacker) {
                 return Err(EngineError::IllegalAction("no such attacker"));
             }
             if !combat::can_block(&self.state, defending, *blocker, *attacker) {
                 return Err(EngineError::IllegalAction("creature cannot block"));
             }
-            if seen.contains(blocker) {
+            if !seen.insert(*blocker) {
                 return Err(EngineError::IllegalAction("duplicate blocker"));
             }
-            seen.push(*blocker);
         }
         // Menace: needs two blockers per attacker (CR 702.111b), checked
         // against the whole declaration because that is where CR 509.1b puts
@@ -1496,7 +1498,7 @@ impl<L: CardLookup> Engine<L> {
         //
         // Zero is legal and one is not: "can't be blocked except by two or
         // more creatures" says nothing about a creature nobody blocks.
-        for attacker in &self.state.combat.attackers {
+        for attacker in self.state.combat.attackers() {
             let has_menace = self.state.object(attacker.creature).is_some_and(|o| {
                 o.characteristics()
                     .keywords

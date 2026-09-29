@@ -286,3 +286,74 @@ A token's definition is hashed by its content, never by its address, and on
 the 3k board that was about 40 µs in the same series (13 ns a token).
 Counters no longer go through a `Vec` per object; what that saves was not
 measured on its own.
+
+## A token army's combat stops being quadratic (29.09.2026)
+
+Self-play games where an Ally deck attacks with tens of thousands of tokens
+took seconds per answer, and the time was not in the payment search. Four
+walks cost permanents × attackers (or permanents × effects): `Filter::Attacking`
+scanned the attacker list for every object a filter walk asked about (Kor
+Haven's "target attacking creature" is probed at every priority grant); the
+blockers offer, and `menace_satisfiable`, asked `can_block` of every
+permanent against every attacker; the duplicate checks in the two
+declarations were a `contains` per entry; and `compute_legal` asked the whole
+effect table per permanent for granted abilities and searched
+`mana_abilities` with `contains`. `CombatState` now keeps a sorted index
+beside its (private) attacker list, the offer walks `combat::ready_blockers`,
+the checks are sets, and the grants are collected once
+(`effects::grants`). No legal move changes; `CombatState`'s hash is the one
+the derived impl gave, and replays of r001 records reach the same snapshot
+hash after every input before and after.
+
+`combat/attack_to_blocks_{100,900}` is new: seat 0 declares 100 or 900
+vanilla attackers into a defender with Kor Haven and two creatures, and the
+timed body runs from the declaration to the blockers offer. Both columns are
+`--quick` runs on the M1 Max in one session, `66a83dd9` with the current
+bench file copied in and then this change, under a load average of about
+30 from other work; differences under ~10 % on unchanged paths are noise.
+
+| Bench | Before | After | Change |
+|---|---|---|---|
+| `combat/attack_to_blocks_100` | 61.5 µs | 31.0 µs | −50 % |
+| `combat/attack_to_blocks_900` | 2.52 ms | 297.6 µs | **8.5× faster** |
+| `engine/priority_pass_x4` | 4.67 µs | 3.42 µs | −27 % |
+| `setup/from_preset` | 10.92 µs | 11.04 µs | +1 % |
+| `state/clone` | 7.28 µs | 6.35 µs | noise |
+| `state/snapshot_hash` | 9.03 µs | 9.10 µs | +1 % |
+| `state/snapshot_hash_3k_tokens` | 373.4 µs | 306.2 µs | noise |
+| `layers/refresh_x1` | 7.80 µs | 7.37 µs | −6 % |
+| `layers/refresh_x8` | 8.91 µs | 9.04 µs | +1 % |
+| `layers/refresh_x32` | 15.55 µs | 16.50 µs | +6 % |
+| `layers/refresh_over_20k_stack` | 10.29 ns | 10.30 ns | 0 % |
+| `state/clone_3k_tokens` | 154.7 µs | 154.5 µs | 0 % |
+| `layers/refresh_3k_tokens` | 264.5 µs | 269.1 µs | +2 % |
+| `zones/drain_stack_100` | 251.4 ns | 253.4 ns | +1 % |
+| `zones/drain_stack_20000` | 46.5 µs | 47.0 µs | +1 % |
+
+From 100 to 900 attackers the step cost 41× before and 9.6× now.
+`priority_pass_x4` is the one unchanged path that moved: a land's
+`{T}: Add …` has no mana symbol in its cost, and `can_pay_mana` now answers
+that without merging pools or walking the effect table.
+
+`compute_legal` alone, in a local probe (not committed) on the shared
+testkit, `ci-release`, µs per call:
+
+| Permanents | Granted mana board, before | after | Attack into Kor Haven, before | after |
+|---|---|---|---|---|
+| 20 | 5.9 | 3.5 | 2.0 | 2.8 |
+| 80 | 22.4 | 12.5 | 5.3 | 3.9 |
+| 320 | 113.7 | 44.9 | 35.6 | 12.2 |
+| 700 | 327.2 | 96.5 | 131.7 | 25.5 |
+| 950 | 528.5 | 129.3 | 240.5 | 34.9 |
+
+The granted mana board is n Forests under Great Divide Guide; the attack
+board is n vanilla attackers against a defender holding Kor Haven.
+
+Whole games, engine only (a record replayed through `Engine::apply`, nothing
+else): r001 game 431 (168,000 permanents by turn 40, one declaration of
+33,600 attackers) **54.6 s → 1.3 s**, of which one blockers offer alone was
+18–29 s; game 685 **56.0 s → 3.2 s**. Played through `Session` with the
+house AI the same games are still slow, and now for another reason: in 431
+the AI's `PlayerView::object`, a linear scan over the view, called per
+attacker and per blocker option, is 90 % of the main thread's samples,
+where `Engine::apply` is 4 % and building the agent's view 2 %.
