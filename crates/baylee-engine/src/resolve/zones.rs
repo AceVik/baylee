@@ -672,6 +672,31 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 prompt: ChoicePrompt::Generic,
             })
         }
+        Effect::UntapChosen { filter, count } => {
+            // "Up to", so `min: 0`, and only what is tapped is offered: an
+            // untapped land is a legal pick that does nothing, and a list
+            // with nothing tapped in it is no question at all (CR 608.2d).
+            let options: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.status.contains(crate::object::Status::TAPPED)
+                            && crate::eval::matches(filter, state, o, you, res.source)
+                    })
+                })
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::UntapChosen);
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 0,
+                max: count,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
         Effect::DiscardForPlayers { who, count } => {
             let players = players_of(who, state, you, res);
             let mut remaining: Vec<PlayerId> = players

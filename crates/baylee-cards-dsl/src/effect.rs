@@ -973,6 +973,15 @@ pub enum Effect {
         /// What may be returned.
         filter: &'static Filter,
     },
+    /// "Untap up to N [permanents]" with no "target" (Treachery, Frantic
+    /// Search): the controller picks them as the effect resolves, any
+    /// controller's, so a permanent with shroud is as good as any.
+    UntapChosen {
+        /// What may be untapped.
+        filter: &'static Filter,
+        /// The most that may be.
+        count: u8,
+    },
     /// Remove all counters from all permanents; the source enters with
     /// that many +1/+1 counters (Thief of Blood).
     DrainAllCountersIntoSelf,
@@ -1377,6 +1386,11 @@ pub enum Effect {
         /// bonus tokens for a total of 5).
         kicked_bonus: u8,
     },
+    /// Populate (CR 701.36): choose a creature token you control as this
+    /// resolves and create a token that's a copy of it; none, no token
+    /// (701.36b). A choice and not a target, so shroud does not stop it
+    /// (Nesting Dovehawk).
+    Populate,
     /// Create a token that's a copy of the creature the source is attached
     /// to (Helm of the Host).
     CreateTokenCopyOfEquipped {
@@ -2107,6 +2121,7 @@ impl Effect {
             | Effect::ExileSelfReturnAsFace { .. }
             | Effect::SacrificeFilter { .. }
             | Effect::ReturnChosenToHand { .. }
+            | Effect::UntapChosen { .. }
             | Effect::DrainAllCountersIntoSelf
             | Effect::ShuffleGraveyardIntoLibrary
             | Effect::BecomePrepared
@@ -2136,6 +2151,7 @@ impl Effect {
             | Effect::Amass { .. }
             | Effect::PutSourceOnTopOfLibrary
             | Effect::CreateTokenCopyOf { .. }
+            | Effect::Populate
             | Effect::CreateTokenCopyOfEquipped { .. }
             | Effect::CreateTokenCopyOfFirstToken
             | Effect::BottomCardFromHand { .. }

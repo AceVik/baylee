@@ -467,6 +467,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::Another
         | Filter::HasSupertype(_)
         | Filter::IsToken
+        | Filter::WithSingleTarget
         | Filter::OwnedByYou
         | Filter::Tapped
         | Filter::Untapped

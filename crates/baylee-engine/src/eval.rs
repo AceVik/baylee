@@ -55,6 +55,9 @@ pub fn matches_projected(
         // characteristics, so a clone answers to what it copied.
         Filter::Named(name) => state.names.get(chars.name) == *name,
         Filter::IsToken => obj.card.is_none(),
+        Filter::WithSingleTarget => {
+            obj.targets.len() + obj.second_targets().len() + obj.target_players.len() == 1
+        }
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
         Filter::OwnedByYou => obj.owner == you,

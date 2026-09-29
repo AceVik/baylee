@@ -570,6 +570,13 @@ pub enum Rider {
     /// Cast via flashback: exile instead of the graveyard on resolution
     /// (CR 702.34).
     Flashback,
+    /// A spell whose face prints "if this would be put into a graveyard from
+    /// anywhere, exile it instead" (a disturb back,
+    /// `ReplacementRule::ExileSelfInsteadOfGraveyard`): the stack's half of
+    /// that rule, read only while the object is on the stack and set or
+    /// cleared by every cast. On the battlefield the registered rule takes
+    /// over.
+    ExileInsteadOfGraveyard,
     /// Can't be countered (Cavern of Souls mana rider).
     Uncounterable,
     /// The permanent has the prepared marker (Emeritus of Woe & co.).

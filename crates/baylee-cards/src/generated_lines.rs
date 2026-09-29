@@ -8167,7 +8167,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Treachery
+    &[FaceLines {
+        sentences: 3,
+        stackable: 1,
+        lines: &[None, Some(1), None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Twisted Experiment
     &[FaceLines {
@@ -37103,8 +37110,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         },
         FaceLines {
             sentences: 3,
-            stackable: 0,
-            lines: &[],
+            stackable: 1,
+            lines: &[None, Some(1), None],
             modes: &[],
             alternatives: &[],
         },

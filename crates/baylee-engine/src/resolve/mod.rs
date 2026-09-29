@@ -325,6 +325,10 @@ pub enum AwaitingOp {
         /// Players still to choose.
         remaining: Vec<PlayerId>,
     },
+    /// After `UntapChosen`: untap what was chosen.
+    UntapChosen,
+    /// After `Populate`: copy the chosen creature token.
+    Populate,
     /// After `LookAtTopPick`: chosen go to hand, the rest to the bottom.
     DigRest {
         /// The looked-at cards not chosen.
@@ -1223,6 +1227,16 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 });
             }
         }
+        AwaitingOp::UntapChosen => {
+            for &id in chosen {
+                untap(state, id);
+            }
+        }
+        AwaitingOp::Populate => {
+            if let Some(&id) = chosen.first() {
+                tokens::populate(state, res.controller, id);
+            }
+        }
         AwaitingOp::ReorderTopLibrary
         | AwaitingOp::DigBottom
         | AwaitingOp::Scry { .. }
@@ -1766,6 +1780,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::RevealHandDiscard { .. }
         | Effect::SacrificeFilter { .. }
         | Effect::ReturnChosenToHand { .. }
+        | Effect::UntapChosen { .. }
         | Effect::AllGraveyardCreaturesToBattlefield
         | Effect::ExileSelfReturnAsFace { .. }
         | Effect::ReturnLinkedToBattlefield
@@ -1784,6 +1799,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::CreateTokenForTargetController { .. }
         | Effect::Amass { .. }
         | Effect::CreateTokenCopyOf { .. }
+        | Effect::Populate
         | Effect::CreateTokenCopyOfFirstToken
         | Effect::CreateTokenCopyOfEquipped { .. }
         | Effect::CreateTokenN { .. }

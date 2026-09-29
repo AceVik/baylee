@@ -94,6 +94,31 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::Populate => {
+            let options: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.card.is_none()
+                            && o.controller == you
+                            && o.characteristics()
+                                .types
+                                .contains(baylee_core::types::TypeSet::CREATURE)
+                    })
+                })
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::Populate);
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
         Effect::CreateTokenCopyOfFirstToken => {
             let token = state
                 .zones
@@ -287,6 +312,14 @@ pub(super) fn create_tokens(
 /// still owes — [`GameState::pending_copied_faces`], because a face's
 /// abilities are behind the card registry and this crate has no lookup for
 /// it.
+/// Creates the copy of `token` that populate chose (CR 701.36a), from its
+/// copiable values (CR 707.2).
+pub(super) fn populate(state: &mut GameState, you: PlayerId, token: ObjectId) {
+    if let Some(base) = crate::layers::copiable_values(state, token) {
+        create_token_copies(state, you, token, &base, 1);
+    }
+}
+
 pub(super) fn create_token_copies(
     state: &mut GameState,
     controller: PlayerId,

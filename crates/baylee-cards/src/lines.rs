@@ -653,6 +653,10 @@ mod tests {
     /// Shadows' Lair spends a dread counter to draw once `counters::DREAD`
     /// gave the word an id. Hand-written again, one card, no generator
     /// round.
+    ///
+    /// Read again on 29.09.2026, at **fifteen**: Mirrorhall Mimic, whose
+    /// Ghastly Mimicry (an Aura spell and an upkeep copy) was written by hand
+    /// for Allytifact. One card, no generator round.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -675,6 +679,7 @@ mod tests {
                 "Journey to Eternity",
                 "Path of Mettle",
                 "Hostile Hostel",
+                "Mirrorhall Mimic",
                 "Sheoldred",
                 "Dowsing Device",
                 "Grasping Shadows",

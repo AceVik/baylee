@@ -88612,3 +88612,164 @@ fn katara_doubles_the_prowess_sokka_prints_and_the_prowess_he_lends() {
         "and so did the prowess Sokka gives Katara"
     );
 }
+
+fn mirrorhall_mimic() -> CardIndex {
+    card_index("5768fe50-a134-492c-a725-5ed02610c39f")
+}
+
+/// The card printed as `card` in `zone`, if it is there.
+fn card_in(
+    engine: &Engine<RegistryLookup>,
+    zone: ZoneLocation,
+    card: CardIndex,
+) -> Option<ObjectId> {
+    engine.state().zones.list(zone).iter().copied().find(|id| {
+        engine
+            .state()
+            .object(*id)
+            .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+    })
+}
+
+/// Puts Mirrorhall Mimic in `seat`'s graveyard and casts it with disturb as
+/// Ghastly Mimicry, enchanting `creature`. The harness moves the card: how
+/// it got to the graveyard is not what these tests read.
+fn disturb_the_mimic(engine: &mut Engine<RegistryLookup>, seat: PlayerId, creature: ObjectId) {
+    let card = in_hand(engine, seat, mirrorhall_mimic()).expect("the Mimic is in hand");
+    engine
+        .dev_state_mut(seat)
+        .expect("the harness may set boards up")
+        .move_object(
+            card,
+            ZoneLocation::Graveyard(seat),
+            ZonePosition::Top,
+            crate::event::Cause::DevCommand,
+        )
+        .expect("into the graveyard");
+    tap_all_mana(engine, seat);
+    engine
+        .apply(seat, PlayerAction::CastSpell { card })
+        .expect("disturb is offered from the graveyard");
+    aim_at(engine, seat, creature);
+}
+
+/// Ghastly Mimicry: "At the beginning of your upkeep, create a token that's
+/// a copy of enchanted creature, except it's a Spirit in addition to its
+/// other types. If Ghastly Mimicry would be put into a graveyard from
+/// anywhere, exile it instead." The Aura goes when its creature dies (CR
+/// 704.5m), and the graveyard it would go to is replaced by exile, so it
+/// cannot be disturbed a second time.
+#[test]
+fn ghastly_mimicry_copies_its_creature_each_upkeep_and_is_exiled_not_buried() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(110, island())
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[mirrorhall_mimic()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are out");
+
+    disturb_the_mimic(&mut engine, p0, elves);
+    pass_until(&mut engine, stack_is_empty);
+    let aura = on_battlefield(&engine, p0, mirrorhall_mimic()).expect("Ghastly Mimicry is out");
+    assert_eq!(
+        engine.state().object(aura).unwrap().attached_to,
+        Some(elves)
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active != p0);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
+    });
+    let copies: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| engine.state().object(*id).is_some_and(|o| o.card.is_none()))
+        .collect();
+    assert_eq!(copies.len(), 1, "one token at the upkeep");
+    let subtypes = engine
+        .state()
+        .object(copies[0])
+        .unwrap()
+        .characteristics()
+        .subtypes;
+    assert!(
+        subtypes.contains(baylee_core::generated::subtypes::creature::ELF)
+            && subtypes.contains(baylee_core::generated::subtypes::creature::SPIRIT),
+        "a copy of the Elves that is a Spirit as well"
+    );
+
+    kill(&mut engine, elves);
+    assert!(
+        card_in(&engine, ZoneLocation::Graveyard(p0), mirrorhall_mimic()).is_none(),
+        "the Aura never reached the graveyard"
+    );
+    assert!(
+        card_in(&engine, ZoneLocation::Exile(p0), mirrorhall_mimic()).is_some(),
+        "it was exiled instead"
+    );
+}
+
+/// The same sentence on the stack: "from anywhere" includes a Ghastly
+/// Mimicry that is countered.
+#[test]
+fn a_countered_ghastly_mimicry_is_exiled_too() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(111, island())
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[mirrorhall_mimic()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are out");
+
+    disturb_the_mimic(&mut engine, p0, elves);
+    let spell = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .expect("Ghastly Mimicry is on the stack");
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    cast_from_hand(&mut engine, p1, counterspell());
+    aim_at(&mut engine, p1, spell);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        card_in(&engine, ZoneLocation::Graveyard(p0), mirrorhall_mimic()).is_none(),
+        "the countered Aura never reached the graveyard"
+    );
+    assert!(
+        card_in(&engine, ZoneLocation::Exile(p0), mirrorhall_mimic()).is_some(),
+        "it was exiled instead"
+    );
+}

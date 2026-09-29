@@ -23,10 +23,10 @@
 //!
 //! What this does not do:
 //! - **115.7a changes a spell with one target only.** Every card that says
-//!   "change the target" prints "with a single target" (CR 115.9a), which no
-//!   filter reads yet (#249), so such a card can be pointed at a spell with
-//!   two. That spell is left alone, and nothing is asked: it is a spell the
-//!   card should never have been offered, and none is 115.7a's answer too.
+//!   "change the target" prints "with a single target" (CR 115.9a), which
+//!   `Filter::WithSingleTarget` reads as the card targets. A spell that holds
+//!   two anyway (a filter written without it) is left alone and nothing is
+//!   asked: none is 115.7a's answer too.
 //! - **A swap between two targets is not offered.** Another target's
 //!   current object or player is kept out of each question, because under
 //!   115.7d it may stay, and two instances of one target would break CR

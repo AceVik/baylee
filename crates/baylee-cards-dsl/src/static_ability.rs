@@ -533,6 +533,11 @@ pub enum Duration {
 /// Panharmonicon, Elesh Norn, Roaming Throne).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ReplacementRule {
+    /// "If this would be put into a graveyard from anywhere, exile it
+    /// instead" (every disturb back: Ghastly Mimicry). On the battlefield
+    /// the rule is registered like any other; a spell cast with it carries
+    /// it on the stack as a rider, since nothing registers a spell's rules.
+    ExileSelfInsteadOfGraveyard,
     /// Cards destined for an opponent's graveyard go to exile instead,
     /// optionally with the specified counter (Dauthi Voidwalker).
     ExileOpponentsGraveyard {

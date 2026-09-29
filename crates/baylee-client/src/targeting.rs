@@ -294,6 +294,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // field the view carries for exactly this question — and the
         // face-down bail above is what keeps the two apart.
         Filter::IsToken => object.token.is_some(),
+        Filter::WithSingleTarget => object.targets.len() == 1,
         Filter::ControlledByYou => object.controller == view.seat,
         // Exact at a duel and refused above it. The engine asks
         // `state.is_opponent`, which knows about teams; a `PlayerView` does

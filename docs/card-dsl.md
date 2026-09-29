@@ -1159,7 +1159,14 @@ carry a `KeywordSet` so "+2/+2 and gains trample" is one effect,
 `ExchangeControlOrSacrifice` (Gilded Drake), `ExchangeControl` (the first
 target's controller and the second's swap them, CR 701.12a–b: all or
 nothing, and nothing between two permanents of one player), `PhaseOut`,
-`AttachSelf`.
+`AttachSelf`, `UntapChosen { filter, count }` ("untap up to N lands" with no
+"target": chosen as it resolves, Treachery), `Populate` (CR 701.36: a choice
+on resolution, never a target, Nesting Dovehawk).
+A spell "with a single target" is `TargetSpec::Spell(&Filter::WithSingleTarget)`
+(CR 115.9a: every instance of "target" and every player counted, Misdirection).
+"If this would be put into a graveyard from anywhere, exile it instead" (every
+disturb back) is `AbilityDef::Replacement(ReplacementRule::ExileSelfInsteadOfGraveyard)`
+on that face: registered on the battlefield, carried on the stack by the cast.
 Tokens/copy: `CreateToken`, `CreateTokenN`, `CreateTokenForTargetController`,
 `CreateTokenFromLinked`, `CreateTokenCopyOf`, `CreateTokenCopyOfEquipped`,
 `CreateTokenCopyOfFirstToken`, `CopyTargetSpell`, `Amass`.

@@ -17650,6 +17650,50 @@ fn mana_drain_counters_a_five_mana_spell_and_pays_five_colorless_a_turn_later() 
     );
 }
 
+/// Misdirection's "target spell with a single target" (CR 115.9a): Khalni
+/// Ambush holds two targets, one per instance of "target", so with only it
+/// on the stack Misdirection has nothing to aim at and is not offered.
+#[test]
+fn misdirection_cannot_aim_at_a_spell_with_two_targets() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(4727, forest())
+        .battlefield(0, &[forest(), forest(), forest(), fangren_hunter()])
+        .battlefield(1, &[wild_colos()])
+        .hand(0, &[khalni_ambush()])
+        .hand(1, &[misdirection(), counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let hunter = on_battlefield(&engine, p0, fangren_hunter()).expect("my Hunter is out");
+    let colos = on_battlefield(&engine, p1, wild_colos()).expect("their Colos is out");
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, khalni_ambush());
+    for target in [hunter, colos] {
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![target],
+                    players: vec![],
+                },
+            )
+            .expect("the fight's two creatures");
+    }
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    assert!(!stack_is_empty(&engine), "the Ambush waits on the stack");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        unreachable!()
+    };
+    let card = in_hand(&engine, p1, misdirection()).expect("Misdirection is in hand");
+    assert!(
+        !legal.castable.contains(&card),
+        "a spell with two targets is no target for Misdirection"
+    );
+}
+
 /// Misdirection is {3}{U}{U} for two printed sentences — "You may exile a blue
 /// card from your hand rather than pay this spell's mana cost" and "Change the
 /// target of target spell with a single target" — and neither is readable off

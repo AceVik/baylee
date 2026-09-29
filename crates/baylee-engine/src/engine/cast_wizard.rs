@@ -1141,6 +1141,31 @@ impl<L: CardLookup> Engine<L> {
         let target_req = self.wizard_target_req(wizard);
         let second_target_req = self.wizard_second_target_req(wizard);
         let card = wizard.card;
+        // The face being cast prints "exile it instead" (a disturb back): the
+        // object still shows the face it had in the graveyard, so the face is
+        // read off the cast option, as the target requirement above is.
+        let exiles_itself = {
+            let face = match wizard.option {
+                Some(CastModeKind::Face(i)) => i,
+                _ => 0,
+            };
+            self.state
+                .object(card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+                .is_some_and(|def| {
+                    def.abilities_for_face(face.min(def.faces.len() - 1))
+                        .iter()
+                        .any(|a| {
+                            matches!(
+                                a,
+                                AbilityDef::Replacement(
+                                    baylee_cards_dsl::ReplacementRule::ExileSelfInsteadOfGraveyard
+                                )
+                            )
+                        })
+                })
+        };
         {
             let obj = self.state.object_mut(card).expect("wizard card exists");
             obj.kind = ObjectKind::Spell;
@@ -1165,6 +1190,14 @@ impl<L: CardLookup> Engine<L> {
                     obj.riders.push(crate::object::Rider::Flashback);
                 }
                 obj.cast_from_hand = false;
+            }
+            // Every cast decides afresh: the same card cast later from a
+            // hand, front face up, is not exiled for what it once was.
+            obj.riders
+                .retain(|r| *r != crate::object::Rider::ExileInsteadOfGraveyard);
+            if exiles_itself {
+                obj.riders
+                    .push(crate::object::Rider::ExileInsteadOfGraveyard);
             }
             obj.mode_index = match wizard.option {
                 Some(CastModeKind::Mode(i)) => Some(i.try_into().expect("mode index fits u8")),

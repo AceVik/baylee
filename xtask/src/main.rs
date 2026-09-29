@@ -4078,6 +4078,10 @@ fn with_oracle_header(text: &str, printed: &str) -> Option<String> {
 const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
     ("Bleachbone Verge", "an Condition, not a filter"),
     ("Mox Opal", "metalcraft is an Condition"),
+    (
+        "Treachery",
+        "\"you control enchanted creature\" is Modifier::GainControl, not a filter",
+    ),
     ("Fierce Guardianship", "an AlternativeCost condition"),
     (
         "Deadly Rollick",

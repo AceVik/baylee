@@ -2901,6 +2901,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             }
             Rider::Prepared => h.u8(10),
             Rider::SpellCopy => h.u8(11),
+            Rider::ExileInsteadOfGraveyard => h.u8(12),
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -3056,6 +3057,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         // different effects, and a tag table that left it out would make
         // them one.
         F::EnteredThisTurn => h.u8(30),
+        F::WithSingleTarget => h.u8(34),
         // Its own tag rather than a payload on `CmcAtMost`: the bound is
         // read from the source at match time, so two filters that differ
         // only in *where* the number comes from are different filters.
