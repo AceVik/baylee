@@ -1314,6 +1314,56 @@ fn put_found(state: &mut GameState, player: PlayerId, card: ObjectId, dest: Sear
     let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
 }
 
+/// "Reveal cards from the top of your library until you reveal a [filter]
+/// card. Put that card [`found`] and the rest on the bottom of your library
+/// in a random order." Every card turned over is shown to every player
+/// (CR 701.20a) before anything moves; the match goes where `found` says,
+/// and the rest are ordered by the table's generator and put on the bottom.
+/// Returns the match, if the library held one.
+fn reveal_until(
+    state: &mut GameState,
+    you: PlayerId,
+    source: ObjectId,
+    filter: &'static baylee_cards_dsl::Filter,
+    found: SearchDest,
+) -> Option<ObjectId> {
+    let library: Vec<ObjectId> = state.zones.list(ZoneLocation::Library(you)).clone();
+    let mut revealed = Vec::new();
+    let mut hit = None;
+    // The top card is the last in the list.
+    for &card in library.iter().rev() {
+        revealed.push(card);
+        if state
+            .object(card)
+            .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        {
+            hit = Some(card);
+            break;
+        }
+    }
+    if revealed.is_empty() {
+        return None;
+    }
+    state.journal.record(GameEvent::Revealed {
+        player: you,
+        cards: revealed.clone(),
+    });
+    if let Some(card) = hit {
+        put_found(state, you, card, found);
+    }
+    let mut rest: Vec<ObjectId> = revealed.into_iter().filter(|c| Some(*c) != hit).collect();
+    state.rng.shuffle(&mut rest);
+    for card in rest {
+        let _ = state.move_object(
+            card,
+            ZoneLocation::Library(you),
+            ZonePosition::Bottom,
+            Cause::Effect,
+        );
+    }
+    hit
+}
+
 /// The library half of `SearchLibraryOrGraveyard`: the search
 /// `Effect::SearchLibrary` makes for one card, shuffle and all. `find` stays
 /// a reference: the search keeps a `&'static [Find]`, borrowed from the card.
@@ -2798,6 +2848,21 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::IfResolvedTimesThisTurn { times, then } => {
+            // The ability resolving is the stack object's; its count was
+            // taken as it began to resolve (`resolve_stack_top`).
+            let resolved = state
+                .object(res.on_stack)
+                .and_then(|o| o.ability)
+                .map_or(0, |loc| {
+                    let version = state.object(loc.source).map_or(0, |o| o.version);
+                    state.per_turn.resolutions(loc.source, version, loc.index)
+                });
+            if resolved == times {
+                return run_nested(state, res, then);
+            }
+            None
+        }
         Effect::IfNotLostLifeThisTurn { then } => {
             // Set by `GameState::change_life` for every loss, whether it
             // came from damage, an effect or a payment, and cleared at every
@@ -2985,6 +3050,10 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .object(top)
                 .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
             put_found(state, you, top, if fits { matched } else { otherwise });
+            None
+        }
+        Effect::RevealUntil { filter, found } => {
+            reveal_until(state, you, res.source, filter, found);
             None
         }
         Effect::SearchLibraryOrGraveyard { filter, find } => {

@@ -19,7 +19,7 @@
 //! the author of the thing it checks shares that author's blind spot, which
 //! is the same house rule `scripts/llm/README.md` states for card batches.
 
-/// What `Effect`'s body declares today: thirteen `&'static [Effect]` and three
+/// What `Effect`'s body declares today: fourteen `&'static [Effect]` and three
 /// `&'static Effect`.
 ///
 /// Derived twice from the source rather than recalled — once here and once by
@@ -32,9 +32,11 @@
 /// body can reach.
 /// Raised 15 → 16 for `PlayerMayPayLifeOr`; its fallback walk is tested in
 /// `verb_tests::life_payment_fallback_is_visited`.
-const NESTING_FIELDS: usize = 16;
+/// Raised 16 → 17 for `IfResolvedTimesThisTurn` (Nissa, Resurgent
+/// Animist); its branch walk is `verb_tests::the_nth_resolution_branch_is_visited`.
+const NESTING_FIELDS: usize = 17;
 
-/// How many variants those sixteen fields are spread across.
+/// How many variants those seventeen fields are spread across.
 ///
 /// Pinned **beside** the field count rather than instead of it, because the
 /// two move for different reasons and only one of them describes the defect
@@ -52,8 +54,8 @@ const NESTING_FIELDS: usize = 16;
 /// to make a red test quiet.
 ///
 /// `Reflexive` moved both again on 2026-09-24: one new carrier, one new
-/// branch.
-const CARRYING_VARIANTS: usize = 13;
+/// branch. `IfResolvedTimesThisTurn` did on 2026-09-29.
+const CARRYING_VARIANTS: usize = 14;
 
 /// The floor under the reader itself.
 ///

@@ -2754,6 +2754,18 @@ impl<L: CardLookup> Engine<L> {
             .record(GameEvent::StackObjectResolved { object: top });
         let kind = self.state.object(top).map(|o| o.kind);
         if kind == Some(ObjectKind::AbilityOnStack) {
+            // "The second time this ability has resolved this turn": counted
+            // here, as it begins to resolve, so the resolution asking is one
+            // of those it counts. A synthetic keyword trigger has no index of
+            // its own to count under.
+            if let Some(loc) = self.state.object(top).and_then(|o| o.ability)
+                && loc.index != baylee_core::ids::AbilityRef::SYNTHETIC
+            {
+                let version = self.state.object(loc.source).map_or(0, |o| o.version);
+                self.state
+                    .per_turn
+                    .note_resolution(loc.source, version, loc.index);
+            }
             let obj = self.state.object(top).expect("stack object exists");
             let loc = obj.ability.expect("ability object has a location");
             // The list `loc.index` points into, captured when the ability was

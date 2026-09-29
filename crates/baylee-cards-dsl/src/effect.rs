@@ -784,6 +784,20 @@ pub enum Effect {
         /// "Without paying its mana cost".
         free: bool,
     },
+    /// "Reveal cards from the top of your library until you reveal a
+    /// [filter] card. Put that card [where `found` says] and the rest on the
+    /// bottom of your library in a random order." (Nissa, Resurgent
+    /// Animist.) No player is asked anything: every revealed card is shown
+    /// to every player (CR 701.20a), the first match goes where `found`
+    /// says, and the rest go to the bottom in an order the table's generator
+    /// picks. A library with no match reveals every card and puts them all
+    /// on the bottom, again at random.
+    RevealUntil {
+        /// What stops the reveal.
+        filter: &'static Filter,
+        /// Where the match goes.
+        found: SearchDest,
+    },
     /// Reveal the top card of your library and put it where the filter
     /// sends it: `matched` if it is a `filter` card, `otherwise` if not
     /// (Coiling Oracle: "If it's a land card, put it onto the battlefield.
@@ -1315,6 +1329,20 @@ pub enum Effect {
         /// Threshold.
         n: u32,
         /// Effects when the condition holds.
+        then: &'static [Effect],
+    },
+    /// Branch: "if this is the `times`th time this ability has resolved this
+    /// turn" (Nissa, Resurgent Animist: "Then if this is the second time
+    /// this ability has resolved this turn, …"). The engine counts every
+    /// resolution of an ability of one object in its per-turn record, this
+    /// one included, and the branch runs when the count is exactly `times`:
+    /// a third resolution is not the second. The object is the source as it
+    /// is now (CR 400.7), so a Nissa that left and came back is a new object
+    /// whose abilities start counting again.
+    IfResolvedTimesThisTurn {
+        /// The count at which the branch runs.
+        times: u32,
+        /// Effects when it does.
         then: &'static [Effect],
     },
     /// Branch: you didn't lose life this turn (Luminarch Ascension).
@@ -2379,6 +2407,7 @@ impl Effect {
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::IfNoCountersOnSelf { kind: _, then }
             | Effect::IfNotLostLifeThisTurn { then }
+            | Effect::IfResolvedTimesThisTurn { times: _, then }
             | Effect::IfControlGreatestCmc { filter: _, then } => (then, NONE),
             Effect::IfKicked { then, otherwise }
             | Effect::IfCondition {
@@ -2414,6 +2443,7 @@ impl Effect {
             | Effect::ChooseExiledToPlay { .. }
             | Effect::PayLifeOrPutBackDrawn { .. }
             | Effect::RevealTopAndSort { .. }
+            | Effect::RevealUntil { .. }
             | Effect::LookAtTopMayPut { .. }
             | Effect::DiscardUpToThenDraw { .. }
             | Effect::SearchLibraryOrGraveyard { .. }
@@ -2560,6 +2590,26 @@ mod verb_tests {
         });
         assert_eq!(seen, 2);
         assert!(counter_seen);
+    }
+
+    /// Nissa, Resurgent Animist's reveal sits inside
+    /// `IfResolvedTimesThisTurn`, and a pool walk has to find it there.
+    #[test]
+    fn the_nth_resolution_branch_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::IfResolvedTimesThisTurn {
+            times: 2,
+            then: &[Effect::RevealUntil {
+                filter: &crate::Filter::Any,
+                found: SearchDest::Hand,
+            }],
+        }];
+        let mut seen = 0;
+        let mut reveal_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            reveal_seen |= matches!(effect, Effect::RevealUntil { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(reveal_seen);
     }
 
     use crate::ability::Trigger;

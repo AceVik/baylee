@@ -750,6 +750,7 @@ fn mana_symbol_colors(effect: &Effect) -> ColorSet {
         Effect::MayDo { effects: then }
         | Effect::IfCreaturesDiedAtLeast { then, .. }
         | Effect::IfNotLostLifeThisTurn { then, .. }
+        | Effect::IfResolvedTimesThisTurn { then, .. }
         | Effect::IfControlGreatestCmc { then, .. }
         | Effect::IfNoCountersOnSelf { then, .. } => then.iter().fold(ColorSet::EMPTY, union),
         _ => ColorSet::EMPTY,

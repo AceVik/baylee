@@ -1465,6 +1465,19 @@ hashes, layers and does nothing. This paragraph said THREE until
   announced X on the source, where `Filter::CmcAtMostX` reads it. A source
   that is gone or announced no X counts as X = 0. Finale of Devastation puts
   its +X/+X and haste behind it in an `Effect::IfCondition`.
+- **`Effect::RevealUntil { filter, found }`** (Nissa, Resurgent Animist):
+  "reveal cards from the top of your library until you reveal a [filter]
+  card. Put that card [`found`] and the rest on the bottom of your library in
+  a random order." Nobody is asked anything. Every card turned over is in one
+  `GameEvent::Revealed`, the match goes where `found` says, and the table's
+  generator orders the rest on the bottom. A library with no match reveals
+  every card and puts all of them on the bottom.
+- **`Effect::IfResolvedTimesThisTurn { times, then }`** is "if this is the
+  `times`th time this ability has resolved this turn". The engine counts each
+  resolution of each ability of an object (`PerTurn::resolved`, keyed on the
+  source's id and version, CR 400.7) as the ability begins to resolve, so the
+  resolution asking is counted. The branch runs at exactly `times`; a third
+  resolution is not the second.
 - **`Modifier::CharacteristicPT { count, toughness_plus }`** is a
   characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
   - `YouControl(filter)`

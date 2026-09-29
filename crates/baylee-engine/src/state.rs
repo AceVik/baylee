@@ -277,6 +277,27 @@ pub struct PerTurn {
     /// Permissions to play a particular card this turn (Dauthi Voidwalker,
     /// Expressive Iteration). See [`PlayPermission`].
     pub playable: Vec<PlayPermission>,
+    /// How many times each ability of each object has resolved this turn
+    /// (Nissa, Resurgent Animist's "the second time this ability has
+    /// resolved this turn"). Written by the stack's resolution of an
+    /// ability and nothing else; see [`AbilityResolved`].
+    pub resolved: Vec<AbilityResolved>,
+}
+
+/// One ability of one object, and how many times it has resolved this turn.
+///
+/// The object is its id **and** version: an object that changed zones is a
+/// new object (CR 400.7), and its abilities have resolved no times yet.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct AbilityResolved {
+    /// The ability's source.
+    pub source: ObjectId,
+    /// The source's version when the ability resolved.
+    pub version: u32,
+    /// Index into the source's ability list.
+    pub index: u32,
+    /// Resolutions this turn.
+    pub times: u32,
 }
 
 /// "You may play that card this turn" — a permission an effect gives one
@@ -315,7 +336,38 @@ impl PerTurn {
             entered_battlefield: Vec::new(),
             drawn: Vec::new(),
             playable: Vec::new(),
+            resolved: Vec::new(),
         }
+    }
+
+    /// Counts one more resolution of ability `index` of `source` as it is
+    /// at `version`, and returns the count with it included.
+    pub fn note_resolution(&mut self, source: ObjectId, version: u32, index: u32) -> u32 {
+        if let Some(entry) = self
+            .resolved
+            .iter_mut()
+            .find(|e| e.source == source && e.version == version && e.index == index)
+        {
+            entry.times += 1;
+            return entry.times;
+        }
+        self.resolved.push(AbilityResolved {
+            source,
+            version,
+            index,
+            times: 1,
+        });
+        1
+    }
+
+    /// How many times ability `index` of `source` at `version` has resolved
+    /// this turn.
+    #[must_use]
+    pub fn resolutions(&self, source: ObjectId, version: u32, index: u32) -> u32 {
+        self.resolved
+            .iter()
+            .find(|e| e.source == source && e.version == version && e.index == index)
+            .map_or(0, |e| e.times)
     }
 
     /// Resets all counters (called at every turn start).
@@ -328,6 +380,7 @@ impl PerTurn {
         self.entered_battlefield.clear();
         self.drawn.clear();
         self.playable.clear();
+        self.resolved.clear();
     }
 }
 
@@ -3933,6 +3986,9 @@ mod tests {
                 s.per_turn.entered_battlefield.push(id);
             }),
             ("per_turn.drawn", |s, id| s.per_turn.drawn.push((id, 0))),
+            ("per_turn.resolved", |s, id| {
+                s.per_turn.note_resolution(id, 0, 0);
+            }),
             ("per_turn.playable", |s, id| {
                 s.per_turn.playable.push(PlayPermission {
                     player: PlayerId::new(0),
