@@ -4263,6 +4263,10 @@ impl<L: CardLookup> Engine<L> {
                 let skip = self.state.turn.number == 1
                     && self.state.players.len() == 2
                     && self.state.turn.active.get() == 0;
+                // The draw step has begun when its draw is made, so the draw
+                // is made in it: `draw_cards` reads the step to know that
+                // this card is the step's first.
+                self.state.turn.step = Step::Draw;
                 // Nobody draws for an active player who has left (CR 800.4j).
                 if !skip && !self.active_has_left() {
                     let active = self.state.turn.active;

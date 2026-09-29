@@ -2486,6 +2486,17 @@ past the first draw and wrong for the one arrangement where a batch straddles
 it — a draw step whose own draw is inside a multi-card event. No card in the
 pool draws that way today.
 
+**Closed on 2026-09-29, with a case this missed:** a card drawn in the
+opponent's upkeep made the draw step's own card the turn's second, so it fired
+although it is the step's first. `draw_cards` now writes the fact down at the
+draw: `CardsDrawn::first_in_draw_step`, from `per_turn.drew_in_draw_step`, and
+the turn-based draw is made with the step already `Draw` (CR 504.1). `hits`
+subtracts that one card from the entry's count, which also settles the
+straddling batch. The tests are `an_upkeep_draw_leaves_the_draw_steps_first_card_the_first`
+(it fails on the old code: 2 triggers, not 1),
+`a_draw_says_whether_it_is_the_first_of_its_players_draw_step` and
+`the_draw_step_exception_skips_one_card_of_an_entry_and_no_more`.
+
 
 ### 43. A permanent that arrives is never projected against what is already there — FIXED
 

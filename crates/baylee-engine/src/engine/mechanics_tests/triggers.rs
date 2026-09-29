@@ -314,6 +314,58 @@ fn an_opponents_draws_trigger_except_the_first_of_their_draw_step() {
     assert_eq!(life(&engine, me()), start + 2);
 }
 
+/// The exception counts cards drawn in the draw step, not cards drawn this
+/// turn: "except the first one they draw in each of their draw steps". A
+/// card drawn in their upkeep is outside every draw step, so it triggers,
+/// and it does not make the draw step's own card (CR 504.1) a second one:
+/// that card is still the step's first and triggers nothing. The next card
+/// in the same step is its second and triggers again.
+#[test]
+fn an_upkeep_draw_leaves_the_draw_steps_first_card_the_first() {
+    let mut engine = bench(
+        7107,
+        cards(),
+        [Seat::with(&[BOWMASTER]), Seat::with(&[STACKS])],
+    );
+    let bowmaster = the(&engine, ZoneLocation::Battlefield, BOWMASTER);
+    let stacks = the(&engine, ZoneLocation::Battlefield, STACKS);
+    let start = life(&engine, me());
+
+    walk_until(&mut engine, |e| {
+        holds_priority_in(e, them(), crate::turn::Step::Upkeep)
+    });
+    activate(&mut engine, them(), stacks, 0);
+    settle(&mut engine, them());
+    assert_eq!(
+        (engine.state().turn.step, triggered(&engine, bowmaster)),
+        (crate::turn::Step::Upkeep, 1),
+        "a card drawn in their upkeep is in none of their draw steps"
+    );
+
+    walk_until(&mut engine, |e| {
+        holds_priority_in(e, them(), crate::turn::Step::Draw)
+    });
+    assert_eq!(
+        engine.state().per_turn.draws[them().get() as usize],
+        2,
+        "the upkeep's card and the draw step's card"
+    );
+    assert_eq!(
+        triggered(&engine, bowmaster),
+        1,
+        "the draw step's card is its first, however many came before it"
+    );
+
+    activate(&mut engine, them(), stacks, 0);
+    settle(&mut engine, them());
+    assert_eq!(
+        triggered(&engine, bowmaster),
+        2,
+        "the draw step's second card"
+    );
+    assert_eq!(life(&engine, me()), start + 2);
+}
+
 /// "An opponent": its controller's own draws, in and out of its draw step,
 /// trigger nothing.
 #[test]

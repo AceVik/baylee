@@ -419,7 +419,7 @@ impl GameLog {
                 place,
                 ..
             } => self.moved(state, *object, (*from, *to), *place, shown, discarded),
-            GameEvent::CardsDrawn { player, count } => {
+            GameEvent::CardsDrawn { player, count, .. } => {
                 if self.started {
                     self.drew(*player, usize::from(*count), batch);
                 }

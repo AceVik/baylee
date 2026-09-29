@@ -153,9 +153,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                 for entry in events {
                     let hit = hits(trigger, &entry.event, events, state, emblem, obj.controller);
                     if hit > 0 {
-                        let times = trigger_count(state, trigger, emblem, obj.controller)
-                            * repeats(&entry.event)
-                            * hit;
+                        let times = trigger_count(state, trigger, emblem, obj.controller) * hit;
                         let event_object = event_object_of(&entry.event);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
@@ -576,13 +574,18 @@ fn targeting(
     }
 }
 
-/// How many times one event fires `trigger` for this source.
+/// How many times one journal entry fires `trigger` for this source.
 ///
-/// Once when [`matches`] says so, for every trigger but the one that counts
-/// what an event targeted: "whenever you or a permanent you control becomes
-/// the target of a spell or ability an opponent controls" fires once for each
-/// of them, so one spell aimed at you and at a creature of yours fires it
-/// twice.
+/// Once for each happening the entry records ([`repeats`]) when [`matches`]
+/// says so, for every trigger but two. The one that counts what an event
+/// targeted: "whenever you or a permanent you control becomes the target of a
+/// spell or ability an opponent controls" fires once for each of them, so one
+/// spell aimed at you and at a creature of yours fires it twice. And the one
+/// that watches all of an entry's draws but one: "whenever an opponent draws
+/// a card except the first one they draw in each of their draw steps" skips
+/// the step's first card and no other, so "draw three" that opens the step
+/// fires it twice. That is a subtraction, which is why the count of
+/// happenings is taken here rather than multiplied in by the callers.
 fn hits(
     trigger: &Trigger,
     event: &GameEvent,
@@ -595,8 +598,30 @@ fn hits(
         Trigger::TargetedByOpponent {
             filter,
             you: counts_you,
-        } => targeted_by_opponent(event, state, filter, *counts_you, source, you),
-        _ => u32::from(matches(trigger, event, batch, state, source, you)),
+        } => targeted_by_opponent(event, state, filter, *counts_you, source, you) * repeats(event),
+        Trigger::DrawsExceptFirst(rel) => match event {
+            GameEvent::CardsDrawn {
+                player,
+                first_in_draw_step,
+                ..
+            } if match rel {
+                PlayerRel::You => *player == you,
+                PlayerRel::Opponent => state.is_opponent(*player, you),
+                _ => true,
+            } =>
+            {
+                // A card drawn on somebody else's turn, or in their own
+                // upkeep, is in none of their draw steps and always fires:
+                // that is what the card is played for (Brainstorm, Rhystic
+                // Study, a Howling Mine on my turn). Which entry holds the
+                // step's one excepted card is written at the draw, because
+                // a count of the turn's cards read here, at collection,
+                // could not tell it apart.
+                repeats(event).saturating_sub(u32::from(*first_in_draw_step))
+            }
+            _ => 0,
+        },
+        _ => u32::from(matches(trigger, event, batch, state, source, you)) * repeats(event),
     }
 }
 
@@ -898,9 +923,7 @@ fn collect_for_objects(
                 );
                 if hit > 0 {
                     let event_object = event_object_of(&entry.event);
-                    let times = trigger_count(state, trigger, permanent, obj.controller)
-                        * repeats(&entry.event)
-                        * hit;
+                    let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             event_mana_value: None,
@@ -989,9 +1012,7 @@ fn collect_for_objects(
                     obj.controller,
                 );
                 if hit > 0 {
-                    let times = trigger_count(state, trigger, permanent, obj.controller)
-                        * repeats(&entry.event)
-                        * hit;
+                    let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     let event_object = event_object_of(&entry.event);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
@@ -1052,7 +1073,9 @@ fn collect_for_objects(
 /// loops so that the next event to carry a count adds an arm to one `match`
 /// instead of a multiplication to each of them.
 ///
-/// The number is multiplied with [`trigger_count`], not confused with it:
+/// [`hits`] asks it, so a trigger that watches all of an entry's happenings
+/// but some can take them away. The number is multiplied with
+/// [`trigger_count`], not confused with it:
 /// that one is Panharmonicon asking how many times an ability triggers for
 /// one happening, this one is how many happenings there were.
 fn repeats(event: &GameEvent) -> u32 {
@@ -1286,34 +1309,6 @@ fn matches(
                     .object(*object)
                     .is_some_and(|o| eval::matches(filter, state, o, you, source))
         }
-        (Trigger::DrawsExceptFirst(rel), GameEvent::CardsDrawn { player, .. }) => {
-            let count = state
-                .per_turn
-                .draws
-                .get(player.get() as usize)
-                .copied()
-                .unwrap_or(0);
-            let player_matches = match rel {
-                PlayerRel::You => *player == you,
-                PlayerRel::Opponent => state.is_opponent(*player, you),
-                _ => true,
-            };
-            // "except the first one they draw in each of their draw steps"
-            // is about a draw *step*, not about a turn. A draw on somebody
-            // else's turn is never in this player's draw step, so it always
-            // fires — which is the case Orcish Bowmasters is played for
-            // (Brainstorm, Rhystic Study, a Howling Mine on my turn), and
-            // the old `count > 1` read it as the opponent's excepted first
-            // draw and fired nothing at all.
-            //
-            // The exception left: a draw during their own upkeep makes the
-            // draw-step draw the second of the turn, and that one fires
-            // although it is the step's first. Closing it wants a per-step
-            // counter beside `per_turn.draws`.
-            let their_draw_step =
-                state.turn.active == *player && state.turn.step == crate::turn::Step::Draw;
-            player_matches && !(their_draw_step && count <= 1)
-        }
         (Trigger::FirstNoncreatureSpellCast(rel), GameEvent::SpellCast { object, player }) => {
             let player_matches = match rel {
                 PlayerRel::You => *player == you,
@@ -1482,6 +1477,38 @@ mod tests {
         });
     }
 
+    /// "Except the first one they draw in each of their draw steps" skips
+    /// one card of an entry and no more: each card is its own draw
+    /// (CR 121.2), so "draw three" that opens an opponent's draw step fires
+    /// twice. The exception is this trigger's alone, and "an opponent" still
+    /// leaves its controller's own draws out.
+    #[test]
+    fn the_draw_step_exception_skips_one_card_of_an_entry_and_no_more() {
+        let mut state = state();
+        let source = permanent(&mut state, me(), "Bowmasters");
+        let drew = |player, count, first_in_draw_step| GameEvent::CardsDrawn {
+            player,
+            count,
+            first_in_draw_step,
+        };
+        let fired =
+            |trigger: &Trigger, event: &GameEvent| hits(trigger, event, &[], &state, source, me());
+        let bowmasters = Trigger::DrawsExceptFirst(PlayerRel::Opponent);
+        assert_eq!(fired(&bowmasters, &drew(them(), 1, true)), 0, "the one");
+        assert_eq!(
+            fired(&bowmasters, &drew(them(), 3, true)),
+            2,
+            "the other two"
+        );
+        assert_eq!(fired(&bowmasters, &drew(them(), 3, false)), 3);
+        assert_eq!(fired(&bowmasters, &drew(me(), 3, false)), 0, "my own draws");
+        assert_eq!(
+            fired(&Trigger::Draws(PlayerRel::Opponent), &drew(them(), 3, true)),
+            3,
+            "a plain draw trigger has no exception"
+        );
+    }
+
     /// How many *happenings* an event is, which is not how many times an
     /// ability triggers for one of them. "Draw two cards" is one journal
     /// entry carrying a count, and an ability watching a card being drawn
@@ -1493,14 +1520,16 @@ mod tests {
         assert_eq!(
             repeats(&GameEvent::CardsDrawn {
                 player: me(),
-                count: 3
+                count: 3,
+                first_in_draw_step: false,
             }),
             3
         );
         assert_eq!(
             repeats(&GameEvent::CardsDrawn {
                 player: me(),
-                count: 0
+                count: 0,
+                first_in_draw_step: false,
             }),
             1,
             "a zero would suppress a trigger that matched rather than \
