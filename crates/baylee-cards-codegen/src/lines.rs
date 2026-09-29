@@ -560,6 +560,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::ExiledFromBattlefield(_) => &["exiled"],
         T::DealsCombatDamageToPlayer(_) => &["damage"],
         T::BecomesTapped(_) => &["tap"],
+        // Druid Class, "When this Class becomes level 3".
+        T::CountersReach { .. } => &["becomes level"],
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
         T::Attacks(_) => &["attack"],
         T::AttacksAlone(_) => &["exalted", "attacks alone"],

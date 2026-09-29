@@ -1016,6 +1016,17 @@ fn matches(
         ) => state
             .object(*damage_source)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        // CR 714.2b's window, "was less than N and became at least N",
+        // asked of the source's own counters.
+        (
+            Trigger::CountersReach { kind, n },
+            GameEvent::CounterChanged {
+                object,
+                kind: changed,
+                old,
+                new,
+            },
+        ) => *object == source && changed == kind && *old < u16::from(*n) && u16::from(*n) <= *new,
         (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => {
             *object == source
                 && state

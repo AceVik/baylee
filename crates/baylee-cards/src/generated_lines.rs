@@ -36191,8 +36191,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Druid Class
     &[FaceLines {
         sentences: 6,
-        stackable: 3,
-        lines: &[None, Some(2), Some(4)],
+        stackable: 4,
+        lines: &[None, Some(2), None, Some(4), Some(5)],
         modes: &[],
         alternatives: &[],
     }],

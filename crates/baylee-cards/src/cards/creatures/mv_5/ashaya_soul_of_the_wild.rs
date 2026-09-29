@@ -2,12 +2,14 @@
 //! Oracle: Ashaya's power and toughness are each equal to the number of lands you control.
 //! Oracle: Nontoken creatures you control are Forest lands in addition to their other types. (They're still affected by summoning sickness.)
 //! Set: DSC #170 — Duskmourn: House of Horror Commander | Scryfall ID: 0a74b4e6-f6c9-4fef-a83c-a285a541e720 | Oracle ID: 162572f2-1757-42e9-bd97-e6bd9a762c0e
-// PARTIAL — a +1/+1-per-land body on top of the printed 0/0, and every
+// PARTIAL — on the battlefield both abilities are the card: power and
+// toughness are defined by the count at layer 7a (CR 613.4a), and every
 // nontoken creature you control is a Forest land in addition to its other
 // types. The change is a layer-4 type change, so the Forest type supplies
 // "{T}: Add {G}" by CR 305.6 — the type does the work, no ability is
 // granted — and the reminder text holds: they are still creatures, so
-// summoning sickness still applies to them.
+// summoning sickness still applies to them. What is missing is the
+// characteristic-defining ability in every other zone (CR 604.3).
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -34,23 +36,18 @@ card!(
     ),],
     coverage = Coverage::Partial(
         "\"Ashaya's power and toughness are each equal to the number of lands you control\" is a \
-         layer-7a characteristic-defining ability, which no `Modifier` sets; it is spelled as the \
-         layer-7c `Modifier::ModifyPTPerCount` over the 0/0 printed body, which is the same number \
-         until a layer-7b effect sets power and toughness, and different after one"
+         characteristic-defining ability, which works in every zone (CR 604.3); \
+         `Modifier::DefinePTByCount` is registered only while Ashaya is on the battlefield, so in \
+         a library or a graveyard it is its 0/0 base, which Recruiter of the Guard's toughness \
+         and Reveillark's power read"
     ),
     abilities = &[
-        // "…are each equal to the number of lands you control": the printed
-        // body is 0/0, so one +1/+1 per land is that number. Read at layer 7c,
+        // "…are each equal to the number of lands you control": layer 7a,
         // after the type change below, so the creatures it makes into lands
         // count too — Ashaya itself included.
-        static_ability!(
-            Filter::This,
-            Modifier::ModifyPTPerCount {
-                filter: &Filter::YOUR_LAND,
-                p: 1,
-                t: 1,
-            }
-        ),
+        // NOT SUPPORTED: the same ability off the battlefield (CR 604.3) —
+        // statics are registered while their source is on the battlefield.
+        static_ability!(Filter::This, Modifier::DefinePTByCount(&Filter::YOUR_LAND)),
         // "…are Forest lands": the land type and the Forest land type are two
         // modifiers, and both are additive, so the creature keeps its types.
         static_ability!(

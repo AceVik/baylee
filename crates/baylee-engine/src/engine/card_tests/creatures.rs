@@ -15818,6 +15818,43 @@ fn ashaya_counts_the_creatures_its_own_static_made_into_lands() {
     );
 }
 
+/// Ashaya's "power and toughness are each equal to the number of lands you
+/// control" is a characteristic-defining ability, so it applies in layer
+/// 7a (CR 613.4a) and an effect that **sets** power and toughness applies
+/// after it (613.4b).
+///
+/// Living Lands makes every Forest a 1/1 creature, and Ashaya is a Forest by
+/// its own second ability. Four lands define it as 4/4 and Living Lands then
+/// sets it to 1/1. A count added on top at 7c, which is how the card was
+/// written before, reads 5/5.
+#[test]
+fn ashaya_is_defined_before_living_lands_sets_it_to_one_one() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(384, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                ashaya_soul_of_the_wild(),
+                living_lands(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ashaya = on_battlefield(&engine, p0, ashaya_soul_of_the_wild()).expect("Ashaya is seated");
+    let forest_id = on_battlefield(&engine, p0, forest()).expect("a Forest");
+    assert_eq!(pt(&engine, forest_id), (1, 1), "Living Lands' Forest");
+    assert_eq!(
+        pt(&engine, ashaya),
+        (1, 1),
+        "7a defines 4/4 from four lands, and 7b sets 1/1 over it"
+    );
+}
+
 /// Aesi, Tyrant of Gyre Strait: the extra land drop and the landfall draw,
 /// which only a turn that plays two lands can tell apart.
 ///

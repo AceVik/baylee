@@ -111,6 +111,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ModifyPTPerCount { .. }
         | Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
+        | Modifier::DefinePTByCount(_)
+        | Modifier::SetPTToCount(_)
         | Modifier::SwitchPT => true,
         // Neither: a shield that prevents damage, and the rules a player
         // plays under. Teferi's `SorceriesHaveFlash` is the clearest of
@@ -661,6 +663,8 @@ mod tests {
             Modifier::GrantsFlashback,
             Modifier::ProtectionFrom(&Filter::CREATURE),
             Modifier::SetPT(2, 2),
+            Modifier::DefinePTByCount(&Filter::YOUR_LAND),
+            Modifier::SetPTToCount(&Filter::YOUR_LAND),
             Modifier::ModifyPT(1, 1),
             Modifier::ModifyPTPerCount {
                 filter: &Filter::CREATURE,
@@ -733,7 +737,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            44,
+            46,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -784,7 +788,7 @@ mod tests {
     }
 
     /// The counts, so that a change which flips a modifier from one side to
-    /// the other is a failure and not a quiet re-balancing: twenty-two
+    /// the other is a failure and not a quiet re-balancing: twenty-four
     /// modifiers lock the objects they found, twenty-two do not.
     ///
     /// The second number is counted off the list and not written as
@@ -793,10 +797,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_two_modifiers_lock_a_set_and_twenty_two_do_not() {
+    fn twenty_four_modifiers_lock_a_set_and_twenty_two_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (22, 22));
+        assert_eq!((locking, all.len() - locking), (24, 22));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

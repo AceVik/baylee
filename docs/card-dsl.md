@@ -842,7 +842,16 @@ land under a Doubling Season enters with four charge counters.
 `EntersBattlefield(filter)`, `LeavesBattlefield(filter)`, `Dies(filter)`,
 `SpellCast(filter)`, `Draws(rel)`, `DrawsExceptFirst(rel)`,
 `FirstNoncreatureSpellCast(rel)`, `Attacks(filter)`, `BecomesTarget`,
-`EntersBattlefieldEvoked`, `StepBegin { step, whose }`.
+`EntersBattlefieldEvoked`, `StepBegin { step, whose }`,
+`CountersReach { kind, n }`.
+
+`CountersReach { kind, n }` fires when the source's count of `kind` goes
+from below `n` to `n` or more, the window CR 714.2b writes out for a
+chapter. It is Druid Class's "When this Class becomes level 3" (`Level`,
+`n: 2`, because a Class's level is kept as level counters over level 1). A
+level-up payoff that **targets** is this trigger, never an effect riding on
+the level-up activation: a target removed in response would take the level
+with it (CR 608.2b).
 
 `Trigger::ETB` is `EntersBattlefield(&Filter::This)`, which 99 of the pool's
 110 enter-triggers are. It is a constant and not a macro because there is
@@ -1274,7 +1283,19 @@ Modal/sequence: `Sequence(&[..])`.
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
-`DrawLimitPerTurn`, `CantBeTargetedBy`.
+`DrawLimitPerTurn`, `CantBeTargetedBy`, `DefinePTByCount`, `SetPTToCount`.
+
+`DefinePTByCount(&filter)` and `SetPTToCount(&filter)` are "power and
+toughness are each equal to the number of [filter]", with "you" in the
+filter being the affected object's controller. The first is the sentence
+printed on the card it defines, a characteristic-defining ability in layer
+7a (Ashaya, Soul of the Wild); the second is the same sentence granted by an
+effect, which CR 604.3a says is no characteristic-defining ability, so it
+sets power and toughness in layer 7b (Druid Class's animated land). Write a
+printed `*/*` with the first, never as `ModifyPTPerCount` over a 0/0 body:
+that is layer 7c and survives a 7b "becomes 1/1" it should lose to. Like
+every static the first is registered only on the battlefield, which is why a
+`*` card with it is still `Partial` (CR 604.3; `xtask validate` holds it).
 
 `CantBeTargetedBy(&filter)` is "[this] can't be the target of [spells] or
 abilities from [sources]" — protection's targeting half alone (CR 702.16b),

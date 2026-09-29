@@ -331,6 +331,23 @@ pub enum Modifier {
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.
     SetPT(i16, i16),
+    /// "[This]'s power and toughness are each equal to the number of
+    /// [filter]", printed on the card it defines: a characteristic-defining
+    /// ability (CR 604.3), applied in layer 7a (CR 613.4a) — Ashaya, Soul
+    /// of the Wild's "number of lands you control".
+    ///
+    /// "You" in the filter is the affected object's controller, because the
+    /// ability is that object's own. Like every static, it is registered
+    /// while its source is on the battlefield, so in another zone the card
+    /// has its printed base (CR 604.3 would have it defined there too).
+    DefinePTByCount(&'static crate::Filter),
+    /// The same sentence **granted** by an effect — Druid Class's land that
+    /// "becomes a creature with … 'This creature's power and toughness are
+    /// each equal to the number of lands you control.'" A granted ability
+    /// is no characteristic-defining ability (CR 604.3a), so it sets power
+    /// and toughness to a value in layer 7b (CR 613.4b). "You" is the
+    /// affected object's controller, as above.
+    SetPTToCount(&'static crate::Filter),
     /// Switches power and toughness.
     SwitchPT,
 }
@@ -418,7 +435,8 @@ impl Modifier {
             | Self::ProtectionFrom(_)
             | Self::GrantTriggered { .. } => Layer::Ability,
             // Layer 7b/7c/7e: power and toughness.
-            Self::SetPT(..) => Layer::PtSet,
+            Self::DefinePTByCount(_) => Layer::PtCda,
+            Self::SetPT(..) | Self::SetPTToCount(_) => Layer::PtSet,
             Self::ModifyPT(..) | Self::ModifyPTPerCount { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
@@ -686,7 +704,9 @@ mod tests {
                 },
                 Layer::Ability,
             ),
+            (Modifier::DefinePTByCount(&Filter::YOUR_LAND), Layer::PtCda),
             (Modifier::SetPT(2, 2), Layer::PtSet),
+            (Modifier::SetPTToCount(&Filter::YOUR_LAND), Layer::PtSet),
             (Modifier::ModifyPT(1, 1), Layer::PtModify),
             (
                 Modifier::ModifyPTPerCount {

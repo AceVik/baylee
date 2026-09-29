@@ -182,6 +182,41 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
     }
 }
 
+/// How many permanents `you` control on the battlefield match `filter`, for
+/// the modifiers that count.
+///
+/// CR 613.1: every earlier layer is already applied, and for the object
+/// being projected that result lives in `c` and not yet in its cache —
+/// `recompute_with` walks one object through all the layers, so its cached
+/// characteristics are the *previous* projection until this one is written
+/// back. Ashaya, Soul of the Wild is the card that reads the difference: it
+/// makes your nontoken creatures into lands at layer 4 and is then as big
+/// as the lands you control, so it has to count **itself**, and a count off
+/// the cache left it one short for exactly one refresh. Every other object
+/// is read from the cache, which is that object's own finished projection.
+/// Phased-out permanents are not there to count (CR 702.26b).
+fn count_on_battlefield(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    filter: &Filter,
+    you: PlayerId,
+) -> i16 {
+    let count = state
+        .battlefield_seen()
+        .filter_map(|id| state.object(id))
+        .filter(|o| {
+            o.controller == you
+                && if o.id == obj.id {
+                    crate::eval::matches_projected(filter, state, o, c, you, o.id)
+                } else {
+                    crate::eval::matches(filter, state, o, you, o.id)
+                }
+        })
+        .count();
+    i16::try_from(count).unwrap_or(i16::MAX)
+}
+
 /// Layer 7c: counters that modify power and toughness (CR 613.4c) —
 /// applied inside the layer loop so they land BEFORE the 7d switch.
 ///
@@ -435,6 +470,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
             modifier,
             Modifier::ModifyPT(..)
                 | Modifier::SetPT(..)
+                | Modifier::DefinePTByCount(_)
+                | Modifier::SetPTToCount(_)
                 | Modifier::SwitchPT
                 | Modifier::ModifyPTPerCount { .. }
                 | Modifier::BecomeCopyOf(_)
@@ -508,40 +545,7 @@ fn apply(
             }
         }
         Modifier::ModifyPTPerCount { filter, p, t } => {
-            // CR 613.1: every earlier layer is already applied, and for the
-            // object being projected that result lives in `c` and not yet in
-            // its cache — `recompute_with` walks one object through all the
-            // layers, so its cached characteristics are the *previous*
-            // projection until this one is written back. Ashaya, Soul of the
-            // Wild is the card that reads the difference: it makes your
-            // nontoken creatures into lands at layer 4 and is then as big as
-            // the lands you control at 7c, so it has to count **itself**, and
-            // a count off the cache left it one short for exactly one
-            // refresh. Every other object is read from the cache, which is
-            // that object's own finished projection.
-            let count = state
-                .zones
-                .list(crate::zone::ZoneLocation::Battlefield)
-                .iter()
-                .filter(|id| {
-                    state.object(**id).is_some_and(|o| {
-                        o.controller == fx.controller
-                            && if o.id == obj.id {
-                                crate::eval::matches_projected(
-                                    filter,
-                                    state,
-                                    o,
-                                    c,
-                                    fx.controller,
-                                    **id,
-                                )
-                            } else {
-                                crate::eval::matches(filter, state, o, fx.controller, **id)
-                            }
-                    })
-                })
-                .count();
-            let count = i16::try_from(count).unwrap_or(i16::MAX);
+            let count = count_on_battlefield(state, obj, c, filter, fx.controller);
             if let Some(pow) = &mut c.power {
                 *pow = pow.saturating_add(count.saturating_mul(*p));
             }
@@ -626,6 +630,19 @@ fn apply(
             if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
                 c.power = Some(*p);
                 c.toughness = Some(*t);
+            }
+        }
+        // CR 613.4a (a printed characteristic-defining ability) and 613.4b
+        // (the same sentence granted): power and toughness are each the
+        // count, set outright like `SetPT` and on a creature only. "You" is
+        // the object's own controller as layer 2 left it, because the
+        // ability is the object's: Ashaya stolen counts its new
+        // controller's lands.
+        Modifier::DefinePTByCount(filter) | Modifier::SetPTToCount(filter) => {
+            if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
+                let n = count_on_battlefield(state, obj, c, filter, *controller);
+                c.power = Some(n);
+                c.toughness = Some(n);
             }
         }
         Modifier::SwitchPT => {

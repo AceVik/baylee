@@ -248,6 +248,22 @@ pub enum Trigger {
     DealsCombatDamageToPlayer(&'static Filter),
     /// The source becomes tapped (City of Brass).
     BecomesTapped(&'static Filter),
+    /// The count of a kind of counter on the source rises from below `n`
+    /// to `n` or more — the window CR 714.2b writes out for a chapter
+    /// symbol, asked of any kind.
+    ///
+    /// Druid Class's "When this Class becomes level 3": this pool keeps a
+    /// Class's level as level counters over level 1 (Wizard Class), so
+    /// level 3 is `n: 2`. It is a trigger of its own and not a rider on
+    /// the level-up activation, because the ability it starts targets: a
+    /// target removed in response would otherwise take the level with it
+    /// (CR 608.2b).
+    CountersReach {
+        /// The kind counted.
+        kind: crate::effect::CounterKind,
+        /// The count that must be reached.
+        n: u8,
+    },
     /// The controller casts their Nth spell this turn (Storm of
     /// Saruman's second-spell trigger).
     NthSpellCast {

@@ -2016,18 +2016,22 @@ fn check_code_matches_the_printing(
         // sentence.
         //
         // What is worth saying instead is whether the card keeps the
-        // promise that base implies. `Layer::PtCda` is declared in the DSL
-        // and no `Modifier` reaches it, so the ability cannot be written
-        // today — and a card claiming `Coverage::Implemented` with a
-        // printed `*` is therefore claiming something no rule performs.
-        // None of the pool's three do; this is the gate that keeps it that
-        // way rather than a count that goes stale.
+        // promise that base implies. `Modifier::DefinePTByCount` reaches
+        // `Layer::PtCda`, but like every static it is registered only while
+        // its source is on the battlefield, and CR 604.3 has a
+        // characteristic-defining ability work in every zone — which
+        // Recruiter of the Guard and Reveillark read. So a card claiming
+        // `Coverage::Implemented` with a printed `*` still claims something
+        // no rule performs everywhere it is asked. None of the pool's do;
+        // this is the gate that keeps it that way rather than a count that
+        // goes stale.
         if printed.parse::<i32>().is_err() {
             tally.defined_pt += 1;
             if knob(content, "coverage").is_some_and(|v| v.starts_with("Coverage::Implemented")) {
                 println!(
                     "{slug}: the printing defines {key} by an ability ({printed}) and the card \
-                     claims Coverage::Implemented — the DSL has no Modifier on Layer::PtCda"
+                     claims Coverage::Implemented — no Layer::PtCda ability works off the \
+                     battlefield (CR 604.3)"
                 );
                 *problems += 1;
             }
