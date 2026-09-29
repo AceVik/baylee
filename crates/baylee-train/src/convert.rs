@@ -8,12 +8,17 @@
 //! Its decisions are refused whole, which is how a dataset drops the games a
 //! card change touched without keeping a list of cards per game.
 
+use std::collections::BTreeMap;
+
 use baylee_core::ids::PlayerId;
+use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
 use baylee_gamehost::RegistryLookup;
 use baylee_gamehost::record::{Line, RECORD_VERSION};
+use baylee_view::PlayerView;
 
-use crate::features::{Encoded, Omni, encode, omniscient, seat_view};
+use crate::features::{Encoded, Omni, encode, omniscient, rel, seat_view};
+use crate::policy::{self, Opt, Picked, Unmatched, Unscored};
 
 /// Which decisions are kept.
 #[derive(Clone, Copy, Debug)]
@@ -34,7 +39,8 @@ impl Default for Keep {
     }
 }
 
-/// One decision.
+/// One step of a decision: the whole of a single answer, or one pick of an
+/// answer taken a pick at a time ([`crate::policy`]).
 #[derive(Clone, Debug)]
 pub struct Sample {
     /// The record line it was answered on.
@@ -43,8 +49,17 @@ pub struct Sample {
     pub seat: u8,
     /// The turn it was asked on.
     pub turn: u32,
+    /// Which pick of the answer this is; 0 for the first (the one a value
+    /// net reads: the later ones show the same position again).
+    pub step: u16,
     /// What the seat saw.
     pub actor: Encoded,
+    /// The options it had at this step; empty when the net does not answer
+    /// this question.
+    pub opts: Vec<Opt>,
+    /// Which of them the house picked, or -1 when its answer could not be
+    /// read as one of them.
+    pub chosen: i32,
     /// What it did not see (training only).
     pub omni: Omni,
 }
@@ -60,6 +75,66 @@ pub struct Converted {
     pub final_turn: u32,
     /// Inputs replayed.
     pub inputs: u64,
+    /// Answers not read as options, by question kind and why.
+    pub unmatched: BTreeMap<(i16, &'static str), u64>,
+}
+
+/// One step of a decision before it becomes a [`Sample`]: its number, what
+/// the seat saw, its options and the one picked (-1 for none).
+type StepSample = (u16, Encoded, Vec<Opt>, i32);
+
+/// The steps of one decision, and why its answer could not be read, if not.
+fn decision(
+    view: &PlayerView,
+    pending: &Pending,
+    action: &PlayerAction,
+    base: Encoded,
+) -> (Vec<StepSample>, Option<&'static str>) {
+    let hand: Vec<_> = view.hand.iter().map(|h| h.id).collect();
+    let seats = view.seats.len();
+    let to_opts = |actor: &Encoded, picked: &Picked| -> Vec<(policy::Choice, Opt)> {
+        let row_of = |id| actor.slots.get(&id).copied();
+        let rel_of = |p| rel(view.seat, p, seats);
+        policy::options(pending, &hand, picked)
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|c| policy::opt(c, &row_of, &rel_of).map(|o| (c, o)))
+            .collect()
+    };
+    match policy::steps(pending, &hand, action) {
+        Ok(steps) => {
+            let mut out = Vec::with_capacity(steps.len());
+            let mut why = None;
+            let mut base = Some(base);
+            for (k, step) in steps.iter().enumerate() {
+                let actor = match base.take() {
+                    Some(b) if k == 0 => b,
+                    _ => encode(view, pending, &step.picked),
+                };
+                let pairs = to_opts(&actor, &step.picked);
+                let chosen = pairs.iter().position(|(c, _)| *c == step.chosen);
+                if chosen.is_none() {
+                    why = Some("no_row");
+                }
+                let opts = pairs.into_iter().map(|(_, o)| o).collect();
+                let chosen = chosen.map_or(-1, |i| i32::try_from(i).unwrap_or(-1));
+                out.push((u16::try_from(k).unwrap_or(u16::MAX), actor, opts, chosen));
+            }
+            (out, why)
+        }
+        Err(e) => {
+            let opts = to_opts(&base, &Picked::default())
+                .into_iter()
+                .map(|(_, o)| o)
+                .collect();
+            let why = match e {
+                Unmatched::Unscored(Unscored::Unsupported) => "unsupported",
+                Unmatched::Unscored(Unscored::Over) => "over",
+                Unmatched::Shape => "shape",
+            };
+            (vec![(0, base, opts, -1)], Some(why))
+        }
+    }
 }
 
 /// Why a record gave no decisions.
@@ -106,6 +181,7 @@ pub fn convert(record: &[u8], keep: Keep) -> Result<Converted, Refused> {
     let mut samples = Vec::new();
     let mut inputs = 0;
     let mut winners = None;
+    let mut unmatched: BTreeMap<(i16, &'static str), u64> = BTreeMap::new();
     for line in lines {
         match line? {
             Line::Header { .. } => return Err(Refused::Unreadable("a second header".into())),
@@ -123,16 +199,28 @@ pub fn convert(record: &[u8], keep: Keep) -> Result<Converted, Refused> {
                     && let Some(pending) = engine.pending_for(player).cloned()
                 {
                     let view = seat_view(&engine, player, &pending, n);
-                    let actor = encode(&view, &pending);
-                    if keep.forced || actor.options > 1 {
+                    let base = encode(&view, &pending, &Picked::default());
+                    if keep.forced || base.options > 1 {
                         if eligible.is_multiple_of(every) {
-                            samples.push(Sample {
-                                n,
-                                seat,
-                                turn: engine.state().turn.number,
-                                actor,
-                                omni: omniscient(&engine, player),
-                            });
+                            let kind = base.kind;
+                            let (steps, why) = decision(&view, &pending, &action, base);
+                            if let Some(why) = why {
+                                *unmatched.entry((kind, why)).or_default() += 1;
+                            }
+                            let omni = omniscient(&engine, player);
+                            let turn = engine.state().turn.number;
+                            for (step, actor, opts, chosen) in steps {
+                                samples.push(Sample {
+                                    n,
+                                    seat,
+                                    turn,
+                                    step,
+                                    actor,
+                                    opts,
+                                    chosen,
+                                    omni: omni.clone(),
+                                });
+                            }
                         }
                         eligible += 1;
                     }
@@ -153,6 +241,7 @@ pub fn convert(record: &[u8], keep: Keep) -> Result<Converted, Refused> {
         winners,
         final_turn: engine.state().turn.number,
         inputs,
+        unmatched,
     })
 }
 
@@ -211,6 +300,7 @@ mod tests {
         assert_eq!(
             all.samples
                 .iter()
+                .filter(|s| s.step == 0)
                 .map(|s| (s.n, s.seat))
                 .collect::<Vec<_>>(),
             answered
@@ -280,6 +370,57 @@ mod tests {
             convert(broken.as_bytes(), Keep::default()),
             Err(Refused::Diverged(Some(_)))
         ));
+    }
+
+    /// Every answer the house gave is read as one of the options offered at
+    /// its step, save the kinds the net does not answer yet, and no offered
+    /// object ever loses its row. A multi-pick answer is several steps, the
+    /// picks so far marked on their rows.
+    #[test]
+    fn every_house_answer_is_an_offered_option() {
+        use crate::features::offered;
+        let mut steps = 0;
+        let mut multi = 0;
+        for seed in [11, 13] {
+            let record = record(seed);
+            let game = convert(
+                &record,
+                Keep {
+                    forced: true,
+                    every: 1,
+                },
+            )
+            .unwrap();
+            for ((kind, why), n) in &game.unmatched {
+                assert_eq!(
+                    *why, "unsupported",
+                    "{n} answers to kind {kind} not read: {why}"
+                );
+            }
+            for s in &game.samples {
+                assert_eq!(s.actor.offered_dropped, 0, "an offered object lost its row");
+                if s.chosen >= 0 {
+                    let chosen = usize::try_from(s.chosen).unwrap();
+                    assert!(chosen < s.opts.len());
+                    steps += 1;
+                }
+                if s.step > 0 {
+                    multi += 1;
+                    let marked = s
+                        .actor
+                        .rows
+                        .iter()
+                        .filter(|r| r[29] & offered::PICKED != 0)
+                        .count();
+                    assert!(marked > 0, "a later pick shows nothing picked");
+                }
+            }
+        }
+        assert!(steps > 1000, "only {steps} answered steps");
+        assert!(
+            multi > 0,
+            "no multi-pick answer was seen, so none was checked"
+        );
     }
 
     #[test]

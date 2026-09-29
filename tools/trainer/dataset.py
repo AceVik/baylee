@@ -19,7 +19,9 @@ from pathlib import Path
 import numpy as np
 import torch
 
-ENCODER_VERSION = 1
+# Versions this reader knows. v2 adds the options (opt.i16, opt_off.i64) and
+# the meta columns step, chosen, n_opts, profile, offered_dropped.
+ENCODER_VERSIONS = (1, 2)
 
 
 @dataclass
@@ -31,6 +33,8 @@ class Dataset:
     glob: np.ndarray  # (N, GLOB_WIDTH) int16
     info: np.ndarray  # (N, META_COLS) int32
     games: list[dict]
+    opt: np.ndarray | None = None  # (O_total, 3) int16: head, a, b (v2)
+    opt_off: np.ndarray | None = None  # (N + 1,) int64 (v2)
 
     @property
     def n(self) -> int:
@@ -43,8 +47,8 @@ class Dataset:
 def load(path: str | Path) -> Dataset:
     path = Path(path)
     meta = json.loads((path / "dataset.json").read_text())
-    if meta["encoder_version"] != ENCODER_VERSION:
-        raise ValueError(f"encoder v{meta['encoder_version']}, this reader knows v{ENCODER_VERSION}")
+    if meta["encoder_version"] not in ENCODER_VERSIONS:
+        raise ValueError(f"encoder v{meta['encoder_version']}, this reader knows {ENCODER_VERSIONS}")
     n_ent = len(meta["ent_cols"])
     n_glob = meta["glob_width"]
     n_meta = len(meta["meta_cols"])
@@ -57,6 +61,11 @@ def load(path: str | Path) -> Dataset:
     ent_off = np.empty(samples + 1, dtype=np.int64)
     glob = np.empty((samples, n_glob), dtype=np.int16)
     info = np.empty((samples, n_meta), dtype=np.int32)
+    v2 = meta["encoder_version"] >= 2
+    n_opt = sum(s.get("opts", 0) for s in meta["shards"])
+    opt = np.empty((n_opt, 3), dtype=np.int16) if v2 else None
+    opt_off = np.empty(samples + 1, dtype=np.int64) if v2 else None
+    o0 = 0
     e0, s0 = 0, 0
     for shard in meta["shards"]:
         d = path / shard["dir"]
@@ -68,12 +77,19 @@ def load(path: str | Path) -> Dataset:
         ent_off[s0 : s0 + ns] = np.memmap(d / "ent_off.i64", dtype="<i8", mode="r")[:-1] + e0
         glob[s0 : s0 + ns] = np.memmap(d / "glob.i16", dtype="<i2", mode="r").reshape(-1, n_glob)
         info[s0 : s0 + ns] = np.memmap(d / "meta.i32", dtype="<i4", mode="r").reshape(-1, n_meta)
+        if v2:
+            no = shard["opts"]
+            opt[o0 : o0 + no] = np.memmap(d / "opt.i16", dtype="<i2", mode="r").reshape(-1, 3)
+            opt_off[s0 : s0 + ns] = np.memmap(d / "opt_off.i64", dtype="<i8", mode="r")[:-1] + o0
+            o0 += no
         e0 += ne
         s0 += ns
     ent_off[s0] = e0
     assert e0 == entities and s0 == samples
     games = [json.loads(l) for l in (path / "games.jsonl").read_text().splitlines()]
-    return Dataset(meta=meta, ent_card=ent_card, ent_feat=ent_feat, ent_off=ent_off, glob=glob, info=info, games=games)
+    if v2:
+        opt_off[s0] = o0
+    return Dataset(meta=meta, ent_card=ent_card, ent_feat=ent_feat, ent_off=ent_off, glob=glob, info=info, games=games, opt=opt, opt_off=opt_off)
 
 
 def split_by_game(ds: Dataset, held_out_every: int = 10) -> tuple[np.ndarray, np.ndarray]:

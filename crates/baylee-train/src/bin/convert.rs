@@ -39,7 +39,7 @@ use flate2::read::GzDecoder;
 use serde_json::{Value, json};
 
 /// Columns of `meta.i32`.
-const META_COLS: [&str; 9] = [
+const META_COLS: [&str; 14] = [
     "game",
     "seat",
     "n",
@@ -49,7 +49,15 @@ const META_COLS: [&str; 9] = [
     "pending_kind",
     "n_options",
     "entities_dropped",
+    "offered_dropped",
+    "step",
+    "chosen",
+    "n_opts",
+    "profile",
 ];
+
+/// The house profiles, as the `profile` column numbers them.
+const PROFILES: [&str; 5] = ["novice", "casual", "steady", "sharp", "expert"];
 
 #[derive(Parser, Debug)]
 #[command(about = "Turns self-play runs into a dataset the trainer reads")]
@@ -86,6 +94,8 @@ struct Report {
     id: u32,
     samples: usize,
     refused: Option<String>,
+    unmatched: std::collections::BTreeMap<(i16, &'static str), u64>,
+    offered_dropped: u64,
 }
 
 /// One worker's column files.
@@ -100,9 +110,12 @@ struct Shard {
     omni_tag: BufWriter<File>,
     omni_pos: BufWriter<File>,
     omni_off: BufWriter<File>,
+    opt: BufWriter<File>,
+    opt_off: BufWriter<File>,
     samples: u64,
     entities: u64,
     omni: u64,
+    opts: u64,
 }
 
 fn put<W: Write>(w: &mut W, bytes: &[u8]) -> std::io::Result<()> {
@@ -128,17 +141,21 @@ impl Shard {
             omni_tag: open("omni_tag.i16")?,
             omni_pos: open("omni_pos.i16")?,
             omni_off: open("omni_off.i64")?,
+            opt: open("opt.i16")?,
+            opt_off: open("opt_off.i64")?,
             dir,
             samples: 0,
             entities: 0,
             omni: 0,
+            opts: 0,
         };
         put(&mut shard.ent_off, &0_i64.to_le_bytes())?;
         put(&mut shard.omni_off, &0_i64.to_le_bytes())?;
+        put(&mut shard.opt_off, &0_i64.to_le_bytes())?;
         Ok(shard)
     }
 
-    fn write(&mut self, game: u32, converted: &Converted) -> anyhow::Result<()> {
+    fn write(&mut self, game: u32, profiles: &[i64], converted: &Converted) -> anyhow::Result<()> {
         for s in &converted.samples {
             for card in &s.actor.cards {
                 put(&mut self.ent_card, &card.to_le_bytes())?;
@@ -170,7 +187,19 @@ impl Shard {
                 i64::from(s.actor.kind),
                 i64::from(s.actor.options),
                 s.actor.dropped as i64,
+                s.actor.offered_dropped as i64,
+                i64::from(s.step),
+                i64::from(s.chosen),
+                s.opts.len() as i64,
+                profiles.get(usize::from(s.seat)).copied().unwrap_or(-1),
             ];
+            for o in &s.opts {
+                for v in [o.head, o.a, o.b] {
+                    put(&mut self.opt, &v.to_le_bytes())?;
+                }
+            }
+            self.opts += s.opts.len() as u64;
+            put(&mut self.opt_off, &(self.opts as i64).to_le_bytes())?;
             for v in meta {
                 let v = i32::try_from(v).unwrap_or(i32::MAX);
                 put(&mut self.meta, &v.to_le_bytes())?;
@@ -198,6 +227,8 @@ impl Shard {
             &mut self.omni_tag,
             &mut self.omni_pos,
             &mut self.omni_off,
+            &mut self.opt,
+            &mut self.opt_off,
         ] {
             w.flush()?;
         }
@@ -206,6 +237,7 @@ impl Shard {
             "samples": self.samples,
             "entities": self.entities,
             "omni": self.omni,
+            "opts": self.opts,
         }))
     }
 }
@@ -300,13 +332,32 @@ fn main() -> anyhow::Result<()> {
                     break;
                 };
                 let record = read_record(&runs[game.run], &game.line)?;
+                let profiles: Vec<i64> = game.line["profiles"]
+                    .as_array()
+                    .map(|ps| {
+                        ps.iter()
+                            .map(|p| {
+                                PROFILES
+                                    .iter()
+                                    .position(|n| Some(*n) == p.as_str())
+                                    .map_or(-1, |i| i as i64)
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
                 let report = match convert(&record, keep) {
                     Ok(converted) => {
-                        shard.write(game.id, &converted)?;
+                        shard.write(game.id, &profiles, &converted)?;
                         Report {
                             id: game.id,
                             samples: converted.samples.len(),
                             refused: None,
+                            offered_dropped: converted
+                                .samples
+                                .iter()
+                                .map(|s| s.actor.offered_dropped as u64)
+                                .sum(),
+                            unmatched: converted.unmatched,
                         }
                     }
                     Err(why) => Report {
@@ -316,6 +367,8 @@ fn main() -> anyhow::Result<()> {
                             Refused::Diverged(_) => "diverged".to_owned(),
                             other => format!("{other:?}"),
                         }),
+                        unmatched: std::collections::BTreeMap::new(),
+                        offered_dropped: 0,
                     },
                 };
                 if tx.send(report).is_err() {
@@ -333,13 +386,20 @@ fn main() -> anyhow::Result<()> {
     let mut done = 0_usize;
     let mut samples = 0_usize;
     let mut refused = std::collections::BTreeMap::<String, u64>::new();
+    let mut unmatched = std::collections::BTreeMap::<String, u64>::new();
+    let mut offered_dropped = 0_u64;
     loop {
         match rx.recv_timeout(Duration::from_secs(1)) {
             Ok(report) => {
                 done += 1;
                 samples += report.samples;
+                offered_dropped += report.offered_dropped;
                 if let Some(why) = &report.refused {
                     *refused.entry(why.clone()).or_default() += 1;
+                }
+                for ((kind, why), n) in &report.unmatched {
+                    let kind = PENDING_KINDS.get(*kind as usize).copied().unwrap_or("?");
+                    *unmatched.entry(format!("{kind}/{why}")).or_default() += n;
                 }
                 let id = report.id as usize;
                 reports[id] = Some(report);
@@ -351,7 +411,7 @@ fn main() -> anyhow::Result<()> {
             last = Instant::now();
             let secs = started.elapsed().as_secs_f64().max(1e-9);
             eprintln!(
-                "[convert] {done}/{} games · {samples} decisions · {:.0} games/s · refused {refused:?}",
+                "[convert] {done}/{} games · {samples} decisions · {:.0} games/s · refused {refused:?} · unmatched {unmatched:?} · offered dropped {offered_dropped}",
                 games.len(),
                 f64::from(u32::try_from(done).unwrap_or(u32::MAX)) / secs,
             );
@@ -416,6 +476,17 @@ fn main() -> anyhow::Result<()> {
         "games": games.len(),
         "samples": samples,
         "left_out": {"stopped": unfinished, "refused": refused},
+        "unmatched_answers": unmatched,
+        "offered_objects_dropped": offered_dropped,
+        "profiles": PROFILES,
+        "options": {
+            "file": "opt.i16 (opts × 3: head, a, b), opt_off.i64 (samples + 1)",
+            "heads": ["fixed", "entity", "ability", "pair", "attack_player", "player", "color", "subtype", "number", "mode"],
+            "fixed": ["pass", "done", "yes", "no", "keep", "mulligan"],
+            "verbs": ["land", "cast", "suspend", "mana", "pick"],
+            "ability_slots": baylee_train::policy::ABILITY_SLOTS,
+            "max_number": baylee_train::policy::MAX_NUMBER,
+        },
         "shards": shards,
         "seconds": started.elapsed().as_secs_f64(),
     });

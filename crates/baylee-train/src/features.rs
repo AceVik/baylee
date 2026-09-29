@@ -28,7 +28,7 @@ use baylee_gamehost::view::{SeatContext, awaiting_for, deciding, owed_payment, p
 use baylee_view::{CounterKind, PlayerView, PublicObject, StackItem, TargetRef};
 
 /// The encoder's version; a dataset names the one that wrote it.
-pub const ENCODER_VERSION: u32 = 1;
+pub const ENCODER_VERSION: u32 = 2;
 
 /// Rows in the `CardIndex` ledger (`baylee_cards_index::ROWS`). A card's id
 /// is its index plus one, so id 0 is padding.
@@ -156,6 +156,9 @@ pub mod offered {
     pub const MANA: i16 = 1 << 3;
     /// Choose it (a target, a card, an attacker, a blocker, a keep).
     pub const CHOOSE: i16 = 1 << 4;
+    /// Already picked by the answer being given (an attacker declared, a
+    /// target chosen), when an answer is taken one pick at a time.
+    pub const PICKED: i16 = 1 << 5;
 }
 
 /// Seats the globals have room for, the deciding seat first.
@@ -300,14 +303,20 @@ pub struct Encoded {
     pub globals: Vec<i16>,
     /// Objects past [`MAX_ENTITIES`] that were left out.
     pub dropped: usize,
+    /// Of those, objects the question offered. Always 0 unless a question
+    /// offers more objects than a decision has rows: offered objects are
+    /// kept before any other.
+    pub offered_dropped: usize,
     /// The question's kind ([`PENDING_KINDS`]).
     pub kind: i16,
     /// How many answers it has ([`question`]).
     pub options: u32,
+    /// Each kept object's row.
+    pub slots: BTreeMap<ObjectId, i16>,
 }
 
 /// A seat relative to the deciding one: 0 for itself, then around the table.
-fn rel(seat: PlayerId, other: PlayerId, seats: usize) -> i16 {
+pub(crate) fn rel(seat: PlayerId, other: PlayerId, seats: usize) -> i16 {
     let n = seats.max(1);
     ((usize::from(other.get()) + n - usize::from(seat.get())) % n) as i16
 }
@@ -332,10 +341,11 @@ enum Seen<'a> {
     Public(&'a PublicObject, usize),
 }
 
-/// Encodes the decision `view` shows with `pending` asked.
+/// Encodes the decision `view` shows with `pending` asked, `picked` picked so
+/// far by an answer given one pick at a time.
 #[must_use]
 #[allow(clippy::too_many_lines)] // one pass per zone, one column per line
-pub fn encode(view: &PlayerView, pending: &Pending) -> Encoded {
+pub fn encode(view: &PlayerView, pending: &Pending, picked: &crate::policy::Picked) -> Encoded {
     let seat = view.seat;
     let seats = view.seats.len();
     let (kind, options) = question(pending, view.hand.len());
@@ -407,7 +417,22 @@ pub fn encode(view: &PlayerView, pending: &Pending) -> Encoded {
             seen.push((z, o.id, Seen::Public(o, 0)));
         }
     }
+    // Offered objects first, so a table of more than MAX_ENTITIES objects
+    // loses only objects the answer cannot name. The order is otherwise
+    // kept; the trunk has no positions, so order means only what is kept.
+    let hand: Vec<ObjectId> = view.hand.iter().map(|h| h.id).collect();
+    let offered_ids = crate::policy::offered_objects(pending, &hand);
+    let (mut first, rest): (Vec<_>, Vec<_>) = seen
+        .into_iter()
+        .partition(|(_, id, _)| offered_ids.contains(id));
+    first.extend(rest);
+    let mut seen = first;
     let dropped = seen.len().saturating_sub(MAX_ENTITIES);
+    let offered_dropped = seen
+        .iter()
+        .skip(MAX_ENTITIES)
+        .filter(|(_, id, _)| offered_ids.contains(id))
+        .count();
     seen.truncate(MAX_ENTITIES);
     // An object can be seen twice (looked at while on the stack); its first
     // row is the one others point at.
@@ -432,6 +457,7 @@ pub fn encode(view: &PlayerView, pending: &Pending) -> Encoded {
 
     let mut out = Encoded {
         dropped,
+        offered_dropped,
         kind,
         options,
         ..Encoded::default()
@@ -439,7 +465,12 @@ pub fn encode(view: &PlayerView, pending: &Pending) -> Encoded {
     for (z, id, object) in &seen {
         let mut r = [0_i16; ENT_COLS.len()];
         r[0] = *z;
-        r[29] = offers.get(id).copied().unwrap_or(0);
+        r[29] = offers.get(id).copied().unwrap_or(0)
+            | if picked.objects.contains(id) {
+                offered::PICKED
+            } else {
+                0
+            };
         r[21] = -1;
         r[22] = -1;
         r[23] = -1;
@@ -595,6 +626,7 @@ pub fn encode(view: &PlayerView, pending: &Pending) -> Encoded {
         }
     }
     out.globals = g;
+    out.slots = slot;
     out
 }
 

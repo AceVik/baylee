@@ -16,5 +16,7 @@ pub mod convert;
 pub mod features;
 pub mod housedeck;
 #[cfg(feature = "play")]
+pub mod policy;
+#[cfg(feature = "play")]
 pub mod selfplay;
 pub mod working;

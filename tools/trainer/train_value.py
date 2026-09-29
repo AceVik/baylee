@@ -129,6 +129,28 @@ def markdown(rep: dict) -> str:
         r = rep["overall"][k]
         lines.append(f"| {k} | {r['brier']:.4f} | {r['logloss']:.4f} | {r['accuracy']:.3f} | {r['ece']:.4f} |")
     lines.append("")
+    lines.append("## The extremes")
+    lines.append("")
+    lines.append("Where a bar's credibility lives: positions rated under 10 % and over 90 %.")
+    lines.append("")
+    lines.append("| | rated under 10 %: positions, mean rating, won | rated over 90 %: positions, mean rating, won |")
+    lines.append("|---|---|---|")
+    for name, rel in [("all", rep["overall"]["value net"]["reliability"])] + [
+        (k, v["reliability"]) for k, v in rep["by_progress"].items()
+    ]:
+        low = next((r for r in rel if r["bin"] == "0.0-0.1"), None)
+        high = next((r for r in rel if r["bin"] == "0.9-1.0"), None)
+        cell = lambda r: f"{r['n']:,} · {r['predicted']:.3f} · {r['won']:.3f}" if r else "—"
+        lines.append(f"| {name} | {cell(low)} | {cell(high)} |")
+    lines.append("")
+    if rep.get("curve"):
+        lines.append(f"## Training curve (held-out slice; reported model: step {rep['best_step']:,})")
+        lines.append("")
+        lines.append("| step | train loss | held-out log loss | Brier | ECE |")
+        lines.append("|---|---|---|---|---|")
+        for c in rep["curve"]:
+            lines.append(f"| {c['step']:,} | {c['train_loss']:.4f} | {c['logloss']:.4f} | {c['brier']:.4f} | {c['ece']:.4f} |")
+        lines.append("")
     lines.append("## Reliability (held out)")
     lines.append("")
     lines.append("| rated | positions | mean rating | won |")
@@ -174,6 +196,10 @@ def main() -> None:
     t0 = time.time()
     ds = D.load(Path(args.data).expanduser())
     train_idx, held_idx = D.split_by_game(ds)
+    if "step" in ds.meta["meta_cols"]:
+        # A multi-pick answer's later steps show the same position again.
+        first = ds.col("step") == 0
+        train_idx, held_idx = train_idx[first[train_idx]], held_idx[first[held_idx]]
     log(f"loaded {ds.n:,} decisions, {len(ds.ent_card):,} entities in {time.time() - t0:.0f}s; "
         f"train {len(train_idx):,}, held out {len(held_idx):,}")
     target = ds.col("result").astype(np.float32) / 2
@@ -252,7 +278,9 @@ def main() -> None:
     rep = {
         "model": out.name,
         "measures": "the chance that a house AI in the deciding seat, playing on against a house AI, wins from this "
-                    "position (self-play of the house profiles, not human play)",
+                    "position (self-play of the house profiles, not human play). Two decks only (allytifact and "
+                    "victory, their partial cards swapped for basics): the net has seen about two hundred distinct "
+                    "cards, and its other embedding rows are untrained, so the number does not carry to other decks yet",
         "dataset": str(args.data),
         "working_hashes": sorted({s["working"]["hash"][:12] for s in ds.meta["sources"]}),
         "builds": sorted({s["build"] for s in ds.meta["sources"]}),
