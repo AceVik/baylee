@@ -21057,8 +21057,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Sejiri Steppe
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(2)],
+        stackable: 1,
+        lines: &[Some(2), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

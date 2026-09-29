@@ -740,7 +740,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            43,
+            46,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -791,8 +791,8 @@ mod tests {
     }
 
     /// The counts, so that a change which flips a modifier from one side to
-    /// the other is a failure and not a quiet re-balancing: twenty-two
-    /// modifiers lock the objects they found, twenty-one do not.
+    /// the other is a failure and not a quiet re-balancing: twenty-three
+    /// modifiers lock the objects they found, twenty-three do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -800,10 +800,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_two_modifiers_lock_a_set_and_twenty_one_do_not() {
+    fn twenty_three_modifiers_lock_a_set_and_twenty_three_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (22, 21));
+        assert_eq!((locking, all.len() - locking), (23, 23));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

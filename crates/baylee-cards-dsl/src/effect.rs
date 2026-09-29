@@ -1651,6 +1651,15 @@ pub enum Effect {
         /// How long.
         duration: crate::static_ability::Duration,
     },
+    /// "target creature gains protection from the color of your choice
+    /// until end of turn" (Sejiri Steppe). The color is chosen as the
+    /// effect resolves (CR 608.2d asks it then, not on activation), by its
+    /// controller, among the five; the protection is a layer-6 grant
+    /// (CR 613.1f) on the first target for `duration`.
+    ProtectionFromChosenColor {
+        /// How long.
+        duration: crate::static_ability::Duration,
+    },
 }
 
 impl Effect {
@@ -2217,6 +2226,7 @@ impl Effect {
             | Effect::BecomeMonarch(_)
             | Effect::OptionalBasicLandSearchFor { .. }
             | Effect::PumpFilter { .. }
+            | Effect::ProtectionFromChosenColor { .. }
             | Effect::Regenerate { .. }
             | Effect::PumpTarget { .. } => (NONE, NONE),
         }

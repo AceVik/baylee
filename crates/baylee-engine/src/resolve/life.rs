@@ -56,9 +56,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // it is still on the battlefield as the same object, else as it
             // last existed there (CR 608.2h); with neither, the effect
             // fails to determine an amount and deals nothing.
-            let Some(dealer) = res.event_object else {
-                return None;
-            };
+            let dealer = res.event_object?;
             let power = state
                 .object(dealer)
                 .filter(|o| o.zone == crate::zone::Zone::Battlefield)

@@ -347,6 +347,14 @@ pub enum AwaitingOp {
         /// What the mana may be spent on, if restricted.
         restriction: Option<baylee_cards_dsl::effect::ManaRestriction>,
     },
+    /// The color a protection grant is from, asked as the effect resolves
+    /// (Sejiri Steppe): the answer registers the grant on `target`.
+    ProtectionColor {
+        /// The creature that gains protection.
+        target: ObjectId,
+        /// How long.
+        duration: baylee_cards_dsl::Duration,
+    },
     /// "You may pay N life; if you don't, this enters tapped".
     PayLifeOrTapSelf {
         /// Life to pay.
@@ -636,14 +644,20 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
 /// When the suspended operation is not a mana choice.
 #[must_use]
 pub fn resume_with_color(state: &mut GameState, res: &mut Resolution, color: ManaColor) -> Flow {
+    let awaiting = res.awaiting.take().expect("resume without awaiting op");
+    if let AwaitingOp::ProtectionColor { target, duration } = awaiting {
+        grant_protection_from(state, res, target, color, duration);
+        res.pc += 1;
+        return run(state, res);
+    }
     let AwaitingOp::ManaChoice {
         colors,
         remaining,
         per_pick,
         restriction,
-    } = res.awaiting.take().expect("resume without awaiting op")
+    } = awaiting
     else {
-        panic!("resume_with_color on non-mana choice");
+        panic!("resume_with_color on a question that is not about a color");
     };
     debug_assert!(colors.contains(&color));
     mana::add(state, res, color, per_pick, restriction);
@@ -661,6 +675,49 @@ pub fn resume_with_color(state: &mut GameState, res: &mut Resolution, color: Man
     }
     res.pc += 1;
     run(state, res)
+}
+
+/// "Protection from [color]", one filter per color, so a grant made from a
+/// choice names a filter that lives as long as the effect does.
+static PROTECTION_COLORS: [baylee_cards_dsl::Filter; 5] = [
+    baylee_cards_dsl::Filter::HasColor(ColorSet::of(baylee_core::color::Color::White)),
+    baylee_cards_dsl::Filter::HasColor(ColorSet::of(baylee_core::color::Color::Blue)),
+    baylee_cards_dsl::Filter::HasColor(ColorSet::of(baylee_core::color::Color::Black)),
+    baylee_cards_dsl::Filter::HasColor(ColorSet::of(baylee_core::color::Color::Red)),
+    baylee_cards_dsl::Filter::HasColor(ColorSet::of(baylee_core::color::Color::Green)),
+];
+
+/// Registers "protection from `color`" on `target` for `duration`, if it is
+/// still on the battlefield — the answer to [`AwaitingOp::ProtectionColor`].
+fn grant_protection_from(
+    state: &mut GameState,
+    res: &Resolution,
+    target: ObjectId,
+    color: ManaColor,
+    duration: baylee_cards_dsl::Duration,
+) {
+    let Some(filter) = PROTECTION_COLORS.get(color as usize) else {
+        return;
+    };
+    if !state
+        .object(target)
+        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+    {
+        return;
+    }
+    let timestamp = state.next_timestamp();
+    let filter_on = crate::effects::EffectFilter::object(state, target);
+    state.effects.register(crate::effects::ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: Some(res.source),
+        controller: res.controller,
+        origin: crate::effects::EffectOrigin::Resolution,
+        layer: baylee_cards_dsl::Layer::Ability,
+        timestamp,
+        duration,
+        filter: filter_on,
+        modifier: baylee_cards_dsl::Modifier::ProtectionFrom(filter),
+    });
 }
 
 /// Puts CR 903.9b's question before an operation that is about to move
@@ -1241,6 +1298,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         }
         AwaitingOp::ControlRotation { .. }
         | AwaitingOp::ManaChoice { .. }
+        | AwaitingOp::ProtectionColor { .. }
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::PlayerMayPayLife { .. }
         | AwaitingOp::MayDo { .. }
@@ -2044,6 +2102,24 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 obj.riders.push(crate::object::Rider::Prepared);
             }
             None
+        }
+        Effect::ProtectionFromChosenColor { duration } => {
+            let target = res.targets.first().copied().filter(|t| {
+                state
+                    .object(*t)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            })?;
+            res.awaiting = Some(AwaitingOp::ProtectionColor { target, duration });
+            Some(Pending::ChooseColor {
+                player: you,
+                options: vec![
+                    ManaColor::White,
+                    ManaColor::Blue,
+                    ManaColor::Black,
+                    ManaColor::Red,
+                    ManaColor::Green,
+                ],
+            })
         }
         Effect::PayCostOrLoseLater { cost } => {
             state.delayed.push(crate::state::DelayedTrigger {
