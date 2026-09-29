@@ -665,11 +665,15 @@ pub struct GameState {
     /// How often an ability of an object has been used this turn, cleared as
     /// a turn begins.
     ///
-    /// Two clauses share it because they are the same count: "this ability
-    /// triggers only once each turn" (Jin-Gitaxias) and "activate only once
-    /// each turn" (Wall of Roots). The key is the object and the ability
-    /// index, so a permanent that leaves the battlefield and comes back
-    /// starts over — CR 400.7 rather than a convenience.
+    /// Four clauses share it because each is one ability's count of one
+    /// thing it does in a turn: "this ability triggers only once each turn"
+    /// (Jin-Gitaxias), "activate only once each turn" (Wall of Roots), "do
+    /// this only once each turn" (The Reaper, King No More: set by the yes)
+    /// and "if this is the first time this ability has resolved this turn"
+    /// (Omnath, Locus of Creation: its resolutions). No ability says two of
+    /// them. The key is the object and the ability index, so a permanent
+    /// that leaves the battlefield and comes back starts over — CR 400.7
+    /// rather than a convenience.
     ///
     /// It is hashed into [`Self::loop_signature`], because what is left of a
     /// limit decides what is offered. `Engine::loyalty_used_this_turn` is

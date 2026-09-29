@@ -1278,6 +1278,21 @@ pub enum Effect {
         /// Effects when it does not.
         otherwise: &'static [Effect],
     },
+    /// "…if this is the first time this ability has resolved this turn. If
+    /// it's the second time, …. If it's the third time, …." (Omnath, Locus
+    /// of Creation.) The nth effect runs as this ability resolves for the
+    /// nth time this turn, and a resolution past the end of the list does
+    /// nothing.
+    ///
+    /// The count is the ability's own, kept per object and ability index in
+    /// the turn's tally (`GameState::ability_fires` in the engine), so a
+    /// source that left the battlefield and came back starts over
+    /// (CR 400.7). It is counted as this effect runs, which is the ability
+    /// resolving when the effect is the whole of it, as Omnath's is.
+    NthResolutionThisTurn {
+        /// One effect per resolution, the first time first.
+        effects: &'static [Effect],
+    },
     /// The source gains the prepared marker (Emeritus of Woe's
     /// re-prepare trigger).
     BecomePrepared,
@@ -2340,6 +2355,7 @@ impl Effect {
             Effect::Sequence(effects)
             | Effect::MayDo { effects }
             | Effect::MayDoOnceEachTurn { effects }
+            | Effect::NthResolutionThisTurn { effects }
             | Effect::Reflexive {
                 when: _,
                 effects,
@@ -2525,6 +2541,21 @@ mod verb_tests {
         });
         assert_eq!(seen, 2);
         assert!(counter_seen);
+    }
+
+    /// Each of the nth-resolution effects is walked.
+    #[test]
+    fn nth_resolution_effects_are_visited() {
+        static EFFECTS: &[Effect] = &[Effect::NthResolutionThisTurn {
+            effects: &[Effect::gain_life(4), Effect::draw(1)],
+        }];
+        let mut seen = 0;
+        let mut draw_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            draw_seen |= matches!(effect, Effect::DrawCards { .. });
+        });
+        assert_eq!(seen, 3);
+        assert!(draw_seen);
     }
 
     /// "You may …. Do this only once each turn." carries its body the way

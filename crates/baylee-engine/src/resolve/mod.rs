@@ -2436,6 +2436,19 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::NthResolutionThisTurn { effects } => {
+            // This resolution is the ability's nth this turn, counted in the
+            // turn's per-ability tally. A spell has no ability to count.
+            let key = state
+                .object(res.on_stack)
+                .and_then(|o| o.ability)
+                .map(|loc| (loc.source, loc.index))?;
+            let nth = state.ability_fires.get(&key).copied().unwrap_or(0) + 1;
+            state.ability_fires.insert(key, nth);
+            let index = usize::try_from(nth - 1).ok()?;
+            let this_time = effects.get(index..=index)?;
+            run_nested(state, res, this_time)
+        }
         // The seat is the ability's controller and the source is its
         // object, which is the same pair `condition_holds` is handed at an
         // activation gate and at an intervening `if` — one reader, so a
