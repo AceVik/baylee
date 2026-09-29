@@ -4185,7 +4185,10 @@ pub(crate) fn mana_cost_fingerprint(cost: &baylee_core::mana::ManaCost) -> u64 {
 
 fn hash_mana_cost(h: &mut Hasher, cost: &baylee_core::mana::ManaCost) {
     h.u32(cost.len());
-    for s in cost.symbols() {
+    // A symbol and how many of it: the cost is counted (`ManaCost`), so
+    // this walks the kinds it holds, not every symbol.
+    for (s, n) in cost.runs() {
+        h.u16(n);
         match s {
             ManaSymbol::Generic(n) => {
                 h.u8(0);

@@ -108,6 +108,8 @@ impl ManaSymbol {
 /// [`ManaSymbol`] but [`ManaSymbol::Generic`], which a cost holds as one
 /// amount ([`ManaCost`]).
 const KINDS: usize = 42;
+// One bit per kind in `ManaCost::present`.
+const _: () = assert!(KINDS <= 64);
 
 /// Where each kind starts in [`KIND_SYMBOLS`], which is the canonical order a
 /// cost is written in (`docs/mana-notation.md`): the variables, then generic
@@ -127,6 +129,9 @@ const SNOW: usize = 40;
 const COLORLESS: usize = 41;
 /// Generic mana is written after the variables and before everything else.
 const GENERIC_AT: usize = HALF;
+/// The variables' bits in [`ManaCost`]'s `present`: every kind before
+/// generic mana.
+const VARIABLE_BITS: u64 = (1 << GENERIC_AT) - 1;
 
 /// The ten hybrid pairs (CR 107.4), in the order a cost writes them: by
 /// their two colour bits, so `{W/U}` (3) comes before `{W/B}` (5).
@@ -235,6 +240,9 @@ const fn slot(symbol: ManaSymbol) -> Slot {
 pub struct ManaCost {
     /// How many of each symbol but generic mana, by [`slot`].
     counts: [u16; KINDS],
+    /// Which counts are not zero, bit `k` for count `k`: what a reader
+    /// walks, so a cost of three kinds is three steps and not forty-two.
+    present: u64,
     /// The generic mana, one symbol however many were added; `None` for a
     /// cost that writes none, which `{0}` does.
     generic: Option<u32>,
@@ -254,6 +262,7 @@ impl ManaCost {
     /// The empty cost (lands, tokens, suspend-only cards).
     pub const ZERO: Self = Self {
         counts: [0; KINDS],
+        present: 0,
         generic: None,
         len: 0,
         cmc: 0,
@@ -334,6 +343,7 @@ impl ManaCost {
                     after
                 };
                 self.counts[k] = after as u16;
+                self.present |= 1 << k;
                 let added = after - before;
                 self.len = self.len.saturating_add(added);
                 self.cmc = self
@@ -373,37 +383,39 @@ impl ManaCost {
     /// Whether the cost contains `{X}`/`{Y}`/`{Z}`.
     #[must_use]
     pub const fn has_variable(&self) -> bool {
-        self.counts[VARIABLES] > 0
-            || self.counts[VARIABLES + 1] > 0
-            || self.counts[VARIABLES + 2] > 0
+        self.present & VARIABLE_BITS != 0
     }
 
     /// All colors referenced by the cost (hybrid counts both).
     #[must_use]
     pub const fn colors(&self) -> ColorSet {
         let mut set = ColorSet::EMPTY;
-        let mut k = 0usize;
-        while k < KINDS {
-            if self.counts[k] > 0 {
-                set = set.union(KIND_SYMBOLS[k].colors());
-            }
-            k += 1;
+        let mut bits = self.present;
+        while bits != 0 {
+            set = set.union(KIND_SYMBOLS[bits.trailing_zeros() as usize].colors());
+            bits &= bits - 1;
         }
         set
     }
 
     /// Each symbol the cost holds with how many times it holds it, in
-    /// canonical order; the generic mana once, as its amount.
-    fn runs(&self) -> impl Iterator<Item = (ManaSymbol, u16)> + '_ {
-        let kinds = move |range: core::ops::Range<usize>| {
-            range.filter_map(move |k| {
-                let n = self.counts[k];
-                (n > 0).then_some((KIND_SYMBOLS[k], n))
+    /// canonical order; the generic mana once, as its amount. What
+    /// [`Self::symbols`] repeats, and the cheaper walk for a reader that
+    /// counts rather than lists (a hash).
+    pub fn runs(&self) -> impl Iterator<Item = (ManaSymbol, u16)> + '_ {
+        let kinds = move |mut bits: u64| {
+            core::iter::from_fn(move || {
+                if bits == 0 {
+                    return None;
+                }
+                let k = bits.trailing_zeros() as usize;
+                bits &= bits - 1;
+                Some((KIND_SYMBOLS[k], self.counts[k]))
             })
         };
-        kinds(0..GENERIC_AT)
+        kinds(self.present & VARIABLE_BITS)
             .chain(self.generic.map(|n| (ManaSymbol::Generic(n), 1)))
-            .chain(kinds(GENERIC_AT..KINDS))
+            .chain(kinds(self.present & !VARIABLE_BITS))
     }
 
     /// Iterates the symbols in canonical order.
