@@ -16,7 +16,9 @@ use crate::event::{DamageTarget, GameEvent};
 use crate::object::{GameObject, Status};
 use crate::state::GameState;
 use baylee_cards_dsl::KeywordSet as K;
-use baylee_core::ids::{Defender, ObjectId, PlayerId};
+use baylee_core::color::Color;
+use baylee_core::generated::subtypes::land;
+use baylee_core::ids::{Defender, ObjectId, PlayerId, SubtypeId};
 use baylee_core::types::TypeSet;
 
 /// One declared attacker.
@@ -325,6 +327,30 @@ pub fn ready_blockers(state: &GameState, defending: PlayerId) -> Vec<ObjectId> {
         .collect()
 }
 
+/// Each basic landwalk and the land type it names (CR 702.14c, 305.6).
+const LANDWALKS: [(K, SubtypeId); 5] = [
+    (K::PLAINSWALK, land::PLAINS),
+    (K::ISLANDWALK, land::ISLAND),
+    (K::SWAMPWALK, land::SWAMP),
+    (K::MOUNTAINWALK, land::MOUNTAIN),
+    (K::FORESTWALK, land::FOREST),
+];
+
+/// Whether `player` controls a land with land type `subtype`, as the
+/// battlefield is now: projected types, phased-out permanents not there
+/// at all (CR 702.26b).
+#[must_use]
+pub fn controls_land_of_type(state: &GameState, player: PlayerId, subtype: SubtypeId) -> bool {
+    state.battlefield_seen().any(|id| {
+        state.object(id).is_some_and(|land| {
+            let chars = land.characteristics();
+            land.controller == player
+                && chars.types.contains(TypeSet::LAND)
+                && chars.subtypes.contains(subtype)
+        })
+    })
+}
+
 /// Whether `blocker` may block `attacker` (keyword restrictions included).
 #[must_use]
 pub fn can_block(
@@ -352,6 +378,23 @@ pub fn can_block(
     }
     // Flying can only be blocked by flying/reach (CR 702.9).
     if kw(a, K::FLYING) && !kw(b, K::FLYING) && !kw(b, K::REACH) {
+        return false;
+    }
+    // Fear (CR 702.36b): only artifact creatures and/or black creatures.
+    if kw(a, K::FEAR) {
+        let blocker = b.characteristics();
+        if !blocker.types.contains(TypeSet::ARTIFACT) && !blocker.colors.contains(Color::Black) {
+            return false;
+        }
+    }
+    // Landwalk (CR 702.14c): unblockable while the *defending* player
+    // controls a land of that type — that player's lands and nobody
+    // else's, read as they are now (a land an effect made an Island is
+    // one).
+    if LANDWALKS
+        .iter()
+        .any(|(walk, land)| kw(a, *walk) && controls_land_of_type(state, defending, *land))
+    {
         return false;
     }
     // Menace is deliberately *not* asked here. CR 702.111b restricts the
@@ -768,6 +811,11 @@ mod tests {
     }
 
     fn empty_state() -> GameState {
+        seated(2)
+    }
+
+    /// An empty board with `seats` players at it.
+    fn seated(seats: usize) -> GameState {
         let seat = || SeatSpec {
             controller: SeatController::Open,
             capabilities: baylee_core::preset::SeatCapabilities::default(),
@@ -787,11 +835,11 @@ mod tests {
                 house_rules: HouseRules::default(),
                 modifiers: vec![],
                 prints: vec![],
-                seats: vec![seat(), seat()],
+                seats: (0..seats).map(|_| seat()).collect(),
             },
             &NoCards,
         )
-        .expect("an empty two-seat board")
+        .expect("an empty board")
     }
 
     fn creature(
@@ -1531,6 +1579,103 @@ mod tests {
             .insert(Status::PHASED_OUT);
         assert!(!can_attack(&state, p0, attacker));
         assert!(!can_block(&state, p1, blocker, attacker));
+    }
+
+    /// A land of `controller`'s with the one land type `subtype`.
+    fn land_of_type(state: &mut GameState, controller: PlayerId, subtype: SubtypeId) -> ObjectId {
+        let name = state.names.intern("Test Land");
+        let id = state.create_bare(
+            controller,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let b = state.object_mut(id).expect("just created").base_mut();
+        b.types = TypeSet::LAND;
+        b.subtypes = baylee_core::types::SubtypeSet::from_slice(&[subtype]);
+        id
+    }
+
+    /// Fear (CR 702.36b): an artifact creature or a black one may block,
+    /// and nothing else — a green creature may not, a black artifact may.
+    #[test]
+    fn fear_is_blocked_only_by_artifact_or_black_creatures() {
+        let mut state = empty_state();
+        let attacker = creature(&mut state, P0, 2, 2, KeywordSet::FEAR);
+        let plain = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        let artifact = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        state.object_mut(artifact).unwrap().base_mut().types =
+            TypeSet::CREATURE.union(TypeSet::ARTIFACT);
+        let black = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        state.object_mut(black).unwrap().base_mut().colors =
+            baylee_core::color::ColorSet::of(Color::Black);
+        let green = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        state.object_mut(green).unwrap().base_mut().colors =
+            baylee_core::color::ColorSet::of(Color::Green);
+
+        assert!(
+            !can_block(&state, P1, plain, attacker),
+            "colourless, not an artifact"
+        );
+        assert!(!can_block(&state, P1, green, attacker));
+        assert!(can_block(&state, P1, artifact, attacker));
+        assert!(can_block(&state, P1, black, attacker));
+
+        // And a creature without fear is blocked as ever.
+        let ordinary = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        assert!(can_block(&state, P1, green, ordinary));
+    }
+
+    /// Landwalk (CR 702.14c) asks the *defending* player's lands: an Island
+    /// a third player controls does not make an islandwalker unblockable,
+    /// the defender's own Island does, and so does a land an effect made an
+    /// Island (the projected type, not the printed one).
+    #[test]
+    fn landwalk_reads_the_defending_players_lands_as_they_are() {
+        const P2: PlayerId = PlayerId::new(2);
+        let mut state = seated(3);
+        let walker = creature(&mut state, P0, 2, 2, KeywordSet::ISLANDWALK);
+        let blocker = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        attack(&mut state, walker, P1);
+
+        land_of_type(&mut state, P2, land::ISLAND);
+        land_of_type(&mut state, P1, land::SWAMP);
+        assert!(
+            can_block(&state, P1, blocker, walker),
+            "a third player's Island and the defender's Swamp change nothing"
+        );
+
+        let forest = land_of_type(&mut state, P1, land::FOREST);
+        let filter = crate::effects::EffectFilter::object(&state, forest);
+        let modifier = baylee_cards_dsl::Modifier::AddSubtype(land::ISLAND);
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: Some(forest),
+            controller: P1,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp: 1,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier,
+        });
+        state.refresh_characteristics();
+        assert!(
+            !can_block(&state, P1, blocker, walker),
+            "a Forest an effect made an Island is an Island"
+        );
+
+        // Each walk names its own type: a swampwalker is blocked here.
+        let other = creature(&mut state, P0, 2, 2, KeywordSet::MOUNTAINWALK);
+        assert!(can_block(&state, P1, blocker, other));
+        for (walk, subtype) in LANDWALKS {
+            let mut state = empty_state();
+            let walker = creature(&mut state, P0, 2, 2, walk);
+            let blocker = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+            assert!(can_block(&state, P1, blocker, walker));
+            land_of_type(&mut state, P1, subtype);
+            assert!(!can_block(&state, P1, blocker, walker));
+        }
     }
 
     #[test]

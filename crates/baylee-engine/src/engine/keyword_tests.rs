@@ -137,6 +137,12 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("ascend", K::ASCEND),                 // ascend::award_citys_blessings
         ("can't attack", K::CANT_ATTACK),      // combat::can_attack
         ("nightbound", K::NIGHTBOUND),         // progress::day_night_statics
+        ("fear", K::FEAR),                     // combat::can_block
+        ("plainswalk", K::PLAINSWALK),         // combat::can_block
+        ("islandwalk", K::ISLANDWALK),         // combat::can_block
+        ("swampwalk", K::SWAMPWALK),           // combat::can_block
+        ("mountainwalk", K::MOUNTAINWALK),     // combat::can_block
+        ("forestwalk", K::FORESTWALK),         // combat::can_block
     ]
 };
 
