@@ -1738,3 +1738,41 @@ land type"; both are convention tests that fire on a first try.
 - **A hand-written token cannot be added by a card agent alone.** The
   token ledger (`generated_tokens.rs`) is written only by full codegen.
   Voice of Resurgence's */* Elemental is blocked on that.
+
+### 2026-09-29 — friends group: Ossi's Schwarzrand and Dominik's Weltenbaum
+
+- **`castable` lists only spells whose mana is already floating.** A test
+  that asks the offer before tapping reads an empty list and blames the
+  card. Tap first (`tap_all_mana`), then ask.
+- **`PlayerRel::Opponent` is the first living opponent, not "that player".**
+  In a cast trigger the player who cast the spell is `ControllerOfEvent`.
+  Heads-up both are the same seat, so only a three-seat test tells them
+  apart. Rhystic Study, Esper Sentinel and Smothering Tithe still use
+  `Opponent`.
+- **Run the sweeps a new walk or event reader trips.** `phasing_tests` counts
+  raw battlefield walks per file (`battlefield_seen` is the door), and
+  `this_object_tests` needs the `Debug` spelling of every new event-object
+  reader. Both fail on a first try; neither is about the card.
+- **`walk_to_own_main` returns at once when you are already in your own
+  main phase.** To reach the *next* one, walk to the opponent's first
+  (`reach_their_main_phase`).
+- **A leaves-the-battlefield trigger asks its filter of the object as it
+  was** (CR 603.10a). The card in the graveyard has lost every effect, so
+  before `ltb_characteristics` a Living Lands Forest died as a land and a
+  returned Enduring Vitality died as a creature. A "dies" filter that
+  depends on a type an effect gave is the case to test.
+- **A printed `*/*` is layer 7a, never a `ModifyPTPerCount` on 0/0.** The
+  pump is 7c and survives a 7b "becomes 1/1" that should win. Write it as
+  `CharacteristicPT`. The same sentence *granted* (Druid Class's land) is no
+  characteristic-defining ability (CR 604.3a) and is `SetPTToCount`, 7b.
+- **A level-up or class payoff that targets must be a trigger.** A static
+  cannot choose. Class levels are Level counters (level 2 = one counter),
+  and "when this Class becomes level N" is `Trigger::CountersReach`.
+- **Two agents built the same piece twice.** `ControllerOfEvent` and
+  `CharacteristicPT` from night-decks replaced this group's
+  `ControllerOfEventObject` and `DefinePTByCount` at the merge. Read the
+  integration branch's DSL before adding a variant, not only `main`'s.
+- **A filter over stack objects matches abilities too.** An ability on the
+  stack has a blank face, so `NONCREATURE` alone is true of it. "Noncreature
+  spells you control" also asks for a noncreature card type (Benevolent
+  Geist).
