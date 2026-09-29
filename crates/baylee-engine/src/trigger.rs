@@ -444,6 +444,25 @@ fn hits(
     }
 }
 
+/// A leaves-the-battlefield trigger's filter, asked of the object as it
+/// last existed on the battlefield (CR 603.10a): its projected
+/// characteristics as it left, where the state still has them, and the
+/// object as it is otherwise.
+fn departed_matches(
+    filter: &baylee_cards_dsl::Filter,
+    state: &GameState,
+    object: ObjectId,
+    you: PlayerId,
+    source: ObjectId,
+) -> bool {
+    state.object_or_departed(object).is_some_and(|o| {
+        match state.last_known_characteristics(object) {
+            Some(was) => eval::matches_projected(filter, state, o, was, you, source),
+            None => eval::matches(filter, state, o, you, source),
+        }
+    })
+}
+
 /// [`Trigger::TargetedByOpponent`]'s count: the fitting targets an
 /// opponent's spell or ability acquired in this event.
 ///
@@ -991,9 +1010,7 @@ fn matches(
                 from: Zone::Battlefield,
                 ..
             },
-        ) => state
-            .object_or_departed(*object)
-            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        ) => departed_matches(filter, state, *object, you, source),
         (
             Trigger::ExiledFromBattlefield(filter),
             GameEvent::ZoneChanged {
@@ -1002,9 +1019,7 @@ fn matches(
                 to: Zone::Exile,
                 ..
             },
-        ) => state
-            .object_or_departed(*object)
-            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        ) => departed_matches(filter, state, *object, you, source),
         (
             Trigger::DealsCombatDamageToPlayer(filter),
             GameEvent::DamageDealt {
@@ -1041,9 +1056,7 @@ fn matches(
                 to: Zone::Graveyard,
                 ..
             },
-        ) => state
-            .object_or_departed(*object)
-            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        ) => departed_matches(filter, state, *object, you, source),
         (Trigger::SpellCast(filter), GameEvent::SpellCast { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),

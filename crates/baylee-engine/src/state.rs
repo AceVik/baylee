@@ -522,6 +522,21 @@ pub struct GameState {
     /// an entry is not scan bookkeeping that a priority grant clears, it
     /// stays for as long as its object stays off the battlefield.
     pub ltb_counters: Vec<(ObjectId, crate::object::Counters)>,
+    /// What a permanent *was* the moment it left the battlefield: its
+    /// projected characteristics, the fourth half of CR 603.10a.
+    ///
+    /// `move_object` drops the projection on every move (CR 400.7), so by
+    /// the time a leaves-the-battlefield trigger is collected the card in
+    /// the graveyard answers with its printed values. A land a Living Lands
+    /// had made a creature died as a Forest card and "whenever a creature
+    /// you control dies" saw no creature; an Enduring Vitality that had
+    /// returned as an enchantment died as an enchantment creature card and
+    /// returned again. The leaves-the-battlefield trigger arms read this and
+    /// nothing else does: every other question about a card off the
+    /// battlefield is about the card as it is now.
+    ///
+    /// Written and cleared exactly where [`Self::ltb_abilities`] is.
+    pub ltb_characteristics: Vec<(ObjectId, crate::object::Characteristics)>,
     /// Objects that have ceased to exist but whose triggers have not fired.
     ///
     /// CR 111.7 says it in a parenthesis, and the parenthesis is the whole
@@ -789,6 +804,7 @@ impl GameState {
             ltb_mana_values: Vec::new(),
             ltb_abilities: Vec::new(),
             ltb_counters: Vec::new(),
+            ltb_characteristics: Vec::new(),
             ltb_attachments: Vec::new(),
             ceased: Vec::new(),
             reflexive: Vec::new(),
@@ -1533,6 +1549,19 @@ impl GameState {
             .or_else(|| self.ceased.iter().find(|o| o.id == id))
     }
 
+    /// What `id` was as it last left the battlefield, if that is the last
+    /// move it made ([`Self::ltb_characteristics`]).
+    #[must_use]
+    pub fn last_known_characteristics(
+        &self,
+        id: ObjectId,
+    ) -> Option<&crate::object::Characteristics> {
+        self.ltb_characteristics
+            .iter()
+            .find(|(other, _)| *other == id)
+            .map(|(_, was)| was)
+    }
+
     /// The game becomes day, or day becomes night's opposite (CR 730.1).
     ///
     /// Every route to the designation goes through this door and
@@ -1699,6 +1728,13 @@ impl GameState {
             && !counters.is_empty()
         {
             self.ltb_counters.push((id, counters));
+        }
+        // What it was.
+        self.ltb_characteristics.retain(|(other, _)| *other != id);
+        if from_zone == Zone::Battlefield
+            && let Some(was) = self.object(id).map(|o| o.characteristics().clone())
+        {
+            self.ltb_characteristics.push((id, was));
         }
         // What was attached to it.
         self.ltb_attachments.retain(|(other, _)| *other != id);
@@ -2134,6 +2170,7 @@ impl GameState {
             ltb_abilities,
             ltb_attachments,
             ltb_counters,
+            ltb_characteristics,
             // Empty again before any question is out; the field says why.
             ceased: _,
             // Empty whenever a question is out, by a rule the build
@@ -2226,6 +2263,11 @@ impl GameState {
         ltb_attachments.hash(&mut h);
         ltb_counters.hash(&mut h);
         ltb_mana_values.hash(&mut h);
+        h.usize(ltb_characteristics.len());
+        for (object, was) in ltb_characteristics {
+            object.hash(&mut h);
+            hash_characteristics(&mut h, was);
+        }
         hash_unordered(
             &mut h,
             restriction_info.iter(),
@@ -3845,6 +3887,15 @@ mod tests {
             }),
             ("ltb_counters", |s, id| {
                 s.ltb_counters.push((id, Counters::default()));
+            }),
+            ("ltb_characteristics", |s, id| {
+                let was = s
+                    .object(id)
+                    .expect("the test's object")
+                    .base
+                    .as_ref()
+                    .clone();
+                s.ltb_characteristics.push((id, was));
             }),
             ("monarch", |s, _| s.monarch = Some(PlayerId::new(1))),
             ("starting_player", |s, _| {

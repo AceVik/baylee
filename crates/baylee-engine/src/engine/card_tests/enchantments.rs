@@ -15521,6 +15521,39 @@ fn living_lands_turns_every_forest_into_a_one_one_creature_that_is_still_a_land(
     );
 }
 
+/// CR 603.10a: a dies trigger looks back at the object as it last existed on
+/// the battlefield. A Forest that Living Lands made a 1/1 creature dies as a
+/// creature, so Moonlit Wake's "whenever a creature dies" pays for it, even
+/// though the card in the graveyard is a Forest and no creature. The Plains
+/// beside it was never a creature and pays nothing. Read off the card in the
+/// graveyard, the Forest paid nothing either.
+#[test]
+fn a_land_that_died_as_a_creature_is_a_creature_dying() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[moonlit_wake(), living_lands(), forest(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let forest_id = on_battlefield(&engine, p0, forest()).expect("the Forest");
+    let plains_id = on_battlefield(&engine, p0, plains()).expect("the Plains");
+    assert!(types(&engine, forest_id).contains(TypeSet::CREATURE));
+    let life = engine.state().players[0].life;
+
+    kill(&mut engine, plains_id);
+    assert_eq!(
+        engine.state().players[0].life,
+        life,
+        "a land dying is no creature dying"
+    );
+    kill(&mut engine, forest_id);
+    assert_eq!(
+        engine.state().players[0].life,
+        life + 1,
+        "the Forest was a creature as it died"
+    );
+}
+
 /// Moonlit Wake — {2}{W} enchantment: "Whenever a creature dies, you gain 1
 /// life." The word the scenario turns on is "a creature", which names no
 /// controller: the board carries an Elf on each side and both die, so the one

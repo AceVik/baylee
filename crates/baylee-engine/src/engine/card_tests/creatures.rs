@@ -13670,6 +13670,88 @@ fn enduring_vitality_has_vigilance_and_grants_mana_ability_to_controlled_creatur
     assert!(is_tapped(&engine, my_wolf));
 }
 
+/// Enduring Vitality: "When Enduring Vitality dies, if it was a creature,
+/// return it to the battlefield under its owner's control. It's an
+/// enchantment. (It's not a creature.)"
+///
+/// The opponent's Lightning Bolt kills it and it comes back as an
+/// enchantment only: Soul Warden's "whenever another creature enters" does
+/// not see a creature arrive, and the Warden keeps the granted mana ability.
+/// The opponent's Maelstrom Pulse then destroys the enchantment, which was
+/// not a creature as it died, so it stays in the graveyard.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
+#[test]
+fn enduring_vitality_returns_as_an_enchantment_and_only_once() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[enduring_vitality(), soul_warden()])
+        .battlefield(1, &[mountain(), swamp(), forest(), forest()])
+        .hand(1, &[lightning_bolt(), maelstrom_pulse()])
+        .start();
+    keep_mulligans(&mut engine);
+    let vitality = on_battlefield(&engine, p0, enduring_vitality()).expect("Vitality is seated");
+    let warden = on_battlefield(&engine, p0, soul_warden()).expect("so is the Warden");
+
+    reach_their_main_phase(&mut engine, p1);
+    let life = engine.state().players[0].life;
+    let mountain_id = on_battlefield(&engine, p1, mountain()).expect("p1's Mountain");
+    tap_mana_where(&mut engine, p1, |id| id == mountain_id);
+    cast_with_floating(&mut engine, p1, lightning_bolt());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![vitality],
+                players: vec![],
+            },
+        )
+        .expect("the Vitality is a creature to Bolt");
+    pass_until(&mut engine, stack_is_empty);
+
+    let back = on_battlefield(&engine, p0, enduring_vitality()).expect("it came back");
+    let now = types(&engine, back);
+    assert!(
+        now.contains(TypeSet::ENCHANTMENT) && !now.contains(TypeSet::CREATURE),
+        "an enchantment and not a creature: {now:?}"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life,
+        "Soul Warden saw no creature enter"
+    );
+    assert!(walk_to_own_main(&mut engine, p0), "p0's turn comes");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        legal.mana_abilities.contains(&warden),
+        "the enchantment still grants the Warden its mana ability"
+    );
+    assert!(
+        !legal.mana_abilities.contains(&back),
+        "and no longer itself, which is no creature"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, maelstrom_pulse());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![back],
+                players: vec![],
+            },
+        )
+        .expect("a nonland permanent");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, enduring_vitality()).is_none(),
+        "it died as an enchantment, so it does not return"
+    );
+    assert!(in_graveyard(&engine, p0, enduring_vitality()).is_some());
+}
+
 fn flamekin_harbinger() -> CardIndex {
     card_index("d6585e30-4ca0-4701-b274-b24f3508dd97")
 }
