@@ -1411,6 +1411,22 @@ impl GameObject {
         Arc::make_mut(&mut self.base)
     }
 
+    /// Whether this object is a card: "a Magic card or an object
+    /// represented by a Magic card" (CR 108.2), which is what text means by
+    /// "card".
+    ///
+    /// A token is not one (CR 108.2b), nor is an emblem or an ability on the
+    /// stack, and none of them has a card behind it. A copy of a card or of
+    /// a spell is not one either (CR 109.1 names "a card" and "a copy of a
+    /// card" as different objects), and it does carry the copied card, so
+    /// its [`Rider::SpellCopy`] is what tells it apart. Both kinds cease to
+    /// exist outside the battlefield and the stack (CR 704.5d, 704.5e), but
+    /// not before a projection or a trigger may have looked at them there.
+    #[must_use]
+    pub fn is_card(&self) -> bool {
+        self.card.is_some() && !self.riders.contains(&Rider::SpellCopy)
+    }
+
     /// Current characteristics.
     ///
     /// Returns the layer-projected cache when it has been computed (the

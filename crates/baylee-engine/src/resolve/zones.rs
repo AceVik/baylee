@@ -1068,10 +1068,24 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // which holds the card registry `state.transform` needs and applies
         // it as this resolution completes. A source that has left the
         // battlefield, or is phased out, is no permanent to transform.
+        //
+        // CR 701.27f: an ability of the permanent transforms it only if it
+        // has not transformed since the ability was put on the stack. The
+        // ability carries the face it was printed on (CR 113.7a), so a
+        // source showing another face has transformed since and the
+        // instruction is ignored: two lands entering at once under Twists and
+        // Turns trigger it twice, and the second must not turn it back. (Two
+        // transforms in between would show the same face again and are not
+        // told apart; nothing in the pool reaches that.)
         Effect::TransformSource => {
+            let printed = state
+                .object(res.on_stack)
+                .and_then(|ability| ability.own_face)
+                .map(crate::object::PrintedFace::face);
             if let Some(obj) = state.object_mut(res.source)
                 && obj.zone == crate::zone::Zone::Battlefield
                 && !obj.status.contains(crate::object::Status::PHASED_OUT)
+                && printed.is_none_or(|face| face == obj.face_index)
             {
                 obj.pending_face_change = Some(1 - obj.face_index.min(1));
             }

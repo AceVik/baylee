@@ -3541,6 +3541,23 @@ permanent over in place, so these eight can become real transforms. That is
 a separate change, since it also keeps counters, attachments and every other
 effect on the permanent.
 
+**The eight became transforms on 2026-09-30.** Each is `Effect::TransformSource`
+now, and three rules came with it. An ability of the permanent that tries to
+transform it after it has transformed since the ability was put on the stack
+is ignored (CR 701.27f): the ability carries the face it was printed on, and
+Twists and Turns triggered twice by two lands at once turned over and back
+without it (`twists_and_turns_triggered_twice_at_once_transforms_once`). The
+face that turns away takes its statics and replacement effects with it
+(`GameState::transform`, CR 604.2): Dowsing Dagger's "equipped creature gets
++2/+1" went on applying from Lost Vale. And a permanent that is no Aura,
+Equipment or Fortification becomes unattached (CR 704.5p), which Lost Vale
+needs. A Temple stolen until end of turn and turned into its god goes home
+when the turn ends
+(`card_tests::creatures::a_temple_stolen_until_end_of_turn_goes_home_as_the_god_it_became`).
+Each card's test now compares the object's version before and after
+(`card_tests::identity`), since an exile and a return keeps the arena handle
+and only the version says it is a new object (CR 400.7).
+
 Entry 60 says Golden Guardian stolen with Song-Mad Treachery shows the fault.
 It could not have. Neither Golden Guardian nor Conqueror's Galleon
 constructs this effect: both are `Partial`, with the return NOT SUPPORTED.
@@ -3557,11 +3574,13 @@ The tests:
 - `card_tests::enchantments::a_stolen_fable_returns_under_the_thiefs_control`
   checks the trigger path (CR 603.3a).
 - `card_tests::creatures::a_stolen_temple_of_cyclical_time_turns_back_into_the_god_under_the_thief`
-  checks the activation path (CR 602.2a).
+  checked the activation path (CR 602.2a). Since the Temple transforms, it
+  checks that the steal goes on holding the god (CR 712.18).
 - The first rule test and both card tests failed on the old resolver.
 - `lints::every_self_return_comes_back_under_the_control_its_sentence_prints`
   holds each use's field to its printed sentence, with its count pinned
-  (15 today). A printed ability with no known sentence fails it.
+  (15 then, 7 once the stand-ins were transforms). A printed ability with no
+  known sentence fails it, and so does one whose sentence prints no return.
 
 The other cards' own tests play them on a board where owner and controller
 are one seat, so a controller assertion there would pass on the old code.

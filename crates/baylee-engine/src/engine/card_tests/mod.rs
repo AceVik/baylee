@@ -1491,6 +1491,15 @@ fn counters_on(
         .get(kind)
 }
 
+/// `id` with the version every zone change bumps (CR 400.7): an object that
+/// left a zone and came back keeps its handle and is a new object all the
+/// same, so comparing handles alone cannot tell a transform from an exile
+/// and a return.
+#[track_caller]
+fn identity(engine: &Engine<RegistryLookup>, id: ObjectId) -> (ObjectId, u32) {
+    (id, engine.state().object(id).expect("an object").version)
+}
+
 /// Whether a permanent still on the battlefield is tapped.
 ///
 /// Panics when the object is gone, deliberately: every caller is asking

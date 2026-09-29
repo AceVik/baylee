@@ -826,8 +826,13 @@ Waking Haven). The cost wizard asks which creature with
 (`PaidRecord::tapped`), and `Amount::TappedPower` reads its power as the
 effect applies, or as it last existed on the battlefield when it has left by
 then (CR 608.2h). A station written with a `targets` requirement is wrong
-twice: hexproof would stop it, and a creature killed in response would
-fizzle the ability instead of counting.
+twice: shroud would stop it (CR 702.18a; hexproof would not, since the
+creature is your own, CR 702.11b), and a creature killed in response would
+fizzle the ability instead of counting. A third time as a `TapTarget` effect
+under a free cost, which is how Inspirit and the Enterprise-D were written
+until 2026-09-30: a tapped creature was a legal target, where CR 118.3 says a
+tapped creature cannot pay. `lints::every_station_is_the_ability_its_keyword_spells`
+holds every ability whose printed sentence is a station to the shape above.
 
 **A level symbol** is the same shape with a range. `{LEVEL N1-N2}` is
 `CountersOnSelfBetween(CounterKind::Level, n1, n2)` (CR 711.2a) and
@@ -1255,12 +1260,14 @@ control" (Sheoldred's `{4}{B}`, the Ojers' dies triggers). "… under **your**
 control" (Fable of the Mirror-Breaker III, Welcome to … III, Journey to
 Eternity) is `false`, and so is a sentence that names nobody (The True
 Scriptures III: the card enters under the player the effect instructs,
-CR 110.2a, the chapter ability's controller, CR 603.3a). The "transform
-this" cards the effect stands in for (#206) are `false` too: a transform
-keeps its controller (CR 712.18), and the ability's controller is that
-player (CR 603.3a for a trigger, CR 602.2a for an activation).
+CR 110.2a, the chapter ability's controller, CR 603.3a). A sentence that
+only says "transform this" is not this effect but `Effect::TransformSource`:
+the same permanent turns over (CR 701.27a) and every effect on it goes on
+applying (CR 712.18), where an exile and a return is a new object that
+enters and sheds them. Eight cards were written that way until 2026-09-30.
 `lints::every_self_return_comes_back_under_the_control_its_sentence_prints`
-holds every use in the pool to its printed sentence.
+holds every use in the pool to its printed sentence, and refuses one whose
+sentence prints no return.
 
 **A linked exile is two verbs as well, and the difference is when it ends.**
 `Effect::exile_linked(t)` exiles with a link and no end of its own: the card
@@ -1700,7 +1707,10 @@ hashes, layers and does nothing. This paragraph said THREE until
 
 - **Transform.** `Effect::TransformSource` turns the source over now, and
   `Effect::TransformSourceAtNextUpkeep` does it at the beginning of the next
-  upkeep (Archangel Avacyn). `Trigger::TransformsIntoThis` is "whenever this
+  upkeep (Archangel Avacyn). Either is ignored once the permanent has
+  transformed since the ability was put on the stack or created
+  (CR 701.27f). The face that turns away takes its statics and replacement
+  effects with it (`GameState::transform`, CR 604.2). `Trigger::TransformsIntoThis` is "whenever this
   creature transforms into [this face]" (Huntmaster of the Fells). The
   conditions `NoSpellsCastLastTurn` and `APlayerCastLastTurnAtLeast(n)` are
   the werewolf upkeep checks.

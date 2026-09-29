@@ -752,7 +752,12 @@ impl<L: CardLookup> Engine<L> {
         // What the preset dealt moved the projection's inputs: a starting
         // battlefield, and a card defining its own power and toughness drawn
         // into an opening hand. An Ashaya in hand with two Forests out was
-        // asked about as the 0/0 its card prints.
+        // asked about as the 0/0 its card prints. And a starting
+        // battlefield's static abilities apply from the moment it is there
+        // (CR 604.2), not from turn 1: the loop registers them in the same
+        // first step, so they are registered here too, or every hand is
+        // kept beside a board shown without them.
+        engine.sync_static_effects();
         engine.state.refresh_characteristics();
         Ok(engine)
     }

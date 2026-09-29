@@ -338,3 +338,53 @@ fn a_search_onto_the_battlefield_reveals_nothing() {
         "the fetched land is about to be public anyway"
     );
 }
+
+/// A search's options are cards in the searcher's library, which no other
+/// seat sees. A bystander answering the search is refused in one way
+/// whether its guess is among them or not. The question's constraints used
+/// to be checked before the seat: a guess not offered was refused as not
+/// offered, one offered as a mismatch by the seat guard after it, so every
+/// refusal told the bystander whether that card was in the library and
+/// matched the search.
+#[test]
+fn a_bystander_answering_a_search_learns_nothing_about_the_library() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(9, cultivate())
+        .battlefield(0, &[island()])
+        .hand(0, &[mystical_tutor()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let options = cast_and_search(&mut engine, p0);
+    let elsewhere = engine.state().zones.list(ZoneLocation::Battlefield)[0];
+    assert!(!options.contains(&elsewhere), "the Island is not a find");
+
+    let guess = |engine: &mut Engine<RegistryLookup>, object: ObjectId| {
+        engine
+            .apply(
+                p1,
+                PlayerAction::ChooseObjects {
+                    objects: vec![object],
+                },
+            )
+            .expect_err("a bystander does not answer another seat's search")
+    };
+    let offered = guess(&mut engine, options[0]);
+    let not_offered = guess(&mut engine, elsewhere);
+    assert!(
+        matches!(offered, EngineError::MismatchedAction)
+            && matches!(not_offered, EngineError::MismatchedAction),
+        "one refusal for both guesses, got {offered:?} for a find and \
+         {not_offered:?} for a card that is not one"
+    );
+
+    // The question still stands, for its own seat.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+}

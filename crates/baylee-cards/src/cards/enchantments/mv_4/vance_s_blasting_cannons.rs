@@ -57,12 +57,7 @@ card!(
             filter: &Filter::Any,
         },
         &[Effect::MayDo {
-            // Under the trigger's controller, the enchantment's (CR 603.3a):
-            // a transform keeps its controller (CR 712.18).
-            effects: &[Effect::ExileSelfReturnAsFace {
-                face: 1,
-                owner_control: false,
-            }],
+            effects: &[Effect::TransformSource],
         }]
     )],
 );

@@ -766,6 +766,7 @@ dependencies = [
  "baylee-engine",
  "baylee-view",
  "criterion",
+ "log",
 ]
 
 [[package]]
