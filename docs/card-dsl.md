@@ -1453,6 +1453,18 @@ hashes, layers and does nothing. This paragraph said THREE until
   many cards." One `ChooseCards` over the hand, `min: 0`, prompt `Discard`;
   each named card still in hand is discarded (`GameEvent::Discarded`), and
   the draw is the number actually discarded. An empty hand asks nothing.
+- **`Effect::SearchLibraryOrGraveyard { filter, find }`** (Finale of
+  Devastation): "search your library and/or graveyard for a [filter] card and
+  put it [where `find` says]. If you search your library this way, shuffle."
+  The graveyard is public, so its matches come first: a `ChooseCards` with
+  `min: 0`, `max: 1`, prompt `FromGraveyard`. A card named there is the whole
+  search, and nothing is shuffled. Naming none, or a graveyard with no match,
+  is the one-card library search `SearchLibrary` makes, shuffle and all, so a
+  library that was seen is always shuffled.
+- **`Condition::XAtLeast(n)`** is "if X is `n` or more", read off the
+  announced X on the source, where `Filter::CmcAtMostX` reads it. A source
+  that is gone or announced no X counts as X = 0. Finale of Devastation puts
+  its +X/+X and haste behind it in an `Effect::IfCondition`.
 - **`Modifier::CharacteristicPT { count, toughness_plus }`** is a
   characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
   - `YouControl(filter)`

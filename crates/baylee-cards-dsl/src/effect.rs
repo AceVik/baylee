@@ -820,6 +820,20 @@ pub enum Effect {
         /// Where the card goes otherwise.
         otherwise: SearchDest,
     },
+    /// "Search your library and/or graveyard for a [filter] card and put it
+    /// [where `find` says]. If you search your library this way, shuffle."
+    /// (Finale of Devastation.) One card from either zone: the graveyard is
+    /// public, so its matches are offered first (`ChoicePrompt::FromGraveyard`,
+    /// naming none to search the library instead); a graveyard card taken is
+    /// the whole search and nothing is shuffled. Declining, or a graveyard
+    /// with no match, is the library search `SearchLibrary` makes, shuffle
+    /// and all — so a library once seen is always shuffled.
+    SearchLibraryOrGraveyard {
+        /// What may be found.
+        filter: &'static Filter,
+        /// Where the card goes.
+        find: &'static Find,
+    },
     /// "You may discard up to `count` cards. If you do, draw that many
     /// cards." (Fable of the Mirror-Breaker's chapter II.) One question —
     /// which cards, naming none to decline — and the draw is the number of
@@ -2402,6 +2416,7 @@ impl Effect {
             | Effect::RevealTopAndSort { .. }
             | Effect::LookAtTopMayPut { .. }
             | Effect::DiscardUpToThenDraw { .. }
+            | Effect::SearchLibraryOrGraveyard { .. }
             | Effect::PutFromHandOnTop { .. }
             | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }

@@ -213,6 +213,11 @@ pub enum Condition {
     /// condition is all there is room for (an activation restriction, an
     /// intervening `if`), and not before.
     Any(&'static [Condition]),
+    /// "If X is N or more" — the X announced for the spell that is the
+    /// source (Finale of Devastation). Read off the source's announced X,
+    /// as `Filter::CmcAtMostX` reads it; a source that is gone or announced
+    /// none has X = 0.
+    XAtLeast(u32),
 }
 
 /// Trigger conditions for triggered abilities.

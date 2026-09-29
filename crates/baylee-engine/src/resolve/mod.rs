@@ -225,6 +225,14 @@ pub enum AwaitingOp {
     /// After `DiscardUpToThenDraw`: the chosen cards are discarded and as
     /// many are drawn.
     DiscardThenDraw,
+    /// After `SearchLibraryOrGraveyard` offered its graveyard matches: the
+    /// card named goes where `find` says; none named searches the library.
+    GraveyardOrLibrary {
+        /// What may be found in the library.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Where the card goes.
+        find: &'static baylee_cards_dsl::effect::Find,
+    },
     /// After `LookAtTopMayPut` asked about a matching top card: named, it
     /// goes where `matched` says; not named, `otherwise`.
     MayPutTop {
@@ -1306,6 +1314,34 @@ fn put_found(state: &mut GameState, player: PlayerId, card: ObjectId, dest: Sear
     let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
 }
 
+/// The library half of `SearchLibraryOrGraveyard`: the search
+/// `Effect::SearchLibrary` makes for one card, shuffle and all. `find` stays
+/// a reference: the search keeps a `&'static [Find]`, borrowed from the card.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn search_library_for_one(
+    state: &mut GameState,
+    res: &mut Resolution,
+    filter: &'static baylee_cards_dsl::Filter,
+    find: &'static baylee_cards_dsl::effect::Find,
+) -> Option<Pending> {
+    let you = res.controller;
+    begin_search(
+        state,
+        res,
+        Search {
+            library: you,
+            searcher: you,
+            filter,
+            bound: None,
+            finds: core::slice::from_ref(find),
+            count: None,
+            distinct_names: false,
+            split: None,
+            optional: false,
+        },
+    )
+}
+
 /// The half of `SearchOpponentSplits` after the search: the found cards are
 /// revealed, and an opponent is asked which `count` of them go to the
 /// graveyard — or nobody is, when there is nothing to choose between.
@@ -1539,6 +1575,29 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             library,
             receiver,
         } => finish_split(state, &found, chosen, library, receiver),
+        AwaitingOp::GraveyardOrLibrary { filter, find } => {
+            let you = res.controller;
+            match chosen.first() {
+                // A graveyard card, still there, is the whole search.
+                Some(&card)
+                    if state
+                        .zones
+                        .list(ZoneLocation::Graveyard(you))
+                        .contains(&card) =>
+                {
+                    if find.tapped && find.dest == SearchDest::Battlefield {
+                        state.set_tapped(card, true);
+                    }
+                    put_found(state, you, card, find.dest);
+                }
+                Some(_) => {}
+                None => {
+                    if let Some(question) = search_library_for_one(state, res, filter, find) {
+                        return Flow::Wait(question);
+                    }
+                }
+            }
+        }
         AwaitingOp::DiscardThenDraw => {
             // "If you do, draw that many": what was discarded, counted as it
             // happens — a card that is no longer in the hand is not.
@@ -2927,6 +2986,30 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
             put_found(state, you, top, if fits { matched } else { otherwise });
             None
+        }
+        Effect::SearchLibraryOrGraveyard { filter, find } => {
+            let buried: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Graveyard(you))
+                .iter()
+                .copied()
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                })
+                .collect();
+            if buried.is_empty() {
+                return search_library_for_one(state, res, filter, find);
+            }
+            res.awaiting = Some(AwaitingOp::GraveyardOrLibrary { filter, find });
+            Some(Pending::ChooseCards {
+                player: you,
+                options: buried,
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::FromGraveyard,
+            })
         }
         Effect::DiscardUpToThenDraw { count } => {
             let hand: Vec<ObjectId> = state.zones.list(ZoneLocation::Hand(you)).clone();

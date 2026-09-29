@@ -1667,6 +1667,16 @@ messages! {
         en: "cards to put into their owner's graveyard",
         de: "Karten, die in den Friedhof ihres Besitzers kommen",
     },
+    /// card from your graveyard — none searches the library instead
+    NounCardFromGraveyard {
+        en: "card from your graveyard, or none to search your library",
+        de: "Karte aus deinem Friedhof, oder keine, um deine Bibliothek zu durchsuchen",
+    },
+    /// cards from your graveyard — none searches the library instead
+    NounCardsFromGraveyard {
+        en: "cards from your graveyard, or none to search your library",
+        de: "Karten aus deinem Friedhof, oder keine, um deine Bibliothek zu durchsuchen",
+    },
     /// card from outside the game
     NounCardOutside { en: "card from outside the game", de: "Karte von außerhalb der Partie" },
     /// cards from outside the game
@@ -3512,6 +3522,10 @@ mod tests {
                 Phrase::NounCardsToBattlefield,
             ),
             (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard),
+            (
+                Phrase::NounCardFromGraveyard,
+                Phrase::NounCardsFromGraveyard,
+            ),
             (Phrase::LogKeptCardYou, Phrase::LogKeptCardsYou),
             (Phrase::LogKeptCard, Phrase::LogKeptCards),
             (Phrase::LogDrewCardYou, Phrase::LogDrewCardsYou),
