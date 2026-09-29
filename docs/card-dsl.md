@@ -826,8 +826,13 @@ Waking Haven). The cost wizard asks which creature with
 (`PaidRecord::tapped`), and `Amount::TappedPower` reads its power as the
 effect applies, or as it last existed on the battlefield when it has left by
 then (CR 608.2h). A station written with a `targets` requirement is wrong
-twice: hexproof would stop it, and a creature killed in response would
-fizzle the ability instead of counting.
+twice: shroud would stop it (CR 702.18a; hexproof would not, since the
+creature is your own, CR 702.11b), and a creature killed in response would
+fizzle the ability instead of counting. A third time as a `TapTarget` effect
+under a free cost, which is how Inspirit and the Enterprise-D were written
+until 2026-09-30: a tapped creature was a legal target, where CR 118.3 says a
+tapped creature cannot pay. `lints::every_station_is_the_ability_its_keyword_spells`
+holds every ability whose printed sentence is a station to the shape above.
 
 **A level symbol** is the same shape with a range. `{LEVEL N1-N2}` is
 `CountersOnSelfBetween(CounterKind::Level, n1, n2)` (CR 711.2a) and

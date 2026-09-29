@@ -3616,6 +3616,94 @@ mod tests {
         );
     }
 
+    /// Station (CR 702.184a) means "Tap another untapped creature you
+    /// control: Put a number of charge counters on this permanent equal to
+    /// the tapped creature's power. Activate only as a sorcery." Every
+    /// ability whose printed sentence is a station is that and nothing else:
+    /// the creature is a cost (`CostPart::TapOther`, where CR 118.3 supplies
+    /// "untapped"), nothing is targeted, the count is the tapped creature's
+    /// power (`Amount::TappedPower`), and the timing is a sorcery's.
+    /// Inspirit, Flagship Vessel and U.S.S. Enterprise-D wrote it as
+    /// `Effect::TapTarget` aimed at "another creature you control" under a
+    /// free cost, which offered a tapped creature to "tap".
+    ///
+    /// The count has a floor and a ceiling: three stations written, over
+    /// seven station cards in the pool, counted 2026-09-30.
+    #[test]
+    fn every_station_is_the_ability_its_keyword_spells() {
+        use crate::dsl::ability::ActivationTiming;
+        use crate::dsl::effect::Amount;
+        let mut wrong = Vec::new();
+        let mut checked = 0_usize;
+        for def in crate::all() {
+            for face in 0..def.faces.len() {
+                for (index, ability) in def.abilities_for_face(face).iter().enumerate() {
+                    let Some(text) = u32::try_from(index)
+                        .ok()
+                        .and_then(|index| crate::lines::ability_line(def.index, face, index))
+                        .and_then(|at| crate::oracle::sentence(def.index, face, at.line))
+                    else {
+                        continue;
+                    };
+                    if !text.starts_with("Station (") {
+                        continue;
+                    }
+                    checked += 1;
+                    let who = format!("{} face {face} ability {index}", def.name());
+                    let (AbilityDef::Activated {
+                        cost,
+                        effects,
+                        targets,
+                        second_targets,
+                        timing,
+                        ..
+                    }
+                    | AbilityDef::ActivatedConditional {
+                        cost,
+                        effects,
+                        targets,
+                        second_targets,
+                        timing,
+                        ..
+                    }) = ability
+                    else {
+                        wrong.push(format!("{who}: not an activated ability"));
+                        continue;
+                    };
+                    let taps = cost.mana == ManaCost::ZERO
+                        && matches!(
+                            cost.parts,
+                            [CostPart::TapOther(filter)]
+                                if **filter == Filter::ANOTHER_CREATURE_YOU_CONTROL
+                        );
+                    let counts = matches!(
+                        effects,
+                        [Effect::AddCounter {
+                            kind: crate::dsl::effect::CounterKind::Charge,
+                            amount: Amount::TappedPower,
+                        }]
+                    );
+                    if !taps
+                        || !counts
+                        || targets.is_some()
+                        || second_targets.is_some()
+                        || *timing != ActivationTiming::SorcerySpeed
+                    {
+                        wrong.push(format!(
+                            "{who}: cost {cost:?}, effects {effects:?}, targets {targets:?}, \
+                             timing {timing:?}"
+                        ));
+                    }
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{wrong:#?}");
+        assert!(
+            (3..=7).contains(&checked),
+            "read {checked} stations out of the pool, and three were written"
+        );
+    }
+
     /// Where `Effect::ExileSelfReturnAsFace` puts the card back is its
     /// printed sentence's answer: `owner_control` exactly where the sentence
     /// says "under its owner's control" (Sheoldred's `{4}{B}`, the Ojers'

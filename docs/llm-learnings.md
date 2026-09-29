@@ -457,7 +457,10 @@ Open milestones discovered tonight:
   (Effect::ControlRotation — heads-up swap of all nonland permanents),
   Vendilion Clique (presentation is protocol, engine choice was already
   complete), Inspirit (station: TapTarget + AddType/Keyword-
-  IfCountersAtLeast conditional statics + modal counter trigger),
+  IfCountersAtLeast conditional statics + modal counter trigger; the
+  TapTarget half was wrong, a tapped creature could "pay", and since
+  2026-09-30 station is `cost!(TapOther(..))` + `Amount::TappedPower`,
+  `docs/card-dsl.md` §"Station itself is a cost"),
   Opposition Agent (REAL takeover: Modifier::SearchTakeover redirects the
   search choice to the agent's controller, finds go to exile with
   Rider::PlayableFromExileFor + wild payment on takeover casts),

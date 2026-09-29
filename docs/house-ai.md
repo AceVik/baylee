@@ -333,14 +333,18 @@ offer (`LegalActions::suspendable`: Ancestral Vision, Profane Tutor), and
 Raffine's Tower's cycling is a card in hand, which `activate::printed` does
 not reach. The planner is the next slice.
 
-**Inspirit, Flagship Vessel is a card finding, not an agent one.** Station
+**Inspirit, Flagship Vessel was a card finding, not an agent one.** Station
 is "tap another untapped creature you control" as a cost (CR 702.184a). The
-card writes the tap as an effect, `TapTarget` under `Cost::FREE`, and its
-target filter (`ANOTHER_CREATURE_YOU_CONTROL`) does not say untapped. A free
+card wrote the tap as an effect, `TapTarget` under `Cost::FREE`, and its
+target filter (`ANOTHER_CREATURE_YOU_CONTROL`) did not say untapped. A free
 cost with no parts is the one shape `activate` refuses outright, since the
-same offer returns unchanged, so the agent never stations; and the engine
-lets an already tapped creature be named again, which a real station cost
-would not.
+same offer returns unchanged, so the agent never stationed; and the engine
+let an already tapped creature be named again, which a real station cost
+would not. It and U.S.S. Enterprise-D now write the cost the rule spells
+(`CostPart::TapOther`, `Amount::TappedPower`), which `consumes` counts as
+consuming, and `lints::every_station_is_the_ability_its_keyword_spells` holds
+every printed station to that shape. Whether the agent now stations well is
+unmeasured.
 
 **An attacker the view cannot describe is unknown, not absent.** `Fighter::of`
 is three `?` in a row — the object, its power, its toughness — and every

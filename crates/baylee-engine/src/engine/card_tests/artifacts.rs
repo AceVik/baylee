@@ -220,16 +220,40 @@ fn panharmonicon_doubles_a_modal_trigger_and_each_copy_picks_its_own_mode() {
     );
 }
 
-/// The other half of CR 608.2h's question, and the one with no mutant: an
-/// effect that changes its target and then reads it, while the target is
-/// still exactly where the resolution left it.
-///
-/// Inspirit Flagship Vessel stations a creature — tap it, then take its
-/// power in charge counters — and the target never leaves the battlefield,
-/// so the read has to be the *live* one. Nothing in the pool tells the two
-/// answers apart (a tap changes no power, and these three cards are every
-/// reader of `Amount::TargetPower` there is), so this test proves the branch
-/// runs rather than that it is the only right one.
+/// Stations Inspirit by tapping `creature`, answering the cost's question as
+/// a player would, and hands back what the question offered.
+#[track_caller]
+fn station_inspirit(engine: &mut Engine<RegistryLookup>, creature: ObjectId) -> Vec<ObjectId> {
+    let p0 = PlayerId::new(0);
+    activate(engine, p0, inspirit_flagship_vessel(), 0);
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "station asks which creature pays, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(prompt, ChoicePrompt::CostTap, "a cost, not a target");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![creature],
+            },
+        )
+        .expect("the creature taps");
+    options
+}
+
+/// Station (CR 702.184a): "Tap another untapped creature you control: Put a
+/// number of charge counters on this permanent equal to the tapped
+/// creature's power." The Raptor is paid, not targeted, so the ability on
+/// the stack names nothing, and it is still on the battlefield as the
+/// ability resolves, so the count is its power there, counter and all
+/// (CR 608.2h). Evendo's tests read the other half of that rule, a creature
+/// gone by then.
 #[test]
 fn stationing_a_creature_reads_the_power_it_still_has() {
     let p0 = PlayerId::new(0);
@@ -237,32 +261,21 @@ fn stationing_a_creature_reads_the_power_it_still_has() {
     let bird = on_battlefield(&engine, p0, umara_raptor()).expect("the Raptor is out");
     let vessel = on_battlefield(&engine, p0, inspirit_flagship_vessel()).expect("the ship is out");
 
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    let (source, ability_index) = legal
-        .abilities
-        .iter()
-        .copied()
-        .find(|(src, _)| *src == vessel)
-        .expect("the station ability is offered");
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source,
-                ability_index,
-            },
-        )
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![bird],
-            },
-        )
-        .unwrap();
+    station_inspirit(&mut engine, bird);
+    assert!(is_tapped(&engine, bird), "the cost is paid");
+    let ability = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .expect("station is on the stack");
+    assert!(
+        engine
+            .state()
+            .object(ability)
+            .is_some_and(|o| o.targets.is_empty()),
+        "station targets nothing"
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(
@@ -272,6 +285,75 @@ fn stationing_a_creature_reads_the_power_it_still_has() {
             .map(|o| o.counters.get(CounterKind::Charge)),
         Some(2),
         "the Raptor's power on the battlefield, counter and all",
+    );
+}
+
+/// "Tap another **untapped** creature you control" (CR 702.184a): a
+/// creature already tapped cannot pay the cost (CR 118.3), so station never
+/// offers it. Inspirit wrote station as an effect, `Effect::TapTarget` under
+/// a free cost aimed at "another creature you control", so a tapped Elf was
+/// a legal target, and "tapping" it again put its power in charge counters
+/// for nothing.
+#[test]
+fn inspirit_stations_only_off_an_untapped_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[
+                inspirit_flagship_vessel(),
+                llanowar_elves(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let vessel = on_battlefield(&engine, p0, inspirit_flagship_vessel()).expect("the Vessel");
+    let [tapped, untapped] = all_on_battlefield(&engine, p0, llanowar_elves())[..] else {
+        panic!("two Elves");
+    };
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .set_tapped(tapped, true);
+
+    activate(&mut engine, p0, inspirit_flagship_vessel(), 0);
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "station asks which untapped creature pays, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(prompt, ChoicePrompt::CostTap, "a cost, not a target");
+    assert_eq!(options, vec![untapped], "only the untapped Elf can pay");
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![tapped],
+                },
+            )
+            .is_err(),
+        "the tapped Elf is refused"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![untapped],
+            },
+        )
+        .expect("the untapped Elf taps");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        counters_on(&engine, vessel, CounterKind::Charge),
+        1,
+        "one Elf's power"
     );
 }
 
@@ -1022,8 +1104,8 @@ fn station_the_enterprise_d_is_offered(engine: &Engine<RegistryLookup>, ship: Ob
 }
 
 /// Stations `crew`: presses the Spacecraft's printed Station ability
-/// (ability 0 — the two statics behind it are 1 and 2), aims it at `crew`,
-/// lets it resolve, and hands back the options the choice enumerated.
+/// (ability 0 — the two statics behind it are 1 and 2), pays its cost with
+/// `crew`, lets it resolve, and hands back the options the cost offered.
 ///
 /// The options are the return value because the printed cost is "Tap
 /// **another** creature you control", and that word is only readable in what
@@ -1035,12 +1117,16 @@ fn station_the_enterprise_d(
     crew: ObjectId,
 ) -> Vec<ObjectId> {
     activate(engine, seat, u_s_s_enterprise_d(), 0);
-    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
         panic!(
-            "station asks for another creature you control, got {:?}",
+            "station asks which creature you control pays, got {:?}",
             engine.pending()
         )
     };
+    assert_eq!(prompt, ChoicePrompt::CostTap, "a cost, not a target");
     engine
         .apply(
             seat,
@@ -1048,7 +1134,7 @@ fn station_the_enterprise_d(
                 objects: vec![crew],
             },
         )
-        .expect("the crew it was aimed at was one of the options");
+        .expect("the crew that pays was one of the options");
     pass_until(engine, stack_is_empty);
     options
 }
@@ -1103,7 +1189,7 @@ fn stationing_the_enterprise_d_taps_its_crew_for_that_creatures_power_and_exiles
             .expect("the Wurm is still an object")
             .status
             .contains(Status::TAPPED),
-        "stationing taps the creature it is aimed at"
+        "stationing taps the creature that pays"
     );
     assert_eq!(
         enterprise_d_charge_counters(&engine, ship),
@@ -1136,11 +1222,9 @@ fn stationing_the_enterprise_d_taps_its_crew_for_that_creatures_power_and_exiles
 /// The second station is what "another" is really worth. In the test above,
 /// the Spacecraft was no creature at all, so leaving it out of the options
 /// proves nothing about the word; here it *is* a creature and its own
-/// ability still must not offer it. That the tapped Wurm is offered a second
-/// time is an observation and not an assertion — the card models the tap as
-/// `Effect::TapTarget` rather than as a cost, which is a deviation from the
-/// printed "Tap another creature you control:" that belongs to a different
-/// test than this one.
+/// ability still must not offer it. Nor is the Wurm offered a second time:
+/// the first station tapped it, and a tapped creature cannot pay
+/// (CR 702.184a says "untapped", CR 118.3 says why).
 #[test]
 fn an_enterprise_d_at_seven_charge_counters_flies_with_vigilance_and_still_cannot_crew_itself() {
     let p0 = PlayerId::new(0);
@@ -1194,6 +1278,10 @@ fn an_enterprise_d_at_seven_charge_counters_flies_with_vigilance_and_still_canno
     assert!(
         offered.contains(&elves),
         "while the other creature you control is still crew: {offered:?}"
+    );
+    assert!(
+        !offered.contains(&crew),
+        "the Wurm the first station tapped cannot pay again: {offered:?}"
     );
     assert_eq!(
         enterprise_d_charge_counters(&engine, ship),

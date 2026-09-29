@@ -4,10 +4,10 @@
 //! Oracle: 8+ | Flying
 //! Oracle: Other artifacts you control have hexproof and indestructible.
 //! Set: EOC #2 — Edge of Eternities Commander | Scryfall ID: 46900ec7-eb18-45c4-8e90-a48b665cfdee | Oracle ID: 554df866-3dbb-4811-8573-6033481591aa
-// IMPLEMENTED — station (tap another creature for power-many charge
-// counters, sorcery speed), artifact-creature at 8+, 8+ flying, the 8+
-// artifact hexproof/indestructible grant, and the 1+ modal counter
-// trigger. Both sentences after a station symbol are that symbol's
+// IMPLEMENTED — station (tap another creature you control as the cost, its
+// power in charge counters, sorcery speed), artifact-creature at 8+, 8+
+// flying, the 8+ artifact hexproof/indestructible grant, and the 1+ modal
+// counter trigger. Both sentences after a station symbol are that symbol's
 // (CR 721.2): the grant is printed in the 8+ striation beside Flying.
 
 use baylee_cards_dsl::prelude::*;
@@ -34,19 +34,16 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White, Color::Blue, Color::Red]),
     coverage = Coverage::Implemented,
     abilities = &[
-        // Station: tap another creature → its power in charge counters,
-        // sorcery speed. It's an artifact creature at 8+.
+        // Station (CR 702.184a): "Tap another untapped creature you
+        // control: Put a number of charge counters on this permanent equal
+        // to the tapped creature's power. Activate only as a sorcery." The
+        // creature is a cost, not a target, and CR 118.3 is "untapped".
         activated!(
-            Cost::FREE,
-            &[
-                Effect::TapTarget,
-                Effect::AddCounterFilter {
-                    filter: &Filter::This,
-                    kind: CounterKind::Charge,
-                    amount: Amount::TargetPower,
-                },
-            ],
-            target = Some(TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL)),
+            cost!(TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)),
+            &[Effect::AddCounter {
+                kind: CounterKind::Charge,
+                amount: Amount::TappedPower,
+            }],
             timing = ActivationTiming::SorcerySpeed
         ),
         static_ability!(
