@@ -570,6 +570,23 @@ fn any_target_objects(state: &GameState) -> Vec<ObjectId> {
         .collect()
 }
 
+/// [`TargetSpec::ObjectOfEachOpponent`]'s options: every opponent's at once,
+/// which each question narrows to one (`Engine::ask_next_opponent`).
+fn opponents_objects(
+    filter: &'static baylee_cards_dsl::Filter,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+) -> Vec<ObjectId> {
+    let mut all = target_options(&TargetSpec::Object(filter), state, you, this);
+    all.retain(|id| {
+        state
+            .object(*id)
+            .is_some_and(|o| state.is_opponent(o.controller, you))
+    });
+    all
+}
+
 /// Legal target options for a [`TargetSpec`] (empty = cannot be chosen).
 #[must_use]
 pub fn target_options(
@@ -589,6 +606,7 @@ pub fn target_options(
             })
             .copied()
             .collect(),
+        TargetSpec::ObjectOfEachOpponent(filter) => opponents_objects(filter, state, you, this),
         TargetSpec::Spell(filter) => state
             .zones
             .list(ZoneLocation::Stack)

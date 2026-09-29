@@ -79,6 +79,7 @@ fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
         TargetSpec::ThisObject => Some(res.source),
         TargetSpec::EventObject => res.event_object,
         TargetSpec::Object(_)
+        | TargetSpec::ObjectOfEachOpponent(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)

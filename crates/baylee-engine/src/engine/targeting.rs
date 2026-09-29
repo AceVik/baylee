@@ -1,5 +1,10 @@
 //! Explicit shortcuts over an existing sequence of target decisions.
-use super::{CardLookup, Engine, EngineError, ObjectId, Pending, PlanKind, PlayerAction, PlayerId};
+use super::{
+    CardLookup, Engine, EngineError, ObjectId, Pending, PerOpponent, PlanKind, PlayerAction,
+    PlayerId, SmallVec,
+};
+use crate::choice::TargetPrompt;
+use crate::eval;
 use crate::trigger::PendingTrigger;
 
 /// Same source, controller, captured rules and chosen mode. Each occurrence
@@ -20,13 +25,80 @@ fn same(a: &PendingTrigger, b: &PendingTrigger) -> bool {
 }
 
 impl<L: CardLookup> Engine<L> {
+    /// `controller`'s opponents, starting with the next seat in turn order
+    /// (CR 101.4's order, the one a table reads round).
+    pub(super) fn opponents_in_turn_order(&self, controller: PlayerId) -> Vec<PlayerId> {
+        let seats = self.state.players.len();
+        (1..seats)
+            .map(|step| PlayerId::new(((usize::from(controller.get()) + step) % seats) as u8))
+            .filter(|p| self.state.is_opponent(*p, controller))
+            .collect()
+    }
+
+    /// Asks `controller` for the next opponent's target of a
+    /// `TargetSpec::ObjectOfEachOpponent` trigger: up to one permanent that
+    /// opponent controls. An opponent with nothing to point at is passed
+    /// over rather than shown an empty menu.
+    ///
+    /// `None` means a question is now pending; `Some` hands back every
+    /// target gathered, once nobody is left to ask about.
+    pub(super) fn ask_next_opponent(
+        &mut self,
+        controller: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        mode: Option<u8>,
+        mut asking: PerOpponent,
+    ) -> Option<SmallVec<[ObjectId; 2]>> {
+        while !asking.remaining.is_empty() {
+            let opponent = asking.remaining.remove(0);
+            let options: Vec<ObjectId> =
+                eval::target_options(&asking.spec, &self.state, controller, source)
+                    .into_iter()
+                    .filter(|id| {
+                        self.state
+                            .object(*id)
+                            .is_some_and(|o| o.controller == opponent)
+                    })
+                    .collect();
+            if options.is_empty() {
+                continue;
+            }
+            self.pending_plan = Some(PlanKind::Trigger {
+                source,
+                ability_index,
+                mode,
+                per_opponent: Some(Box::new(asking)),
+            });
+            self.pending = Pending::ChooseTargets {
+                player: controller,
+                options,
+                player_options: Vec::new(),
+                min: 0,
+                max: 1,
+                reason: TargetPrompt::Targets,
+            };
+            self.awaiting_answer = true;
+            return None;
+        }
+        Some(asking.gathered)
+    }
+
     /// Number of consecutive occurrences of the exact current trigger.
     /// Non-trigger questions (including payments and modal choices) never
     /// qualify. Only the already collected queue is examined.
     #[must_use]
     pub fn target_batch_count(&self) -> u32 {
+        // A question per opponent is one trigger's several answers, never
+        // several triggers' one.
         if !matches!(self.pending, Pending::ChooseTargets { .. })
-            || !matches!(self.pending_plan, Some(PlanKind::Trigger { .. }))
+            || !matches!(
+                self.pending_plan,
+                Some(PlanKind::Trigger {
+                    per_opponent: None,
+                    ..
+                })
+            )
         {
             return 0;
         }

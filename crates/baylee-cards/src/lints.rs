@@ -235,6 +235,7 @@ fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
 fn target_filter(spec: TargetSpec) -> Option<&'static Filter> {
     match spec {
         TargetSpec::Object(f)
+        | TargetSpec::ObjectOfEachOpponent(f)
         | TargetSpec::Spell(f)
         | TargetSpec::StackOrBattlefield(f)
         | TargetSpec::CardInGraveyard(f, _)
@@ -283,6 +284,7 @@ fn target_reuse(ability: &AbilityDef) -> Option<&'static Filter> {
 fn can_target_an_object(spec: TargetSpec) -> bool {
     match spec {
         TargetSpec::Object(_)
+        | TargetSpec::ObjectOfEachOpponent(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)

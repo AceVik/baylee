@@ -1162,6 +1162,10 @@ nothing, and nothing between two permanents of one player), `PhaseOut`,
 `AttachSelf`, `UntapChosen { filter, count }` ("untap up to N lands" with no
 "target": chosen as it resolves, Treachery), `Populate` (CR 701.36: a choice
 on resolution, never a target, Nesting Dovehawk).
+"For each opponent, … up to one target [filter] that player controls" is
+`TargetReq::up_to(TargetSpec::ObjectOfEachOpponent(&FILTER), u8::MAX)` (The
+True Scriptures I): the controller is asked once per opponent, in turn order,
+each question offering only that player's permanents. Triggers only for now.
 A spell "with a single target" is `TargetSpec::Spell(&Filter::WithSingleTarget)`
 (CR 115.9a: every instance of "target" and every player counted, Misdirection).
 "If this would be put into a graveyard from anywhere, exile it instead" (every

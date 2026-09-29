@@ -116,6 +116,7 @@ impl<L: CardLookup> Engine<L> {
                 source,
                 ability_index,
                 mode,
+                ..
             }) => Some((*source, *ability_index, mode.map(usize::from))),
             _ => None,
         };

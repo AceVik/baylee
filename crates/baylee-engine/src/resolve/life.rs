@@ -75,6 +75,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 // a `_` arm: a new player-flavoured `TargetSpec` would land
                 // in a catch-all silently and be dealt to as an object.
                 TargetSpec::Object(_)
+                | TargetSpec::ObjectOfEachOpponent(_)
                 | TargetSpec::Spell(_)
                 | TargetSpec::StackOrBattlefield(_)
                 | TargetSpec::CardInGraveyard(..)

@@ -566,7 +566,29 @@ impl<L: CardLookup> Engine<L> {
                         source,
                         ability_index,
                         mode,
+                        per_opponent,
                     } => {
+                        // One opponent answered; the next is asked before
+                        // anything leaves the queue, and the trigger stacks
+                        // with every answer once the last has been given.
+                        let targets = match per_opponent {
+                            Some(mut asking) => {
+                                asking.gathered.extend(targets);
+                                let controller =
+                                    self.trigger_queue.front().map_or(player, |t| t.controller);
+                                match self.ask_next_opponent(
+                                    controller,
+                                    source,
+                                    ability_index,
+                                    mode,
+                                    *asking,
+                                ) {
+                                    None => return Ok(()),
+                                    Some(all) => all,
+                                }
+                            }
+                            None => targets,
+                        };
                         // Consume the queued trigger before stacking it — and
                         // keep it, because it is carrying the ability list its
                         // index points into when the source has stopped

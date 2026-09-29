@@ -425,6 +425,12 @@ pub enum PlayerRel {
 pub enum TargetSpec {
     /// An object matching the filter (battlefield, or stack for spells).
     Object(&'static Filter),
+    /// "For each opponent, … up to one target [filter] that player
+    /// controls" (The True Scriptures I): one question per opponent, each
+    /// offering only that player's permanents, the answers gathered into
+    /// one list. Written with `TargetReq::up_to(spec, u8::MAX)`; the count
+    /// is the opponents' (CR 601.2c, 115.1).
+    ObjectOfEachOpponent(&'static Filter),
     /// A spell on the stack matching the filter.
     Spell(&'static Filter),
     /// A spell on the stack OR a permanent on the battlefield (Venser).

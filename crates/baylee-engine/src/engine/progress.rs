@@ -2230,11 +2230,33 @@ impl<L: CardLookup> Engine<L> {
                 // number of target creatures you control" (`max` 255) walks
                 // past the `max == 0` test and is stopped by the empty
                 // option list beside it.
-                if offered > 0 {
+                if let baylee_cards_dsl::TargetSpec::ObjectOfEachOpponent(_) = req.spec {
+                    let opponents = self.opponents_in_turn_order(t.controller);
+                    let first = super::PerOpponent {
+                        spec: req.spec,
+                        gathered: SmallVec::new(),
+                        remaining: opponents,
+                    };
+                    if self
+                        .ask_next_opponent(
+                            t.controller,
+                            t.source,
+                            t.ability_index,
+                            t.chosen_mode,
+                            first,
+                        )
+                        .is_none()
+                    {
+                        return;
+                    }
+                    // Nobody has anything to point at: it stacks targeting
+                    // nothing, like any "up to one" with nothing legal.
+                } else if offered > 0 {
                     self.pending_plan = Some(PlanKind::Trigger {
                         source: t.source,
                         ability_index: t.ability_index,
                         mode: t.chosen_mode,
+                        per_opponent: None,
                     });
                     let max = req.max.min(offered as u8);
                     self.pending = Pending::ChooseTargets {
