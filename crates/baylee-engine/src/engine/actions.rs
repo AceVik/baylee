@@ -315,6 +315,17 @@ impl<L: CardLookup> Engine<L> {
                 if !options.contains(&chosen) {
                     return Err(EngineError::IllegalAction("player not among the options"));
                 }
+                // The graveyard an activation's targets come from; the
+                // target question follows, narrowed to it.
+                if let Some(PlanKind::ChooseActivationGraveyard {
+                    source,
+                    ability_index,
+                }) = self.pending_plan
+                {
+                    self.pending_plan = None;
+                    self.activation_graveyard = Some(chosen);
+                    return self.start_activation(player, source, ability_index, SmallVec::new());
+                }
                 if self.resolution.as_ref().is_some_and(|r| {
                     matches!(
                         r.awaiting,
@@ -539,6 +550,9 @@ impl<L: CardLookup> Engine<L> {
                     // answered somewhere else should have to say so here.
                     PlanKind::ChooseActivationX { .. } => {
                         unreachable!("activation-number plans are answered via ChooseNumber")
+                    }
+                    PlanKind::ChooseActivationGraveyard { .. } => {
+                        unreachable!("a graveyard is answered via ChoosePlayer")
                     }
                     PlanKind::ChoosePhyrexianLife { .. } => {
                         unreachable!("a Phyrexian symbol is answered via YesNo")

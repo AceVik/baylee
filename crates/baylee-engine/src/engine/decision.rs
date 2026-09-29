@@ -76,6 +76,7 @@ impl<L: CardLookup> Engine<L> {
     /// Explains a pending choice to an in-process controller. This is not a
     /// player request endpoint and contains no library or opposing hand.
     #[must_use]
+    #[allow(clippy::too_many_lines)] // one arm per plan that names an ability
     pub fn decision_context(&self) -> DecisionContext<'_> {
         if let Some(wizard) = &self.cast_wizard {
             return self.wizard_context(wizard);
@@ -108,6 +109,10 @@ impl<L: CardLookup> Engine<L> {
                     ability_index,
                 }
                 | PlanKind::ChooseActivationX {
+                    source,
+                    ability_index,
+                }
+                | PlanKind::ChooseActivationGraveyard {
                     source,
                     ability_index,
                 }

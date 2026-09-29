@@ -394,6 +394,10 @@ pub enum PtCount {
     /// nine card types of CR 205.2a, each counted once however many cards
     /// share it.
     CardTypesInAllGraveyards,
+    /// Cards exiled with the object (CR 406.6): "the number of cards exiled
+    /// with it" (Unlicensed Hearse), the cards in exile that
+    /// `Effect::ExileTargetsWithSource` put there for this object.
+    ExiledWithThis,
 }
 
 impl Modifier {

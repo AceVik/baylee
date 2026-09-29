@@ -446,6 +446,10 @@ pub enum PlayerRel {
     /// controlled by anyone and a token that died no longer exists at all.
     ControllerOfEvent,
     /// The player chosen via `Pending::ChoosePlayer`.
+    ///
+    /// In `TargetSpec::CardInGraveyard` it is "from a single graveyard"
+    /// (Unlicensed Hearse): the activation asks which graveyard before it
+    /// asks for the targets, and offers only that one's cards.
     Chosen,
 }
 
@@ -1852,6 +1856,13 @@ pub enum Effect {
         /// What.
         target: TargetSpec,
     },
+    /// Exile every target, each **exiled with** the source (CR 406.6):
+    /// "Exile up to two target cards from a single graveyard" (Unlicensed
+    /// Hearse), whose power and toughness count them
+    /// (`PtCount::ExiledWithThis`). Nothing brings them back, which is what
+    /// keeps it apart from [`Effect::ExileLinked`]'s "until …" exile and its
+    /// rider, which a leaving host and a new monarch both read.
+    ExileTargetsWithSource,
     /// Return everything exiled with a link to the source to the
     /// battlefield under its owner's control.
     ReturnLinkedToBattlefield,
@@ -2601,6 +2612,7 @@ impl Effect {
             | Effect::ControlRotation
             | Effect::PhaseOut { .. }
             | Effect::ExileLinked { .. }
+            | Effect::ExileTargetsWithSource
             | Effect::ReturnLinkedToBattlefield
             | Effect::CreateTokenFromLinked { .. }
             | Effect::SacrificeSelf

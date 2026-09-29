@@ -875,6 +875,13 @@ the object the trigger was about), `AbilityOnStack(filter)`,
 `SpellOrAbility(filter)` (Ertai), `Player(rel)`, `AnyPlayer`, `AnyOpponent`,
 `AnyTarget`.
 
+"Target cards from a single graveyard" (Unlicensed Hearse) is
+`CardInGraveyard(filter, PlayerRel::Chosen)` on an activated ability. When
+more than one graveyard holds a match, the activation first asks
+`Pending::ChoosePlayer` over those graveyards, and the targets offered are
+the named graveyard's cards. With one, nothing is asked. The offer and
+CR 608.2b's re-check read every graveyard.
+
 `AnyTarget` is "any target" (CR 115.4) — a creature, a planeswalker, a battle
 **or a player**, chosen from one set that spans objects and players. It is its
 own variant rather than a `Filter`, because no filter can match a player: a
@@ -1204,7 +1211,10 @@ as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
 filter, tapped }` ("return all land cards from your graveyard to the
 battlefield tapped", Lumra: every match read before any moves, tapped as it
 arrives), `ExileGraveyard`, `Blink`,
-`ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
+`ExileLinked`, `ExileTargetsWithSource` (every target, each exiled with the
+source for good, CR 406.6: Unlicensed Hearse; `Rider::ExiledWith`, never
+`Linked`, which "until" exiles and the monarchy release),
+`ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
 `PutSourceOnTopOfLibrary`, `ExileAndReturnAtEndStep` (Venser +2, Eerie
 Interlude), `BottomCardFromHand`, `WishToHand` (Karn's −2: a card you own
 from outside the game or face-up in your exile).
@@ -1553,10 +1563,12 @@ hashes, layers and does nothing. This paragraph said THREE until
   characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
   - `YouControl(filter)`
   - `CardTypesInAllGraveyards`
+  - `ExiledWithThis`: the cards in exile exiled with this object as it is now
+    (`ExileTargetsWithSource`; a Hearse that left and came back counts none).
 
   Power is the count, and toughness is the count plus `toughness_plus`
   (Pyrogoyf: `+1`). Like every static ability, it works only on the
-  battlefield. A graveyard change invalidates the projection.
+  battlefield. A graveyard or exile change invalidates the projection.
 - **`Effect::EventObjectDealsDamageEqualToPower { target }`**: "that creature
   deals damage equal to its power to any target". The dealer is the event's
   object, and its power is read now, or as it last existed on the

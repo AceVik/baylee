@@ -199,8 +199,13 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
 /// is the **only** caller allowed to read [`players`]' `None` as "nobody".
 /// [`players`] has four callers in all and the other three
 /// (`resolve::players_of` and two in `team_tests`) `expect` a relation the
-/// state can answer. Every `CardInGraveyard` in the pool names `You` or
-/// `EachPlayer`; one naming `Chosen` would be a bug in the card.
+/// state can answer.
+///
+/// `Chosen` is the exception, and it is not a context relation here: it is
+/// "from a single graveyard" (Unlicensed Hearse), and the graveyard is chosen
+/// as part of choosing the targets. So every graveyard is enumerated — what
+/// the offer counts, and what CR 608.2b re-checks a target against — and
+/// `start_activation` narrows the list to the graveyard its player named.
 fn graveyard_options(
     filter: &Filter,
     rel: PlayerRel,
@@ -208,6 +213,11 @@ fn graveyard_options(
     you: PlayerId,
     this: ObjectId,
 ) -> Vec<ObjectId> {
+    let rel = if rel == PlayerRel::Chosen {
+        PlayerRel::EachPlayer
+    } else {
+        rel
+    };
     let Some(seats) = players(rel, state, you) else {
         return Vec::new();
     };

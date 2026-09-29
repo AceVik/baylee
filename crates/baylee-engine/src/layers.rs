@@ -549,6 +549,21 @@ fn card_types_in_all_graveyards(state: &GameState) -> usize {
     CARD_TYPES.iter().filter(|t| seen.contains(**t)).count()
 }
 
+/// The cards in exile that were exiled with `host` as it is now (CR 406.6):
+/// a [`crate::object::Rider::ExiledWith`] naming its id and its version, so
+/// a host that left and came back counts none of them (CR 400.7).
+fn cards_exiled_with(state: &GameState, host: &GameObject) -> usize {
+    let mark = crate::object::Rider::ExiledWith {
+        host: host.id,
+        version: crate::object::Rider::version_of(host),
+    };
+    (0..state.players.len())
+        .map(|seat| PlayerId::new(u8::try_from(seat).unwrap_or(u8::MAX)))
+        .flat_map(|seat| state.zones.list(crate::zone::ZoneLocation::Exile(seat)))
+        .filter(|id| state.object(**id).is_some_and(|o| o.riders.contains(&mark)))
+        .count()
+}
+
 #[allow(clippy::too_many_lines)] // the modifier vocabulary is one flat table
 fn apply(
     c: &mut Characteristics,
@@ -591,6 +606,7 @@ fn apply(
                 baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => {
                     card_types_in_all_graveyards(state)
                 }
+                baylee_cards_dsl::PtCount::ExiledWithThis => cards_exiled_with(state, obj),
             };
             let n = i16::try_from(n).unwrap_or(i16::MAX);
             c.power = Some(n);

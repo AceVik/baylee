@@ -178,9 +178,11 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
         // Which piles the spell may look in is what the printed `PlayerRel`
         // says, and two of them cannot be settled here: `ControllerOfTarget`
         // names the controller of a target this spell has not chosen, and
-        // `Chosen` the answer to a `Pending::ChoosePlayer` nobody has been
-        // asked yet. Both refuse to the safe direction, like every other
-        // question this view cannot close.
+        // `ControllerOfEvent` an event that has not happened. Both refuse to
+        // the safe direction, like every other question this view cannot
+        // close. `Chosen` can be: it is "from a single graveyard", whichever
+        // the player names as the targets are chosen, so any graveyard
+        // holding a card is enough.
         //
         // `Opponent` is folded in with `EachOpponent` rather than resolved:
         // heads-up they are the same pile, and in multiplayer the union is
@@ -190,7 +192,9 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
             let mine = usize::from(view.seat.get());
             let piles: Vec<&PublicObject> = match rel {
                 PlayerRel::You => view.graveyards.get(mine).into_iter().flatten().collect(),
-                PlayerRel::EachPlayer => view.graveyards.iter().flatten().collect(),
+                PlayerRel::EachPlayer | PlayerRel::Chosen => {
+                    view.graveyards.iter().flatten().collect()
+                }
                 PlayerRel::Opponent | PlayerRel::EachOpponent => view
                     .graveyards
                     .iter()
@@ -198,9 +202,7 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                     .filter(|(seat, _)| *seat != mine)
                     .flat_map(|(_, pile)| pile)
                     .collect(),
-                PlayerRel::ControllerOfTarget
-                | PlayerRel::ControllerOfEvent
-                | PlayerRel::Chosen => {
+                PlayerRel::ControllerOfTarget | PlayerRel::ControllerOfEvent => {
                     return None;
                 }
             };

@@ -2867,6 +2867,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ShuffleGraveyardIntoLibrary
         | Effect::PhaseOut { .. }
         | Effect::ExileLinked { .. }
+        | Effect::ExileTargetsWithSource
         | Effect::SacrificeSelf
         | Effect::PutTargetOnBottomOfLibrary
         | Effect::ExileSource

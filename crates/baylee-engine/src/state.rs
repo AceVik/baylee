@@ -2126,10 +2126,17 @@ impl GameState {
         // zone anyway. And the graveyards, because a permanent's projection
         // may count them: Pyrogoyf is as big as the card types among cards
         // in all graveyards (`PtCount::CardTypesInAllGraveyards`), so a card
-        // milled or discarded grows a permanent that never moved.
-        if matches!(from_zone, Zone::Battlefield | Zone::Stack | Zone::Graveyard)
-            || matches!(to.zone(), Zone::Battlefield | Zone::Stack | Zone::Graveyard)
-        {
+        // milled or discarded grows a permanent that never moved. And exile,
+        // for the same reason one zone over: Unlicensed Hearse is as big as
+        // the cards exiled with it (`PtCount::ExiledWithThis`), and one of
+        // them leaving exile shrinks it.
+        if matches!(
+            from_zone,
+            Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile
+        ) || matches!(
+            to.zone(),
+            Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile
+        ) {
             self.invalidate_projections();
         }
         if to.zone() == Zone::Battlefield {
@@ -3138,6 +3145,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::Prepared => h.u8(10),
             Rider::SpellCopy => h.u8(11),
             Rider::ExileInsteadOfGraveyard => h.u8(12),
+            Rider::ExiledWith { host, version } => {
+                h.u8(13);
+                host.hash(h);
+                version.hash(h);
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:

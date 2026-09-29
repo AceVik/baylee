@@ -477,6 +477,30 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        // Every target, each exiled with the source (CR 406.6) as the
+        // object it is now.
+        Effect::ExileTargetsWithSource => {
+            let version = state
+                .object(res.source)
+                .map_or(0, crate::object::Rider::version_of);
+            for &target in &res.targets {
+                let owner = state.object(target).map_or(you, |o| o.owner);
+                if let Some(obj) = state.object_mut(target) {
+                    obj.kind = ObjectKind::Card;
+                    obj.riders.push(crate::object::Rider::ExiledWith {
+                        host: res.source,
+                        version,
+                    });
+                }
+                let _ = state.move_object(
+                    target,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
         Effect::SacrificeSelf => {
             if !can_sacrifice_self(state, res) {
                 return None;

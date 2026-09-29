@@ -557,6 +557,19 @@ pub enum Rider {
         /// The host object this card is linked to.
         host: ObjectId,
     },
+    /// Exiled **with** another object (CR 406.6, 607.2a): what
+    /// `Effect::ExileTargetsWithSource` marks and `PtCount::ExiledWithThis`
+    /// counts. Not [`Rider::Linked`], which an "until" exile is released by.
+    /// The host's version is kept because a host that left and came back
+    /// is a new object (CR 400.7), and nothing was exiled with that one.
+    ExiledWith {
+        /// The object the card was exiled with.
+        host: ObjectId,
+        /// Its version at the time, in sixteen bits ([`Rider::version_of`]):
+        /// a rider is eight bytes, and a `u32` here made every object's
+        /// inline rider list eight bytes longer (`tests/footprint.rs`).
+        version: u16,
+    },
     /// Rebound: cast from hand, may be cast again at the next upkeep.
     Rebound,
     /// On an adventure (may cast the permanent later).
@@ -593,6 +606,16 @@ pub enum Rider {
     /// it was copied from — and a token is the opposite thing, card-less
     /// and swept up by CR 704.5d.
     SpellCopy,
+}
+
+impl Rider {
+    /// An object's version as [`Rider::ExiledWith`] keeps it. A version past
+    /// `u16::MAX` is a permanent that changed zones sixty-five thousand
+    /// times; they all read as the last one.
+    #[must_use]
+    pub fn version_of(object: &GameObject) -> u16 {
+        u16::try_from(object.version).unwrap_or(u16::MAX)
+    }
 }
 
 /// Riders attached to an object.

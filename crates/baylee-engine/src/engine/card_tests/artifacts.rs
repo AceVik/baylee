@@ -3030,6 +3030,109 @@ fn conduit_of_worlds() -> CardIndex {
     card_index("ed14be15-8f8d-4fe3-a147-f5da8ed873bf")
 }
 
+fn unlicensed_hearse() -> CardIndex {
+    card_index("c640654c-487e-4a2c-aced-126ed835b78f")
+}
+
+/// Unlicensed Hearse: "{T}: Exile up to two target cards from a single
+/// graveyard." and "Unlicensed Hearse's power and toughness are each equal
+/// to the number of cards exiled with it."
+///
+/// A Forest lies in p0's graveyard and a Plains and a Swamp in p1's. Two
+/// graveyards hold cards, so the activation asks which one first; p1's is
+/// named, and the targets offered are its two cards and not the Forest.
+/// Both go to their owner's exile, and the Hearse, 0/0 before, is 2/2.
+#[test]
+fn unlicensed_hearse_exiles_two_cards_from_one_graveyard_and_counts_them() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[unlicensed_hearse()])
+        .hand(0, &[forest()])
+        .hand(1, &[plains(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let their_cards = [
+        hand_to_graveyard(&mut engine, p1, plains()),
+        hand_to_graveyard(&mut engine, p1, swamp()),
+    ];
+    let my_forest = hand_to_graveyard(&mut engine, p0, forest());
+    let hearse = on_battlefield(&engine, p0, unlicensed_hearse()).expect("the Hearse is out");
+    assert_eq!(pt(&engine, hearse), (0, 0), "nothing is exiled with it yet");
+
+    activate(&mut engine, p0, unlicensed_hearse(), 0);
+    let Pending::ChoosePlayer { player, options } = engine.pending().clone() else {
+        panic!(
+            "expected the graveyard question, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options, vec![p0, p1], "both graveyards hold a card");
+    engine
+        .apply(p0, PlayerAction::ChoosePlayer(p1))
+        .expect("p1's graveyard is named");
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the targets, got {:?}", engine.pending())
+    };
+    assert_eq!((min, max), (0, 2), "\"up to two target cards\"");
+    assert_eq!(options.len(), 2, "p1's two cards: {options:?}");
+    assert!(their_cards.iter().all(|card| options.contains(card)));
+    assert!(
+        !options.contains(&my_forest),
+        "\"from a single graveyard\": the Forest is in the other one"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: their_cards.to_vec(),
+            },
+        )
+        .expect("both of p1's cards are targeted");
+    pass_until(&mut engine, stack_is_empty);
+
+    for card in their_cards {
+        assert_eq!(
+            engine.state().object(card).map(|o| (o.zone, o.owner)),
+            Some((Zone::Exile, p1)),
+            "exiled, into its owner's exile"
+        );
+    }
+    assert_eq!(
+        engine.state().object(my_forest).map(|o| o.zone),
+        Some(Zone::Graveyard)
+    );
+    assert_eq!(
+        pt(&engine, hearse),
+        (2, 2),
+        "\"equal to the number of cards exiled with it\""
+    );
+}
+
+/// Unlicensed Hearse with cards in one graveyard only: nothing asks which
+/// graveyard, and the targets are asked at once.
+#[test]
+fn unlicensed_hearse_asks_no_graveyard_when_only_one_holds_cards() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[unlicensed_hearse()])
+        .hand(1, &[plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let plains_card = hand_to_graveyard(&mut engine, p1, plains());
+
+    activate(&mut engine, p0, unlicensed_hearse(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the targets at once, got {:?}", engine.pending())
+    };
+    assert_eq!(options, vec![plains_card]);
+}
+
 /// Conduit of Worlds: "You may play lands from your graveyard."
 ///
 /// A Forest in the graveyard is offered as a land play and played from

@@ -1507,7 +1507,41 @@ impl<L: CardLookup> Engine<L> {
             // (CR 601.2c, by CR 602.2b). X is answered by now (CR 601.2b
             // comes first), so an X count is a number here.
             let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
-            let options = eval::target_options(&req.spec, &self.state, player, source);
+            let mut options = eval::target_options(&req.spec, &self.state, player, source);
+            // "Target cards from a single graveyard" (Unlicensed Hearse):
+            // which graveyard is asked first, when more than one holds a
+            // card to choose, and the targets are then that graveyard's.
+            if let baylee_cards_dsl::TargetSpec::CardInGraveyard(
+                _,
+                baylee_cards_dsl::PlayerRel::Chosen,
+            ) = req.spec
+            {
+                let graveyard_of = |state: &crate::state::GameState, id: &ObjectId| {
+                    state.object(*id).and_then(|o| o.zone_owner)
+                };
+                if let Some(chosen) = self.activation_graveyard.take() {
+                    options.retain(|id| graveyard_of(&self.state, id) == Some(chosen));
+                } else {
+                    let mut graveyards: Vec<PlayerId> = options
+                        .iter()
+                        .filter_map(|id| graveyard_of(&self.state, id))
+                        .collect();
+                    graveyards.sort_unstable();
+                    graveyards.dedup();
+                    if graveyards.len() > 1 {
+                        self.pending_plan = Some(PlanKind::ChooseActivationGraveyard {
+                            source,
+                            ability_index,
+                        });
+                        self.pending = Pending::ChoosePlayer {
+                            player,
+                            options: graveyards,
+                        };
+                        self.awaiting_answer = true;
+                        return Ok(());
+                    }
+                }
+            }
             // Players are the other half of the same choice, and asking for
             // objects alone made three implemented lands dead: Nephalia
             // Drownyard, Duskmantle and Orzhova all say "target player",
