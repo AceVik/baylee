@@ -1054,6 +1054,7 @@ dependencies = [
  "baylee-feedback",
  "baylee-gamehost",
  "baylee-protocol",
+ "baylee-seat",
  "baylee-view",
  "bytes",
  "flate2",

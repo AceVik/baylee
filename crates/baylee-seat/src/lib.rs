@@ -9,6 +9,9 @@
 //!
 //! The pieces, from the wire in:
 //!
+//! - [`link`]: the socket, bought with a ticket and dialled again when it
+//!   drops, by the client's own rules ([`baylee_client_core::wsticket`],
+//!   [`baylee_client_core::reconnect`]);
 //! - [`memory`]: what the seat has been told (the table, the newest view,
 //!   the seat's log);
 //! - [`wake`]: the standing orders, which answer what is not a decision;
@@ -18,10 +21,15 @@
 //! - [`mind`]: what answers the real decisions ([`HouseMind`] and
 //!   [`ScriptedMind`] here; a language model and a trained net later);
 //! - [`transcript`]: what happened, one JSON line at a time;
-//! - [`deck`]: the deck the seat brings.
+//! - [`lobby`] and [`deck`]: signing in, the deck, the room.
+//!
+//! [`bridge::play`] runs them all against a gateway.
 
+pub mod bridge;
 pub mod deck;
 pub mod house;
+pub mod link;
+pub mod lobby;
 pub mod memory;
 pub mod mind;
 pub mod referee;

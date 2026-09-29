@@ -72,5 +72,9 @@ baylee-feedback.workspace = true
 baylee-client-core.workspace = true
 baylee-gamehost.workspace = true
 baylee-view.workspace = true
+# A seat bridge (a mind at a table, as an ordinary socket player), for the
+# test that two of them play a whole game through this gateway. Its lobby
+# and socket code are the ones its binary runs.
+baylee-seat.workspace = true
 flate2.workspace = true
 tokio-tungstenite.workspace = true
