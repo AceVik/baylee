@@ -3709,14 +3709,20 @@ mod tests {
     /// says "under its owner's control" (Sheoldred's `{4}{B}`, the Ojers'
     /// dies triggers). "…under your control" says the other thing; a
     /// sentence that names nobody (The True Scriptures III) puts the card
-    /// under the player the effect instructs (CR 110.2a); a "transform this"
-    /// stand-in (#206) keeps its controller (CR 712.18). The effect returned
+    /// under the player the effect instructs (CR 110.2a). The effect returned
     /// every card under its owner's control until observed fault 62, and no
     /// card said which it meant.
     ///
+    /// And the sentence says "return": one that only says "transform this"
+    /// is `Effect::TransformSource`, which turns the same permanent over
+    /// (CR 701.27a, CR 712.18). Eight cards wrote that as an exile and a
+    /// return (#206), a new object that entered and shed every effect on the
+    /// old one, until 2026-09-30.
+    ///
     /// A printed ability with no known sentence is a finding, not a skip,
-    /// and the count has a floor and a ceiling: fifteen, over thirteen
-    /// cards, counted 2026-09-29.
+    /// and the count has a floor and a ceiling: seven, over six cards,
+    /// counted 2026-09-30 (fifteen over thirteen before the eight stand-ins
+    /// became transforms).
     #[test]
     fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
         let mut wrong = Vec::new();
@@ -3750,6 +3756,12 @@ mod tests {
                                             "{who}: owner_control {owner_control}, prints {text:?}"
                                         ));
                                     }
+                                    if !text.contains("return") {
+                                        wrong.push(format!(
+                                            "{who}: prints no return, so it is \
+                                             Effect::TransformSource: {text:?}"
+                                        ));
+                                    }
                                 }
                             }
                         });
@@ -3771,8 +3783,8 @@ mod tests {
         }
         assert!(wrong.is_empty(), "{wrong:#?}");
         assert!(
-            (15..=22).contains(&checked),
-            "read {checked} self-returns out of the pool, and fifteen were written"
+            (7..=14).contains(&checked),
+            "read {checked} self-returns out of the pool, and seven were written"
         );
     }
 }

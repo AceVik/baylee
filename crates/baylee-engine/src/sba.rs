@@ -389,6 +389,18 @@ fn run_attachment_sbas(state: &mut GameState, lookup: &impl crate::state::CardLo
             .subtypes
             .contains(baylee_core::generated::subtypes::artifact::EQUIPMENT);
         if !is_aura && !is_equipment {
+            // CR 704.5p: any other permanent attached to something becomes
+            // unattached and stays on the battlefield, save a Fortification
+            // (CR 704.5n's, which this does not otherwise read). Dowsing
+            // Dagger transforms into Lost Vale while it equips a creature,
+            // and a land equips nothing.
+            let fortification = obj
+                .characteristics()
+                .subtypes
+                .contains(baylee_core::generated::subtypes::artifact::FORTIFICATION);
+            if obj.attached_to.is_some() && !fortification {
+                unattaching.push(id);
+            }
             continue;
         }
         // The host has to be a permanent on the battlefield; anything else

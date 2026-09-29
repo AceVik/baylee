@@ -8,9 +8,8 @@
 //! Face: Thaumatic Compass — {2} — Artifact
 //! Face: Spires of Orazca —  — Land
 // PARTIAL — the front face's land search and its seven-or-more-lands end-step
-// flip (Effect::ExileSelfReturnAsFace) are built, and so is Spires of
-// Orazca's {T}: Add {C}. The back face's second ability is not; see the
-// NOT SUPPORTED line below.
+// transform are built, and so is Spires of Orazca's {T}: Add {C}. The back
+// face's second ability is not; see the NOT SUPPORTED line below.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -53,12 +52,7 @@ card!(
                 step: StepKind::End,
                 whose: PlayerRel::You,
             },
-            // Under the trigger's controller, the artifact's (CR 603.3a): a
-            // transform keeps its controller (CR 712.18).
-            &[Effect::ExileSelfReturnAsFace {
-                face: 1,
-                owner_control: false,
-            }],
+            &[Effect::TransformSource],
             condition = Some(Condition::ControlCount(&Filter::LAND, 7)),
         ),
     ],

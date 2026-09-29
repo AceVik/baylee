@@ -3713,8 +3713,13 @@ fn time_sieve_sacrifices_five_different_artifacts_for_its_extra_turn() {
 /// `Trigger::DealsCombatDamageToPlayer` transform trigger, and equip {2} are implemented. The test
 /// equips `Dowsing Dagger` to an elf, confirms the +2/+1 pump, attacks an opponent with the
 /// equipped creature to deal combat damage, and verifies that `Dowsing Dagger` becomes
-/// `Lost Vale` as a land on face 1 — by exile and return, a new object, and not by transforming
-/// in place (#206).
+/// `Lost Vale` as a land on face 1.
+///
+/// It is the same permanent, turned over (CR 701.27a, CR 712.18), where the stand-in (#206)
+/// exiled it and returned a new object. And the Equipment it was is gone with the face: Lost
+/// Vale prints no static, so nothing of "equipped creature gets +2/+1" is left in the effect
+/// table (CR 604.2), and a land attached to a creature becomes unattached (CR 704.5p), so the
+/// elf is a 1/1 again.
 #[test]
 fn dowsing_dagger_pumps_equipped_creature_and_transforms_on_combat_damage() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -3727,6 +3732,7 @@ fn dowsing_dagger_pumps_equipped_creature_and_transforms_on_combat_damage() {
 
     let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("p0 controls the elf");
     let dagger = on_battlefield(&engine, p0, dowsing_dagger()).expect("dagger on battlefield");
+    let dagger_was = identity(&engine, dagger);
     assert_eq!(pt(&engine, elf), (1, 1), "elf starts as a 1/1");
 
     tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
@@ -3782,6 +3788,31 @@ fn dowsing_dagger_pumps_equipped_creature_and_transforms_on_combat_damage() {
         Some(1),
         "dagger transformed to face 1 (Lost Vale)"
     );
+    assert_eq!(
+        identity(&engine, vale),
+        dagger_was,
+        "the same object, turned over: a transform changes no zone (CR 712.18)"
+    );
+    assert_eq!(
+        engine.state().object(vale).and_then(|o| o.attached_to),
+        None,
+        "a land attached to a creature becomes unattached (CR 704.5p)"
+    );
+    assert!(
+        engine
+            .state()
+            .effects
+            .iter()
+            .all(|fx| fx.source != Some(vale)),
+        "the Equipment's static turned away with its face: {:?}",
+        engine
+            .state()
+            .effects
+            .iter()
+            .filter(|fx| fx.source == Some(vale))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(pt(&engine, elf), (1, 1), "the elf is a 1/1 again");
     let t = types(&engine, vale);
     assert!(
         t.contains(TypeSet::LAND),
@@ -3989,6 +4020,7 @@ fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lan
     reach_main_phase(&mut engine, p0);
 
     let compass = on_battlefield(&engine, p0, thaumatic_compass()).expect("compass on battlefield");
+    let compass_was = identity(&engine, compass);
     assert_eq!(
         engine.state().object(compass).map(|o| o.face_index),
         Some(0),
@@ -4048,6 +4080,15 @@ fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lan
     });
 
     let spires = on_battlefield(&engine, p0, thaumatic_compass()).expect("spires on battlefield");
+    assert_eq!(
+        identity(&engine, spires),
+        compass_was,
+        "the same object, turned over: a transform changes no zone (CR 712.18)"
+    );
+    assert!(
+        is_tapped(&engine, spires),
+        "still tapped from the search: turning over is not entering"
+    );
     let t = types(&engine, spires);
     assert!(t.contains(TypeSet::LAND), "transformed permanent is a land");
     assert!(

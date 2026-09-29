@@ -1260,12 +1260,14 @@ control" (Sheoldred's `{4}{B}`, the Ojers' dies triggers). "… under **your**
 control" (Fable of the Mirror-Breaker III, Welcome to … III, Journey to
 Eternity) is `false`, and so is a sentence that names nobody (The True
 Scriptures III: the card enters under the player the effect instructs,
-CR 110.2a, the chapter ability's controller, CR 603.3a). The "transform
-this" cards the effect stands in for (#206) are `false` too: a transform
-keeps its controller (CR 712.18), and the ability's controller is that
-player (CR 603.3a for a trigger, CR 602.2a for an activation).
+CR 110.2a, the chapter ability's controller, CR 603.3a). A sentence that
+only says "transform this" is not this effect but `Effect::TransformSource`:
+the same permanent turns over (CR 701.27a) and every effect on it goes on
+applying (CR 712.18), where an exile and a return is a new object that
+enters and sheds them. Eight cards were written that way until 2026-09-30.
 `lints::every_self_return_comes_back_under_the_control_its_sentence_prints`
-holds every use in the pool to its printed sentence.
+holds every use in the pool to its printed sentence, and refuses one whose
+sentence prints no return.
 
 **A linked exile is two verbs as well, and the difference is when it ends.**
 `Effect::exile_linked(t)` exiles with a link and no end of its own: the card
@@ -1705,7 +1707,10 @@ hashes, layers and does nothing. This paragraph said THREE until
 
 - **Transform.** `Effect::TransformSource` turns the source over now, and
   `Effect::TransformSourceAtNextUpkeep` does it at the beginning of the next
-  upkeep (Archangel Avacyn). `Trigger::TransformsIntoThis` is "whenever this
+  upkeep (Archangel Avacyn). Either is ignored once the permanent has
+  transformed since the ability was put on the stack or created
+  (CR 701.27f). The face that turns away takes its statics and replacement
+  effects with it (`GameState::transform`, CR 604.2). `Trigger::TransformsIntoThis` is "whenever this
   creature transforms into [this face]" (Huntmaster of the Fells). The
   conditions `NoSpellsCastLastTurn` and `APlayerCastLastTurnAtLeast(n)` are
   the werewolf upkeep checks.

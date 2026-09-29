@@ -1661,6 +1661,15 @@ impl GameState {
     /// daybound/nightbound fixpoint step reads: a permanent already showing
     /// the face it should show is not progress, and reporting it as such
     /// would keep the fixpoint spinning.
+    ///
+    /// The permanent stays the object it was, and every effect that applied
+    /// to it goes on applying (CR 712.18). What its own static abilities and
+    /// replacement effects did ends here, because those abilities were the
+    /// face that turned away and the permanent no longer has them
+    /// (CR 604.2); the next scan (`Engine::sync_static_effects`) registers
+    /// what the new face prints, as [`Self::set_doors`] has it for a Room.
+    /// Without this, Dowsing Dagger's "equipped creature gets +2/+1" went
+    /// on applying from Lost Vale.
     pub fn transform(&mut self, id: ObjectId, def: &CardDef, face: usize) -> bool {
         let face = face.min(def.faces.len() - 1);
         if self
@@ -1669,6 +1678,10 @@ impl GameState {
         {
             return false;
         }
+        self.effects.remove_where(|fx| {
+            fx.source == Some(id) && fx.origin == crate::effects::EffectOrigin::Static
+        });
+        self.replacement_rules.retain(|r| r.source != id);
         self.switch_face(id, def, face);
         self.journal.record(GameEvent::Transformed {
             object: id,
