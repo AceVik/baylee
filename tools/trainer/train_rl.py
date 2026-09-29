@@ -7,9 +7,14 @@ A league run (`bin/league`) has the learner sample its answers against a
 league of house profiles, frozen nets and itself; `convert3` turns it into a
 v3 dataset. Here the learner's own decisions (the seat `games.jsonl` names
 `learner`) are imitated, each weighted by exp(A / beta), clipped at
-`--w-max`, where A is how the game went for the learner's side minus what the
-current value head expected at that decision (AWR, Peng et al. 2019): answers
-that did better than expected are made likelier, worse ones less likely. The
+`--w-max` (AWR, Peng et al. 2019): answers that did better than expected are
+made likelier, worse ones less likely. A is a generalised advantage (GAE,
+lambda `--lam`) over the learner's own decisions in a game: how much its
+value head's estimate of its side rose from one decision to its next, the
+last step ending at the result. The game's result alone, over hundreds of
+decisions, credits every one of them with the same luck; the value's own
+steps say which decision moved it. A is standardised, so beta is in standard
+deviations. The
 value head learns from every decision of every seat. The learner plays as the
 expert profile (4), so its RL policy is what that profile slot answers.
 
@@ -48,7 +53,43 @@ def learner_mask(ds: D3.Dataset) -> np.ndarray:
     return learner[game, seat]
 
 
-def step(net, ds, b, entities, is_learner, beta, w_max):
+def advantages(net, ds, is_learner, entities, lam):
+    """Per sample, the standardised GAE advantage of the learner's decision
+    it is a step of (NaN for other seats), from `net`'s value."""
+    from train3 import evaluate
+
+    game, seat, n, step_ = ds.col("game"), ds.col("seat"), ds.col("n"), ds.col("step")
+    first = np.nonzero(is_learner & (step_ == 0))[0]
+    first = first[np.lexsort((n[first], seat[first], game[first]))]
+    _, _, _, value = evaluate(net, ds, first, entities, 1.0)
+    winners, team = ds.col("winners_rel")[first], ds.col("team_rel")[first]
+    result = np.where(winners == 0, 0.5, ((winners & team) != 0).astype(np.float64))
+    same_next = np.zeros(len(first), dtype=bool)
+    same_next[:-1] = (game[first][1:] == game[first][:-1]) & (seat[first][1:] == seat[first][:-1])
+    nxt = np.where(same_next, np.roll(value, -1), result)
+    delta = nxt - value
+    adv = np.zeros(len(first))
+    run = 0.0
+    for i in range(len(first) - 1, -1, -1):
+        run = delta[i] + (lam * run if same_next[i] else 0.0)
+        adv[i] = run
+    adv = (adv - adv.mean()) / max(adv.std(), 1e-6)
+    # Every step of a decision shares its advantage.
+    key = (game.astype(np.int64) * 8 + seat) * (1 << 32) + n
+    order = np.argsort(key[first])
+    sorted_keys = key[first][order]
+    out = np.full(ds.n, np.nan)
+    learner = np.nonzero(is_learner)[0]
+    at = np.searchsorted(sorted_keys, key[learner])
+    at = np.clip(at, 0, len(sorted_keys) - 1)
+    found = sorted_keys[at] == key[learner]
+    out[learner[found]] = adv[order[at[found]]]
+    log(f"advantages of {len(first):,} decisions (lambda {lam}): value mean {value.mean():.3f}, "
+        f"raw delta std {delta.std():.3f}")
+    return out
+
+
+def step(net, ds, b, entities, is_learner, adv, beta, w_max):
     """Weighted policy loss on the learner's samples, value loss on all
     first steps, and the mean weight."""
     opt, sample, live, flat_chosen, count, first = gather_options(ds, b.idx, entities)
@@ -65,14 +106,10 @@ def step(net, ds, b, entities, is_learner, beta, w_max):
     chosen = flat_chosen - first
     ok = (flat_chosen >= 0) & (count > 1) & (ds.col("offered_dropped")[b.idx] == 0)
     ok &= np.array([live[f] if f >= 0 else False for f in flat_chosen])
+    a = adv[b.idx]
+    ok &= ~np.isnan(a)
     ok_t = torch.from_numpy(ok).to(dev) & learner
-    # The advantage: the learner's side's result minus the value's
-    # expectation, both for its side.
-    with torch.no_grad():
-        expected = M.side_chance(value, b.team)
-        won = (b.value_target * b.team.float()).sum(1)
-        adv = won - expected
-        weight = torch.clamp(torch.exp(adv / beta), max=w_max)
+    weight = torch.clamp(torch.exp(torch.from_numpy(np.nan_to_num(a) / beta).to(dev).float()), max=w_max)
     if ok_t.any():
         ce = F.cross_entropy(padded[ok_t], torch.from_numpy(np.where(ok, chosen, 0)).to(dev)[ok_t], reduction="none")
         policy = (ce * weight[ok_t]).sum() / weight[ok_t].sum().clamp(min=1e-6)
@@ -97,7 +134,8 @@ def main() -> None:
     ap.add_argument("--entities", type=int, default=192)
     ap.add_argument("--lr", type=float, default=5e-5)
     ap.add_argument("--wd", type=float, default=0.01)
-    ap.add_argument("--beta", type=float, default=0.3, help="AWR temperature over the advantage")
+    ap.add_argument("--beta", type=float, default=1.0, help="AWR temperature, in standard deviations of the advantage")
+    ap.add_argument("--lam", type=float, default=0.9, help="GAE lambda over the learner's decisions")
     ap.add_argument("--w-max", type=float, default=20.0)
     ap.add_argument("--value-weight", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=0)
@@ -141,11 +179,12 @@ def main() -> None:
         loader.start = n
         log(f"resumed at step {n:,}")
     log(f"{total:,} steps of {args.batch} from {args.init}")
+    adv = advantages(net, ds, is_learner, args.entities, args.lam)
     t0, t_ckpt, run_p, run_v, run_w = time.time(), time.time(), None, None, None
     while n < total:
         for b in loader:
             with torch.autocast("cuda", dtype=torch.bfloat16):
-                pol, val, mean_w = step(net, ds, b, args.entities, is_learner, args.beta, args.w_max)
+                pol, val, mean_w = step(net, ds, b, args.entities, is_learner, adv, args.beta, args.w_max)
                 loss = pol + args.value_weight * val
             opt.zero_grad(set_to_none=True)
             loss.backward()
@@ -169,7 +208,8 @@ def main() -> None:
     torch.save({"state": net.state_dict(), "config": base["config"], "glob": D3.glob_layout(ds.meta),
                 "dataset": ds.meta["sources"], "encoder_version": ds.meta["encoder_version"],
                 "walk_version": ds.meta["walk_version"], "verification": ds.meta.get("verification"),
-                "rl": {"from": args.init, "beta": args.beta, "w_max": args.w_max, "lr": args.lr, "steps": n}},
+                "rl": {"from": args.init, "beta": args.beta, "lam": args.lam, "w_max": args.w_max, "lr": args.lr,
+                       "steps": n, "advantage": "gae over the value head, standardised"}},
                out / "net.pt")
     # The value on held-out games, as the other trainers report it.
     from train3 import evaluate
