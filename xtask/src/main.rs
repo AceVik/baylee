@@ -2,6 +2,7 @@
 
 mod cr_check;
 mod update_key;
+mod verify;
 
 use baylee_cards_codegen::{
     acceptance, cardindex, catalog, landgen, layout, ledger, lines, names, scriptgen, scripts,
@@ -123,6 +124,17 @@ enum Cmd {
         /// (`baylee_train::working`). Names each one that no test plays.
         #[arg(long)]
         tested: bool,
+    },
+    /// How far each card is verified, L1 (implemented) to L5 (mutation-
+    /// killed), for the pool and every house deck (`xtask/src/verify.rs`).
+    Verify {
+        /// Where the per-card report is written.
+        #[arg(long, default_value = "target/verify.json")]
+        out: PathBuf,
+        /// Cards an open bug report names, one name or index per line; each
+        /// stops at L1.
+        #[arg(long)]
+        demote: Option<PathBuf>,
     },
     PoolDump {
         /// Where to write the dump.
@@ -521,6 +533,7 @@ fn main() -> anyhow::Result<()> {
             verbose,
             tested,
         } => deck_check(&root, &file, verbose, tested),
+        Cmd::Verify { out, demote } => verify::verify(&root, &root.join(out), demote.as_deref()),
         Cmd::PoolDump { out } => pool_dump(&out),
         Cmd::TranscodeReport {
             scripts,
