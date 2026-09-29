@@ -2312,6 +2312,10 @@ fn check_player_targets_match_the_printing(
 ///   Excavator and Exploration are the three, and they were the first cards
 ///   through a modifier family that had none when it landed — which is why
 ///   this bullet exists rather than the list quietly growing.
+/// - "you may play it this turn" (Dauthi Voidwalker, Expressive Iteration)
+///   — `ChooseExiledToPlay` and `LookAtTopKeepBottomPlay`, which leave a
+///   permission to play one card, and the `SearchTakeover` argument again:
+///   the player plays it or does not, and nothing is asked.
 ///
 /// A stub claims nothing and a `Partial` card has said in writing that it
 /// diverges, so both are skipped — the same two exemptions the checks above
@@ -2351,6 +2355,8 @@ fn check_optional_clauses_are_offered(
         "PlayLandsFromGraveyard",
         "PlayLandsFromLibraryTop",
         "ExtraLandDrops",
+        "ChooseExiledToPlay",
+        "LookAtTopKeepBottomPlay",
     ];
     if !def.is_implemented() {
         return;

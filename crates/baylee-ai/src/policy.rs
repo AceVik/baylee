@@ -259,7 +259,10 @@ impl HeuristicAgent {
         let value = Self::card_value(view);
         let mut ranked = options.to_vec();
         let count = match prompt {
-            ChoicePrompt::SearchLibrary | ChoicePrompt::Wish => {
+            ChoicePrompt::SearchLibrary
+            | ChoicePrompt::Wish
+            | ChoicePrompt::PutIntoHand
+            | ChoicePrompt::PlayFromExile => {
                 ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
                 usize::from(max)
             }
@@ -275,7 +278,7 @@ impl HeuristicAgent {
             }
             // Not a price: `Effect::PutFromHandOnTop` asks with
             // `min == max`, so `min` is the whole answer.
-            ChoicePrompt::PutBackOnTop => {
+            ChoicePrompt::PutBackOnTop | ChoicePrompt::PutOnBottom => {
                 ranked.sort_by_key(|id| (value(id), *id));
                 usize::from(min)
             }

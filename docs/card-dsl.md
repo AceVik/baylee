@@ -1167,6 +1167,15 @@ as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
 `PutSourceOnTopOfLibrary`, `ExileAndReturnAtEndStep` (Venser +2, Eerie
 Interlude), `BottomCardFromHand`, `WishToHand` (Karn's −2: a card you own
 from outside the game or face-up in your exile).
+Playing from elsewhere: "you may play that card this turn" is a permission
+for one object (`PlayPermission` in the engine's `PerTurn`, keyed on the
+object's version, so it ends with the turn or as the card moves): a land is
+the turn's land drop, a spell is cast by its timing, and `free: true` is
+"without paying its mana cost" (X is 0). `ChooseExiledToPlay { owner,
+counter, free }` chooses the card from any exile (Dauthi Voidwalker:
+`owner: Opponent, counter: Some(counters::VOID), free: true`);
+`LookAtTopKeepBottomPlay { count }` is Expressive Iteration's one to the
+hand, one to the bottom, the rest exiled and playable.
 Continuous: `CreateContinuousEffect` (any layer+filter+modifier+duration),
 `PumpFilter` (a filter, where `Filter::This` is the *source*, plus
 `controlled_by: Option<PlayerRel>` for a sentence that names a player rather

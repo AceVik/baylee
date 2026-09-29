@@ -369,6 +369,17 @@ pub enum ChoicePrompt {
     /// does not recognise, so a generic one would have every AI reveal land
     /// enter tapped for the rest of the game.
     RevealOrEnterTapped,
+    /// Looked-at cards, one or more of which go into the hand (Expressive
+    /// Iteration's first question, a dig's keep). The answer is what the
+    /// player keeps, so the house AI takes the best of them.
+    PutIntoHand,
+    /// Looked-at cards, the chosen one of which goes on the bottom of the
+    /// library (Expressive Iteration's second question): the answer is what
+    /// the player gives up.
+    PutOnBottom,
+    /// Exiled cards, the chosen one of which the player may play this turn
+    /// (Dauthi Voidwalker).
+    PlayFromExile,
     /// Generic selection.
     Generic,
 }

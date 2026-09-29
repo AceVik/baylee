@@ -1626,6 +1626,27 @@ messages! {
         en: "cards to put on top of your library",
         de: "Karten, die oben auf deine Bibliothek kommen",
     },
+    /// card to put into your hand
+    NounCardToHand { en: "card to put into your hand", de: "Karte, die auf deine Hand kommt" },
+    /// cards to put into your hand
+    NounCardsToHand { en: "cards to put into your hand", de: "Karten, die auf deine Hand kommen" },
+    /// card to put on the bottom of your library
+    NounCardToBottom {
+        en: "card to put on the bottom of your library",
+        de: "Karte, die unter deine Bibliothek kommt",
+    },
+    /// cards to put on the bottom of your library
+    NounCardsToBottom {
+        en: "cards to put on the bottom of your library",
+        de: "Karten, die unter deine Bibliothek kommen",
+    },
+    /// card you may play this turn
+    NounCardToPlay { en: "card you may play this turn", de: "Karte, die du in diesem Zug spielen darfst" },
+    /// cards you may play this turn
+    NounCardsToPlay {
+        en: "cards you may play this turn",
+        de: "Karten, die du in diesem Zug spielen darfst",
+    },
     /// card from outside the game
     NounCardOutside { en: "card from outside the game", de: "Karte von außerhalb der Partie" },
     /// cards from outside the game
@@ -3461,6 +3482,9 @@ mod tests {
                 Phrase::NounPermanentsToLeaveTapped,
             ),
             (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
+            (Phrase::NounCardToHand, Phrase::NounCardsToHand),
+            (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
+            (Phrase::NounCardToPlay, Phrase::NounCardsToPlay),
             (Phrase::LogKeptCardYou, Phrase::LogKeptCardsYou),
             (Phrase::LogKeptCard, Phrase::LogKeptCards),
             (Phrase::LogDrewCardYou, Phrase::LogDrewCardsYou),

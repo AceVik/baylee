@@ -352,6 +352,23 @@ pub enum AwaitingOp {
         /// The looked-at cards not chosen.
         rest: Vec<ObjectId>,
     },
+    /// After `LookAtTopKeepBottomPlay`'s first question: the chosen card
+    /// goes to the hand, and the bottom card is asked of the rest.
+    KeepThenBottom {
+        /// The looked-at cards.
+        looked: Vec<ObjectId>,
+    },
+    /// After its second question: the chosen card goes to the bottom, and
+    /// the rest are exiled and may be played this turn.
+    BottomThenPlay {
+        /// The looked-at cards still in the library.
+        rest: Vec<ObjectId>,
+    },
+    /// After `ChooseExiledToPlay`: the chosen card may be played this turn.
+    GrantPlay {
+        /// "Without paying its mana cost".
+        free: bool,
+    },
     /// Chosen hand cards go on top of the library in chosen order.
     PutBackOnTop,
     /// A mana color choice.
@@ -1212,6 +1229,61 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
         }
+        AwaitingOp::KeepThenBottom { looked } => {
+            for &card in chosen {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Hand(res.controller),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            let rest: Vec<ObjectId> = looked.into_iter().filter(|c| !chosen.contains(c)).collect();
+            if rest.len() > 1 {
+                res.awaiting = Some(AwaitingOp::BottomThenPlay { rest: rest.clone() });
+                return Flow::Wait(Pending::ChooseCards {
+                    player: res.controller,
+                    options: rest,
+                    min: 1,
+                    max: 1,
+                    prompt: ChoicePrompt::PutOnBottom,
+                });
+            }
+            // One card left is the bottom card: the sentence puts one there
+            // before it exiles any, so a library of two exiles nothing.
+            for card in rest {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(res.controller),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+        }
+        AwaitingOp::BottomThenPlay { rest } => {
+            for &card in chosen {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(res.controller),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+            for card in rest.into_iter().filter(|c| !chosen.contains(c)) {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Exile(res.controller),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                grant_play(state, res.controller, card, false);
+            }
+        }
+        AwaitingOp::GrantPlay { free } => {
+            for &card in chosen {
+                grant_play(state, res.controller, card, free);
+            }
+        }
         AwaitingOp::DigRest { rest } => {
             for &card in chosen {
                 let _ = state.move_object(
@@ -1473,6 +1545,29 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
     }
     res.pc += 1;
     run(state, res)
+}
+
+/// Gives `player` permission to play `card` this turn, for the object it
+/// is now (`PlayPermission`).
+fn grant_play(state: &mut GameState, player: PlayerId, card: ObjectId, free: bool) {
+    if let Some(version) = state.object(card).map(|o| o.version) {
+        state.per_turn.playable.push(crate::state::PlayPermission {
+            player,
+            card,
+            version,
+            free,
+        });
+    }
+}
+
+/// Whether `owner` stands in `rel` to `you`: "a card an opponent owns".
+fn owner_is(state: &GameState, rel: PlayerRel, owner: PlayerId, you: PlayerId) -> bool {
+    match rel {
+        PlayerRel::You => owner == you,
+        PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(owner, you),
+        PlayerRel::EachPlayer => true,
+        _ => false,
+    }
 }
 
 /// Executes one operation; returns `Some(pending)` when it suspends.
@@ -2294,6 +2389,59 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: pick,
                 max: pick,
                 prompt: ChoicePrompt::Generic,
+            })
+        }
+        Effect::LookAtTopKeepBottomPlay { count } => {
+            let looked: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .iter()
+                .rev()
+                .take(count as usize)
+                .copied()
+                .collect();
+            if looked.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::KeepThenBottom {
+                looked: looked.clone(),
+            });
+            Some(Pending::ChooseCards {
+                player: you,
+                options: looked,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::PutIntoHand,
+            })
+        }
+        Effect::ChooseExiledToPlay {
+            owner,
+            counter,
+            free,
+        } => {
+            // Every exile, because a card lies in its owner's and the
+            // owner here is somebody else. Seat order, then each pile's own.
+            let mut options: Vec<ObjectId> = Vec::new();
+            for seat in 0..state.players.len() {
+                let pile = ZoneLocation::Exile(PlayerId::new(seat as u8));
+                options.extend(state.zones.list(pile).iter().copied().filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.card.is_some()
+                            && owner_is(state, owner, o.owner, you)
+                            && counter.is_none_or(|kind| o.counters.get(kind) > 0)
+                    })
+                }));
+            }
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::GrantPlay { free });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::PlayFromExile,
             })
         }
         Effect::WishToHand { filter } => {

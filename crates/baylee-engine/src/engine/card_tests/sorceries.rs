@@ -11595,3 +11595,133 @@ fn bribery_puts_a_creature_from_the_opponents_library_under_your_control() {
     assert_eq!(library_size(&engine, p1), theirs_before - 1);
     assert_eq!(library_size(&engine, p0), mine_before);
 }
+
+fn expressive_iteration() -> CardIndex {
+    card_index("c7aecca5-2f67-4245-ab2d-e723d8b23a67")
+}
+
+/// Casts Expressive Iteration off the Island and the Mountain, keeps the
+/// first card looked at, bottoms the second, and returns the three in that
+/// order — the third is the one exiled.
+fn iterate(engine: &mut Engine<RegistryLookup>, p0: PlayerId) -> [ObjectId; 3] {
+    let island = on_battlefield(engine, p0, island()).unwrap();
+    let mountain = on_battlefield(engine, p0, mountain()).unwrap();
+    tap_mana_where(engine, p0, |id| id == island || id == mountain);
+    cast_with_floating(engine, p0, expressive_iteration());
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = pass_to_card_choice(engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(prompt, ChoicePrompt::PutIntoHand);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(options.len(), 3, "the top three");
+    let (keep, bottom, exiled) = (options[0], options[1], options[2]);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![keep],
+            },
+        )
+        .unwrap();
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the bottom question, got {:?}", engine.pending())
+    };
+    assert_eq!(prompt, ChoicePrompt::PutOnBottom);
+    assert_eq!(options.len(), 2, "the two not kept");
+    assert!(!options.contains(&keep));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bottom],
+            },
+        )
+        .unwrap();
+    pass_until(engine, stack_is_empty);
+    [keep, bottom, exiled]
+}
+
+/// "Look at the top three cards of your library. Put one of them into your
+/// hand, put one of them on the bottom of your library, and exile one of
+/// them. You may play the exiled card this turn." — the exiled Elf is cast
+/// from exile, paid for like any spell.
+#[test]
+fn expressive_iteration_keeps_one_bottoms_one_and_lets_the_third_be_cast() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, llanowar_elves())
+        .battlefield(0, &[island(), mountain(), forest()])
+        .hand(0, &[expressive_iteration()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let [keep, bottom, exiled] = iterate(&mut engine, p0);
+    let state = engine.state();
+    assert!(state.zones.list(ZoneLocation::Hand(p0)).contains(&keep));
+    assert_eq!(
+        state.zones.list(ZoneLocation::Library(p0)).first(),
+        Some(&bottom),
+        "on the bottom"
+    );
+    assert!(state.zones.list(ZoneLocation::Exile(p0)).contains(&exiled));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&exiled),
+        "a permission to play it, not a free cast: nothing is floating yet"
+    );
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(legal.castable.contains(&exiled), "with {{G}} floating");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: exiled })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+}
+
+/// A spell cast from exile under the permission was not cast from a hand,
+/// so an exiled Ephemerate has no rebound (CR 702.88a) and goes to the
+/// graveyard. `finish_cast` stamped every paid cast "from hand", so this
+/// Ephemerate was exiled again to be cast a second time for free.
+#[test]
+fn a_rebound_spell_cast_from_expressive_iterations_exile_does_not_rebound() {
+    let p0 = PlayerId::new(0);
+    let ephemerate = card_index("0fd57894-b917-41c8-a394-360d1d31b236");
+    let mut engine = Duel::new(SEED, ephemerate)
+        .battlefield(0, &[island(), mountain(), plains(), llanowar_elves()])
+        .hand(0, &[expressive_iteration()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let [_, _, exiled] = iterate(&mut engine, p0);
+    let plains = on_battlefield(&engine, p0, plains()).unwrap();
+    tap_mana_where(&mut engine, p0, |id| id == plains);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: exiled })
+        .unwrap();
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    aim_at(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .contains(&exiled),
+        "into the graveyard, not back into exile on a rebound"
+    );
+}

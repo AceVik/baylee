@@ -242,6 +242,39 @@ pub struct PerTurn {
     /// battlefield is journaled: [`GameState::move_object`] and a token's
     /// arrival.
     pub entered_battlefield: Vec<ObjectId>,
+    /// Every card drawn this turn, as the object it became in its drawer's
+    /// hand: the id and the version it arrived with. Sylvan Library's
+    /// "cards in your hand drawn this turn" reads it; an entry whose version
+    /// no longer matches the object's is a card that has left the hand since
+    /// (CR 400.7) and is no longer one of them. Written by
+    /// [`GameState::draw_cards`] and nothing else.
+    pub drawn: Vec<(ObjectId, u32)>,
+    /// Permissions to play a particular card this turn (Dauthi Voidwalker,
+    /// Expressive Iteration). See [`PlayPermission`].
+    pub playable: Vec<PlayPermission>,
+}
+
+/// "You may play that card this turn" — a permission an effect gives one
+/// player for one card, wherever it lies (CR 305.1 plays a land from the
+/// hand; this widens it for one object).
+///
+/// It lives in [`PerTurn`] rather than on the object as a rider because
+/// "this turn" is exactly the lifetime `PerTurn::reset` gives it, and it
+/// names the object's `version` because the permission is for that object
+/// and no later one: once the card is cast, played or moved it is a new
+/// object (CR 400.7) and the permission is spent, which the version compare
+/// says without anyone having to remove the entry.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct PlayPermission {
+    /// Who may play it.
+    pub player: PlayerId,
+    /// The card.
+    pub card: ObjectId,
+    /// The version of `card` the permission was given for.
+    pub version: u32,
+    /// "Without paying its mana cost" (Dauthi Voidwalker): a spell is cast
+    /// through the free-cast path, and X is 0 (CR 107.3b).
+    pub free: bool,
 }
 
 impl PerTurn {
@@ -255,6 +288,8 @@ impl PerTurn {
             creatures_died: 0,
             draws: vec![0; players],
             entered_battlefield: Vec::new(),
+            drawn: Vec::new(),
+            playable: Vec::new(),
         }
     }
 
@@ -266,6 +301,8 @@ impl PerTurn {
         self.life_lost.iter_mut().for_each(|v| *v = false);
         self.creatures_died = 0;
         self.entered_battlefield.clear();
+        self.drawn.clear();
+        self.playable.clear();
     }
 }
 
@@ -2056,6 +2093,9 @@ impl GameState {
                 .is_ok()
             {
                 drawn.push(top);
+                if let Some(version) = self.object(top).map(|o| o.version) {
+                    self.per_turn.drawn.push((top, version));
+                }
             }
         }
         // Miracle (CR 702.94): the first card drawn this turn may be
@@ -3822,6 +3862,15 @@ mod tests {
             ("per_turn.life_lost", |s, _| s.per_turn.life_lost[0] = true),
             ("per_turn.entered_battlefield", |s, id| {
                 s.per_turn.entered_battlefield.push(id);
+            }),
+            ("per_turn.drawn", |s, id| s.per_turn.drawn.push((id, 0))),
+            ("per_turn.playable", |s, id| {
+                s.per_turn.playable.push(PlayPermission {
+                    player: PlayerId::new(0),
+                    card: id,
+                    version: 0,
+                    free: true,
+                });
             }),
             ("delayed", |s, _| {
                 s.delayed.push(DelayedTrigger {

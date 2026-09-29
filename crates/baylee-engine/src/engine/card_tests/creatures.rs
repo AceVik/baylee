@@ -88852,3 +88852,173 @@ fn imperial_recruiter_finds_nothing_among_creatures_of_power_three() {
         "the Recruiter left the hand and nothing came to it"
     );
 }
+
+fn dauthi_voidwalker() -> CardIndex {
+    card_index("f1c2dbe2-fbe0-4058-bdf1-91d1b1832786")
+}
+
+/// The card an opponent's `card` became in their exile, with the void
+/// counter Dauthi Voidwalker's replacement put on it.
+fn voided(engine: &Engine<RegistryLookup>, owner: PlayerId, card: CardIndex) -> ObjectId {
+    let id = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Exile(owner))
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+        })
+        .expect("the card was exiled instead of put into the graveyard");
+    assert_eq!(
+        counters_on(engine, id, baylee_cards_dsl::counters::VOID),
+        1,
+        "with a void counter on it"
+    );
+    id
+}
+
+/// Sacrifices the Voidwalker and answers its choice with `card`.
+fn void_walk(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: ObjectId) {
+    activate(engine, seat, dauthi_voidwalker(), 1);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = pass_to_card_choice(engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, seat);
+    assert_eq!(prompt, ChoicePrompt::PlayFromExile);
+    assert_eq!((min, max), (1, 1), "\"choose an exiled card\"");
+    assert_eq!(options, vec![card], "only the opponent's voided card");
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: vec![card],
+            },
+        )
+        .unwrap();
+    pass_until(engine, stack_is_empty);
+}
+
+/// "{T}, Sacrifice Dauthi Voidwalker: Choose an exiled card an opponent owns
+/// with a void counter on it. You may play it this turn without paying its
+/// mana cost." — the opponent's Elf, exiled by the Voidwalker's own
+/// replacement, is cast from their exile by a seat with no land at all, and
+/// arrives under that seat's control.
+#[test]
+fn dauthi_voidwalker_casts_an_opponents_voided_card_for_free() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[dauthi_voidwalker()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
+    bury(&mut engine, &[elf]);
+    engine.refresh_offer();
+    let elf = voided(&engine, p1, llanowar_elves());
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&elf),
+        "a voided card is not castable before the Voidwalker says so"
+    );
+
+    void_walk(&mut engine, p0, elf);
+    assert!(
+        in_graveyard(&engine, p0, dauthi_voidwalker()).is_some(),
+        "the Voidwalker was sacrificed"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&elf),
+        "castable from the owner's exile with no mana at all"
+    );
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: elf })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "the Elf is the caster's"
+    );
+    assert!(on_battlefield(&engine, p1, llanowar_elves()).is_none());
+}
+
+/// "Play" covers a land: the opponent's voided Forest is played from their
+/// exile as the seat's land drop for the turn (CR 305.2).
+#[test]
+fn dauthi_voidwalker_plays_an_opponents_voided_land() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[dauthi_voidwalker()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let land = on_battlefield(&engine, p1, forest()).unwrap();
+    bury(&mut engine, &[land]);
+    engine.refresh_offer();
+    let land = voided(&engine, p1, forest());
+
+    void_walk(&mut engine, p0, land);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(legal.lands.contains(&land), "offered as a land to play");
+    assert!(!legal.castable.contains(&land), "and not as a spell");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: land })
+        .unwrap();
+    assert!(on_battlefield(&engine, p0, forest()).is_some());
+    assert_eq!(
+        engine.state().players[0].lands_played_this_turn,
+        1,
+        "it was the turn's land drop"
+    );
+}
+
+/// "This turn": a permission not used by the end of the turn is gone, and
+/// the voided card stays in its owner's exile.
+#[test]
+fn dauthi_voidwalkers_permission_ends_with_the_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[dauthi_voidwalker()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
+    bury(&mut engine, &[elf]);
+    engine.refresh_offer();
+    let elf = voided(&engine, p1, llanowar_elves());
+    void_walk(&mut engine, p0, elf);
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(!legal.castable.contains(&elf), "the permission lapsed");
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p1))
+            .contains(&elf)
+    );
+}

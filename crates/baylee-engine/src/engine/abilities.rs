@@ -182,6 +182,44 @@ impl<L: CardLookup> Engine<L> {
                 legal.castable.push(card);
             }
         }
+        // "You may play that card this turn" (Dauthi Voidwalker, Expressive
+        // Iteration): a permission for one object, wherever it lies — an
+        // opponent's exile for Dauthi, which is why this walks the
+        // permissions rather than a zone. A land is a land drop like any
+        // other (CR 305.2), asked by `casting::play_land` through
+        // `land_card_open`, which reads the same permission.
+        for permission in &self.state.per_turn.playable {
+            let card = permission.card;
+            if permission.player != player
+                || casting::play_permission(&self.state, player, card).is_none()
+            {
+                continue;
+            }
+            let Some(obj) = self.state.object(card) else {
+                continue;
+            };
+            if obj.zone == Zone::Hand {
+                continue;
+            }
+            let plays_as_land = obj.characteristics().types.contains(TypeSet::LAND)
+                || obj
+                    .card
+                    .and_then(|c| self.lookup.card(c.index))
+                    .is_some_and(|def| def.land_faces_from_hand().next().is_some());
+            if plays_as_land {
+                if sorcery_timing
+                    && casting::has_a_land_drop_left(&self.state, player)
+                    && !legal.lands.contains(&card)
+                {
+                    legal.lands.push(card);
+                }
+            } else if !legal.castable.contains(&card)
+                && casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
+                && self.has_a_legal_target(player, card)
+            {
+                legal.castable.push(card);
+            }
+        }
         // Commander (CR 903.8): your own commanders in the command zone.
         // The emblems sharing that zone are filtered out by `can_cast`,
         // which asks the marker list rather than the zone.

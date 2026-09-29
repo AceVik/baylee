@@ -945,7 +945,22 @@ pub(crate) fn can_cast_form(
             .commanders
             .get(player.get() as usize)
             .is_some_and(|cs| cs.iter().any(|c| c.object == card));
-    if !in_hand && !flashback_ok && !disturb_ok && !adventure_ok && !takeover_ok && !commander_ok {
+    // "You may play that card this turn" (Dauthi Voidwalker, Expressive
+    // Iteration): a permission for this object, from whatever exile it lies
+    // in — the owner's, which is not the caster's.
+    let permission = if in_hand {
+        None
+    } else {
+        play_permission(state, player, card)
+    };
+    if !in_hand
+        && !flashback_ok
+        && !disturb_ok
+        && !adventure_ok
+        && !takeover_ok
+        && !commander_ok
+        && permission.is_none()
+    {
         return Err(CastError::NotInHand);
     }
     let projected = form.map(|f| f.project(obj));
@@ -977,6 +992,12 @@ pub(crate) fn can_cast_form(
             .any(|part| crate::engine::cost_wizard::options(state, player, card, part).is_empty())
     {
         return Err(CastError::NoWayToCast);
+    }
+    // "Without paying its mana cost" is an alternative cost (CR 118.9):
+    // nothing is paid, so there is nothing to afford, and a card that
+    // prints no mana cost is castable this way too (CR 118.6a).
+    if form.is_none() && permission.is_some_and(|p| p.free) {
+        return Ok(());
     }
     // Restricted mana this spell may be paid with counts towards it; see
     // [`spendable_pool`].
@@ -1242,10 +1263,33 @@ pub fn land_zone_open(state: &GameState, player: PlayerId, zone: Zone) -> bool {
     }
 }
 
+/// The permission `player` holds to play `card` this turn, if any
+/// ([`crate::state::PlayPermission`]): one given for this very object, so a
+/// card that has moved since holds none (CR 400.7).
+#[must_use]
+pub fn play_permission(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+) -> Option<crate::state::PlayPermission> {
+    let version = state.object(card)?.version;
+    state
+        .per_turn
+        .playable
+        .iter()
+        .copied()
+        .find(|p| p.player == player && p.card == card && p.version == version)
+}
+
 /// The zone permission plus the particular card restriction. A library
-/// permission never grants access to a card below the top.
+/// permission never grants access to a card below the top. A permission for
+/// the card itself ([`play_permission`]) opens it wherever it lies, an
+/// opponent's exile included.
 #[must_use]
 pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
+    if play_permission(state, player, card).is_some() {
+        return true;
+    }
     state.object(card).is_some_and(|obj| {
         obj.zone_owner == Some(player)
             && land_zone_open(state, player, obj.zone)

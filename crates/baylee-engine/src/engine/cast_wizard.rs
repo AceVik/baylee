@@ -286,6 +286,87 @@ impl<L: CardLookup> Engine<L> {
         self.advance_cast_wizard()
     }
 
+    /// Starts a cast under a play permission that waives the mana cost
+    /// (Dauthi Voidwalker's "you may play it this turn without paying its
+    /// mana cost"): no payment and X = 0, as [`Self::start_free_cast`], but
+    /// started by the player from a priority round, so a modal spell still
+    /// announces its modes (CR 601.2b) — each at no cost — instead of being
+    /// cast as a `Normal` that has nothing to resolve.
+    pub(crate) fn start_permitted_free_cast(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+    ) -> Result<(), EngineError> {
+        let def = self
+            .state
+            .object(card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+            .ok_or(EngineError::IllegalAction("unknown card"))?;
+        let face = &def.faces[0];
+        let abilities = def.abilities_for_face(0);
+        let modal_only = abilities
+            .iter()
+            .any(|a| matches!(a, AbilityDef::ModalSpell { .. }))
+            && !abilities
+                .iter()
+                .any(|a| matches!(a, AbilityDef::Spell { .. }))
+            && !face.types.is_permanent();
+        let mut options = Vec::new();
+        if modal_only {
+            for ability in def.abilities {
+                let AbilityDef::ModalSpell { modes } = ability else {
+                    continue;
+                };
+                for i in 0..modes.len() {
+                    if casting::mode_has_a_legal_target(&self.state, &self.lookup, player, card, i)
+                    {
+                        options.push(CastModeDesc {
+                            index: options.len() as u8,
+                            kind: CastModeKind::Mode(i),
+                            cost: ManaCost::ZERO,
+                        });
+                    }
+                }
+            }
+            if options.is_empty() {
+                return Err(EngineError::IllegalAction("no way to cast this spell"));
+            }
+        }
+        let single = options.len() <= 1;
+        let option = if modal_only {
+            options.first().map(|o| o.kind)
+        } else {
+            Some(CastModeKind::Normal)
+        };
+        let wizard = CastWizard {
+            card,
+            player,
+            option: if single { option } else { None },
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            target_players: baylee_core::ids::SeatSet::new(),
+            chosen_player: None,
+            x: 0,
+            kicked: false,
+            pitch: SmallVec::new(),
+            delve_exiles: SmallVec::new(),
+            convoke_taps: SmallVec::new(),
+            sacrifices: SmallVec::new(),
+            // `XValue` asks nothing of a free wizard (CR 107.3b); from there
+            // on it is every other cast.
+            stage: if single {
+                WizardStage::XValue
+            } else {
+                WizardStage::ChooseMode
+            },
+            options,
+            free: true,
+        };
+        self.cast_wizard = Some(wizard);
+        self.advance_cast_wizard()
+    }
+
     /// All legal ways to cast `card` right now.
     #[allow(clippy::too_many_lines)] // one branch per printed way to cast; splitting hides the list
     fn cast_options(
@@ -622,7 +703,10 @@ impl<L: CardLookup> Engine<L> {
                     .wizard_face(&wizard)
                     .mandatory_additional_costs
                     .contains(&CostPart::PayLifeX);
-                let needs_x = cost.has_variable() || pays_life_x;
+                // A spell cast without paying its mana cost has exactly one
+                // legal X, which is 0 (CR 107.3b), so a free cast is not
+                // asked for it; a life payment that scales with X still is.
+                let needs_x = (cost.has_variable() && !wizard.free) || pays_life_x;
                 if needs_x {
                     // A printed `{X}` is bounded by nothing here on purpose:
                     // the mana is validated when the wizard finishes. Life is
@@ -1258,7 +1342,11 @@ impl<L: CardLookup> Engine<L> {
             obj.kicked = wizard.kicked;
             obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)));
             obj.chosen_player = wizard.chosen_player;
-            obj.cast_from_hand = !wizard.free;
+            // Where it was cast from, read before it moves: a card cast from
+            // exile under a play permission (Expressive Iteration) or from
+            // the command zone was not cast from a hand, and rebound reads
+            // this (CR 702.88a).
+            obj.cast_from_hand = !wizard.free && obj.zone == crate::zone::Zone::Hand;
             // Flashback (CR 702.34): a spell cast from the graveyard via a
             // grant is exiled instead of hitting the graveyard again.
             if obj.zone == crate::zone::Zone::Graveyard {

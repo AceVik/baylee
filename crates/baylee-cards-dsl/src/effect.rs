@@ -745,6 +745,29 @@ pub enum Effect {
         /// How many to keep.
         pick: u8,
     },
+    /// Look at the top `count` cards of your library; put one of them into
+    /// your hand, one on the bottom of your library, and exile the rest —
+    /// which you may play this turn (Expressive Iteration). Two choices in
+    /// that order: the card for the hand, then the card for the bottom.
+    LookAtTopKeepBottomPlay {
+        /// How many to look at.
+        count: u8,
+    },
+    /// "Choose an exiled card an opponent owns with a void counter on it.
+    /// You may play it this turn without paying its mana cost." (Dauthi
+    /// Voidwalker) — the choice is of a card in any exile whose owner
+    /// stands in `owner` to you and which carries `counter`, and the answer
+    /// is a permission for you to play that object this turn
+    /// (`PlayPermission` in the engine), free when `free`. Not a target:
+    /// "choose" (CR 115.10a says only the word "target" makes one).
+    ChooseExiledToPlay {
+        /// Whose cards: the owner's relation to you.
+        owner: PlayerRel,
+        /// A counter the card must carry.
+        counter: Option<CounterKind>,
+        /// "Without paying its mana cost".
+        free: bool,
+    },
     /// Put cards from your hand on top of your library, in the order they
     /// were chosen (Brainstorm-style).
     PutFromHandOnTop {
@@ -2203,6 +2226,8 @@ impl Effect {
             | Effect::Exile { .. }
             | Effect::Blink { .. }
             | Effect::LookAtTopPick { .. }
+            | Effect::LookAtTopKeepBottomPlay { .. }
+            | Effect::ChooseExiledToPlay { .. }
             | Effect::PutFromHandOnTop { .. }
             | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }

@@ -166,6 +166,17 @@ impl<L: CardLookup> Engine<L> {
                 if !legal.castable.contains(&card) {
                     return Err(EngineError::IllegalAction("spell not castable now"));
                 }
+                // A permission that waives the mana cost is the only way this
+                // card is cast from where it lies (Dauthi Voidwalker).
+                let in_hand = self
+                    .state
+                    .object(card)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Hand);
+                if !in_hand
+                    && casting::play_permission(&self.state, player, card).is_some_and(|p| p.free)
+                {
+                    return self.start_permitted_free_cast(player, card);
+                }
                 self.start_cast_wizard(player, card)
             }
             (Pending::ChooseCastMode { player: p, .. }, PlayerAction::ChooseMode(index))
