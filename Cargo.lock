@@ -1089,6 +1089,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-seat"
+version = "0.1.0-beta.3"
+dependencies = [
+ "anyhow",
+ "baylee-ai",
+ "baylee-cards",
+ "baylee-cards-dsl",
+ "baylee-client-core",
+ "baylee-core",
+ "baylee-deckio",
+ "baylee-engine",
+ "baylee-gamehost",
+ "baylee-protocol",
+ "baylee-view",
+ "clap",
+ "futures-util",
+ "prost",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite 0.30.0",
+ "tracing",
+ "tracing-subscriber",
+ "ureq",
+]
+
+[[package]]
 name = "baylee-update"
 version = "0.1.0-beta.3"
 dependencies = [
@@ -7840,8 +7868,12 @@ checksum = "17a073bfed563fa236697a068031408a93cd9522e08abf9933ead3e73411bd71"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
+ "rustls-pki-types",
  "tokio",
+ "tokio-rustls",
  "tungstenite 0.30.0",
+ "webpki-roots 0.26.11",
 ]
 
 [[package]]
@@ -8053,6 +8085,8 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.10.3",
+ "rustls",
+ "rustls-pki-types",
  "sha1 0.11.0",
  "thiserror 2.0.21",
 ]

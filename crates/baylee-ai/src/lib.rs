@@ -663,6 +663,61 @@ pub fn policy_seed(game: &str, seat: u8) -> u64 {
         })
 }
 
+/// What the seat could make by tapping, as the house reads it: the offered,
+/// simple, unrestricted mana taps, one source per permanent, free modes
+/// before priced ones.
+///
+/// The reader the agent plans its own casts with, handed out so a seat that
+/// is not the house can ask the same question — "could this hand be paid for
+/// from what is untapped?" — without a second reader that disagrees with
+/// this one (the seat bridge's standing orders, `baylee-seat`). What it
+/// leaves out is left out for every caller alike: restricted mana, which
+/// can pay only for some spells, and any ability whose price is more than a
+/// tap it cannot plan.
+#[must_use]
+pub fn mana_sources(
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+) -> Vec<baylee_client_core::manaplan::Source> {
+    policy::sources(view, legal)
+}
+
+/// Whether an offered activation can do nothing but make mana: a mana
+/// ability (CR 605.1a) whose price is its tap and mana at most, or a mana
+/// ability a permanent is granted, which costs its tap by construction.
+///
+/// The engine offers every mana ability at every priority (CR 605.3a), so
+/// an offer of nothing else reads as something to do and is not: mana made
+/// with nothing to spend it on empties as the step ends (CR 500.5). A mana
+/// ability with a price beyond the tap (a sacrifice, life, a discard) is not
+/// one of these, because selling a creature for mana in answer to a removal
+/// spell is a decision. Read by the same lookup the agent activates with
+/// (the object's printed list, a copy's by what it copies).
+#[must_use]
+pub fn only_makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool {
+    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+        return view
+            .object(object)
+            .and_then(|o| o.granted_mana.as_ref())
+            .is_some_and(|mana| mana.slot == slot);
+    }
+    match activate::printed(view, object, index) {
+        Some(
+            baylee_cards_dsl::AbilityDef::Activated {
+                cost,
+                mana_ability: true,
+                ..
+            }
+            | baylee_cards_dsl::AbilityDef::ActivatedConditional {
+                cost,
+                mana_ability: true,
+                ..
+            },
+        ) => !policy::priced(cost),
+        _ => false,
+    }
+}
+
 /// The player who must answer a pending choice.
 #[must_use]
 pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
