@@ -5344,7 +5344,9 @@ fn transcode_report(
             hit.insert(name.to_string());
         }
         let script = scriptgen::parse(&text);
-        if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some() {
+        if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some()
+            || scriptgen::is_vanilla(&script)
+        {
             read += 1;
         } else {
             refused += 1;
@@ -5804,7 +5806,9 @@ fn reach_measure(root: &Path, scripts_dir: &Path, cache: &Path) -> anyhow::Resul
         }
         let text = fs::read_to_string(dir.join(rel))?;
         let script = scriptgen::parse(&text);
-        if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some() {
+        if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some()
+            || scriptgen::is_vanilla(&script)
+        {
             names.push(row.name);
         } else {
             refused += 1;

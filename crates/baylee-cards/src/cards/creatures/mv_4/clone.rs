@@ -1,0 +1,24 @@
+//! Clone — {3}{U} — Creature — Shapeshifter
+//! Oracle: You may have this creature enter as a copy of any creature on the battlefield.
+//! Set: M14 #47 — Magic 2014 | Scryfall ID: 5e648262-3b9b-4c58-8e29-48356e3cb064 | Oracle ID: 42226b87-0746-4ebf-9fd0-108d508462af
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+card!(
+    index = index::CLONE,
+    oracle_id = "42226b87-0746-4ebf-9fd0-108d508462af",
+    scryfall_id = "5e648262-3b9b-4c58-8e29-48356e3cb064",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    faces = &[face!(
+        name = "Clone",
+        mana_cost = mana!("{3}{U}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[subtypes::creature::SHAPESHIFTER],
+        power = Some(0),
+        toughness = Some(0),
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

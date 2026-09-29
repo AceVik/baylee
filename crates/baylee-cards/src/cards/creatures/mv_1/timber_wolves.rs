@@ -1,0 +1,24 @@
+//! Timber Wolves — {G} — Creature — Wolf
+//! Oracle: Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)
+//! Set: 4ED #275 — Fourth Edition | Scryfall ID: d8f84fc8-69b4-4756-9634-4d6c17ec88a1 | Oracle ID: 35d07ac9-b184-4b5f-8192-34b1db042f69
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+card!(
+    index = index::TIMBER_WOLVES,
+    oracle_id = "35d07ac9-b184-4b5f-8192-34b1db042f69",
+    scryfall_id = "d8f84fc8-69b4-4756-9634-4d6c17ec88a1",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    faces = &[face!(
+        name = "Timber Wolves",
+        mana_cost = mana!("{G}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[subtypes::creature::WOLF],
+        power = Some(1),
+        toughness = Some(1),
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

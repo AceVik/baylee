@@ -1,0 +1,25 @@
+//! Cockatrice — {3}{G}{G} — Creature — Cockatrice
+//! Oracle: Flying
+//! Oracle: Whenever this creature blocks or becomes blocked by a non-Wall creature, destroy that creature at end of combat.
+//! Set: TSB #75 — Time Spiral Timeshifted | Scryfall ID: 4efcc6db-66bd-42c1-9a74-fd474f784232 | Oracle ID: af354337-424c-4c7e-8ca5-6149261368d2
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+card!(
+    index = index::COCKATRICE,
+    oracle_id = "af354337-424c-4c7e-8ca5-6149261368d2",
+    scryfall_id = "4efcc6db-66bd-42c1-9a74-fd474f784232",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    faces = &[face!(
+        name = "Cockatrice",
+        mana_cost = mana!("{3}{G}{G}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[subtypes::creature::COCKATRICE],
+        power = Some(2),
+        toughness = Some(4),
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

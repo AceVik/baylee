@@ -1,0 +1,23 @@
+//! Cursed Land — {2}{B}{B} — Enchantment — Aura
+//! Oracle: Enchant land
+//! Oracle: At the beginning of the upkeep of enchanted land's controller, this Aura deals 1 damage to that player.
+//! Set: 5ED #152 — Fifth Edition | Scryfall ID: 39d9801b-9707-4868-bde1-39960b761992 | Oracle ID: 0d61239f-28e4-4adb-8f6e-b56e9c8699af
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+card!(
+    index = index::CURSED_LAND,
+    oracle_id = "0d61239f-28e4-4adb-8f6e-b56e9c8699af",
+    scryfall_id = "39d9801b-9707-4868-bde1-39960b761992",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    faces = &[face!(
+        name = "Cursed Land",
+        mana_cost = mana!("{2}{B}{B}"),
+        types = TypeSet::ENCHANTMENT,
+        subtypes = &[subtypes::enchantment::AURA],
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

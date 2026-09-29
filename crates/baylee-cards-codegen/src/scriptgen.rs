@@ -3532,6 +3532,20 @@ pub fn transcode(
     Some(tx.body)
 }
 
+/// Whether the script says nothing beyond what Scryfall supplies anyway: no
+/// keyword, no ability and no line kind the parser does not model.
+///
+/// [`transcode`] refuses such a script, because an empty body is also what
+/// a card it could not read at all would look like. A vanilla creature is
+/// the other reading, and only the printing can tell the two apart, so
+/// `stubgen` finishes the card when its printed text is empty as well; the
+/// reports that walk scripts without a printing (`reach-list`,
+/// `transcode-report`) count it as read on this alone, and `codegen` decides.
+#[must_use]
+pub fn is_vanilla(script: &CardScript) -> bool {
+    script.keywords.is_empty() && script.rules.is_empty() && script.unknown_lines.is_empty()
+}
+
 /// Reads a script and, when it is refused over a parameter, names it.
 ///
 /// `None` means the transcoder has nothing to say about this script: it was

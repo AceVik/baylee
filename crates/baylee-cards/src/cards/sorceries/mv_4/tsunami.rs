@@ -1,0 +1,20 @@
+//! Tsunami — {3}{G} — Sorcery
+//! Oracle: Destroy all Islands.
+//! Set: ME4 #171 — Masters Edition IV | Scryfall ID: f83a6709-f26d-41fc-b63a-739377ba49f9 | Oracle ID: ef2b1565-7b02-4cab-9031-beb1701ee929
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::TSUNAMI,
+    oracle_id = "ef2b1565-7b02-4cab-9031-beb1701ee929",
+    scryfall_id = "f83a6709-f26d-41fc-b63a-739377ba49f9",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    faces = &[face!(
+        name = "Tsunami",
+        mana_cost = mana!("{3}{G}"),
+        types = TypeSet::SORCERY,
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

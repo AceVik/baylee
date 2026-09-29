@@ -681,8 +681,7 @@ pub fn set_line(
 /// answers before this is asked.
 fn vanilla(faces: &[FaceData], script: &crate::scriptgen::CardScript) -> Option<CardBody> {
     let printed_nothing = faces.iter().all(|f| f.oracle_text.trim().is_empty());
-    let scripted_nothing =
-        script.keywords.is_empty() && script.rules.is_empty() && script.unknown_lines.is_empty();
+    let scripted_nothing = crate::scriptgen::is_vanilla(script);
     let is_land = faces.iter().any(|f| f.type_line.contains("Land"));
     (printed_nothing && scripted_nothing && !is_land).then(|| CardBody {
         notes: vec!["no rules text".to_string()],

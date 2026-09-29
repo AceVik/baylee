@@ -1,0 +1,24 @@
+//! Orcish Artillery — {1}{R}{R} — Creature — Orc Warrior
+//! Oracle: {T}: This creature deals 2 damage to any target and 3 damage to you.
+//! Set: 10E #220 — Tenth Edition | Scryfall ID: 606fca10-0eb8-4f70-80bb-dd9aee50a018 | Oracle ID: c000811e-bde7-4840-a3bb-9714d5c977eb
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+card!(
+    index = index::ORCISH_ARTILLERY,
+    oracle_id = "c000811e-bde7-4840-a3bb-9714d5c977eb",
+    scryfall_id = "606fca10-0eb8-4f70-80bb-dd9aee50a018",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    faces = &[face!(
+        name = "Orcish Artillery",
+        mana_cost = mana!("{1}{R}{R}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[subtypes::creature::ORC, subtypes::creature::WARRIOR],
+        power = Some(1),
+        toughness = Some(3),
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.
