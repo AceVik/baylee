@@ -18,7 +18,7 @@ use crate::board::Board;
 use baylee_cards_dsl::KeywordSet;
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
-use baylee_engine::choice::BlockOption;
+use baylee_engine::choice::{AttackerBound, BlockOption};
 use baylee_view::{ObjectStatus, PlayerView, PublicObject};
 use std::collections::BTreeSet;
 
@@ -392,22 +392,73 @@ fn rescues(walkers: &[Besieged], target: Defender, saved: i32, blocker: Fighter)
 /// nothing can be read about it, menace included — see the chump-block
 /// branch above, which is the same gap seen from the other side.
 fn enforce_menace(board: &Board, options: &[BlockOption], pairs: &mut Vec<(ObjectId, ObjectId)>) {
-    let menacing = deduped(pairs.iter().map(|(_, attacker)| *attacker));
-    for attacker in menacing {
-        if !board
-            .fighter(attacker)
-            .is_some_and(|f| f.has(KeywordSet::MENACE))
-        {
+    let bounds: Vec<AttackerBound> = deduped(pairs.iter().map(|(_, attacker)| *attacker))
+        .into_iter()
+        .filter(|&attacker| {
+            board
+                .fighter(attacker)
+                .is_some_and(|f| f.has(KeywordSet::MENACE))
+        })
+        .map(|attacker| AttackerBound {
+            attacker,
+            min_blockers: 2,
+            max_blockers: u32::MAX,
+        })
+        .collect();
+    keep_bounds(board, options, &bounds, pairs);
+}
+
+/// A finished declaration brought inside the blocker bounds a question
+/// states (`Pending::ChooseBlockers::bounds`, CR 509.1b): an attacker
+/// blocked by fewer than its least gets the cheapest spare blockers that may
+/// legally be paired with it, or, where too few are spare, no blockers at
+/// all; one blocked by more than its most keeps the blockers named first.
+///
+/// [`enforce_menace`] is this pass over the bounds the view implies, for a
+/// board without a question; an answer to the engine is held to the bounds
+/// the question states, which are the ones `apply` holds it to.
+pub(crate) fn keep_bounds(
+    board: &Board,
+    options: &[BlockOption],
+    bounds: &[AttackerBound],
+    pairs: &mut Vec<(ObjectId, ObjectId)>,
+) {
+    for bound in bounds {
+        let on = |pairs: &[(ObjectId, ObjectId)]| {
+            pairs
+                .iter()
+                .filter(|(_, attacker)| *attacker == bound.attacker)
+                .count()
+        };
+        let least = usize::try_from(bound.min_blockers).unwrap_or(usize::MAX);
+        let most = usize::try_from(bound.max_blockers).unwrap_or(usize::MAX);
+        let count = on(pairs);
+        if count == 0 {
             continue;
         }
-        if pairs.iter().filter(|(_, a)| *a == attacker).count() != 1 {
+        if count > most {
+            let mut kept = 0;
+            pairs.retain(|(_, attacker)| {
+                if *attacker != bound.attacker {
+                    return true;
+                }
+                kept += 1;
+                kept <= most
+            });
+            continue;
+        }
+        if count >= least {
             continue;
         }
         let mut spare: Vec<&BlockOption> = options
             .iter()
-            .filter(|o| o.attackers.contains(&attacker))
+            .filter(|o| o.attackers.contains(&bound.attacker))
             .filter(|o| !pairs.iter().any(|(blocker, _)| *blocker == o.blocker))
             .collect();
+        if count + spare.len() < least {
+            pairs.retain(|(_, attacker)| *attacker != bound.attacker);
+            continue;
+        }
         spare.sort_by_key(|o| {
             let f = board.fighter(o.blocker);
             (
@@ -416,11 +467,12 @@ fn enforce_menace(board: &Board, options: &[BlockOption], pairs: &mut Vec<(Objec
                 o.blocker.slot(),
             )
         });
-        if let Some(second) = spare.first() {
-            pairs.push((second.blocker, attacker));
-        } else {
-            pairs.retain(|(_, a)| *a != attacker);
-        }
+        pairs.extend(
+            spare
+                .iter()
+                .take(least - count)
+                .map(|o| (o.blocker, bound.attacker)),
+        );
     }
 }
 
