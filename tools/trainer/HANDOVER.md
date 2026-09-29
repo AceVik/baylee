@@ -93,8 +93,9 @@ goes. The WSL disk image stays on C: and still works from Windows.
 | `datasets/d002`, `d004-mirror`, `tiny`, `d3-smoke4` | smaller v2/v3 sets |
 | `models/value-v2` | v2 value net: held-out Brier 0.160, ECE 0.006 |
 | `models/policy-v1` | v2 policy: 90.5 % agreement with the house, 37.0 % [32.6, 41.6] against it in the arena; `policy.onnx` is the frozen yardstick |
-| `models/v3-a` | the first v3 net (policy and value), trained on d3-r003; `net.onnx` once exported |
+| `models/v3-a` | the first v3 net (policy and value, 8.7M), trained on d3-r003: 92.9 % agreement, value Brier 0.1574; `net.onnx` exported |
 | `arena/a002` | policy-v1 against the house, 463 games |
+| `arena/a3-001`, `arena/a2-same` | v3-a and policy-v1 over the same 1,000 games: 40.8 % [37.7, 44.1] against 36.0 % [33.0, 39.2] |
 | `fuzz/f001`, `f002-karn`, `f003-karn-all` | fuzzer runs on main and on the Karn fixes |
 | `verify/` | the ability log, L5 mutant outputs and coverage exports from d7's hooks branch |
 | `reports/house-usage-d003` | house-AI batch 1: cards offered and never used |
@@ -211,8 +212,15 @@ deterministic, and a record that no longer replays is refused whole.
   soft value targets.
 - **`land_mana_tests`** will take its expectation from `generated_oracle.rs`,
   which kills the 328 mana mutants that survive.
-- **The v2-vs-v3 comparison** on r003: see "Where it stands" in
-  `docs/trained-ai.md` once v3-a's report is in.
+- **The v2-vs-v3 comparison** on r003 is done and sent: v3-a is better on
+  every measure ("Where it stands" in `docs/trained-ai.md`).
+- **night-decks @ 071921b4** already carries the verify hooks, Karn,
+  pay-scaling, ai-lethal and blink. Main follows after cards-library,
+  mechanics-tests, leave-probe, ai-unused and a stale-projection fix.
+- **The leave probe** (`c42/engine-leave-probe` @ 053074d5):
+  `BAYLEE_LEAVE_LOG=<dir> cargo test -p baylee-engine --lib -- --ignored --exact engine::leave_probe_tests::leave_probe_sweep --nocapture`.
+  It covers 2013 cards × 7 routes: 13,860 ok, 231 skipped, none linger. Feed
+  it to `verify --leave-log`.
 
 ## Commands
 

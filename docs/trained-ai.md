@@ -231,6 +231,22 @@ one creature. The second is a constraint `ChooseBlockers` does not state yet.
   time). In the arena (`bin/arena`, ONNX through `ort`) it wins 37.0 %
   [32.6, 41.6] of 463 games against the house: an imitation below its teacher, as
   expected before RL.
+- **v3-a** (encoder v3, one 8.7M net for policy and value, d3-r003: r003's
+  decisions under v3) against v2 on the same held-out games:
+  - Policy agreement 92.9 % (v2 90.5 %): attackers 87.2 % (77.6 %), priority
+    94.5 % (92.6 %), blockers 59.9 % (55.3 %).
+  - Value Brier 0.1574 (0.1601), calibration error 0.004 (0.006). It is better
+    in every turn band.
+  - The v3 conversion of r003 dropped 35,707 offered objects, against v2's
+    10,326,197.
+  - In the arena, the same 1,000 games against the five house profiles (the
+    same seeds, decks and engine): v3-a wins 40.8 % [37.7, 44.1] of decided
+    games and v2's policy 36.0 % [33.0, 39.2]. v3-a is ahead against every
+    profile, most against expert (39.3 % against 29.7 %).
+  - About a tenth of the games (v3 104, v2 89) were stopped for both nets:
+    refusal loops of the engine bugs the Karn fixes remove.
+  - Per answer v3-a takes 56 ms and v2 50 ms, with 20 games at once on the
+    CPU.
 - **The value net's early edge** is partly the decks (a baseline on deck, seat and
   turn scores Brier 0.245 at turns 1–3, v2 0.238), but it survives mirror
   matches, where the deck says nothing (`tools/trainer/eval_value.py --no-deck`).
@@ -242,11 +258,10 @@ one creature. The second is a constraint `ChooseBlockers` does not state yet.
 
 ## Open
 
-- Encoding v3 (piles and runs) — a requirement for the NPU export. It also
-  covers up to 8 seats: seats become entities, and the value head a distribution
-  over the winner. Self-play already seats 2 to 8 decks (`--seats`, `--teams`).
-  A four-seat game of house decks takes about 3000 answers and 5 s, against 40 ms
-  for a duel.
+- Multi-seat and broad-pool v3 data, once the engine fixes reach main.
+  Self-play already seats 2 to 8 decks (`--seats`, `--teams`). A four-seat
+  game of house decks takes about 3000 answers and 5 s, against 40 ms for a
+  duel.
 - The arena: win rate against each house profile with 95 % intervals, then RL
   against a league of house profiles and older nets.
 - The scaling measurement and the student's latency on `acenb`.
