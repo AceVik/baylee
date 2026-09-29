@@ -1634,6 +1634,57 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
     run(state, res)
 }
 
+/// "Copy target activated or triggered ability you control. You may choose
+/// new targets for the copy." (CR 707.10, 707.10c.)
+///
+/// The copy is the original object cloned, which is what "copies both the
+/// characteristics of the spell or ability and all decisions made for it"
+/// asks: its mode, targets, X, chosen player, the list of abilities it
+/// resolves from, its event object and what paid its costs all come along,
+/// and so does its source (CR 707.10b). It is put on the stack under `you`,
+/// newly timestamped, and journals no `AbilityTriggered`: a copy is neither
+/// activated nor triggered (CR 707.10), and `record_new_targets` journals
+/// what it targets once its targets are settled, so "becomes the target"
+/// sees it exactly once.
+///
+/// Its requirement is written onto the copy (`ability_target_req`), because
+/// an ability pushed from its definition carries none and the question
+/// about new targets is asked against it.
+fn copy_target_ability(
+    state: &mut GameState,
+    res: &mut Resolution,
+    you: PlayerId,
+) -> Option<Pending> {
+    let &original = res.targets.first()?;
+    let mut copy = state
+        .object(original)
+        .filter(|o| o.zone == crate::zone::Zone::Stack && o.kind == ObjectKind::AbilityOnStack)?
+        .clone();
+    let loc = copy.ability?;
+    if copy.target_req.is_none() && loc.index != baylee_core::ids::AbilityRef::SYNTHETIC {
+        copy.target_req = copy
+            .own_abilities
+            .and_then(|list| crate::object::ability_target_req(list, loc.index, copy.mode_index));
+    }
+    let timestamp = state.next_timestamp();
+    let id = state.arena.insert_with(|id| {
+        copy.id = id;
+        copy.owner = you;
+        copy.controller = you;
+        copy.base_controller = you;
+        copy.timestamp = timestamp;
+        copy.cache = crate::object::CachedChar::default();
+        copy
+    });
+    state
+        .zones
+        .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+    if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
+        state.synthetic_copies.push((original, id));
+    }
+    retarget::start_copy(state, res, id)
+}
+
 /// Executes one operation; returns `Some(pending)` when it suspends.
 fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     match op {
@@ -2377,6 +2428,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         // their control (CR 800.4b).
         Effect::CreateEmblem { .. }
         | Effect::CopyTargetSpell { .. }
+        | Effect::CopyTargetAbility
         | Effect::CreateContinuousEffect {
             modifier: baylee_cards_dsl::Modifier::GainControl,
             ..
@@ -2751,6 +2803,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::CopyTargetAbility => copy_target_ability(state, res, you),
         Effect::AttachSelf { .. } => {
             if let Some(&target_id) = res.targets.first()
                 && let Some(obj) = state.object_mut(res.source)

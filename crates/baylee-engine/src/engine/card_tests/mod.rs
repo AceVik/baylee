@@ -404,6 +404,14 @@ fn virtue_of_knowledge() -> CardIndex {
     card_index("f0bbcabf-29e7-4c7e-893f-86b64d3620a9")
 }
 
+fn badgermole_cub() -> CardIndex {
+    card_index("2b0afb89-0944-4861-b9c3-e909e2ac215e")
+}
+
+fn pinnacle_monk() -> CardIndex {
+    card_index("f3d48efa-910a-4872-a5b1-a353c5dbce99")
+}
+
 fn erode() -> CardIndex {
     card_index("2e467fab-e808-44d3-99bf-e3621baeb7cb")
 }

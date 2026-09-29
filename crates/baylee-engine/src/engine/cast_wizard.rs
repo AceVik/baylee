@@ -532,6 +532,21 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
+        // Timing, per way of casting (CR 601.3): the front's for every option
+        // that casts the front, and a back face's own for that face
+        // (`casting::face_timing_allows`, CR 712.11c, 715.3a). An enchantment
+        // with an instant Adventure, cast while the stack is not empty, is
+        // offered as the Adventure alone. Renumbered, because an option's
+        // index is its place in this list.
+        let front = obj.characteristics();
+        let front_now = casting::timing_allows(&self.state, player, front.types, front.keywords);
+        options.retain(|o| match o.kind {
+            CastModeKind::Face(i) => casting::face_timing_allows(&self.state, player, def, i),
+            _ => front_now,
+        });
+        for (i, option) in options.iter_mut().enumerate() {
+            option.index = u8::try_from(i).unwrap_or(u8::MAX);
+        }
         if options.is_empty() {
             return Err(EngineError::IllegalAction("no way to cast this spell"));
         }

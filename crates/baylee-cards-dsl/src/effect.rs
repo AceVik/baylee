@@ -1694,6 +1694,18 @@ pub enum Effect {
         /// Copy modifications.
         mods: &'static [crate::ability::CopyMod],
     },
+    /// "Copy target activated or triggered ability you control. You may
+    /// choose new targets for the copy." (Vantress Visions.) The first
+    /// target is an ability on the stack (`TargetSpec::AbilityOnStack`).
+    ///
+    /// The copy is put on the stack under your control with every decision
+    /// made for the original: its mode, targets, X and what paid its costs
+    /// (CR 707.10), and the same source (CR 707.10b). It is neither
+    /// activated nor triggered (CR 707.10), so nothing that watches for
+    /// either sees it. Its controller may then leave any number of its
+    /// targets unchanged and change the rest to legal ones (CR 707.10c),
+    /// one target at a time as `ChooseNewTargets` asks.
+    CopyTargetAbility,
     /// Attach the source (equipment/aura) to a target permanent.
     AttachSelf {
         /// To what.
@@ -2488,6 +2500,7 @@ impl Effect {
             | Effect::CreateTokenCopyOfFirstToken
             | Effect::BottomCardFromHand { .. }
             | Effect::CopyTargetSpell { .. }
+            | Effect::CopyTargetAbility
             | Effect::AttachSelf { .. }
             | Effect::ReorderTopLibrary { .. }
             | Effect::PayLifeOrEnterTapped { .. }

@@ -161,6 +161,43 @@ pub struct AbilityLoc {
     pub source: ObjectId,
 }
 
+/// What the ability at `index` of `abilities` may target with its first
+/// instance of the word "target", `mode_index` naming a modal trigger's
+/// announced mode (CR 603.3c).
+///
+/// One arm list for two askers: `Engine::stack_target_req`, CR 608.2b's
+/// re-check, which reads the list an ability on the stack carries or its
+/// source's, and a copy of an ability (CR 707.10c), which writes the answer
+/// onto the copy so its new targets can be chosen against it. The
+/// activated twins are both here for the reason `stack_target_req` gives.
+///
+/// # Panics
+///
+/// On a modal trigger with no announced mode: the mode is announced as the
+/// ability goes on the stack (CR 603.3c), so one without it came off a push
+/// site that forgot to carry it, and falling back to the first mode is how a
+/// card resolves the wrong half of itself in silence.
+#[must_use]
+pub fn ability_target_req(
+    abilities: &[baylee_cards_dsl::AbilityDef],
+    index: u32,
+    mode_index: Option<u8>,
+) -> Option<baylee_cards_dsl::TargetReq> {
+    use baylee_cards_dsl::AbilityDef;
+    match abilities.get(index as usize)? {
+        AbilityDef::Activated { targets, .. }
+        | AbilityDef::ActivatedConditional { targets, .. }
+        | AbilityDef::Loyalty { targets, .. }
+        | AbilityDef::Triggered { targets, .. }
+        | AbilityDef::SagaChapter { targets, .. } => *targets,
+        AbilityDef::ModalTriggered { modes, .. } => {
+            let idx = mode_index.expect("a modal trigger on the stack has its mode") as usize;
+            modes.get(idx).and_then(|m| m.targets)
+        }
+        _ => None,
+    }
+}
+
 /// Copiable values (CR 707.2): printed or token-defined characteristics.
 ///
 /// Computed/layered characteristics are a *projection* of this base plus

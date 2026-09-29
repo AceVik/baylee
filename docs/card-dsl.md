@@ -1287,7 +1287,15 @@ disturb back) is `AbilityDef::Replacement(ReplacementRule::ExileSelfInsteadOfGra
 on that face: registered on the battlefield, carried on the stack by the cast.
 Tokens/copy: `CreateToken`, `CreateTokenN`, `CreateTokenForTargetController`,
 `CreateTokenFromLinked`, `CreateTokenCopyOf`, `CreateTokenCopyOfEquipped`,
-`CreateTokenCopyOfFirstToken`, `CopyTargetSpell`, `Amass`.
+`CreateTokenCopyOfFirstToken`, `CopyTargetSpell`, `CopyTargetAbility`,
+`Amass`. `CopyTargetAbility` is "copy target activated or triggered ability
+you control. You may choose new targets for the copy" (Vantress Visions),
+over `TargetSpec::AbilityOnStack(&Filter::ControlledByYou)`: the copy keeps
+every decision made for the original, mode, targets, X and what paid its
+costs (CR 707.10), and the same source (CR 707.10b); it is neither activated
+nor triggered, so nothing watching for either sees it; and its controller is
+then asked CR 115.7d's question target by target, naming nothing to keep one
+(CR 707.10c).
 Costs/taxes: `PlayerMayPayOr` and `PlayerMayPayCostOr` — the two halves of
 "… unless you <pay>", split by what the price is. The first charges *generic*
 mana in an `Amount`, because Esper Sentinel's tax is its own power and a

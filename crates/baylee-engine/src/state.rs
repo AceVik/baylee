@@ -662,6 +662,20 @@ pub struct GameState {
     /// `snapshot_hash` nor `loop_signature` reads it. It rests on a rule the
     /// build enforces, not on which cards happen to exist.
     pub reflexive: Vec<crate::trigger::PendingTrigger>,
+    /// Copies of synthetic abilities made by the resolution in progress, as
+    /// `(original, copy)` (CR 707.10).
+    ///
+    /// A synthetic ability (prowess, ward, a granted or reflexive trigger)
+    /// keeps its effects beside the engine and not on its object, where the
+    /// resolver cannot reach them, so `Effect::CopyTargetAbility` names the
+    /// pair here and `Engine::finish_resolution` hands the copy the
+    /// original's effects. The original is still on the stack below the
+    /// copy then, so its effects are still there to hand over.
+    ///
+    /// Unlike `reflexive`, this is hashed: the copy's controller is asked
+    /// about new targets (CR 707.10c) before that resolution ends, so the
+    /// list is not empty while a question is out.
+    pub synthetic_copies: Vec<(ObjectId, ObjectId)>,
     /// Each seat's commanders (CR 903.3), by seat index.
     ///
     /// The list is the marker, and it has to be: commander-ness belongs to
@@ -906,6 +920,7 @@ impl GameState {
             ltb_attachments: Vec::new(),
             ceased: Vec::new(),
             reflexive: Vec::new(),
+            synthetic_copies: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
             day_night: None,
@@ -2330,6 +2345,7 @@ impl GameState {
             // Empty whenever a question is out, by a rule the build
             // enforces; the field says which.
             reflexive: _,
+            synthetic_copies,
             commanders,
             monarch,
             day_night,
@@ -2427,6 +2443,7 @@ impl GameState {
         }
         ltb_controllers.hash(&mut h);
         ltb_powers.hash(&mut h);
+        synthetic_copies.hash(&mut h);
         hash_unordered(
             &mut h,
             restriction_info.iter(),
@@ -4091,6 +4108,9 @@ mod tests {
             }),
             ("ltb_powers", |s, id| {
                 s.ltb_powers.push((id, 4));
+            }),
+            ("synthetic_copies", |s, id| {
+                s.synthetic_copies.push((id, id));
             }),
             ("ltb_counters", |s, id| {
                 s.ltb_counters.push((id, Counters::default()));

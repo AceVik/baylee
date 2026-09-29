@@ -716,6 +716,36 @@ madness, disturb decompose into: `CastPermission` (zone/cost/timing
 override) + `PendingCast` (with expiry) + `DelayedTrigger` + `ExileRider`.
 Keywords exist on stack objects (rebound can be granted).
 
+**A back face is cast at its own timing** (CR 601.3e). Only the face that
+will be up on the stack is evaluated to see whether a modal double-faced
+card can be cast (CR 712.11c), and only the alternative characteristics for
+an Adventure (CR 715.3a). So `casting::can_cast_form` reads the front's
+timing off its projected characteristics and each castable back face's off
+that face (`casting::face_timing_allows`); the card is offered when either
+may be cast now, affordable and with something to point at. The wizard's
+`cast_options` keeps the same split: an option that casts the front needs
+the front's timing, a `Face(i)` its own, and the list is renumbered after.
+Vantress Visions is an instant on the back of an enchantment; read with the
+front's timing it could only be cast on an empty stack, which for a spell
+that targets an ability on the stack is never.
+
+**A copy of an ability is a clone of it** (CR 707.10,
+`resolve::copy_target_ability`). Every decision made for the original rides
+on its object, so the copy is that object cloned under a new id, newly
+timestamped, controlled by the player who copied it, with the same
+`AbilityLoc` and so the same source (CR 707.10b). An ability pushed from its
+definition carries no `target_req`; the copy is given one
+(`object::ability_target_req`, the arm list `stack_target_req` also reads)
+so `retarget::start_copy` can ask about new targets against it (CR 707.10c).
+It journals no `AbilityTriggered`, and `record_new_targets` journals what it
+ends up targeting, with nothing counted as already targeted. A synthetic
+ability's effects live in `Engine::synthetic_fx`, out of the resolver's
+reach, so the resolver names `(original, copy)` in
+`GameState::synthetic_copies` and `finish_resolution` hands the copy the
+original's effects; the original is below the copy on the stack, so its
+entry is still there. That list is hashed, because the question about new
+targets is out before the resolution that made the copy ends.
+
 **A back face's mana value is its front face's** (CR 202.3b). A nonmodal
 double-faced card's back face has no mana cost, and up on the battlefield
 (CR 712.8e) or cast transformed (CR 712.8c) its mana value is computed

@@ -4167,7 +4167,7 @@ fn muscle_burst_counts_the_copies_in_an_opponents_graveyard_too() {
 /// `ReplacementRule::TriggerMultiplier` is the whole front face, and the only
 /// way to see a replacement that multiplies a trigger is to count what the
 /// trigger did: Lumra mills four on arrival, so it mills eight here. The
-/// Adventure half is refused by name and is not on this board.
+/// Adventure half, Vantress Visions, is played by the tests below.
 #[test]
 fn virtue_of_knowledge_makes_an_enter_trigger_happen_twice() {
     let p0 = PlayerId::new(0);
@@ -4200,6 +4200,311 @@ fn virtue_of_knowledge_makes_an_enter_trigger_happen_twice() {
         library_size(&engine, p0),
         before - 8,
         "\"that ability triggers an additional time\": mill four, twice"
+    );
+}
+
+/// Casts Vantress Visions, the Virtue's adventure, off mana already floating
+/// and aims it at `ability`, answering as a player would: the face, if the
+/// engine asks which (it does not when only the adventure is affordable),
+/// then the target, out of a list that must hold it.
+#[track_caller]
+fn cast_vantress_visions(engine: &mut Engine<RegistryLookup>, seat: PlayerId, ability: ObjectId) {
+    cast_with_floating(engine, seat, virtue_of_knowledge());
+    if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
+        let adventure = options
+            .iter()
+            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Face(1)))
+            .expect("Vantress Visions is a way to cast the card");
+        engine
+            .apply(seat, PlayerAction::ChooseMode(adventure))
+            .expect("the face came out of the list");
+    }
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Visions asks for its target, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&ability),
+        "an ability you control on the stack: {options:?}"
+    );
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: vec![ability],
+                players: vec![],
+            },
+        )
+        .expect("the ability");
+}
+
+/// The object on top of the stack.
+fn top_of_stack(engine: &Engine<RegistryLookup>) -> ObjectId {
+    *engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .last()
+        .expect("something is on the stack")
+}
+
+/// How many times the journal says an ability of `source` was put on the
+/// stack by being activated or triggered.
+fn put_on_stack_from(engine: &Engine<RegistryLookup>, source: ObjectId) -> usize {
+    engine
+        .journal()
+        .entries()
+        .iter()
+        .filter(|e| {
+            matches!(e.event, crate::event::GameEvent::AbilityTriggered { source: s, .. } if s == source)
+        })
+        .count()
+}
+
+/// Vantress Visions copies an **activated** ability and its controller
+/// chooses a new target for the copy (CR 707.10c). Ba Sing Se's earthbend 2
+/// aims at one Forest; the copy is turned onto another, and both come out of
+/// it 2/2 land creatures with haste. The question is CR 115.7d's, one target
+/// at a time: the copy's current Forest is not offered (keeping it is naming
+/// nothing, `min` 0), the other lands are. The copy was not activated
+/// (CR 707.10), so the journal says Ba Sing Se's ability went on the stack
+/// once. The card then goes on an adventure in exile (CR 715.3d).
+#[test]
+fn vantress_visions_copies_an_activated_ability_onto_a_new_target() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                ba_sing_se(),
+                forest(),
+                forest(),
+                forest(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[virtue_of_knowledge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let city = on_battlefield(&engine, p0, ba_sing_se()).expect("Ba Sing Se");
+    let forests = all_on_battlefield(&engine, p0, forest());
+    let islands = all_on_battlefield(&engine, p0, island());
+    let (first, second) = (forests[0], forests[1]);
+
+    for &land in &forests {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: land })
+            .expect("a Forest taps for {G}");
+    }
+    activate(&mut engine, p0, ba_sing_se(), 1);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![first],
+                players: vec![],
+            },
+        )
+        .expect("target land you control");
+    let earthbend = top_of_stack(&engine);
+
+    for &land in &islands {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: land })
+            .expect("an Island taps for {U}");
+    }
+    cast_vantress_visions(&mut engine, p0, earthbend);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0, "the copy's controller chooses");
+    assert_eq!((min, max), (0, 1), "keep it, or name one new land");
+    assert!(options.contains(&second), "another land you control");
+    assert!(!options.contains(&first), "not the one it already targets");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![second],
+                players: vec![],
+            },
+        )
+        .expect("the other Forest");
+    pass_until(&mut engine, stack_is_empty);
+
+    for land in [first, second] {
+        assert!(types(&engine, land).contains(TypeSet::CREATURE));
+        assert_eq!(counters_on(&engine, land, CounterKind::P1P1), 2);
+        assert_eq!(pt(&engine, land), (2, 2));
+        assert!(keywords(&engine, land).contains(KeywordSet::HASTE));
+    }
+    assert!(
+        !types(&engine, forests[2]).contains(TypeSet::CREATURE),
+        "two earthbends, two lands"
+    );
+    assert_eq!(
+        put_on_stack_from(&engine, city),
+        1,
+        "the copy was not activated"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Exile(p0))
+            .iter()
+            .any(|id| engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == virtue_of_knowledge()))),
+        "the card is on an adventure in exile"
+    );
+}
+
+/// Vantress Visions copies a **triggered** ability, and its controller keeps
+/// the copy's target (CR 707.10c: "may leave any number of the targets
+/// unchanged"). Badgermole Cub's enters trigger earthbends one Forest; the
+/// copy earthbends the same one again, so it ends a 2/2 with two counters.
+/// The copy is a new object that targets the Forest, so the Forest becomes
+/// its target, journalled once as the copy's own (`BecameTarget`); the copy
+/// was not triggered, so no second `AbilityTriggered` announces it.
+#[test]
+fn vantress_visions_copies_a_triggered_ability_that_keeps_its_target() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), island(), island()])
+        .hand(0, &[badgermole_cub(), virtue_of_knowledge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let forests = all_on_battlefield(&engine, p0, forest());
+    let islands = all_on_battlefield(&engine, p0, island());
+    let land = forests[2];
+
+    for &forest in &forests[..2] {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: forest })
+            .expect("a Forest taps for {G}");
+    }
+    cast_with_floating(&mut engine, p0, badgermole_cub());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![land],
+                players: vec![],
+            },
+        )
+        .expect("target land you control");
+    let trigger = top_of_stack(&engine);
+    let cub = on_battlefield(&engine, p0, badgermole_cub()).expect("the Cub");
+
+    for &island in &islands {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: island })
+            .expect("an Island taps for {U}");
+    }
+    cast_vantress_visions(&mut engine, p0, trigger);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .expect("naming nothing keeps the target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, land, CounterKind::P1P1),
+        2,
+        "earthbend 1, twice"
+    );
+    assert_eq!(pt(&engine, land), (2, 2));
+    let became_target: Vec<ObjectId> = engine
+        .journal()
+        .entries()
+        .iter()
+        .filter_map(|e| match e.event {
+            crate::event::GameEvent::BecameTarget { object, target, .. } if target == land => {
+                Some(object)
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        became_target.len(),
+        1,
+        "the copy targets it once: {became_target:?}"
+    );
+    assert_ne!(became_target[0], trigger, "and it is the copy that does");
+    assert_eq!(
+        put_on_stack_from(&engine, cub),
+        1,
+        "the copy did not trigger"
+    );
+}
+
+/// A copy of a **synthetic** triggered ability (CR 707.10). Prowess keeps
+/// its effect beside the engine and not on the ability's object, so the
+/// copy has to be handed it (`GameState::synthetic_copies`). Dark Ritual
+/// makes Pinnacle Monk's prowess trigger; Vantress Visions copies it, and is
+/// itself a noncreature spell, so prowess triggers again: three resolutions,
+/// and the 2/2 is a 5/5.
+#[test]
+fn vantress_visions_copies_a_prowess_trigger() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[pinnacle_monk(), swamp(), island(), island()])
+        .hand(0, &[dark_ritual(), virtue_of_knowledge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let monk = on_battlefield(&engine, p0, pinnacle_monk()).expect("the Monk");
+    let swamp = on_battlefield(&engine, p0, swamp()).expect("the Swamp");
+    let islands = all_on_battlefield(&engine, p0, island());
+    assert_eq!(pt(&engine, monk), (2, 2));
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: swamp })
+        .expect("the Swamp taps for {B}");
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    let prowess = top_of_stack(&engine);
+    assert_eq!(
+        engine.state().object(prowess).map(|o| o.kind),
+        Some(crate::object::ObjectKind::AbilityOnStack),
+        "prowess triggered over the Ritual"
+    );
+    for &island in &islands {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: island })
+            .expect("an Island taps for {U}");
+    }
+    cast_vantress_visions(&mut engine, p0, prowess);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, monk),
+        (5, 5),
+        "prowess for the Ritual, its copy, and prowess for Visions"
     );
 }
 

@@ -6196,11 +6196,6 @@ fn an_opponents_land_leaves_kazandu_mammoth_the_three_three_it_prints() {
     );
 }
 
-// oracle_id = "f3d48efa-910a-4872-a5b1-a353c5dbce99"
-fn pinnacle_monk() -> CardIndex {
-    card_index("f3d48efa-910a-4872-a5b1-a353c5dbce99")
-}
-
 /// Pinnacle Monk ({3}{R}{R}, 2/2): "When this creature enters, return target
 /// instant or sorcery card from your graveyard to your hand."
 ///
@@ -14517,10 +14512,6 @@ fn altered_ego_that_copies_nothing_gets_no_counters_and_dies() {
         "a 0/0 with no counters does not survive"
     );
     assert!(in_graveyard(&engine, p0, altered_ego()).is_some());
-}
-
-fn badgermole_cub() -> CardIndex {
-    card_index("2b0afb89-0944-4861-b9c3-e909e2ac215e")
 }
 
 /// Casts Badgermole Cub off two of p0's Forests and earthbends `land`,

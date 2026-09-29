@@ -408,6 +408,84 @@ fn the_adventure_is_not_offered_again_from_the_exile_it_was_cast_into() {
     );
 }
 
+/// An Adventure is cast at its own timing (CR 715.3a: only the alternative
+/// characteristics are evaluated to see if it can be cast; CR 601.3e).
+///
+/// Swift Spiral is an instant on the back of Twining Twins, a creature
+/// without flash. On the other seat's turn, with mana for both faces
+/// floating, the card is offered and the only way to cast it is the
+/// Adventure: the creature is not a spell that can be cast then, so the
+/// wizard asks no face question and goes straight to Swift Spiral's target.
+/// The offer used to read the front face's timing alone and refused the
+/// whole card, so an instant Adventure was a sorcery.
+#[test]
+fn an_instant_adventure_is_cast_at_instant_speed_and_its_creature_is_not() {
+    let mut engine = Duel::new(37, island())
+        .hand(0, &[twining_twins()])
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                plains(),
+                plains(),
+                ondu_cleric(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && e.state().turn.active == p1
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    let card = find(
+        &engine,
+        crate::zone::ZoneLocation::Hand(p0),
+        twining_twins(),
+    )
+    .expect("in hand");
+    tap_all_mana(&mut engine, p0);
+    assert!(
+        is_offered(&engine, card),
+        "Swift Spiral is an instant and was not offered on the other turn"
+    );
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("the offer is honoured");
+    let Pending::ChooseTargets { player, .. } = engine.pending().clone() else {
+        panic!(
+            "the creature is no way to cast the card now, so no face is asked \
+             about: got {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p0);
+    let cleric = find(
+        &engine,
+        crate::zone::ZoneLocation::Battlefield,
+        ondu_cleric(),
+    )
+    .expect("a creature to point at");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![cleric],
+            },
+        )
+        .unwrap();
+    let stack = engine.state().zones.list(crate::zone::ZoneLocation::Stack);
+    let spell = stack.last().copied().expect("a spell on the stack");
+    assert_eq!(
+        engine.state().object(spell).map(|o| o.face_index),
+        Some(1),
+        "the Adventure, on the other seat's turn"
+    );
+}
+
 /// A mode's price and a mode's target line belong to the **same** mode.
 ///
 /// Damn is `{B}{B}` "destroy target creature" and an overload at

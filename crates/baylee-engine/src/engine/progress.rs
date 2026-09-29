@@ -2575,27 +2575,7 @@ impl<L: CardLookup> Engine<L> {
                 .object(loc.source)
                 .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
         });
-        match abilities.get(loc.index as usize)? {
-            AbilityDef::Activated { targets, .. }
-            | AbilityDef::ActivatedConditional { targets, .. }
-            | AbilityDef::Loyalty { targets, .. }
-            | AbilityDef::Triggered { targets, .. }
-            | AbilityDef::SagaChapter { targets, .. } => *targets,
-            AbilityDef::ModalTriggered { modes, .. } => {
-                // The same `expect` the resolution path below makes, and for
-                // the reason written there: the mode is announced as the
-                // ability goes on the stack (CR 603.3c), so one that reached
-                // resolution without it came off a push site that forgot to
-                // carry it. Falling back to the first mode is how a card
-                // resolves the wrong half of itself in silence.
-                let idx = obj
-                    .mode_index
-                    .expect("a modal trigger on the stack has its mode")
-                    as usize;
-                modes.get(idx).and_then(|m| m.targets)
-            }
-            _ => None,
-        }
+        crate::object::ability_target_req(abilities, loc.index, obj.mode_index)
     }
 
     /// What the top of the stack may target with its **second** instance of
@@ -3232,6 +3212,13 @@ impl<L: CardLookup> Engine<L> {
         // a question (an as-enters choice) before that runs, and the list
         // must be empty whenever a question is out.
         self.trigger_queue.extend(self.state.reflexive.drain(..));
+        // A copy of a synthetic ability (CR 707.10) takes the original's
+        // effects, which live here and not on the object the resolver made.
+        for (original, copy) in std::mem::take(&mut self.state.synthetic_copies) {
+            if let Some(&effects) = self.synthetic_fx.get(&original) {
+                self.synthetic_fx.insert(copy, effects);
+            }
+        }
         // A mana ability never went on the stack (CR 605.3b), and its
         // `on_stack` is the source permanent itself. Falling through here
         // treated that permanent as a resolving spell: `finalize_spell`
