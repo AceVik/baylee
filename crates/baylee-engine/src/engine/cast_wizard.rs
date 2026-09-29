@@ -1586,12 +1586,6 @@ fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> M
     total
 }
 
-/// The chosen cast option's cost as printed, X still in it.
-///
-/// Split out from [`wizard_cost`] because the two are wanted at different
-/// moments: everything downstream of the X question wants the cost with X
-/// filled in, and the X question itself has to look at the cost that still
-/// says X.
 /// How many units of each color `pool` holds, plain and restricted alike,
 /// in [`baylee_core::color::Color::ALL`]'s order.
 fn units_by_color(pool: &baylee_core::mana::ManaPool) -> [u32; 5] {
@@ -1607,6 +1601,12 @@ fn units_by_color(pool: &baylee_core::mana::ManaPool) -> [u32; 5] {
     })
 }
 
+/// The chosen cast option's cost as printed, X still in it.
+///
+/// Split out from [`wizard_cost`] because the two are wanted at different
+/// moments: everything downstream of the X question wants the cost with X
+/// filled in, and the X question itself has to look at the cost that still
+/// says X.
 fn chosen_option_cost(wizard: &CastWizard) -> ManaCost {
     wizard
         .options

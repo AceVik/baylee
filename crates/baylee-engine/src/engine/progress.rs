@@ -2555,13 +2555,6 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
-    /// What the top of the stack may target with its **second** instance of
-    /// the word "target", read from the same places [`Self::stack_target_req`]
-    /// reads the first: the spell's own object, or the ability's definition.
-    ///
-    /// Two arms and not the whole list, because only two shapes can say it —
-    /// [`AbilityDef::Spell`] through the object and the activated twins here.
-    /// Both twins, for the reason `stack_target_req` gives.
     /// The damage a triggered ability on the stack divides as its controller
     /// chooses ([`baylee_cards_dsl::Effect::DealDamageDivided`]), read off
     /// the list it was put on the stack with, as its second target is.
@@ -2585,6 +2578,13 @@ impl<L: CardLookup> Engine<L> {
         })
     }
 
+    /// What the top of the stack may target with its **second** instance of
+    /// the word "target", read from the same places [`Self::stack_target_req`]
+    /// reads the first: the spell's own object, or the ability's definition.
+    ///
+    /// Two arms and not the whole list, because only two shapes can say it —
+    /// [`AbilityDef::Spell`] through the object and the activated twins here.
+    /// Both twins, for the reason `stack_target_req` gives.
     pub(super) fn stack_second_target_req(&self, on_stack: ObjectId) -> Option<TargetReq> {
         let obj = self.state.object(on_stack)?;
         // A requirement written on the object wins: the cast wizard writes a

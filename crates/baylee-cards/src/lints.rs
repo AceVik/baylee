@@ -512,7 +512,6 @@ fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], bool, Door)>
     lists
 }
 
-/// How many reflexive triggers an effect list writes, at any depth.
 /// How many damage divisions (`Effect::DealDamageDivided`) a list holds,
 /// nested ones included.
 fn divisions_in(effects: &'static [Effect]) -> usize {
@@ -569,6 +568,7 @@ fn division_fault(ability: &AbilityDef) -> Option<&'static str> {
     None
 }
 
+/// How many reflexive triggers an effect list writes, at any depth.
 fn reflexives_in(effects: &'static [Effect]) -> usize {
     let (mut found, mut seen) = (0_usize, 0_usize);
     Effect::walk(effects, &mut seen, &mut |effect| {
