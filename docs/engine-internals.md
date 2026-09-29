@@ -739,9 +739,39 @@ second's, and not a guard in each door. The names are read from the
 source's `chosen_name`, and compared as interned names (`Names::find`): a
 name no object of the game has carried was never interned and locks nothing,
 and a source's projected name is what is compared, so a copy answers to the
-name it copies. A mana ability, `TURN_FACE_UP` and `PREPARED_CAST` stay.
+name it copies. A mana ability, a special action
+(`choice::is_special_action`: `TURN_FACE_UP` and the two unlock slots) and
+`PREPARED_CAST` stay.
 Nothing projected reads the name, so choosing one invalidates no projection;
 the name is cleared as its permanent leaves the battlefield (CR 400.7).
+
+**A Room's doors are designations on the permanent** (CR 709.5c,
+`GameObject::doors`, one byte: a Room bit and the two unlocked halves). They
+are given where enter modifiers are (`apply_enter_modifiers`), like "enters
+transformed", so the trigger scan later in the same pass sees them: cast as
+a half, that door is unlocked and `GameEvent::DoorUnlocked` is journalled
+(CR 709.5d, 709.5h); not cast (a setup placement, a reanimation), neither
+is. The unlock itself is a special action (CR 116.2m, 709.5e) under two
+reserved indices below `TURN_FACE_UP` (`choice::unlock_door`,
+`choice::door_to_unlock`), offered only at sorcery timing and only once the
+half's mana cost floats, as turning a permanent face up is; it uses no
+stack and journals the same event (`engine/room.rs`). What a door state
+means is `GameState::set_doors`: one half is that half's face (a
+`switch_face`), both is the left face with both mana costs and keywords,
+neither is the left face with no name, cost, colour or keyword; the rules
+text is `CardDef::door_abilities`, read by `GameObject::printed_abilities`,
+and `printed_face` is `None` while no door is open. `set_doors` drops the
+Room's static effects and replacement rules so the next
+`sync_static_effects` registers what the new doors print: that scan only
+adds while a permanent stays on the battlefield, and a Room placed uncast
+had been scanned as its left half first. The printed front is stashed in
+`original_base`, which the move off the battlefield restores, and the doors
+are cleared there (CR 400.7). Off the battlefield the card is its left face,
+as every multi-face card is here; the combined characteristics of CR 709.4
+are not modelled. With both doors open the list's printed face is the left
+one, so an ability of the right half has no stack-text line in that state
+(Forgotten Cellar's trigger after an unlock from the Closet shows its card,
+not its sentence).
 
 **A copy of an ability is a clone of it** (CR 707.10,
 `resolve::copy_target_ability`). Every decision made for the original rides

@@ -114,6 +114,13 @@ is that spell, still on the stack below it; read the other way round, the
 copy took the spell's own target as its subject and was aimed at the spell
 it copies.
 
+**A Room's door is not unlocked by the agent.** The unlock is a special
+action under a reserved index (`choice::unlock_door`), offered only once the
+half's mana cost floats, and `activate::printed` finds no ability at a
+reserved index, so none of the agent's ability choosers takes it, as none
+takes turning a permanent face up. A Room the agent casts keeps the half it
+was cast as.
+
 **A tap question is answered with what the pool leaves unpaid.** Convoke and a
 paid waterbend ask which permanents to tap (`TargetPrompt::Convoke`).
 `policy::convoke_taps` measures the cast's price (the context's cost with X,

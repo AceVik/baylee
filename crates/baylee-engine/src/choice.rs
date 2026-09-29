@@ -833,6 +833,43 @@ pub const PREPARED_CAST: u32 = u32::MAX - GRANTED_SLOTS;
 /// A face-up special action, carried by the existing permanent action menu.
 pub const TURN_FACE_UP: u32 = PREPARED_CAST - 1;
 
+/// How many unlock slots there are: one per half of a Room.
+pub const UNLOCK_SLOTS: u32 = 2;
+
+/// The index unlocking `half` of a Room (0 the left, 1 the right) is
+/// offered under: CR 709.5e's special action (CR 116.2m), carried by the
+/// permanent's action menu as turning one face up is.
+#[must_use]
+pub const fn unlock_door(half: u8) -> u32 {
+    // `u32::from` is not const.
+    #[allow(clippy::cast_lossless)]
+    let half = (half & 1) as u32;
+    TURN_FACE_UP - 1 - half
+}
+
+/// Which half `index` unlocks, if it names an unlock: the decoder half of
+/// [`unlock_door`], and the one place that partition is read.
+#[must_use]
+pub const fn door_to_unlock(index: u32) -> Option<u8> {
+    let n = (TURN_FACE_UP - 1).wrapping_sub(index);
+    // Below `UNLOCK_SLOTS`, so it fits.
+    #[allow(clippy::cast_possible_truncation)]
+    if n < UNLOCK_SLOTS {
+        Some(n as u8)
+    } else {
+        None
+    }
+}
+
+/// Whether `index` is a special action (CR 116.2): turning a permanent face
+/// up, or unlocking a door. Neither is an activated ability, so what stops
+/// activating one stops neither (Pithing Needle, CR 602.5; split second,
+/// CR 702.61a).
+#[must_use]
+pub const fn is_special_action(index: u32) -> bool {
+    index == TURN_FACE_UP || door_to_unlock(index).is_some()
+}
+
 // The indices in this module are **not** `AbilityRef` indices, and that is
 // the distinction to keep before adding another one here. They name a slot in
 // one `LegalActions` — chosen fresh every time it is built, held by nothing

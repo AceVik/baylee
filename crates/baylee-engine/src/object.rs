@@ -115,6 +115,51 @@ impl std::fmt::Debug for PrintedFace {
     }
 }
 
+/// A Room's unlocked designations (CR 709.5c), and whether it is one.
+///
+/// A permanent with a shared type line has two halves, each locked or
+/// unlocked; nothing else has either designation. One byte says both "not a
+/// Room" and "a Room with both doors locked" apart: the high bit marks a
+/// Room, the low two its unlocked halves (bit 0 the left, bit 1 the right).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+pub struct Doors(u8);
+
+impl Doors {
+    /// Not a Room permanent: nothing to be locked.
+    pub const NONE: Self = Self(0);
+    const ROOM: u8 = 0b1000_0000;
+
+    /// A Room permanent with the halves `unlocked` names unlocked.
+    #[must_use]
+    pub const fn room(unlocked: u8) -> Self {
+        Self(Self::ROOM | (unlocked & 0b11))
+    }
+
+    /// Whether this is a Room permanent at all.
+    #[must_use]
+    pub const fn is_room(self) -> bool {
+        self.0 & Self::ROOM != 0
+    }
+
+    /// The unlocked halves: bit 0 the left, bit 1 the right.
+    #[must_use]
+    pub const fn unlocked(self) -> u8 {
+        self.0 & 0b11
+    }
+
+    /// Whether `half` (0 the left, 1 the right) is unlocked.
+    #[must_use]
+    pub const fn is_unlocked(self, half: u8) -> bool {
+        half < 2 && self.unlocked() & (1 << half) != 0
+    }
+
+    /// The byte, for a hash.
+    #[must_use]
+    pub const fn bits(self) -> u8 {
+        self.0
+    }
+}
+
 /// An ability list, and the printed face it is when it is one.
 ///
 /// One value so the two cannot come apart: every place the engine sets a
@@ -818,7 +863,9 @@ pub struct GameObject {
     /// (`tests/footprint.rs`).
     pub second: Option<Box<SecondInstance>>,
     /// What this object's base was before it became a copy; restored when it
-    /// changes zones (CR 400.7), because the new object is not a copy.
+    /// changes zones (CR 400.7), because the new object is not a copy. A
+    /// Room keeps its printed front here while its doors decide what it is
+    /// (CR 709.5), for the same move to restore.
     pub original_base: Option<Arc<Characteristics>>,
     /// Which ability this is (`AbilityOnStack` objects only).
     pub ability: Option<AbilityLoc>,
@@ -867,6 +914,12 @@ pub struct GameObject {
     /// `Option` is four bytes. What `Modifier::ChosenNameCantActivate`
     /// reads, and what a client shows beside the permanent.
     pub chosen_name: Option<PrintedFace>,
+    /// A Room's unlocked halves (CR 709.5c), [`Doors::NONE`] for anything
+    /// else. Set as it enters and as a door is unlocked, and cleared as it
+    /// leaves the battlefield: the designations are the permanent's, and
+    /// the next object has none (CR 400.7). While it is a Room, its face
+    /// and its base are what the doors leave it (`GameState::set_doors`).
+    pub doors: Doors,
     /// Which face of the card is active (MDFC/split; 0 = front).
     pub face_index: u8,
     /// Abilities this object carries itself, instead of reading them off a
@@ -1003,6 +1056,7 @@ impl GameObject {
             chosen_subtype: None,
             chosen_color: None,
             chosen_name: None,
+            doors: Doors::NONE,
             face_index: 0,
             own_abilities: None,
             own_abilities_until_eot: false,
@@ -1108,6 +1162,11 @@ impl GameObject {
         if self.own_abilities.is_some() {
             return self.own_face;
         }
+        // A Room with both doors locked has no rules text (CR 709.5), so it
+        // names no face to read any from.
+        if self.doors.is_room() && self.doors.unlocked() == 0 {
+            return None;
+        }
         self.card
             .and_then(|card| PrintedFace::new(card.index, self.face_index))
     }
@@ -1191,9 +1250,14 @@ impl GameObject {
             return abilities;
         }
         if let Some(card) = self.card {
-            return lookup
-                .card(card.index)
-                .map_or(&[], |def| def.abilities_for_face(self.face_index as usize));
+            return lookup.card(card.index).map_or(&[], |def| {
+                if self.doors.is_room() {
+                    // A locked half has no rules text (CR 709.5).
+                    def.door_abilities(self.doors.unlocked())
+                } else {
+                    def.abilities_for_face(self.face_index as usize)
+                }
+            });
         }
         self.token.map_or(&[], |token| token.abilities)
     }

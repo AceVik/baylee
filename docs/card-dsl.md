@@ -259,6 +259,32 @@ none of them per face:
   dot printed on it.
 - `castable_from_hand`, above.
 
+### Rooms: two doors, one card
+
+A Room (CR 709.5) is a split card with one shared type line: each half is a
+face, and each face writes its own `abilities`. The card-level `abilities`
+is both halves' lists end to end, the left first, which is what the
+permanent has with both doors unlocked; `CardDef::door_abilities(unlocked)`
+reads the right list for each door state, and
+`lints::a_rooms_card_list_is_its_doors_lists_end_to_end` holds the union
+equal to the halves. `CardDef::has_shared_type_line` is how the engine knows
+a card is a Room: two faces, both with the `Room` subtype.
+
+"When you unlock this door" is `Trigger::UnlockThisDoor(n)`, written on the
+half that prints it with that half's number (0 the left, 1 the right). It
+hears the half being unlocked however that happens: the Room entering cast
+as that half (CR 709.5d, 709.5h), or its controller paying the half's mana
+cost later (CR 709.5e). Nothing else is written for the door mechanic; the
+engine does the rest from the faces.
+
+`Modifier::ExileInsteadOfYourGraveyard` is Forgotten Cellar's "if a card
+would be put into your graveyard from anywhere this turn, exile it
+instead", made by the trigger as
+`Effect::continuous(&Filter::Any, Modifier::ExileInsteadOfYourGraveyard,
+Duration::UntilEndOfTurn)`. It is its controller's, cards only (a token or a
+spell copy dies as usual), and it lasts its duration, not as long as a
+source.
+
 ## Generated cards, and why they may say `Implemented`
 
 Most card files are hand-written. Two of them are not, and the distinction
@@ -1403,7 +1429,8 @@ Modal/sequence: `Sequence(&[..])`.
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
-`DrawLimitPerTurn`, `CantBeTargetedBy`, `SetPTToCount`.
+`DrawLimitPerTurn`, `CantBeTargetedBy`, `SetPTToCount`,
+`ExileInsteadOfYourGraveyard`.
 
 `ChosenNameCantActivate` is Pithing Needle's "activated abilities of sources
 with the chosen name can't be activated unless they're mana abilities",

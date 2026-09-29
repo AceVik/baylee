@@ -139,6 +139,41 @@ impl CardDef {
         }
     }
 
+    /// Whether this is a split card with one shared type line (CR 709.5), a
+    /// Room: two halves, each a door that is locked or unlocked on the
+    /// battlefield.
+    #[must_use]
+    pub fn has_shared_type_line(&self) -> bool {
+        self.faces.len() == 2
+            && self.faces.iter().all(|f| {
+                f.subtypes
+                    .contains(&baylee_core::generated::subtypes::enchantment::ROOM)
+            })
+    }
+
+    /// The rules text a permanent with a shared type line has while the
+    /// halves `unlocked` names are unlocked (bit 0 the left half, bit 1 the
+    /// right; CR 709.5c): a locked half has none (CR 709.5). One half is
+    /// that half's own list; both are the card-level list, which a Room
+    /// writes as its halves' lists end to end, the left first
+    /// (`lints::a_rooms_card_list_is_its_doors_lists_end_to_end` holds it).
+    ///
+    /// Each half's own list and never [`Self::abilities_for_face`], whose
+    /// face 0 falls back to the card-level list: a Room whose left half
+    /// prints nothing would have had the right half's text with only the
+    /// left door open.
+    #[must_use]
+    pub fn door_abilities(&self, unlocked: u8) -> &'static [crate::ability::AbilityDef] {
+        match unlocked & 0b11 {
+            0 => &[],
+            0b11 => self.abilities,
+            half => self
+                .faces
+                .get(usize::from(half >> 1))
+                .map_or(&[], |f| f.abilities),
+        }
+    }
+
     /// Keywords of a face, with [`Self::abilities_for_face`]'s rule: face 0
     /// falls back to the card-level set when it states none of its own, a
     /// back face uses only what it prints.

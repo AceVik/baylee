@@ -16786,6 +16786,40 @@ fn pithing_needle() -> CardIndex {
     card_index("a188fe7e-68de-4c7c-806c-bfe8fc7b44bf")
 }
 
+/// Pithing Needle naming a Room leaves its unlock alone: unlocking a door
+/// is a special action (CR 116.2m) and not an activated ability, and the
+/// Needle stops only the second (CR 602.5). Walk-In Closet is cast as its
+/// left half, so the permanent's name is the one named, and Forgotten
+/// Cellar is then unlocked with the Needle on the table.
+#[test]
+fn pithing_needle_naming_a_room_leaves_its_doors_to_unlock() {
+    let p0 = PlayerId::new(0);
+    let mut board = vec![forest(); 9];
+    board.push(llanowar_elves());
+    let mut engine = Duel::new(601, forest())
+        .battlefield(0, &board)
+        .hand(0, &[walk_in_closet(), pithing_needle()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    float_green(&mut engine, p0, 3);
+    cast_with_floating(&mut engine, p0, walk_in_closet());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let room = on_battlefield(&engine, p0, walk_in_closet()).expect("the Closet resolved");
+
+    // Everything else is tapped for it: six Forests and the Elf, one of
+    // which pays for the Needle.
+    needle_naming(&mut engine, walk_in_closet());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(
+        unlocks_offered(&engine, room),
+        [1],
+        "the Needle names the Room, and the unlock is not an ability it stops"
+    );
+    unlock(&mut engine, p0, room, 1).expect("Forgotten Cellar unlocks under the Needle");
+    assert_eq!(doors_of(&engine, room), crate::object::Doors::room(0b11));
+}
+
 /// Seat 0 casts Pithing Needle in its first main phase, off everything it
 /// can tap, and names face 0 of `named` when the Needle asks as it enters.
 #[track_caller]

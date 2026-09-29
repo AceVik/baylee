@@ -325,6 +325,14 @@ pub enum GameEvent {
         /// The face it now shows.
         face: u8,
     },
+    /// A Room was given a half's unlocked designation (CR 709.5c), as it
+    /// entered cast as that half or by the unlock special action.
+    DoorUnlocked {
+        /// The permanent.
+        object: ObjectId,
+        /// Which half: 0 the left, 1 the right.
+        half: u8,
+    },
     /// A decision-free segment was found to repeat itself: a real endless
     /// loop rather than a large-but-finite pile of work (house rule, see
     /// [`crate::loops`]).

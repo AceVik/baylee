@@ -565,6 +565,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::BecomesTarget | T::TargetedByOpponent { .. } => &["becomes the target"],
         T::TurnedFaceUp => &["turned face up"],
         T::TransformsIntoThis => &["transforms into"],
+        T::UnlockThisDoor(_) => &["unlock this door"],
         T::Ward => &["ward"],
         T::ExiledFromBattlefield(_) => &["exiled"],
         T::DealsCombatDamageToPlayer(_) => &["damage"],

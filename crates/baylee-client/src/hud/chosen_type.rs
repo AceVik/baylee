@@ -1,5 +1,6 @@
 //! Persistent labels for what a permanent named on entering: a creature type
-//! (Cavern of Souls), or a card name (Pithing Needle).
+//! (Cavern of Souls), or a card name (Pithing Needle); and for the doors of a
+//! Room still locked (CR 709.5).
 use super::{UiFonts, palette, tf};
 use crate::{Duel, settings::ClientSettings, table};
 use baylee_client_core::{Lang, i18n::Phrase, type_names};
@@ -10,6 +11,19 @@ use bevy::prelude::*;
 pub(crate) struct ChosenTypeLabel(ObjectId);
 
 fn words(object: &baylee_view::PublicObject, lang: Lang) -> Option<String> {
+    if let Some(doors) = object.unlocked_doors {
+        // The locked halves by name, in the pool's English as a named card
+        // is; nothing once every door is open.
+        let def = baylee_cards::by_index(object.card?.index)?;
+        let locked: Vec<&str> = def
+            .faces
+            .iter()
+            .zip(doors)
+            .filter(|(_, open)| !open)
+            .map(|(face, _)| face.name)
+            .collect();
+        return (!locked.is_empty()).then(|| Phrase::LockedDoors.fill(lang, &[&locked.join(", ")]));
+    }
     if let Some(named) = object.chosen_name {
         // The pool's English: the name is the rules identity, and the card
         // it names may be one this seat has never been shown a printing of.
@@ -165,6 +179,29 @@ mod tests {
             Some("Genannt: Malakir Mire")
         );
     }
+    #[test]
+    fn a_rooms_label_names_the_doors_still_locked() {
+        let mut object = crate::registry_printed(1, 0, "Walk-In Closet");
+        assert_eq!(words(&object, Lang::En), None, "not a Room permanent yet");
+        object.unlocked_doors = Some([true, false]);
+        assert_eq!(
+            words(&object, Lang::En).as_deref(),
+            Some("Locked: Forgotten Cellar")
+        );
+        assert_eq!(
+            words(&object, Lang::De).as_deref(),
+            Some("Verschlossen: Forgotten Cellar")
+        );
+        object.unlocked_doors = Some([false, false]);
+        assert_eq!(
+            words(&object, Lang::En).as_deref(),
+            Some("Locked: Walk-In Closet, Forgotten Cellar"),
+            "entered uncast, both doors shut"
+        );
+        object.unlocked_doors = Some([true, true]);
+        assert_eq!(words(&object, Lang::En), None, "every door open");
+    }
+
     #[test]
     fn persistent_label_updates_its_language_and_leaves_with_its_permanent() {
         let mut app = App::new();

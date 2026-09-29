@@ -706,7 +706,10 @@ fn apply(
         // CR 613.11: a rule, so there is no characteristic to write. The
         // untap step reads it (`progress::untap_step`).
         | Modifier::DoesNotUntap
-        | Modifier::MayChooseNotToUntap => {}
+        | Modifier::MayChooseNotToUntap
+        // A replacement, read where a card would reach a graveyard
+        // (`replacement::graveyard_destination`).
+        | Modifier::ExileInsteadOfYourGraveyard => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power = power.saturating_add(*p);

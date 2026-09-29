@@ -4684,6 +4684,13 @@ where an indexed choice is told a position, and `choices::picked` is the row
 the highlight stands on. The permanent then carries a label with the name
 (`hud::chosen_type`, `Phrase::ChosenName`), as a named creature type does.
 
+A Room's locked doors are the same kind of label: "Locked: Forgotten Cellar"
+(`Phrase::LockedDoors`, the halves by their English names as a named card
+is), gone once every door is open. Unlocking one is a row on the permanent's
+ability sheet, as turning a permanent face up is: "Unlock Forgotten Cellar"
+(`Phrase::UnlockDoor`) at that half's mana cost (`abilities::unlock_label`,
+`offered_cost`), never a mana ability and never a printed index.
+
 The number stepper answers two questions, and the headline tells them apart.
 `Prompt::ChooseNumber` carries the engine's `reason`: an X reads "Choose a
 number (0–50)", and a replicate cost reads "Replicate {U}: pay it how many

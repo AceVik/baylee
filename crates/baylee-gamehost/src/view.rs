@@ -209,6 +209,10 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
             card: named.card(),
             face: named.face(),
         }),
+        unlocked_doors: obj
+            .doors
+            .is_room()
+            .then(|| [obj.doors.is_unlocked(0), obj.doors.is_unlocked(1)]),
         suspended: known
             && obj.zone == Zone::Exile
             && obj.riders.contains(&baylee_engine::object::Rider::Suspend)
@@ -1473,6 +1477,76 @@ mod tests {
                     .iter()
                     .filter(|o| o.id != card)
                     .all(|o| o.chosen_name.is_none())
+            );
+        }
+    }
+
+    /// A Room's doors are designations (CR 709.5c), as public as the
+    /// permanent: every seat is told which halves are unlocked, on that
+    /// permanent alone. Put onto the battlefield uncast, neither is
+    /// (CR 709.5d); its controller unlocks the left one, and both seats see
+    /// it open.
+    #[test]
+    fn a_rooms_doors_reach_every_seat() {
+        let room = baylee_cards::decks::by_name("Walk-In Closet").unwrap();
+        let entry = |card| DeckEntry {
+            card,
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_battlefield = vec![
+            entry(room),
+            entry(forest()),
+            entry(forest()),
+            entry(forest()),
+        ];
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        let view = settle(&mut engine, None);
+        let me = PlayerId::new(0);
+        let id = view
+            .battlefield
+            .iter()
+            .find(|o| o.card.is_some_and(|c| c.index == room))
+            .unwrap()
+            .id;
+        for seat in [me, PlayerId::new(1)] {
+            assert_eq!(
+                seen_by(&engine, seat).object(id).unwrap().unlocked_doors,
+                Some([false, false]),
+                "uncast, seat {seat:?} is told both doors are locked"
+            );
+        }
+        for land in view
+            .battlefield
+            .iter()
+            .filter(|o| o.card.is_some_and(|c| c.index == forest()))
+        {
+            engine
+                .apply(me, PlayerAction::ActivateManaAbility { source: land.id })
+                .unwrap();
+        }
+        engine
+            .apply(
+                me,
+                PlayerAction::ActivateAbility {
+                    source: id,
+                    ability_index: baylee_engine::choice::unlock_door(0),
+                },
+            )
+            .unwrap();
+        for seat in [me, PlayerId::new(1)] {
+            let view = seen_by(&engine, seat);
+            assert_eq!(
+                view.object(id).unwrap().unlocked_doors,
+                Some([true, false]),
+                "seat {seat:?} is told the left door is open"
+            );
+            assert!(
+                view.battlefield
+                    .iter()
+                    .filter(|o| o.id != id)
+                    .all(|o| o.unlocked_doors.is_none()),
+                "and nothing else is a Room"
             );
         }
     }

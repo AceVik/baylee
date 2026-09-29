@@ -1006,6 +1006,7 @@ mod abilities;
 mod ascend;
 mod decision;
 pub(crate) mod disguise;
+mod room;
 mod storied;
 mod targeting;
 pub use decision::DecisionContext;

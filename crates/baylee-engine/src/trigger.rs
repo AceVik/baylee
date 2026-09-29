@@ -1153,6 +1153,10 @@ fn matches(
         // prints it.
         (Trigger::TurnedFaceUp, GameEvent::TurnedFaceUp { object })
         | (Trigger::TransformsIntoThis, GameEvent::Transformed { object, .. }) => *object == source,
+        // CR 709.5h: the designation, however it was given.
+        (Trigger::UnlockThisDoor(door), GameEvent::DoorUnlocked { object, half }) => {
+            *object == source && door == half
+        }
         (
             Trigger::EntersBattlefield(filter),
             GameEvent::ZoneChanged {

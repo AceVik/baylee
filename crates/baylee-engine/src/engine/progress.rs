@@ -778,6 +778,29 @@ impl<L: CardLookup> Engine<L> {
                 self.state.transform(id, def, 1);
                 changed = true;
             }
+            // A Room is given the unlocked designation of the half it was
+            // cast as as it enters, and neither when it was not cast
+            // (CR 709.5d). Here, like "enters transformed", so what the
+            // trigger scan later in this pass finds is the half that entered.
+            // The unlock is journalled because CR 709.5h triggers on the
+            // designation however it was given.
+            if let Some((def, half)) = self
+                .state
+                .object(id)
+                .filter(|o| o.zone == Zone::Battlefield && !o.doors.is_room())
+                .and_then(|o| Some((self.lookup.card(o.card?.index)?, o.face_index)))
+                .filter(|(def, _)| def.has_shared_type_line())
+            {
+                let cast = from_zone == Zone::Stack && half < 2;
+                self.state
+                    .set_doors(id, def, if cast { 1 << half } else { 0 });
+                if cast {
+                    self.state
+                        .journal
+                        .record(GameEvent::DoorUnlocked { object: id, half });
+                }
+                changed = true;
+            }
             // Echo (CR 702.30): register the pay-or-sacrifice choice at
             // the controller's next upkeep.
             if let Some(cost) = self.state.object(id).and_then(|o| {

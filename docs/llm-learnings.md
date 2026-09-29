@@ -1831,3 +1831,22 @@ land type"; both are convention tests that fire on a first try.
   bound asks the same `can_pay_mana` with the same `spend_for` as
   `finish_cast`, so restricted mana (Cavern of Souls) cannot make the offer
   and the payment disagree.
+
+### 2026-09-29 — friends group, round 2: Walk-In Closet and Rooms
+
+- **A designation that changes the rules text must end what the old text
+  started.** `sync_static_effects` registers statics and drops them only
+  when their source leaves or a condition fails, so a Room placed uncast
+  kept the left door's static it was scanned with before its doors were
+  set. `set_doors` drops the Room's statics and lets the next scan
+  re-register them.
+- **"Enters with" belongs where enter modifiers are.** Giving the door in
+  `apply_enter_modifiers`, before the trigger scan of the same pass, is what
+  lets the Room's own "when you unlock this door" hear its entry.
+- **A reserved index needs one predicate.** Pithing Needle and split second
+  each kept `TURN_FACE_UP` by name; a second special action would have been
+  stopped by both. `choice::is_special_action` is the one question.
+- **A test's second turn must leave the first.** `reach_their_main_phase`
+  returns at once when the seat is already in its main phase; "next turn"
+  needs a pass into the other seat's turn first, or "this turn" is never
+  over.

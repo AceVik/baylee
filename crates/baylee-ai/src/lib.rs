@@ -3899,6 +3899,7 @@ mod tests {
             subtypes: SubtypeSet::EMPTY,
             chosen_subtype: None,
             chosen_name: None,
+            unlocked_doors: None,
             suspended: false,
             token: None,
             colors: ColorSet::EMPTY,

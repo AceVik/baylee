@@ -2651,6 +2651,24 @@ a missing field decodes as `None`. Two permanents naming different cards do
 not share a board pile, and the client labels the permanent with the face's
 name.
 
+### A Room's doors (view 42)
+
+`PublicObject.unlocked_doors` is `Some([left, right])` for a Room on the
+battlefield, each `true` while that half is unlocked (CR 709.5c), and `None`
+for everything else; a missing field decodes as `None`. The designations
+are public and every seat is told them. A Room with different doors open is
+a different board pile. What a locked half would print is already absent
+from the other fields (a locked half has no name, mana cost or rules text,
+CR 709.5; with no door open `rules` is `None`).
+
+Unlocking a door is a special action (CR 116.2m, 709.5e), offered in
+`legal.abilities` under two reserved indices below `TURN_FACE_UP`:
+`choice::unlock_door(half)` names the index, `choice::door_to_unlock`
+reads it back, and `choice::is_special_action` is true of both and of
+`TURN_FACE_UP`. The answer is the usual `PlayerAction::ActivateAbility`,
+so `PROTOCOL_VERSION` does not move. It is offered only with the half's
+mana cost floating, at sorcery timing.
+
 ### What a number counts: `ChooseNumber.reason`
 
 `Pending::ChooseNumber` asks for an X, and since Lose Focus also for how

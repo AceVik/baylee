@@ -119,7 +119,9 @@ use serde::{Deserialize, Serialize};
 /// 40 adds explicitly revealed library tops, never library contents.
 /// 41 adds [`PublicObject::chosen_name`], the card name chosen for a
 /// permanent as it entered (Pithing Needle), as the card and face it names.
-pub const VIEW_VERSION: u32 = 41;
+/// 42 adds [`PublicObject::unlocked_doors`], which halves of a Room are
+/// unlocked (CR 709.5c).
+pub const VIEW_VERSION: u32 = 42;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -720,6 +722,13 @@ pub struct PublicObject {
     /// Public: the choice is announced as it is made.
     #[serde(default)]
     pub chosen_name: Option<NamedFace>,
+    /// A Room's doors (CR 709.5c): `[left, right]`, each `true` while that
+    /// half is unlocked; `None` for anything that is not a Room on the
+    /// battlefield. Public, as the designations are. A locked half has no
+    /// name, mana cost or rules text on the battlefield (CR 709.5), which
+    /// the other fields already say; this says which half is which.
+    #[serde(default)]
+    pub unlocked_doors: Option<[bool; 2]>,
     /// Whether this face-up exiled card is suspended. Its time counters are public.
     #[serde(default)]
     pub suspended: bool,
@@ -988,6 +997,7 @@ impl PublicObject {
             subtypes: self.subtypes,
             chosen_subtype: self.chosen_subtype,
             chosen_name: self.chosen_name,
+            unlocked_doors: self.unlocked_doors,
             suspended: self.suspended,
             colors: self.colors,
             keywords: self.keywords,
@@ -1035,6 +1045,9 @@ pub struct ObjectSummaryKey {
     /// Two Needles naming different cards are two different cards to look
     /// at, and a pile shows one label.
     chosen_name: Option<NamedFace>,
+    /// Two Rooms with different doors open are different cards to act on:
+    /// one has a door left to unlock.
+    unlocked_doors: Option<[bool; 2]>,
     suspended: bool,
     colors: ColorSet,
     keywords: u128,
@@ -1068,6 +1081,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.types.hash(state);
         self.chosen_subtype.hash(state);
         self.chosen_name.hash(state);
+        self.unlocked_doors.hash(state);
         self.suspended.hash(state);
         self.power.hash(state);
         self.toughness.hash(state);
@@ -2347,6 +2361,7 @@ mod tests {
             subtypes: SubtypeSet::EMPTY,
             chosen_subtype: None,
             chosen_name: None,
+            unlocked_doors: None,
             suspended: false,
             token: None,
             colors: ColorSet::default(),
@@ -2541,6 +2556,27 @@ mod tests {
             b.summary_key(),
             "the back face's name is another name"
         );
+    }
+
+    #[test]
+    fn rooms_with_different_doors_open_never_share_a_board_pile() {
+        let mut a = obj(1, 0);
+        let mut b = obj(2, 0);
+        a.unlocked_doors = Some([true, false]);
+        assert_ne!(a.summary_key(), b.summary_key());
+        b.unlocked_doors = Some([true, false]);
+        assert_eq!(a.summary_key(), b.summary_key());
+        b.unlocked_doors = Some([true, true]);
+        assert_ne!(a.summary_key(), b.summary_key(), "one door left to open");
+    }
+
+    #[test]
+    fn an_older_public_object_without_doors_still_decodes() {
+        let object = obj(1, 0);
+        let mut json = serde_json::to_value(&object).unwrap();
+        json.as_object_mut().unwrap().remove("unlocked_doors");
+        let decoded: PublicObject = serde_json::from_value(json).unwrap();
+        assert_eq!(decoded, object);
     }
 
     #[test]
@@ -2748,6 +2784,7 @@ mod tests {
                     face: 0,
                 });
             }),
+            ("unlocked_doors", |o| o.unlocked_doors = Some([false, true])),
             ("colors", |o| o.colors = ColorSet::ALL),
             ("keywords", |o| o.keywords = 1),
             ("granted_mana", |o| {
@@ -3145,7 +3182,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (41, 0x1578_7cb1_e201_5ec3);
+        const RECORDED: (u32, u64) = (42, 0xf052_c750_50e0_1f68);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

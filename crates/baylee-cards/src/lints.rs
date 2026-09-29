@@ -2178,6 +2178,45 @@ mod tests {
         );
     }
 
+    /// A Room with both doors unlocked has both halves' rules text
+    /// (CR 709.5), and the engine reads that off the card-level list
+    /// (`CardDef::door_abilities`), so the card-level list must be exactly
+    /// the halves' lists end to end, the left first. Written by hand, it can
+    /// drift: a sentence added to one half and not to the union would be in
+    /// play with one door open and gone with both. Equality, not "contains",
+    /// because an ability's index in the list is its identity on the stack.
+    #[test]
+    fn a_rooms_card_list_is_its_doors_lists_end_to_end() {
+        let mut rooms = 0_usize;
+        let mut wrong = Vec::new();
+        for def in crate::all() {
+            if !def.has_shared_type_line() {
+                continue;
+            }
+            rooms += 1;
+            let halves: Vec<AbilityDef> = def
+                .faces
+                .iter()
+                .flat_map(|face| face.abilities.iter().copied())
+                .collect();
+            if def.abilities != halves.as_slice() {
+                wrong.push(def.name());
+            }
+        }
+        assert!(
+            wrong.is_empty(),
+            "these Rooms' card-level `abilities` are not their halves' lists \
+             end to end: {wrong:?}"
+        );
+        // Measured 29.09.2026: one Room in the pool, Walk-In Closet. A
+        // reader of the shared type line that found none would pass the
+        // sweep above with nothing in it.
+        assert!(
+            (1..=8).contains(&rooms),
+            "{rooms} Rooms; `has_shared_type_line` is not reading the pool"
+        );
+    }
+
     #[test]
     fn the_pt_lint_catches_both_halves_of_cr_208_1() {
         static VEHICLE: [baylee_core::ids::SubtypeId; 1] =

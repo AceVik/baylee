@@ -1302,6 +1302,77 @@ impl GameState {
         self.characteristics_generation = u64::MAX;
     }
 
+    /// Gives a permanent with a shared type line the unlocked designations
+    /// `unlocked` names (bit 0 the left half, bit 1 the right; CR 709.5c),
+    /// and the characteristics they leave it: the name, mana cost and rules
+    /// text of its unlocked halves only (CR 709.5), and the shared types
+    /// either way (CR 709.5a). The rules text is read off the doors
+    /// (`CardDef::door_abilities`); this writes the rest.
+    ///
+    /// One half unlocked is that half's face ([`Self::switch_face`]). Both
+    /// is the left face with both halves' mana cost, so both colours and
+    /// their sum for a mana value, and both halves' keywords; the name stays
+    /// the left half's, because an object here has one name and such a Room
+    /// has two (CR 709.4a), and nothing in the pool reads a Room's name.
+    /// Neither is the left face with no name, no mana cost, no colour and no
+    /// keyword. Keywords are rules text, so each state sets them from the
+    /// halves it has and never from the card-level fallback a front face
+    /// reads (`CardDef::keywords_for_face`). The printed front is set aside
+    /// in `original_base`, which the move off the battlefield restores: off
+    /// the battlefield the card is the card again (CR 400.7).
+    ///
+    /// What the Room's statics and replacement rules did under the old
+    /// doors ends here, and the next scan (`Engine::sync_static_effects`)
+    /// registers what the new doors print. That scan only ever adds for a
+    /// permanent still on the battlefield, and a Room put there uncast was
+    /// scanned as its left half before it was given no doors: without this,
+    /// Walk-In Closet's static outlived the door that prints it.
+    pub fn set_doors(&mut self, id: ObjectId, def: &CardDef, unlocked: u8) {
+        let unlocked = unlocked & 0b11;
+        self.effects.remove_where(|fx| {
+            fx.source == Some(id) && fx.origin == crate::effects::EffectOrigin::Static
+        });
+        self.replacement_rules.retain(|r| r.source != id);
+        let front = {
+            let name = self.names.intern(def.faces[0].name);
+            Arc::new(crate::object::Characteristics::from_face(def, 0, name))
+        };
+        self.switch_face(id, def, usize::from(unlocked == 0b10));
+        let nameless = self.names.intern("");
+        let Some(obj) = self.object_mut(id) else {
+            return;
+        };
+        obj.doors = crate::object::Doors::room(unlocked);
+        obj.original_base.get_or_insert(front);
+        let keywords = def
+            .faces
+            .iter()
+            .take(2)
+            .enumerate()
+            .filter(|(half, _)| unlocked & (1 << half) != 0)
+            .fold(baylee_cards_dsl::KeywordSet::EMPTY, |all, (_, f)| {
+                all.union(f.keywords)
+            });
+        let c = obj.base_mut();
+        c.keywords = keywords;
+        match unlocked {
+            0b11 => {
+                let cost = def.faces[0].mana_cost.combine(&def.faces[1].mana_cost);
+                c.mana_cost = cost;
+                c.colors = cost
+                    .colors()
+                    .union(def.faces[0].color_indicator)
+                    .union(def.faces[1].color_indicator);
+            }
+            0 => {
+                c.name = nameless;
+                c.mana_cost = baylee_core::mana::ManaCost::ZERO;
+                c.colors = baylee_core::color::ColorSet::EMPTY;
+            }
+            _ => {}
+        }
+    }
+
     /// Forces the next [`GameState::refresh_characteristics`] to rebuild
     /// every projection, even though the effect table did not change.
     ///
@@ -2012,6 +2083,14 @@ impl GameState {
                 // (CR 400.7): a Pithing Needle bounced and cast again names
                 // again, and nothing in between names anything.
                 obj.chosen_name = None;
+                // A Room's designations are the permanent's (CR 709.5c), and
+                // its face was the half they left showing. The card that
+                // arrives is the card, left half first, and `original_base`
+                // below brings its printed characteristics back.
+                if obj.doors.is_room() {
+                    obj.face_index = 0;
+                }
+                obj.doors = crate::object::Doors::NONE;
             }
             if matches!(from_zone, Zone::Battlefield | Zone::Exile) {
                 obj.counters = crate::object::Counters::default();
@@ -2829,6 +2908,7 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     h.u8(obj.zone_owner.map_or(255, PlayerId::get));
     h.u8(obj.kind as u8);
     h.u8(obj.face_index);
+    h.u8(obj.doors.bits());
     h.boolean(obj.prototyped);
     match &obj.card {
         Some(c) => {
@@ -3095,6 +3175,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         chosen_subtype,
         chosen_color,
         chosen_name,
+        doors,
         face_index,
         own_abilities,
         own_abilities_until_eot,
@@ -3175,6 +3256,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     chosen_subtype.hash(h);
     chosen_color.hash(h);
     chosen_name.hash(h);
+    doors.hash(h);
     face_index.hash(h);
     pending_face_change.hash(h);
     event_object.hash(h);
@@ -4210,6 +4292,9 @@ mod tests {
             ("chosen_name", |s, id| {
                 fixture_object(s, id).chosen_name =
                     crate::object::PrintedFace::new(CardIndex::new(7), 0);
+            }),
+            ("doors", |s, id| {
+                fixture_object(s, id).doors = crate::object::Doors::room(0b01);
             }),
             ("face_index", |s, id| fixture_object(s, id).face_index = 1),
             ("own_abilities", |s, id| {

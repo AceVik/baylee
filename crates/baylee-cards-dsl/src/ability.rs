@@ -246,6 +246,12 @@ pub enum Trigger {
     /// Fells' front and Ravager of the Fells' back each hear only their own
     /// half of the flip.
     TransformsIntoThis,
+    /// "When you unlock this door" (CR 709.5h), printed on half `n` of a
+    /// Room: 0 the left, 1 the right. It hears the permanent being given
+    /// that half's unlocked designation, however it was given: as the Room
+    /// enters cast as that half (CR 709.5d), or later, when its controller
+    /// pays the half's mana cost (CR 709.5e).
+    UnlockThisDoor(u8),
     /// An object matching the filter enters the battlefield.
     EntersBattlefield(&'static Filter),
     /// An object matching the filter leaves the battlefield.

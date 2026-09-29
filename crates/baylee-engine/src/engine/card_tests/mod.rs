@@ -2970,6 +2970,103 @@ fn walk_in_closet() -> CardIndex {
     card_index("52e77cc3-f8e9-4a20-811b-fe1e46a96ad7")
 }
 
+fn naturalize() -> CardIndex {
+    card_index("bdb3ca68-ec1f-4e16-81cc-d23f8f52c728")
+}
+
+/// The doors of the Room `room`, as the permanent holds them.
+fn doors_of(engine: &Engine<RegistryLookup>, room: ObjectId) -> crate::object::Doors {
+    engine
+        .state()
+        .object(room)
+        .expect("the Room is on the battlefield")
+        .doors
+}
+
+/// Which halves of `room` the priority offer unlocks, 0 the left.
+fn unlocks_offered(engine: &Engine<RegistryLookup>, room: ObjectId) -> Vec<u8> {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        return Vec::new();
+    };
+    legal
+        .abilities
+        .iter()
+        .filter(|(source, _)| *source == room)
+        .filter_map(|&(_, index)| crate::choice::door_to_unlock(index))
+        .collect()
+}
+
+/// Unlocks `half` of `room` the way a player does: the offered special
+/// action.
+fn unlock(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    room: ObjectId,
+    half: u8,
+) -> Result<(), EngineError> {
+    engine.apply(
+        seat,
+        PlayerAction::ActivateAbility {
+            source: room,
+            ability_index: crate::choice::unlock_door(half),
+        },
+    )
+}
+
+/// The indices of the abilities on the stack whose source is `room`.
+fn room_abilities_on_stack(engine: &Engine<RegistryLookup>, room: ObjectId) -> Vec<u32> {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .iter()
+        .filter_map(|id| engine.state().object(*id)?.ability)
+        .filter(|loc| loc.source == room)
+        .map(|loc| loc.index)
+        .collect()
+}
+
+/// The name, mana value and colours `object` has now.
+fn name_value_colors(
+    engine: &Engine<RegistryLookup>,
+    object: ObjectId,
+) -> (String, u32, baylee_core::color::ColorSet) {
+    let o = engine.state().object(object).expect("the object is there");
+    let c = o.characteristics();
+    (
+        engine.state().names.get(c.name).to_string(),
+        c.mana_value(),
+        c.colors,
+    )
+}
+
+/// `seat`'s Forests on the battlefield, the first `n` of them.
+fn forests(engine: &Engine<RegistryLookup>, seat: PlayerId, n: usize) -> Vec<ObjectId> {
+    let forests: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == seat
+                    && !o.status.contains(Status::TAPPED)
+                    && o.card.is_some_and(|c| c.index == forest())
+            })
+        })
+        .take(n)
+        .collect();
+    assert_eq!(forests.len(), n, "{seat:?} has {n} untapped Forests");
+    forests
+}
+
+/// Taps `n` of `seat`'s untapped Forests for mana.
+fn float_green(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) {
+    let these = forests(engine, seat, n);
+    tap_mana_where(engine, seat, |id| these.contains(&id));
+}
+
 fn legion_s_landing() -> CardIndex {
     card_index("f7d8b91b-6541-4d3e-af51-7e000eac69c1")
 }

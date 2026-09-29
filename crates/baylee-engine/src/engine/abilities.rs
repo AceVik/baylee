@@ -236,6 +236,12 @@ impl<L: CardLookup> Engine<L> {
             {
                 legal.abilities.push((id, crate::choice::TURN_FACE_UP));
             }
+            // CR 709.5e: a locked door, as a sorcery, for its mana cost.
+            if sorcery_timing {
+                for half in self.unlockable_halves(id) {
+                    legal.abilities.push((id, crate::choice::unlock_door(half)));
+                }
+            }
             // A token's abilities come from its definition rather than from a
             // card; everything below reads the same `AbilityDef`s either way.
             let offered: &[AbilityDef] = if locked {
@@ -521,8 +527,9 @@ impl<L: CardLookup> Engine<L> {
     /// for the reason [`Engine::ability_has_a_target`] gives. Every door
     /// onto `legal.abilities` is covered by it, printed, loyalty, granted and
     /// a card's in hand alike. What stays is what the sentence does not
-    /// reach: a mana ability (CR 605.1a), turning a permanent face up (a
-    /// special action, CR 116.2b), and a prepared cast, which casts a spell.
+    /// reach: a mana ability (CR 605.1a), turning a permanent face up and
+    /// unlocking a door (special actions, CR 116.2b, 116.2m), and a
+    /// prepared cast, which casts a spell.
     /// The intrinsic CR 305.6 mana of `legal.mana_abilities` is mana too.
     fn narrow_under_chosen_names(&self, legal: &mut LegalActions) {
         let locked = self.names_locked_from_activating();
@@ -530,7 +537,7 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         legal.abilities.retain(|&(source, index)| {
-            index == crate::choice::TURN_FACE_UP
+            crate::choice::is_special_action(index)
                 || index == crate::choice::PREPARED_CAST
                 || self.is_mana_offer(source, index)
                 || !self
@@ -606,7 +613,7 @@ impl<L: CardLookup> Engine<L> {
         legal.castable.clear();
         legal.suspendable.clear();
         legal.abilities.retain(|&(source, index)| {
-            index == crate::choice::TURN_FACE_UP || self.is_mana_offer(source, index)
+            crate::choice::is_special_action(index) || self.is_mana_offer(source, index)
         });
     }
 
@@ -1208,6 +1215,9 @@ impl<L: CardLookup> Engine<L> {
         // spell's cost, put a copy on the stack, unprepare the source.
         if ability_index == crate::choice::TURN_FACE_UP {
             return self.turn_face_up(player, source);
+        }
+        if let Some(half) = crate::choice::door_to_unlock(ability_index) {
+            return self.unlock_door(player, source, half);
         }
         if ability_index == crate::choice::PREPARED_CAST {
             return self.start_prepared_cast(player, source);

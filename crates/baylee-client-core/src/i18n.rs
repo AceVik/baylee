@@ -1894,6 +1894,8 @@ messages! {
     CastDisguise { en: "Disguise — 2/2, ward {2}", de: "Verkleidung — 2/2, Abwehr {2}" },
     /// Face-up special action.
     TurnFaceUp { en: "Turn face up", de: "Aufdecken" },
+    /// Unlock {0}: a Room's special action, naming the door it opens.
+    UnlockDoor { en: "Unlock {0}", de: "{0} aufschließen" },
     /// Cast using prototype characteristics.
     CastPrototype { en: "Prototype", de: "Prototyp" },
     /// Confirm the current selection.
@@ -2162,6 +2164,8 @@ messages! {
     ChosenType { en: "Chosen: {0}", de: "Gewählt: {0}" },
     /// The card name publicly chosen for this permanent (Pithing Needle).
     ChosenName { en: "Named: {0}", de: "Genannt: {0}" },
+    /// A Room's doors still locked, by name.
+    LockedDoors { en: "Locked: {0}", de: "Verschlossen: {0}" },
     /// Tap for {0}, spendable only on some spells
     ///
     /// Cavern of Souls and its kin. The label has to say *both* halves: a
