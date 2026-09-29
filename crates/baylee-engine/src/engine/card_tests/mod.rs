@@ -164,6 +164,37 @@ fn karn_the_great_creator() -> CardIndex {
     card_index("a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1")
 }
 
+fn spark_double() -> CardIndex {
+    card_index("8dcb35e5-ae44-455f-86e3-4a77d496ff34")
+}
+
+/// Casts the Spark Double in `seat`'s hand off everything that seat can tap
+/// and has it enter as a copy of `original`, a permanent that seat controls.
+/// Answers the copy, which is still Spark Double's card.
+#[track_caller]
+fn spark_double_copying(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    original: ObjectId,
+) -> ObjectId {
+    cast_from_hand(engine, seat, spark_double());
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: vec![original],
+            },
+        )
+        .expect("the Double may copy it");
+    pass_until(engine, |e| {
+        on_battlefield(e, seat, spark_double()).is_some() && stack_is_empty(e)
+    });
+    on_battlefield(engine, seat, spark_double()).expect("the copy entered")
+}
+
 fn chromatic_lantern() -> CardIndex {
     card_index("539f5396-d99a-417d-a84c-dff7930b5900")
 }

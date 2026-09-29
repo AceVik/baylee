@@ -171,6 +171,24 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChooseCastMode { player: p, .. }, PlayerAction::ChooseMode(index))
                 if *p == player =>
             {
+                // What the option at this position actually names. A modal
+                // trigger drops the modes it cannot legally choose
+                // (CR 603.3c), so the position answered is not the mode
+                // number — and the answer has to be inside the list that was
+                // offered, which no arm here used to check.
+                //
+                // Checked before anything is taken. A position past the end
+                // used to be refused after the plan or the cast wizard had
+                // been taken out of its slot, and a refusal does not put
+                // either back: the question stayed on the table with nothing
+                // behind it, and the next answer to it, however legal,
+                // panicked on the missing wizard.
+                let Some(kind) = (match &self.pending {
+                    Pending::ChooseCastMode { options, .. } => options.get(index).map(|o| o.kind),
+                    _ => None,
+                }) else {
+                    return Err(EngineError::IllegalAction("no such cast mode"));
+                };
                 // `take` once. Two `if let Some(…) = self.pending_plan.take()`
                 // in a row is one condition and two takes: the first arm
                 // *consumes* the plan whatever it holds, so the second could
@@ -178,15 +196,6 @@ impl<L: CardLookup> Engine<L> {
                 // unreachable for that reason as well as for the one entry 34
                 // names, and one fault was hiding the other.
                 let plan = self.pending_plan.take();
-                // What the option at this position actually names. A modal
-                // trigger drops the modes it cannot legally choose
-                // (CR 603.3c), so the position answered is not the mode
-                // number — and the answer has to be inside the list that was
-                // offered, which no arm here used to check.
-                let kind = match &self.pending {
-                    Pending::ChooseCastMode { options, .. } => options.get(index).map(|o| o.kind),
-                    _ => None,
-                };
                 match plan {
                     // MDFC land-face choice (pathways).
                     Some(PlanKind::PlayLandFace { card }) => {
@@ -212,11 +221,18 @@ impl<L: CardLookup> Engine<L> {
                         source,
                         ability_index,
                     }) => {
-                        let Some(CastModeKind::Mode(mode)) = kind else {
-                            return Err(EngineError::IllegalAction("no such cast mode"));
-                        };
-                        let Some(front) = self.trigger_queue.front_mut() else {
-                            return Err(EngineError::IllegalAction("no trigger awaiting a mode"));
+                        // Refused with the plan back in its slot, for the
+                        // reason the position is checked above.
+                        let (CastModeKind::Mode(mode), Some(front)) =
+                            (kind, self.trigger_queue.front_mut())
+                        else {
+                            self.pending_plan = Some(PlanKind::ModalTrigger {
+                                source,
+                                ability_index,
+                            });
+                            return Err(EngineError::IllegalAction(
+                                "no trigger awaiting this mode",
+                            ));
                         };
                         debug_assert!(
                             front.source == source && front.ability_index == ability_index,
@@ -225,10 +241,18 @@ impl<L: CardLookup> Engine<L> {
                         front.chosen_mode = Some(mode as u8);
                         return Ok(());
                     }
-                    _ => {}
+                    other => self.pending_plan = other,
                 }
-                let mut wizard = self.cast_wizard.take().expect("wizard active");
-                let Some(option) = wizard.options.get(index).map(|o| o.kind) else {
+                // The wizard's own list is the one the position indexes, and
+                // it is read before the wizard leaves its slot.
+                let Some(option) = self
+                    .cast_wizard
+                    .as_ref()
+                    .and_then(|w| w.options.get(index).map(|o| o.kind))
+                else {
+                    return Err(EngineError::IllegalAction("no such cast mode"));
+                };
+                let Some(mut wizard) = self.cast_wizard.take() else {
                     return Err(EngineError::IllegalAction("no such cast mode"));
                 };
                 wizard.option = Some(option);
@@ -273,7 +297,13 @@ impl<L: CardLookup> Engine<L> {
                 }) = self.pending_plan.take()
                 {
                     self.activation_x = Some(n);
-                    return self.start_activation(player, source, ability_index, SmallVec::new());
+                    if self
+                        .start_activation(player, source, ability_index, SmallVec::new())
+                        .is_err()
+                    {
+                        self.reverse_activation(player);
+                    }
+                    return Ok(());
                 }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
                 wizard.x = n;
@@ -479,7 +509,15 @@ impl<L: CardLookup> Engine<L> {
                     }
                     return Ok(());
                 }
-                let plan = self.pending_plan.take().expect("target plan set");
+                // Every target question is published beside what answers
+                // it: a cast in progress, a suspended resolution, or a plan.
+                // With none of the three there is nothing for the answer to
+                // continue, and refusing it changes nothing.
+                let Some(plan) = self.pending_plan.take() else {
+                    return Err(EngineError::IllegalAction(
+                        "no target choice is waiting for an answer",
+                    ));
+                };
                 let targets: SmallVec<[ObjectId; 2]> = objects.into_iter().collect();
                 match plan {
                     // Answered with a number and taken off the plan there, so
@@ -507,7 +545,12 @@ impl<L: CardLookup> Engine<L> {
                         } else {
                             self.activation_second_targets = Some(second);
                             self.activation_target_players = target_players;
-                            self.start_activation(player, source, ability_index, first)?;
+                            if self
+                                .start_activation(player, source, ability_index, first)
+                                .is_err()
+                            {
+                                self.reverse_activation(player);
+                            }
                         }
                     }
                     PlanKind::ActivateAbility {
@@ -515,19 +558,10 @@ impl<L: CardLookup> Engine<L> {
                         ability_index,
                     } => {
                         // Loyalty abilities complete via their own finish path
-                        // (no guard, no re-payment).
-                        if matches!(
-                            self.state
-                                .object(source)
-                                .and_then(|o| {
-                                    let face = o.face_index as usize;
-                                    o.card
-                                        .and_then(|c| self.lookup.card(c.index))
-                                        .map(|def| def.abilities_for_face(face))
-                                })
-                                .and_then(|abilities| abilities.get(ability_index as usize)),
-                            Some(AbilityDef::Loyalty { .. })
-                        ) {
+                        // (no guard, no re-payment). Asked of the same list
+                        // `start_activation` asked when it chose that path,
+                        // which for a copied walker is not its card's.
+                        if self.loyalty_cost(source, ability_index).is_some() {
                             self.continue_loyalty_activation(
                                 player,
                                 source,
@@ -541,14 +575,22 @@ impl<L: CardLookup> Engine<L> {
                             // whichever activation came next.
                             self.activation_target_players.clone_from(&players);
                             self.activation_targets_answered = true;
-                            self.start_activation(player, source, ability_index, targets)?;
+                            if self
+                                .start_activation(player, source, ability_index, targets)
+                                .is_err()
+                            {
+                                self.reverse_activation(player);
+                            }
                         }
                     }
                     // Set only beside a `Pending::ChooseCards`, and answered
                     // in that arm. Named rather than swept into a `_` so a
                     // new `PlanKind` is still a compile error here, which is
-                    // how this arm came to be written at all.
+                    // how this arm came to be written at all. Refused with
+                    // the plan put back, so a refusal leaves the engine as
+                    // it found it.
                     PlanKind::PayActivationCost { .. } => {
+                        self.pending_plan = Some(plan);
                         return Err(EngineError::IllegalAction(
                             "an activation cost is not a target choice",
                         ));
@@ -558,6 +600,7 @@ impl<L: CardLookup> Engine<L> {
                     // the step it belongs to grants nobody priority to cast
                     // anything that could be.
                     PlanKind::UntapChoice => {
+                        self.pending_plan = Some(plan);
                         return Err(EngineError::IllegalAction(
                             "the untap determination is not a target choice",
                         ));
@@ -1143,7 +1186,13 @@ impl<L: CardLookup> Engine<L> {
                     }) => {
                         self.activation_cost_choices.extend(objects);
                         self.activation_target_players = target_players;
-                        return self.start_activation(player, source, ability_index, targets);
+                        if self
+                            .start_activation(player, source, ability_index, targets)
+                            .is_err()
+                        {
+                            self.reverse_activation(player);
+                        }
+                        return Ok(());
                     }
                     // The untap step's determination (CR 502.3). The answer
                     // names what stays tapped, and the step carries on from
@@ -1375,6 +1424,33 @@ impl<L: CardLookup> Engine<L> {
                 self.finish_resolution(&res);
             }
         }
+    }
+
+    /// Where an activation goes when the step its answer re-entered
+    /// (`start_activation`) refuses to go on.
+    ///
+    /// The answer was one of the options its question enumerated, and by the
+    /// time `start_activation` refuses, the question's plan has been taken:
+    /// handing the refusal back to the caller left the question on the table
+    /// with nothing behind it, and the next answer to it panicked the engine
+    /// ("target plan set"), or reached for a resolution that was never there.
+    /// An activation that can't legally be completed is reversed and the
+    /// player who had priority keeps it (CR 732.1, CR 732.2), so that is what
+    /// happens: the activation's answers so far are dropped, nothing reaches
+    /// the stack, and its activator is asked for priority again. The answer
+    /// itself is accepted, because it was a legal one and it did end the
+    /// activation, and so a record replays it.
+    ///
+    /// Nothing known reaches this with a legal board. It is the net under
+    /// every refusal `start_activation` has left on its way to the stack.
+    fn reverse_activation(&mut self, player: PlayerId) {
+        self.activation_cost_choices.clear();
+        self.activation_x = None;
+        self.activation_second_targets = None;
+        self.activation_targets_answered = false;
+        self.activation_target_players.clear();
+        self.pending_plan = None;
+        self.regrant_priority = Some(player);
     }
 
     pub(crate) fn after_action(&mut self, player: PlayerId) {

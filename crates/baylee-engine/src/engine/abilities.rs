@@ -1161,13 +1161,8 @@ impl<L: CardLookup> Engine<L> {
             return self.start_granted_activation(player, source, slot, targets);
         }
         // Loyalty abilities route to their own activation path first.
-        if let Some(AbilityDef::Loyalty { cost, .. }) = self
-            .state
-            .object(source)
-            .map(|o| o.abilities(&self.lookup))
-            .and_then(|abilities| abilities.get(ability_index as usize))
-        {
-            return self.start_loyalty_activation(player, source, ability_index, targets, *cost);
+        if let Some(cost) = self.loyalty_cost(source, ability_index) {
+            return self.start_loyalty_activation(player, source, ability_index, targets, cost);
         }
         let (cost, effects, (first, second), mana_ability, zone, limit) = {
             let obj = self
@@ -1659,6 +1654,30 @@ impl<L: CardLookup> Engine<L> {
             controller: player,
         });
         self.after_action(player);
+    }
+
+    /// The loyalty cost of `source`'s ability at `ability_index` (CR 606.4),
+    /// or `None` when that ability is not a loyalty ability.
+    ///
+    /// The one probe for "is this a loyalty activation", read off the
+    /// object's own list: the list the offer indexed, and the one a copy's
+    /// abilities are in (CR 707.2). Starting an activation and finishing it
+    /// after its target answer used to ask two different lists. The answer
+    /// read the card's printed one, so a Spark Double that had entered as a
+    /// copy of Karn had a loyalty ability when it was started and an
+    /// ordinary one when it was answered. The answer was then sent into a
+    /// second activation, which refused it, and the target question was
+    /// left with nothing to answer it.
+    pub(crate) fn loyalty_cost(&self, source: ObjectId, ability_index: u32) -> Option<i8> {
+        match self
+            .state
+            .object(source)?
+            .abilities(&self.lookup)
+            .get(ability_index as usize)?
+        {
+            AbilityDef::Loyalty { cost, .. } => Some(*cost),
+            _ => None,
+        }
     }
 
     /// The second instance of "target" on a loyalty ability, if it prints

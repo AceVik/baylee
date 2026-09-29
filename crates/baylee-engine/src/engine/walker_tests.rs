@@ -478,3 +478,211 @@ fn a_loyalty_ability_with_no_legal_target_is_not_offered() {
         "the −1 returns target creature and there is no creature: {offered:?}"
     );
 }
+
+/// A copied planeswalker's loyalty abilities, answered the way the original's
+/// are.
+///
+/// Spark Double entering as a copy of Karn, the Great Creator has Karn's
+/// loyalty abilities as its own (CR 707.2) while its card is still Spark
+/// Double. Activating one asks for its target, and the answer has to finish
+/// the activation it was asked for. It did not: the answer decided whether it
+/// was continuing a loyalty ability by reading the *card's* printed list,
+/// where index 1 is no loyalty ability, while the activation had been started
+/// from the *object's* own list. So the answer was sent into a second
+/// activation, which refused it ("loyalty already used this turn") after the
+/// question's continuation had been consumed. The question stayed on the
+/// table with nothing behind it, and the next answer panicked the engine
+/// ("target plan set"): 1.2 % of the trained AI's self-play games, every one
+/// of them a Spark Double copying a walker (Karn, Venser, Elspeth, Teferi).
+mod copied_walker {
+    use crate::engine::testkit::*;
+    use crate::engine::{Engine, Pending, PlayerAction};
+    use crate::zone::ZoneLocation;
+    use baylee_cards_dsl::CounterKind;
+    use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
+    use baylee_core::types::TypeSet;
+
+    fn karn() -> CardIndex {
+        card_index("a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1")
+    }
+    fn spark_double() -> CardIndex {
+        card_index("8dcb35e5-ae44-455f-86e3-4a77d496ff34")
+    }
+    fn island() -> CardIndex {
+        card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+    }
+    /// A noncreature artifact of mana value three, so Karn's +1 makes a
+    /// 3/3 of it that lives.
+    fn chromatic_lantern() -> CardIndex {
+        card_index("539f5396-d99a-417d-a84c-dff7930b5900")
+    }
+
+    fn loyalty(engine: &Engine<RegistryLookup>, id: ObjectId) -> u16 {
+        engine
+            .state()
+            .object(id)
+            .map_or(0, |o| o.counters.get(CounterKind::Loyalty))
+    }
+
+    fn is_creature(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
+        engine
+            .state()
+            .object(id)
+            .is_some_and(|o| o.characteristics().types.contains(TypeSet::CREATURE))
+    }
+
+    /// Karn, a Chromatic Lantern and four Islands on seat 0's battlefield,
+    /// and a Spark Double cast and entered as a copy of Karn. Answers the
+    /// copy and the lantern.
+    fn karn_and_his_double(seed: u64) -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
+        let p0 = PlayerId::new(0);
+        let mut engine = Duel::new(seed, island())
+            .battlefield(
+                0,
+                &[
+                    karn(),
+                    chromatic_lantern(),
+                    island(),
+                    island(),
+                    island(),
+                    island(),
+                ],
+            )
+            .hand(0, &[spark_double()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let original = on_battlefield(&engine, p0, karn()).expect("Karn is out");
+        let lantern = on_battlefield(&engine, p0, chromatic_lantern()).expect("the lantern");
+        cast_from_hand(&mut engine, p0, spark_double());
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseTargets { .. })
+        });
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![original],
+                },
+            )
+            .expect("the Double copies Karn");
+        pass_until(&mut engine, |e| {
+            on_battlefield(e, p0, spark_double()).is_some() && stack_is_empty(e)
+        });
+        let copy = on_battlefield(&engine, p0, spark_double()).expect("the copy entered");
+        assert!(
+            engine
+                .state()
+                .object(copy)
+                .expect("the copy")
+                .characteristics()
+                .types
+                .contains(TypeSet::PLANESWALKER),
+            "the Double is a copy of Karn"
+        );
+        (engine, copy, lantern)
+    }
+
+    /// The one ability on the stack, which must be the copy's.
+    fn the_copys_ability(engine: &Engine<RegistryLookup>, copy: ObjectId) -> ObjectId {
+        let stack = engine.state().zones.list(ZoneLocation::Stack);
+        assert_eq!(stack.len(), 1, "one ability on the stack: {stack:?}");
+        let top = stack[0];
+        assert_eq!(
+            engine
+                .state()
+                .object(top)
+                .and_then(|o| o.ability)
+                .map(|a| a.source),
+            Some(copy),
+            "and it is the copy's"
+        );
+        top
+    }
+
+    #[test]
+    fn a_copied_walkers_target_answer_puts_its_ability_on_the_stack() {
+        let p0 = PlayerId::new(0);
+        let (mut engine, copy, lantern) = karn_and_his_double(301);
+        let before = loyalty(&engine, copy);
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: copy,
+                    ability_index: 1,
+                },
+            )
+            .expect("the copy's +1 is offered");
+        let Pending::ChooseTargets { options, min, .. } = engine.pending().clone() else {
+            panic!("the +1 asks for its target, got {:?}", engine.pending())
+        };
+        assert_eq!(min, 0, "up to one");
+        assert!(
+            options.contains(&lantern),
+            "the lantern is a noncreature artifact"
+        );
+
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![lantern],
+                    players: vec![],
+                },
+            )
+            .expect("the answer to the copy's own question is accepted");
+        assert!(
+            matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+            "the activation is complete and its activator has priority: {:?}",
+            engine.pending()
+        );
+        let ability = the_copys_ability(&engine, copy);
+        assert_eq!(
+            engine.state().object(ability).map(|o| o.targets.to_vec()),
+            Some(vec![lantern]),
+            "pointed at the lantern"
+        );
+        assert_eq!(loyalty(&engine, copy), before + 1, "the +1 was paid once");
+
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(pt(&engine, lantern), (3, 3), "the lantern is a 3/3 now");
+    }
+
+    #[test]
+    fn a_copied_walkers_target_answered_with_nothing_puts_its_ability_on_the_stack() {
+        let p0 = PlayerId::new(0);
+        let (mut engine, copy, lantern) = karn_and_his_double(302);
+        let before = loyalty(&engine, copy);
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: copy,
+                    ability_index: 1,
+                },
+            )
+            .expect("the copy's +1 is offered");
+        assert!(matches!(engine.pending(), Pending::ChooseTargets { .. }));
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![],
+                },
+            )
+            .expect("\"up to one\" answered with none is an answer (CR 115.6)");
+        let ability = the_copys_ability(&engine, copy);
+        assert!(
+            engine
+                .state()
+                .object(ability)
+                .is_some_and(|o| o.targets.is_empty()),
+            "targeting nothing"
+        );
+        assert_eq!(loyalty(&engine, copy), before + 1, "the +1 was paid once");
+        pass_until(&mut engine, stack_is_empty);
+        assert!(!is_creature(&engine, lantern), "nothing was animated");
+    }
+}
