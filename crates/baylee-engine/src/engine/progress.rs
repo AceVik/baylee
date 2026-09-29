@@ -258,6 +258,11 @@ impl<L: CardLookup> Engine<L> {
             if self.state.award_enduring_stories() {
                 continue;
             }
+            // CR 702.131d: continuous effects are reapplied after a player
+            // gets the city's blessing, before anything else is asked.
+            if self.state.award_citys_blessings() {
+                continue;
+            }
             // What a player who has left still controls is exiled as the
             // last effect giving it to somebody else ends (CR 800.4c). Not a
             // state-based action, so before them and before the game-over
@@ -1437,6 +1442,14 @@ impl<L: CardLookup> Engine<L> {
                         crate::replacement::put_counters(&mut self.state, id, kind, n);
                         continue;
                     }
+                    baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
+                        let x = self.state.object(id).map_or(0, |o| o.x_value);
+                        let n = u16::try_from(x).unwrap_or(u16::MAX);
+                        if n > 0 {
+                            crate::replacement::put_counters(&mut self.state, id, kind, n);
+                        }
+                        continue;
+                    }
                     // Two different reasons for one empty arm. There is no
                     // `Modifier` that takes a supertype away; and keeping
                     // the copier's own abilities is not a modification of
@@ -1529,6 +1542,13 @@ impl<L: CardLookup> Engine<L> {
                     // counter, and under a Doubling Season it enters with
                     // two of whichever it can hold.
                     crate::replacement::put_counters(&mut self.state, id, kind, n);
+                }
+                // CR 107.3m: the X announced for the spell that became it.
+                baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
+                    let n = u16::try_from(obj.x_value).unwrap_or(u16::MAX);
+                    if n > 0 {
+                        crate::replacement::put_counters(&mut self.state, id, kind, n);
+                    }
                 }
                 // Paid before this loop, for the reason the temporary
                 // branch's twin gives.
@@ -4034,6 +4054,50 @@ impl<L: CardLookup> Engine<L> {
         true
     }
 
+    /// Deals one combat damage step's damage, and what toxic adds to it.
+    ///
+    /// "Combat damage dealt to a player by a creature with toxic causes that
+    /// creature's controller to give the player a number of poison counters
+    /// equal to that creature's total toxic value, in addition to the
+    /// damage's other results" (CR 702.164c, 120.3g). It is a result of the
+    /// damage, so it is read off what the step actually journalled: damage
+    /// prevented to nothing gives nothing, and damage a trampler assigned to
+    /// a planeswalker is not dealt to a player. The total is summed over the
+    /// creature's toxic abilities as it has them now (CR 702.164b), asked of
+    /// the object and not its card, so a copy's list answers.
+    fn deal_combat_damage(&mut self, first_strike_step: bool) {
+        let from = self.state.journal.len();
+        combat::deal_combat_damage(&mut self.state, first_strike_step);
+        let poisoned: Vec<(PlayerId, u16)> = self.state.journal.entries()[from..]
+            .iter()
+            .filter_map(|entry| match entry.event {
+                GameEvent::DamageDealt {
+                    source: Some(source),
+                    target: crate::event::DamageTarget::Player(player),
+                    amount,
+                    is_combat: true,
+                } if amount > 0 => {
+                    let toxic: u16 = self
+                        .state
+                        .object(source)?
+                        .abilities(&self.lookup)
+                        .iter()
+                        .map(|ability| match ability {
+                            baylee_cards_dsl::AbilityDef::Toxic { poison } => u16::from(*poison),
+                            _ => 0,
+                        })
+                        .sum();
+                    (toxic > 0).then_some((player, toxic))
+                }
+                _ => None,
+            })
+            .collect();
+        for (player, toxic) in poisoned {
+            let counters = &mut self.state.players[player.get() as usize].poison;
+            *counters = counters.saturating_add(toxic);
+        }
+    }
+
     /// Ends the current step and begins the next one.
     ///
     /// **An arm is named for the step being left, and its block runs the
@@ -4121,15 +4185,15 @@ impl<L: CardLookup> Engine<L> {
             (_, Step::DeclareBlockers) => {
                 // Deal combat damage on entering the damage step(s).
                 if self.any_first_or_double_striker() {
-                    combat::deal_combat_damage(&mut self.state, true);
+                    self.deal_combat_damage(true);
                     (Phase::Combat, Step::CombatDamageFirst)
                 } else {
-                    combat::deal_combat_damage(&mut self.state, false);
+                    self.deal_combat_damage(false);
                     (Phase::Combat, Step::CombatDamage)
                 }
             }
             (_, Step::CombatDamageFirst) => {
-                combat::deal_combat_damage(&mut self.state, false);
+                self.deal_combat_damage(false);
                 (Phase::Combat, Step::CombatDamage)
             }
             (_, Step::CombatDamage) => (Phase::Combat, Step::CombatEnd),

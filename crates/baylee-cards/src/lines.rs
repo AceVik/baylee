@@ -348,6 +348,7 @@ pub fn grants_in(
         // made as the permanent enters.
         AbilityDef::Unimplemented
         | AbilityDef::Ward { .. }
+        | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
         | AbilityDef::Replacement(_)

@@ -58,6 +58,17 @@ pub enum GameEvent {
         /// Controller of the spell or ability, not the retargeting effect.
         controller: PlayerId,
     },
+    /// The same for a player a copy or a retargeting effect newly aimed a
+    /// spell or ability at: "whenever you … become the target" (Leovold)
+    /// reads it the way ward reads [`GameEvent::BecameTarget`].
+    PlayerBecameTarget {
+        /// The spell or ability on the stack.
+        object: ObjectId,
+        /// The newly targeted player.
+        player: PlayerId,
+        /// Controller of the spell or ability, not the retargeting effect.
+        controller: PlayerId,
+    },
     /// The game was set up from a preset.
     GameStarted {
         /// RNG seed.

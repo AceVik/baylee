@@ -474,8 +474,12 @@ fn drive_watching(
 /// A named list rather than a predicate, for the reason `offer_tests` keeps
 /// one: an effect that legitimately touches more than its target is a fact
 /// about *that card's* rules text, and a rule inferred from it would excuse
-/// the next card by accident. Empty until a run finds one.
-const REACHES_FURTHER: &[(&str, &str)] = &[];
+/// the next card by accident.
+const REACHES_FURTHER: &[(&str, &str)] = &[(
+    "Maelstrom Pulse",
+    "\"and all other permanents with the same name as that permanent\": the sweep's \
+     bystanders are Llanowar Elves, and so is the target",
+)];
 
 /// How small the sweep may get before it has stopped measuring anything.
 ///

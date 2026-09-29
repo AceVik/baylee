@@ -208,6 +208,18 @@ pub enum Modifier {
     /// Protection from sources matching the filter: can't be damaged,
     /// targeted, or blocked by them (CR 702.16).
     ProtectionFrom(&'static crate::Filter),
+    /// The affected permanent can't be the target of spells, or of abilities
+    /// from sources, that match the filter — "Thrun can't be the target of
+    /// nongreen spells your opponents control or abilities from nongreen
+    /// sources your opponents control" (Thrun, Breaker of Silence).
+    ///
+    /// Protection's targeting half and nothing else (CR 702.16b): no damage
+    /// is prevented and no block is stopped. The filter is asked of the
+    /// spell or of the ability's source, with the effect's controller as
+    /// "you", so "your opponents control" is `ControlledByOpponent`. A rule
+    /// about the permanent and not a characteristic of it, so it has no
+    /// layer.
+    CantBeTargetedBy(&'static crate::Filter),
     /// The affected object becomes a copy of the given object (layer 1
     /// copiable values; Cursed Mirror's until-EOT copy).
     BecomeCopyOf(baylee_core::ids::ObjectId),
@@ -363,6 +375,16 @@ pub enum Modifier {
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.
     SetPT(i16, i16),
+    /// "This creature's power and toughness are each equal to [count]"
+    /// **granted** by an effect — Druid Class's land that "becomes a
+    /// creature with haste and 'This creature's power and toughness are
+    /// each equal to the number of lands you control.'" Only a printed (or
+    /// token-creating, or copied) ability is characteristic-defining (CR
+    /// 604.3a), so this one sets power and toughness to a value in layer 7b
+    /// (CR 613.4b), where the printed sentence is
+    /// [`Modifier::CharacteristicPT`] in 7a. "You" in the count is the
+    /// affected object's controller, because the ability is that object's.
+    SetPTToCount(PtCount),
     /// Switches power and toughness.
     SwitchPT,
 }
@@ -465,7 +487,7 @@ impl Modifier {
             | Self::GrantTriggered { .. } => Layer::Ability,
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } => Layer::PtCda,
-            Self::SetPT(..) => Layer::PtSet,
+            Self::SetPT(..) | Self::SetPTToCount(_) => Layer::PtSet,
             Self::ModifyPT(..) | Self::ModifyPTPerCount { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
@@ -476,6 +498,7 @@ impl Modifier {
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
             | Self::OpponentsCantCast(_)
+            | Self::CantBeTargetedBy(_)
             | Self::DrawLimitPerTurn { .. }
             | Self::PlayersCantLose
             | Self::CantLoseLife { .. }
@@ -755,6 +778,10 @@ mod tests {
                 Layer::PtCda,
             ),
             (Modifier::SetPT(2, 2), Layer::PtSet),
+            (
+                Modifier::SetPTToCount(PtCount::YouControl(&Filter::YOUR_LAND)),
+                Layer::PtSet,
+            ),
             (Modifier::ModifyPT(1, 1), Layer::PtModify),
             (
                 Modifier::ModifyPTPerCount {

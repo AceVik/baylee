@@ -437,6 +437,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
             modifier,
             Modifier::ModifyPT(..)
                 | Modifier::SetPT(..)
+                | Modifier::SetPTToCount(_)
                 | Modifier::SwitchPT
                 | Modifier::CharacteristicPT { .. }
                 | Modifier::ModifyPTPerCount { .. }
@@ -495,7 +496,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
 /// the lands you control at 7c, so it has to count **itself**, and a count
 /// off the cache left it one short for exactly one refresh. Every other
 /// object is read from the cache, which is that object's own finished
-/// projection.
+/// projection. Phased-out permanents are not there to count (CR 702.26b).
 fn count_controlled(
     state: &GameState,
     obj: &GameObject,
@@ -504,20 +505,36 @@ fn count_controlled(
     filter: &baylee_cards_dsl::Filter,
 ) -> usize {
     state
-        .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
-        .iter()
-        .filter(|id| {
-            state.object(**id).is_some_and(|o| {
-                o.controller == controller
-                    && if o.id == obj.id {
-                        crate::eval::matches_projected(filter, state, o, c, controller, **id)
-                    } else {
-                        crate::eval::matches(filter, state, o, controller, **id)
-                    }
-            })
+        .battlefield_seen()
+        .filter_map(|id| state.object(id))
+        .filter(|o| {
+            o.controller == controller
+                && if o.id == obj.id {
+                    crate::eval::matches_projected(filter, state, o, c, controller, o.id)
+                } else {
+                    crate::eval::matches(filter, state, o, controller, o.id)
+                }
         })
         .count()
+}
+
+/// The number a [`PtCount`](baylee_cards_dsl::PtCount) names, for
+/// `CharacteristicPT` (7a) and `SetPTToCount` (7b) alike; `you` is whose
+/// permanents `YouControl` counts.
+fn pt_count(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    you: PlayerId,
+    count: baylee_cards_dsl::PtCount,
+) -> i16 {
+    let n = match count {
+        baylee_cards_dsl::PtCount::YouControl(filter) => {
+            count_controlled(state, obj, c, you, filter)
+        }
+        baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => card_types_in_all_graveyards(state),
+    };
+    i16::try_from(n).unwrap_or(i16::MAX)
 }
 
 /// The number of card types (CR 205.2a) among cards in all graveyards.
@@ -585,15 +602,7 @@ fn apply(
         } => {
             // CR 604.3 and 613.4a: it defines the number, whatever the card
             // printed as its `*`, before anything in 7b–7e reads it.
-            let n = match count {
-                baylee_cards_dsl::PtCount::YouControl(filter) => {
-                    count_controlled(state, obj, c, fx.controller, filter)
-                }
-                baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => {
-                    card_types_in_all_graveyards(state)
-                }
-            };
-            let n = i16::try_from(n).unwrap_or(i16::MAX);
+            let n = pt_count(state, obj, c, fx.controller, *count);
             c.power = Some(n);
             c.toughness = Some(n.saturating_add(i16::from(*toughness_plus)));
         }
@@ -654,6 +663,7 @@ fn apply(
         | Modifier::CantActivateArtifacts
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::CantBeTargetedBy(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
         | Modifier::CantLoseLife { .. }
@@ -695,6 +705,18 @@ fn apply(
             if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
                 c.power = Some(*p);
                 c.toughness = Some(*t);
+            }
+        }
+        // CR 613.4b: the granted sentence sets power and toughness to the
+        // count, outright like `SetPT` and on a creature only. "You" is the
+        // object's own controller as layer 2 left it, because the ability
+        // is the object's: a land Druid Class animated, stolen, counts its
+        // new controller's lands.
+        Modifier::SetPTToCount(count) => {
+            if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
+                let n = pt_count(state, obj, c, *controller, *count);
+                c.power = Some(n);
+                c.toughness = Some(n);
             }
         }
         Modifier::SwitchPT => {

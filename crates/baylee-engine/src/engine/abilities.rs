@@ -507,8 +507,41 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
+        self.narrow_under_split_second(&mut legal);
         self.narrow_to_mana_window(player, &mut legal);
         legal
+    }
+
+    /// Split second (CR 702.61a): "As long as this spell is on the stack,
+    /// players can't cast other spells or activate abilities that aren't
+    /// mana abilities."
+    ///
+    /// What stays is what CR 702.61b names: mana abilities, and special
+    /// actions — turning a face-down permanent face up, which its controller
+    /// may do any time they have priority (CR 116.2b). Suspending a card is a
+    /// special action too, but one taken "only if they could begin to cast
+    /// that card" (CR 116.2f), and under split second nobody can, so it goes
+    /// with the spells. A land is never offered with a spell on the stack.
+    ///
+    /// Read off the projected keywords of every spell on the stack, so a
+    /// copy of a split-second spell locks it too: a copy is a spell.
+    fn narrow_under_split_second(&self, legal: &mut LegalActions) {
+        let locked = self.state.zones.list(ZoneLocation::Stack).iter().any(|id| {
+            self.state.object(*id).is_some_and(|o| {
+                o.kind == ObjectKind::Spell
+                    && o.characteristics()
+                        .keywords
+                        .contains(baylee_cards_dsl::KeywordSet::SPLIT_SECOND)
+            })
+        });
+        if !locked {
+            return;
+        }
+        legal.castable.clear();
+        legal.suspendable.clear();
+        legal.abilities.retain(|&(source, index)| {
+            index == crate::choice::TURN_FACE_UP || self.is_mana_offer(source, index)
+        });
     }
 
     /// Inside a CR 605.3a payment window, the only thing a player may do is
@@ -558,19 +591,26 @@ impl<L: CardLookup> Engine<L> {
         legal.lands.clear();
         legal.castable.clear();
         legal.suspendable.clear();
-        legal.abilities.retain(|&(source, index)| {
-            let Some(obj) = self.state.object(source) else {
-                return false;
-            };
-            if let Some(slot) = crate::choice::granted_slot(index) {
-                return crate::effects::granted_activated(&self.state, source)
-                    .nth(slot as usize)
-                    .is_some_and(|granted| granted.mana_ability);
-            }
-            obj.abilities(&self.lookup)
-                .get(index as usize)
-                .is_some_and(AbilityDef::is_mana_ability)
-        });
+        legal
+            .abilities
+            .retain(|&(source, index)| self.is_mana_offer(source, index));
+    }
+
+    /// Whether the offered activation `(source, index)` is a mana ability,
+    /// asked of the object's own list or, for a granted slot, of the grants
+    /// — the one reading both narrowings share.
+    fn is_mana_offer(&self, source: ObjectId, index: u32) -> bool {
+        let Some(obj) = self.state.object(source) else {
+            return false;
+        };
+        if let Some(slot) = crate::choice::granted_slot(index) {
+            return crate::effects::granted_activated(&self.state, source)
+                .nth(slot as usize)
+                .is_some_and(|granted| granted.mana_ability);
+        }
+        obj.abilities(&self.lookup)
+            .get(index as usize)
+            .is_some_and(AbilityDef::is_mana_ability)
     }
 
     /// Whether a targeting ability has anything legal to point at

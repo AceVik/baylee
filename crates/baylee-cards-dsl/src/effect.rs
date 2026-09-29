@@ -246,12 +246,16 @@ pub enum Amount {
     /// the permanent is gone.
     SourcePower,
     /// How many counters of a kind are on the ability's own source — Aether
-    /// Vial's "the number of charge counters on this artifact".
+    /// Vial's "the number of charge counters on this artifact", cumulative
+    /// upkeep's "for each age counter on it" (CR 702.24a).
     ///
-    /// Read off the source as it is when asked; a source that has left the
-    /// battlefield has shed its counters (CR 122.2) and counts zero, where
-    /// CR 608.2h would read the last one it had. No card in the pool loses
-    /// its source in between: Aether Vial taps itself and stays.
+    /// Read off the source as it is when asked, so after the effect before
+    /// it in the same list put a new counter there; a source that has left
+    /// the battlefield has shed its counters (CR 122.2) and counts zero,
+    /// where CR 608.2h would read the last one it had. No card in the pool
+    /// loses its source in between: Aether Vial taps itself and stays, and
+    /// the intervening `if` cumulative upkeep prints keeps a gone source
+    /// from mattering.
     CountersOnSource(CounterKind),
     /// The mana value of the first target (Reanimate's life loss).
     TargetCmc,
@@ -951,6 +955,20 @@ pub enum Effect {
     /// Put each target on the bottom of its owner's library (Banishing
     /// Stroke).
     PutTargetOnBottomOfLibrary,
+    /// Put a card that is in a graveyard on the bottom of its owner's
+    /// library: Murderous Rider's "when this creature dies, put it on the
+    /// bottom of its owner's library", where "it" is
+    /// [`TargetSpec::EventObject`] and nothing is targeted.
+    ///
+    /// Its own variant rather than [`Self::PutTargetOnBottomOfLibrary`]
+    /// aimed at the card that died, because that one moves its target from
+    /// wherever it is: a card that left the graveyard in response is a new
+    /// object (CR 400.7) the trigger knows nothing about, and it stays where
+    /// it went (#240).
+    PutOnBottomOfLibraryFromGraveyard {
+        /// Which card, read at resolution.
+        target: TargetSpec,
+    },
     /// The first target (a card in a graveyard) gains flashback with
     /// flashback cost = its mana cost until end of turn (Snapcaster
     /// Mage).
@@ -1410,6 +1428,20 @@ pub enum Effect {
         /// How many per object.
         amount: Amount,
     },
+    /// Double the number of counters of a kind on every permanent a filter
+    /// matches (Bristly Bill's "double the number of +1/+1 counters on each
+    /// creature you control").
+    ///
+    /// CR 701.10e: each gets as many of those counters as it already has,
+    /// and that is *putting* counters, so a Doubling Season has its say
+    /// (Bristly Bill's ruling) — the counters go through the same door as
+    /// [`Self::AddCounterFilter`]'s.
+    DoubleCountersFilter {
+        /// Which permanents.
+        filter: &'static Filter,
+        /// Which counters.
+        kind: CounterKind,
+    },
     /// Return a target object (battlefield or stack) to its owner's hand.
     ReturnToHand {
         /// What.
@@ -1429,6 +1461,21 @@ pub enum Effect {
         /// "They can't be regenerated" (CR 701.19c) — see
         /// [`Effect::Destroy::no_regen`].
         no_regen: bool,
+    },
+    /// "…and all other permanents with the same name as that permanent"
+    /// (Maelstrom Pulse): destroy every permanent other than the object
+    /// `target` names that shares its name.
+    ///
+    /// The name is the target's **current** one, read as this resolves, so
+    /// it goes before the effect that destroys the target: a Clone copying
+    /// a Llanowar Elves is named Llanowar Elves only while it is on the
+    /// battlefield. A nameless permanent (a face-down one, CR 708.2a) shares
+    /// a name with nothing (CR 201.2a), so it sweeps nothing. The sweep
+    /// targets nothing but the one permanent, so hexproof or protection on
+    /// the others does not stop it.
+    DestroyOthersNamedLike {
+        /// The permanent whose name is swept.
+        target: TargetSpec,
     },
     /// Regenerate a permanent (CR 701.19a): the next time it would be
     /// destroyed this turn, instead remove all damage marked on it, its
@@ -2324,6 +2371,7 @@ impl Effect {
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }
             | Effect::PutTargetOnBottomOfLibrary
+            | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
             | Effect::GrantFlashback
             | Effect::TakeExtraTurn
             | Effect::ExileSource
@@ -2368,9 +2416,11 @@ impl Effect {
             | Effect::GrantSubtype { .. }
             | Effect::AddCounter { .. }
             | Effect::AddCounterFilter { .. }
+            | Effect::DoubleCountersFilter { .. }
             | Effect::ReturnToHand { .. }
             | Effect::ReturnAllToHand { .. }
             | Effect::DestroyAll { .. }
+            | Effect::DestroyOthersNamedLike { .. }
             | Effect::ExileGraveyard { .. }
             | Effect::GraveyardToTop { .. }
             | Effect::GraveyardToHand { .. }

@@ -168,6 +168,12 @@ pub enum Condition {
     CountersOnSelf(crate::effect::CounterKind, u8),
     /// The source has EXACTLY N counters of a kind (class level gating).
     CountersOnSelfExactly(crate::effect::CounterKind, u8),
+    /// The source has at least the first number and no more than the second
+    /// of a kind of counter: a leveler's `{LEVEL N1-N2}` band (CR 711.2a,
+    /// "As long as this creature has at least N1 level counters on it, but
+    /// no more than N2 level counters on it"). The open `{LEVEL N3+}` band
+    /// is [`Self::CountersOnSelf`] (CR 711.2b).
+    CountersOnSelfBetween(crate::effect::CounterKind, u8, u8),
     /// A station symbol, `{N+}`: the source has N or more charge counters
     /// on it (CR 721.2a, "As long as this permanent has N or more charge
     /// counters on it, it has [abilities]").
@@ -184,6 +190,8 @@ pub enum Condition {
     Station(u8),
     /// The controller has earned an enduring story (CR 702.195).
     EnduringStory,
+    /// The controller has the city's blessing (CR 702.131c).
+    CitysBlessing,
     /// The source itself matches the filter — "if this land is tapped".
     ///
     /// The other four sentences here count something the source is not;
@@ -213,6 +221,10 @@ pub enum Condition {
     /// condition is all there is room for (an activation restriction, an
     /// intervening `if`), and not before.
     Any(&'static [Condition]),
+    /// Holds while the condition it names does not — the printed "unless":
+    /// Wayward Swordtooth "can't attack or block unless you have the city's
+    /// blessing" is a static that holds while `Not(&CitysBlessing)` does.
+    Not(&'static Condition),
 }
 
 /// Trigger conditions for triggered abilities.
@@ -240,6 +252,21 @@ pub enum Trigger {
     /// This permanent becomes a target of an opponent's spell or ability.
     /// Its implicit resolution subject is that stack object (ward).
     Ward,
+    /// "Whenever you or a permanent you control becomes the target of a
+    /// spell or ability an opponent controls" (Leovold, Emissary of Trest).
+    ///
+    /// It fires once **per target** that fits, not once per spell: a spell
+    /// that targets you and one of your permanents triggers it twice, and so
+    /// does one that targets two of your permanents (Leovold's Scryfall
+    /// rulings). `filter` names the permanents that count, read against
+    /// the controller of this ability; `you` is whether the controller
+    /// counts as well.
+    TargetedByOpponent {
+        /// The permanents whose targeting fires this.
+        filter: &'static Filter,
+        /// Whether "you" — this ability's controller — counts too.
+        you: bool,
+    },
     /// A creature matching the filter is exiled from the battlefield
     /// (Soulherder).
     ExiledFromBattlefield(&'static Filter),
@@ -253,6 +280,22 @@ pub enum Trigger {
     DealsCombatDamageToOpponent(&'static Filter),
     /// The source becomes tapped (City of Brass).
     BecomesTapped(&'static Filter),
+    /// The count of a kind of counter on the source rises from below `n`
+    /// to `n` or more — the window CR 714.2b writes out for a chapter
+    /// symbol, asked of any kind.
+    ///
+    /// Druid Class's "When this Class becomes level 3": this pool keeps a
+    /// Class's level as level counters over level 1 (Wizard Class), so
+    /// level 3 is `n: 2`. It is a trigger of its own and not a rider on
+    /// the level-up activation, because the ability it starts targets: a
+    /// target removed in response would otherwise take the level with it
+    /// (CR 608.2b).
+    CountersReach {
+        /// The kind counted.
+        kind: crate::effect::CounterKind,
+        /// The count that must be reached.
+        n: u8,
+    },
     /// The controller casts their Nth spell this turn (Storm of
     /// Saruman's second-spell trigger).
     NthSpellCast {
@@ -379,6 +422,15 @@ pub enum AbilityDef {
     Ward {
         /// Generic mana to pay.
         mana: u16,
+    },
+    /// Toxic N (CR 702.164a): a static ability. Combat damage this
+    /// creature deals to a player also gives that player poison counters
+    /// equal to its total toxic value, the sum over every toxic ability it
+    /// has (CR 702.164b–c). Read by the engine where combat damage is
+    /// dealt; like ward, a keyword with a number is data and not a bit.
+    Toxic {
+        /// N.
+        poison: u8,
     },
     /// Static/continuous ability (layers, CR 613).
     /// An activated ability with a precondition (Mox Opal's metalcraft,
@@ -547,6 +599,17 @@ pub enum CopyMod {
     AddKeyword(crate::KeywordSet),
     /// Enters with counters of a kind.
     AddCounter(crate::CounterKind, u16),
+    /// Enters with **X** counters of a kind: Altered Ego's "except it enters
+    /// with X additional +1/+1 counters on it".
+    ///
+    /// X is the value announced for the spell that became this permanent
+    /// (CR 107.3m), which is what the entering object's X holds by the time
+    /// the copy is made; a copier put onto the battlefield from anywhere but
+    /// the stack has an X of 0 (CR 107.3g) and gets none. The counters come
+    /// with the copy and only with it, which is why this is not
+    /// `EnterModifier::WithCounters`: an Ego that declines to copy is the
+    /// 0/0 it prints.
+    AddCounterX(crate::CounterKind),
     /// Keeps the copier's own printed **static** abilities beside the
     /// copied ones ("except it has Sakashima's other abilities").
     ///

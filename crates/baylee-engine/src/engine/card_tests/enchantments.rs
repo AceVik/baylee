@@ -1596,11 +1596,10 @@ fn mystic_remora() -> CardIndex {
     card_index("8a52f3c0-2552-4425-b2e3-5496eb2232a7")
 }
 
-/// Mystic Remora is `Coverage::Partial`: the tax trigger is written and
-/// cumulative upkeep {1} is not, so the scenario is fought on the
-/// *opponent's* turn, where the missing clause would never fire anyway — age
-/// counters go on at the Remora's own controller's upkeep, and this game ends
-/// before that.
+/// Mystic Remora's tax trigger, fought on the *opponent's* turn so its
+/// controller's cumulative upkeep never comes up — age counters go on at the
+/// Remora's own controller's upkeep, and this game ends before that. The
+/// upkeep is `mystic_remora_s_cumulative_upkeep_grows_and_is_sacrificed_when_unpaid`.
 ///
 /// Both words of the filter are struck as well as the sentence read: the Sol
 /// Ring its own controller casts is a noncreature spell that costs nobody a
@@ -1690,7 +1689,7 @@ fn mystic_remora_taxes_an_opponents_noncreature_spell_and_draws_when_they_declin
         prompt,
         YesNoPrompt::PayTax { mana: 4 },
         "\"unless that player pays {{4}}\" — and not the {{1}} the upkeep \
-         clause this card cannot express would charge"
+         clause charges"
     );
 
     engine
@@ -1732,6 +1731,146 @@ fn mystic_remora_taxes_an_opponents_noncreature_spell_and_draws_when_they_declin
         hand_before_elf,
         "\"a noncreature spell\": an Elf cast across the table asks for no tax \
          and hands out no card"
+    );
+}
+
+/// Walks to the next cumulative-upkeep question put to `seat` and returns
+/// the mana it asks for.
+fn remora_upkeep_question(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> u16 {
+    pass_until(engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayTax { mana },
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(
+        player, seat,
+        "the upkeep cost is asked of the Remora's controller"
+    );
+    assert_eq!(
+        engine.state().turn.step,
+        crate::turn::Step::Upkeep,
+        "at the beginning of the upkeep"
+    );
+    mana
+}
+
+fn age_counters(engine: &Engine<RegistryLookup>, id: ObjectId) -> u16 {
+    engine
+        .state()
+        .object(id)
+        .map_or(0, |o| o.counters.get(baylee_cards_dsl::counters::AGE))
+}
+
+/// Mystic Remora's cumulative upkeep {1} (CR 702.24a): "At the beginning of
+/// your upkeep, … put an age counter on this permanent. Then you may pay
+/// [cost] for each age counter on it. If you don't, sacrifice it."
+///
+/// The first upkeep asks {1} for one counter, and p0 pays it with an Island
+/// through the payment window; the Remora stays. The next asks {2} for two,
+/// and declined, the Remora is sacrificed.
+#[test]
+fn mystic_remora_s_cumulative_upkeep_grows_and_is_sacrificed_when_unpaid() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(88, island())
+        .battlefield(0, &[mystic_remora(), island(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    let remora = on_battlefield(&engine, p0, mystic_remora()).expect("the Remora is seated");
+    let islands = all_on_battlefield(&engine, p0, island());
+
+    let mana = remora_upkeep_question(&mut engine, p0);
+    assert_eq!(
+        age_counters(&engine, remora),
+        1,
+        "one age counter went on first"
+    );
+    assert_eq!(mana, 1, "{{1}} for each age counter: one");
+    engine
+        .apply(p0, PlayerAction::YesNo(true))
+        .expect("paying is one of the two answers");
+    tap_mana_where(&mut engine, p0, |id| id == islands[0]);
+    if engine.payment_window().is_some() {
+        engine
+            .apply(p0, PlayerAction::PassPriority)
+            .expect("the window closes on a pool that covers the cost");
+    }
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&remora),
+        "paid, the Remora stays"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and the Island's {{U}} went into the payment"
+    );
+
+    let mana = remora_upkeep_question(&mut engine, p0);
+    assert_eq!(age_counters(&engine, remora), 2, "a second age counter");
+    assert_eq!(mana, 2, "and the cost is {{1}} for each of the two");
+    engine
+        .apply(p0, PlayerAction::YesNo(false))
+        .expect("declining is the other answer");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, mystic_remora()).is_some(),
+        "unpaid, the Remora is sacrificed"
+    );
+}
+
+/// "…unless **that player** pays {4}" is the player who cast the spell. At a
+/// table of three, the seat after the Remora's controller casts nothing and
+/// the one after it casts Dark Ritual: the tax is asked of the caster, not of
+/// whichever opponent comes first.
+#[test]
+fn mystic_remora_taxes_the_player_who_cast_the_spell_at_a_table_of_three() {
+    let (p0, p2) = (PlayerId::new(0), PlayerId::new(2));
+    let mut engine = Duel::table(89, island(), 3)
+        .battlefield(0, &[island()])
+        .hand(0, &[mystic_remora()])
+        .battlefield(2, &[swamp()])
+        .hand(2, &[dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches a main phase");
+    cast_from_hand(&mut engine, p0, mystic_remora());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(on_battlefield(&engine, p0, mystic_remora()).is_some());
+
+    reach_their_main_phase(&mut engine, p2);
+    cast_from_hand(&mut engine, p2, dark_ritual());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(prompt, YesNoPrompt::PayTax { mana: 4 });
+    assert_eq!(
+        player, p2,
+        "the tax is asked of the player who cast the Ritual, not of p1"
     );
 }
 
@@ -2641,51 +2780,116 @@ fn temur_ascendancy_gives_a_freshly_cast_creature_haste() {
     );
 }
 
-/// `Druid Class` (`Coverage::Partial`):
-/// "Landfall — Whenever a land you control enters, you gain 1 life.
-/// `{{2}}{{G}}`: Level 2. You may play an additional land on each of your turns.
-/// `{{4}}{{G}}`: Level 3. When this Class becomes level 3, target land you control becomes
-/// a creature with haste and 'This creature's power and toughness are each equal to the
-/// number of lands you control.' It's still a land."
+/// `Druid Class`: "Landfall — Whenever a land you control enters, you gain 1
+/// life. `{{2}}{{G}}`: Level 2. You may play an additional land on each of
+/// your turns. `{{4}}{{G}}`: Level 3. When this Class becomes level 3, target
+/// land you control becomes a creature with haste and 'This creature's power
+/// and toughness are each equal to the number of lands you control.' It's
+/// still a land."
 ///
-/// Under `Coverage::Partial`, the level 2 extra land drop and level 3 animation trigger are
-/// omitted, while the Landfall trigger and both level-up activated abilities are implemented.
-/// The test verifies that playing a land triggers Landfall to gain 1 life, and that activating
-/// level 2 with `{{2}}{{G}}` puts a level counter on `Druid Class`.
+/// Played end to end: a land gains 1 life; at level 1 a second land is not
+/// offered; at level 2 it is. Gaining level 3 finishes before its trigger
+/// asks for a target — the Class holds two level counters while the
+/// question is open, so a target lost in response could not take the level
+/// with it. The chosen Forest is a land creature with haste, 10/10 with
+/// ten lands, and 11/11 once the next turn's land arrives.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
 #[test]
-fn druid_class_triggers_landfall_and_levels_to_level_two() {
+fn druid_class_gains_a_land_drop_at_level_two_and_animates_a_land_at_level_three() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(102, forest())
-        .battlefield(0, &[druid_class(), forest(), forest(), forest()])
-        .hand(0, &[forest()])
+        .battlefield(
+            0,
+            &[
+                druid_class(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .hand(0, &[forest(), forest(), forest()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    let lands_offered = |engine: &Engine<RegistryLookup>| {
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        legal.lands.len()
+    };
 
     assert_eq!(engine.state().players[0].life, 20, "starts at 20 life");
     let class = on_battlefield(&engine, p0, druid_class()).expect("Druid Class on battlefield");
-    assert_eq!(
-        counters_on(&engine, class, CounterKind::Level),
-        0,
-        "starts at level 1 with 0 level counters"
-    );
-
     play_land(&mut engine, p0, forest());
     pass_until(&mut engine, stack_is_empty);
-    assert_eq!(
-        engine.state().players[0].life,
-        21,
-        "Landfall trigger gained 1 life"
-    );
+    assert_eq!(engine.state().players[0].life, 21, "Landfall gains 1 life");
+    assert_eq!(lands_offered(&engine), 0, "level 1: one land a turn");
 
     tap_mana_except(&mut engine, p0, class);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 9);
+    // Ability 1 is `{{2}}{{G}}: Level 2`.
     activate(&mut engine, p0, druid_class(), 1);
     pass_until(&mut engine, stack_is_empty);
-
     assert_eq!(
         counters_on(&engine, class, CounterKind::Level),
         1,
-        "one level counter, so Druid Class is level 2"
+        "level 2"
+    );
+    assert!(
+        lands_offered(&engine) > 0,
+        "level 2: \"you may play an additional land\""
+    );
+    let second = play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 22, "and Landfall again");
+
+    // Ability 3 is `{{4}}{{G}}: Level 3`.
+    activate(&mut engine, p0, druid_class(), 3);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    assert_eq!(
+        counters_on(&engine, class, CounterKind::Level),
+        2,
+        "the Class is level 3 before its trigger asks for a target"
+    );
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        unreachable!()
+    };
+    assert!(options.contains(&second), "a land you control: {options:?}");
+    assert!(!options.contains(&class), "and only a land");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![second],
+                players: vec![],
+            },
+        )
+        .expect("the Forest was offered");
+    pass_until(&mut engine, stack_is_empty);
+
+    let now = types(&engine, second);
+    assert!(
+        now.contains(TypeSet::CREATURE) && now.contains(TypeSet::LAND),
+        "a creature, and still a land: {now:?}"
+    );
+    assert!(keywords(&engine, second).contains(KeywordSet::HASTE));
+    assert_eq!(pt(&engine, second), (10, 10), "ten lands you control");
+
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert!(walk_to_own_main(&mut engine, p0), "p0's next turn comes");
+    play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, second),
+        (11, 11),
+        "the count is read as it changes, and the effect outlasts the turn"
     );
 }
 
@@ -15314,6 +15518,39 @@ fn living_lands_turns_every_forest_into_a_one_one_creature_that_is_still_a_land(
     assert!(
         island_kinds.contains(TypeSet::LAND) && !island_kinds.contains(TypeSet::CREATURE),
         "an Island is a land and no Forest, so it stays a plain land: {island_kinds:?}"
+    );
+}
+
+/// CR 603.10a: a dies trigger looks back at the object as it last existed on
+/// the battlefield. A Forest that Living Lands made a 1/1 creature dies as a
+/// creature, so Moonlit Wake's "whenever a creature dies" pays for it, even
+/// though the card in the graveyard is a Forest and no creature. The Plains
+/// beside it was never a creature and pays nothing. Read off the card in the
+/// graveyard, the Forest paid nothing either.
+#[test]
+fn a_land_that_died_as_a_creature_is_a_creature_dying() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[moonlit_wake(), living_lands(), forest(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let forest_id = on_battlefield(&engine, p0, forest()).expect("the Forest");
+    let plains_id = on_battlefield(&engine, p0, plains()).expect("the Plains");
+    assert!(types(&engine, forest_id).contains(TypeSet::CREATURE));
+    let life = engine.state().players[0].life;
+
+    kill(&mut engine, plains_id);
+    assert_eq!(
+        engine.state().players[0].life,
+        life,
+        "a land dying is no creature dying"
+    );
+    kill(&mut engine, forest_id);
+    assert_eq!(
+        engine.state().players[0].life,
+        life + 1,
+        "the Forest was a creature as it died"
     );
 }
 

@@ -253,6 +253,7 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
     const READ: &[&str] = &[
         "spec: EventObject",
         "GraveyardToBattlefield { target: EventObject",
+        "PutOnBottomOfLibraryFromGraveyard { target: EventObject",
         // Pyrogoyf's "that creature deals damage equal to its power": the
         // variant names the event object itself and `resolve::life` reads
         // `res.event_object`; its `target` is the damage's recipient.

@@ -136,6 +136,7 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
         | Modifier::LoseAllAbilities => &[Field::Keywords],
         Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
+        | Modifier::SetPTToCount(_)
         | Modifier::SwitchPT
         | Modifier::CharacteristicPT { .. }
         | Modifier::ModifyPTPerCount { .. } => PT,

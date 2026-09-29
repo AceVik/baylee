@@ -280,6 +280,7 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
         // copy made "except it has …" would lose it here, and nothing in the
         // pool is one.
         baylee_cards_dsl::CopyMod::AddCounter(_, _)
+        | baylee_cards_dsl::CopyMod::AddCounterX(_)
         | baylee_cards_dsl::CopyMod::KeepOtherAbilities
         | baylee_cards_dsl::CopyMod::Grant(_) => {}
     }

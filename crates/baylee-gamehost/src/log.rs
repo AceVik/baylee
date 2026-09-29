@@ -363,6 +363,7 @@ impl GameLog {
     ) {
         match event {
             GameEvent::BecameTarget { .. }
+            | GameEvent::PlayerBecameTarget { .. }
             | GameEvent::GameStarted { .. }
             | GameEvent::StepChanged { .. }
             | GameEvent::ManaProduced { .. }

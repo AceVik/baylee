@@ -4,10 +4,8 @@
 //! Oracle: Toxic 4 (Players dealt combat damage by this creature also get four poison counters.)
 //! Set: ONE #189 — Phyrexia: All Will Be One | Scryfall ID: 0fb52b44-da5f-4f7a-a6c2-7924b855e051 | Oracle ID: 6e42da0c-151e-468d-91cb-5a5b117a9298
 // IMPLEMENTED — trample and haste as keyword bits, ward {4} as its synthetic
-// trigger, and "can't be countered" as the uncounterable bit the counter
-// check reads.
-// NOT SUPPORTED: Toxic 4 — nothing puts poison counters on a player, and no
-// PlayerRel names the player the creature dealt combat damage to.
+// trigger, "can't be countered" as the uncounterable bit the counter check
+// reads, and toxic 4 as the ability the combat damage step reads.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -28,8 +26,9 @@ card!(
     keywords = KeywordSet::TRAMPLE
         .union(KeywordSet::HASTE)
         .union(KeywordSet::UNCOUNTERABLE),
-    coverage = Coverage::Partial(
-        "toxic 4 — no effect puts poison counters on the player dealt combat damage",
-    ),
-    abilities = &[AbilityDef::Ward { mana: 4 }],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        AbilityDef::Ward { mana: 4 },
+        AbilityDef::Toxic { poison: 4 }
+    ],
 );

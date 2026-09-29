@@ -1184,10 +1184,11 @@ fn taps_needed(view: &PlayerView, context: &DecisionContext<'_>, max: usize) -> 
 
 /// Whether a tax is worth paying, asked of what refusing it would do.
 ///
-/// `YesNoPrompt::PayTax` carries a price and not a consequence, and the two
+/// `YesNoPrompt::PayTax` carries a price and not a consequence, and the
 /// taxes in this pool are not the same decision. Ward (CR 702.21) reaches
 /// the **caster** and counters the spell already on the stack, so refusing
-/// it throws away a whole card to keep two mana. A Rhystic tax gives an
+/// it throws away a whole card to keep two mana; cumulative upkeep
+/// (CR 702.24a) sacrifices the seat's own permanent, the same trade. A Rhystic tax gives an
 /// opponent one card, and that one stays refused: a stateless policy cannot
 /// tell mana it has to spare from mana its own curve needs this turn, and a
 /// card is the cheaper of the two to give up. The resolving effect is what
@@ -1203,17 +1204,20 @@ pub(crate) fn pays_tax(
     mana: u16,
     context: &baylee_engine::engine::DecisionContext<'_>,
 ) -> bool {
-    let refusal_counters = context.effects.iter().any(|effect| match effect {
+    let refusal_costs_a_card = context.effects.iter().any(|effect| match effect {
         Effect::PlayerMayPayOr { effect, .. } => matches!(
             effect,
             Effect::CounterTargetSpell
                 | Effect::CounterTargetSpellToExile
                 | Effect::CounterTargetAbility
                 | Effect::CounterTargetSpellOrAbility
+                // Cumulative upkeep (CR 702.24a): unpaid, the permanent that
+                // asks is sacrificed, which is a card of the seat's own.
+                | Effect::SacrificeSelf
         ),
         _ => false,
     });
-    if !refusal_counters {
+    if !refusal_costs_a_card {
         return false;
     }
     can_pay(

@@ -76,6 +76,11 @@ pub const LANDMARK: CounterKind = CounterKind::Custom(8);
 /// Void counters (Dauthi Voidwalker).
 pub const VOID: CounterKind = CounterKind::Custom(9);
 
+/// Age counters — cumulative upkeep's (CR 702.24a; Mystic Remora). The rules
+/// name the counter and give it no rule of its own: the ability that puts it
+/// there counts it.
+pub const AGE: CounterKind = CounterKind::Custom(10);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -91,6 +96,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("dread", DREAD),
     ("landmark", LANDMARK),
     ("void", VOID),
+    ("age", AGE),
 ];
 
 #[cfg(test)]

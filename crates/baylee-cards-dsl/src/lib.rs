@@ -560,6 +560,12 @@ keywords! {
     // sentence implies the other.
     CANT_BLOCK = 34, "Can't block.";
     STORIED = 35, "Storied (CR 702.195).";
+    SPLIT_SECOND = 36, "Split second (CR 702.61).";
+    ASCEND = 37, "Ascend (CR 702.131).";
+    // Not a printed keyword: the mirror of `CANT_BLOCK`, for the same
+    // reason. A static that grants it while a condition holds is
+    // "can't attack unless …" (Wayward Swordtooth).
+    CANT_ATTACK = 38, "Can't attack.";
 }
 
 impl KeywordSet {

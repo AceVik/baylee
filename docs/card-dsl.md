@@ -543,6 +543,17 @@ has built.
   bits on `keywords`, and `trigger.rs` reads them the way it reads prowess.
   A card prints one of them by setting the bit and writing no ability —
   `keywords = KeywordSet::UNDYING` is the whole of Young Wolf
+- `AbilityDef::Toxic { poison }` — toxic N (CR 702.164), a static ability
+  with a number, so data like ward and not a bit. The engine reads it where
+  combat damage is dealt (`Engine::deal_combat_damage`): each journalled
+  combat `DamageDealt` to a player gives that player poison counters equal
+  to the source's total toxic value, summed over every `Toxic` it has
+  (CR 702.164b). Tyrranax Rex
+- `KeywordSet::SPLIT_SECOND` — split second (CR 702.61) is a bit and no
+  ability: while a spell whose projected keywords carry it is on the stack,
+  `Engine::compute_legal` offers no spell, no suspend and no activation but
+  mana abilities and turning a face-down permanent up (CR 702.61b, 116.2b).
+  Triggers still trigger. Krosan Grip
 - `AbilityDef::Suspend { counters }`
 
 #### Write them through the macros
@@ -665,11 +676,23 @@ reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
 `ControlDistinctNames(&filter, n)` counts names rather than permanents
 (Field of the Dead's "seven or more lands with different names"),
 `OpponentGraveyardCountAtLeast(n)` is Sheoldred's flip,
-`CountersOnSelf(kind, n)` and `CountersOnSelfExactly(kind, n)` read the
-permanent the ability is printed on, `SourceMatches(&filter)` points a
+`CountersOnSelf(kind, n)`, `CountersOnSelfExactly(kind, n)` and
+`CountersOnSelfBetween(kind, lo, hi)` read the permanent the ability is
+printed on, `SourceMatches(&filter)` points a
 filter back at that permanent — "if this land is tapped" — and
-`Any(&[..])` holds while **one** of the conditions it names does. One
-reader answers all of them, `eval::condition_holds`.
+`Any(&[..])` holds while **one** of the conditions it names does, and
+`Not(&c)` while `c` does not — the printed "unless". One reader answers
+all of them, `eval::condition_holds`.
+
+`CitysBlessing` is "you have the city's blessing" (CR 702.131). A permanent
+with ascend carries `KeywordSet::ASCEND`, and the engine gives its controller
+the blessing whenever they control ten or more permanents
+(`GameState::award_citys_blessings`, asked where enduring stories are).
+Wayward Swordtooth's "can't attack or block unless you have the city's
+blessing" is `static_ability!(Filter::This,
+Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)),
+condition = Some(Condition::Not(&Condition::CitysBlessing)))`: `CANT_ATTACK`
+is the mirror of `CANT_BLOCK`, read by `combat::can_attack`.
 
 There is no `All`, and that is not an omission. The printed sentence that
 needs a disjunction is real and prints as one — "activate only if this land
@@ -715,6 +738,14 @@ the effect exists only while it holds (the engine registers and removes it),
 and on a triggered ability it decides whether the ability triggers and is
 **not** asked again on resolution, because the ability on the stack no
 longer depends on its source (CR 113.7a).
+
+**A level symbol** is the same shape with a range. `{LEVEL N1-N2}` is
+`CountersOnSelfBetween(CounterKind::Level, n1, n2)` (CR 711.2a) and
+`{LEVEL N3+}` is `CountersOnSelf(CounterKind::Level, n3)` (CR 711.2b); each
+ability and the P/T box in the striation is its own
+`static_ability!(Filter::This, …, condition = Some(…))`, the P/T box as
+`Modifier::SetPT` ("base power and toughness"). Level up itself is the
+activated ability CR 702.87a spells out. Hexdrinker is the model.
 
 The vocabulary is the five sentences listed above and nothing else. A clause
 it cannot say yet is a `Coverage::Partial` with the reason written out, never
@@ -830,7 +861,16 @@ land under a Doubling Season enters with four charge counters.
 `EntersBattlefield(filter)`, `LeavesBattlefield(filter)`, `Dies(filter)`,
 `SpellCast(filter)`, `Draws(rel)`, `DrawsExceptFirst(rel)`,
 `FirstNoncreatureSpellCast(rel)`, `Attacks(filter)`, `BecomesTarget`,
-`EntersBattlefieldEvoked`, `StepBegin { step, whose }`.
+`EntersBattlefieldEvoked`, `StepBegin { step, whose }`,
+`CountersReach { kind, n }`.
+
+`CountersReach { kind, n }` fires when the source's count of `kind` goes
+from below `n` to `n` or more, the window CR 714.2b writes out for a
+chapter. It is Druid Class's "When this Class becomes level 3" (`Level`,
+`n: 2`, because a Class's level is kept as level counters over level 1). A
+level-up payoff that **targets** is this trigger, never an effect riding on
+the level-up activation: a target removed in response would take the level
+with it (CR 608.2b).
 
 `Trigger::ETB` is `EntersBattlefield(&Filter::This)`, which 99 of the pool's
 110 enter-triggers are. It is a constant and not a macro because there is
@@ -1127,7 +1167,11 @@ is the source of its own damage, so deathtouch and protection apply; and it
 is not combat damage (CR 701.14d), so combat-only lifelink does not fire —
 noncombat lifelink (CR 702.15b) is not implemented yet and no card in the
 pool that fights has it.
-Removal: `Destroy`, `DestroyAll`, `Regenerate`, `Exile`, `CounterTargetSpell`,
+Removal: `Destroy`, `DestroyAll`, `DestroyOthersNamedLike { target }`
+(Maelstrom Pulse's "and all other permanents with the same name as that
+permanent": it reads the target's name as it resolves, so it is written
+*before* the `Destroy` that moves the target; a nameless target sweeps
+nothing, CR 201.2a), `Regenerate`, `Exile`, `CounterTargetSpell`,
 `CounterTargetAbility`, `CounterTargetSpellOrAbility`,
 `TargetSourceLosesAbilities` (Tishana's Tidebinder: it reaches the permanent
 whose ability an *earlier* `CounterTargetAbility` in the same effect list
@@ -1208,6 +1252,17 @@ a `PayLife(2)` there
 would put up an empty menu and decline itself on every board, which
 `vocabulary_tests::every_price_paid_by_naming_an_object_puts_a_menu_up`
 refuses over the compiled pool.
+"That player" in a cast trigger's tax is `PlayerRel::ControllerOfEvent`
+— the one who cast the spell. `PlayerRel::Opponent` is the first living
+opponent, which is the same seat heads-up and the wrong one at a table of
+three (Mystic Remora).
+Cumulative upkeep (CR 702.24a) is no keyword of its own but the triggered
+ability it means: `Trigger::StepBegin { Upkeep, You }` with the printed
+intervening `if` as `Condition::SourceMatches(&Filter::InZone(
+ZoneRef::Battlefield))`, an `AddCounter` of `counters::AGE`, then
+`PlayerMayPayOr { player: You, mana: Amount::CountersOnSource(counters::AGE),
+effect: &Effect::SacrificeSelf }`. `Amount::CountersOnSource(kind)` reads
+the source's counters as it resolves, after the counter above went on.
 Also `AddCounter`, `AddCounterFilter`,
 `DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`,
 `DelayedManaAtNextFirstMain` (Mana Drain), `SacrificeSelf`,
@@ -1273,7 +1328,24 @@ Modal/sequence: `Sequence(&[..])`.
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
-`DrawLimitPerTurn`.
+`DrawLimitPerTurn`, `CantBeTargetedBy`, `SetPTToCount`.
+
+`SetPTToCount(count)` is "this creature's power and toughness are each equal
+to [count]" **granted** by an effect (Druid Class's animated land), with
+`count` a `PtCount` and "you" in it the affected object's controller. CR
+604.3a makes only a printed (or token-creating, or copied) ability
+characteristic-defining, so the granted sentence sets power and toughness in
+layer 7b; the printed one is `CharacteristicPT` in 7a (Ashaya, Soul of the
+Wild). Write a printed `*/*` with `CharacteristicPT`, never as
+`ModifyPTPerCount` over a 0/0 body: that is layer 7c and survives a 7b
+"becomes 1/1" it should lose to.
+
+`CantBeTargetedBy(&filter)` is "[this] can't be the target of [spells] or
+abilities from [sources]" — protection's targeting half alone (CR 702.16b),
+read at `eval::target_options` beside it. The filter is asked of the spell
+or of the ability's source, with the static's controller as "you", so
+Thrun, Breaker of Silence's "nongreen spells your opponents control or
+abilities from nongreen sources your opponents control" is one filter.
 
 `BecomeType` is "becomes a [subtype] [type]" with nothing retained (CR
 205.1a): the card types and subtypes are replaced, supertypes stay, so
@@ -1299,8 +1371,8 @@ damage itself is still dealt. `GameState::can_pay_life` refuses a payment
 before it is made (CR 119.8), which also caps a pay-X-life cost at X = 0.
 Either `who` may only name a relation the game state can answer on its own
 (`lints::a_continuous_player_relation_is_one_the_state_can_answer`):
-`Chosen` and `ControllerOfTarget` need a resolution, and a continuous
-effect has none.
+`Chosen`, `ControllerOfTarget` and `ControllerOfEvent` need a
+resolution, and a continuous effect has none.
 
 What makes it a variant rather than a replacement effect is the second
 sentence of CR 121.2b: the limit "applies to individual card draws", so an

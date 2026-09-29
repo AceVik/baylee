@@ -798,6 +798,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         // that did not just change a characteristic.
         state.refresh_characteristics();
         state.award_enduring_stories();
+        state.award_citys_blessings();
         if let Some(pending) = exec(state, res, op) {
             crate::replacement::expire_graveyard_rules(state);
             return Flow::Wait(pending);
@@ -1371,7 +1372,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 obj.targets.clear();
                 obj.targets.extend(chosen.iter().copied());
             }
-            retarget::record_new_targets(state, copy, &[]);
+            retarget::record_new_targets(state, copy, &[], &[]);
         }
         AwaitingOp::NewTargets(_) => {
             unreachable!("a change of targets resumes via resume_targets")
@@ -2062,6 +2063,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ReturnToHand { .. }
         | Effect::ReturnAllToHand { .. }
         | Effect::DestroyAll { .. }
+        | Effect::DestroyOthersNamedLike { .. }
         | Effect::ExileGraveyard { .. }
         | Effect::GraveyardToHand { .. }
         | Effect::GraveyardAllToHand { .. }
@@ -2074,6 +2076,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ExileLinked { .. }
         | Effect::SacrificeSelf
         | Effect::PutTargetOnBottomOfLibrary
+        | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
         | Effect::ExileSource
         | Effect::ExileAndReturnAtEndStep
         | Effect::ExileLibraryAndShuffleHand { .. }
@@ -2100,6 +2103,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::DelayedManaAtNextFirstMain { .. } => mana::exec(state, res, op),
         Effect::AddCounter { .. }
         | Effect::AddCounterFilter { .. }
+        | Effect::DoubleCountersFilter { .. }
         | Effect::DrainAllCountersIntoSelf
         | Effect::SetPTFilter { .. }
         | Effect::PumpFilter { .. }
@@ -2637,7 +2641,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         });
                     }
                 }
-                retarget::record_new_targets(state, id, &[]);
+                retarget::record_new_targets(state, id, &[], &[]);
             }
             None
         }

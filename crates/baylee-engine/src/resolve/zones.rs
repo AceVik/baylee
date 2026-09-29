@@ -264,6 +264,32 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        // Maelstrom Pulse's sweep. The name is read now, off the projected
+        // characteristics of the permanent still on the battlefield — the
+        // card effect destroying it comes after this one — and a nameless
+        // one names nothing (CR 201.2a). Phased-out permanents are treated as
+        // though they don't exist (CR 702.26b), which `battlefield_seen` is.
+        Effect::DestroyOthersNamedLike { target } => {
+            let named = spec_object(res, target)?;
+            let name = state
+                .object(named)
+                .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                .map(|o| o.characteristics().name)
+                .filter(|n| *n != crate::state::NAMELESS)?;
+            let others: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|&id| {
+                    id != named
+                        && state.object(id).is_some_and(|o| {
+                            o.kind == ObjectKind::Permanent && o.characteristics().name == name
+                        })
+                })
+                .collect();
+            for id in others {
+                sba::destroy(state, id);
+            }
+            None
+        }
         Effect::ExileGraveyard { player } => {
             // Bojuka Bog says "target player's graveyard" — `Chosen`, which
             // `eval::players` answers with nothing at all. It shipped as a
@@ -542,6 +568,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     obj.kind = ObjectKind::Card;
                 }
                 let _ = state.move_object(target, to, ZonePosition::Bottom, Cause::Effect);
+            }
+            None
+        }
+        Effect::PutOnBottomOfLibraryFromGraveyard { target } => {
+            // CR 400.7, as `GraveyardToBattlefield` asks it: a card that left
+            // the graveyard in response is a new object, and "it" is gone.
+            let moves: Vec<(ObjectId, ZoneLocation)> = spec_objects(res, target)
+                .into_iter()
+                .filter_map(|card| {
+                    let obj = state.object(card)?;
+                    (obj.zone == crate::zone::Zone::Graveyard)
+                        .then_some((card, ZoneLocation::Library(obj.owner)))
+                })
+                .collect();
+            // CR 903.9b: a commander's owner may put it in the command zone.
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            for (card, to) in moves {
+                let _ = state.move_object(card, to, ZonePosition::Bottom, Cause::Effect);
             }
             None
         }

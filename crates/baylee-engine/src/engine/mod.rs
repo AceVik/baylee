@@ -1003,6 +1003,7 @@ impl<L: CardLookup> Engine<L> {
 }
 
 mod abilities;
+mod ascend;
 mod decision;
 pub(crate) mod disguise;
 mod storied;

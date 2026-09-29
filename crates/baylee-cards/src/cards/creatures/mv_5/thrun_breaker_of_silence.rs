@@ -4,17 +4,18 @@
 //! Oracle: Thrun can't be the target of nongreen spells your opponents control or abilities from nongreen sources your opponents control.
 //! Oracle: During your turn, Thrun has indestructible.
 //! Set: ONE #186 — Phyrexia: All Will Be One | Scryfall ID: 6d9f51dd-0393-4b3c-bea5-8f74634ab0e5 | Oracle ID: 789b7af5-ac15-40b6-b5b7-f3fcdcfb52e1
-// PARTIAL — uncounterable, trample and indestructible during its controller's
-// turn are implemented. The nongreen targeting restriction remains below.
+// IMPLEMENTED — uncounterable, trample, the nongreen targeting restriction
+// and indestructible during its controller's turn.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-// NOT SUPPORTED: "Thrun can't be the target of nongreen spells your opponents
-// control or abilities from nongreen sources your opponents control." — no
-// Modifier narrows targeting. `hexproof` is wider (it stops every colour) and
-// `ProtectionFrom` is a different sentence: it also prevents damage and
-// blocking, which this card does not print.
+/// "nongreen spells your opponents control or abilities from nongreen
+/// sources your opponents control": the filter is asked of the spell or of
+/// the ability's source, so one filter says both halves.
+static NONGREEN_OPPONENTS: Filter = f!(opponents Filter::Not(&Filter::HasColor(
+    ColorSet::from_slice(&[Color::Green])
+)));
 
 card!(
     index = index::THRUN_BREAKER_OF_SILENCE,
@@ -32,13 +33,16 @@ card!(
         toughness = Some(5),
     ),],
     keywords = KeywordSet::UNCOUNTERABLE.union(KeywordSet::TRAMPLE),
-    abilities = &[static_ability!(
-        Filter::This,
-        Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE),
-        condition = Some(Condition::YourTurn)
-    )],
-    coverage = Coverage::Partial(
-        "can't be the target of nongreen spells and abilities from nongreen \
-         sources is not expressible"
-    ),
+    abilities = &[
+        static_ability!(
+            Filter::This,
+            Modifier::CantBeTargetedBy(&NONGREEN_OPPONENTS)
+        ),
+        static_ability!(
+            Filter::This,
+            Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE),
+            condition = Some(Condition::YourTurn)
+        ),
+    ],
+    coverage = Coverage::Implemented,
 );

@@ -366,6 +366,7 @@ pub fn amount(
 /// upkeep, which is where this clause is commonest — the sweep is the next
 /// thing that runs and the two are the same moment.
 #[must_use]
+#[allow(clippy::too_many_lines)] // one arm per `Condition`: the match is the list
 pub fn condition_holds(
     state: &GameState,
     you: PlayerId,
@@ -470,10 +471,17 @@ pub fn condition_holds(
         Condition::CountersOnSelfExactly(kind, n) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) == u16::from(n)),
+        Condition::CountersOnSelfBetween(kind, min, max) => state
+            .object(source)
+            .is_some_and(|o| (u16::from(min)..=u16::from(max)).contains(&o.counters.get(kind))),
         Condition::EnduringStory => state
             .players
             .get(usize::from(you.get()))
             .is_some_and(|p| p.enduring_story),
+        Condition::CitysBlessing => state
+            .players
+            .get(usize::from(you.get()))
+            .is_some_and(|p| p.citys_blessing),
         Condition::Station(min) => state.object(source).is_some_and(|o| {
             o.counters.get(baylee_cards_dsl::CounterKind::Charge) >= u16::from(min)
         }),
@@ -485,6 +493,7 @@ pub fn condition_holds(
         Condition::Any(parts) => parts
             .iter()
             .any(|part| condition_holds(state, you, source, *part)),
+        Condition::Not(part) => !condition_holds(state, you, source, *part),
         Condition::SourceMatches(filter) => state
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),
@@ -517,6 +526,26 @@ pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> 
     };
     state.effects.iter().any(|fx| {
         let baylee_cards_dsl::Modifier::ProtectionFrom(f) = fx.modifier else {
+            return false;
+        };
+        crate::effects::applies_to(state, fx, obj)
+            && matches(f, state, src, fx.controller, fx.source.unwrap_or(source))
+    })
+}
+
+/// Does a static ability on `object` say it can't be the target of `source`
+/// ([`baylee_cards_dsl::Modifier::CantBeTargetedBy`], Thrun, Breaker of
+/// Silence)? `source` is the spell, or the source of the ability, doing the
+/// targeting, and the filter is asked of it with the effect's controller as
+/// "you" — the same reading [`protected_from`] gives protection, whose
+/// targeting half this is.
+#[must_use]
+pub fn untargetable_by_source(state: &GameState, object: ObjectId, source: ObjectId) -> bool {
+    let (Some(obj), Some(src)) = (state.object(object), state.object(source)) else {
+        return false;
+    };
+    state.effects.iter().any(|fx| {
+        let baylee_cards_dsl::Modifier::CantBeTargetedBy(f) = fx.modifier else {
             return false;
         };
         crate::effects::applies_to(state, fx, obj)
@@ -766,11 +795,16 @@ pub fn target_options(
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent => vec![],
     };
-    // Protection (CR 702.16b) keeps out matching sources; hexproof and
-    // shroud (CR 702.11b/702.18b) keep out whole classes of chooser.
+    // Protection (CR 702.16b) keeps out matching sources, and so does a
+    // printed "can't be the target of" sentence; hexproof and shroud
+    // (CR 702.11b/702.18b) keep out whole classes of chooser.
     options
         .into_iter()
-        .filter(|id| !protected_from(state, *id, this) && !untargetable_by(state, *id, you))
+        .filter(|id| {
+            !protected_from(state, *id, this)
+                && !untargetable_by_source(state, *id, this)
+                && !untargetable_by(state, *id, you)
+        })
         .collect()
 }
 
@@ -1537,6 +1571,31 @@ mod tests {
             source,
             Condition::CountersOnSelfExactly(kind, 2)
         ));
+    }
+
+    /// A leveler's `{LEVEL N1-N2}` band (CR 711.2a) is closed at both ends:
+    /// Hexdrinker's "LEVEL 3-7" holds at three and at seven and at neither
+    /// two nor eight.
+    #[test]
+    fn a_level_band_holds_at_both_ends_and_not_beyond_them() {
+        let mut state = empty_state();
+        let source = creature(&mut state, P0, KeywordSet::EMPTY);
+        let kind = baylee_cards_dsl::CounterKind::Level;
+        let band = Condition::CountersOnSelfBetween(kind, 3, 7);
+        let mut held = Vec::new();
+        for _ in 0..9 {
+            held.push(condition_holds(&state, P0, source, band));
+            state
+                .object_mut(source)
+                .expect("just made it")
+                .counters
+                .add(kind, 1);
+        }
+        assert_eq!(
+            held,
+            [false, false, false, true, true, true, true, true, false],
+            "levels 0 to 8"
+        );
     }
 
     /// CR 113.7a: an ability is a separate object from its source the
