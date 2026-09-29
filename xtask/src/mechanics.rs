@@ -57,6 +57,11 @@ const KEYWORDS: &str = "KeywordSet";
 /// The types a card definition starts from.
 const ROOTS: [&str; 2] = ["CardDef", "TokenDef"];
 
+/// Types a card holds whose value its other keys decide: a static
+/// ability's layer is its modifier's (`Modifier::layer`), so the modifier is
+/// the mechanic and the layer is structure.
+const DERIVED: [&str; 1] = ["Layer"];
+
 /// Keys `cardwalk` reads under a name of its own, and the field that is.
 const WALK_ROOTS: [(&str, &str); 1] = [("face_abilities", "abilities")];
 
@@ -280,6 +285,9 @@ impl Dsl {
             .filter(|t| self.is_variant(t, variant))
             .map(|t| (t.clone(), variant.to_owned()))
             .collect();
+        if by_field.iter().any(|m| DERIVED.contains(&m.0.as_str())) {
+            return Resolved::Structure;
+        }
         if !by_field.is_empty() {
             return Resolved::Mechanics(by_field);
         }
