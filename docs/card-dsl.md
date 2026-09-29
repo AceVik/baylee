@@ -1221,7 +1221,10 @@ take as many as match (The World Tree's Gods, in an optional search),
 filter, mana_value, optional }` (Aether Vial, with `Amount::CountersOnSource`
 as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
 `GraveyardToTop`,
-`GraveyardToHand`, `GraveyardToBattlefield`, `ExileGraveyard`, `Blink`,
+`GraveyardToHand`, `GraveyardToBattlefield`, `YourGraveyardToBattlefield {
+filter, tapped }` (every matching card in your graveyard, untargeted: World
+Shaper's and Lumra's "return all land cards from your graveyard to the
+battlefield tapped"), `ExileGraveyard`, `Blink`,
 `ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
 `PutSourceOnTopOfLibrary`, `ExileAndReturnAtEndStep` (Venser +2, Eerie
 Interlude), `BottomCardFromHand`, `WishToHand` (Karn's −2: a card you own

@@ -1101,6 +1101,17 @@ pub enum Effect {
     /// Put all creature cards from all graveyards onto the battlefield
     /// under your control (The True Scriptures III).
     AllGraveyardCreaturesToBattlefield,
+    /// Put every card matching `filter` in your graveyard onto the
+    /// battlefield, tapped when `tapped`: World Shaper's "return all land
+    /// cards from your graveyard to the battlefield tapped", which Lumra,
+    /// Bellow of the Woods prints too. Nothing is targeted or chosen; the
+    /// cards are the ones there as the effect resolves.
+    YourGraveyardToBattlefield {
+        /// Which cards.
+        filter: &'static Filter,
+        /// Whether they enter tapped.
+        tapped: bool,
+    },
     /// "Transform this creature" (CR 701.27a): the source turns over to its
     /// other face where it stands. Only a permanent represented by a
     /// transforming double-faced card does (CR 701.27c) — a token copy or a
@@ -2398,6 +2409,7 @@ impl Effect {
             | Effect::DiscardRandom { .. }
             | Effect::RevealHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
+            | Effect::YourGraveyardToBattlefield { .. }
             | Effect::TransformSource
             | Effect::TransformSourceAtNextUpkeep
             | Effect::ExileSelfReturnAsFace { .. }
