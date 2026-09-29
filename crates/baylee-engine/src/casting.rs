@@ -911,9 +911,16 @@ pub(crate) fn can_cast_form(
     let obj = state.object(card).ok_or(CastError::NotInHand)?;
     let in_hand = obj.zone == Zone::Hand && obj.zone_owner == Some(player);
     let in_own_graveyard = obj.zone == Zone::Graveyard && obj.zone_owner == Some(player);
-    // Flashback (CR 702.34): a granted card may be cast from its owner's
-    // graveyard.
-    let flashback_ok = !in_hand && in_own_graveyard && flashback_granted(state, card);
+    // Flashback (CR 702.34a): a card may be cast from its owner's graveyard
+    // when a grant or its own printed flashback says so. The printed one
+    // has its own price, probed below.
+    let printed_flashback = obj
+        .card
+        .and_then(|c| lookup.card(c.index))
+        .and_then(|def| def.faces[0].flashback);
+    let flashback_ok = !in_hand
+        && in_own_graveyard
+        && (printed_flashback.is_some() || flashback_granted(state, card));
     // Disturb (CR 702.146): a face with disturb is castable from the
     // owner's graveyard.
     let disturb_ok = !in_hand
@@ -1034,6 +1041,17 @@ pub(crate) fn can_cast_form(
             &cost.with_more_generic(tax).with_less_generic(reduction),
         )
     };
+    // A printed flashback is paid "rather than its mana cost" (CR 702.34a),
+    // so from the graveyard its cost is the price — or, beside a grant
+    // (Past in Flames), one of two, the grant's being the mana cost below.
+    if flashback_ok && let Some(cost) = printed_flashback {
+        if probe(&cost.with_x(0)) {
+            return Ok(());
+        }
+        if !flashback_granted(state, card) {
+            return Err(CastError::NotEnoughMana);
+        }
+    }
     if let Some(def) = printed
         && let Some(req) = def.faces[0].kicked_targets
     {

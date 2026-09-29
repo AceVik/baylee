@@ -379,6 +379,12 @@ express at all yet.
   spell is not castable while nothing can pay it, and the sacrificed
   permanent's mana value is written on the spell for
   `Amount::SacrificedManaValue`.
+- `FaceDef.flashback: Option<ManaCost>` — a printed "Flashback {…}" (CR
+  702.34a), mana only. From the owner's graveyard the cast is offered as
+  `CastModeKind::Flashback` at that price (beside a grant's `Normal` at the
+  mana cost, when there is one), and the spell is exiled afterwards.
+  `validate` holds it against the printing. What the cast paid is
+  `Amount::ManaSpentToCast` (Memory Deluge).
 - `cost!("{1}{G}", TapSelf, SacrificeSelf)` — a cost, read left to right the
   way the card prints it: the mana string first (omitted when there is none),
   then the parts. A part is named without its `CostPart::` prefix, which on a
@@ -1176,6 +1182,10 @@ counter, free }` chooses the card from any exile (Dauthi Voidwalker:
 `owner: Opponent, counter: Some(counters::VOID), free: true`);
 `LookAtTopKeepBottomPlay { count }` is Expressive Iteration's one to the
 hand, one to the bottom, the rest exiled and playable.
+`LookAtTopPick { count: Amount, pick, random }` is "look at the top X, put N
+into your hand and the rest on the bottom", in any order (the player
+arranges them) or, with `random: true`, "in a random order" (nobody is
+asked).
 Continuous: `CreateContinuousEffect` (any layer+filter+modifier+duration),
 `PumpFilter` (a filter, where `Filter::This` is the *source*, plus
 `controlled_by: Option<PlayerRel>` for a sentence that names a player rather

@@ -264,6 +264,11 @@ pub enum Amount {
     /// a spell's `Sacrifice` additional cost in the cast wizard, an
     /// activation's in `pay_cost`. Nothing sacrificed reads 0.
     SacrificedManaValue,
+    /// "The amount of mana spent to cast this spell" (Memory Deluge): what
+    /// the cast paid in mana (CR 601.2h), read off the stack object where
+    /// the payment wrote it, as [`Self::SacrificedManaValue`] is. A free
+    /// cast spent none; a flashback spent its flashback cost.
+    ManaSpentToCast,
     /// Number of objects matching a filter in a zone.
     CountOf {
         /// What to count.
@@ -737,13 +742,17 @@ pub enum Effect {
         target: TargetSpec,
     },
     /// Look at the top `count` cards of your library; put `pick` of them
-    /// into your hand and the rest on the bottom in any order (Dig
-    /// Through Time).
+    /// into your hand and the rest on the bottom — in any order (Dig
+    /// Through Time), or in a random order when `random` (Memory Deluge,
+    /// Consult the Star Charts). `count` is read as the effect begins.
     LookAtTopPick {
         /// How many to look at.
-        count: u8,
+        count: Amount,
         /// How many to keep.
         pick: u8,
+        /// "In a random order": the rest are shuffled onto the bottom and
+        /// nobody is asked.
+        random: bool,
     },
     /// Look at the top `count` cards of your library; put one of them into
     /// your hand, one on the bottom of your library, and exile the rest —
@@ -2461,7 +2470,7 @@ mod amount_and_target_tests {
     /// a sign as a bug on its own: the card resolves, the creature changes
     /// size, and only the direction is wrong.
     ///
-    /// All fourteen variants are named. That is a population rather than a
+    /// All fifteen variants are named. That is a population rather than a
     /// guard — the exhaustive `match` is what a new variant has to answer —
     /// but the answers themselves are what no compiler can check.
     #[test]
@@ -2480,6 +2489,7 @@ mod amount_and_target_tests {
             Amount::CountersOnSource(CounterKind::Charge),
             Amount::TargetCmc,
             Amount::SacrificedManaValue,
+            Amount::ManaSpentToCast,
             Amount::CountOf {
                 filter: &Filter::CREATURE,
                 zone: ZoneSel::Battlefield,
@@ -2491,8 +2501,8 @@ mod amount_and_target_tests {
         ];
         assert_eq!(
             downwards.len() + upwards.len(),
-            15,
-            "fifteen values over fourteen variants — `Negated` is in both \
+            16,
+            "sixteen values over fifteen variants — `Negated` is in both \
              lists, which is the parity rule being read from both sides"
         );
         for a in downwards {

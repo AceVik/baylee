@@ -441,6 +441,35 @@ impl<L: CardLookup> Engine<L> {
             }
             return Ok(options);
         }
+        // Printed flashback (CR 702.34a) from the graveyard: its own cost,
+        // "rather than paying its mana cost" — and beside it, where a grant
+        // also reaches the card (Past in Flames), the grant's mana cost as
+        // `Normal`. Nothing else is cast from a graveyard: one alternative
+        // cost at a time (CR 118.9a).
+        let in_graveyard = self
+            .state
+            .object(card)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard);
+        if in_graveyard && let Some(flashback) = face.flashback {
+            if casting::flashback_granted(&self.state, card) && afford(&face.mana_cost.with_x(0)) {
+                options.push(CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::Normal,
+                    cost: face.mana_cost.with_more_generic(tax),
+                });
+            }
+            if afford(&flashback.with_x(0)) {
+                options.push(CastModeDesc {
+                    index: options.len() as u8,
+                    kind: CastModeKind::Flashback,
+                    cost: flashback.with_more_generic(tax),
+                });
+            }
+            if options.is_empty() {
+                return Err(EngineError::IllegalAction("no way to cast this spell"));
+            }
+            return Ok(options);
+        }
         // Conditional cost reduction printed on the card (Surgical
         // Metamorph & co.), through the same reader `can_cast` uses — this
         // was the second place the two probes disagreed, and in the other

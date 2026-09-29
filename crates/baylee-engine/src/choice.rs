@@ -280,6 +280,10 @@ pub enum CastModeKind {
     Disguise,
     /// Miracle cast (CR 702.94).
     Miracle,
+    /// Cast from the graveyard for the card's printed flashback cost
+    /// (CR 702.34a). A *granted* flashback is paid with the mana cost and is
+    /// offered as [`Self::Normal`].
+    Flashback,
 }
 
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).

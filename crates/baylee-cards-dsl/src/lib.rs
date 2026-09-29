@@ -278,6 +278,11 @@ pub struct FaceDef {
     /// Miracle cost: when revealed as the first card drawn this turn, the
     /// card may be cast for this cost (CR 702.94).
     pub miracle: Option<ManaCost>,
+    /// Flashback (CR 702.34a): this card may be cast from its owner's
+    /// graveyard for this cost rather than its mana cost, and is exiled
+    /// instead of going anywhere else afterwards. Mana only: a flashback
+    /// that costs something other than mana is not written here.
+    pub flashback: Option<ManaCost>,
     /// Delve (CR 702.66): each card exiled from your graveyard while
     /// casting pays for {1} — as many cards as the spell's total cost has
     /// generic mana, and no more (CR 702.66a).
@@ -337,6 +342,7 @@ impl FaceDef {
         color_indicator: ColorSet::EMPTY,
         castable_from_hand: true,
         miracle: None,
+        flashback: None,
         delve: false,
         convoke: false,
         waterbend: false,

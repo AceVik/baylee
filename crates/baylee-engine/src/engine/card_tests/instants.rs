@@ -19040,3 +19040,173 @@ fn clever_concealment_s_convoke_is_asked_for_its_generic_and_no_more_until_230()
         "the taps chosen are the taps spent"
     );
 }
+
+fn memory_deluge() -> CardIndex {
+    card_index("e6fd55f2-7e26-469c-a44a-ea2eb90e19a9")
+}
+
+fn consult_the_star_charts() -> CardIndex {
+    card_index("e921839f-9d91-41a9-bc89-016af3c757aa")
+}
+
+/// Answers a look-and-keep with the first `min` cards offered, after
+/// checking how many were looked at and how many are kept, and returns the
+/// cards that were not kept.
+#[track_caller]
+fn keep_first(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    looked: usize,
+    kept: u8,
+) -> Vec<ObjectId> {
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = pass_to_card_choice(engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, seat);
+    assert_eq!(prompt, ChoicePrompt::PutIntoHand);
+    assert_eq!(options.len(), looked, "how many were looked at");
+    assert_eq!((min, max), (kept, kept), "how many are kept");
+    let keep = options[..usize::from(kept)].to_vec();
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: keep.clone(),
+            },
+        )
+        .unwrap();
+    // "In a random order": nobody is asked to arrange the rest.
+    assert!(
+        !matches!(engine.pending(), Pending::Arrange { .. }),
+        "the rest are not the player's to order"
+    );
+    pass_until(engine, stack_is_empty);
+    for card in &keep {
+        assert!(
+            engine
+                .state()
+                .zones
+                .list(ZoneLocation::Hand(seat))
+                .contains(card)
+        );
+    }
+    options[usize::from(kept)..].to_vec()
+}
+
+/// "Look at the top X cards of your library, where X is the amount of mana
+/// spent to cast this spell. Put two of them into your hand and the rest on
+/// the bottom of your library in a random order." — four Islands spent,
+/// four cards looked at, two kept, two on the bottom.
+#[test]
+fn memory_deluge_looks_at_as_many_cards_as_mana_was_spent() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .hand(0, &[memory_deluge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, memory_deluge());
+    let rest = keep_first(&mut engine, p0, 4, 2);
+    let library = engine.state().zones.list(ZoneLocation::Library(p0));
+    let mut bottom = library[..2].to_vec();
+    bottom.sort_unstable();
+    let mut rest = rest;
+    rest.sort_unstable();
+    assert_eq!(bottom, rest, "the two not kept are the bottom two");
+    assert!(in_graveyard(&engine, p0, memory_deluge()).is_some());
+}
+
+/// "Flashback {5}{U}{U}": from the graveyard the Deluge costs seven, not its
+/// four — four floating is not enough — and seven spent looks at seven.
+/// Afterwards it is exiled (CR 702.34a).
+#[test]
+fn memory_deluge_flashes_back_for_seven_and_looks_at_seven() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(); 11])
+        .hand(0, &[memory_deluge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let islands = lands_of(&engine, p0);
+    let first: Vec<ObjectId> = islands[..4].to_vec();
+    tap_mana_where(&mut engine, p0, |id| first.contains(&id));
+    cast_with_floating(&mut engine, p0, memory_deluge());
+    keep_first(&mut engine, p0, 4, 2);
+    let deluge = in_graveyard(&engine, p0, memory_deluge()).expect("in the graveyard");
+
+    let second: Vec<ObjectId> = islands[4..8].to_vec();
+    tap_mana_where(&mut engine, p0, |id| second.contains(&id));
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&deluge),
+        "four floating pays the mana cost, which is not the flashback cost"
+    );
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(legal.castable.contains(&deluge), "seven floating pays it");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: deluge })
+        .unwrap();
+    keep_first(&mut engine, p0, 7, 2);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p0))
+            .contains(&deluge),
+        "a flashed-back spell is exiled"
+    );
+}
+
+/// "Look at the top X cards of your library, where X is the number of lands
+/// you control. Put one of those cards into your hand." — four lands, four
+/// cards, one kept, when the kicker is declined.
+#[test]
+fn consult_the_star_charts_unkicked_keeps_one_of_as_many_as_lands() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .hand(0, &[consult_the_star_charts()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, consult_the_star_charts());
+    assert!(matches!(
+        engine.pending(),
+        Pending::YesNo {
+            prompt: YesNoPrompt::Kicker,
+            ..
+        }
+    ));
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    keep_first(&mut engine, p0, 4, 1);
+}
+
+/// "If this spell was kicked, put two of those cards into your hand
+/// instead."
+#[test]
+fn consult_the_star_charts_kicked_keeps_two() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), island(), island(), island()])
+        .hand(0, &[consult_the_star_charts()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, consult_the_star_charts());
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    keep_first(&mut engine, p0, 5, 2);
+}

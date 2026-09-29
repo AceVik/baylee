@@ -351,6 +351,8 @@ pub enum AwaitingOp {
     DigRest {
         /// The looked-at cards not chosen.
         rest: Vec<ObjectId>,
+        /// "In a random order" rather than the player's.
+        random: bool,
     },
     /// After `LookAtTopKeepBottomPlay`'s first question: the chosen card
     /// goes to the hand, and the bottom card is asked of the rest.
@@ -625,6 +627,10 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .and_then(|o| o.paid.as_ref())
             .and_then(|p| p.sacrificed_mana_value)
             .unwrap_or(0),
+        Amount::ManaSpentToCast => state
+            .object(res.on_stack)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |p| p.mana_spent),
         // A wrapper around one of the above has to reach it through this
         // reader and not through `eval::amount`, which has no stack object.
         Amount::Plus { base, offset } => amount2(base, state, you, res).saturating_add(*offset),
@@ -1284,7 +1290,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 grant_play(state, res.controller, card, free);
             }
         }
-        AwaitingOp::DigRest { rest } => {
+        AwaitingOp::DigRest { rest, random } => {
             for &card in chosen {
                 let _ = state.move_object(
                     card,
@@ -1294,10 +1300,14 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
             // "The rest on the bottom in any order": the player chooses
-            // the order whenever there is one to choose.
-            let remaining: Vec<ObjectId> =
+            // the order whenever there is one to choose. "In a random
+            // order" asks nobody: the table's generator orders them.
+            let mut remaining: Vec<ObjectId> =
                 rest.into_iter().filter(|c| !chosen.contains(c)).collect();
-            if remaining.len() > 1 {
+            if random {
+                state.rng.shuffle(&mut remaining);
+            }
+            if remaining.len() > 1 && !random {
                 res.awaiting = Some(AwaitingOp::DigBottom);
                 let n = u32::try_from(remaining.len()).unwrap_or(u32::MAX);
                 return Flow::Wait(Pending::Arrange {
@@ -2370,7 +2380,12 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             });
             None
         }
-        Effect::LookAtTopPick { count, pick } => {
+        Effect::LookAtTopPick {
+            count,
+            pick,
+            random,
+        } => {
+            let count = amount2(&count, state, you, res);
             let top: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(you))
@@ -2382,13 +2397,19 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             if top.is_empty() {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::DigRest { rest: top.clone() });
+            // "Put two of them into your hand": as many as there are, when
+            // the library held fewer than were to be kept.
+            let pick = pick.min(u8::try_from(top.len()).unwrap_or(u8::MAX));
+            res.awaiting = Some(AwaitingOp::DigRest {
+                rest: top.clone(),
+                random,
+            });
             Some(Pending::ChooseCards {
                 player: you,
                 options: top,
                 min: pick,
                 max: pick,
-                prompt: ChoicePrompt::Generic,
+                prompt: ChoicePrompt::PutIntoHand,
             })
         }
         Effect::LookAtTopKeepBottomPlay { count } => {

@@ -1746,6 +1746,8 @@ messages! {
     CastLandFace { en: "Play as a land", de: "Als Land spielen" },
     /// Miracle
     CastMiracle { en: "Miracle", de: "Wunder" },
+    /// Flashback
+    CastFlashback { en: "Flashback", de: "Rückblende" },
     /// Click a card in your hand
     HintClickHand { en: "Click a card in your hand", de: "Klicke eine Karte auf deiner Hand an" },
     /// Click what you are choosing

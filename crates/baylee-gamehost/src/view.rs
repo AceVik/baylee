@@ -284,14 +284,22 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         board_mana: (obj.kind == ObjectKind::Permanent)
             .then(|| board_mana(state, id))
             .flatten(),
-        // The same two facts `casting::can_cast` asks before it lets the
-        // card off the graveyard, so the view never says "castable" of a
-        // card the engine would refuse for being somewhere else. The price
-        // is the card's own mana cost, as the cast charges it.
-        flashback: (obj.zone == Zone::Graveyard
-            && obj.zone_owner == Some(seat)
-            && baylee_engine::casting::flashback_granted(state, id))
-        .then_some(chars.mana_cost),
+        // The same facts `casting::can_cast` asks before it lets the card
+        // off the graveyard, so the view never says "castable" of a card the
+        // engine would refuse for being somewhere else. The price is what
+        // the cast charges: a printed flashback's own cost (CR 702.34a), or
+        // for a granted one the card's mana cost.
+        flashback: (obj.zone == Zone::Graveyard && obj.zone_owner == Some(seat))
+            .then(|| {
+                obj.card
+                    .and_then(|c| baylee_cards::by_index(c.index))
+                    .and_then(|def| def.faces[0].flashback)
+                    .or_else(|| {
+                        baylee_engine::casting::flashback_granted(state, id)
+                            .then_some(chars.mana_cost)
+                    })
+            })
+            .flatten(),
         // Permanents only, for `granted_mana`'s reason: the engine offers a
         // granted ability on a permanent and nowhere else, and each entry
         // here is one of those offers.
@@ -3802,48 +3810,79 @@ mod tests {
         );
     }
 
-    /// The other door to [`PublicObject::flashback`], pinned shut.
+    /// The other door to [`PublicObject::flashback`]: a *printed* flashback
+    /// is priced at what the card prints, not at its mana cost.
     ///
-    /// A granted flashback costs the card's own mana cost, and that is the
-    /// price the field carries. A printed one costs what the card prints —
-    /// Faithless Looting is `{R}` and flashes back for `{2}{R}` — and no face
-    /// in the pool has one written yet: each card that prints the keyword
-    /// says so in its coverage. The day one is written, this goes red, and
-    /// the projection has to learn the printed price first, or the view
-    /// tells a planner the cast costs what the front of the card says.
+    /// This was pinned shut while no face that prints the keyword had it
+    /// written; Memory Deluge is the first, `{2}{U}{U}` in front of a
+    /// `{5}{U}{U}` flashback, and a view that said four would have a planner
+    /// tap four lands for a cast the engine then refuses. Played, not
+    /// built: the Deluge is cast off four Islands and resolves into the
+    /// graveyard, where its owner alone is told the flashback price.
     #[test]
-    fn no_face_that_prints_flashback_has_it_written_yet() {
-        let printed: Vec<(&str, bool)> = baylee_cards::all()
-            .flat_map(|def| (0..def.faces.len()).map(move |face| (def, face)))
-            .filter(|&(def, face)| {
-                baylee_cards::oracle::face(def.index, face)
-                    .is_some_and(|text| text.lines().any(|line| line.starts_with("Flashback")))
-            })
-            .map(|(def, _)| {
-                (
-                    def.name(),
-                    matches!(def.coverage, baylee_cards::dsl::Coverage::Implemented),
-                )
-            })
-            .collect();
-        // Four on 24.09.2026: Faithless Looting, Memory Deluge, Past in
-        // Flames, Sevinne's Reclamation. Floor and ceiling both, since a
-        // misread line count reads as zero and an overbroad one as many.
-        assert!(
-            (4..=12).contains(&printed.len()),
-            "{} faces print flashback: {printed:?}",
-            printed.len()
-        );
-        let written: Vec<&str> = printed
+    fn a_printed_flashback_is_priced_at_its_printed_cost() {
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let deluge = by_oracle_id("e6fd55f2-7e26-469c-a44a-ea2eb90e19a9")
+            .unwrap()
+            .index;
+        let entry = |card| DeckEntry {
+            card,
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_hand = Some(vec![entry(deluge)]);
+        preset.seats[0].starting_battlefield = vec![entry(island()); 4];
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+
+        let view = settle(&mut engine, None);
+        let card = view
+            .hand
             .iter()
-            .filter(|(_, implemented)| *implemented)
-            .map(|(name, _)| *name)
-            .collect();
-        assert!(
-            written.is_empty(),
-            "{written:?} print flashback and are implemented: the view prices a \
-             graveyard cast at the card's mana cost, which is right for a \
-             granted flashback only"
+            .find(|c| c.name == "Memory Deluge")
+            .unwrap()
+            .id;
+        for source in view.battlefield_of(me).map(|o| o.id).collect::<Vec<_>>() {
+            engine
+                .apply(me, PlayerAction::ActivateManaAbility { source })
+                .expect("an Island taps for blue");
+        }
+        engine
+            .apply(me, PlayerAction::CastSpell { card })
+            .expect("the mana for it is floating");
+        for _ in 0..10 {
+            match engine.pending().clone() {
+                Pending::ChooseCards {
+                    player,
+                    options,
+                    min,
+                    ..
+                } => {
+                    engine
+                        .apply(
+                            player,
+                            PlayerAction::ChooseObjects {
+                                objects: options[..usize::from(min)].to_vec(),
+                            },
+                        )
+                        .expect("two of the four looked at");
+                    break;
+                }
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                other => panic!("unexpected question: {other:?}"),
+            }
+        }
+        settle(&mut engine, None);
+        assert_eq!(
+            flashback_for(&engine, me, card),
+            Some(baylee_core::mana::ManaCost::parse("{5}{U}{U}")),
+            "the printed flashback cost, not the mana cost"
+        );
+        assert_eq!(
+            flashback_for(&engine, them, card),
+            None,
+            "to its owner alone"
         );
     }
 

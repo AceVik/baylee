@@ -3132,6 +3132,42 @@ fn check_def_against_the_printing(
     check_optional_clauses_are_offered(slug, def, payload, tally, problems);
     check_enters_tapped_bound_matches_the_printing(slug, def, payload, tally, problems);
     check_back_face_castability_matches_the_layout(slug, def, payload, tally, problems);
+    check_flashback_matches_the_printing(slug, def, payload, problems);
+}
+
+/// A printed "Flashback {…}" is `FaceDef::flashback`, at the printed price,
+/// and a `flashback` the printing does not have is a graveyard cast nobody
+/// may make (CR 702.34a).
+///
+/// Mana only, both ways: "Flashback—Pay 3 life" and the like are no
+/// `ManaCost` and are left to the card's coverage. Implemented cards only,
+/// the exemption every check here takes.
+fn check_flashback_matches_the_printing(
+    slug: &str,
+    def: &baylee_cards::dsl::CardDef,
+    payload: &serde_json::Value,
+    problems: &mut usize,
+) {
+    if !def.is_implemented() {
+        return;
+    }
+    let printed: Vec<String> = printed_text(payload)
+        .lines()
+        .filter_map(|line| line.strip_prefix("Flashback "))
+        .filter_map(|rest| rest.split(" (").next())
+        .filter_map(|cost| cost.trim().parse::<baylee_core::mana::ManaCost>().ok())
+        .map(|cost| cost.to_string())
+        .collect();
+    let written: Vec<String> = def
+        .faces
+        .iter()
+        .filter_map(|f| f.flashback)
+        .map(|cost| cost.to_string())
+        .collect();
+    if printed != written {
+        println!("{slug}: the printing's flashback is {printed:?} and the code's is {written:?}");
+        *problems += 1;
+    }
 }
 
 /// Whether a two-faced card's **back** may be played out of hand, against the

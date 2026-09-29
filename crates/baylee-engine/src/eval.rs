@@ -302,6 +302,10 @@ pub fn amount(
             .and_then(|o| o.paid.as_ref())
             .and_then(|p| p.sacrificed_mana_value)
             .unwrap_or(0),
+        Amount::ManaSpentToCast => state
+            .object(this)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |p| p.mana_spent),
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
                 ZoneSel::Battlefield => state.zones.list(ZoneLocation::Battlefield).clone(),
