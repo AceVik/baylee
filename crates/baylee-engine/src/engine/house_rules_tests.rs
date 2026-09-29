@@ -582,6 +582,53 @@ fn a_hand_is_shown_as_it_projects_while_the_mulligans_are_open() {
     );
 }
 
+/// "All creatures get -1/-1."
+fn night_of_souls_betrayal() -> CardIndex {
+    card_index("916bd025-c44f-49c9-8d76-4b7b2f9a8ba3")
+}
+
+/// A static ability's effect is active as long as its permanent is on the
+/// battlefield (CR 604.2), and a starting battlefield is on it before the
+/// mulligans. Statics were registered only by the engine's loop, which does
+/// not run until the window closes, so every seat was asked to keep a hand
+/// beside a board shown without them: an Elf under Night of Souls' Betrayal
+/// was a 1/1 until turn 1. And a player who leaves takes the objects they
+/// own with them (CR 800.4a), so a Night whose owner concedes in the window
+/// stops shrinking the Elf before anybody is asked again.
+#[test]
+fn a_starting_battlefield_s_statics_apply_while_the_mulligans_are_open() {
+    let elf = super::testkit::quiet_creature();
+    let mut engine = Duel::table(257, forest(), 3)
+        .battlefield(0, &[elf])
+        .battlefield(2, &[night_of_souls_betrayal()])
+        .start();
+    let elf = super::testkit::on_battlefield(&engine, seat(0), elf).expect("the Elf starts out");
+    assert_eq!(
+        super::testkit::pt(&engine, elf),
+        (0, 0),
+        "dealt: the Night shrinks the Elf; {:?}",
+        engine.pending()
+    );
+    engine.apply(seat(0), PlayerAction::MulliganTake).unwrap();
+    assert_eq!(
+        super::testkit::pt(&engine, elf),
+        (0, 0),
+        "after a mulligan the Night still shrinks the Elf"
+    );
+
+    engine.apply(seat(2), PlayerAction::Concede).unwrap();
+    assert!(
+        engine.pending_for(seat(0)).is_some(),
+        "seat 0 is still deciding: {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        super::testkit::pt(&engine, elf),
+        (1, 1),
+        "the Night left with the player who conceded"
+    );
+}
+
 fn seat(p: u8) -> PlayerId {
     PlayerId::new(p)
 }

@@ -64,6 +64,15 @@ action made for it. An action is therefore an ordinary re-entry into the
 machine rather than an exception to it, which is the property the three
 failures above all came from lacking.
 
+The mulligan window is the one place a question is still published without
+the machine, which does not run before turn 1. So `Engine::new` and
+`settle_mulligans` do the machine's first step themselves,
+`sync_static_effects` and then `refresh_characteristics`: a starting
+battlefield's static abilities apply to the board every seat keeps its hand
+beside (CR 604.2), and the statics of a player who concedes in the window
+leave with their permanents (CR 800.4a) before anybody is asked again
+(`a_starting_battlefield_s_statics_apply_while_the_mulligans_are_open`).
+
 A projection reads the *board*, and there are two ways for it to read a
 stale one. `recompute_with` walks **one object through all the layers**, so
 while it runs, that object's cached characteristics are still the previous

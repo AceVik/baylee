@@ -224,7 +224,10 @@ impl<L: CardLookup> Engine<L> {
         // A mulligan draws a new hand and a concession takes a player's
         // objects out of the game (CR 800.4a), while the loop that refreshes
         // the projection is not running yet: whoever is asked next, or told
-        // the game is over, is shown the board as it now is.
+        // the game is over, is shown the board as it now is. That includes
+        // the effects of the statics that left with a conceder's permanents,
+        // which only the sync drops.
+        self.sync_static_effects();
         self.state.refresh_characteristics();
         if let Some(result) = self.game_result() {
             self.mulligans = None;
