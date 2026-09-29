@@ -1720,3 +1720,21 @@ two different sacrifices, is how a bound is shown to bound.
 A new battlefield walk goes through `GameState::battlefield_seen` (phasing), and
 a card spelling the five basic land types must print them or print "with a basic
 land type"; both are convention tests that fire on a first try.
+
+### 2026-09-29 — Maik's European Highlander
+
+- **A new `Modifier` also moves counts in `effects.rs`.** The two census
+  tests pin the number of declared variants and the lock/no-lock split
+  (CR 611.2c). A no-layer modifier (one that parks on `Layer::Text`) lands in
+  the "does not lock" half.
+- **A new effect that reads the event object needs its `Debug` spelling
+  registered.** Add it to `this_object_tests::every_event_object_in_the_pool_is_one_the_engine_reads`.
+  Otherwise the census reports the card as reading nothing.
+- **In a card test, `kill` passes priority.** Anything cast afterwards may
+  find the step already over. `bury` destroys without passing.
+- **A characteristic-defining P/T that counts graveyards is stale in a test.**
+  After `seed_graveyard`, the projection has not been refreshed. Call
+  `dev_state_mut(p).refresh_characteristics()` before reading P/T.
+- **A hand-written token cannot be added by a card agent alone.** The
+  token ledger (`generated_tokens.rs`) is written only by full codegen.
+  Voice of Resurgence's */* Elemental is blocked on that.

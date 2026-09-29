@@ -657,6 +657,11 @@ mod tests {
     /// Read again on 29.09.2026, at **fifteen**: Mirrorhall Mimic, whose
     /// Ghastly Mimicry (an Aura spell and an upkeep copy) was written by hand
     /// for Allytifact. One card, no generator round.
+    ///
+    /// Read again the same day, at **seventeen**: Huntmaster of the Fells and
+    /// Archangel Avacyn, hand-written with `Trigger::TransformsIntoThis` —
+    /// a transforming back face prints the trigger that fires as it turns
+    /// up, so both backs reach the stack. Two cards, no generator round.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -672,6 +677,8 @@ mod tests {
         assert_eq!(
             named,
             [
+                "Huntmaster of the Fells",
+                "Archangel Avacyn",
                 "Conqueror's Galleon",
                 "Treasure Map",
                 "Vance's Blasting Cannons",

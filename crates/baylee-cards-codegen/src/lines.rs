@@ -556,6 +556,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::SpellCast(_) | T::NthSpellCast { .. } | T::FirstNoncreatureSpellCast(_) => &["cast"],
         T::BecomesTarget => &["becomes the target"],
         T::TurnedFaceUp => &["turned face up"],
+        T::TransformsIntoThis => &["transforms into"],
         T::Ward => &["ward"],
         T::ExiledFromBattlefield(_) => &["exiled"],
         T::DealsCombatDamageToPlayer(_) => &["damage"],

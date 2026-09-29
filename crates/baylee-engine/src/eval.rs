@@ -186,7 +186,9 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
             .filter(|p| !p.has_lost())
             .map(|p| p.id)
             .collect(),
-        PlayerRel::ControllerOfTarget | PlayerRel::Chosen => return None,
+        PlayerRel::ControllerOfTarget | PlayerRel::ControllerOfEvent | PlayerRel::Chosen => {
+            return None;
+        }
     })
 }
 
@@ -370,6 +372,14 @@ pub fn condition_holds(
 ) -> bool {
     match condition {
         Condition::YourTurn => state.turn.active == you,
+        // No last turn at the first upkeep of the game, so nothing was cast
+        // in it and nothing wasn't: both sentences are false there.
+        Condition::NoSpellsCastLastTurn => {
+            state.previous_turn.is_some_and(|p| p.spells_by_all == 0)
+        }
+        Condition::APlayerCastLastTurnAtLeast(n) => state
+            .previous_turn
+            .is_some_and(|p| p.most_by_one >= u32::from(n)),
         Condition::ControlCount(filter, min) => {
             let count = state
                 .zones

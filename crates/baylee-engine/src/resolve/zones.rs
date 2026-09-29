@@ -809,6 +809,39 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        // CR 701.27a: turned over where it stands, queued for the engine,
+        // which holds the card registry `state.transform` needs and applies
+        // it as this resolution completes. A source that has left the
+        // battlefield, or is phased out, is no permanent to transform.
+        Effect::TransformSource => {
+            if let Some(obj) = state.object_mut(res.source)
+                && obj.zone == crate::zone::Zone::Battlefield
+                && !obj.status.contains(crate::object::Status::PHASED_OUT)
+            {
+                obj.pending_face_change = Some(1 - obj.face_index.min(1));
+            }
+            None
+        }
+        // The delayed trigger remembers the object and the face it showed
+        // as it was created: CR 701.27f ignores the instruction once the
+        // permanent has transformed since, and CR 400.7 once it has left.
+        Effect::TransformSourceAtNextUpkeep => {
+            if let Some(obj) = state.object(res.source)
+                && obj.zone == crate::zone::Zone::Battlefield
+            {
+                let action = crate::state::DelayedAction::Transform {
+                    card: res.source,
+                    version: obj.version,
+                    face: obj.face_index,
+                };
+                state.delayed.push(crate::state::DelayedTrigger {
+                    controller: you,
+                    when: crate::state::DelayedWhen::NextUpkeepOfAnyone,
+                    action,
+                });
+            }
+            None
+        }
         Effect::ExileSelfReturnAsFace { face } => {
             let owner = state.object(res.source).map_or(you, |o| o.owner);
             if let Some(obj) = state.object_mut(res.source) {
