@@ -118,6 +118,11 @@ enum Cmd {
         /// Name every card that is not `Coverage::Implemented`.
         #[arg(long)]
         verbose: bool,
+        /// Also hold every implemented card to the trained AI's rule: a
+        /// test in the engine's `card_tests/` or `combo_tests/` must play it
+        /// (`baylee_train::working`). Names each one that no test plays.
+        #[arg(long)]
+        tested: bool,
     },
     PoolDump {
         /// Where to write the dump.
@@ -511,7 +516,11 @@ fn main() -> anyhow::Result<()> {
             reseed,
         } => ledger_cmd(&root, &corpus, check, reseed),
         Cmd::AbilityLines => ability_lines(&root),
-        Cmd::DeckCheck { file, verbose } => deck_check(&root, &file, verbose),
+        Cmd::DeckCheck {
+            file,
+            verbose,
+            tested,
+        } => deck_check(&root, &file, verbose, tested),
         Cmd::PoolDump { out } => pool_dump(&out),
         Cmd::TranscodeReport {
             scripts,
@@ -4627,11 +4636,21 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
 /// it, so the two spellings disagreeing is a defect in whichever side wrote
 /// the file — and a report that only counted rows would pass while every
 /// printing quietly sat inside a card name.
-fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
+///
+/// `tested` adds the trained AI's half of "works": an implemented card no
+/// card or combo test plays is named `UNTESTED`, so the card agents see the
+/// same 100 % the trainer deals its games from.
+#[allow(clippy::too_many_lines)] // one pass over the rows owns every tally it reports
+fn deck_check(root: &Path, file: &Path, verbose: bool, tested: bool) -> anyhow::Result<()> {
     use anyhow::Context as _;
     use baylee_cards::dsl::Coverage;
     use baylee_core::deckrow;
 
+    let working = tested
+        .then(|| baylee_train::working::Working::scan(root))
+        .transpose()
+        .context("reading the card and combo tests")?;
+    let mut untested = Vec::new();
     let path = if file.is_absolute() {
         file.to_path_buf()
     } else {
@@ -4694,7 +4713,15 @@ fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
         match baylee_cards::decks::by_name(&name).and_then(baylee_cards::by_index) {
             None => unknown.push(name.clone()),
             Some(def) => match def.coverage {
-                Coverage::Implemented => {}
+                Coverage::Implemented => {
+                    if working
+                        .as_ref()
+                        .is_some_and(|w| w.check(def.index).is_err())
+                        && !untested.contains(&name)
+                    {
+                        untested.push(name.clone());
+                    }
+                }
                 Coverage::Partial(why) => partial.push(format!("{name} — {why}")),
                 Coverage::Unimplemented => stubs.push(name.clone()),
             },
@@ -4718,6 +4745,18 @@ fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
     }
     for name in &unknown {
         println!("  NOT IN POOL {name}");
+    }
+    if let Some(w) = &working {
+        println!(
+            "  {} implemented but untested (the pool: {} of {} implemented cards tested, set {})",
+            untested.len(),
+            w.cards.len(),
+            w.implemented,
+            &w.hash()[..12],
+        );
+        for name in &untested {
+            println!("  UNTESTED    {name}");
+        }
     }
     if verbose {
         for name in &partial {

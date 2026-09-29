@@ -15,6 +15,9 @@ baylee-core.workspace = true
 baylee-cards-codegen.workspace = true
 baylee-cards-index.workspace = true
 baylee-update.workspace = true
+# The card rule only (`deck-check --tested`), not the self-play that needs
+# an engine.
+baylee-train = { workspace = true, default-features = false }
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true

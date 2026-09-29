@@ -49,6 +49,8 @@ baylee-build = { path = "crates/baylee-build" }
 baylee-db = { path = "crates/baylee-db" }
 baylee-feedback = { path = "crates/baylee-feedback" }
 baylee-update = { path = "crates/baylee-update" }
+# Without `play` by default: its one dependent, xtask, reads only the card rule.
+baylee-train = { path = "crates/baylee-train", default-features = false }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -246,6 +248,14 @@ lto = "off"
 codegen-units = 16
 debug-assertions = false
 overflow-checks = false
+
+# The trainer's self-play runner (`baylee-train`): release speed, but a panic
+# unwinds, so one game that breaks the engine is caught, kept with its record
+# as a finding, and the thousands of games around it play on. `release` aborts.
+[profile.selfplay]
+inherits = "release"
+panic = "unwind"
+debug = "line-tables-only"
 
 [profile.dev]
 # Line tables instead of full debug info. A backtrace keeps its file and line

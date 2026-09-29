@@ -1059,6 +1059,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-train"
+version = "0.1.0-beta.3"
+dependencies = [
+ "anyhow",
+ "baylee-build",
+ "baylee-cards",
+ "baylee-core",
+ "baylee-engine",
+ "baylee-gamehost",
+ "clap",
+ "flate2",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+]
+
+[[package]]
 name = "baylee-update"
 version = "0.1.0-beta.3"
 dependencies = [
@@ -9104,6 +9121,7 @@ dependencies = [
  "baylee-cards-codegen",
  "baylee-cards-index",
  "baylee-core",
+ "baylee-train",
  "baylee-update",
  "clap",
  "serde_json",
