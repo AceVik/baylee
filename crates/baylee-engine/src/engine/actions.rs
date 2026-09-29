@@ -717,6 +717,16 @@ impl<L: CardLookup> Engine<L> {
                         }
                         if let Some(&target) = targets.first() {
                             self.apply_copy_choice(object, target);
+                            // A permanent spell's arrival is scanned after
+                            // this answer, and the scan puts the copy's
+                            // starting loyalty on it. Any other door asked
+                            // from inside that scan, after its loyalty step
+                            // had read the copier's own values, so the
+                            // copied walker's loyalty is put here (CR 306.5b,
+                            // CR 614.12).
+                            if !before_entry {
+                                self.put_starting_loyalty(object);
+                            }
                         }
                     }
                     PlanKind::EntryReveal { .. } => {

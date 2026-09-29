@@ -1237,6 +1237,122 @@ fn a_spark_double_copy_of_karn_uses_each_of_his_loyalty_abilities() {
     );
 }
 
+/// Karn's printed loyalty, read off his card.
+fn karns_printed_loyalty() -> u16 {
+    let def = baylee_cards::by_index(karn_the_great_creator()).expect("Karn is in the pool");
+    def.faces[0].loyalty.expect("Karn prints a loyalty")
+}
+
+/// Karn, a Llanowar Elves, four Islands and a Plains on seat 0's side, a
+/// Spark Double and an Ephemerate in hand, and Karn's +1 already used, so
+/// that his count is no longer his printed loyalty. Answers Karn.
+fn karn_used_his_plus_one(seed: u64) -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(seed, island())
+        .battlefield(
+            0,
+            &[
+                karn_the_great_creator(),
+                llanowar_elves(),
+                island(),
+                island(),
+                island(),
+                island(),
+                plains(),
+            ],
+        )
+        .hand(0, &[spark_double(), ephemerate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("karn deployed");
+    // No noncreature artifact to point at, so the +1 asks nothing.
+    activate(&mut engine, p0, karn_the_great_creator(), 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        karns_loyalty(&engine, karn),
+        karns_printed_loyalty() + 1,
+        "the premise: Karn's count is his printed loyalty and one more"
+    );
+    (engine, karn)
+}
+
+/// Spark Double: "…except it enters with an additional loyalty counter on it
+/// if it's a planeswalker". A copy of Karn enters with Karn's printed
+/// loyalty and that one more.
+///
+/// The starting loyalty (CR 306.5b) was read off the entering permanent's
+/// card, which for the copy is Spark Double's, a 0/0 creature with no
+/// loyalty, so the copy entered with the one counter its own text adds and
+/// its first −2 was out of reach. What a copy takes is Karn's printed
+/// loyalty and not his counters (CR 707.2), which is why Karn has used his
+/// +1 first: a copy of his count would enter with one too many.
+#[test]
+fn a_spark_double_copy_of_karn_enters_with_his_printed_loyalty_and_one_more() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, karn) = karn_used_his_plus_one(48);
+    let copy = spark_double_copying(&mut engine, p0, karn);
+    assert_eq!(
+        karns_loyalty(&engine, copy),
+        karns_printed_loyalty() + 1,
+        "Karn's printed loyalty, and the Double's additional counter"
+    );
+}
+
+/// The same copy made at a door that is not a spell: a Spark Double that
+/// copied an Elf is blinked by Ephemerate and comes back as a copy of Karn.
+///
+/// That door asks the copy question from inside the scan of the arrival,
+/// after the scan's loyalty step has read the Double's own values, so the
+/// copied loyalty is put where the answer is taken.
+#[test]
+fn a_blinked_spark_double_that_comes_back_as_karn_has_his_printed_loyalty_and_one_more() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, karn) = karn_used_his_plus_one(49);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves");
+    let double = spark_double_copying(&mut engine, p0, elves);
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, ephemerate());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![double],
+            },
+        )
+        .expect("the Double is a creature, an Elf");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![karn],
+            },
+        )
+        .expect("the returning Double may copy Karn");
+    pass_until(&mut engine, stack_is_empty);
+    let copy = on_battlefield(&engine, p0, spark_double()).expect("the Double came back");
+    assert!(
+        engine
+            .state()
+            .object(copy)
+            .expect("the copy")
+            .characteristics()
+            .types
+            .contains(TypeSet::PLANESWALKER),
+        "the Double came back as a copy of Karn"
+    );
+    assert_eq!(
+        karns_loyalty(&engine, copy),
+        karns_printed_loyalty() + 1,
+        "Karn's printed loyalty, and the Double's additional counter"
+    );
+}
+
 /// Karn's +1 reads what a permanent is when it is asked, not what it was
 /// printed as: an Island Liquimetal Coating has made an artifact is a
 /// noncreature artifact, and the copy's +1 can point at it. It becomes an

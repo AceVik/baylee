@@ -836,32 +836,7 @@ impl<L: CardLookup> Engine<L> {
             }
             // Planeswalkers enter with their printed loyalty counters
             // (CR 306.5b).
-            if let Some(loyalty) = self
-                .state
-                .object(id)
-                .and_then(|o| o.card)
-                .and_then(|c| self.lookup.card(c.index))
-                .and_then(|def| {
-                    let face = &def.faces[0];
-                    if face
-                        .types
-                        .contains(baylee_core::types::TypeSet::PLANESWALKER)
-                    {
-                        face.loyalty
-                    } else {
-                        None
-                    }
-                })
-            {
-                // Starting loyalty is counters put on the permanent as it
-                // enters, so the counter-placement replacements apply
-                // (CR 614.16): Doubling Season doubles it.
-                crate::replacement::put_counters(
-                    &mut self.state,
-                    id,
-                    baylee_cards_dsl::CounterKind::Loyalty,
-                    loyalty,
-                );
+            if self.put_starting_loyalty(id) {
                 changed = true;
             }
             // Clone-on-enter, for every door that is not a permanent spell.
@@ -1292,6 +1267,42 @@ impl<L: CardLookup> Engine<L> {
         };
         options.retain(|&o| o != id);
         self.offer_copy_on_enter(id, options, controller, false)
+    }
+
+    /// CR 306.5b: a planeswalker enters with as many loyalty counters as its
+    /// printed loyalty. Returns whether it put any.
+    ///
+    /// "Printed" is read off the entering permanent's copiable values and not
+    /// off its card. CR 614.12 decides which replacement effects apply to a
+    /// permanent entering from the permanent as it would exist on the
+    /// battlefield, counting replacement effects that already modified how it
+    /// enters, and a copy is one (CR 614.1c "enters as"). Loyalty is a
+    /// copiable value (CR 707.2), counters are not. So a Spark Double that
+    /// enters as a copy of Karn, the Great Creator is a planeswalker with
+    /// Karn's printed 5, whatever Karn has now, and takes 5 here beside the
+    /// one its own text adds. Read off the card, it was a 0/0 creature with no
+    /// loyalty and entered with that one alone.
+    ///
+    /// Starting loyalty is counters put on the permanent as it enters, so the
+    /// counter-placement replacements apply (CR 614.16): Doubling Season
+    /// doubles it.
+    pub(crate) fn put_starting_loyalty(&mut self, id: ObjectId) -> bool {
+        let Some(loyalty) = crate::layers::copiable_values(&self.state, id).and_then(|values| {
+            values
+                .types
+                .contains(baylee_core::types::TypeSet::PLANESWALKER)
+                .then_some(values.loyalty)
+                .flatten()
+        }) else {
+            return false;
+        };
+        crate::replacement::put_counters(
+            &mut self.state,
+            id,
+            baylee_cards_dsl::CounterKind::Loyalty,
+            loyalty,
+        );
+        true
     }
 
     /// Applies the clone-on-enter choice: the permanent's copiable base is
