@@ -139,17 +139,39 @@ L4's mechanics part is read now (`--coverage`, `xtask/src/mechanics.rs`). The
 engine's rule tests run under `cargo llvm-cov` without the per-card tests.
 `syn` reads the engine's `match` arms, `if let`s and checks on each DSL variant a
 card can hold. A variant is tested where all of its sites ran, partly where some
-did, untested where none did. The report ranks what is missing by the house-deck
-and L3 cards that use it, and names the functions whose arms never ran. The
-ability-firing, leave and mutation parts wait for the engine's test hooks.
+did, untested where none did. Code that faces the AI rather than the rules
+(`engine/decision.rs`), hashing and formatting are no evidence. The report
+ranks what is missing by the house-deck and L3 cards that use it, and names the
+functions whose arms never ran. The ability-firing, leave and mutation parts
+wait for the engine's test hooks.
 
 Numbers:
 
 - The pool: 2716 cards, 2242 at L1, 2242 at L2, 2241 at L3.
-- Of 387 variants the pool uses, 296 are tested, 57 partly, 11 untested and 23
+- Of 387 variants the pool uses, 304 are tested, 49 partly, 11 untested and 23
   unsited (no engine code names them, for instance `ActivationTiming::InstantSpeed`,
   which is the absence of a restriction).
-- Of the L3 cards, 2227 use no untested mechanic, and 248 use only fully run ones.
+- Of the L3 cards, 2227 use no untested mechanic, and 762 use only fully run ones.
+
+The fuzzer (`bin/fuzz`) plays decks generated from the L3 pool. Half of each
+chair's answers are picked at random among what the question offers, and the
+house gives the rest. It reports:
+
+- engine panics;
+- offered answers the engine refuses;
+- refusals that change the game;
+- records that do not replay;
+- games that do not end.
+
+`--only N` plays a finding's game again, move for move:
+
+```text
+cargo run --profile selfplay -p baylee-train --bin fuzz -- --games 10000 --out ~/baylee-data/fuzz/f002
+```
+
+Against the engine fixes of `c42/engine-karn-targets`, 10,000 games left two
+kinds: mana abilities of two-basic-type duals, and blocks of a menace attacker by
+one creature. The second is a constraint `ChooseBlockers` does not state yet.
 
 ## Where it stands (2026-09-30)
 
