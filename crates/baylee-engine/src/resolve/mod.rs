@@ -2436,6 +2436,19 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::ExileIfDiesThisTurn { target } => {
+            for id in zones::spec_objects(res, target) {
+                if let Some(obj) = state.object(id)
+                    && obj.zone == crate::zone::Zone::Battlefield
+                {
+                    let named = (id, obj.version);
+                    if !state.per_turn.exile_if_dies.contains(&named) {
+                        state.per_turn.exile_if_dies.push(named);
+                    }
+                }
+            }
+            None
+        }
         Effect::NthResolutionThisTurn { effects } => {
             // This resolution is the ability's nth this turn, counted in the
             // turn's per-ability tally. A spell has no ability to count.

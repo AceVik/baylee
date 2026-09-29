@@ -1011,6 +1011,15 @@ pub enum Effect {
         /// What (a spell or a permanent the ability targeted).
         target: TargetSpec,
     },
+    /// "If that creature would die this turn, exile it instead" (Mawloc):
+    /// a replacement effect (CR 614.1a) on each object the spec names, for
+    /// the rest of the turn and for that object only — a creature that left
+    /// the battlefield and came back is a new object (CR 400.7) and dies as
+    /// usual. A token is exiled instead as well, and does not die.
+    ExileIfDiesThisTurn {
+        /// Which creature.
+        target: TargetSpec,
+    },
     /// Counter a spell on the stack; it goes to exile instead of the
     /// graveyard (Force of Negation).
     CounterTargetSpellToExile,
@@ -2420,6 +2429,7 @@ impl Effect {
             | Effect::UntapSelf
             | Effect::ExileAndReturnAtEndStep
             | Effect::OwnerPutsOnTopOrBottom { .. }
+            | Effect::ExileIfDiesThisTurn { .. }
             | Effect::CounterTargetSpellToExile
             | Effect::CounterTargetSpell
             | Effect::CounterTargetAbility

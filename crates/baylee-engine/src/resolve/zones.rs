@@ -114,7 +114,7 @@ fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
 /// The two implicit specs stay singular by construction: neither names a
 /// list, and `res.targets` for an untargeted synthetic trigger holds at most
 /// its one implicit target, so reading it here would add nothing.
-fn spec_objects(res: &Resolution, target: TargetSpec) -> SmallVec<[ObjectId; 2]> {
+pub(super) fn spec_objects(res: &Resolution, target: TargetSpec) -> SmallVec<[ObjectId; 2]> {
     match target {
         TargetSpec::ThisObject
         | TargetSpec::EventObject

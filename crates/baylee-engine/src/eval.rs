@@ -482,6 +482,9 @@ pub fn condition_holds(
             .players
             .get(usize::from(you.get()))
             .is_some_and(|p| p.enduring_story),
+        Condition::XAtLeast(n) => state
+            .object(source)
+            .is_some_and(|o| o.x_value >= u32::from(n)),
         Condition::CitysBlessing => state
             .players
             .get(usize::from(you.get()))

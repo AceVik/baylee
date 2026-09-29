@@ -274,6 +274,10 @@ pub struct PerTurn {
     /// order (`Filter::PutIntoGraveyardThisTurn`). Written by
     /// [`GameState::move_object`], beside `entered_battlefield`.
     pub entered_graveyard: Vec<ObjectId>,
+    /// The objects that are exiled if they would die this turn, each with
+    /// its version (`Effect::ExileIfDiesThisTurn`, CR 400.7): read by
+    /// `replacement::graveyard_destination`.
+    pub exile_if_dies: Vec<(ObjectId, u32)>,
 }
 
 impl PerTurn {
@@ -288,6 +292,7 @@ impl PerTurn {
             draws: vec![0; players],
             entered_battlefield: Vec::new(),
             entered_graveyard: Vec::new(),
+            exile_if_dies: Vec::new(),
         }
     }
 
@@ -300,6 +305,7 @@ impl PerTurn {
         self.creatures_died = 0;
         self.entered_battlefield.clear();
         self.entered_graveyard.clear();
+        self.exile_if_dies.clear();
     }
 }
 
@@ -3978,6 +3984,9 @@ mod tests {
             ("per_turn.life_lost", |s, _| s.per_turn.life_lost[0] = true),
             ("per_turn.entered_graveyard", |s, id| {
                 s.per_turn.entered_graveyard.push(id);
+            }),
+            ("per_turn.exile_if_dies", |s, id| {
+                s.per_turn.exile_if_dies.push((id, 0));
             }),
             ("per_turn.entered_battlefield", |s, id| {
                 s.per_turn.entered_battlefield.push(id);
