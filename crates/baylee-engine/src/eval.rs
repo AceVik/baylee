@@ -384,6 +384,7 @@ pub fn condition_holds(
         Condition::NoSpellsCastLastTurn => {
             state.previous_turn.is_some_and(|p| p.spells_by_all == 0)
         }
+        Condition::YouCastNoSpellThisTurn => state.per_turn.spells_cast_by(you) == 0,
         Condition::APlayerCastLastTurnAtLeast(n) => state
             .previous_turn
             .is_some_and(|p| p.most_by_one >= u32::from(n)),

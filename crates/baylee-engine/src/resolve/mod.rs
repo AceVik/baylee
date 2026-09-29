@@ -253,6 +253,16 @@ pub enum AwaitingOp {
         /// Every other card exiled on the way.
         rest: Vec<ObjectId>,
     },
+    /// After `MayCastTarget` asked whether to cast its target: a yes is a
+    /// cast made as this resolution ends (CR 608.2g).
+    CastTarget {
+        /// The card.
+        card: ObjectId,
+        /// Its identity when asked (CR 400.7).
+        version: u32,
+        /// "If you do, you can't cast additional spells this turn."
+        then_no_more_spells: bool,
+    },
     /// After `SearchLibraryOrGraveyard` offered its graveyard matches: the
     /// card named goes where `find` says; none named searches the library.
     GraveyardOrLibrary {
@@ -1094,6 +1104,29 @@ fn next_commander_ask(
 /// When the suspended operation is not a yes/no choice.
 #[must_use]
 pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) -> Flow {
+    // "You may cast that card": a yes is a cast the engine makes as this
+    // resolution ends, after a payment window (CR 608.2g).
+    if let Some(AwaitingOp::CastTarget {
+        card,
+        version,
+        then_no_more_spells,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        if answer {
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: res.controller,
+                when: crate::state::DelayedWhen::AsResolutionEnds,
+                action: crate::state::DelayedAction::CastPaying {
+                    card,
+                    version,
+                    then_no_more_spells,
+                },
+            });
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
     // Cascade: the cards not cast go to the bottom now, and a yes is a cast
     // the engine makes as this resolution ends (CR 702.85a).
     if matches!(res.awaiting, Some(AwaitingOp::CascadeCast { .. })) {
@@ -2196,6 +2229,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         | AwaitingOp::PlayerMayPayLife { .. }
         | AwaitingOp::MayDo { .. }
         | AwaitingOp::CascadeCast { .. }
+        | AwaitingOp::CastTarget { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
@@ -3323,6 +3357,24 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::RevealUntil { filter, found } => {
             reveal_until(state, you, res.source, filter, found);
             None
+        }
+        // "You may cast that card": the first target, still where it was
+        // targeted (CR 608.2b has dropped it otherwise).
+        Effect::MayCastTarget {
+            then_no_more_spells,
+        } => {
+            let card = res.targets.first().copied()?;
+            let version = state.object(card).map(|o| o.version)?;
+            res.awaiting = Some(AwaitingOp::CastTarget {
+                card,
+                version,
+                then_no_more_spells,
+            });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::CastPaying { card },
+                source: resolving_ability(state, res),
+            })
         }
         Effect::SearchLibraryOrGraveyard { filter, find } => {
             let buried: Vec<ObjectId> = state

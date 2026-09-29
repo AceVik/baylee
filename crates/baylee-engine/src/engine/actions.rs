@@ -1429,6 +1429,18 @@ impl<L: CardLookup> Engine<L> {
                 }
                 return;
             }
+            // The cast pays out of the pool as any cast does; one it cannot
+            // pay is not made, and the card stays where it is (CR 601.2h
+            // reverses a casting that cannot be paid).
+            PaymentContinuation::Cast {
+                card,
+                version,
+                cost: _,
+                then_no_more_spells,
+            } => {
+                let _ = self.start_paid_cast(window.player, card, version, then_no_more_spells);
+                return;
+            }
         };
         let paid = self.can_settle_tax(&res);
         match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {

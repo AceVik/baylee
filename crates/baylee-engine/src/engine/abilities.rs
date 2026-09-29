@@ -973,12 +973,13 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         spell_def: &baylee_cards_dsl::CardDef,
     ) -> bool {
-        casting::timing_allows(
-            &self.state,
-            player,
-            spell_def.faces[0].types,
-            spell_def.keywords_for_face(0),
-        )
+        casting::may_begin_casting(&self.state, player)
+            && casting::timing_allows(
+                &self.state,
+                player,
+                spell_def.faces[0].types,
+                spell_def.keywords_for_face(0),
+            )
     }
 
     /// Prepared cast (Emeritus of Woe): pays the linked spell's cost,

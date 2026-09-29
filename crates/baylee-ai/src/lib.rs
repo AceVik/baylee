@@ -501,10 +501,14 @@ impl HeuristicAgent {
                 // evaluator this agent does not have yet.
                 // A spell for nothing (cascade) is taken too. And a pact's
                 // payment is attempted: the owed-mana planner handles the
-                // window.
+                // window. So is a card this seat's own ability offered to
+                // cast (Conduit of Worlds): the activation was the choice,
+                // and a window it cannot fill casts nothing and costs
+                // nothing.
                 YesNoPrompt::MayDo
                 | YesNoPrompt::CommanderZone { .. }
                 | YesNoPrompt::CastWithoutPaying { .. }
+                | YesNoPrompt::CastPaying { .. }
                 | YesNoPrompt::PayPact { .. }
                 | YesNoPrompt::Generic => PlayerAction::YesNo(true),
                 // CR 903.9b answers itself from the destination, which is

@@ -1852,6 +1852,11 @@ messages! {
         en: "Cast it without paying its mana cost?",
         de: "Ohne Zahlung seiner Manakosten wirken?",
     },
+    /// Cast it now, paying its mana cost? (Conduit of Worlds)
+    CastPaying {
+        en: "Cast it now, paying its mana cost? You make the mana first.",
+        de: "Jetzt wirken und seine Manakosten bezahlen? Du erzeugst zuerst das Mana.",
+    },
     /// {0} offers a draw. Accept?
     ///
     /// Named rather than passive, and the name is the whole of the repair:

@@ -822,6 +822,21 @@ pub enum Effect {
     /// not to be castable goes to the bottom with the rest. "Cascade,
     /// cascade" is two of these abilities (CR 702.85c).
     Cascade,
+    /// "You may cast that card", where the card is the ability's first
+    /// target (Conduit of Worlds), as the ability resolves (CR 608.2g),
+    /// paying its costs; the timing its type would impose does not apply,
+    /// because nobody is casting it with priority.
+    ///
+    /// Asked as a `YesNoPrompt::CastPaying`. A yes opens a CR 605.3a
+    /// payment window for the card's mana cost the moment the ability has
+    /// finished resolving; passing it casts the card through the cast
+    /// wizard, paid out of the pool, and a pool that cannot pay casts
+    /// nothing. `then_no_more_spells` is "If you do, you can't cast
+    /// additional spells this turn", set once the spell has been cast.
+    MayCastTarget {
+        /// Whether casting it forbids further spells this turn.
+        then_no_more_spells: bool,
+    },
     /// "Reveal cards from the top of your library until you reveal a
     /// [filter] card. Put that card [where `found` says] and the rest on the
     /// bottom of your library in a random order." (Nissa, Resurgent
@@ -2491,6 +2506,7 @@ impl Effect {
             | Effect::RevealTopAndSort { .. }
             | Effect::RevealUntil { .. }
             | Effect::Cascade
+            | Effect::MayCastTarget { .. }
             | Effect::MillMayTakeOne { .. }
             | Effect::RevealAndSeparate { .. }
             | Effect::LookAtTopMayPut { .. }

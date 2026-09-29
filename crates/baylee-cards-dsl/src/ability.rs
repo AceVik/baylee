@@ -89,6 +89,10 @@ pub enum Condition {
     /// werewolves). There was no last turn at the first upkeep of the game,
     /// so the sentence is false there, as daybound's own check is skipped.
     NoSpellsCastLastTurn,
+    /// "If you haven't cast a spell this turn" (Conduit of Worlds): the
+    /// controller has cast no spell this turn, counting spells that were
+    /// countered since and spells cast before the source was theirs.
+    YouCastNoSpellThisTurn,
     /// "If a player cast N or more spells last turn" — one player, any
     /// player: the werewolves' way back to their front face.
     APlayerCastLastTurnAtLeast(u8),

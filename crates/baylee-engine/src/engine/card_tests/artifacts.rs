@@ -3030,12 +3030,12 @@ fn conduit_of_worlds() -> CardIndex {
     card_index("ed14be15-8f8d-4fe3-a147-f5da8ed873bf")
 }
 
-/// `Conduit of Worlds` prints `You may play lands from your graveyard.` and `{{T}}: Choose target nonland permanent card in your graveyard. If you haven't cast a spell this turn, you may cast that card. If you do, you can't cast additional spells this turn. Activate only as a sorcery.`
+/// Conduit of Worlds: "You may play lands from your graveyard."
 ///
-/// Marked `Coverage::Partial`, its static ability grants `Modifier::PlayLandsFromGraveyard`, allowing a `forest()` card in the graveyard to be offered in `legal.lands` and played via `PlayerAction::PlayLand`.
-/// The unmodelled `{{T}}` activated ability is omitted from `legal.abilities` even while `Conduit of Worlds` stands untapped.
+/// A Forest in the graveyard is offered as a land play and played from
+/// there.
 #[test]
-fn conduit_of_worlds_allows_playing_lands_from_graveyard_and_omits_activated_ability() {
+fn conduit_of_worlds_plays_a_land_from_the_graveyard() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[conduit_of_worlds()])
@@ -3054,13 +3054,6 @@ fn conduit_of_worlds_allows_playing_lands_from_graveyard_and_omits_activated_abi
         "graveyard land offered as legal land play"
     );
 
-    let conduit = on_battlefield(&engine, p0, conduit_of_worlds()).expect("conduit on battlefield");
-    assert!(!is_tapped(&engine, conduit));
-    assert!(
-        !legal.abilities.iter().any(|(src, _)| *src == conduit),
-        "under `Coverage::Partial` the unmodelled {{T}} ability is omitted"
-    );
-
     engine
         .apply(p0, PlayerAction::PlayLand { card: gy_forest })
         .unwrap();
@@ -3072,6 +3065,144 @@ fn conduit_of_worlds_allows_playing_lands_from_graveyard_and_omits_activated_abi
     assert!(
         in_graveyard(&engine, p0, forest()).is_none(),
         "forest no longer in graveyard"
+    );
+}
+
+/// Conduit of Worlds' board: the Conduit and three Forests for p0, a Llanowar
+/// Elves in its graveyard and a Sol Ring in its hand, at its own main phase
+/// with priority. Returns the engine and the Elves.
+fn a_conduit_with_elves_in_the_graveyard() -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[conduit_of_worlds(), forest(), forest(), forest()])
+        .hand(0, &[llanowar_elves(), sol_ring()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let elves = hand_to_graveyard(&mut engine, p0, llanowar_elves());
+    (engine, elves)
+}
+
+/// Activates the Conduit's {T} ability and points it at `card`.
+fn conduit_targets(engine: &mut Engine<RegistryLookup>, card: ObjectId) {
+    let p0 = PlayerId::new(0);
+    activate(engine, p0, conduit_of_worlds(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the target question, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![card],
+        "\"target nonland permanent card in your graveyard\""
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![card],
+            },
+        )
+        .expect("the Conduit targets the card");
+}
+
+/// Conduit of Worlds: "{T}: Choose target nonland permanent card in your
+/// graveyard. If you haven't cast a spell this turn, you may cast that card.
+/// If you do, you can't cast additional spells this turn."
+///
+/// One Forest is tapped first, and Sol Ring is offered on that floating
+/// green. No spell has been cast this turn, so the resolving ability asks;
+/// a yes opens a payment window for the Elves' {G}, the seat taps its other
+/// Forests, and passing casts the Elves off the graveyard, paid out of the
+/// pool. The Elves resolve onto the battlefield. Sol Ring, with two green
+/// still floating, is then not offered: the lock is on.
+#[test]
+fn conduit_of_worlds_casts_a_graveyard_card_and_locks_further_spells() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, elves) = a_conduit_with_elves_in_the_graveyard();
+    let ring = in_hand(&engine, p0, sol_ring()).expect("the Ring is in hand");
+    let first_forest = on_battlefield(&engine, p0, forest()).expect("a Forest stands");
+    assert_eq!(tap_mana_where(&mut engine, p0, |id| id == first_forest), 1);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&ring),
+        "the Ring is castable before the Conduit is used"
+    );
+
+    conduit_targets(&mut engine, elves);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on nothing else")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        prompt,
+        crate::choice::YesNoPrompt::CastPaying { card: elves },
+        "\"you may cast that card\""
+    );
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    assert_eq!(
+        engine.payment_window(),
+        Some((p0, baylee_core::mana::ManaCost::parse("{G}"))),
+        "the window owes the card's mana cost"
+    );
+    assert_eq!(tap_all_mana(&mut engine, p0), 2, "the other two Forests");
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(engine.payment_window().is_none());
+    assert!(
+        on_stack(&engine, llanowar_elves()).is_some(),
+        "the Elves were cast from the graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "paid {{G}} out of the three made"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    assert!(
+        !legal.castable.contains(&ring),
+        "\"you can't cast additional spells this turn\""
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::CastSpell { card: ring })
+            .is_err(),
+        "and a cast named anyway is refused"
+    );
+}
+
+/// Conduit of Worlds: "If you haven't cast a spell this turn". The seat
+/// casts Sol Ring first; the Conduit's ability then resolves without asking,
+/// and the Elves stay in the graveyard.
+#[test]
+fn conduit_of_worlds_offers_nothing_once_a_spell_was_cast_this_turn() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, elves) = a_conduit_with_elves_in_the_graveyard();
+    cast_from_hand(&mut engine, p0, sol_ring());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, sol_ring()).is_some());
+
+    conduit_targets(&mut engine, elves);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !matches!(engine.pending(), Pending::YesNo { .. }),
+        "nothing is offered"
+    );
+    assert!(engine.payment_window().is_none());
+    assert_eq!(
+        engine.state().object(elves).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "the Elves stay where they are"
     );
 }
 

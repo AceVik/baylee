@@ -94,6 +94,21 @@ pub(crate) struct CastWizard {
     pub options: Vec<CastModeDesc>,
     /// Whether this cast is free (rebound, suspend finish).
     pub free: bool,
+    /// An effect casting it as it resolves, paying its costs (CR 608.2g,
+    /// Conduit of Worlds); `None` for every other cast.
+    pub by_effect: Option<EffectCast>,
+}
+
+/// A cast an effect makes as it resolves, paying the card's costs
+/// (CR 608.2g). No graveyard permission is spent on it, because none was
+/// used.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum EffectCast {
+    /// "You may cast that card."
+    Plain,
+    /// "…If you do, you can't cast additional spells this turn": set on the
+    /// caster once the spell has been cast.
+    ThenNoMoreSpells,
 }
 
 /// The cost parts [`Engine::finish_cast`] pays out of a chosen **alternative**
@@ -186,6 +201,7 @@ impl<L: CardLookup> Engine<L> {
             stage: WizardStage::ChooseMode,
             options,
             free: false,
+            by_effect: None,
         };
         if wizard.options.len() == 1 {
             wizard.option = Some(wizard.options[0].kind);
@@ -210,6 +226,9 @@ impl<L: CardLookup> Engine<L> {
             .and_then(|c| self.lookup.card(c.index))
             .and_then(|def| def.faces[0].miracle)
             .ok_or(EngineError::IllegalAction("not a miracle card"))?;
+        if !casting::may_begin_casting(&self.state, player) {
+            return Ok(());
+        }
         let options = vec![CastModeDesc {
             index: 0,
             kind: CastModeKind::Miracle,
@@ -237,6 +256,7 @@ impl<L: CardLookup> Engine<L> {
             stage: WizardStage::XValue,
             options,
             free: false,
+            by_effect: None,
         };
         let _ = &mut wizard;
         self.cast_wizard = Some(wizard);
@@ -260,6 +280,9 @@ impl<L: CardLookup> Engine<L> {
         {
             return Err(EngineError::IllegalAction("no card to cast from exile"));
         }
+        if !casting::may_begin_casting(&self.state, player) {
+            return Err(EngineError::IllegalAction("no more spells this turn"));
+        }
         let mut wizard = CastWizard {
             card,
             player,
@@ -280,6 +303,7 @@ impl<L: CardLookup> Engine<L> {
             stage: WizardStage::Kicker,
             options: Vec::new(),
             free: true,
+            by_effect: None,
         };
         let _ = &mut wizard;
         self.cast_wizard = Some(wizard);
@@ -303,6 +327,9 @@ impl<L: CardLookup> Engine<L> {
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index))
             .ok_or(EngineError::IllegalAction("unknown card"))?;
+        if !casting::may_begin_casting(&self.state, player) {
+            return Err(EngineError::IllegalAction("no more spells this turn"));
+        }
         let face = &def.faces[0];
         let abilities = def.abilities_for_face(0);
         let modal_only = abilities
@@ -362,6 +389,63 @@ impl<L: CardLookup> Engine<L> {
             },
             options,
             free: true,
+            by_effect: None,
+        };
+        self.cast_wizard = Some(wizard);
+        self.advance_cast_wizard()
+    }
+
+    /// Starts the cast `Effect::MayCastTarget` said yes to, once its payment
+    /// window has closed (CR 608.2g): the card's own mana cost, paid out of
+    /// the pool the window filled, with no timing asked, because nobody is
+    /// casting it with priority. X is announced as for any cast paying a
+    /// cost with X in it (CR 107.3a); targets and every other choice run
+    /// through the wizard as usual.
+    ///
+    /// Nothing is cast when the card is no longer the object that was
+    /// targeted (CR 400.7) or its caster may cast nothing more this turn.
+    pub(crate) fn start_paid_cast(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        version: u32,
+        then_no_more_spells: bool,
+    ) -> Result<(), EngineError> {
+        let cost = self
+            .state
+            .object(card)
+            .filter(|o| o.version == version)
+            .map(|o| o.characteristics().mana_cost)
+            .ok_or(EngineError::IllegalAction("the card has gone"))?;
+        if !casting::may_begin_casting(&self.state, player) {
+            return Err(EngineError::IllegalAction("no more spells this turn"));
+        }
+        let wizard = CastWizard {
+            card,
+            player,
+            option: Some(CastModeKind::Normal),
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            target_players: baylee_core::ids::SeatSet::new(),
+            chosen_player: None,
+            x: 0,
+            kicked: false,
+            pitch: SmallVec::new(),
+            delve_exiles: SmallVec::new(),
+            convoke_taps: SmallVec::new(),
+            sacrifices: SmallVec::new(),
+            stage: WizardStage::XValue,
+            options: vec![CastModeDesc {
+                index: 0,
+                kind: CastModeKind::Normal,
+                cost,
+            }],
+            free: false,
+            by_effect: Some(if then_no_more_spells {
+                EffectCast::ThenNoMoreSpells
+            } else {
+                EffectCast::Plain
+            }),
         };
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
@@ -1390,6 +1474,7 @@ impl<L: CardLookup> Engine<L> {
             // allowance uses a type of it for the turn. Not a disturb back,
             // and not a card a permission of its own opened.
             if obj.zone == crate::zone::Zone::Graveyard
+                && wizard.by_effect.is_none()
                 && !matches!(wizard.option, Some(CastModeKind::Face(_)))
                 && casting::play_permission(&self.state, player, card).is_none()
             {
@@ -1507,6 +1592,17 @@ impl<L: CardLookup> Engine<L> {
             .get_mut(player.get() as usize)
         {
             *v = v.saturating_add(1);
+        }
+        // "If you do, you can't cast additional spells this turn": the
+        // spell is cast, so the lock is on.
+        if wizard.by_effect == Some(EffectCast::ThenNoMoreSpells)
+            && let Some(v) = self
+                .state
+                .per_turn
+                .no_more_spells
+                .get_mut(player.get() as usize)
+        {
+            *v = true;
         }
         self.state.journal.record(GameEvent::SpellCast {
             object: card,

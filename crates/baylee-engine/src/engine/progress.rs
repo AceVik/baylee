@@ -3919,8 +3919,52 @@ impl<L: CardLookup> Engine<L> {
         self.awaiting_answer
     }
 
+    /// `Effect::MayCastTarget`'s cast, said yes to: a CR 605.3a payment
+    /// window for the card's mana cost, where the caster makes the mana
+    /// the cast will be paid with (CR 608.2g lets them). Nothing opens for
+    /// a card that has left the zone it was targeted in (CR 400.7) or that
+    /// its caster may not begin to cast at all (CR 601.3). Returns whether
+    /// a question is out.
+    fn open_cast_payment(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        version: u32,
+        then_no_more_spells: bool,
+    ) -> bool {
+        let Some(cost) = self
+            .state
+            .object(card)
+            .filter(|o| o.version == version)
+            .map(|o| o.characteristics().mana_cost)
+        else {
+            return false;
+        };
+        if !crate::casting::may_begin_casting(&self.state, player) {
+            return false;
+        }
+        let mut legal = self.compute_legal(player);
+        self.narrow_to_mana(&mut legal);
+        self.mana_window = Some(super::PaymentWindow {
+            player,
+            suspended: super::PaymentContinuation::Cast {
+                card,
+                version,
+                cost,
+                then_no_more_spells,
+            },
+        });
+        self.pending = Pending::Priority {
+            player,
+            legal: Box::new(legal),
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
     /// Processes one queued delayed action; returns `true` when a pending
     /// choice was produced.
+    #[allow(clippy::too_many_lines)] // one arm per delayed action; splitting hides the list
     pub(crate) fn process_delayed(&mut self) -> bool {
         let Some((controller, action)) = self.delayed_queue.pop_front() else {
             return false;
@@ -3949,6 +3993,11 @@ impl<L: CardLookup> Engine<L> {
             crate::state::DelayedAction::CastFreeOrBottom { card, version } => {
                 self.cast_free_or_bottom(controller, card, version)
             }
+            crate::state::DelayedAction::CastPaying {
+                card,
+                version,
+                then_no_more_spells,
+            } => self.open_cast_payment(controller, card, version, then_no_more_spells),
             crate::state::DelayedAction::Transform {
                 card,
                 version,

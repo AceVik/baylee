@@ -102,6 +102,18 @@ struct PaymentWindow {
 enum PaymentContinuation {
     Tax(Box<crate::resolve::Resolution>),
     Pact(baylee_core::mana::ManaCost),
+    /// "You may cast that card" said yes to (CR 608.2g): the mana is made
+    /// here, and passing casts the card out of the pool.
+    Cast {
+        /// The card.
+        card: ObjectId,
+        /// Its identity when it was targeted (CR 400.7).
+        version: u32,
+        /// Its mana cost, which is what the window shows as owed.
+        cost: baylee_core::mana::ManaCost,
+        /// "If you do, you can't cast additional spells this turn."
+        then_no_more_spells: bool,
+    },
 }
 
 /// A deterministic, self-contained game of Magic.
@@ -662,7 +674,9 @@ impl<L: CardLookup> Engine<L> {
     pub fn payment_window(&self) -> Option<(PlayerId, baylee_core::mana::ManaCost)> {
         let window = self.mana_window.as_ref()?;
         match &window.suspended {
-            PaymentContinuation::Pact(cost) => Some((window.player, *cost)),
+            PaymentContinuation::Pact(cost) | PaymentContinuation::Cast { cost, .. } => {
+                Some((window.player, *cost))
+            }
             PaymentContinuation::Tax(resolution) => match resolution.awaiting {
                 Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. })
                     if player == window.player =>
@@ -804,6 +818,18 @@ impl<L: CardLookup> Engine<L> {
                     .wrapping_add(u64::from(r.on_stack.slot()))
                     .wrapping_add(u64::from(r.controller.get())),
                 PaymentContinuation::Pact(cost) => crate::state::mana_cost_fingerprint(cost),
+                PaymentContinuation::Cast {
+                    card,
+                    version,
+                    cost,
+                    then_no_more_spells,
+                } => u64::from(card.slot())
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(*version))
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::mana_cost_fingerprint(cost))
+                    .wrapping_mul(2)
+                    .wrapping_add(u64::from(*then_no_more_spells)),
             });
         }
         // A cleanup step's check and its window close differently: nothing

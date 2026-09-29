@@ -705,3 +705,23 @@ fn pact_question_names_the_colored_cost_and_warns_about_losing() {
         assert!(text.contains(warning), "{text}");
     }
 }
+
+/// Conduit of Worlds' offer: the line says the card is cast paying its mana
+/// cost and that the mana is made first, because a yes opens a payment
+/// window rather than casting at once.
+#[test]
+fn cast_paying_question_says_the_mana_is_made_first() {
+    let i = interaction(Pending::YesNo {
+        player: me(),
+        prompt: baylee_engine::choice::YesNoPrompt::CastPaying { card: obj(7) },
+        source: None,
+    });
+    for (lang, cost, first) in [
+        (Lang::En, "paying its mana cost", "make the mana first"),
+        (Lang::De, "Manakosten bezahlen", "zuerst das Mana"),
+    ] {
+        let text = i.prompt().headline(lang, Turn::Mine, None, false);
+        assert!(text.contains(cost), "{text}");
+        assert!(text.contains(first), "{text}");
+    }
+}

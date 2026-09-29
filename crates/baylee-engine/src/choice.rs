@@ -505,6 +505,13 @@ pub enum YesNoPrompt {
         /// The exiled card.
         card: baylee_core::ids::ObjectId,
     },
+    /// "You may cast that card", paying its costs, as the ability resolves
+    /// (Conduit of Worlds, CR 608.2g). A yes opens a payment window for its
+    /// mana cost.
+    CastPaying {
+        /// The card to cast.
+        card: baylee_core::ids::ObjectId,
+    },
     /// "You may …" inside a resolving ability ([`baylee_cards_dsl::Effect::MayDo`]).
     MayDo,
     /// Generic yes/no (optional effects).
@@ -558,6 +565,7 @@ impl YesNoPrompt {
             | Self::PayLife { .. }
             | Self::Miracle { .. }
             | Self::CastWithoutPaying { .. }
+            | Self::CastPaying { .. }
             | Self::DrawOffer { .. }
             | Self::MayDo
             | Self::Generic => true,
@@ -1152,10 +1160,22 @@ mod choice_tests {
                 yes_no(YesNoPrompt::CastWithoutPaying { card: object() }),
                 no.clone(),
             ),
+            (
+                yes_no(YesNoPrompt::CastPaying { card: object() }),
+                no.clone(),
+            ),
             (yes_no(YesNoPrompt::DrawOffer { proposer: p }), no.clone()),
             (yes_no(YesNoPrompt::MayDo), no.clone()),
             (yes_no(YesNoPrompt::Generic), no),
             (yes_no(YesNoPrompt::CommanderZone { card: object() }), None),
+            // Declining a pact's payment loses the game, so nobody's clock
+            // declines it for them.
+            (
+                yes_no(YesNoPrompt::PayPact {
+                    cost: baylee_core::mana::ManaCost::from_symbol_generic(2),
+                }),
+                None,
+            ),
             (
                 yes_no(YesNoPrompt::CommanderReplace {
                     card: object(),
@@ -1285,7 +1305,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 17 + 11;
+    const KINDS: usize = 17 + 13;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -1322,9 +1342,10 @@ mod choice_tests {
                     YesNoPrompt::MayDo => 7,
                     YesNoPrompt::Generic => 8,
                     YesNoPrompt::CastWithoutPaying { .. } => 10,
+                    YesNoPrompt::CastPaying { .. } => 12,
                 }
             }
-            Pending::ChoosePile { .. } => 16 + 11,
+            Pending::ChoosePile { .. } => 16 + 13,
         }
     }
 
@@ -1510,6 +1531,7 @@ mod choice_tests {
                 | YesNoPrompt::PayPact { .. }
                 | YesNoPrompt::Miracle { .. }
                 | YesNoPrompt::CastWithoutPaying { .. }
+                | YesNoPrompt::CastPaying { .. }
                 | YesNoPrompt::DrawOffer { .. }
                 | YesNoPrompt::CommanderReplace { .. }
                 | YesNoPrompt::Generic => false,
@@ -1524,6 +1546,7 @@ mod choice_tests {
             YesNoPrompt::PayLife { amount: 7 },
             YesNoPrompt::Miracle { card: object() },
             YesNoPrompt::CastWithoutPaying { card: object() },
+            YesNoPrompt::CastPaying { card: object() },
             YesNoPrompt::CommanderZone { card: object() },
             YesNoPrompt::CommanderReplace {
                 card: object(),

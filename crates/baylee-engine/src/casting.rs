@@ -919,6 +919,23 @@ pub fn can_cast(
     normal
 }
 
+/// Whether `player` may begin to cast a spell at all this turn (CR 601.3).
+///
+/// Conduit of Worlds' "If you do, you can't cast additional spells this
+/// turn" is the one sentence that says no: it names the player and every
+/// spell, so it is asked here, beside the table's other refusals, by every
+/// door a cast comes through — the priority offer, a free cast an effect
+/// makes (cascade, rebound, suspend), a miracle, a prepared copy.
+#[must_use]
+pub(crate) fn may_begin_casting(state: &GameState, player: PlayerId) -> bool {
+    !state
+        .per_turn
+        .no_more_spells
+        .get(player.get() as usize)
+        .copied()
+        .unwrap_or(false)
+}
+
 #[allow(clippy::too_many_lines)] // one gate per casting rule
 pub(crate) fn can_cast_form(
     state: &GameState,
@@ -1004,7 +1021,7 @@ pub(crate) fn can_cast_form(
     // Silence does not move a spell to sorcery speed, it removes the
     // permission, and a player reading "sorcery-speed timing not met" on
     // their own main phase would go looking for a rule that is not there.
-    if cast_is_forbidden(state, player, obj) {
+    if cast_is_forbidden(state, player, obj) || !may_begin_casting(state, player) {
         return Err(CastError::Forbidden);
     }
     // Timing (CR 601.3). Read off the projected characteristics, so a

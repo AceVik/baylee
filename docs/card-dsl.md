@@ -1494,6 +1494,21 @@ hashes, layers and does nothing. This paragraph said THREE until
     modes and targets and ignores timing.
   - A card with nothing to target goes to the bottom instead.
   - Every card not cast goes to the bottom in a random order.
+- **`Effect::MayCastTarget { then_no_more_spells }`** is "you may cast that
+  card" about the ability's first target, paying its costs (Conduit of
+  Worlds, CR 608.2g). It asks `YesNoPrompt::CastPaying`.
+  - A yes is a `DelayedAction::CastPaying` at
+    `DelayedWhen::AsResolutionEnds`, which opens a CR 605.3a payment window
+    for the card's mana cost. Passing it starts `start_paid_cast`: the
+    card's own cost, paid out of the pool, timing ignored, X, targets and
+    modes asked as usual. A pool that cannot pay casts nothing.
+  - `then_no_more_spells` is "If you do, you can't cast additional spells
+    this turn": the finished cast sets `PerTurn::no_more_spells`, and
+    `casting::may_begin_casting` refuses every door a cast comes through
+    after it (the offer, free casts, miracle, a prepared copy).
+  - "If you haven't cast a spell this turn" is
+    `Condition::YouCastNoSpellThisTurn`, wrapped around it in an
+    `Effect::IfCondition`.
 - **`Modifier::CastPermanentSpellsFromGraveyard`** is "you may cast permanent
   spells from your graveyard" (Wrenn and Realmbreaker's emblem), uncounted
   and at the card's own price. `casting::graveyard_cast_permission` is the

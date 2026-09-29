@@ -213,6 +213,16 @@ pub enum DelayedAction {
         /// Its identity on arriving there (CR 400.7).
         version: u32,
     },
+    /// `Effect::MayCastTarget`'s cast, said yes to: a payment window for
+    /// the card's mana cost, then the cast out of the pool (CR 608.2g).
+    CastPaying {
+        /// The card, where it was targeted.
+        card: ObjectId,
+        /// Its identity when it was targeted (CR 400.7).
+        version: u32,
+        /// "If you do, you can't cast additional spells this turn."
+        then_no_more_spells: bool,
+    },
     /// Pay a cost or lose the game (Pact of Negation).
     PayCostOrLose {
         /// The mana cost to pay.
@@ -271,6 +281,11 @@ pub struct PerTurn {
     pub draws: Vec<u32>,
     /// All spells cast this turn, per player (second-spell triggers).
     pub spells_cast: Vec<u32>,
+    /// Players who may cast no further spells this turn (Conduit of
+    /// Worlds: "If you do, you can't cast additional spells this turn").
+    /// Read by `casting::may_begin_casting`, written by the cast that
+    /// set it.
+    pub no_more_spells: Vec<bool>,
     /// Whether each player lost life this turn (Luminarch Ascension).
     /// Written by [`GameState::change_life`] and nothing else.
     pub life_lost: Vec<bool>,
@@ -366,6 +381,7 @@ impl PerTurn {
         Self {
             noncreature_spells: vec![0; players],
             spells_cast: vec![0; players],
+            no_more_spells: vec![false; players],
             life_lost: vec![false; players],
             creatures_died: 0,
             draws: vec![0; players],
@@ -407,11 +423,21 @@ impl PerTurn {
             .map_or(0, |e| e.times)
     }
 
+    /// Spells `player` has cast this turn.
+    #[must_use]
+    pub fn spells_cast_by(&self, player: PlayerId) -> u32 {
+        self.spells_cast
+            .get(player.get() as usize)
+            .copied()
+            .unwrap_or(0)
+    }
+
     /// Resets all counters (called at every turn start).
     pub fn reset(&mut self) {
         self.noncreature_spells.iter_mut().for_each(|v| *v = 0);
         self.draws.iter_mut().for_each(|v| *v = 0);
         self.spells_cast.iter_mut().for_each(|v| *v = 0);
+        self.no_more_spells.iter_mut().for_each(|v| *v = false);
         self.life_lost.iter_mut().for_each(|v| *v = false);
         self.creatures_died = 0;
         self.entered_battlefield.clear();
@@ -4020,6 +4046,9 @@ mod tests {
         let mutations: &[Mutation] = &[
             ("per_turn", |s, _| s.per_turn.creatures_died += 1),
             ("per_turn.life_lost", |s, _| s.per_turn.life_lost[0] = true),
+            ("per_turn.no_more_spells", |s, _| {
+                s.per_turn.no_more_spells[0] = true;
+            }),
             ("per_turn.entered_battlefield", |s, id| {
                 s.per_turn.entered_battlefield.push(id);
             }),
