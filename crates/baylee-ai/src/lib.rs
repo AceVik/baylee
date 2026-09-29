@@ -969,6 +969,41 @@ mod tests {
         }
     }
 
+    /// Escape's "exile five other cards from your graveyard" (CR 702.138a)
+    /// is the same price asked with `min == max`: exactly that many go, and
+    /// they are the least valuable, so the Elves listed first stay.
+    #[test]
+    fn an_escape_exiles_exactly_its_count_and_the_least_valuable() {
+        use baylee_engine::choice::ChoicePrompt;
+        let me = PlayerId::new(0);
+        let (elves, wurm, other_wurm) = (obj(1), obj(2), obj(3));
+        let mut v = view(0, &[20, 20], vec![]);
+        v.graveyards[0] = vec![
+            carded(permanent(elves, me, 1), "Llanowar Elves", TypeSet::CREATURE),
+            carded(permanent(wurm, me, 6), "Endless Wurm", TypeSet::CREATURE),
+            carded(
+                permanent(other_wurm, me, 6),
+                "Endless Wurm",
+                TypeSet::CREATURE,
+            ),
+        ];
+        let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+            &v,
+            &Pending::ChooseCards {
+                player: v.seat,
+                options: vec![elves, wurm, other_wurm],
+                min: 2,
+                max: 2,
+                prompt: ChoicePrompt::CostExile,
+            },
+        );
+        let PlayerAction::ChooseObjects { mut objects } = action else {
+            panic!("expected cards, got {action:?}")
+        };
+        objects.sort();
+        assert_eq!(objects, vec![wurm, other_wurm], "two, and not the Elves");
+    }
+
     /// Atraxa's "for each card type, you may put a card of that type … into
     /// your hand": one of the type's cards is taken, and the best of them.
     /// The Wurm is listed first on purpose, because the fallback answers
@@ -5611,6 +5646,64 @@ mod tests {
             v.stack = vec![carded(
                 permanent(obj(9), me, 0),
                 "Final Showdown",
+                TypeSet::INSTANT,
+            )];
+            let answer = agent().act(
+                &v,
+                &Pending::ChooseCastMode {
+                    player: v.seat,
+                    object: obj(9),
+                    options: options.clone(),
+                },
+            );
+            let PlayerAction::ChooseMode(slot) = answer else {
+                panic!("expected a set of modes, got {answer:?}")
+            };
+            assert_eq!(
+                options[slot].kind,
+                CastModeKind::Modes(expected),
+                "against {what}"
+            );
+        }
+    }
+
+    /// "Choose two" with nothing on the stack to counter: the engine offers
+    /// the three pairs of bounce, tap and draw. "Tap all creatures your
+    /// opponents control" is read off the board: against an opposing
+    /// creature it reaches and bounce plus tap is taken; against no creature
+    /// at all it would be paid for and idle, so bounce plus draw is. Before
+    /// the agent read the tap, both boards answered bounce plus tap.
+    #[test]
+    fn choose_two_leaves_out_a_tap_with_nothing_to_tap() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let options: Vec<CastModeDesc> = [0b0110_u8, 0b1010, 0b1100]
+            .into_iter()
+            .enumerate()
+            .map(|(index, set)| CastModeDesc {
+                index: u8::try_from(index).unwrap(),
+                kind: CastModeKind::Modes(set),
+                cost: baylee_core::mana::ManaCost::parse("{1}{U}{U}{U}"),
+            })
+            .collect();
+        let land = |id, seat| carded(permanent(obj(id), seat, 0), "Island", TypeSet::LAND);
+        let creature = carded(
+            permanent(obj(2), them, 2),
+            "Baleful Strix",
+            TypeSet::CREATURE,
+        );
+        for (what, board, expected) in [
+            (
+                "a creature of theirs",
+                vec![land(1, them), creature],
+                0b0110,
+            ),
+            ("only lands", vec![land(1, them), land(3, me)], 0b1010),
+        ] {
+            let mut v = view(0, &[20, 20], board);
+            v.stack = vec![carded(
+                permanent(obj(9), me, 0),
+                "Cryptic Command",
                 TypeSet::INSTANT,
             )];
             let answer = agent().act(

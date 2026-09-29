@@ -422,7 +422,7 @@ impl GameLog {
                 place,
                 ..
             } => self.moved(state, *object, (*from, *to), *place, shown, discarded),
-            GameEvent::CardsDrawn { player, count } => {
+            GameEvent::CardsDrawn { player, count, .. } => {
                 if self.started {
                     self.drew(*player, usize::from(*count), batch);
                 }
@@ -1069,6 +1069,7 @@ mod tests {
     static SELF_ONLY: Filter = Filter::This;
     static BLINK_SELF: &[Effect] = &[Effect::Blink {
         target: TargetSpec::ThisObject,
+        owner_control: true,
     }];
     static LOOPING_CARD: CardDef = CardDef {
         index: LOOPING,

@@ -61,6 +61,9 @@ pub(crate) enum WizardStage {
     Sacrifice,
     /// Ready to pay and cast.
     Done,
+    /// Escape's other cards to exile (CR 702.138a), between the pitch and
+    /// delve: skipped by every cast but `CastModeKind::Escape`.
+    Escape,
 }
 
 /// A spell being cast step by step.
@@ -91,6 +94,9 @@ pub(crate) struct CastWizard {
     pub pitch: SmallVec<[ObjectId; 2]>,
     /// Cards chosen to delve (exile-from-graveyard, {1} each).
     pub delve_exiles: SmallVec<[ObjectId; 8]>,
+    /// The other cards escape's cost exiles from the graveyard. They pay no
+    /// mana, which is what keeps them apart from `delve_exiles`.
+    pub escape_exiles: SmallVec<[ObjectId; 8]>,
     /// Permanents chosen to tap for convoke or a waterbend ({1} each).
     pub convoke_taps: SmallVec<[ObjectId; 8]>,
     /// Permanents chosen to pay the additional cost's sacrifices, one per
@@ -205,6 +211,7 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
             stage: WizardStage::ChooseMode,
@@ -228,22 +235,75 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         card: ObjectId,
     ) -> Result<(), EngineError> {
+        let wizard = self
+            .miracle_wizard(player, card)
+            .ok_or(EngineError::IllegalAction("not a miracle card"))?;
+        self.cast_wizard = Some(wizard);
+        self.advance_cast_wizard()
+    }
+
+    /// Whether `player` could choose every target a miracle cast of `card`
+    /// requires, which is what decides whether the miracle is offered.
+    ///
+    /// Choosing the targets is a step of casting (CR 601.2c), and a spell
+    /// that cannot take it cannot be cast: the attempt is illegal and is
+    /// reversed (CR 601.2, CR 732.1). A "yes" to such a miracle can only
+    /// come back as a "no", so the question has one outcome and is not
+    /// asked. Banishing Stroke drawn onto a board with no artifact, creature
+    /// or enchantment was asked anyway; the house said yes, the engine
+    /// refused it after spending the offer, and three of r001's games could
+    /// not be replayed.
+    ///
+    /// Read the way the wizard's own target stages read it — the same
+    /// requirement, the same bounds at X = 0, the same enumerations — so the
+    /// offer and the cast cannot disagree. X = 0 is the most any X spell
+    /// could ask for less of. The cost is not checked here: whether it can
+    /// be paid is the payment's answer, and a "yes" it cannot pay is taken
+    /// and the cast reversed, which leaves the card in hand as a "no" does.
+    pub(crate) fn miracle_targets_available(&self, player: PlayerId, card: ObjectId) -> bool {
+        let Some(wizard) = self.miracle_wizard(player, card) else {
+            return false;
+        };
+        if let Some(req) = self.wizard_target_req(&wizard) {
+            let (min, max) = req.bounds(wizard.x);
+            let players = eval::target_player_options(&self.state, &req.spec, player);
+            if matches!(req.spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent) {
+                // The `ChoosePlayer` stage: one player, from this list.
+                if players.is_empty() {
+                    return false;
+                }
+            } else if max > 0 {
+                let objects = eval::target_options(&req.spec, &self.state, player, card);
+                if objects.len() + players.len() < usize::from(min) {
+                    return false;
+                }
+            }
+        }
+        self.wizard_second_target_req(&wizard).is_none_or(|req| {
+            eval::target_options(&req.spec, &self.state, player, card).len() >= usize::from(req.min)
+        })
+    }
+
+    /// The wizard a miracle cast of `card` starts with, or `None` when the
+    /// card prints no miracle or `player` may not cast a spell at all.
+    fn miracle_wizard(&self, player: PlayerId, card: ObjectId) -> Option<CastWizard> {
         let cost = self
             .state
             .object(card)
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index))
-            .and_then(|def| def.faces[0].miracle)
-            .ok_or(EngineError::IllegalAction("not a miracle card"))?;
+            .and_then(|def| def.faces[0].miracle)?;
+        // CR 601.3: a player who may not begin to cast a spell (Conduit of
+        // Worlds) has no miracle cast either, so it is not offered.
         if !casting::may_begin_casting(&self.state, player) {
-            return Ok(());
+            return None;
         }
         let options = vec![CastModeDesc {
             index: 0,
             kind: CastModeKind::Miracle,
             cost,
         }];
-        let mut wizard = CastWizard {
+        Some(CastWizard {
             card,
             player,
             option: Some(CastModeKind::Miracle),
@@ -256,6 +316,7 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
             // A miracle cost is paid "rather than its mana cost" (CR 702.94a),
@@ -267,10 +328,7 @@ impl<L: CardLookup> Engine<L> {
             options,
             free: false,
             by_effect: None,
-        };
-        let _ = &mut wizard;
-        self.cast_wizard = Some(wizard);
-        self.advance_cast_wizard()
+        })
     }
 
     /// Starts a free cast (rebound at upkeep, suspend finish, a discovered
@@ -323,6 +381,7 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
             // Straight past `XValue`, and deliberately: a spell cast paying
@@ -390,6 +449,7 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
             // `XValue` asks nothing of a free wizard (CR 107.3b); from there
@@ -445,6 +505,7 @@ impl<L: CardLookup> Engine<L> {
             replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
             stage: WizardStage::XValue,
@@ -606,7 +667,7 @@ impl<L: CardLookup> Engine<L> {
         // `LegalActions` and then refused here as "no way to cast this
         // spell" — which is what happened, and it is why the count lives in
         // one function rather than in each of them.
-        let reduction = casting::keyword_reduction(&self.state, face, player);
+        let reduction = casting::keyword_reduction(&self.state, face, player, card);
         // Mycosynth Lattice: every probe below asks whether the pool covers a
         // cost, and under the Lattice any mana answers any pip.
         let afford = |cost: &baylee_core::mana::ManaCost| {
@@ -655,6 +716,34 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object(card)
             .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard);
+        // Escape (CR 702.138a) from the graveyard: its mana and the other
+        // cards it exiles, the count asked of the list the wizard offers.
+        // Beside it, where a permission casts the card from there (Muldrotha,
+        // Wrenn's emblem), the mana cost as `Normal`.
+        if in_graveyard && let Some(escape) = face.escape {
+            let permitted = self.state.object(card).is_some_and(|o| {
+                casting::graveyard_cast_permission(&self.state, player, o).is_some()
+            });
+            if permitted && afford(&face.mana_cost.with_x(0)) {
+                options.push(CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::Normal,
+                    cost: face.mana_cost.with_more_generic(tax),
+                });
+            }
+            let fodder = casting::escape_exile_options(&self.state, player, card).len();
+            if afford(&escape.cost.with_x(0)) && fodder >= usize::from(escape.exile) {
+                options.push(CastModeDesc {
+                    index: options.len() as u8,
+                    kind: CastModeKind::Escape,
+                    cost: escape.cost.with_more_generic(tax),
+                });
+            }
+            if options.is_empty() {
+                return Err(EngineError::IllegalAction("no way to cast this spell"));
+            }
+            return Ok(options);
+        }
         if in_graveyard && let Some(flashback) = face.flashback {
             let at_mana_cost = casting::flashback_granted(&self.state, card)
                 || self.state.object(card).is_some_and(|o| {
@@ -805,6 +894,22 @@ impl<L: CardLookup> Engine<L> {
                 kind: CastModeKind::Alternative(i),
                 cost: alt.cost.mana.with_more_generic(tax),
             });
+        }
+        // Dash (CR 702.109a): its cost "rather than its mana cost", which is
+        // an alternative cost (CR 118.9) paid by the rules for one (601.2b,
+        // 601.2f–h) — asked of the pool the way the alternatives above are.
+        if let Some(dash) = face.dash {
+            let taxed = baylee_cards_dsl::Cost {
+                mana: dash.with_more_generic(tax),
+                parts: &[],
+            };
+            if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card)) {
+                options.push(CastModeDesc {
+                    index: (options.len()) as u8,
+                    kind: CastModeKind::Dash,
+                    cost: taxed.mana,
+                });
+            }
         }
         // MDFC backs (CR 712.11b) and adventures (CR 715), through the reader
         // `can_cast` uses — land faces are played and disturb backs came out
@@ -961,43 +1066,78 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// Drives the wizard forward until it needs an answer or finishes.
-    #[allow(clippy::too_many_lines)] // the wizard is a flat stage machine; extraction would obscure it
+    ///
+    /// A stage that cannot go on drops the wizard and touches nothing else:
+    /// no stage sets the question before it has decided to ask it, and a
+    /// failed payment "has touched nothing" (`finish_cast`). So on the first
+    /// press of a cast, an error here leaves the engine as the press found
+    /// it, which is what a refused `apply` must do. Past the first question
+    /// the caster has *answered* something, and that is
+    /// [`Self::continue_cast_wizard`]'s to settle.
     pub(crate) fn advance_cast_wizard(&mut self) -> Result<(), EngineError> {
+        let result = self.advance_cast_wizard_inner();
+        if result.is_err() {
+            self.cast_wizard = None;
+        }
+        result
+    }
+
+    /// Carries a cast on after its caster answered one of its questions.
+    ///
+    /// The answer was one the question offered, so it is taken, whatever
+    /// the rest of the checklist then finds. A step the caster cannot
+    /// complete — the total cost with the X they named, the targets their
+    /// mode needs — makes the casting illegal, and the game returns to the
+    /// moment before it was proposed (CR 601.2, CR 732.1): that is the
+    /// answer's consequence, not a reason to refuse it.
+    ///
+    /// It used to be refused *and* reversed, which is the one combination a
+    /// game record cannot hold: a refused answer is not recorded, so a
+    /// replay stayed inside the wizard while the table had gone back to
+    /// priority, and the next recorded answer was put to the wrong question.
+    ///
+    /// What taking it costs: the reason is no longer handed back. Nobody read
+    /// it — gamehost's `Session` answers every refusal with the same "illegal
+    /// action for your seat" — and the caster now sees the priority they are
+    /// back at instead. The reversal journals nothing, as CR 732.1 has it:
+    /// an undone action leaves nothing behind.
+    pub(crate) fn continue_cast_wizard(&mut self) {
         // Read before the stages run: `finish_cast` nulls the wizard itself
         // on the way out, so by the error branch there is nobody left to ask.
         let caster = self.cast_wizard.as_ref().map(|w| w.player);
-        let result = self.advance_cast_wizard_inner();
-        if result.is_err() {
-            // A cast that fails mid-wizard (payment, late target legality)
-            // fizzles cleanly: drop the wizard and resume the game instead
-            // of leaving a consumed choice pending.
-            self.cast_wizard = None;
-            self.awaiting_answer = false;
-            // CR 601.2h reverses the *whole* casting, so the game returns to
-            // the moment before it began — and that includes whose priority
-            // it was. Nothing in the wizard path touches `passes` or
-            // `priority_holder`, so re-asking the caster is the exact
-            // restore. Resuming through `run_until_choice` instead walked
-            // the priority round on to the next seat, because to
-            // `priority_round` a holder who is no longer being asked has
-            // taken their turn: a player whose waterbend could not be paid
-            // was told "cannot pay the total cost" and then lost the rest of
-            // their own main phase to a spell that never happened.
-            if let Some(player) = caster
-                && self.priority_holder == Some(player)
-            {
-                self.pending = Pending::Priority {
-                    player,
-                    legal: Box::new(self.compute_legal(player)),
-                };
-                self.awaiting_answer = true;
-            } else {
-                // A cast that did not start from a priority round (cascade,
-                // a miracle offer) has no such moment to return to.
-                self.run_until_choice();
-            }
+        if self.advance_cast_wizard().is_err() {
+            self.reverse_cast(caster);
         }
-        result
+    }
+
+    /// Returns the game to the moment before a cast was proposed (CR 601.2,
+    /// CR 732.1), once the cast has turned out to be illegal part-way.
+    pub(crate) fn reverse_cast(&mut self, caster: Option<PlayerId>) {
+        self.cast_wizard = None;
+        self.awaiting_answer = false;
+        // CR 601.2h reverses the *whole* casting, so the game returns to
+        // the moment before it began — and that includes whose priority
+        // it was. Nothing in the wizard path touches `passes` or
+        // `priority_holder`, so re-asking the caster is the exact
+        // restore. Resuming through `run_until_choice` instead walked
+        // the priority round on to the next seat, because to
+        // `priority_round` a holder who is no longer being asked has
+        // taken their turn: a player whose waterbend could not be paid
+        // was told "cannot pay the total cost" and then lost the rest of
+        // their own main phase to a spell that never happened.
+        if let Some(player) = caster
+            && self.priority_holder == Some(player)
+        {
+            self.pending = Pending::Priority {
+                player,
+                legal: Box::new(self.compute_legal(player)),
+            };
+            self.awaiting_answer = true;
+        } else {
+            // A cast that did not start from a priority round (cascade,
+            // a miracle offer) has no such moment to return to.
+            self.run_until_choice();
+        }
     }
 
     #[allow(clippy::too_many_lines)]
@@ -1184,6 +1324,14 @@ impl<L: CardLookup> Engine<L> {
                     .wizard_target_req(&wizard)
                     .map_or(TargetSpec::AnyPlayer, |req| req.spec);
                 let options = eval::target_player_options(&self.state, &spec, wizard.player);
+                // No player can be chosen (every opponent has hexproof, say):
+                // the spell cannot take the step and cannot be cast (CR
+                // 601.2c, 601.2), and an empty menu is a question with no
+                // answer. `miracle_targets_available` reads the same list.
+                if options.is_empty() {
+                    self.cast_wizard = None;
+                    return Err(EngineError::IllegalAction("not enough legal targets"));
+                }
                 self.pending = Pending::ChoosePlayer {
                     player: wizard.player,
                     options,
@@ -1264,17 +1412,47 @@ impl<L: CardLookup> Engine<L> {
                     return Ok(());
                 }
                 let mut wizard = wizard;
-                wizard.stage = WizardStage::Delve;
+                wizard.stage = WizardStage::Escape;
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
             }
+            WizardStage::Escape => {
+                let exile = (wizard.option == Some(CastModeKind::Escape))
+                    .then(|| self.wizard_face(&wizard).escape)
+                    .flatten()
+                    .map(|escape| escape.exile);
+                let Some(n) = exile else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Delve;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                };
+                // The same list the offer counted, so the question is never
+                // shorter than its answer.
+                let options =
+                    casting::escape_exile_options(&self.state, wizard.player, wizard.card);
+                if options.len() < usize::from(n) {
+                    self.cast_wizard = None;
+                    return Err(EngineError::IllegalAction(
+                        "not enough other cards in the graveyard to escape",
+                    ));
+                }
+                self.pending = Pending::ChooseCards {
+                    player: wizard.player,
+                    options,
+                    min: n,
+                    max: n,
+                    prompt: ChoicePrompt::CostExile,
+                };
+                self.awaiting_answer = true;
+                Ok(())
+            }
             WizardStage::Delve => {
                 let face = self.wizard_face(&wizard);
-                let graveyard: Vec<ObjectId> = self
-                    .state
-                    .zones
-                    .list(ZoneLocation::Graveyard(wizard.player))
-                    .clone();
+                // The offer's own list (`casting::delve_sources`): the
+                // graveyard less the card being cast (CR 601.2a).
+                let graveyard =
+                    crate::casting::delve_sources(&self.state, wizard.player, wizard.card);
                 // How many may be exiled is bounded by the *cost*, not by the
                 // graveyard. CR 702.66a is "for each generic mana in this
                 // spell's total cost, you may exile a card from your
@@ -1500,9 +1678,29 @@ impl<L: CardLookup> Engine<L> {
         })
     }
 
-    /// Pays everything and puts the spell on the stack.
-    #[allow(clippy::too_many_lines)] // payment is a flat checklist; extraction would obscure it
+    /// Pays everything and puts the spell on the stack, or, refused, pays
+    /// nothing.
+    ///
+    /// The mana is paid first and all at once, and every refusal after it (a
+    /// delve, pitch or sacrifice answer naming an object that is gone, the
+    /// card itself gone) used to leave what was paid by then spent while the
+    /// cast was reversed. CR 732.1 cancels "any payments already made", so
+    /// the game is kept before the first of them and put back on a refusal,
+    /// with the spell-rider abilities the mana put on the stack.
     fn finish_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
+        let before = self.state.checkpoint();
+        let riders = self.synthetic_fx.clone();
+        let cast = self.pay_and_cast(wizard);
+        if cast.is_err() {
+            self.state.roll_back(before);
+            self.synthetic_fx = riders;
+        }
+        cast
+    }
+
+    /// [`Self::finish_cast`] without the checkpoint.
+    #[allow(clippy::too_many_lines)] // payment is a flat checklist; extraction would obscure it
+    fn pay_and_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
         let face = self.wizard_face(wizard);
         // Total mana: option cost (with X) + kicker mana when taken.
         let mut total = wizard_total_cost(face, wizard);
@@ -1540,7 +1738,7 @@ impl<L: CardLookup> Engine<L> {
             self.apply_spend_riders(player, wizard.card, &spent);
         }
         // The mana is paid, so the rest of the cost may now be spent.
-        for &card in &wizard.delve_exiles {
+        for &card in wizard.delve_exiles.iter().chain(&wizard.escape_exiles) {
             let _ = self.state.move_object(
                 card,
                 ZoneLocation::Exile(player),
@@ -1709,7 +1907,10 @@ impl<L: CardLookup> Engine<L> {
             // and not a card a permission of its own opened.
             if obj.zone == crate::zone::Zone::Graveyard
                 && wizard.by_effect.is_none()
-                && !matches!(wizard.option, Some(CastModeKind::Face(_)))
+                && !matches!(
+                    wizard.option,
+                    Some(CastModeKind::Face(_) | CastModeKind::Escape)
+                )
                 && casting::play_permission(&self.state, player, card).is_none()
             {
                 let obj = self.state.object(card).expect("wizard card exists");
@@ -1745,6 +1946,19 @@ impl<L: CardLookup> Engine<L> {
             // hand, front face up, is not exiled for what it once was.
             obj.riders
                 .retain(|r| *r != crate::object::Rider::ExileInsteadOfGraveyard);
+            // Dash (CR 702.109a): the spell was cast for its dash cost, and
+            // the permanent it becomes has haste and goes back at the next
+            // end step (`Engine::finalize_spell` writes that trigger).
+            obj.riders.retain(|r| *r != crate::object::Rider::Dashed);
+            if wizard.option == Some(CastModeKind::Dash) {
+                obj.riders.push(crate::object::Rider::Dashed);
+            }
+            // Escape (CR 702.138b): the spell escaped, and so will the
+            // permanent it becomes.
+            obj.riders.retain(|r| *r != crate::object::Rider::Escaped);
+            if wizard.option == Some(CastModeKind::Escape) {
+                obj.riders.push(crate::object::Rider::Escaped);
+            }
             if exiles_itself {
                 obj.riders
                     .push(crate::object::Rider::ExileInsteadOfGraveyard);

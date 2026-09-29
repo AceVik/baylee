@@ -1195,3 +1195,424 @@ fn ashiok_dream_render_mills_target_player_and_exiles_opponents_graveyard() {
         "milled cards were moved to exile"
     );
 }
+
+/// Karn's loyalty counters, or none once he has left.
+fn karns_loyalty(engine: &Engine<RegistryLookup>, walker: ObjectId) -> u16 {
+    engine
+        .state()
+        .object(walker)
+        .map_or(0, |o| o.counters.get(CounterKind::Loyalty))
+}
+
+/// Answers Karn's +1 target question with `objects` and checks that the
+/// activation is over: its ability on the stack, its activator holding
+/// priority, and the +1 paid exactly once.
+#[track_caller]
+fn answer_karns_plus_one(
+    engine: &mut Engine<RegistryLookup>,
+    walker: ObjectId,
+    objects: Vec<ObjectId>,
+) {
+    let p0 = PlayerId::new(0);
+    let before = karns_loyalty(engine, walker);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: walker,
+                ability_index: 1,
+            },
+        )
+        .expect("the +1 is offered");
+    assert!(
+        matches!(
+            engine.pending(),
+            Pending::ChooseTargets { min: 0, max: 1, .. }
+        ),
+        "up to one target: {:?}",
+        engine.pending()
+    );
+    let stacked = engine.state().zones.list(ZoneLocation::Stack).len();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects,
+                players: vec![],
+            },
+        )
+        .expect("an answer the question offered is accepted");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the activation is complete: {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).len(),
+        stacked + 1,
+        "its ability is on the stack"
+    );
+    assert_eq!(
+        karns_loyalty(engine, walker),
+        before + 1,
+        "the +1 was paid once"
+    );
+}
+
+/// Karn, the Great Creator +1 answered with no target (CR 115.6): the
+/// ability goes on the stack, resolves, and animates nothing.
+#[test]
+fn karn_plus_one_with_no_target_chosen_animates_nothing() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(45, forest())
+        .battlefield(0, &[karn_the_great_creator(), chromatic_lantern()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("karn deployed");
+    let lantern = on_battlefield(&engine, p0, chromatic_lantern()).expect("the lantern is out");
+
+    answer_karns_plus_one(&mut engine, karn, vec![]);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !engine
+            .state()
+            .object(lantern)
+            .expect("the lantern")
+            .characteristics()
+            .types
+            .intersects(TypeSet::CREATURE),
+        "nothing was targeted, so nothing was animated"
+    );
+}
+
+/// A Spark Double that entered as a copy of Karn has both of his loyalty
+/// abilities, and each is answered the way Karn's own is.
+///
+/// Its +1 is the one that crashed games: the copy's card is Spark Double, and
+/// the target answer read the card's printed abilities to decide whether it
+/// was finishing a loyalty ability. It found none there, sent the answer into
+/// a second activation that refused it ("loyalty already used this turn"),
+/// and left the question with nothing to answer it; the next answer panicked
+/// the engine. The original Karn's +1 earlier in the same turn, answered
+/// with nothing, shows that two walkers each get their own activation, and
+/// the copy's −2 on the next turn is the wish, off the sideboard.
+#[test]
+fn a_spark_double_copy_of_karn_uses_each_of_his_loyalty_abilities() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(46, island())
+        .battlefield(
+            0,
+            &[
+                karn_the_great_creator(),
+                chromatic_lantern(),
+                island(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[spark_double()])
+        .sideboard(0, &[mox_opal()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("karn deployed");
+    let lantern = on_battlefield(&engine, p0, chromatic_lantern()).expect("the lantern is out");
+    let copy = spark_double_copying(&mut engine, p0, karn);
+    assert!(
+        engine
+            .state()
+            .object(copy)
+            .expect("the copy")
+            .characteristics()
+            .types
+            .intersects(TypeSet::PLANESWALKER),
+        "the Double is a copy of Karn"
+    );
+
+    answer_karns_plus_one(&mut engine, karn, vec![]);
+    pass_until(&mut engine, stack_is_empty);
+
+    answer_karns_plus_one(&mut engine, copy, vec![lantern]);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, lantern),
+        (3, 3),
+        "the copy's +1 made the lantern a 3/3"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    activate(&mut engine, p0, spark_double(), 2);
+    let offered = loop {
+        match engine.pending().clone() {
+            Pending::ChooseCards { options, .. } => break options,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while resolving the wish: {other:?}"),
+        }
+    };
+    let [mox] = offered[..] else {
+        panic!("the wish offers the one artifact outside the game: {offered:?}")
+    };
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![mox] })
+        .expect("the wish takes it");
+    assert!(
+        in_hand(&engine, p0, mox_opal()).is_some(),
+        "the copy's −2 put the Mox into its owner's hand"
+    );
+}
+
+/// Karn's printed loyalty, read off his card.
+fn karns_printed_loyalty() -> u16 {
+    let def = baylee_cards::by_index(karn_the_great_creator()).expect("Karn is in the pool");
+    def.faces[0].loyalty.expect("Karn prints a loyalty")
+}
+
+/// Karn, a Llanowar Elves, four Islands and a Plains on seat 0's side, a
+/// Spark Double and an Ephemerate in hand, and Karn's +1 already used, so
+/// that his count is no longer his printed loyalty. Answers Karn.
+fn karn_used_his_plus_one(seed: u64) -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(seed, island())
+        .battlefield(
+            0,
+            &[
+                karn_the_great_creator(),
+                llanowar_elves(),
+                island(),
+                island(),
+                island(),
+                island(),
+                plains(),
+            ],
+        )
+        .hand(0, &[spark_double(), ephemerate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("karn deployed");
+    // No noncreature artifact to point at, so the +1 asks nothing.
+    activate(&mut engine, p0, karn_the_great_creator(), 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        karns_loyalty(&engine, karn),
+        karns_printed_loyalty() + 1,
+        "the premise: Karn's count is his printed loyalty and one more"
+    );
+    (engine, karn)
+}
+
+/// Spark Double: "…except it enters with an additional loyalty counter on it
+/// if it's a planeswalker". A copy of Karn enters with Karn's printed
+/// loyalty and that one more.
+///
+/// The starting loyalty (CR 306.5b) was read off the entering permanent's
+/// card, which for the copy is Spark Double's, a 0/0 creature with no
+/// loyalty, so the copy entered with the one counter its own text adds and
+/// its first −2 was out of reach. What a copy takes is Karn's printed
+/// loyalty and not his counters (CR 707.2), which is why Karn has used his
+/// +1 first: a copy of his count would enter with one too many.
+#[test]
+fn a_spark_double_copy_of_karn_enters_with_his_printed_loyalty_and_one_more() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, karn) = karn_used_his_plus_one(48);
+    let copy = spark_double_copying(&mut engine, p0, karn);
+    assert_eq!(
+        karns_loyalty(&engine, copy),
+        karns_printed_loyalty() + 1,
+        "Karn's printed loyalty, and the Double's additional counter"
+    );
+}
+
+/// The same copy made at a door that is not a spell: a Spark Double that
+/// copied an Elf is blinked by Ephemerate and comes back as a copy of Karn.
+///
+/// That door asks the copy question from inside the scan of the arrival,
+/// after the scan's loyalty step has read the Double's own values, so the
+/// copied loyalty is put where the answer is taken.
+#[test]
+fn a_blinked_spark_double_that_comes_back_as_karn_has_his_printed_loyalty_and_one_more() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, karn) = karn_used_his_plus_one(49);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves");
+    let double = spark_double_copying(&mut engine, p0, elves);
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, ephemerate());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![double],
+            },
+        )
+        .expect("the Double is a creature, an Elf");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![karn],
+            },
+        )
+        .expect("the returning Double may copy Karn");
+    pass_until(&mut engine, stack_is_empty);
+    let copy = on_battlefield(&engine, p0, spark_double()).expect("the Double came back");
+    assert!(
+        engine
+            .state()
+            .object(copy)
+            .expect("the copy")
+            .characteristics()
+            .types
+            .contains(TypeSet::PLANESWALKER),
+        "the Double came back as a copy of Karn"
+    );
+    assert_eq!(
+        karns_loyalty(&engine, copy),
+        karns_printed_loyalty() + 1,
+        "Karn's printed loyalty, and the Double's additional counter"
+    );
+}
+
+/// A copy of a permanent that is both a creature and a planeswalker takes
+/// both of Spark Double's counters: each "if it's a …" clause asks what the
+/// copy became for itself.
+///
+/// No card in the pool prints both types, so Karn's own values are made a
+/// 4/4 creature planeswalker behind the offer's back. It is his copiable
+/// values that change, which is what a copy reads (CR 707.2); an effect that
+/// animated him would not be copied.
+#[test]
+fn a_spark_double_copy_of_a_creature_planeswalker_takes_both_counters() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(50, island())
+        .battlefield(
+            0,
+            &[
+                karn_the_great_creator(),
+                island(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[spark_double()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("karn deployed");
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        let base = state.object_mut(karn).expect("Karn").base_mut();
+        base.types = base.types.union(TypeSet::CREATURE);
+        base.power = Some(4);
+        base.toughness = Some(4);
+        state.invalidate_projections();
+    }
+    engine.refresh_offer();
+
+    let copy = spark_double_copying(&mut engine, p0, karn);
+    let counters = &engine.state().object(copy).expect("the copy").counters;
+    assert_eq!(
+        counters.get(CounterKind::P1P1),
+        1,
+        "a creature: the +1/+1 counter"
+    );
+    assert_eq!(
+        counters.get(CounterKind::Loyalty),
+        karns_printed_loyalty() + 1,
+        "a planeswalker: Karn's printed loyalty and the loyalty counter"
+    );
+}
+
+/// Karn's +1 reads what a permanent is when it is asked, not what it was
+/// printed as: an Island Liquimetal Coating has made an artifact is a
+/// noncreature artifact, and the copy's +1 can point at it. It becomes an
+/// artifact creature with power and toughness equal to its mana value, zero,
+/// and is put into its owner's graveyard (CR 704.5f).
+#[test]
+fn a_spark_double_copy_of_karn_animates_a_land_liquimetal_coating_made_an_artifact() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(47, island())
+        .battlefield(
+            0,
+            &[
+                karn_the_great_creator(),
+                liquimetal_coating(),
+                island(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[spark_double()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("karn deployed");
+    let copy = spark_double_copying(&mut engine, p0, karn);
+    let land = on_battlefield(&engine, p0, island()).expect("an Island");
+
+    activate(&mut engine, p0, liquimetal_coating(), 0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![land],
+                players: vec![],
+            },
+        )
+        .expect("any permanent is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine
+            .state()
+            .object(land)
+            .expect("the Island")
+            .characteristics()
+            .types
+            .contains(TypeSet::ARTIFACT),
+        "the Island is an artifact until end of turn"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: copy,
+                ability_index: 1,
+            },
+        )
+        .expect("the copy's +1 is offered");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the +1 asks for its target, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&land),
+        "the coated Island is a noncreature artifact: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![land],
+                players: vec![],
+            },
+        )
+        .expect("the copy's own question takes its answer");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, island()).is_some(),
+        "a 0/0 Island was put into its owner's graveyard"
+    );
+}

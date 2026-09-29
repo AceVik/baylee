@@ -186,12 +186,12 @@ pub fn colors_of(
                 options
             }
         }
-        ManaSource::LandColor { mine } => {
+        ManaSource::LandColor { mine, any_type } => {
             // Union of what the lands of the chosen side could produce.
             let mut colors = ColorSet::EMPTY;
             let mut colorless = false;
-            for id in state.zones.list(ZoneLocation::Battlefield) {
-                let Some(obj) = state.object(*id) else {
+            for id in state.battlefield_seen() {
+                let Some(obj) = state.object(id) else {
                     continue;
                 };
                 let c = obj.characteristics();
@@ -215,7 +215,10 @@ pub fn colors_of(
                 }
             }
             let mut options = colored(colors);
-            if colorless {
+            // Colorless is a type of mana and not a colour (CR 106.1a,
+            // CR 106.1b): Reflecting Pool's "any type" makes it, and Exotic
+            // Orchard's "any color" does not, whatever the lands make.
+            if colorless && any_type {
                 options.push(ManaColor::Colorless);
             }
             options
@@ -433,12 +436,28 @@ mod tests {
             .produced_colors = ColorSet::of(Color::Black);
 
         assert_eq!(
-            colors_of(&state, me(), ManaSource::LandColor { mine: true }, pool),
+            colors_of(
+                &state,
+                me(),
+                ManaSource::LandColor {
+                    mine: true,
+                    any_type: true
+                },
+                pool
+            ),
             vec![ManaColor::White, ManaColor::Green],
             "my lands, in WUBRG order, and the Signet is not a land"
         );
         assert_eq!(
-            colors_of(&state, me(), ManaSource::LandColor { mine: false }, pool),
+            colors_of(
+                &state,
+                me(),
+                ManaSource::LandColor {
+                    mine: false,
+                    any_type: false
+                },
+                pool
+            ),
             vec![ManaColor::Red],
             "an Exotic Orchard reads the other side of the table"
         );
@@ -449,10 +468,54 @@ mod tests {
             .base_mut()
             .produced_colorless = true;
         assert_eq!(
-            colors_of(&state, me(), ManaSource::LandColor { mine: true }, pool),
+            colors_of(
+                &state,
+                me(),
+                ManaSource::LandColor {
+                    mine: true,
+                    any_type: true
+                },
+                pool
+            ),
             vec![ManaColor::White, ManaColor::Green, ManaColor::Colorless],
-            "a land making colorless mana is a colour this can produce, and \
+            "a land making colorless mana is a type this can produce, and \
              it is not in the ColorSet the other four came out of"
+        );
+    }
+
+    /// "Any color" is not "any type": colorless mana is a type of mana and
+    /// not a colour (CR 106.1a, CR 106.1b). Exotic Orchard and Fellwar Stone
+    /// across a Wastes used to offer `{C}`, because the union kept the
+    /// colorless half for both sentences.
+    #[test]
+    fn any_color_a_land_could_produce_is_never_colorless() {
+        let mut state = state();
+        let orchard = land(&mut state, me(), "Exotic Orchard", ColorSet::EMPTY);
+        land(&mut state, them(), "Island", ColorSet::of(Color::Blue));
+        let wastes = land(&mut state, them(), "Wastes", ColorSet::EMPTY);
+        state
+            .object_mut(wastes)
+            .expect("just made it")
+            .base_mut()
+            .produced_colorless = true;
+
+        let color = ManaSource::LandColor {
+            mine: false,
+            any_type: false,
+        };
+        let kind = ManaSource::LandColor {
+            mine: false,
+            any_type: true,
+        };
+        assert_eq!(
+            colors_of(&state, me(), color, orchard),
+            vec![ManaColor::Blue],
+            "any color: the Wastes' colorless mana is no colour"
+        );
+        assert_eq!(
+            colors_of(&state, me(), kind, orchard),
+            vec![ManaColor::Blue, ManaColor::Colorless],
+            "any type: it is a type"
         );
     }
 
@@ -472,14 +535,31 @@ mod tests {
             .produced_chosen = true;
 
         assert!(
-            colors_of(&state, me(), ManaSource::LandColor { mine: true }, pool).is_empty(),
+            colors_of(
+                &state,
+                me(),
+                ManaSource::LandColor {
+                    mine: true,
+                    any_type: true
+                },
+                pool
+            )
+            .is_empty(),
             "nothing has been chosen yet, so the card is right that it \
              produces nothing"
         );
 
         state.object_mut(haven).expect("still there").chosen_color = Some(ManaColor::Blue);
         assert_eq!(
-            colors_of(&state, me(), ManaSource::LandColor { mine: true }, pool),
+            colors_of(
+                &state,
+                me(),
+                ManaSource::LandColor {
+                    mine: true,
+                    any_type: true
+                },
+                pool
+            ),
             vec![ManaColor::Blue]
         );
     }

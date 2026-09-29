@@ -937,7 +937,7 @@ pub mod prelude {
     /// of every card file.
     pub use crate::counters;
     pub use crate::effect::{
-        Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, ManaValueBound,
+        Amount, CounterKind, Effect, ExileUntil, Find, ManaRestriction, ManaSource, ManaValueBound,
         ManaValueCmp, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot,
         TargetSpec, TokenDef, ZoneSel,
     };
@@ -946,8 +946,8 @@ pub mod prelude {
         Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule, StaticAbility,
     };
     pub use crate::{
-        ALL_MANA_COLORS, ANY_COLOR_MANA, CardDef, CommanderRule, Coverage, EnterModifier, FaceDef,
-        KeywordSet, PartnerKind,
+        ALL_MANA_COLORS, ANY_COLOR_MANA, CardDef, CommanderRule, Coverage, EnterModifier, Escape,
+        FaceDef, KeywordSet, PartnerKind,
     };
     pub use crate::{
         activated, card, chapter, cost, crew, equip, f, face, loyalty, mana_ability,

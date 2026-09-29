@@ -329,6 +329,11 @@ pub struct PerTurn {
     pub noncreature_spells: Vec<u32>,
     /// Cards drawn this turn, per player.
     pub draws: Vec<u32>,
+    /// Whether the active player has drawn a card in this turn's draw step.
+    /// Only the active player has a draw step (CR 504.1), and a turn has one,
+    /// so the turn's reset starts each draw step clean. Only a draw made in
+    /// that step sets it: a card drawn in the upkeep does not.
+    pub drew_in_draw_step: bool,
     /// All spells cast this turn, per player (second-spell triggers).
     pub spells_cast: Vec<u32>,
     /// Players who may cast no further spells this turn (Conduit of
@@ -430,6 +435,11 @@ pub struct PlayPermission {
     /// "Without paying its mana cost" (Dauthi Voidwalker): a spell is cast
     /// through the free-cast path, and X is 0 (CR 107.3b).
     pub free: bool,
+    /// "You may **cast** that card" (Ragavan, Nimble Pilferer) rather than
+    /// "play": to play a card is to play it as a land or cast it as a spell
+    /// (CR 601.1a), and this permission is the second half only, so a land
+    /// exiled under it stays where it is (a land is never cast, CR 305.9).
+    pub cast_only: bool,
 }
 
 impl PerTurn {
@@ -443,6 +453,7 @@ impl PerTurn {
             life_lost: vec![false; players],
             creatures_died: 0,
             draws: vec![0; players],
+            drew_in_draw_step: false,
             entered_battlefield: Vec::new(),
             drawn: Vec::new(),
             playable: Vec::new(),
@@ -496,6 +507,7 @@ impl PerTurn {
     pub fn reset(&mut self) {
         self.noncreature_spells.iter_mut().for_each(|v| *v = 0);
         self.draws.iter_mut().for_each(|v| *v = 0);
+        self.drew_in_draw_step = false;
         self.spells_cast.iter_mut().for_each(|v| *v = 0);
         self.no_more_spells.iter_mut().for_each(|v| *v = false);
         self.life_lost.iter_mut().for_each(|v| *v = false);
@@ -979,6 +991,188 @@ pub struct GameState {
     token_cleanup: Vec<ObjectId>,
 }
 
+#[cfg(any(test, feature = "fuzz"))]
+impl GameState {
+    /// Every field, one line each, for `Engine::fingerprint`.
+    ///
+    /// Named without `..`, so a new field does not compile until it is here.
+    /// The journal is only ever appended to, so its length and last entry
+    /// stand for all of it; printing the whole of it at every decision of a
+    /// long game is quadratic.
+    ///
+    /// `whole` false leaves out the three prints that are nearly all of the
+    /// size (the arena, the base cache, the names), as empty lines in their
+    /// places, so a caller can afford a light comparison at every step and
+    /// the whole one where it samples.
+    #[allow(clippy::too_many_lines)]
+    pub(crate) fn fingerprint(&self, whole: bool, out: &mut Vec<(&'static str, String)>) {
+        let GameState {
+            arena,
+            zones,
+            players,
+            turn,
+            combat,
+            per_turn,
+            delayed,
+            pending_miracle,
+            extra_turns,
+            restriction_info,
+            next_restriction_id,
+            commander_casts,
+            commander_redirect,
+            pending_copied_faces,
+            ltb_abilities,
+            ltb_mana_values,
+            ltb_controllers,
+            ltb_powers,
+            ltb_attachments,
+            ltb_counters,
+            ltb_characteristics,
+            ceased,
+            reflexive,
+            discovered,
+            divided,
+            synthetic_copies,
+            commanders,
+            monarch,
+            day_night,
+            previous_turn,
+            starting_player,
+            ability_fires,
+            rng,
+            journal,
+            names,
+            bases,
+            timestamp,
+            effects,
+            replacement_rules,
+            characteristics_generation,
+            projection_ids,
+            projected_cross_zone,
+            token_cleanup,
+            printed_pt_cda,
+        } = self;
+        let mut restrictions: Vec<_> = restriction_info.iter().collect();
+        restrictions.sort_by_key(|(id, _)| **id);
+        let mut fires: Vec<_> = ability_fires.iter().collect();
+        fires.sort_by_key(|(key, _)| **key);
+        let heavy = |print: &dyn std::fmt::Debug| {
+            if whole {
+                format!("{print:?}")
+            } else {
+                String::new()
+            }
+        };
+        out.extend([
+            ("state.arena", heavy(arena)),
+            ("state.zones", format!("{zones:?}")),
+            ("state.players", format!("{players:?}")),
+            ("state.turn", format!("{turn:?}")),
+            ("state.combat", format!("{combat:?}")),
+            ("state.per_turn", format!("{per_turn:?}")),
+            ("state.delayed", format!("{delayed:?}")),
+            ("state.pending_miracle", format!("{pending_miracle:?}")),
+            ("state.extra_turns", format!("{extra_turns:?}")),
+            ("state.restriction_info", format!("{restrictions:?}")),
+            (
+                "state.next_restriction_id",
+                format!("{next_restriction_id:?}"),
+            ),
+            ("state.commander_casts", format!("{commander_casts:?}")),
+            (
+                "state.commander_redirect",
+                format!("{commander_redirect:?}"),
+            ),
+            (
+                "state.pending_copied_faces",
+                format!("{pending_copied_faces:?}"),
+            ),
+            ("state.ltb_abilities", format!("{ltb_abilities:?}")),
+            ("state.ltb_mana_values", format!("{ltb_mana_values:?}")),
+            ("state.ltb_controllers", format!("{ltb_controllers:?}")),
+            ("state.ltb_powers", format!("{ltb_powers:?}")),
+            ("state.ltb_attachments", format!("{ltb_attachments:?}")),
+            ("state.ltb_counters", format!("{ltb_counters:?}")),
+            (
+                "state.ltb_characteristics",
+                format!("{ltb_characteristics:?}"),
+            ),
+            ("state.ceased", format!("{ceased:?}")),
+            ("state.reflexive", format!("{reflexive:?}")),
+            ("state.discovered", format!("{discovered:?}")),
+            ("state.divided", format!("{divided:?}")),
+            ("state.synthetic_copies", format!("{synthetic_copies:?}")),
+            ("state.commanders", format!("{commanders:?}")),
+            ("state.monarch", format!("{monarch:?}")),
+            ("state.day_night", format!("{day_night:?}")),
+            ("state.previous_turn", format!("{previous_turn:?}")),
+            ("state.starting_player", format!("{starting_player:?}")),
+            ("state.ability_fires", format!("{fires:?}")),
+            ("state.rng", format!("{rng:?}")),
+            (
+                "state.journal",
+                format!("{} {:?}", journal.last_seq(), journal.entries().last()),
+            ),
+            ("state.names", heavy(names)),
+            ("state.bases", heavy(bases)),
+            ("state.timestamp", format!("{timestamp:?}")),
+            ("state.effects", format!("{effects:?}")),
+            ("state.replacement_rules", format!("{replacement_rules:?}")),
+            (
+                "state.characteristics_generation",
+                format!("{characteristics_generation:?}"),
+            ),
+            ("state.projection_ids", format!("{projection_ids:?}")),
+            (
+                "state.projected_cross_zone",
+                format!("{projected_cross_zone:?}"),
+            ),
+            ("state.token_cleanup", format!("{token_cleanup:?}")),
+            ("state.printed_pt_cda", format!("{printed_pt_cda:?}")),
+        ]);
+    }
+}
+
+/// The game as it stood before a payment began, to put back if the payment
+/// cannot finish ([`GameState::checkpoint`]).
+pub(crate) struct Checkpoint {
+    state: Box<GameState>,
+    journal: usize,
+}
+
+impl GameState {
+    /// Keeps the game as it stands, for [`Self::roll_back`].
+    ///
+    /// CR 732.1: an action that cannot legally be completed is reversed and
+    /// "any payments already made are canceled", and no ability triggers and
+    /// no effect applies as a result of it. A payment is written part by
+    /// part, so the one sure way to cancel whatever of it was written is to
+    /// put back the game it was written into. Everything is copied except
+    /// the journal, which only grows and is as long as the game: its length
+    /// is kept instead, and what the payment journaled is cut off, which is
+    /// also what keeps a trigger from seeing it.
+    pub(crate) fn checkpoint(&mut self) -> Checkpoint {
+        let journal = std::mem::take(&mut self.journal);
+        let state = Box::new(self.clone());
+        self.journal = journal;
+        Checkpoint {
+            state,
+            journal: self.journal.len(),
+        }
+    }
+
+    /// Puts back the game [`Self::checkpoint`] kept, the journal cut back to
+    /// its length then. Nothing reads the journal while a payment runs (the
+    /// trigger scan and the entry scan move only between actions), so no
+    /// reader is left pointing past the cut.
+    pub(crate) fn roll_back(&mut self, to: Checkpoint) {
+        let mut journal = std::mem::take(&mut self.journal);
+        journal.cancel_from(to.journal);
+        *self = *to.state;
+        self.journal = journal;
+    }
+}
+
 impl GameState {
     /// The side a seat plays for (CR 102.3).
     #[must_use]
@@ -1446,7 +1640,7 @@ impl GameState {
     /// its controller's most recent turn began, so *any* control change
     /// makes it summoning-sick again — including the one at end of turn
     /// that hands a stolen creature back.
-    fn restart_summoning_sickness(&mut self, id: ObjectId) {
+    pub(crate) fn restart_summoning_sickness(&mut self, id: ObjectId) {
         let ts = self.next_timestamp();
         if let Some(obj) = self.object_mut(id) {
             obj.timestamp = ts;
@@ -1585,10 +1779,26 @@ impl GameState {
     /// stale — which is how an amass token, a 0/0 that is only alive because
     /// of the counter placed on it a moment later, used to die to state-based
     /// actions before anything ever recomputed its toughness. Anything that
-    /// writes a counter, or puts a new permanent on the battlefield, calls
-    /// this.
+    /// writes a counter, or puts a new permanent on the battlefield or a new
+    /// spell on the stack ([`Self::put_new_spell_on_stack`]), calls this.
     pub const fn invalidate_projections(&mut self) {
         self.characteristics_generation = u64::MAX;
+    }
+
+    /// Puts `id`, a spell that has never been in a zone (a copy of a spell,
+    /// CR 707.10), on top of the stack, and has the projection take it in.
+    ///
+    /// A spell on the stack is projected like a permanent (a creature spell
+    /// under Maskwood Nexus is every creature type), and `move_object` is
+    /// what invalidates for a spell that is cast. A copy is not moved: it is
+    /// made there. Without the invalidation the copy answered its copied
+    /// printed values until some unrelated change refreshed the board, and
+    /// for everything that read it in between — a cast trigger, "target Ally
+    /// spell" — the Nexus did not apply to it.
+    pub fn put_new_spell_on_stack(&mut self, id: ObjectId) {
+        self.zones
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top, true);
+        self.invalidate_projections();
     }
 
     /// Changes a player's life total by `by`. This is **the** door, for the
@@ -1778,8 +1988,19 @@ impl GameState {
         ids.clear();
         // Cached off-board projections must be revisited after the last
         // cross-zone effect disappears (#120).
+        //
+        // A phased-out permanent is not projected at all: it can't be
+        // affected by anything (CR 702.26b), so what it was as it phased out
+        // is what it stays, and so is its controller, the player it phases
+        // in under (CR 502.1). `phase_in` invalidates, and the next refresh
+        // takes it back in.
         if cross_zone || self.projected_cross_zone {
-            ids.extend(self.arena.iter().map(|(id, _)| id));
+            ids.extend(
+                self.arena
+                    .iter()
+                    .filter(|(_, o)| !o.status.contains(crate::object::Status::PHASED_OUT))
+                    .map(|(id, _)| id),
+            );
         } else {
             // The stack contributes only its *spells*. An ability on the
             // stack has no characteristic a layer can touch, and this pass
@@ -1787,11 +2008,8 @@ impl GameState {
             // triggers to establish that, every time a counter moves, is
             // the difference between a long game and no game at all.
             ids.extend(
-                self.zones
-                    .list(ZoneLocation::Battlefield)
-                    .iter()
-                    .chain(self.zones.stack_projectable().iter())
-                    .copied(),
+                self.battlefield_seen()
+                    .chain(self.zones.stack_projectable().iter().copied()),
             );
             // And the cards that define their own power and toughness,
             // wherever else they are (CR 604.3).
@@ -1815,10 +2033,13 @@ impl GameState {
         // stops a dependency loop, which CR 613.8b settles by timestamp and
         // this by stopping where it is.
         let mut was: Vec<(ObjectId, PlayerId)> = Vec::new();
+        // Empty, and so unallocated, on every board where nothing counts.
+        let mut readers: Vec<ObjectId> = Vec::new();
         let mut settled = false;
         for _ in 0..plan.control_effects() + 2 {
             self.follow_static_sources();
-            if !self.project_all(&ids, &plan, generation, &mut was) {
+            readers.clear();
+            if !self.project_all(&ids, &plan, generation, &mut was, &mut readers) {
                 settled = true;
                 break;
             }
@@ -1827,6 +2048,20 @@ impl GameState {
             !settled || self.statics_follow_their_sources(),
             "a settled refresh left a static ability's controller behind its source's"
         );
+        // The same for what an object counts (CR 613.1: the layers in their
+        // order, so a count in layer 7 sees every type layer 4 gave). Ashaya
+        // counts the lands you control, and an Elf the walk had not reached
+        // was still the last refresh's Elf and not yet this one's Forest, so
+        // Ashaya came out one short and stayed so. The board is finished
+        // now: project what counted again, and again while that moved a
+        // count another counter reads. Each pass settles at least one more
+        // counter; the bound stops counters that count each other round in
+        // a circle.
+        for _ in 0..readers.len() {
+            if !self.project_readers(&readers, &plan, generation, &mut was) {
+                break;
+            }
+        }
         // CR 302.6 wants control held continuously since the turn began. A
         // permanent a walk moved and a later one moved back never changed
         // hands, so the comparison is with the controller before the first.
@@ -1843,13 +2078,16 @@ impl GameState {
 
     /// One walk of the refresh: projects `ids` through every layer and
     /// writes each controller, noting in `was` the controller an object had
-    /// before a walk first moved it. Whether any controller moved.
+    /// before a walk first moved it, and in `readers` every object whose
+    /// projection counted others (`layers::Projection::read_board`).
+    /// Whether any controller moved.
     fn project_all(
         &mut self,
         ids: &[ObjectId],
         plan: &crate::layers::LayerPlan,
         generation: u64,
         was: &mut Vec<(ObjectId, PlayerId)>,
+        readers: &mut Vec<ObjectId>,
     ) -> bool {
         let mut moved = false;
         for &id in ids {
@@ -1858,6 +2096,9 @@ impl GameState {
             };
             if crate::layers::needs_projection(plan, obj) || self.defines_pt_off_battlefield(obj) {
                 let projection = crate::layers::recompute_with(self, obj, plan);
+                if projection.read_board {
+                    readers.push(id);
+                }
                 let obj = self.object_mut(id).expect("zone object exists");
                 moved |= settle_controller(obj, projection.controller, was);
                 // `cache` and `base` are disjoint fields, so this is one
@@ -1879,6 +2120,31 @@ impl GameState {
             }
         }
         moved
+    }
+
+    /// Projects again the objects a walk found counting others, now that
+    /// every one of those others is this refresh's. Whether any of them
+    /// came out different, which is what another counter may have read.
+    fn project_readers(
+        &mut self,
+        readers: &[ObjectId],
+        plan: &crate::layers::LayerPlan,
+        generation: u64,
+        was: &mut Vec<(ObjectId, PlayerId)>,
+    ) -> bool {
+        let mut changed = false;
+        for &id in readers {
+            let Some(obj) = self.object(id) else {
+                continue;
+            };
+            let projection = crate::layers::recompute_with(self, obj, plan);
+            let obj = self.object_mut(id).expect("zone object exists");
+            changed |= settle_controller(obj, projection.controller, was);
+            changed |= *obj.characteristics() != projection.characteristics;
+            let crate::object::GameObject { cache, base, .. } = obj;
+            cache.store(generation, projection.characteristics, base);
+        }
+        changed
     }
 
     /// Gives each static ability's effect, and each replacement rule, the
@@ -2011,38 +2277,100 @@ impl GameState {
         self.journal.record(GameEvent::DayNightChanged { now });
     }
 
-    /// Sets the monarch and releases monarch-linked exiles: when a player
-    /// becomes monarch, cards exiled "until an opponent becomes monarch"
-    /// (Palace Jailer) return if the new monarch is an opponent of the
-    /// jailer's controller.
+    /// Sets the monarch (CR 724.3), and ends every exile that lasted "until
+    /// an opponent becomes the monarch" (Palace Jailer) for which the new
+    /// monarch is such an opponent.
+    ///
+    /// "An opponent" of the player who controlled the exiling ability, which
+    /// the exile wrote down: not of whoever controls the Jailer now, and not
+    /// of anybody at all when the Jailer is gone. Every other linked exile
+    /// is left alone. Skyclave Apparition's has no end, and Safe Haven's
+    /// ends when Safe Haven says so.
     pub fn set_monarch(&mut self, player: PlayerId) {
         let previous = self.monarch;
         self.monarch = Some(player);
         if previous == Some(player) {
             return;
         }
-        // Monarch-link releases (Palace Jailer): return cards whose host's
-        // controller is not the new monarch.
+        self.return_linked(|state, _, until| {
+            matches!(
+                until,
+                Some(crate::object::LinkUntil::OpponentBecomesMonarch { of })
+                    if state.is_opponent(player, of)
+            )
+        });
+    }
+
+    /// `player` has left the game (CR 800.4a) and, if they were the monarch,
+    /// the designation passes on at the same time (CR 724.4): to the active
+    /// player, or, when the active player is the one leaving, to the next
+    /// player in turn order still in the game. With nobody left the game goes
+    /// on with no monarch.
+    ///
+    /// `sba::eliminate_player` calls this once `player` is marked as having
+    /// left, so the leaver is never the heir. Through [`Self::set_monarch`],
+    /// so an exile that waited for an opponent to become the monarch (Palace
+    /// Jailer) ends if the heir is such an opponent. The rule's "if there is
+    /// no active player" never arises here, because the engine always has one
+    /// (`TurnInfo::active`), and nothing in the engine keeps a player still
+    /// in the game from becoming the monarch.
+    pub(crate) fn monarch_leaves(&mut self, player: PlayerId) {
+        if self.monarch != Some(player) {
+            return;
+        }
+        let seats = self.players.len();
+        let active = usize::from(self.turn.active.get());
+        let heir = (0..seats)
+            .map(|offset| PlayerId::new(((active + offset) % seats) as u8))
+            .find(|&p| !self.has_left(p));
+        match heir {
+            Some(heir) => self.set_monarch(heir),
+            None => self.monarch = None,
+        }
+    }
+
+    /// Returns every exiled card whose link `ends` says has ended to the
+    /// battlefield, under its owner's control, and forgets the link.
+    ///
+    /// The one way back for a card exiled with a link, whatever ended it:
+    /// an effect of the host (`Effect::ReturnLinkedToBattlefield`), a new
+    /// monarch ([`Self::set_monarch`]), or the host leaving the battlefield
+    /// ([`Self::return_what_departed_hosts_held`]). `ends` is asked with the
+    /// host and the link's `until`.
+    ///
+    /// Under its owner's control because every sentence that reaches here
+    /// says so or says nothing (CR 610.3c), and written where it arrives: the
+    /// default the card last had on the battlefield is whoever put it there,
+    /// which after a reanimation or a blink "under your control" may not be
+    /// its owner.
+    pub(crate) fn return_linked(
+        &mut self,
+        ends: impl Fn(&Self, ObjectId, Option<crate::object::LinkUntil>) -> bool,
+    ) {
         let mut returning = Vec::new();
         for seat in 0..self.players.len() {
             let p = PlayerId::new(seat as u8);
             for &card in self.zones.list(ZoneLocation::Exile(p)) {
-                if let Some(host) = self.object(card).and_then(|o| {
-                    o.riders.iter().find_map(|r| match r {
-                        crate::object::Rider::Linked { host } => Some(host),
+                let ended = self.object(card).and_then(|o| {
+                    o.riders.iter().find_map(|r| match *r {
+                        crate::object::Rider::Linked { host, until } if ends(self, host, until) => {
+                            Some(host)
+                        }
                         _ => None,
                     })
-                }) {
-                    let host_controller = self.object(*host).map_or(player, |h| h.controller);
-                    if host_controller != player {
-                        returning.push(card);
-                    }
+                });
+                if let Some(host) = ended {
+                    returning.push((card, host));
                 }
             }
         }
-        for card in returning {
+        for (card, host) in returning {
             if let Some(obj) = self.object_mut(card) {
                 obj.kind = crate::object::ObjectKind::Permanent;
+                obj.riders.retain(
+                    |r| !matches!(r, crate::object::Rider::Linked { host: h, .. } if *h == host),
+                );
+                obj.set_controller(obj.owner);
             }
             let _ = self.move_object(
                 card,
@@ -2051,6 +2379,28 @@ impl GameState {
                 Cause::Effect,
             );
         }
+    }
+
+    /// Returns what was exiled "until this creature leaves the battlefield"
+    /// by a host that is no longer on it (CR 610.3).
+    ///
+    /// The return is the second one-shot effect CR 610.3 creates
+    /// "immediately after the specified event", and not a triggered ability,
+    /// so it is done at the event itself: [`Self::move_object`] calls this
+    /// as a permanent leaves the battlefield, before anything else can
+    /// happen (a state-based action, a trigger, the rest of the resolution
+    /// that moved it), and `sba::eliminate_player` calls it once what the
+    /// departed player owned has left the game with them (CR 800.4a). Those
+    /// are the only two ways off the battlefield, which is what makes asking
+    /// "is the host still there" enough: a host that was blinked is asked
+    /// in the moment it is in exile, before it comes back as a new object.
+    pub(crate) fn return_what_departed_hosts_held(&mut self) {
+        self.return_linked(|state, host, until| {
+            until == Some(crate::object::LinkUntil::HostLeaves)
+                && state
+                    .object(host)
+                    .is_none_or(|h| h.zone != Zone::Battlefield)
+        });
     }
 
     /// The battlefield as rules see it: phased-out permanents are treated
@@ -2171,20 +2521,46 @@ impl GameState {
         // What was attached to it.
         self.ltb_attachments.retain(|(other, _)| *other != id);
         if from_zone == Zone::Battlefield {
+            // A phased-out Aura was attached to nothing the rules can
+            // see (CR 702.26b), so nothing looks back at it.
             let worn: Vec<ObjectId> = self
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
+                .battlefield_seen()
                 .filter(|other| {
-                    self.object(**other)
+                    self.object(*other)
                         .is_some_and(|o| o.attached_to == Some(id))
                 })
-                .copied()
                 .collect();
             if !worn.is_empty() {
                 self.ltb_attachments.push((id, worn));
             }
         }
+    }
+
+    /// Who controlled `id`, the way CR 608.2h reads an object an effect
+    /// needs information from: the controller it had as it last existed on
+    /// the battlefield if that is where it last left, and its controller now
+    /// otherwise. `None` for an object that is gone and left no record.
+    ///
+    /// "Exile target creature. Its controller creates …" (Crib Swap) and
+    /// "Exile target creature. Its controller gains life …" (Swords to
+    /// Plowshares) read the second sentence after the first has moved the
+    /// creature, and the field on the exiled card is no answer: nothing
+    /// controls a card in exile, the field holds whatever the last refresh
+    /// left there, and a refresh that reaches every zone (any effect whose
+    /// filter names another zone) settles it to the card's default. After a
+    /// steal that is the player it was stolen from.
+    ///
+    /// [`Self::ltb_controllers`] is cleared at every move and written only
+    /// by a departure from the battlefield, so an entry is always the last
+    /// word: a creature still on the battlefield, or a spell on the stack,
+    /// has none and answers with the controller it has now.
+    #[must_use]
+    pub fn last_known_controller(&self, id: ObjectId) -> Option<PlayerId> {
+        self.ltb_controllers
+            .iter()
+            .find(|(object, _)| *object == id)
+            .map(|(_, seat)| *seat)
+            .or_else(|| self.object(id).map(|o| o.controller))
     }
 
     /// Whether a static permission makes this player's library top public.
@@ -2278,7 +2654,8 @@ impl GameState {
             //
             // What stays: `riders` (a card exiled from the battlefield is
             // linked to whatever exiled it, which is the exception this
-            // rule is written around), and the spell-shaped fields
+            // rule is written around, until it leaves exile: below, with
+            // everything else it was in exile), and the spell-shaped fields
             // (`x_value`, `kicked`, `targets`), which a permanent resolving
             // off the stack still needs and which no permanent writes.
             if from_zone == Zone::Battlefield {
@@ -2302,6 +2679,36 @@ impl GameState {
             }
             if matches!(from_zone, Zone::Battlefield | Zone::Exile) {
                 obj.counters = crate::object::Counters::default();
+            }
+            // How a spell was cast belongs to the spell and to the permanent
+            // it becomes, and to no later object (CR 400.7): a dashed
+            // creature blinked or bounced and put back has had no dash cost
+            // paid for it, and one that escaped and was blinked did not
+            // escape. The cast writes the rider before the card moves to the
+            // stack, so that move keeps it too.
+            if to.zone() != Zone::Stack
+                && !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield)
+            {
+                obj.riders.retain(|r| {
+                    !matches!(
+                        r,
+                        crate::object::Rider::Dashed | crate::object::Rider::Escaped
+                    )
+                });
+            }
+            // What the card was in exile lasts only as long as the exile. A
+            // card that leaves exile any other way than the return its host
+            // makes (cast, put into a hand, shuffled away) is a new object
+            // with no relation to the exile it left: not "exiled with" its
+            // host, not on an adventure, not suspended, not castable from
+            // exile by anybody (`Rider::ends_as_it_leaves_exile`). The link
+            // was kept, so a card cast out of Safe Haven's exile and later
+            // hit by Swords to Plowshares came back when Safe Haven was
+            // sacrificed. Not on a move from exile to exile, which is the one
+            // move that is no leaving; `ExileLinked` and the other writers
+            // put the rider on before they move the card.
+            if from_zone == Zone::Exile && to.zone() != Zone::Exile {
+                obj.riders.retain(|r| !r.ends_as_it_leaves_exile());
             }
             // What was paid is the spell's and no later object's (a flashback
             // is a new payment); nothing on the battlefield reads it yet, so
@@ -2395,22 +2802,32 @@ impl GameState {
         // changes what a permanent that stayed projects to.
         //
         // The battlefield and the stack, which is exactly what the refresh
-        // pass revisits — a card drawn changes no projection unless a
-        // cross-zone effect is registered, and that pass projects every
-        // zone anyway. And the graveyards, because a permanent's projection
-        // may count them: Pyrogoyf is as big as the card types among cards
-        // in all graveyards (`PtCount::CardTypesInAllGraveyards`), so a card
-        // milled or discarded grows a permanent that never moved. And exile,
-        // for the same reason one zone over: Unlicensed Hearse is as big as
-        // the cards exiled with it (`PtCount::ExiledWithThis`), and one of
-        // them leaving exile shrinks it.
+        // pass revisits. And the graveyards, because a permanent's
+        // projection may count them: Pyrogoyf is as big as the card types
+        // among cards in all graveyards (`PtCount::CardTypesInAllGraveyards`),
+        // so a card milled or discarded grows a permanent that never moved.
+        // And exile, for the same reason one zone over: Unlicensed Hearse is
+        // as big as the cards exiled with it (`PtCount::ExiledWithThis`), and
+        // one of them leaving exile shrinks it.
+        //
+        // And every zone at all while a cross-zone effect is registered
+        // (Maskwood Nexus: "Creatures you control are every creature type.
+        // The same is true for creature spells you control and creature
+        // cards you own that aren't on the battlefield."). The pass that
+        // honours one projects every object, but it runs only when the
+        // generation moved, and a card drawn, tutored, wished for or put
+        // back moves none: the move above cleared its cache, so a creature
+        // card drawn under a Nexus read as its printed self in hand until
+        // something else moved. `projected_cross_zone` says whether the last
+        // pass was such a pass.
         if matches!(
             from_zone,
             Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile
         ) || matches!(
             to.zone(),
             Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile
-        ) {
+        ) || self.projected_cross_zone
+        {
             self.invalidate_projections();
         }
         // A card that defines its own power and toughness is projected in
@@ -2453,6 +2870,12 @@ impl GameState {
         });
         if let Some(kind) = exile_counter {
             crate::replacement::put_counters(self, id, kind, 1);
+        }
+        // What this permanent held "until it leaves the battlefield" comes
+        // back now, immediately after the event and before anything else
+        // (CR 610.3).
+        if from_zone == Zone::Battlefield {
+            self.return_what_departed_hosts_held();
         }
         Ok(id)
     }
@@ -2590,9 +3013,20 @@ impl GameState {
             if let Some(v) = self.per_turn.draws.get_mut(player.get() as usize) {
                 *v = v.saturating_add(drawn.len() as u32);
             }
+            // "The first one they draw in each of their draw steps" is a
+            // fact about this draw, so it is written down now. The turn's
+            // count cannot stand in for it: a card drawn in the upkeep
+            // would make the draw step's first card the turn's second.
+            let in_own_draw_step =
+                self.turn.active == player && self.turn.step == crate::turn::Step::Draw;
+            let first_in_draw_step = in_own_draw_step && !self.per_turn.drew_in_draw_step;
+            if in_own_draw_step {
+                self.per_turn.drew_in_draw_step = true;
+            }
             self.journal.record(crate::event::GameEvent::CardsDrawn {
                 player,
                 count: drawn.len() as u16,
+                first_in_draw_step,
             });
         }
         drawn
@@ -3257,42 +3691,56 @@ fn hash_ability_list(
 }
 
 fn hash_effects(h: &mut Hasher, table: &crate::effects::EffectTable) {
-    let (effects, next_id, generation) = table.hashed_parts();
+    let (effects, parked, next_id, generation) = table.hashed_parts();
     next_id.hash(h);
     generation.hash(h);
     h.usize(effects.len());
     for fx in effects {
-        let crate::effects::ContinuousEffect {
-            id,
-            source,
-            controller,
-            origin,
-            layer,
-            timestamp,
-            duration,
-            filter,
-            modifier,
-        } = fx;
-        id.hash(h);
-        source.hash(h);
-        controller.hash(h);
-        origin.hash(h);
-        layer.hash(h);
-        timestamp.hash(h);
-        duration.hash(h);
-        match filter {
-            crate::effects::EffectFilter::Dsl(filter) => {
-                h.u8(0);
-                filter_hash(h, filter);
-            }
-            crate::effects::EffectFilter::ObjectIs(id, version) => {
-                h.u8(1);
-                id.hash(h);
-                version.hash(h);
-            }
-        }
-        hash_modifier(h, modifier);
+        hash_effect(h, fx);
     }
+    // The statics parked while their sources are phased out. Nothing is
+    // written while nothing is parked, so a game without phasing hashes as
+    // it did before the table could park; the length above already moves
+    // when an effect is parked.
+    if !parked.is_empty() {
+        h.usize(parked.len());
+        for fx in parked {
+            hash_effect(h, fx);
+        }
+    }
+}
+
+fn hash_effect(h: &mut Hasher, fx: &crate::effects::ContinuousEffect) {
+    let crate::effects::ContinuousEffect {
+        id,
+        source,
+        controller,
+        origin,
+        layer,
+        timestamp,
+        duration,
+        filter,
+        modifier,
+    } = fx;
+    id.hash(h);
+    source.hash(h);
+    controller.hash(h);
+    origin.hash(h);
+    layer.hash(h);
+    timestamp.hash(h);
+    duration.hash(h);
+    match filter {
+        crate::effects::EffectFilter::Dsl(filter) => {
+            h.u8(0);
+            filter_hash(h, filter);
+        }
+        crate::effects::EffectFilter::ObjectIs(id, version) => {
+            h.u8(1);
+            id.hash(h);
+            version.hash(h);
+        }
+    }
+    hash_modifier(h, modifier);
 }
 
 fn hash_player(h: &mut Hasher, player: &Player) {
@@ -3457,9 +3905,17 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     h.usize(riders.len());
     for rider in riders {
         match rider {
-            Rider::Linked { host } => {
+            Rider::Linked { host, until } => {
                 h.u8(1);
                 host.hash(h);
+                match until {
+                    None => h.u8(0),
+                    Some(crate::object::LinkUntil::HostLeaves) => h.u8(1),
+                    Some(crate::object::LinkUntil::OpponentBecomesMonarch { of }) => {
+                        h.u8(2);
+                        h.u8(of.get());
+                    }
+                }
             }
             Rider::Rebound => h.u8(2),
             Rider::Adventure => h.u8(3),
@@ -3480,6 +3936,12 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 host.hash(h);
                 version.hash(h);
             }
+            Rider::Dashed => h.u8(14),
+            Rider::EventPlayer(p) => {
+                h.u8(15);
+                h.u8(p.get());
+            }
+            Rider::Escaped => h.u8(16),
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -3981,6 +4443,41 @@ mod tests {
         );
     }
 
+    /// Whether a draw opened its player's draw step is written as the draw
+    /// is made (CR 504.1). The active player's first card in their draw step
+    /// is flagged; a card drawn in their upkeep is not and does not use the
+    /// flag up; the step's next card is not; the other player's card in that
+    /// step is not; and the next turn's draw step starts clean.
+    #[test]
+    fn a_draw_says_whether_it_is_the_first_of_its_players_draw_step() {
+        use crate::turn::Step;
+        fn opened(state: &mut GameState, player: PlayerId, n: usize) -> bool {
+            assert_eq!(state.draw_cards(player, n).len(), n);
+            match state.journal.entries().last().map(|e| &e.event) {
+                Some(crate::event::GameEvent::CardsDrawn {
+                    player: drew,
+                    first_in_draw_step,
+                    ..
+                }) if *drew == player => *first_in_draw_step,
+                other => panic!("the draw's entry is last: {other:?}"),
+            }
+        }
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut state = at_a_fresh_turn(14);
+        state.turn.active = me;
+
+        state.turn.step = Step::Upkeep;
+        assert!(!opened(&mut state, me, 1), "an upkeep card");
+        state.turn.step = Step::Draw;
+        assert!(opened(&mut state, me, 1), "the step's first card");
+        assert!(!opened(&mut state, me, 2), "the step's next cards");
+        assert!(!opened(&mut state, them, 1), "the other player's card");
+
+        state.per_turn.reset();
+        assert!(!opened(&mut state, them, 1), "not their draw step");
+        assert!(opened(&mut state, me, 3), "the next turn's first card");
+    }
+
     /// The relation is read from the **effect's** controller, so the same
     /// modifier limits the table or only the other side of it.
     #[test]
@@ -4452,6 +4949,7 @@ mod tests {
                     card: id,
                     version: 0,
                     free: true,
+                    cast_only: false,
                 });
             }),
             ("delayed", |s, _| {

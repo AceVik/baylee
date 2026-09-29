@@ -171,6 +171,47 @@ fn loyalty_now(obj: &GameObject, printed: Option<u16>) -> Option<u16> {
     }
 }
 
+/// What `seat` would pay to cast `obj` from its own graveyard, if it may:
+/// [`PublicObject::flashback`].
+///
+/// The same facts `casting::can_cast` asks before it lets the card off the
+/// graveyard, so the view never says "castable" of a card the engine would
+/// refuse for being somewhere else. The price is what the cast charges: a
+/// printed flashback's own cost (CR 702.34a), or for a granted one the
+/// card's mana cost. A permanent card that Muldrotha or Wrenn's emblem lets
+/// the seat cast from there is priced at its own mana cost too. Escape last
+/// (CR 702.138a): its mana, once the graveyard holds the other cards it
+/// exiles, counted off the list the cast wizard asks from.
+fn graveyard_price(
+    state: &GameState,
+    id: ObjectId,
+    obj: &GameObject,
+    seat: PlayerId,
+    mana_cost: ManaCost,
+) -> Option<ManaCost> {
+    if obj.zone != Zone::Graveyard || obj.zone_owner != Some(seat) {
+        return None;
+    }
+    let face = obj
+        .card
+        .and_then(|c| baylee_cards::by_index(c.index))
+        .map(|def| &def.faces[0]);
+    face.and_then(|face| face.flashback)
+        .or_else(|| {
+            (baylee_engine::casting::flashback_granted(state, id)
+                || baylee_engine::casting::graveyard_cast_permission(state, seat, obj).is_some())
+            .then_some(mana_cost)
+        })
+        .or_else(|| {
+            face.and_then(|face| face.escape)
+                .filter(|escape| {
+                    baylee_engine::casting::escape_exile_options(state, seat, id).len()
+                        >= usize::from(escape.exile)
+                })
+                .map(|escape| escape.cost)
+        })
+}
+
 /// Projects one object into its public form for `seat`.
 fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<PublicObject> {
     let obj = state.object(id)?;
@@ -200,7 +241,9 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         // against the face-down permanent. That needs the handle hidden too,
         // disguise is announced from hand, so this case does not apply.
         commander: is_commander(state, id),
-        status: ObjectStatus::from_bits(obj.status.bits()),
+        // The four statuses of CR 110.5: whether a phased-out permanent
+        // phased out with what it is attached to is the engine's to know.
+        status: ObjectStatus::from_bits(obj.status.public().bits()),
         types: chars.types,
         supertypes: chars.supertypes,
         subtypes: chars.subtypes,
@@ -292,26 +335,7 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         board_mana: (obj.kind == ObjectKind::Permanent)
             .then(|| board_mana(state, id))
             .flatten(),
-        // The same facts `casting::can_cast` asks before it lets the card
-        // off the graveyard, so the view never says "castable" of a card the
-        // engine would refuse for being somewhere else. The price is what
-        // the cast charges: a printed flashback's own cost (CR 702.34a), or
-        // for a granted one the card's mana cost. A permanent card that
-        // Muldrotha or Wrenn's emblem lets the seat cast from there is
-        // priced at its own mana cost too.
-        flashback: (obj.zone == Zone::Graveyard && obj.zone_owner == Some(seat))
-            .then(|| {
-                obj.card
-                    .and_then(|c| baylee_cards::by_index(c.index))
-                    .and_then(|def| def.faces[0].flashback)
-                    .or_else(|| {
-                        (baylee_engine::casting::flashback_granted(state, id)
-                            || baylee_engine::casting::graveyard_cast_permission(state, seat, obj)
-                                .is_some())
-                        .then_some(chars.mana_cost)
-                    })
-            })
-            .flatten(),
+        flashback: graveyard_price(state, id, obj, seat, chars.mana_cost),
         // Permanents only, for `granted_mana`'s reason: the engine offers a
         // granted ability on a permanent and nowhere else, and each entry
         // here is one of those offers.
@@ -3495,6 +3519,45 @@ mod tests {
         }
     }
 
+    /// A permanent phased out with what it is attached to (CR 702.26g) is
+    /// shown as phased out, the status CR 110.5 names, and as nothing else:
+    /// the engine's note of how it phased out is not a status a client knows.
+    #[test]
+    fn a_permanent_phased_out_indirectly_is_shown_as_phased_out() {
+        use baylee_engine::object::Status;
+        let engine = Engine::new(&mixed_print_preset(), Registry).expect("game starts");
+        let mut state = engine.state().clone();
+        let id = state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .first()
+            .copied()
+            .expect("the preset puts Islands on the battlefield");
+        let status = &mut state.object_mut(id).expect("it exists").status;
+        status.insert(Status::PHASED_OUT);
+        status.insert(Status::PHASED_OUT_INDIRECTLY);
+        for seat in [0u8, 1] {
+            let view = player_view(
+                &state,
+                PlayerId::new(seat),
+                0,
+                None,
+                &SeatContext::default(),
+                &[],
+            );
+            let object = view
+                .battlefield
+                .iter()
+                .find(|o| o.id == id)
+                .expect("a phased-out permanent is on the battlefield");
+            assert_eq!(
+                object.status.bits(),
+                Status::PHASED_OUT.bits(),
+                "seat {seat} is shown more than \"phased out\""
+            );
+        }
+    }
+
     use baylee_core::mana::ManaColor;
     use baylee_engine::choice::{Pending, PlayerAction};
 
@@ -4084,6 +4147,70 @@ mod tests {
             flashback_for(&engine, me, elf),
             None,
             "\"during each of your turns\": not on the opponent's"
+        );
+    }
+
+    /// Escape's door to [`PublicObject::flashback`]: Uro in its owner's
+    /// graveyard is priced at its escape mana once five *other* cards lie
+    /// beside it, and at nothing while there are four, because the cast
+    /// cannot be paid (CR 702.138a). To its owner alone.
+    #[test]
+    fn an_escape_is_priced_once_the_graveyard_can_pay_it() {
+        use baylee_engine::{event::Cause, zone::ZonePosition};
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let entry = |name| DeckEntry {
+            card: baylee_cards::decks::by_name(name).unwrap(),
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        let mut hand = vec![entry("Uro, Titan of Nature's Wrath")];
+        hand.extend(std::iter::repeat_n(entry("Llanowar Elves"), 5));
+        preset.seats[0].starting_hand = Some(hand);
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        let view = settle(&mut engine, None);
+        let uro = view
+            .hand
+            .iter()
+            .find(|o| o.name == "Uro, Titan of Nature's Wrath")
+            .expect("Uro in hand")
+            .id;
+        let elves: Vec<ObjectId> = view
+            .hand
+            .iter()
+            .filter(|o| o.name == "Llanowar Elves")
+            .map(|o| o.id)
+            .collect();
+        assert_eq!(elves.len(), 5);
+        let bury = |engine: &mut Engine<Registry>, card| {
+            engine
+                .dev_state_mut(me)
+                .unwrap()
+                .move_object(
+                    card,
+                    ZoneLocation::Graveyard(me),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .unwrap();
+            engine.refresh_offer();
+        };
+        bury(&mut engine, uro);
+        for &elf in &elves[..4] {
+            bury(&mut engine, elf);
+        }
+        assert_eq!(
+            flashback_for(&engine, me, uro),
+            None,
+            "four other cards cannot pay an escape that exiles five"
+        );
+        bury(&mut engine, elves[4]);
+        assert_eq!(
+            (
+                flashback_for(&engine, me, uro),
+                flashback_for(&engine, them, uro)
+            ),
+            (Some(ManaCost::parse("{G}{G}{U}{U}")), None),
+            "the escape's mana to its owner, nothing to the opponent"
         );
     }
 

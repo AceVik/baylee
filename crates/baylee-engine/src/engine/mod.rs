@@ -116,6 +116,58 @@ enum PaymentContinuation {
     },
 }
 
+/// What an answer moves as it *arrives*, and what an activation writes on
+/// its way to a refusal: the fields [`Engine::apply`] puts back when it
+/// refuses.
+///
+/// The watch for endless loops and its two latches move before anything can
+/// tell whether the answer will be taken. The activation family is the
+/// checklist's scratch space (CR 602.2b, 601.2b–h): `start_activation` fills
+/// it a step at a time and checks the next step after filling the last, so a
+/// press refused at its second target has already read its ability list and
+/// marked its first target answered. Put back here rather than cleared at
+/// each of those refusals, because a list of places to clear is one that
+/// misses the next refusal someone adds.
+struct Held {
+    action_loops: crate::loops::LoopWatch,
+    breaking_loop: bool,
+    awaiting_answer: bool,
+    activation_target_players: Vec<PlayerId>,
+    activation_cost_choices: Vec<ObjectId>,
+    activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
+    activation_targets_answered: bool,
+    activation_x: Option<u32>,
+    activation_graveyard: Option<PlayerId>,
+    activation_phyrexian: Vec<bool>,
+    activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
+    loyalty_player_choice: Option<PlayerId>,
+}
+
+/// Every field of an [`Engine`], one entry each, in declaration order
+/// ([`Engine::fingerprint`]). Equal prints are an engine nobody can tell
+/// apart from the other; [`Fingerprint::differing`] names the fields that
+/// are not.
+#[cfg(any(test, feature = "fuzz"))]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Fingerprint(Vec<(&'static str, String)>);
+
+#[cfg(any(test, feature = "fuzz"))]
+impl Fingerprint {
+    /// The names of the fields whose prints differ, in declaration order;
+    /// empty for two equal prints. Both prints must be the same kind (two
+    /// whole or two light ones): a light one reads its left-out fields as
+    /// empty.
+    #[must_use]
+    pub fn differing(&self, other: &Self) -> Vec<&'static str> {
+        self.0
+            .iter()
+            .zip(&other.0)
+            .filter(|(a, b)| a.1 != b.1)
+            .map(|(a, _)| a.0)
+            .collect()
+    }
+}
+
 /// A deterministic, self-contained game of Magic.
 // The driver genuinely is a set of independent latches (a pending answer,
 // a queued resolution, an agreed draw, a broken loop); folding them into an
@@ -682,6 +734,14 @@ impl<L: CardLookup> Engine<L> {
         for player in &mut engine.state.players {
             player.turn_start_timestamp = stamp;
         }
+        // Every seat is asked its mulligan now and is shown its hand and the
+        // board with the question, but the engine's loop, whose first step
+        // refreshes the projection, does not run until the window closes.
+        // What the preset dealt moved the projection's inputs: a starting
+        // battlefield, and a card defining its own power and toughness drawn
+        // into an opening hand. An Ashaya in hand with two Forests out was
+        // asked about as the 0/0 its card prints.
+        engine.state.refresh_characteristics();
         Ok(engine)
     }
 
@@ -747,11 +807,17 @@ impl<L: CardLookup> Engine<L> {
     /// capabilities and a `CreateGame` request has no way to ask for one.
     /// The old `state_mut_dev()` took no seat and asked nobody — it was a
     /// public door into the state with a name that only sounded like a lock.
+    ///
+    /// What the caller writes may go past every door that invalidates the
+    /// projection (a counter set straight on an object, say), so this door
+    /// invalidates as it opens: the next refresh projects the rewritten
+    /// board instead of trusting the cache it had.
     pub fn dev_state_mut(&mut self, seat: PlayerId) -> Option<&mut GameState> {
-        self.capabilities
-            .get(seat.get() as usize)?
-            .dev_commands
-            .then_some(&mut self.state)
+        if !self.capabilities.get(seat.get() as usize)?.dev_commands {
+            return None;
+        }
+        self.state.invalidate_projections();
+        Some(&mut self.state)
     }
 
     /// Republish the priority offer after the board was rewritten behind the
@@ -921,12 +987,252 @@ impl<L: CardLookup> Engine<L> {
         base ^ extra.rotate_left(17)
     }
 
+    /// Every field of the engine but its card lookup, one entry each: what
+    /// to compare before and after an answer the engine refused, which must
+    /// leave nothing behind (`apply`'s promise). Behind the `fuzz` feature
+    /// for a fuzzer that holds the engine to it; the engine's own tests have
+    /// it always.
+    ///
+    /// Not [`Self::snapshot_hash`]: that one is a *replay* comparison, and
+    /// it leaves out on purpose what a replay rebuilds on its own (the
+    /// question being asked, the loop watch, the continuation slots). A
+    /// refused answer is not recorded at all, so the only comparison that
+    /// can say it left nothing is one over everything. The destructuring
+    /// names every field without `..`, so a field added to the engine does
+    /// not compile until it is added here.
+    ///
+    /// Costly: a print of every object, in a long game hundreds of
+    /// kilobytes. [`Self::fingerprint_light`] is the one to take at every
+    /// step.
+    #[cfg(any(test, feature = "fuzz"))]
+    #[must_use]
+    pub fn fingerprint(&self) -> Fingerprint {
+        self.print(true)
+    }
+
+    /// [`Self::fingerprint`] less the three prints that are nearly all of its
+    /// size (the arena, the base-characteristics cache, the names), which
+    /// stand in it as empty entries. Cheap enough for every decision, and
+    /// blind to a refusal that touched only an object.
+    #[cfg(any(test, feature = "fuzz"))]
+    #[must_use]
+    pub fn fingerprint_light(&self) -> Fingerprint {
+        self.print(false)
+    }
+
+    #[cfg(any(test, feature = "fuzz"))]
+    #[allow(clippy::too_many_lines)] // one entry per field, and the list is the point
+    fn print(&self, whole: bool) -> Fingerprint {
+        let Engine {
+            lookup: _,
+            state,
+            pending,
+            house_rules,
+            passes,
+            priority_holder,
+            resolve_next,
+            regrant_priority,
+            mulligans,
+            combat_declared,
+            cleanup,
+            loyalty_used_this_turn,
+            awaiting_answer,
+            resolution,
+            mana_window,
+            trigger_scan_seq,
+            pending_plan,
+            library_action_tops,
+            loyalty_player_choice,
+            activation_target_players,
+            activation_cost_choices,
+            activation_second_targets,
+            activation_targets_answered,
+            activation_x,
+            activation_graveyard,
+            activation_phyrexian,
+            activating_abilities,
+            capabilities,
+            entry_scan_seq,
+            delayed_queue,
+            upkeep_payments,
+            synthetic_fx,
+            cast_wizard,
+            trigger_queue,
+            agreed_draw,
+            automation,
+            breaking_loop,
+            action_loops,
+            loops_broken,
+        } = self;
+        // The fx map in key order: a hash map's own order is not a fact
+        // about the game.
+        let mut fx: Vec<_> = synthetic_fx.iter().collect();
+        fx.sort_by_key(|(id, _)| **id);
+        let mut out = Vec::with_capacity(80);
+        state.fingerprint(whole, &mut out);
+        out.extend([
+            ("pending", format!("{pending:?}")),
+            ("house_rules", format!("{house_rules:?}")),
+            ("passes", format!("{passes:?}")),
+            ("priority_holder", format!("{priority_holder:?}")),
+            ("resolve_next", format!("{resolve_next:?}")),
+            ("regrant_priority", format!("{regrant_priority:?}")),
+            ("mulligans", format!("{mulligans:?}")),
+            ("combat_declared", format!("{combat_declared:?}")),
+            ("cleanup", format!("{cleanup:?}")),
+            (
+                "loyalty_used_this_turn",
+                format!("{loyalty_used_this_turn:?}"),
+            ),
+            ("awaiting_answer", format!("{awaiting_answer:?}")),
+            ("resolution", format!("{resolution:?}")),
+            ("mana_window", format!("{mana_window:?}")),
+            ("trigger_scan_seq", format!("{trigger_scan_seq:?}")),
+            ("pending_plan", format!("{pending_plan:?}")),
+            ("library_action_tops", format!("{library_action_tops:?}")),
+            (
+                "loyalty_player_choice",
+                format!("{loyalty_player_choice:?}"),
+            ),
+            (
+                "activation_target_players",
+                format!("{activation_target_players:?}"),
+            ),
+            (
+                "activation_cost_choices",
+                format!("{activation_cost_choices:?}"),
+            ),
+            (
+                "activation_second_targets",
+                format!("{activation_second_targets:?}"),
+            ),
+            (
+                "activation_targets_answered",
+                format!("{activation_targets_answered:?}"),
+            ),
+            ("activation_x", format!("{activation_x:?}")),
+            ("activation_graveyard", format!("{activation_graveyard:?}")),
+            ("activation_phyrexian", format!("{activation_phyrexian:?}")),
+            ("activating_abilities", format!("{activating_abilities:?}")),
+            ("capabilities", format!("{capabilities:?}")),
+            ("entry_scan_seq", format!("{entry_scan_seq:?}")),
+            ("delayed_queue", format!("{delayed_queue:?}")),
+            ("upkeep_payments", format!("{upkeep_payments:?}")),
+            ("synthetic_fx", format!("{fx:?}")),
+            ("cast_wizard", format!("{cast_wizard:?}")),
+            ("trigger_queue", format!("{trigger_queue:?}")),
+            ("agreed_draw", format!("{agreed_draw:?}")),
+            ("automation", format!("{automation:?}")),
+            ("breaking_loop", format!("{breaking_loop:?}")),
+            ("action_loops", format!("{action_loops:?}")),
+            ("loops_broken", format!("{loops_broken:?}")),
+        ]);
+        Fingerprint(out)
+    }
+
     /// Applies a player's action and advances automatically until the next
     /// decision point.
+    ///
+    /// A refused action leaves the engine exactly as it was. A game record
+    /// keeps only the answers `apply` accepted, so an answer that was refused
+    /// and still moved something is a step no replay can take: the table
+    /// plays on from a state the replay never reaches, and the next recorded
+    /// answer is put to a question it was not given for. That is what a
+    /// refused miracle did to r001's games 1581, 3288 and 3554.
+    ///
+    /// The part of that promise this function keeps itself is [`Held`]: the
+    /// few fields that move before anything can tell whether the answer will
+    /// be taken, put back when it is not. Everything else validates before
+    /// it changes anything (`refusal_tests` holds every field to it).
     ///
     /// # Errors
     /// [`EngineError`] on mismatched/illegal actions.
     pub fn apply(&mut self, player: PlayerId, action: PlayerAction) -> Result<(), EngineError> {
+        let held = self.hold();
+        let result = self.take_answer(player, action);
+        if result.is_err() {
+            self.put_back(held);
+        } else {
+            self.settle_question();
+        }
+        result
+    }
+
+    fn hold(&self) -> Held {
+        Held {
+            action_loops: self.action_loops.clone(),
+            breaking_loop: self.breaking_loop,
+            awaiting_answer: self.awaiting_answer,
+            activation_target_players: self.activation_target_players.clone(),
+            activation_cost_choices: self.activation_cost_choices.clone(),
+            activation_second_targets: self.activation_second_targets.clone(),
+            activation_targets_answered: self.activation_targets_answered,
+            activation_x: self.activation_x,
+            activation_graveyard: self.activation_graveyard,
+            activation_phyrexian: self.activation_phyrexian.clone(),
+            activating_abilities: self.activating_abilities,
+            loyalty_player_choice: self.loyalty_player_choice,
+        }
+    }
+
+    fn put_back(&mut self, held: Held) {
+        let Held {
+            action_loops,
+            breaking_loop,
+            awaiting_answer,
+            activation_target_players,
+            activation_cost_choices,
+            activation_second_targets,
+            activation_targets_answered,
+            activation_x,
+            activation_graveyard,
+            activation_phyrexian,
+            activating_abilities,
+            loyalty_player_choice,
+        } = held;
+        self.action_loops = action_loops;
+        self.breaking_loop = breaking_loop;
+        self.awaiting_answer = awaiting_answer;
+        self.activation_target_players = activation_target_players;
+        self.activation_cost_choices = activation_cost_choices;
+        self.activation_second_targets = activation_second_targets;
+        self.activation_targets_answered = activation_targets_answered;
+        self.activation_x = activation_x;
+        self.activation_graveyard = activation_graveyard;
+        self.activation_phyrexian = activation_phyrexian;
+        self.activating_abilities = activating_abilities;
+        self.loyalty_player_choice = loyalty_player_choice;
+    }
+
+    /// Holds the question about to be handed out to the promise that it has
+    /// an answer.
+    ///
+    /// Every question after the first leaves the engine through here, as
+    /// what an accepted answer left standing (the first is the opening
+    /// mulligan, which `Engine::new` asks and which always has one). So
+    /// this is where a question is *built*, as far as anybody outside can
+    /// tell, and the one place a check sees every builder at once. A counted
+    /// choice is fitted to its options (CR 609.3,
+    /// [`Pending::fit_to_options`]); one that fitting cannot give an answer
+    /// stops the game here, naming the question, instead of stopping the
+    /// table: no seat's answer is taken, and the house's proposal and its
+    /// fallback are both refused (r002 games 368, 2675).
+    fn settle_question(&mut self) {
+        let hand = |player: PlayerId| self.state.zones.list(ZoneLocation::Hand(player)).len();
+        let discardable = match &self.pending {
+            Pending::DiscardChoice { player, count } => usize::from(*count) <= hand(*player),
+            _ => true,
+        };
+        let answerable = self.pending.fit_to_options();
+        assert!(
+            discardable && answerable,
+            "the engine asked a question nothing can answer: {:?}",
+            self.pending
+        );
+    }
+
+    /// [`Self::apply`], less the restoring of what an answer's arrival moved.
+    fn take_answer(&mut self, player: PlayerId, action: PlayerAction) -> Result<(), EngineError> {
         if let PlayerAction::ChooseTargetBatch {
             objects,
             players,
@@ -1106,6 +1412,9 @@ pub(crate) mod cost_wizard;
 mod leave;
 mod mulligan;
 mod progress;
+// Fuzzer invariants (`fuzz` feature; `docs/verification-hooks.md`).
+#[cfg(any(test, feature = "fuzz"))]
+mod invariants;
 
 #[cfg(test)]
 mod activation_target_tests;
@@ -1177,6 +1486,8 @@ mod land_mana_tests;
 #[cfg(test)]
 mod land_play_tests;
 #[cfg(test)]
+mod leave_probe_tests;
+#[cfg(test)]
 mod leave_tests;
 #[cfg(test)]
 mod loop_tests;
@@ -1186,6 +1497,8 @@ mod m2_tests;
 mod mana_tests;
 #[cfg(test)]
 mod mdfc_tests;
+#[cfg(test)]
+mod mechanics_tests;
 #[cfg(test)]
 mod mind_twist_tests;
 #[cfg(test)]
@@ -1205,9 +1518,13 @@ mod priority_tests;
 #[cfg(test)]
 mod reflexive_tests;
 #[cfg(test)]
+mod refusal_tests;
+#[cfg(test)]
 mod regenerate_tests;
 #[cfg(test)]
 mod resolution_tests;
+#[cfg(test)]
+mod reversal_tests;
 #[cfg(test)]
 mod s3_tests;
 #[cfg(test)]
@@ -1248,6 +1565,8 @@ mod token_tests;
 mod undying_tests;
 #[cfg(test)]
 mod untap_tests;
+#[cfg(test)]
+mod verification_tests;
 #[cfg(test)]
 mod vocabulary_tests;
 #[cfg(test)]

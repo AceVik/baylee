@@ -194,6 +194,53 @@ fn bench_layers(c: &mut Criterion) {
             );
         });
     }
+    // The eight-anthem board with every creature as big again as the
+    // creatures you control: each creature counts the board, so the
+    // refresh projects every one of them a second time once the board is
+    // done (`GameState::refresh_characteristics`). A real board has one or
+    // two counters (Ashaya); this is the repeat at its widest, every
+    // creature once more, and no count moves another, so once is all.
+    let state = counting_board(8);
+    c.bench_function("layers/refresh_x8_counting", |b| {
+        b.iter_batched(
+            || state.clone(),
+            |mut s| {
+                s.effects.generation += 1;
+                s.refresh_characteristics();
+                s
+            },
+            BatchSize::SmallInput,
+        );
+    });
+}
+
+/// [`wide_board`] with one more effect: every creature gets +1/+0 for each
+/// creature its controller controls.
+fn counting_board(anthems: usize) -> GameState {
+    use baylee_cards_dsl::static_ability::{Duration, Layer, Modifier};
+    use baylee_core::ids::EffectId;
+    use baylee_engine::effects::{ContinuousEffect, EffectFilter};
+
+    static CREATURES: baylee_cards_dsl::Filter =
+        baylee_cards_dsl::Filter::HasType(baylee_core::types::TypeSet::CREATURE);
+
+    let mut state = wide_board(anthems);
+    state.effects.register(ContinuousEffect {
+        id: EffectId::new(0),
+        source: None,
+        controller: baylee_core::ids::PlayerId::new(0),
+        origin: baylee_engine::effects::EffectOrigin::Resolution,
+        layer: Layer::PtModify,
+        timestamp: anthems as u64,
+        duration: Duration::Indefinitely,
+        filter: EffectFilter::Dsl(&CREATURES),
+        modifier: Modifier::ModifyPTPerCount {
+            filter: &CREATURES,
+            p: 1,
+            t: 0,
+        },
+    });
+    state
 }
 
 /// The layer refresh with a deep stack of triggered abilities.
@@ -275,6 +322,53 @@ fn bench_token_board(c: &mut Criterion) {
             BatchSize::SmallInput,
         );
     });
+}
+
+/// Sixty creatures leave the battlefield one after another (a wrath) while
+/// `exiled` cards sit in exile.
+///
+/// Every departure asks the exile zones whether a card there was held "until
+/// this leaves the battlefield" (CR 610.3,
+/// `GameState::return_what_departed_hosts_held`), so the walk grows with the
+/// exile zone once per permanent that leaves. Nothing else in this file moves
+/// a permanent off the battlefield, which is why this bench exists: the two
+/// sizes side by side are what that question costs.
+///
+/// 800 is every card at a table of eight Commander decks in exile at once,
+/// the most a game can put there: a token that goes to exile ceases to exist
+/// (CR 704.5d), so the exile zone only ever holds cards.
+fn bench_leave_battlefield(c: &mut Criterion) {
+    use baylee_engine::event::Cause;
+    use baylee_engine::object::ObjectKind;
+    use baylee_engine::zone::{ZoneLocation, ZonePosition};
+
+    for exiled in [0usize, 800] {
+        let mut state = token_board(60);
+        let owner = baylee_core::ids::PlayerId::new(0);
+        let name = state.names.intern("Exiled");
+        for _ in 0..exiled {
+            state.create_bare(owner, ObjectKind::Card, name, ZoneLocation::Exile(owner));
+        }
+        let board = state.zones.list(ZoneLocation::Battlefield).clone();
+        c.bench_function(&format!("zones/wrath_60_exile_{exiled}"), |b| {
+            b.iter_batched(
+                || state.clone(),
+                |mut s| {
+                    for &id in &board {
+                        s.move_object(
+                            id,
+                            ZoneLocation::Graveyard(owner),
+                            ZonePosition::Top,
+                            Cause::Effect,
+                        )
+                        .expect("on the battlefield");
+                    }
+                    s
+                },
+                BatchSize::SmallInput,
+            );
+        });
+    }
 }
 
 /// Resolving a trigger storm repeatedly removes the top of an ordered zone.
@@ -402,6 +496,7 @@ criterion_group!(
     bench_layers,
     bench_layers_deep_stack,
     bench_token_board,
+    bench_leave_battlefield,
     bench_stack_drain,
     bench_wide_attack
 );

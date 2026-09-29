@@ -1034,6 +1034,46 @@ fn a_seat_that_makes_no_mana_in_the_window_pays_nothing() {
     );
 }
 
+/// A pool of mana that may be spent only on something else pays no tax.
+///
+/// The pool's total counts it, and the total was the test: a seat holding
+/// two restricted mana was told it had paid ward's {1}, and
+/// `resume_tax_choice`, which pays with the plain mana only, asserted
+/// otherwise (the refusal sweep found it, 2026-09-29). Nothing is left to
+/// make mana with, so no window opens, and the answer is a decline.
+#[test]
+fn a_pool_of_restricted_mana_pays_no_tax() {
+    let p1 = PlayerId::new(1);
+    let (mut engine, twins) = ward_asks_for_its_tax(29);
+    let mut pool = baylee_core::mana::ManaPool::new();
+    pool.add_restricted(baylee_core::mana::RestrictedMana {
+        color: baylee_core::mana::ManaColor::White,
+        amount: 2,
+        flags: baylee_core::mana::ManaFlags::default(),
+        restriction: baylee_core::mana::RestrictionId(1),
+    });
+    engine.state.players[1].mana_pool = pool.clone();
+    engine
+        .apply(p1, PlayerAction::YesNo(true))
+        .expect("saying they will pay is an answer");
+    assert_eq!(
+        engine.state().players[1].mana_pool,
+        pool,
+        "the restricted mana was not spent on the tax"
+    );
+    pass_until(&mut engine, |e| {
+        e.state()
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .is_empty()
+    });
+    assert_eq!(
+        engine.state().object(twins).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield),
+        "nothing was paid, so ward countered the spell (CR 702.21a)",
+    );
+}
+
 /// The paid half: the mana leaves the pool and the spell resolves.
 #[test]
 fn ward_paid_lets_the_spell_through_and_costs_the_mana() {

@@ -390,6 +390,11 @@ pub enum ManaSource {
     LandColor {
         /// `true` = your lands, `false` = opponents' lands.
         mine: bool,
+        /// `true` for "any **type**" (Reflecting Pool), which colorless mana
+        /// is (CR 106.1b); `false` for "any **color**" (Exotic Orchard,
+        /// Fellwar Stone), which colorless is not (CR 106.1a) — so a Wastes
+        /// across the table puts nothing on an Orchard's menu.
+        any_type: bool,
     },
     /// The color chosen as this permanent entered (Uncharted Haven).
     ///
@@ -474,6 +479,13 @@ pub enum PlayerRel {
     /// (Unlicensed Hearse): the activation asks which graveyard before it
     /// asks for the targets, and offers only that one's cards.
     Chosen,
+    /// "That player" of a trigger on damage dealt to a player — Ragavan,
+    /// Nimble Pilferer's "whenever Ragavan deals combat damage to a player,
+    /// … exile the top card of **that player's** library". Nothing is
+    /// targeted (CR 115.1): the seat is read off the event the ability
+    /// triggered on, and a player who has since left the game is nobody's
+    /// "that player" (CR 800.4a).
+    DamagedPlayer,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).
@@ -812,6 +824,21 @@ impl Find {
     }
 }
 
+/// The event an "exile … until …" sentence waits for (CR 610.3), read by
+/// [`Effect::ExileLinked`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ExileUntil {
+    /// "until this creature leaves the battlefield" (Werefox Bodyguard):
+    /// the source, as the object it was when the ability triggered or was
+    /// activated. A blink ends it too, since the permanent that comes back
+    /// is a new object (CR 400.7).
+    SourceLeavesBattlefield,
+    /// "until an opponent becomes the monarch" (Palace Jailer): an opponent
+    /// of the player who controlled the exiling ability, whoever controls
+    /// the source later.
+    OpponentBecomesMonarch,
+}
+
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
@@ -856,10 +883,34 @@ pub enum Effect {
         amount: u32,
     },
     /// Exile a target and return it to the battlefield immediately
-    /// (Ephemerate).
+    /// (Ephemerate, Restoration Angel). Written with [`Effect::blink_to_owner`]
+    /// or [`Effect::blink_to_you`], the two sentences the pool prints.
     Blink {
         /// What.
         target: TargetSpec,
+        /// Under whose control the card comes back: its owner's (`true`) or
+        /// that of the player who controls the resolving spell or ability
+        /// (`false`).
+        ///
+        /// The same field, and the same question, as
+        /// [`Effect::GraveyardToBattlefield`]'s. The card that returns is a
+        /// new object (CR 400.7), so whatever control effect held the one
+        /// that was exiled is gone with it, and the new one enters under the
+        /// control the sentence names. That is a printed choice, not a rule:
+        /// CR 610.3c's "under its owner's control unless otherwise
+        /// specified" is about a card returned by a *second* one-shot effect
+        /// after an "until" event, which an immediate blink is not. So
+        /// Ephemerate, Soulherder and Emiel the Blessed print "under its
+        /// owner's control" and take `true`, while Restoration Angel,
+        /// Aminatou's −1 and Sword of Hearth and Home print "under your
+        /// control" and take `false` — and a player notices the difference
+        /// the moment the creature they flicker is one they stole.
+        ///
+        /// Only control is chosen here. The owner never changes (CR 108.3),
+        /// so a stolen creature kept this way still dies into its owner's
+        /// graveyard (CR 400.3) and still leaves the game with its owner
+        /// (CR 800.4a).
+        owner_control: bool,
     },
     /// Look at the top `count` cards of your library; put `pick` of them
     /// into your hand and the rest on the bottom — in any order (Dig
@@ -911,9 +962,8 @@ pub enum Effect {
     /// "Mill `amount` cards. You may put a [filter] card from among the
     /// milled cards into your hand." (Wrenn and Realmbreaker's −2.) The
     /// choice is a `ChooseCards` with `min: 0` over the milled cards that
-    /// match, found wherever they went if that zone is public — a
-    /// replacement's exile included (CR 701.17c) — and none matching asks
-    /// nothing.
+    /// match, found wherever they went if that zone is public (CR 701.17c),
+    /// a replacement's exile included, and none matching asks nothing.
     MillMayTakeOne {
         /// Cards milled.
         amount: u32,
@@ -2178,11 +2228,26 @@ pub enum Effect {
         /// What phases out (first target when set, else the source).
         target: Option<TargetSpec>,
     },
-    /// Exile a target with a link to the source ("until ~ leaves the
-    /// battlefield", Skyclave Apparition).
+    /// Exile a target with a link to the source, so that a later ability of
+    /// the source can find it among the cards "exiled with" it (CR 607.2a),
+    /// for as long as `until` says.
+    ///
+    /// `None` is an exile with no end of its own. The card stays until an
+    /// effect of the source brings it back (Safe Haven and Endless Sands,
+    /// [`Effect::ReturnLinkedToBattlefield`]) or for good (Skyclave
+    /// Apparition). `Some` is an "until" sentence (CR 610.3): the return is
+    /// the second half of the same effect and not a triggered ability, so
+    /// it happens the moment the event does, uses no stack, and puts the
+    /// card back under its owner's control (CR 610.3c). If the event has
+    /// already happened when the exile would, the card does not move
+    /// (CR 610.3a, 610.3b).
+    ///
+    /// Spelled [`Effect::exile_linked`] and [`Effect::exile_until`].
     ExileLinked {
         /// What.
         target: TargetSpec,
+        /// The event that ends the exile, when the sentence names one.
+        until: Option<ExileUntil>,
     },
     /// Exile every target, each **exiled with** the source (CR 406.6):
     /// "Exile up to two target cards from a single graveyard" (Unlicensed
@@ -2364,6 +2429,26 @@ pub enum Effect {
         /// How long.
         duration: crate::static_ability::Duration,
     },
+    /// "Tap all creatures your opponents control" (Cryptic Command): every
+    /// permanent `filter` matches as this resolves becomes tapped (CR
+    /// 701.26a). Nothing is targeted (CR 115.1a names a target by the
+    /// word), so hexproof and protection do not stop it, and a permanent
+    /// already tapped stays as it is.
+    TapAll {
+        /// What.
+        filter: &'static Filter,
+    },
+    /// "Exile the top card of that player's library. Until end of turn, you
+    /// may cast that card." (Ragavan, Nimble Pilferer): the top card of each
+    /// library `who` names goes to its owner's exile face up, and the
+    /// controller may cast it this turn, paying its costs (a
+    /// `PlayPermission` in the engine, cast only: a land exiled this way is
+    /// not played). Nothing is targeted, and an empty library exiles
+    /// nothing.
+    ExileTopMayCast {
+        /// Whose library: the owner's relation to you.
+        who: PlayerRel,
+    },
 }
 
 impl Effect {
@@ -2388,16 +2473,19 @@ impl Effect {
     ///
     /// **The name is the word this pool already says**, which is usually the
     /// printed one. "Draw", "scry", "destroy", "exile" are all oracle text.
-    /// [`Effect::blink`] is what the engine had already named a thing oracle
-    /// spells out in a clause ("exile it, then return it to the
-    /// battlefield"), and [`Effect::bounce`] is the same shape from the other
-    /// direction: the printing says "return … to its owner's hand" and the
-    /// variant says `ReturnToHand`, but the table says bounce, and so did
-    /// this repository before there was a verb — Cyclonic Rift's own comment
-    /// calls both of its modes a bounce and Aether Channeler's effect list is
-    /// named `BOUNCE_EFFECTS`. That is the owner's decision and it is paid
-    /// for: `bounce` is a word no `//! Oracle:` header carries, so a grep
-    /// from the printed sentence to the code stops here and at `blink`.
+    /// "Blink" is what the engine had already named a thing oracle spells
+    /// out in a clause ("exile it, then return it to the battlefield"), and
+    /// it is two verbs, [`Effect::blink_to_owner`] and
+    /// [`Effect::blink_to_you`], because the clause ends in one of two
+    /// controllers and the card names which. [`Effect::bounce`] is the same
+    /// shape from the other direction: the printing says "return … to its
+    /// owner's hand" and the variant says `ReturnToHand`, but the table says
+    /// bounce, and so did this repository before there was a verb —
+    /// Cyclonic Rift's own comment calls both of its modes a bounce and
+    /// Aether Channeler's effect list is named `BOUNCE_EFFECTS`. That is the
+    /// owner's decision and it is paid for: `bounce` is a word no
+    /// `//! Oracle:` header carries, so a grep from the printed sentence to
+    /// the code stops here and at `blink_*`.
     ///
     /// It buys nothing where the variant is not one answer.
     /// [`Effect::ReturnAllToHand`] is the overloaded half of the same card
@@ -2521,11 +2609,48 @@ impl Effect {
         Self::Exile { target }
     }
 
-    /// "Exile target …, then return it to the battlefield under its owner's
-    /// control."
+    /// "Exile target …" by an ability that another ability of the same
+    /// object reads back as the card "exiled with" it (CR 607.2a), with no
+    /// end of its own (Skyclave Apparition, Safe Haven).
     #[must_use]
-    pub const fn blink(target: TargetSpec) -> Self {
-        Self::Blink { target }
+    pub const fn exile_linked(target: TargetSpec) -> Self {
+        Self::ExileLinked {
+            target,
+            until: None,
+        }
+    }
+
+    /// "Exile target … until …" (CR 610.3): Werefox Bodyguard's "until this
+    /// creature leaves the battlefield", Palace Jailer's "until an opponent
+    /// becomes the monarch".
+    #[must_use]
+    pub const fn exile_until(target: TargetSpec, until: ExileUntil) -> Self {
+        Self::ExileLinked {
+            target,
+            until: Some(until),
+        }
+    }
+
+    /// "Exile target …, then return it to the battlefield under its owner's
+    /// control" (Ephemerate).
+    #[must_use]
+    pub const fn blink_to_owner(target: TargetSpec) -> Self {
+        Self::Blink {
+            target,
+            owner_control: true,
+        }
+    }
+
+    /// "Exile target …, then return that card to the battlefield under your
+    /// control" (Restoration Angel): the new object enters under the control
+    /// of whoever controls the resolving spell or ability (CR 110.2a), and
+    /// its owner stays who it was.
+    #[must_use]
+    pub const fn blink_to_you(target: TargetSpec) -> Self {
+        Self::Blink {
+            target,
+            owner_control: false,
+        }
     }
 
     /// "Return target … to its owner's hand."
@@ -2674,12 +2799,32 @@ impl Effect {
         }
     }
 
-    /// `Add one mana of any color that a land you control could produce`
-    /// (Reflecting Pool), or an opponent's (Exotic Orchard).
+    /// `Add one mana of any color that a land an opponent controls could
+    /// produce` (Exotic Orchard, Fellwar Stone), or you control. A colour,
+    /// so never colorless (CR 106.1a).
     #[must_use]
     pub const fn mana_land_color(mine: bool) -> Self {
         Self::AddMana {
-            source: ManaSource::LandColor { mine },
+            source: ManaSource::LandColor {
+                mine,
+                any_type: false,
+            },
+            amount: Amount::Fixed(1),
+            combination: false,
+            restriction: None,
+        }
+    }
+
+    /// `Add one mana of any type that a land you control could produce`
+    /// (Reflecting Pool), or an opponent's. A type, so colorless too
+    /// (CR 106.1b).
+    #[must_use]
+    pub const fn mana_land_type(mine: bool) -> Self {
+        Self::AddMana {
+            source: ManaSource::LandColor {
+                mine,
+                any_type: true,
+            },
             amount: Amount::Fixed(1),
             combination: false,
             restriction: None,
@@ -2875,6 +3020,8 @@ impl Effect {
             | Effect::TakeExtraTurn
             | Effect::ExileSource
             | Effect::TapTarget
+            | Effect::TapAll { .. }
+            | Effect::ExileTopMayCast { .. }
             | Effect::UntapTarget
             | Effect::UntapSelf
             | Effect::ExileAndReturnAtEndStep
@@ -3152,7 +3299,20 @@ mod verb_tests {
             }
         );
         assert_eq!(Effect::exile(target), Effect::Exile { target });
-        assert_eq!(Effect::blink(target), Effect::Blink { target });
+        assert_eq!(
+            Effect::blink_to_owner(target),
+            Effect::Blink {
+                target,
+                owner_control: true
+            }
+        );
+        assert_eq!(
+            Effect::blink_to_you(target),
+            Effect::Blink {
+                target,
+                owner_control: false
+            }
+        );
         assert_eq!(Effect::bounce(target), Effect::ReturnToHand { target });
     }
 

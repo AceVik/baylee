@@ -636,6 +636,11 @@ impl Status {
     pub const PHASED_OUT: Self = Self(4);
     /// Flipped (flip cards).
     pub const FLIPPED: Self = Self(8);
+    /// Beside [`Self::PHASED_OUT`]: phased out *indirectly*, with the
+    /// permanent it is attached to (CR 702.26g), so it phases in with that
+    /// permanent and never by itself. Not a status of CR 110.5, which has
+    /// four; the view leaves it out ([`Self::public`]).
+    pub const PHASED_OUT_INDIRECTLY: Self = Self(16);
 
     /// Whether all bits of `other` are set.
     #[must_use]
@@ -658,15 +663,27 @@ impl Status {
     pub const fn bits(self) -> u8 {
         self.0
     }
+
+    /// The four statuses of CR 110.5, which is what a player is shown: how
+    /// a permanent phased out is the engine's bookkeeping for when it phases
+    /// in, and "phased out" says all a player can see of it.
+    #[must_use]
+    pub const fn public(self) -> Self {
+        Self(self.0 & !Self::PHASED_OUT_INDIRECTLY.0)
+    }
 }
 
 /// Typed payload attached to cards in exile (or similar) by effects.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Rider {
-    /// Exiled by another object ("until ~ leaves the battlefield", imprint).
+    /// Exiled by another object, which finds it again as a card "exiled
+    /// with" it (CR 607.2a): Skyclave Apparition, Safe Haven, and the two
+    /// "until" exiles.
     Linked {
         /// The host object this card is linked to.
         host: ObjectId,
+        /// The event that returns it, when the exile named one (CR 610.3).
+        until: Option<LinkUntil>,
     },
     /// Exiled **with** another object (CR 406.6, 607.2a): what
     /// `Effect::ExileTargetsWithSource` marks and `PtCount::ExiledWithThis`
@@ -717,6 +734,42 @@ pub enum Rider {
     /// it was copied from — and a token is the opposite thing, card-less
     /// and swept up by CR 704.5d.
     SpellCopy,
+    /// Cast for its dash cost (CR 702.109a): the spell, and the permanent
+    /// it becomes, which has haste while this is on it. Written by every
+    /// cast, set or cleared, and given up by every zone change but the one
+    /// from the stack to the battlefield (`GameState::move_object`).
+    Dashed,
+    /// "That player": the player the triggering event dealt damage to, on
+    /// a triggered ability put on the stack for one (Ragavan, Nimble
+    /// Pilferer), read by `PlayerRel::DamagedPlayer`. A rider and not a
+    /// field because `GameObject` had no byte to spare for it
+    /// (`tests/footprint.rs`), and a triggered ability carries no other.
+    EventPlayer(PlayerId),
+    /// Cast from a graveyard with escape (CR 702.138b): the spell, and the
+    /// permanent it becomes, "escaped". Kept and given up as
+    /// [`Rider::Dashed`] is.
+    Escaped,
+}
+
+/// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
+/// it: `baylee_cards_dsl::ExileUntil` with the player the sentence is about
+/// written down at the moment of the exile.
+///
+/// Two bytes, so that the rider it rides in stays as small as it was: two
+/// riders sit inline in every object (`RiderSet`), and `GameObject` has a
+/// size budget (`tests/footprint.rs`). That is why the host leaving is
+/// caught as it happens ([`crate::state::GameState::move_object`]) rather
+/// than recognised later by a stored version of the host.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum LinkUntil {
+    /// "until this creature leaves the battlefield": the host.
+    HostLeaves,
+    /// "until an opponent becomes the monarch": an opponent of `of`, the
+    /// player who controlled the exiling ability.
+    OpponentBecomesMonarch {
+        /// The exiling ability's controller.
+        of: PlayerId,
+    },
 }
 
 impl Rider {
@@ -726,6 +779,50 @@ impl Rider {
     #[must_use]
     pub fn version_of(object: &GameObject) -> u16 {
         u16::try_from(object.version).unwrap_or(u16::MAX)
+    }
+
+    /// Whether this says what the card is *in exile*, and so ends as the
+    /// card leaves exile ([`crate::state::GameState::move_object`]).
+    ///
+    /// A card that leaves exile is a new object with no relation to the
+    /// exile it left (CR 400.7). Exiled with a host, on an adventure
+    /// (CR 715.3d: "for as long as that card remains exiled"), castable from
+    /// exile by a player, suspended (CR 702.62b), rebounding, foretold,
+    /// plotted: each is read only while the card is in exile, and a card
+    /// exiled again later by something else is none of them. The readers ask
+    /// "in exile, with this rider", which that card passed: Twining Twins
+    /// cast off its adventure and hit by Swords to Plowshares was castable
+    /// from exile again, and a suspended card that resolved and was exiled
+    /// from the graveyard was cast for free at the next upkeep.
+    ///
+    /// Every variant is named, so a new rider has to answer.
+    #[must_use]
+    pub const fn ends_as_it_leaves_exile(self) -> bool {
+        match self {
+            Self::Linked { .. }
+            | Self::ExiledWith { .. }
+            | Self::Adventure
+            | Self::PlayableFromExileFor(_)
+            | Self::Suspend
+            | Self::Rebound
+            | Self::Foretold
+            | Self::Plotted => true,
+            // About the stack or the battlefield, not exile.
+            Self::Flashback
+            | Self::ExileInsteadOfGraveyard
+            | Self::Uncounterable
+            | Self::Prepared
+            | Self::SpellCopy
+            // How the spell was cast, written before it moves to the stack:
+            // a dashed spell cast out of exile (an impulse's permission)
+            // carries its dash to the stack and the battlefield, and
+            // `move_object` ends these where the spell's object ends.
+            | Self::Dashed
+            | Self::Escaped
+            // "That player" of a triggered ability on the stack, which is
+            // never in exile.
+            | Self::EventPlayer(_) => false,
+        }
     }
 }
 
@@ -1438,13 +1535,14 @@ mod object_tests {
 
     // ---- status flags --------------------------------------------------
 
-    /// The four flags a permanent can wear, so a test can say "each" and a
-    /// fifth one added to `Status` is one line away from being covered.
-    const FLAGS: [(&str, Status); 4] = [
+    /// The five flags a permanent can wear, so a test can say "each" and a
+    /// sixth one added to `Status` is one line away from being covered.
+    const FLAGS: [(&str, Status); 5] = [
         ("tapped", Status::TAPPED),
         ("face down", Status::FACE_DOWN),
         ("phased out", Status::PHASED_OUT),
         ("flipped", Status::FLIPPED),
+        ("phased out indirectly", Status::PHASED_OUT_INDIRECTLY),
     ];
 
     #[test]
@@ -1535,5 +1633,27 @@ mod object_tests {
             status.remove(flag);
         }
         assert_eq!(status.bits(), Status::NONE.bits());
+    }
+
+    #[test]
+    fn a_player_is_shown_the_four_statuses_and_not_how_it_phased_out() {
+        for (name, flag) in FLAGS {
+            let mut status = Status::NONE;
+            status.insert(flag);
+            let shown = flag != Status::PHASED_OUT_INDIRECTLY;
+            assert_eq!(
+                status.public().contains(flag),
+                shown,
+                "{name}: shown is {shown}"
+            );
+        }
+        let mut indirect = Status::NONE;
+        indirect.insert(Status::PHASED_OUT);
+        indirect.insert(Status::PHASED_OUT_INDIRECTLY);
+        assert_eq!(
+            indirect.public().bits(),
+            Status::PHASED_OUT.bits(),
+            "an Aura phased out with its creature shows as phased out"
+        );
     }
 }

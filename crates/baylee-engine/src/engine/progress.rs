@@ -454,6 +454,11 @@ impl<L: CardLookup> Engine<L> {
             if def.faces[obj.face_index as usize].miracle.is_none() {
                 continue;
             }
+            // A miracle whose spell could not choose its targets could only
+            // be declined, so it is not offered (CR 601.2c, 601.2).
+            if !self.miracle_targets_available(player, card) {
+                continue;
+            }
             let source = obj
                 .card
                 .map(|c| AbilityRef::new(c.index, AbilityRef::MIRACLE));
@@ -503,10 +508,7 @@ impl<L: CardLookup> Engine<L> {
                 }
                 let attackers: Vec<ObjectId> = self
                     .state
-                    .zones
-                    .list(crate::zone::ZoneLocation::Battlefield)
-                    .iter()
-                    .copied()
+                    .battlefield_seen()
                     .filter(|id| combat::can_attack(&self.state, attacker, *id))
                     .collect();
                 self.pending = Pending::ChooseAttackers {
@@ -858,32 +860,7 @@ impl<L: CardLookup> Engine<L> {
             }
             // Planeswalkers enter with their printed loyalty counters
             // (CR 306.5b).
-            if let Some(loyalty) = self
-                .state
-                .object(id)
-                .and_then(|o| o.card)
-                .and_then(|c| self.lookup.card(c.index))
-                .and_then(|def| {
-                    let face = &def.faces[0];
-                    if face
-                        .types
-                        .contains(baylee_core::types::TypeSet::PLANESWALKER)
-                    {
-                        face.loyalty
-                    } else {
-                        None
-                    }
-                })
-            {
-                // Starting loyalty is counters put on the permanent as it
-                // enters, so the counter-placement replacements apply
-                // (CR 614.16): Doubling Season doubles it.
-                crate::replacement::put_counters(
-                    &mut self.state,
-                    id,
-                    baylee_cards_dsl::CounterKind::Loyalty,
-                    loyalty,
-                );
+            if self.put_starting_loyalty(id) {
                 changed = true;
             }
             // Clone-on-enter, for every door that is not a permanent spell.
@@ -1323,6 +1300,42 @@ impl<L: CardLookup> Engine<L> {
         self.offer_copy_on_enter(id, options, controller, false)
     }
 
+    /// CR 306.5b: a planeswalker enters with as many loyalty counters as its
+    /// printed loyalty. Returns whether it put any.
+    ///
+    /// "Printed" is read off the entering permanent's copiable values and not
+    /// off its card. CR 614.12 decides which replacement effects apply to a
+    /// permanent entering from the permanent as it would exist on the
+    /// battlefield, counting replacement effects that already modified how it
+    /// enters, and a copy is one (CR 614.1c "enters as"). Loyalty is a
+    /// copiable value (CR 707.2), counters are not. So a Spark Double that
+    /// enters as a copy of Karn, the Great Creator is a planeswalker with
+    /// Karn's printed 5, whatever Karn has now, and takes 5 here beside the
+    /// one its own text adds. Read off the card, it was a 0/0 creature with no
+    /// loyalty and entered with that one alone.
+    ///
+    /// Starting loyalty is counters put on the permanent as it enters, so the
+    /// counter-placement replacements apply (CR 614.16): Doubling Season
+    /// doubles it.
+    pub(crate) fn put_starting_loyalty(&mut self, id: ObjectId) -> bool {
+        let Some(loyalty) = crate::layers::copiable_values(&self.state, id).and_then(|values| {
+            values
+                .types
+                .contains(baylee_core::types::TypeSet::PLANESWALKER)
+                .then_some(values.loyalty)
+                .flatten()
+        }) else {
+            return false;
+        };
+        crate::replacement::put_counters(
+            &mut self.state,
+            id,
+            baylee_cards_dsl::CounterKind::Loyalty,
+            loyalty,
+        );
+        true
+    }
+
     /// Applies the clone-on-enter choice: the permanent's copiable base is
     /// replaced by the target's base, with the card's modifications. For
     /// `CopyOnEnterUntilEot` (Cursed Mirror), that half is a layer-1
@@ -1366,6 +1379,8 @@ impl<L: CardLookup> Engine<L> {
     /// [`CopyMod::KeepOtherAbilities`]: baylee_cards_dsl::CopyMod::KeepOtherAbilities
     #[allow(clippy::too_many_lines)]
     pub(crate) fn apply_copy_choice(&mut self, id: ObjectId, target: ObjectId) {
+        #[cfg(test)]
+        crate::ability_log::copied_on_entry(&self.state, &self.lookup, id);
         // The copier's own printed list is read *here* and not where it is
         // used, because both branches below overwrite `own_abilities` with
         // the copied one — after which `abilities` answers with the
@@ -1393,6 +1408,20 @@ impl<L: CardLookup> Engine<L> {
         let keeps_its_own = mods
             .iter()
             .any(|m| matches!(m, baylee_cards_dsl::CopyMod::KeepOtherAbilities));
+        // What the permanent became, for a counter that asks ("…if it's a
+        // creature"): the copied values (CR 707.2) with this copy's own type
+        // changes (CR 707.9b). Read here, before either branch, because the
+        // two carry those changes in different places — the base, or effects
+        // of their own that end with the turn — and the answer is the same.
+        let became = mods.iter().fold(
+            crate::layers::copiable_values(&self.state, target)
+                .map_or(baylee_core::types::TypeSet::EMPTY, |values| values.types),
+            |types, m| match m {
+                baylee_cards_dsl::CopyMod::AddType(t) => types.union(*t),
+                baylee_cards_dsl::CopyMod::RemoveType(t) => types.difference(*t),
+                _ => types,
+            },
+        );
         if until_eot {
             // Temporary copy: layer-1 effect + mods as their own effects.
             let controller = self
@@ -1482,6 +1511,12 @@ impl<L: CardLookup> Engine<L> {
                         // arriving with counters needs (CR 613.4c), since
                         // nothing in the effect table moved to say so.
                         crate::replacement::put_counters(&mut self.state, id, kind, n);
+                        continue;
+                    }
+                    baylee_cards_dsl::CopyMod::AddCounterIf(types, kind, n) => {
+                        if became.intersects(types) {
+                            crate::replacement::put_counters(&mut self.state, id, kind, n);
+                        }
                         continue;
                     }
                     baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
@@ -1593,12 +1628,17 @@ impl<L: CardLookup> Engine<L> {
                 }
                 baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
                     // The same door as the temporary branch above, for the
-                    // same reason (CR 614.1c, CR 614.16). This is the arm
-                    // a card in the pool actually reaches: Spark Double
-                    // enters with one +1/+1 counter and one loyalty
-                    // counter, and under a Doubling Season it enters with
-                    // two of whichever it can hold.
+                    // same reason (CR 614.1c, CR 614.16).
                     crate::replacement::put_counters(&mut self.state, id, kind, n);
+                }
+                // The arm a card in the pool reaches: Spark Double enters
+                // with a +1/+1 counter if it became a creature and a loyalty
+                // counter if it became a planeswalker, and under a Doubling
+                // Season with two of each it takes.
+                baylee_cards_dsl::CopyMod::AddCounterIf(types, kind, n) => {
+                    if became.intersects(types) {
+                        crate::replacement::put_counters(&mut self.state, id, kind, n);
+                    }
                 }
                 // CR 107.3m: the X announced for the spell that became it.
                 baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
@@ -1699,6 +1739,24 @@ impl<L: CardLookup> Engine<L> {
     /// static abilities of permanents, drops effects whose source left.
     pub(crate) fn sync_static_effects(&mut self) {
         use baylee_cards_dsl::Duration;
+        // A phased-out permanent's statics apply to nothing (CR 702.26b):
+        // set aside while it is phased out, back as they were once it has
+        // phased in (CR 702.26d). First, so the departure sweep below also
+        // drops what a source that left while phased out had set aside.
+        // phasing: this walk is the one looking for phased-out permanents.
+        let battlefield = self.state.zones.list(ZoneLocation::Battlefield);
+        let phased_out: Vec<ObjectId> = battlefield
+            .iter()
+            .copied()
+            .filter(|&id| {
+                self.state
+                    .object(id)
+                    .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT))
+            })
+            .collect();
+        self.state
+            .effects
+            .follow_phasing(|source| phased_out.contains(&source));
         // Drop effects whose source left the battlefield (structural
         // anthem removal).
         let gone: Vec<ObjectId> = self
@@ -1789,7 +1847,9 @@ impl<L: CardLookup> Engine<L> {
         // That reads the projection, so it is made current first: the effect
         // that took the abilities may have been registered a moment ago.
         self.state.refresh_characteristics();
-        let ids: Vec<ObjectId> = self.state.zones.list(ZoneLocation::Battlefield).clone();
+        // Not a phased-out permanent: its statics wait parked for it, and a
+        // condition on it is not asked while it does not exist.
+        let ids: Vec<ObjectId> = self.state.battlefield_view();
         let mut to_register = Vec::new();
         let mut lapsed = Vec::new();
         for id in ids {
@@ -1837,10 +1897,14 @@ impl<L: CardLookup> Engine<L> {
             self.state.effects.register(fx);
         }
         self.sync_replacement_rules();
+        #[cfg(test)]
+        crate::ability_log::note_sources(&self.state, &self.lookup);
     }
 
-    /// Drops the replacement rules of sources that left the battlefield or
-    /// lost their abilities (CR 613.1f) and registers the new ones.
+    /// Drops the replacement rules of sources that left the battlefield,
+    /// phased out (CR 702.26b) or lost their abilities (CR 613.1f) and
+    /// registers the new ones. A permanent that phases in is scanned again
+    /// like one that arrived, so its rules come back from its abilities.
     fn sync_replacement_rules(&mut self) {
         let gone_rules: Vec<ObjectId> = self
             .state
@@ -1849,7 +1913,9 @@ impl<L: CardLookup> Engine<L> {
             .map(|r| r.source)
             .filter(|s| {
                 self.state.object(*s).is_none_or(|o| {
-                    o.zone != Zone::Battlefield || o.characteristics().abilities_lost.is_some()
+                    o.zone != Zone::Battlefield
+                        || o.status.contains(crate::object::Status::PHASED_OUT)
+                        || o.characteristics().abilities_lost.is_some()
                 })
             })
             .collect();
@@ -1857,7 +1923,7 @@ impl<L: CardLookup> Engine<L> {
             .replacement_rules
             .retain(|r| !gone_rules.contains(&r.source));
         let mut rules_to_add = Vec::new();
-        for id in self.state.zones.list(ZoneLocation::Battlefield).clone() {
+        for id in self.state.battlefield_view() {
             let Some(obj) = self.state.object(id) else {
                 continue;
             };
@@ -2056,6 +2122,11 @@ impl<L: CardLookup> Engine<L> {
             object.event_amount = trigger
                 .event_damage
                 .and_then(|(_, n)| core::num::NonZeroU16::new(n));
+            if let Some((player, _)) = trigger.event_damage {
+                object
+                    .riders
+                    .push(crate::object::Rider::EventPlayer(player));
+            }
             object.target_req = bound;
         }
     }
@@ -2156,7 +2227,16 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
             };
-            match crate::resolve::run(&mut self.state, &mut res) {
+            let flow = crate::resolve::run(&mut self.state, &mut res);
+            #[cfg(test)]
+            crate::ability_log::triggered_mana(
+                &self.state,
+                &self.lookup,
+                t.source,
+                t.ability_index,
+                matches!(flow, crate::resolve::Flow::Complete),
+            );
+            match flow {
                 crate::resolve::Flow::Complete => {}
                 crate::resolve::Flow::Wait(pending) => {
                     self.resolution = Some(res);
@@ -3173,6 +3253,8 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         } else {
+            #[cfg(test)]
+            crate::ability_log::resolved(&self.state, &self.lookup, top);
             self.finalize_spell(top);
         }
     }
@@ -3300,12 +3382,12 @@ impl<L: CardLookup> Engine<L> {
     /// day it is about to cause.
     fn day_night_statics(&mut self) -> bool {
         use baylee_cards_dsl::KeywordSet as K;
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield);
         // The common case by a wide margin: no daybound card at the table,
-        // so the whole step is one scan of the battlefield and out.
+        // so the whole step is one scan of the battlefield and out. A
+        // phased-out permanent is not at the table (CR 702.26b).
         let mut any_daybound = false;
         let mut any_nightbound = false;
-        for &id in battlefield {
+        for id in self.state.battlefield_seen() {
             let Some(kw) = self.state.object(id).map(|o| o.characteristics().keywords) else {
                 continue;
             };
@@ -3334,10 +3416,7 @@ impl<L: CardLookup> Engine<L> {
         let night = self.state.day_night == Some(DayNight::Night);
         let turning: Vec<ObjectId> = self
             .state
-            .zones
-            .list(ZoneLocation::Battlefield)
-            .iter()
-            .copied()
+            .battlefield_seen()
             .filter(|&id| {
                 let Some(obj) = self.state.object(id) else {
                     return false;
@@ -3373,6 +3452,12 @@ impl<L: CardLookup> Engine<L> {
     }
 
     pub(crate) fn finish_resolution(&mut self, res: &Resolution) {
+        #[cfg(test)]
+        if res.mana_ability {
+            crate::ability_log::mana_finished(&self.lookup, res.source);
+        } else {
+            crate::ability_log::resolved(&self.state, &self.lookup, res.on_stack);
+        }
         // The reflexive triggers this resolution created (CR 603.12) join
         // the queue as it ends, and from there take the ordinary path.
         // `queue_new_triggers` sorts them with that pass's other triggers
@@ -3549,6 +3634,22 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         if is_permanent {
+            // Dash (CR 702.109a): "return the permanent this spell becomes to
+            // its owner's hand at the beginning of the next end step" — a
+            // delayed triggered ability that uses the stack (CR 603.7), and
+            // asks as it resolves whether it is still that permanent.
+            if let Some(obj) = self.state.object(spell)
+                && obj.riders.contains(&crate::object::Rider::Dashed)
+            {
+                self.state.delayed.push(crate::state::DelayedTrigger {
+                    controller: obj.controller,
+                    when: crate::state::DelayedWhen::NextEndStep,
+                    action: crate::state::DelayedAction::Trigger {
+                        source: spell,
+                        effects: &DASH_RETURN,
+                    },
+                });
+            }
             self.a_copy_becomes_a_token(spell);
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Permanent;
@@ -3954,9 +4055,9 @@ impl<L: CardLookup> Engine<L> {
     ///
     /// [`Object::abilities`]: crate::object::GameObject::abilities
     fn finished_sagas(&mut self) -> bool {
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
         let mut changed = false;
-        for id in battlefield {
+        // A phased-out Saga is not sacrificed (CR 702.26b).
+        for id in self.state.battlefield_view() {
             let finished = self.state.object(id).is_some_and(|o| {
                 // Every Saga on the battlefield has at least one lore
                 // counter (CR 714.3a), so this is the whole step for a
@@ -4081,7 +4182,7 @@ impl<L: CardLookup> Engine<L> {
     /// sides of the same rule.
     pub(crate) fn saga_precombat_main_counters(&mut self) {
         let active = self.state.turn.active;
-        for id in self.state.zones.list(ZoneLocation::Battlefield).clone() {
+        for id in self.state.battlefield_view() {
             let Some(old) = self
                 .state
                 .object(id)
@@ -4589,6 +4690,10 @@ impl<L: CardLookup> Engine<L> {
                     self.queue_first_main_delayed();
                     (Phase::FirstMain, Step::Main)
                 } else {
+                    // The draw step has begun when its draw is made, so the
+                    // draw is made in it: `draw_cards` reads the step to know
+                    // that this card is the step's first.
+                    self.state.turn.step = Step::Draw;
                     // Nobody draws for an active player who has left
                     // (CR 800.4j).
                     if !self.active_has_left() {
@@ -4760,11 +4865,10 @@ impl<L: CardLookup> Engine<L> {
     /// the offer that contradicts its own apply.
     fn untap_optional(&self) -> Vec<ObjectId> {
         let active = self.state.turn.active;
+        // What phased in a moment ago untaps with the rest (CR 502.1 before
+        // 502.3); what is still phased out does not.
         self.state
-            .zones
-            .list(ZoneLocation::Battlefield)
-            .iter()
-            .copied()
+            .battlefield_seen()
             .filter(|id| {
                 let Some(obj) = self.state.object(*id) else {
                     return false;
@@ -4800,23 +4904,28 @@ impl<L: CardLookup> Engine<L> {
     /// action may not take the answer its own rule asks a player for.
     pub(crate) fn untap_step(&mut self) -> bool {
         let active = self.state.turn.active;
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
-        // Phasing: phased-out permanents the active player controls phase
-        // back in at the untap step (CR 702.26a).
-        for id in &battlefield {
-            let phased = self
-                .state
-                .object(*id)
-                .is_some_and(|o| o.controller == active && o.status.contains(Status::PHASED_OUT));
-            if phased {
-                if let Some(obj) = self.state.object_mut(*id) {
-                    obj.status.remove(Status::PHASED_OUT);
-                }
-                self.state.journal.record(GameEvent::PhaseChanged {
-                    object: *id,
-                    phased_out: false,
-                });
-            }
+        // "All phased-out permanents that the active player controlled when
+        // they phased out phase in" (CR 502.1): a phased-out permanent is
+        // not projected, so its controller is still that one. One that
+        // phased out indirectly phases in with its host and never by itself
+        // (CR 702.26g).
+        let coming: Vec<ObjectId> = self
+            .state
+            .zones
+            // phasing: the walk is for the permanents that are phased out.
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|&id| {
+                self.state.object(id).is_some_and(|o| {
+                    o.controller == active
+                        && o.status.contains(Status::PHASED_OUT)
+                        && !o.status.contains(Status::PHASED_OUT_INDIRECTLY)
+                })
+            })
+            .collect();
+        for id in coming {
+            self.state.phase_in(id);
         }
         self.check_day_night();
         // CR 502.3, the third turn-based action: "the active player
@@ -4857,8 +4966,7 @@ impl<L: CardLookup> Engine<L> {
     /// permanent to look at.
     pub(crate) fn finish_untap_step(&mut self, kept: &[ObjectId]) {
         let active = self.state.turn.active;
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
-        for id in battlefield {
+        for id in self.state.battlefield_view() {
             let tapped = self
                 .state
                 .object(id)
@@ -5045,9 +5153,14 @@ fn end_control_durations(state: &mut crate::state::GameState) {
         .filter(|fx| matches!(fx.duration, Duration::WhileYouControlSource))
         .filter_map(|fx| {
             let source = fx.source?;
-            let held = state
-                .object(source)
-                .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == fx.controller);
+            // A phased-out source is treated as though it does not exist
+            // (CR 702.26b): nobody controls it, and a "for as long as" that
+            // tracks it ends as it phases out (CR 702.26f).
+            let held = state.object(source).is_some_and(|o| {
+                o.zone == Zone::Battlefield
+                    && o.controller == fx.controller
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+            });
             (!held).then_some((source, fx.controller))
         })
         .collect();
@@ -5153,3 +5266,17 @@ fn synthetic_target_req(spec: TargetSpec) -> TargetReq {
         _ => TargetReq::one(spec),
     }
 }
+
+/// Dash's delayed triggered ability (CR 702.109a): "return the permanent this
+/// spell becomes to its owner's hand at the beginning of the next end step".
+/// It asks as it resolves whether its source is still that permanent
+/// (`Condition::DashCostPaid`), because a permanent that has left the
+/// battlefield since is a new object (CR 400.7) and a card in a graveyard is
+/// not returned by it.
+static DASH_RETURN: [Effect; 1] = [Effect::IfCondition {
+    condition: baylee_cards_dsl::Condition::DashCostPaid,
+    then: &[Effect::ReturnToHand {
+        target: TargetSpec::ThisObject,
+    }],
+    otherwise: &[],
+}];

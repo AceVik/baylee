@@ -557,6 +557,8 @@ fn cast_label(
         K::Prototype => Phrase::CastPrototype.text(lang).to_string(),
         K::Miracle => Phrase::CastMiracle.text(lang).to_string(),
         K::Flashback => Phrase::CastFlashback.text(lang).to_string(),
+        K::Dash => Phrase::CastDash.text(lang).to_string(),
+        K::Escape => Phrase::CastEscape.text(lang).to_string(),
     }
 }
 
@@ -1175,6 +1177,76 @@ mod tests {
             rows[0].label,
             "All creatures lose all abilities until end of turn. + Destroy all creatures."
         );
+    }
+
+    /// "Choose two": Cryptic Command's row for a pair says both modes' words,
+    /// in printed order, the way a spree row does.
+    #[test]
+    fn a_row_of_two_chosen_modes_says_both() {
+        let (view, texts, object) = asking_about(
+            "a3e51a35-09df-4189-b131-08a21e6a557d",
+            "en",
+            "Choose two —\n\
+             • Counter target spell.\n\
+             • Return target permanent to its owner's hand.\n\
+             • Tap all creatures your opponents control.\n\
+             • Draw a card.",
+        );
+        let rows = cast_rows(
+            object,
+            &[CastModeKind::Modes(0b1100)],
+            FaceNames {
+                view: Some(&view),
+                texts: Some(&texts),
+            },
+            Lang::En,
+        );
+        assert_eq!(
+            rows[0].label,
+            "Tap all creatures your opponents control. + Draw a card."
+        );
+    }
+
+    /// Ragavan's dash row names the keyword in the player's language, beside
+    /// the printed cost's row, which needs no words.
+    #[test]
+    fn a_dash_row_names_the_keyword() {
+        for (lang, code, dash) in [(Lang::En, "en", "Dash"), (Lang::De, "de", "Sturmangriff")] {
+            let (view, texts, object) =
+                asking_about("37108cd4-bbab-4ce3-9ed6-f60e8422e703", code, "Dash {1}{R}");
+            let rows = cast_rows(
+                object,
+                &[CastModeKind::Normal, CastModeKind::Dash],
+                FaceNames {
+                    view: Some(&view),
+                    texts: Some(&texts),
+                },
+                lang,
+            );
+            assert_eq!(rows[1].label, dash);
+        }
+    }
+
+    /// Uro's escape row names the keyword in the player's language.
+    #[test]
+    fn an_escape_row_names_the_keyword() {
+        for (lang, code, escape) in [(Lang::En, "en", "Escape"), (Lang::De, "de", "Befreiung")] {
+            let (view, texts, object) = asking_about(
+                "ee302659-59ed-4eef-babe-451b9ccf7f14",
+                code,
+                "Escape—{G}{G}{U}{U}, Exile five other cards from your graveyard.",
+            );
+            let rows = cast_rows(
+                object,
+                &[CastModeKind::Escape],
+                FaceNames {
+                    view: Some(&view),
+                    texts: Some(&texts),
+                },
+                lang,
+            );
+            assert_eq!(rows[0].label, escape);
+        }
     }
 
     /// A printing whose own split is a different length is refused whole,

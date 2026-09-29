@@ -3,7 +3,7 @@
 //! no action fires, then offers priority.
 
 use crate::event::{Cause, GameEvent, LossReason};
-use crate::object::{CounterKind, ObjectKind, Status};
+use crate::object::{CounterKind, ObjectKind};
 use crate::state::GameState;
 use crate::zone::{ZoneLocation, ZonePosition};
 use baylee_core::ids::PlayerId;
@@ -80,15 +80,10 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
     }
 
     // --- Lethal damage / zero toughness (CR 704.5f-h) -------------------
-    let battlefield = state.zones.list(ZoneLocation::Battlefield).clone();
-    for id in &battlefield {
-        let id = *id;
+    for id in state.battlefield_view() {
         let Some(obj) = state.object(id) else {
             continue;
         };
-        if obj.status.contains(Status::PHASED_OUT) {
-            continue;
-        }
         // CR 704.5i also applies to animated planeswalkers; being a
         // creature (even an indestructible one) does not replace this SBA.
         if obj.characteristics().types.contains(TypeSet::PLANESWALKER)
@@ -129,8 +124,10 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
     // The deathtouch window is "since the last time state-based actions
     // were checked" (CR 704.5h), so this pass — which has now judged every
     // marked creature — closes it.
-    for id in &battlefield {
-        if let Some(obj) = state.object_mut(*id) {
+    // phasing: for a phased-out one too, which was not judged and must not
+    // be when it phases in.
+    for id in state.zones.list(ZoneLocation::Battlefield).clone() {
+        if let Some(obj) = state.object_mut(id) {
             obj.deathtouched = false;
         }
     }
@@ -180,12 +177,11 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
         // coexist, so it is part of the determinism contract.
         let mut names: Vec<u32> = Vec::new();
         let mut groups: Vec<Vec<baylee_core::ids::ObjectId>> = Vec::new();
-        for &id in state.zones.list(ZoneLocation::Battlefield) {
+        for id in state.battlefield_seen() {
             let Some(obj) = state.object(id) else {
                 continue;
             };
-            if !obj.status.contains(Status::PHASED_OUT)
-                && obj.controller == player
+            if obj.controller == player
                 && obj
                     .characteristics()
                     .supertypes
@@ -366,11 +362,11 @@ fn run_attachment_sbas(state: &mut GameState, lookup: &impl crate::state::CardLo
     let mut changed = false;
     let mut falling_off = Vec::new();
     let mut unattaching = Vec::new();
-    for &id in state.zones.list(ZoneLocation::Battlefield) {
+    for id in state.battlefield_seen() {
         let Some(obj) = state.object(id) else {
             continue;
         };
-        if obj.kind != ObjectKind::Permanent || obj.status.contains(Status::PHASED_OUT) {
+        if obj.kind != ObjectKind::Permanent {
             continue;
         }
         let types = obj.characteristics().types;
@@ -600,7 +596,10 @@ pub fn lose_by_effect(state: &mut GameState, player: PlayerId) -> bool {
 ///    controls it without them. So does every effect giving them control of
 ///    a player: the one the engine has is Opposition Agent's search takeover
 ///    (CR 722.2), and `every_card_that_controls_a_player_does_it_by_taking_over_a_search`
-///    fails the day a card controls a player some other way.
+///    fails the day a card controls a player some other way. What a
+///    permanent of theirs held "until it leaves the battlefield" comes back,
+///    and if they were the monarch, the designation passes on as they leave
+///    (CR 724.4, `GameState::monarch_leaves`).
 /// 2. [`exile_what_the_departed_control`]: an ability or a copy of a spell
 ///    they control ceases to exist, and what else they still control is
 ///    exiled. That is what they control by default: a creature they
@@ -636,12 +635,24 @@ pub fn eliminate_player(
         state.zones.remove(id, loc);
         let _ = state.arena.remove(id);
     }
+    // They left without passing through `move_object`, which is what
+    // invalidates the projection for everybody else, and what stayed may
+    // have counted them: Pyrogoyf counts the card types among cards in all
+    // graveyards, theirs until now. The generation compare counts effects,
+    // so without this the refresh `exile_what_the_departed_control` runs
+    // changed nothing, and a Pyrogoyf kept the size their graveyard gave it.
+    state.invalidate_projections();
     state.effects.remove_where(|fx| {
         matches!(
             fx.modifier,
             baylee_cards_dsl::Modifier::GainControl | baylee_cards_dsl::Modifier::SearchTakeover
         ) && fx.controller == player
     });
+    // A permanent of theirs that held a card "until it leaves the
+    // battlefield" has just left it without passing through `move_object`,
+    // and the card comes back to its owner (CR 610.3).
+    state.return_what_departed_hosts_held();
+    state.monarch_leaves(player);
     let exiled = exile_what_the_departed_control(state);
     let mut gone: Vec<_> = state
         .combat
@@ -691,6 +702,9 @@ pub fn eliminate_player(
 /// battlefield this way triggers what leaving the battlefield triggers.
 pub fn exile_what_the_departed_control(state: &mut GameState) -> Vec<baylee_core::ids::ObjectId> {
     state.refresh_characteristics();
+    // The projection leaves phased-out permanents as they were; one whose
+    // controller left is read again (CR 702.26n).
+    state.release_from_the_departed();
     let departed = |state: &GameState, id: baylee_core::ids::ObjectId| {
         state
             .object(id)
@@ -740,6 +754,7 @@ pub fn exile_what_the_departed_control(state: &mut GameState) -> Vec<baylee_core
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::object::Status;
     use crate::state::CardLookup;
     use baylee_core::ids::{CardIndex, PrintRef};
     use baylee_core::preset::{
@@ -1368,6 +1383,52 @@ mod tests {
         assert!(state.players[1].has_lost());
         assert_eq!(state.players[0].loss, None);
         assert!(!state.players[0].has_lost());
+    }
+
+    /// `seats` empty boards.
+    fn empty_table(seed: u64, seats: usize) -> GameState {
+        let mut preset = empty_boards_preset(seed);
+        let seat = preset.seats[0].clone();
+        preset.seats.resize(seats, seat);
+        GameState::from_preset(&preset, &RegistryLookup).expect("game starts")
+    }
+
+    /// The monarch leaves the game, and the crown passes at the same time
+    /// (CR 724.4). During another player's turn it goes to the active player,
+    /// not to the next seat after the leaver; during the monarch's own turn,
+    /// to the next player in turn order still in the game; and with nobody
+    /// left who can take it, to nobody. A player who is not the monarch
+    /// leaving moves nothing.
+    ///
+    /// The crown stayed with the player who had left.
+    #[test]
+    fn the_crown_passes_as_the_monarch_leaves_the_game() {
+        let seat = PlayerId::new;
+        let mut state = empty_table(43, 4);
+
+        state.monarch = Some(seat(1));
+        state.turn.active = seat(3);
+        eliminate_player(&mut state, seat(1), LossReason::Conceded);
+        assert_eq!(
+            state.monarch,
+            Some(seat(3)),
+            "the active player, not seat 2"
+        );
+
+        state.monarch = Some(seat(0));
+        state.turn.active = seat(0);
+        eliminate_player(&mut state, seat(0), LossReason::Conceded);
+        assert_eq!(
+            state.monarch,
+            Some(seat(2)),
+            "the next in turn order still in the game: seat 1 has left"
+        );
+
+        eliminate_player(&mut state, seat(3), LossReason::Conceded);
+        assert_eq!(state.monarch, Some(seat(2)), "seat 3 was not the monarch");
+
+        eliminate_player(&mut state, seat(2), LossReason::Conceded);
+        assert_eq!(state.monarch, None, "nobody is left to take it");
     }
 
     /// A player loses the game once. A seat already out that is eliminated

@@ -20032,6 +20032,461 @@ fn clever_concealment_s_convoke_is_asked_for_its_generic_and_no_more_until_230()
     );
 }
 
+/// `{W}` Aura: "Enchanted creature gets +1/+2."
+fn holy_strength() -> CardIndex {
+    card_index("9357de36-f8be-4f49-b2c8-9fe9eaf82b07")
+}
+
+/// "Any number of target nonland permanents you control phase out": every
+/// target does, not the first. Holy Strength on the first Cleric is named as
+/// well, and it phases out with the Cleric it enchants (CR 702.26g, 702.26h)
+/// and phases in with it at seat 0's next untap step, still attached.
+#[test]
+fn clever_concealment_phases_out_every_target() {
+    let seat = PlayerId::new(0);
+    let mut engine = Duel::new(229, plains())
+        .hand(0, &[clever_concealment()])
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                ondu_cleric(),
+                ondu_cleric(),
+                holy_strength(),
+            ],
+        )
+        .start();
+    let clerics = all_on_battlefield(&engine, seat, ondu_cleric());
+    let aura = on_battlefield(&engine, seat, holy_strength()).expect("seated");
+    {
+        // What a starting battlefield cannot say, set before the first
+        // state-based check would put the Aura into a graveyard.
+        let state = engine.dev_state_mut(seat).expect("the harness sets up");
+        state.object_mut(aura).expect("seated").attached_to = Some(clerics[0]);
+        state.invalidate_projections();
+    }
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat);
+    tap_all_mana(&mut engine, seat);
+
+    let card = in_hand(&engine, seat, clever_concealment()).expect("in hand");
+    engine
+        .apply(seat, PlayerAction::CastSpell { card })
+        .expect("the spell is offered");
+    let named = vec![clerics[0], clerics[1], aura];
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the spell asks for its targets, got {:?}", engine.pending());
+    };
+    assert!(
+        named.iter().all(|id| options.contains(id)),
+        "both Clerics and the Aura are nonland permanents seat 0 controls: {options:?}"
+    );
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: named.clone(),
+                players: vec![],
+            },
+        )
+        .expect("any number of targets");
+    if tap_to_pay_question(&engine).is_some() {
+        engine
+            .apply(
+                seat,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![],
+                },
+            )
+            .expect("the Plains pay it all");
+    }
+    pass_until(&mut engine, stack_is_empty);
+    let phased = |engine: &Engine<RegistryLookup>, id| {
+        engine
+            .state()
+            .object(id)
+            .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT))
+    };
+    assert!(phased(&engine, clerics[0]), "the first target phased out");
+    assert!(
+        phased(&engine, clerics[1]),
+        "the second target stayed phased in"
+    );
+    assert!(phased(&engine, aura), "the Aura stayed phased in");
+    let indirectly = |engine: &Engine<RegistryLookup>, id| {
+        engine.state().object(id).is_some_and(|o| {
+            o.status
+                .contains(crate::object::Status::PHASED_OUT_INDIRECTLY)
+        })
+    };
+    assert!(
+        indirectly(&engine, aura),
+        "the Aura was named and is on a Cleric that phased out: it phases out \
+         indirectly (CR 702.26h)"
+    );
+    assert!(
+        !indirectly(&engine, clerics[0]) && !indirectly(&engine, clerics[1]),
+        "the Clerics phased out directly"
+    );
+
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, seat);
+    for id in &named {
+        assert!(
+            !phased(&engine, *id),
+            "all three phase in at seat 0's untap step"
+        );
+    }
+    assert_eq!(
+        engine.state().object(aura).and_then(|o| o.attached_to),
+        Some(clerics[0]),
+        "the Aura phased in attached to the Cleric it enchanted"
+    );
+}
+
+/// Banishing Stroke: its miracle is offered only over something to target.
+///
+/// "Put target artifact, creature, or enchantment on the bottom of its
+/// owner's library." Choosing that target is a step of casting it (CR
+/// 601.2c), and a spell that cannot take the step cannot be cast (CR 601.2):
+/// drawn onto a board with no artifact, creature or enchantment, the miracle
+/// could only be declined, so it is not asked. It was, and the house said
+/// yes to it in r001's games 1581, 3288 and 3554; the engine refused the
+/// "yes" after spending the offer, and none of the three could be replayed.
+///
+/// Every card in both libraries is a Banishing Stroke, so every first draw of
+/// a turn is one. With a creature on the table each of those draws offers
+/// the miracle, which is what keeps the empty board's silence from being a
+/// test that sees nothing.
+#[test]
+fn banishing_stroke_offers_its_miracle_only_over_a_target() {
+    for (board, targets) in [(vec![], false), (vec![ondu_cleric()], true)] {
+        let mut engine = Duel::new(31, banishing_stroke())
+            .battlefield(1, &board)
+            .start();
+        keep_mulligans(&mut engine);
+        let mut offers = 0;
+        for _ in 0..200 {
+            if engine.state().turn.number > 4 {
+                break;
+            }
+            match engine.pending().clone() {
+                Pending::YesNo {
+                    player,
+                    prompt: YesNoPrompt::Miracle { .. },
+                    ..
+                } => {
+                    offers += 1;
+                    engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+                }
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                Pending::ChooseAttackers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                        .unwrap();
+                }
+                Pending::ChooseBlockers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                        .unwrap();
+                }
+                other => panic!("unexpected question: {other:?}"),
+            }
+        }
+        assert!(engine.state().turn.number > 4, "the game stalled");
+        if targets {
+            assert!(
+                offers >= 3,
+                "a draw over a creature was not offered: {offers}"
+            );
+        } else {
+            assert_eq!(offers, 0, "a miracle with nothing to target was offered");
+        }
+    }
+}
+
+/// Dig Through Time over a library of one puts that one into your hand.
+///
+/// "Look at the top seven cards of your library. Put two of them into your
+/// hand and the rest on the bottom of your library in any order." With one
+/// card left the effect does only as much as possible (CR 609.3): it puts the
+/// one. It asked for two out of one instead, a question no answer could
+/// satisfy, and the table stopped — the house's proposal and its fallback
+/// both refused (r002 games 368 and 2675).
+#[test]
+fn dig_through_time_over_a_library_of_one_puts_that_one_into_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(17, island())
+        .battlefield(0, &[island(); 8])
+        .hand(0, &[dig_through_time()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let left = library_size(&engine, p0);
+    seed_graveyard(&mut engine, p0, left - 1);
+    let last = engine.state().zones.list(ZoneLocation::Library(p0))[0];
+    cast_from_hand(&mut engine, p0, dig_through_time());
+    // Delve offers the graveyard just filled; eight Islands pay without it.
+    if let Pending::ChooseCards {
+        prompt: ChoicePrompt::Delve,
+        ..
+    } = engine.pending()
+    {
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+            .expect("delving nothing is an answer");
+    }
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::PutIntoHand,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(options, vec![last], "the one card there is");
+    assert_eq!((min, max), (1, 1), "asked for as many as there are");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![last],
+            },
+        )
+        .expect("the one card is the answer");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&last),
+        "the card went to hand"
+    );
+    assert_eq!(library_size(&engine, p0), 0);
+}
+
+/// Dig Through Time cast from the graveyard (Snapcaster Mage's flashback)
+/// cannot delve itself away.
+///
+/// CR 601.2a moves a spell to the stack before its costs are paid (601.2h),
+/// so while delve (CR 702.66a) exiles cards from the graveyard to pay, the
+/// spell is not one of them. The engine moves the card at the end of the
+/// payment instead, and the delve question offered the whole graveyard, the
+/// card being cast included: exiled for delve, it paid {1} of its own cost
+/// and went on to the stack from exile.
+#[test]
+fn dig_through_time_flashed_back_does_not_offer_itself_to_its_own_delve() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(17, island())
+        .battlefield(0, &[island(); 9])
+        .hand(0, &[snapcaster_mage(), dig_through_time()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p0, 3);
+    let dig = in_hand(&engine, p0, dig_through_time()).expect("the Dig in hand");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            dig,
+            ZoneLocation::Graveyard(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Cost,
+        )
+        .expect("the Dig goes to the graveyard");
+    engine.refresh_offer();
+    let dig = in_graveyard(&engine, p0, dig_through_time()).expect("the Dig in the graveyard");
+    let two: Vec<ObjectId> = engine.state().zones.list(ZoneLocation::Battlefield)[..2].to_vec();
+    tap_mana_where(&mut engine, p0, |id| two.contains(&id));
+    cast_with_floating(&mut engine, p0, snapcaster_mage());
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseTargets { options, .. } if options.contains(&dig)),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![dig],
+                players: vec![],
+            },
+        )
+        .expect("the Dig is Snapcaster's target");
+    pass_until(&mut engine, stack_is_empty);
+    tap_all_mana(&mut engine, p0);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: dig })
+        .expect("the Dig has flashback");
+    let Pending::ChooseCards {
+        options,
+        prompt: ChoicePrompt::Delve,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the delve question, got {:?}", engine.pending())
+    };
+    assert_eq!(options.len(), 3, "the three other cards: {options:?}");
+    assert!(!options.contains(&dig), "the spell cannot pay for itself");
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: options })
+        .expect("delving the other three is an answer");
+    assert!(
+        on_stack(&engine, dig_through_time()).is_some(),
+        "the Dig is cast: {:?}",
+        engine.pending()
+    );
+}
+
+/// Heliod's Intervention with an X its pool cannot pay: the X is taken, so is
+/// the player it then names, and the cast is reversed.
+///
+/// CR 601.2b lets the caster announce any X, and a total cost they cannot
+/// then pay makes the cast illegal: it is reversed (CR 601.2h, 732.1), with
+/// the mana back in the pool and the card back in hand. The arena's net
+/// named X = 50 over five floating mana; the X was taken, and both players
+/// the lifegain mode then offered were refused with "cannot pay the total
+/// cost", a question no answer could leave (its third and fourth cases).
+#[test]
+fn heliods_intervention_over_an_x_it_cannot_pay_is_taken_and_reversed() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .hand(0, &[heliods_intervention()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    let floating = engine.state().players[0].mana_pool.total();
+    cast_with_floating(&mut engine, p0, heliods_intervention());
+    let mut named = None;
+    for _ in 0..12 {
+        match engine.pending().clone() {
+            Pending::ChooseNumber { player, max, .. } => {
+                assert!(max > floating, "the range ends where the pool does: {max}");
+                engine
+                    .apply(player, PlayerAction::ChooseNumber(max))
+                    .expect("an X the question offers is an answer");
+            }
+            Pending::ChooseCastMode {
+                player, options, ..
+            } => {
+                let slot = options
+                    .iter()
+                    .position(|o| matches!(o.kind, CastModeKind::Mode(1)))
+                    .expect("the lifegain mode is one of the ways to cast this card");
+                engine
+                    .apply(player, PlayerAction::ChooseMode(slot))
+                    .unwrap();
+            }
+            Pending::ChoosePlayer { player, options } => {
+                let chosen = options[0];
+                engine
+                    .apply(player, PlayerAction::ChoosePlayer(chosen))
+                    .expect("a player the question offers is an answer");
+                named = Some(chosen);
+                break;
+            }
+            other => panic!("unexpected while casting Heliod's Intervention: {other:?}"),
+        }
+    }
+    assert!(
+        named.is_some(),
+        "the lifegain mode never asked for its player"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the reversed cast gave the caster their priority back: {:?}",
+        engine.pending()
+    );
+    assert!(
+        engine.state().zones.stack_is_empty(),
+        "the unpayable spell reached the stack"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        floating,
+        "the reversed cast spent nothing"
+    );
+    assert!(
+        in_hand(&engine, p0, heliods_intervention()).is_some(),
+        "the card went back to hand"
+    );
+}
+
+/// Ephemerate: "Exile target creature you control, then return it to the
+/// battlefield under its owner's control."
+///
+/// The other half of what Restoration Angel's test holds. The same stolen
+/// Elves, the same Song-Mad Treachery, and the sentence names the owner, so
+/// the new object enters under seat 1's control (CR 400.7) and seat 0's
+/// borrowed creature goes home at once rather than at end of turn.
+#[test]
+fn ephemerate_returns_a_stolen_creature_to_its_owner() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(613, mountain())
+        .battlefield(
+            0,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                plains(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[song_mad_treachery(), ephemerate()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("p1's Elves");
+    steal_with_song_mad_treachery(&mut engine, p0, elves);
+
+    cast_from_hand(&mut engine, p0, ephemerate());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Ephemerate asks for a target: {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&elves),
+        "a stolen creature is a creature you control: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .expect("the Elves are targeted");
+    pass_until(&mut engine, stack_is_empty);
+
+    let obj = engine.state().object(elves).expect("the Elves came back");
+    assert_eq!(obj.zone, Zone::Battlefield, "exiled and returned");
+    assert_eq!(
+        (obj.owner, obj.controller, obj.base_controller),
+        (p1, p1, p1),
+        "returned under its owner's control"
+    );
+}
+
 fn memory_deluge() -> CardIndex {
     card_index("e6fd55f2-7e26-469c-a44a-ea2eb90e19a9")
 }
@@ -20242,7 +20697,13 @@ fn realms_search(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) 
     };
     assert_eq!(player, seat);
     assert_eq!(prompt, ChoicePrompt::SearchLibrary);
-    assert_eq!((min, max), (0, 4), "up to four");
+    // "Up to four", and a counted choice is fitted to what it offers
+    // (CR 609.3): four of five names, two of two.
+    assert_eq!(
+        (min, usize::from(max)),
+        (0, options.len().min(4)),
+        "up to four"
+    );
     let mut names: Vec<_> = options
         .iter()
         .map(|id| engine.state().object(*id).unwrap().characteristics().name)
@@ -20917,4 +21378,110 @@ fn sultai_charm_copied_keeps_the_mode_chosen_for_it() {
     }
     assert_eq!(library_size(&engine, p0), library - 4, "drew two, twice");
     assert_eq!(discards, 2, "and discarded once each time");
+}
+
+// ---------------------------------------------------------------------------
+// Schwarzrand: Cryptic Command ("choose two").
+// ---------------------------------------------------------------------------
+
+/// With no other spell on the stack "Counter target spell" has nothing to
+/// point at, and a mode without a legal target cannot be chosen (CR
+/// 700.2a); Cryptic Command cannot target itself. What is left is every
+/// pair of the other three, each at {1}{U}{U}{U}: two modes exactly (CR
+/// 700.2d), never one and never three. Tap and draw together: the
+/// opponent's Elves and Gargoyle are tapped, seat 0's own Elves are not,
+/// and seat 0 draws a card.
+#[test]
+fn cryptic_command_taps_their_creatures_and_draws() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), llanowar_elves()],
+        )
+        .battlefield(1, &[llanowar_elves(), darksteel_gargoyle(), island()])
+        .hand(0, &[cryptic_command()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let mine = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    let theirs = [
+        on_battlefield(&engine, p1, llanowar_elves()).unwrap(),
+        on_battlefield(&engine, p1, darksteel_gargoyle()).unwrap(),
+    ];
+    let their_island = on_battlefield(&engine, p1, island()).unwrap();
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    let library = library_size(&engine, p0);
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    cast_with_floating(&mut engine, p0, cryptic_command());
+    let offered = choose_modes(&mut engine, p0, 0b1100);
+    let cost = baylee_core::mana::ManaCost::parse("{1}{U}{U}{U}");
+    assert_eq!(
+        offered.iter().map(|o| (o.kind, o.cost)).collect::<Vec<_>>(),
+        [
+            (CastModeKind::Modes(0b0110), cost),
+            (CastModeKind::Modes(0b1010), cost),
+            (CastModeKind::Modes(0b1100), cost),
+        ]
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        theirs.iter().all(|id| is_tapped(&engine, *id)),
+        "theirs tap"
+    );
+    assert!(
+        !is_tapped(&engine, mine),
+        "its caster's own creature does not"
+    );
+    assert!(
+        !is_tapped(&engine, their_island),
+        "and a land is no creature"
+    );
+    assert_eq!(library_size(&engine, p0), library - 1);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand,
+        "Cryptic Command left the hand and one card came in"
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert!(in_graveyard(&engine, p0, cryptic_command()).is_some());
+}
+
+/// With a Dark Ritual on the stack every pair of the four is offered, and
+/// counter plus bounce takes two targets, the counter's first (CR 700.2c):
+/// the Ritual is countered and adds no mana, the opponent's Elves go back
+/// to their owner's hand, and nothing is tapped or drawn.
+#[test]
+fn cryptic_command_counters_a_spell_and_bounces_a_permanent() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[swamp(), island(), island(), island(), island()])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[dark_ritual(), cryptic_command()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
+    tap_all_mana(&mut engine, p0);
+    let library = library_size(&engine, p0);
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    let ritual = on_stack(&engine, dark_ritual()).unwrap();
+    cast_with_floating(&mut engine, p0, cryptic_command());
+    let offered = choose_modes(&mut engine, p0, 0b0011);
+    assert_eq!(
+        offered.iter().map(|o| o.kind).collect::<Vec<_>>(),
+        [0b0011, 0b0101, 0b0110, 0b1001, 0b1010, 0b1100].map(CastModeKind::Modes)
+    );
+    let _ = aim_at(&mut engine, p0, ritual);
+    let _ = aim_at(&mut engine, p0, elves);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(ritual).map(|o| o.zone),
+        Some(Zone::Graveyard)
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0, "countered");
+    assert!(in_hand(&engine, p1, llanowar_elves()).is_some(), "bounced");
+    assert_eq!(library_size(&engine, p0), library, "no card drawn");
 }

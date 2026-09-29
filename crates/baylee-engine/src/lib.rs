@@ -69,6 +69,15 @@ pub mod replacement;
 /// Endless-loop detection for decision-free segments (house rule).
 pub mod loops;
 
+// Phasing out and in, with what is attached (CR 702.26): `GameState`
+// methods the resolver and the untap step share.
+mod phasing;
+
+// The L4 firing recorder, `BAYLEE_ABILITY_LOG` (this crate's tests only;
+// `docs/verification-hooks.md`).
+#[cfg(test)]
+mod ability_log;
+
 // NOTE: the roadmap items (pipeline formalization, replacement registry,
 // legality precompute, cost model, unusual casting, copy machinery, format
 // modifiers, automation, dev mode, loop detection, scripted modifiers)

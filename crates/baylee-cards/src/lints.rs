@@ -1703,7 +1703,8 @@ mod tests {
                         | PlayerRel::EachPlayer => true,
                         PlayerRel::Chosen
                         | PlayerRel::ControllerOfTarget
-                        | PlayerRel::ControllerOfEvent => false,
+                        | PlayerRel::ControllerOfEvent
+                        | PlayerRel::DamagedPlayer => false,
                     };
                     if !answerable {
                         wrong.push(format!("{}: {modifier:?}", def.name()));

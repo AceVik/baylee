@@ -57,13 +57,18 @@ pub(crate) fn graveyard_destination(
     }
     // Its own "exile it instead": on the stack as a rider, on the
     // battlefield as the rule its face registered.
+    let own_rule = |entry: &&crate::state::ReplacementEntry| {
+        entry.source == id
+            && entry.rule == baylee_cards_dsl::ReplacementRule::ExileSelfInsteadOfGraveyard
+    };
     if (card.zone == crate::zone::Zone::Stack
         && card.riders.contains(&Rider::ExileInsteadOfGraveyard))
-        || state.replacement_rules.iter().any(|entry| {
-            entry.source == id
-                && entry.rule == baylee_cards_dsl::ReplacementRule::ExileSelfInsteadOfGraveyard
-        })
+        || state.replacement_rules.iter().any(|entry| own_rule(&entry))
     {
+        #[cfg(test)]
+        if let Some(entry) = state.replacement_rules.iter().find(own_rule) {
+            crate::ability_log::replaced(entry);
+        }
         return (ZoneLocation::Exile(card.owner), None);
     }
     // "If a card would be put into your graveyard from anywhere this turn,
@@ -83,6 +88,8 @@ pub(crate) fn graveyard_destination(
                 .object(entry.source)
                 .is_some_and(|o| o.status.contains(Status::PHASED_OUT))
         {
+            #[cfg(test)]
+            crate::ability_log::replaced(entry);
             return (ZoneLocation::Exile(card.owner), counter);
         }
     }
@@ -93,8 +100,10 @@ pub(crate) fn graveyard_destination(
 /// previous instruction cannot keep replacing later discards or the resolving
 /// spell's own departure. Other rules keep their existing LKI lifetime.
 pub(crate) fn expire_graveyard_rules(state: &mut GameState) {
-    // phasing: retain phased-out sources so their rules resume when they
-    // phase in; graveyard_destination independently excludes them meanwhile.
+    // The engine's replacement sync drops a phased-out source's rules and
+    // scans them back when it phases in. This sweep runs between two
+    // instructions of one resolution, before that sync:
+    // phasing: it keeps them; graveyard_destination excludes them meanwhile.
     let battlefield = state.zones.list(crate::zone::ZoneLocation::Battlefield);
     state.replacement_rules.retain(|entry| {
         !matches!(
@@ -128,6 +137,8 @@ pub fn token_multiplier(state: &GameState, recipient: PlayerId) -> u32 {
                 entry.source,
             )
         {
+            #[cfg(test)]
+            crate::ability_log::replaced(entry);
             count *= 2;
         }
     }
@@ -161,6 +172,8 @@ pub fn counter_multiplier(state: &GameState, target: ObjectId) -> u16 {
                 entry.source,
             )
         {
+            #[cfg(test)]
+            crate::ability_log::replaced(entry);
             count = count.saturating_mul(2);
         }
     }

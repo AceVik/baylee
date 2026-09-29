@@ -18494,7 +18494,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Cryptic Command
+    &[FaceLines {
+        sentences: 5,
+        stackable: 0,
+        lines: &[None],
+        modes: &[Some(1), Some(2), Some(3), Some(4)],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -32932,7 +32939,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Uro, Titan of Nature's Wrath
+    &[FaceLines {
+        sentences: 3,
+        stackable: 3,
+        lines: &[Some(0), Some(1), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],

@@ -1209,6 +1209,65 @@ fn a_printed_x_is_asked_for_after_a_mode_is_chosen() {
     );
 }
 
+/// A mode position past the end of the list is refused, and the question is
+/// still there to be answered.
+///
+/// The position was checked after the cast wizard had been taken out of its
+/// slot, and the refusal did not put it back. The mode question stayed on the
+/// table with no cast behind it, so the next answer to it, a legal one,
+/// panicked the engine on the missing wizard: one malformed message from a
+/// seat was enough to end the game for every seat.
+#[test]
+fn a_mode_past_the_end_is_refused_and_the_question_still_answers() {
+    use crate::engine::testkit::{
+        Duel, keep_mulligans, quiet_artifact, tap_all_mana, walk_to_own_main,
+    };
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(35, plains())
+        .battlefield(0, &[plains(), plains(), plains(), plains(), plains()])
+        .hand(0, &[heliods_intervention()])
+        .battlefield(1, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    tap_all_mana(&mut engine, p0);
+    let card = crate::engine::testkit::in_hand(&engine, p0, heliods_intervention())
+        .expect("the spell is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("five Plains are floating");
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!(
+            "a modal spell asks for its mode, got {:?}",
+            engine.pending()
+        )
+    };
+
+    assert!(
+        engine
+            .apply(p0, PlayerAction::ChooseMode(options.len()))
+            .is_err(),
+        "no option sits at that position"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::ChooseCastMode { .. }),
+        "the question stands: {:?}",
+        engine.pending()
+    );
+    let slot = options
+        .iter()
+        .position(|o| o.kind == CastModeKind::Mode(1))
+        .expect("the life mode is offered");
+    engine
+        .apply(p0, PlayerAction::ChooseMode(slot))
+        .expect("the cast is still being made, and the mode answers it");
+    assert!(
+        matches!(engine.pending(), Pending::ChooseNumber { .. }),
+        "and the cast goes on to its X: {:?}",
+        engine.pending()
+    );
+}
+
 /// "Destroy X target …" destroys **every** target the caster chose.
 ///
 /// `Effect::Destroy` read its target through `spec_object`, which is the

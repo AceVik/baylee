@@ -1183,3 +1183,73 @@ fn delayed_mana_goes_to_its_controller() {
         .collect();
     assert_eq!(pools, [0, 0, 2]);
 }
+
+/// "Pyrogoyf's power is equal to the number of card types among cards in
+/// all graveyards and its toughness is equal to that number plus 1."
+fn pyrogoyf() -> CardIndex {
+    card_index("7fd7457a-388d-4cca-a7cf-86b4ea922037")
+}
+
+/// A player who leaves takes their graveyard out of the game with everything
+/// else they own (CR 800.4a), and a Pyrogoyf that counted it shrinks as they
+/// go. It kept its size instead: the objects leave without passing through
+/// `move_object`, which is what tells the projection a counted zone changed,
+/// so the refresh the leaving runs changed nothing. Seat 2 alone has a
+/// graveyard, with a land, a creature and an instant card in it; read as
+/// soon as seat 2 has conceded, with the other two still playing.
+#[test]
+fn a_pyrogoyf_shrinks_as_the_graveyard_it_counted_leaves_the_game() {
+    let mut engine = Duel::table(277, island(), 3)
+        .battlefield(0, &[pyrogoyf()])
+        .hand(2, &[forest(), llanowar_elves(), ancestral_recall()])
+        .start();
+    keep_mulligans(&mut engine);
+    let goyf =
+        super::testkit::on_battlefield(&engine, seat(0), pyrogoyf()).expect("Pyrogoyf starts out");
+    {
+        let state = engine
+            .dev_state_mut(seat(0))
+            .expect("the harness may set boards up");
+        for card in [forest(), llanowar_elves(), ancestral_recall()] {
+            let id = state
+                .zones
+                .list(ZoneLocation::Hand(seat(2)))
+                .iter()
+                .copied()
+                .find(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+                })
+                .expect("dealt into seat 2's hand");
+            state
+                .move_object(
+                    id,
+                    ZoneLocation::Graveyard(seat(2)),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .expect("into seat 2's graveyard");
+        }
+    }
+    let asked = engine.pending().asked().expect("somebody holds priority");
+    engine.apply(asked, PlayerAction::PassPriority).unwrap();
+    let pt = |engine: &Engine<RegistryLookup>| super::testkit::pt(engine, goyf);
+    assert_eq!(
+        pt(&engine),
+        (3, 4),
+        "a land, a creature and an instant card in seat 2's graveyard"
+    );
+
+    engine.apply(seat(2), PlayerAction::Concede).unwrap();
+    assert!(
+        engine.state().players[2].has_lost() && !engine.state().players[0].has_lost(),
+        "seat 2 has left, and the game goes on without it"
+    );
+    assert!(
+        !matches!(engine.pending(), Pending::GameOver(_)),
+        "two players are still in it: {:?}",
+        engine.pending()
+    );
+    assert_eq!(pt(&engine), (0, 1), "no graveyard holds a card any more");
+}

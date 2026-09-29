@@ -29,7 +29,10 @@
 //! `castable_from_hand` and nothing else would offer the adventure out of
 //! the exile its own resolution had just put the card in.
 
-use super::testkit::{Duel, RegistryLookup, card_index, keep_mulligans, pass_until, tap_all_mana};
+use super::testkit::{
+    Duel, RegistryLookup, card_index, keep_mulligans, pass_until, stack_is_empty, tap_all_mana,
+    tap_mana_where,
+};
 use super::*;
 use baylee_core::ids::{CardIndex, ObjectId};
 
@@ -58,6 +61,10 @@ fn swamp() -> CardIndex {
 /// in the pool whose two modes differ in *both* price and target line.
 fn damn() -> CardIndex {
     card_index("b01d61cc-9844-4191-86a0-f2db6d42d6e5")
+}
+/// `{W}` "Exile target creature."
+fn swords_to_plowshares() -> CardIndex {
+    card_index("b1544f21-7e98-461b-aed5-e748b0168c52")
 }
 /// The quietest creature there is, here only as something to destroy.
 fn llanowar_elves() -> CardIndex {
@@ -363,17 +370,15 @@ fn the_adventure_is_not_offered_again_from_the_exile_it_was_cast_into() {
         engine.state().names.get(obj.characteristics().name),
         "Twining Twins"
     );
-    // And the other side of the same gate. Nothing ever takes the `Adventure`
-    // rider off again — `move_object` clears a copy's characteristics
-    // (CR 400.7) and leaves the rider list alone — so a Twining Twins that
-    // was cast off its adventure and is later bounced arrives in the hand
-    // still wearing it. CR 715.3d refuses the adventure only "this way", out
-    // of the exile the adventure itself made, so from the hand Swift Spiral
-    // is a way of casting the card once more. A reader that asked the rider
-    // and not the exile would refuse it, and two white mana is the price
-    // that says which of the two happened: the creature is `{2}{U}{U}` and
-    // is not payable here, so the card is offered at all only as its
-    // adventure.
+    // And the other side of the same gate. CR 715.3d refuses the adventure
+    // only "this way", out of the exile the adventure itself made, so a
+    // Twining Twins that was cast off its adventure and is later bounced may
+    // be cast as Swift Spiral from the hand once more. The `Adventure` rider
+    // ends as the card leaves exile (`Rider::ends_as_it_leaves_exile`); it
+    // was once kept, and a reader that asked the rider and not the exile
+    // refused the adventure here. Two white mana is the price that says which
+    // of the two happened: the creature is `{2}{U}{U}` and is not payable
+    // here, so the card is offered at all only as its adventure.
     pass_until(&mut engine, |e| {
         find(e, crate::zone::ZoneLocation::Battlefield, twining_twins()).is_some()
     });
@@ -397,14 +402,150 @@ fn the_adventure_is_not_offered_again_from_the_exile_it_was_cast_into() {
         engine
             .state()
             .object(twins)
-            .is_some_and(|o| o.riders.contains(&crate::object::Rider::Adventure)),
-        "the premise of the assertion below is that the rider survives the exile"
+            .is_some_and(|o| !o.riders.contains(&crate::object::Rider::Adventure)),
+        "the card left the exile it was on its adventure in, and the rider with it"
     );
     next_own_main(&mut engine, p0);
     tap_some_mana(&mut engine, p0, 2);
     assert!(
         is_offered(&engine, twins),
         "a stale adventure rider kept Swift Spiral from being cast out of the hand"
+    );
+}
+
+/// The permission CR 715.3d gives lasts "for as long as that card remains
+/// exiled", and no longer. Twining Twins goes on its adventure, is cast out
+/// of that exile, and later Swords to Plowshares exiles the creature. The
+/// card in exile now was exiled by Swords, and nothing lets anybody cast it:
+/// not as the creature, and not on a board that pays for either face.
+///
+/// The adventure's mark rode along with the card through the stack and the
+/// battlefield, and the offer asks only whether a marked card is in exile, so
+/// the Swords' Twins was castable from exile every turn after (CR 400.7).
+#[test]
+#[allow(clippy::too_many_lines)] // an adventure, a cast from exile, Swords and a turn, told in order
+fn a_card_cast_off_its_adventure_and_exiled_again_is_not_castable_from_exile() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(43, island())
+        .hand(0, &[twining_twins(), swords_to_plowshares()])
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                island(),
+                island(),
+                island(),
+                island(),
+                ondu_cleric(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == p0
+    });
+    let lands = |engine: &Engine<RegistryLookup>, land: CardIndex| -> Vec<ObjectId> {
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|id| {
+                engine
+                    .state()
+                    .object(*id)
+                    .is_some_and(|o| o.card.is_some_and(|c| c.index == land))
+            })
+            .collect()
+    };
+    let (plains, islands) = (lands(&engine, plains()), lands(&engine, island()));
+
+    // Swift Spiral off two Plains, at the Cleric: the card goes on its
+    // adventure.
+    tap_mana_where(&mut engine, p0, |id| plains[..2].contains(&id));
+    let card = find(
+        &engine,
+        crate::zone::ZoneLocation::Hand(p0),
+        twining_twins(),
+    )
+    .expect("in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("the adventure is payable");
+    let cleric = find(
+        &engine,
+        crate::zone::ZoneLocation::Battlefield,
+        ondu_cleric(),
+    )
+    .expect("a creature to point at");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![cleric],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        find(e, crate::zone::ZoneLocation::Exile(p0), twining_twins()).is_some()
+    });
+
+    // The creature, cast out of that exile off the four Islands.
+    tap_mana_where(&mut engine, p0, |id| islands.contains(&id));
+    assert!(is_offered(&engine, card), "CR 715.3d allows the creature");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("the offer is honoured");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        find(
+            &engine,
+            crate::zone::ZoneLocation::Battlefield,
+            twining_twins()
+        ),
+        Some(card),
+        "the creature resolved"
+    );
+
+    // Swords to Plowshares off the last Plains exiles it again.
+    tap_mana_where(&mut engine, p0, |id| id == plains[2]);
+    let swords = find(
+        &engine,
+        crate::zone::ZoneLocation::Hand(p0),
+        swords_to_plowshares(),
+    )
+    .expect("in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: swords })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![card],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(card).map(|o| o.zone),
+        Some(crate::zone::Zone::Exile),
+        "exiled by Swords"
+    );
+
+    // Seven lands, both faces paid for, and the card is offered as neither.
+    next_own_main(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    assert!(
+        !is_offered(&engine, card),
+        "a card Swords exiled was castable from exile"
     );
 }
 

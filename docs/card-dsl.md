@@ -567,8 +567,14 @@ has built.
 - `AbilityDef::Loyalty { cost: i8, effects, targets }`
 - `AbilityDef::CopyOnEnter { target, mods: &[CopyMod] }` — the `mods` are the
   card's "except …" clauses (CR 707.9). Types, supertypes, subtypes, keywords
-  and entry counters are all sayable, and so is "except it has its **other**
-  abilities" (`CopyMod::KeepOtherAbilities`, CR 707.9a) — with one limit worth
+  and entry counters are all sayable. A counter that depends on what the copy
+  is ("…an additional +1/+1 counter on it if it's a creature") is
+  `CopyMod::AddCounterIf(TypeSet::CREATURE, CounterKind::P1P1, 1)`, asked of
+  what the permanent became (the copied values with the clause list's own
+  type changes, CR 707.2, 707.9b) and never of the copier's printed types;
+  a plain `AddCounter` would put it on every copy. "Except it has its
+  **other** abilities" is sayable too (`CopyMod::KeepOtherAbilities`, CR
+  707.9a), with one limit worth
   knowing before writing a card on it: the kept abilities are registered as
   the copy's own continuous effects, so a **static** survives and a triggered
   or activated one does not. A card that needs the second keeps a
@@ -1171,7 +1177,8 @@ where the oracle sentence it encodes is a line above it.
 **The common ones have a verb**, and the verb is the word the card prints:
 `Effect::draw(1)`, `scry(2)`, `gain_life(3)`, `destroy(t)`,
 `destroy_no_regen(t)`, `regenerate(t)`, `exile(t)`,
-`blink(t)`, `bounce(t)`, and `continuous(filter, modifier, duration)`
+`blink_to_owner(t)`, `blink_to_you(t)`, `bounce(t)`, and
+`continuous(filter, modifier, duration)`
 with the layer derived. `Effect::mana` is the precedent — 219 uses in the
 pool against zero raw `AddMana` literals.
 
@@ -1180,7 +1187,7 @@ and only where the variant has one answer to give**: `SearchLibrary { filter,
 finds, optional }` has two real choices in it, so it stays a literal rather
 than becoming a `search` / `may_search` / `search_to_hand` family. And **the
 name is the word this pool already says**, which is usually the printed one;
-`blink` and `bounce` are the two that are not. Neither is a coinage: the
+blink and `bounce` are the two that are not. Neither is a coinage: the
 engine named `Blink` because "exile it, then return it" has no printed verb,
 and `bounce` was in this repository before there was a verb to hang it on —
 Cyclonic Rift's comment calls both of its modes a bounce and Aether
@@ -1222,10 +1229,52 @@ halves at once, and a card printing one of them prints all of it. The counter
 goes on through the same door `EnterModifier::WithCounters` uses, so a
 doubler has its say (CR 614.16).
 
-A card that says nothing about a graveyard cannot use either: the effect
-checks that its object is still in one (CR 400.7). A reanimation *spell* is
-already held to that by target legality (CR 608.2b) — the guard is there for
-undying and persist, which target nothing at all.
+**Blink is two verbs for the same reason, and the difference is who ends
+up controlling the card.** `Effect::blink_to_owner(t)` is "exile …, then
+return it to the battlefield under its **owner's** control" (Ephemerate,
+Soulherder, Emiel the Blessed); `Effect::blink_to_you(t)` is "… under **your**
+control" (Restoration Angel, Aminatou's −1, Sword of Hearth and Home). Both
+are `Effect::Blink { target, owner_control }`, the field and the question
+`GraveyardToBattlefield` already had. Write the one the card prints, even
+where a filter such as "you own" makes the two agree: there is no bare
+`blink`, because an unmarked default is how Restoration Angel came to hand a
+stolen creature back to its owner. What returns is a new object (CR 400.7),
+so no control effect over the old one reaches it, and it enters under the
+player the sentence names (CR 110.2a). CR 610.3c ("returns under its owner's
+control unless otherwise specified") is about a card that comes back after
+an "until" event — Palace Jailer's "until an opponent becomes the monarch",
+Werefox Bodyguard's "until this creature leaves the battlefield" — and does
+not decide an immediate blink. Only control is chosen: the owner never changes
+(CR 108.3), so a creature kept this way still dies into its owner's
+graveyard and leaves the game with its owner (CR 800.4a).
+
+**A linked exile is two verbs as well, and the difference is when it ends.**
+`Effect::exile_linked(t)` exiles with a link and no end of its own: the card
+stays until another ability of the same object brings it back (Safe Haven and
+Endless Sands, `ReturnLinkedToBattlefield`) or for good (Skyclave Apparition).
+`Effect::exile_until(t, ExileUntil::…)` is an "until" sentence (CR 610.3):
+`SourceLeavesBattlefield` for Werefox Bodyguard's "until this creature leaves
+the battlefield", `OpponentBecomesMonarch` for Palace Jailer's "until an
+opponent becomes the monarch" (an opponent of the player who controlled the
+exiling ability, whoever controls the Jailer by then). Both are
+`Effect::ExileLinked { target, until }`. The return is not a triggered
+ability: it happens the moment the event does, uses no stack, and puts the
+card back under its owner's control (CR 610.3c). If the event has already
+happened when the exile would, nothing is exiled (CR 610.3a, 610.3b): a
+Bodyguard sacrificed in response to its own trigger holds nothing. Write
+`exile_until` wherever the card prints "until"; an `exile_linked` that stands
+for one is a card that never gives its prisoner back. Every way back, a
+host's effect, a new monarch or a host leaving, goes through
+`GameState::return_linked`. The link ends as well when the card leaves exile
+any other way (cast, returned to a hand): exiled again later, it is a new
+object and not "exiled with" the old host (CR 400.7). So does everything
+else the card was in exile, on an adventure, suspended, castable from exile
+(`Rider::ends_as_it_leaves_exile`).
+
+A card that says nothing about a graveyard cannot use either reanimation
+verb: the effect checks that its object is still in one (CR 400.7). A
+reanimation *spell* is already held to that by target legality (CR 608.2b) —
+the guard is there for undying and persist, which target nothing at all.
 
 Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
 `DrawCards`, `DrawCardsFor`, `Scry`, `ScryFor`, `Mill`,
@@ -1356,8 +1405,9 @@ becomes a 0/0 land creature with haste, gets `n` +1/+1 counters, and a
 delayed trigger returns it tapped under your control when it dies or is
 exiled — Badgermole Cub, Ba Sing Se; never spell the three continuous
 effects out), `ReturnToBattlefieldTapped { target }` (that delayed trigger's
-own effect, on the `EventObject`; no card writes it), `ExileGraveyard`, `Blink`,
-`ExileLinked`, `ExileTargetsWithSource` (every target, each exiled with the
+own effect, on the `EventObject`; no card writes it), `ExileGraveyard`, `Blink`
+(through its two verbs), `ExileLinked` (through its two verbs),
+`ExileTargetsWithSource` (every target, each exiled with the
 source for good, CR 406.6: Unlicensed Hearse; `Rider::ExiledWith`, never
 `Linked`, which "until" exiles and the monarchy release),
 `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
@@ -1753,8 +1803,8 @@ hashes, layers and does nothing. This paragraph said THREE until
 - **`Effect::MillMayTakeOne { amount, filter }`** is "mill `amount` cards. You
   may put a [filter] card from among the milled cards into your hand" (Wrenn's
   −2). A `ChooseCards` with `min: 0`, `max: 1`, prompt `PutIntoHand`, over the
-  milled cards that match and are found in the public zone they moved to
-  (CR 701.17c), which is the graveyard unless a replacement said exile.
+  milled cards that match, found in the public zone they moved to
+  (CR 701.17c): the graveyard, or wherever a replacement sent them.
 - **`Effect::RevealAndSeparate { count }`** is "reveal the top `count` cards
   of your library. An opponent separates those cards into two piles. Put one
   pile into your hand and the other into your graveyard" (Fact or Fiction).
@@ -1906,6 +1956,48 @@ Filters, conditions, modifiers and durations:
 - **`Duration::WhileYouControlSource`** is "for as long as you control this
   creature" (Extraction Specialist, CR 611.2b).
 
+### Pieces added for the friends' decks, last round (29.09.2026)
+
+- **`Effect::TapAll { filter }`** is "Tap all [permanents]" (Cryptic
+  Command's "Tap all creatures your opponents control", with
+  `Filter::OPPONENT_CREATURE`). Nothing is targeted, so hexproof does not
+  stop it; a permanent already tapped stays as it is (CR 701.26a). Cryptic
+  Command is `ModeCount::TWO`: a pair of its four modes, each pair at the
+  card's own cost.
+- **`Effect::ExileTopMayCast { who }`** is "exile the top card of [who]'s
+  library. Until end of turn, you may cast that card" (Ragavan, Nimble
+  Pilferer). The card goes to its owner's exile face up, and the controller
+  holds a cast-only `PlayPermission` for it: a spell is cast at its own
+  price and timing, and a land is neither played nor cast (CR 601.1a,
+  305.9). Nothing is targeted.
+- **`PlayerRel::DamagedPlayer`** is "that player" of a trigger on damage
+  dealt to a player (`Trigger::DealsCombatDamageToPlayer` and its
+  siblings): the seat the damage went to, read off the triggered ability.
+  At a table of three it is the one Ragavan hit, not "an opponent".
+- **`FaceDef.dash: Option<ManaCost>`** is "Dash [cost]" (CR 702.109a). The
+  cast offers `CastModeKind::Dash` beside the mana cost, from wherever the
+  card may be cast. The engine writes the rest: the permanent the spell
+  becomes has haste, and a delayed trigger returns it to its owner's hand at
+  the beginning of the next end step, if it is still that permanent (a
+  blinked or bounced one is a new object, CR 400.7). No card writes the
+  haste or the return. `Condition::DashCostPaid` is what that trigger asks;
+  no card prints it.
+- **`FaceDef.escape: Option<Escape>`** is "Escape—[mana], Exile [N] other
+  cards from your graveyard" (CR 702.138a): `Escape { cost, exile }`, the
+  shape every printed escape cost has. From its owner's graveyard the cast
+  offers `CastModeKind::Escape` once the mana is affordable and at least
+  `exile` other cards lie there; the cast then asks which, as
+  `ChoicePrompt::CostExile` with `min == max == exile`, and exiles them after
+  the mana is paid. Beside a graveyard permission (Muldrotha) the mana cost is
+  offered too, as `Normal`. From a hand nothing changes.
+- **`Condition::Escaped`** is "unless it escaped" and "if it escaped"
+  (CR 702.138b): the source is the spell cast with escape or the permanent
+  it became. A blinked or bounced one is a new object (CR 400.7) and did not
+  escape. Uro's "sacrifice it unless it escaped" is
+  `IfCondition { condition: Escaped, then: &[], otherwise: &[SacrificeSelf] }`
+  on an enters trigger. "Escapes with" counters (CR 702.138c) are not
+  written yet.
+
 ## Worked examples
 
 A land with two basic land types must print its own mana ability. CR 305.6
@@ -1938,7 +2030,8 @@ Effect::mana_choice(&[ManaColor::White, ManaColor::Black])  // Add {W} or {B}.
 Effect::mana_of_any_color()                            // Add one mana of any color.
 Effect::mana_combination(COLORS, Amount::Fixed(2))     // …in any combination of colors.
 Effect::mana_commander_identity()                      // …in your commander's color identity.
-Effect::mana_land_color(true)                          // …a land you control could produce.
+Effect::mana_land_color(false)                         // …any color that a land an opponent controls could produce.
+Effect::mana_land_type(true)                           // …any type that a land you control could produce.
 Effect::mana_dynamic(ManaColor::Black, Amount::CountOf { .. })
 Effect::mana_of_any_color().restricted(&FILTER, SpendRider::Uncounterable)
 Effect::mana(ManaColor::Colorless, 1).when_spent(&FILTER, SpendRider::Uncounterable)
@@ -1952,6 +2045,12 @@ and only a spell the filter matches sets its rider off, once per unit spent
 (CR 106.6, 106.6a; #232). A card printing a rider without "only" never uses
 `restricted`: that is the defect #232 fixed, where Path of Ancestry paid for
 almost nothing.
+
+`mana_land_color` and `mana_land_type` differ by one printed word, and the
+word is a rule: colorless mana is a type of mana and not a color (CR 106.1a,
+106.1b), so "any color that a land … could produce" never makes `{C}` and
+"any type" does. Exotic Orchard and Fellwar Stone offered `{C}` across a
+Wastes while the two were one constructor.
 
 `mana_combination` is not decoration: "in any combination of colors" is one
 color pick *per mana*, while a plain choice picks one color for the whole

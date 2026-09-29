@@ -17,7 +17,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 // the tokens would be created under, not whose spell is
                 // creating them. My Doubling Season must not double the
                 // Shapeshifter my own removal hands them, and theirs must.
-                let controller = state.object(target_id).map_or(you, |o| o.controller);
+                //
+                // "Its controller" once the sentence before has exiled it:
+                // the controller it had as it last existed on the
+                // battlefield (CR 608.2h), not the field on the exiled card.
+                let controller = state.last_known_controller(target_id).unwrap_or(you);
                 create_tokens(state, controller, token, None, 1);
             }
             None
@@ -36,20 +40,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .first()
                 .copied()
                 .unwrap_or(baylee_core::ids::SubtypeId::new(0));
-            let army = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
-                .copied()
-                .find(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        o.controller == you
-                            && o.characteristics()
-                                .types
-                                .contains(baylee_core::types::TypeSet::CREATURE)
-                            && o.characteristics().subtypes.contains(army_type)
-                    })
-                });
+            let army = state.battlefield_seen().find(|id| {
+                state.object(*id).is_some_and(|o| {
+                    o.controller == you
+                        && o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                        && o.characteristics().subtypes.contains(army_type)
+                })
+            });
             // The one token creation that deliberately does *not* go through
             // [`create_tokens`]. Doubling Season would make two Armies and
             // the counters then go on one Army you control, which is a
@@ -120,20 +119,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             })
         }
         Effect::CreateTokenCopyOfFirstToken => {
-            let token = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
-                .copied()
-                .find(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        o.card.is_none()
-                            && o.controller == you
-                            && o.characteristics()
-                                .types
-                                .contains(baylee_core::types::TypeSet::CREATURE)
-                    })
-                });
+            let token = state.battlefield_seen().find(|id| {
+                state.object(*id).is_some_and(|o| {
+                    o.card.is_none()
+                        && o.controller == you
+                        && o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                })
+            });
             if let Some(id) = token
                 && let Some(base) = crate::layers::copiable_values(state, id)
             {
@@ -245,7 +239,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     if state.object(card).is_some_and(|o| {
                         o.riders
                             .iter()
-                            .any(|r| matches!(r, crate::object::Rider::Linked { host } if *host == res.source))
+                            .any(|r| matches!(r, crate::object::Rider::Linked { host, .. } if *host == res.source))
                     }) {
                         owner = Some(p);
                         cmc = state
@@ -292,16 +286,20 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
         baylee_cards_dsl::CopyMod::NoManaCost => {
             base.mana_cost = baylee_core::mana::ManaCost::ZERO;
         }
-        // All three are about the object rather than about the
-        // characteristics this function is handed. A counter is put on by
-        // the caller (CR 614.1c), and an ability is not a `Characteristics`
-        // field at all — `progress::apply_copy_choice` keeps the copier's
-        // statics by registering them as the copy's own continuous effects,
-        // and this token door reaches no effect table. A granted ability
-        // (`CopyMod::Grant`, CR 707.9a) is the same case: a token or spell
-        // copy made "except it has …" would lose it here, and nothing in the
-        // pool is one.
+        // These are about the object rather than about the characteristics
+        // this function is handed. A counter is put on the permanent as it
+        // enters (CR 614.1c), which `progress::apply_copy_choice` does for
+        // the doors that copy a permanent; no token or spell-copy door puts
+        // one, and no card in the pool makes a token copy that enters with a
+        // counter (Littjara Mirrorlake stays Partial for it). An ability is
+        // not a `Characteristics` field at all — `progress::apply_copy_choice`
+        // keeps the copier's statics by registering them as the copy's own
+        // continuous effects, and this token door reaches no effect table.
+        // A granted ability (`CopyMod::Grant`, CR 707.9a) is the same case:
+        // a token or spell copy made "except it has …" would lose it here,
+        // and nothing in the pool is one.
         baylee_cards_dsl::CopyMod::AddCounter(_, _)
+        | baylee_cards_dsl::CopyMod::AddCounterIf(_, _, _)
         | baylee_cards_dsl::CopyMod::AddCounterX(_)
         | baylee_cards_dsl::CopyMod::KeepOtherAbilities
         | baylee_cards_dsl::CopyMod::Grant(_) => {}
@@ -737,6 +735,105 @@ mod tests {
             ),
             "recorded {:?}",
             state.journal.entries().last().expect("an entry").event
+        );
+    }
+
+    /// An ability of seat 0's with `targets`, resolving `effects` in order.
+    fn resolve(state: &mut GameState, targets: &[ObjectId], effects: Vec<Effect>) {
+        let mut res = Resolution {
+            source: ObjectId::NO_SOURCE,
+            on_stack: ObjectId::NO_SOURCE,
+            controller: me(),
+            effects,
+            pc: 0,
+            targets: SmallVec::from_slice(targets),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_lki: None,
+            retarget_left: None,
+            target_players: baylee_core::ids::SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: true,
+            mana_ability: false,
+            countered_source: None,
+        };
+        assert!(matches!(run(state, &mut res), Flow::Complete));
+        state.refresh_characteristics();
+    }
+
+    /// Crib Swap: "Exile target creature. Its controller creates a 1/1
+    /// colorless Shapeshifter creature token with changeling."
+    ///
+    /// By the time the second sentence is read the creature is in exile, so
+    /// "its controller" is the controller it had as it last existed on the
+    /// battlefield (CR 608.2h), here the player who had taken it. The field
+    /// on the exiled card is no answer: it holds whatever the last refresh
+    /// left there, and a refresh that reaches into exile settles it to the
+    /// card's default, which after a steal is the player it was stolen from.
+    /// Any effect whose filter names another zone makes every refresh reach
+    /// every zone; Past in Flames' is the one used here.
+    #[test]
+    fn its_controller_is_the_one_the_creature_had_on_the_battlefield() {
+        static FLASHBACK_REACH: Filter = Filter::And(&[
+            Filter::INSTANT_OR_SORCERY,
+            Filter::InZone(baylee_cards_dsl::ZoneRef::Graveyard),
+            Filter::OwnedByYou,
+        ]);
+        let mut state = state();
+        let name = state.names.intern("Creature");
+        let it = state.create_bare(
+            them(),
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let obj = state.object_mut(it).expect("fresh");
+        let mut base = (*obj.base).clone();
+        base.types = baylee_core::types::TypeSet::CREATURE;
+        obj.base = std::sync::Arc::new(base);
+        state.invalidate_projections();
+        crate::resolve::gain_control(&mut state, &[(it, me())]);
+        resolve(
+            &mut state,
+            &[],
+            vec![Effect::continuous(
+                &FLASHBACK_REACH,
+                baylee_cards_dsl::Modifier::GrantsFlashback,
+                baylee_cards_dsl::Duration::UntilEndOfTurn,
+            )],
+        );
+        let obj = state.object(it).expect("still there");
+        assert_eq!((obj.owner, obj.controller), (them(), me()), "taken");
+
+        let shapeshifter = &baylee_cards::tokens::SHAPESHIFTER_1_1_CHANGELING;
+        resolve(
+            &mut state,
+            &[it],
+            vec![
+                Effect::exile(baylee_cards_dsl::TargetSpec::Object(&Filter::CREATURE)),
+                Effect::CreateTokenForTargetController {
+                    token: shapeshifter,
+                },
+            ],
+        );
+        assert_eq!(
+            state.object(it).map(|o| o.zone),
+            Some(crate::zone::Zone::Exile)
+        );
+        let tokens: Vec<PlayerId> = state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .filter_map(|id| state.object(*id))
+            .filter(|o| o.token.is_some_and(|t| std::ptr::eq(t, shapeshifter)))
+            .map(|o| o.controller)
+            .collect();
+        assert_eq!(
+            tokens,
+            vec![me()],
+            "one Shapeshifter, for the player who controlled the creature when it was exiled"
         );
     }
 

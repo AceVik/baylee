@@ -245,6 +245,15 @@ pub enum Condition {
     /// Wayward Swordtooth "can't attack or block unless you have the city's
     /// blessing" is a static that holds while `Not(&CitysBlessing)` does.
     Not(&'static Condition),
+    /// "If this spell's dash cost was paid" (CR 702.109a), asked of the
+    /// source: it is on the battlefield as the permanent a spell cast for
+    /// its dash cost became, and has not left it since. The engine writes
+    /// dash's return itself; no card prints this.
+    DashCostPaid,
+    /// "Unless it escaped" (Uro, Titan of Nature's Wrath): the source is the
+    /// spell cast from a graveyard with escape, or the permanent that spell
+    /// became, and has not left the battlefield since (CR 702.138b).
+    Escaped,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -347,8 +356,10 @@ pub enum Trigger {
     /// stack (CR 605.4a): "add an additional {G}" is in the pool before the
     /// player acts again.
     TappedForMana(&'static Filter),
-    /// A player draws a card except the first one they draw each turn
-    /// (Orcish Bowmasters).
+    /// A player draws a card except the first one they draw in each of
+    /// their draw steps (Orcish Bowmasters). A card drawn in their upkeep
+    /// or on another player's turn is in none of their draw steps.
+    /// Fires once per card drawn (CR 121.2).
     DrawsExceptFirst(crate::effect::PlayerRel),
     /// An object matching the filter attacks (Sun Titan).
     Attacks(&'static Filter),
@@ -733,6 +744,18 @@ pub enum CopyMod {
     /// `EnterModifier::WithCounters`: an Ego that declines to copy is the
     /// 0/0 it prints.
     AddCounterX(crate::CounterKind),
+    /// Enters with counters of a kind **if** what it became has one of these
+    /// card types: Spark Double's "…except it enters with an additional
+    /// +1/+1 counter on it if it's a creature, it enters with an additional
+    /// loyalty counter on it if it's a planeswalker".
+    ///
+    /// The types asked are the copy's, read after the copying: the copied
+    /// permanent's copiable values (CR 707.2) with this list's own type
+    /// changes applied (CR 707.9b), never the copier's printed types, which
+    /// the copy replaced. Each clause asks for itself, so a copy of a
+    /// permanent that is both a creature and a planeswalker takes both
+    /// counters, and a copy of one that is neither takes none.
+    AddCounterIf(baylee_core::types::TypeSet, crate::CounterKind, u16),
     /// Keeps the copier's own printed **static** abilities beside the
     /// copied ones ("except it has Sakashima's other abilities").
     ///

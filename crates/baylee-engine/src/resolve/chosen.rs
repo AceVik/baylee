@@ -27,7 +27,6 @@ use baylee_core::ids::{ObjectId, PlayerId};
 
 use crate::eval;
 use crate::state::GameState;
-use crate::zone::ZoneLocation;
 
 /// The permanents `player` controls that `filter` matches.
 ///
@@ -41,15 +40,12 @@ pub(super) fn options(
     source: ObjectId,
 ) -> Vec<ObjectId> {
     state
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
+        .battlefield_seen()
         .filter(|id| {
-            state.object(**id).is_some_and(|o| {
+            state.object(*id).is_some_and(|o| {
                 o.controller == player && eval::matches(filter, state, o, you, source)
             })
         })
-        .copied()
         .collect()
 }
 

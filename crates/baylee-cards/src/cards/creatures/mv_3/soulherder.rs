@@ -34,7 +34,7 @@ card!(
                 step: StepKind::End,
                 whose: PlayerRel::You,
             },
-            &[Effect::blink(TargetSpec::Object(
+            &[Effect::blink_to_owner(TargetSpec::Object(
                 &Filter::ANOTHER_CREATURE_YOU_CONTROL
             ))],
             targets = Some(TargetReq {

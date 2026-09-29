@@ -162,6 +162,12 @@ fn declining_the_waterbend_cost_casts_the_spell() {
 /// all once the convoke question is answered with none. `finish_cast`
 /// refuses, correctly, and tears the wizard down.
 ///
+/// The answer itself is taken: "none" is what the convoke question offered,
+/// and what makes the casting illegal is the payment after it (CR 601.2h),
+/// which returns the game to the moment before the cast (CR 732.1). It was
+/// refused *and* reversed until the refused-answer sweep (`refusal_tests`),
+/// and a refused answer that moves the game is one no record can replay.
+///
 /// What it then did was resume through `run_until_choice`, and to
 /// `priority_round` a holder who is no longer being asked has taken their
 /// turn — so the refusal handed the question to the *next seat*. The caster
@@ -174,8 +180,8 @@ fn a_waterbend_that_cannot_be_paid_gives_the_caster_their_turn_back() {
     let mut engine = table();
     let refused = cast_waterbend(&mut engine, seat, true);
     assert!(
-        matches!(refused, Some(EngineError::IllegalAction(_))),
-        "the engine paid {{7}}{{U}}{{U}} out of five Islands: {refused:?}"
+        refused.is_none(),
+        "an answer the cast offered was refused: {refused:?}"
     );
 
     assert!(

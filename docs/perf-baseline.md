@@ -386,3 +386,69 @@ house AI the same games are still slow, and now for another reason: in 431
 the AI's `PlayerView::object`, a linear scan over the view, called per
 attacker and per blocker option, is 90 % of the main thread's samples,
 where `Engine::apply` is 4 % and building the agent's view 2 %.
+
+## What a departing permanent held (29.09.2026)
+
+A permanent leaving the battlefield now asks the exile zones whether a card
+there was held "until it leaves the battlefield" (CR 610.3,
+`GameState::return_what_departed_hosts_held`): a walk over every exiled card,
+once per departure. Nothing in the suite moved a permanent off the
+battlefield, so `zones/wrath_60_exile_{0,800}` is new: sixty creatures moved
+to the graveyard one after another, with no card or 800 cards in exile. 800
+is every card at a table of eight Commander decks; a token in exile ceases to
+exist (CR 704.5d), so the exile zone never holds more than the cards.
+
+Scan off (`move_object` skips the call) and on, the whole suite `--quick`,
+same machine, back to back, two rounds. The machine was not idle: other
+worktrees were compiling, load average 19 to 86 over the four runs.
+
+| Bench | Off | On |
+|---|---|---|
+| `zones/wrath_60_exile_0` | 11.93 / 12.62 µs | 11.79 / 12.77 µs |
+| `zones/wrath_60_exile_800` | 12.33 / 12.85 µs | 106.6 / 83.4 µs |
+
+About 2 ns per exiled card per departure: at the 800-card ceiling a
+departure costs about 1.5 µs and a sixty-permanent wrath about 90 µs, once.
+At a real table, a few dozen cards in exile, it is well under a tenth of a
+microsecond a departure. The other benches move nothing off the battlefield,
+and their spread between runs, up to three times and in both directions
+between off and on, is the load. No early exit was added: a flag, a count
+of live links or a mark on the host is more state to keep in step with the
+riders, for a cost no game can see.
+
+## The refresh projects its counters again (29.09.2026)
+
+A projection that counts the board (Ashaya, Soul of the Wild: as big as the
+lands you control) read every object the walk had not reached yet as the last
+refresh left it, and came out short. The refresh now projects the counting
+objects again once the board is done, repeating while one of them moved
+(`GameState::refresh_characteristics`). `layers/refresh_x8_counting` is new:
+`layers/refresh_x8` with every creature counting the creatures you control,
+the repeat at its widest.
+
+Both columns are this M1 Max under a shared load (load average 15 to 50),
+"before" being `9dbd6e56` with the current bench file. The two bench binaries
+ran alternately, six `--quick` rounds each, and each cell is the smallest
+median of the six: a single round's median moved several times over on rows
+neither commit touches. The rows below were run six rounds more; both series
+are given.
+
+| Bench | Before | After | Change |
+|---|---|---|---|
+| `layers/refresh_x8_counting` | 13.64 / 12.81 µs | 22.14 / 22.05 µs | **+62 / +72 %** |
+| `layers/refresh_over_20k_stack` | 10.27 / 10.18 ns | 11.64 / 11.32 ns | +13 / +11 % |
+| `layers/refresh_x1` | 6.29 / 6.01 µs | 6.43 / 6.26 µs | +2 / +4 % |
+| `layers/refresh_x8` | 7.73 / 7.50 µs | 8.37 / 7.50 µs | +8 / 0 % |
+| `layers/refresh_x32` | 14.51 / 15.18 µs | 15.22 / 14.69 µs | +5 / −3 % |
+| `layers/refresh_3k_tokens` | 269.5 / 266.4 µs | 281.4 / 276.7 µs | +4 / +4 % |
+| `engine/priority_pass_x4` | 3.09 / 2.82 µs | 3.36 / 2.88 µs | +9 / +2 % |
+
+- **A board where something counts pays one more projection per counter.**
+  With every creature a counter that is 1.6 to 1.7 times the refresh; a real
+  board has one or two, and every other board has none and projects nothing
+  twice.
+- **The fixed cost is about a nanosecond.** `refresh_over_20k_stack` projects
+  nothing at all, so its 1.1 to 1.4 ns is the new bookkeeping (a list that
+  stays empty and never allocates) on every refresh.
+- The other rows moved within what the same code moves between rounds here
+  (`state/clone`, which neither commit touches: +2 %).
