@@ -1383,10 +1383,26 @@ impl GameState {
     /// stale — which is how an amass token, a 0/0 that is only alive because
     /// of the counter placed on it a moment later, used to die to state-based
     /// actions before anything ever recomputed its toughness. Anything that
-    /// writes a counter, or puts a new permanent on the battlefield, calls
-    /// this.
+    /// writes a counter, or puts a new permanent on the battlefield or a new
+    /// spell on the stack ([`Self::put_new_spell_on_stack`]), calls this.
     pub const fn invalidate_projections(&mut self) {
         self.characteristics_generation = u64::MAX;
+    }
+
+    /// Puts `id`, a spell that has never been in a zone (a copy of a spell,
+    /// CR 707.10), on top of the stack, and has the projection take it in.
+    ///
+    /// A spell on the stack is projected like a permanent (a creature spell
+    /// under Maskwood Nexus is every creature type), and `move_object` is
+    /// what invalidates for a spell that is cast. A copy is not moved: it is
+    /// made there. Without the invalidation the copy answered its copied
+    /// printed values until some unrelated change refreshed the board, and
+    /// for everything that read it in between — a cast trigger, "target Ally
+    /// spell" — the Nexus did not apply to it.
+    pub fn put_new_spell_on_stack(&mut self, id: ObjectId) {
+        self.zones
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top, true);
+        self.invalidate_projections();
     }
 
     /// Changes a player's life total by `by`. This is **the** door, for the
@@ -1613,10 +1629,13 @@ impl GameState {
         // stops a dependency loop, which CR 613.8b settles by timestamp and
         // this by stopping where it is.
         let mut was: Vec<(ObjectId, PlayerId)> = Vec::new();
+        // Empty, and so unallocated, on every board where nothing counts.
+        let mut readers: Vec<ObjectId> = Vec::new();
         let mut settled = false;
         for _ in 0..plan.control_effects() + 2 {
             self.follow_static_sources();
-            if !self.project_all(&ids, &plan, generation, &mut was) {
+            readers.clear();
+            if !self.project_all(&ids, &plan, generation, &mut was, &mut readers) {
                 settled = true;
                 break;
             }
@@ -1625,6 +1644,20 @@ impl GameState {
             !settled || self.statics_follow_their_sources(),
             "a settled refresh left a static ability's controller behind its source's"
         );
+        // The same for what an object counts (CR 613.1: the layers in their
+        // order, so a count in layer 7 sees every type layer 4 gave). Ashaya
+        // counts the lands you control, and an Elf the walk had not reached
+        // was still the last refresh's Elf and not yet this one's Forest, so
+        // Ashaya came out one short and stayed so. The board is finished
+        // now: project what counted again, and again while that moved a
+        // count another counter reads. Each pass settles at least one more
+        // counter; the bound stops counters that count each other round in
+        // a circle.
+        for _ in 0..readers.len() {
+            if !self.project_readers(&readers, &plan, generation, &mut was) {
+                break;
+            }
+        }
         // CR 302.6 wants control held continuously since the turn began. A
         // permanent a walk moved and a later one moved back never changed
         // hands, so the comparison is with the controller before the first.
@@ -1641,13 +1674,16 @@ impl GameState {
 
     /// One walk of the refresh: projects `ids` through every layer and
     /// writes each controller, noting in `was` the controller an object had
-    /// before a walk first moved it. Whether any controller moved.
+    /// before a walk first moved it, and in `readers` every object whose
+    /// projection counted others (`layers::Projection::read_board`).
+    /// Whether any controller moved.
     fn project_all(
         &mut self,
         ids: &[ObjectId],
         plan: &crate::layers::LayerPlan,
         generation: u64,
         was: &mut Vec<(ObjectId, PlayerId)>,
+        readers: &mut Vec<ObjectId>,
     ) -> bool {
         let mut moved = false;
         for &id in ids {
@@ -1656,6 +1692,9 @@ impl GameState {
             };
             if crate::layers::needs_projection(plan, obj) || self.defines_pt_off_battlefield(obj) {
                 let projection = crate::layers::recompute_with(self, obj, plan);
+                if projection.read_board {
+                    readers.push(id);
+                }
                 let obj = self.object_mut(id).expect("zone object exists");
                 moved |= settle_controller(obj, projection.controller, was);
                 // `cache` and `base` are disjoint fields, so this is one
@@ -1677,6 +1716,31 @@ impl GameState {
             }
         }
         moved
+    }
+
+    /// Projects again the objects a walk found counting others, now that
+    /// every one of those others is this refresh's. Whether any of them
+    /// came out different, which is what another counter may have read.
+    fn project_readers(
+        &mut self,
+        readers: &[ObjectId],
+        plan: &crate::layers::LayerPlan,
+        generation: u64,
+        was: &mut Vec<(ObjectId, PlayerId)>,
+    ) -> bool {
+        let mut changed = false;
+        for &id in readers {
+            let Some(obj) = self.object(id) else {
+                continue;
+            };
+            let projection = crate::layers::recompute_with(self, obj, plan);
+            let obj = self.object_mut(id).expect("zone object exists");
+            changed |= settle_controller(obj, projection.controller, was);
+            changed |= *obj.characteristics() != projection.characteristics;
+            let crate::object::GameObject { cache, base, .. } = obj;
+            cache.store(generation, projection.characteristics, base);
+        }
+        changed
     }
 
     /// Gives each static ability's effect, and each replacement rule, the

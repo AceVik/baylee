@@ -312,26 +312,37 @@ A `false` has two readings, and the public state tells them apart:
 | no   | the engine knows and refreshes at the top of its driving loop; `apply` returned before that (a question asked in the middle of a resolution, or the mulligan window). A reader of the state in between still reads the old value |
 
 Measured on 2026-09-29 with a probe (not committed) calling it after every
-`apply` of the full engine suite: `false` 96 times in 8 tests.
+`apply` of the full engine suite. The first run gave `false` 96 times in 8
+tests and found two defects in the engine, both fixed since:
 
-- Generation equal, 85 times in 4 tests. One is the harness writing state
-  past the engine (`combo_tests::doubling::bristly_bills_doubling_is_doubled_again_by_a_doubling_season`
-  sets Bill's counters by hand, 7). Three are the engine's:
-  `combo_tests::filters::the_nexus_makes_a_spell_the_chosen_type_for_littjara`,
-  where at both priority grants after Llanowar Elves is cast under Maskwood
-  Nexus a Llanowar Elves spell on the stack still answers its two printed
-  creature types while a refresh gives it every creature type; and
-  `offer_tests::every_offered_ability_can_be_activated` (51) and
-  `target_tests::an_ability_that_targets_reaches_the_target_and_nothing_else`
-  (25), where Ashaya, Soul of the Wild on the battlefield answers 21/21 and
-  a refresh gives 22/22 or 24/24. Ashaya counts the lands its controller
-  controls and makes that player's nontoken creatures lands; why one
-  refresh leaves it short was not investigated here.
-- Generation moved, refresh due, 11 times in 6 tests: a card defining its
-  own power and toughness (Ashaya, Recruiter of the Guard, Pyrogoyf) in a
-  hand with its printed `*` while a question is open, and the counters the
-  harness plants on Walking Ballista and Arcbound Ravager before the
-  mulligans.
+- A copy of a spell is a new object put straight onto the stack (CR 707.10),
+  and nothing told the projection: under Maskwood Nexus the copy answered
+  the Elf Druid it prints while a refresh made it every creature type
+  (`GameState::put_new_spell_on_stack`; test
+  `combo_tests::filters::the_nexus_makes_a_copied_creature_spell_every_type`).
+- A refresh projects one object at a time, and a count read the objects the
+  walk had not reached yet as the last refresh left them, against CR 613.1.
+  Ashaya, Soul of the Wild counted an Elf that had just entered as an Elf
+  and not yet as a Forest, and stayed a land short (21/21 where a refresh
+  gives 22/22 in `offer_tests`, 24/24 in `target_tests`: two boards, not
+  two answers for one). A projection that counts now says so
+  (`layers::Projection::read_board`), and the refresh projects those again
+  once the board is done (test
+  `card_tests::creatures::ashaya_counts_a_creature_the_moment_it_enters`).
+
+The second run, after both fixes: `false` 18 times in 7 tests.
+
+- Generation equal, 7 times in one test, and it is the harness:
+  `combo_tests::doubling::bristly_bills_doubling_is_doubled_again_by_a_doubling_season`
+  sets Bill's counters through `Engine::dev_state_mut` and invalidates
+  nothing, so Bill answers 2/2 until the next change moves the generation.
+- Generation moved, refresh due, 11 times in 6 tests, every one of them in
+  the mulligan window, before the driving loop has refreshed once: cards
+  defining their own power and toughness in hand (Ashaya, Pyrogoyf) and the
+  counters the harness plants on Walking Ballista and Arcbound Ravager.
+  Each of them counts or wears something only a seeded board has; a game
+  dealt from its decks has nothing on the battlefield and in the graveyards
+  yet, and so nothing to be behind on.
 
 ## Not in a shipped build
 

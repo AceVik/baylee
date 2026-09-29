@@ -1063,9 +1063,7 @@ impl<L: CardLookup> Engine<L> {
             obj.riders.push(crate::object::Rider::SpellCopy);
             obj
         });
-        self.state
-            .zones
-            .insert(id, ZoneLocation::Stack, ZonePosition::Top, true);
+        self.state.put_new_spell_on_stack(id);
         // Per-turn tracking, exactly as an ordinary cast keeps it. The card
         // says "you may **cast** a copy of its spell", so this is a cast and
         // the turn has to count it: without these two the prepared spell was

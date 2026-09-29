@@ -16365,6 +16365,42 @@ fn ashaya_counts_the_creatures_its_own_static_made_into_lands() {
     );
 }
 
+/// A creature entering under Ashaya is counted as it arrives.
+///
+/// CR 613.1 applies continuous effects in a series of layers in order, so
+/// by layer 7a (Ashaya's count) the Elf is already a Forest land from
+/// layer 4. Ashaya was projected before the Elf, whose cache the move
+/// had just cleared, and counted the Elf's printed types: 4/4 with five
+/// lands out, until something else happened to refresh the board.
+#[test]
+fn ashaya_counts_a_creature_the_moment_it_enters() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(384, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), ashaya_soul_of_the_wild()],
+        )
+        .hand(0, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ashaya = on_battlefield(&engine, p0, ashaya_soul_of_the_wild()).expect("Ashaya is seated");
+    assert_eq!(pt(&engine, ashaya), (4, 4), "three Forests and Ashaya");
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "the Elf resolved"
+    );
+    assert_eq!(
+        pt(&engine, ashaya),
+        (5, 5),
+        "the Elf is a Forest land from the moment it is on the battlefield"
+    );
+    assert!(engine.projection_is_fresh(), "and nothing else is behind");
+}
+
 /// Ashaya's "power and toughness are each equal to the number of lands you
 /// control" is a characteristic-defining ability, so it applies in layer
 /// 7a (CR 613.4a) and an effect that **sets** power and toughness applies

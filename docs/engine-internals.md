@@ -67,10 +67,18 @@ while it runs, that object's cached characteristics are still the previous
 projection — and a modifier that counts permanents (`ModifyPTPerCount`) used
 to read its own source off that cache. Ashaya, Soul of the Wild makes your
 nontoken creatures into lands at layer 4 and is then as big as the lands you
-control at 7c, so it has to count itself: it came down one short. The object
+control at 7a, so it has to count itself: it came down one short. The object
 under projection is now matched against the in-progress characteristics
-(`eval::matches_projected`), which is what CR 613.1 says; every other object
-is read from its own finished projection. The other way is the generation
+(`eval::matches_projected`), which is what CR 613.1 says. Every other object
+is read from its cache, which is this refresh's only once the walk has
+reached it: an Elf later in the list was still the last refresh's Elf, so a
+freshly cast one left Ashaya one short until something else invalidated it.
+A count therefore marks its projection (`Projection::read_board`), and the
+refresh projects the counting objects again after the walk, repeating while
+one moved (a counter can count another), bounded by their number. That is
+CR 613.1 again, not a dependency: CR 613.8a asks for two effects in the same
+layer or sublayer, and a count in layer 7 and the type change it reads in
+layer 4 are not. The other way is the generation
 compare itself: it watches the effect **table**, so an input the filters read
 that is *not* an effect leaves every projection stale. Naming a creature type
 is one — Steely Resolve's static is registered as the enchantment enters and
