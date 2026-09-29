@@ -644,6 +644,26 @@ fn any_target_objects(state: &GameState) -> Vec<ObjectId> {
         .collect()
 }
 
+/// [`TargetSpec::CardInGraveyardBelowValue`]'s options: the graveyard cards
+/// matching `filter` whose mana value is less than `limit`.
+fn graveyard_options_below(
+    filter: &'static baylee_cards_dsl::Filter,
+    rel: baylee_cards_dsl::PlayerRel,
+    limit: u32,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+) -> Vec<ObjectId> {
+    graveyard_options(filter, rel, state, you, this)
+        .into_iter()
+        .filter(|id| {
+            state
+                .object(*id)
+                .is_some_and(|o| o.characteristics().mana_cost.cmc() < limit)
+        })
+        .collect()
+}
+
 /// The object options of the specs that are about one player's permanents.
 fn objects_of_a_player(
     spec: &TargetSpec,
@@ -729,14 +749,7 @@ pub fn target_options(
         }
         TargetSpec::CardInGraveyardBelowEvent(..) => Vec::new(),
         TargetSpec::CardInGraveyardBelowValue(filter, rel, limit) => {
-            graveyard_options(filter, *rel, state, you, this)
-                .into_iter()
-                .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|o| o.characteristics().mana_cost.cmc() < *limit)
-                })
-                .collect()
+            graveyard_options_below(filter, *rel, *limit, state, you, this)
         }
         TargetSpec::StackOrBattlefield(filter) => {
             let mut out: Vec<ObjectId> = state
