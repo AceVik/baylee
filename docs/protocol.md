@@ -2650,3 +2650,16 @@ stop. Both ride as JSON inside the envelope like every other question, so
 a missing field decodes as `None`. Two permanents naming different cards do
 not share a board pile, and the client labels the permanent with the face's
 name.
+
+### What a number counts: `ChooseNumber.reason`
+
+`Pending::ChooseNumber` asks for an X, and since Lose Focus also for how
+many times to pay a replicate cost (CR 702.56a). The two are the same
+answer, `PlayerAction::ChooseNumber(n)`, and differ in what the question
+means, so the question says: `reason` is `NumberPrompt::X` or
+`NumberPrompt::Replicate { cost }`, the cost paid each time. A missing
+`reason` decodes as `X`, which is every question sent before it existed, so
+neither `PROTOCOL_VERSION` nor `VIEW_VERSION` moves. A replicate question
+offers `0..=max`, where `max` is the most payments the caster's mana can
+cover; the copies then ask their new targets as the trigger resolves, with
+the question every copy asks.

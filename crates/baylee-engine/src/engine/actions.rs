@@ -250,6 +250,7 @@ impl<L: CardLookup> Engine<L> {
                     player: p,
                     min,
                     max,
+                    ..
                 },
                 PlayerAction::ChooseNumber(n),
             ) if *p == player => {
@@ -275,9 +276,17 @@ impl<L: CardLookup> Engine<L> {
                     self.activation_x = Some(n);
                     return self.start_activation(player, source, ability_index, SmallVec::new());
                 }
+                // And the wizard asks two numbers, told apart by where it
+                // stands: X (CR 107.3) before the kicker, and how many times
+                // replicate is paid (CR 702.56a) after it.
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
-                wizard.x = n;
-                wizard.stage = cast_wizard::WizardStage::Kicker;
+                if wizard.stage == cast_wizard::WizardStage::Replicate {
+                    wizard.replicated = u8::try_from(n).unwrap_or(u8::MAX);
+                    wizard.stage = cast_wizard::WizardStage::Targets;
+                } else {
+                    wizard.x = n;
+                    wizard.stage = cast_wizard::WizardStage::Kicker;
+                }
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
             }
@@ -1077,7 +1086,7 @@ impl<L: CardLookup> Engine<L> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.kicked = answer;
-                    wizard.stage = cast_wizard::WizardStage::Targets;
+                    wizard.stage = cast_wizard::WizardStage::Replicate;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }

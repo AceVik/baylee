@@ -191,7 +191,8 @@ pub enum Pending {
         /// The legal cast options.
         options: Vec<CastModeDesc>,
     },
-    /// Choose the value of X for a spell.
+    /// Choose a number: the value of X, or how many times to pay a
+    /// replicate cost. `reason` says which.
     ChooseNumber {
         /// Choosing player.
         player: PlayerId,
@@ -199,6 +200,9 @@ pub enum Pending {
         min: u32,
         /// Maximum value.
         max: u32,
+        /// What the number is (UI hint). A frame without it is asking for X.
+        #[serde(default)]
+        reason: NumberPrompt,
     },
     /// Choose a target player.
     ChoosePlayer {
@@ -386,6 +390,31 @@ pub enum ChoicePrompt {
     RevealOrEnterTapped,
     /// Generic selection.
     Generic,
+}
+
+/// What a [`Pending::ChooseNumber`] counts (UI hint).
+///
+/// Two questions share the variant because both are a bounded count the
+/// caster announces while casting (CR 601.2b), and the answer is
+/// [`PlayerAction::ChooseNumber`] either way; what they *mean* is this
+/// field, for the reason [`TargetPrompt`] gives about convoke. Without it a
+/// player casting Lose Focus with mana to spare was asked to "choose a
+/// number (0–2)" and nothing said what for.
+#[derive(
+    Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
+)]
+pub enum NumberPrompt {
+    /// The value of X (CR 107.3): a spell's printed `{X}`, an activation's,
+    /// or the X of a counter cost.
+    #[default]
+    X,
+    /// How many times to pay a spell's replicate cost (CR 702.56a). The
+    /// maximum is the most the caster's floating mana pays for, and the
+    /// spell is copied once for each.
+    Replicate {
+        /// The cost paid each time.
+        cost: baylee_core::mana::ManaCost,
+    },
 }
 
 /// Why a [`Pending::ChooseTargets`] is presented (UI hint).
@@ -1198,6 +1227,7 @@ mod choice_tests {
                     player: p,
                     min: 0,
                     max: 3,
+                    reason: NumberPrompt::X,
                 },
                 None,
             ),

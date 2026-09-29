@@ -226,6 +226,19 @@ pub struct FaceDef {
     pub prototype: Option<Prototype>,
     /// Disguise cost to turn this permanent face up (CR 702.168).
     pub disguise: Option<ManaCost>,
+    /// Replicate (CR 702.56a): "as an additional cost to cast this spell,
+    /// you may pay [cost] any number of times" and "when you cast this
+    /// spell, if a replicate cost was paid for it, copy it for each time
+    /// its replicate cost was paid; if the spell has any targets, you may
+    /// choose new targets for any of the copies".
+    ///
+    /// A face field and not an ability, as miracle and disguise are: the
+    /// cast wizard asks how many times as it announces the additional costs
+    /// (CR 601.2b), the payment adds the cost that many times (CR 601.2f),
+    /// and the engine writes the cast trigger itself, one
+    /// `Effect::CopyThisSpell` for each payment. Every printed replicate
+    /// cost is mana.
+    pub replicate: Option<ManaCost>,
     /// Face name.
     pub name: &'static str,
     /// Mana cost (`ManaCost::ZERO` for lands/MDFC backs without cost).
@@ -325,6 +338,7 @@ impl FaceDef {
     pub const DEFAULT: Self = Self {
         prototype: None,
         disguise: None,
+        replicate: None,
         name: "",
         mana_cost: ManaCost::ZERO,
         types: TypeSet::EMPTY,

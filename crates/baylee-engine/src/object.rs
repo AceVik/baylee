@@ -837,6 +837,11 @@ pub struct GameObject {
     pub x_value: u32,
     /// Whether the kicker/additional cost was paid (spells).
     pub kicked: bool,
+    /// How many times its replicate cost was paid (spells, CR 702.56a),
+    /// which is how many copies the cast trigger makes. A copy carries the
+    /// original's count, as it carries every cost decision (CR 707.10), and
+    /// is not cast, so nothing copies it again.
+    pub replicated: u8,
     /// Whether this spell was cast for an alternative cost (evoke checks).
     pub alt_cast: bool,
     /// Uses secondary prototype characteristics until leaving stack/battlefield.
@@ -989,6 +994,7 @@ impl GameObject {
             paid: None,
             x_value: 0,
             kicked: false,
+            replicated: 0,
             alt_cast: false,
             prototyped: false,
             chosen_player: None,

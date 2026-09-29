@@ -1706,6 +1706,21 @@ pub enum Effect {
     /// targets unchanged and change the rest to legal ones (CR 707.10c),
     /// one target at a time as `ChooseNewTargets` asks.
     CopyTargetAbility,
+    /// One copy of the spell a keyword's cast trigger is about: "copy it",
+    /// for replicate's "copy it for each time its replicate cost was paid.
+    /// If the spell has any targets, you may choose new targets for any of
+    /// the copies" (CR 702.56a).
+    ///
+    /// Written by the engine and never by a card: a card prints
+    /// `replicate = Some(…)` on its face, and the trigger the engine puts on
+    /// the stack for it lists this once for each payment, so the count is
+    /// fixed as the spell is cast. The spell is the trigger's first target
+    /// (its implicit one), copied as it last existed if it has left the
+    /// stack by then (CR 608.2h). The copy is put on the stack with every
+    /// decision made for the original (CR 707.10), and its controller may
+    /// then keep or change each of its targets, one at a time
+    /// (CR 707.10c), as `ChooseNewTargets` asks.
+    CopyThisSpell,
     /// Attach the source (equipment/aura) to a target permanent.
     AttachSelf {
         /// To what.
@@ -2501,6 +2516,7 @@ impl Effect {
             | Effect::BottomCardFromHand { .. }
             | Effect::CopyTargetSpell { .. }
             | Effect::CopyTargetAbility
+            | Effect::CopyThisSpell
             | Effect::AttachSelf { .. }
             | Effect::ReorderTopLibrary { .. }
             | Effect::PayLifeOrEnterTapped { .. }

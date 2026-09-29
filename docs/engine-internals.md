@@ -760,6 +760,30 @@ original's effects; the original is below the copy on the stack, so its
 entry is still there. That list is hashed, because the question about new
 targets is out before the resolution that made the copy ends.
 
+**Replicate is a count on the spell and a trigger with that many copies**
+(CR 702.56a, Lose Focus). The cast wizard's `Replicate` stage, after
+`Kicker` and before `Targets`, asks `Pending::ChooseNumber` with
+`NumberPrompt::Replicate { cost }`, and the answer is told from an X by the
+stage it arrives in. The bound (`replicate_bound`) is the largest count the
+floating pool pays beside the rest of the cast, through the same
+`can_pay_mana` and `spend_for` the payment in `finish_cast` uses, with the
+generic mana delve, convoke or a paid waterbend could still take off counted
+as paid: an upper bound, so the question never offers less than could be
+paid, and a count the payment cannot cover unwinds the cast (CR 601.2h), as
+an X too large does. No payment covered skips the question. The count is
+added to the total (CR 601.2f), is paid even by a free cast (CR 118.9d,
+`pays_mana`), and is written on the spell as `GameObject::replicated`, which
+is hashed. `trigger::replicate_triggers` reads it off `SpellCast`: one
+synthetic trigger whose effects are the first `n` entries of the static
+`REPLICATE_COPIES`, so the count is fixed as the spell is cast. Each
+`Effect::CopyThisSpell` builds the copy with `resolve::copy_spell`, the one
+spell-copy constructor `CopyTargetSpell` also uses (mode, X, face, kicker,
+object and player targets, CR 707.10), from the spell's last known
+information once it has left the stack (CR 608.2h), and asks about new
+targets with `retarget::start_copy` (CR 707.10c). A copy carries the
+count, as it carries every decision made for the spell (CR 707.10), and
+copies nothing further: a copy is not cast, so no `SpellCast` names it.
+
 **A back face's mana value is its front face's** (CR 202.3b). A nonmodal
 double-faced card's back face has no mana cost, and up on the battlefield
 (CR 712.8e) or cast transformed (CR 712.8c) its mana value is computed

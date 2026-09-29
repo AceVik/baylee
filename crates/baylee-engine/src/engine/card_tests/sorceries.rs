@@ -1542,7 +1542,10 @@ fn green_suns_zenith_finds_a_green_creature_of_mana_value_x_or_less() {
     // the whole of it: `cast_from_hand` taps them first, so the pool the
     // engine prices X against is the pool the card is paid out of.
     cast_from_hand(&mut engine, p0, green_suns_zenith());
-    let Pending::ChooseNumber { player, min, max } = engine.pending().clone() else {
+    let Pending::ChooseNumber {
+        player, min, max, ..
+    } = engine.pending().clone()
+    else {
         panic!(
             "a spell with an X in its cost announces it, got {:?}",
             engine.pending()
@@ -1660,7 +1663,10 @@ fn reshape_finds_an_artifact_within_the_x_it_announced_and_nothing_above_it() {
     cast_with_floating(&mut engine, p0, reshape());
 
     // CR 601.2b: X is announced before any cost is paid.
-    let Pending::ChooseNumber { player, min, max } = engine.pending().clone() else {
+    let Pending::ChooseNumber {
+        player, min, max, ..
+    } = engine.pending().clone()
+    else {
         panic!("a spell with {{X}} asks for X, got {:?}", engine.pending())
     };
     assert_eq!(player, p0, "the caster announces the value");
@@ -3573,7 +3579,9 @@ fn blaze_deals_its_announced_x_to_the_target_it_names_and_to_no_other() {
                 break;
             }
             match engine.pending().clone() {
-                Pending::ChooseNumber { player, min, max } => {
+                Pending::ChooseNumber {
+                    player, min, max, ..
+                } => {
                     assert!(
                         (min..=max).contains(&x),
                         "X of {x} is inside the range the cast offered: {min}..={max}"
@@ -3760,7 +3768,10 @@ fn bloodcurdling_scream_pumps_the_target_it_names_for_the_x_it_was_given() {
     cast_with_floating(&mut engine, p0, bloodcurdling_scream());
 
     // CR 601.2b: the value of X is announced before anything is targeted.
-    let Pending::ChooseNumber { player, min, max } = engine.pending().clone() else {
+    let Pending::ChooseNumber {
+        player, min, max, ..
+    } = engine.pending().clone()
+    else {
         panic!("an {{X}} spell asks for its X, got {:?}", engine.pending())
     };
     assert_eq!(player, p0, "the casting seat names its own X");
@@ -5140,7 +5151,10 @@ fn goblin_offensive_creates_one_goblin_token_for_each_point_of_x() {
     );
 
     cast_with_floating(&mut engine, p0, goblin_offensive());
-    let Pending::ChooseNumber { player, min, max } = engine.pending().clone() else {
+    let Pending::ChooseNumber {
+        player, min, max, ..
+    } = engine.pending().clone()
+    else {
         panic!(
             "an X spell asks for its X before its cost is paid, got {:?}",
             engine.pending()

@@ -184,6 +184,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     }
     monarch_triggers(state, events, &mut triggers);
     watch_triggers(state, events, &mut triggers);
+    replicate_triggers(state, events, &mut triggers);
     // LTB/Dies triggers look back in time (CR 603.10): the source is no
     // longer on the battlefield when they fire.
     for seat in 0..state.players.len() {
@@ -225,6 +226,62 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
         (distance, t.timestamp)
     });
     triggers
+}
+
+/// Replicate's copies, one entry for each payment the trigger can copy for:
+/// the trigger lists the first `n` of them.
+///
+/// A slice of one table and not a count read at resolution, because the
+/// count is the cast's and is fixed as it is cast (CR 702.56a): read off the
+/// spell later, it would be whatever a later cast of the same card wrote.
+/// As long as the cast wizard's bound ([`X_CEILING`]), so no count the
+/// question can offer is cut short here.
+///
+/// [`X_CEILING`]: crate::engine::cast_wizard::X_CEILING
+static REPLICATE_COPIES: [baylee_cards_dsl::Effect;
+    crate::engine::cast_wizard::X_CEILING as usize] =
+    [baylee_cards_dsl::Effect::CopyThisSpell; crate::engine::cast_wizard::X_CEILING as usize];
+
+/// Replicate's triggered ability (CR 702.56a): "when you cast this spell, if
+/// a replicate cost was paid for it, copy it for each time its replicate cost
+/// was paid".
+///
+/// A triggered ability of the *spell*, which functions on the stack, so no
+/// walk over permanents finds it: it is read off `SpellCast` directly, as
+/// the monarch's are read off the events. A spell whose cost was paid no
+/// times does not trigger at all — the intervening "if" (CR 603.4) — and a
+/// copy is never cast (CR 707.10), so never triggers it again. The spell is
+/// the ability's source and its implicit first target, which is what
+/// [`baylee_cards_dsl::Effect::CopyThisSpell`] copies; its controller is the
+/// player who cast it.
+fn replicate_triggers(
+    state: &GameState,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    for entry in events {
+        let GameEvent::SpellCast { object, player } = entry.event else {
+            continue;
+        };
+        let Some(spell) = state.object(object).filter(|o| o.replicated > 0) else {
+            continue;
+        };
+        let copies = usize::from(spell.replicated).min(REPLICATE_COPIES.len());
+        triggers.push(PendingTrigger {
+            event_mana_value: None,
+            source: object,
+            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+            abilities: None,
+            controller: player,
+            timestamp: spell.timestamp,
+            event_object: Some(object),
+            implicit_target: Some(object),
+            synthetic_effects: Some(&REPLICATE_COPIES[..copies]),
+            once_per_turn: false,
+            synthetic_target: None,
+            chosen_mode: None,
+        });
+    }
 }
 
 /// "At the beginning of the monarch's end step, that player draws a card."

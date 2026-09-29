@@ -34,8 +34,8 @@ use crate::i18n::{Lang, Phrase, seat_name};
 use baylee_core::ids::{CardIndex, Defender, ObjectId, PlayerId, SeatSet, SubtypeId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
-    ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending,
-    PlayerAction, TargetPrompt, YesNoPrompt,
+    ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt, LegalActions,
+    NumberPrompt, Pending, PlayerAction, TargetPrompt, YesNoPrompt,
 };
 use baylee_engine::win::{EndReason, GameResult, Victor};
 use baylee_view::{GameStatic, HouseAnswer, LossCause, PlayerView, SeatView};
@@ -172,12 +172,14 @@ pub enum Prompt {
         /// The allowed colours.
         options: Vec<ManaColor>,
     },
-    /// Choose a number, typically X.
+    /// Choose a number: X, or how many times to pay a replicate cost.
     ChooseNumber {
         /// Lowest legal value.
         min: u32,
         /// Highest legal value.
         max: u32,
+        /// What the number counts, which is what the headline says.
+        reason: NumberPrompt,
     },
     /// Choose a player.
     ChoosePlayer {
@@ -384,9 +386,19 @@ impl Prompt {
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
             Self::ChooseCardName => Phrase::ChooseCardName.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
-            Self::ChooseNumber { min, max } => {
-                Phrase::ChooseNumberIn.fill(lang, &[&min.to_string(), &max.to_string()])
-            }
+            Self::ChooseNumber {
+                min,
+                max,
+                reason: NumberPrompt::X,
+            } => Phrase::ChooseNumberIn.fill(lang, &[&min.to_string(), &max.to_string()]),
+            Self::ChooseNumber {
+                min,
+                max,
+                reason: NumberPrompt::Replicate { cost },
+            } => Phrase::ReplicateHowOften.fill(
+                lang,
+                &[&cost.to_string(), &min.to_string(), &max.to_string()],
+            ),
             Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
             Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
             Self::Arrange { reason, onto } => match (reason, onto) {
@@ -1049,9 +1061,12 @@ impl Interaction {
             Pending::ChooseColor { options, .. } => Prompt::ChooseColor {
                 options: options.clone(),
             },
-            Pending::ChooseNumber { min, max, .. } => Prompt::ChooseNumber {
+            Pending::ChooseNumber {
+                min, max, reason, ..
+            } => Prompt::ChooseNumber {
                 min: *min,
                 max: *max,
+                reason: *reason,
             },
             Pending::ChoosePlayer { options, .. } => Prompt::ChoosePlayer {
                 options: options.clone(),

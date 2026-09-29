@@ -101,6 +101,19 @@ not a planned mana source, up to the waterbend's own generic mana, which is all
 CR 701.67b lets them pay. Kicked is the better half by design, so it is paid
 whenever it can be, except when the kicked half would draw the library out.
 
+**Replicate is paid as often as the pool covers.** The engine offers as many
+payments as the floating pool pays for (`NumberPrompt::Replicate`, CR
+702.56a), and each is a copy, so the agent answers `max`. `policy::aim` has
+floated them first: after a kicker that fits, the most payments the budget
+and the sources cover, and the spell is cast only once they float. Each
+copy's new-target question is `redirect.rs`'s copy case, as a Dualcaster
+Mage's is: a copied Lose Focus is aimed at another of the opponents' spells,
+never at the Lose Focus it copies. `resolving_about` looks for an ability of
+the source before the source itself, because the replicate trigger's source
+is that spell, still on the stack below it; read the other way round, the
+copy took the spell's own target as its subject and was aimed at the spell
+it copies.
+
 **A tap question is answered with what the pool leaves unpaid.** Convoke and a
 paid waterbend ask which permanents to tap (`TargetPrompt::Convoke`).
 `policy::convoke_taps` measures the cast's price (the context's cost with X,

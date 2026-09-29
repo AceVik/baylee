@@ -4684,6 +4684,12 @@ where an indexed choice is told a position, and `choices::picked` is the row
 the highlight stands on. The permanent then carries a label with the name
 (`hud::chosen_type`, `Phrase::ChosenName`), as a named creature type does.
 
+The number stepper answers two questions, and the headline tells them apart.
+`Prompt::ChooseNumber` carries the engine's `reason`: an X reads "Choose a
+number (0–50)", and a replicate cost reads "Replicate {U}: pay it how many
+times? (0–2)" (`Phrase::ReplicateHowOften`), because over a Lose Focus
+"choose a number" did not say what the number bought.
+
 The filter forces one thing that is easy to get wrong and silent when you do:
 **a row's position stops being its answer.** Twelve rows out of three hundred
 and fifty are on screen, so `ChoiceOption` carries the engine's own `index`,

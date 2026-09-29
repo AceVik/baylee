@@ -1685,6 +1685,86 @@ fn copy_target_ability(
     retarget::start_copy(state, res, id)
 }
 
+/// Puts a copy of the spell `original` onto the stack under `you`'s control
+/// and returns it: the one constructor of a spell copy, for "copy target
+/// spell" and for the copies a replicate trigger makes.
+///
+/// A copy copies the spell's characteristics, as `mods` change them, and
+/// every decision made for it (CR 707.10): its targets in both instances of
+/// the word and the requirement they answer (which a later change of targets
+/// reads), the players it targets, its mode, X, the face it was cast as,
+/// whether it was kicked and how many times replicate was paid. Nothing that
+/// happened to the *card* comes with it: no rider it was cast with, nothing
+/// it paid (a copy is not cast, so no mana was spent to cast it), and no
+/// `SpellCast` event (CR 707.10). Journalling one made every copy re-trigger
+/// "whenever you cast" abilities — Jin-Gitaxias copied its own copy without
+/// end — and made copies count towards Storm of Saruman's "second spell each
+/// turn".
+///
+/// The original need not still be on the stack. The spell-shaped fields
+/// survive its leaving (`GameState::move_object`), so a trigger whose spell
+/// was countered in response copies it as it last existed (CR 608.2h,
+/// 113.7a). Until this was one function the X, the mode, the face, the
+/// kicker and the player targets were left behind: a copied Fireball was
+/// cast for X = 0 and a copied Lightning Bolt aimed at a player had no
+/// target at all.
+fn copy_spell(
+    state: &mut GameState,
+    original: ObjectId,
+    you: PlayerId,
+    mods: &[baylee_cards_dsl::CopyMod],
+) -> Option<ObjectId> {
+    let from = state.object(original)?;
+    let mut base = (*from.base).clone();
+    let card = from.card;
+    let targets = from.targets.clone();
+    let target_req = from.target_req;
+    let second = from.second.clone();
+    let target_players = from.target_players;
+    let chosen_player = from.chosen_player;
+    let x_value = from.x_value;
+    let kicked = from.kicked;
+    let replicated = from.replicated;
+    let mode_index = from.mode_index;
+    let face_index = from.face_index;
+    for m in mods {
+        tokens::apply_copy_mod(&mut base, m);
+    }
+    let ts = state.next_timestamp();
+    let id = state.arena.insert_with(|oid| {
+        let mut obj = GameObject::new_bare(oid, you, ObjectKind::Spell, base);
+        obj.timestamp = ts;
+        obj
+    });
+    {
+        let obj = state.object_mut(id).expect("fresh copy");
+        obj.card = card;
+        // CR 707.10: a copy is put on the stack, not cast from hand.
+        // Rebound must not schedule a vanished copy.
+        obj.cast_from_hand = false;
+        obj.targets = targets;
+        obj.target_req = target_req;
+        obj.second = second;
+        obj.target_players = target_players;
+        obj.chosen_player = chosen_player;
+        obj.x_value = x_value;
+        obj.kicked = kicked;
+        obj.replicated = replicated;
+        obj.mode_index = mode_index;
+        obj.face_index = face_index;
+        obj.zone = crate::zone::Zone::Stack;
+        // CR 704.5e: it stops existing the moment it is anywhere but the
+        // stack or the battlefield. Carrying the copied card is what makes
+        // the marker necessary — without it the copy resolved into a
+        // graveyard and stayed there as a second, real card.
+        obj.riders.push(crate::object::Rider::SpellCopy);
+    }
+    state
+        .zones
+        .insert(id, ZoneLocation::Stack, ZonePosition::Top, true);
+    Some(id)
+}
+
 /// Executes one operation; returns `Some(pending)` when it suspends.
 fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     match op {
@@ -2429,6 +2509,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::CreateEmblem { .. }
         | Effect::CopyTargetSpell { .. }
         | Effect::CopyTargetAbility
+        | Effect::CopyThisSpell
         | Effect::CreateContinuousEffect {
             modifier: baylee_cards_dsl::Modifier::GainControl,
             ..
@@ -2722,60 +2803,20 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             // with the original's targets and its controller may then choose
             // new ones (CR 707.10c), so this can suspend on a choice.
             if let Some(&target_id) = res.targets.first() {
-                let (card, mut base, targets, target_req, second) = {
-                    let obj = state.object(target_id)?;
+                let id = copy_spell(state, target_id, you, mods)?;
+                let (picks, target_req) = state.object(id).map_or((0, None), |obj| {
                     (
-                        obj.card,
-                        (*obj.base).clone(),
-                        obj.targets.clone(),
+                        u8::try_from(obj.targets.len()).unwrap_or(u8::MAX),
                         obj.target_req,
-                        obj.second.clone(),
                     )
-                };
-                for m in mods {
-                    tokens::apply_copy_mod(&mut base, m);
-                }
-                let name = base.name;
-                let ts = state.next_timestamp();
-                let id = state.arena.insert_with(|oid| {
-                    let mut obj = GameObject::new_bare(oid, you, ObjectKind::Spell, base);
-                    obj.timestamp = ts;
-                    obj
                 });
-                let picks = u8::try_from(targets.len()).unwrap_or(u8::MAX);
-                {
-                    let obj = state.object_mut(id).expect("fresh copy");
-                    obj.card = card;
-                    // CR 707.10: a copy is put on the stack, not cast from
-                    // hand. Rebound must not schedule a vanished copy.
-                    obj.cast_from_hand = false;
-                    obj.targets = targets;
-                    obj.target_req = target_req;
-                    // A copy copies its targets (CR 707.10), both instances
-                    // of the word. Only the first is offered for re-choosing
-                    // below, which is a gap and not a reading: CR 707.10c
-                    // lets the controller change either, and the answer path
-                    // has one `CopyNewTargets` question. The second keeps
-                    // what the original chose rather than being dropped,
-                    // which is the choice a player declining would make.
-                    obj.second = second;
-                    obj.zone = crate::zone::Zone::Stack;
-                    // CR 704.5e: it stops existing the moment it is anywhere
-                    // but the stack or the battlefield. Carrying the copied
-                    // card is what makes the marker necessary — without it
-                    // the copy resolved into a graveyard and stayed there as
-                    // a second, real card.
-                    obj.riders.push(crate::object::Rider::SpellCopy);
-                }
-                state
-                    .zones
-                    .insert(id, ZoneLocation::Stack, ZonePosition::Top, true);
-                // Deliberately no `SpellCast` event: a copy is *put* onto the
-                // stack, not cast (CR 707.10). Journalling one made every copy
-                // re-trigger "whenever you cast" abilities — Jin-Gitaxias
-                // copied its own copy without end — and made copies count
-                // towards Storm of Saruman's "second spell each turn".
-                let _ = name;
+                // Only the first instance of the word is offered for
+                // re-choosing below, which is a gap and not a reading:
+                // CR 707.10c lets the controller change either, and the
+                // answer path has one `CopyNewTargets` question. The second
+                // keeps what the original chose rather than being dropped,
+                // which is the choice a player declining would make.
+                //
                 // "You may choose new targets for the copy." Only worth asking
                 // when the copy targets objects at all and there is something
                 // legal to point it at; the player declines by re-picking what
@@ -2804,6 +2845,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::CopyTargetAbility => copy_target_ability(state, res, you),
+        Effect::CopyThisSpell => {
+            let &original = res.targets.first()?;
+            let copy = copy_spell(state, original, you, &[])?;
+            retarget::start_copy(state, res, copy)
+        }
         Effect::AttachSelf { .. } => {
             if let Some(&target_id) = res.targets.first()
                 && let Some(obj) = state.object_mut(res.source)

@@ -368,6 +368,13 @@ express at all yet.
   `convoke = true`, which taps creatures only, for the whole cost, and
   whether or not anything was kicked. `lints::waterbend_fault` holds the
   shape: `{N}` alone, no convoke beside it.
+- `replicate = Some(mana!("{U}"))` — "Replicate {U}" (CR 702.56a), Lose
+  Focus: an additional cost the caster may pay any number of times. The cast
+  asks how many after the kicker and before the targets, and the spell's cast
+  trigger copies it once per payment, each copy with the chance of new
+  targets. Nothing else is written for it: the trigger is the engine's, not
+  an ability on the face. A mana cost only, as every printed replicate cost
+  is.
 - `FaceDef.mandatory_additional_costs: &[CostPart]` — e.g. `PayLifeX`. Pays
   `PayLifeX` and `PayLife`, and is the one cost list nothing gates at all.
   `PayLifeX` is bounded where it is asked instead — the wizard offers X up to
@@ -1298,7 +1305,12 @@ every decision made for the original, mode, targets, X and what paid its
 costs (CR 707.10), and the same source (CR 707.10b); it is neither activated
 nor triggered, so nothing watching for either sees it; and its controller is
 then asked CR 115.7d's question target by target, naming nothing to keep one
-(CR 707.10c).
+(CR 707.10c). `CopyTargetSpell` copies a spell the same way, through the one
+constructor `resolve::copy_spell`: mode, X, the face cast, a kicker, and its
+object and player targets (CR 707.10). `CopyThisSpell` is the engine's and
+never a card's: it is the replicate trigger's effect, one per payment, and
+copies the spell the trigger came from, by last known information once that
+spell has left the stack (CR 608.2h).
 Costs/taxes: `PlayerMayPayOr` and `PlayerMayPayCostOr` — the two halves of
 "… unless you <pay>", split by what the price is. The first charges *generic*
 mana in an `Amount`, because Esper Sentinel's tax is its own power and a

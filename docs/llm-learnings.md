@@ -1807,3 +1807,27 @@ land type"; both are convention tests that fire on a first try.
   footprint test measures alignment, not the field: an `Option<PrintedFace>`
   grew the object from 296 to 304. Raise the budget deliberately, with a
   line in `docs/perf-baseline.md`.
+
+### 2026-09-29 — friends group, round 2: Lose Focus and replicate
+
+- **One constructor for a spell copy.** `CopyTargetSpell` copied the object
+  and its object targets but not X, the mode, the face, a kicker or a player
+  target; a copied Blaze dealt 0 to nobody. Replicate needed the same copy,
+  so both go through `resolve::copy_spell` now, and a new copy effect should
+  too.
+- **A count fixed at cast time is a slice of a static table.** The
+  replicate trigger's effects are `&REPLICATE_COPIES[..n]`, one
+  `CopyThisSpell` each, so nothing has to allocate or read the count back
+  at resolution. Storm could take the same shape.
+- **A question that shares an answer with another says which it is.**
+  `ChooseNumber` answers X and replicate alike; the `reason` field is what
+  lets the client's headline and the AI tell them apart. The engine itself
+  tells them apart by the wizard stage.
+- **A trigger's source can be a spell on the stack below it.** An AI reader
+  that looked up "what is resolving" by the source id found the spell before
+  its trigger, and aimed the copy at the spell it was copying. Look for the
+  ability of the source first.
+- **Bound an optional count by what the payment reads.** The replicate
+  bound asks the same `can_pay_mana` with the same `spend_for` as
+  `finish_cast`, so restricted mana (Cavern of Souls) cannot make the offer
+  and the payment disagree.

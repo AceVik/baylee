@@ -3086,6 +3086,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         paid,
         x_value,
         kicked,
+        replicated,
         alt_cast,
         prototyped,
         chosen_player,
@@ -3165,6 +3166,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     paid.hash(h);
     x_value.hash(h);
     kicked.hash(h);
+    replicated.hash(h);
     alt_cast.hash(h);
     prototyped.hash(h);
     chosen_player.hash(h);
@@ -4186,6 +4188,7 @@ mod tests {
             }),
             ("x_value", |s, id| fixture_object(s, id).x_value = 3),
             ("kicked", |s, id| fixture_object(s, id).kicked = true),
+            ("replicated", |s, id| fixture_object(s, id).replicated = 2),
             ("alt_cast", |s, id| fixture_object(s, id).alt_cast = true),
             ("chosen_player", |s, id| {
                 fixture_object(s, id).chosen_player = Some(PlayerId::new(1));

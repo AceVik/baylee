@@ -1354,6 +1354,7 @@ impl<L: CardLookup> Engine<L> {
                 player,
                 min: 0,
                 max,
+                reason: crate::choice::NumberPrompt::X,
             };
             self.awaiting_answer = true;
             return Ok(());
@@ -1401,6 +1402,7 @@ impl<L: CardLookup> Engine<L> {
                 player,
                 min: 0,
                 max,
+                reason: crate::choice::NumberPrompt::X,
             };
             self.awaiting_answer = true;
             return Ok(());

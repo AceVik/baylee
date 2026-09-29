@@ -1712,6 +1712,11 @@ messages! {
     ChooseColour { en: "Choose a colour", de: "Wähle eine Farbe" },
     /// Choose a number ({0}–{1})
     ChooseNumberIn { en: "Choose a number ({0}–{1})", de: "Wähle eine Zahl ({0}–{1})" },
+    /// Replicate {0}: pay it how many times? ({1}–{2})
+    ReplicateHowOften {
+        en: "Replicate {0}: pay it how many times? ({1}–{2})",
+        de: "Replikation {0}: wie oft zahlen? ({1}–{2})",
+    },
     /// Choose a player
     ChoosePlayer { en: "Choose a player", de: "Wähle einen Spieler" },
     /// Choose how to cast
