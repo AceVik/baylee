@@ -4,7 +4,8 @@
 //!
 //! Every card of the pool whose front face is a permanent and whose coverage
 //! is `Implemented` is seated under seat 0 on a small, symmetric board and
-//! taken away along seven routes. The route is resolved by
+//! taken away along seven routes, and an Aura, Equipment or Fortification
+//! along an eighth. The route is resolved by
 //! [`crate::resolve::run`], the function every resolving spell and ability
 //! runs, with the effect a card would print for it:
 //!
@@ -16,6 +17,8 @@
 //! | `library`   | `Effect::PutSourceOnTopOfLibrary`         | seat 0        |
 //! | `sacrifice` | `Effect::SacrificeSelf`                   | seat 0        |
 //! | `phase_out` | `Effect::PhaseOut` (CR 702.26b)           | seat 0        |
+//! | `phase_host`| `Effect::PhaseOut` on what the card is    | seat 0        |
+//! |             | attached to (CR 702.26g)                  |               |
 //! | `control`   | `Effect::ChangeController`, which is      | seat 1        |
 //! |             | `resolve::gain_control`'s layer-2 effect  |               |
 //!
@@ -34,12 +37,19 @@
 //! - **Triggers.** A turn cycle of ordinary events follows ([`battery`]),
 //!   and none of the card's own triggered abilities may trigger in it.
 //! - **Fresh.** [`Engine::projection_is_fresh`] after settling and at the end.
+//! - **Unaffected** (the phasing routes). While the card is phased out,
+//!   seat 1 resolves an effect that fixes the set it affects as it begins:
+//!   every permanent gets +0/+0 for the rest of the game (CR 611.2c). The
+//!   set leaves the card out (CR 702.26e).
 //!
 //! `phase_out` asks the same of a card that stays on the battlefield
 //! phased out (but for a resolution's effect lasting while it is on the
 //! battlefield: see [`residue`]), and then that its statics and
 //! replacements are back once it has phased in at its controller's next
-//! untap step. `control` asks the
+//! untap step. `phase_host` phases out the permanent the card is attached
+//! to instead: the card must phase out with it (CR 702.26g) and phase in
+//! with it, no sooner, still attached, and then everything `phase_out` asks
+//! holds as well. `control` asks the
 //! opposite: every static and replacement of the card answers to seat 1 now
 //! (CR 109.5), seat 0 is offered none of its abilities, what it triggers is
 //! seat 1's, and on a card that is attached to nothing its statics touch the
@@ -54,7 +64,7 @@ use super::testkit::{
     quiet_creature, spawn_named, walk_to_own_main,
 };
 use super::*;
-use crate::effects::EffectOrigin;
+use crate::effects::{EffectFilter, EffectOrigin};
 use crate::object::{Characteristics, Status};
 use baylee_cards_dsl::{AbilityDef, ActivationZone, CardDef, Duration, Effect, Filter, TargetSpec};
 use baylee_core::ids::{AbilityRef, CardIndex, Defender};
@@ -79,19 +89,41 @@ enum Route {
     Library,
     Sacrifice,
     PhaseOut,
+    PhaseHost,
     Control,
 }
 
 impl Route {
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self::Destroy,
         Self::Exile,
         Self::Bounce,
         Self::Library,
         Self::Sacrifice,
         Self::PhaseOut,
+        Self::PhaseHost,
         Self::Control,
     ];
+
+    /// Whether the route is asked of `def`: `phase_host` only of what
+    /// attaches to a permanent (CR 702.26g names the three).
+    fn applies(self, def: &CardDef) -> bool {
+        use baylee_core::generated::subtypes::{artifact, enchantment};
+        self != Self::PhaseHost
+            || def.faces[0].subtypes.iter().any(|s| {
+                [
+                    enchantment::AURA,
+                    artifact::EQUIPMENT,
+                    artifact::FORTIFICATION,
+                ]
+                .contains(s)
+            })
+    }
+
+    /// Whether the card stays on the battlefield phased out.
+    const fn phases(self) -> bool {
+        matches!(self, Self::PhaseOut | Self::PhaseHost)
+    }
 
     /// The name the output file uses.
     const fn name(self) -> &'static str {
@@ -102,13 +134,14 @@ impl Route {
             Self::Library => "library",
             Self::Sacrifice => "sacrifice",
             Self::PhaseOut => "phase_out",
+            Self::PhaseHost => "phase_host",
             Self::Control => "control",
         }
     }
 
     /// Whether the card is meant to be gone from the battlefield.
     const fn leaves(self) -> bool {
-        !matches!(self, Self::PhaseOut | Self::Control)
+        !matches!(self, Self::PhaseOut | Self::PhaseHost | Self::Control)
     }
 
     /// Who controls the effect, whether it names the card as its target
@@ -120,7 +153,7 @@ impl Route {
             Self::Bounce => (P1, true, BOUNCE),
             Self::Library => (P0, false, LIBRARY),
             Self::Sacrifice => (P0, false, SACRIFICE),
-            Self::PhaseOut => (P0, false, PHASE_OUT),
+            Self::PhaseOut | Self::PhaseHost => (P0, false, PHASE_OUT),
             Self::Control => (P1, true, CONTROL),
         }
     }
@@ -139,6 +172,15 @@ static BOUNCE: &[Effect] = &[Effect::ReturnToHand {
 static LIBRARY: &[Effect] = &[Effect::PutSourceOnTopOfLibrary];
 static SACRIFICE: &[Effect] = &[Effect::SacrificeSelf];
 static PHASE_OUT: &[Effect] = &[Effect::PhaseOut { target: None }];
+/// The unaffected check's effect: +0/+0 to every permanent for the rest of
+/// the game, a set fixed as the effect begins (CR 611.2c) that changes no
+/// number the rest of the probe reads.
+static EVERY_PERMANENT_GETS_NOTHING: &[Effect] = &[Effect::CreateContinuousEffect {
+    layer: baylee_cards_dsl::Layer::PtModify,
+    filter: &Filter::Any,
+    modifier: baylee_cards_dsl::Modifier::ModifyPT(0, 0),
+    duration: Duration::Indefinitely,
+}];
 static CONTROL: &[Effect] = &[Effect::ChangeController {
     new_controller: baylee_cards_dsl::PlayerRel::You,
 }];
@@ -556,24 +598,41 @@ fn offered(engine: &Engine<RegistryLookup>, card: ObjectId, found: &mut Findings
 fn take_away(table: &mut Table, route: Route) -> Result<(), String> {
     let (controller, targeted, effects) = route.effect();
     let card = table.card;
-    // Seat 1's effect needs a source seat 1 controls: the first of its
-    // bystanders still standing.
-    let source = if controller == P0 {
-        card
-    } else {
-        table.sides[1]
-            .iter()
-            .flatten()
-            .copied()
-            .find(|&id| {
-                table
-                    .engine
-                    .state()
-                    .object(id)
-                    .is_some_and(|o| o.zone == Zone::Battlefield)
-            })
-            .ok_or("route: seat 1 has nothing left to be the effect's source")?
+    let source = match route {
+        Route::PhaseHost => table.host.ok_or("route: attached to nothing")?,
+        _ if controller == P0 => card,
+        _ => seat_one_source(table)?,
     };
+    resolve(table, controller, source, targeted.then_some(card), effects)?;
+    settle(&mut table.engine)
+}
+
+/// Seat 1's effect needs a source seat 1 controls: the first of its
+/// bystanders still standing.
+fn seat_one_source(table: &Table) -> Result<ObjectId, String> {
+    table.sides[1]
+        .iter()
+        .flatten()
+        .copied()
+        .find(|&id| {
+            table
+                .engine
+                .state()
+                .object(id)
+                .is_some_and(|o| o.zone == Zone::Battlefield)
+        })
+        .ok_or_else(|| "route: seat 1 has nothing left to be the effect's source".into())
+}
+
+/// Runs `effects` through [`crate::resolve::run`] as `controller`'s, from
+/// `source`, targeting `target` when there is one.
+fn resolve(
+    table: &mut Table,
+    controller: PlayerId,
+    source: ObjectId,
+    target: Option<ObjectId>,
+    effects: &[Effect],
+) -> Result<(), String> {
     let state = table
         .engine
         .dev_state_mut(controller)
@@ -584,11 +643,7 @@ fn take_away(table: &mut Table, route: Route) -> Result<(), String> {
         controller,
         effects: effects.to_vec(),
         pc: 0,
-        targets: if targeted {
-            smallvec::smallvec![card]
-        } else {
-            smallvec::SmallVec::new()
-        },
+        targets: target.into_iter().collect(),
         second_targets: smallvec::SmallVec::new(),
         x: None,
         chosen_player: None,
@@ -606,7 +661,47 @@ fn take_away(table: &mut Table, route: Route) -> Result<(), String> {
             variant(&format!("{pending:?}"))
         ));
     }
-    settle(&mut table.engine)
+    Ok(())
+}
+
+/// The unaffected check: seat 1 resolves [`EVERY_PERMANENT_GETS_NOTHING`]
+/// while the card is phased out, and the set it fixes leaves the card out
+/// (CR 702.26e). A bystander of seat 1's that is phased in is in it, or the
+/// check proved nothing.
+fn unaffected(table: &mut Table, found: &mut Findings) -> Result<(), String> {
+    let naming = |table: &Table, id: ObjectId| {
+        table
+            .engine
+            .state()
+            .effects
+            .iter()
+            .filter(|fx| matches!(fx.filter, EffectFilter::ObjectIs(named, _) if named == id))
+            .count()
+    };
+    let control = table.sides[1]
+        .iter()
+        .flatten()
+        .copied()
+        .find(|&id| {
+            table
+                .engine
+                .state()
+                .battlefield_seen()
+                .any(|seen| seen == id)
+        })
+        .ok_or("unaffected: seat 1 has no bystander phased in")?;
+    let (card_before, control_before) = (naming(table, table.card), naming(table, control));
+    let source = seat_one_source(table)?;
+    resolve(table, P1, source, None, EVERY_PERMANENT_GETS_NOTHING)?;
+    if naming(table, control) == control_before {
+        return Err("unaffected: the board-wide effect left out a bystander phased in".into());
+    }
+    if naming(table, table.card) != card_before {
+        found.lingers.push(
+            "an effect that began while it was phased out took it into its set (CR 702.26e)".into(),
+        );
+    }
+    Ok(())
 }
 
 /// One pass of priority runs the machine (statics, state-based actions,
@@ -958,37 +1053,16 @@ fn probe(def: &'static CardDef, route: Route) -> Line {
     if let Err(why) = take_away(&mut table, route) {
         return skipped(def.index, route, why);
     }
+    if let Some(line) = missed(&table, def, route, version) {
+        return line;
+    }
     let mut found = Findings::default();
     let when = match route {
         Route::PhaseOut => "while phased out",
+        Route::PhaseHost => "while phased out with its host",
         Route::Control => "after the steal",
         _ => "after it left",
     };
-    let Some(obj) = table.engine.state().object(card) else {
-        return skipped(def.index, route, "the card's object is gone");
-    };
-    let (zone, phased, controller) = (
-        obj.zone,
-        obj.status.contains(Status::PHASED_OUT),
-        obj.controller,
-    );
-    match route {
-        _ if route.leaves() && zone == Zone::Battlefield => {
-            let why = if Some(obj.version) == version {
-                "did not leave the battlefield"
-            } else {
-                "came back to the battlefield"
-            };
-            return skipped(def.index, route, format!("{why} ({})", route.name()));
-        }
-        Route::PhaseOut if !phased => {
-            return skipped(def.index, route, "did not phase out");
-        }
-        Route::Control if controller != P1 => {
-            return skipped(def.index, route, "control did not change");
-        }
-        _ => {}
-    }
     found.fresh(&table.engine, "after settling");
     if stale_before && let Some(last) = found.stale.last_mut() {
         last.push_str(" (already stale before the route)");
@@ -999,12 +1073,17 @@ fn probe(def: &'static CardDef, route: Route) -> Line {
         residue(table.engine.state(), card, route.leaves(), &mut found, when);
     }
     offered(&table.engine, card, &mut found, when);
+    if route.phases()
+        && let Err(why) = unaffected(&mut table, &mut found)
+    {
+        return skipped(def.index, route, why);
+    }
 
     let (mark, short) = battery(&mut table);
     found.short = short;
     let entries = &table.engine.state().journal.entries()[mark as usize..];
     found.walk = Walk::read(entries);
-    let window_end = if route == Route::PhaseOut {
+    let window_end = if route.phases() {
         phased_in_at(entries, card).unwrap_or(u64::MAX)
     } else {
         u64::MAX
@@ -1028,10 +1107,14 @@ fn probe(def: &'static CardDef, route: Route) -> Line {
     }
     let state = table.engine.state();
     match route {
-        Route::PhaseOut if found.short.is_none() => {
-            phased_back(&table, def, &before, window_end != u64::MAX, &mut found);
+        Route::PhaseOut | Route::PhaseHost if found.short.is_none() => {
+            let host = (route == Route::PhaseHost)
+                .then_some(table.host)
+                .flatten()
+                .map(|host| (host, phased_in_at(entries, host)));
+            phased_back(&table, def, &before, window_end, host, &mut found);
         }
-        Route::PhaseOut | Route::Control => {
+        Route::PhaseOut | Route::PhaseHost | Route::Control => {
             found.fresh(&table.engine, "after the turn cycle");
         }
         _ => {
@@ -1040,6 +1123,54 @@ fn probe(def: &'static CardDef, route: Route) -> Line {
         }
     }
     found.line(def.index, route)
+}
+
+/// Whether the route happened to the card, which had `version` before it:
+/// `Some` is the line written instead of probing on, a skip, or
+/// `phase_host`'s finding that the card stayed phased in.
+fn missed(table: &Table, def: &CardDef, route: Route, version: Option<u32>) -> Option<Line> {
+    let Some(obj) = table.engine.state().object(table.card) else {
+        return Some(skipped(def.index, route, "the card's object is gone"));
+    };
+    let phased = obj.status.contains(Status::PHASED_OUT);
+    match route {
+        _ if route.leaves() && obj.zone == Zone::Battlefield => {
+            let why = if Some(obj.version) == version {
+                "did not leave the battlefield"
+            } else {
+                "came back to the battlefield"
+            };
+            Some(skipped(
+                def.index,
+                route,
+                format!("{why} ({})", route.name()),
+            ))
+        }
+        Route::PhaseOut if !phased => Some(skipped(def.index, route, "did not phase out")),
+        Route::PhaseHost if !phased => {
+            let host_phased = table.host.is_some_and(|host| {
+                table
+                    .engine
+                    .state()
+                    .object(host)
+                    .is_some_and(|o| o.status.contains(Status::PHASED_OUT))
+            });
+            if !host_phased {
+                return Some(skipped(def.index, route, "its host did not phase out"));
+            }
+            let mut found = Findings::default();
+            found.lingers.push(
+                "stayed phased in when the permanent it is attached to phased out \
+                 (CR 702.26g)"
+                    .into(),
+            );
+            Some(found.line(def.index, route))
+        }
+        Route::Control if obj.controller != P1 => {
+            Some(skipped(def.index, route, "control did not change"))
+        }
+        _ => None,
+    }
 }
 
 /// `control`, right after the steal: every static and replacement of the
@@ -1080,16 +1211,38 @@ fn stolen(
     }
 }
 
-/// `phase_out`, after the walk: the card is back and so is what it
-/// registered, unless it `phased_in` and then left by its own rules.
+/// `phase_out` and `phase_host`, after the walk: the card is back and so is
+/// what it registered, unless it phased in (at journal seq `phased_in`) and
+/// then left by its own rules. For `phase_host`, `host` is the permanent it
+/// phased out with and when that phased in: the card phases in with it and
+/// not before (CR 702.26g), still attached to it (CR 702.26d).
 fn phased_back(
     table: &Table,
     def: &'static CardDef,
     before: &Registered,
-    phased_in: bool,
+    phased_in: u64,
+    host: Option<(ObjectId, Option<u64>)>,
     found: &mut Findings,
 ) {
     let (state, card) = (table.engine.state(), table.card);
+    if let Some((host, host_in)) = host
+        && phased_in != u64::MAX
+    {
+        if host_in.is_none_or(|at| phased_in < at) {
+            found.lingers.push(
+                "phased in by itself, before the permanent it phased out with (CR 702.26g)".into(),
+            );
+        } else if state.object(card).is_some_and(|o| {
+            o.zone == Zone::Battlefield
+                && !o.status.contains(Status::PHASED_OUT)
+                && o.attached_to != Some(host)
+        }) {
+            found
+                .lingers
+                .push("phased in no longer attached to its host (CR 702.26d)".into());
+        }
+    }
+    let phased_in = phased_in != u64::MAX;
     let back = state
         .object(card)
         .is_some_and(|o| o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT));
@@ -1128,9 +1281,11 @@ fn phased_back(
         residue(state, card, true, found, "after it phased in and left");
         found.fresh(&table.engine, "after it phased in and left");
     } else {
-        found
-            .lingers
-            .push("did not phase back in at seat 0's untap step".into());
+        found.lingers.push(if host.is_some() {
+            "did not phase back in with its host".into()
+        } else {
+            "did not phase back in at seat 0's untap step".into()
+        });
     }
 }
 
@@ -1177,7 +1332,12 @@ fn sweep(cards: &[&'static CardDef]) -> Vec<Line> {
                 spawn_named(scope, move || {
                     slice
                         .iter()
-                        .flat_map(|def| Route::ALL.map(|route| probe_caught(def, route)))
+                        .flat_map(|def| {
+                            Route::ALL
+                                .into_iter()
+                                .filter(|route| route.applies(def))
+                                .map(|route| probe_caught(def, route))
+                        })
                         .collect::<Vec<_>>()
                 })
             })
@@ -1206,10 +1366,11 @@ fn totals(lines: &[Line]) -> String {
         ids.len()
     };
     format!(
-        "{cards} cards x {} routes = {} lines: {} ok, {} lingers, {} stale, {} skipped; \
-         of the {} probed, {} trigger walks stopped short and {} did less than a full walk",
-        Route::ALL.len(),
+        "{cards} cards, {} lines ({} of them `phase_host`): {} ok, {} lingers, {} stale, \
+         {} skipped; of the {} probed, {} trigger walks stopped short and {} did less than a \
+         full walk",
         lines.len(),
+        lines.iter().filter(|l| l.route == Route::PhaseHost).count(),
         count(Verdict::Ok),
         count(Verdict::Lingers),
         count(Verdict::Stale),
@@ -1283,6 +1444,9 @@ const REPRESENTATIVE: &[(&str, &str)] = &[
         "Kongming, \"Sleeping Dragon\"",
         "21e9e1a9-5d6d-473e-adab-6a1e8e2b0ebd",
     ),
+    // An Aura and an Equipment, which phase out with what they are on.
+    ("Holy Strength", "9357de36-f8be-4f49-b2c8-9fe9eaf82b07"),
+    ("Bonesplitter", "452e3f5f-ce17-4682-966b-5cc100210aee"),
 ];
 
 /// Every representative card leaves cleanly by every route, and the board
