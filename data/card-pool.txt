@@ -2621,3 +2621,30 @@ The Reaper, King No More
 Three Steps Ahead
 Treachery
 Trumpeting Carnosaur
+
+# Limited Edition Alpha (LEA), the first set of the owner's set-by-set plan
+# (29.09.2026; docs/mechanics-roadmap.md §E8). Batch 1: the seven cards
+# reach-list named, and the fifteen that print no rules text at all, which
+# stubgen now reads as finished when the reference script agrees.
+Death Ward
+Drudge Skeletons
+Living Wall
+Uthden Troll
+Wall of Bone
+Wall of Brambles
+Will-o'-the-Wisp
+Craw Wurm
+Earth Elemental
+Fire Elemental
+Gray Ogre
+Grizzly Bears
+Hill Giant
+Hurloon Minotaur
+Ironroot Treefolk
+Merfolk of the Pearl Trident
+Mons's Goblin Raiders
+Obsianus Golem
+Pearled Unicorn
+Savannah Lions
+Scathe Zombies
+Water Elemental

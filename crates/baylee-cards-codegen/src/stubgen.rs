@@ -669,6 +669,27 @@ pub fn set_line(
 /// colour for the player. Five Turbulent lands were written that way the day
 /// the transcoder learned their enter condition: `Land — Swamp Forest`,
 /// `Coverage::Implemented`, and no way to tap for anything.
+/// A card that prints no rules text at all: nothing to read, so it is read
+/// in full (Grizzly Bears, Craw Wurm).
+///
+/// Both readers have to agree. The printing has no rules text on any face,
+/// and the reference script has no line beyond the name, cost, types and
+/// P/T that Scryfall supplies anyway. A script that says anything else, a
+/// keyword, an ability or a line kind the parser does not model, is a card
+/// whose printing we have misread, and it stays a stub. So does a land,
+/// whose rules text CR 305.6 puts in its type line, and which `landgen`
+/// answers before this is asked.
+fn vanilla(faces: &[FaceData], script: &crate::scriptgen::CardScript) -> Option<CardBody> {
+    let printed_nothing = faces.iter().all(|f| f.oracle_text.trim().is_empty());
+    let scripted_nothing =
+        script.keywords.is_empty() && script.rules.is_empty() && script.unknown_lines.is_empty();
+    let is_land = faces.iter().any(|f| f.type_line.contains("Land"));
+    (printed_nothing && scripted_nothing && !is_land).then(|| CardBody {
+        notes: vec!["no rules text".to_string()],
+        ..CardBody::default()
+    })
+}
+
 fn transcode_card(
     script: &crate::scriptgen::CardScript,
     type_line: &str,
@@ -707,10 +728,12 @@ pub fn render_stub(
     // of it; one clause left over and it stays an ordinary stub. Its own
     // printed text is tried first, because a land's intrinsic mana comes from
     // its type line (CR 305.6) and no reference script restates it.
-    let land = crate::landgen::recognize(card, cats).or_else(|| {
-        let script = scripts?.script(&card.name)?;
-        transcode_card(&script, &faces[0].type_line, cats, tokens)
-    });
+    let land = crate::landgen::recognize(card, cats)
+        .or_else(|| {
+            let script = scripts?.script(&card.name)?;
+            transcode_card(&script, &faces[0].type_line, cats, tokens)
+        })
+        .or_else(|| vanilla(&faces, &scripts?.script(&card.name)?));
 
     let mut out = String::with_capacity(4096);
     // Human-verifiable header (docs/card-dsl.md).
@@ -1482,6 +1505,38 @@ mod tests {
             assert!(other.abilities.is_empty(), "{line} gained an ability");
             assert!(!other.notes.iter().any(|n| n == "intrinsic type mana"));
         }
+    }
+
+    /// A card that prints no rules text is read in full, and only when the
+    /// reference script says nothing either. Grizzly Bears and fourteen
+    /// other Alpha creatures were stubs because an empty body was a refusal.
+    #[test]
+    fn a_card_that_prints_no_rules_text_is_finished_when_the_script_agrees() {
+        let empty = crate::scriptgen::parse(
+            "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:\n",
+        );
+        let bears = faces_of(&bare_card("Grizzly Bears", "Creature \u{2014} Bear"));
+        let body = vanilla(&bears, &empty).expect("a vanilla creature is finished");
+        assert!(body.is_empty());
+        assert_eq!(body.notes, ["no rules text"]);
+
+        // The script prints a keyword the printing does not: one of the two
+        // was misread, so the card stays a stub.
+        let flying = crate::scriptgen::parse("Name:Grizzly Bears\nTypes:Creature Bear\nK:Flying\n");
+        assert!(vanilla(&bears, &flying).is_none());
+        // A line the parser does not model is not silence either.
+        let unknown =
+            crate::scriptgen::parse("Name:Grizzly Bears\nTypes:Creature Bear\nText:Something.\n");
+        assert!(vanilla(&bears, &unknown).is_none());
+
+        // The printing says something the script does not.
+        let mut lions = bare_card("Savannah Lions", "Creature \u{2014} Cat");
+        lions.oracle_text = Some("Flying".to_string());
+        assert!(vanilla(&faces_of(&lions), &empty).is_none());
+
+        // And a land prints its rules in its type line (CR 305.6).
+        let wastes = faces_of(&bare_card("Wastes", "Basic Land"));
+        assert!(vanilla(&wastes, &empty).is_none());
     }
 
     /// CR 208.2: a star is a value a characteristic-defining ability

@@ -70,7 +70,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Counterspell
     &["Counter target spell."],
-    &[],
+    // Craw Wurm
+    &[""],
     &[],
     &[],
     &[],
@@ -79,7 +80,8 @@ pub static ORACLE: &[&[&str]] = &[
     // Dark Ritual
     &["Add {B}{B}{B}."],
     &[],
-    &[],
+    // Death Ward
+    &["Regenerate target creature."],
     &[],
     &[],
     &[],
@@ -94,11 +96,15 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Drudge Skeletons
+    &[
+        "{B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+    ],
     // Dwarven Demolition Team
     &["{T}: Destroy target Wall."],
     &[],
-    &[],
+    // Earth Elemental
+    &[""],
     &[],
     &[],
     // Elvish Archers
@@ -112,7 +118,8 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Fire Elemental
+    &[""],
     &[],
     &[],
     &[],
@@ -140,20 +147,24 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Granite Gargoyle
     &["Flying\n{R}: This creature gets +0/+1 until end of turn."],
+    // Gray Ogre
+    &[""],
+    &[],
+    // Grizzly Bears
+    &[""],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Hill Giant
+    &[""],
     &[],
     // Holy Strength
     &["Enchant creature\nEnchanted creature gets +1/+2."],
     // Howl from Beyond
     &["Target creature gets +X/+0 until end of turn."],
     &[],
-    &[],
+    // Hurloon Minotaur
+    &[""],
     &[],
     &[],
     // Ice Storm
@@ -165,7 +176,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Ironroot Treefolk
+    &[""],
     // Island
     &["({T}: Add {U}.)"],
     &[],
@@ -196,7 +208,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Living Lands
     &["All Forests are 1/1 creatures that are still lands."],
-    &[],
+    // Living Wall
+    &["Defender (This creature can't attack.)\n{1}: Regenerate this creature."],
     // Llanowar Elves
     &["{T}: Add {G}."],
     &[],
@@ -213,11 +226,13 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Merfolk of the Pearl Trident
+    &[""],
     &[],
     // Mind Twist
     &["Target player discards X cards at random."],
-    &[],
+    // Mons's Goblin Raiders
+    &[""],
     // Mountain
     &["({T}: Add {R}.)"],
     // Mox Emerald
@@ -236,12 +251,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Obsianus Golem
+    &[""],
     &[],
     // Orcish Oriflamme
     &["Attacking creatures you control get +1/+0."],
     &[],
-    &[],
+    // Pearled Unicorn
+    &[""],
     &[],
     &[],
     &[],
@@ -282,8 +299,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Savannah
     &["({T}: Add {G} or {W}.)"],
-    &[],
-    &[],
+    // Savannah Lions
+    &[""],
+    // Scathe Zombies
+    &[""],
     &[],
     // Scrubland
     &["({T}: Add {W} or {B}.)"],
@@ -349,7 +368,8 @@ pub static ORACLE: &[&[&str]] = &[
     &["Enchant creature\nEnchanted creature gets +2/+1."],
     // Unsummon
     &["Return target creature to its owner's hand."],
-    &[],
+    // Uthden Troll
+    &["{R}: Regenerate this creature."],
     // Verduran Enchantress
     &["Whenever you cast an enchantment spell, you may draw a card."],
     &[],
@@ -357,8 +377,12 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Wall of Air
     &["Defender, flying (This creature can't attack, and it can block creatures with flying.)"],
-    &[],
-    &[],
+    // Wall of Bone
+    &[
+        "Defender (This creature can't attack.)\n{B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+    ],
+    // Wall of Brambles
+    &["Defender (This creature can't attack.)\n{G}: Regenerate this creature."],
     &[],
     // Wall of Ice
     &["Defender (This creature can't attack.)"],
@@ -373,7 +397,8 @@ pub static ORACLE: &[&[&str]] = &[
     // War Mammoth
     &["Trample"],
     &[],
-    &[],
+    // Water Elemental
+    &[""],
     // Weakness
     &["Enchant creature\nEnchanted creature gets -2/-1."],
     // Web
@@ -385,7 +410,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Will-o'-the-Wisp
+    &[
+        "Flying (This creature can't be blocked except by creatures with flying or reach.)\n{B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+    ],
     &[],
     &[],
     &[],

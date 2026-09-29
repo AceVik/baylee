@@ -154,6 +154,14 @@ enum Cmd {
         /// finish, which is the one a player would notice.
         #[arg(long)]
         stubs: bool,
+        /// Rank only the cards named in this file, one Scryfall name a line.
+        ///
+        /// A set is worked through before its cards are in the pool, so
+        /// `--stubs` cannot see them yet; this is the ranking over a set's
+        /// worklist (`#` lines and blanks are skipped). With `--stubs`, the
+        /// two narrow together: a stub the file does not name is left out.
+        #[arg(long)]
+        names: Option<PathBuf>,
         /// How many refusal causes to rank. 0 prints every one of them.
         ///
         /// The ranking is long — a corpus run distinguishes several hundred
@@ -522,9 +530,20 @@ fn main() -> anyhow::Result<()> {
             scripts,
             samples,
             stubs,
+            names,
             reason,
             causes,
-        } => transcode_report(&root, &scripts, samples, stubs, reason.as_deref(), causes),
+        } => transcode_report(
+            &root,
+            &scripts,
+            samples,
+            &Narrow {
+                stubs,
+                names: names.as_deref(),
+            },
+            reason.as_deref(),
+            causes,
+        ),
         Cmd::Batch {
             count,
             dry_run,
@@ -4468,9 +4487,42 @@ fn fill_pinned_printings(
 /// was measuring whether it still was.
 const PINNED_PRINTING_HINT: usize = 100;
 
+/// The oracle ids `data/unplayable.tsv` rules out: ante, dexterity and
+/// subgame cards, which are never built (the file's header says why).
+///
+/// A row that is not `oracle_id<TAB>name<TAB>reason`, or whose reason is not
+/// one of the three words, fails rather than being skipped: a misspelt row is
+/// a card that would quietly count as buildable again.
+fn unplayable_ids(root: &Path) -> anyhow::Result<BTreeMap<String, String>> {
+    let text = fs::read_to_string(root.join("data/unplayable.tsv"))?;
+    let mut out = BTreeMap::new();
+    for (n, line) in text.lines().enumerate() {
+        if line.trim().is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let cols: Vec<&str> = line.split('\t').collect();
+        anyhow::ensure!(
+            cols.len() == 3 && matches!(cols[2], "ante" | "dexterity" | "subgame"),
+            "data/unplayable.tsv:{}: expected oracle_id<TAB>name<TAB>ante|dexterity|subgame",
+            n + 1
+        );
+        out.insert(cols[0].to_string(), cols[1].to_string());
+    }
+    anyhow::ensure!(!out.is_empty(), "data/unplayable.tsv lists no card");
+    Ok(out)
+}
+
 fn validate(root: &Path) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
     let rows = acceptance::parse_decks(&decks_text)?;
+    // An unplayable card is never built, so one in the pool is a card that
+    // somebody built by mistake.
+    let unplayable = unplayable_ids(root)?;
+    for def in baylee_cards::all() {
+        if let Some(name) = unplayable.get(def.oracle_id) {
+            anyhow::bail!("{name} is listed in data/unplayable.tsv and is in the pool");
+        }
+    }
     // The same set `codegen` writes. Reading only the acceptance decks here
     // meant every card added for its own sake was generated and then never
     // checked — the header-vs-code comparison below is the whole point of
@@ -5201,11 +5253,58 @@ fn dev_table(
 /// The number is the honest ceiling on what `codegen` can generate from the
 /// rules reference: a script it refuses becomes an ordinary stub, so this is
 /// also the list of rules worth adding next.
+/// Which cards `transcode-report` ranks: all of the corpus, this pool's
+/// stubs, the names in a file, or the stubs among those names.
+struct Narrow<'a> {
+    stubs: bool,
+    names: Option<&'a Path>,
+}
+
+impl Narrow<'_> {
+    /// The names to keep and how many cards they stand for, or `None` for
+    /// the whole corpus.
+    fn wanted(&self, root: &Path) -> anyhow::Result<Option<(BTreeSet<String>, usize)>> {
+        let listed = match self.names {
+            Some(path) => {
+                let text = fs::read_to_string(path)
+                    .map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
+                let set: BTreeSet<String> = text
+                    .lines()
+                    .map(str::trim)
+                    .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                    .map(str::to_string)
+                    .collect();
+                anyhow::ensure!(!set.is_empty(), "{} names no card", path.display());
+                Some(set)
+            }
+            None => None,
+        };
+        let stubs = if self.stubs {
+            Some(stub_names(&root.join("crates/baylee-cards/src/cards"))?)
+        } else {
+            None
+        };
+        Ok(match (listed, stubs) {
+            (None, None) => None,
+            (Some(set), None) => {
+                let n = set.len();
+                Some((set, n))
+            }
+            (None, Some(stubs)) => Some(stubs),
+            (Some(set), Some((stubs, _))) => {
+                let both: BTreeSet<String> = stubs.intersection(&set).cloned().collect();
+                let n = both.len();
+                Some((both, n))
+            }
+        })
+    }
+}
+
 fn transcode_report(
     root: &Path,
     scripts_dir: &Path,
     samples: usize,
-    stubs: bool,
+    narrow: &Narrow<'_>,
     reason: Option<&str>,
     top: usize,
 ) -> anyhow::Result<()> {
@@ -5221,11 +5320,7 @@ fn transcode_report(
     let mut files = Vec::new();
     collect_scripts(&dir, &mut files)?;
     files.sort();
-    let wanted: Option<(BTreeSet<String>, usize)> = if stubs {
-        Some(stub_names(&root.join("crates/baylee-cards/src/cards"))?)
-    } else {
-        None
-    };
+    let wanted = narrow.wanted(root)?;
     let (mut read, mut refused) = (0usize, 0usize);
     let mut causes: BTreeMap<String, usize> = BTreeMap::new();
     let mut shown = 0usize;
@@ -5293,7 +5388,7 @@ fn transcode_report(
     }
     if let Some((_, cards)) = &wanted {
         println!(
-            "  over our own stubs: {} of {cards} have a reference script",
+            "  over the cards asked for: {} of {cards} have a reference script",
             hit.len()
         );
     }
@@ -5684,6 +5779,8 @@ fn reach_measure(root: &Path, scripts_dir: &Path, cache: &Path) -> anyhow::Resul
         "data/script-index.json is missing or empty; run `cargo xtask codegen`"
     );
     let have: BTreeSet<&str> = baylee_cards::all().map(|def| def.oracle_id).collect();
+    // Never built, so never proposed (data/unplayable.tsv).
+    let unplayable = unplayable_ids(root)?;
     let (mut mine, mut scripted, mut refused, mut front) = (0usize, 0usize, 0usize, 0usize);
     let mut names: Vec<&'static str> = Vec::new();
     // By reference: `ROWS` is a 33 694-element array and not a slice, so
@@ -5693,6 +5790,9 @@ fn reach_measure(root: &Path, scripts_dir: &Path, cache: &Path) -> anyhow::Resul
     for row in &baylee_cards_index::ROWS {
         if have.contains(row.oracle_id) {
             mine += 1;
+            continue;
+        }
+        if unplayable.contains_key(row.oracle_id) {
             continue;
         }
         let Some(rel) = script_for(&script_index, row.name) else {

@@ -935,6 +935,8 @@ pub mod cradle_of_the_accursed;
 pub mod cragcrown_pathway;
 #[path = "creatures/mv_8/crash_of_rhinos.rs"]
 pub mod crash_of_rhinos;
+#[path = "creatures/mv_6/craw_wurm.rs"]
+pub mod craw_wurm;
 #[path = "lands/utility/crawling_barrens.rs"]
 pub mod crawling_barrens;
 #[path = "creatures/mv_4/crazed_skirge.rs"]
@@ -1057,6 +1059,8 @@ pub mod deadly_insect;
 pub mod deadly_rollick;
 #[path = "sorceries/mv_2/death_stroke.rs"]
 pub mod death_stroke;
+#[path = "instants/mv_1/death_ward.rs"]
+pub mod death_ward;
 #[path = "lands/slow/deathcap_glade.rs"]
 pub mod deathcap_glade;
 #[path = "creatures/mv_6/deathcurse_ogre.rs"]
@@ -1233,6 +1237,8 @@ pub mod drowned_catacomb;
 pub mod drowner_of_truth;
 #[path = "lands/utility/drownyard_temple.rs"]
 pub mod drownyard_temple;
+#[path = "creatures/mv_2/drudge_skeletons.rs"]
+pub mod drudge_skeletons;
 #[path = "enchantments/classes/mv_2/druid_class.rs"]
 pub mod druid_class;
 #[path = "creatures/mv_1/druid_lyrist.rs"]
@@ -1273,6 +1279,8 @@ pub mod dwarven_mine;
 pub mod dwarven_miner;
 #[path = "lands/tapland/dwarven_ruins.rs"]
 pub mod dwarven_ruins;
+#[path = "creatures/mv_5/earth_elemental.rs"]
+pub mod earth_elemental;
 #[path = "creatures/mv_2/earth_king_s_lieutenant.rs"]
 pub mod earth_king_s_lieutenant;
 #[path = "creatures/mv_2/earthblighter.rs"]
@@ -1549,6 +1557,8 @@ pub mod fire_ambush;
 pub mod fire_diamond;
 #[path = "creatures/mv_3/fire_drake.rs"]
 pub mod fire_drake;
+#[path = "creatures/mv_5/fire_elemental.rs"]
+pub mod fire_elemental;
 #[path = "creatures/mv_3/fire_imp.rs"]
 pub mod fire_imp;
 #[path = "lands/filter/fire_lit_thicket.rs"]
@@ -1955,6 +1965,8 @@ pub mod gravecrawler;
 pub mod graven_cairns;
 #[path = "enchantments/mv_3/gravity_sphere.rs"]
 pub mod gravity_sphere;
+#[path = "creatures/mv_3/gray_ogre.rs"]
+pub mod gray_ogre;
 #[path = "lands/gain/graypelt_refuge.rs"]
 pub mod graypelt_refuge;
 #[path = "lands/check/great_arashin_city.rs"]
@@ -1993,6 +2005,8 @@ pub mod grinding_station;
 pub mod grist_the_hunger_tide;
 #[path = "lands/fetch/grixis_panorama.rs"]
 pub mod grixis_panorama;
+#[path = "creatures/mv_2/grizzly_bears.rs"]
+pub mod grizzly_bears;
 #[path = "lands/grove_of_the_burnwillows.rs"]
 pub mod grove_of_the_burnwillows;
 #[path = "lands/utility/grove_of_the_guardian.rs"]
@@ -2155,6 +2169,8 @@ pub mod highland_lake;
 pub mod highland_weald;
 #[path = "creatures/mv_4/highway_robber.rs"]
 pub mod highway_robber;
+#[path = "creatures/mv_4/hill_giant.rs"]
+pub mod hill_giant;
 #[path = "lands/check/hinterland_harbor.rs"]
 pub mod hinterland_harbor;
 #[path = "instants/mv_2/hisoka_s_defiance.rs"]
@@ -2215,6 +2231,8 @@ pub mod hundroog;
 pub mod hunger_of_the_nim;
 #[path = "creatures/mv_4/huntmaster_of_the_fells.rs"]
 pub mod huntmaster_of_the_fells;
+#[path = "creatures/mv_3/hurloon_minotaur.rs"]
+pub mod hurloon_minotaur;
 #[path = "lands/restricted/hushwood_verge.rs"]
 pub mod hushwood_verge;
 #[path = "creatures/mv_5/hyalopterous_lemure.rs"]
@@ -2313,6 +2331,8 @@ pub mod iron_myr;
 pub mod iron_tusk_elephant;
 #[path = "instants/mv_1/iron_will.rs"]
 pub mod iron_will;
+#[path = "creatures/mv_5/ironroot_treefolk.rs"]
+pub mod ironroot_treefolk;
 #[path = "creatures/mv_2/ironshell_beetle.rs"]
 pub mod ironshell_beetle;
 #[path = "instants/mv_4/irradiate.rs"]
@@ -2629,6 +2649,8 @@ pub mod littjara_mirrorlake;
 pub mod living_lands;
 #[path = "enchantments/mv_4/living_plane.rs"]
 pub mod living_plane;
+#[path = "creatures/artifacts/mv_4/living_wall.rs"]
+pub mod living_wall;
 #[path = "creatures/mv_3/llanowar_cavalry.rs"]
 pub mod llanowar_cavalry;
 #[path = "creatures/mv_2/llanowar_dead.rs"]
@@ -2827,6 +2849,8 @@ pub mod mercadian_bazaar;
 pub mod mercenary_knight;
 #[path = "creatures/mv_3/merchant_of_secrets.rs"]
 pub mod merchant_of_secrets;
+#[path = "creatures/mv_1/merfolk_of_the_pearl_trident.rs"]
+pub mod merfolk_of_the_pearl_trident;
 #[path = "creatures/mv_6/metamorphosis_fanatic.rs"]
 pub mod metamorphosis_fanatic;
 #[path = "lands/utility/meteor_crater.rs"]
@@ -2919,6 +2943,8 @@ pub mod molten_tributary;
 pub mod molting_harpy;
 #[path = "creatures/mv_2/monk_realist.rs"]
 pub mod monk_realist;
+#[path = "creatures/mv_1/mons_s_goblin_raiders.rs"]
+pub mod mons_s_goblin_raiders;
 #[path = "sorceries/mv_2/monstrous_growth.rs"]
 pub mod monstrous_growth;
 #[path = "lands/check/monumental_henge.rs"]
@@ -3171,6 +3197,8 @@ pub mod oboro_envoy;
 pub mod oboro_palace_in_the_clouds;
 #[path = "lands/fetch/obscura_storefront.rs"]
 pub mod obscura_storefront;
+#[path = "creatures/artifacts/mv_6/obsianus_golem.rs"]
+pub mod obsianus_golem;
 #[path = "creatures/mv_5/ogre_arsonist.rs"]
 pub mod ogre_arsonist;
 #[path = "creatures/mv_5/ogre_berserker.rs"]
@@ -3293,6 +3321,8 @@ pub mod patrol_hound;
 pub mod pavel_maliki;
 #[path = "enchantments/mv_2/peace_of_mind.rs"]
 pub mod peace_of_mind;
+#[path = "creatures/mv_3/pearled_unicorn.rs"]
+pub mod pearled_unicorn;
 #[path = "lands/tapland/peat_bog.rs"]
 pub mod peat_bog;
 #[path = "lands/unlucky/peculiar_lighthouse.rs"]
@@ -3843,12 +3873,16 @@ pub mod savage_mansion;
 pub mod savai_triome;
 #[path = "lands/dual/savannah.rs"]
 pub mod savannah;
+#[path = "creatures/mv_1/savannah_lions.rs"]
+pub mod savannah_lions;
 #[path = "lands/pain/scabland.rs"]
 pub mod scabland;
 #[path = "lands/fetch/scalding_tarn.rs"]
 pub mod scalding_tarn;
 #[path = "creatures/mv_6/scaled_hulk.rs"]
 pub mod scaled_hulk;
+#[path = "creatures/mv_3/scathe_zombies.rs"]
+pub mod scathe_zombies;
 #[path = "lands/cycling/scattered_groves.rs"]
 pub mod scattered_groves;
 #[path = "enchantments/auras/mv_3/scavenged_weaponry.rs"]
@@ -5097,6 +5131,8 @@ pub mod urza_s_saga;
 pub mod urza_s_tower;
 #[path = "lands/restricted/urza_s_workshop.rs"]
 pub mod urza_s_workshop;
+#[path = "creatures/mv_3/uthden_troll.rs"]
+pub mod uthden_troll;
 #[path = "lands/planets/uthros_titanic_godcore.rs"]
 pub mod uthros_titanic_godcore;
 #[path = "creatures/mv_2/utopia_tree.rs"]
@@ -5267,6 +5303,10 @@ pub mod wall_of_air;
 pub mod wall_of_blood;
 #[path = "creatures/mv_2/wall_of_blossoms.rs"]
 pub mod wall_of_blossoms;
+#[path = "creatures/mv_3/wall_of_bone.rs"]
+pub mod wall_of_bone;
+#[path = "creatures/mv_3/wall_of_brambles.rs"]
+pub mod wall_of_brambles;
 #[path = "creatures/mv_2/wall_of_earth.rs"]
 pub mod wall_of_earth;
 #[path = "creatures/mv_3/wall_of_granite.rs"]
@@ -5313,6 +5353,8 @@ pub mod wasteland;
 pub mod wastes;
 #[path = "lands/restricted/wastewood_verge.rs"]
 pub mod wastewood_verge;
+#[path = "creatures/mv_5/water_elemental.rs"]
+pub mod water_elemental;
 #[path = "creatures/mv_2/waterfront_bouncer.rs"]
 pub mod waterfront_bouncer;
 #[path = "lands/utility/waterfront_district.rs"]
@@ -5373,6 +5415,8 @@ pub mod wild_elephant;
 pub mod wild_griffin;
 #[path = "lands/saddle/wild_roads.rs"]
 pub mod wild_roads;
+#[path = "creatures/mv_1/will_o_the_wisp.rs"]
+pub mod will_o_the_wisp;
 #[path = "creatures/mv_2/willow_faerie.rs"]
 pub mod willow_faerie;
 #[path = "lands/restricted/willowrush_verge.rs"]
