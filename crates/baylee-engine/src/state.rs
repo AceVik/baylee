@@ -3210,6 +3210,10 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         // them one.
         F::EnteredThisTurn => h.u8(30),
         F::PutIntoGraveyardThisTurn => h.u8(35),
+        F::HasCounter(kind) => {
+            h.u8(36);
+            hash_counter(h, *kind);
+        }
         F::WithSingleTarget => h.u8(34),
         // Its own tag rather than a payload on `CmcAtMost`: the bound is
         // read from the source at match time, so two filters that differ

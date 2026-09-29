@@ -477,6 +477,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::Attacking
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
+        | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::CmcAtMost(_)
         | Filter::CmcAtMostX

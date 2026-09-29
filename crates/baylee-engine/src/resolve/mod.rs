@@ -258,6 +258,11 @@ pub enum AwaitingOp {
     MayDo {
         /// What runs on a yes.
         effects: &'static [Effect],
+        /// "Do this only once each turn" ([`Effect::MayDoOnceEachTurn`]):
+        /// the source and ability index a yes writes into
+        /// `GameState::ability_fires`, the per-turn tally that is cleared as
+        /// each turn begins. `None` for a plain "you may".
+        once_each_turn: Option<(ObjectId, u32)>,
     },
     /// A player decides whether to pay for a tax effect.
     PlayerMayPay {
@@ -1029,10 +1034,18 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
 /// When the suspended operation is not an optional clause.
 #[must_use]
 pub fn resume_may_do(state: &mut GameState, res: &mut Resolution, yes: bool) -> Flow {
-    let AwaitingOp::MayDo { effects } = res.awaiting.take().expect("resume without awaiting op")
+    let AwaitingOp::MayDo {
+        effects,
+        once_each_turn,
+    } = res.awaiting.take().expect("resume without awaiting op")
     else {
         panic!("resume_may_do on a choice that is not an optional clause");
     };
+    // The yes uses the turn's one go, before the body runs: the body may
+    // suspend, and the go is spent by choosing to do it.
+    if yes && let Some(key) = once_each_turn {
+        state.ability_fires.insert(key, 1);
+    }
     if yes && let Some(pending) = run_nested(state, res, effects) {
         return Flow::Wait(pending);
     }
@@ -1613,6 +1626,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
+        | Effect::MayDoOnceEachTurn { .. }
         | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     }
@@ -1937,16 +1951,35 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
         }
         Effect::AddMana { .. } => mana::exec(state, res, op),
         Effect::MayDo { effects } => {
-            // CR 608.2d: "The player can't choose an option that's illegal
-            // or impossible." "You may sacrifice this land" after the land
-            // has gone is exactly that, so it is not asked, and the clause
-            // does not happen. Only this one body is read, and the
-            // predicate is the one the sacrifice itself checks. Any other
-            // "may" is still asked as before.
-            if effects == [Effect::SacrificeSelf] && !zones::can_sacrifice_self(state, res) {
+            if !may_clause_possible(state, res, effects) {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::MayDo { effects });
+            res.awaiting = Some(AwaitingOp::MayDo {
+                effects,
+                once_each_turn: None,
+            });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::MayDo,
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::MayDoOnceEachTurn { effects } => {
+            // The ability on the stack names its source and its index; a
+            // spell has neither, and no spell prints the sentence.
+            let key = state
+                .object(res.on_stack)
+                .and_then(|o| o.ability)
+                .map(|loc| (loc.source, loc.index));
+            if key.is_some_and(|key| state.ability_fires.contains_key(&key))
+                || !may_clause_possible(state, res, effects)
+            {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::MayDo {
+                effects,
+                once_each_turn: key,
+            });
             Some(Pending::YesNo {
                 player: you,
                 prompt: YesNoPrompt::MayDo,
@@ -1996,6 +2029,32 @@ pub fn resolving_ability(
     // an entry in the card's ability list.
     obj.card
         .map(|c| AbilityRef::new(c.index, AbilityRef::SPELL))
+}
+
+/// Whether an optional clause can still be done, asked before it is offered.
+///
+/// CR 608.2d: "The player can't choose an option that's illegal or
+/// impossible." "You may sacrifice this land" after the land has gone is
+/// that, and so is "you may put that card onto the battlefield" once the
+/// card has left the graveyard (CR 400.7). Neither is asked, and the clause
+/// does not happen; for "do this only once each turn" that also keeps the
+/// turn's one go. Only these two bodies are read, each with the predicate
+/// its own effect checks, and any other "may" is asked as before.
+fn may_clause_possible(state: &GameState, res: &Resolution, effects: &[Effect]) -> bool {
+    match effects {
+        [Effect::SacrificeSelf] => zones::can_sacrifice_self(state, res),
+        [
+            Effect::GraveyardToBattlefield {
+                target: TargetSpec::EventObject,
+                ..
+            },
+        ] => res.event_object.is_some_and(|card| {
+            state
+                .object(card)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard)
+        }),
+        _ => true,
+    }
 }
 
 /// Runs a nested branch (If*/kicked-style conditional effects) inline;
@@ -2698,6 +2757,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
+        | Effect::MayDoOnceEachTurn { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }

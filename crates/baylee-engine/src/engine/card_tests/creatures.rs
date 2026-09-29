@@ -91774,3 +91774,264 @@ fn fiend_artisan_searches_only_as_a_sorcery() {
     assert_eq!(tap_mana_except(&mut engine, p0, elves), 3);
     assert!(offered(&engine), "its own main phase, stack empty");
 }
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: The Reaper, King No More.
+// ---------------------------------------------------------------------------
+
+fn the_reaper() -> CardIndex {
+    card_index("39b67a4d-6a87-41f0-a86f-b66671ccc20d")
+}
+
+/// Destroys `id`, passes once, and stops at the first optional question or
+/// at an empty stack, whichever comes first.
+#[track_caller]
+fn reaper_sees_die(engine: &mut Engine<RegistryLookup>, id: ObjectId) {
+    let state = engine
+        .dev_state_mut(PlayerId::new(0))
+        .expect("the harness may set boards up");
+    crate::sba::destroy(state, id);
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    engine.apply(player, PlayerAction::PassPriority).unwrap();
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. }) || stack_is_empty(e)
+    });
+}
+
+/// Whether the engine is asking seat 0 "you may …".
+fn asked_may(engine: &Engine<RegistryLookup>) -> bool {
+    matches!(
+        engine.pending(),
+        Pending::YesNo {
+            prompt: crate::choice::YesNoPrompt::MayDo,
+            ..
+        }
+    )
+}
+
+/// Seat 0 casts The Reaper with the opponent's Steadfast Guard and
+/// Thundering Giant as the two targets of its entering trigger, and the
+/// opponent's Llanowar Elves left alone.
+fn the_reaper_marks_two() -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[swamp(), mountain(), forest()])
+        .battlefield(
+            1,
+            &[steadfast_guard(), thundering_giant(), llanowar_elves()],
+        )
+        .hand(0, &[the_reaper()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let guard = on_battlefield(&engine, p1, steadfast_guard()).unwrap();
+    let giant = on_battlefield(&engine, p1, thundering_giant()).unwrap();
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
+    let (guard_pt, giant_pt) = (pt(&engine, guard), pt(&engine, giant));
+    cast_from_hand(&mut engine, p0, the_reaper());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!()
+    };
+    assert_eq!((min, max), (0, 2), "up to two target creatures");
+    assert!(options.contains(&elves));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![guard, giant],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    for (id, was) in [(guard, guard_pt), (giant, giant_pt)] {
+        assert_eq!(counters_on(&engine, id, CounterKind::M1M1), 1);
+        assert_eq!(pt(&engine, id), (was.0 - 1, was.1 - 1));
+    }
+    assert_eq!(counters_on(&engine, elves, CounterKind::M1M1), 0);
+    engine
+}
+
+/// "Whenever a creature an opponent controls with a -1/-1 counter on it
+/// dies, you may put that card onto the battlefield under your control. Do
+/// this only once each turn." The Guard dies wearing The Reaper's counter
+/// and comes over; the Giant dies wearing one the same turn, and the
+/// ability asks nothing.
+#[test]
+fn the_reaper_takes_one_marked_creature_each_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = the_reaper_marks_two();
+    let guard = on_battlefield(&engine, p1, steadfast_guard()).unwrap();
+    let giant = on_battlefield(&engine, p1, thundering_giant()).unwrap();
+
+    reaper_sees_die(&mut engine, guard);
+    assert!(asked_may(&engine), "got {:?}", engine.pending());
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let guard = on_battlefield(&engine, p0, steadfast_guard()).expect("under your control");
+    assert_eq!(engine.state().object(guard).unwrap().owner, p1);
+    assert_eq!(
+        counters_on(&engine, guard, CounterKind::M1M1),
+        0,
+        "a new object (CR 400.7)"
+    );
+
+    reaper_sees_die(&mut engine, giant);
+    assert!(!asked_may(&engine), "only once each turn");
+    assert!(stack_is_empty(&engine));
+    assert!(in_graveyard(&engine, p1, thundering_giant()).is_some());
+}
+
+/// The Elves die wearing no counter and nothing is asked, with the turn's
+/// go still unused. Then a no keeps that go: the Guard is left in the
+/// graveyard, and the Giant dying next is asked about and comes over.
+#[test]
+fn the_reaper_declined_keeps_its_one_go() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = the_reaper_marks_two();
+    let guard = on_battlefield(&engine, p1, steadfast_guard()).unwrap();
+    let giant = on_battlefield(&engine, p1, thundering_giant()).unwrap();
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
+
+    reaper_sees_die(&mut engine, elves);
+    assert!(!asked_may(&engine), "no -1/-1 counter on it");
+    assert!(in_graveyard(&engine, p1, llanowar_elves()).is_some());
+
+    reaper_sees_die(&mut engine, guard);
+    assert!(asked_may(&engine));
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p1, steadfast_guard()).is_some());
+
+    reaper_sees_die(&mut engine, giant);
+    assert!(asked_may(&engine), "the go was not used");
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, thundering_giant()).is_some());
+}
+
+/// "A creature an opponent controls" is who controlled it as it died
+/// (CR 603.10a), and the card in the graveyard is controlled by nobody. The
+/// Guard, stolen with Treachery, dies as seat 0's creature and does not
+/// trigger, though its owner is the opponent; the Giant dies as the
+/// opponent's and does.
+#[test]
+fn the_reaper_asks_who_controlled_the_creature_as_it_died() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let treachery = card_index("8ed57194-7508-4aef-9373-64f7e80612d8");
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                the_reaper(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .battlefield(1, &[steadfast_guard(), thundering_giant()])
+        .hand(0, &[treachery])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let guard = on_battlefield(&engine, p1, steadfast_guard()).unwrap();
+    let giant = on_battlefield(&engine, p1, thundering_giant()).unwrap();
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        for id in [guard, giant] {
+            state
+                .object_mut(id)
+                .unwrap()
+                .counters
+                .add(CounterKind::M1M1, 1);
+        }
+    }
+    cast_from_hand(&mut engine, p0, treachery);
+    let _ = aim_at(&mut engine, p0, guard);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().object(guard).unwrap().controller, p0);
+
+    reaper_sees_die(&mut engine, guard);
+    assert!(!asked_may(&engine), "it was seat 0's creature as it died");
+    assert!(in_graveyard(&engine, p1, steadfast_guard()).is_some());
+
+    reaper_sees_die(&mut engine, giant);
+    assert!(asked_may(&engine), "an opponent's, with a counter on it");
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, thundering_giant()).is_some());
+}
+
+/// CR 608.2d: "put that card onto the battlefield" is impossible once the
+/// card has left the graveyard, so nothing is asked and the turn's go is
+/// kept. The Guard's card is exiled with the trigger waiting on the stack;
+/// the Giant dying next is asked about.
+#[test]
+fn the_reaper_asks_nothing_for_a_card_that_left_the_graveyard() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = the_reaper_marks_two();
+    let guard = on_battlefield(&engine, p1, steadfast_guard()).unwrap();
+    let giant = on_battlefield(&engine, p1, thundering_giant()).unwrap();
+
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        crate::sba::destroy(state, guard);
+    }
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    engine.apply(player, PlayerAction::PassPriority).unwrap();
+    assert!(!stack_is_empty(&engine), "the trigger waits on the stack");
+    let card = in_graveyard(&engine, p1, steadfast_guard()).unwrap();
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        state
+            .move_object(
+                card,
+                ZoneLocation::Exile(p1),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+    }
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. }) || stack_is_empty(e)
+    });
+    assert!(
+        !asked_may(&engine),
+        "no card left to put onto the battlefield"
+    );
+
+    reaper_sees_die(&mut engine, giant);
+    assert!(asked_may(&engine), "the go was kept");
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, thundering_giant()).is_some());
+}

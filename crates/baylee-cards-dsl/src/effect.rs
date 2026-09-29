@@ -1186,6 +1186,20 @@ pub enum Effect {
         /// What happens on a yes.
         effects: &'static [Effect],
     },
+    /// "You may …. Do this only once each turn." (The Reaper, King No More.)
+    ///
+    /// The ability still triggers every time; what is limited is the
+    /// optional action. A yes uses the turn's one go and a no does not, so
+    /// the question is asked again the next time the ability resolves. A
+    /// source that has used it this turn is not asked at all, and neither is
+    /// one whose action has become impossible (CR 608.2d): the card to put
+    /// onto the battlefield has left the graveyard. The limit is kept per
+    /// object, so a source that left the battlefield and came back is a new
+    /// object with a fresh turn (CR 400.7).
+    MayDoOnceEachTurn {
+        /// What happens on a yes.
+        effects: &'static [Effect],
+    },
     /// "When you do, …": creates a reflexive triggered ability
     /// (CR 603.12). It is written as the **last** op of a list that
     /// resolves off the stack, directly after the action it waits for. It
@@ -2316,6 +2330,7 @@ impl Effect {
             // has to read it.
             Effect::Sequence(effects)
             | Effect::MayDo { effects }
+            | Effect::MayDoOnceEachTurn { effects }
             | Effect::Reflexive {
                 when: _,
                 effects,
@@ -2500,6 +2515,26 @@ mod verb_tests {
         });
         assert_eq!(seen, 2);
         assert!(counter_seen);
+    }
+
+    /// "You may …. Do this only once each turn." carries its body the way
+    /// `MayDo` does, and the walk goes into it.
+    #[test]
+    fn once_each_turn_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::MayDoOnceEachTurn {
+            effects: &[Effect::GraveyardToBattlefield {
+                target: TargetSpec::EventObject,
+                owner_control: false,
+                counters: None,
+            }],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::GraveyardToBattlefield { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
     }
 
     use crate::ability::Trigger;

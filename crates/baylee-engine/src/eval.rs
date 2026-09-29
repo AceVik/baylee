@@ -83,6 +83,10 @@ pub fn matches_projected(
         // asserts both halves of what makes it unnecessary.
         Filter::EnteredThisTurn => state.per_turn.entered_battlefield.contains(&obj.id),
         Filter::PutIntoGraveyardThisTurn => state.per_turn.entered_graveyard.contains(&obj.id),
+        // The object's own counters. A leaves-the-battlefield trigger asks
+        // the object as it last existed there, and `trigger::departed_matches`
+        // hands in that object, counters and all.
+        Filter::HasCounter(kind) => obj.counters.get(*kind) > 0,
         Filter::MatchesChosenTypeOfSource => state
             .object(this)
             .and_then(|src| src.chosen_subtype)

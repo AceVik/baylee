@@ -98,6 +98,14 @@ pub enum Filter {
     /// History like [`Self::EnteredThisTurn`], kept in the same per-turn
     /// record and refused by a view for the same reason.
     PutIntoGraveyardThisTurn,
+    /// Has at least one counter of this kind on it (The Reaper, King No
+    /// More: "a creature an opponent controls with a -1/-1 counter on it").
+    ///
+    /// Asked of a permanent that has just left the battlefield, it answers
+    /// with the counters the permanent had as it left (CR 603.10a): the move
+    /// clears them, so the card in the graveyard has none by the time a dies
+    /// trigger asks.
+    HasCounter(crate::CounterKind),
     /// Has the subtype the SOURCE object chose as it entered ("the chosen
     /// type" — Roaming Throne, Reflections of Littjara, Cavern of Souls).
     MatchesChosenTypeOfSource,

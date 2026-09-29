@@ -359,6 +359,9 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // journal — the same refusal as the rest of this list.
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
+        // The engine's counter kind against the view's wire kind, and the
+        // translation is gamehost's; `baylee-ai` refuses it for that reason.
+        | Filter::HasCounter(_)
         | Filter::InZone(_) => return None,
     })
 }

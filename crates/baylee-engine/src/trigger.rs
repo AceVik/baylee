@@ -465,8 +465,17 @@ fn hits(
 
 /// A leaves-the-battlefield trigger's filter, asked of the object as it
 /// last existed on the battlefield (CR 603.10a): its projected
-/// characteristics as it left, where the state still has them, and the
-/// object as it is otherwise.
+/// characteristics and its counters as it left, where the state still has
+/// them, and the object as it is otherwise.
+///
+/// The counters are written onto a copy because `move_object` empties them
+/// on the way out, so "with a -1/-1 counter on it" (The Reaper, King No
+/// More) was never true of the card in the graveyard. A copy per departed
+/// object and trigger source, which only a departure from the battlefield
+/// pays for. The controller needs no such help here: the field still holds
+/// the controller the permanent left with while triggers are collected, and
+/// only a later refresh settles it back to the owner, which is why
+/// `ltb_controllers` exists for what reads it at resolution.
 fn departed_matches(
     filter: &baylee_cards_dsl::Filter,
     state: &GameState,
@@ -474,12 +483,20 @@ fn departed_matches(
     you: PlayerId,
     source: ObjectId,
 ) -> bool {
-    state.object_or_departed(object).is_some_and(|o| {
-        match state.last_known_characteristics(object) {
-            Some(was) => eval::matches_projected(filter, state, o, was, you, source),
-            None => eval::matches(filter, state, o, you, source),
-        }
-    })
+    let Some(o) = state.object_or_departed(object) else {
+        return false;
+    };
+    let Some(was) = state.last_known_characteristics(object) else {
+        return eval::matches(filter, state, o, you, source);
+    };
+    let mut as_it_was = o.clone();
+    as_it_was.counters = state
+        .ltb_counters
+        .iter()
+        .find(|(id, _)| *id == object)
+        .map(|(_, counters)| counters.clone())
+        .unwrap_or_default();
+    eval::matches_projected(filter, state, &as_it_was, was, you, source)
 }
 
 /// [`Trigger::TargetedByOpponent`]'s count: the fitting targets an

@@ -56,6 +56,13 @@
 //! a token says `Some(true)`, a visible card says `Some(false)`, and the pair
 //! that cannot be told apart says `None`.
 //!
+//! [`Filter::HasCounter`] is a gap and not a principle. A view carries every
+//! counter, but as the wire kind, and the translation from the engine's kind
+//! is `baylee-gamehost`'s, which this crate does not link. The one card that
+//! asks it, The Reaper, King No More, asks it of a creature that died, which
+//! is a trigger and never a choice an agent makes, so the reading waits for
+//! the first card that targets by counters.
+//!
 //! One reading deliberately differs, because the view is the better source:
 //! the zone is passed in rather than read off the object, because a view
 //! sorts objects into zone lists instead of stamping each one. Everything
@@ -177,7 +184,9 @@ impl HeuristicAgent {
             | Filter::CmcAtMostX
             | Filter::EnteredThisTurn
             | Filter::PutIntoGraveyardThisTurn
-            | Filter::SharesSubtypeWithCommander => None,
+            | Filter::SharesSubtypeWithCommander
+            // Not one of the six: a gap, and the header says why.
+            | Filter::HasCounter(_) => None,
         }
     }
 
