@@ -687,6 +687,15 @@ pub struct SpellMode {
     /// target artifact", and read as exactly one that trigger vanishes off
     /// the stack on a board with no other artifact on it.
     pub targets: Option<crate::effect::TargetReq>,
+    /// A second instance of the word "target" in this mode, as on
+    /// [`crate::AbilityDef::Spell::second_targets`]: Archdruid's Charm's
+    /// "Put a +1/+1 counter on target creature you control. It deals damage
+    /// equal to its power to target creature you don't control."
+    ///
+    /// A modal **spell**'s only: the cast wizard asks it once the mode is
+    /// chosen. A modal trigger's mode never carries one, which
+    /// `no_modal_trigger_mode_prints_a_second_target` holds.
+    pub second_targets: Option<crate::effect::TargetReq>,
     /// Cost override for this mode (overload); `None` = the printed cost.
     pub cost_override: Option<baylee_core::mana::ManaCost>,
 }

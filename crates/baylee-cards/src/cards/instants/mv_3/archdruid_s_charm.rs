@@ -4,26 +4,14 @@
 //! Oracle: • Put a +1/+1 counter on target creature you control. It deals damage equal to its power to target creature you don't control.
 //! Oracle: • Exile target artifact or enchantment.
 //! Set: MKM #151 — Murders at Karlov Manor | Scryfall ID: 5caae5ae-845f-42c2-b1ae-956df2739433 | Oracle ID: 3c1ef404-e2c6-486d-a5a2-d5779c71d498
-// PARTIAL — mode 3 is built. Modes 1 and 2 are dropped with a
-// `// NOT SUPPORTED:` line each: neither has a spelling in the DSL. With one
-// mode left there is no choice to offer, so the remainder is written as the
-// plain spell it now is rather than as a one-option `ModalSpell`.
+// IMPLEMENTED — three modes: a search whose find forks on the card found
+// (a land enters tapped, a creature goes to hand, revealed either way), a
+// counter and a bite through the mode's second target, and an exile.
 
 use baylee_cards_dsl::prelude::*;
 
-// NOT SUPPORTED: "Search your library for a creature or land card and reveal
-// it. Put it onto the battlefield tapped if it's a land card. Otherwise, put
-// it into your hand. Then shuffle." — `Effect::SearchLibrary`'s `finds` pair
-// up with the found cards *positionally* and say nothing about what each card
-// is, so one search whose destination forks on the found card's type (land →
-// battlefield tapped, creature → hand) has no spelling here. Two searches
-// would find two cards, and `Find` carries no condition.
-// NOT SUPPORTED: "Put a +1/+1 counter on target creature you control. It
-// deals damage equal to its power to target creature you don't control." —
-// the effect is `Effect::DamageEqualToPower { dealer: First, to: Second }` and
-// a spell or activation can carry the second instance of "target"
-// (`second_targets`), but a mode cannot: `ModeDef` has one `targets` and the
-// cast wizard offers the second instance to non-modal casts only.
+static CREATURE_OR_LAND: Filter = Filter::Or(&[Filter::CREATURE, Filter::LAND]);
+static CREATURE_YOU_DONT_CONTROL: Filter = f!(not_yours CREATURE);
 
 card!(
     index = index::ARCHDRUID_S_CHARM,
@@ -35,19 +23,38 @@ card!(
         mana_cost = mana!("{G}{G}{G}"),
         types = TypeSet::INSTANT,
     ),],
-    coverage = Coverage::Partial(
-        "two of the three modes are not expressible: no search destination \
-         that forks on the found card's type (mode 1), and no mode that \
-         carries a second instance of \"target\", which mode 2's \
-         \"deals damage equal to its power to target creature you don't \
-         control\" needs"
-    ),
-    abilities = &[spell!(
-        &[Effect::exile(TargetSpec::Object(
-            &Filter::ARTIFACT_OR_ENCHANTMENT
-        ))],
-        targets = Some(TargetReq::one(TargetSpec::Object(
-            &Filter::ARTIFACT_OR_ENCHANTMENT
-        ))),
-    )],
+    coverage = Coverage::Implemented,
+    abilities = &[AbilityDef::ModalSpell {
+        modes: &[
+            mode!(&[Effect::SearchLibrary {
+                filter: &CREATURE_OR_LAND,
+                finds: &[Find::HAND.when_matching(&Filter::LAND, &Find::BATTLEFIELD_TAPPED)],
+                optional: false,
+            }]),
+            mode!(
+                &[
+                    Effect::AddCounter {
+                        kind: CounterKind::P1P1,
+                        amount: Amount::Fixed(1),
+                    },
+                    Effect::DamageEqualToPower {
+                        dealer: TargetSlot::First,
+                        to: TargetSlot::Second,
+                    },
+                ],
+                targets = Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE))),
+                second_targets = Some(TargetReq::one(TargetSpec::Object(
+                    &CREATURE_YOU_DONT_CONTROL
+                ))),
+            ),
+            mode!(
+                &[Effect::exile(TargetSpec::Object(
+                    &Filter::ARTIFACT_OR_ENCHANTMENT
+                ))],
+                targets = Some(TargetReq::one(TargetSpec::Object(
+                    &Filter::ARTIFACT_OR_ENCHANTMENT
+                )))
+            ),
+        ],
+    }],
 );

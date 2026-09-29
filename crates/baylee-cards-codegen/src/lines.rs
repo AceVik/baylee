@@ -1717,6 +1717,7 @@ mod tests {
         SpellMode {
             effects: draw(1),
             targets: None,
+            second_targets: None,
             cost_override,
         }
     }
@@ -1727,6 +1728,7 @@ mod tests {
         SpellMode {
             effects: &[],
             targets: None,
+            second_targets: None,
             cost_override: None,
         }
     }

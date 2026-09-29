@@ -1152,8 +1152,11 @@ a fight is the one sentence whose two creatures are two *different* instances
 of "target": Khalni Ambush's "target creature you control fights target
 creature you don't control" is two requirements, not one requirement for two
 objects. The second is written `second_targets = Some(TargetReq::…)` on
-`spell!`, `activated!` or `loyalty!` (Oko, Thief of Crowns' −5), beside
-`targets`/`target` — never on a mana
+`spell!`, `activated!` or `loyalty!` (Oko, Thief of Crowns' −5), or on a
+modal spell's `mode!` (Archdruid's Charm's second mode), beside
+`targets`/`target` — never on a modal trigger's mode, which is put on the
+stack without the cast wizard that asks it
+(`no_modal_trigger_mode_prints_a_second_target`), and never on a mana
 ability, which may not target at all (CR 605.1a) and which
 `lints::mana_ability_fault` refuses through either instance.
 It is asked after the first, is its own list at every layer, and is never

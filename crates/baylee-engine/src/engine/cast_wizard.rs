@@ -1014,15 +1014,9 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// The spell's requirement for a second instance of the word "target",
-    /// if it prints one.
-    ///
-    /// Only [`AbilityDef::Spell`] can: a mode of a modal spell carries one
-    /// requirement, so a charm whose mode says "target" twice (Archdruid's
-    /// Charm) is not expressible yet and answers `None` here by construction.
+    /// if it prints one: [`AbilityDef::Spell`]'s, or the chosen mode's
+    /// (Archdruid's Charm's second mode says "target" twice).
     pub(super) fn wizard_second_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
-        if matches!(wizard.option, Some(CastModeKind::Mode(_))) {
-            return None;
-        }
         let def = self
             .state
             .object(wizard.card)
@@ -1033,12 +1027,19 @@ impl<L: CardLookup> Engine<L> {
             Some(CastModeKind::Face(i)) => i.min(def.faces.len() - 1),
             _ => 0,
         };
-        def.abilities_for_face(face_index)
-            .iter()
-            .find_map(|a| match a {
+        let abilities = def.abilities_for_face(face_index);
+        match wizard.option {
+            Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
+                AbilityDef::ModalSpell { modes } => {
+                    modes.get(i).and_then(|m: &SpellMode| m.second_targets)
+                }
+                _ => None,
+            }),
+            _ => abilities.iter().find_map(|a| match a {
                 AbilityDef::Spell { second_targets, .. } => *second_targets,
                 _ => None,
-            })
+            }),
+        }
     }
 
     fn wizard_pitch_filter(

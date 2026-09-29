@@ -337,7 +337,11 @@ impl HeuristicAgent {
     /// whole game state. "Up to one target" is offered with nothing to point
     /// at, so it falls through to the effects like an untargeted mode.
     fn mode_reaches(&self, view: &PlayerView, mode: &SpellMode, this: ObjectId) -> Option<bool> {
-        if mode.targets.is_some_and(|req| req.min >= 1) {
+        if [mode.targets, mode.second_targets]
+            .into_iter()
+            .flatten()
+            .any(|req| req.min >= 1)
+        {
             return Some(true);
         }
         self.effects_reach(view, mode.effects, this)

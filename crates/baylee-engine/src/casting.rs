@@ -249,16 +249,18 @@ pub fn face_has_a_legal_target(
     };
     let abilities = def.abilities_for_face(face);
     // A modal spell is answered mode by mode (CR 700.2): the card is castable
-    // when *any* one of its modes can be pointed at something, and which one
-    // is `cast_options`' question, not this one's.
+    // when *any* one of its modes can be pointed at something, through every
+    // instance of the word that mode prints, and which one is
+    // `cast_options`' question, not this one's.
     let mut modal = abilities.iter().filter_map(|a| match a {
         baylee_cards_dsl::AbilityDef::ModalSpell { modes } => Some(modes),
         _ => None,
     });
     if let Some(modes) = modal.next() {
-        return modes
-            .iter()
-            .any(|mode| requirement_is_reachable(mode.targets, state, player, card));
+        return modes.iter().any(|mode| {
+            requirement_is_reachable(mode.targets, state, player, card)
+                && requirement_is_reachable(mode.second_targets, state, player, card)
+        });
     }
     let spell = abilities.iter().find_map(|a| match a {
         baylee_cards_dsl::AbilityDef::Spell {
@@ -339,12 +341,20 @@ pub fn mode_has_a_legal_target(
     else {
         return true;
     };
-    let req = def.abilities.iter().find_map(|a| match a {
-        baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes.get(mode).map(|m| m.targets),
+    let reqs = def.abilities.iter().find_map(|a| match a {
+        baylee_cards_dsl::AbilityDef::ModalSpell { modes } => {
+            modes.get(mode).map(|m| (m.targets, m.second_targets))
+        }
         _ => None,
     });
-    match req {
-        Some(req) => requirement_is_reachable(req, state, player, card),
+    // Both instances of the word, as `face_has_a_legal_target` asks them
+    // (CR 601.2c): Archdruid's Charm's second mode with no creature on the
+    // other side of the table is not a mode that can be chosen (CR 700.2a).
+    match reqs {
+        Some((first, second)) => {
+            requirement_is_reachable(first, state, player, card)
+                && requirement_is_reachable(second, state, player, card)
+        }
         None => true,
     }
 }
