@@ -31,6 +31,7 @@ const FILLER: CardIndex = CardIndex::new(60_001);
 static SELF_ONLY: Filter = Filter::This;
 static BLINK_SELF: &[Effect] = &[Effect::Blink {
     target: TargetSpec::ThisObject,
+    owner_control: true,
 }];
 
 static LOOPING_CARD: CardDef = CardDef {
@@ -56,6 +57,7 @@ static LOOPING_CARD: CardDef = CardDef {
             },
             effects: BLINK_SELF,
             targets: Some(TargetReq::one(TargetSpec::ThisObject)),
+            second_targets: None,
             once_per_turn: false,
             condition: None,
         },
@@ -65,6 +67,7 @@ static LOOPING_CARD: CardDef = CardDef {
             trigger: Trigger::EntersBattlefield(&SELF_ONLY),
             effects: BLINK_SELF,
             targets: Some(TargetReq::one(TargetSpec::ThisObject)),
+            second_targets: None,
             once_per_turn: false,
             condition: None,
         },

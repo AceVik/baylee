@@ -44,18 +44,31 @@ pub(crate) fn graveyard_destination(
     let Some(card) = state.object(id) else {
         return (to, None);
     };
+    // "If that creature would die this turn, exile it instead" (Mawloc),
+    // for that object only. Before the token test below: a token is exiled
+    // instead as well, and so does not die.
+    if card.zone == crate::zone::Zone::Battlefield
+        && state.per_turn.exile_if_dies.contains(&(id, card.version))
+    {
+        return (ZoneLocation::Exile(card.owner), None);
+    }
     if card.card.is_none() || card.riders.contains(&Rider::SpellCopy) {
         return (to, None);
     }
     // Its own "exile it instead": on the stack as a rider, on the
     // battlefield as the rule its face registered.
+    let own_rule = |entry: &&crate::state::ReplacementEntry| {
+        entry.source == id
+            && entry.rule == baylee_cards_dsl::ReplacementRule::ExileSelfInsteadOfGraveyard
+    };
     if (card.zone == crate::zone::Zone::Stack
         && card.riders.contains(&Rider::ExileInsteadOfGraveyard))
-        || state.replacement_rules.iter().any(|entry| {
-            entry.source == id
-                && entry.rule == baylee_cards_dsl::ReplacementRule::ExileSelfInsteadOfGraveyard
-        })
+        || state.replacement_rules.iter().any(|entry| own_rule(&entry))
     {
+        #[cfg(test)]
+        if let Some(entry) = state.replacement_rules.iter().find(own_rule) {
+            crate::ability_log::replaced(entry);
+        }
         return (ZoneLocation::Exile(card.owner), None);
     }
     // "If a card would be put into your graveyard from anywhere this turn,
@@ -75,6 +88,8 @@ pub(crate) fn graveyard_destination(
                 .object(entry.source)
                 .is_some_and(|o| o.status.contains(Status::PHASED_OUT))
         {
+            #[cfg(test)]
+            crate::ability_log::replaced(entry);
             return (ZoneLocation::Exile(card.owner), counter);
         }
     }
@@ -120,6 +135,8 @@ pub fn token_multiplier(state: &GameState, recipient: PlayerId) -> u32 {
                 entry.source,
             )
         {
+            #[cfg(test)]
+            crate::ability_log::replaced(entry);
             count *= 2;
         }
     }
@@ -153,6 +170,8 @@ pub fn counter_multiplier(state: &GameState, target: ObjectId) -> u16 {
                 entry.source,
             )
         {
+            #[cfg(test)]
+            crate::ability_log::replaced(entry);
             count = count.saturating_mul(2);
         }
     }

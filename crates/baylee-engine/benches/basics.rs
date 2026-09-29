@@ -194,6 +194,53 @@ fn bench_layers(c: &mut Criterion) {
             );
         });
     }
+    // The eight-anthem board with every creature as big again as the
+    // creatures you control: each creature counts the board, so the
+    // refresh projects every one of them a second time once the board is
+    // done (`GameState::refresh_characteristics`). A real board has one or
+    // two counters (Ashaya); this is the repeat at its widest, every
+    // creature once more, and no count moves another, so once is all.
+    let state = counting_board(8);
+    c.bench_function("layers/refresh_x8_counting", |b| {
+        b.iter_batched(
+            || state.clone(),
+            |mut s| {
+                s.effects.generation += 1;
+                s.refresh_characteristics();
+                s
+            },
+            BatchSize::SmallInput,
+        );
+    });
+}
+
+/// [`wide_board`] with one more effect: every creature gets +1/+0 for each
+/// creature its controller controls.
+fn counting_board(anthems: usize) -> GameState {
+    use baylee_cards_dsl::static_ability::{Duration, Layer, Modifier};
+    use baylee_core::ids::EffectId;
+    use baylee_engine::effects::{ContinuousEffect, EffectFilter};
+
+    static CREATURES: baylee_cards_dsl::Filter =
+        baylee_cards_dsl::Filter::HasType(baylee_core::types::TypeSet::CREATURE);
+
+    let mut state = wide_board(anthems);
+    state.effects.register(ContinuousEffect {
+        id: EffectId::new(0),
+        source: None,
+        controller: baylee_core::ids::PlayerId::new(0),
+        origin: baylee_engine::effects::EffectOrigin::Resolution,
+        layer: Layer::PtModify,
+        timestamp: anthems as u64,
+        duration: Duration::Indefinitely,
+        filter: EffectFilter::Dsl(&CREATURES),
+        modifier: Modifier::ModifyPTPerCount {
+            filter: &CREATURES,
+            p: 1,
+            t: 0,
+        },
+    });
+    state
 }
 
 /// The layer refresh with a deep stack of triggered abilities.
@@ -277,6 +324,53 @@ fn bench_token_board(c: &mut Criterion) {
     });
 }
 
+/// Sixty creatures leave the battlefield one after another (a wrath) while
+/// `exiled` cards sit in exile.
+///
+/// Every departure asks the exile zones whether a card there was held "until
+/// this leaves the battlefield" (CR 610.3,
+/// `GameState::return_what_departed_hosts_held`), so the walk grows with the
+/// exile zone once per permanent that leaves. Nothing else in this file moves
+/// a permanent off the battlefield, which is why this bench exists: the two
+/// sizes side by side are what that question costs.
+///
+/// 800 is every card at a table of eight Commander decks in exile at once,
+/// the most a game can put there: a token that goes to exile ceases to exist
+/// (CR 704.5d), so the exile zone only ever holds cards.
+fn bench_leave_battlefield(c: &mut Criterion) {
+    use baylee_engine::event::Cause;
+    use baylee_engine::object::ObjectKind;
+    use baylee_engine::zone::{ZoneLocation, ZonePosition};
+
+    for exiled in [0usize, 800] {
+        let mut state = token_board(60);
+        let owner = baylee_core::ids::PlayerId::new(0);
+        let name = state.names.intern("Exiled");
+        for _ in 0..exiled {
+            state.create_bare(owner, ObjectKind::Card, name, ZoneLocation::Exile(owner));
+        }
+        let board = state.zones.list(ZoneLocation::Battlefield).clone();
+        c.bench_function(&format!("zones/wrath_60_exile_{exiled}"), |b| {
+            b.iter_batched(
+                || state.clone(),
+                |mut s| {
+                    for &id in &board {
+                        s.move_object(
+                            id,
+                            ZoneLocation::Graveyard(owner),
+                            ZonePosition::Top,
+                            Cause::Effect,
+                        )
+                        .expect("on the battlefield");
+                    }
+                    s
+                },
+                BatchSize::SmallInput,
+            );
+        });
+    }
+}
+
 /// Resolving a trigger storm repeatedly removes the top of an ordered zone.
 fn bench_stack_drain(c: &mut Criterion) {
     use baylee_core::ids::ObjectId;
@@ -307,6 +401,91 @@ fn bench_stack_drain(c: &mut Criterion) {
     }
 }
 
+/// Seat 0 at its first declare-attackers question with `attackers` vanilla
+/// creatures, facing a defender who holds Kor Haven, two Plains and two
+/// creatures of its own.
+fn engine_at_attack(attackers: usize) -> Engine<RegistryLookup> {
+    let quiet = card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3");
+    let kor_haven = card_index("276cece9-f9f2-46e6-ae76-daddaa2fb9ab");
+    let plains = card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99");
+    let entry = |card| DeckEntry {
+        card,
+        print: PrintRef::new(0),
+    };
+    let mut preset = preset(42);
+    preset.seats[0].starting_battlefield = (0..attackers).map(|_| entry(quiet)).collect();
+    preset.seats[1].starting_battlefield = vec![
+        entry(kor_haven),
+        entry(plains),
+        entry(plains),
+        entry(quiet),
+        entry(quiet),
+    ];
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    loop {
+        match engine.pending().clone() {
+            Pending::Mulligan { player, .. } => {
+                engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { .. } => return engine,
+            other => panic!("unexpected question before combat: {other:?}"),
+        }
+    }
+}
+
+/// A wide attack into a defender holding Kor Haven, from the declaration to
+/// the blockers offer.
+///
+/// Three walks in this stretch were once per attacker *and* per permanent,
+/// and each made a token army's combat cost its square: `Filter::Attacking`
+/// scanned the attacker list for every object Kor Haven's target probe asked
+/// about, the blockers offer asked `can_block` of every permanent on the
+/// battlefield against every attacker, and the duplicate-attacker check was
+/// a `contains` over the attackers already read. A self-play game with
+/// 168,000 permanents spent 18 s in the blockers offer alone.
+fn bench_wide_attack(c: &mut Criterion) {
+    for attackers in [100usize, 900] {
+        c.bench_function(&format!("combat/attack_to_blocks_{attackers}"), |b| {
+            b.iter_batched(
+                || engine_at_attack(attackers),
+                |mut engine| {
+                    let Pending::ChooseAttackers {
+                        player,
+                        attackers: offered,
+                        ..
+                    } = engine.pending().clone()
+                    else {
+                        unreachable!("set up at the attack");
+                    };
+                    assert_eq!(offered.len(), attackers, "every creature may attack");
+                    let defender =
+                        baylee_core::ids::Defender::Player(baylee_core::ids::PlayerId::new(1));
+                    engine
+                        .apply(
+                            player,
+                            PlayerAction::DeclareAttackers {
+                                attackers: offered.into_iter().map(|a| (a, defender)).collect(),
+                            },
+                        )
+                        .unwrap();
+                    while let Pending::Priority { player, .. } = engine.pending().clone() {
+                        engine.apply(player, PlayerAction::PassPriority).unwrap();
+                    }
+                    assert!(
+                        matches!(engine.pending(), Pending::ChooseBlockers { .. }),
+                        "the passes end at the blockers offer"
+                    );
+                    engine
+                },
+                BatchSize::LargeInput,
+            );
+        });
+    }
+}
+
 // The baseline benchmark group (CI regression budgets derive from these).
 criterion_group!(
     basics,
@@ -317,6 +496,8 @@ criterion_group!(
     bench_layers,
     bench_layers_deep_stack,
     bench_token_board,
-    bench_stack_drain
+    bench_leave_battlefield,
+    bench_stack_drain,
+    bench_wide_attack
 );
 criterion_main!(basics);

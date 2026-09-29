@@ -36,6 +36,10 @@ pub mod lines;
 /// Pool-wide lints over the card data (tests only).
 #[cfg(test)]
 mod lints;
+/// The L5 mutation switch, `BAYLEE_MUTATE` (tests and the `mutate` feature
+/// only; `docs/verification-hooks.md`).
+#[cfg(any(test, feature = "mutate"))]
+pub mod mutate;
 /// The English Oracle text of a card's face (the reader of
 /// [`generated_oracle`]).
 pub mod oracle;
@@ -51,13 +55,24 @@ pub use baylee_cards_dsl as dsl;
 /// Looks up a card definition by Scryfall oracle id.
 #[must_use]
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
-    generated::by_oracle_id(oracle_id)
+    generated::by_oracle_id(oracle_id).map(mutated)
 }
 
 /// Looks up a card definition by its dense runtime index.
 #[must_use]
 pub fn by_index(index: CardIndex) -> Option<&'static CardDef> {
-    generated::by_index(index)
+    generated::by_index(index).map(mutated)
+}
+
+// The registry's three doors hand out a mutant in the card's place while
+// `BAYLEE_MUTATE` names one (`mutate`), and the card itself everywhere else.
+#[cfg(any(test, feature = "mutate"))]
+use mutate::apply as mutated;
+
+#[cfg(not(any(test, feature = "mutate")))]
+#[inline]
+const fn mutated(def: &'static CardDef) -> &'static CardDef {
+    def
 }
 
 /// Number of registered cards.
@@ -73,7 +88,10 @@ pub fn count() -> usize {
 /// sees when nothing else sorts the list, and a `HashMap`'s order is not an
 /// order.
 pub fn all() -> impl Iterator<Item = &'static CardDef> {
-    generated::BY_INDEX.iter().filter_map(|slot| *slot)
+    generated::BY_INDEX
+        .iter()
+        .filter_map(|slot| *slot)
+        .map(mutated)
 }
 
 /// Hash of the whole pool (client cache invalidation / gateway handshake).
@@ -408,7 +426,7 @@ mod tests {
                     // override, and `no_modal_trigger_overrides_a_cost`
                     // below is what holds that — and is what would fail
                     // first if a card ever put a cost there.
-                    AbilityDef::ModalSpell { modes } => {
+                    AbilityDef::ModalSpell { modes, .. } => {
                         for mode in *modes {
                             if let Some(cost) = mode.cost_override {
                                 add(&cost);

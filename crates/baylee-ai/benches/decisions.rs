@@ -53,6 +53,113 @@ fn combat(c: &mut Criterion) {
     }
 }
 
+/// Tokens on one side of a combat, the board self-play game r001 #431 grew
+/// to tens of thousands of: every decision there used to look each creature
+/// up by walking every zone of the view.
+const ARMY: u32 = 1_000;
+
+/// A planeswalker with `loyalty`, for the attack that must choose between it
+/// and its controller.
+fn walker(slot: u32, controller: u8, loyalty: u16) -> baylee_view::PublicObject {
+    let mut w = token(slot, controller, "walker", 0, 0);
+    w.types = baylee_core::types::TypeSet::PLANESWALKER;
+    w.power = None;
+    w.toughness = None;
+    w.loyalty = Some(loyalty);
+    w.counters = vec![baylee_view::CounterEntry {
+        kind: baylee_view::CounterKind::Loyalty,
+        count: loyalty,
+    }];
+    w
+}
+
+fn token_army(c: &mut Criterion) {
+    let army = |seat: u8| (100..100 + ARMY).map(move |i| token(i, seat, "Ally", 1, 1));
+    let few = |seat: u8| (10..14).map(move |i| token(i, seat, "few", 3, 3));
+    // The army attacks four blockers and a walker.
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, army(0))
+        .with_battlefield(1, few(1).chain([walker(20, 1, 3)]))
+        .build();
+    let attack = Pending::ChooseAttackers {
+        player: view.seat,
+        attackers: (100..100 + ARMY).map(|i| ObjectId::new(i, 0)).collect(),
+        defenders: vec![
+            Defender::Player(PlayerId::new(1)),
+            Defender::Planeswalker(ObjectId::new(20, 0)),
+        ],
+    };
+    // Four attack into the army.
+    let into = ViewBuilder::new(2)
+        .with_battlefield(0, few(0))
+        .with_battlefield(1, army(1))
+        .build();
+    let attack_into = Pending::ChooseAttackers {
+        player: into.seat,
+        attackers: (10..14).map(|i| ObjectId::new(i, 0)).collect(),
+        defenders: vec![Defender::Player(PlayerId::new(1))],
+    };
+    // The army blocks four, and four block the army.
+    let blocking = |attackers: Vec<ObjectId>, blockers: Vec<ObjectId>, board| {
+        let mut view = ViewBuilder::new(2)
+            .with_combat(
+                attackers
+                    .iter()
+                    .map(|&creature| baylee_view::AttackerView {
+                        creature,
+                        defending: Defender::Player(PlayerId::new(0)),
+                        blocked: false,
+                    })
+                    .collect(),
+                vec![],
+            )
+            .build();
+        view.battlefield = board;
+        view.active = PlayerId::new(1);
+        view.step = baylee_view::Step::DeclareBlockers;
+        let pending = Pending::ChooseBlockers {
+            player: view.seat,
+            attacker: PlayerId::new(1),
+            blockers: blockers
+                .into_iter()
+                .map(|blocker| baylee_engine::choice::BlockOption {
+                    blocker,
+                    attackers: attackers.clone(),
+                })
+                .collect(),
+        };
+        (view, pending)
+    };
+    let ids = |range: std::ops::Range<u32>| range.map(|i| ObjectId::new(i, 0)).collect::<Vec<_>>();
+    let (army_blocks, army_blocks_pending) = blocking(
+        ids(10..14),
+        ids(100..100 + ARMY),
+        army(0).chain(few(1)).collect(),
+    );
+    let (few_block, few_block_pending) = blocking(
+        ids(100..100 + ARMY),
+        ids(10..14),
+        few(0).chain(army(1)).collect(),
+    );
+    for (name, profile) in [
+        ("novice", AIProfile::NOVICE),
+        ("sharp", AIProfile::SHARP),
+        ("expert", AIProfile::EXPERT),
+    ] {
+        let agent = HeuristicAgent::new(profile);
+        for (shape, view, pending) in [
+            ("attack", &view, &attack),
+            ("attack-into", &into, &attack_into),
+            ("block-with", &army_blocks, &army_blocks_pending),
+            ("block-against", &few_block, &few_block_pending),
+        ] {
+            c.bench_function(&format!("combat/army-{ARMY}/{shape}/{name}"), |b| {
+                b.iter(|| black_box(agent.act(black_box(view), black_box(pending))));
+            });
+        }
+    }
+}
+
 fn priority(c: &mut Criterion) {
     let empty = ViewBuilder::new(2).build();
     let pending = Pending::Priority {
@@ -170,5 +277,5 @@ fn scouted_priority(
         b.iter(|| black_box(DeckIntel::new(cards.clone(), vec![])));
     });
 }
-criterion_group!(benches, combat, priority);
+criterion_group!(benches, combat, token_army, priority);
 criterion_main!(benches);

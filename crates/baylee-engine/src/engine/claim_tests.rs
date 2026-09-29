@@ -269,7 +269,9 @@ struct Line {
 ///
 /// A sentence that opens with a bullet is a mode (CR 700.2), and a mode is
 /// conditional by construction: the driver picks one of them, and the others
-/// were never promised.
+/// were never promised. So is one that opens with spree's plus sign and the
+/// mode's cost, "+ {2} — Draw two cards" (CR 702.172b: the plus sign is
+/// where the bullet would be).
 ///
 /// Within a paragraph, split on the two marks Magic's templating uses to end
 /// a clause and nothing cleverer — there are no abbreviations in oracle
@@ -284,7 +286,8 @@ fn lines_of(blob: &str) -> Vec<Line> {
             if whole.is_empty() {
                 continue;
             }
-            let conditional = ability_is_conditional || whole.starts_with('\u{2022}');
+            let conditional =
+                ability_is_conditional || whole.starts_with('\u{2022}') || whole.starts_with("+ {");
             let after_cost = whole
                 .split_once(": ")
                 .map_or(whole, |(_, rest)| rest.trim());
@@ -831,7 +834,7 @@ fn sweep() -> (Vec<String>, Tally) {
         let handles: Vec<_> = pool
             .chunks(chunk)
             .map(|slice| {
-                scope.spawn(move || {
+                crate::engine::testkit::spawn_named(scope, move || {
                     slice.iter().fold(
                         (Vec::new(), Tally::default()),
                         |(mut all, mut total): (Vec<String>, Tally), (card, blob)| {

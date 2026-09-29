@@ -131,6 +131,7 @@ pub(super) const fn paid(
         mana_ability: false,
         zone: ActivationZone::Battlefield,
         limit: ActivationLimit::Unlimited,
+        cost_reduction: None,
     }
 }
 

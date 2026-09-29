@@ -52,12 +52,15 @@ pub fn land_face(name: &'static str) -> FaceDef {
         color_indicator: baylee_core::color::ColorSet::EMPTY,
         castable_from_hand: false,
         miracle: None,
+        flashback: None,
         delve: false,
         convoke: false,
         waterbend: false,
         cost_reduction: None,
         disturb: false,
         adventure: false,
+        dash: None,
+        escape: None,
     }
 }
 

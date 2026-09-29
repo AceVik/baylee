@@ -663,10 +663,27 @@ impl Status {
 /// Typed payload attached to cards in exile (or similar) by effects.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Rider {
-    /// Exiled by another object ("until ~ leaves the battlefield", imprint).
+    /// Exiled by another object, which finds it again as a card "exiled
+    /// with" it (CR 607.2a): Skyclave Apparition, Safe Haven, and the two
+    /// "until" exiles.
     Linked {
         /// The host object this card is linked to.
         host: ObjectId,
+        /// The event that returns it, when the exile named one (CR 610.3).
+        until: Option<LinkUntil>,
+    },
+    /// Exiled **with** another object (CR 406.6, 607.2a): what
+    /// `Effect::ExileTargetsWithSource` marks and `PtCount::ExiledWithThis`
+    /// counts. Not [`Rider::Linked`], which an "until" exile is released by.
+    /// The host's version is kept because a host that left and came back
+    /// is a new object (CR 400.7), and nothing was exiled with that one.
+    ExiledWith {
+        /// The object the card was exiled with.
+        host: ObjectId,
+        /// Its version at the time, in sixteen bits ([`Rider::version_of`]):
+        /// a rider is eight bytes, and a `u32` here made every object's
+        /// inline rider list eight bytes longer (`tests/footprint.rs`).
+        version: u16,
     },
     /// Rebound: cast from hand, may be cast again at the next upkeep.
     Rebound,
@@ -704,6 +721,96 @@ pub enum Rider {
     /// it was copied from — and a token is the opposite thing, card-less
     /// and swept up by CR 704.5d.
     SpellCopy,
+    /// Cast for its dash cost (CR 702.109a): the spell, and the permanent
+    /// it becomes, which has haste while this is on it. Written by every
+    /// cast, set or cleared, and given up by every zone change but the one
+    /// from the stack to the battlefield (`GameState::move_object`).
+    Dashed,
+    /// "That player": the player the triggering event dealt damage to, on
+    /// a triggered ability put on the stack for one (Ragavan, Nimble
+    /// Pilferer), read by `PlayerRel::DamagedPlayer`. A rider and not a
+    /// field because `GameObject` had no byte to spare for it
+    /// (`tests/footprint.rs`), and a triggered ability carries no other.
+    EventPlayer(PlayerId),
+    /// Cast from a graveyard with escape (CR 702.138b): the spell, and the
+    /// permanent it becomes, "escaped". Kept and given up as
+    /// [`Rider::Dashed`] is.
+    Escaped,
+}
+
+/// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
+/// it: `baylee_cards_dsl::ExileUntil` with the player the sentence is about
+/// written down at the moment of the exile.
+///
+/// Two bytes, so that the rider it rides in stays as small as it was: two
+/// riders sit inline in every object (`RiderSet`), and `GameObject` has a
+/// size budget (`tests/footprint.rs`). That is why the host leaving is
+/// caught as it happens ([`crate::state::GameState::move_object`]) rather
+/// than recognised later by a stored version of the host.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum LinkUntil {
+    /// "until this creature leaves the battlefield": the host.
+    HostLeaves,
+    /// "until an opponent becomes the monarch": an opponent of `of`, the
+    /// player who controlled the exiling ability.
+    OpponentBecomesMonarch {
+        /// The exiling ability's controller.
+        of: PlayerId,
+    },
+}
+
+impl Rider {
+    /// An object's version as [`Rider::ExiledWith`] keeps it. A version past
+    /// `u16::MAX` is a permanent that changed zones sixty-five thousand
+    /// times; they all read as the last one.
+    #[must_use]
+    pub fn version_of(object: &GameObject) -> u16 {
+        u16::try_from(object.version).unwrap_or(u16::MAX)
+    }
+
+    /// Whether this says what the card is *in exile*, and so ends as the
+    /// card leaves exile ([`crate::state::GameState::move_object`]).
+    ///
+    /// A card that leaves exile is a new object with no relation to the
+    /// exile it left (CR 400.7). Exiled with a host, on an adventure
+    /// (CR 715.3d: "for as long as that card remains exiled"), castable from
+    /// exile by a player, suspended (CR 702.62b), rebounding, foretold,
+    /// plotted: each is read only while the card is in exile, and a card
+    /// exiled again later by something else is none of them. The readers ask
+    /// "in exile, with this rider", which that card passed: Twining Twins
+    /// cast off its adventure and hit by Swords to Plowshares was castable
+    /// from exile again, and a suspended card that resolved and was exiled
+    /// from the graveyard was cast for free at the next upkeep.
+    ///
+    /// Every variant is named, so a new rider has to answer.
+    #[must_use]
+    pub const fn ends_as_it_leaves_exile(self) -> bool {
+        match self {
+            Self::Linked { .. }
+            | Self::ExiledWith { .. }
+            | Self::Adventure
+            | Self::PlayableFromExileFor(_)
+            | Self::Suspend
+            | Self::Rebound
+            | Self::Foretold
+            | Self::Plotted => true,
+            // About the stack or the battlefield, not exile.
+            Self::Flashback
+            | Self::ExileInsteadOfGraveyard
+            | Self::Uncounterable
+            | Self::Prepared
+            | Self::SpellCopy
+            // How the spell was cast, written before it moves to the stack:
+            // a dashed spell cast out of exile (an impulse's permission)
+            // carries its dash to the stack and the battlefield, and
+            // `move_object` ends these where the spell's object ends.
+            | Self::Dashed
+            | Self::Escaped
+            // "That player" of a triggered ability on the stack, which is
+            // never in exile.
+            | Self::EventPlayer(_) => false,
+        }
+    }
 }
 
 /// Riders attached to an object.
@@ -747,6 +854,11 @@ pub struct PaidRecord {
     /// How much mana was spent on the cost (CR 601.2h) — "the amount of mana
     /// spent to cast this spell" (Memory Deluge).
     pub mana_spent: u32,
+    /// The colors of the mana spent on the cost — "the number of colors of
+    /// mana spent to cast this spell" (converge). Colorless mana is a type
+    /// and not a color (CR 106.1a, CR 106.1b), and a creature tapped for
+    /// convoke is tapped rather than paying mana (CR 702.51a).
+    pub colors_spent: baylee_core::color::ColorSet,
     /// The permanent a `CostPart::TapOther` tapped, as the object it was
     /// then (id and version) — "the tapped creature" station counts the
     /// power of (CR 702.184a). `None` when the cost tapped nothing else.
@@ -899,6 +1011,10 @@ pub struct GameObject {
     pub target_players: baylee_core::ids::SeatSet,
     /// The chosen spell mode (modal spells / overload).
     pub mode_index: Option<u8>,
+    /// The modes chosen for a spell that chooses more than one
+    /// (`CastModeKind::Modes`, CR 700.2a): bit `i` is mode `i`, and zero on
+    /// every other object. A choose-one spell's mode is `mode_index`.
+    pub modes: u8,
     /// The creature type chosen as this entered ("the chosen type" —
     /// Roaming Throne, Reflections of Littjara, Cavern of Souls).
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
@@ -1004,6 +1120,13 @@ pub struct GameObject {
     pub pending_face_change: Option<u8>,
     /// The object a triggering event was about (event-driven triggers).
     pub event_object: Option<ObjectId>,
+    /// "That much": the amount of damage the triggering event dealt, on a
+    /// triggered ability that was put on the stack for one (Questing
+    /// Beast), read by `Amount::EventAmount`. Never zero: a source that
+    /// would deal 0 damage deals none (CR 120.8), so no damage event carries
+    /// it. The field is two bytes, but `GameObject` had no padding left and
+    /// the object grew by eight (`tests/footprint.rs`).
+    pub event_amount: Option<core::num::NonZeroU16>,
     /// Whether the spell was cast from the hand (rebound condition).
     pub cast_from_hand: bool,
 }
@@ -1042,6 +1165,7 @@ impl GameObject {
             second: None,
             original_base: None,
             event_object: None,
+            event_amount: None,
             ability: None,
             source_power_lki: None,
             paid: None,
@@ -1053,6 +1177,7 @@ impl GameObject {
             chosen_player: None,
             target_players: baylee_core::ids::SeatSet::new(),
             mode_index: None,
+            modes: 0,
             chosen_subtype: None,
             chosen_color: None,
             chosen_name: None,

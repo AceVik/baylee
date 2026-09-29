@@ -339,10 +339,11 @@ fn an_additional_sacrifice_is_paid_and_its_mana_value_remembered() {
 
 /// A total the pool cannot pay is not paid in part (CR 601.2h: "Partial
 /// payments are not allowed"), and a casting that cannot finish is undone
-/// (CR 601.2): X is announced before the mana is counted (CR 601.2b), so an
-/// X of five over one floating mana is refused at the payment, with the card
-/// still in hand, the mana still floating and the caster holding priority
-/// again. The same card at an X the pool covers is then cast.
+/// (CR 732.1): X is announced before the mana is counted (CR 601.2b), so an
+/// X of five over one floating mana is an answer the question offered and
+/// is taken, and the casting it names is reversed at the payment, with the
+/// card still in hand, the mana still floating and the caster holding
+/// priority again. The same card at an X the pool covers is then cast.
 #[test]
 fn a_total_the_pool_cannot_pay_undoes_the_whole_cast() {
     let mut engine = bench(
@@ -358,10 +359,9 @@ fn a_total_the_pool_cannot_pay_undoes_the_whole_cast() {
         "X is announced: {:?}",
         engine.pending()
     );
-    assert!(
-        engine.apply(me(), PlayerAction::ChooseNumber(5)).is_err(),
-        "{{5}}{{G}} is refused over one Forest's mana"
-    );
+    engine
+        .apply(me(), PlayerAction::ChooseNumber(5))
+        .expect("an X the question offered is taken; the cast is reversed");
     assert_eq!(
         objects(&engine, ZoneLocation::Hand(me()), RAY),
         vec![ray],

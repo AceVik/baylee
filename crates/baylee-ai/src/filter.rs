@@ -16,7 +16,7 @@
 //! rule exists to prevent one level up, where an unread clause refuses the
 //! card instead of shipping a wrong one.
 //!
-//! Five variants are principled refusals rather than gaps to fill in later:
+//! Six variants are principled refusals rather than gaps to fill in later:
 //!
 //! - [`Filter::MatchesChosenTypeOfSource`] reads `chosen_subtype` off the
 //!   source object. The view carries no such field for any object, so there
@@ -34,7 +34,10 @@
 //!   source (CR 107.3a), which the engine keeps on the source object and no
 //!   view carries. Answering `true` would let an agent plan a tutor for a
 //!   card the search may not legally find, which is exactly the
-//!   considered-looking wrong decision above.
+//!   considered-looking wrong decision above. [`Filter::CmcAtMostColorsSpent`]
+//!   is the same refusal for the same reason: its bound is what the source's
+//!   payment spent, which the engine keeps on the source and no view
+//!   carries.
 //!
 //! - [`Filter::EnteredThisTurn`] is history rather than a characteristic: the
 //!   engine keeps its own per-turn record of arrivals, and a view carries
@@ -42,8 +45,10 @@
 //!   battlefield and not when it got there, so there is nothing to read
 //!   from — and guessing `true` would plan a pump for a creature the engine
 //!   will refuse as a target.
+//! - [`Filter::PutIntoGraveyardThisTurn`] is the same history for the
+//!   graveyards: a view shows the cards there and not when they arrived.
 //!
-//! [`Filter::IsToken`] is a sixth refusal, and only sometimes. The engine
+//! [`Filter::IsToken`] is a seventh refusal, and only sometimes. The engine
 //! asks `card.is_none()`, which in a view is three objects and not one: a
 //! registry token, which says so through `token`; a permanent the seat may
 //! not look at, which has no card because it is not entitled to one; and a
@@ -53,6 +58,13 @@
 //! indistinguishable in a view and sit on opposite sides of the question, so
 //! a token says `Some(true)`, a visible card says `Some(false)`, and the pair
 //! that cannot be told apart says `None`.
+//!
+//! [`Filter::HasCounter`] is a gap and not a principle. A view carries every
+//! counter, but as the wire kind, and the translation from the engine's kind
+//! is `baylee-gamehost`'s, which this crate does not link. The one card that
+//! asks it, The Reaper, King No More, asks it of a creature that died, which
+//! is a trigger and never a choice an agent makes, so the reading waits for
+//! the first card that targets by counters.
 //!
 //! One reading deliberately differs, because the view is the better source:
 //! the zone is passed in rather than read off the object, because a view
@@ -167,14 +179,18 @@ impl HeuristicAgent {
             // The view lists every instance's targets and every player on a
             // stack object, which is the count CR 115.9a asks for.
             Filter::WithSingleTarget => Some(object.targets.len() == 1),
-            // The five the view cannot answer. Named in this module's own
+            // The six the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
             Filter::MatchesChosenTypeOfSource
             | Filter::AttachedToBySource
             | Filter::CmcAtMostX
+            | Filter::CmcAtMostColorsSpent
             | Filter::EnteredThisTurn
-            | Filter::SharesSubtypeWithCommander => None,
+            | Filter::PutIntoGraveyardThisTurn
+            | Filter::SharesSubtypeWithCommander
+            // Not one of the six: a gap, and the header says why.
+            | Filter::HasCounter(_) => None,
         }
     }
 
@@ -249,6 +265,12 @@ impl HeuristicAgent {
         let Some(modes) = Self::modal_modes(view, object) else {
             return 0;
         };
+        if options
+            .iter()
+            .any(|option| matches!(option.kind, CastModeKind::Modes(_)))
+        {
+            return self.cast_modes(view, object, modes, options);
+        }
         options
             .iter()
             .enumerate()
@@ -263,6 +285,41 @@ impl HeuristicAgent {
                     Some(false) => 0,
                 };
                 (reach, std::cmp::Reverse(*position))
+            })
+            .map_or(0, |(position, _)| position)
+    }
+
+    /// Which set of modes to cast a spell that chooses several with
+    /// (Farewell, a spree card), by the same reading as one mode: a set with
+    /// a mode that reaches nothing is paid for and does nothing, so it loses
+    /// to every set without one; among those, the one reaching the most
+    /// wins; and a mode nobody could read is not bought for its own sake,
+    /// because the earlier set — the smaller one, the engine offers them by
+    /// their bits — breaks the tie.
+    fn cast_modes(
+        &self,
+        view: &PlayerView,
+        object: ObjectId,
+        modes: &[SpellMode],
+        options: &[CastModeDesc],
+    ) -> usize {
+        options
+            .iter()
+            .enumerate()
+            .filter_map(|(position, option)| match option.kind {
+                CastModeKind::Modes(set) => Some((position, set)),
+                _ => None,
+            })
+            .max_by_key(|&(position, set)| {
+                let reaches: Vec<Option<bool>> = modes
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| set & (1 << i) != 0)
+                    .map(|(_, mode)| self.mode_reaches(view, mode, object))
+                    .collect();
+                let idle = reaches.contains(&Some(false));
+                let reached = reaches.iter().filter(|r| **r == Some(true)).count();
+                (!idle, reached, std::cmp::Reverse(position))
             })
             .map_or(0, |(position, _)| position)
     }
@@ -317,7 +374,7 @@ impl HeuristicAgent {
             .abilities_for_face(usize::from(rules.face))
             .iter()
             .filter_map(|ability| match ability {
-                AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+                AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
                     Some(*modes)
                 }
                 _ => None,
@@ -371,7 +428,10 @@ impl HeuristicAgent {
             PlayerRel::Opponent | PlayerRel::EachOpponent => {
                 every().filter(|p| self.hostile(*p, view.seat)).collect()
             }
-            PlayerRel::Chosen | PlayerRel::ControllerOfTarget | PlayerRel::ControllerOfEvent => {
+            PlayerRel::Chosen
+            | PlayerRel::ControllerOfTarget
+            | PlayerRel::ControllerOfEvent
+            | PlayerRel::DamagedPlayer => {
                 return None;
             }
         })
@@ -396,8 +456,14 @@ impl HeuristicAgent {
             | Effect::DestroyChosenForPlayers { who, filter } => {
                 self.battlefield_has(filter, view, &self.seats(*who, view)?, Some(this))
             }
-            Effect::DestroyAll { filter, .. } | Effect::DealDamageEach { filter, .. } => {
+            Effect::DestroyAll { filter, .. }
+            | Effect::ExileAll { filter }
+            | Effect::TapAll { filter }
+            | Effect::DealDamageEach { filter, .. } => {
                 self.battlefield_has(filter, view, &everyone, Some(this))
+            }
+            Effect::ChooseYoursThen { filter, .. } => {
+                self.battlefield_has(filter, view, &[view.seat], Some(this))
             }
             _ => None,
         }))

@@ -42,6 +42,13 @@ re-exported from there. Either spelling reaches the same `TokenDef`, and a
 hand-written card keeps naming `crate::tokens` because that is where it can
 read the comment saying which printing lent the token its art.
 
+A token the pool lacks is written into `crate::tokens` (with the Scryfall id
+of a printed token card for its art) and filed in the ledger by `cargo run -p
+xtask -- codegen --tables`: that half of the ledger reads only `tokens.rs`
+and appends, so it needs no corpus. Never add the row to
+`generated_tokens.rs` by hand (Fable of the Mirror-Breaker's Goblin Shaman
+was the first filed this way).
+
 Do **not** add `#![allow(unused_imports, missing_docs)]`. It used to be on
 every card file because the generated import list was identical for every
 card whether the card used it or not; it is gone, and with it the two dozen
@@ -283,7 +290,10 @@ instead", made by the trigger as
 `Effect::continuous(&Filter::Any, Modifier::ExileInsteadOfYourGraveyard,
 Duration::UntilEndOfTurn)`. It is its controller's, cards only (a token or a
 spell copy dies as usual), and it lasts its duration, not as long as a
-source.
+source. The same trigger makes the Cellar's first clause, "you may cast
+spells from your graveyard this turn", the same way and before it:
+`Modifier::CastSpellsFromGraveyard`, one of the graveyard permissions
+`casting::graveyard_cast_permission` reads.
 
 ## Generated cards, and why they may say `Implemented`
 
@@ -412,6 +422,12 @@ express at all yet.
   spell is not castable while nothing can pay it, and the sacrificed
   permanent's mana value is written on the spell for
   `Amount::SacrificedManaValue`.
+- `FaceDef.flashback: Option<ManaCost>` — a printed "Flashback {…}" (CR
+  702.34a), mana only. From the owner's graveyard the cast is offered as
+  `CastModeKind::Flashback` at that price (beside a grant's `Normal` at the
+  mana cost, when there is one), and the spell is exiled afterwards.
+  `validate` holds it against the printing. What the cast paid is
+  `Amount::ManaSpentToCast` (Memory Deluge).
 - `cost!("{1}{G}", TapSelf, SacrificeSelf)` — a cost, read left to right the
   way the card prints it: the mana string first (omitted when there is none),
   then the parts. A part is named without its `CostPart::` prefix, which on a
@@ -421,6 +437,9 @@ express at all yet.
   `Discard(filter)`, `DiscardSelf` (cycling), `PayLife(n)`, `PayLifeX`,
   `ExileSelf`, `ExileFromHand(filter)`, `ReturnSelfToHand`,
   `TapOther(filter)` (the convoke lands, Earthcraft),
+  `Crew(n)` (written only by `crew!(n)`: one question answered with any
+  number of other untapped creatures the payer controls, refused when their
+  total power is short of `n`),
   `ReturnToHand(filter)` (Quirion Ranger's Forest — one permanent, and
   nothing in it says "untapped": tapping the land for mana and *then*
   returning it is the play, and the mana stays in the pool),
@@ -454,6 +473,14 @@ express at all yet.
   *both* kinds of X in one cost, because one announcement is held in one
   field — `lints::no_cost_announces_two_different_xs` is the guard, and it
   fails with the card's name the day one prints both.
+
+  A **Phyrexian symbol** in an activation cost needs nothing written beside
+  it either: `cost!("{1}{G/P}", …)` (Birthing Pod) is offered when some way
+  of paying each symbol — its colour or 2 life (CR 107.4f) — covers the
+  cost, and the engine asks `YesNoPrompt::PayLife { amount: 2 }` per symbol
+  only where both ways pay, after the X and before the targets (CR 601.2b
+  through CR 602.2b). A *spell's* Phyrexian symbol is still paid with its
+  colour only: the cast wizard does not offer the life.
 
   **Which counter** is a `CounterKind`, and there are three ways to name one.
   Nine counters have a variant because the rules know them by a word —
@@ -540,8 +567,14 @@ has built.
 - `AbilityDef::Loyalty { cost: i8, effects, targets }`
 - `AbilityDef::CopyOnEnter { target, mods: &[CopyMod] }` — the `mods` are the
   card's "except …" clauses (CR 707.9). Types, supertypes, subtypes, keywords
-  and entry counters are all sayable, and so is "except it has its **other**
-  abilities" (`CopyMod::KeepOtherAbilities`, CR 707.9a) — with one limit worth
+  and entry counters are all sayable. A counter that depends on what the copy
+  is ("…an additional +1/+1 counter on it if it's a creature") is
+  `CopyMod::AddCounterIf(TypeSet::CREATURE, CounterKind::P1P1, 1)`, asked of
+  what the permanent became (the copied values with the clause list's own
+  type changes, CR 707.2, 707.9b) and never of the copier's printed types;
+  a plain `AddCounter` would put it on every copy. "Except it has its
+  **other** abilities" is sayable too (`CopyMod::KeepOtherAbilities`, CR
+  707.9a), with one limit worth
   knowing before writing a card on it: the kept abilities are registered as
   the copy's own continuous effects, so a **static** survives and a triggered
   or activated one does not. A card that needs the second keeps a
@@ -611,6 +644,7 @@ loyalty!(-3, EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::
 static_ability!(Filter::YOUR_CREATURE, Modifier::ModifyPT(1, 1))  // an anthem
 chapter!(1, EFFECTS)                                  // one chapter of a saga
 equip!("{2}")                                         // Equip {2}
+crew!(2)                                              // Crew 2
 modal_triggered!(TRIGGER, &[mode!(SCRY), mode!(LIFE)])  // "choose one" ETB
 mode!(DRAW_EFFECTS)                                   // one arm of a modal
 ```
@@ -665,6 +699,14 @@ that target named twice over a local `static` that was the same filter each
 time.
 Equip {0} is `equip!(Cost::FREE)` and not `equip!("{0}")` — a cost with no
 mana cost is not the same data as a mana cost of zero generic.
+
+`crew!(2)` takes **only the number**, for the same reason (CR 702.122a):
+the cost is `CostPart::Crew(2)` alone, and the effect makes the source an
+artifact creature until end of turn. The crew question is a
+`Pending::ChooseCards` with `ChoicePrompt::CostCrew { power }`, `min: 1` and
+`max` every creature offered; `apply` refuses an answer whose total power is
+short, and `can_afford` offers the ability only when the creatures with a
+power above zero reach the number (Unlicensed Hearse).
 
 **An Aura's "enchant …" clause is one `spell!` and has to be**, because the
 engine reads the card's continuing legality out of it and out of nowhere
@@ -807,6 +849,15 @@ own, and a Wall used on your turn is available again on the opponent's.
 There is no per-*game* variant; the cards that want one print the exhaust
 keyword, which other cards look for ("whenever you activate an exhaust
 ability") and which is therefore a keyword bit rather than a number.
+
+`cost_reduction = Some(CostReduction::PerCount { amount, each })` is "This
+ability costs {`each`} less to activate for each …" (Boseiju, Who Endures:
+`amount` is an `Amount::CountOf` over the battlefield whose filter says
+`ControlledByYou`). The default is `None`. The engine reads it once, as the
+total cost is determined (CR 601.2f through CR 602.2b), for the offer and
+the activation alike, and it takes generic mana only, never below {0}
+(CR 118.7a). `FaceDef::cost_reduction` is the same enum for a spell, so
+"this spell costs {1} less to cast for each …" is the same variant there.
 
 A raw literal is still legal everywhere, and
 `lints::every_layer_in_the_pool_is_the_one_its_modifier_derives` is what
@@ -952,6 +1003,13 @@ keeps the variant and its filter.
 the object the trigger was about), `AbilityOnStack(filter)`,
 `SpellOrAbility(filter)` (Ertai), `Player(rel)`, `AnyPlayer`, `AnyOpponent`,
 `AnyTarget`.
+
+"Target cards from a single graveyard" (Unlicensed Hearse) is
+`CardInGraveyard(filter, PlayerRel::Chosen)` on an activated ability. When
+more than one graveyard holds a match, the activation first asks
+`Pending::ChoosePlayer` over those graveyards, and the targets offered are
+the named graveyard's cards. With one, nothing is asked. The offer and
+CR 608.2b's re-check read every graveyard.
 
 `AnyTarget` is "any target" (CR 115.4) — a creature, a planeswalker, a battle
 **or a player**, chosen from one set that spans objects and players. It is its
@@ -1119,7 +1177,8 @@ where the oracle sentence it encodes is a line above it.
 **The common ones have a verb**, and the verb is the word the card prints:
 `Effect::draw(1)`, `scry(2)`, `gain_life(3)`, `destroy(t)`,
 `destroy_no_regen(t)`, `regenerate(t)`, `exile(t)`,
-`blink(t)`, `bounce(t)`, and `continuous(filter, modifier, duration)`
+`blink_to_owner(t)`, `blink_to_you(t)`, `bounce(t)`, and
+`continuous(filter, modifier, duration)`
 with the layer derived. `Effect::mana` is the precedent — 219 uses in the
 pool against zero raw `AddMana` literals.
 
@@ -1128,7 +1187,7 @@ and only where the variant has one answer to give**: `SearchLibrary { filter,
 finds, optional }` has two real choices in it, so it stays a literal rather
 than becoming a `search` / `may_search` / `search_to_hand` family. And **the
 name is the word this pool already says**, which is usually the printed one;
-`blink` and `bounce` are the two that are not. Neither is a coinage: the
+blink and `bounce` are the two that are not. Neither is a coinage: the
 engine named `Blink` because "exile it, then return it" has no printed verb,
 and `bounce` was in this repository before there was a verb to hang it on —
 Cyclonic Rift's comment calls both of its modes a bounce and Aether
@@ -1170,10 +1229,52 @@ halves at once, and a card printing one of them prints all of it. The counter
 goes on through the same door `EnterModifier::WithCounters` uses, so a
 doubler has its say (CR 614.16).
 
-A card that says nothing about a graveyard cannot use either: the effect
-checks that its object is still in one (CR 400.7). A reanimation *spell* is
-already held to that by target legality (CR 608.2b) — the guard is there for
-undying and persist, which target nothing at all.
+**Blink is two verbs for the same reason, and the difference is who ends
+up controlling the card.** `Effect::blink_to_owner(t)` is "exile …, then
+return it to the battlefield under its **owner's** control" (Ephemerate,
+Soulherder, Emiel the Blessed); `Effect::blink_to_you(t)` is "… under **your**
+control" (Restoration Angel, Aminatou's −1, Sword of Hearth and Home). Both
+are `Effect::Blink { target, owner_control }`, the field and the question
+`GraveyardToBattlefield` already had. Write the one the card prints, even
+where a filter such as "you own" makes the two agree: there is no bare
+`blink`, because an unmarked default is how Restoration Angel came to hand a
+stolen creature back to its owner. What returns is a new object (CR 400.7),
+so no control effect over the old one reaches it, and it enters under the
+player the sentence names (CR 110.2a). CR 610.3c ("returns under its owner's
+control unless otherwise specified") is about a card that comes back after
+an "until" event — Palace Jailer's "until an opponent becomes the monarch",
+Werefox Bodyguard's "until this creature leaves the battlefield" — and does
+not decide an immediate blink. Only control is chosen: the owner never changes
+(CR 108.3), so a creature kept this way still dies into its owner's
+graveyard and leaves the game with its owner (CR 800.4a).
+
+**A linked exile is two verbs as well, and the difference is when it ends.**
+`Effect::exile_linked(t)` exiles with a link and no end of its own: the card
+stays until another ability of the same object brings it back (Safe Haven and
+Endless Sands, `ReturnLinkedToBattlefield`) or for good (Skyclave Apparition).
+`Effect::exile_until(t, ExileUntil::…)` is an "until" sentence (CR 610.3):
+`SourceLeavesBattlefield` for Werefox Bodyguard's "until this creature leaves
+the battlefield", `OpponentBecomesMonarch` for Palace Jailer's "until an
+opponent becomes the monarch" (an opponent of the player who controlled the
+exiling ability, whoever controls the Jailer by then). Both are
+`Effect::ExileLinked { target, until }`. The return is not a triggered
+ability: it happens the moment the event does, uses no stack, and puts the
+card back under its owner's control (CR 610.3c). If the event has already
+happened when the exile would, nothing is exiled (CR 610.3a, 610.3b): a
+Bodyguard sacrificed in response to its own trigger holds nothing. Write
+`exile_until` wherever the card prints "until"; an `exile_linked` that stands
+for one is a card that never gives its prisoner back. Every way back, a
+host's effect, a new monarch or a host leaving, goes through
+`GameState::return_linked`. The link ends as well when the card leaves exile
+any other way (cast, returned to a hand): exiled again later, it is a new
+object and not "exiled with" the old host (CR 400.7). So does everything
+else the card was in exile, on an adventure, suspended, castable from exile
+(`Rider::ends_as_it_leaves_exile`).
+
+A card that says nothing about a graveyard cannot use either reanimation
+verb: the effect checks that its object is still in one (CR 400.7). A
+reanimation *spell* is already held to that by target legality (CR 608.2b) —
+the guard is there for undying and persist, which target nothing at all.
 
 Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
 `DrawCards`, `DrawCardsFor`, `Scry`, `ScryFor`, `Mill`,
@@ -1213,8 +1314,10 @@ of "target": Khalni Ambush's "target creature you control fights target
 creature you don't control" is two requirements, not one requirement for two
 objects. The second is written `second_targets = Some(TargetReq::…)` on
 `spell!`, `activated!` or `loyalty!` (Oko, Thief of Crowns' −5), or on a
-modal spell's `mode!` (Archdruid's Charm's second mode), beside
-`targets`/`target` — never on a modal trigger's mode, which is put on the
+choose-one modal spell's `mode!` (Archdruid's Charm's second mode), beside
+`targets`/`target` — never on a mode of a spell that chooses several,
+whose chosen modes take one instance each (`lints::modes_fault`), never on
+a modal trigger's mode, which is put on the
 stack without the cast wizard that asks it
 (`no_modal_trigger_mode_prints_a_second_target`), and never on a mana
 ability, which may not target at all (CR 605.1a) and which
@@ -1272,7 +1375,15 @@ Chosen` with `owner_searches: false` is Bribery's "search target opponent's
 library … under your control" — or a `mana_value: Some(ManaValueBound { cmp,
 amount })` the resolution computes, such as `Amount::Plus { base:
 &Amount::SacrificedManaValue, offset: 2 }` for Eldritch Evolution; the
-library searched is the one shuffled), `Find::…with_counter(kind, n)` for a
+library searched is the one shuffled), `SearchLibraryUpTo { filter, count,
+find }` ("search your library for up to X … cards": the count an `Amount`
+read as the search begins, every card found going where `&Find` says; X = 0
+shuffles and asks nobody — Nylea's Intervention), `SearchOpponentSplits {
+filter, up_to, chosen }` (Realms Uncharted: up to four cards of different
+names — one card per name is offered — revealed; an opponent sends `chosen`
+of them to the graveyard, prompt `PutIntoGraveyard`, and the rest go to the
+hand; at a table the caster names that opponent with a `ChoosePlayer`, and
+`chosen` or fewer found are all chosen), `Find::…with_counter(kind, n)` for a
 find that enters with counters (Neoform), `Find::…when_matching(filter,
 &then)` for a find that forks on the card found (Archdruid's Charm: "onto
 the battlefield tapped if it's a land card. Otherwise, into your hand" is
@@ -1285,19 +1396,37 @@ filter, mana_value, optional }` (Aether Vial, with `Amount::CountersOnSource`
 as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
 `GraveyardToTop`,
 `GraveyardToHand`, `GraveyardToBattlefield`, `YourGraveyardToBattlefield {
-filter, tapped }` (every matching card in your graveyard, untargeted: World
-Shaper's and Lumra's "return all land cards from your graveyard to the
-battlefield tapped"), `Earthbend(n)` (CR 701.66a, on the ability's first
+filter, tapped }` (every matching card in your graveyard, untargeted, read
+before any moves and tapped as it arrives: World Shaper's and Lumra's
+"return all land cards from your graveyard to the battlefield tapped"),
+`Earthbend(n)` (CR 701.66a, on the ability's first
 target, `TargetReq::one(TargetSpec::Object(&Filter::YOUR_LAND))`: the land
 becomes a 0/0 land creature with haste, gets `n` +1/+1 counters, and a
 delayed trigger returns it tapped under your control when it dies or is
 exiled — Badgermole Cub, Ba Sing Se; never spell the three continuous
 effects out), `ReturnToBattlefieldTapped { target }` (that delayed trigger's
-own effect, on the `EventObject`; no card writes it), `ExileGraveyard`, `Blink`,
-`ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
+own effect, on the `EventObject`; no card writes it), `ExileGraveyard`, `Blink`
+(through its two verbs), `ExileLinked` (through its two verbs),
+`ExileTargetsWithSource` (every target, each exiled with the
+source for good, CR 406.6: Unlicensed Hearse; `Rider::ExiledWith`, never
+`Linked`, which "until" exiles and the monarchy release),
+`ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
 `PutSourceOnTopOfLibrary`, `ExileAndReturnAtEndStep` (Venser +2, Eerie
 Interlude), `BottomCardFromHand`, `WishToHand` (Karn's −2: a card you own
 from outside the game or face-up in your exile).
+Playing from elsewhere: "you may play that card this turn" is a permission
+for one object (`PlayPermission` in the engine's `PerTurn`, keyed on the
+object's version, so it ends with the turn or as the card moves): a land is
+the turn's land drop, a spell is cast by its timing, and `free: true` is
+"without paying its mana cost" (X is 0). `ChooseExiledToPlay { owner,
+counter, free }` chooses the card from any exile (Dauthi Voidwalker:
+`owner: Opponent, counter: Some(counters::VOID), free: true`);
+`LookAtTopKeepBottomPlay { count }` is Expressive Iteration's one to the
+hand, one to the bottom, the rest exiled and playable.
+`LookAtTopPick { count: Amount, pick, random }` is "look at the top X, put N
+into your hand and the rest on the bottom", in any order (the player
+arranges them) or, with `random: true`, "in a random order" (nobody is
+asked).
 Continuous: `CreateContinuousEffect` (any layer+filter+modifier+duration),
 `PumpFilter` (a filter, where `Filter::This` is the *source*, plus
 `controlled_by: Option<PlayerRel>` for a sentence that names a player rather
@@ -1429,8 +1558,9 @@ Modal/sequence: `Sequence(&[..])`.
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
-`DrawLimitPerTurn`, `CantBeTargetedBy`, `SetPTToCount`,
-`ExileInsteadOfYourGraveyard`.
+`DrawLimitPerTurn`, `CastPermanentSpellsFromGraveyard`,
+`PermanentOfEachTypeFromGraveyard`, `CantBeTargetedBy`, `SetPTToCount`,
+`ExileInsteadOfYourGraveyard`, `CastSpellsFromGraveyard`.
 
 `ChosenNameCantActivate` is Pithing Needle's "activated abilities of sources
 with the chosen name can't be activated unless they're mana abilities",
@@ -1572,10 +1702,126 @@ hashes, layers and does nothing. This paragraph said THREE until
   Oracle, CR 701.20a) reveals the top card of your library. It puts the card
   where `matched` says if it matches `filter`, and where `otherwise` says if
   it doesn't. The `SearchDest` values are the ones a library search uses.
+- **`Effect::LookAtTopMayPut { filter, matched, otherwise }`** (Risen Reef)
+  is its "look" and "you may" sibling: nothing is revealed, and a matching
+  top card is a `ChooseCards` of that one card with `min: 0` (prompt
+  `PutOntoBattlefield` for a battlefield `matched`), so only the asked
+  player sees it. Named, it goes where the `Find` says (tapped if the find
+  is); not named, or not matching, it goes `otherwise`.
+- **`Effect::DiscardUpToThenDraw { count }`** (Fable of the Mirror-Breaker's
+  chapter II): "You may discard up to `count` cards. If you do, draw that
+  many cards." One `ChooseCards` over the hand, `min: 0`, prompt `Discard`;
+  each named card still in hand is discarded (`GameEvent::Discarded`), and
+  the draw is the number actually discarded. An empty hand asks nothing.
+- **`Effect::SearchLibraryOrGraveyard { filter, find }`** (Finale of
+  Devastation): "search your library and/or graveyard for a [filter] card and
+  put it [where `find` says]. If you search your library this way, shuffle."
+  The graveyard is public, so its matches come first: a `ChooseCards` with
+  `min: 0`, `max: 1`, prompt `FromGraveyard`. A card named there is the whole
+  search, and nothing is shuffled. Naming none, or a graveyard with no match,
+  is the one-card library search `SearchLibrary` makes, shuffle and all, so a
+  library that was seen is always shuffled.
+- **`Condition::XAtLeast(n)`** is "if X is `n` or more", read off the
+  announced X on the source, where `Filter::CmcAtMostX` reads it. A source
+  that is gone or announced no X counts as X = 0. Finale of Devastation puts
+  its +X/+X and haste behind it in an `Effect::IfCondition`.
+- **`Effect::RevealUntil { filter, found }`** (Nissa, Resurgent Animist):
+  "reveal cards from the top of your library until you reveal a [filter]
+  card. Put that card [`found`] and the rest on the bottom of your library in
+  a random order." Nobody is asked anything. Every card turned over is in one
+  `GameEvent::Revealed`, the match goes where `found` says, and the table's
+  generator orders the rest on the bottom. A library with no match reveals
+  every card and puts all of them on the bottom.
+- **`Effect::IfResolvedTimesThisTurn { times, then }`** is "if this is the
+  `times`th time this ability has resolved this turn". The engine counts each
+  resolution of each ability of an object (`PerTurn::resolved`, keyed on the
+  source's id and version, CR 400.7) as the ability begins to resolve, so the
+  resolution asking is counted. The branch runs at exactly `times`; a third
+  resolution is not the second.
+- **"When you cast this spell"** is `Trigger::SpellCast(&Filter::This)`. A
+  trigger that cannot fire from the battlefield works from the stack
+  (CR 113.6k), so `trigger::collect` asks each spell cast in the batch for
+  these abilities, and only these. Its other abilities do not work there.
+- **`Effect::Cascade`** is cascade's effect (CR 702.85a), the body of such a
+  trigger. "Cascade, cascade" is two of them (CR 702.85c). It exiles from the
+  top until a nonland card whose mana value is less than the spell's (X
+  included while the spell is on the stack). Then it asks
+  `YesNoPrompt::CastWithoutPaying`.
+  - A yes is a `DelayedWhen::AsResolutionEnds` entry, which
+    `finish_resolution` hands to the engine ahead of everything queued. The
+    engine casts the card through `start_permitted_free_cast`, which asks for
+    modes and targets and ignores timing.
+  - A card with nothing to target goes to the bottom instead.
+  - Every card not cast goes to the bottom in a random order.
+- **`Effect::MayCastTarget { then_no_more_spells }`** is "you may cast that
+  card" about the ability's first target, paying its costs (Conduit of
+  Worlds, CR 608.2g). It asks `YesNoPrompt::CastPaying`.
+  - A yes is a `DelayedAction::CastPaying` at
+    `DelayedWhen::AsResolutionEnds`, which opens a CR 605.3a payment window
+    for the card's mana cost. Passing it starts `start_paid_cast`: the
+    card's own cost, paid out of the pool, timing ignored, X, targets and
+    modes asked as usual. A pool that cannot pay casts nothing.
+  - `then_no_more_spells` is "If you do, you can't cast additional spells
+    this turn": the finished cast sets `PerTurn::no_more_spells`, and
+    `casting::may_begin_casting` refuses every door a cast comes through
+    after it (the offer, free casts, miracle, a prepared copy).
+  - "If you haven't cast a spell this turn" is
+    `Condition::YouCastNoSpellThisTurn`, wrapped around it in an
+    `Effect::IfCondition`.
+- **`Modifier::CastPermanentSpellsFromGraveyard`** is "you may cast permanent
+  spells from your graveyard" (Wrenn and Realmbreaker's emblem), uncounted
+  and at the card's own price. `casting::graveyard_cast_permission` is the
+  one reader: the offer, `can_cast_form` and the cast wizard all ask it.
+- **`Modifier::CastSpellsFromGraveyard`** is the same permission without the
+  word "permanent": Forgotten Cellar's "you may cast spells from your
+  graveyard this turn", written `Effect::continuous(&Filter::Any,
+  Modifier::CastSpellsFromGraveyard, Duration::UntilEndOfTurn)`. The same
+  reader asks it first, before the permanent-only permissions. It is not
+  flashback (CR 702.34a): an instant cast under it is not exiled by it, and a
+  card with printed flashback is offered at its mana cost beside its
+  flashback cost. A land card is played, never cast (CR 305.9).
+- **`Modifier::PermanentOfEachTypeFromGraveyard`** is Muldrotha's "during
+  each of your turns, you may play a land and cast a permanent spell of each
+  permanent type from your graveyard". The engine writes each play under it
+  down (`PerTurn::graveyard_plays`, per source and version) and allows a
+  cast while the spells cast so far and this one can each be given a type of
+  their own. So an artifact creature takes whichever type is still open, and
+  the choice the rules make as it is cast (Muldrotha's ruling) is left open
+  until a later spell needs it. Land is a play of its own, once a turn.
+- **Emblem statics** register from the command zone (CR 114.4), once, with
+  `Duration::Indefinitely` (`progress::emblem_statics`). Before this, an
+  emblem's static ability compiled and did nothing.
+- **`ActivationZone::Graveyard`** is an ability activated from its owner's
+  graveyard (eternalize, embalm). The offer walks the graveyard beside the
+  hand, with the same arms, and `ExileSelf` pays "exile this card from your
+  graveyard".
+- **`Effect::CreateTokenCopyOfSource { mods }`** is "create a token that's a
+  copy of it, except …" where "it" is the source card, wherever the cost put
+  it (CR 707.2). The new `CopyMod`s are `SetPT(p, t)`, `SetColor(colors)`
+  (replaces the colors) and `NoManaCost` (mana value 0), all copiable values
+  of the token (CR 707.9b). Fanatic of Rhonas writes eternalize with them.
+- **`Effect::MillMayTakeOne { amount, filter }`** is "mill `amount` cards. You
+  may put a [filter] card from among the milled cards into your hand" (Wrenn's
+  −2). A `ChooseCards` with `min: 0`, `max: 1`, prompt `PutIntoHand`, over the
+  milled cards that match, found in the public zone they moved to
+  (CR 701.17c): the graveyard, or wherever a replacement sent them.
+- **`Effect::RevealAndSeparate { count }`** is "reveal the top `count` cards
+  of your library. An opponent separates those cards into two piles. Put one
+  pile into your hand and the other into your graveyard" (Fact or Fiction).
+  The opponent answers a `ChooseCards` (prompt `FirstPile`, `min: 0`, any
+  number: the named cards are the first pile, the rest the second), and the
+  controller a `Pending::ChoosePile`, answered with `ChooseMode(position)`.
+  A pile may be empty (CR 700.3d); the cards stay in the library until the
+  choice (CR 700.3c). At a table with several opponents the controller first
+  names the one who separates (`ChoosePlayer`). The client draws the piles
+  as rows naming their cards, and the reveal's sheet stays open under the
+  question.
 - **`Modifier::CharacteristicPT { count, toughness_plus }`** is a
   characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
   - `YouControl(filter)`
   - `CardTypesInAllGraveyards`
+  - `ExiledWithThis`: the cards in exile exiled with this object as it is now
+    (`ExileTargetsWithSource`; a Hearse that left and came back counts none).
 
   Power is the count, and toughness is the count plus `toughness_plus`
   (Pyrogoyf: `+1`). A characteristic-defining ability works in every zone
@@ -1585,8 +1831,8 @@ hashes, layers and does nothing. This paragraph said THREE until
   a library, a hand, a graveyard, exile or on the stack. On the battlefield
   it is an ordinary registered static, so an effect that removes abilities
   removes it. Recruiter of the Guard's "toughness 2 or less" and
-  Reveillark's "power 2 or less" read the real number. A graveyard change,
-  and every move of such a card, invalidates the projection.
+  Reveillark's "power 2 or less" read the real number. A graveyard or exile
+  change, and every move of such a card, invalidates the projection.
   `SetPTToCount` is granted, so it is never characteristic-defining (see
   above) and stays a battlefield static.
 - **`Effect::EventObjectDealsDamageEqualToPower { target }`**: "that creature
@@ -1603,6 +1849,154 @@ hashes, layers and does nothing. This paragraph said THREE until
   the controller for a color as it resolves (`Pending::ChooseColor`). It then
   grants layer-6 protection from that color to the first target for
   `duration`.
+
+### Pieces added for Maik's deck, second round (29.09.2026)
+
+Choosing modes:
+
+- **`AbilityDef::ModalSpell { modes, choose }`.** `choose` is a `ModeCount`
+  saying how many modes are chosen (CR 700.2):
+  - `ModeCount::ONE` is "Choose one —". Every modal spell before Farewell
+    has it.
+  - `ModeCount::TWO` is "Choose two —".
+  - `ModeCount::ONE_OR_MORE` is "Choose one or more —", and also what spree
+    means (CR 702.172a).
+
+  A spell that chooses several is cast as one set of modes
+  (`CastModeKind::Modes(bits)`, bit `i` for mode `i`, no mode twice,
+  CR 700.2d). The chosen modes happen in printed order (CR 608.2c),
+  whatever order they were picked in. At most two chosen modes may say
+  "target": the first takes the spell's first instance of the word, the
+  second its second (CR 700.2c, 115.3). The second may name objects only,
+  and no mode of such a spell may print `second_targets` of its own.
+  `lints::modes_fault` holds all of this.
+- **`SpellMode::additional_cost`** is the cost printed before a mode:
+  spree's "+ {1} —" (CR 700.2h). It is added to the card's cost when the
+  mode is chosen. It is not an alternative cost, so a spell cast without
+  paying its mana cost still pays it (CR 118.9d). It never goes with
+  `cost_override` (overload), and only on a spell that chooses several.
+  Codegen reads the "+ {cost} —" lines as that card's list of modes, the way
+  it reads bullets.
+
+Effects:
+
+- **`Effect::ExileAll { filter }`** is "Exile all [permanents]" (Farewell).
+  Nothing is targeted.
+- **`Effect::ChooseYoursThen { filter, then }`** is "Choose a creature you
+  control. It …" (Final Showdown). The choice is made as the effect
+  resolves (CR 608.2d), is not a target, and must be made if it can be.
+  Inside `then`, `Filter::This` is the chosen permanent. With nothing to
+  choose, nothing happens (CR 609.3). `then` holds only effects that ask
+  nothing, which is `lints::chosen_then_fault`; today that means
+  `CreateContinuousEffect`.
+- **`Effect::DealDamageDivided { amount }`** is "deals N damage divided as
+  you choose among any number of targets" (Fury). The division is asked as
+  the triggered ability goes on the stack, one share per target
+  (`Pending::ChooseNumber` with `NumberPrompt::DivideDamage`), and the last
+  target takes the rest. A target that is illegal at resolution gets
+  nothing, and its share goes to nobody (CR 608.2b). Only a triggered
+  ability may divide (`lints::every_divided_damage_is_a_trigger_that_can_divide`).
+- **`Effect::Discover { mana_value }`** is discover N (Trumpeting
+  Carnosaur, CR 701.57a). The cast is offered after the resolution, before
+  anyone gets priority. A modal spell cast this way picks its mode, and a
+  spree spell pays its mode costs.
+- **`Effect::RevealTopOnePerType { count }`** (Atraxa, Grand Unifier) asks
+  one question per card type among the revealed cards (CR 205.2a).
+- **`Effect::MayDoOnceEachTurn { effects }`** is "You may …. Do this only
+  once each turn." (The Reaper, King No More). Only a yes uses the turn's
+  go.
+- **`Effect::NthResolutionThisTurn { effects }`** runs the nth effect on
+  the ability's nth resolution this turn (Omnath, Locus of Creation).
+- **`Effect::IfTargetMatches { filter, then }`** is "… target … if it's
+  [filter]" (Prismatic Ending). It is not a targeting restriction.
+- **`Effect::OwnerPutsOnTopOrBottom { target }`** (Subtlety): the owner,
+  not the controller, picks the end of the library.
+- **`Effect::ExileIfDiesThisTurn { target }`** (Mawloc) is a replacement
+  effect on that object for the rest of the turn.
+- **`Effect::GraveyardAllToHand { filter }`** (Garna, the Bloodflame)
+  returns every matching card in your graveyard. Nothing is targeted.
+
+Triggers, reflexive events and amounts:
+
+- **`Trigger::CycledThis`** is "When you cycle this card" (CR 702.29c).
+  What counts as cycling is `AbilityDef::is_cycling`: from the hand, the
+  cost discards the card, and the effect draws one card. Typecycling is not
+  read.
+- **`Trigger::DealsCombatDamageToOpponent(filter)`** (Questing Beast)
+  carries the player and the amount on the trigger. **`Amount::EventAmount`**
+  is "that much".
+- **`ReflexiveEvent::ExiledThis`** is "You may exile it. When you do, …"
+  (The Balrog of Moria). The action is `Effect::ExileSource`.
+
+Targets:
+
+- **`TargetSpec::OpponentOrObject(filter)`** is "target opponent or
+  [filter]" (Ravager of the Fells).
+- **`TargetSpec::ObjectOfFirstTargetsPlayer(filter)`** is a second instance
+  of "target" limited to the player the first instance named. It is
+  written only as `second_targets`, which triggered abilities now have too.
+- **`TargetSpec::ObjectOfEventPlayer(filter)`** is "target [filter] that
+  player controls", where that player is the one the event dealt damage to
+  (Questing Beast).
+- `TargetSpec::ObjectControlledBy(filter, player)` is what the engine binds
+  those two to. It is never written on a card.
+
+Filters, conditions, modifiers and durations:
+
+- **`Filter::PutIntoGraveyardThisTurn`** (Garna).
+- **`Filter::HasCounter(kind)`** (The Reaper). For a permanent that just
+  left the battlefield it reads the counters it had as it left
+  (CR 603.10a).
+- **`Filter::CmcAtMostColorsSpent`** is converge's count (Prismatic
+  Ending).
+- **`Condition::XAtLeast(n)`** is "if X is N or more", read off the
+  source's announced X.
+- **`Modifier::ModifyPTPerGraveyardCard { filter, p, t }`** (Fiend
+  Artisan) is layer 7c.
+- **`Duration::WhileYouControlSource`** is "for as long as you control this
+  creature" (Extraction Specialist, CR 611.2b).
+
+### Pieces added for the friends' decks, last round (29.09.2026)
+
+- **`Effect::TapAll { filter }`** is "Tap all [permanents]" (Cryptic
+  Command's "Tap all creatures your opponents control", with
+  `Filter::OPPONENT_CREATURE`). Nothing is targeted, so hexproof does not
+  stop it; a permanent already tapped stays as it is (CR 701.26a). Cryptic
+  Command is `ModeCount::TWO`: a pair of its four modes, each pair at the
+  card's own cost.
+- **`Effect::ExileTopMayCast { who }`** is "exile the top card of [who]'s
+  library. Until end of turn, you may cast that card" (Ragavan, Nimble
+  Pilferer). The card goes to its owner's exile face up, and the controller
+  holds a cast-only `PlayPermission` for it: a spell is cast at its own
+  price and timing, and a land is neither played nor cast (CR 601.1a,
+  305.9). Nothing is targeted.
+- **`PlayerRel::DamagedPlayer`** is "that player" of a trigger on damage
+  dealt to a player (`Trigger::DealsCombatDamageToPlayer` and its
+  siblings): the seat the damage went to, read off the triggered ability.
+  At a table of three it is the one Ragavan hit, not "an opponent".
+- **`FaceDef.dash: Option<ManaCost>`** is "Dash [cost]" (CR 702.109a). The
+  cast offers `CastModeKind::Dash` beside the mana cost, from wherever the
+  card may be cast. The engine writes the rest: the permanent the spell
+  becomes has haste, and a delayed trigger returns it to its owner's hand at
+  the beginning of the next end step, if it is still that permanent (a
+  blinked or bounced one is a new object, CR 400.7). No card writes the
+  haste or the return. `Condition::DashCostPaid` is what that trigger asks;
+  no card prints it.
+- **`FaceDef.escape: Option<Escape>`** is "Escape—[mana], Exile [N] other
+  cards from your graveyard" (CR 702.138a): `Escape { cost, exile }`, the
+  shape every printed escape cost has. From its owner's graveyard the cast
+  offers `CastModeKind::Escape` once the mana is affordable and at least
+  `exile` other cards lie there; the cast then asks which, as
+  `ChoicePrompt::CostExile` with `min == max == exile`, and exiles them after
+  the mana is paid. Beside a graveyard permission (Muldrotha) the mana cost is
+  offered too, as `Normal`. From a hand nothing changes.
+- **`Condition::Escaped`** is "unless it escaped" and "if it escaped"
+  (CR 702.138b): the source is the spell cast with escape or the permanent
+  it became. A blinked or bounced one is a new object (CR 400.7) and did not
+  escape. Uro's "sacrifice it unless it escaped" is
+  `IfCondition { condition: Escaped, then: &[], otherwise: &[SacrificeSelf] }`
+  on an enters trigger. "Escapes with" counters (CR 702.138c) are not
+  written yet.
 
 ## Worked examples
 

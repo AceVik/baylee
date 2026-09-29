@@ -4,7 +4,8 @@
 //! Oracle: When this creature enters, choose up to one target creature spell or planeswalker spell. Its owner puts it on their choice of the top or bottom of their library.
 //! Oracle: Evoke—Exile a blue card from your hand.
 //! Set: MH2 #67 — Modern Horizons 2 | Scryfall ID: 701256d5-1389-48b7-9581-d6037209bd06 | Oracle ID: 377179d5-ac83-4d34-b5b1-f3d8caa60f79
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — flash, flying; a creature or planeswalker spell to the top or
+// bottom of its owner's library, the owner's choice; pitch-evoke.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -24,7 +25,30 @@ card!(
         ],
         power = Some(3),
         toughness = Some(3),
+        // "Evoke—Exile a blue card from your hand."
+        alternative_costs = &[AlternativeCost {
+            cost: cost!(ExileFromHand(&Filter::HasColor(ColorSet::from_slice(&[
+                Color::Blue
+            ])))),
+            condition: AltCondition::Always,
+        }],
     ),],
+    keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
+    coverage = Coverage::Implemented,
+    abilities = &[
+        // "When this creature enters, choose up to one target creature spell
+        // or planeswalker spell. Its owner puts it on their choice of the top
+        // or bottom of their library."
+        triggered!(
+            Trigger::ETB,
+            &[Effect::OwnerPutsOnTopOrBottom {
+                target: TargetSpec::Spell(&Filter::Or(&[Filter::CREATURE, Filter::PLANESWALKER])),
+            }],
+            targets = Some(TargetReq::up_to_one(TargetSpec::Spell(&Filter::Or(&[
+                Filter::CREATURE,
+                Filter::PLANESWALKER
+            ])))),
+        ),
+        triggered!(Trigger::EntersBattlefieldEvoked, &[Effect::SacrificeSelf]),
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

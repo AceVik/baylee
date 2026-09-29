@@ -24,7 +24,10 @@ apply matching `ContinuousEffect`s by layer (1 copy, 2 control, 3 text,
 dependency topological order within a layer. Cache validity = one
 `u64` generation compare. Durations: `WhileSourceOnBattlefield`
 (deregistered structurally on the source's zone change), `UntilEndOfTurn`,
-`Indefinitely`, conditions. Subtypes are a 1024-bit bitmap (changeling =
+`Indefinitely`, conditions. An emblem's static abilities function in the
+command zone (CR 114.4): `sync_static_effects` registers them once, as
+`Indefinitely` effects (`progress::emblem_statics`), and nothing removes
+them, because an emblem never leaves. Subtypes are a 1024-bit bitmap (changeling =
 one mask OR, not a scan), and the ids in it are **append-only** since #43:
 `ALL_CREATURE_TYPES` is the mask a changeling gets and it is a generated
 list rather than a range, because a new creature type no longer sits next to
@@ -67,10 +70,18 @@ while it runs, that object's cached characteristics are still the previous
 projection — and a modifier that counts permanents (`ModifyPTPerCount`) used
 to read its own source off that cache. Ashaya, Soul of the Wild makes your
 nontoken creatures into lands at layer 4 and is then as big as the lands you
-control at 7c, so it has to count itself: it came down one short. The object
+control at 7a, so it has to count itself: it came down one short. The object
 under projection is now matched against the in-progress characteristics
-(`eval::matches_projected`), which is what CR 613.1 says; every other object
-is read from its own finished projection. The other way is the generation
+(`eval::matches_projected`), which is what CR 613.1 says. Every other object
+is read from its cache, which is this refresh's only once the walk has
+reached it: an Elf later in the list was still the last refresh's Elf, so a
+freshly cast one left Ashaya one short until something else invalidated it.
+A count therefore marks its projection (`Projection::read_board`), and the
+refresh projects the counting objects again after the walk, repeating while
+one moved (a counter can count another), bounded by their number. That is
+CR 613.1 again, not a dependency: CR 613.8a asks for two effects in the same
+layer or sublayer, and a count in layer 7 and the type change it reads in
+layer 4 are not. The other way is the generation
 compare itself: it watches the effect **table**, so an input the filters read
 that is *not* an effect leaves every projection stale. Naming a creature type
 is one — Steely Resolve's static is registered as the enchantment enters and
@@ -715,6 +726,13 @@ Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing
 override) + `PendingCast` (with expiry) + `DelayedTrigger` + `ExileRider`.
 Keywords exist on stack objects (rebound can be granted).
+Casting a permanent card from a graveyard under a player's permission
+(Muldrotha, Wrenn and Realmbreaker's emblem) has one reader,
+`casting::graveyard_cast_permission`, which the offer, `can_cast_form`, the
+cast wizard and the view's graveyard price all ask. Muldrotha's plays are
+written down per source and version in `PerTurn::graveyard_plays`; the
+emblem's are not, and it is asked first, so a cast under it leaves
+Muldrotha's allowance whole.
 
 **A back face is cast at its own timing** (CR 601.3e). Only the face that
 will be up on the stack is evaluated to see whether a modal double-faced
@@ -897,6 +915,14 @@ the open mulligans: who is still deciding, and where each seat's stream
 stands. `house_rules_tests` pins all three, and pins the opening deal of a
 table that only keeps against the engine that asked in seat order.
 
+`Engine::snapshot_hash` is not a complete comparison: it leaves out the
+journal, the open question and its bookkeeping (`pending`, `pending_plan`, the
+cast wizard, `priority_holder`, `awaiting_answer`, `resolve_next`,
+`regrant_priority`, the activation checklist's scratch fields), the loop watch
+and its latches, `delayed_queue` and most of `trigger_queue`, so two engines
+that hash equal can still answer the next question differently; the complete
+comparison is `Engine::fingerprint` (feature `fuzz`), which names every field.
+
 ## Control rotation at a multiplayer table
 
 `Effect::ControlRotation` asks the controller which adjacent living seat to
@@ -922,7 +948,16 @@ that original calculation restored.
    they were making for somebody else when they left goes back to that
    player, with the same cards and limits, to finish as their own search
    (CR 722.5).
-3. `sba::exile_what_the_departed_control` removes what they still control:
+3. What a permanent of theirs held "until it leaves the battlefield" comes
+   back (CR 610.3, `GameState::return_what_departed_hosts_held`): their
+   permanents left without a move, so this is the one departure
+   `move_object` does not see. If they were the monarch, the crown passes
+   as they leave (CR 724.4, `GameState::monarch_leaves`): to the active
+   player, or, when the leaver is the active player, to the next player in
+   turn order still in the game, and to nobody when nobody is left. It
+   passes through `set_monarch`, so Palace Jailer's exile ends if the heir
+   is an opponent of the player who exiled.
+4. `sba::exile_what_the_departed_control` removes what they still control:
    an ability or a copy of a spell on the stack ceases to exist, and
    everything else is exiled through `move_object` with
    `Cause::PlayerLeft`. That leaves what they control by default: a creature

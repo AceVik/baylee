@@ -1626,6 +1626,67 @@ messages! {
         en: "cards to put on top of your library",
         de: "Karten, die oben auf deine Bibliothek kommen",
     },
+    /// card to put into your hand
+    NounCardToHand { en: "card to put into your hand", de: "Karte, die auf deine Hand kommt" },
+    /// cards to put into your hand
+    NounCardsToHand { en: "cards to put into your hand", de: "Karten, die auf deine Hand kommen" },
+    /// card to put on the bottom of your library
+    NounCardToBottom {
+        en: "card to put on the bottom of your library",
+        de: "Karte, die unter deine Bibliothek kommt",
+    },
+    /// cards to put on the bottom of your library
+    NounCardsToBottom {
+        en: "cards to put on the bottom of your library",
+        de: "Karten, die unter deine Bibliothek kommen",
+    },
+    /// card you may play this turn
+    NounCardToPlay { en: "card you may play this turn", de: "Karte, die du in diesem Zug spielen darfst" },
+    /// cards you may play this turn
+    NounCardsToPlay {
+        en: "cards you may play this turn",
+        de: "Karten, die du in diesem Zug spielen darfst",
+    },
+    /// card to put onto the battlefield
+    NounCardToBattlefield {
+        en: "card to put onto the battlefield",
+        de: "Karte, die aufs Spielfeld kommt",
+    },
+    /// cards to put onto the battlefield
+    NounCardsToBattlefield {
+        en: "cards to put onto the battlefield",
+        de: "Karten, die aufs Spielfeld kommen",
+    },
+    /// card to put into its owner's graveyard
+    NounCardToGraveyard {
+        en: "card to put into its owner's graveyard",
+        de: "Karte, die in den Friedhof ihres Besitzers kommt",
+    },
+    /// cards to put into their owner's graveyard
+    NounCardsToGraveyard {
+        en: "cards to put into their owner's graveyard",
+        de: "Karten, die in den Friedhof ihres Besitzers kommen",
+    },
+    /// card for the first pile — the rest are the second
+    NounCardForFirstPile {
+        en: "card for the first pile (the rest are the second)",
+        de: "Karte für den ersten Stapel (der Rest ist der zweite)",
+    },
+    /// cards for the first pile — the rest are the second
+    NounCardsForFirstPile {
+        en: "cards for the first pile (the rest are the second)",
+        de: "Karten für den ersten Stapel (der Rest ist der zweite)",
+    },
+    /// card from your graveyard — none searches the library instead
+    NounCardFromGraveyard {
+        en: "card from your graveyard, or none to search your library",
+        de: "Karte aus deinem Friedhof, oder keine, um deine Bibliothek zu durchsuchen",
+    },
+    /// cards from your graveyard — none searches the library instead
+    NounCardsFromGraveyard {
+        en: "cards from your graveyard, or none to search your library",
+        de: "Karten aus deinem Friedhof, oder keine, um deine Bibliothek zu durchsuchen",
+    },
     /// card from outside the game
     NounCardOutside { en: "card from outside the game", de: "Karte von außerhalb der Partie" },
     /// cards from outside the game
@@ -1698,6 +1759,8 @@ messages! {
     TapToHelpPay { en: "Tap permanents to help pay — each pays for one", de: "Tappe bleibende Karten, um mitzubezahlen — jede zahlt eins" },
     /// Delve: exile cards from your graveyard to help pay
     DelveToHelpPay { en: "Exile cards from your graveyard to help pay — each pays for one", de: "Schicke Karten aus deinem Friedhof ins Exil, um mitzubezahlen — jede zahlt eine" },
+    /// Crew N: tap creatures with total power {0} or more
+    CrewWithPower { en: "Crew {0}: tap any number of your other untapped creatures with total power {0} or more", de: "Besatzung {0}: Tappe beliebig viele deiner anderen ungetappten Kreaturen mit einer Gesamtstärke von {0} oder mehr" },
     /// Choose up to {0} {1}
     ChooseUpTo { en: "Choose up to {0} {1}", de: "Wähle bis zu {0} {1}" },
     /// Choose {0} {1}
@@ -1712,6 +1775,11 @@ messages! {
     ChooseColour { en: "Choose a colour", de: "Wähle eine Farbe" },
     /// Choose a number ({0}–{1})
     ChooseNumberIn { en: "Choose a number ({0}–{1})", de: "Wähle eine Zahl ({0}–{1})" },
+    /// One target's share of damage divided as the player chooses (Fury).
+    DamageShare {
+        en: "Damage to target {0} of {1}, {2} left to divide ({3}–{4})",
+        de: "Schaden an Ziel {0} von {1}, noch {2} zu verteilen ({3}–{4})",
+    },
     /// Replicate {0}: pay it how many times? ({1}–{2})
     ReplicateHowOften {
         en: "Replicate {0}: pay it how many times? ({1}–{2})",
@@ -1721,6 +1789,15 @@ messages! {
     ChoosePlayer { en: "Choose a player", de: "Wähle einen Spieler" },
     /// Choose how to cast
     ChooseHowToCast { en: "Choose how to cast", de: "Wähle, wie gewirkt wird" },
+    /// Choose a pile to put into your hand (Fact or Fiction)
+    ChoosePileForHand {
+        en: "Choose a pile for your hand; the other goes to your graveyard",
+        de: "Wähle einen Stapel für deine Hand; der andere kommt in deinen Friedhof",
+    },
+    /// Pile {0}: {1} — one row of a pile choice
+    PileRow { en: "Pile {0}: {1}", de: "Stapel {0}: {1}" },
+    /// no cards — an empty pile's row
+    EmptyPile { en: "no cards", de: "keine Karten" },
     /// Mode {0}
     ///
     /// Only where a mode has no printed sentence: a modal trigger that states
@@ -1732,6 +1809,12 @@ messages! {
     CastLandFace { en: "Play as a land", de: "Als Land spielen" },
     /// Miracle
     CastMiracle { en: "Miracle", de: "Wunder" },
+    /// Flashback
+    CastFlashback { en: "Flashback", de: "Rückblende" },
+    /// Dash (CR 702.109a), the keyword as the German printing names it
+    CastDash { en: "Dash", de: "Sturmangriff" },
+    /// Escape (CR 702.138a), the keyword as the German printing names it
+    CastEscape { en: "Escape", de: "Befreiung" },
     /// Click a card in your hand
     HintClickHand { en: "Click a card in your hand", de: "Klicke eine Karte auf deiner Hand an" },
     /// Click what you are choosing
@@ -1782,6 +1865,16 @@ messages! {
     },
     /// Cast it for its miracle cost?
     CastForMiracle { en: "Cast it for its miracle cost?", de: "Für die Wunderkosten wirken?" },
+    /// Cast it without paying its mana cost? (cascade)
+    CastWithoutPaying {
+        en: "Cast it without paying its mana cost?",
+        de: "Ohne Zahlung seiner Manakosten wirken?",
+    },
+    /// Cast it now, paying its mana cost? (Conduit of Worlds)
+    CastPaying {
+        en: "Cast it now, paying its mana cost? You make the mana first.",
+        de: "Jetzt wirken und seine Manakosten bezahlen? Du erzeugst zuerst das Mana.",
+    },
     /// {0} offers a draw. Accept?
     ///
     /// Named rather than passive, and the name is the whole of the repair:
@@ -1810,6 +1903,21 @@ messages! {
     UseTheOptionalAbility {
         en: "This ability is optional. Use it?",
         de: "Diese Fähigkeit ist optional. Einsetzen?",
+    },
+    /// Your card goes into your library: the top, or the bottom? (Subtlety)
+    TopOfLibraryOrBottom {
+        en: "Your card goes into your library. On top? (No puts it on the bottom.)",
+        de: "Deine Karte kommt in deine Bibliothek. Oben drauf? (Nein legt sie unter.)",
+    },
+    /// One card of a named card type into the hand, or none (Atraxa).
+    TakeOneOfType {
+        en: "Put up to one {0} card into your hand",
+        de: "Nimm bis zu eine Karte vom Typ {0} auf deine Hand",
+    },
+    /// Cast the discovered card for free, or take it into the hand?
+    CastDiscovered {
+        en: "You discovered this card. Cast it without paying its mana cost? (No puts it into your hand.)",
+        de: "Du hast diese Karte entdeckt. Ohne ihre Manakosten zu bezahlen wirken? (Nein nimmt sie auf deine Hand.)",
     },
     /// Yes or no?
     YesOrNo { en: "Yes or no?", de: "Ja oder nein?" },
@@ -3474,6 +3582,19 @@ mod tests {
                 Phrase::NounPermanentsToLeaveTapped,
             ),
             (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
+            (Phrase::NounCardToHand, Phrase::NounCardsToHand),
+            (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
+            (Phrase::NounCardToPlay, Phrase::NounCardsToPlay),
+            (
+                Phrase::NounCardToBattlefield,
+                Phrase::NounCardsToBattlefield,
+            ),
+            (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard),
+            (Phrase::NounCardForFirstPile, Phrase::NounCardsForFirstPile),
+            (
+                Phrase::NounCardFromGraveyard,
+                Phrase::NounCardsFromGraveyard,
+            ),
             (Phrase::LogKeptCardYou, Phrase::LogKeptCardsYou),
             (Phrase::LogKeptCard, Phrase::LogKeptCards),
             (Phrase::LogDrewCardYou, Phrase::LogDrewCardsYou),

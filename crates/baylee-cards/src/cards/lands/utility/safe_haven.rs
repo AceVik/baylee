@@ -17,9 +17,9 @@ card!(
     abilities = &[
         activated!(
             cost!("{2}", TapSelf),
-            &[Effect::ExileLinked {
-                target: TargetSpec::Object(&Filter::YOUR_CREATURE),
-            }],
+            &[Effect::exile_linked(TargetSpec::Object(
+                &Filter::YOUR_CREATURE
+            ))],
             target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE)),
         ),
         triggered!(

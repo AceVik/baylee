@@ -51,6 +51,7 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::PayLife(_)
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
+        | CostPart::Crew(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::DiscardSelf
@@ -59,6 +60,40 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::PutCounterSelf { .. } => false,
+    }
+}
+
+/// Whether paying `part` can refuse after something of the cost was already
+/// paid, which is when [`Engine::pay_cost`] keeps a checkpoint to cancel the
+/// payment with (CR 732.1).
+///
+/// The mana is paid first and all at once or not at all, so a cost whose
+/// every part answers `false` here can refuse only before it has written
+/// anything: a land's `{T}: Add {G}`, which is most of what is ever paid,
+/// takes no copy of the game. Exhaustive for the reason the function above
+/// is: a new part says which side it is on.
+const fn can_refuse_part_way(part: &CostPart) -> bool {
+    match part {
+        // A move of an object that may no longer be there, a counter that
+        // may already be gone, an answer that may be missing.
+        CostPart::SacrificeSelf
+        | CostPart::DiscardSelf
+        | CostPart::ExileSelf
+        | CostPart::ReturnSelfToHand
+        | CostPart::RemoveCounterSelf { .. }
+        | CostPart::RemoveCounterSelfX { .. }
+        | CostPart::Sacrifice(_)
+        | CostPart::Discard(_)
+        | CostPart::TapOther(_)
+        | CostPart::Crew(_)
+        | CostPart::ReturnToHand(_)
+        | CostPart::ExileFromGraveyard(_) => true,
+        CostPart::TapSelf
+        | CostPart::UntapSelf
+        | CostPart::PayLife(_)
+        | CostPart::PutCounterSelf { .. }
+        | CostPart::ExileFromHand(_)
+        | CostPart::PayLifeX => false,
     }
 }
 
@@ -182,6 +217,47 @@ impl<L: CardLookup> Engine<L> {
                 legal.castable.push(card);
             }
         }
+        // "You may play that card this turn" (Dauthi Voidwalker, Expressive
+        // Iteration): a permission for one object, wherever it lies — an
+        // opponent's exile for Dauthi, which is why this walks the
+        // permissions rather than a zone. A land is a land drop like any
+        // other (CR 305.2), asked by `casting::play_land` through
+        // `land_card_open`, which reads the same permission.
+        for permission in &self.state.per_turn.playable {
+            let card = permission.card;
+            if permission.player != player
+                || casting::play_permission(&self.state, player, card).is_none()
+            {
+                continue;
+            }
+            let Some(obj) = self.state.object(card) else {
+                continue;
+            };
+            if obj.zone == Zone::Hand {
+                continue;
+            }
+            let plays_as_land = obj.characteristics().types.contains(TypeSet::LAND)
+                || obj
+                    .card
+                    .and_then(|c| self.lookup.card(c.index))
+                    .is_some_and(|def| def.land_faces_from_hand().next().is_some());
+            // A permission to cast and not to play (Ragavan) opens no land
+            // drop, and a land it names is not cast either (CR 305.9): the
+            // castable probe below says so for it.
+            if plays_as_land && !permission.cast_only {
+                if sorcery_timing
+                    && casting::has_a_land_drop_left(&self.state, player)
+                    && !legal.lands.contains(&card)
+                {
+                    legal.lands.push(card);
+                }
+            } else if !legal.castable.contains(&card)
+                && casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
+                && self.has_a_legal_target(player, card)
+            {
+                legal.castable.push(card);
+            }
+        }
         // Commander (CR 903.8): your own commanders in the command zone.
         // The emblems sharing that zone are filtered out by `can_cast`,
         // which asks the marker list rather than the zone.
@@ -207,6 +283,12 @@ impl<L: CardLookup> Engine<L> {
                 legal.castable.push(card);
             }
         }
+        // The grants are collected once rather than asked of the whole
+        // effect table per permanent (`effects::grants`): an Ally board
+        // carries thousands of "until end of turn" effects and grants
+        // through one or two of them.
+        let grants: smallvec::SmallVec<[&crate::effects::ContinuousEffect; 4]> =
+            crate::effects::grants(&self.state).collect();
         for &id in self.state.zones.list(ZoneLocation::Battlefield) {
             // Karn's lock, asked on the offering side too. It stops every
             // activated ability of the permanent, a mana ability included —
@@ -216,8 +298,8 @@ impl<L: CardLookup> Engine<L> {
             // rider below offers a spell.
             let locked = self.artifact_activations_are_locked(id);
             if !locked
-                && casting::can_activate_mana(&self.state, player, id)
-                && !casting::intrinsic_mana_offer(&self.state, &self.lookup, id).is_empty()
+                && !casting::intrinsic_mana_choices(&self.state, &self.lookup, player, id)
+                    .is_empty()
             {
                 legal.mana_abilities.push(id);
             }
@@ -258,6 +340,7 @@ impl<L: CardLookup> Engine<L> {
                         targets,
                         second_targets,
                         limit,
+                        cost_reduction,
                         ..
                     } => {
                         if *zone != ActivationZone::Battlefield {
@@ -274,7 +357,8 @@ impl<L: CardLookup> Engine<L> {
                         {
                             continue;
                         }
-                        if self.can_afford(player, id, cost, casting::SpendFor::Ability(id)) {
+                        let cost = self.activation_price(player, id, cost, *cost_reduction);
+                        if self.activation_affordable(player, id, &cost, &[]) {
                             legal.abilities.push((id, i as u32));
                         }
                     }
@@ -286,6 +370,7 @@ impl<L: CardLookup> Engine<L> {
                         targets,
                         second_targets,
                         limit,
+                        cost_reduction,
                         ..
                     } => {
                         if *zone != ActivationZone::Battlefield {
@@ -305,7 +390,8 @@ impl<L: CardLookup> Engine<L> {
                         {
                             continue;
                         }
-                        if self.can_afford(player, id, cost, casting::SpendFor::Ability(id)) {
+                        let cost = self.activation_price(player, id, cost, *cost_reduction);
+                        if self.activation_affordable(player, id, &cost, &[]) {
                             legal.abilities.push((id, i as u32));
                         }
                     }
@@ -377,9 +463,10 @@ impl<L: CardLookup> Engine<L> {
             // is the *position among the grants that apply*, affordable or
             // not — an index that shifted when a cost became payable would
             // name a different ability from one priority window to the next.
-            for (n, granted) in crate::effects::granted_activated(&self.state, id)
-                .take(crate::choice::GRANTED_SLOTS as usize)
-                .enumerate()
+            for (n, granted) in
+                crate::effects::granted_activated_among(&self.state, grants.iter().copied(), id)
+                    .take(crate::choice::GRANTED_SLOTS as usize)
+                    .enumerate()
             {
                 if !self.can_afford(player, id, &granted.cost, casting::SpendFor::Ability(id)) {
                     continue;
@@ -399,117 +486,136 @@ impl<L: CardLookup> Engine<L> {
                 // `apply`: intrinsic first, and the granted ability is
                 // reached by naming `GRANTED_ABILITY` in `legal.abilities`,
                 // where it also appears.
-                if granted.mana_ability && !legal.mana_abilities.contains(&id) {
+                //
+                // `last` and not `contains`: both pushes onto this list are
+                // made in this permanent's own turn of the loop, so an entry
+                // for it can only be the latest one, and searching the whole
+                // list made a board of granted mana abilities (a Great Divide
+                // Guide over a few thousand Allies) quadratic.
+                if granted.mana_ability && legal.mana_abilities.last() != Some(&id) {
                     legal.mana_abilities.push(id);
                 }
             }
         }
-        // Hand-zone activations (cycling) and suspensions.
-        for &card in self.state.zones.list(ZoneLocation::Hand(player)) {
-            let Some(obj) = self.state.object(card) else {
-                continue;
-            };
-            let Some(card_ref) = obj.card else { continue };
-            let Some(def) = self.lookup.card(card_ref.index) else {
-                continue;
-            };
-            for (i, ability) in def
-                .abilities_for_face(obj.face_index as usize)
-                .iter()
-                .enumerate()
-            {
-                match ability {
-                    AbilityDef::Activated {
-                        cost,
-                        timing,
-                        zone,
-                        targets,
-                        second_targets,
-                        limit,
-                        ..
-                    } => {
-                        if *zone != ActivationZone::Hand {
-                            continue;
+        // Hand-zone activations (cycling) and suspensions, and the
+        // graveyard's (eternalize): the same arms, each ability asked
+        // whether the zone it is in is the zone it works from.
+        for (from_zone, from) in [
+            (ZoneLocation::Hand(player), ActivationZone::Hand),
+            (ZoneLocation::Graveyard(player), ActivationZone::Graveyard),
+        ] {
+            for &card in self.state.zones.list(from_zone) {
+                let Some(obj) = self.state.object(card) else {
+                    continue;
+                };
+                let Some(card_ref) = obj.card else { continue };
+                let Some(def) = self.lookup.card(card_ref.index) else {
+                    continue;
+                };
+                for (i, ability) in def
+                    .abilities_for_face(obj.face_index as usize)
+                    .iter()
+                    .enumerate()
+                {
+                    match ability {
+                        AbilityDef::Activated {
+                            cost,
+                            timing,
+                            zone,
+                            targets,
+                            second_targets,
+                            limit,
+                            cost_reduction,
+                            ..
+                        } => {
+                            if *zone != from {
+                                continue;
+                            }
+                            if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                                continue;
+                            }
+                            if self.activation_limit_spent(card, i as u32, *limit) {
+                                continue;
+                            }
+                            // The same probe as the battlefield arms, for the
+                            // reason `ability_has_a_target` gives. This arm once
+                            // asked only about the turn and the price, so
+                            // Rustic Clachan's reinforce was offered on a board
+                            // with no creature and then refused with "no legal
+                            // targets". The source is the card in hand, so a
+                            // filter saying "another" still reads it right.
+                            if !self.ability_has_a_target(player, card, *targets)
+                                || !self.ability_has_a_target(player, card, *second_targets)
+                            {
+                                continue;
+                            }
+                            let cost = self.activation_price(player, card, cost, *cost_reduction);
+                            if self.activation_affordable(player, card, &cost, &[]) {
+                                legal.abilities.push((card, i as u32));
+                            }
                         }
-                        if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
-                            continue;
+                        AbilityDef::ActivatedConditional {
+                            cost,
+                            timing,
+                            zone,
+                            condition,
+                            targets,
+                            second_targets,
+                            limit,
+                            cost_reduction,
+                            ..
+                        } => {
+                            // The same ability with a precondition on it — the
+                            // battlefield scan above has both arms, and this one
+                            // had only the first, so a cycling ability behind an
+                            // "activate only if…" clause would never be offered
+                            // at all. No card in the pool prints one today; the
+                            // hole is closed rather than recorded, because the
+                            // arm is four lines longer than the note would be.
+                            if *zone != from {
+                                continue;
+                            }
+                            if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                                continue;
+                            }
+                            if self.activation_limit_spent(card, i as u32, *limit) {
+                                continue;
+                            }
+                            if !crate::eval::condition_holds(&self.state, player, card, *condition)
+                            {
+                                continue;
+                            }
+                            if !self.ability_has_a_target(player, card, *targets)
+                                || !self.ability_has_a_target(player, card, *second_targets)
+                            {
+                                continue;
+                            }
+                            let cost = self.activation_price(player, card, cost, *cost_reduction);
+                            if self.activation_affordable(player, card, &cost, &[]) {
+                                legal.abilities.push((card, i as u32));
+                            }
                         }
-                        if self.activation_limit_spent(card, i as u32, *limit) {
-                            continue;
-                        }
-                        // The same probe as the battlefield arms, for the
-                        // reason `ability_has_a_target` gives. This arm once
-                        // asked only about the turn and the price, so
-                        // Rustic Clachan's reinforce was offered on a board
-                        // with no creature and then refused with "no legal
-                        // targets". The source is the card in hand, so a
-                        // filter saying "another" still reads it right.
-                        if !self.ability_has_a_target(player, card, *targets)
-                            || !self.ability_has_a_target(player, card, *second_targets)
+                        // Suspend's first ability is an activated one with a cost
+                        // and "activate only as a sorcery" on it (CR 702.62a) —
+                        // "rather than cast this card from your hand, **pay
+                        // {U}** and exile it", as Ancestral Vision's reminder
+                        // text puts it. So it is offered on the same two
+                        // conditions as every other activation above, and this
+                        // was the one branch here that asked only about the
+                        // turn: a card with suspend was offered as suspendable
+                        // off an empty pool, and `actions.rs` — which *does* pay
+                        // the cost — then refused it. An offer the answer
+                        // disagrees with is worse than no offer, because the
+                        // client draws it as something to click.
+                        AbilityDef::Suspend { cost, .. }
+                            if from == ActivationZone::Hand
+                                && sorcery_timing
+                                && self.can_pay_mana(player, casting::SpendFor::Other, cost) =>
                         {
-                            continue;
+                            legal.suspendable.push(card);
                         }
-                        if self.can_afford(player, card, cost, casting::SpendFor::Ability(card)) {
-                            legal.abilities.push((card, i as u32));
-                        }
+                        _ => {}
                     }
-                    AbilityDef::ActivatedConditional {
-                        cost,
-                        timing,
-                        zone,
-                        condition,
-                        targets,
-                        second_targets,
-                        limit,
-                        ..
-                    } => {
-                        // The same ability with a precondition on it — the
-                        // battlefield scan above has both arms, and this one
-                        // had only the first, so a cycling ability behind an
-                        // "activate only if…" clause would never be offered
-                        // at all. No card in the pool prints one today; the
-                        // hole is closed rather than recorded, because the
-                        // arm is four lines longer than the note would be.
-                        if *zone != ActivationZone::Hand {
-                            continue;
-                        }
-                        if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
-                            continue;
-                        }
-                        if self.activation_limit_spent(card, i as u32, *limit) {
-                            continue;
-                        }
-                        if !crate::eval::condition_holds(&self.state, player, card, *condition) {
-                            continue;
-                        }
-                        if !self.ability_has_a_target(player, card, *targets)
-                            || !self.ability_has_a_target(player, card, *second_targets)
-                        {
-                            continue;
-                        }
-                        if self.can_afford(player, card, cost, casting::SpendFor::Ability(card)) {
-                            legal.abilities.push((card, i as u32));
-                        }
-                    }
-                    // Suspend's first ability is an activated one with a cost
-                    // and "activate only as a sorcery" on it (CR 702.62a) —
-                    // "rather than cast this card from your hand, **pay
-                    // {U}** and exile it", as Ancestral Vision's reminder
-                    // text puts it. So it is offered on the same two
-                    // conditions as every other activation above, and this
-                    // was the one branch here that asked only about the
-                    // turn: a card with suspend was offered as suspendable
-                    // off an empty pool, and `actions.rs` — which *does* pay
-                    // the cost — then refused it. An offer the answer
-                    // disagrees with is worse than no offer, because the
-                    // client draws it as something to click.
-                    AbilityDef::Suspend { cost, .. }
-                        if sorcery_timing
-                            && self.can_pay_mana(player, casting::SpendFor::Other, cost) =>
-                    {
-                        legal.suspendable.push(card);
-                    }
-                    _ => {}
                 }
             }
         }
@@ -783,6 +889,70 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// What an activated ability costs `player` right now: its printed cost
+    /// less the generic mana its own printed reduction takes off ("This
+    /// ability costs {1} less to activate for each legendary creature you
+    /// control"). The offer and the activation both ask this, so an ability
+    /// is never offered at one price and charged another.
+    pub(crate) fn activation_price(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        cost: &Cost,
+        reduction: Option<baylee_cards_dsl::CostReduction>,
+    ) -> Cost {
+        let off = casting::reduction_amount(&self.state, reduction, player, source);
+        if off == 0 {
+            return *cost;
+        }
+        Cost {
+            mana: cost.mana.with_less_generic(off),
+            parts: cost.parts,
+        }
+    }
+
+    /// Whether `player` can pay an activation's `cost` some way that begins
+    /// with the Phyrexian answers `settled` already gives: every way of
+    /// paying the remaining Phyrexian symbols is tried, each paid with its
+    /// mana or with 2 life (CR 107.4f), and the way counts when the pool
+    /// covers the mana left and the player can pay the life (CR 119.4).
+    /// A cost with no Phyrexian symbol is [`Self::can_afford`]'s question
+    /// alone. The offer and every Phyrexian question ask this, so an ability
+    /// is offered exactly when some answer to those questions pays for it.
+    pub(crate) fn activation_affordable(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        cost: &Cost,
+        settled: &[bool],
+    ) -> bool {
+        let symbols = cost.mana.phyrexian_count();
+        // Eight symbols is 256 ways; no card prints more than four.
+        let fixed = u32::try_from(settled.len()).unwrap_or(u32::MAX);
+        if symbols > 8 || fixed > symbols {
+            return false;
+        }
+        let base = settled
+            .iter()
+            .enumerate()
+            .fold(0u32, |mask, (i, life)| mask | (u32::from(*life) << i));
+        (0..(1u32 << (symbols - fixed))).any(|rest| {
+            let mask = base | (rest << fixed);
+            let life = 2 * i32::try_from(mask.count_ones()).unwrap_or(i32::MAX);
+            let settled_cost = Cost {
+                mana: cost.mana.with_phyrexian_settled(mask),
+                parts: cost.parts,
+            };
+            self.state.can_pay_life(player, life)
+                && self.can_afford(
+                    player,
+                    source,
+                    &settled_cost,
+                    casting::SpendFor::Ability(source),
+                )
+        })
+    }
+
     /// Whether `player`'s pool covers a bare mana cost paid for `what`.
     ///
     /// Split out of [`Self::can_afford`] for suspend, whose cost is a
@@ -797,6 +967,16 @@ impl<L: CardLookup> Engine<L> {
         what: casting::SpendFor,
         cost: &baylee_core::mana::ManaCost,
     ) -> bool {
+        // No mana symbol at all — `{T}`, a sacrifice, a granted "{T}: Add
+        // one mana of any color" — is paid by every pool, the Lattice's
+        // included (`mana_pay::payment_preferring` over no symbols pays
+        // nothing and succeeds). Answered here because the offer asks it
+        // once per permanent: the pool merge and the effect-table walk that
+        // reads the Lattice below were most of what a board of granted mana
+        // abilities cost.
+        if cost.symbols().next().is_none() {
+            return true;
+        }
         let with_restricted = casting::spendable_pool(&self.state, player, what);
         let pool = with_restricted
             .as_ref()
@@ -851,6 +1031,17 @@ impl<L: CardLookup> Engine<L> {
                 // that reverses itself under the player's hands.
                 CostPart::ExileFromHand(filter) => {
                     if casting::pitchable(&self.state, player, source, filter).is_empty() {
+                        return false;
+                    }
+                }
+                // Crew (CR 702.122a): one question, so one total. The
+                // creatures on the menu with a power above zero are the most
+                // any answer can reach; a creature with a negative power
+                // only lowers a total (CR 107.1b), so nobody would name it.
+                CostPart::Crew(power) => {
+                    let mut menu = cost_wizard::menu(&self.state, player, source, cost, part);
+                    menu.retain(|id| cost_wizard::crew_power(&self.state, &[*id]) > 0);
+                    if cost_wizard::crew_power(&self.state, &menu) < i32::from(*power) {
                         return false;
                     }
                 }
@@ -967,12 +1158,13 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         spell_def: &baylee_cards_dsl::CardDef,
     ) -> bool {
-        casting::timing_allows(
-            &self.state,
-            player,
-            spell_def.faces[0].types,
-            spell_def.keywords_for_face(0),
-        )
+        casting::may_begin_casting(&self.state, player)
+            && casting::timing_allows(
+                &self.state,
+                player,
+                spell_def.faces[0].types,
+                spell_def.keywords_for_face(0),
+            )
     }
 
     /// Prepared cast (Emeritus of Woe): pays the linked spell's cost,
@@ -1063,9 +1255,7 @@ impl<L: CardLookup> Engine<L> {
             obj.riders.push(crate::object::Rider::SpellCopy);
             obj
         });
-        self.state
-            .zones
-            .insert(id, ZoneLocation::Stack, ZonePosition::Top, true);
+        self.state.put_new_spell_on_stack(id);
         // Per-turn tracking, exactly as an ordinary cast keeps it. The card
         // says "you may **cast** a copy of its spell", so this is a cast and
         // the turn has to count it: without these two the prepared spell was
@@ -1145,6 +1335,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: true,
                 countered_source: None,
                 target_lki: None,
+                retarget_left: None,
             };
             match crate::resolve::run(&mut self.state, &mut res) {
                 crate::resolve::Flow::Complete => {}
@@ -1237,15 +1428,10 @@ impl<L: CardLookup> Engine<L> {
             return self.start_granted_activation(player, source, slot, targets);
         }
         // Loyalty abilities route to their own activation path first.
-        if let Some(AbilityDef::Loyalty { cost, .. }) = self
-            .state
-            .object(source)
-            .map(|o| o.abilities(&self.lookup))
-            .and_then(|abilities| abilities.get(ability_index as usize))
-        {
-            return self.start_loyalty_activation(player, source, ability_index, targets, *cost);
+        if let Some(cost) = self.loyalty_cost(source, ability_index) {
+            return self.start_loyalty_activation(player, source, ability_index, targets, cost);
         }
-        let (cost, effects, (first, second), mana_ability, zone, limit) = {
+        let (cost, effects, (first, second), mana_ability, zone, limit, cost_reduction) = {
             let obj = self
                 .state
                 .object(source)
@@ -1278,6 +1464,7 @@ impl<L: CardLookup> Engine<L> {
                     mana_ability,
                     zone,
                     limit,
+                    cost_reduction,
                     ..
                 } => (
                     *cost,
@@ -1286,6 +1473,7 @@ impl<L: CardLookup> Engine<L> {
                     *mana_ability,
                     *zone,
                     *limit,
+                    *cost_reduction,
                 ),
                 AbilityDef::ActivatedConditional {
                     cost,
@@ -1296,6 +1484,7 @@ impl<L: CardLookup> Engine<L> {
                     zone,
                     condition,
                     limit,
+                    cost_reduction,
                     ..
                 } => {
                     if !crate::eval::condition_holds(&self.state, player, source, *condition) {
@@ -1308,11 +1497,25 @@ impl<L: CardLookup> Engine<L> {
                         *mana_ability,
                         *zone,
                         *limit,
+                        *cost_reduction,
                     )
                 }
                 _ => return Err(EngineError::IllegalAction("not an activated ability")),
             }
         };
+        // The price, determined once and before anything is paid (CR 601.2f
+        // through CR 602.2b): Boseiju's channel discards the very card whose
+        // count of legendary creatures lowers it, and a total cost is locked
+        // in once determined. The offer asked the same helper, so the ability
+        // is charged what it was offered at.
+        let cost = self.activation_price(player, source, &cost, cost_reduction);
+        // Read before the cost moves the card (CR 702.29c needs to know,
+        // after the discard, that it paid a cycling ability's cost).
+        let cycling = self.state.object(source).is_some_and(|o| {
+            o.abilities(&self.lookup)
+                .get(ability_index as usize)
+                .is_some_and(AbilityDef::is_cycling)
+        });
         // Read before any cost is paid, because a cost may move the source
         // and a moved copy is no longer one — see `Engine::activating_abilities`.
         self.activating_abilities = self
@@ -1329,6 +1532,10 @@ impl<L: CardLookup> Engine<L> {
                 .state
                 .object(source)
                 .is_some_and(|o| o.zone == Zone::Hand && o.zone_owner == Some(player)),
+            ActivationZone::Graveyard => self
+                .state
+                .object(source)
+                .is_some_and(|o| o.zone == Zone::Graveyard && o.zone_owner == Some(player)),
         };
         if !in_right_zone {
             return Err(EngineError::IllegalAction(
@@ -1417,6 +1624,57 @@ impl<L: CardLookup> Engine<L> {
             self.awaiting_answer = true;
             return Ok(());
         }
+        // Each Phyrexian symbol: 2 life or its mana, announced beside the X
+        // (CR 601.2b through CR 602.2b; CR 118.13a). Asked only where both
+        // answers still leave a way to pay; where one does, it is taken
+        // without asking, and where neither does the activation is refused.
+        let symbols = cost.mana.phyrexian_count();
+        while u32::try_from(self.activation_phyrexian.len()).unwrap_or(u32::MAX) < symbols {
+            let mut with_life = self.activation_phyrexian.clone();
+            with_life.push(true);
+            let mut with_mana = self.activation_phyrexian.clone();
+            with_mana.push(false);
+            let life_ok = self.activation_affordable(player, source, &cost, &with_life);
+            let mana_ok = self.activation_affordable(player, source, &cost, &with_mana);
+            match (life_ok, mana_ok) {
+                (true, true) => {
+                    self.pending_plan = Some(PlanKind::ChoosePhyrexianLife {
+                        source,
+                        ability_index,
+                    });
+                    self.pending = Pending::YesNo {
+                        player,
+                        prompt: crate::choice::YesNoPrompt::PayLife { amount: 2 },
+                        // The ability being activated, which is what the
+                        // question is about.
+                        source: self
+                            .state
+                            .object(source)
+                            .and_then(|o| o.card)
+                            .map(|c| baylee_core::ids::AbilityRef::new(c.index, ability_index)),
+                    };
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
+                (true, false) => self.activation_phyrexian.push(true),
+                (false, true) => self.activation_phyrexian.push(false),
+                (false, false) => {
+                    self.activation_phyrexian.clear();
+                    self.activation_x = None;
+                    return Err(EngineError::IllegalAction("cannot pay the cost"));
+                }
+            }
+        }
+        let by_life = self
+            .activation_phyrexian
+            .iter()
+            .enumerate()
+            .fold(0u32, |mask, (i, life)| mask | (u32::from(*life) << i));
+        let phyrexian_life = 2 * i32::try_from(by_life.count_ones()).unwrap_or(i32::MAX);
+        let cost = Cost {
+            mana: cost.mana.with_phyrexian_settled(by_life),
+            parts: cost.parts,
+        };
         // Targets, unless this activation has already answered them. That is
         // a flag and not a look at the lists, because an empty list is an
         // answer too: "up to one" answered with nothing re-enters here with
@@ -1440,7 +1698,41 @@ impl<L: CardLookup> Engine<L> {
             // (CR 601.2c, by CR 602.2b). X is answered by now (CR 601.2b
             // comes first), so an X count is a number here.
             let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
-            let options = eval::target_options(&req.spec, &self.state, player, source);
+            let mut options = eval::target_options(&req.spec, &self.state, player, source);
+            // "Target cards from a single graveyard" (Unlicensed Hearse):
+            // which graveyard is asked first, when more than one holds a
+            // card to choose, and the targets are then that graveyard's.
+            if let baylee_cards_dsl::TargetSpec::CardInGraveyard(
+                _,
+                baylee_cards_dsl::PlayerRel::Chosen,
+            ) = req.spec
+            {
+                let graveyard_of = |state: &crate::state::GameState, id: &ObjectId| {
+                    state.object(*id).and_then(|o| o.zone_owner)
+                };
+                if let Some(chosen) = self.activation_graveyard.take() {
+                    options.retain(|id| graveyard_of(&self.state, id) == Some(chosen));
+                } else {
+                    let mut graveyards: Vec<PlayerId> = options
+                        .iter()
+                        .filter_map(|id| graveyard_of(&self.state, id))
+                        .collect();
+                    graveyards.sort_unstable();
+                    graveyards.dedup();
+                    if graveyards.len() > 1 {
+                        self.pending_plan = Some(PlanKind::ChooseActivationGraveyard {
+                            source,
+                            ability_index,
+                        });
+                        self.pending = Pending::ChoosePlayer {
+                            player,
+                            options: graveyards,
+                        };
+                        self.awaiting_answer = true;
+                        return Ok(());
+                    }
+                }
+            }
             // Players are the other half of the same choice, and asking for
             // objects alone made three implemented lands dead: Nephalia
             // Drownyard, Duskmantle and Orzhova all say "target player",
@@ -1511,9 +1803,12 @@ impl<L: CardLookup> Engine<L> {
                 return Ok(());
             }
         }
-        if !self.can_afford(player, source, &cost, casting::SpendFor::Ability(source)) {
+        if !self.can_afford(player, source, &cost, casting::SpendFor::Ability(source))
+            || !self.state.can_pay_life(player, phyrexian_life)
+        {
             self.activation_cost_choices.clear();
             self.activation_x = None;
+            self.activation_phyrexian.clear();
             return Err(EngineError::IllegalAction("cannot pay the cost"));
         }
         // CR 601.2h, and the one step of it the player has to take: a cost
@@ -1555,11 +1850,19 @@ impl<L: CardLookup> Engine<L> {
                 targets,
                 target_players: chosen_players,
             });
+            // One object per question, except crew's, whose one question
+            // is answered with any number of creatures (CR 702.122a) and
+            // refused by `apply` when their total power is short.
+            let max = if matches!(part, CostPart::Crew(_)) {
+                u8::try_from(options.len()).unwrap_or(u8::MAX)
+            } else {
+                1
+            };
             self.pending = Pending::ChooseCards {
                 player,
                 options,
                 min: 1,
-                max: 1,
+                max,
                 prompt,
             };
             self.awaiting_answer = true;
@@ -1570,7 +1873,24 @@ impl<L: CardLookup> Engine<L> {
         // line up: the number belongs to this activation and to no other.
         let x = self.activation_x.take().unwrap_or(0);
         self.activation_targets_answered = false;
+        self.activation_phyrexian.clear();
         let paid = self.pay_cost(player, source, &cost, &answers, x)?;
+        // The life the Phyrexian symbols were paid with, beside the rest of
+        // the cost (CR 601.2h; CR 119.4 was asked above).
+        if phyrexian_life > 0 {
+            self.state
+                .change_life(player, -phyrexian_life, crate::event::Cause::Cost);
+        }
+        // "When you cycle this card" is "when you discard this card to pay
+        // an activation cost of a cycling ability" (CR 702.29c), and this is
+        // the one place that knows both halves: `pay_cost` sees a cost, not
+        // whose ability it is.
+        if cycling {
+            self.state.journal.record(GameEvent::Cycled {
+                object: source,
+                player,
+            });
+        }
         // "Activate only once each turn" is spent *here* and not at the
         // offer, because this is the line the rules count: CR 602.2 makes
         // activating an ability putting it on the stack and paying its
@@ -1612,8 +1932,18 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: true,
                 countered_source: None,
                 target_lki: None,
+                retarget_left: None,
             };
-            match resolve::run(&mut self.state, &mut res) {
+            let flow = resolve::run(&mut self.state, &mut res);
+            #[cfg(test)]
+            crate::ability_log::mana_activated(
+                &self.state,
+                &self.lookup,
+                source,
+                ability_index,
+                matches!(flow, resolve::Flow::Complete),
+            );
+            match flow {
                 resolve::Flow::Complete => {}
                 resolve::Flow::Wait(pending) => {
                     self.resolution = Some(res);
@@ -1737,6 +2067,30 @@ impl<L: CardLookup> Engine<L> {
         self.after_action(player);
     }
 
+    /// The loyalty cost of `source`'s ability at `ability_index` (CR 606.4),
+    /// or `None` when that ability is not a loyalty ability.
+    ///
+    /// The one probe for "is this a loyalty activation", read off the
+    /// object's own list: the list the offer indexed, and the one a copy's
+    /// abilities are in (CR 707.2). Starting an activation and finishing it
+    /// after its target answer used to ask two different lists. The answer
+    /// read the card's printed one, so a Spark Double that had entered as a
+    /// copy of Karn had a loyalty ability when it was started and an
+    /// ordinary one when it was answered. The answer was then sent into a
+    /// second activation, which refused it, and the target question was
+    /// left with nothing to answer it.
+    pub(crate) fn loyalty_cost(&self, source: ObjectId, ability_index: u32) -> Option<i8> {
+        match self
+            .state
+            .object(source)?
+            .abilities(&self.lookup)
+            .get(ability_index as usize)?
+        {
+            AbilityDef::Loyalty { cost, .. } => Some(*cost),
+            _ => None,
+        }
+    }
+
     /// The second instance of "target" on a loyalty ability, if it prints
     /// one; `None` as well for an ability that is not a loyalty ability.
     pub(crate) fn loyalty_second_targets(
@@ -1829,19 +2183,23 @@ impl<L: CardLookup> Engine<L> {
         if cost < 0 && old < (-cost) as u16 {
             return Err(EngineError::IllegalAction("not enough loyalty"));
         }
+        // Counted as the questions below count them, a player spec in
+        // players and every other in objects, so that no refusal waits past
+        // the payment: loyalty paid and a refusal after it is a changed
+        // engine the record never sees.
         for req in [wanted, self.loyalty_second_targets(source, ability_index)]
             .into_iter()
             .flatten()
         {
-            if req.min > 0
-                && !matches!(
-                    req.spec,
-                    baylee_cards_dsl::TargetSpec::AnyPlayer
-                        | baylee_cards_dsl::TargetSpec::AnyOpponent
-                )
-                && eval::target_options(&req.spec, &self.state, player, source).len()
-                    < req.min as usize
-            {
+            let found = if matches!(
+                req.spec,
+                baylee_cards_dsl::TargetSpec::AnyPlayer | baylee_cards_dsl::TargetSpec::AnyOpponent
+            ) {
+                eval::target_player_options(&self.state, &req.spec, player).len()
+            } else {
+                eval::target_options(&req.spec, &self.state, player, source).len()
+            };
+            if found < req.min as usize {
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
         }
@@ -1934,8 +2292,41 @@ impl<L: CardLookup> Engine<L> {
     /// and refusing is the point: the failure mode
     /// [`paid_by_the_casting_wizard`] documents is a part silently skipped,
     /// and a free sacrifice is worse than a refused activation.
-    #[allow(clippy::too_many_lines)] // one arm per `CostPart`, and the list is the point
+    ///
+    /// A refusal pays nothing. CR 732.1 reverses an action that cannot be
+    /// completed and cancels "any payments already made", and a part that
+    /// refuses after another was paid (a move of an object that is gone, a
+    /// counter that is not there) used to leave the mana spent and the
+    /// source tapped under an activation that never happened. The game is
+    /// kept before the first part and put back on a refusal, whenever a part
+    /// of the cost can refuse part way ([`can_refuse_part_way`]).
+    ///
+    /// The other half of 732.1, reversing the mana abilities activated while
+    /// making the play, has nothing to undo here: this engine pays out of the
+    /// pool, and the mana abilities that filled it were activated before the
+    /// play began, so their mana stays in the pool, as it would.
     pub(crate) fn pay_cost(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        cost: &Cost,
+        chosen: &[ObjectId],
+        x: u32,
+    ) -> Result<crate::object::PaidRecord, EngineError> {
+        if !cost.parts.iter().any(can_refuse_part_way) {
+            return self.pay_cost_parts(player, source, cost, chosen, x);
+        }
+        let before = self.state.checkpoint();
+        let paid = self.pay_cost_parts(player, source, cost, chosen, x);
+        if paid.is_err() {
+            self.state.roll_back(before);
+        }
+        paid
+    }
+
+    /// [`Self::pay_cost`] without the checkpoint: what it pays, part by part.
+    #[allow(clippy::too_many_lines)] // one arm per `CostPart`, and the list is the point
+    fn pay_cost_parts(
         &mut self,
         player: PlayerId,
         source: ObjectId,
@@ -2079,6 +2470,22 @@ impl<L: CardLookup> Engine<L> {
                         return Err(EngineError::IllegalAction(
                             "not enough counters to pay the cost",
                         ));
+                    }
+                }
+                // Crew's one question named every creature that pays it,
+                // and crew is alone in its cost (`CostPart::Crew`), so every
+                // answer left is tapped — through the `TapOther` door, so a
+                // creature that crews becomes tapped the way any other
+                // tapped-for-a-cost creature does (CR 702.122b).
+                CostPart::Crew(_) => {
+                    let crew: Vec<ObjectId> = answers.by_ref().collect();
+                    if crew.is_empty() {
+                        return Err(EngineError::IllegalAction(
+                            "a cost that has to ask reached the payer unanswered",
+                        ));
+                    }
+                    for creature in crew {
+                        cost_wizard::pay(&mut self.state, player, part, creature)?;
                     }
                 }
                 // The parts that had to ask, paid with the answers in the

@@ -23,6 +23,7 @@ card!(
     ),],
     coverage = Coverage::Implemented,
     abilities = &[AbilityDef::ModalSpell {
+        choose: ModeCount::ONE,
         modes: &[
             mode!(
                 &[Effect::destroy(TargetSpec::Object(&MONOCOLORED_CREATURE))],

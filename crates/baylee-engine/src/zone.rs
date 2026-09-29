@@ -231,8 +231,9 @@ impl Zones {
     /// The stack objects the layer refresh has to visit.
     ///
     /// Order is insertion order rather than stack order, which is fine
-    /// because every projection is computed independently of the others —
-    /// nothing here depends on what was projected before it.
+    /// because the refresh's order decides nothing: a projection that
+    /// counts other objects is projected again once all of them are done
+    /// (`GameState::refresh_characteristics`).
     #[must_use]
     pub fn stack_projectable(&self) -> &[ObjectId] {
         &self.stack_projectable

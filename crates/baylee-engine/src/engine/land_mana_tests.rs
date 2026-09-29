@@ -1153,7 +1153,7 @@ fn sweep(faces: Faces) -> (Vec<String>, Tally) {
     std::thread::scope(|scope| {
         let handles: Vec<_> = cards
             .chunks(chunk)
-            .map(|slice| scope.spawn(move || walk(slice, faces)))
+            .map(|slice| crate::engine::testkit::spawn_named(scope, move || walk(slice, faces)))
             .collect();
         handles
             .into_iter()
@@ -1326,9 +1326,9 @@ fn check(what: &str, tally: &Tally, bounds: &Bounds) {
 
 /// Measured 2026-09-29 over the whole pool, with the printed text as the
 /// oracle, taplands untapped by the harness and a Plains, an Island and a
-/// Wastes across the table: **799 printed promises made, 1531 colours proven
+/// Wastes across the table: **801 printed promises made, 1531 colours proven
 /// over 1064 routes**, Exotic Orchard's promise of the opponent's lands, Dryad
-/// Arbor judged as the one creature, 783 faces read whole, 588 that arrived
+/// Arbor judged as the one creature, 784 faces read whole, 588 that arrived
 /// tapped. On 2026-09-10, when the card was its own oracle and taplands were
 /// skipped, it was 146 colours over 132 routes.
 ///
@@ -1336,7 +1336,7 @@ fn check(what: &str, tally: &Tally, bounds: &Bounds) {
 /// (Crumbling Vestige, Branch of Vitu-Ghazi), 7 granted to other objects,
 /// 183 not parsed (a rider sentence, a colour chosen as the land entered,
 /// restricted mana, two colours at once, an amount a board counts), listed
-/// in the output; 252 faces of cards not `Coverage::Implemented` whose
+/// in the output; 251 faces of cards not `Coverage::Implemented` whose
 /// promises are counted rather than judged.
 const LANDS: Bounds = Bounds {
     colors: 1400,
@@ -1355,11 +1355,11 @@ const LANDS: Bounds = Bounds {
     not_implemented: 300,
 };
 
-/// Measured 2026-09-29 over the whole pool on the same boards: **76 printed
+/// Measured 2026-09-29 over the whole pool on the same boards: **78 printed
 /// promises made, 122 colours proven over 79 routes**, Fellwar Stone's
-/// promise of the opponent's lands, 34 promises made by creatures among the
+/// promise of the opponent's lands, 35 promises made by creatures among the
 /// 90 creature faces judged — the count that says the CR 302.6 board is not a
-/// vacuum — and 131 faces read whole.
+/// vacuum — and 133 faces read whole.
 ///
 /// The reader's buckets: 60 lines costing more than the tap (the Eggs, the
 /// Signets, every "Sacrifice this creature: Add …"), 13 triggered (Priest of
@@ -1368,7 +1368,7 @@ const LANDS: Bounds = Bounds {
 /// colour, a commander's identity, an amount a board counts, Mox Opal's
 /// condition); 2 faces offered the mana their own grant gives them (Enduring
 /// Vitality, Great Divide Guide), 1 that could not stand on its board
-/// (Faeburrow Elder, not implemented and 0/0 without its static), 3 faces of
+/// (Faeburrow Elder, not implemented and 0/0 without its static), 2 faces of
 /// cards not implemented.
 const OTHER_PERMANENTS: Bounds = Bounds {
     colors: 100,

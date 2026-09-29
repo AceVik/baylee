@@ -51,6 +51,12 @@ pub struct Projection {
     pub characteristics: Characteristics,
     /// Projected controller (layer 2).
     pub controller: PlayerId,
+    /// Whether a layer counted other objects (a P/T as big as the lands
+    /// you control) and so read their cached projections, which a refresh
+    /// that has not reached them yet still holds from the last one. The
+    /// refresh projects these again once every other object is done
+    /// (`GameState::refresh_characteristics`).
+    pub read_board: bool,
 }
 
 /// The effect table bucketed per layer and ordered once (CR 613.8).
@@ -133,6 +139,7 @@ pub fn needs_projection(plan: &LayerPlan, obj: &GameObject) -> bool {
     !plan.is_empty()
         || !obj.counters.is_empty()
         || obj.base.keywords.contains(KeywordSet::CHANGELING)
+        || obj.riders.contains(&crate::object::Rider::Dashed)
 }
 
 /// Recomputes an object's characteristics from its base plus all matching
@@ -148,10 +155,18 @@ pub fn recompute(state: &GameState, obj: &GameObject) -> Projection {
 /// Recomputes an object's characteristics against a prepared [`LayerPlan`].
 pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> Projection {
     let mut c = (*obj.base).clone();
+    // "As long as this permanent's dash cost was paid, it has haste"
+    // (CR 702.109a): an ability of the permanent itself, so it is there
+    // before any effect applies and an effect that removes abilities
+    // (layer 6) removes it too.
+    if obj.riders.contains(&crate::object::Rider::Dashed) {
+        c.keywords = c.keywords.union(KeywordSet::HASTE);
+    }
     // Layer 2 starts from the *base* controller, not from whatever the
     // last refresh projected: an effect that has since ended must leave
     // no trace.
     let mut controller = obj.base_controller;
+    let mut read_board = false;
     let all = state.effects.as_slice();
     for layer in LAYERS {
         for &idx in plan.layer(layer) {
@@ -161,7 +176,9 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
             // in-progress projection — an "all creatures get +1/+1" anthem
             // has to see a land that layer 4 just animated.
             if applies(state, fx, obj, &c) {
-                apply(&mut c, &mut controller, fx, state, obj);
+                #[cfg(test)]
+                crate::ability_log::static_applied(fx);
+                apply(&mut c, &mut controller, fx, state, obj, &mut read_board);
             }
         }
         // CR 604.3: a characteristic-defining P/T works in every zone. On
@@ -173,7 +190,7 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
                 toughness_plus,
             }) = state.off_battlefield_pt_cda(obj)
         {
-            let n = pt_count(state, obj, &c, controller, count);
+            let n = pt_count(state, obj, &c, controller, count, &mut read_board);
             c.power = Some(n);
             c.toughness = Some(n.saturating_add(i16::from(toughness_plus)));
         }
@@ -192,6 +209,7 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
     Projection {
         characteristics: c,
         controller,
+        read_board,
     }
 }
 
@@ -463,6 +481,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::SwitchPT
                 | Modifier::CharacteristicPT { .. }
                 | Modifier::ModifyPTPerCount { .. }
+                | Modifier::ModifyPTPerGraveyardCard { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
         // Layer 2 moves a permanent from one side of the table to the
@@ -497,9 +516,12 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::Untapped
         | Filter::Attacking
         | Filter::EnteredThisTurn
+        | Filter::PutIntoGraveyardThisTurn
+        | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::CmcAtMost(_)
         | Filter::CmcAtMostX
+        | Filter::CmcAtMostColorsSpent
         | Filter::CmcAtLeast(_)
         | Filter::InZone(_) => false,
     }
@@ -514,17 +536,27 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
 /// characteristics are the *previous* projection until this one is written
 /// back. Ashaya, Soul of the Wild is the card that reads the difference: it
 /// makes your nontoken creatures into lands at layer 4 and is then as big as
-/// the lands you control at 7c, so it has to count **itself**, and a count
-/// off the cache left it one short for exactly one refresh. Every other
-/// object is read from the cache, which is that object's own finished
-/// projection. Phased-out permanents are not there to count (CR 702.26b).
+/// the lands you control at 7a, so it has to count **itself**, and a count
+/// off the cache left it one short for exactly one refresh.
+///
+/// Every other object is read from its cache, and within one walk of the
+/// refresh that is its finished projection only if the walk has already
+/// reached it: an Elf further down the list is still what the last refresh
+/// made of it, an Elf and not yet a Forest. So a count sets `read_board`,
+/// and the refresh projects the counting objects again once every other
+/// object is done. That is CR 613.1 (the layers in their order), not a
+/// dependency: CR 613.8a asks for two effects in the same layer or
+/// sublayer, and a count in layer 7 and the type change it reads in layer 4
+/// are not. Phased-out permanents are not there to count (CR 702.26b).
 fn count_controlled(
     state: &GameState,
     obj: &GameObject,
     c: &Characteristics,
     controller: PlayerId,
     filter: &baylee_cards_dsl::Filter,
+    read_board: &mut bool,
 ) -> usize {
+    *read_board = true;
     state
         .battlefield_seen()
         .filter_map(|id| state.object(id))
@@ -541,19 +573,23 @@ fn count_controlled(
 
 /// The number a [`PtCount`](baylee_cards_dsl::PtCount) names, for
 /// `CharacteristicPT` (7a) and `SetPTToCount` (7b) alike; `you` is whose
-/// permanents `YouControl` counts.
+/// permanents `YouControl` counts. Either count reads other objects, so
+/// both set `read_board` ([`count_controlled`]).
 fn pt_count(
     state: &GameState,
     obj: &GameObject,
     c: &Characteristics,
     you: PlayerId,
     count: baylee_cards_dsl::PtCount,
+    read_board: &mut bool,
 ) -> i16 {
+    *read_board = true;
     let n = match count {
         baylee_cards_dsl::PtCount::YouControl(filter) => {
-            count_controlled(state, obj, c, you, filter)
+            count_controlled(state, obj, c, you, filter, read_board)
         }
         baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => card_types_in_all_graveyards(state),
+        baylee_cards_dsl::PtCount::ExiledWithThis => cards_exiled_with(state, obj),
     };
     i16::try_from(n).unwrap_or(i16::MAX)
 }
@@ -588,6 +624,21 @@ fn card_types_in_all_graveyards(state: &GameState) -> usize {
     CARD_TYPES.iter().filter(|t| seen.contains(**t)).count()
 }
 
+/// The cards in exile that were exiled with `host` as it is now (CR 406.6):
+/// a [`crate::object::Rider::ExiledWith`] naming its id and its version, so
+/// a host that left and came back counts none of them (CR 400.7).
+fn cards_exiled_with(state: &GameState, host: &GameObject) -> usize {
+    let mark = crate::object::Rider::ExiledWith {
+        host: host.id,
+        version: crate::object::Rider::version_of(host),
+    };
+    (0..state.players.len())
+        .map(|seat| PlayerId::new(u8::try_from(seat).unwrap_or(u8::MAX)))
+        .flat_map(|seat| state.zones.list(crate::zone::ZoneLocation::Exile(seat)))
+        .filter(|id| state.object(**id).is_some_and(|o| o.riders.contains(&mark)))
+        .count()
+}
+
 #[allow(clippy::too_many_lines)] // the modifier vocabulary is one flat table
 fn apply(
     c: &mut Characteristics,
@@ -595,6 +646,7 @@ fn apply(
     fx: &ContinuousEffect,
     state: &GameState,
     obj: &GameObject,
+    read_board: &mut bool,
 ) {
     match &fx.modifier {
         // Layer 2 (CR 613.1b): whoever controls the effect controls the
@@ -623,12 +675,28 @@ fn apply(
         } => {
             // CR 604.3 and 613.4a: it defines the number, whatever the card
             // printed as its `*`, before anything in 7b–7e reads it.
-            let n = pt_count(state, obj, c, fx.controller, *count);
+            let n = pt_count(state, obj, c, fx.controller, *count, read_board);
             c.power = Some(n);
             c.toughness = Some(n.saturating_add(i16::from(*toughness_plus)));
         }
         Modifier::ModifyPTPerCount { filter, p, t } => {
-            let count = count_controlled(state, obj, c, fx.controller, filter);
+            let count = count_controlled(state, obj, c, fx.controller, filter, read_board);
+            let count = i16::try_from(count).unwrap_or(i16::MAX);
+            if let Some(pow) = &mut c.power {
+                *pow = pow.saturating_add(count.saturating_mul(*p));
+            }
+            if let Some(tou) = &mut c.toughness {
+                *tou = tou.saturating_add(count.saturating_mul(*t));
+            }
+        }
+        Modifier::ModifyPTPerGraveyardCard { filter, p, t } => {
+            let count = state
+                .zones
+                .list(crate::zone::ZoneLocation::Graveyard(fx.controller))
+                .iter()
+                .filter_map(|id| state.object(*id))
+                .filter(|o| crate::eval::matches(filter, state, o, fx.controller, obj.id))
+                .count();
             let count = i16::try_from(count).unwrap_or(i16::MAX);
             if let Some(pow) = &mut c.power {
                 *pow = pow.saturating_add(count.saturating_mul(*p));
@@ -678,6 +746,9 @@ fn apply(
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::LegendRuleOff
         | Modifier::PlayLandsFromGraveyard
+        | Modifier::CastPermanentSpellsFromGraveyard
+        | Modifier::CastSpellsFromGraveyard
+        | Modifier::PermanentOfEachTypeFromGraveyard
         | Modifier::PlayLandsFromLibraryTop
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
@@ -739,7 +810,7 @@ fn apply(
         // new controller's lands.
         Modifier::SetPTToCount(count) => {
             if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
-                let n = pt_count(state, obj, c, *controller, *count);
+                let n = pt_count(state, obj, c, *controller, *count, read_board);
                 c.power = Some(n);
                 c.toughness = Some(n);
             }
