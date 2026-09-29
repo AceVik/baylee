@@ -716,7 +716,10 @@ step phases them in). Otherwise it is listed in `phasing_tests::UNAUDITED`.
 Walks over every object (hashing, the projection refresh, cleanup) are not
 battlefield queries and are not counted. The table must
 match exactly: auditing a walk lowers its row, and a new unexplained walk
-fails the test.
+fails the test. It has been empty since 2026-09-29: "destroy all
+creatures" (`Effect::DestroyAll`), mass bounce, counts and conditions,
+control rotation, a Saga's counters and its sacrifice, day and night, the
+untap step, and the rest now walk `battlefield_seen`.
 
 What a phased-out permanent has does nothing either. The offer
 (`compute_legal`) and the trigger scan (`trigger::collect`) walk
@@ -731,6 +734,62 @@ Its replacement rules are dropped by `sync_replacement_rules` and scanned
 back from its abilities when it phases in. Effects a resolution made are
 not parked. The leave probe (`docs/verification-hooks.md` §"L4: the leave
 probe") checks all of this per card.
+
+**Phasing out and in** is `GameState::phase_out` and `phase_in`
+(`phasing.rs`), which `Effect::PhaseOut` and the untap step share.
+`Effect::PhaseOut` phases out every target it has (Clever Concealment's
+"any number"), or its source. The Auras, Equipment and Fortifications
+attached to a permanent phasing out go with it, transitively, and carry
+`Status::PHASED_OUT_INDIRECTLY` beside `PHASED_OUT` (CR 702.26g); one also
+named directly phases out only indirectly (CR 702.26h). The set is read
+before any status changes. The untap step phases in what the active player
+controlled as it phased out (CR 502.1) and was not phased out indirectly;
+`phase_in` brings along what phased out indirectly with it. Neither touches
+`attached_to` (CR 702.26d, 702.26j): a directly phased-out Aura whose
+creature has gone phases in attached to nothing there, and the attachment
+state-based actions deal with it (CR 702.26i, 704.5m). The view shows the
+four statuses of CR 110.5 (`Status::public`), so a client sees an
+indirectly phased-out Aura as phased out.
+
+**A phased-out permanent is not projected.** `refresh_characteristics`
+leaves it out of the objects it walks, so nothing changes it while it is
+phased out (CR 702.26b): an anthem that arrives meanwhile applies to it
+once it has phased in, and not before. Its controller stays the one it
+phased out under, which decides the untap step it phases in at: a creature
+stolen until end of turn and phased out comes back at the thief's untap
+step and is then its owner's again, because the theft ended while it was
+away (CR 702.26f). Both helpers invalidate the projection. One consequence is
+seen only in the view: a permanent that phased out under an anthem that has
+since left still shows the anthem's +1/+1 until it phases in, which is when
+the rules look at it again.
+
+A continuous effect from a resolution leaves a phased-out permanent out of
+its set, "the permanent specifically" included (CR 702.26e): `bound_now`
+walks `battlefield_seen`, and `this_to_affect` names nothing phased out, so
+a set fixed while the permanent was away (CR 611.2c) stays without it after
+it phases in. Targeting already read `battlefield_view`.
+
+**Not yet: "for as long as" (CR 702.26f).** An effect with a "for as long
+as" duration that tracks a permanent ends when that permanent phases out,
+"because they can no longer see it". The table cannot tell such an effect
+today. On a resolution's effect `Duration::WhileSourceOnBattlefield` means
+two things. Tishana's Tidebinder's "loses all abilities for as long as this
+creature remains on the battlefield" tracks the Tidebinder and should end
+when it phases out. Urza's Saga "gains '{T}: Add {C}.'" has no duration at
+all: it lasts as long as the Saga is the object it is (CR 400.7), and
+phasing is not a zone change (CR 702.26d), so it should come back with the
+Saga. Both are written the same way, neither is parked (only a static is),
+and so the Tidebinder's effect outlives its phasing out. Ending it would
+take:
+
+- a duration that names what it tracks, apart from the lifetime of an
+  effect on its own source: a `Duration` variant ("for as long as ~ remains
+  on the battlefield") or the tracked object on `ContinuousEffect`;
+- the DSL spelling for it, and the readers and cards that print "for as
+  long as" moved onto it (Tidebinder's resolver writes the duration
+  itself);
+- in `GameState::phase_out`, removing every effect whose tracked object is
+  in the set, never to come back (an effect that ended stays ended).
 
 ## Unusual casting
 Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,

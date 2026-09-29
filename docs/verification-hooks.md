@@ -350,7 +350,8 @@ The second run, after both fixes: `false` 18 times in 7 tests.
 
 Does every ability of a permanent stop when the permanent is no longer in
 play, and follow it when it changes sides? The probe takes each card off
-the battlefield along seven routes and reads what is left of it.
+the battlefield along seven routes, and an Aura, Equipment or Fortification
+along an eighth, and reads what is left of it.
 
 ### Running it
 
@@ -368,16 +369,18 @@ while it runs, since a panic is a `skipped` line: run it with `--exact`, as
 above, so that no other test shares the process.
 
 The gate runs `leave_probe_tests::representative_cards_leave_cleanly_by_every_route`
-instead: five cards, every route `ok`, every walk full. They are Glorious
+instead: seven cards, every route `ok`, every walk full. They are Glorious
 Anthem (an anthem), Doubling Season (replacement effects), Soul Warden (a
 triggered ability), Exploration (a rules static; the pool has no cost
-reducer, see the test's comment) and Kongming, "Sleeping Dragon" (a static
-whose "you" must follow its controller).
+reducer, see the test's comment), Kongming, "Sleeping Dragon" (a static
+whose "you" must follow its controller), and Holy Strength and Bonesplitter
+(an Aura and an Equipment, for `phase_host`).
 
 ### What it writes
 
 `<dir>/leave.jsonl`, one line per (card, route), sorted by card, then by
-route in the order of the table below; fields in this order:
+route in the order of the table below; `phase_host` only for a card whose
+front face is an Aura, Equipment or Fortification. Fields in this order:
 
 ```json
 {"card": 111, "route": "phase_out", "verdict": "ok", "detail": ""}
@@ -386,7 +389,7 @@ route in the order of the table below; fields in this order:
 | field     | type   | meaning |
 |-----------|--------|---------|
 | `card`    | u32    | the card's `CardIndex` |
-| `route`   | string | one of `destroy`, `exile`, `bounce`, `library`, `sacrifice`, `phase_out`, `control` |
+| `route`   | string | one of `destroy`, `exile`, `bounce`, `library`, `sacrifice`, `phase_out`, `phase_host`, `control` |
 | `verdict` | string | one of `ok`, `lingers`, `stale`, `skipped` |
 | `detail`  | string | empty exactly when `ok`; otherwise the findings, joined by `; `, cut at 400 bytes and ended with `…` if longer |
 
@@ -395,7 +398,7 @@ route in the order of the table below; fields in this order:
 | `ok`      | every check below passed |
 | `lingers` | some part of the card was still in force, offered or triggering where it must not be; wins over `stale` |
 | `stale`   | only `Engine::projection_is_fresh` failed, after settling or at the end ("already stale before the route" when the board was stale before anything left) |
-| `skipped` | the card could not be set up, or the route did not happen to it: `setup: …` (it was not on the battlefield under seat 0 when the walk reached seat 0's main phase, an Aura with nothing to enchant), `did not leave the battlefield` (indestructible), `came back to the battlefield` (persist, undying), `did not phase out`, `control did not change`, `the card's object is gone`, `route: …` (the route could not be run: its effect asked a question, or seat 1 had nothing left to be its source), or `panic: …`; never a panic of the sweep |
+| `skipped` | the card could not be set up, or the route did not happen to it: `setup: …` (it was not on the battlefield under seat 0 when the walk reached seat 0's main phase, an Aura with nothing to enchant), `did not leave the battlefield` (indestructible), `came back to the battlefield` (persist, undying), `did not phase out`, `its host did not phase out` (the host was gone before the route: Skullclamp's +1/-1 kills its 1/1), `control did not change`, `the card's object is gone`, `route: …` (the route could not be run: its effect asked a question, seat 1 had nothing left to be its source, or the card is attached to nothing), `unaffected: …` (the check's own control failed), or `panic: …`; never a panic of the sweep |
 
 ### The cards and the board
 
@@ -426,6 +429,7 @@ stack and resolved with the kit's answers).
 | `library`   | `Effect::PutSourceOnTopOfLibrary`                   | seat 0        |
 | `sacrifice` | `Effect::SacrificeSelf`                             | seat 0        |
 | `phase_out` | `Effect::PhaseOut` (CR 702.26)                      | seat 0        |
+| `phase_host`| `Effect::PhaseOut` on the permanent the card is attached to (CR 702.26g) | seat 0 |
 | `control`   | `Effect::ChangeController`: the layer-2 effect of `resolve::gain_control` | seat 1 |
 
 ### The checks
@@ -435,22 +439,34 @@ stack and resolved with the kit's answers).
   first five) also no effect of any origin lasting while its source is on
   the battlefield (CR 611.2b). An effect a resolution made that lasts a turn
   is left alone (CR 611.2a), as are one-shot results and leave-the-battlefield
-  triggers. For `phase_out` a resolution's effect is left alone too: CR
-  702.26f ends only a "for as long as" duration that tracks the permanent,
-  and the table does not tell one from an indefinite effect on the permanent
-  itself.
+  triggers. For `phase_out` and `phase_host` a resolution's effect is left
+  alone too: CR 702.26f ends only a "for as long as" duration that tracks
+  the permanent, and the table does not tell one from an indefinite effect
+  on the permanent itself (`docs/engine-internals.md` §"Phasing").
 - **Activation.** Seat 0 is offered none of the card's battlefield abilities
   (`compute_legal`), mana abilities included; an ability that works from
   where the card now is (cycling from a hand) is not counted.
 - **Triggers.** None of the card's own triggered abilities triggers during
-  the trigger walk. For `phase_out` the window closes when it phases in; for
-  `control` an ability that triggers under seat 1 is fine, one under seat 0
-  is not.
+  the trigger walk. For the two phasing routes the window closes when it
+  phases in; for `control` an ability that triggers under seat 1 is fine,
+  one under seat 0 is not.
 - **Fresh.** `Engine::projection_is_fresh` after settling and after the walk.
+- **Unaffected** (the two phasing routes). While the card is phased out,
+  seat 1 resolves `CreateContinuousEffect`: every permanent gets +0/+0 for
+  the rest of the game. The effect fixes its set as it begins (CR 611.2c),
+  one entry per object, and the card must not be in it (CR 702.26e). A
+  bystander of seat 1's that is phased in must be, or the line is skipped.
+  +0/+0 changes no number the rest of the probe reads.
 - **`phase_out`, after.** At seat 0's next untap step the card phases in,
   and its unconditional statics and its replacement rules are back. A card
   that phased in and then left by its own rules (a Saga's last chapter, an
   upkeep's "sacrifice unless") is checked as a leaving route instead.
+- **`phase_host`.** Right after the route the card is phased out with its
+  host (CR 702.26g). After the walk it phased in no sooner than its host did
+  (it does not phase in by itself), is still attached to it (CR 702.26d),
+  and everything `phase_out` asks after holds. The host is phased in at its
+  controller's untap step: seat 0's for an Equipment, seat 1's for an Aura
+  on seat 1's Elf.
 - **`control`.** Every static and replacement of the card answers to seat 1
   (CR 109.5). For a card attached to nothing, what its statics do to the two
   sides' identical bystanders is swapped: what seat 0's got before, seat 1's
@@ -508,6 +524,13 @@ upkeep costs the kit declines), one Aura with nothing to enchant (Inertia
 Bubble, ×7), 18 indestructible cards (`destroy`) and 5 with persist or
 undying (`destroy`, `sacrifice`). 31 walks were thin, none stopped short.
 
+A second run the same day, with `phase_host`, the unaffected check and the
+engine's indirect phasing (`docs/engine-internals.md` §"Phasing"): 2013
+cards, 14158 lines, 67 of them `phase_host`; 13918 `ok`, 0 `lingers`, 0
+`stale`, 240 skipped. The 9 new skips are `phase_host` lines: 7 of the 28
+cards not on the battlefield once set up, Inertia Bubble, and Skullclamp,
+whose Elf died before the route. 31 walks were thin, none stopped short.
+
 ### Proving it can fail
 
 Two faults were put into the engine by hand and taken out again
@@ -521,6 +544,18 @@ Two faults were put into the engine by hand and taken out again
 - `EffectTable::follow_phasing` parked nothing: 3 `lingers` lines, the
   `phase_out` route of the same three cards (`static … still applies while
   phased out`).
+
+Three more for the phasing checks, the rule tests in `phasing_tests` run
+alongside:
+
+- `GameState::phase_out` took nothing attached along: 2 `lingers` lines,
+  Holy Strength's and Bonesplitter's `phase_host` (`stayed phased in when
+  the permanent it is attached to phased out`).
+- The untap step phased in what had phased out indirectly: the same 2
+  lines, `phased in by itself, before the permanent it phased out with`.
+- `bound_now` walked the raw battlefield again: 9 `lingers` lines, every
+  phasing route of the seven cards (`an effect that began while it was
+  phased out took it into its set`).
 
 ## Not in a shipped build
 
