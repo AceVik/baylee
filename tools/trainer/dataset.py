@@ -198,10 +198,14 @@ def symlog(x: torch.Tensor) -> torch.Tensor:
 
 
 def bits(x: torch.Tensor, n: int) -> torch.Tensor:
-    """The low `n` bits of int16 `x` as floats, last dimension."""
-    x = x.to(torch.int32) & 0xFFFF
-    shifts = torch.arange(n, device=x.device, dtype=torch.int32)
-    return ((x.unsqueeze(-1) >> shifts) & 1).to(torch.float32)
+    """The low `n` bits of int16 `x` as floats, last dimension.
+
+    Read with division rather than shifts: the same graph then exports to
+    ONNX for every runtime, NPUs included, which do signed shifts badly."""
+    xf = x.to(torch.float32)
+    xf = torch.where(xf < 0, xf + 65536.0, xf)  # the int16's bits, unsigned
+    powers = 2.0 ** torch.arange(n, device=x.device, dtype=torch.float32)
+    return torch.remainder(torch.floor(xf.unsqueeze(-1) / powers), 2.0)
 
 
 def one_hot_rel(x: torch.Tensor, n: int = 4) -> torch.Tensor:

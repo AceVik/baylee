@@ -132,7 +132,15 @@ pub fn play(preset: &GamePreset, game_id: &str, caps: Caps) -> Played {
             if started.elapsed() >= caps.wall {
                 return Outcome::TimeCap;
             }
-            session.pump_at_most(CHUNK);
+            // Past half its time a game looks at the clock after every answer:
+            // one slow answer in a chunk of 32 took game 685 of r001 to 290 s
+            // against a cap of 60.
+            let chunk = if started.elapsed() * 2 > caps.wall {
+                1
+            } else {
+                CHUNK
+            };
+            session.pump_at_most(chunk);
         }
     }));
     let outcome = run.unwrap_or_else(|panic| Outcome::Panicked {

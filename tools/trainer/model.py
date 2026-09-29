@@ -134,58 +134,88 @@ class PolicyNet(nn.Module):
         self.value = nn.Sequential(nn.Linear(d, d), nn.GELU(), nn.Linear(d, 1))
         self.scale = d**-0.5
 
+    # The names and order of `tables`' outputs: what the ONNX graph returns and
+    # what the Rust player reads.
+    TABLES = (
+        "fixed", "player", "color", "subtype", "number", "mode", "mode_kind",
+        "verb", "ability", "attack_player", "pair_a", "pair_b", "value",
+    )
+
+    def tables(self, cards, feats, mask, glob, profile) -> tuple[torch.Tensor, ...]:
+        """Every score an option can be read from, in fixed shapes: per
+        decision from the globals token, per entity from its token. This is
+        the part exported to ONNX; `score` reads options off it, in Python
+        for training and in Rust for play."""
+        h = self.trunk_with_profile(cards, feats, mask, glob, profile)
+        g, e = h[:, 0], h[:, 1:]
+        s = self.scale
+        return (
+            self.fixed(g),  # (B, 6)
+            self.player(g),  # (B, 4)
+            self.color(g),  # (B, 6)
+            self.subtype(g),  # (B, 350)
+            self.number(g),  # (B, 64)
+            g @ self.mode.weight.T * s,  # (B, 32)
+            g @ self.mode_kind.weight.T * s,  # (B, 16)
+            self.verb(e),  # (B, E, 5)
+            e @ self.ability.weight.T * s,  # (B, E, 57)
+            e @ self.attack_player.weight.T * s,  # (B, E, 4)
+            self.pair_a(e),  # (B, E, d)
+            self.pair_b(e) * s,  # (B, E, d)
+            self.value(g).squeeze(-1),  # (B,)
+        )
+
+    @staticmethod
+    def score(t: tuple[torch.Tensor, ...], opt_sample: torch.Tensor, opt: torch.Tensor) -> torch.Tensor:
+        """One logit per option triple, read off `tables`' output."""
+        fixed, player, color, subtype, number, mode, mode_kind, verb, ability, attack, pa, pb, _ = t
+        head, a, b = opt[:, 0].long(), opt[:, 1].long(), opt[:, 2].long()
+        s = opt_sample
+        e_max = verb.shape[1] - 1
+        ra, rb = a.clamp(0, e_max), b.clamp(0, e_max)
+
+        def at(table: torch.Tensor, i: torch.Tensor) -> torch.Tensor:
+            return table[s, i.clamp(0, table.shape[1] - 1)]
+
+        def at2(table: torch.Tensor, j: torch.Tensor) -> torch.Tensor:
+            return table[s, ra, j.clamp(0, table.shape[2] - 1)]
+
+        cases = {
+            H_FIXED: lambda: at(fixed, a),
+            H_ENTITY: lambda: at2(verb, b),
+            H_ABILITY: lambda: at2(ability, b),
+            H_PAIR: lambda: (pa[s, ra] * pb[s, rb]).sum(-1),
+            H_ATTACK_PLAYER: lambda: at2(attack, b),
+            H_PLAYER: lambda: at(player, a),
+            H_COLOR: lambda: at(color, a),
+            H_SUBTYPE: lambda: at(subtype, a),
+            H_NUMBER: lambda: at(number, a),
+            H_MODE: lambda: at(mode, a) + at(mode_kind, b),
+        }
+        logit = torch.zeros(len(head), device=fixed.device, dtype=torch.float32)
+        for hid, fn in cases.items():
+            m = head == hid
+            if m.any():
+                logit = torch.where(m, fn().float(), logit)
+        return logit
+
     def forward(self, batch: D.Batch, profile: torch.Tensor, opt_sample: torch.Tensor, opt: torch.Tensor):
         """Logits per option (flat, `opt_sample` naming each one's sample),
         and the value logit per sample."""
-        # The profile joins the globals token by way of the numeric row's bias.
-        h = self.trunk_with_profile(batch, profile)
-        g = h[:, 0]  # (B, d)
-        ents = h[:, 1:]  # (B, E, d)
-        head, a, b = opt[:, 0].long(), opt[:, 1].long(), opt[:, 2].long()
-        s = opt_sample
-        gs = g[s]  # (O, d)
-        e_max = ents.shape[1] - 1
-        ea = ents[s, a.clamp(0, e_max)]
-        eb = ents[s, b.clamp(0, e_max)]
-        logit = torch.zeros(len(head), device=g.device, dtype=h.dtype)
+        t = self.tables(batch.cards, batch.feats, batch.mask, batch.glob, profile)
+        return self.score(t, opt_sample, opt), t[-1]
 
-        def pick(table: torch.Tensor, idx: torch.Tensor, n: int) -> torch.Tensor:
-            return table.gather(1, idx.clamp(0, n - 1).unsqueeze(1)).squeeze(1)
-
-        cases = [
-            (H_FIXED, lambda: pick(self.fixed(gs), a, N_FIXED)),
-            (H_ENTITY, lambda: pick(self.verb(ea), b, N_VERBS)),
-            (H_ABILITY, lambda: (ea * self.ability(b.clamp(0, N_ABILITY - 1))).sum(-1) * self.scale),
-            (H_PAIR, lambda: (self.pair_a(ea) * self.pair_b(eb)).sum(-1) * self.scale),
-            (H_ATTACK_PLAYER, lambda: (ea * self.attack_player(b.clamp(0, N_PLAYERS - 1))).sum(-1) * self.scale),
-            (H_PLAYER, lambda: pick(self.player(gs), a, N_PLAYERS)),
-            (H_COLOR, lambda: pick(self.color(gs), a, N_COLORS)),
-            (H_SUBTYPE, lambda: pick(self.subtype(gs), a, N_SUBTYPES)),
-            (H_NUMBER, lambda: pick(self.number(gs), a, N_NUMBERS)),
-            (
-                H_MODE,
-                lambda: (gs * (self.mode(a.clamp(0, N_MODES - 1)) + self.mode_kind(b.clamp(0, N_MODE_KINDS - 1)))).sum(-1)
-                * self.scale,
-            ),
-        ]
-        for hid, fn in cases:
-            m = head == hid
-            if m.any():
-                logit = torch.where(m, fn().to(logit.dtype), logit)
-        return logit, self.value(g).squeeze(-1)
-
-    def trunk_with_profile(self, batch: D.Batch, profile: torch.Tensor) -> torch.Tensor:
+    def trunk_with_profile(self, cards, feats, mask, glob, profile) -> torch.Tensor:
         t = self.trunk
-        dense, zone, ctrl, own = D.expand_entities(batch.feats)
-        x = t.card_proj(t.card(batch.cards)) + t.dense(dense) + t.zone(zone) + t.controller(ctrl) + t.owner(own)
-        gl = batch.glob
-        gnum = D.symlog(gl[:, self.glob_numeric_cols].to(torch.float32))
+        dense, zone, ctrl, own = D.expand_entities(feats)
+        x = t.card_proj(t.card(cards)) + t.dense(dense) + t.zone(zone) + t.controller(ctrl) + t.owner(own)
+        gnum = D.symlog(glob[:, self.glob_numeric_cols].to(torch.float32))
         gt = t.glob_numeric(gnum) + t.glob_token + self.profile(profile.clamp(0, N_PROFILES - 1))
         for name, col in t.glob_cat.items():
             n = D.GLOB_CATEGORICAL[name]
-            gt = gt + t.glob_embed[name](gl[:, col].to(torch.int64).clamp(0, n - 1))
+            gt = gt + t.glob_embed[name](glob[:, col].to(torch.int64).clamp(0, n - 1))
         tokens = torch.cat([gt.unsqueeze(1), x], dim=1)
-        pad = torch.cat([torch.zeros_like(batch.mask[:, :1]), batch.mask], dim=1)
+        pad = torch.cat([torch.zeros_like(mask[:, :1]), mask], dim=1)
         return t.norm(t.encoder(tokens, src_key_padding_mask=pad))
 
 

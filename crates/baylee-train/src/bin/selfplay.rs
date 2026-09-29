@@ -62,7 +62,7 @@ struct Args {
     #[arg(long, default_value_t = 0)]
     threads: usize,
     /// Answers a game may take before it is stopped.
-    #[arg(long, default_value_t = 20_000)]
+    #[arg(long, default_value_t = 100_000)]
     max_answers: u64,
     /// Seconds a game may take before it is stopped. A duel of the house
     /// decks takes about 40 ms; a game still going after this long has

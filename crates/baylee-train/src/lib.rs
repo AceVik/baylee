@@ -15,6 +15,8 @@ pub mod convert;
 #[cfg(feature = "play")]
 pub mod features;
 pub mod housedeck;
+#[cfg(feature = "onnx")]
+pub mod netplay;
 #[cfg(feature = "play")]
 pub mod policy;
 #[cfg(feature = "play")]
