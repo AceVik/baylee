@@ -783,6 +783,19 @@ pub enum Effect {
         /// How many.
         count: u8,
     },
+    /// "Choose `count` cards in your hand drawn this turn. For each of those
+    /// cards, pay `life` life or put the card on top of your library"
+    /// (Sylvan Library). Two questions: which cards — asked only when more
+    /// than `count` were drawn and are still in the hand — and then which of
+    /// them go back on top, in the order put back; the rest are paid for.
+    /// A card whose life cannot be paid has to go back (CR 119.4), which is
+    /// the second question's minimum.
+    PayLifeOrPutBackDrawn {
+        /// How many drawn cards are chosen.
+        count: u8,
+        /// The life each one kept costs.
+        life: u16,
+    },
     /// You put a card matching the filter from your hand onto the
     /// battlefield, untapped and under your control — Aether Vial's "you may
     /// put a creature card with mana value equal to the number of charge
@@ -2237,6 +2250,7 @@ impl Effect {
             | Effect::LookAtTopPick { .. }
             | Effect::LookAtTopKeepBottomPlay { .. }
             | Effect::ChooseExiledToPlay { .. }
+            | Effect::PayLifeOrPutBackDrawn { .. }
             | Effect::PutFromHandOnTop { .. }
             | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }

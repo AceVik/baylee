@@ -1210,7 +1210,15 @@ mod tests {
             eprintln!("{line:?}");
         }
         assert!(repeats > 1_000, "the loop ran: {repeats}");
-        assert!(lines.len() <= 16, "{} lines", lines.len());
+        // The turn the loop ran and broke in. The answer budget reaches on
+        // into a later turn of the looping player, where the same permanent
+        // starts again, and how far it reaches moves with every priority
+        // window before the loop: CR 103.8a's missing first draw step gave
+        // it two answers more and a seventeenth line that is no part of the
+        // loop being folded.
+        let that_turn = lines[broken].turn;
+        let in_that_turn = lines.iter().filter(|line| line.turn == that_turn).count();
+        assert!(in_that_turn <= 16, "{in_that_turn} lines");
     }
 
     /// What a seat's policy answers for it is told to that seat alone, in

@@ -366,6 +366,20 @@ pub enum AwaitingOp {
         /// The looked-at cards still in the library.
         rest: Vec<ObjectId>,
     },
+    /// After `PayLifeOrPutBackDrawn`'s choice of drawn cards: ask which of
+    /// them go back.
+    ChooseDrawn {
+        /// The life each one kept costs.
+        life: u16,
+    },
+    /// After its second question: the chosen go on top in the order named,
+    /// and each of the rest costs `life`.
+    PayOrPutBack {
+        /// The drawn cards chosen.
+        cards: Vec<ObjectId>,
+        /// The life each one kept costs.
+        life: u16,
+    },
     /// After `ChooseExiledToPlay`: the chosen card may be played this turn.
     GrantPlay {
         /// "Without paying its mana cost".
@@ -1285,6 +1299,37 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 grant_play(state, res.controller, card, false);
             }
         }
+        AwaitingOp::ChooseDrawn { life } => {
+            if let Some(pending) = put_back_question(state, res, chosen.to_vec(), life) {
+                return Flow::Wait(pending);
+            }
+        }
+        AwaitingOp::PayOrPutBack { cards, life } => {
+            // Last named is the top card, as `PutBackOnTop` reads it.
+            for &card in chosen {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(res.controller),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            for card in cards.into_iter().filter(|c| !chosen.contains(c)) {
+                // The minimum already sent back every card the life total
+                // could not cover; this re-asks CR 119.4 all the same, and a
+                // card it refuses goes back rather than being kept for free.
+                if state.can_pay_life(res.controller, i32::from(life)) {
+                    state.change_life(res.controller, -i32::from(life), Cause::Cost);
+                } else {
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Library(res.controller),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+            }
+        }
         AwaitingOp::GrantPlay { free } => {
             for &card in chosen {
                 grant_play(state, res.controller, card, free);
@@ -1568,6 +1613,39 @@ fn grant_play(state: &mut GameState, player: PlayerId, card: ObjectId, free: boo
             free,
         });
     }
+}
+
+/// Sylvan Library's second question: which of `cards` go back on top of
+/// the library, the rest paid for with `life` each. Everything the life
+/// total cannot cover has to go back (CR 119.4), which is the minimum.
+fn put_back_question(
+    state: &GameState,
+    res: &mut Resolution,
+    cards: Vec<ObjectId>,
+    life: u16,
+) -> Option<Pending> {
+    if cards.is_empty() {
+        return None;
+    }
+    let you = res.controller;
+    let n = u8::try_from(cards.len()).unwrap_or(u8::MAX);
+    let payable = if life == 0 {
+        u32::from(n)
+    } else {
+        u32::try_from(state.life_payable(you)).unwrap_or(0) / u32::from(life)
+    };
+    let must_go_back = u32::from(n).saturating_sub(payable);
+    res.awaiting = Some(AwaitingOp::PayOrPutBack {
+        cards: cards.clone(),
+        life,
+    });
+    Some(Pending::ChooseCards {
+        player: you,
+        options: cards,
+        min: u8::try_from(must_go_back).unwrap_or(n),
+        max: n,
+        prompt: ChoicePrompt::PutBackOnTop,
+    })
 }
 
 /// Whether `owner` stands in `rel` to `you`: "a card an opponent owns".
@@ -2434,6 +2512,34 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 max: 1,
                 prompt: ChoicePrompt::PutIntoHand,
             })
+        }
+        Effect::PayLifeOrPutBackDrawn { count, life } => {
+            // The drawn cards that are still the objects they were drawn as,
+            // and still in this hand.
+            let drawn: Vec<ObjectId> = state
+                .per_turn
+                .drawn
+                .iter()
+                .filter(|(id, version)| {
+                    state.object(*id).is_some_and(|o| {
+                        o.version == *version
+                            && o.zone == crate::zone::Zone::Hand
+                            && o.zone_owner == Some(you)
+                    })
+                })
+                .map(|(id, _)| *id)
+                .collect();
+            if drawn.len() > usize::from(count) {
+                res.awaiting = Some(AwaitingOp::ChooseDrawn { life });
+                return Some(Pending::ChooseCards {
+                    player: you,
+                    options: drawn,
+                    min: count,
+                    max: count,
+                    prompt: ChoicePrompt::Generic,
+                });
+            }
+            put_back_question(state, res, drawn, life)
         }
         Effect::ChooseExiledToPlay {
             owner,

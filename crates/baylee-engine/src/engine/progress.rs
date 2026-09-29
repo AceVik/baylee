@@ -4020,12 +4020,25 @@ impl<L: CardLookup> Engine<L> {
                 let skip = self.state.turn.number == 1
                     && self.state.players.len() == 2
                     && self.state.turn.active.get() == 0;
-                // Nobody draws for an active player who has left (CR 800.4j).
-                if !skip && !self.active_has_left() {
-                    let active = self.state.turn.active;
-                    self.state.draw_cards(active, 1);
+                if skip {
+                    // CR 103.8a skips the *step*, not only its draw: there is
+                    // no beginning of it for "at the beginning of your draw
+                    // step" to trigger on, and Sylvan Library drew two cards
+                    // on the play's first turn when this went on to
+                    // `Step::Draw` without drawing. Straight on to the main
+                    // phase, with the turn-based actions that begin it.
+                    self.saga_precombat_main_counters();
+                    self.queue_first_main_delayed();
+                    (Phase::FirstMain, Step::Main)
+                } else {
+                    // Nobody draws for an active player who has left
+                    // (CR 800.4j).
+                    if !self.active_has_left() {
+                        let active = self.state.turn.active;
+                        self.state.draw_cards(active, 1);
+                    }
+                    (Phase::Beginning, Step::Draw)
                 }
-                (Phase::Beginning, Step::Draw)
             }
             (_, Step::Draw) => {
                 // The precombat main phase's own turn-based actions, which
