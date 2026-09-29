@@ -167,6 +167,15 @@ impl Params {
         self.entries.iter().any(|(k, _)| k == key)
     }
 
+    /// A parameter's value, without claiming it: for a rule that has to
+    /// know one key before it can read another.
+    fn peek(&self, key: &str) -> Option<&str> {
+        self.entries
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    }
+
     /// Claims a label that only restates the filter standing beside it.
     ///
     /// **Not a [`PROSE_KEYS`] entry, and the difference is the guard.** A key
@@ -354,6 +363,41 @@ fn pump_amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -> Opti
     })
 }
 
+/// `withFlying` as `Filter::HasKeyword(KeywordSet::FLYING)`, `withoutFlying`
+/// as its negation. The reference runs the keyword into the word, spaces
+/// removed (`withFirst Strike` is never written; `withFirstStrike` is), so
+/// the name is matched against each bit's printed spelling with its spaces
+/// taken out.
+fn keyword_atom(atom: &str) -> Option<String> {
+    let (negated, name) = match atom.strip_prefix("without") {
+        Some(rest) => (true, rest),
+        None => (false, atom.strip_prefix("with")?),
+    };
+    let printed = [
+        "Flying",
+        "First Strike",
+        "Double Strike",
+        "Deathtouch",
+        "Haste",
+        "Hexproof",
+        "Indestructible",
+        "Lifelink",
+        "Menace",
+        "Reach",
+        "Trample",
+        "Vigilance",
+        "Defender",
+    ]
+    .into_iter()
+    .find(|p| p.replace(' ', "") == name)?;
+    let has = format!("Filter::HasKeyword({})", keyword_const(printed)?);
+    Some(if negated {
+        format!("Filter::Not(&{has})")
+    } else {
+        has
+    })
+}
+
 /// A colour word in a valid-string, and whether it is negated: `Black` is
 /// `(false, "Black")` and `nonBlack` is `(true, "Black")`, the second half
 /// being the `Color` variant's name.
@@ -535,6 +579,13 @@ impl Tx<'_> {
                     // "toughness less than this creature's power" is a
                     // comparison with another object, and is refused.
                     other if stat_atom(other).is_some() => stat_atom(other).unwrap_or_default(),
+                    // "Each creature with flying", "each creature without
+                    // flying" (Hurricane, Earthquake): a keyword the engine
+                    // has a bit for. A keyword it has none for is a rule,
+                    // not a flag, and stays refused.
+                    other if keyword_atom(other).is_some() => {
+                        keyword_atom(other).unwrap_or_default()
+                    }
                     // `Creature.Goblin` puts the subtype after the base, so
                     // an atom can name one too — and it is the commonest
                     // shape in the corpus, not a corner.
@@ -701,6 +752,31 @@ impl Tx<'_> {
         })
     }
 
+    /// "Target creature card in your graveyard": a `CardInGraveyard` spec,
+    /// whose player is whose graveyard. In a graveyard the reference's
+    /// `YouCtrl` means "yours" (a card there is controlled by nobody, and
+    /// its owner is whose graveyard it is in); no such qualifier is any
+    /// graveyard. The rest of the valid-string is the card's filter.
+    fn graveyard_target(&mut self, valid: &str) -> Option<String> {
+        let (base, rest) = valid.split_once('.').unwrap_or((valid, ""));
+        let mut whose = "PlayerRel::EachPlayer";
+        let mut kept = Vec::new();
+        for atom in rest.split('+').filter(|a| !a.is_empty()) {
+            match atom {
+                "YouCtrl" | "YouOwn" => whose = "PlayerRel::You",
+                "OppCtrl" | "OppOwn" => whose = "PlayerRel::Opponent",
+                other => kept.push(other),
+            }
+        }
+        let filter = if kept.is_empty() {
+            self.filter_expr(base)?
+        } else {
+            self.filter_expr(&format!("{base}.{}", kept.join("+")))?
+        };
+        let filter = self.body.filter_static("TARGET", &filter);
+        Some(format!("TargetSpec::CardInGraveyard(&{filter}, {whose})"))
+    }
+
     /// `Defined$ You` and friends as a `PlayerRel`.
     ///
     /// Two of them mean "that player" of the trigger being read, and what
@@ -759,7 +835,16 @@ impl Tx<'_> {
         let valid = p.take("ValidTgts");
         let targets_here = valid.is_some();
         if let Some(valid) = valid {
-            let Some(spec) = self.target_spec(&valid, &api) else {
+            // A card in a graveyard is a different kind of target from a
+            // permanent (CR 115.1 names both, and they are chosen from
+            // different zones), so the zone the line moves *from* decides
+            // the spec before the valid-string is read.
+            let spec = if api == "ChangeZone" && p.peek("Origin") == Some("Graveyard") {
+                self.graveyard_target(&valid)
+            } else {
+                self.target_spec(&valid, &api)
+            };
+            let Some(spec) = spec else {
                 return self.deny(format!("target `{valid}`"));
             };
             if chain.target.get_or_insert(spec.clone()) != &spec {
@@ -848,13 +933,20 @@ impl Tx<'_> {
                     "Effect::DealDamage {{ amount: {n}, target: {to} }}"
                 )]
             }
+            // A number, or the X the player announced (Stream of Life's
+            // "target player gains X life"): [`amount`] asks both of its
+            // questions of an `X`, so a count spelled with the same letter
+            // is still refused.
             "GainLife" => {
-                let n = plain_number(&p.take("LifeAmount")?, self.svars)?;
-                match self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)? {
-                    "PlayerRel::You" => vec![format!("Effect::gain_life({n})")],
-                    who => vec![format!(
-                        "Effect::GainLifeFor {{ amount: Amount::Fixed({n}), who: {who} }}"
-                    )],
+                let n = amount(&p.take("LifeAmount")?, self.svars, self.has_x)?;
+                match (
+                    self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?,
+                    n.strip_prefix("Amount::Fixed(")
+                        .and_then(|r| r.strip_suffix(')')),
+                ) {
+                    ("PlayerRel::You", Some(fixed)) => vec![format!("Effect::gain_life({fixed})")],
+                    ("PlayerRel::You", None) => vec![format!("Effect::GainLife {{ amount: {n} }}")],
+                    (who, _) => vec![format!("Effect::GainLifeFor {{ amount: {n}, who: {who} }}")],
                 }
             }
             "LoseLife" => {
@@ -862,12 +954,25 @@ impl Tx<'_> {
                 let who = self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
+            // The same two readings as `GainLife`: Braingeyser's "target
+            // player draws X cards".
             "Draw" => {
-                let n = plain_number(p.take("NumCards").as_deref().unwrap_or("1"), self.svars)?;
-                match self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)? {
-                    "PlayerRel::You" => vec![format!("Effect::draw({n})")],
-                    who => vec![format!(
-                        "Effect::DrawCardsFor {{ amount: Amount::Fixed({n}), who: {who} }}"
+                let n = amount(
+                    p.take("NumCards").as_deref().unwrap_or("1"),
+                    self.svars,
+                    self.has_x,
+                )?;
+                match (
+                    self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?,
+                    n.strip_prefix("Amount::Fixed(")
+                        .and_then(|r| r.strip_suffix(')')),
+                ) {
+                    ("PlayerRel::You", Some(fixed)) => vec![format!("Effect::draw({fixed})")],
+                    ("PlayerRel::You", None) => {
+                        vec![format!("Effect::DrawCards {{ amount: {n} }}")]
+                    }
+                    (who, _) => vec![format!(
+                        "Effect::DrawCardsFor {{ amount: {n}, who: {who} }}"
                     )],
                 }
             }
@@ -987,6 +1092,35 @@ impl Tx<'_> {
                     Some(_) => return None,
                 };
                 vec![format!("Effect::{verb}(&{filter})")]
+            }
+            // "X damage to each creature without flying and each player"
+            // (Earthquake): `DealDamageEach` for the permanents and a
+            // `DealDamage` for the players, which is the one spelling
+            // `DealDamageEach` names for the second half. Nothing is
+            // targeted, so an ability that also targets is refused.
+            "DamageAll" => {
+                if target.is_some() {
+                    return None;
+                }
+                let n = amount(&p.take("NumDmg")?, self.svars, self.has_x)?;
+                let mut out = Vec::new();
+                if let Some(valid) = p.take("ValidCards") {
+                    let filter = self.filter_expr(&valid)?;
+                    let filter = self.body.filter_static("EACH", &filter);
+                    out.push(format!(
+                        "Effect::DealDamageEach {{ amount: {n}, filter: &{filter} }}"
+                    ));
+                }
+                if let Some(players) = p.take("ValidPlayers") {
+                    let who = self.player_rel(Some(&players))?;
+                    out.push(format!(
+                        "Effect::DealDamage {{ amount: {n}, target: TargetSpec::Player({who}) }}"
+                    ));
+                }
+                if out.is_empty() {
+                    return None;
+                }
+                out
             }
             "Regenerate" => {
                 // Bare `AB$ Regenerate` is "regenerate CARDNAME" — 181 of
@@ -1497,6 +1631,25 @@ impl Tx<'_> {
             ("Battlefield", "Hand", false) => vec![format!("Effect::bounce({target})")],
             ("Battlefield", "Exile", false) => vec![format!("Effect::exile({target})")],
             ("Battlefield", "Exile", true) => vec!["Effect::ExileSource".to_string()],
+            // "Return target card from your graveyard to your hand"
+            // (Regrowth): the target is a `CardInGraveyard`, which the chain
+            // read off `Origin$` before it read the valid-string.
+            ("Graveyard", "Hand", false) if target.starts_with("TargetSpec::CardInGraveyard") => {
+                vec![format!("Effect::GraveyardToHand {{ target: {target} }}")]
+            }
+            // "Return target creature card from your graveyard to the
+            // battlefield" (Resurrection): it enters under the control of
+            // the player whose effect put it there (CR 110.2a), which is
+            // `owner_control: false`. A line that says otherwise carries a
+            // key (`GainControl$`, `WithCountersType$`) this does not claim.
+            ("Graveyard", "Battlefield", false)
+                if target.starts_with("TargetSpec::CardInGraveyard") =>
+            {
+                vec![format!(
+                    "Effect::GraveyardToBattlefield {{ target: {target}, owner_control: false, \
+                     counters: None }}"
+                )]
+            }
             _ => {
                 self.note(format!("`ChangeZone` {origin} to {destination}"));
                 return None;
@@ -3866,6 +4019,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Mana",
     "Destroy",
     "DestroyAll",
+    "DamageAll",
     "Regenerate",
     "Tap",
     "Untap",
@@ -4726,6 +4880,106 @@ SVar:X:Count$xPaid",
         assert!(refused(
             "Name:X\nManaCost:2\nTypes:Artifact\n\
              A:AB$ DealDamage | Cost$ T | Defined$ TriggeredPlayer | NumDmg$ 1"
+        ));
+    }
+
+    /// A card in a graveyard is its own kind of target: Regrowth and
+    /// Resurrection move from `Origin$ Graveyard`, and read as a permanent
+    /// on the battlefield they offered nothing to target. `YouCtrl` there is
+    /// "your graveyard".
+    #[test]
+    fn a_graveyard_card_is_targeted_in_its_graveyard() {
+        let regrowth = read(
+            "Name:X\nManaCost:1 G\nTypes:Sorcery\n\
+             A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Card.YouCtrl",
+        );
+        let text = regrowth.abilities.join("\n");
+        assert!(
+            text.contains(
+                "Effect::GraveyardToHand { target: TargetSpec::CardInGraveyard(&Filter::Any, \
+                 PlayerRel::You) }"
+            ),
+            "{text}"
+        );
+
+        let resurrection = read(
+            "Name:X\nManaCost:2 W W\nTypes:Sorcery\n\
+             A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield \
+             | ValidTgts$ Creature.YouCtrl",
+        );
+        let text = resurrection.abilities.join("\n");
+        assert!(
+            text.contains(
+                "Effect::GraveyardToBattlefield { target: TargetSpec::CardInGraveyard(\
+                 &Filter::CREATURE, PlayerRel::You), owner_control: false, counters: None }"
+            ),
+            "{text}"
+        );
+    }
+
+    /// Braingeyser and Stream of Life: the X the caster announced, drawn or
+    /// gained by the player the spell targets. An `X` that counts
+    /// something is a different number and stays refused.
+    #[test]
+    fn an_announced_x_is_drawn_and_gained() {
+        let geyser = read(
+            "Name:X\nManaCost:X U U\nTypes:Sorcery\n\
+             A:SP$ Draw | NumCards$ X | ValidTgts$ Player\nSVar:X:Count$xPaid",
+        );
+        assert_eq!(
+            geyser.abilities,
+            [
+                "spell!(&[Effect::DrawCardsFor { amount: Amount::X, who: PlayerRel::Chosen }], \
+                 targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))"
+            ]
+        );
+        let stream = read(
+            "Name:X\nManaCost:X G G\nTypes:Sorcery\n\
+             A:SP$ GainLife | ValidTgts$ Player | LifeAmount$ X\nSVar:X:Count$xPaid",
+        );
+        assert_eq!(
+            stream.abilities,
+            [
+                "spell!(&[Effect::GainLifeFor { amount: Amount::X, who: PlayerRel::Chosen }], \
+                 targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))"
+            ]
+        );
+        assert!(refused(
+            "Name:X\nManaCost:2 G\nTypes:Sorcery\n\
+             A:SP$ GainLife | LifeAmount$ X\nSVar:X:Count$Valid Creature.YouCtrl"
+        ));
+    }
+
+    /// Earthquake: "X damage to each creature without flying and each
+    /// player" — the permanents through `DealDamageEach`, the players
+    /// through `DealDamage`, and "without flying" as a keyword the engine
+    /// has a bit for.
+    #[test]
+    fn damage_to_each_is_the_permanents_and_the_players() {
+        let quake = read(
+            "Name:X\nManaCost:X R\nTypes:Sorcery\n\
+             A:SP$ DamageAll | ValidCards$ Creature.withoutFlying | ValidPlayers$ Player \
+             | NumDmg$ X\nSVar:X:Count$xPaid",
+        );
+        let text = quake.abilities.join("\n");
+        assert!(
+            text.contains(
+                "Effect::DealDamageEach { amount: Amount::X, filter: &EACH1 }, \
+                 Effect::DealDamage { amount: Amount::X, target: TargetSpec::Player(\
+                 PlayerRel::EachPlayer) }"
+            ),
+            "{text}"
+        );
+        assert!(
+            quake
+                .statics
+                .contains("Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING))"),
+            "{}",
+            quake.statics
+        );
+        assert!(refused(
+            "Name:X\nManaCost:R\nTypes:Sorcery\n\
+             A:SP$ DamageAll | ValidCards$ Creature.withBushido | NumDmg$ 1"
         ));
     }
 
