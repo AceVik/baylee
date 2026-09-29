@@ -711,6 +711,8 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         // spell's target: the answer names both ends, so "no" is not read
         // as "leave it where it is".
         YesNoPrompt::TopOfLibrary { .. } => Phrase::TopOfLibraryOrBottom.text(lang).to_string(),
+        // "No" is not "nothing": the card still leaves exile, for the hand.
+        YesNoPrompt::Discover { .. } => Phrase::CastDiscovered.text(lang).to_string(),
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
     }
 }

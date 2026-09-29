@@ -706,8 +706,8 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::CommanderZone { .. } => {
                         unreachable!("command-zone plans are answered via YesNo")
                     }
-                    PlanKind::Miracle { .. } => {
-                        unreachable!("miracle plans are answered via YesNo")
+                    PlanKind::Miracle { .. } | PlanKind::Discovered { .. } => {
+                        unreachable!("miracle and discover plans are answered via YesNo")
                     }
                 }
                 Ok(())
@@ -1038,6 +1038,20 @@ impl<L: CardLookup> Engine<L> {
                     if answer {
                         return self.start_miracle_cast(player, card);
                     }
+                    return Ok(());
+                }
+                // A discovered card (CR 701.57a): yes casts it without paying
+                // its mana cost, and "if you don't cast it, put that card
+                // into your hand" — a no, or a cast the wizard refuses after
+                // all.
+                if matches!(self.pending_plan, Some(PlanKind::Discovered { .. })) {
+                    let Some(PlanKind::Discovered { card }) = self.pending_plan.take() else {
+                        unreachable!()
+                    };
+                    if answer && self.start_free_cast(player, card).is_ok() {
+                        return Ok(());
+                    }
+                    self.discovered_to_hand(card);
                     return Ok(());
                 }
                 // Shockland entry choice: pay life or enter tapped.

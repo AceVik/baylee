@@ -458,6 +458,12 @@ enum PlanKind {
         /// The drawn card.
         card: ObjectId,
     },
+    /// A discovered card offered for a cast without paying its mana cost
+    /// (CR 701.57a); no puts it into its owner's hand.
+    Discovered {
+        /// The card, in exile.
+        card: ObjectId,
+    },
     /// A commander offered its way back to the command zone (CR 903.9a).
     CommanderZone {
         /// The commander card, in a graveyard or in exile.

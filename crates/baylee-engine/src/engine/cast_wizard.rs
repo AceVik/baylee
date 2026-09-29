@@ -243,27 +243,44 @@ impl<L: CardLookup> Engine<L> {
         self.advance_cast_wizard()
     }
 
-    /// Starts a free cast (rebound at upkeep, suspend finish): no payment,
-    /// but targets and other choices still run through the wizard.
+    /// Starts a free cast (rebound at upkeep, suspend finish, a discovered
+    /// card): no payment, but targets and other choices still run through
+    /// the wizard.
     pub(crate) fn start_free_cast(
         &mut self,
         player: PlayerId,
         card: ObjectId,
     ) -> Result<(), EngineError> {
-        if self
+        let Some(def) = self
             .state
             .object(card)
             .filter(|o| o.zone == crate::zone::Zone::Exile)
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index))
-            .is_none()
-        {
+        else {
             return Err(EngineError::IllegalAction("no card to cast from exile"));
-        }
+        };
+        // A spell whose every effect sits under a mode is cast *in* a mode
+        // (CR 700.2), a free cast included: cast `Normal`, Damn went to the
+        // stack as a spell with nothing to do and resolved to nothing.
+        let options = if casting::modes_are_the_only_way(def, 0) {
+            let options = self.free_modes(player, card, def);
+            if options.is_empty() {
+                return Err(EngineError::IllegalAction("no way to cast this spell"));
+            }
+            options
+        } else {
+            Vec::new()
+        };
+        let (option, stage) = match options.as_slice() {
+            [] => (Some(CastModeKind::Normal), WizardStage::Kicker),
+            [only] => (Some(only.kind), WizardStage::Kicker),
+            _ => (None, WizardStage::ChooseMode),
+        };
         let mut wizard = CastWizard {
             card,
             player,
-            option: Some(CastModeKind::Normal),
+            option,
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -276,14 +293,85 @@ impl<L: CardLookup> Engine<L> {
             sacrifices: SmallVec::new(),
             // Straight past `XValue`, and deliberately: a spell cast paying
             // neither its mana cost nor an alternative cost with X in it has
-            // exactly one legal X, which is 0 (CR 107.3b).
-            stage: WizardStage::Kicker,
-            options: Vec::new(),
+            // exactly one legal X, which is 0 (CR 107.3b). A mode chosen
+            // from several comes back through `XValue`, which asks nothing:
+            // every mode offered here costs nothing.
+            stage,
+            options,
             free: true,
         };
         let _ = &mut wizard;
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
+    }
+
+    /// The modes a modal spell may be cast in without paying its mana cost,
+    /// each at no cost.
+    ///
+    /// Not a mode with a cost of its own: overload is an alternative cost
+    /// (CR 702.96a), "without paying its mana cost" is one too (CR 118.9),
+    /// and only one alternative cost can be applied to a spell (CR 118.9a).
+    /// A mode no target can be found for is not offered either, as
+    /// `cast_options` offers none.
+    fn free_modes(
+        &self,
+        player: PlayerId,
+        card: ObjectId,
+        def: &baylee_cards_dsl::CardDef,
+    ) -> Vec<CastModeDesc> {
+        let mut options = Vec::new();
+        for ability in def.abilities_for_face(0) {
+            let AbilityDef::ModalSpell { modes } = ability else {
+                continue;
+            };
+            for (i, mode) in modes.iter().enumerate() {
+                if mode.cost_override.is_none()
+                    && casting::mode_has_a_legal_target(&self.state, &self.lookup, player, card, i)
+                {
+                    options.push(CastModeDesc {
+                        index: u8::try_from(options.len()).unwrap_or(u8::MAX),
+                        kind: CastModeKind::Mode(i),
+                        cost: ManaCost::ZERO,
+                    });
+                }
+            }
+        }
+        options
+    }
+
+    /// Whether [`Self::start_free_cast`] can put `card` on the stack for
+    /// `player` right now: the probe a discovered card is offered on
+    /// (CR 701.57a), so that "cast it?" is only asked of a card that can be.
+    ///
+    /// The refusals the wizard can meet with nothing to pay: a land (never a
+    /// spell), a cast an effect forbids (CR 601.3a), a mode or target that
+    /// cannot be chosen (CR 601.2c), and an additional sacrifice with nothing
+    /// to sacrifice (CR 601.2h). Timing is not one of them: a spell cast
+    /// while something resolves ignores it (CR 608.2g).
+    pub(crate) fn free_cast_possible(&self, player: PlayerId, card: ObjectId) -> bool {
+        let Some(obj) = self.state.object(card) else {
+            return false;
+        };
+        let Some(def) = obj.card.and_then(|c| self.lookup.card(c.index)) else {
+            return false;
+        };
+        if obj
+            .characteristics()
+            .types
+            .contains(baylee_core::types::TypeSet::LAND)
+            || casting::cast_is_forbidden(&self.state, player, obj)
+        {
+            return false;
+        }
+        if additional_sacrifices(&def.faces[0])
+            .any(|part| super::cost_wizard::options(&self.state, player, card, part).is_empty())
+        {
+            return false;
+        }
+        if casting::modes_are_the_only_way(def, 0) {
+            return !self.free_modes(player, card, def).is_empty();
+        }
+        casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
     }
 
     /// All legal ways to cast `card` right now.

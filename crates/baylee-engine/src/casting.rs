@@ -821,7 +821,11 @@ pub(crate) fn timing_allows(
 /// player's sentence about somebody else's card — and `this` is the effect's
 /// own source, so a filter naming `Filter::This` means the forbidding
 /// permanent rather than the card being cast.
-fn cast_is_forbidden(state: &GameState, player: PlayerId, obj: &crate::object::GameObject) -> bool {
+pub(crate) fn cast_is_forbidden(
+    state: &GameState,
+    player: PlayerId,
+    obj: &crate::object::GameObject,
+) -> bool {
     state.effects.iter().any(|fx| {
         let baylee_cards_dsl::Modifier::OpponentsCantCast(filter) = fx.modifier else {
             return false;

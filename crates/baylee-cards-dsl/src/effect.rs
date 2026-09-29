@@ -1020,6 +1020,21 @@ pub enum Effect {
         /// Which creature.
         target: TargetSpec,
     },
+    /// Discover N (CR 701.57a): "Exile cards from the top of your library
+    /// until you exile a nonland card with mana value N or less. You may
+    /// cast that card without paying its mana cost if the resulting spell's
+    /// mana value is less than or equal to N. If you don't cast it, put
+    /// that card into your hand. Put the remaining exiled cards on the
+    /// bottom of your library in a random order." (Trumpeting Carnosaur.)
+    ///
+    /// The exiling and the random bottom happen as the ability resolves;
+    /// the cast is offered as soon as the resolution is over, before anybody
+    /// receives priority (the engine's `GameState::discovered`), and a card
+    /// that cannot be cast, or that its owner declines, goes to the hand.
+    Discover {
+        /// N: the highest mana value that stops the exiling.
+        mana_value: u8,
+    },
     /// Counter a spell on the stack; it goes to exile instead of the
     /// graveyard (Force of Negation).
     CounterTargetSpellToExile,
@@ -2430,6 +2445,7 @@ impl Effect {
             | Effect::ExileAndReturnAtEndStep
             | Effect::OwnerPutsOnTopOrBottom { .. }
             | Effect::ExileIfDiesThisTurn { .. }
+            | Effect::Discover { .. }
             | Effect::CounterTargetSpellToExile
             | Effect::CounterTargetSpell
             | Effect::CounterTargetAbility

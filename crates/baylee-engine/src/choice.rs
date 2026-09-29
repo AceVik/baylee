@@ -459,6 +459,14 @@ pub enum YesNoPrompt {
         /// The card that is going.
         card: baylee_core::ids::ObjectId,
     },
+    /// "You may cast that card without paying its mana cost. If you don't
+    /// cast it, put that card into your hand." (discover, CR 701.57a),
+    /// asked of the player who discovered it: yes casts it, no puts it
+    /// into their hand. Asked only of a card that can be cast.
+    Discover {
+        /// The discovered card, in exile.
+        card: baylee_core::ids::ObjectId,
+    },
     /// Generic yes/no (optional effects).
     Generic,
 }
@@ -514,10 +522,14 @@ impl YesNoPrompt {
             | Self::DrawOffer { .. }
             | Self::MayDo
             | Self::Generic => true,
+            // Declining discover moves the card into the hand: a card for
+            // the player, but not nothing, and a free spell is not a
+            // question to answer by the clock.
             Self::CommanderZone { .. }
             | Self::CommanderReplace { .. }
             | Self::PayPact { .. }
-            | Self::TopOfLibrary { .. } => false,
+            | Self::TopOfLibrary { .. }
+            | Self::Discover { .. } => false,
         }
     }
 }
@@ -1120,6 +1132,8 @@ mod choice_tests {
             ),
             // Both answers move the card; the house picks the end.
             (yes_no(YesNoPrompt::TopOfLibrary { card: object() }), None),
+            // No still moves the card, into the hand; the house casts it.
+            (yes_no(YesNoPrompt::Discover { card: object() }), None),
             (
                 Pending::MulliganBottom {
                     player: p,
@@ -1235,7 +1249,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 16 + 12;
+    const KINDS: usize = 16 + 13;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -1272,6 +1286,7 @@ mod choice_tests {
                     YesNoPrompt::MayDo => 7,
                     YesNoPrompt::Generic => 8,
                     YesNoPrompt::TopOfLibrary { .. } => 11,
+                    YesNoPrompt::Discover { .. } => 12,
                 }
             }
         }
@@ -1461,6 +1476,7 @@ mod choice_tests {
                 | YesNoPrompt::DrawOffer { .. }
                 | YesNoPrompt::CommanderReplace { .. }
                 | YesNoPrompt::TopOfLibrary { .. }
+                | YesNoPrompt::Discover { .. }
                 | YesNoPrompt::Generic => false,
             }
         }
@@ -1474,6 +1490,7 @@ mod choice_tests {
             YesNoPrompt::Miracle { card: object() },
             YesNoPrompt::CommanderZone { card: object() },
             YesNoPrompt::TopOfLibrary { card: object() },
+            YesNoPrompt::Discover { card: object() },
             YesNoPrompt::CommanderReplace {
                 card: object(),
                 to_library: true,

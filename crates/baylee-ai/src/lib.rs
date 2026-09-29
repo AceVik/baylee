@@ -496,10 +496,13 @@ impl HeuristicAgent {
                 // evaluator this agent does not have yet. And the top of the
                 // library for a card of this seat's that somebody else's
                 // ability is sending away: on top it is the next draw, on
-                // the bottom it is gone for the game.
+                // the bottom it is gone for the game. And a discovered card
+                // (CR 701.57a): it is only offered when it can be cast, and a
+                // spell for nothing is worth more than the card in hand.
                 YesNoPrompt::MayDo
                 | YesNoPrompt::CommanderZone { .. }
                 | YesNoPrompt::TopOfLibrary { .. }
+                | YesNoPrompt::Discover { .. }
                 | YesNoPrompt::Generic
                 // A pact: attempt payment; the owed-mana planner handles the
                 // window.

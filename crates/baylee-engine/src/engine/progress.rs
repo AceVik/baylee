@@ -3162,6 +3162,17 @@ impl<L: CardLookup> Engine<L> {
         // a question (an as-enters choice) before that runs, and the list
         // must be empty whenever a question is out.
         self.trigger_queue.extend(self.state.reflexive.drain(..));
+        // A card this resolution discovered is offered once it is over
+        // (CR 701.57a), through the queue step 3b of `run_machine` drains
+        // before anybody receives priority. CR 608.2g casts it *during* the
+        // resolution; the difference is only in what the resolution's own
+        // triggers see, which step 3 stacks first.
+        for (player, card, version) in self.state.discovered.drain(..) {
+            self.delayed_queue.push_back((
+                player,
+                crate::state::DelayedAction::CastDiscovered { card, version },
+            ));
+        }
         // A mana ability never went on the stack (CR 605.3b), and its
         // `on_stack` is the source permanent itself. Falling through here
         // treated that permanent as a resolving spell: `finalize_spell`
@@ -3873,6 +3884,61 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Offers a discovered card's cast to the player who discovered it
+    /// (CR 701.57a), if it is still the card in exile that was found
+    /// (`version`) — or puts it into the hand without asking when it cannot
+    /// be cast. Returns `true` when the question is out.
+    fn offer_discovered(&mut self, player: PlayerId, card: ObjectId, version: u32) -> bool {
+        if !self
+            .state
+            .object(card)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Exile && o.version == version)
+        {
+            return false;
+        }
+        if !self.free_cast_possible(player, card) {
+            self.discovered_to_hand(card);
+            return false;
+        }
+        self.pending_plan = Some(PlanKind::Discovered { card });
+        self.pending = Pending::YesNo {
+            player,
+            prompt: crate::choice::YesNoPrompt::Discover { card },
+            source: None,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    /// A discovered card that is not cast goes to its owner's hand
+    /// (CR 701.57a), if it is still in exile.
+    ///
+    /// A priority grant already out is asked again: this runs after a free
+    /// cast the wizard refused, which resumes the game on its way out, and
+    /// the card joins a hand that grant's legal actions did not see.
+    pub(crate) fn discovered_to_hand(&mut self, card: ObjectId) {
+        let Some(owner) = self
+            .state
+            .object(card)
+            .filter(|o| o.zone == crate::zone::Zone::Exile)
+            .map(|o| o.owner)
+        else {
+            return;
+        };
+        let _ = self.state.move_object(
+            card,
+            ZoneLocation::Hand(owner),
+            ZonePosition::Top,
+            Cause::Effect,
+        );
+        if let Pending::Priority { player, .. } = self.pending {
+            self.pending = Pending::Priority {
+                player,
+                legal: Box::new(self.compute_legal(player)),
+            };
+        }
+    }
+
     /// Processes one queued delayed action; returns `true` when a pending
     /// choice was produced.
     pub(crate) fn process_delayed(&mut self) -> bool {
@@ -3938,6 +4004,9 @@ impl<L: CardLookup> Engine<L> {
                     );
                 }
                 false
+            }
+            crate::state::DelayedAction::CastDiscovered { card, version } => {
+                self.offer_discovered(controller, card, version)
             }
             crate::state::DelayedAction::ReturnToBattlefield { card } => {
                 if self

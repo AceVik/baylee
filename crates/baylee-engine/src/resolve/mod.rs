@@ -2449,6 +2449,55 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::Discover { mana_value } => {
+            // CR 701.57a, the part that is done as the ability resolves: the
+            // exiling, and the cards passed over put on the bottom in a
+            // random order. The cast is the engine's to offer once this
+            // resolution is over (`GameState::discovered`); the cards already
+            // under the library are the same cards in the same random order
+            // either way.
+            let you = res.controller;
+            let mut passed = Vec::new();
+            let mut found = None;
+            while let Some(&top) = state.zones.list(ZoneLocation::Library(you)).last() {
+                let _ = state.move_object(
+                    top,
+                    ZoneLocation::Exile(you),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                let Some(obj) = state.object(top) else {
+                    break;
+                };
+                // A card that did not leave the library would be exiled
+                // again and again: stop where the effect stops being able to
+                // do what it says.
+                if obj.zone != crate::zone::Zone::Exile {
+                    break;
+                }
+                let c = obj.characteristics();
+                if !c.types.contains(baylee_core::types::TypeSet::LAND)
+                    && c.mana_cost.cmc() <= u32::from(mana_value)
+                {
+                    found = Some((top, obj.version));
+                    break;
+                }
+                passed.push(top);
+            }
+            state.rng.shuffle(&mut passed);
+            for card in passed {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(you),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+            if let Some((card, version)) = found {
+                state.discovered.push((you, card, version));
+            }
+            None
+        }
         Effect::NthResolutionThisTurn { effects } => {
             // This resolution is the ability's nth this turn, counted in the
             // turn's per-ability tally. A spell has no ability to count.

@@ -248,6 +248,16 @@ pub enum DelayedAction {
         /// The card in exile.
         card: ObjectId,
     },
+    /// Offer the cast of a discovered card (CR 701.57a) to the player who
+    /// discovered it, without paying its mana cost; a card that cannot be
+    /// cast, or that the player declines, goes to its owner's hand. Nothing
+    /// happens if the card has left exile since (`version`, CR 400.7).
+    CastDiscovered {
+        /// The card in exile.
+        card: ObjectId,
+        /// Its identity on arriving there.
+        version: u32,
+    },
 }
 
 /// Per-turn counters for conditional triggers (reset at every turn start).
@@ -644,6 +654,17 @@ pub struct GameState {
     /// `snapshot_hash` nor `loop_signature` reads it. It rests on a rule the
     /// build enforces, not on which cards happen to exist.
     pub reflexive: Vec<crate::trigger::PendingTrigger>,
+    /// Cards a resolving discover (CR 701.57a) exiled and stopped at:
+    /// `(the discovering player, the card, its version in exile)`.
+    ///
+    /// Only `Effect::Discover` fills it, during a stack resolution, and
+    /// `Engine::finish_resolution` hands each entry to the delayed queue as
+    /// that resolution ends, where the cast is offered before anybody
+    /// receives priority. Unlike [`Self::reflexive`] nothing keeps a
+    /// discover last in its list, so a resolution can suspend on a later
+    /// question with an entry here: `snapshot_hash` reads it, and
+    /// `loop_signature`, taken only at priority grants, has nothing to read.
+    pub discovered: Vec<(PlayerId, ObjectId, u32)>,
     /// Each seat's commanders (CR 903.3), by seat index.
     ///
     /// The list is the marker, and it has to be: commander-ness belongs to
@@ -876,6 +897,7 @@ impl GameState {
             ltb_attachments: Vec::new(),
             ceased: Vec::new(),
             reflexive: Vec::new(),
+            discovered: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
             day_night: None,
@@ -2285,6 +2307,7 @@ impl GameState {
             // Empty whenever a question is out, by a rule the build
             // enforces; the field says which.
             reflexive: _,
+            discovered,
             commanders,
             monarch,
             day_night,
@@ -2361,6 +2384,8 @@ impl GameState {
         // this hash is taken at.
         commander_redirect.hash(&mut h);
         pending_copied_faces.hash(&mut h);
+        // A discovered card waiting for the resolution that found it to end.
+        discovered.hash(&mut h);
         // The look-back lists are not scan bookkeeping that a priority
         // grant clears: an entry stays until its object moves again, and
         // `eval::matches` consults `ltb_attachments` in general.
