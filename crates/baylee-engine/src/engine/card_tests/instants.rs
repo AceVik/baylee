@@ -4167,15 +4167,14 @@ fn malakir_caverns_enters_tapped_and_makes_black() {
     );
 }
 
-/// Assassin's Trophy (`Coverage::Partial`): "Destroy target permanent an
-/// opponent controls. Its controller may search their library for a basic
-/// land card, put it onto the battlefield, then shuffle."
+/// Assassin's Trophy: "Destroy target permanent an opponent controls. Its
+/// controller may search their library for a basic land card, put it onto
+/// the battlefield, then shuffle."
 ///
-/// Both the destroy half and the optional search half are implemented. The
-/// `Coverage::Partial` gap is that the found land enters tapped. This test
-/// proves that the permanent is destroyed, that the offer goes to the
-/// *target's controller* (p1, not p0), and then documents the gap by
-/// asserting the fetched land arrived tapped.
+/// This proves that the permanent is destroyed, that the offer goes to the
+/// *target's controller* (p1, not p0), over p1's own library, and that the
+/// fetched land arrives untapped — it arrived tapped while the card borrowed
+/// Path to Exile's search.
 #[test]
 fn assassins_trophy_destroys_the_target_and_offers_its_controller_a_basic_land_search() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -4230,9 +4229,10 @@ fn assassins_trophy_destroys_the_target_and_offers_its_controller_a_basic_land_s
         "\"Its controller\" is the target's controller (p1), not the caster (p0)"
     );
     assert_eq!((min, max), (0, 1), "\"may search\" — zero or one card");
+    let theirs = engine.state().zones.list(ZoneLocation::Library(p1)).clone();
     assert!(
-        !options.is_empty(),
-        "the library holds basics to search for"
+        !options.is_empty() && options.iter().all(|o| theirs.contains(o)),
+        "their own library holds basics to search for"
     );
 
     // The destroy half happened before the search was offered.
@@ -4241,7 +4241,7 @@ fn assassins_trophy_destroys_the_target_and_offers_its_controller_a_basic_land_s
         "\"Destroy target permanent\" — the Elf is no longer on the battlefield"
     );
 
-    // Take the land; verify it arrived tapped (the Coverage::Partial gap).
+    // Take the land; it arrives untapped.
     engine
         .apply(
             p1,
@@ -4256,9 +4256,8 @@ fn assassins_trophy_destroys_the_target_and_offers_its_controller_a_basic_land_s
         .last()
         .expect("the fetched land arrived");
     assert!(
-        is_tapped(&engine, fetched),
-        "Coverage::Partial gap: the fetched land enters tapped, \
-         which the printed Oracle text does not say"
+        !is_tapped(&engine, fetched),
+        "\"put it onto the battlefield\" says nothing of tapped"
     );
 }
 

@@ -2939,14 +2939,15 @@ fn aether_vial() -> CardIndex {
 
 /// `Aether Vial` prints `At the beginning of your upkeep, you may put a charge counter on this artifact.` and `{{T}}: You may put a creature card with mana value equal to the number of charge counters on this artifact from your hand onto the battlefield.`
 ///
-/// Marked `Coverage::Partial`, its upkeep trigger uses `Trigger::StepBegin` with `StepKind::Upkeep` to prompt via `Pending::YesNo` for `Effect::MayDo`, placing a `CounterKind::Charge`.
-/// The unmodelled `{{T}}` creature put ability is excluded from `legal.abilities` even while `Aether Vial` stands untapped.
+/// The upkeep trigger uses `Trigger::StepBegin` with `StepKind::Upkeep` to prompt via `Pending::YesNo` for `Effect::MayDo`, placing a `CounterKind::Charge`.
+/// With one counter, the `{{T}}` ability puts the mana value 1 Elves from hand onto the battlefield and leaves the mana value 2 Spider where it is.
 #[test]
-fn aether_vial_adds_charge_counter_at_upkeep_and_omits_creature_ability() {
+fn aether_vial_adds_charge_counter_at_upkeep_and_puts_a_matching_creature_into_play() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[aether_vial()])
+        .hand(0, &[llanowar_elves(), canopy_spider()])
         .start();
     keep_mulligans(&mut engine);
 
@@ -2990,13 +2991,39 @@ fn aether_vial_adds_charge_counter_at_upkeep_and_omits_creature_ability() {
     assert_eq!(counters_on(&engine, vial, CounterKind::Charge), 1);
     assert!(!is_tapped(&engine, vial));
 
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending());
+    // One charge counter: the Elves (mana value 1) may come in, the Spider
+    // (2) may not, and nothing is paid for either.
+    let elves = in_hand(&engine, p0, llanowar_elves()).expect("the Elves wait in hand");
+    activate(&mut engine, p0, aether_vial(), 1);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = pass_to_card_choice(&mut engine)
+    else {
+        unreachable!("the helper returns only a card choice")
     };
-    assert!(
-        !legal.abilities.iter().any(|(src, _)| *src == vial),
-        "under `Coverage::Partial` the unmodelled {{T}} ability is omitted from `legal.abilities`"
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1), "\"you may put a creature card\"");
+    assert_eq!(
+        options,
+        vec![elves],
+        "mana value equal to one counter: not the Spider, not the land"
     );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+    assert!(in_hand(&engine, p0, canopy_spider()).is_some());
+    assert!(is_tapped(&engine, vial));
 }
 
 fn conduit_of_worlds() -> CardIndex {

@@ -285,6 +285,9 @@ pub fn amount(
             .object(this)
             .and_then(|o| o.characteristics().power)
             .map_or(0, |p| p.max(0) as u32),
+        Amount::CountersOnSource(kind) => state
+            .object(this)
+            .map_or(0, |o| u32::from(o.counters.get(*kind))),
         Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
         // The object the payment wrote it on. A resolution asks
         // `resolve::amount2`, which reads the stack object: an activated
@@ -393,6 +396,20 @@ pub fn condition_holds(
                 })
                 .count();
             count <= max as usize
+        }
+        Condition::ControlDistinctNames(filter, min) => {
+            // A phased-out land is treated as though it does not exist
+            // (CR 702.26b), so its name is not one of yours.
+            let mut names: Vec<baylee_core::ids::NameRef> = state
+                .battlefield_seen()
+                .filter_map(|id| state.object(id))
+                .filter(|o| o.controller == you && matches(filter, state, o, you, o.id))
+                .map(|o| o.characteristics().name)
+                .filter(|name| *name != crate::state::NAMELESS)
+                .collect();
+            names.sort_unstable();
+            names.dedup();
+            names.len() >= min as usize
         }
         // `you` in the filter is the **opponent** being counted, not the
         // ability's controller: "an opponent controls four or more lands"

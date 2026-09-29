@@ -662,6 +662,8 @@ ability there was.
 `Condition` is the shared vocabulary for "only while this is true" and is
 not activation-specific — it was called `ActivationCondition` after its one
 reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
+`ControlDistinctNames(&filter, n)` counts names rather than permanents
+(Field of the Dead's "seven or more lands with different names"),
 `OpponentGraveyardCountAtLeast(n)` is Sheoldred's flip,
 `CountersOnSelf(kind, n)` and `CountersOnSelfExactly(kind, n)` read the
 permanent the ability is printed on, `SourceMatches(&filter)` points a
@@ -1155,7 +1157,9 @@ library … under your control" — or a `mana_value: Some(ManaValueBound { cmp,
 amount })` the resolution computes, such as `Amount::Plus { base:
 &Amount::SacrificedManaValue, offset: 2 }` for Eldritch Evolution; the
 library searched is the one shuffled), `Find::…with_counter(kind, n)` for a
-find that enters with counters (Neoform), `OptionalBasicLandSearchFor`,
+find that enters with counters (Neoform), `PutFromHandOntoBattlefield {
+filter, mana_value, optional }` (Aether Vial, with `Amount::CountersOnSource`
+as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
 `GraveyardToTop`,
 `GraveyardToHand`, `GraveyardToBattlefield`, `ExileGraveyard`, `Blink`,
 `ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,

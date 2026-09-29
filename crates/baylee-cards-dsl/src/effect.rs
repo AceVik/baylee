@@ -245,6 +245,14 @@ pub enum Amount {
     /// ability whose amount comes off a permanent has nothing to read when
     /// the permanent is gone.
     SourcePower,
+    /// How many counters of a kind are on the ability's own source — Aether
+    /// Vial's "the number of charge counters on this artifact".
+    ///
+    /// Read off the source as it is when asked; a source that has left the
+    /// battlefield has shed its counters (CR 122.2) and counts zero, where
+    /// CR 608.2h would read the last one it had. No card in the pool loses
+    /// its source in between: Aether Vial taps itself and stays.
+    CountersOnSource(CounterKind),
     /// The mana value of the first target (Reanimate's life loss).
     TargetCmc,
     /// "The sacrificed creature's mana value": the mana value, as it last
@@ -736,6 +744,23 @@ pub enum Effect {
     PutFromHandOnTop {
         /// How many.
         count: u8,
+    },
+    /// You put a card matching the filter from your hand onto the
+    /// battlefield, untapped and under your control — Aether Vial's "you may
+    /// put a creature card with mana value equal to the number of charge
+    /// counters on this artifact from your hand onto the battlefield", Uro's
+    /// "you may put a land card from your hand onto the battlefield".
+    ///
+    /// Not a cast and not a land play (CR 305.4): nothing is paid, and no
+    /// land drop is spent. `mana_value` is read as the effect begins, as
+    /// [`Effect::SearchLibraryOf`]'s is.
+    PutFromHandOntoBattlefield {
+        /// What may be put.
+        filter: &'static Filter,
+        /// A mana-value bound read at resolution, on top of `filter`.
+        mana_value: Option<ManaValueBound>,
+        /// "You may" — the chooser may put nothing.
+        optional: bool,
     },
     /// A player loses life.
     LoseLife {
@@ -2155,6 +2180,7 @@ impl Effect {
             | Effect::Blink { .. }
             | Effect::LookAtTopPick { .. }
             | Effect::PutFromHandOnTop { .. }
+            | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }
             | Effect::DrawCards { .. }
             | Effect::DrawCardsFor { .. }
@@ -2383,7 +2409,7 @@ mod amount_and_target_tests {
     /// a sign as a bug on its own: the card resolves, the creature changes
     /// size, and only the direction is wrong.
     ///
-    /// All thirteen variants are named. That is a population rather than a
+    /// All fourteen variants are named. That is a population rather than a
     /// guard — the exhaustive `match` is what a new variant has to answer —
     /// but the answers themselves are what no compiler can check.
     #[test]
@@ -2399,6 +2425,7 @@ mod amount_and_target_tests {
             Amount::DistinctColorsAmong(&Filter::CREATURE),
             Amount::TargetPower,
             Amount::SourcePower,
+            Amount::CountersOnSource(CounterKind::Charge),
             Amount::TargetCmc,
             Amount::SacrificedManaValue,
             Amount::CountOf {
@@ -2412,8 +2439,8 @@ mod amount_and_target_tests {
         ];
         assert_eq!(
             downwards.len() + upwards.len(),
-            14,
-            "fourteen values over thirteen variants — `Negated` is in both \
+            15,
+            "fifteen values over fourteen variants — `Negated` is in both \
              lists, which is the parity rule being read from both sides"
         );
         for a in downwards {

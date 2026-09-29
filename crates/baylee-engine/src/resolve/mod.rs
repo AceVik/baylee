@@ -215,6 +215,9 @@ pub enum AwaitingOp {
         /// the creature.
         receiver: PlayerId,
     },
+    /// After `PutFromHandOntoBattlefield`: the chosen card goes onto the
+    /// battlefield under the resolving controller's control.
+    PutOntoBattlefield,
     /// Scry: chosen cards go to the bottom, the rest stays on top.
     Scry {
         /// **Whose library the cards came out of**, which is not always the
@@ -406,6 +409,21 @@ struct Search {
     optional: bool,
 }
 
+/// Whether a card's mana value meets a bound the resolution computed
+/// ([`baylee_cards_dsl::ManaValueBound`]); no bound is met by every card.
+fn within(
+    o: &crate::object::GameObject,
+    bound: Option<(baylee_cards_dsl::ManaValueCmp, u32)>,
+) -> bool {
+    bound.is_none_or(|(cmp, n)| {
+        let mv = o.characteristics().mana_cost.cmc();
+        match cmp {
+            baylee_cards_dsl::ManaValueCmp::AtMost => mv <= n,
+            baylee_cards_dsl::ManaValueCmp::Exactly => mv == n,
+        }
+    })
+}
+
 /// Opens a library search: the question, or nothing when there is nothing
 /// to find or nobody may search.
 fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> Option<Pending> {
@@ -460,14 +478,7 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
         .iter()
         .filter(|id| {
             state.object(**id).is_some_and(|o| {
-                eval::matches(filter, state, o, searcher, res.source)
-                    && bound.is_none_or(|(cmp, n)| {
-                        let mv = o.characteristics().mana_cost.cmc();
-                        match cmp {
-                            baylee_cards_dsl::ManaValueCmp::AtMost => mv <= n,
-                            baylee_cards_dsl::ManaValueCmp::Exactly => mv == n,
-                        }
-                    })
+                eval::matches(filter, state, o, searcher, res.source) && within(o, bound)
             })
         })
         .copied()
@@ -1172,6 +1183,20 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 }
             }
         }
+        AwaitingOp::PutOntoBattlefield => {
+            for &card in chosen {
+                if let Some(obj) = state.object_mut(card) {
+                    obj.kind = ObjectKind::Permanent;
+                    obj.set_controller(res.controller);
+                }
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+        }
         AwaitingOp::PutBackOnTop => {
             // Chosen cards go on top in chosen order (last chosen = top).
             for &card in chosen {
@@ -1444,6 +1469,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::Surveil { .. }
         | Effect::ScryFor { .. }
         | Effect::PutFromHandOnTop { .. }
+        | Effect::PutFromHandOntoBattlefield { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::SearchLibraryOf { .. }
         | Effect::PlayerMayPayOr { .. }
@@ -1579,6 +1605,38 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 min: n as u8,
                 max: n as u8,
                 prompt: ChoicePrompt::PutBackOnTop,
+            })
+        }
+        Effect::PutFromHandOntoBattlefield {
+            filter,
+            mana_value,
+            optional,
+        } => {
+            let bound = mana_value.map(|b| (b.cmp, amount2(&b.amount, state, you, res)));
+            let options: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Hand(you))
+                .iter()
+                .copied()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches(filter, state, o, you, res.source) && within(o, bound)
+                    })
+                })
+                .collect();
+            // A hand is not a hidden zone to its owner, so "put a creature
+            // card" with one in hand is not a search that may fail; an empty
+            // menu is simply nothing to put.
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::PutOntoBattlefield);
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: u8::from(!optional),
+                max: 1,
+                prompt: ChoicePrompt::Generic,
             })
         }
         Effect::PlayerMayPayOr {
@@ -2420,6 +2478,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::Surveil { .. }
         | Effect::ScryFor { .. }
         | Effect::PutFromHandOnTop { .. }
+        | Effect::PutFromHandOntoBattlefield { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::SearchLibraryOf { .. }
         | Effect::PlayerMayPayOr { .. }
