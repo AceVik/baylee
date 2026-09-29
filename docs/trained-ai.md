@@ -142,16 +142,39 @@ card can hold. A variant is tested where all of its sites ran, partly where some
 did, untested where none did. Code that faces the AI rather than the rules
 (`engine/decision.rs`), hashing and formatting are no evidence. The report
 ranks what is missing by the house-deck and L3 cards that use it, and names the
-functions whose arms never ran. The ability-firing, leave and mutation parts
-wait for the engine's test hooks.
+functions whose arms never ran. A static's layer counts as structure: its
+modifier decides it (`Modifier::layer`), and the modifier is the mechanic.
 
-Numbers:
+L4's firing part and L5 read the engine's test hooks (`docs/verification-hooks.md`,
+`xtask/src/hooks.rs`). `--ability-log <dir>` is a run of the engine's tests with
+`BAYLEE_ABILITY_LOG=<dir>`. A card's abilities have all fired when every entry of
+the pool inventory that a door logs appears in some test's file. An entry no door
+logs (ward, toxic, …) passes when the rule tests run its variant. `--mutate`
+replaces each ability of every L4 card by nothing (`BAYLEE_MUTATE`), one process
+per ability, and runs the tests that fired the card. The card's own tests run
+first; the five pool-wide sweeps run only if those let the mutant survive. The
+card is L5 when every mutant is killed. L4's leave part has no hook yet. The
+report says so, and grants L4 without it.
+
+```text
+cargo run -p xtask -- verify --coverage <llvm-cov export> --ability-log <dir> --mutate
+```
+
+Numbers on main (2026-09-30), without the hooks:
 
 - The pool: 2716 cards, 2242 at L1, 2242 at L2, 2241 at L3.
 - Of 387 variants the pool uses, 304 are tested, 49 partly, 11 untested and 23
   unsited (no engine code names them, for instance `ActivationTiming::InstantSpeed`,
   which is the absence of a restriction).
 - Of the L3 cards, 2227 use no untested mechanic, and 762 use only fully run ones.
+
+With the hooks (`c42/engine-verify-hooks`, not yet on main):
+
+- The pool: 2749 cards, 2293 at L1, 2293 at L2, 2292 at L3, 2210 at L4 and 1855 at
+  L5. L5 took 16.5 minutes for 2819 mutants.
+- Of the 383 mutants that survive, 328 remove a mana ability. The only test that
+  fires those abilities takes its expectation from the card itself, so a mutant
+  that removes the ability also removes what the test expects.
 
 The fuzzer (`bin/fuzz`) plays decks generated from the L3 pool. Half of each
 chair's answers are picked at random among what the question offers, and the
@@ -201,7 +224,9 @@ one creature. The second is a constraint `ChooseBlockers` does not state yet.
 
 - Encoding v3 (piles and runs) — a requirement for the NPU export. It also
   covers up to 8 seats: seats become entities, and the value head a distribution
-  over the winner.
+  over the winner. Self-play already seats 2 to 8 decks (`--seats`, `--teams`).
+  A four-seat game of house decks takes about 3000 answers and 5 s, against 40 ms
+  for a duel.
 - The arena: win rate against each house profile with 95 % intervals, then RL
   against a league of house profiles and older nets.
 - The scaling measurement and the student's latency on `acenb`.
