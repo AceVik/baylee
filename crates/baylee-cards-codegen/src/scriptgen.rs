@@ -2967,6 +2967,9 @@ impl Tx<'_> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("an `S:` line with no `$` in it".to_string());
         };
+        if mode == "CantBlockBy" {
+            return self.cant_block_by(p);
+        }
         if mode != "Continuous" {
             self.note(format!("static ability `S: Mode$ {mode}`"));
             return None;
@@ -2995,11 +2998,34 @@ impl Tx<'_> {
             return self.deny("a continuous static with no `Affected$`".to_string());
         };
         let filter = self.filter_expr(&affected)?;
+        // "Gets +1/+1 as long as you control a Swamp" (Sedge Troll): the
+        // clause the `A:` line reads as a restriction is, on a static, the
+        // condition under which the ability exists at all, and the engine
+        // registers and removes it as the condition changes.
+        let condition = self.condition(&mut p)?;
         let mut out = Vec::new();
         self.pt_modifiers(&mut p, &filter, &mut out)?;
         self.keyword_modifiers(&mut p, &filter, &mut out)?;
         self.type_modifiers(&mut p, &filter, &mut out)?;
         self.color_modifiers(&mut p, &filter, &mut out)?;
+        // "You control enchanted creature" (Control Magic): layer 2
+        // (CR 613.1b), and the static's controller is who gains control —
+        // `You` is the only player the modifier can name.
+        match p.take("GainControl").as_deref() {
+            None => {}
+            Some("You") => out.push(Self::static_expr(&filter, "Modifier::GainControl")),
+            Some(other) => {
+                self.note(format!("control of a static given to `{other}`"));
+                return None;
+            }
+        }
+        if !condition.is_empty() {
+            for ability in &mut out {
+                if let Some(open) = ability.strip_suffix(')') {
+                    *ability = format!("{open}{condition})");
+                }
+            }
+        }
         // The honest-stub rule: one key nothing claimed and the card stays
         // a stub, however much of the line was understood.
         if !p.exhausted() || out.is_empty() {
@@ -3011,6 +3037,35 @@ impl Tx<'_> {
             return None;
         }
         self.body.abilities.extend(out);
+        Some(())
+    }
+
+    /// "Can't be blocked by Walls" (Juggernaut), "can't be blocked except
+    /// by Walls" (Invisibility), "can't block creatures with power 2 or
+    /// greater" (Ironclaw Orcs): one restriction on a pairing (CR 509.1b),
+    /// which `Modifier::CantBeBlockedBy` states from the attacker's side.
+    ///
+    /// `combat::can_block` reads the blocker's filter against the static's
+    /// own source, so `Self` on that side is the card that states it, and
+    /// a blocker-side restriction is the same modifier on every attacker
+    /// the other filter names.
+    fn cant_block_by(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let (Some(attacker), Some(blocker)) = (p.take("ValidAttacker"), p.take("ValidBlocker"))
+        else {
+            return self.deny("`CantBlockBy` naming no attacker or no blocker".to_string());
+        };
+        let condition = self.condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            self.note(format!("unclaimed parameter `CantBlockBy.{key}`"));
+            return None;
+        }
+        let attackers = self.filter_expr(&attacker)?;
+        let blockers = self.filter_expr(&blocker)?;
+        let name = self.body.filter_static("BLOCKER", &blockers);
+        self.body.abilities.push(format!(
+            "static_ability!({attackers}, Modifier::CantBeBlockedBy(&{name}){condition})"
+        ));
         Some(())
     }
 
@@ -5659,6 +5714,77 @@ SVar:X:Count$xPaid",
         assert!(text.contains("filter: &Filter::This"), "{text}");
     }
 
+    /// A static's `IsPresent$` is the condition it exists under, and
+    /// `GainControl$ You` is layer 2 to the static's controller.
+    #[test]
+    fn a_static_holds_while_its_clause_does_and_can_give_control() {
+        // Sedge Troll, with a land the test catalog knows.
+        let body = read(
+            "Name:X\nManaCost:2 R\nTypes:Creature Goblin\nPT:2/2\n\
+             S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 1 | AddToughness$ 1 | \
+             IsPresent$ Mountain.YouCtrl | Description$ gets +1/+1.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("condition = Some(Condition::ControlCount(&CHECK"),
+            "{text}"
+        );
+        assert!(text.trim_end().ends_with("))"), "{text}");
+
+        // Control Magic: layer 2, to the static's controller.
+        let body = read(
+            "Name:X\nManaCost:2 U U\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ Continuous | Affected$ Card.EnchantedBy | GainControl$ You | \
+             Description$ You control enchanted creature.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("static_ability!(Filter::AttachedToBySource, Modifier::GainControl)"),
+            "{text}"
+        );
+
+        // Control given to anyone else is not a sentence it can write.
+        let script = parse(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ Continuous | Affected$ Card.EnchantedBy | GainControl$ Opponent\n",
+        );
+        assert!(transcode(&script, &cats(), None).is_none());
+    }
+
+    /// `CantBlockBy` from either side of the pairing.
+    #[test]
+    fn a_pairing_nobody_may_block_is_the_attackers_restriction() {
+        // Invisibility: every creature but a Wall is refused.
+        let body = read(
+            "Name:X\nManaCost:U U\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ CantBlockBy | ValidAttacker$ Creature.EnchantedBy | \
+             ValidBlocker$ Creature.nonGoblin | Description$ can't be blocked except by Goblins.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("Modifier::CantBeBlockedBy(&BLOCKER"),
+            "{text}"
+        );
+        assert!(text.contains("Filter::AttachedToBySource"), "{text}");
+        let statics = &body.statics;
+        assert!(statics.contains("Not("), "{statics}");
+
+        // Ironclaw Orcs: the source is the blocker, every big creature the
+        // attacker.
+        let body = read(
+            "Name:X\nManaCost:1 R\nTypes:Creature Goblin\nPT:2/2\n\
+             S:Mode$ CantBlockBy | ValidAttacker$ Creature.powerGE2 | \
+             ValidBlocker$ Creature.Self | Description$ can't block big ones.\n",
+        );
+        let statics = &body.statics;
+        assert!(statics.contains("Filter::This"), "{statics}");
+
+        assert!(refused(
+            "Name:X\nTypes:Creature Goblin\nPT:1/1\n\
+             S:Mode$ CantBlockBy | ValidAttacker$ Creature.Self\n"
+        ));
+    }
+
     /// No `Defined$` and no target is the source too: Shivan Dragon's
     /// "{R}: This creature gets +1/+0 until end of turn." A pump that
     /// moves nothing stays refused, because pumping the source by nought
@@ -6735,15 +6861,15 @@ SVar:X:Count$xPaid",
             "Name:X\nTypes:Creature\n\
              S:Mode$ Continuous | Affected$ Creature.YouCtrl | SetPower$ 4\n"
         ));
-        // A condition is a rule of its own; unread, it must refuse.
+        // A condition is a rule of its own; one it cannot read refuses.
         assert!(refused(
             "Name:X\nTypes:Creature\n\
              S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | \
-             IsPresent$ Island.YouCtrl\n"
+             IsPresent$ Island.YouCtrl | PresentCompare$ EQ0\n"
         ));
         // A mode that is not Continuous is not this rule.
         assert!(refused(
-            "Name:X\nTypes:Creature\nS:Mode$ CantBlockBy | ValidAttacker$ Card.Self\n"
+            "Name:X\nTypes:Creature\nS:Mode$ MustAttack | ValidCreature$ Card.Self\n"
         ));
     }
 
@@ -6855,11 +6981,10 @@ SVar:X:Count$xPaid",
 
         // A static ability names the mode it cannot read, so the worklist
         // ranks `ReduceCost` and `Continuous` as the different work they are.
-        let script =
-            parse("Name:X\nTypes:Creature\nS:Mode$ CantBlockBy | ValidAttacker$ Card.Self");
+        let script = parse("Name:X\nTypes:Creature\nS:Mode$ MustAttack | ValidCreature$ Card.Self");
         assert_eq!(
             refusal_reason(&script, &cats(), None).as_deref(),
-            Some("static ability `S: Mode$ CantBlockBy`")
+            Some("static ability `S: Mode$ MustAttack`")
         );
     }
 
