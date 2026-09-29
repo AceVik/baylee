@@ -2704,7 +2704,10 @@ every answer inside what it states. `Pending::answer_fault(&PlayerAction)`
 returns that reason as an `AnswerFault`, or `None`; the engine runs it
 first and refuses with `IllegalAction(fault.reason())` (`MismatchedAction`
 for an answer of the wrong kind), so a client or an agent that checks an
-answer with it before sending is never refused for it. Three bounds the
+answer with it before sending is never refused for it. Only the seat is
+checked before it: a seat the question does not ask gets
+`MismatchedAction` whatever it answered, so a refusal never tells it what
+the question holds (a search's options are cards in a hidden library). Three bounds the
 engine used to hold without saying are fields:
 
 - `ChooseCards.total: Option<CardTotal>`. `CardTotal { of, weights,
