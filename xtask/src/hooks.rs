@@ -13,6 +13,10 @@
 //!   the CR 305.6 land mana is replaced by nothing (`BAYLEE_MUTATE`) and the
 //!   tests that fired the card are run again; the card is L5 when every such
 //!   mutant is killed.
+//! - **Leaving** (`--leave-log <dir>`): the leave probe's `leave.jsonl` has a
+//!   verdict per card and way off the battlefield (destroy, exile, bounce,
+//!   …). A card leaves clean when it has lines and every one is `ok`;
+//!   `skipped` is not known, so not clean.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
@@ -252,6 +256,65 @@ impl Firing {
             ));
         }
         None
+    }
+}
+
+/// What the leave probe wrote (`BAYLEE_LEAVE_LOG`): per card, each route
+/// and its verdict.
+pub struct Leave {
+    /// Per card: (route, verdict, detail).
+    pub routes: BTreeMap<CardIndex, Vec<(String, String, String)>>,
+}
+
+impl Leave {
+    /// Reads `<dir>/leave.jsonl`.
+    ///
+    /// # Errors
+    /// When the file cannot be read or a line is not a probe line.
+    pub fn read(dir: &Path) -> anyhow::Result<Self> {
+        let path = dir.join("leave.jsonl");
+        let text =
+            fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+        let mut routes: BTreeMap<CardIndex, Vec<(String, String, String)>> = BTreeMap::new();
+        for line in text.lines().filter(|l| !l.trim().is_empty()) {
+            let v: serde_json::Value = serde_json::from_str(line)
+                .with_context(|| format!("a line of {}", path.display()))?;
+            let (Some(card), Some(route), Some(verdict)) = (
+                u32_of(&v["card"]),
+                v["route"].as_str(),
+                v["verdict"].as_str(),
+            ) else {
+                bail!(
+                    "a line of {} is not {{card, route, verdict, detail}}: {line}",
+                    path.display()
+                );
+            };
+            routes.entry(CardIndex::new(card)).or_default().push((
+                route.to_owned(),
+                verdict.to_owned(),
+                v["detail"].as_str().unwrap_or("").to_owned(),
+            ));
+        }
+        Ok(Self { routes })
+    }
+
+    /// Why `card` is not known to leave the battlefield clean, if it is not.
+    pub fn gap(&self, card: CardIndex) -> Option<String> {
+        let Some(routes) = self.routes.get(&card) else {
+            return Some("the leave probe did not try it".into());
+        };
+        let bad: Vec<String> = routes
+            .iter()
+            .filter(|(_, verdict, _)| verdict != "ok")
+            .map(|(route, verdict, detail)| {
+                if detail.is_empty() {
+                    format!("{route} {verdict}")
+                } else {
+                    format!("{route} {verdict} ({detail})")
+                }
+            })
+            .collect();
+        (!bad.is_empty()).then(|| format!("does not leave clean: {}", bad.join(", ")))
     }
 }
 
@@ -582,6 +645,33 @@ mod tests {
             f.gap(card, None)
                 .is_some_and(|g| g.contains("no --coverage"))
         );
+    }
+
+    #[test]
+    fn a_card_leaves_clean_only_when_every_route_is_ok() {
+        let dir = std::env::temp_dir().join(format!("leave-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let lines = [
+            r#"{"card":1,"route":"destroy","verdict":"ok","detail":""}"#,
+            r#"{"card":1,"route":"exile","verdict":"ok","detail":""}"#,
+            r#"{"card":2,"route":"destroy","verdict":"ok","detail":""}"#,
+            r#"{"card":2,"route":"bounce","verdict":"lingers","detail":"its anthem stays"}"#,
+            r#"{"card":3,"route":"phase_out","verdict":"skipped","detail":"no way to try"}"#,
+        ];
+        fs::write(dir.join("leave.jsonl"), lines.join("\n")).unwrap();
+        let leave = Leave::read(&dir).unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(leave.gap(CardIndex::new(1)), None);
+        assert!(
+            leave
+                .gap(CardIndex::new(2))
+                .is_some_and(|g| g.contains("bounce lingers (its anthem stays)"))
+        );
+        assert!(
+            leave.gap(CardIndex::new(3)).is_some(),
+            "skipped is not known"
+        );
+        assert!(leave.gap(CardIndex::new(4)).is_some(), "not probed");
     }
 
     #[test]

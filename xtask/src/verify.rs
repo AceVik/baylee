@@ -9,11 +9,11 @@
 //! | L5 | and removing any one of its abilities makes one of its tests fail |
 //!
 //! Each level needs the one below. L4 reads a coverage export of the
-//! engine's rule tests (`--coverage`, [`crate::mechanics`]) and the firing
-//! recorder's directory (`--ability-log`, [`crate::hooks`]); L5 runs one
-//! mutant per ability (`--mutate`). Both follow `docs/verification-hooks.md`.
-//! L4's third part, leaving the battlefield clean, has no hook yet: the
-//! report says so and grants L4 without it. A card named in `--demote` (an
+//! engine's rule tests (`--coverage`, [`crate::mechanics`]), the firing
+//! recorder's directory (`--ability-log`, [`crate::hooks`]) and the leave
+//! probe's (`--leave-log`); L5 runs one mutant per ability (`--mutate`). All
+//! follow `docs/verification-hooks.md`. Without `--leave-log` L4 is granted
+//! without its leave part, and the report says `leave_checked: false`. A card named in `--demote` (an
 //! open bug report) stops at L1 whatever its evidence. The trained AI trains
 //! on L4 cards; the population per level says which tests the pool is
 //! missing.
@@ -48,6 +48,10 @@ pub struct Args {
     /// wrote, for L4's firing part (`docs/verification-hooks.md`).
     #[arg(long)]
     ability_log: Option<PathBuf>,
+    /// The directory the leave probe wrote `leave.jsonl` into
+    /// (`BAYLEE_LEAVE_LOG`), for L4's leave part.
+    #[arg(long)]
+    leave_log: Option<PathBuf>,
     /// Run L5: one mutant per ability of every L4 card, against the tests
     /// that fired the card.
     #[arg(long)]
@@ -180,22 +184,35 @@ pub fn verify(root: &Path, inputs: &Args) -> anyhow::Result<()> {
         .map(crate::hooks::Firing::read)
         .transpose()
         .context("reading the firing recorder's directory")?;
-    // L4: no untested mechanic and every ability fired. The leave part has
-    // no hook yet.
+    let leave = inputs
+        .leave_log
+        .as_deref()
+        .map(crate::hooks::Leave::read)
+        .transpose()
+        .context("reading the leave probe's directory")?;
+    // L4: no untested mechanic, every ability fired, and (where the probe
+    // ran) the battlefield left clean.
     for (card, level) in &mut levels {
         if *level != 3 {
             continue;
         }
         let mechanics = analysis.as_ref().map(|a| a.stop(*card));
         let fired = firing.as_ref().map(|f| f.gap(*card, analysis.as_ref()));
-        let stop = match (mechanics, fired) {
-            (Some(Some(stop)), _) | (_, Some(Some(stop))) => stop,
-            (Some(None), Some(None)) => {
+        let left = leave.as_ref().and_then(|l| l.gap(*card));
+        let stop = match (mechanics, fired, left) {
+            (Some(Some(stop)), _, _)
+            | (_, Some(Some(stop)), _)
+            | (Some(None), Some(None), Some(stop)) => stop,
+            (Some(None), Some(None), None) => {
                 *level = 4;
-                "L4 without its leave part (no hook yet)".into()
+                if leave.is_some() {
+                    "L4".into()
+                } else {
+                    "L4 without its leave part (no --leave-log)".into()
+                }
             }
-            (None, _) => "L4 needs --coverage".into(),
-            (_, None) => "L4 needs --ability-log".into(),
+            (None, _, _) => "L4 needs --coverage".into(),
+            (_, None, _) => "L4 needs --ability-log".into(),
         };
         why.insert(*card, stop);
     }
@@ -334,7 +351,7 @@ pub fn verify(root: &Path, inputs: &Args) -> anyhow::Result<()> {
         "validate_global": global,
         "mechanics_checked": mechanics_json.is_some(),
         "firing_checked": firing.is_some(),
-        "leave_checked": false,
+        "leave_checked": leave.is_some(),
         "l5_checked": inputs.mutate,
         "firing": firing.as_ref().map(|f| serde_json::json!({
             "test_files": f.files,
