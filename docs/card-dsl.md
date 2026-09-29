@@ -1325,6 +1325,49 @@ casting) — and a variant with no enforcer is a static ability that compiles,
 hashes, layers and does nothing. This paragraph said THREE until
 `PlayLandsFromGraveyard` was added and the compiler named two more.
 
+### Pieces added for Maik's European Highlander (29.09.2026)
+
+- **Transform.** `Effect::TransformSource` turns the source over now, and
+  `Effect::TransformSourceAtNextUpkeep` does it at the beginning of the next
+  upkeep (Archangel Avacyn). `Trigger::TransformsIntoThis` is "whenever this
+  creature transforms into [this face]" (Huntmaster of the Fells). The
+  conditions `NoSpellsCastLastTurn` and `APlayerCastLastTurnAtLeast(n)` are
+  the werewolf upkeep checks.
+- **`PlayerRel::ControllerOfEvent`** is the controller of the event's object
+  (Massacre Wurm: "its controller loses 2 life").
+- **`Effect::CreateTokenCopyOfTarget { mods, sacrifice_at_next_end_step }`**
+  (Kiki-Jiki) copies the first target's copiable values (CR 707.2), applies
+  `mods` (for example `CopyMod::AddKeyword(HASTE)`), and can register a
+  delayed "sacrifice it at the beginning of the next end step". That delayed
+  sacrifice is `DelayedAction::Sacrifice { card, version }`. It does nothing
+  if the token has left the battlefield or changed controller.
+- **`Effect::RevealTopAndSort { filter, matched, otherwise }`** (Coiling
+  Oracle, CR 701.20a) reveals the top card of your library. It puts the card
+  where `matched` says if it matches `filter`, and where `otherwise` says if
+  it doesn't. The `SearchDest` values are the ones a library search uses.
+- **`Modifier::CharacteristicPT { count, toughness_plus }`** is a
+  characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
+  - `YouControl(filter)`
+  - `CardTypesInAllGraveyards`
+
+  Power is the count, and toughness is the count plus `toughness_plus`
+  (Pyrogoyf: `+1`). Like every static ability, it works only on the
+  battlefield. A graveyard change invalidates the projection.
+- **`Effect::EventObjectDealsDamageEqualToPower { target }`**: "that creature
+  deals damage equal to its power to any target". The dealer is the event's
+  object, and its power is read now, or as it last existed on the
+  battlefield (`GameState::ltb_powers`).
+- **`Modifier::CantBeBlockedBy(filter)`** is "can't be blocked by [filter]".
+  Examples: Questing Beast (`PowerAtMost(2)`) and Delney (`PowerAtLeast(3)`).
+  `combat::can_block` enforces it.
+- **`Modifier::CombatDamageCantBePrevented`** makes combat damage dealt by the
+  matching creatures unpreventable. It overrides prevention effects and
+  protection's prevention (CR 615.12, 702.16e).
+- **`Effect::ProtectionFromChosenColor { duration }`** (Sejiri Steppe) asks
+  the controller for a color as it resolves (`Pending::ChooseColor`). It then
+  grants layer-6 protection from that color to the first target for
+  `duration`.
+
 ## Worked examples
 
 A land with two basic land types must print its own mana ability. CR 305.6
