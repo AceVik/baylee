@@ -120,6 +120,8 @@ fn main() -> anyhow::Result<()> {
         .count();
     let shown_from = inputs.saturating_sub(args.last);
     let mut at = 0;
+    // The last few inputs, printed only when the record stops replaying.
+    let mut recent: std::collections::VecDeque<String> = std::collections::VecDeque::new();
     for l in &lines {
         let Line::Input {
             n, seat, action, ..
@@ -128,18 +130,30 @@ fn main() -> anyhow::Result<()> {
             continue;
         };
         at += 1;
+        let asked = format!("{:?}", engine.pending_for(PlayerId::new(*seat)));
+        let asked: String = asked.chars().take(400).collect();
+        let shown = format!(
+            "#{n} seat {seat} was asked {}\n    and answered {}",
+            annotate(&asked, &engine),
+            annotate(&format!("{action:?}"), &engine)
+        );
         if at > shown_from {
-            let asked = format!("{:?}", engine.pending());
-            let asked: String = asked.chars().take(300).collect();
-            println!("#{n} seat {seat} was asked {}", annotate(&asked, &engine));
-            println!(
-                "    and answered {}",
-                annotate(&format!("{action:?}"), &engine)
-            );
+            println!("{shown}");
+        } else {
+            if recent.len() == args.last {
+                recent.pop_front();
+            }
+            recent.push_back(shown.clone());
         }
-        engine
-            .apply(PlayerId::new(*seat), action.clone())
-            .map_err(|e| anyhow::anyhow!("input {n} refused on replay: {e}"))?;
+        if let Err(e) = engine.apply(PlayerId::new(*seat), action.clone()) {
+            for line in &recent {
+                println!("{line}");
+            }
+            if at <= shown_from {
+                println!("{shown}");
+            }
+            bail!("input {n} refused on replay: {e}");
+        }
     }
     let state = engine.state();
     println!(

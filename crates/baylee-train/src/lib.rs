@@ -10,6 +10,10 @@
 //! Nothing that ships links this crate; `xtask` does, so the card agents'
 //! `deck-check --tested` asks the same question the trainer does.
 
+#[cfg(feature = "play")]
+pub mod convert;
+#[cfg(feature = "play")]
+pub mod features;
 pub mod housedeck;
 #[cfg(feature = "play")]
 pub mod selfplay;

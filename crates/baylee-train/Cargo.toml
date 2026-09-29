@@ -21,6 +21,7 @@ play = [
     "dep:baylee-build",
     "dep:baylee-engine",
     "dep:baylee-gamehost",
+    "dep:baylee-view",
     "dep:clap",
     "dep:flate2",
     "dep:serde",
@@ -34,6 +35,7 @@ baylee-cards.workspace = true
 baylee-core.workspace = true
 baylee-engine = { workspace = true, optional = true }
 baylee-gamehost = { workspace = true, optional = true }
+baylee-view = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
@@ -48,4 +50,9 @@ required-features = ["play"]
 [[bin]]
 name = "inspect"
 path = "src/bin/inspect.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "convert"
+path = "src/bin/convert.rs"
 required-features = ["play"]
