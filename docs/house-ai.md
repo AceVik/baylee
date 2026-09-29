@@ -497,6 +497,24 @@ its comment says why — `choose_blocks` computes an answer to that shape
 whether or not anything presents it, and a pass tested only on offers the
 engine has already filtered is a pass nothing tests.
 
+**Every answer is held to its question before it is given** (`held`). A
+question states every reason the engine refuses an answer to it
+(`Pending::answer_fault`, `docs/pending-constraints.md`), so the agent checks
+its own answer against it, and an answer that breaks one is a defect in the
+picker that built it: "up to four" targets answered with eleven (Meloku's
+Illusions, found by the fuzzer, seeds 486 and 1931 on 50050ff3) was one. Such
+an answer is refitted to the nearest one the question takes — the picker's own
+choices in its order, less repeats and what was not offered, cut to the
+maximum and made up to the minimum, an opponent's first; else the answer that
+does nothing; else the least offered — so no answer outside what its
+question states reaches the engine (a refusal for a reason the question does
+not state still can, and is counted as before). It is never silent: the agent logs a warning with
+the answer, the fault and the question, and counts it
+(`HeuristicAgent::fallbacks`, `Tally::fallbacks`). The self-play sweeps
+(acceptance decks, multi-seat tables, AI deck matches, every implemented
+card's game) assert that count and the engine's refusals both stay at zero,
+so a picker that breaks a bound fails a test instead of being papered over.
+
 **A modal card in hand is what either of its faces can be.** A
 `CardIdentity` in hand names the face that is *up*, which for a modal
 double-faced card is the spell: Shatterskull Smashing is a sorcery with a

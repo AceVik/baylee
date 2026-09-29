@@ -111,6 +111,12 @@ pub struct Tally {
     pub refused_cost: usize,
     /// Actions the engine refused for any other reason.
     pub refused_other: usize,
+    /// Answers the agent built that broke the question they answered, and
+    /// refitted to it before the engine saw them
+    /// (`HeuristicAgent::fallbacks`). The engine refuses none of these, so
+    /// `refused_other` cannot count them: each is a defect in a picker that
+    /// only this number reports.
+    pub fallbacks: usize,
 }
 
 /// A played harness game, with enough of the end state to say *why* it
@@ -315,10 +321,12 @@ pub fn play_report<L: CardLookup>(
         let scouting = agent.scouting_request(&pending).and_then(|request| {
             crate::scouting::request(&seats, &decks, engine.state(), player, request)
         });
+        let fallbacks = agent.fallbacks();
         let action = scouting.as_ref().map_or_else(
             || agent.act_with_context(&view, &pending, &context),
             |report| agent.act_with_scouting(&view, &pending, &context, report),
         );
+        tally[player.get() as usize].fallbacks += agent.fallbacks().saturating_sub(fallbacks);
         if trail.len() == TRAIL {
             trail.remove(0);
         }
@@ -659,7 +667,12 @@ mod tests {
     ///
     /// The bar is deliberately low — no panic, no engine-invariant
     /// violation — because that is the class of bug a generated card can
-    /// introduce and a per-card assertion never could. Cards are collected
+    /// introduce and a per-card assertion never could. And no house answer
+    /// the engine refused or would have: an answer the agent had to refit
+    /// to its question (`Tally::fallbacks`) is the house AI's defect this
+    /// sweep is the widest net for, which is how "up to four" over eleven
+    /// Illusions would have been found here (measured on 2026-09-30: none
+    /// refitted or refused over 2336 cards). Cards are collected
     /// rather than asserted one at a time, so a run names *every* offender
     /// instead of stopping at the first.
     fn play_every_implemented_card(cap: usize) -> Vec<String> {
@@ -710,10 +723,26 @@ mod tests {
                 HeuristicAgent::new(AIProfile::default()),
             ];
             let played = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                play_game(RegistryLookup, &preset, &agents, cap)
+                play_report(RegistryLookup, &preset, &agents, cap)
             }));
-            if played.is_err() {
-                offenders.push(def.name().to_string());
+            match played {
+                Err(_) => offenders.push(def.name().to_string()),
+                Ok(report) => {
+                    let refitted: usize = report.tally.iter().map(|t| t.fallbacks).sum();
+                    let refused: usize = report
+                        .tally
+                        .iter()
+                        .map(|t| t.refused_cost + t.refused_other)
+                        .sum();
+                    if refitted + refused > 0 {
+                        offenders.push(format!(
+                            "{}: {refitted} house answers broke their questions and \
+                             {refused} were refused, last {:?}",
+                            def.name(),
+                            report.trail.last()
+                        ));
+                    }
+                }
             }
         }
         offenders
@@ -728,7 +757,8 @@ mod tests {
         let offenders = play_every_implemented_card(300);
         assert!(
             offenders.is_empty(),
-            "these cards are offered as playable and break a game: {offenders:?}"
+            "these cards are offered as playable and break a game, or the house's \
+             answers in it: {offenders:?}"
         );
     }
 
@@ -741,7 +771,8 @@ mod tests {
         let offenders = play_every_implemented_card(20_000);
         assert!(
             offenders.is_empty(),
-            "these cards are offered as playable and break a game: {offenders:?}"
+            "these cards are offered as playable and break a game, or the house's \
+             answers in it: {offenders:?}"
         );
     }
 
@@ -765,9 +796,18 @@ mod tests {
             let agents: Vec<HeuristicAgent> = (0..seats)
                 .map(|_| HeuristicAgent::new(AIProfile::default()))
                 .collect();
-            // No panic is the assertion; a four-way game need not finish
-            // inside the cap.
-            let _ = play_game(RegistryLookup, &preset, &agents, 20_000);
+            // No panic, and no house answer refitted to its question or
+            // refused; a four-way game need not finish inside the cap.
+            let r = play_report(RegistryLookup, &preset, &agents, 20_000);
+            assert_eq!(
+                r.tally
+                    .iter()
+                    .map(|t| (t.fallbacks, t.refused_cost + t.refused_other))
+                    .fold((0, 0), |(a, b), (c, d)| (a + c, b + d)),
+                (0, 0),
+                "{seats} seats: answers refitted and answers refused, last {:?}",
+                r.trail
+            );
         }
     }
 
@@ -792,6 +832,8 @@ mod tests {
         ];
         let mut finished = 0;
         let mut attacks = 0;
+        let mut fallbacks = 0;
+        let mut refused = 0;
         let mut lines = Vec::new();
         for seed in [1u64, 7, 42, 1337] {
             let (a, b) = if seed % 2 == 0 {
@@ -805,13 +847,19 @@ mod tests {
                 finished += 1;
             }
             attacks += r.tally.iter().map(|t| t.attacks).sum::<usize>();
+            fallbacks += r.tally.iter().map(|t| t.fallbacks).sum::<usize>();
+            refused += r
+                .tally
+                .iter()
+                .map(|t| t.refused_cost + t.refused_other)
+                .sum::<usize>();
             let seats: Vec<String> = r
                 .seats
                 .iter()
                 .zip(&r.tally)
                 .map(|(s, t)| {
                     format!(
-                        "{}life h{} l{} b{}/{}c · {}land {}spell {}abil {}atk/{} {}blk/{} · {}tap {}refused-cost {}refused-other",
+                        "{}life h{} l{} b{}/{}c · {}land {}spell {}abil {}atk/{} {}blk/{} · {}tap {}refused-cost {}refused-other {}fallback",
                         s.life,
                         s.hand,
                         s.library,
@@ -827,6 +875,7 @@ mod tests {
                         t.taps,
                         t.refused_cost,
                         t.refused_other,
+                        t.fallbacks,
                     )
                 })
                 .collect();
@@ -865,6 +914,15 @@ mod tests {
         assert!(
             attacks > 0,
             "nobody attacked in any of the four games\n{report}"
+        );
+        // Every answer the agents built is one its question takes: an
+        // answer refitted to its question (`HeuristicAgent::fallbacks`) is a
+        // defect in a picker, and the engine never sees it to refuse it.
+        // And the engine refused none of the answers it did see.
+        assert_eq!(
+            (fallbacks, refused),
+            (0, 0),
+            "answers refitted to their questions, and answers refused\n{report}"
         );
         println!("{report}");
     }
