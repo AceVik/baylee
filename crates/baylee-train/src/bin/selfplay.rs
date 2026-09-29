@@ -289,7 +289,7 @@ fn main() -> anyhow::Result<()> {
         "commit": baylee_build::COMMIT,
         "dirty": baylee_build::DIRTY,
         "working": {
-            "rule": "Coverage::Implemented and named by card_index(\"…\") in card_tests/ or combo_tests/",
+            "rule": "Coverage::Implemented and named in the engine's test code: card_index(oracle id), an oracle-id literal or an index:: constant (baylee_train::working)",
             "pool": working.pool,
             "implemented": working.implemented,
             "tested": working.tested.len(),

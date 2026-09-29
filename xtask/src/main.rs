@@ -4649,8 +4649,10 @@ fn deck_check(root: &Path, file: &Path, verbose: bool, tested: bool) -> anyhow::
     let working = tested
         .then(|| baylee_train::working::Working::scan(root))
         .transpose()
-        .context("reading the card and combo tests")?;
+        .context("reading the engine's test code")?;
     let mut untested = Vec::new();
+    // Each working card of the deck, with how and where a test names it.
+    let mut tested_by: Vec<String> = Vec::new();
     let path = if file.is_absolute() {
         file.to_path_buf()
     } else {
@@ -4714,12 +4716,17 @@ fn deck_check(root: &Path, file: &Path, verbose: bool, tested: bool) -> anyhow::
             None => unknown.push(name.clone()),
             Some(def) => match def.coverage {
                 Coverage::Implemented => {
-                    if working
-                        .as_ref()
-                        .is_some_and(|w| w.check(def.index).is_err())
-                        && !untested.contains(&name)
-                    {
-                        untested.push(name.clone());
+                    if let Some(w) = &working {
+                        match w.tested.get(&def.index) {
+                            Some(e) => {
+                                let line = format!("{name} — {} in {}", e.how, e.file);
+                                if !tested_by.contains(&line) {
+                                    tested_by.push(line);
+                                }
+                            }
+                            None if !untested.contains(&name) => untested.push(name.clone()),
+                            None => {}
+                        }
                     }
                 }
                 Coverage::Partial(why) => partial.push(format!("{name} — {why}")),
@@ -4756,6 +4763,11 @@ fn deck_check(root: &Path, file: &Path, verbose: bool, tested: bool) -> anyhow::
         );
         for name in &untested {
             println!("  UNTESTED    {name}");
+        }
+        if verbose {
+            for line in &tested_by {
+                println!("  TESTED      {line}");
+            }
         }
     }
     if verbose {
