@@ -557,6 +557,7 @@ keywords! {
     // sentence implies the other.
     CANT_BLOCK = 34, "Can't block.";
     STORIED = 35, "Storied (CR 702.195).";
+    SPLIT_SECOND = 36, "Split second (CR 702.61).";
 }
 
 impl KeywordSet {

@@ -133,6 +133,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("rebound", K::REBOUND),               // progress.rs (rider)
         ("daybound", K::DAYBOUND),             // progress::day_night_statics
         ("storied", K::STORIED),               // storied::award_enduring_stories
+        ("split second", K::SPLIT_SECOND),     // Engine::narrow_under_split_second
         ("nightbound", K::NIGHTBOUND),         // progress::day_night_statics
     ]
 };

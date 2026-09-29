@@ -543,6 +543,11 @@ has built.
   combat `DamageDealt` to a player gives that player poison counters equal
   to the source's total toxic value, summed over every `Toxic` it has
   (CR 702.164b). Tyrranax Rex
+- `KeywordSet::SPLIT_SECOND` — split second (CR 702.61) is a bit and no
+  ability: while a spell whose projected keywords carry it is on the stack,
+  `Engine::compute_legal` offers no spell, no suspend and no activation but
+  mana abilities and turning a face-down permanent up (CR 702.61b, 116.2b).
+  Triggers still trigger. Krosan Grip
 - `AbilityDef::Suspend { counters }`
 
 #### Write them through the macros

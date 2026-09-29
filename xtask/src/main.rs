@@ -2633,6 +2633,7 @@ const KEYWORD_WORDS: &[(baylee_cards::dsl::KeywordSet, &str)] = {
         (K::DAYBOUND, "daybound"),
         (K::NIGHTBOUND, "nightbound"),
         (K::CANT_BLOCK, "can't block"),
+        (K::SPLIT_SECOND, "split second"),
         (K::UNDYING, "undying"),
         (K::PERSIST, "persist"),
     ]
