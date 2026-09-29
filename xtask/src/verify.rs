@@ -10,7 +10,9 @@
 //!
 //! Each level needs the one below. L4 and L5 read files the engine's test
 //! hooks write (`docs/verification-hooks.md`) and stay empty until they
-//! exist. A card named in `--demote` (an open bug report) stops at L1
+//! exist; L4's mechanics part is read now, from a coverage export of the
+//! engine's rule tests (`--coverage`, [`crate::mechanics`]), and names what
+//! each L3 card waits on. A card named in `--demote` (an open bug report) stops at L1
 //! whatever its evidence. The trained AI trains on L4 cards once L4 exists;
 //! until then the population per level says which tests the pool is
 //! missing.
@@ -91,7 +93,12 @@ fn demoted(path: &Path) -> anyhow::Result<BTreeSet<CardIndex>> {
 /// # Errors
 /// When the tests or a deck cannot be read, or `validate` cannot run.
 #[allow(clippy::too_many_lines)] // one ladder, then its three reports
-pub fn verify(root: &Path, out: &Path, demote: Option<&Path>) -> anyhow::Result<()> {
+pub fn verify(
+    root: &Path,
+    out: &Path,
+    demote: Option<&Path>,
+    coverage: Option<&Path>,
+) -> anyhow::Result<()> {
     let working = Working::scan(root).context("reading the engine's test code")?;
     let cache = root.join("data/scryfall-cache");
     let l2_checked = cache.is_dir();
@@ -132,6 +139,23 @@ pub fn verify(root: &Path, out: &Path, demote: Option<&Path>) -> anyhow::Result<
         why.insert(def.index, stop);
     }
 
+    let analysis = coverage
+        .map(|c| crate::mechanics::analyse(root, c))
+        .transpose()
+        .context("reading the engine's mechanics coverage")?;
+    if let Some(a) = &analysis {
+        for (card, level) in &levels {
+            if *level == 3 {
+                why.insert(
+                    *card,
+                    a.stop(*card).unwrap_or_else(|| {
+                        "mechanics tested; L4 waits for the ability and leave hooks".into()
+                    }),
+                );
+            }
+        }
+    }
+
     let population = |cards: &BTreeSet<CardIndex>| -> [usize; 6] {
         let mut p = [0_usize; 6];
         for c in cards {
@@ -155,6 +179,7 @@ pub fn verify(root: &Path, out: &Path, demote: Option<&Path>) -> anyhow::Result<
     println!("{:28} {:>5}   (cards at or above each level)", "", "cards");
     print_row("pool", population(&pool));
     let mut decks_json = Vec::new();
+    let mut house = BTreeSet::new();
     let mut deck_files: Vec<_> = fs::read_dir(root.join("data/decks"))?
         .filter_map(Result::ok)
         .map(|e| e.path())
@@ -164,6 +189,7 @@ pub fn verify(root: &Path, out: &Path, demote: Option<&Path>) -> anyhow::Result<
     for path in deck_files {
         let deck = baylee_train::housedeck::HouseDeck::load(&path)?;
         let cards = deck.distinct();
+        house.extend(cards.iter().copied());
         let p = population(&cards);
         print_row(&format!("deck {}", deck.key), p);
         let below: Vec<String> = cards
@@ -184,6 +210,22 @@ pub fn verify(root: &Path, out: &Path, demote: Option<&Path>) -> anyhow::Result<
             println!("  {g}");
         }
     }
+    let mechanics_json = analysis.as_ref().map(|a| {
+        let l3: BTreeSet<CardIndex> = levels
+            .iter()
+            .filter(|(_, l)| **l >= 3)
+            .map(|(c, _)| *c)
+            .collect();
+        a.report(&l3, &house)
+    });
+    if let Some(json) = &mechanics_json {
+        let path = out.with_file_name("mechanics.json");
+        if let Some(dir) = path.parent() {
+            fs::create_dir_all(dir)?;
+        }
+        fs::write(&path, serde_json::to_vec_pretty(json)?)?;
+        println!("mechanics report: {}", path.display());
+    }
     let cards_json: Vec<_> = levels
         .iter()
         .map(|(c, l)| {
@@ -202,6 +244,7 @@ pub fn verify(root: &Path, out: &Path, demote: Option<&Path>) -> anyhow::Result<
         "pool": population(&pool),
         "decks": decks_json,
         "validate_global": global,
+        "mechanics_checked": mechanics_json.is_some(),
         "cards": cards_json,
     });
     if let Some(dir) = out.parent() {

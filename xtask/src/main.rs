@@ -1,6 +1,7 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
 mod cr_check;
+mod mechanics;
 mod update_key;
 mod verify;
 
@@ -135,6 +136,10 @@ enum Cmd {
         /// stops at L1.
         #[arg(long)]
         demote: Option<PathBuf>,
+        /// An llvm-cov JSON export of the engine's rule tests, for L4's
+        /// mechanics part (`xtask/src/mechanics.rs` says how to make one).
+        #[arg(long)]
+        coverage: Option<PathBuf>,
     },
     PoolDump {
         /// Where to write the dump.
@@ -533,7 +538,16 @@ fn main() -> anyhow::Result<()> {
             verbose,
             tested,
         } => deck_check(&root, &file, verbose, tested),
-        Cmd::Verify { out, demote } => verify::verify(&root, &root.join(out), demote.as_deref()),
+        Cmd::Verify {
+            out,
+            demote,
+            coverage,
+        } => verify::verify(
+            &root,
+            &root.join(out),
+            demote.as_deref(),
+            coverage.as_deref(),
+        ),
         Cmd::PoolDump { out } => pool_dump(&out),
         Cmd::TranscodeReport {
             scripts,

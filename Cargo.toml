@@ -77,6 +77,11 @@ ureq = { version = "3", features = ["json"] }
 # as bevy's own web reader did; already in the tree through `async-fs`.
 blocking = "1"
 heck = "0.5"
+# Rust source read as data by xtask (`verify --coverage`: the DSL's types and
+# the engine's match arms, with their lines); both already in the tree
+# through the derive macros.
+syn = { version = "2", features = ["full", "visit"] }
+proc-macro2 = { version = "1", features = ["span-locations"] }
 # The facade bevy's command errors are logged through (`bevy_ecs::error::warn`);
 # a client test installs its own logger to count them (#321).
 log = "0.4"

@@ -9205,7 +9205,9 @@ dependencies = [
  "baylee-train",
  "baylee-update",
  "clap",
+ "proc-macro2",
  "serde_json",
+ "syn 2.0.119",
  "ureq",
 ]
 

@@ -20,5 +20,7 @@ baylee-update.workspace = true
 baylee-train = { workspace = true, default-features = false }
 anyhow.workspace = true
 clap.workspace = true
+proc-macro2.workspace = true
 serde_json.workspace = true
+syn.workspace = true
 ureq.workspace = true

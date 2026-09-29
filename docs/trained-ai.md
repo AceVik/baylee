@@ -122,7 +122,36 @@ interfaces are what must not move silently.
    margin sits in the budget, so the net can grow by a third later without
    missing the target.
 
-## Where it stands (2026-09-29)
+## Which cards it trains on: the verification ladder
+
+The net can only learn a card the engine plays right, so the training pool is a
+level of `cargo run -p xtask -- verify` (`xtask/src/verify.rs`):
+
+| Level | Evidence |
+|---|---|
+| L1 | `Coverage::Implemented`: every clause of the card was read |
+| L2 | and `validate` reports nothing for its file |
+| L3 | and the engine's test code names it |
+| L4 | and every ability of it fired in a test, no mechanic it uses is untested, and it leaves the battlefield clean |
+| L5 | and removing any one of its abilities makes one of its tests fail |
+
+L4's mechanics part is read now (`--coverage`, `xtask/src/mechanics.rs`). The
+engine's rule tests run under `cargo llvm-cov` without the per-card tests.
+`syn` reads the engine's `match` arms, `if let`s and checks on each DSL variant a
+card can hold. A variant is tested where all of its sites ran, partly where some
+did, untested where none did. The report ranks what is missing by the house-deck
+and L3 cards that use it, and names the functions whose arms never ran. The
+ability-firing, leave and mutation parts wait for the engine's test hooks.
+
+Numbers:
+
+- The pool: 2716 cards, 2242 at L1, 2242 at L2, 2241 at L3.
+- Of 387 variants the pool uses, 296 are tested, 57 partly, 11 untested and 23
+  unsited (no engine code names them, for instance `ActivationTiming::InstantSpeed`,
+  which is the absence of a restriction).
+- Of the L3 cards, 2227 use no untested mechanic, and 248 use only fully run ones.
+
+## Where it stands (2026-09-30)
 
 - **Value net v2** (8.2M parameters, d002→d003: 200k games, every 32nd decision):
   held-out Brier 0.160, log loss 0.477, accuracy 75.3 %, calibration error 0.006;
@@ -132,9 +161,14 @@ interfaces are what must not move silently.
 - **Value net v1** overfit (20k games are 20k labels however many positions they
   are cut into); the fix was more distinct games, sparser positions and keeping
   the best checkpoint on held-out games.
-- **Policy v1** (imitation of the house, d003): training; 87.7 % top-1 agreement
-  on held-out games at 40 % of the run (a uniform pick among the offered options
-  agrees 26 % of the time).
+- **Policy v1** (imitation of the house, d003): 90.5 % top-1 agreement on
+  held-out games (a uniform pick among the offered options agrees 26 % of the
+  time). In the arena (`bin/arena`, ONNX through `ort`) it wins 37.0 %
+  [32.6, 41.6] of 463 games against the house: an imitation below its teacher, as
+  expected before RL.
+- **The value net's early edge** is partly the decks (a baseline on deck, seat and
+  turn scores Brier 0.245 at turns 1–3, v2 0.238), but it survives mirror
+  matches, where the deck says nothing (`tools/trainer/eval_value.py --no-deck`).
 - **Engine findings** from self-play, handed to the engine agents with replayable
   records: Karn, the Great Creator's loyalty targets (a panic), a refused `apply`
   that changed the engine (records that do not replay), a question with no legal
@@ -143,7 +177,9 @@ interfaces are what must not move silently.
 
 ## Open
 
-- Encoding v3 (piles and runs) — a requirement for the NPU export.
+- Encoding v3 (piles and runs) — a requirement for the NPU export. It also
+  covers up to 8 seats: seats become entities, and the value head a distribution
+  over the winner.
 - The arena: win rate against each house profile with 95 % intervals, then RL
   against a league of house profiles and older nets.
 - The scaling measurement and the student's latency on `acenb`.
