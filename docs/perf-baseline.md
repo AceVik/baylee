@@ -297,3 +297,40 @@ A token's definition is hashed by its content, never by its address, and on
 the 3k board that was about 40 µs in the same series (13 ns a token).
 Counters no longer go through a `Vec` per object; what that saves was not
 measured on its own.
+
+## The refresh projects its counters again (29.09.2026)
+
+A projection that counts the board (Ashaya, Soul of the Wild: as big as the
+lands you control) read every object the walk had not reached yet as the last
+refresh left it, and came out short. The refresh now projects the counting
+objects again once the board is done, repeating while one of them moved
+(`GameState::refresh_characteristics`). `layers/refresh_x8_counting` is new:
+`layers/refresh_x8` with every creature counting the creatures you control,
+the repeat at its widest.
+
+Both columns are this M1 Max under a shared load (load average 15 to 50),
+"before" being `9dbd6e56` with the current bench file. The two bench binaries
+ran alternately, six `--quick` rounds each, and each cell is the smallest
+median of the six: a single round's median moved several times over on rows
+neither commit touches. The rows below were run six rounds more; both series
+are given.
+
+| Bench | Before | After | Change |
+|---|---|---|---|
+| `layers/refresh_x8_counting` | 13.64 / 12.81 µs | 22.14 / 22.05 µs | **+62 / +72 %** |
+| `layers/refresh_over_20k_stack` | 10.27 / 10.18 ns | 11.64 / 11.32 ns | +13 / +11 % |
+| `layers/refresh_x1` | 6.29 / 6.01 µs | 6.43 / 6.26 µs | +2 / +4 % |
+| `layers/refresh_x8` | 7.73 / 7.50 µs | 8.37 / 7.50 µs | +8 / 0 % |
+| `layers/refresh_x32` | 14.51 / 15.18 µs | 15.22 / 14.69 µs | +5 / −3 % |
+| `layers/refresh_3k_tokens` | 269.5 / 266.4 µs | 281.4 / 276.7 µs | +4 / +4 % |
+| `engine/priority_pass_x4` | 3.09 / 2.82 µs | 3.36 / 2.88 µs | +9 / +2 % |
+
+- **A board where something counts pays one more projection per counter.**
+  With every creature a counter that is 1.6 to 1.7 times the refresh; a real
+  board has one or two, and every other board has none and projects nothing
+  twice.
+- **The fixed cost is about a nanosecond.** `refresh_over_20k_stack` projects
+  nothing at all, so its 1.1 to 1.4 ns is the new bookkeeping (a list that
+  stays empty and never allocates) on every refresh.
+- The other rows moved within what the same code moves between rounds here
+  (`state/clone`, which neither commit touches: +2 %).

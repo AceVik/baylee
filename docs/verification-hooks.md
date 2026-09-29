@@ -330,19 +330,21 @@ tests and found two defects in the engine, both fixed since:
   once the board is done (test
   `card_tests::creatures::ashaya_counts_a_creature_the_moment_it_enters`).
 
-The second run, after both fixes: `false` 18 times in 7 tests.
+The second run, after both fixes: `false` 18 times in 7 tests. Seven were
+the harness, in
+`combo_tests::doubling::bristly_bills_doubling_is_doubled_again_by_a_doubling_season`,
+which set Bill's counters through `Engine::dev_state_mut` with nothing
+invalidated, so Bill answered 2/2 until the next change moved the
+generation; that door now invalidates as it opens.
 
-- Generation equal, 7 times in one test, and it is the harness:
-  `combo_tests::doubling::bristly_bills_doubling_is_doubled_again_by_a_doubling_season`
-  sets Bill's counters through `Engine::dev_state_mut` and invalidates
-  nothing, so Bill answers 2/2 until the next change moves the generation.
-- Generation moved, refresh due, 11 times in 6 tests, every one of them in
-  the mulligan window, before the driving loop has refreshed once: cards
-  defining their own power and toughness in hand (Ashaya, Pyrogoyf) and the
-  counters the harness plants on Walking Ballista and Arcbound Ravager.
-  Each of them counts or wears something only a seeded board has; a game
-  dealt from its decks has nothing on the battlefield and in the graveyards
-  yet, and so nothing to be behind on.
+The third run, after that: `false` 11 times in 6 tests, every one with the
+generation moved and a refresh due, and every one in the mulligan window,
+before the driving loop has refreshed once: cards defining their own power
+and toughness in hand (Ashaya, Pyrogoyf) and the counters the harness plants
+on Walking Ballista and Arcbound Ravager. Each of them counts or wears
+something only a seeded board has; a game dealt from its decks has nothing
+on the battlefield and in the graveyards yet, and so nothing to be behind
+on.
 
 ## Not in a shipped build
 
