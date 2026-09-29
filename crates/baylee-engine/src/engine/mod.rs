@@ -104,6 +104,31 @@ enum PaymentContinuation {
     Pact(baylee_core::mana::ManaCost),
 }
 
+/// What an answer moves as it *arrives*, and what an activation writes on
+/// its way to a refusal: the fields [`Engine::apply`] puts back when it
+/// refuses.
+///
+/// The watch for endless loops and its two latches move before anything can
+/// tell whether the answer will be taken. The activation family is the
+/// checklist's scratch space (CR 602.2b, 601.2b–h): `start_activation` fills
+/// it a step at a time and checks the next step after filling the last, so a
+/// press refused at its second target has already read its ability list and
+/// marked its first target answered. Put back here rather than cleared at
+/// each of those refusals, because a list of places to clear is one that
+/// misses the next refusal someone adds.
+struct Held {
+    action_loops: crate::loops::LoopWatch,
+    breaking_loop: bool,
+    awaiting_answer: bool,
+    activation_target_players: Vec<PlayerId>,
+    activation_cost_choices: Vec<ObjectId>,
+    activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
+    activation_targets_answered: bool,
+    activation_x: Option<u32>,
+    activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
+    loyalty_player_choice: Option<PlayerId>,
+}
+
 /// A deterministic, self-contained game of Magic.
 // The driver genuinely is a set of independent latches (a pending answer,
 // a queued resolution, an agreed draw, a broken loop); folding them into an
@@ -828,12 +853,191 @@ impl<L: CardLookup> Engine<L> {
         base ^ extra.rotate_left(17)
     }
 
+    /// Every field of the engine but its card lookup, one line each, for a
+    /// test to compare before and after an answer the engine refused.
+    ///
+    /// Not [`Self::snapshot_hash`]: that one is a *replay* comparison, and
+    /// it leaves out on purpose what a replay rebuilds on its own (the
+    /// question being asked, the loop watch, the continuation slots). A
+    /// refused answer is not recorded at all, so it must leave *nothing*
+    /// behind, and the only comparison that can say so is one over
+    /// everything. The destructuring names every field without `..`, so a
+    /// field added to the engine does not compile until it is added here.
+    ///
+    /// `whole` false leaves out the largest prints (`GameState::fingerprint`).
+    #[cfg(test)]
+    pub(crate) fn fingerprint(&self, whole: bool) -> Vec<(&'static str, String)> {
+        let Engine {
+            lookup: _,
+            state,
+            pending,
+            house_rules,
+            passes,
+            priority_holder,
+            resolve_next,
+            regrant_priority,
+            mulligans,
+            combat_declared,
+            cleanup,
+            loyalty_used_this_turn,
+            awaiting_answer,
+            resolution,
+            mana_window,
+            trigger_scan_seq,
+            pending_plan,
+            library_action_tops,
+            loyalty_player_choice,
+            activation_target_players,
+            activation_cost_choices,
+            activation_second_targets,
+            activation_targets_answered,
+            activation_x,
+            activating_abilities,
+            capabilities,
+            entry_scan_seq,
+            delayed_queue,
+            upkeep_payments,
+            synthetic_fx,
+            cast_wizard,
+            trigger_queue,
+            agreed_draw,
+            automation,
+            breaking_loop,
+            action_loops,
+            loops_broken,
+        } = self;
+        // The fx map in key order: a hash map's own order is not a fact
+        // about the game.
+        let mut fx: Vec<_> = synthetic_fx.iter().collect();
+        fx.sort_by_key(|(id, _)| **id);
+        let mut out = Vec::with_capacity(80);
+        state.fingerprint(whole, &mut out);
+        out.extend([
+            ("pending", format!("{pending:?}")),
+            ("house_rules", format!("{house_rules:?}")),
+            ("passes", format!("{passes:?}")),
+            ("priority_holder", format!("{priority_holder:?}")),
+            ("resolve_next", format!("{resolve_next:?}")),
+            ("regrant_priority", format!("{regrant_priority:?}")),
+            ("mulligans", format!("{mulligans:?}")),
+            ("combat_declared", format!("{combat_declared:?}")),
+            ("cleanup", format!("{cleanup:?}")),
+            (
+                "loyalty_used_this_turn",
+                format!("{loyalty_used_this_turn:?}"),
+            ),
+            ("awaiting_answer", format!("{awaiting_answer:?}")),
+            ("resolution", format!("{resolution:?}")),
+            ("mana_window", format!("{mana_window:?}")),
+            ("trigger_scan_seq", format!("{trigger_scan_seq:?}")),
+            ("pending_plan", format!("{pending_plan:?}")),
+            ("library_action_tops", format!("{library_action_tops:?}")),
+            (
+                "loyalty_player_choice",
+                format!("{loyalty_player_choice:?}"),
+            ),
+            (
+                "activation_target_players",
+                format!("{activation_target_players:?}"),
+            ),
+            (
+                "activation_cost_choices",
+                format!("{activation_cost_choices:?}"),
+            ),
+            (
+                "activation_second_targets",
+                format!("{activation_second_targets:?}"),
+            ),
+            (
+                "activation_targets_answered",
+                format!("{activation_targets_answered:?}"),
+            ),
+            ("activation_x", format!("{activation_x:?}")),
+            ("activating_abilities", format!("{activating_abilities:?}")),
+            ("capabilities", format!("{capabilities:?}")),
+            ("entry_scan_seq", format!("{entry_scan_seq:?}")),
+            ("delayed_queue", format!("{delayed_queue:?}")),
+            ("upkeep_payments", format!("{upkeep_payments:?}")),
+            ("synthetic_fx", format!("{fx:?}")),
+            ("cast_wizard", format!("{cast_wizard:?}")),
+            ("trigger_queue", format!("{trigger_queue:?}")),
+            ("agreed_draw", format!("{agreed_draw:?}")),
+            ("automation", format!("{automation:?}")),
+            ("breaking_loop", format!("{breaking_loop:?}")),
+            ("action_loops", format!("{action_loops:?}")),
+            ("loops_broken", format!("{loops_broken:?}")),
+        ]);
+        out
+    }
+
     /// Applies a player's action and advances automatically until the next
     /// decision point.
+    ///
+    /// A refused action leaves the engine exactly as it was. A game record
+    /// keeps only the answers `apply` accepted, so an answer that was refused
+    /// and still moved something is a step no replay can take: the table
+    /// plays on from a state the replay never reaches, and the next recorded
+    /// answer is put to a question it was not given for. That is what a
+    /// refused miracle did to r001's games 1581, 3288 and 3554.
+    ///
+    /// The part of that promise this function keeps itself is [`Held`]: the
+    /// few fields that move before anything can tell whether the answer will
+    /// be taken, put back when it is not. Everything else validates before
+    /// it changes anything (`refusal_tests` holds every field to it).
     ///
     /// # Errors
     /// [`EngineError`] on mismatched/illegal actions.
     pub fn apply(&mut self, player: PlayerId, action: PlayerAction) -> Result<(), EngineError> {
+        let held = self.hold();
+        let result = self.take_answer(player, action);
+        if result.is_err() {
+            self.put_back(held);
+        }
+        result
+    }
+
+    fn hold(&self) -> Held {
+        Held {
+            action_loops: self.action_loops.clone(),
+            breaking_loop: self.breaking_loop,
+            awaiting_answer: self.awaiting_answer,
+            activation_target_players: self.activation_target_players.clone(),
+            activation_cost_choices: self.activation_cost_choices.clone(),
+            activation_second_targets: self.activation_second_targets.clone(),
+            activation_targets_answered: self.activation_targets_answered,
+            activation_x: self.activation_x,
+            activating_abilities: self.activating_abilities,
+            loyalty_player_choice: self.loyalty_player_choice,
+        }
+    }
+
+    fn put_back(&mut self, held: Held) {
+        let Held {
+            action_loops,
+            breaking_loop,
+            awaiting_answer,
+            activation_target_players,
+            activation_cost_choices,
+            activation_second_targets,
+            activation_targets_answered,
+            activation_x,
+            activating_abilities,
+            loyalty_player_choice,
+        } = held;
+        self.action_loops = action_loops;
+        self.breaking_loop = breaking_loop;
+        self.awaiting_answer = awaiting_answer;
+        self.activation_target_players = activation_target_players;
+        self.activation_cost_choices = activation_cost_choices;
+        self.activation_second_targets = activation_second_targets;
+        self.activation_targets_answered = activation_targets_answered;
+        self.activation_x = activation_x;
+        self.activating_abilities = activating_abilities;
+        self.loyalty_player_choice = loyalty_player_choice;
+    }
+
+    /// [`Self::apply`], less the restoring of what an answer's arrival moved.
+    fn take_answer(&mut self, player: PlayerId, action: PlayerAction) -> Result<(), EngineError> {
         if let PlayerAction::ChooseTargetBatch {
             objects,
             players,
@@ -1107,6 +1311,8 @@ mod printed_tests;
 mod priority_tests;
 #[cfg(test)]
 mod reflexive_tests;
+#[cfg(test)]
+mod refusal_tests;
 #[cfg(test)]
 mod regenerate_tests;
 #[cfg(test)]

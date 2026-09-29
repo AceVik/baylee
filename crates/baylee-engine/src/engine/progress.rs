@@ -454,6 +454,11 @@ impl<L: CardLookup> Engine<L> {
             if def.faces[obj.face_index as usize].miracle.is_none() {
                 continue;
             }
+            // A miracle whose spell could not choose its targets could only
+            // be declined, so it is not offered (CR 601.2c, 601.2).
+            if !self.miracle_targets_available(player, card) {
+                continue;
+            }
             let source = obj
                 .card
                 .map(|c| AbilityRef::new(c.index, AbilityRef::MIRACLE));

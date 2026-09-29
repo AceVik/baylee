@@ -712,6 +712,140 @@ pub struct GameState {
     token_cleanup: Vec<ObjectId>,
 }
 
+#[cfg(test)]
+impl GameState {
+    /// Every field, one line each, for `Engine::fingerprint`.
+    ///
+    /// Named without `..`, so a new field does not compile until it is here.
+    /// The journal is only ever appended to, so its length and last entry
+    /// stand for all of it; printing the whole of it at every decision of a
+    /// long game is quadratic.
+    ///
+    /// `whole` false leaves out the three prints that are nearly all of the
+    /// size (the arena, the base cache, the names), as empty lines in their
+    /// places, so a caller can afford a light comparison at every step and
+    /// the whole one where it samples.
+    #[allow(clippy::too_many_lines)]
+    pub(crate) fn fingerprint(&self, whole: bool, out: &mut Vec<(&'static str, String)>) {
+        let GameState {
+            arena,
+            zones,
+            players,
+            turn,
+            combat,
+            per_turn,
+            delayed,
+            pending_miracle,
+            extra_turns,
+            restriction_info,
+            next_restriction_id,
+            commander_casts,
+            commander_redirect,
+            pending_copied_faces,
+            ltb_abilities,
+            ltb_mana_values,
+            ltb_controllers,
+            ltb_powers,
+            ltb_attachments,
+            ltb_counters,
+            ltb_characteristics,
+            ceased,
+            reflexive,
+            commanders,
+            monarch,
+            day_night,
+            previous_turn,
+            starting_player,
+            ability_fires,
+            rng,
+            journal,
+            names,
+            bases,
+            timestamp,
+            effects,
+            replacement_rules,
+            characteristics_generation,
+            projection_ids,
+            projected_cross_zone,
+            token_cleanup,
+        } = self;
+        let mut restrictions: Vec<_> = restriction_info.iter().collect();
+        restrictions.sort_by_key(|(id, _)| **id);
+        let mut fires: Vec<_> = ability_fires.iter().collect();
+        fires.sort_by_key(|(key, _)| **key);
+        let heavy = |print: &dyn std::fmt::Debug| {
+            if whole {
+                format!("{print:?}")
+            } else {
+                String::new()
+            }
+        };
+        out.extend([
+            ("state.arena", heavy(arena)),
+            ("state.zones", format!("{zones:?}")),
+            ("state.players", format!("{players:?}")),
+            ("state.turn", format!("{turn:?}")),
+            ("state.combat", format!("{combat:?}")),
+            ("state.per_turn", format!("{per_turn:?}")),
+            ("state.delayed", format!("{delayed:?}")),
+            ("state.pending_miracle", format!("{pending_miracle:?}")),
+            ("state.extra_turns", format!("{extra_turns:?}")),
+            ("state.restriction_info", format!("{restrictions:?}")),
+            (
+                "state.next_restriction_id",
+                format!("{next_restriction_id:?}"),
+            ),
+            ("state.commander_casts", format!("{commander_casts:?}")),
+            (
+                "state.commander_redirect",
+                format!("{commander_redirect:?}"),
+            ),
+            (
+                "state.pending_copied_faces",
+                format!("{pending_copied_faces:?}"),
+            ),
+            ("state.ltb_abilities", format!("{ltb_abilities:?}")),
+            ("state.ltb_mana_values", format!("{ltb_mana_values:?}")),
+            ("state.ltb_controllers", format!("{ltb_controllers:?}")),
+            ("state.ltb_powers", format!("{ltb_powers:?}")),
+            ("state.ltb_attachments", format!("{ltb_attachments:?}")),
+            ("state.ltb_counters", format!("{ltb_counters:?}")),
+            (
+                "state.ltb_characteristics",
+                format!("{ltb_characteristics:?}"),
+            ),
+            ("state.ceased", format!("{ceased:?}")),
+            ("state.reflexive", format!("{reflexive:?}")),
+            ("state.commanders", format!("{commanders:?}")),
+            ("state.monarch", format!("{monarch:?}")),
+            ("state.day_night", format!("{day_night:?}")),
+            ("state.previous_turn", format!("{previous_turn:?}")),
+            ("state.starting_player", format!("{starting_player:?}")),
+            ("state.ability_fires", format!("{fires:?}")),
+            ("state.rng", format!("{rng:?}")),
+            (
+                "state.journal",
+                format!("{} {:?}", journal.last_seq(), journal.entries().last()),
+            ),
+            ("state.names", heavy(names)),
+            ("state.bases", heavy(bases)),
+            ("state.timestamp", format!("{timestamp:?}")),
+            ("state.effects", format!("{effects:?}")),
+            ("state.replacement_rules", format!("{replacement_rules:?}")),
+            (
+                "state.characteristics_generation",
+                format!("{characteristics_generation:?}"),
+            ),
+            ("state.projection_ids", format!("{projection_ids:?}")),
+            (
+                "state.projected_cross_zone",
+                format!("{projected_cross_zone:?}"),
+            ),
+            ("state.token_cleanup", format!("{token_cleanup:?}")),
+        ]);
+    }
+}
+
 impl GameState {
     /// The side a seat plays for (CR 102.3).
     #[must_use]

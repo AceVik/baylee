@@ -150,13 +150,23 @@ impl<L: CardLookup> Engine<L> {
                 }
                 break;
             }
-            self.apply(
+            let answered = self.apply(
                 player,
                 PlayerAction::ChooseTargets {
                     objects: objects.to_vec(),
                     players: players.to_vec(),
                 },
-            )?;
+            );
+            // Only the first answer may refuse the batch: past it, earlier
+            // answers are taken, and a refusal would tell the record the
+            // batch changed nothing when it did (the batch ends here instead,
+            // as it does on an answer that stops fitting).
+            if answered.is_err() {
+                if at == 0 {
+                    return answered;
+                }
+                break;
+            }
         }
         Ok(())
     }

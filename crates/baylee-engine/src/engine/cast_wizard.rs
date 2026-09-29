@@ -203,19 +203,71 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         card: ObjectId,
     ) -> Result<(), EngineError> {
+        let wizard = self
+            .miracle_wizard(player, card)
+            .ok_or(EngineError::IllegalAction("not a miracle card"))?;
+        self.cast_wizard = Some(wizard);
+        self.advance_cast_wizard()
+    }
+
+    /// Whether `player` could choose every target a miracle cast of `card`
+    /// requires, which is what decides whether the miracle is offered.
+    ///
+    /// Choosing the targets is a step of casting (CR 601.2c), and a spell
+    /// that cannot take it cannot be cast: the attempt is illegal and the
+    /// game returns to the moment before it was proposed (CR 601.2, CR
+    /// 732.1). For a miracle that moment is the offer itself, where the only
+    /// answer left is "no" — so a "yes" is not an answer the offer can
+    /// take, and the offer is not made. Banishing Stroke drawn onto a board
+    /// with no artifact, creature or enchantment was asked anyway; the house
+    /// said yes, the engine refused it after spending the offer, and three
+    /// of r001's games could not be replayed.
+    ///
+    /// Read the way the wizard's own target stages read it — the same
+    /// requirement, the same bounds at X = 0, the same enumerations — so the
+    /// offer and the cast cannot disagree. X = 0 is the most any X spell
+    /// could ask for less of. The cost is not checked here: whether it can
+    /// be paid is the payment's answer, and a "yes" it refuses leaves the
+    /// offer standing.
+    pub(crate) fn miracle_targets_available(&self, player: PlayerId, card: ObjectId) -> bool {
+        let Some(wizard) = self.miracle_wizard(player, card) else {
+            return false;
+        };
+        if let Some(req) = self.wizard_target_req(&wizard) {
+            let (min, max) = req.bounds(wizard.x);
+            let players = eval::target_player_options(&self.state, &req.spec, player);
+            if matches!(req.spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent) {
+                // The `ChoosePlayer` stage: one player, from this list.
+                if players.is_empty() {
+                    return false;
+                }
+            } else if max > 0 {
+                let objects = eval::target_options(&req.spec, &self.state, player, card);
+                if objects.len() + players.len() < usize::from(min) {
+                    return false;
+                }
+            }
+        }
+        self.wizard_second_target_req(&wizard).is_none_or(|req| {
+            eval::target_options(&req.spec, &self.state, player, card).len() >= usize::from(req.min)
+        })
+    }
+
+    /// The wizard a miracle cast of `card` starts with, or `None` when the
+    /// card prints no miracle.
+    fn miracle_wizard(&self, player: PlayerId, card: ObjectId) -> Option<CastWizard> {
         let cost = self
             .state
             .object(card)
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index))
-            .and_then(|def| def.faces[0].miracle)
-            .ok_or(EngineError::IllegalAction("not a miracle card"))?;
+            .and_then(|def| def.faces[0].miracle)?;
         let options = vec![CastModeDesc {
             index: 0,
             kind: CastModeKind::Miracle,
             cost,
         }];
-        let mut wizard = CastWizard {
+        Some(CastWizard {
             card,
             player,
             option: Some(CastModeKind::Miracle),
@@ -237,10 +289,7 @@ impl<L: CardLookup> Engine<L> {
             stage: WizardStage::XValue,
             options,
             free: false,
-        };
-        let _ = &mut wizard;
-        self.cast_wizard = Some(wizard);
-        self.advance_cast_wizard()
+        })
     }
 
     /// Starts a free cast (rebound at upkeep, suspend finish): no payment,
@@ -552,43 +601,78 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// Drives the wizard forward until it needs an answer or finishes.
-    #[allow(clippy::too_many_lines)] // the wizard is a flat stage machine; extraction would obscure it
+    ///
+    /// A stage that cannot go on drops the wizard and touches nothing else:
+    /// no stage sets the question before it has decided to ask it, and a
+    /// failed payment "has touched nothing" (`finish_cast`). So on the first
+    /// press of a cast, an error here leaves the engine as the press found
+    /// it, which is what a refused `apply` must do. Past the first question
+    /// the caster has *answered* something, and that is
+    /// [`Self::continue_cast_wizard`]'s to settle.
     pub(crate) fn advance_cast_wizard(&mut self) -> Result<(), EngineError> {
+        let result = self.advance_cast_wizard_inner();
+        if result.is_err() {
+            self.cast_wizard = None;
+        }
+        result
+    }
+
+    /// Carries a cast on after its caster answered one of its questions.
+    ///
+    /// The answer was one the question offered, so it is taken, whatever
+    /// the rest of the checklist then finds. A step the caster cannot
+    /// complete — the total cost with the X they named, the targets their
+    /// mode needs — makes the casting illegal, and the game returns to the
+    /// moment before it was proposed (CR 601.2, CR 732.1): that is the
+    /// answer's consequence, not a reason to refuse it.
+    ///
+    /// It used to be refused *and* reversed, which is the one combination a
+    /// game record cannot hold: a refused answer is not recorded, so a
+    /// replay stayed inside the wizard while the table had gone back to
+    /// priority, and the next recorded answer was put to the wrong question.
+    ///
+    /// What taking it costs: the reason is no longer handed back. Nobody read
+    /// it — gamehost's `Session` answers every refusal with the same "illegal
+    /// action for your seat" — and the caster now sees the priority they are
+    /// back at instead. The reversal journals nothing, as CR 732.1 has it:
+    /// an undone action leaves nothing behind.
+    pub(crate) fn continue_cast_wizard(&mut self) {
         // Read before the stages run: `finish_cast` nulls the wizard itself
         // on the way out, so by the error branch there is nobody left to ask.
         let caster = self.cast_wizard.as_ref().map(|w| w.player);
-        let result = self.advance_cast_wizard_inner();
-        if result.is_err() {
-            // A cast that fails mid-wizard (payment, late target legality)
-            // fizzles cleanly: drop the wizard and resume the game instead
-            // of leaving a consumed choice pending.
-            self.cast_wizard = None;
-            self.awaiting_answer = false;
-            // CR 601.2h reverses the *whole* casting, so the game returns to
-            // the moment before it began — and that includes whose priority
-            // it was. Nothing in the wizard path touches `passes` or
-            // `priority_holder`, so re-asking the caster is the exact
-            // restore. Resuming through `run_until_choice` instead walked
-            // the priority round on to the next seat, because to
-            // `priority_round` a holder who is no longer being asked has
-            // taken their turn: a player whose waterbend could not be paid
-            // was told "cannot pay the total cost" and then lost the rest of
-            // their own main phase to a spell that never happened.
-            if let Some(player) = caster
-                && self.priority_holder == Some(player)
-            {
-                self.pending = Pending::Priority {
-                    player,
-                    legal: Box::new(self.compute_legal(player)),
-                };
-                self.awaiting_answer = true;
-            } else {
-                // A cast that did not start from a priority round (cascade,
-                // a miracle offer) has no such moment to return to.
-                self.run_until_choice();
-            }
+        if self.advance_cast_wizard().is_err() {
+            self.reverse_cast(caster);
         }
-        result
+    }
+
+    /// Returns the game to the moment before a cast was proposed (CR 601.2,
+    /// CR 732.1), once the cast has turned out to be illegal part-way.
+    pub(crate) fn reverse_cast(&mut self, caster: Option<PlayerId>) {
+        self.cast_wizard = None;
+        self.awaiting_answer = false;
+        // CR 601.2h reverses the *whole* casting, so the game returns to
+        // the moment before it began — and that includes whose priority
+        // it was. Nothing in the wizard path touches `passes` or
+        // `priority_holder`, so re-asking the caster is the exact
+        // restore. Resuming through `run_until_choice` instead walked
+        // the priority round on to the next seat, because to
+        // `priority_round` a holder who is no longer being asked has
+        // taken their turn: a player whose waterbend could not be paid
+        // was told "cannot pay the total cost" and then lost the rest of
+        // their own main phase to a spell that never happened.
+        if let Some(player) = caster
+            && self.priority_holder == Some(player)
+        {
+            self.pending = Pending::Priority {
+                player,
+                legal: Box::new(self.compute_legal(player)),
+            };
+            self.awaiting_answer = true;
+        } else {
+            // A cast that did not start from a priority round (cascade,
+            // a miracle offer) has no such moment to return to.
+            self.run_until_choice();
+        }
     }
 
     #[allow(clippy::too_many_lines)]
@@ -771,6 +855,14 @@ impl<L: CardLookup> Engine<L> {
                     .wizard_target_req(&wizard)
                     .map_or(TargetSpec::AnyPlayer, |req| req.spec);
                 let options = eval::target_player_options(&self.state, &spec, wizard.player);
+                // No player can be chosen (every opponent has hexproof, say):
+                // the spell cannot take the step and cannot be cast (CR
+                // 601.2c, 601.2), and an empty menu is a question with no
+                // answer. `miracle_targets_available` reads the same list.
+                if options.is_empty() {
+                    self.cast_wizard = None;
+                    return Err(EngineError::IllegalAction("not enough legal targets"));
+                }
                 self.pending = Pending::ChoosePlayer {
                     player: wizard.player,
                     options,

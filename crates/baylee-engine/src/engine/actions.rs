@@ -267,7 +267,8 @@ impl<L: CardLookup> Engine<L> {
                 // chosen cost has no X.
                 wizard.stage = cast_wizard::WizardStage::XValue;
                 self.cast_wizard = Some(wizard);
-                self.advance_cast_wizard()
+                self.continue_cast_wizard();
+                Ok(())
             }
             (
                 Pending::ChooseNumber {
@@ -309,7 +310,8 @@ impl<L: CardLookup> Engine<L> {
                 wizard.x = n;
                 wizard.stage = cast_wizard::WizardStage::Kicker;
                 self.cast_wizard = Some(wizard);
-                self.advance_cast_wizard()
+                self.continue_cast_wizard();
+                Ok(())
             }
             (Pending::ChoosePlayer { player: p, options }, PlayerAction::ChoosePlayer(chosen))
                 if *p == player =>
@@ -353,7 +355,8 @@ impl<L: CardLookup> Engine<L> {
                 wizard.chosen_player = Some(chosen);
                 wizard.stage = cast_wizard::WizardStage::SecondTargets;
                 self.cast_wizard = Some(wizard);
-                self.advance_cast_wizard()
+                self.continue_cast_wizard();
+                Ok(())
             }
             (
                 Pending::Priority { player: p, legal },
@@ -487,7 +490,8 @@ impl<L: CardLookup> Engine<L> {
                         wizard.stage = cast_wizard::WizardStage::SecondTargets;
                     }
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 // Resolution path: a resolving effect asked for targets rather
                 // than a cast or an activation — redirecting a spell, or
@@ -995,35 +999,33 @@ impl<L: CardLookup> Engine<L> {
                     if let Some((payer, mana)) = asked
                         && answer
                         && payer == player
+                        && !self.pool_pays_tax(player, mana)
                     {
-                        let pool = self.state.players[player.get() as usize].mana_pool.total();
-                        if pool < u32::from(mana) {
-                            // Narrowed before any window exists, so the
-                            // resolution is never lifted out of its slot for a
-                            // window that then turns out not to be worth
-                            // opening — a state that cannot be entered needs
-                            // no way back out of it.
-                            let mut legal = self.compute_legal(player);
-                            self.narrow_to_mana(&mut legal);
-                            if legal.has_mana_source() {
-                                let suspended = self
-                                    .resolution
-                                    .take()
-                                    .expect("the arm above matched on it being suspended");
-                                self.mana_window = Some(PaymentWindow {
-                                    player,
-                                    suspended: PaymentContinuation::Tax(Box::new(suspended)),
-                                });
-                                self.pending = Pending::Priority {
-                                    player,
-                                    legal: Box::new(legal),
-                                };
-                                self.awaiting_answer = true;
-                                return Ok(());
-                            }
-                            // Nothing to press: no window is opened at all, and
-                            // the payment fails the way it always has.
+                        // Narrowed before any window exists, so the
+                        // resolution is never lifted out of its slot for a
+                        // window that then turns out not to be worth
+                        // opening — a state that cannot be entered needs
+                        // no way back out of it.
+                        let mut legal = self.compute_legal(player);
+                        self.narrow_to_mana(&mut legal);
+                        if legal.has_mana_source() {
+                            let suspended = self
+                                .resolution
+                                .take()
+                                .expect("the arm above matched on it being suspended");
+                            self.mana_window = Some(PaymentWindow {
+                                player,
+                                suspended: PaymentContinuation::Tax(Box::new(suspended)),
+                            });
+                            self.pending = Pending::Priority {
+                                player,
+                                legal: Box::new(legal),
+                            };
+                            self.awaiting_answer = true;
+                            return Ok(());
                         }
+                        // Nothing to press: no window is opened at all, and
+                        // the payment fails the way it always has.
                     }
                     let mut res = self.resolution.take().expect("resolution suspended");
                     let answer = answer && self.can_settle_tax(&res);
@@ -1069,8 +1071,15 @@ impl<L: CardLookup> Engine<L> {
                     let Some(PlanKind::Miracle { card }) = self.pending_plan.take() else {
                         unreachable!()
                     };
-                    if answer {
-                        return self.start_miracle_cast(player, card);
+                    // A "yes" the cast cannot follow through is refused
+                    // with the offer still standing, so the answer left to
+                    // give is "no" (CR 601.2: the game returns to the moment
+                    // before the cast was proposed, which is this
+                    // question). It used to spend the offer first, and the
+                    // refusal then moved the game on without a record of it.
+                    if answer && let Err(error) = self.start_miracle_cast(player, card) {
+                        self.pending_plan = Some(PlanKind::Miracle { card });
+                        return Err(error);
                     }
                     return Ok(());
                 }
@@ -1098,7 +1107,8 @@ impl<L: CardLookup> Engine<L> {
                     wizard.kicked = answer;
                     wizard.stage = cast_wizard::WizardStage::Targets;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume_yes_no(&mut self.state, &mut res, answer) {
@@ -1145,7 +1155,8 @@ impl<L: CardLookup> Engine<L> {
                     wizard.pitch = objects.into_iter().collect();
                     wizard.stage = cast_wizard::WizardStage::Delve;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 // Wizard path: delve cards (exile-from-graveyard, {1} each).
                 if self
@@ -1157,7 +1168,8 @@ impl<L: CardLookup> Engine<L> {
                     wizard.delve_exiles = objects.into_iter().collect();
                     wizard.stage = cast_wizard::WizardStage::Convoke;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 // Wizard path: what pays the additional cost's sacrifice. The
                 // stage stays where it is and asks about the next part, if
@@ -1170,7 +1182,8 @@ impl<L: CardLookup> Engine<L> {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.sacrifices.extend(objects);
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 // Activation-cost path: the answer to "sacrifice a creature"
                 // or "discard a card". It goes back into the same
@@ -1379,10 +1392,27 @@ impl<L: CardLookup> Engine<L> {
     fn can_settle_tax(&self, res: &crate::resolve::Resolution) -> bool {
         match res.awaiting {
             Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. }) => {
-                self.state.players[player.get() as usize].mana_pool.total() >= u32::from(mana)
+                self.pool_pays_tax(player, mana)
             }
             _ => false,
         }
+    }
+
+    /// Whether `player`'s pool pays a tax of `mana` the way
+    /// `resume_tax_choice` will pay it.
+    ///
+    /// Asked of the payment and not of the pool's total, because the total
+    /// counts mana that says "spend this only on…" (CR 106.6), and a tax is
+    /// none of the things it may be spent on. A pool of restricted mana
+    /// passed the total, was told it had paid, and tripped the assertion in
+    /// `resume_tax_choice` (the refusal sweep, 2026-09-29) — and a seat
+    /// holding it was never offered the window to make the mana it lacked.
+    fn pool_pays_tax(&self, player: PlayerId, mana: u16) -> bool {
+        let mut pool = self.state.players[player.get() as usize].mana_pool.clone();
+        mana_pay::pay(
+            &mut pool,
+            &baylee_core::mana::ManaCost::parse(&format!("{{{mana}}}")),
+        )
     }
 
     /// Ends a payment window and settles the payment it was opened for.

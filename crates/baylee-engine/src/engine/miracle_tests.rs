@@ -449,3 +449,63 @@ fn a_miracle_cost_with_an_x_asks_for_x() {
         "both creatures came back: the miracle was cast for the X it announced"
     );
 }
+
+/// A miracle "yes" the payment refuses leaves the offer standing, and the
+/// engine exactly as it was.
+///
+/// Answering is part of casting, and a cast that cannot be completed is
+/// illegal: the game returns to the moment before it was proposed (CR 601.2,
+/// CR 732.1), which for a miracle is the offer itself. The answer used to
+/// spend the offer before the cast was tried and then refuse it — the game
+/// had moved on, and a game record, which keeps only accepted answers, could
+/// no longer be replayed (r001 games 1581, 3288, 3554).
+///
+/// Nobody here has a land, so `{1}{U}` cannot be paid.
+#[test]
+fn a_refused_miracle_yes_leaves_the_offer_standing() {
+    let mut engine = Engine::new(&preset(11, vec![], vec![]), RegistryLookup).unwrap();
+    keep_mulligans(&mut engine);
+    for _ in 0..200 {
+        match engine.pending().clone() {
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::Miracle { card },
+                ..
+            } => {
+                let before = engine.fingerprint(true);
+                assert!(
+                    engine.apply(player, PlayerAction::YesNo(true)).is_err(),
+                    "an empty pool paid {{1}}{{U}}"
+                );
+                let after = engine.fingerprint(true);
+                let moved: Vec<_> = before
+                    .iter()
+                    .zip(&after)
+                    .filter(|(a, b)| a.1 != b.1)
+                    .map(|(a, _)| a.0)
+                    .collect();
+                assert!(moved.is_empty(), "the refused yes moved {moved:?}");
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+                assert!(
+                    engine
+                        .state()
+                        .zones
+                        .list(crate::zone::ZoneLocation::Hand(player))
+                        .contains(&card),
+                    "the declined miracle stays in hand"
+                );
+                return;
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected pending: {other:?}"),
+        }
+    }
+    panic!("no miracle was offered");
+}

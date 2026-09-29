@@ -1054,6 +1054,7 @@ impl Session {
         } else {
             Source::House
         };
+        let refused = action.clone();
         let kept = self.record.is_some().then(|| action.clone());
         if self.engine.apply(player, action).is_ok() {
             if let Some(action) = kept {
@@ -1062,11 +1063,23 @@ impl Session {
             self.log_answer(player, &asked, deciding, None);
             return moves;
         }
-        // Re-read the actual question: a rejected proposal can have entered
-        // a casting/payment wizard. The ordinary timeout policy covers all
-        // question kinds instead of a positive list containing only Priority.
-        let fallback = self
-            .house_action(player)
+        // A refused answer leaves the engine as it was, so the question the
+        // proposal was refused on is still the one standing, and asking the
+        // house again would only propose the same answer to it. The answer
+        // that does nothing comes first (a miracle refused for its cost is
+        // declined, CR 601.2), and the house only where the question has no
+        // such answer. This used to re-ask the house outright, which was
+        // right only while a refusal could move the game: a refused miracle
+        // spent its offer, the house was then asked about the priority that
+        // followed, and that answer went into the record in place of an
+        // answer to the miracle — a record no replay could follow.
+        let pending = self
+            .engine
+            .pending_for(player)
+            .expect("a refused answer leaves its question standing");
+        let fallback = baylee_engine::choice::timeout_answer(pending)
+            .filter(|answer| *answer != refused)
+            .or_else(|| self.house_action(player))
             .expect("refused AI action left no decision");
         let asked = self.answering(player, &fallback);
         let kept = self.record.is_some().then(|| fallback.clone());
@@ -1863,6 +1876,92 @@ pub(crate) mod tests {
             }
         ));
         assert_ne!(session.engine.snapshot_hash(), before);
+    }
+
+    /// A house proposal the engine refuses leaves a record that replays.
+    ///
+    /// r001's games 1581, 3288 and 3554: the house said yes to a Banishing
+    /// Stroke miracle with nothing to target, the engine refused it after
+    /// spending the offer and moving the game on, and the fallback's answer
+    /// to the question *after* went into the record in its place. The replay
+    /// stood at the miracle and was handed a pass.
+    ///
+    /// Here the seat is offered Temporal Mastery's miracle with nothing in
+    /// its pool, which the payment refuses: "yes" is the proposal the engine
+    /// turns down, and the answer that stands is the one that does nothing.
+    #[test]
+    fn a_refused_house_proposal_leaves_a_record_that_replays() {
+        let mastery = baylee_cards::by_oracle_id("5c58b8e6-c572-461e-893e-a8c05f20ba17")
+            .expect("Temporal Mastery is in the pool")
+            .index;
+        let mut preset = test_preset();
+        preset.seats[0].controller = SeatController::Open;
+        preset.seats[1].controller = SeatController::Open;
+        for entry in &mut preset.seats[1].deck {
+            entry.card = mastery;
+        }
+        let mastery_seat = PlayerId::new(1);
+        let mut session = Session::new_recorded(&preset, "test").expect("the table builds");
+        session.tell_time(1_000);
+        session.pump();
+        let mut refusals = 0;
+        for step in 0..300_u64 {
+            let Some(seat) = session.awaiting_seat() else {
+                break;
+            };
+            session.tell_time(1_000 + step);
+            let miracle = matches!(
+                session.engine.pending_for(seat),
+                Some(Pending::YesNo {
+                    prompt: baylee_engine::choice::YesNoPrompt::Miracle { .. },
+                    ..
+                })
+            );
+            if miracle && seat == mastery_seat && refusals < 2 {
+                let before = session.engine.snapshot_hash();
+                assert!(
+                    session
+                        .engine
+                        .apply(seat, PlayerAction::YesNo(true))
+                        .is_err(),
+                    "an empty pool paid a miracle"
+                );
+                assert_eq!(session.engine.snapshot_hash(), before);
+                session.apply_house_action(seat, PlayerAction::YesNo(true));
+                session.pump();
+                refusals += 1;
+                continue;
+            }
+            let action = session
+                .house_action(seat)
+                .expect("a question has an answer");
+            session
+                .act(seat, action)
+                .expect("the house's answer stands");
+        }
+        assert_eq!(refusals, 2, "the game never offered the miracle twice");
+        let record = session.take_record();
+        let declined = record
+            .split(|&b| b == b'\n')
+            .filter(|l| !l.is_empty())
+            .filter_map(|l| serde_json::from_slice::<crate::record::Line>(l).ok())
+            .filter(|line| {
+                matches!(
+                    line,
+                    crate::record::Line::Input {
+                        seat: 1,
+                        action: PlayerAction::YesNo(false),
+                        ..
+                    }
+                )
+            })
+            .count();
+        assert!(
+            declined >= 2,
+            "the refused miracles were not answered with a no"
+        );
+        let replayed = crate::record::replay(&record).expect("the record replays");
+        assert_eq!(replayed.engine.snapshot_hash(), session.snapshot_hash());
     }
 
     pub(crate) fn teamed_preset(teams: [Option<u8>; 4]) -> GamePreset {

@@ -168,7 +168,7 @@ impl<L: CardLookup> Engine<L> {
         // failure path does exactly that when its target stage finds too
         // few, and gives the caster the priority they held.
         if self.cast_wizard.is_some() {
-            let _ = self.advance_cast_wizard();
+            self.continue_cast_wizard();
             return;
         }
         match self.pending_plan.take() {

@@ -1772,19 +1772,23 @@ impl<L: CardLookup> Engine<L> {
         if cost < 0 && old < (-cost) as u16 {
             return Err(EngineError::IllegalAction("not enough loyalty"));
         }
+        // Counted as the questions below count them, a player spec in
+        // players and every other in objects, so that no refusal waits past
+        // the payment: loyalty paid and a refusal after it is a changed
+        // engine the record never sees.
         for req in [wanted, self.loyalty_second_targets(source, ability_index)]
             .into_iter()
             .flatten()
         {
-            if req.min > 0
-                && !matches!(
-                    req.spec,
-                    baylee_cards_dsl::TargetSpec::AnyPlayer
-                        | baylee_cards_dsl::TargetSpec::AnyOpponent
-                )
-                && eval::target_options(&req.spec, &self.state, player, source).len()
-                    < req.min as usize
-            {
+            let found = if matches!(
+                req.spec,
+                baylee_cards_dsl::TargetSpec::AnyPlayer | baylee_cards_dsl::TargetSpec::AnyOpponent
+            ) {
+                eval::target_player_options(&self.state, &req.spec, player).len()
+            } else {
+                eval::target_options(&req.spec, &self.state, player, source).len()
+            };
+            if found < req.min as usize {
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
         }

@@ -19152,3 +19152,66 @@ fn clever_concealment_s_convoke_is_asked_for_its_generic_and_no_more_until_230()
         "the taps chosen are the taps spent"
     );
 }
+
+/// Banishing Stroke: its miracle is offered only over something to target.
+///
+/// "Put target artifact, creature, or enchantment on the bottom of its
+/// owner's library." Choosing that target is a step of casting it (CR
+/// 601.2c), and a spell that cannot take the step cannot be cast (CR 601.2):
+/// drawn onto a board with no artifact, creature or enchantment, the miracle
+/// could only be declined, so it is not asked. It was, and the house said
+/// yes to it in r001's games 1581, 3288 and 3554; the engine refused the
+/// "yes" after spending the offer, and none of the three could be replayed.
+///
+/// Every card in both libraries is a Banishing Stroke, so every first draw of
+/// a turn is one. With a creature on the table each of those draws offers
+/// the miracle, which is what keeps the empty board's silence from being a
+/// test that sees nothing.
+#[test]
+fn banishing_stroke_offers_its_miracle_only_over_a_target() {
+    for (board, targets) in [(vec![], false), (vec![ondu_cleric()], true)] {
+        let mut engine = Duel::new(31, banishing_stroke())
+            .battlefield(1, &board)
+            .start();
+        keep_mulligans(&mut engine);
+        let mut offers = 0;
+        for _ in 0..200 {
+            if engine.state().turn.number > 4 {
+                break;
+            }
+            match engine.pending().clone() {
+                Pending::YesNo {
+                    player,
+                    prompt: YesNoPrompt::Miracle { .. },
+                    ..
+                } => {
+                    offers += 1;
+                    engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+                }
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                Pending::ChooseAttackers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                        .unwrap();
+                }
+                Pending::ChooseBlockers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                        .unwrap();
+                }
+                other => panic!("unexpected question: {other:?}"),
+            }
+        }
+        assert!(engine.state().turn.number > 4, "the game stalled");
+        if targets {
+            assert!(
+                offers >= 3,
+                "a draw over a creature was not offered: {offers}"
+            );
+        } else {
+            assert_eq!(offers, 0, "a miracle with nothing to target was offered");
+        }
+    }
+}
