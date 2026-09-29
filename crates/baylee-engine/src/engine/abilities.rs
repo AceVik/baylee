@@ -62,6 +62,39 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
     }
 }
 
+/// Whether paying `part` can refuse after something of the cost was already
+/// paid, which is when [`Engine::pay_cost`] keeps a checkpoint to cancel the
+/// payment with (CR 732.1).
+///
+/// The mana is paid first and all at once or not at all, so a cost whose
+/// every part answers `false` here can refuse only before it has written
+/// anything: a land's `{T}: Add {G}`, which is most of what is ever paid,
+/// takes no copy of the game. Exhaustive for the reason the function above
+/// is: a new part says which side it is on.
+const fn can_refuse_part_way(part: &CostPart) -> bool {
+    match part {
+        // A move of an object that may no longer be there, a counter that
+        // may already be gone, an answer that may be missing.
+        CostPart::SacrificeSelf
+        | CostPart::DiscardSelf
+        | CostPart::ExileSelf
+        | CostPart::ReturnSelfToHand
+        | CostPart::RemoveCounterSelf { .. }
+        | CostPart::RemoveCounterSelfX { .. }
+        | CostPart::Sacrifice(_)
+        | CostPart::Discard(_)
+        | CostPart::TapOther(_)
+        | CostPart::ReturnToHand(_)
+        | CostPart::ExileFromGraveyard(_) => true,
+        CostPart::TapSelf
+        | CostPart::UntapSelf
+        | CostPart::PayLife(_)
+        | CostPart::PutCounterSelf { .. }
+        | CostPart::ExileFromHand(_)
+        | CostPart::PayLifeX => false,
+    }
+}
+
 /// The counter a cost asks the player for a *number* of, if it asks at all.
 ///
 /// A finder rather than a classifier, which is why the `_` arm is honest
@@ -1881,8 +1914,41 @@ impl<L: CardLookup> Engine<L> {
     /// and refusing is the point: the failure mode
     /// [`paid_by_the_casting_wizard`] documents is a part silently skipped,
     /// and a free sacrifice is worse than a refused activation.
-    #[allow(clippy::too_many_lines)] // one arm per `CostPart`, and the list is the point
+    ///
+    /// A refusal pays nothing. CR 732.1 reverses an action that cannot be
+    /// completed and cancels "any payments already made", and a part that
+    /// refuses after another was paid (a move of an object that is gone, a
+    /// counter that is not there) used to leave the mana spent and the
+    /// source tapped under an activation that never happened. The game is
+    /// kept before the first part and put back on a refusal, whenever a part
+    /// of the cost can refuse part way ([`can_refuse_part_way`]).
+    ///
+    /// The other half of 732.1, reversing the mana abilities activated while
+    /// making the play, has nothing to undo here: this engine pays out of the
+    /// pool, and the mana abilities that filled it were activated before the
+    /// play began, so their mana stays in the pool, as it would.
     pub(crate) fn pay_cost(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        cost: &Cost,
+        chosen: &[ObjectId],
+        x: u32,
+    ) -> Result<Option<u32>, EngineError> {
+        if !cost.parts.iter().any(can_refuse_part_way) {
+            return self.pay_cost_parts(player, source, cost, chosen, x);
+        }
+        let before = self.state.checkpoint();
+        let paid = self.pay_cost_parts(player, source, cost, chosen, x);
+        if paid.is_err() {
+            self.state.roll_back(before);
+        }
+        paid
+    }
+
+    /// [`Self::pay_cost`] without the checkpoint: what it pays, part by part.
+    #[allow(clippy::too_many_lines)] // one arm per `CostPart`, and the list is the point
+    fn pay_cost_parts(
         &mut self,
         player: PlayerId,
         source: ObjectId,

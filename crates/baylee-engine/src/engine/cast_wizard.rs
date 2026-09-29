@@ -1148,9 +1148,29 @@ impl<L: CardLookup> Engine<L> {
         })
     }
 
-    /// Pays everything and puts the spell on the stack.
-    #[allow(clippy::too_many_lines)] // payment is a flat checklist; extraction would obscure it
+    /// Pays everything and puts the spell on the stack, or, refused, pays
+    /// nothing.
+    ///
+    /// The mana is paid first and all at once, and every refusal after it (a
+    /// delve, pitch or sacrifice answer naming an object that is gone, the
+    /// card itself gone) used to leave what was paid by then spent while the
+    /// cast was reversed. CR 732.1 cancels "any payments already made", so
+    /// the game is kept before the first of them and put back on a refusal,
+    /// with the spell-rider abilities the mana put on the stack.
     fn finish_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
+        let before = self.state.checkpoint();
+        let riders = self.synthetic_fx.clone();
+        let cast = self.pay_and_cast(wizard);
+        if cast.is_err() {
+            self.state.roll_back(before);
+            self.synthetic_fx = riders;
+        }
+        cast
+    }
+
+    /// [`Self::finish_cast`] without the checkpoint.
+    #[allow(clippy::too_many_lines)] // payment is a flat checklist; extraction would obscure it
+    fn pay_and_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
         let face = self.wizard_face(wizard);
         // Total mana: option cost (with X) + kicker mana when taken.
         let mut total = wizard_total_cost(face, wizard);

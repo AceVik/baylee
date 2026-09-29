@@ -846,6 +846,46 @@ impl GameState {
     }
 }
 
+/// The game as it stood before a payment began, to put back if the payment
+/// cannot finish ([`GameState::checkpoint`]).
+pub(crate) struct Checkpoint {
+    state: Box<GameState>,
+    journal: usize,
+}
+
+impl GameState {
+    /// Keeps the game as it stands, for [`Self::roll_back`].
+    ///
+    /// CR 732.1: an action that cannot legally be completed is reversed and
+    /// "any payments already made are canceled", and no ability triggers and
+    /// no effect applies as a result of it. A payment is written part by
+    /// part, so the one sure way to cancel whatever of it was written is to
+    /// put back the game it was written into. Everything is copied except
+    /// the journal, which only grows and is as long as the game: its length
+    /// is kept instead, and what the payment journaled is cut off, which is
+    /// also what keeps a trigger from seeing it.
+    pub(crate) fn checkpoint(&mut self) -> Checkpoint {
+        let journal = std::mem::take(&mut self.journal);
+        let state = Box::new(self.clone());
+        self.journal = journal;
+        Checkpoint {
+            state,
+            journal: self.journal.len(),
+        }
+    }
+
+    /// Puts back the game [`Self::checkpoint`] kept, the journal cut back to
+    /// its length then. Nothing reads the journal while a payment runs (the
+    /// trigger scan and the entry scan move only between actions), so no
+    /// reader is left pointing past the cut.
+    pub(crate) fn roll_back(&mut self, to: Checkpoint) {
+        let mut journal = std::mem::take(&mut self.journal);
+        journal.cancel_from(to.journal);
+        *self = *to.state;
+        self.journal = journal;
+    }
+}
+
 impl GameState {
     /// The side a seat plays for (CR 102.3).
     #[must_use]
