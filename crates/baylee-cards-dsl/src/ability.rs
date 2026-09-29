@@ -175,6 +175,8 @@ pub enum Condition {
     Station(u8),
     /// The controller has earned an enduring story (CR 702.195).
     EnduringStory,
+    /// The controller has the city's blessing (CR 702.131c).
+    CitysBlessing,
     /// The source itself matches the filter — "if this land is tapped".
     ///
     /// The other four sentences here count something the source is not;
@@ -204,6 +206,10 @@ pub enum Condition {
     /// condition is all there is room for (an activation restriction, an
     /// intervening `if`), and not before.
     Any(&'static [Condition]),
+    /// Holds while the condition it names does not — the printed "unless":
+    /// Wayward Swordtooth "can't attack or block unless you have the city's
+    /// blessing" is a static that holds while `Not(&CitysBlessing)` does.
+    Not(&'static Condition),
 }
 
 /// Trigger conditions for triggered abilities.

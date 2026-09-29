@@ -134,6 +134,8 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("daybound", K::DAYBOUND),             // progress::day_night_statics
         ("storied", K::STORIED),               // storied::award_enduring_stories
         ("split second", K::SPLIT_SECOND),     // Engine::narrow_under_split_second
+        ("ascend", K::ASCEND),                 // ascend::award_citys_blessings
+        ("can't attack", K::CANT_ATTACK),      // combat::can_attack
         ("nightbound", K::NIGHTBOUND),         // progress::day_night_statics
     ]
 };

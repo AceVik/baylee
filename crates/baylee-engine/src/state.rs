@@ -39,6 +39,9 @@ pub struct Player {
     pub energy: u16,
     /// Persistent designation earned through storied (CR 702.195).
     pub enduring_story: bool,
+    /// The city's blessing, earned through ascend and kept for the rest of
+    /// the game (CR 702.131).
+    pub citys_blessing: bool,
     /// Mana pool.
     pub mana_pool: ManaPool,
     /// Maximum hand size modifier (Reliquary Tower & co.).
@@ -761,6 +764,7 @@ impl GameState {
                     poison: 0,
                     energy: 0,
                     enduring_story: false,
+                    citys_blessing: false,
                     mana_pool: ManaPool::new(),
                     hand_modifier: 0,
                     lands_played_this_turn: 0,
@@ -2310,6 +2314,7 @@ impl GameState {
             h.u16(p.poison);
             h.u16(p.energy);
             h.boolean(p.enduring_story);
+            h.boolean(p.citys_blessing);
             h.i8(p.hand_modifier);
             h.boolean(p.has_lost());
             for color in ManaColor::ALL {
@@ -2737,6 +2742,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         poison,
         energy,
         enduring_story,
+        citys_blessing,
         mana_pool,
         hand_modifier,
         lands_played_this_turn,
@@ -2753,6 +2759,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     poison.hash(h);
     energy.hash(h);
     enduring_story.hash(h);
+    citys_blessing.hash(h);
     mana_pool.hash(h);
     hand_modifier.hash(h);
     lands_played_this_turn.hash(h);

@@ -122,7 +122,7 @@ impl CombatState {
 }
 
 /// Whether `creature` may attack at all (untapped, a creature, not
-/// summoning-sick, no defender).
+/// summoning-sick, no defender, nothing saying it can't attack).
 #[must_use]
 pub fn can_attack(state: &GameState, player: PlayerId, creature: ObjectId) -> bool {
     let Some(obj) = state.object(creature) else {
@@ -133,6 +133,9 @@ pub fn can_attack(state: &GameState, player: PlayerId, creature: ObjectId) -> bo
         && obj.characteristics().types.contains(TypeSet::CREATURE)
         // Defender (CR 702.3b): can't attack, however untapped it is.
         && !obj.characteristics().keywords.contains(K::DEFENDER)
+        // "Can't attack" (Wayward Swordtooth, while it lacks the city's
+        // blessing): the same rule as defender, from a static.
+        && !obj.characteristics().keywords.contains(K::CANT_ATTACK)
         && !obj.status.contains(Status::TAPPED)
         && !obj.status.contains(Status::PHASED_OUT)
         && !summoning_sick(state, obj)

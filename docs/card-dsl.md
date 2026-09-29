@@ -672,8 +672,19 @@ reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
 `CountersOnSelfBetween(kind, lo, hi)` read the permanent the ability is
 printed on, `SourceMatches(&filter)` points a
 filter back at that permanent — "if this land is tapped" — and
-`Any(&[..])` holds while **one** of the conditions it names does. One
-reader answers all of them, `eval::condition_holds`.
+`Any(&[..])` holds while **one** of the conditions it names does, and
+`Not(&c)` while `c` does not — the printed "unless". One reader answers
+all of them, `eval::condition_holds`.
+
+`CitysBlessing` is "you have the city's blessing" (CR 702.131). A permanent
+with ascend carries `KeywordSet::ASCEND`, and the engine gives its controller
+the blessing whenever they control ten or more permanents
+(`GameState::award_citys_blessings`, asked where enduring stories are).
+Wayward Swordtooth's "can't attack or block unless you have the city's
+blessing" is `static_ability!(Filter::This,
+Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)),
+condition = Some(Condition::Not(&Condition::CitysBlessing)))`: `CANT_ATTACK`
+is the mirror of `CANT_BLOCK`, read by `combat::can_attack`.
 
 There is no `All`, and that is not an omission. The printed sentence that
 needs a disjunction is real and prints as one — "activate only if this land

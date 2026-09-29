@@ -608,6 +608,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         // that did not just change a characteristic.
         state.refresh_characteristics();
         state.award_enduring_stories();
+        state.award_citys_blessings();
         if let Some(pending) = exec(state, res, op) {
             crate::replacement::expire_graveyard_rules(state);
             return Flow::Wait(pending);

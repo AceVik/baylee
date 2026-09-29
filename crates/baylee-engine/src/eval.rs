@@ -440,6 +440,10 @@ pub fn condition_holds(
             .players
             .get(usize::from(you.get()))
             .is_some_and(|p| p.enduring_story),
+        Condition::CitysBlessing => state
+            .players
+            .get(usize::from(you.get()))
+            .is_some_and(|p| p.citys_blessing),
         Condition::Station(min) => state.object(source).is_some_and(|o| {
             o.counters.get(baylee_cards_dsl::CounterKind::Charge) >= u16::from(min)
         }),
@@ -451,6 +455,7 @@ pub fn condition_holds(
         Condition::Any(parts) => parts
             .iter()
             .any(|part| condition_holds(state, you, source, *part)),
+        Condition::Not(part) => !condition_holds(state, you, source, *part),
         Condition::SourceMatches(filter) => state
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),

@@ -254,6 +254,11 @@ impl<L: CardLookup> Engine<L> {
             if self.state.award_enduring_stories() {
                 continue;
             }
+            // CR 702.131d: continuous effects are reapplied after a player
+            // gets the city's blessing, before anything else is asked.
+            if self.state.award_citys_blessings() {
+                continue;
+            }
             // What a player who has left still controls is exiled as the
             // last effect giving it to somebody else ends (CR 800.4c). Not a
             // state-based action, so before them and before the game-over
