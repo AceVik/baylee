@@ -23,12 +23,196 @@ pub use arrange::{
 };
 
 /// One creature that may block, and the attackers it may be assigned to.
+///
+/// It blocks one of them or none (CR 509.1a: "for each of the chosen
+/// creatures, the defending player chooses one creature for it to block"),
+/// so a declaration names each blocker at most once. Nothing in the pool
+/// lets a creature block more than one attacker; the day something does,
+/// the number goes here.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct BlockOption {
     /// The creature that may block.
     pub blocker: ObjectId,
     /// The attackers this creature may legally block.
     pub attackers: Vec<ObjectId>,
+}
+
+/// How many creatures may block one attacker, where that is not "any
+/// number, one or more" (CR 509.1b, the restrictions half).
+///
+/// The bound holds only for an attacker that is blocked at all: the
+/// creatures declared to block it number **zero, or between
+/// `min_blockers` and `max_blockers` inclusive**. Menace is `2..=u32::MAX`
+/// (CR 702.111b, "can't be blocked except by two or more creatures"), and
+/// `min_blockers: 2` never means that the attacker must be blocked: an
+/// attacker nobody blocks keeps every such restriction.
+///
+/// Listed in [`Pending::ChooseBlockers::bounds`] for the attackers that have
+/// one; an attacker not listed is bounded by nothing but the pairings.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub struct AttackerBound {
+    /// The attacking creature.
+    pub attacker: ObjectId,
+    /// If blocked, by at least this many creatures.
+    pub min_blockers: u32,
+    /// If blocked, by at most this many; `u32::MAX` for no bound.
+    pub max_blockers: u32,
+}
+
+/// What each option of a [`Pending::ChooseCards`] weighs in a
+/// [`CardTotal`], as a UI hint: the weights themselves ride with the total.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub enum Measure {
+    /// Each card's power, as it is now (crew, CR 702.122a; saddle,
+    /// CR 702.171a).
+    Power,
+    /// Each card's toughness.
+    Toughness,
+    /// Each card's mana value.
+    ManaValue,
+}
+
+/// A bound on the sum of the chosen cards' weights: crew's "tap any number
+/// of other untapped creatures you control with total power N or greater"
+/// (CR 702.122a) is `at_least: Some(N)` over each creature's power.
+///
+/// The weights ride in the question rather than being read off the view,
+/// so the check is the question's own: `weights[i]` is what `options[i]`
+/// counts for, as the engine counts it. A power below zero counts below
+/// zero (CR 107.1b: "if a calculation or comparison needs to use a
+/// negative value, it does so"), which a client summing the view's powers
+/// and flooring them at zero would get wrong.
+#[derive(Clone, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub struct CardTotal {
+    /// What is summed (UI hint).
+    pub of: Measure,
+    /// Each option's weight, in the order of the question's `options`.
+    pub weights: Vec<i32>,
+    /// The least the chosen cards may add up to, inclusive.
+    pub at_least: Option<i32>,
+    /// The most the chosen cards may add up to, inclusive.
+    pub at_most: Option<i32>,
+}
+
+impl CardTotal {
+    /// What `chosen` adds up to; a card not among `options` adds nothing
+    /// (the membership check is the question's, not the total's).
+    #[must_use]
+    pub fn sum(&self, options: &[ObjectId], chosen: &[ObjectId]) -> i64 {
+        chosen
+            .iter()
+            .filter_map(|c| options.iter().position(|o| o == c))
+            .filter_map(|i| self.weights.get(i))
+            .map(|w| i64::from(*w))
+            .sum()
+    }
+
+    /// Whether `chosen` keeps both bounds.
+    #[must_use]
+    pub fn fault(&self, options: &[ObjectId], chosen: &[ObjectId]) -> Option<AnswerFault> {
+        let sum = self.sum(options, chosen);
+        if self.at_least.is_some_and(|least| sum < i64::from(least)) {
+            return Some(AnswerFault::TotalTooLow);
+        }
+        if self.at_most.is_some_and(|most| sum > i64::from(most)) {
+            return Some(AnswerFault::TotalTooHigh);
+        }
+        None
+    }
+
+    /// Whether some choice of between `min` and `max` of the weights can
+    /// keep each bound, asked of each bound on its own: the most `k` cards
+    /// can reach is the sum of the `k` heaviest, and the least the sum of
+    /// the `k` lightest. For a total with both bounds that is necessary and
+    /// not sufficient; nothing in the pool asks one.
+    fn reachable(&self, min: u8, max: u8) -> bool {
+        let mut sorted: Vec<i64> = self.weights.iter().map(|w| i64::from(*w)).collect();
+        sorted.sort_unstable();
+        let counts = usize::from(min)..=usize::from(max).min(sorted.len());
+        let heaviest = |k: usize| sorted.iter().rev().take(k).sum::<i64>();
+        let lightest = |k: usize| sorted.iter().take(k).sum::<i64>();
+        let least_ok = self
+            .at_least
+            .is_none_or(|least| counts.clone().any(|k| heaviest(k) >= i64::from(least)));
+        let most_ok = self
+            .at_most
+            .is_none_or(|most| counts.clone().any(|k| lightest(k) <= i64::from(most)));
+        least_ok && most_ok
+    }
+}
+
+/// Why an answer breaks a constraint its question states
+/// ([`Pending::answer_fault`]).
+///
+/// The engine refuses an answer for one of these reasons and for no other
+/// that the answer could have avoided: every answer [`Pending::answer_fault`]
+/// passes is taken. A client, the house AI and a trained agent can therefore
+/// check an answer before sending it, from the question alone, and a
+/// refusal that is not one of these is a defect in the engine.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AnswerFault {
+    /// The answer is not of the kind the question takes (a number to a
+    /// yes-or-no question). The engine reports it as a mismatched action.
+    WrongKind,
+    /// Something the question did not offer: a card not among `options`, a
+    /// blocker paired with an attacker its option does not list, a mode
+    /// past the end of the list.
+    NotOffered,
+    /// One thing named twice in a list the question reads as a set: two
+    /// targets for one instance of "target" (CR 115.3), a card delved or
+    /// crewed twice, a creature declared as an attacker or a blocker twice.
+    Repeated,
+    /// Fewer things named than the question's `min` (or its exact count).
+    TooFew,
+    /// More things named than the question's `max` (or its exact count).
+    TooMany,
+    /// A number outside the question's `min..=max`.
+    OutOfRange,
+    /// The chosen cards add up to less than [`CardTotal::at_least`].
+    TotalTooLow,
+    /// The chosen cards add up to more than [`CardTotal::at_most`].
+    TotalTooHigh,
+    /// An attacker blocked by fewer creatures than its
+    /// [`AttackerBound::min_blockers`], and by more than none.
+    TooFewBlockers,
+    /// An attacker blocked by more creatures than its
+    /// [`AttackerBound::max_blockers`].
+    TooManyBlockers,
+    /// A mulligan the question says cannot be taken
+    /// ([`Pending::Mulligan::can_take`]).
+    NoFurtherMulligan,
+    /// An arrangement that does not place every card exactly once, pile by
+    /// pile within the piles' bounds ([`arrangement_fault`]'s reason).
+    Misarranged(&'static str),
+}
+
+impl AnswerFault {
+    /// The fault in words, as `EngineError::IllegalAction` carries it.
+    #[must_use]
+    pub const fn reason(self) -> &'static str {
+        match self {
+            Self::WrongKind => "action does not match the pending request",
+            Self::NotOffered => "not among the options",
+            Self::Repeated => "one choice named twice",
+            Self::TooFew => "fewer choices than the question asks for",
+            Self::TooMany => "more choices than the question allows",
+            Self::OutOfRange => "number outside the offered range",
+            Self::TotalTooLow => "the chosen total is too low",
+            Self::TotalTooHigh => "the chosen total is too high",
+            Self::TooFewBlockers => "too few blockers for that attacker",
+            Self::TooManyBlockers => "too many blockers for that attacker",
+            Self::NoFurtherMulligan => {
+                "a hand that would open with zero cards takes no further mulligan"
+            }
+            Self::Misarranged(why) => why,
+        }
+    }
+}
+
+/// The serde default of [`Pending::Mulligan::can_take`]: every question
+/// sent before the field existed allowed a mulligan.
+const fn yes() -> bool {
+    true
 }
 
 /// What the game is currently waiting for.
@@ -42,6 +226,13 @@ pub enum Pending {
         taken: u8,
         /// Whether the next mulligan is free (house rule, first only).
         next_is_free: bool,
+        /// Whether a mulligan may be taken at all. Not once the hand would
+        /// open with no cards (CR 103.5: each mulligan puts one more card on
+        /// the bottom, and a free one none), because the bottom question
+        /// would then ask for more cards than the hand holds.
+        /// `PlayerAction::MulliganTake` is refused while this is `false`.
+        #[serde(default = "yes")]
+        can_take: bool,
     },
     /// A player must choose cards to put on the bottom after keeping.
     MulliganBottom {
@@ -85,6 +276,13 @@ pub enum Pending {
         /// question — flying, menace, protection, "can't be blocked by" —
         /// so the offer is a pairing, not two flat lists.
         blockers: Vec<BlockOption>,
+        /// The attackers whose blockers are counted, and the count each
+        /// allows (menace, CR 702.111b). A restriction on the whole
+        /// declaration rather than on a pair (CR 509.1b), which is why it is
+        /// not in the pairings: one creature may block a menace attacker,
+        /// and one creature alone may not.
+        #[serde(default)]
+        bounds: Vec<AttackerBound>,
     },
     /// Discard down to maximum hand size (cleanup).
     DiscardChoice {
@@ -112,6 +310,11 @@ pub enum Pending {
         max: u8,
         /// Why (UI hint).
         prompt: ChoicePrompt,
+        /// A bound on what the chosen cards add up to, where the question
+        /// has one: crew's total power (CR 702.122a). `None` for every
+        /// question that counts only cards.
+        #[serde(default)]
+        total: Option<CardTotal>,
     },
     /// Choose targets for a spell/ability being cast/activated.
     ChooseTargets {
@@ -463,8 +666,10 @@ pub enum ChoicePrompt {
     /// pile into their hand, so the house AI puts the best card alone.
     FirstPile,
     /// Creatures to tap to crew a Vehicle (CR 702.122a): any number of
-    /// them, with total power `power` or greater. The engine refuses an
-    /// answer whose total is short.
+    /// them, with total power `power` or greater. The question states the
+    /// total as its [`CardTotal`], each creature's power beside it, and an
+    /// answer whose total is short is refused for that
+    /// ([`AnswerFault::TotalTooLow`]).
     CostCrew {
         /// The N of "Crew N".
         power: u8,
@@ -713,13 +918,24 @@ impl Pending {
     /// question is classified here before it compiles.
     pub fn fit_to_options(&mut self) -> bool {
         match self {
+            // A total is fitted with the cards it weighs: one weight per
+            // option, and a bound some choice of them can keep. The builder
+            // that states a total also offers the question only where it
+            // can be met (crew: `Engine::can_afford`), so an unreachable one
+            // is a builder and its offer disagreeing.
             Self::ChooseCards {
-                options, min, max, ..
+                options,
+                min,
+                max,
+                total,
+                ..
             } => {
                 let n = u8::try_from(options.len()).unwrap_or(u8::MAX);
                 *max = (*max).min(n);
                 *min = (*min).min(*max);
-                true
+                total
+                    .as_ref()
+                    .is_none_or(|t| t.weights.len() == options.len() && t.reachable(*min, *max))
             }
             Self::Arrange { cards, piles, .. } => {
                 // Every card still goes somewhere, and no pile asks for more
@@ -764,6 +980,267 @@ impl Pending {
             | Self::GameOver(_) => true,
         }
     }
+}
+
+impl Pending {
+    /// Why `answer` breaks a constraint this question states, or `None`
+    /// when it keeps every one.
+    ///
+    /// The contract behind `Engine::apply`: an answer this passes is taken.
+    /// `apply` asks this first and refuses only what it finds, so the
+    /// reasons an answer can be refused are the ones a question carries in
+    /// its own fields, and a client, the house AI and a trained agent can
+    /// hold an answer to them before sending it. The checks are the
+    /// question's arithmetic: which answer kind it takes, membership in what
+    /// it offers, counts, no repeats in a list read as a set, and the
+    /// bounds it states ([`CardTotal`], [`AttackerBound`], a mulligan's
+    /// `can_take`).
+    ///
+    /// Two questions name their options outside their own fields, and this
+    /// checks what is left of them: a bottomed or discarded card is one from
+    /// the seat's own hand, which its view lists in full, and a card name is
+    /// one the card pool prints (CR 201.4), which every client and agent of
+    /// the same build has. Which seat answers is the engine's to check as
+    /// well, since a question names the seat it asks ([`Pending::asked`]).
+    ///
+    /// An exhaustive match on the questions, for [`timeout_answer`]'s
+    /// reason: a new question is classified here before it compiles.
+    #[must_use]
+    #[allow(clippy::too_many_lines)] // one flat table: a question, an answer
+    pub fn answer_fault(&self, answer: &PlayerAction) -> Option<AnswerFault> {
+        use PlayerAction as A;
+        match (self, answer) {
+            (Self::Mulligan { .. }, A::MulliganKeep)
+            | (Self::ChooseCardName { .. }, A::ChooseCardName { .. })
+            | (Self::YesNo { .. }, A::YesNo(_)) => None,
+            (Self::Mulligan { can_take, .. }, A::MulliganTake) => {
+                (!can_take).then_some(AnswerFault::NoFurtherMulligan)
+            }
+            (
+                Self::MulliganBottom { count, .. } | Self::DiscardChoice { count, .. },
+                A::ChooseObjects { objects },
+            ) => counted(objects.len(), *count, *count).or_else(|| repeats(objects)),
+            (Self::Priority { legal, .. }, deed) => priority_fault(legal, deed),
+            (
+                Self::ChooseAttackers {
+                    attackers,
+                    defenders,
+                    ..
+                },
+                A::DeclareAttackers {
+                    attackers: declared,
+                },
+            ) => attack_fault(attackers, defenders, declared),
+            (
+                Self::ChooseBlockers {
+                    blockers, bounds, ..
+                },
+                A::DeclareBlockers { blockers: declared },
+            ) => block_fault(blockers, bounds, declared),
+            (Self::LegendChoice { options, .. }, A::ChooseObjects { objects }) => {
+                counted(objects.len(), 1, 1).or_else(|| not_offered(options, objects))
+            }
+            (
+                Self::ChooseCards {
+                    options,
+                    min,
+                    max,
+                    total,
+                    ..
+                },
+                A::ChooseObjects { objects },
+            ) => counted(objects.len(), *min, *max)
+                .or_else(|| repeats(objects))
+                .or_else(|| not_offered(options, objects))
+                .or_else(|| total.as_ref().and_then(|t| t.fault(options, objects))),
+            (
+                Self::ChooseTargets {
+                    options,
+                    player_options,
+                    min,
+                    max,
+                    ..
+                },
+                A::ChooseTargets { objects, players },
+            ) => target_fault(options, player_options, (*min, *max), objects, players),
+            // "Target creature" answered as a list of objects is the same
+            // answer with no players in it (`PlayerAction::ChooseTargets`).
+            (
+                Self::ChooseTargets {
+                    options,
+                    player_options,
+                    min,
+                    max,
+                    ..
+                },
+                A::ChooseObjects { objects },
+            ) => target_fault(options, player_options, (*min, *max), objects, &[]),
+            (Self::ChooseSubtype { options, .. }, A::ChooseSubtype(subtype)) => {
+                (!options.contains(subtype)).then_some(AnswerFault::NotOffered)
+            }
+            (Self::ChooseColor { options, .. }, A::ChooseColor(color)) => {
+                (!options.contains(color)).then_some(AnswerFault::NotOffered)
+            }
+            // The position in the list, not the option's `index` field: a
+            // modal trigger lists only the modes it may choose (CR 603.3c).
+            (Self::ChooseCastMode { options, .. }, A::ChooseMode(at)) => {
+                (*at >= options.len()).then_some(AnswerFault::NotOffered)
+            }
+            (Self::ChoosePile { piles, .. }, A::ChooseMode(at)) => {
+                (*at >= piles.len()).then_some(AnswerFault::NotOffered)
+            }
+            (Self::ChooseNumber { min, max, .. }, A::ChooseNumber(n)) => {
+                (!(*min..=*max).contains(n)).then_some(AnswerFault::OutOfRange)
+            }
+            (Self::ChoosePlayer { options, .. }, A::ChoosePlayer(chosen)) => {
+                (!options.contains(chosen)).then_some(AnswerFault::NotOffered)
+            }
+            (
+                Self::Arrange {
+                    cards,
+                    piles: specs,
+                    ..
+                },
+                A::Arrange { piles },
+            ) => arrangement_fault(cards, specs, piles).map(AnswerFault::Misarranged),
+            (
+                Self::Mulligan { .. }
+                | Self::MulliganBottom { .. }
+                | Self::ChooseAttackers { .. }
+                | Self::ChooseBlockers { .. }
+                | Self::DiscardChoice { .. }
+                | Self::LegendChoice { .. }
+                | Self::ChooseCards { .. }
+                | Self::ChooseTargets { .. }
+                | Self::ChooseSubtype { .. }
+                | Self::ChooseCardName { .. }
+                | Self::ChooseColor { .. }
+                | Self::YesNo { .. }
+                | Self::ChooseCastMode { .. }
+                | Self::ChooseNumber { .. }
+                | Self::ChoosePlayer { .. }
+                | Self::Arrange { .. }
+                | Self::ChoosePile { .. }
+                | Self::GameOver(_),
+                _,
+            ) => Some(AnswerFault::WrongKind),
+        }
+    }
+}
+
+/// A count against `min..=max`.
+fn counted(n: usize, min: u8, max: u8) -> Option<AnswerFault> {
+    if n < usize::from(min) {
+        Some(AnswerFault::TooFew)
+    } else if n > usize::from(max) {
+        Some(AnswerFault::TooMany)
+    } else {
+        None
+    }
+}
+
+/// Whether a list read as a set names one thing twice. Through a set,
+/// because a declaration can name tens of thousands of tokens and a
+/// `contains` per entry made one quadratic (r001 game 431).
+fn repeats<T: Ord>(xs: &[T]) -> Option<AnswerFault> {
+    let mut seen = std::collections::BTreeSet::new();
+    (!xs.iter().all(|x| seen.insert(x))).then_some(AnswerFault::Repeated)
+}
+
+/// Whether `chosen` names something `options` does not hold.
+fn not_offered<T: Ord>(options: &[T], chosen: &[T]) -> Option<AnswerFault> {
+    let offered: std::collections::BTreeSet<&T> = options.iter().collect();
+    (!chosen.iter().all(|c| offered.contains(c))).then_some(AnswerFault::NotOffered)
+}
+
+/// One instance of "target": objects and players are one choice, counted
+/// together (CR 115.4), each chosen once (CR 115.3).
+fn target_fault(
+    options: &[ObjectId],
+    player_options: &[PlayerId],
+    (min, max): (u8, u8),
+    objects: &[ObjectId],
+    players: &[PlayerId],
+) -> Option<AnswerFault> {
+    counted(objects.len() + players.len(), min, max)
+        .or_else(|| repeats(objects))
+        .or_else(|| repeats(players))
+        .or_else(|| not_offered(options, objects))
+        .or_else(|| not_offered(player_options, players))
+}
+
+/// What a seat with priority may do: what the offer lists, and passing,
+/// which is always legal.
+fn priority_fault(legal: &LegalActions, deed: &PlayerAction) -> Option<AnswerFault> {
+    let listed = match deed {
+        PlayerAction::PassPriority => true,
+        PlayerAction::PlayLand { card } => legal.lands.contains(card),
+        PlayerAction::CastSpell { card } => legal.castable.contains(card),
+        PlayerAction::ActivateAbility {
+            source,
+            ability_index,
+        } => legal.abilities.contains(&(*source, *ability_index)),
+        PlayerAction::ActivateManaAbility { source } => legal.mana_abilities.contains(source),
+        PlayerAction::Suspend { card } => legal.suspendable.contains(card),
+        _ => return Some(AnswerFault::WrongKind),
+    };
+    (!listed).then_some(AnswerFault::NotOffered)
+}
+
+/// A declaration of attackers against the creatures and defenders offered,
+/// each creature declared once.
+fn attack_fault(
+    attackers: &[ObjectId],
+    defenders: &[baylee_core::ids::Defender],
+    declared: &[(ObjectId, baylee_core::ids::Defender)],
+) -> Option<AnswerFault> {
+    let offered: std::collections::BTreeSet<ObjectId> = attackers.iter().copied().collect();
+    let mut seen = std::collections::BTreeSet::new();
+    declared.iter().find_map(|(creature, defender)| {
+        if !seen.insert(*creature) {
+            Some(AnswerFault::Repeated)
+        } else if !offered.contains(creature) || !defenders.contains(defender) {
+            Some(AnswerFault::NotOffered)
+        } else {
+            None
+        }
+    })
+}
+
+/// A declaration of blockers against the pairings and the counts offered.
+fn block_fault(
+    options: &[BlockOption],
+    bounds: &[AttackerBound],
+    declared: &[(ObjectId, ObjectId)],
+) -> Option<AnswerFault> {
+    let offered: std::collections::BTreeMap<ObjectId, &[ObjectId]> = options
+        .iter()
+        .map(|o| (o.blocker, o.attackers.as_slice()))
+        .collect();
+    let mut seen = std::collections::BTreeSet::new();
+    let mut counts: std::collections::BTreeMap<ObjectId, u32> = std::collections::BTreeMap::new();
+    for (blocker, attacker) in declared {
+        if !seen.insert(*blocker) {
+            return Some(AnswerFault::Repeated);
+        }
+        if !offered
+            .get(blocker)
+            .is_some_and(|attackers| attackers.contains(attacker))
+        {
+            return Some(AnswerFault::NotOffered);
+        }
+        *counts.entry(*attacker).or_default() += 1;
+    }
+    bounds.iter().find_map(|bound| {
+        let n = counts.get(&bound.attacker).copied().unwrap_or(0);
+        if n > 0 && n < bound.min_blockers {
+            Some(AnswerFault::TooFewBlockers)
+        } else if n > bound.max_blockers {
+            Some(AnswerFault::TooManyBlockers)
+        } else {
+            None
+        }
+    })
 }
 
 /// The answer that does nothing, where the question has one (#258).
@@ -1360,6 +1837,7 @@ mod choice_tests {
                     player: p,
                     taken: 1,
                     next_is_free: false,
+                    can_take: true,
                 },
                 Some(PlayerAction::MulliganKeep),
             ),
@@ -1381,6 +1859,7 @@ mod choice_tests {
                         blocker: object(),
                         attackers: vec![ObjectId::new(2, 0)],
                     }],
+                    bounds: Vec::new(),
                 },
                 Some(PlayerAction::DeclareBlockers {
                     blockers: Vec::new(),
@@ -1459,6 +1938,7 @@ mod choice_tests {
                     min: 0,
                     max: 1,
                     prompt: ChoicePrompt::SearchLibrary,
+                    total: None,
                 },
                 None,
             ),
@@ -1878,6 +2358,7 @@ mod fit_to_options_tests {
             min: 2,
             max: 2,
             prompt: ChoicePrompt::Generic,
+            total: None,
         };
         assert!(cards.fit_to_options());
         let Pending::ChooseCards { min, max, .. } = cards else {
@@ -1904,5 +2385,141 @@ mod fit_to_options_tests {
             options: vec![],
         };
         assert!(!nobody.fit_to_options(), "an empty menu has no answer");
+    }
+
+    fn crew(weights: Vec<i32>, at_least: i32) -> Pending {
+        let options = (1..=u32::try_from(weights.len()).unwrap())
+            .map(card)
+            .collect::<Vec<_>>();
+        Pending::ChooseCards {
+            player: me(),
+            max: u8::try_from(options.len()).unwrap(),
+            options,
+            min: 1,
+            prompt: ChoicePrompt::CostCrew { power: 2 },
+            total: Some(CardTotal {
+                of: Measure::Power,
+                weights,
+                at_least: Some(at_least),
+                at_most: None,
+            }),
+        }
+    }
+
+    fn choose(ids: &[u32]) -> PlayerAction {
+        PlayerAction::ChooseObjects {
+            objects: ids.iter().copied().map(card).collect(),
+        }
+    }
+
+    /// A stated total is a promise that some answer keeps it: a question
+    /// whose weights cannot reach it, or whose weights do not line up with
+    /// its options, is one nothing can answer.
+    #[test]
+    fn a_total_no_choice_can_reach_is_unanswerable() {
+        assert!(crew(vec![1, 1], 2).fit_to_options());
+        assert!(
+            !crew(vec![1, 0], 2).fit_to_options(),
+            "power 1 cannot crew 2"
+        );
+        let mut misaligned = crew(vec![1, 1], 2);
+        if let Pending::ChooseCards { options, .. } = &mut misaligned {
+            options.push(card(9));
+        }
+        assert!(
+            !misaligned.fit_to_options(),
+            "a weight for every option, in order"
+        );
+    }
+
+    /// The total is summed as the engine sums it, a negative power below
+    /// zero (CR 107.1b), and the question's other bounds come first.
+    #[test]
+    fn a_total_counts_negative_weights_and_names_its_own_fault() {
+        let question = crew(vec![2, -1, 1], 2);
+        assert_eq!(question.answer_fault(&choose(&[1])), None);
+        assert_eq!(
+            question.answer_fault(&choose(&[1, 2])),
+            Some(AnswerFault::TotalTooLow),
+            "2 + (-1) is 1, short of 2"
+        );
+        assert_eq!(question.answer_fault(&choose(&[1, 2, 3])), None);
+        assert_eq!(
+            question.answer_fault(&choose(&[3, 3])),
+            Some(AnswerFault::Repeated)
+        );
+        assert_eq!(
+            question.answer_fault(&choose(&[4])),
+            Some(AnswerFault::NotOffered)
+        );
+        assert_eq!(
+            question.answer_fault(&choose(&[])),
+            Some(AnswerFault::TooFew)
+        );
+        assert_eq!(
+            question.answer_fault(&PlayerAction::YesNo(true)),
+            Some(AnswerFault::WrongKind)
+        );
+        let mut capped = crew(vec![2, 1, 1], 0);
+        if let Pending::ChooseCards {
+            total: Some(total), ..
+        } = &mut capped
+        {
+            total.at_least = None;
+            total.at_most = Some(2);
+        }
+        assert_eq!(
+            capped.answer_fault(&choose(&[1, 2])),
+            Some(AnswerFault::TotalTooHigh)
+        );
+        assert_eq!(capped.answer_fault(&choose(&[2, 3])), None);
+    }
+
+    /// A blocker blocks one attacker (CR 509.1a), and an attacker's bound
+    /// counts the blockers named against it: none, or `min..=max`.
+    #[test]
+    fn a_blockers_answer_is_held_to_its_pairings_and_bounds() {
+        let (runner, other) = (card(1), card(2));
+        let question = Pending::ChooseBlockers {
+            player: me(),
+            attacker: PlayerId::new(1),
+            blockers: vec![
+                BlockOption {
+                    blocker: card(10),
+                    attackers: vec![runner, other],
+                },
+                BlockOption {
+                    blocker: card(11),
+                    attackers: vec![runner],
+                },
+            ],
+            bounds: vec![AttackerBound {
+                attacker: runner,
+                min_blockers: 2,
+                max_blockers: u32::MAX,
+            }],
+        };
+        let declare = |pairs: &[(u32, ObjectId)]| PlayerAction::DeclareBlockers {
+            blockers: pairs.iter().map(|(b, a)| (card(*b), *a)).collect(),
+        };
+        assert_eq!(question.answer_fault(&declare(&[])), None);
+        assert_eq!(question.answer_fault(&declare(&[(10, other)])), None);
+        assert_eq!(
+            question.answer_fault(&declare(&[(10, runner)])),
+            Some(AnswerFault::TooFewBlockers)
+        );
+        assert_eq!(
+            question.answer_fault(&declare(&[(10, runner), (11, runner)])),
+            None
+        );
+        assert_eq!(
+            question.answer_fault(&declare(&[(11, other)])),
+            Some(AnswerFault::NotOffered)
+        );
+        assert_eq!(
+            question.answer_fault(&declare(&[(10, runner), (10, other)])),
+            Some(AnswerFault::Repeated),
+            "one creature blocks one attacker"
+        );
     }
 }

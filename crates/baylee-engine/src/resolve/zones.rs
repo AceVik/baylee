@@ -515,6 +515,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         Effect::ShuffleGraveyardIntoLibrary => {
@@ -793,6 +794,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         Effect::SacrificeFilter { who, filter } => {
@@ -809,6 +811,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         Effect::ReturnChosenToHand { who, filter } => {
@@ -829,6 +832,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         // "Choose a creature you control": a choice made as this resolves
@@ -847,6 +851,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         Effect::UntapChosen { filter, count } => {
@@ -872,6 +877,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 min: 0,
                 max: count,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         Effect::DiscardForPlayers { who, count } => {
@@ -896,6 +902,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 min: n,
                 max: n,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         Effect::RevealHandDiscard { filter } => {
@@ -931,6 +938,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         Effect::DiscardRandom { who, count } => {

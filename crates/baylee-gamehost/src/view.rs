@@ -2108,6 +2108,7 @@ mod tests {
             min: 1,
             max: 1,
             prompt: baylee_engine::choice::ChoicePrompt::SearchLibrary,
+            total: None,
         }
     }
 
@@ -2211,6 +2212,7 @@ mod tests {
             min: 0,
             max: 3,
             prompt: baylee_engine::choice::ChoicePrompt::FirstPile,
+            total: None,
         };
         assert_eq!(shown(separator, &separate), revealed);
 
@@ -2325,6 +2327,7 @@ mod tests {
             min: 1,
             max: 1,
             prompt: baylee_engine::choice::ChoicePrompt::PutBackOnTop,
+            total: None,
         };
 
         let view = player_view(
@@ -2359,6 +2362,7 @@ mod tests {
             min: 1,
             max: 1,
             prompt: baylee_engine::choice::ChoicePrompt::Generic,
+            total: None,
         };
 
         let view = player_view(

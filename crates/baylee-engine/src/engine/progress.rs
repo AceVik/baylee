@@ -571,10 +571,17 @@ impl<L: CardLookup> Engine<L> {
                             .then_some(crate::choice::BlockOption { blocker, attackers })
                     })
                     .collect();
+                // The counts the declaration as a whole is held to
+                // (CR 509.1b), for the attackers somebody may block.
+                let bounds = blockable
+                    .iter()
+                    .filter_map(|&a| combat::block_bound(&self.state, a))
+                    .collect();
                 self.pending = Pending::ChooseBlockers {
                     player: defending,
                     attacker: active,
                     blockers,
+                    bounds,
                 };
                 self.awaiting_answer = true;
                 true
@@ -1102,6 +1109,7 @@ impl<L: CardLookup> Engine<L> {
                             min: 0,
                             max: 1,
                             prompt: ChoicePrompt::RevealOrEnterTapped,
+                            total: None,
                         };
                         self.awaiting_answer = true;
                         return true; // one choice at a time
@@ -4948,6 +4956,7 @@ impl<L: CardLookup> Engine<L> {
             min: 0,
             max,
             prompt: crate::choice::ChoicePrompt::LeaveTapped,
+            total: None,
         };
         self.awaiting_answer = true;
         true

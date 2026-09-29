@@ -57,6 +57,7 @@ fn block_choice(options: Vec<BlockOption>) -> Pending {
         player: me(),
         attacker: PlayerId::new(1),
         blockers: options,
+        bounds: Vec::new(),
     }
 }
 

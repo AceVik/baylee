@@ -346,6 +346,75 @@ fn a_menace_attacker_takes_two_blockers_or_none() {
     );
 }
 
+/// Menace (CR 702.111b: "A creature with menace can't be blocked except by
+/// two or more creatures") is stated in the blockers question as a bound on
+/// the attacker: blocked by none, or by two to any number. Each Excavator is
+/// offered against the Viashino Runner, so one of them alone is inside the
+/// offered pairings; the bound is what names that answer short, and `apply`
+/// refuses exactly the declarations the question faults.
+///
+/// Before the bound was stated, the question listed the two pairings and
+/// nothing else, and a player (the trained AI's fuzzer, 11 times in 2000
+/// games) naming one of them was refused for a reason it could not read.
+#[test]
+fn menace_states_its_blocker_bound_and_apply_refuses_only_what_it_states() {
+    use crate::choice::{AnswerFault, AttackerBound};
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let at_blockers = || {
+        let mut engine = Duel::new(31, mountain())
+            .battlefield(0, &[viashino_runner()])
+            .battlefield(1, &[halimar_excavator(), halimar_excavator()])
+            .start();
+        keep_mulligans(&mut engine);
+        attack_and_reach_blockers(&mut engine, p0, p1);
+        let guards = creatures_of(&engine, p1, halimar_excavator());
+        let runner = engine.state().combat.attackers()[0].creature;
+        (engine, guards, runner)
+    };
+    let (engine, guards, runner) = at_blockers();
+    let question = engine.pending().clone();
+    let Pending::ChooseBlockers { bounds, .. } = &question else {
+        panic!("expected the blockers question, got {question:?}")
+    };
+    assert_eq!(
+        bounds,
+        &vec![AttackerBound {
+            attacker: runner,
+            min_blockers: 2,
+            max_blockers: u32::MAX,
+        }],
+        "the runner is blocked by two or more creatures, or by none"
+    );
+    drop(engine);
+
+    let declarations = [
+        (vec![], None),
+        (vec![(guards[0], runner)], Some(AnswerFault::TooFewBlockers)),
+        (vec![(guards[1], runner)], Some(AnswerFault::TooFewBlockers)),
+        (vec![(guards[0], runner), (guards[1], runner)], None),
+    ];
+    for (blockers, stated) in declarations {
+        let answer = PlayerAction::DeclareBlockers {
+            blockers: blockers.clone(),
+        };
+        assert_eq!(question.answer_fault(&answer), stated, "{blockers:?}");
+        let (mut engine, again, _) = at_blockers();
+        assert_eq!(again, guards, "the board is dealt alike every time");
+        let applied = engine.apply(p1, answer);
+        match stated {
+            None => {
+                applied.unwrap_or_else(|e| {
+                    panic!("{blockers:?} keeps every stated bound and was refused: {e:?}")
+                });
+            }
+            Some(fault) => assert!(
+                matches!(applied, Err(EngineError::IllegalAction(why)) if why == fault.reason()),
+                "{blockers:?} is refused for the reason the question states, got {applied:?}"
+            ),
+        }
+    }
+}
+
 /// The half of menace that *is* answerable one attacker at a time.
 ///
 /// A defender with one legal blocker has no legal declaration that blocks a

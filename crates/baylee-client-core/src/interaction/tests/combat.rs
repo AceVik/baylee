@@ -51,6 +51,7 @@ fn blockers_must_block_an_actual_attacker() {
             blocker: obj(10),
             attackers: vec![obj(1)],
         }],
+        bounds: Vec::new(),
     });
     assert!(!i.declare_blocker(obj(10), obj(99)));
     assert!(i.declare_blocker(obj(10), obj(1)));

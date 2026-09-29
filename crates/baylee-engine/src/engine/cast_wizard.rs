@@ -1407,6 +1407,7 @@ impl<L: CardLookup> Engine<L> {
                         min: 1,
                         max: 1,
                         prompt: ChoicePrompt::Generic,
+                        total: None,
                     };
                     self.awaiting_answer = true;
                     return Ok(());
@@ -1443,6 +1444,7 @@ impl<L: CardLookup> Engine<L> {
                     min: n,
                     max: n,
                     prompt: ChoicePrompt::CostExile,
+                    total: None,
                 };
                 self.awaiting_answer = true;
                 Ok(())
@@ -1484,6 +1486,7 @@ impl<L: CardLookup> Engine<L> {
                     min: 0,
                     max,
                     prompt: ChoicePrompt::Delve,
+                    total: None,
                 };
                 self.awaiting_answer = true;
                 Ok(())
@@ -1569,6 +1572,7 @@ impl<L: CardLookup> Engine<L> {
                     min: 1,
                     max: 1,
                     prompt: super::cost_wizard::prompt(part),
+                    total: None,
                 };
                 self.awaiting_answer = true;
                 Ok(())

@@ -2690,6 +2690,7 @@ fn crop_rotation_sacrifices_a_land_to_put_a_land_from_the_library_onto_the_battl
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -3570,6 +3571,7 @@ fn chord_of_calling_announces_x_and_chords_a_creature_of_that_mana_value_onto_th
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
@@ -20511,6 +20513,7 @@ fn keep_first(
         min,
         max,
         prompt,
+        ..
     } = pass_to_card_choice(engine)
     else {
         unreachable!("the helper returns only a card choice")
@@ -20691,6 +20694,7 @@ fn realms_search(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) 
         min,
         max,
         prompt,
+        ..
     } = pass_to_card_choice(engine)
     else {
         unreachable!("the helper returns only a card choice")
@@ -20753,6 +20757,7 @@ fn realms_uncharted_lets_the_opponent_bin_two_of_four_lands() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected the opponent's choice, got {:?}", engine.pending())
@@ -20900,6 +20905,7 @@ fn fact_or_fiction_revealed(seed: u64) -> (Engine<RegistryLookup>, Vec<ObjectId>
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("just checked")

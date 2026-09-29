@@ -48,6 +48,17 @@ pub enum EngineError {
     State(#[from] StateError),
 }
 
+impl From<crate::choice::AnswerFault> for EngineError {
+    /// An answer of the wrong kind is a mismatch, as it always was; every
+    /// other fault is an illegal answer, in the fault's words.
+    fn from(fault: crate::choice::AnswerFault) -> Self {
+        match fault {
+            crate::choice::AnswerFault::WrongKind => Self::MismatchedAction,
+            other => Self::IllegalAction(other.reason()),
+        }
+    }
+}
+
 /// Which combat declaration has already happened this step.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum CombatDeclared {
@@ -695,6 +706,7 @@ impl<L: CardLookup> Engine<L> {
                 player: PlayerId::new(0),
                 taken: 0,
                 next_is_free: preset.house_rules.free_mulligan_count() > 0,
+                can_take: true,
             },
             passes: 0,
             priority_holder: None,

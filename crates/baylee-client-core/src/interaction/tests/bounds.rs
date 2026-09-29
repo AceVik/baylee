@@ -27,6 +27,7 @@ fn the_maximum_is_enforced_and_toggling_off_frees_a_slot() {
         min: 1,
         max: 2,
         prompt: ChoicePrompt::Generic,
+        total: None,
     });
     assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
     assert_eq!(i.toggle(obj(2)), SelectionOutcome::Added);
@@ -43,6 +44,7 @@ fn a_minimum_blocks_confirmation_until_it_is_met() {
         min: 2,
         max: 2,
         prompt: ChoicePrompt::Generic,
+        total: None,
     });
     assert!(!i.can_confirm());
     i.toggle(obj(1));
@@ -111,6 +113,7 @@ fn a_question_that_takes_nothing_is_answered_with_nothing() {
                 min,
                 max: 2,
                 prompt: ChoicePrompt::SearchLibrary,
+                total: None,
             },
             me(),
         )

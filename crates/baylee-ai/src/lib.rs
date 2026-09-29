@@ -840,6 +840,7 @@ mod tests {
                     min: 0,
                     max: 1,
                     prompt,
+                    total: None,
                 },
             );
             let PlayerAction::ChooseObjects { objects } = action else {
@@ -860,6 +861,7 @@ mod tests {
                 min: 1,
                 max: 2,
                 prompt: ChoicePrompt::CostSacrifice,
+                total: None,
             },
         );
         let PlayerAction::ChooseObjects { objects } = action else {
@@ -921,6 +923,7 @@ mod tests {
                         min,
                         max: 1,
                         prompt,
+                        total: None,
                     },
                 );
                 assert_eq!(
@@ -961,6 +964,7 @@ mod tests {
                 min: 2,
                 max: 2,
                 prompt: ChoicePrompt::CostExile,
+                total: None,
             },
         );
         let PlayerAction::ChooseObjects { mut objects } = action else {
@@ -995,6 +999,7 @@ mod tests {
                 prompt: ChoicePrompt::OneOfType {
                     card_type: TypeSet::CREATURE,
                 },
+                total: None,
             },
         );
         assert_eq!(
@@ -1904,6 +1909,7 @@ mod tests {
                 blocker: obj(2),
                 attackers: vec![obj(1)],
             }],
+            bounds: Vec::new(),
         };
         let agent = HeuristicAgent::new(AIProfile::EXPERT);
         assert_eq!(
@@ -2059,6 +2065,7 @@ mod tests {
             player: v.seat,
             taken,
             next_is_free: taken == 0,
+            can_take: true,
         };
         assert_eq!(
             HeuristicAgent::new(AIProfile::SHARP).act(&v, &decision(0)),
@@ -2165,6 +2172,7 @@ mod tests {
                 blocker: obj(3),
                 attackers: vec![obj(1)],
             }],
+            bounds: Vec::new(),
         };
         for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
             assert_eq!(
@@ -2201,6 +2209,7 @@ mod tests {
                 blocker: obj(3),
                 attackers: vec![obj(1), obj(2)],
             }],
+            bounds: Vec::new(),
         };
         for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
             assert_eq!(
@@ -2333,6 +2342,7 @@ mod tests {
                     .map(|a| obj(a.0))
                     .collect(),
             }],
+            bounds: Vec::new(),
         };
         (v, pending)
     }
@@ -2467,6 +2477,7 @@ mod tests {
                 blocker: obj(3),
                 attackers: vec![obj(1), obj(2)],
             }],
+            bounds: Vec::new(),
         };
         for (name, profile) in PROFILES {
             assert_eq!(
@@ -2488,6 +2499,7 @@ mod tests {
             player: v.seat,
             taken: 0,
             next_is_free: true,
+            can_take: true,
         };
         let answer = |profile, view: &PlayerView, pending: &Pending| {
             HeuristicAgent::new(profile).act(view, pending)
@@ -3325,6 +3337,7 @@ mod tests {
                     attackers: vec![obj(1)],
                 })
                 .collect(),
+            bounds: Vec::new(),
         };
         (v, pending)
     }
@@ -3362,6 +3375,7 @@ mod tests {
                     attackers: vec![obj(1)],
                 })
                 .collect(),
+            bounds: Vec::new(),
         };
         (v, pending)
     }
@@ -3793,6 +3807,7 @@ mod tests {
             player: v.seat,
             taken: 0,
             next_is_free: false,
+            can_take: true,
         };
         for (name, profile) in PROFILES {
             if profile.mulligan_skill == 0 {
@@ -3823,6 +3838,7 @@ mod tests {
             player: v.seat,
             taken: 0,
             next_is_free: false,
+            can_take: true,
         };
         for (name, profile) in PROFILES {
             if profile.mulligan_skill == 0 {
@@ -3850,6 +3866,7 @@ mod tests {
             player: v.seat,
             taken: 0,
             next_is_free: false,
+            can_take: true,
         };
         for (name, profile) in PROFILES {
             if profile.mulligan_skill == 0 {
@@ -4040,6 +4057,7 @@ mod tests {
                     attackers: vec![obj(1)],
                 },
             ],
+            bounds: Vec::new(),
         };
         assert_eq!(
             HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
@@ -4072,6 +4090,7 @@ mod tests {
             min: 1,
             max: 4,
             prompt: ChoicePrompt::CostCrew { power },
+            total: None,
         };
         assert_eq!(
             agent().act(&v, &ask(3)),
@@ -4591,6 +4610,7 @@ mod tests {
                 blocker: obj(2),
                 attackers: vec![obj(1)],
             }],
+            bounds: Vec::new(),
         };
 
         assert_eq!(
@@ -4624,6 +4644,7 @@ mod tests {
                 blocker: obj(2),
                 attackers: vec![obj(1)],
             }],
+            bounds: Vec::new(),
         };
 
         assert_eq!(
@@ -5322,6 +5343,7 @@ mod tests {
             min: 0,
             max: 6,
             prompt,
+            total: None,
         };
 
         let PlayerAction::ChooseObjects { objects } = agent().act(&v, &pile(ChoicePrompt::Delve))
@@ -5382,6 +5404,7 @@ mod tests {
             min: 0,
             max: 1,
             prompt,
+            total: None,
         };
 
         let PlayerAction::ChooseObjects { objects } =

@@ -564,6 +564,7 @@ fn duel_searching(min: u8) -> crate::Duel {
                 min,
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             },
             PlayerId::new(0),
         )),

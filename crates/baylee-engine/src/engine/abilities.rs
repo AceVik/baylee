@@ -1853,12 +1853,27 @@ impl<L: CardLookup> Engine<L> {
                 target_players: chosen_players,
             });
             // One object per question, except crew's, whose one question
-            // is answered with any number of creatures (CR 702.122a) and
-            // refused by `apply` when their total power is short.
-            let max = if matches!(part, CostPart::Crew(_)) {
-                u8::try_from(options.len()).unwrap_or(u8::MAX)
+            // is answered with any number of creatures with total power N or
+            // greater (CR 702.122a). The total is stated with each
+            // creature's power beside it, so an answer short of it is
+            // refused for a reason the question gives, and the offer above
+            // (`can_afford`) asked the same sum of the same menu.
+            let (max, total) = if let CostPart::Crew(power) = part {
+                let weights = options
+                    .iter()
+                    .map(|id| cost_wizard::crew_power(&self.state, &[*id]))
+                    .collect();
+                (
+                    u8::try_from(options.len()).unwrap_or(u8::MAX),
+                    Some(crate::choice::CardTotal {
+                        of: crate::choice::Measure::Power,
+                        weights,
+                        at_least: Some(i32::from(*power)),
+                        at_most: None,
+                    }),
+                )
             } else {
-                1
+                (1, None)
             };
             self.pending = Pending::ChooseCards {
                 player,
@@ -1866,6 +1881,7 @@ impl<L: CardLookup> Engine<L> {
                 min: 1,
                 max,
                 prompt,
+                total,
             };
             self.awaiting_answer = true;
             return Ok(());

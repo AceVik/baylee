@@ -354,6 +354,7 @@ fn a_sheet_a_question_opened_cannot_be_dragged() {
         min: 1,
         max: 1,
         prompt: ChoicePrompt::SearchLibrary,
+        total: None,
     };
     let interaction = baylee_client_core::interaction::Interaction::new(asked, PlayerId::new(0));
     app.world_mut()

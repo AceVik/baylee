@@ -102,6 +102,7 @@ fn a_sheet_a_question_opened_is_centred_on_whatever_window_it_meets() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::SearchLibrary,
+            total: None,
         },
         me(),
     );

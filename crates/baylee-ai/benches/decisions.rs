@@ -127,6 +127,7 @@ fn token_army(c: &mut Criterion) {
                     attackers: attackers.clone(),
                 })
                 .collect(),
+            bounds: Vec::new(),
         };
         (view, pending)
     };

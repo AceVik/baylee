@@ -1532,6 +1532,7 @@ fn the_tower_eats_one_creature_and_the_shared_tap_closes_both_lines() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -8113,6 +8114,7 @@ fn bazaar_of_baghdad_draws_two_and_discards_three() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected discard choice, got {:?}", engine.pending())
@@ -8246,6 +8248,7 @@ fn desolate_lighthouse_loots_with_mana_and_tap() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected discard prompt, got {:?}", engine.pending())
@@ -8493,6 +8496,7 @@ fn scavenger_grounds_sacrifices_a_desert_to_exile_all_graveyards() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected sacrifice cost choice, got {:?}", engine.pending())
@@ -12386,6 +12390,7 @@ fn moorland_haunt_taps_for_colorless_and_exiles_a_creature_card_for_a_spirit() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -13349,6 +13354,7 @@ fn hostile_desert_exiles_a_land_from_the_graveyard_to_become_a_three_four_elemen
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -14009,6 +14015,7 @@ fn the_gold_saucer_eats_two_artifacts_for_a_card_and_taps_for_colorless() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -14056,6 +14063,7 @@ fn the_gold_saucer_eats_two_artifacts_for_a_card_and_taps_for_colorless() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -19807,6 +19815,7 @@ fn great_arashin_city_enters_by_its_own_condition_and_exiles_a_creature_card_for
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -20254,6 +20263,7 @@ fn ifnir_deadlands_eats_itself_for_two_minus_counters_on_the_opponents_creature(
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(
                     prompt,
@@ -20659,6 +20669,7 @@ fn mines_of_moria_enters_untapped_beside_a_legendary_creature_and_buys_two_treas
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat pays its own cost");
                 assert_eq!(
@@ -22593,6 +22604,7 @@ fn hashep_oasis_sacrifices_a_desert_for_three_three_on_the_creature_it_targets()
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(
                     prompt,
@@ -26796,6 +26808,7 @@ fn grove_of_the_guardian_taps_two_creatures_and_itself_for_an_eight_eight_elemen
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -26843,6 +26856,7 @@ fn grove_of_the_guardian_taps_two_creatures_and_itself_for_an_eight_eight_elemen
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the second tap cost asks again, got {:?}", engine.pending())
@@ -34637,6 +34651,7 @@ fn ancient_amphitheater_enters_untapped_by_revealing_giant() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -34713,6 +34728,7 @@ fn auntie_s_hovel_enters_untapped_by_revealing_goblin() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -34789,6 +34805,7 @@ fn choked_estuary_enters_untapped_by_revealing_island_or_swamp() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -34865,6 +34882,7 @@ fn flamekin_village_enters_untapped_by_revealing_elemental() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -34932,6 +34950,7 @@ fn foreboding_ruins_enters_untapped_by_revealing_swamp_or_mountain() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35008,6 +35027,7 @@ fn fortified_village_enters_untapped_by_revealing_forest_or_plains() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35084,6 +35104,7 @@ fn frostboil_snarl_enters_untapped_by_revealing_island_or_mountain() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35160,6 +35181,7 @@ fn furycalm_snarl_enters_untapped_by_revealing_mountain_or_plains() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35236,6 +35258,7 @@ fn game_trail_enters_untapped_by_revealing_mountain_or_forest() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35310,6 +35333,7 @@ fn gilt_leaf_palace_enters_untapped_by_revealing_elf() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35382,6 +35406,7 @@ fn murmuring_bosk_enters_untapped_by_revealing_treefolk() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35460,6 +35485,7 @@ fn necroblossom_snarl_enters_untapped_by_revealing_swamp_or_forest() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35536,6 +35562,7 @@ fn port_town_enters_untapped_by_revealing_plains_or_island() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35611,6 +35638,7 @@ fn rustic_clachan_enters_untapped_by_revealing_kithkin() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35678,6 +35706,7 @@ fn secluded_glen_enters_untapped_by_revealing_faerie() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35752,6 +35781,7 @@ fn shineshadow_snarl_enters_untapped_by_revealing_plains_or_swamp() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35828,6 +35858,7 @@ fn vineglimmer_snarl_enters_untapped_by_revealing_forest_or_island() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -35904,6 +35935,7 @@ fn wanderwine_hub_enters_untapped_by_revealing_merfolk() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected reveal prompt, got {:?}", engine.pending());
@@ -43764,6 +43796,7 @@ fn urza_s_cave_fetches_a_land_tapped_and_sacrifices_itself() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("pass_until stops on nothing but the search");
@@ -59168,6 +59201,7 @@ fn bountiful_landscape_fetches_tapped_basic_forest() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected search prompt, got {:?}", engine.pending());
@@ -59266,6 +59300,7 @@ fn contaminated_landscape_fetches_tapped_basic_island() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected search prompt, got {:?}", engine.pending());
@@ -59330,6 +59365,7 @@ fn deceptive_landscape_fetches_tapped_basic_forest() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected search prompt, got {:?}", engine.pending());
@@ -59448,6 +59484,7 @@ fn foreboding_landscape_fetches_tapped_basic_forest() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected search prompt, got {:?}", engine.pending());
@@ -59857,6 +59894,7 @@ fn perilous_landscape_fetches_tapped_basic_island() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected search prompt, got {:?}", engine.pending());
@@ -60084,6 +60122,7 @@ fn seething_landscape_fetches_tapped_basic_island() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected search prompt, got {:?}", engine.pending());
@@ -60148,6 +60187,7 @@ fn shattered_landscape_fetches_tapped_basic_plains() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected search prompt, got {:?}", engine.pending());
@@ -60212,6 +60252,7 @@ fn sheltering_landscape_fetches_tapped_basic_forest() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected search prompt, got {:?}", engine.pending());
@@ -60518,6 +60559,7 @@ fn tranquil_landscape_fetches_tapped_basic_forest() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected search prompt, got {:?}", engine.pending());
@@ -60582,6 +60624,7 @@ fn twisted_landscape_fetches_tapped_basic_forest() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected search prompt, got {:?}", engine.pending());

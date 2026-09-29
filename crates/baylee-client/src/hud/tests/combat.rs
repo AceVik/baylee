@@ -80,6 +80,7 @@ fn the_aim_line_says_nothing_about_a_card_choice() {
         min: 1,
         max: 1,
         prompt: baylee_engine::choice::ChoicePrompt::SearchLibrary,
+        total: None,
     };
     let interaction = baylee_client_core::Interaction::new(choice, PlayerId::new(0));
     assert!(interaction.focus_position().is_some(), "there is an aim");

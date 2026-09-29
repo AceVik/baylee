@@ -891,6 +891,7 @@ mod tests {
                         player: PlayerId::new(0),
                         blockers: vec![],
                         attacker: PlayerId::new(1),
+                        bounds: Vec::new(),
                     },
                     at(true, false, Phase::Combat, Step::DeclareBlockers),
                     &orders,
@@ -1056,6 +1057,7 @@ mod tests {
                     player: PlayerId::new(0),
                     blockers: vec![],
                     attacker: PlayerId::new(1),
+                    bounds: Vec::new(),
                 },
                 at(true, true, Phase::Combat, Step::DeclareBlockers),
                 &orders,
@@ -1253,6 +1255,7 @@ mod tests {
                     player: PlayerId::new(0),
                     blockers: vec![],
                     attacker: PlayerId::new(1),
+                    bounds: Vec::new(),
                 },
                 at(true, false, Phase::Combat, Step::DeclareBlockers),
                 &orders,
@@ -1272,6 +1275,7 @@ mod tests {
                     player: PlayerId::new(0),
                     blockers: vec![],
                     attacker: PlayerId::new(1),
+                    bounds: Vec::new(),
                 },
                 at(true, true, Phase::Combat, Step::DeclareBlockers),
                 &orders,
@@ -1609,6 +1613,7 @@ mod tests {
                 attackers: vec![baylee_core::ids::ObjectId::new(2, 0)],
             }],
             attacker: PlayerId::new(1),
+            bounds: Vec::new(),
         };
         assert_eq!(
             auto_answer(

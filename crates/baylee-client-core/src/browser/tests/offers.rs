@@ -17,6 +17,7 @@ fn a_library_search_is_shown_where_the_board_cannot_show_it() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::Generic,
+            total: None,
         },
         me(),
     );
@@ -67,6 +68,7 @@ fn every_offered_object_is_drawn_somewhere() {
             min: 1,
             max: 2,
             prompt: ChoicePrompt::Generic,
+            total: None,
         },
         Pending::LegendChoice {
             player: me(),
@@ -165,6 +167,7 @@ fn a_choice_for_another_seat_offers_nothing() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::Generic,
+            total: None,
         },
         me(),
     );

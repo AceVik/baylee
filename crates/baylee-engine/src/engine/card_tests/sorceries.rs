@@ -1177,6 +1177,7 @@ fn grim_tutor_finds_the_card_it_names_and_charges_three_life() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the caster searches their own library");
                 assert_eq!(
@@ -5776,6 +5777,7 @@ fn natures_lore_fetches_a_forest_onto_the_battlefield_untapped() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
@@ -6591,6 +6593,7 @@ fn time_of_need_searches_a_legendary_creature_out_of_the_library_into_hand() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
@@ -12015,6 +12018,7 @@ fn nyleas_intervention_fetches_up_to_x_lands_into_the_hand() {
         min,
         max,
         prompt,
+        ..
     } = pass_to_card_choice(&mut engine)
     else {
         unreachable!("the helper returns only a card choice")

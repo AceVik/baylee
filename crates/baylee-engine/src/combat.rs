@@ -410,7 +410,8 @@ pub fn can_block(
 /// only slower, since [`can_block`] asks the blocker's half again).
 ///
 /// `true` for an attacker without menace, so callers may ask it of every
-/// attacker without asking twice.
+/// attacker without asking twice. The count asked for is the one
+/// [`block_bound`] states, so the offer and the declaration read one number.
 #[must_use]
 pub fn menace_satisfiable(
     state: &GameState,
@@ -418,19 +419,42 @@ pub fn menace_satisfiable(
     attacker: ObjectId,
     candidates: &[ObjectId],
 ) -> bool {
-    let Some(a) = state.object(attacker) else {
+    if state.object(attacker).is_none() {
         return false;
-    };
-    if !a.characteristics().keywords.contains(K::MENACE) {
-        return true;
     }
+    let Some(bound) = block_bound(state, attacker) else {
+        return true;
+    };
+    let need = usize::try_from(bound.min_blockers).unwrap_or(usize::MAX);
     candidates
         .iter()
         .copied()
         .filter(|blocker| can_block(state, defending, *blocker, attacker))
-        .take(2)
+        .take(need)
         .count()
-        == 2
+        == need
+}
+
+/// How many creatures may block `attacker`, where a rule bounds it: the
+/// restriction on the whole declaration that CR 509.1b checks and no pair
+/// can answer. Menace is two or more (CR 702.111b); an attacker nobody
+/// blocks keeps it.
+///
+/// `None` for an attacker any number of creatures may block. The one
+/// reader of the rule: the offer states what this returns
+/// (`Pending::ChooseBlockers::bounds`), and `Engine::declare_blockers`
+/// holds a declaration to it.
+#[must_use]
+pub fn block_bound(state: &GameState, attacker: ObjectId) -> Option<crate::choice::AttackerBound> {
+    let a = state.object(attacker)?;
+    a.characteristics()
+        .keywords
+        .contains(K::MENACE)
+        .then_some(crate::choice::AttackerBound {
+            attacker,
+            min_blockers: 2,
+            max_blockers: u32::MAX,
+        })
 }
 
 /// Whether a creature deals its combat damage in the given step

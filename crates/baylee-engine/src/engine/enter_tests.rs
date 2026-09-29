@@ -877,6 +877,7 @@ fn a_reveal_land_that_is_shown_a_match_enters_untapped() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(

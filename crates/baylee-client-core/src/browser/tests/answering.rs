@@ -20,6 +20,7 @@ fn a_question_that_lives_in_one_zone_pins_the_tab_to_it() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::SearchLibrary,
+            total: None,
         },
         me(),
     );
@@ -49,6 +50,7 @@ fn a_question_that_lives_in_one_zone_pins_the_tab_to_it() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::Generic,
+            total: None,
         },
         me(),
     );
@@ -88,6 +90,7 @@ fn the_table_goes_dark_only_when_every_answer_is_in_the_sheet() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::SearchLibrary,
+            total: None,
         },
         me(),
     );
@@ -104,6 +107,7 @@ fn the_table_goes_dark_only_when_every_answer_is_in_the_sheet() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::Generic,
+            total: None,
         },
         me(),
     );
@@ -140,6 +144,7 @@ fn only_the_sheet_the_question_opened_draws_its_footer() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::SearchLibrary,
+            total: None,
         },
         me(),
     );
@@ -164,6 +169,7 @@ fn only_the_sheet_the_question_opened_draws_its_footer() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::Generic,
+            total: None,
         },
         me(),
     );
@@ -184,6 +190,7 @@ fn only_the_sheet_the_question_opened_draws_its_footer() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::Generic,
+            total: None,
         },
         me(),
     );
@@ -316,6 +323,7 @@ fn the_row_the_keyboard_stands_on_says_so() {
             min: 0,
             max: 2,
             prompt: baylee_engine::choice::ChoicePrompt::Generic,
+            total: None,
         },
         PlayerId::new(0),
     );

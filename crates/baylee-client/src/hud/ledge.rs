@@ -2513,6 +2513,7 @@ mod tests {
                     player: me,
                     taken: 0,
                     next_is_free: true,
+                    can_take: true,
                 },
                 PromptAction::Keep,
             ),

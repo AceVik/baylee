@@ -109,6 +109,7 @@ fn the_first_mulligan_is_free() {
         player,
         taken,
         next_is_free,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected a mulligan")
@@ -121,6 +122,7 @@ fn the_first_mulligan_is_free() {
         player,
         taken,
         next_is_free,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected the next mulligan decision")
@@ -496,13 +498,29 @@ fn a_table_that_keeps_is_dealt_what_it_was_dealt_in_seat_order() {
 /// A seat may take mulligans until its opening hand would be zero cards and
 /// no further (CR 103.5). One more left a bottom question asking for more
 /// cards than the hand holds, which no answer could satisfy.
+///
+/// The question states the ceiling (`Pending::Mulligan::can_take`), so a
+/// player learns from the question, not from a refusal, that only keeping
+/// is left.
 #[test]
 fn no_mulligan_is_taken_past_a_hand_of_zero() {
     let mut engine = open_table(2, 257);
+    let can_take = |engine: &Engine<RegistryLookup>| match engine.pending_for(seat(0)) {
+        Some(Pending::Mulligan { can_take, .. }) => *can_take,
+        other => panic!("expected seat 0's mulligan question, got {other:?}"),
+    };
     // The first is free, so the eighth take owes all seven cards.
     for _ in 0..8 {
+        assert!(can_take(&engine), "a take within the ceiling is offered");
         engine.apply(seat(0), PlayerAction::MulliganTake).unwrap();
     }
+    assert!(!can_take(&engine), "the ninth take is not offered");
+    assert_eq!(
+        engine
+            .pending_for(seat(0))
+            .and_then(|q| q.answer_fault(&PlayerAction::MulliganTake)),
+        Some(crate::choice::AnswerFault::NoFurtherMulligan)
+    );
     assert!(
         engine.apply(seat(0), PlayerAction::MulliganTake).is_err(),
         "a ninth mulligan was taken"
