@@ -96,6 +96,14 @@ pub enum Condition {
     /// that never sacrifices itself and so is strictly stronger than the one
     /// printed.
     ControlCountAtMost(&'static Filter, u8),
+    /// You control permanents matching the filter with at least N
+    /// **different names** among them — Field of the Dead's "if you
+    /// control seven or more lands with different names".
+    ///
+    /// A count of names, not of permanents: two Forests are one. A
+    /// permanent with no name (a face-down one, CR 708.2a) has no name to
+    /// differ by and adds nothing.
+    ControlDistinctNames(&'static Filter, u8),
     /// **An opponent** controls at least N permanents matching the filter
     /// (Tectonic Edge — "activate only if an opponent controls four or more
     /// lands").

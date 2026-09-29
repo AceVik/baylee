@@ -891,8 +891,9 @@ pub mod prelude {
     /// of every card file.
     pub use crate::counters;
     pub use crate::effect::{
-        Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, PlayerRel, ReflexiveEvent,
-        SearchDest, SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef, ZoneSel,
+        Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, ManaValueBound,
+        ManaValueCmp, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot,
+        TargetSpec, TokenDef, ZoneSel,
     };
     pub use crate::filter::{Filter, ZoneRef};
     pub use crate::static_ability::{

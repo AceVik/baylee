@@ -258,13 +258,19 @@ impl<L: CardLookup> Engine<L> {
                 agent,
                 finds,
                 reveal,
+                library,
             }) = res.awaiting
             && agent == player
-            && !self.state.has_left(res.controller)
+            && !self.state.has_left(library)
             && let Pending::ChooseCards { player: asked, .. } = &mut self.pending
         {
-            res.awaiting = Some(AwaitingOp::SearchLibrary { finds, reveal });
-            *asked = res.controller;
+            res.awaiting = Some(AwaitingOp::SearchLibrary {
+                finds,
+                reveal,
+                library,
+                receiver: library,
+            });
+            *asked = library;
             return;
         }
         // A resolution goes on without them, their own included: a spell

@@ -618,6 +618,26 @@ pub struct SecondInstance {
     pub req: Option<baylee_cards_dsl::TargetReq>,
 }
 
+/// What was paid to cast a spell or activate an ability, as far as an effect
+/// of it may ask (CR 601.2h, CR 602.2b).
+///
+/// Written by the payment — the cast wizard's `finish_cast` and an
+/// activation's `pay_cost` — after the object is on the stack, and given up
+/// by `GameState::move_object` at every zone change (CR 400.7). A permanent
+/// spell gives it up as it resolves as well: nothing on the battlefield
+/// reads it yet (adamant would be the first), and a record held there would
+/// be an allocation in every AI ply's clone.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct PaidRecord {
+    /// The mana value of the permanent sacrificed to pay the cost, as it
+    /// last existed on the battlefield (CR 608.2h) — "the sacrificed
+    /// creature's mana value". `None` when nothing was sacrificed.
+    pub sacrificed_mana_value: Option<u32>,
+    /// How much mana was spent on the cost (CR 601.2h) — "the amount of mana
+    /// spent to cast this spell" (Memory Deluge).
+    pub mana_spent: u32,
+}
+
 /// A game object.
 ///
 /// The independent flags (`kicked`, `alt_cast`, `cast_from_hand`,
@@ -735,6 +755,14 @@ pub struct GameObject {
     /// Source power frozen when it leaves the battlefield while this ability waits.
     /// Once frozen it survives a blink: the returning object is a new source.
     pub source_power_lki: Option<i16>,
+    /// What was paid to put this spell or ability on the stack, where an
+    /// effect reads it back ("the sacrificed creature's mana value", "the
+    /// amount of mana spent to cast this spell") — see [`PaidRecord`].
+    ///
+    /// Boxed for `second`'s reason: `None` on every object that is not a
+    /// paid-for spell or ability on the stack, and `GameState::clone`
+    /// copies every object in every AI ply.
+    pub paid: Option<Box<PaidRecord>>,
     /// The value of X chosen at cast time (spells).
     pub x_value: u32,
     /// Whether the kicker/additional cost was paid (spells).
@@ -883,6 +911,7 @@ impl GameObject {
             event_object: None,
             ability: None,
             source_power_lki: None,
+            paid: None,
             x_value: 0,
             kicked: false,
             alt_cast: false,

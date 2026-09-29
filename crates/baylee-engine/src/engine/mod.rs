@@ -1003,7 +1003,7 @@ mod storied;
 mod targeting;
 pub use decision::DecisionContext;
 mod actions;
-mod cast_wizard;
+pub(crate) mod cast_wizard;
 pub(crate) mod cost_wizard;
 mod leave;
 mod mulligan;

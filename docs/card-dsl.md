@@ -373,6 +373,12 @@ express at all yet.
   `PayLifeX` is bounded where it is asked instead — the wizard offers X up to
   the caster's life total (CR 119.4) and never up to a constant. A `PayLife(n)`
   written here is bounded by nothing and would be paid past zero.
+  `Sacrifice(filter)` here is "as an additional cost to cast this spell,
+  sacrifice a …" (Crop Rotation, Natural Order): the cast wizard's
+  `Sacrifice` stage asks which one with `ChoicePrompt::CostSacrifice`, the
+  spell is not castable while nothing can pay it, and the sacrificed
+  permanent's mana value is written on the spell for
+  `Amount::SacrificedManaValue`.
 - `cost!("{1}{G}", TapSelf, SacrificeSelf)` — a cost, read left to right the
   way the card prints it: the mana string first (omitted when there is none),
   then the parts. A part is named without its `CostPart::` prefix, which on a
@@ -656,6 +662,8 @@ ability there was.
 `Condition` is the shared vocabulary for "only while this is true" and is
 not activation-specific — it was called `ActivationCondition` after its one
 reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
+`ControlDistinctNames(&filter, n)` counts names rather than permanents
+(Field of the Dead's "seven or more lands with different names"),
 `OpponentGraveyardCountAtLeast(n)` is Sheoldred's flip,
 `CountersOnSelf(kind, n)` and `CountersOnSelfExactly(kind, n)` read the
 permanent the ability is printed on, `SourceMatches(&filter)` points a
@@ -1142,7 +1150,18 @@ card prints no "target", so CR 115.1 never applies. It is mandatory, because
 the printed sentence is: "you may return …" is the same effect wrapped in
 `MayDo`. `SacrificeFilter` and `DestroyChosenForPlayers` are its two
 siblings, identical but for where the permanent ends up.
-Zones: `SearchLibrary`, `OptionalBasicLandSearchFor`, `GraveyardToTop`,
+Zones: `SearchLibrary`, `SearchLibraryOf` (the search `SearchLibrary`
+cannot say: another player's library — `library: ControllerOfTarget` with
+`owner_searches: true` is "that player may search their library", `library:
+Chosen` with `owner_searches: false` is Bribery's "search target opponent's
+library … under your control" — or a `mana_value: Some(ManaValueBound { cmp,
+amount })` the resolution computes, such as `Amount::Plus { base:
+&Amount::SacrificedManaValue, offset: 2 }` for Eldritch Evolution; the
+library searched is the one shuffled), `Find::…with_counter(kind, n)` for a
+find that enters with counters (Neoform), `PutFromHandOntoBattlefield {
+filter, mana_value, optional }` (Aether Vial, with `Amount::CountersOnSource`
+as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
+`GraveyardToTop`,
 `GraveyardToHand`, `GraveyardToBattlefield`, `ExileGraveyard`, `Blink`,
 `ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
 `PutSourceOnTopOfLibrary`, `ExileAndReturnAtEndStep` (Venser +2, Eerie

@@ -245,8 +245,25 @@ pub enum Amount {
     /// ability whose amount comes off a permanent has nothing to read when
     /// the permanent is gone.
     SourcePower,
+    /// How many counters of a kind are on the ability's own source — Aether
+    /// Vial's "the number of charge counters on this artifact".
+    ///
+    /// Read off the source as it is when asked; a source that has left the
+    /// battlefield has shed its counters (CR 122.2) and counts zero, where
+    /// CR 608.2h would read the last one it had. No card in the pool loses
+    /// its source in between: Aether Vial taps itself and stays.
+    CountersOnSource(CounterKind),
     /// The mana value of the first target (Reanimate's life loss).
     TargetCmc,
+    /// "The sacrificed creature's mana value": the mana value, as it last
+    /// existed on the battlefield (CR 608.2h), of the permanent sacrificed
+    /// to pay the cost of the spell or ability that is resolving (Eldritch
+    /// Evolution, Neoform, Birthing Pod).
+    ///
+    /// Read off the stack object, which is where the payment wrote it down:
+    /// a spell's `Sacrifice` additional cost in the cast wizard, an
+    /// activation's in `pay_cost`. Nothing sacrificed reads 0.
+    SacrificedManaValue,
     /// Number of objects matching a filter in a zone.
     CountOf {
         /// What to count.
@@ -600,6 +617,29 @@ pub enum SpendRider {
     Scry(u8),
 }
 
+/// How a card's mana value is compared with a [`ManaValueBound`]'s amount.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ManaValueCmp {
+    /// "With mana value X or less."
+    AtMost,
+    /// "With mana value equal to …."
+    Exactly,
+}
+
+/// "A creature card with mana value equal to 1 plus the sacrificed
+/// creature's mana value": a bound whose number the resolution computes.
+///
+/// A `Filter` cannot carry it — a filter is asked with no resolution in
+/// hand, and the sacrificed creature is written on the stack object that is
+/// resolving, not on the source a filter can see.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct ManaValueBound {
+    /// How the card's mana value is compared.
+    pub cmp: ManaValueCmp,
+    /// What it is compared with.
+    pub amount: Amount,
+}
+
 /// Where a searched card goes.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum SearchDest {
@@ -622,6 +662,13 @@ pub struct Find {
     pub dest: SearchDest,
     /// Whether it enters tapped (battlefield only).
     pub tapped: bool,
+    /// A counter it enters with (battlefield only): Neoform's "put that card
+    /// onto the battlefield with an additional +1/+1 counter on it".
+    ///
+    /// Put on through `replacement::put_counters` once the card has arrived,
+    /// the door `GraveyardToBattlefield`'s counter takes, so a doubler has
+    /// its say (CR 614.16). Written with [`Find::with_counter`].
+    pub counter: Option<(CounterKind, u16)>,
 }
 
 impl Find {
@@ -629,22 +676,36 @@ impl Find {
     pub const HAND: Self = Self {
         dest: SearchDest::Hand,
         tapped: false,
+        counter: None,
     };
     /// Onto the battlefield, untapped (Nature's Lore, a fetchland).
     pub const BATTLEFIELD: Self = Self {
         dest: SearchDest::Battlefield,
         tapped: false,
+        counter: None,
     };
     /// Onto the battlefield tapped (Rampant Growth, Evolving Wilds).
     pub const BATTLEFIELD_TAPPED: Self = Self {
         dest: SearchDest::Battlefield,
         tapped: true,
+        counter: None,
     };
     /// On top of your library (a tutor that does not draw).
     pub const TOP_OF_LIBRARY: Self = Self {
         dest: SearchDest::TopOfLibrary,
         tapped: false,
+        counter: None,
     };
+
+    /// The same find, entering with `n` counters of `kind` on it — "with an
+    /// additional +1/+1 counter on it" (Neoform).
+    #[must_use]
+    pub const fn with_counter(self, kind: CounterKind, n: u16) -> Self {
+        Self {
+            counter: Some((kind, n)),
+            ..self
+        }
+    }
 }
 
 /// A single effect operation.
@@ -689,6 +750,23 @@ pub enum Effect {
     PutFromHandOnTop {
         /// How many.
         count: u8,
+    },
+    /// You put a card matching the filter from your hand onto the
+    /// battlefield, untapped and under your control — Aether Vial's "you may
+    /// put a creature card with mana value equal to the number of charge
+    /// counters on this artifact from your hand onto the battlefield", Uro's
+    /// "you may put a land card from your hand onto the battlefield".
+    ///
+    /// Not a cast and not a land play (CR 305.4): nothing is paid, and no
+    /// land drop is spent. `mana_value` is read as the effect begins, as
+    /// [`Effect::SearchLibraryOf`]'s is.
+    PutFromHandOntoBattlefield {
+        /// What may be put.
+        filter: &'static Filter,
+        /// A mana-value bound read at resolution, on top of `filter`.
+        mana_value: Option<ManaValueBound>,
+        /// "You may" — the chooser may put nothing.
+        optional: bool,
     },
     /// A player loses life.
     LoseLife {
@@ -1563,6 +1641,42 @@ pub enum Effect {
         /// Who may search.
         player: PlayerRel,
     },
+    /// A search [`Effect::SearchLibrary`] cannot say: somebody else's
+    /// library, somebody else doing the searching, or a mana-value bound
+    /// that only the resolution knows.
+    ///
+    /// A sibling rather than three more fields on `SearchLibrary`, which
+    /// thirty-odd card files and a reader write as a literal. Every search
+    /// that fits `SearchLibrary` keeps writing it.
+    ///
+    /// - Boseiju, Who Endures and Assassin's Trophy: "**that player** may
+    ///   search **their** library for …, put it onto the battlefield" —
+    ///   `library: ControllerOfTarget`, `owner_searches: true`, `optional`.
+    /// - Bribery: "search **target opponent's** library for a creature card
+    ///   and put that card onto the battlefield **under your control**. Then
+    ///   that player shuffles." — `library: Chosen`, `owner_searches: false`.
+    /// - Eldritch Evolution, Neoform, Birthing Pod: "a creature card with
+    ///   mana value X or less, where X is 2 plus the sacrificed creature's
+    ///   mana value" — `mana_value`, read as the search begins.
+    ///
+    /// Whoever searches, the library searched is the one shuffled
+    /// afterwards, and a find that goes to a hand goes to the searcher's.
+    SearchLibraryOf {
+        /// Whose library is searched.
+        library: PlayerRel,
+        /// Whether that library's owner searches it and gets what they find
+        /// (true), or you search it and what you find is yours to control
+        /// (false). With `library: You` the two are the same.
+        owner_searches: bool,
+        /// What to find.
+        filter: &'static Filter,
+        /// A mana-value bound read at resolution, on top of `filter`.
+        mana_value: Option<ManaValueBound>,
+        /// Where each found card goes, positionally, as for `SearchLibrary`.
+        finds: &'static [Find],
+        /// Whether fewer than `finds.len()` may be found ("up to", "may").
+        optional: bool,
+    },
     /// All objects matching a filter get computed P/T modifiers, and
     /// optionally keywords, until a duration ends (Toxic Deluge: `-X/-X`
     /// on all creatures; Overrun: `+3/+3` and trample on your team).
@@ -2090,6 +2204,7 @@ impl Effect {
             | Effect::Blink { .. }
             | Effect::LookAtTopPick { .. }
             | Effect::PutFromHandOnTop { .. }
+            | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }
             | Effect::DrawCards { .. }
             | Effect::DrawCardsFor { .. }
@@ -2178,6 +2293,7 @@ impl Effect {
             | Effect::CreateEmblem { .. }
             | Effect::BecomeMonarch(_)
             | Effect::OptionalBasicLandSearchFor { .. }
+            | Effect::SearchLibraryOf { .. }
             | Effect::PumpFilter { .. }
             | Effect::Regenerate { .. }
             | Effect::PumpTarget { .. } => (NONE, NONE),
@@ -2320,7 +2436,7 @@ mod amount_and_target_tests {
     /// a sign as a bug on its own: the card resolves, the creature changes
     /// size, and only the direction is wrong.
     ///
-    /// All twelve variants are named. That is a population rather than a
+    /// All fourteen variants are named. That is a population rather than a
     /// guard — the exhaustive `match` is what a new variant has to answer —
     /// but the answers themselves are what no compiler can check.
     #[test]
@@ -2336,7 +2452,9 @@ mod amount_and_target_tests {
             Amount::DistinctColorsAmong(&Filter::CREATURE),
             Amount::TargetPower,
             Amount::SourcePower,
+            Amount::CountersOnSource(CounterKind::Charge),
             Amount::TargetCmc,
+            Amount::SacrificedManaValue,
             Amount::CountOf {
                 filter: &Filter::CREATURE,
                 zone: ZoneSel::Battlefield,
@@ -2348,8 +2466,8 @@ mod amount_and_target_tests {
         ];
         assert_eq!(
             downwards.len() + upwards.len(),
-            13,
-            "thirteen values over twelve variants — `Negated` is in both \
+            15,
+            "fifteen values over fourteen variants — `Negated` is in both \
              lists, which is the parity rule being read from both sides"
         );
         for a in downwards {

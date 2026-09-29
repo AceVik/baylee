@@ -2,7 +2,8 @@
 //! Oracle: As an additional cost to cast this spell, sacrifice a green creature.
 //! Oracle: Search your library for a green creature card, put it onto the battlefield, then shuffle.
 //! Set: EMA #177 — Eternal Masters | Scryfall ID: bfe3329c-7faa-4925-b9d2-075a1ab27e80 | Oracle ID: 8c1fe337-375a-4add-93b6-0ac39ed72b4f
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — the green creature is sacrificed as the spell's additional
+// cost, and the search puts a green creature card onto the battlefield.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -15,7 +16,18 @@ card!(
         name = "Natural Order",
         mana_cost = mana!("{2}{G}{G}"),
         types = TypeSet::SORCERY,
+        mandatory_additional_costs = &[CostPart::Sacrifice(&Filter::And(&[
+            Filter::CREATURE,
+            Filter::HasColor(ColorSet::from_slice(&[Color::Green])),
+        ]))],
     ),],
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[Effect::SearchLibrary {
+        filter: &Filter::And(&[
+            Filter::CREATURE,
+            Filter::HasColor(ColorSet::from_slice(&[Color::Green])),
+        ]),
+        finds: &[Find::BATTLEFIELD],
+        optional: false,
+    }])],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

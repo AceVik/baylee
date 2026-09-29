@@ -49,6 +49,10 @@ pub(crate) enum WizardStage {
     /// The tap question of convoke (creatures) or of a paid waterbend
     /// (artifacts and creatures), {1} each.
     Convoke,
+    /// The additional cost's "sacrifice a creature" (CR 601.2h): which
+    /// permanent pays each `Sacrifice` part of
+    /// `FaceDef::mandatory_additional_costs`, one question per part.
+    Sacrifice,
     /// Ready to pay and cast.
     Done,
 }
@@ -81,6 +85,9 @@ pub(crate) struct CastWizard {
     pub delve_exiles: SmallVec<[ObjectId; 8]>,
     /// Permanents chosen to tap for convoke or a waterbend ({1} each).
     pub convoke_taps: SmallVec<[ObjectId; 8]>,
+    /// Permanents chosen to pay the additional cost's sacrifices, one per
+    /// asking part in the order the face prints them.
+    pub sacrifices: SmallVec<[ObjectId; 1]>,
     /// Current stage.
     pub stage: WizardStage,
     /// Options computed at start (kept for the Done stage).
@@ -121,10 +128,16 @@ pub(crate) const fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
 /// The cost parts [`Engine::finish_cast`] pays out of
 /// `FaceDef.mandatory_additional_costs`.
 ///
-/// The list with no gate at all: nothing runs `can_afford` over it, so unlike
-/// the alternative-cost list above it does not even refuse the choice costs —
-/// a `Sacrifice(_)` written here would be cast past rather than declined.
-/// Toxic Deluge's `PayLifeX` is the whole of the pool's use of it.
+/// Toxic Deluge's `PayLifeX`, and the "as an additional cost to cast this
+/// spell, sacrifice a creature" of Natural Order, Eldritch Evolution,
+/// Neoform and Crop Rotation. The sacrifice is the one part here that names
+/// an object, so it is the one that is *gated*: the `Sacrifice` stage asks
+/// which permanent pays it from `cost_wizard::options`, and
+/// `casting::can_cast_form` refuses the cast on a board where that list is
+/// empty — the same reader, so the offer and the question agree.
+///
+/// The rest of the list has no gate at all: nothing runs `can_afford` over
+/// it.
 ///
 /// Which is why the one bound this list has is on the *question* instead: the
 /// `XValue` stage caps X at the caster's life total (CR 119.4), because
@@ -132,7 +145,20 @@ pub(crate) const fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
 /// `PayLife(n)` written here has no such stage and would still be paid past
 /// zero — it belongs beside the X the day a card prints one.
 pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
-    matches!(part, CostPart::PayLifeX | CostPart::PayLife(_))
+    matches!(
+        part,
+        CostPart::PayLifeX | CostPart::PayLife(_) | CostPart::Sacrifice(_)
+    )
+}
+
+/// The parts of a spell's additional cost that ask which permanent pays
+/// them, in printed order: the questions the `Sacrifice` stage puts.
+pub(crate) fn additional_sacrifices(
+    face: &'static baylee_cards_dsl::FaceDef,
+) -> impl Iterator<Item = &'static CostPart> {
+    face.mandatory_additional_costs
+        .iter()
+        .filter(|p| matches!(p, CostPart::Sacrifice(_)))
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -156,6 +182,7 @@ impl<L: CardLookup> Engine<L> {
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
+            sacrifices: SmallVec::new(),
             stage: WizardStage::ChooseMode,
             options,
             free: false,
@@ -201,6 +228,7 @@ impl<L: CardLookup> Engine<L> {
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
+            sacrifices: SmallVec::new(),
             // A miracle cost is paid "rather than its mana cost" (CR 702.94a),
             // which makes it an alternative cost, and an alternative cost
             // with an {X} in it announces X like any other (CR 107.3a) —
@@ -245,6 +273,7 @@ impl<L: CardLookup> Engine<L> {
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
+            sacrifices: SmallVec::new(),
             // Straight past `XValue`, and deliberately: a spell cast paying
             // neither its mana cost nor an alternative cost with X in it has
             // exactly one legal X, which is 0 (CR 107.3b).
@@ -880,7 +909,7 @@ impl<L: CardLookup> Engine<L> {
                 };
                 if sources.is_empty() || room == 0 {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Done;
+                    wizard.stage = WizardStage::Sacrifice;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
@@ -897,6 +926,36 @@ impl<L: CardLookup> Engine<L> {
                     min: 0,
                     max,
                     reason: TargetPrompt::Convoke,
+                };
+                self.awaiting_answer = true;
+                Ok(())
+            }
+            WizardStage::Sacrifice => {
+                let face = self.wizard_face(&wizard);
+                let asked = wizard.sacrifices.len();
+                let Some(part) = additional_sacrifices(face).nth(asked) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Done;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                };
+                // The reader `casting::can_cast_form` refused an empty board
+                // with, less what an earlier part of this cost already named:
+                // nothing is paid until every question is answered
+                // (CR 601.2h), so one creature must not pay two sacrifices.
+                let mut options =
+                    super::cost_wizard::options(&self.state, wizard.player, wizard.card, part);
+                options.retain(|id| !wizard.sacrifices.contains(id));
+                if options.is_empty() {
+                    self.cast_wizard = None;
+                    return Err(EngineError::IllegalAction("nothing can pay this cost"));
+                }
+                self.pending = Pending::ChooseCards {
+                    player: wizard.player,
+                    options,
+                    min: 1,
+                    max: 1,
+                    prompt: super::cost_wizard::prompt(part),
                 };
                 self.awaiting_answer = true;
                 Ok(())
@@ -1100,6 +1159,8 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         // Mandatory additional cost parts (e.g. Toxic Deluge's pay X life).
+        let mut sacrificed = wizard.sacrifices.iter();
+        let mut sacrificed_mana_value = None;
         for part in face.mandatory_additional_costs {
             if !paid_as_a_mandatory_additional_cost(part) {
                 continue;
@@ -1112,6 +1173,26 @@ impl<L: CardLookup> Engine<L> {
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
                 }
+                // The answer the `Sacrifice` stage took for this part, through
+                // the door an activation's sacrifice goes through. Its mana
+                // value is read first, off the permanent as it last existed on
+                // the battlefield (CR 608.2h): "the sacrificed creature's
+                // mana value" is a question the spell asks as it resolves,
+                // when the card is already in a graveyard and a copy has
+                // stopped being one.
+                CostPart::Sacrifice(_) => {
+                    let Some(&chosen) = sacrificed.next() else {
+                        self.cast_wizard = None;
+                        return Err(EngineError::IllegalAction(
+                            "a sacrifice the cast never asked about",
+                        ));
+                    };
+                    sacrificed_mana_value = self
+                        .state
+                        .object(chosen)
+                        .map(|o| o.characteristics().mana_cost.cmc());
+                    super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                }
                 // Already skipped, by [`paid_as_a_mandatory_additional_cost`]
                 // above, and named for the reason the alternative-cost match
                 // names its own — with the sharper edge that no `can_afford`
@@ -1120,7 +1201,6 @@ impl<L: CardLookup> Engine<L> {
                 CostPart::TapSelf
                 | CostPart::UntapSelf
                 | CostPart::SacrificeSelf
-                | CostPart::Sacrifice(_)
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
                 | CostPart::ReturnToHand(_)
@@ -1236,6 +1316,23 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state
             .move_object(card, ZoneLocation::Stack, ZonePosition::Top, Cause::Spell)?;
+        // What was paid, written after the move for the reason the move
+        // gives it up: the spell on the stack is the object that reads it.
+        // A free cast spent no mana (CR 601.2h pays nothing it was not
+        // asked for), whatever its printed cost says.
+        let mana_spent = if !wizard.free || wizard.kicked {
+            total.cmc()
+        } else {
+            0
+        };
+        if (mana_spent > 0 || sacrificed_mana_value.is_some())
+            && let Some(obj) = self.state.object_mut(card)
+        {
+            obj.paid = Some(Box::new(crate::object::PaidRecord {
+                sacrificed_mana_value,
+                mana_spent,
+            }));
+        }
         if matches!(wizard.option, Some(CastModeKind::Prototype))
             && let Some(prototype) = face.prototype
             && let Some(obj) = self.state.object_mut(card)

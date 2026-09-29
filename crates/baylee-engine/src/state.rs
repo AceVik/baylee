@@ -1738,6 +1738,7 @@ impl GameState {
     ///
     /// # Panics
     /// Internal invariant violations (existence is checked above).
+    #[allow(clippy::too_many_lines)] // one reset per field CR 400.7 clears
     pub fn move_object(
         &mut self,
         id: ObjectId,
@@ -1814,6 +1815,10 @@ impl GameState {
             if matches!(from_zone, Zone::Battlefield | Zone::Exile) {
                 obj.counters = crate::object::Counters::default();
             }
+            // What was paid is the spell's and no later object's (a flashback
+            // is a new payment); nothing on the battlefield reads it yet, so
+            // a resolved permanent spell gives it up too (`PaidRecord`).
+            obj.paid = None;
             // The same rule for the other thing a copy replaced. Copiable
             // values are fixed while the copy exists (CR 707.2a) and the
             // new object has none of them: the card in the graveyard is
@@ -2632,6 +2637,10 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     // creature will survive are different situations.
     h.u8(obj.regeneration_shields);
     h.option_u32(obj.source_power_lki.map(|p| p as u32));
+    // What was paid is part of what the spell will do: Neoform after a
+    // two-drop and after a five-drop are two different futures.
+    h.option_u32(obj.paid.as_ref().and_then(|p| p.sacrificed_mana_value));
+    h.u32(obj.paid.as_ref().map_or(0, |p| p.mana_spent));
     h.option_u32(obj.attached_to.map(position));
     h.usize(obj.targets.len());
     for t in &obj.targets {
@@ -2836,6 +2845,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         original_base,
         ability,
         source_power_lki,
+        paid,
         x_value,
         kicked,
         alt_cast,
@@ -2913,6 +2923,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     second.hash(h);
     ability.hash(h);
     source_power_lki.hash(h);
+    paid.hash(h);
     x_value.hash(h);
     kicked.hash(h);
     alt_cast.hash(h);

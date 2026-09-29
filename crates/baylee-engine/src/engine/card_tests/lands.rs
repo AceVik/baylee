@@ -4443,13 +4443,17 @@ fn boseiju_who_endures() -> CardIndex {
 ///
 /// The menu the activation offers is the whole grammar of the sentence. The
 /// opponent's Sol Ring and their Badlands are on it; the basic Forest beside
-/// them is not, which is the one thing "nonbasic land" is worth; the Sol Ring
-/// under Boseiju's own controller is on it, because "an opponent controls"
-/// sits on the land and not on the artifact; and the nonbasic land this seat
-/// already has on the battlefield is *not* on it, because that clause does
-/// read the controller. The `Coverage::Partial` gaps — the per-legend cost
-/// reduction and the search the victim is granted — are deliberately left
-/// unasserted: nothing here may search anybody's library.
+/// them is not, which is the one thing "nonbasic land" is worth; and neither
+/// the Sol Ring nor the nonbasic land on this seat's own side is, because "an
+/// opponent controls" qualifies all three nouns. (It was read as sitting on
+/// the land alone until the search half was built, and this test asserted
+/// the seat's own Sol Ring onto the menu.)
+///
+/// Then the victim's half: "That player may search their library for a land
+/// card with a basic land type, put it onto the battlefield, then shuffle."
+/// The question goes to the Sol Ring's controller, over their own library,
+/// and the Forest they take enters untapped. The per-legend cost reduction
+/// is the `Coverage::Partial` gap and is left unasserted.
 #[test]
 #[allow(clippy::too_many_lines)] // both printed lines, and the second one's menu
 fn boseiju_taps_for_green_and_channels_itself_away_for_an_artifact_or_a_nonbasic_land() {
@@ -4528,9 +4532,9 @@ fn boseiju_taps_for_green_and_channels_itself_away_for_an_artifact_or_a_nonbasic
         "\"nonbasic land an opponent controls\": {options:?}"
     );
     assert!(
-        options.contains(&my_rock),
-        "the controller clause sits on the land, so an artifact of your own \
-         is a legal target too: {options:?}"
+        !options.contains(&my_rock),
+        "\"an opponent controls\" qualifies the artifact too, so this seat's \
+         own Sol Ring is no target: {options:?}"
     );
     assert!(
         !options.contains(&their_forest),
@@ -4545,8 +4549,8 @@ fn boseiju_taps_for_green_and_channels_itself_away_for_an_artifact_or_a_nonbasic
     );
     assert_eq!(
         options.len(),
-        3,
-        "the two artifacts and the Badlands are the whole menu: {options:?}"
+        2,
+        "their artifact and their Badlands are the whole menu: {options:?}"
     );
 
     engine
@@ -4557,7 +4561,48 @@ fn boseiju_taps_for_green_and_channels_itself_away_for_an_artifact_or_a_nonbasic
             },
         )
         .expect("the Sol Ring was one of the options");
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        ..
+    } = pass_to_card_choice(&mut engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, p1, "\"that player may search their library\"");
+    assert_eq!(min, 0, "may");
+    let theirs = engine.state().zones.list(ZoneLocation::Library(p1)).clone();
+    assert!(
+        !options.is_empty() && options.iter().all(|o| theirs.contains(o)),
+        "the search is of the victim's own library: {options:?}"
+    );
+    let found = options[0];
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![found],
+            },
+        )
+        .unwrap();
     pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&found)
+            && engine
+                .state()
+                .object(found)
+                .is_some_and(|o| o.controller == p1),
+        "the Forest they found is on the battlefield under their control"
+    );
+    assert!(
+        !is_tapped(&engine, found),
+        "\"put it onto the battlefield\", untapped"
+    );
 
     assert!(
         in_graveyard(&engine, p1, quiet_artifact()).is_some(),
@@ -29654,11 +29699,13 @@ fn field_of_ruin_destroys_opponent_nonbasic_land_and_omits_search() {
 
 /// Field of the Dead prints `This land enters tapped.`, `{{T}}: Add {{C}}.`, and `Whenever this land or another land you control enters, if you control seven or more lands with different names, create a 2/2 black Zombie creature token.`
 ///
-/// Under `Coverage::Partial`, the land enters tapped and taps for colorless mana, while the Zombie token trigger is omitted because the intervening-if counts distinct card names.
-/// When played as the seventh land with a distinct name alongside `forest()`, `plains()`, `island()`, `swamp()`, `mountain()`, and `badlands()`, it enters tapped and creates no token on the stack.
-/// On the following turn, it untaps and ability 0 produces one colorless mana.
+/// Played as the seventh land with a distinct name alongside `forest()`,
+/// `plains()`, `island()`, `swamp()`, `mountain()`, and `badlands()`, it
+/// enters tapped, and its own entry triggers: seven names, one Zombie. On the
+/// following turn, it untaps and ability 0 produces one colorless mana.
+/// (The trigger was off the card while no condition could count names.)
 #[test]
-fn field_of_the_dead_enters_tapped_omits_token_trigger_and_taps_for_colorless() {
+fn field_of_the_dead_enters_tapped_makes_a_zombie_as_the_seventh_name_and_taps_for_colorless() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
@@ -29684,11 +29731,15 @@ fn field_of_the_dead_enters_tapped_omits_token_trigger_and_taps_for_colorless() 
         "field of the dead enters tapped"
     );
 
-    // Under `Coverage::Partial`, no Zombie token trigger is placed on the stack.
-    assert!(stack_is_empty(&engine), "no trigger on the stack");
     assert!(
-        tokens_of(&engine, p0).is_empty(),
-        "no zombie tokens created"
+        !stack_is_empty(&engine),
+        "\"whenever this land … enters\": its own entry triggers"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        1,
+        "seven lands, seven names: one 2/2 Zombie"
     );
 
     // Untap on the next turn to activate the mana ability.
@@ -29702,6 +29753,32 @@ fn field_of_the_dead_enters_tapped_omits_token_trigger_and_taps_for_colorless() 
     assert_eq!(pool.available(ManaColor::Colorless), 1);
     assert_eq!(pool.total(), 1);
     assert!(is_tapped(&engine, land));
+}
+
+/// The intervening-if counts *names*, not lands: seven lands where two are
+/// Forests are six names, and Field of the Dead's entry makes nothing. The
+/// board differs from the test above by one Badlands turned into a second
+/// Forest, so the land count is the same and only the names moved.
+#[test]
+fn field_of_the_dead_makes_nothing_while_two_lands_share_a_name() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), plains(), island(), swamp(), mountain(), forest()],
+        )
+        .hand(0, &[field_of_the_dead()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    play_land(&mut engine, p0, field_of_the_dead());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(lands_of(&engine, p0).len(), 7);
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "seven lands but six names: no Zombie"
+    );
 }
 
 /// Fomori Vault prints `{{T}}: Add {{C}}.` and `{{3}}, {{T}}, Discard a card: Look at the top X cards of your library, where X is the number of artifacts you control. Put one of those cards into your hand and the rest on the bottom of your library in a random order.`

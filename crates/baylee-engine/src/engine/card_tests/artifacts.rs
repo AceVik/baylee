@@ -2939,14 +2939,15 @@ fn aether_vial() -> CardIndex {
 
 /// `Aether Vial` prints `At the beginning of your upkeep, you may put a charge counter on this artifact.` and `{{T}}: You may put a creature card with mana value equal to the number of charge counters on this artifact from your hand onto the battlefield.`
 ///
-/// Marked `Coverage::Partial`, its upkeep trigger uses `Trigger::StepBegin` with `StepKind::Upkeep` to prompt via `Pending::YesNo` for `Effect::MayDo`, placing a `CounterKind::Charge`.
-/// The unmodelled `{{T}}` creature put ability is excluded from `legal.abilities` even while `Aether Vial` stands untapped.
+/// The upkeep trigger uses `Trigger::StepBegin` with `StepKind::Upkeep` to prompt via `Pending::YesNo` for `Effect::MayDo`, placing a `CounterKind::Charge`.
+/// With one counter, the `{{T}}` ability puts the mana value 1 Elves from hand onto the battlefield and leaves the mana value 2 Spider where it is.
 #[test]
-fn aether_vial_adds_charge_counter_at_upkeep_and_omits_creature_ability() {
+fn aether_vial_adds_charge_counter_at_upkeep_and_puts_a_matching_creature_into_play() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[aether_vial()])
+        .hand(0, &[llanowar_elves(), canopy_spider()])
         .start();
     keep_mulligans(&mut engine);
 
@@ -2990,13 +2991,39 @@ fn aether_vial_adds_charge_counter_at_upkeep_and_omits_creature_ability() {
     assert_eq!(counters_on(&engine, vial, CounterKind::Charge), 1);
     assert!(!is_tapped(&engine, vial));
 
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending());
+    // One charge counter: the Elves (mana value 1) may come in, the Spider
+    // (2) may not, and nothing is paid for either.
+    let elves = in_hand(&engine, p0, llanowar_elves()).expect("the Elves wait in hand");
+    activate(&mut engine, p0, aether_vial(), 1);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = pass_to_card_choice(&mut engine)
+    else {
+        unreachable!("the helper returns only a card choice")
     };
-    assert!(
-        !legal.abilities.iter().any(|(src, _)| *src == vial),
-        "under `Coverage::Partial` the unmodelled {{T}} ability is omitted from `legal.abilities`"
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1), "\"you may put a creature card\"");
+    assert_eq!(
+        options,
+        vec![elves],
+        "mana value equal to one counter: not the Spider, not the land"
     );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+    assert!(in_hand(&engine, p0, canopy_spider()).is_some());
+    assert!(is_tapped(&engine, vial));
 }
 
 fn conduit_of_worlds() -> CardIndex {
@@ -16694,4 +16721,63 @@ fn inspirit_combat_trigger_needs_a_charge_counter_and_outlives_it() {
         Some(2),
         "the trigger resolved although the Vessel lost its counter"
     );
+}
+
+/// Birthing Pod — {3}{G/P} artifact: "{1}{G/P}, {T}, Sacrifice a creature:
+/// Search your library for a creature card with mana value equal to 1 plus
+/// the sacrificed creature's mana value, put that card onto the battlefield,
+/// then shuffle. Activate only as a sorcery."
+///
+/// The sacrificed creature's mana value is written on the ability as the
+/// cost is paid, and read back when it resolves — by then the creature is a
+/// card in the graveyard, which is why it cannot be asked then. Ornithopter
+/// (0) is paid, and the library of Llanowar Elves (1) is offered whole.
+#[test]
+fn birthing_pod_finds_a_creature_one_mana_value_above_the_sacrifice() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, llanowar_elves())
+        .battlefield(0, &[forest(), forest(), birthing_pod(), ornithopter()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let thopter = on_battlefield(&engine, p0, ornithopter()).unwrap();
+    let library_before = library_size(&engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, birthing_pod(), 0);
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!("the cost asks which creature, got {:?}", engine.pending())
+    };
+    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert_eq!(options, vec![thopter]);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![thopter],
+            },
+        )
+        .unwrap();
+    assert!(in_graveyard(&engine, p0, ornithopter()).is_some());
+
+    let Pending::ChooseCards { options, .. } = pass_to_card_choice(&mut engine) else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(options.len(), library_before, "0 + 1 is every Elves");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+    assert_eq!(library_size(&engine, p0), library_before - 1);
+    let pod = on_battlefield(&engine, p0, birthing_pod()).unwrap();
+    assert!(is_tapped(&engine, pod));
 }

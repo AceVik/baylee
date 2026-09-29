@@ -50,7 +50,13 @@ const CACHE_BUDGET: usize = 32;
 /// ability list is (`GameObject::own_face`), which a client needs to draw a
 /// copy's sentence and which the list's address cannot supply. Packed into a
 /// `NonZeroU32` so its `Option` is four bytes: the plain pair measured 296.
-const OBJECT_BUDGET: usize = 288;
+///
+/// Raised 288 → 296 on 2026-09-29 by what was paid for a spell or ability
+/// (`GameObject::paid`: the sacrificed creature's mana value, the mana
+/// spent), which an effect reads back after the paid-for object has left
+/// the battlefield. One `Option<Box<PaidRecord>>`, null on every object
+/// that is not a paid-for spell or ability on the stack.
+const OBJECT_BUDGET: usize = 296;
 
 #[test]
 fn game_object_stays_within_its_budget() {

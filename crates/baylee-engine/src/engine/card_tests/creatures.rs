@@ -88773,3 +88773,82 @@ fn a_countered_ghastly_mimicry_is_exiled_too() {
         "it was exiled instead"
     );
 }
+
+/// Imperial Recruiter — {2}{R} creature: "When this creature enters, search
+/// your library for a creature card with power 2 or less, reveal it, put it
+/// into your hand, then shuffle."
+///
+/// A library of Land Leeches (power 2) offers every card, and the find goes
+/// to the hand while the battlefield stays as it was.
+#[test]
+fn imperial_recruiter_finds_a_creature_with_power_two_or_less_for_the_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, land_leeches())
+        .battlefield(0, &[mountain(), mountain(), mountain()])
+        .hand(0, &[imperial_recruiter()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let library_before = library_size(&engine, p0);
+
+    cast_from_hand(&mut engine, p0, imperial_recruiter());
+    let Pending::ChooseCards {
+        player,
+        options,
+        prompt,
+        ..
+    } = pass_to_card_choice(&mut engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert_eq!(options.len(), library_before, "every Leeches has power 2");
+    let found = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![found],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&found),
+        "\"put it into your hand\""
+    );
+    assert!(on_battlefield(&engine, p0, land_leeches()).is_none());
+    assert_eq!(library_size(&engine, p0), library_before - 1);
+}
+
+/// The other half of the bound: over a library of Goliath Beetles (power 3)
+/// the Recruiter's search has nothing to offer, asks nothing, and every card
+/// stays where it was.
+#[test]
+fn imperial_recruiter_finds_nothing_among_creatures_of_power_three() {
+    let p0 = PlayerId::new(0);
+    let goliath_beetle = card_index("86ab4400-fbdd-4c18-a893-441286a9d7d0");
+    let mut engine = Duel::new(SEED, goliath_beetle)
+        .battlefield(0, &[mountain(), mountain(), mountain()])
+        .hand(0, &[imperial_recruiter()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    cast_from_hand(&mut engine, p0, imperial_recruiter());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, imperial_recruiter()).is_some());
+    assert_eq!(library_size(&engine, p0), library_before);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before - 1,
+        "the Recruiter left the hand and nothing came to it"
+    );
+}

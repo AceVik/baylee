@@ -1696,3 +1696,27 @@ custom-counter registry and disappears when its card leaves exile. Tests cover
 three seats, teams, phasing, real Mind Twist/Dark Ritual/Toxic Deluge resolutions,
 and a destroy-all followed by milling in one resolution. Dauthi stays explicitly
 partial: its activated permission to play an exiled card remains unimplemented.
+
+## 29.09.2026 — library group: sacrifices as spell costs, searches of other libraries
+
+A spell's "as an additional cost, sacrifice a ..." is `mandatory_additional_costs =
+&[CostPart::Sacrifice(filter)]`; the cast wizard asks it (`CostSacrifice`), and
+what was sacrificed is readable as `Amount::SacrificedManaValue` at resolution,
+because the creature is a graveyard card by then. Tests must answer the sacrifice
+question outside any `if let`: Crop Rotation once passed over a cost nothing paid.
+
+`SearchLibrary` stays the search for your own library with a static filter.
+"That player may search their library" (Assassin's Trophy, Boseiju) and "search
+target opponent's library" (Bribery) are `SearchLibraryOf`, and the library
+searched is the one shuffled — Path to Exile shuffled its caster's library until
+this round. A derived bound ("mana value X or less, where X is 2 plus ...") is a
+`ManaValueBound`, never a `Filter`, which has no resolution to read it from.
+
+Check a helper's oracle id against the card file before trusting a test built on
+it: `canopy_spider()` first pointed at Bay Falcon, and Natural Order's green
+filter was what caught it. A library of one printing per test, cast twice with
+two different sacrifices, is how a bound is shown to bound.
+
+A new battlefield walk goes through `GameState::battlefield_seen` (phasing), and
+a card spelling the five basic land types must print them or print "with a basic
+land type"; both are convention tests that fire on a first try.
