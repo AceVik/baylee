@@ -2040,6 +2040,72 @@ impl<L: CardLookup> Engine<L> {
         objects + players >= req.min as usize
     }
 
+    /// Resolves every queued triggered mana ability at once, off the stack
+    /// (CR 605.4a): Badgermole Cub's "whenever you tap a creature for mana,
+    /// add an additional {G}" puts its {G} in the pool before the player who
+    /// tapped acts again, and before any ordinary trigger of the same batch
+    /// is asked about. Returns `true` when one suspended on a choice.
+    ///
+    /// Which triggers are mana abilities is `AbilityDef::is_triggered_mana_ability`'s
+    /// answer (CR 605.1b); every other trigger stays in the queue, in its order.
+    fn resolve_triggered_mana_abilities(&mut self) -> bool {
+        let mut i = 0;
+        while i < self.trigger_queue.len() {
+            let t = &self.trigger_queue[i];
+            let effects = if t.ability_index == baylee_core::ids::AbilityRef::SYNTHETIC {
+                None
+            } else {
+                match self.trigger_abilities(t).get(t.ability_index as usize) {
+                    Some(ability @ AbilityDef::Triggered { effects, .. })
+                        if ability.is_triggered_mana_ability() =>
+                    {
+                        Some(*effects)
+                    }
+                    _ => None,
+                }
+            };
+            let Some(effects) = effects else {
+                i += 1;
+                continue;
+            };
+            let Some(t) = self.trigger_queue.remove(i) else {
+                break;
+            };
+            // CR 800.4d, as for every trigger.
+            if self.state.has_left(t.controller) {
+                continue;
+            }
+            let mut res = crate::resolve::Resolution {
+                source: t.source,
+                on_stack: t.source,
+                controller: t.controller,
+                effects: crate::resolve::flatten(effects),
+                pc: 0,
+                targets: SmallVec::new(),
+                second_targets: SmallVec::new(),
+                x: None,
+                chosen_player: None,
+                target_players: baylee_core::ids::SeatSet::new(),
+                event_object: t.event_object,
+                targeted: false,
+                awaiting: None,
+                mana_ability: true,
+                countered_source: None,
+                target_lki: None,
+            };
+            match crate::resolve::run(&mut self.state, &mut res) {
+                crate::resolve::Flow::Complete => {}
+                crate::resolve::Flow::Wait(pending) => {
+                    self.resolution = Some(res);
+                    self.pending = pending;
+                    self.awaiting_answer = true;
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// Remember event-time abilities before a state-based action removes them.
     fn queue_new_triggers(&mut self) {
         if self.breaking_loop {
@@ -2077,6 +2143,22 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state.ceased.clear();
         self.state.ltb_mana_values.clear();
+        // A watch whose object has left the battlefield is spent, whether
+        // the scan just fired it or the object left some other way: the
+        // object it watched no longer exists (CR 400.7, 603.7b). Here and
+        // not in the scan, which reads the state and writes nothing.
+        let delayed = std::mem::take(&mut self.state.delayed);
+        self.state.delayed = delayed
+            .into_iter()
+            .filter(|d| match d.when {
+                crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. } => {
+                    self.state.object(card).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield && o.version == version
+                    })
+                }
+                _ => true,
+            })
+            .collect();
         self.trigger_queue.extend(found);
         let active = self.state.turn.active.get();
         let seats = self.state.players.len() as u8;
@@ -2099,6 +2181,9 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         self.queue_new_triggers();
+        if self.resolve_triggered_mana_abilities() {
+            return;
+        }
         while let Some(t) = self.trigger_queue.front().cloned() {
             // A triggered ability controlled by a player who has left the
             // game isn't put on the stack (CR 800.4d). Every queued trigger
@@ -3964,7 +4049,41 @@ impl<L: CardLookup> Engine<L> {
                 self.demand_echo(cost, card)
             }
             crate::state::DelayedAction::PayCostOrLose { cost } => self.demand_pact(cost),
+            // A delayed triggered ability that uses the stack, come due at a
+            // step: it joins the trigger queue and is put on the stack from
+            // there, as any trigger is. Earthbend's watch is read off the
+            // journal (`trigger::watch_triggers`) and never reaches this
+            // queue; no step-timed one exists yet.
+            crate::state::DelayedAction::Trigger { source, effects } => {
+                self.queue_delayed_trigger(controller, source, effects);
+                false
+            }
         }
+    }
+
+    /// A delayed triggered ability come due at a step joins the trigger
+    /// queue, and is put on the stack from there (CR 603.7).
+    fn queue_delayed_trigger(
+        &mut self,
+        controller: PlayerId,
+        source: ObjectId,
+        effects: &'static [baylee_cards_dsl::Effect],
+    ) {
+        self.trigger_queue
+            .push_back(crate::trigger::PendingTrigger {
+                event_mana_value: None,
+                source,
+                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                abilities: None,
+                controller,
+                timestamp: self.state.object(source).map_or(0, |o| o.timestamp),
+                event_object: None,
+                implicit_target: None,
+                synthetic_effects: Some(effects),
+                once_per_turn: false,
+                synthetic_target: None,
+                chosen_mode: None,
+            });
     }
 
     /// Echo come due (CR 702.30a): "sacrifice it unless you pay [cost]",

@@ -862,7 +862,16 @@ land under a Doubling Season enters with four charge counters.
 `SpellCast(filter)`, `Draws(rel)`, `DrawsExceptFirst(rel)`,
 `FirstNoncreatureSpellCast(rel)`, `Attacks(filter)`, `BecomesTarget`,
 `EntersBattlefieldEvoked`, `StepBegin { step, whose }`,
-`CountersReach { kind, n }`, `PlaysLand(rel)`.
+`CountersReach { kind, n }`, `PlaysLand(rel)`, `TappedForMana(filter)`.
+
+`TappedForMana(filter)` is "whenever you tap [a permanent] for mana"
+(Badgermole Cub): its controller activated a mana ability of a permanent
+matching `filter` with {T} in the cost (CR 106.12), and it resolved and made
+mana (CR 106.12a) — once per activation, however many colours. Written with
+no target and effects that add mana, the ability is itself a mana ability
+(CR 605.1b, `AbilityDef::is_triggered_mana_ability`) and resolves as it
+triggers, off the stack (CR 605.4a): write it as a plain `triggered!`, with
+no flag. One that targets (Forbidden Orchard's) is an ordinary trigger.
 
 `PlaysLand(rel)` is "whenever [a player] plays a land" (Fastbond): the
 special action (CR 116.2a, 305.1), out of the hand or from wherever a
@@ -1227,7 +1236,13 @@ as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
 `GraveyardToHand`, `GraveyardToBattlefield`, `YourGraveyardToBattlefield {
 filter, tapped }` (every matching card in your graveyard, untargeted: World
 Shaper's and Lumra's "return all land cards from your graveyard to the
-battlefield tapped"), `ExileGraveyard`, `Blink`,
+battlefield tapped"), `Earthbend(n)` (CR 701.66a, on the ability's first
+target, `TargetReq::one(TargetSpec::Object(&Filter::YOUR_LAND))`: the land
+becomes a 0/0 land creature with haste, gets `n` +1/+1 counters, and a
+delayed trigger returns it tapped under your control when it dies or is
+exiled — Badgermole Cub, Ba Sing Se; never spell the three continuous
+effects out), `ReturnToBattlefieldTapped { target }` (that delayed trigger's
+own effect, on the `EventObject`; no card writes it), `ExileGraveyard`, `Blink`,
 `ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
 `PutSourceOnTopOfLibrary`, `ExileAndReturnAtEndStep` (Venser +2, Eerie
 Interlude), `BottomCardFromHand`, `WishToHand` (Karn's −2: a card you own

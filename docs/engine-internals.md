@@ -190,6 +190,38 @@ most once per event, CR 614.5), applied, journaled; matching triggers are
 collected and stacked APNAP (per-player ordering via ChoiceRequest).
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
 
+### A delayed trigger that watches an object (CR 603.7)
+Earthbend (CR 701.66a) leaves "when that land dies or is put into exile,
+return it to the battlefield tapped under your control" behind. It is a
+`DelayedTrigger` like the step-timed ones, with `DelayedWhen::DiesOrIsExiled
+{ card, version, after }` and `DelayedAction::Trigger { source, effects }`,
+but it is never polled at a step: `trigger::watch_triggers` reads it off the
+journal with the other triggers, and fires it on the first time that object
+leaves the battlefield after sequence `after` (CR 603.7a, 603.7b), if that
+was to a graveyard or into exile. It goes on the stack as a synthetic trigger
+whose event object is the card and whose source and controller are the
+earthbending ability's (CR 603.7e). `queue_new_triggers` then removes every
+watch whose object is no longer on the battlefield at `version`, fired or
+not: a land bounced to hand is a new object (CR 400.7). The animation binds
+the object by version, so the land that returns is a plain land. The return
+checks only that the card is in a graveyard or in exile (CR 603.7c); a card
+moved from the graveyard into exile in response would come back from exile,
+because a synthetic trigger carries no version.
+
+### A triggered mana ability resolves as it triggers (CR 605.4a)
+"Whenever you tap a creature for mana, add an additional {G}" is a mana
+ability (CR 605.1b: no target, triggers from a mana ability, could add mana;
+`AbilityDef::is_triggered_mana_ability`). `Trigger::TappedForMana` matches a
+`ManaProduced` whose nearest earlier journal entry about the same object is
+its `ObjectTapped` under `Cause::Cost` — the pair every {T} mana ability
+writes (CR 106.12, 106.12a) — so the second colour of one activation and a
+tap to attack both miss. `collect_triggers` resolves every queued triggered
+mana ability first, through `resolve::run` with `mana_ability: true`, before
+any ordinary trigger is asked about: the mana is in the pool when the player
+who tapped next has priority, and nothing went on the stack. One that asked
+a question would suspend like a colour-choice mana ability; none in the pool
+does.
+
 ### An upkeep payment is asked after the upkeep's priority (CR 503.1a)
 Echo and a pact's "at the beginning of your next upkeep, pay …; if you
 don't, you lose the game" are delayed actions, not stack objects, and they

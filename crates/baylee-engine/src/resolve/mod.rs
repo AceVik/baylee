@@ -175,6 +175,22 @@ pub(crate) fn this_to_affect(state: &GameState, res: &Resolution) -> Option<Obje
     this_object(res).filter(|&id| state.object(id).is_some())
 }
 
+/// What earthbend makes of its land (CR 701.66a): "a 0/0 land creature
+/// with haste in addition to its other types". Three modifiers in three
+/// layers (4, 7b and 6), one effect each, sharing one timestamp.
+static EARTHBEND_ANIMATION: [baylee_cards_dsl::Modifier; 3] = [
+    baylee_cards_dsl::Modifier::AddType(baylee_core::types::TypeSet::CREATURE),
+    baylee_cards_dsl::Modifier::SetPT(0, 0),
+    baylee_cards_dsl::Modifier::AddKeyword(baylee_cards_dsl::KeywordSet::HASTE),
+];
+
+/// Earthbend's delayed trigger (CR 701.66a): "return it to the battlefield
+/// tapped under your control", "it" being the land that just died or was
+/// exiled.
+static EARTHBEND_RETURN: &[Effect] = &[Effect::ReturnToBattlefieldTapped {
+    target: TargetSpec::EventObject,
+}];
+
 /// The one destination Path to Exile's basic-land search uses.
 static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
     &[baylee_cards_dsl::effect::Find::BATTLEFIELD_TAPPED];
@@ -2129,6 +2145,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::UntapChosen { .. }
         | Effect::AllGraveyardCreaturesToBattlefield
         | Effect::YourGraveyardToBattlefield { .. }
+        | Effect::ReturnToBattlefieldTapped { .. }
         | Effect::TransformSource
         | Effect::TransformSourceAtNextUpkeep
         | Effect::ExileSelfReturnAsFace { .. }
@@ -2390,6 +2407,56 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     duration,
                     filter,
                     modifier,
+                });
+            }
+            None
+        }
+        Effect::Earthbend(n) => {
+            // CR 701.66a, in the order the rule says it. The land is the
+            // first target, still on the battlefield — a target that became
+            // illegal left the list at CR 608.2b.
+            let land = res.targets.first().copied().filter(|t| {
+                state
+                    .object(*t)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            })?;
+            let timestamp = state.next_timestamp();
+            for modifier in EARTHBEND_ANIMATION {
+                // Bound to the object, version and all: the land that comes
+                // back is a new object and none of this applies to it
+                // (CR 400.7), so it returns a land and not a 0/0 that dies
+                // again.
+                let filter = crate::effects::EffectFilter::object(state, land);
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(res.source),
+                    controller: you,
+                    origin: crate::effects::EffectOrigin::Resolution,
+                    layer: modifier.layer(),
+                    timestamp,
+                    duration: baylee_cards_dsl::Duration::Indefinitely,
+                    filter,
+                    modifier,
+                });
+            }
+            crate::replacement::put_counters(state, land, baylee_cards_dsl::CounterKind::P1P1, n);
+            // The delayed trigger, controlled by whoever controlled this
+            // ability and sourced where it is (CR 603.7d, 603.7e). Created
+            // after the counters, so nothing that happened before it can
+            // set it off (CR 603.7a).
+            if let Some(version) = state.object(land).map(|o| o.version) {
+                let after = state.journal.last_seq();
+                state.delayed.push(crate::state::DelayedTrigger {
+                    controller: you,
+                    when: crate::state::DelayedWhen::DiesOrIsExiled {
+                        card: land,
+                        version,
+                        after,
+                    },
+                    action: crate::state::DelayedAction::Trigger {
+                        source: res.source,
+                        effects: EARTHBEND_RETURN,
+                    },
                 });
             }
             None

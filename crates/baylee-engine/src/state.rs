@@ -187,6 +187,26 @@ pub enum DelayedWhen {
     NextEndStep,
     /// At the controller's next cleanup.
     NextCleanup,
+    /// "When that land dies or is put into exile" (earthbend, CR 701.66a):
+    /// the next time `card`, as the object it was at `version`, goes from
+    /// the battlefield to a graveyard or into exile. Asked of journal
+    /// entries after `after` only, because a delayed trigger does not
+    /// trigger on an event from before it was created (CR 603.7a); and
+    /// once, on the first time that object leaves the battlefield at all
+    /// (CR 603.7b) — a land bounced to its owner's hand has left, is a new
+    /// object, and never comes back through this.
+    ///
+    /// Never polled at a step: `trigger::collect` reads it off the journal,
+    /// and the scan that follows removes every one whose object is no
+    /// longer on the battlefield at `version`.
+    DiesOrIsExiled {
+        /// The permanent watched.
+        card: ObjectId,
+        /// Its identity when the watch was created.
+        version: u32,
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
 }
 
 /// What a delayed trigger does.
@@ -247,6 +267,16 @@ pub enum DelayedAction {
     ReturnToBattlefield {
         /// The card in exile.
         card: ObjectId,
+    },
+    /// A delayed triggered ability that goes on the stack (CR 603.7): its
+    /// source and its effects. The source is the source of the ability
+    /// that created it (CR 603.7e), and the object its trigger event was
+    /// about is the event object its effects read ("return **it**").
+    Trigger {
+        /// The source of the ability that created it.
+        source: ObjectId,
+        /// What it does.
+        effects: &'static [baylee_cards_dsl::Effect],
     },
 }
 

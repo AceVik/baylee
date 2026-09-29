@@ -314,6 +314,16 @@ pub enum Trigger {
     /// allows, and never a land an effect puts onto the battlefield, which
     /// is not played. The relation names whose play: `You` for "you".
     PlaysLand(crate::effect::PlayerRel),
+    /// "Whenever you tap [a permanent matching the filter] for mana"
+    /// (Badgermole Cub): its controller activates a mana ability of it with
+    /// {T} in the cost (CR 106.12), and that ability resolves and produces
+    /// mana (CR 106.12a). Once per activation, however many colours it made.
+    ///
+    /// Without a target and with effects that add mana, the ability is
+    /// itself a mana ability (CR 605.1b) and resolves at once, off the
+    /// stack (CR 605.4a): "add an additional {G}" is in the pool before the
+    /// player acts again.
+    TappedForMana(&'static Filter),
     /// A player draws a card except the first one they draw each turn
     /// (Orcish Bowmasters).
     DrawsExceptFirst(crate::effect::PlayerRel),
@@ -582,6 +592,31 @@ impl AbilityDef {
                 mana_ability: true,
                 ..
             }
+        )
+    }
+
+    /// Whether this is a **triggered** mana ability (CR 605.1b): it has no
+    /// target, it triggers from a mana ability — [`Trigger::TappedForMana`]
+    /// is the one trigger in the vocabulary that does — and it could add
+    /// mana. Such an ability resolves the moment it triggers, off the stack
+    /// (CR 605.4a).
+    ///
+    /// Derived, as [`Self::is_mana_ability`]'s flag is checked against the
+    /// same three questions by `lints::mana_ability_fault`: a "whenever you
+    /// tap this land for mana" that targets (Forbidden Orchard's) is an
+    /// ordinary trigger and goes on the stack.
+    #[must_use]
+    pub fn is_triggered_mana_ability(&self) -> bool {
+        matches!(
+            self,
+            Self::Triggered {
+                trigger: Trigger::TappedForMana(_),
+                targets: None,
+                effects,
+                ..
+            } if effects
+                .iter()
+                .any(|effect| matches!(effect, crate::effect::Effect::AddMana { .. }))
         )
     }
 }

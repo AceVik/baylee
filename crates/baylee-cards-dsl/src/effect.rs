@@ -1112,6 +1112,28 @@ pub enum Effect {
         /// Whether they enter tapped.
         tapped: bool,
     },
+    /// "Earthbend N" (CR 701.66a): "Target land you control becomes a 0/0
+    /// land creature with haste in addition to its other types. Put N +1/+1
+    /// counters on it. When that land dies or is put into exile, return it
+    /// to the battlefield tapped under your control."
+    ///
+    /// The land is the ability's first target, which the card states as
+    /// `TargetReq::one(TargetSpec::Object(&Filter::YOUR_LAND))` beside it.
+    /// The animation lasts indefinitely and binds that object, so the land
+    /// that comes back is a new object and a plain land again (CR 400.7).
+    /// The last sentence is a delayed triggered ability (CR 603.7) whose
+    /// controller and source are this ability's (CR 603.7d, 603.7e); it
+    /// triggers once (CR 603.7b) and uses the stack.
+    Earthbend(u16),
+    /// "Return it to the battlefield tapped under your control", where "it"
+    /// is a card that has just gone to a graveyard or into exile: the
+    /// delayed trigger [`Effect::Earthbend`] leaves behind. `target` is
+    /// [`TargetSpec::EventObject`]; nothing is targeted. A card that is no
+    /// longer in a graveyard or in exile stays where it is (CR 603.7c).
+    ReturnToBattlefieldTapped {
+        /// The card (`EventObject`).
+        target: TargetSpec,
+    },
     /// "Transform this creature" (CR 701.27a): the source turns over to its
     /// other face where it stands. Only a permanent represented by a
     /// transforming double-faced card does (CR 701.27c) — a token copy or a
@@ -2410,6 +2432,8 @@ impl Effect {
             | Effect::RevealHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
             | Effect::YourGraveyardToBattlefield { .. }
+            | Effect::Earthbend(_)
+            | Effect::ReturnToBattlefieldTapped { .. }
             | Effect::TransformSource
             | Effect::TransformSourceAtNextUpkeep
             | Effect::ExileSelfReturnAsFace { .. }

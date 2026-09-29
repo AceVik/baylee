@@ -157,6 +157,14 @@ pub fn line_shape(line: &str) -> LineShape {
         || lower.starts_with("ward ")
         || lower.starts_with("ward—")
     {
+        // A trigger on tapping for mana that adds mana and targets nothing
+        // is a mana ability (CR 605.1b) and never a stack entry: Badgermole
+        // Cub's "Whenever you tap a creature for mana, add an additional
+        // {G}." Forbidden Orchard's, which targets an opponent, stays a
+        // trigger.
+        if lower.contains(" for mana, add ") && !lower.contains("target") {
+            return LineShape::Mana;
+        }
         return LineShape::Triggered;
     }
     // A chapter's separator is an em dash, not a colon.
@@ -316,6 +324,8 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
     use baylee_cards_dsl::AbilityDef as A;
     match ability {
         A::Loyalty { .. } => LineShape::Loyalty,
+        // The one trigger that is not a stack entry (CR 605.1b, 605.4a).
+        A::Triggered { .. } if ability.is_triggered_mana_ability() => LineShape::Mana,
         A::Triggered { .. } | A::ModalTriggered { .. } | A::Echo { .. } | A::Ward { .. } => {
             LineShape::Triggered
         }
@@ -559,6 +569,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::ExiledFromBattlefield(_) => &["exiled"],
         T::DealsCombatDamageToPlayer(_) => &["damage"],
         T::BecomesTapped(_) => &["tap"],
+        // Badgermole Cub, "Whenever you tap a creature for mana".
+        T::TappedForMana(_) => &["for mana"],
         // Druid Class, "When this Class becomes level 3".
         T::CountersReach { .. } => &["becomes level"],
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
@@ -652,6 +664,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::Attacks(filter)
         | Trigger::AttacksAlone(filter)
         | Trigger::BecomesTapped(filter)
+        | Trigger::TappedForMana(filter)
         | Trigger::ExiledFromBattlefield(filter)
         | Trigger::DealsCombatDamageToPlayer(filter)
         | Trigger::SpellCast(filter) => {
@@ -1278,6 +1291,35 @@ mod tests {
             line_shape("As this creature enters, choose a creature type."),
             LineShape::Triggered,
         );
+    }
+
+    /// A trigger on tapping for mana that adds mana is a mana ability
+    /// (CR 605.1b) and is read as one on both sides, so it is not counted
+    /// as a stack entry. One that targets is not (CR 605.1b's first test).
+    #[test]
+    fn a_triggered_mana_ability_is_mana_on_both_sides() {
+        static GREEN: [baylee_cards_dsl::Effect; 1] = [baylee_cards_dsl::Effect::mana(
+            baylee_core::mana::ManaColor::Green,
+            1,
+        )];
+        assert_eq!(
+            line_shape("Whenever you tap a creature for mana, add an additional {G}."),
+            LineShape::Mana,
+        );
+        assert_eq!(
+            line_shape(
+                "Whenever you tap this land for mana, target opponent creates a 1/1 colorless Spirit creature token."
+            ),
+            LineShape::Triggered,
+        );
+        let cub = baylee_cards_dsl::AbilityDef::Triggered {
+            trigger: baylee_cards_dsl::Trigger::TappedForMana(&baylee_cards_dsl::Filter::CREATURE),
+            effects: &GREEN,
+            targets: None,
+            once_per_turn: false,
+            condition: None,
+        };
+        assert_eq!(ability_shape(&cub), LineShape::Mana);
     }
 
     /// A static that grants an ability is placed on the sentence that

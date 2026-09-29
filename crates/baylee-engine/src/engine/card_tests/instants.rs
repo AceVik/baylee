@@ -3737,6 +3737,7 @@ fn cast_archdruids_charm(
 /// and the Llanowar Elves into the hand, and each was revealed on its way.
 /// One search whose destination forks on the card found.
 #[test]
+#[allow(clippy::too_many_lines)] // two casts, each asked and answered in full
 fn archdruids_charm_puts_a_found_land_onto_the_battlefield_tapped_and_a_creature_into_hand() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
@@ -12690,10 +12691,6 @@ fn unnatural_speed_lets_a_creature_that_arrived_this_turn_attack() {
         "while the Elf that arrived on the same turn and was not aimed at is \
          still sick (CR 302.6): {attackers:?}"
     );
-}
-
-fn unsummon() -> CardIndex {
-    card_index("837182db-1bf3-4a2c-bd01-1af9d9873561")
 }
 
 /// Unsummon — {U} instant: "Return target creature to its owner's hand."

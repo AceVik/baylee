@@ -14250,14 +14250,18 @@ fn avengers_tower_enters_untapped_and_taps_for_colorless() {
 }
 
 /// Ba Sing Se: "This land enters tapped unless you control a basic land." / "{T}: Add {G}." / "{2}{G}, {T}: Earthbend 2. Activate only as a sorcery."
-/// Under `Coverage::Partial`, controlling a basic land allows Ba Sing Se to enter untapped.
-/// Activating ability 1 animates a target land into a creature with haste and places two `+1/+1` counters on it.
+/// Controlling a basic land allows Ba Sing Se to enter untapped.
+/// Activating ability 1 earthbends itself: a 2/2 land creature with haste,
+/// two `+1/+1` counters on it. A Lightning Bolt kills it, and earthbend's
+/// delayed trigger returns it to the battlefield tapped, a land again.
 #[test]
 fn ba_sing_se_enters_untapped_and_animates_land() {
-    let p0 = PlayerId::new(0);
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(206, forest())
         .battlefield(0, &[forest(), forest(), forest()])
         .hand(0, &[ba_sing_se()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[lightning_bolt()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -14298,6 +14302,32 @@ fn ba_sing_se_enters_untapped_and_animates_land() {
             .types
             .contains(TypeSet::CREATURE)
     );
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    tap_all_mana(&mut engine, p1);
+    let bolt = in_hand(&engine, p1, lightning_bolt()).expect("the Bolt");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: bolt })
+        .expect("a Mountain pays for the Bolt");
+    aim_at(&mut engine, p1, land);
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e)
+            && e.journal().entries().iter().any(|entry| {
+                matches!(entry.event, crate::event::GameEvent::ZoneChanged {
+                    object, from: crate::zone::Zone::Graveyard, to: crate::zone::Zone::Battlefield, ..
+                } if object == land)
+            })
+    });
+    let back = engine.state().object(land).expect("Ba Sing Se");
+    assert_eq!(back.zone, crate::zone::Zone::Battlefield, "it came back");
+    assert!(is_tapped(&engine, land), "tapped");
+    assert!(
+        !back.characteristics().types.contains(TypeSet::CREATURE),
+        "a land and no creature: a new object (CR 400.7)"
+    );
+    assert_eq!(counters_on(&engine, land, CounterKind::P1P1), 0);
 }
 
 /// Balamb Garden, `SeeD` Academy // Balamb Garden, Airborne: "This land enters tapped." / "{T}: Add {G} or {U}." / "{5}{G}{U}, {T}: Transform this land..."

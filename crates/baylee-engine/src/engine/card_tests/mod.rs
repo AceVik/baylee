@@ -120,6 +120,10 @@ fn jin_gitaxias() -> CardIndex {
     card_index("f5daadc1-98ff-480a-82bb-fe7bfaa7b60e")
 }
 
+fn unsummon() -> CardIndex {
+    card_index("837182db-1bf3-4a2c-bd01-1af9d9873561")
+}
+
 fn swords_to_plowshares() -> CardIndex {
     card_index("b1544f21-7e98-461b-aed5-e748b0168c52")
 }

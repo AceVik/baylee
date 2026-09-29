@@ -183,6 +183,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
         }
     }
     monarch_triggers(state, events, &mut triggers);
+    watch_triggers(state, events, &mut triggers);
     // LTB/Dies triggers look back in time (CR 603.10): the source is no
     // longer on the battlefield when they fire.
     for seat in 0..state.players.len() {
@@ -244,6 +245,104 @@ static MONARCH_TAKEOVER: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effec
 /// and are controlled by whoever was the monarch when they triggered, which
 /// for the takeover is the player who is about to lose the title.
 ///
+/// Delayed triggered abilities that watch an object (CR 603.7): earthbend's
+/// "when that land dies or is put into exile, return it to the battlefield
+/// tapped under your control" (CR 701.66a).
+///
+/// Each watch triggers on the first time its object leaves the battlefield
+/// after the watch was created (CR 603.7a, 603.7b), and only if that was to
+/// a graveyard or into exile: a land bounced to its owner's hand has left
+/// and is a new object, and the watch is spent without triggering. The
+/// scan that follows removes every watch whose object is gone
+/// (`Engine::queue_new_triggers`), so none is read twice.
+///
+/// The event object is the card, which is what "return it" reads
+/// (`TargetSpec::EventObject`); the source and controller are the ones the
+/// watch was created with (CR 603.7d, 603.7e).
+fn watch_triggers(
+    state: &GameState,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    for watch in &state.delayed {
+        let crate::state::DelayedWhen::DiesOrIsExiled { card, after, .. } = watch.when else {
+            continue;
+        };
+        let crate::state::DelayedAction::Trigger { source, effects } = watch.action else {
+            continue;
+        };
+        let left = events
+            .iter()
+            .filter(|entry| entry.seq > after)
+            .find_map(|entry| match entry.event {
+                GameEvent::ZoneChanged {
+                    object,
+                    from: Zone::Battlefield,
+                    to,
+                    ..
+                } if object == card => Some(to),
+                _ => None,
+            });
+        if !matches!(left, Some(Zone::Graveyard | Zone::Exile)) {
+            continue;
+        }
+        triggers.push(PendingTrigger {
+            event_mana_value: None,
+            source,
+            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+            abilities: None,
+            controller: watch.controller,
+            timestamp: state.object(source).map_or(0, |o| o.timestamp),
+            event_object: Some(card),
+            implicit_target: None,
+            synthetic_effects: Some(effects),
+            once_per_turn: false,
+            synthetic_target: None,
+            chosen_mode: None,
+        });
+    }
+}
+
+/// Whether a `ManaProduced` event is the first mana of an activation that
+/// tapped `object` as its cost: "tap [a permanent] for mana" is activating a
+/// mana ability of it with {T} in the cost (CR 106.12), and the trigger
+/// fires as that ability resolves and produces mana (CR 106.12a).
+///
+/// Read off the journal, where every mana ability with {T} writes the same
+/// pair — the tap under `Cause::Cost`, then the mana, the intrinsic door
+/// (`casting::add_intrinsic_mana`) and the resolved ability (`resolve::mana`)
+/// alike. The nearest earlier entry about `object` decides: its own tap
+/// means this is the tap's first mana, and its own earlier mana means this
+/// is the second colour of one activation ("Add {R}{G}"), which is still
+/// one tap. A tap to attack is `Cause::TurnBased` and a creature tapped for
+/// convoke or crew makes no mana, so neither reaches here.
+fn first_mana_of_a_tap(
+    event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
+    object: ObjectId,
+) -> bool {
+    let Some(at) = batch
+        .iter()
+        .position(|entry| std::ptr::eq(&raw const entry.event, event))
+    else {
+        return false;
+    };
+    batch[..at]
+        .iter()
+        .rev()
+        .find_map(|entry| match entry.event {
+            GameEvent::ObjectTapped {
+                object: tapped,
+                cause: crate::event::Cause::Cost,
+            } if tapped == object => Some(true),
+            GameEvent::ManaProduced {
+                source: Some(made), ..
+            } if made == object => Some(false),
+            _ => None,
+        })
+        .unwrap_or(false)
+}
+
 /// The monarch is read once for the whole batch. A batch is what happened
 /// between two scans, and nothing that makes a player the monarch shares
 /// one with a step beginning or with combat damage: a resolution is scanned
@@ -1056,6 +1155,21 @@ fn matches(
                 new,
             },
         ) => *object == source && changed == kind && *old < u16::from(*n) && u16::from(*n) <= *new,
+        (
+            Trigger::TappedForMana(filter),
+            GameEvent::ManaProduced {
+                player,
+                source: Some(tapped),
+                ..
+            },
+        ) => {
+            // "Whenever **you** tap": the mana is the activating player's.
+            *player == you
+                && first_mana_of_a_tap(event, batch, *tapped)
+                && state
+                    .object(*tapped)
+                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
         (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => {
             *object == source
                 && state
