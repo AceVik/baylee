@@ -44814,7 +44814,10 @@ fn exotic_orchard() -> CardIndex {
 ///
 /// Three boards, because one is not enough to tell "reads the wrong side"
 /// from "reads nothing": an empty opposing board offers the ability nothing
-/// to say and so must not offer it at all.
+/// to say and so must not offer it at all. And a fourth, with a Wastes
+/// across the table: the Orchard says "any color", and colorless mana is a
+/// type of mana and not a colour (CR 106.1a, CR 106.1b), so the Wastes adds
+/// nothing to the menu. It used to add `{C}`.
 #[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
 #[test]
 fn exotic_orchard_reads_the_opponents_lands_and_not_its_controllers() {
@@ -44826,11 +44829,12 @@ fn exotic_orchard_reads_the_opponents_lands_and_not_its_controllers() {
             vec![swamp(), island()],
             vec![ManaColor::Black, ManaColor::Blue],
         ),
+        (vec![swamp(), wastes()], vec![ManaColor::Black]),
     ]
     .into_iter()
     .enumerate()
     {
-        let seed = 4_860 + u64::try_from(pass).expect("three passes");
+        let seed = 4_860 + u64::try_from(pass).expect("four passes");
         let mut engine = Duel::new(seed, forest())
             // A Forest of my own on every board: if the reading were
             // "any land" rather than "a land an opponent controls", green

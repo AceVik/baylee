@@ -4672,6 +4672,10 @@ impl<L: CardLookup> Engine<L> {
                     self.queue_first_main_delayed();
                     (Phase::FirstMain, Step::Main)
                 } else {
+                    // The draw step has begun when its draw is made, so the
+                    // draw is made in it: `draw_cards` reads the step to know
+                    // that this card is the step's first.
+                    self.state.turn.step = Step::Draw;
                     // Nobody draws for an active player who has left
                     // (CR 800.4j).
                     if !self.active_has_left() {

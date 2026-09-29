@@ -32,5 +32,5 @@ card!(
         "the {3} animation's X is the greatest mana value among your \
          commanders, which no Amount variant can say"
     ),
-    abilities = &[mana_ability!(&[Effect::mana_land_color(true)])],
+    abilities = &[mana_ability!(&[Effect::mana_land_type(true)])],
 );

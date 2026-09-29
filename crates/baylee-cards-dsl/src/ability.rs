@@ -356,8 +356,10 @@ pub enum Trigger {
     /// stack (CR 605.4a): "add an additional {G}" is in the pool before the
     /// player acts again.
     TappedForMana(&'static Filter),
-    /// A player draws a card except the first one they draw each turn
-    /// (Orcish Bowmasters).
+    /// A player draws a card except the first one they draw in each of
+    /// their draw steps (Orcish Bowmasters). A card drawn in their upkeep
+    /// or on another player's turn is in none of their draw steps.
+    /// Fires once per card drawn (CR 121.2).
     DrawsExceptFirst(crate::effect::PlayerRel),
     /// An object matching the filter attacks (Sun Titan).
     Attacks(&'static Filter),

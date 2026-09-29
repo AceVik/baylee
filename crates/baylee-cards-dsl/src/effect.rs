@@ -390,6 +390,11 @@ pub enum ManaSource {
     LandColor {
         /// `true` = your lands, `false` = opponents' lands.
         mine: bool,
+        /// `true` for "any **type**" (Reflecting Pool), which colorless mana
+        /// is (CR 106.1b); `false` for "any **color**" (Exotic Orchard,
+        /// Fellwar Stone), which colorless is not (CR 106.1a) — so a Wastes
+        /// across the table puts nothing on an Orchard's menu.
+        any_type: bool,
     },
     /// The color chosen as this permanent entered (Uncharted Haven).
     ///
@@ -2794,12 +2799,32 @@ impl Effect {
         }
     }
 
-    /// `Add one mana of any color that a land you control could produce`
-    /// (Reflecting Pool), or an opponent's (Exotic Orchard).
+    /// `Add one mana of any color that a land an opponent controls could
+    /// produce` (Exotic Orchard, Fellwar Stone), or you control. A colour,
+    /// so never colorless (CR 106.1a).
     #[must_use]
     pub const fn mana_land_color(mine: bool) -> Self {
         Self::AddMana {
-            source: ManaSource::LandColor { mine },
+            source: ManaSource::LandColor {
+                mine,
+                any_type: false,
+            },
+            amount: Amount::Fixed(1),
+            combination: false,
+            restriction: None,
+        }
+    }
+
+    /// `Add one mana of any type that a land you control could produce`
+    /// (Reflecting Pool), or an opponent's. A type, so colorless too
+    /// (CR 106.1b).
+    #[must_use]
+    pub const fn mana_land_type(mine: bool) -> Self {
+        Self::AddMana {
+            source: ManaSource::LandColor {
+                mine,
+                any_type: true,
+            },
             amount: Amount::Fixed(1),
             combination: false,
             restriction: None,

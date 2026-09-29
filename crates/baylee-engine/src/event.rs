@@ -269,6 +269,12 @@ pub enum GameEvent {
         player: PlayerId,
         /// How many.
         count: u16,
+        /// Whether the first of these cards is the first card `player`
+        /// drew in their own draw step (CR 504.1). At most one card of an
+        /// entry is. Read at the draw, not later: by the time triggers are
+        /// collected, other draws may have followed it in the same batch.
+        #[serde(default)]
+        first_in_draw_step: bool,
     },
     /// A creature was declared as attacker.
     BecameAttacker {
