@@ -39,7 +39,9 @@
 /// Creation); `verb_tests::nth_resolution_effects_are_visited`.
 /// Raised 18 → 19 the same day for `IfTargetMatches` (Prismatic Ending);
 /// `verb_tests::if_target_matches_body_is_visited`.
-const NESTING_FIELDS: usize = 19;
+/// Raised 19 → 20 the same day for `ChooseYoursThen` (Final Showdown);
+/// `verb_tests::chosen_permanent_body_is_visited`.
+const NESTING_FIELDS: usize = 20;
 
 /// How many variants those nineteen fields are spread across.
 ///
@@ -59,9 +61,9 @@ const NESTING_FIELDS: usize = 19;
 /// to make a red test quiet.
 ///
 /// `Reflexive` moved both again on 2026-09-24: one new carrier, one new
-/// branch. `MayDoOnceEachTurn`, `NthResolutionThisTurn` and
-/// `IfTargetMatches` moved both on 2026-09-29, the same shape.
-const CARRYING_VARIANTS: usize = 16;
+/// branch. `MayDoOnceEachTurn`, `NthResolutionThisTurn`, `IfTargetMatches`
+/// and `ChooseYoursThen` moved both on 2026-09-29, the same shape.
+const CARRYING_VARIANTS: usize = 17;
 
 /// The floor under the reader itself.
 ///

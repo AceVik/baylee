@@ -5074,6 +5074,122 @@ mod tests {
         }
     }
 
+    /// "Choose one or more —" is chosen by what each chosen mode reaches.
+    ///
+    /// Farewell's fifteen sets, as the engine offers them: bit `i` is mode
+    /// `i`, in increasing order. A set holding a mode that exiles nothing is
+    /// paid for and partly idle, so it loses to every set without one; of
+    /// the rest, the one reaching the most wins; and "exile all graveyards",
+    /// which this agent cannot read, is not bought for its own sake, because
+    /// the earlier (smaller) set breaks the tie. Against a lone creature that
+    /// is the creatures alone. Against an artifact creature it is artifacts
+    /// and creatures both, which is the half the first answer cannot pass
+    /// by accident. Against nothing at all it is the graveyards: the one
+    /// mode that may do something beats the first printed, which does
+    /// nothing.
+    #[test]
+    fn a_spell_of_several_modes_takes_the_set_that_reaches_the_most() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        let them = PlayerId::new(1);
+        let options: Vec<CastModeDesc> = (1..16_u8)
+            .map(|set| CastModeDesc {
+                index: set - 1,
+                kind: CastModeKind::Modes(set),
+                cost: baylee_core::mana::ManaCost::parse("{4}{W}{W}"),
+            })
+            .collect();
+        let strix = |types| vec![carded(permanent(obj(1), them, 2), "Baleful Strix", types)];
+        for (what, board, expected) in [
+            ("a creature", strix(TypeSet::CREATURE), 0b0010),
+            (
+                "an artifact creature",
+                strix(TypeSet::ARTIFACT.union(TypeSet::CREATURE)),
+                0b0011,
+            ),
+            ("nothing at all", vec![], 0b1000),
+        ] {
+            let mut v = view(0, &[20, 20], board);
+            v.stack = vec![carded(
+                permanent(obj(9), PlayerId::new(0), 0),
+                "Farewell",
+                TypeSet::SORCERY,
+            )];
+            let answer = agent().act(
+                &v,
+                &Pending::ChooseCastMode {
+                    player: v.seat,
+                    object: obj(9),
+                    options: options.clone(),
+                },
+            );
+            let PlayerAction::ChooseMode(slot) = answer else {
+                panic!("expected a set of modes, got {answer:?}")
+            };
+            assert_eq!(
+                options[slot].kind,
+                CastModeKind::Modes(expected),
+                "against {what}"
+            );
+        }
+    }
+
+    /// "Choose a creature you control" reaches something when there is one
+    /// of the agent's own to choose. Final Showdown against a board with a
+    /// creature on each side: the destruction reaches, and so does keeping
+    /// the agent's own creature out of it, so both are bought. With nothing
+    /// of its own the choice would find nothing, and the destruction is
+    /// cast alone.
+    #[test]
+    fn a_spree_spell_buys_the_mode_that_saves_its_own_creature() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let options: Vec<CastModeDesc> = (1..8_u8)
+            .map(|set| CastModeDesc {
+                index: set - 1,
+                kind: CastModeKind::Modes(set),
+                cost: baylee_core::mana::ManaCost::ZERO,
+            })
+            .collect();
+        let creature = |id, seat| {
+            carded(
+                permanent(obj(id), seat, 2),
+                "Baleful Strix",
+                TypeSet::CREATURE,
+            )
+        };
+        for (what, board, expected) in [
+            (
+                "a creature each",
+                vec![creature(1, me), creature(2, them)],
+                0b110,
+            ),
+            ("only theirs", vec![creature(2, them)], 0b100),
+        ] {
+            let mut v = view(0, &[20, 20], board);
+            v.stack = vec![carded(
+                permanent(obj(9), me, 0),
+                "Final Showdown",
+                TypeSet::INSTANT,
+            )];
+            let answer = agent().act(
+                &v,
+                &Pending::ChooseCastMode {
+                    player: v.seat,
+                    object: obj(9),
+                    options: options.clone(),
+                },
+            );
+            let PlayerAction::ChooseMode(slot) = answer else {
+                panic!("expected a set of modes, got {answer:?}")
+            };
+            assert_eq!(
+                options[slot].kind,
+                CastModeKind::Modes(expected),
+                "against {what}"
+            );
+        }
+    }
+
     /// An empty board is read, and the reading is that nothing is reached.
     ///
     /// Every mode scores nought, so the printed order is all that is left and

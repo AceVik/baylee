@@ -19164,3 +19164,378 @@ fn clever_concealment_s_convoke_is_asked_for_its_generic_and_no_more_until_230()
         "the taps chosen are the taps spent"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Final Showdown and Three Steps Ahead (spree).
+// ---------------------------------------------------------------------------
+
+/// "Spree (Choose one or more additional costs.)" Off three Plains, Final
+/// Showdown's {W} with one "+ {1}" or both is what the pool pays for, and
+/// "+ {3}{W}{W}" is not offered at all: each row is {W} plus its modes' own
+/// costs (CR 702.172a, 700.2h). The second mode alone, with no creature to
+/// choose, resolves without a question (CR 609.3) and all {1}{W} is spent.
+#[test]
+fn final_showdown_offers_the_sets_of_modes_its_mana_pays_for() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(); 3])
+        .hand(0, &[final_showdown()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_mana_where(&mut engine, p0, |_| true);
+    cast_with_floating(&mut engine, p0, final_showdown());
+    let offered = choose_modes(&mut engine, p0, 0b010);
+    let cost = baylee_core::mana::ManaCost::parse;
+    assert_eq!(
+        offered.iter().map(|o| (o.kind, o.cost)).collect::<Vec<_>>(),
+        [
+            (CastModeKind::Modes(0b001), cost("{1}{W}")),
+            (CastModeKind::Modes(0b010), cost("{1}{W}")),
+            (CastModeKind::Modes(0b011), cost("{2}{W}")),
+        ]
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+    assert!(in_graveyard(&engine, p0, final_showdown()).is_some());
+}
+
+/// All three modes, in the order they are printed (CR 608.2c): every
+/// creature loses its abilities, then the chosen one gains indestructible,
+/// then all creatures are destroyed. The Darksteel Gargoyle's printed
+/// indestructible is gone by then and it dies; the Elf that was chosen was
+/// given indestructible after the abilities were taken, and lives. The
+/// choice is a choice and not a target: only the caster's own creatures are
+/// offered, one of them must be taken (CR 608.2d), and it costs
+/// {5}{W}{W}{W} in all.
+#[test]
+fn final_showdown_in_full_spares_only_the_creature_it_chose() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut mine = vec![plains(); 8];
+    mine.extend([llanowar_elves(), llanowar_elves()]);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &mine)
+        .battlefield(1, &[darksteel_gargoyle(), llanowar_elves()])
+        .hand(0, &[final_showdown()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_with_floating(&mut engine, p0, final_showdown());
+    let offered = choose_modes(&mut engine, p0, 0b111);
+    assert!(offered.iter().any(|o| o.kind == CastModeKind::Modes(0b111)
+        && o.cost == baylee_core::mana::ManaCost::parse("{5}{W}{W}{W}")));
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = pass_to_card_choice(&mut engine)
+    else {
+        unreachable!()
+    };
+    let mine: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == p0 && o.card.is_some_and(|c| c.index == llanowar_elves())
+            })
+        })
+        .collect();
+    assert_eq!((player, min, max), (p0, 1, 1));
+    assert_eq!(options, mine, "the caster's own creatures, and only those");
+    let (kept, lost) = (mine[1], mine[0]);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![kept],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert_eq!(
+        engine.state().object(kept).map(|o| o.zone),
+        Some(Zone::Battlefield)
+    );
+    assert!(keywords_of(&engine, kept).contains(KeywordSet::INDESTRUCTIBLE));
+    assert_ne!(
+        engine.state().object(lost).map(|o| o.zone),
+        Some(Zone::Battlefield)
+    );
+    assert!(in_graveyard(&engine, p1, darksteel_gargoyle()).is_some());
+    assert!(in_graveyard(&engine, p1, llanowar_elves()).is_some());
+}
+
+/// Off four Islands with a Llanowar Elves in play and nothing on the stack,
+/// Three Steps Ahead offers the copy ({3}{U}) and the draw ({2}{U}) and
+/// nothing else: "Counter target spell" has no spell to point at, and the
+/// two together cost {5}{U}. The copy alone takes the spell's one instance
+/// of "target" and makes a token Elf; the whole {3}{U} is spent.
+#[test]
+fn three_steps_ahead_offers_what_it_can_pay_for_and_point_at() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), llanowar_elves()],
+        )
+        .hand(0, &[three_steps_ahead()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_with_floating(&mut engine, p0, three_steps_ahead());
+    let offered = choose_modes(&mut engine, p0, 0b010);
+    let cost = baylee_core::mana::ManaCost::parse;
+    assert_eq!(
+        offered.iter().map(|o| (o.kind, o.cost)).collect::<Vec<_>>(),
+        [
+            (CastModeKind::Modes(0b010), cost("{3}{U}")),
+            (CastModeKind::Modes(0b100), cost("{2}{U}")),
+        ]
+    );
+    let _ = aim_at(&mut engine, p0, elves);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert_eq!(tokens_of(&engine, p0).len(), 1, "a token copy of the Elves");
+}
+
+/// Seat 0 casts Dark Ritual and, holding priority, Three Steps Ahead with
+/// its counter and copy modes, {4}{U}{U}: the Ritual is the spell's first
+/// instance of "target", its own Llanowar Elves the second (CR 700.2c).
+/// Seat 1 holds `theirs` and the lands `lands`. Returns the engine with the
+/// Three Steps on the stack and seat 0 holding priority, the Ritual and the
+/// Elves.
+fn three_steps_ahead_of_a_ritual(
+    lands: &[CardIndex],
+    theirs: &[CardIndex],
+) -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                island(),
+                island(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                llanowar_elves(),
+            ],
+        )
+        .battlefield(1, lands)
+        .hand(0, &[dark_ritual(), three_steps_ahead()])
+        .hand(1, theirs)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    let ritual = on_stack(&engine, dark_ritual()).unwrap();
+    cast_with_floating(&mut engine, p0, three_steps_ahead());
+    let offered = choose_modes(&mut engine, p0, 0b011);
+    assert!(offered.iter().any(|o| o.kind == CastModeKind::Modes(0b011)
+        && o.cost == baylee_core::mana::ManaCost::parse("{4}{U}{U}")));
+    // Each instance is explained as its own mode's sentence: the counter's,
+    // then the copy's. Neither is "the second target" of one sentence, and
+    // what the counter chose is nothing for the copy to weigh.
+    let context = engine.decision_context();
+    assert_eq!((context.mode, context.second_instance), (Some(0), false));
+    let _ = aim_at(&mut engine, p0, ritual);
+    let context = engine.decision_context();
+    assert_eq!(
+        (context.mode, context.second_instance, context.first_targets),
+        (Some(1), false, &[][..])
+    );
+    let _ = aim_at(&mut engine, p0, elves);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    (engine, ritual, elves)
+}
+
+/// Both halves: the Ritual is countered, so it adds no mana, and the Elves
+/// are copied — each mode read its own target.
+#[test]
+fn three_steps_ahead_counters_one_target_and_copies_the_other() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, ritual, _) = three_steps_ahead_of_a_ritual(&[], &[]);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(ritual).map(|o| o.zone),
+        Some(Zone::Graveyard)
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    let [token] = tokens_of(&engine, p0)[..] else {
+        panic!("one token: {:?}", tokens_of(&engine, p0))
+    };
+    assert_eq!(power_of(&engine, token), Some(1), "a 1/1 Elf, not a Ritual");
+    assert!(in_graveyard(&engine, p0, three_steps_ahead()).is_some());
+}
+
+/// The spell its counter pointed at is gone, countered by a Counterspell in
+/// response. That instance of "target" lost everything, the other did not,
+/// so the spell resolves and does what its legal target lets it (CR 608.2b):
+/// the Elves are copied all the same.
+#[test]
+fn three_steps_ahead_still_copies_when_its_spell_target_is_gone() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let (mut engine, ritual, _) =
+        three_steps_ahead_of_a_ritual(&[island(), island()], &[counterspell()]);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, counterspell());
+    let _ = aim_at(&mut engine, p1, ritual);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(ritual).map(|o| o.zone),
+        Some(Zone::Graveyard)
+    );
+    let [token] = tokens_of(&engine, p0)[..] else {
+        panic!("the copy still happened: {:?}", tokens_of(&engine, p0))
+    };
+    assert_eq!(power_of(&engine, token), Some(1), "and it copied the Elves");
+    assert!(in_graveyard(&engine, p0, three_steps_ahead()).is_some());
+}
+
+/// And the other way round: the Elves are exiled in response, so the copy
+/// has nothing to copy, and the Ritual is countered all the same. Nothing
+/// else becomes the copy's target when its own is gone.
+#[test]
+fn three_steps_ahead_still_counters_when_its_copy_target_is_gone() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let (mut engine, ritual, elves) =
+        three_steps_ahead_of_a_ritual(&[plains()], &[swords_to_plowshares()]);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, swords_to_plowshares());
+    let _ = aim_at(&mut engine, p1, elves);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(ritual).map(|o| o.zone),
+        Some(Zone::Graveyard)
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0, "countered");
+    assert!(tokens_of(&engine, p0).is_empty(), "nothing was copied");
+}
+
+/// A copy of a modal spell copies the modes chosen for it (CR 700.2g).
+/// Storm of Saruman copies the second spell of the turn, a Three Steps
+/// Ahead cast for "+ {2} — Draw two cards, then discard a card", and both
+/// the copy and the spell draw two and discard one. Before the copy carried
+/// its modes it carried none, and resolved to nothing at all.
+#[test]
+fn three_steps_ahead_copied_draws_and_discards_twice() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[swamp(), island(), island(), island(), storm_of_saruman()],
+        )
+        .hand(0, &[dark_ritual(), three_steps_ahead()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    pass_until(&mut engine, stack_is_empty);
+    let library = library_size(&engine, p0);
+    cast_with_floating(&mut engine, p0, three_steps_ahead());
+    // UUU and BBB float, nothing is on the stack to counter and nothing on
+    // the battlefield to copy: the draw is the one set there is, and a
+    // question with one answer is not asked.
+    assert!(
+        on_stack(&engine, three_steps_ahead()).is_some(),
+        "{:?}",
+        engine.pending()
+    );
+    let mut discards = 0;
+    while !stack_is_empty(&engine) {
+        if let Pending::ChooseCards {
+            player,
+            options,
+            min,
+            ..
+        } = engine.pending().clone()
+        {
+            assert_eq!(player, p0);
+            discards += 1;
+            let objects = options.into_iter().take(usize::from(min)).collect();
+            engine
+                .apply(p0, PlayerAction::ChooseObjects { objects })
+                .unwrap();
+            continue;
+        }
+        let (player, action) = answer_one(&engine).unwrap();
+        engine.apply(player, action).unwrap();
+    }
+    assert_eq!(library_size(&engine, p0), library - 4, "drew two, twice");
+    assert_eq!(discards, 2, "and discarded once each time");
+    assert_eq!(engine.state().zones.list(ZoneLocation::Hand(p0)).len(), 2);
+}
+
+/// The copy of a choose-one spell copies its one mode too (CR 700.2g).
+/// Storm of Saruman copies a Sultai Charm cast for "Draw two cards, then
+/// discard a card", and the copy draws and discards as well. The copy used
+/// to carry no mode, and a spell whose every effect sits under a mode then
+/// resolved to nothing.
+#[test]
+fn sultai_charm_copied_keeps_the_mode_chosen_for_it() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[swamp(), swamp(), forest(), island(), storm_of_saruman()],
+        )
+        .hand(0, &[dark_ritual(), sultai_charm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    pass_until(&mut engine, stack_is_empty);
+    let library = library_size(&engine, p0);
+    cast_with_floating(&mut engine, p0, sultai_charm());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected the modes, got {:?}", engine.pending())
+    };
+    let draw = options
+        .iter()
+        .position(|o| o.kind == CastModeKind::Mode(2))
+        .unwrap();
+    engine.apply(p0, PlayerAction::ChooseMode(draw)).unwrap();
+    let mut discards = 0;
+    while !stack_is_empty(&engine) {
+        if let Pending::ChooseCards {
+            player,
+            options,
+            min,
+            ..
+        } = engine.pending().clone()
+        {
+            assert_eq!(player, p0);
+            discards += 1;
+            let objects = options.into_iter().take(usize::from(min)).collect();
+            engine
+                .apply(p0, PlayerAction::ChooseObjects { objects })
+                .unwrap();
+            continue;
+        }
+        let (player, action) = answer_one(&engine).unwrap();
+        engine.apply(player, action).unwrap();
+    }
+    assert_eq!(library_size(&engine, p0), library - 4, "drew two, twice");
+    assert_eq!(discards, 2, "and discarded once each time");
+}

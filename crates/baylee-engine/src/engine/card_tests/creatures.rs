@@ -92587,11 +92587,23 @@ fn carnosaur_discovers(
     stack: &[CardIndex],
     theirs: &[CardIndex],
 ) -> (Engine<RegistryLookup>, Vec<ObjectId>) {
+    carnosaur_discovers_beside(&[], stack, theirs)
+}
+
+/// [`carnosaur_discovers`] with `lands` beside the six Mountains, tapped
+/// with them: what they make still floats as the discovered card is cast.
+fn carnosaur_discovers_beside(
+    lands: &[CardIndex],
+    stack: &[CardIndex],
+    theirs: &[CardIndex],
+) -> (Engine<RegistryLookup>, Vec<ObjectId>) {
     let p0 = PlayerId::new(0);
     let mut hand = vec![trumpeting_carnosaur()];
     hand.extend_from_slice(stack);
+    let mut mine = vec![mountain(); 6];
+    mine.extend_from_slice(lands);
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[mountain(); 6])
+        .battlefield(0, &mine)
         .battlefield(1, theirs)
         .hand(0, &hand)
         .start();
@@ -92736,6 +92748,31 @@ fn trumpeting_carnosaur_casts_damn_in_its_one_free_mode() {
     pass_until(&mut engine, stack_is_empty);
     assert!(in_graveyard(&engine, p1, steadfast_guard()).is_some());
     assert!(on_battlefield(&engine, p0, trumpeting_carnosaur()).is_some());
+}
+
+/// Casting without paying the mana cost is an alternative cost, and a
+/// spree mode's cost is an additional one, which is still paid (CR 118.9d,
+/// 702.172a). Three Steps Ahead discovered with three Islands' mana still
+/// floating: the draw, "+ {2}", is two of it, and the {U} the card prints
+/// is not paid. The copy, "+ {3}", is offered too, since the Carnosaur is a
+/// creature to copy; both at once, {5}, is more than floats.
+#[test]
+fn trumpeting_carnosaur_discovers_three_steps_ahead_and_pays_its_spree() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, _) = carnosaur_discovers_beside(&[island(); 3], &[three_steps_ahead()], &[]);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 3);
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    let offered = choose_modes(&mut engine, p0, 0b100);
+    let cost = baylee_core::mana::ManaCost::parse;
+    assert_eq!(
+        offered.iter().map(|o| (o.kind, o.cost)).collect::<Vec<_>>(),
+        [
+            (CastModeKind::Modes(0b010), cost("{3}")),
+            (CastModeKind::Modes(0b100), cost("{2}")),
+        ]
+    );
+    assert!(on_stack(&engine, three_steps_ahead()).is_some());
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
 }
 
 /// "{2}{R}, Discard this card: It deals 3 damage to target creature or

@@ -498,11 +498,15 @@ pub enum AbilityDef {
     /// A replacement or trigger-modification rule (CR 614; Doubling
     /// Season, Panharmonicon, Elesh Norn).
     Replacement(crate::static_ability::ReplacementRule),
-    /// A spell with modes: the caster chooses one (overload, choose-one
-    /// charms). Each mode may override the cost.
+    /// A spell with modes (CR 700.2): the caster chooses as many as
+    /// `choose` says as the spell is cast (CR 700.2a, 601.2b). Each mode may
+    /// override the cost (overload) or add one of its own (spree).
     ModalSpell {
         /// The modes to choose from.
         modes: &'static [SpellMode],
+        /// How many of them are chosen: "Choose one —", "Choose two —",
+        /// "Choose one or more —".
+        choose: ModeCount,
     },
     /// Suspend: exile with N time counters from your hand (sorcery speed);
     /// remove one at your upkeep, cast for free when the last is removed.
@@ -717,6 +721,40 @@ pub enum CopyMod {
     Grant(&'static crate::static_ability::Modifier),
 }
 
+/// How many modes a modal spell's caster chooses (CR 700.2): the count
+/// its instruction prints before the bulleted list.
+///
+/// A choice of more than one is announced as one set (CR 700.2a), no mode
+/// twice (CR 700.2d), and the chosen modes are carried out in the order
+/// they are printed, whatever order they were picked in (CR 608.2c).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct ModeCount {
+    /// The fewest modes that may be chosen.
+    pub min: u8,
+    /// The most, never more than the modes printed.
+    pub max: u8,
+}
+
+impl ModeCount {
+    /// "Choose one —".
+    pub const ONE: Self = Self { min: 1, max: 1 };
+    /// "Choose two —" (Cryptic Command).
+    pub const TWO: Self = Self { min: 2, max: 2 };
+    /// "Choose one or more —" (Farewell), and what spree means
+    /// (CR 702.172a).
+    pub const ONE_OR_MORE: Self = Self {
+        min: 1,
+        max: u8::MAX,
+    };
+
+    /// Whether only one mode is ever chosen: the spell carries a mode index
+    /// rather than a set of them.
+    #[must_use]
+    pub const fn is_one(self) -> bool {
+        self.max == 1
+    }
+}
+
 /// One mode of a [`crate::AbilityDef::ModalSpell`].
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct SpellMode {
@@ -731,6 +769,12 @@ pub struct SpellMode {
     pub targets: Option<crate::effect::TargetReq>,
     /// Cost override for this mode (overload); `None` = the printed cost.
     pub cost_override: Option<baylee_core::mana::ManaCost>,
+    /// The cost printed before this mode's effect, paid on top of the
+    /// spell's when the mode is chosen (CR 700.2h): spree's "+ {1} —"
+    /// (CR 702.172a). Several chosen modes pay every one of theirs. Not an
+    /// alternative cost: a spell cast for one — without paying its mana
+    /// cost, say — still has these added to it (CR 118.9d, 601.2f).
+    pub additional_cost: Option<baylee_core::mana::ManaCost>,
 }
 
 /// Which event a trigger-modifying rule cares about.
@@ -880,7 +924,10 @@ mod tests {
             AbilityDef::Replacement(ReplacementRule::DoubleTokenCreation {
                 controller_filter: &crate::Filter::Any,
             }),
-            AbilityDef::ModalSpell { modes: &[] },
+            AbilityDef::ModalSpell {
+                modes: &[],
+                choose: ModeCount::ONE,
+            },
             AbilityDef::Suspend {
                 counters: 3,
                 cost: baylee_core::mana::ManaCost::ZERO,

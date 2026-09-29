@@ -267,6 +267,11 @@ pub enum CastModeKind {
     Alternative(usize),
     /// A spell mode (overload and friends).
     Mode(usize),
+    /// Several modes of a spell that chooses more than one (CR 700.2a):
+    /// bit `i` is mode `i`. Announced as one set, and carried out in the
+    /// order the modes are printed (CR 608.2c). The option's cost is the
+    /// spell's plus every chosen mode's own (spree, CR 702.172a).
+    Modes(u8),
     /// Cast a non-front face for its own printed cost — an MDFC's back
     /// (CR 712.11b), an adventure (CR 715), a disturb back (CR 702.146).
     ///

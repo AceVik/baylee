@@ -12,7 +12,7 @@ use crate::event::PolicyAnswer;
 use crate::state::Side;
 use crate::turn::DayNight;
 use crate::win::Victor;
-use baylee_cards_dsl::{Filter, PlayerRel, SpellMode, TargetReq, TargetSpec};
+use baylee_cards_dsl::{Effect, Filter, PlayerRel, SpellMode, TargetReq, TargetSpec};
 use baylee_core::ids::{AbilityRef, SeatSet};
 use baylee_core::preset::LoopPolicy;
 
@@ -2940,6 +2940,7 @@ impl<L: CardLookup> Engine<L> {
                     mana_ability: false,
                     countered_source: None,
                     target_lki: None,
+                    retarget_left: None,
                 };
                 match resolve::run(&mut self.state, &mut res) {
                     resolve::Flow::Complete => self.finish_resolution(&res),
@@ -2972,6 +2973,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
+                retarget_left: None,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
@@ -2998,32 +3000,20 @@ impl<L: CardLookup> Engine<L> {
                 abilities.iter().find_map(|a| match a {
                     AbilityDef::Spell {
                         effects, targets, ..
-                    } if !effects.is_empty() => Some((*effects, targets.is_some())),
+                    } if !effects.is_empty() => {
+                        Some((resolve::flatten(effects), targets.is_some(), None))
+                    }
                     _ => None,
                 })
             })
-            .or_else(|| {
-                let mode_index = self.state.object(top)?.mode_index?;
-                let face = self.state.object(top)?.face_index as usize;
-                let def = self
-                    .state
-                    .object(top)
-                    .and_then(|o| o.card)
-                    .and_then(|c| self.lookup.card(c.index))?;
-                def.abilities_for_face(face).iter().find_map(|a| match a {
-                    AbilityDef::ModalSpell { modes } => modes
-                        .get(mode_index as usize)
-                        .map(|m| (m.effects, m.targets.is_some())),
-                    _ => None,
-                })
-            });
-        if let Some((fx, targeted)) = spell_fx {
+            .or_else(|| self.modal_program(top));
+        if let Some((program, targeted, retarget_left)) = spell_fx {
             let obj = self.state.object(top).expect("stack object exists");
             let mut res = Resolution {
                 source: top,
                 on_stack: top,
                 controller: obj.controller,
-                effects: resolve::flatten(fx),
+                effects: program,
                 pc: 0,
                 targets: obj.targets.clone(),
                 second_targets: SmallVec::from_slice(obj.second_targets()),
@@ -3036,6 +3026,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
+                retarget_left,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
@@ -3048,6 +3039,45 @@ impl<L: CardLookup> Engine<L> {
         } else {
             self.finalize_spell(top);
         }
+    }
+
+    /// What a modal spell on the stack does: its chosen mode's effects, or,
+    /// for a spell cast with several (`GameObject::modes`), every chosen
+    /// mode's, in the order they are printed and not the order they were
+    /// picked in (CR 608.2c).
+    ///
+    /// Beside the program, whether it targets, and where the second of its
+    /// modes that says "target" begins: that mode's targets were chosen as
+    /// the spell's second instance of the word, and from there on they are
+    /// the ones "target" means (`Resolution::retarget_left`).
+    fn modal_program(&self, top: ObjectId) -> Option<(Vec<Effect>, bool, Option<usize>)> {
+        let obj = self.state.object(top)?;
+        let def = obj.card.and_then(|c| self.lookup.card(c.index))?;
+        let modes = def
+            .abilities_for_face(obj.face_index as usize)
+            .iter()
+            .find_map(|a| match a {
+                AbilityDef::ModalSpell { modes, .. } => Some(*modes),
+                _ => None,
+            })?;
+        if obj.modes != 0 {
+            let mut program = Vec::new();
+            let mut targeting = 0_usize;
+            let mut second = None;
+            for (_, mode) in crate::casting::chosen_modes(modes, obj.modes) {
+                if mode.targets.is_some() {
+                    if targeting == 1 {
+                        second = Some(program.len());
+                    }
+                    targeting += 1;
+                }
+                program.extend(resolve::flatten(mode.effects));
+            }
+            let left = second.map(|at| program.len() - at);
+            return Some((program, targeting > 0, left));
+        }
+        let mode = modes.get(usize::from(obj.mode_index?))?;
+        Some((resolve::flatten(mode.effects), mode.targets.is_some(), None))
     }
 
     /// Applies a face switch queued by a resolution effect (transforms).

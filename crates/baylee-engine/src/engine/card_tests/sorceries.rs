@@ -11711,3 +11711,95 @@ fn prismatic_ending_counts_no_colorless_mana() {
     let engine = prismatic_ending_at(&[plains(), sol_ring()], 2, prismatic_two_drop());
     assert!(on_battlefield(&engine, p1, prismatic_two_drop()).is_some());
 }
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Farewell.
+// ---------------------------------------------------------------------------
+
+/// Seat 0 casts Farewell off six Plains with the modes `set` names, at seat
+/// 1's Llanowar Elves, Sol Ring, Sterling Grove and Darksteel Gargoyle and
+/// three cards in seat 1's graveyard, and lets it resolve. Every one of the
+/// fifteen sets is offered, each at the printed cost.
+fn farewell_with(set: u8) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(); 6])
+        .battlefield(
+            1,
+            &[
+                llanowar_elves(),
+                sol_ring(),
+                sterling_grove(),
+                darksteel_gargoyle(),
+            ],
+        )
+        .hand(0, &[farewell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p1, 3);
+    cast_from_hand(&mut engine, p0, farewell());
+    let offered = choose_modes(&mut engine, p0, set);
+    assert_eq!(
+        offered.iter().map(|o| o.kind).collect::<Vec<_>>(),
+        (1..16).map(CastModeKind::Modes).collect::<Vec<_>>(),
+        "one or more of four modes is fifteen sets, and each is one row"
+    );
+    assert!(
+        offered
+            .iter()
+            .all(|o| o.cost == baylee_core::mana::ManaCost::parse("{4}{W}{W}")),
+        "no mode of Farewell costs anything of its own: {offered:?}"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    engine
+}
+
+/// "Choose one or more — • Exile all artifacts. […] • Exile all
+/// graveyards." Artifacts and graveyards: the Sol Ring and the Gargoyle go
+/// (indestructible stops no exile), and so does the graveyard. The Elves and
+/// the Sterling Grove were not chosen, and stay. Farewell was on the stack
+/// while the graveyards went, so it is the one card in a graveyard after.
+#[test]
+fn farewell_exiles_what_its_chosen_modes_name_and_nothing_else() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let engine = farewell_with(0b1001);
+    for gone in [sol_ring(), darksteel_gargoyle()] {
+        assert!(on_battlefield(&engine, p1, gone).is_none());
+    }
+    for kept in [llanowar_elves(), sterling_grove()] {
+        assert!(on_battlefield(&engine, p1, kept).is_some());
+    }
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p1))
+            .is_empty()
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Exile(p1)).len(),
+        5,
+        "two artifacts and three graveyard cards"
+    );
+    assert!(in_graveyard(&engine, p0, farewell()).is_some());
+}
+
+/// All four: the board is empty of all three types, and every graveyard.
+#[test]
+fn farewell_in_full_leaves_only_the_lands() {
+    let p1 = PlayerId::new(1);
+    let engine = farewell_with(0b1111);
+    for gone in [
+        llanowar_elves(),
+        sol_ring(),
+        sterling_grove(),
+        darksteel_gargoyle(),
+    ] {
+        assert!(on_battlefield(&engine, p1, gone).is_none());
+    }
+    assert_eq!(engine.state().zones.list(ZoneLocation::Exile(p1)).len(), 7);
+    assert_eq!(lands_of(&engine, PlayerId::new(0)).len(), 6);
+}

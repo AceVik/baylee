@@ -1574,6 +1574,31 @@ pub enum Effect {
         /// Only objects controlled by opponents (Cyclonic Rift style).
         opponents_only: bool,
     },
+    /// "Exile all [permanents]" (Farewell): every permanent `filter`
+    /// matches as this resolves. Nothing is targeted (CR 115.1a names a
+    /// target by the word), so hexproof and protection do not stop it.
+    ExileAll {
+        /// What.
+        filter: &'static Filter,
+    },
+    /// "Choose a creature you control. It gains indestructible until end of
+    /// turn." (Final Showdown): as this resolves its controller chooses one
+    /// permanent they control that `filter` matches (CR 608.2d), and `then`
+    /// happens to it — the chosen permanent is what `Filter::This` names
+    /// inside `then`. A choice and not a target (CR 115.1a), so hexproof
+    /// does not stop it; with nothing to choose, `then` does nothing
+    /// (CR 609.3).
+    ///
+    /// `then` is run as a nested list with the choice as its object, and a
+    /// nested list that stops for a question hands the rest of itself back
+    /// to the outer one, which does not know the choice — so `then` holds
+    /// only effects that ask nothing (`lints::chosen_then_fault`).
+    ChooseYoursThen {
+        /// What may be chosen, among the permanents its controller controls.
+        filter: &'static Filter,
+        /// What happens to the chosen one.
+        then: &'static [Effect],
+    },
     /// Destroy all objects matching a filter (wraths).
     DestroyAll {
         /// What.
@@ -2444,6 +2469,7 @@ impl Effect {
                 target: _,
             } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
+            | Effect::ChooseYoursThen { filter: _, then }
             | Effect::IfTargetMatches { filter: _, then }
             | Effect::IfNoCountersOnSelf { kind: _, then }
             | Effect::IfNotLostLifeThisTurn { then }
@@ -2548,6 +2574,7 @@ impl Effect {
             | Effect::ReturnToHand { .. }
             | Effect::ReturnAllToHand { .. }
             | Effect::DestroyAll { .. }
+            | Effect::ExileAll { .. }
             | Effect::DestroyOthersNamedLike { .. }
             | Effect::ExileGraveyard { .. }
             | Effect::GraveyardToTop { .. }
@@ -2660,6 +2687,24 @@ mod verb_tests {
         let mut body_seen = false;
         Effect::walk(EFFECTS, &mut seen, &mut |effect| {
             body_seen |= matches!(effect, Effect::GraveyardToBattlefield { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
+    }
+
+    /// "Choose a creature you control. It …" carries what happens to the
+    /// chosen one the way a one-branch conditional does, and the walk goes
+    /// into it.
+    #[test]
+    fn chosen_permanent_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::ChooseYoursThen {
+            filter: &crate::Filter::CREATURE,
+            then: &[Effect::draw(1)],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::DrawCards { .. });
         });
         assert_eq!(seen, 2);
         assert!(body_seen);

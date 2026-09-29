@@ -161,7 +161,7 @@ pub fn face_modes(
     abilities
         .iter()
         .find_map(|a| match a {
-            AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+            AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
                 Some(*modes)
             }
             _ => None,
@@ -340,7 +340,7 @@ pub fn grants_in(
         | AbilityDef::ActivatedConditional { effects, .. }
         | AbilityDef::SagaChapter { effects, .. }
         | AbilityDef::Loyalty { effects, .. } => vec![*effects],
-        AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
             modes.iter().map(|m| m.effects).collect()
         }
         // Nothing here resolves through an effect list a card wrote: a
@@ -1002,7 +1002,7 @@ mod tests {
                 let sets: Vec<&'static [baylee_cards_dsl::SpellMode]> = abilities
                     .iter()
                     .filter_map(|a| match a {
-                        AbilityDef::ModalSpell { modes }
+                        AbilityDef::ModalSpell { modes, .. }
                         | AbilityDef::ModalTriggered { modes, .. } => Some(*modes),
                         _ => None,
                     })

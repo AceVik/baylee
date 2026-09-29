@@ -249,16 +249,19 @@ pub fn face_has_a_legal_target(
     };
     let abilities = def.abilities_for_face(face);
     // A modal spell is answered mode by mode (CR 700.2): the card is castable
-    // when *any* one of its modes can be pointed at something, and which one
-    // is `cast_options`' question, not this one's.
+    // when as many of its modes as it must choose can each be pointed at
+    // something — one for "choose one", two for "choose two" — and which
+    // ones is `cast_options`' question, not this one's.
     let mut modal = abilities.iter().filter_map(|a| match a {
-        baylee_cards_dsl::AbilityDef::ModalSpell { modes } => Some(modes),
+        baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } => Some((modes, choose)),
         _ => None,
     });
-    if let Some(modes) = modal.next() {
-        return modes
+    if let Some((modes, choose)) = modal.next() {
+        let takeable = modes
             .iter()
-            .any(|mode| requirement_is_reachable(mode.targets, state, player, card));
+            .filter(|mode| requirement_is_reachable(mode.targets, state, player, card))
+            .count();
+        return takeable >= usize::from(choose.min.max(1));
     }
     let spell = abilities.iter().find_map(|a| match a {
         baylee_cards_dsl::AbilityDef::Spell {
@@ -340,13 +343,82 @@ pub fn mode_has_a_legal_target(
         return true;
     };
     let req = def.abilities.iter().find_map(|a| match a {
-        baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes.get(mode).map(|m| m.targets),
+        baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
+            modes.get(mode).map(|m| m.targets)
+        }
         _ => None,
     });
     match req {
         Some(req) => requirement_is_reachable(req, state, player, card),
         None => true,
     }
+}
+
+/// Every set of modes a spell that chooses more than one may be cast with
+/// (CR 700.2a), as a bitmask — bit `i` is mode `i` — in increasing order:
+/// each holds as many modes as `choose` allows, none twice (CR 700.2d).
+///
+/// Eight modes at most, which is a byte. The pool's widest is four.
+pub fn mode_sets(
+    modes: &[baylee_cards_dsl::SpellMode],
+    choose: baylee_cards_dsl::ModeCount,
+) -> impl Iterator<Item = u8> {
+    let every = 1_u16 << modes.len().min(8);
+    (1..every).filter_map(move |set| {
+        let set = u8::try_from(set).ok()?;
+        let count = u8::try_from(set.count_ones()).ok()?;
+        (choose.min <= count && count <= choose.max).then_some(set)
+    })
+}
+
+/// The modes a set names, with their indices, in the order they are
+/// printed — which is the order they are carried out in (CR 608.2c).
+pub fn chosen_modes(
+    modes: &'static [baylee_cards_dsl::SpellMode],
+    set: u8,
+) -> impl Iterator<Item = (usize, &'static baylee_cards_dsl::SpellMode)> {
+    modes
+        .iter()
+        .enumerate()
+        .filter(move |(i, _)| *i < 8 && set & (1 << i) != 0)
+}
+
+/// What a set of modes costs: `base`, the spell's own price, with every
+/// chosen mode's cost added to it (CR 700.2h, 601.2f) — spree's "+ {1}".
+///
+/// With one generic symbol, as a printed cost has: two "+ {1}" on {W} are
+/// {2}{W}, which is what a row draws, and not the {1}{1}{W} that
+/// [`ManaCost::combine`] would make of them.
+#[must_use]
+pub fn mode_set_cost(
+    base: ManaCost,
+    modes: &'static [baylee_cards_dsl::SpellMode],
+    set: u8,
+) -> ManaCost {
+    chosen_modes(modes, set).fold(base, |cost, (_, mode)| {
+        let Some(extra) = mode.additional_cost else {
+            return cost;
+        };
+        extra.symbols().fold(cost, |cost, symbol| match symbol {
+            baylee_core::mana::ManaSymbol::Generic(n) => cost.with_more_generic(n),
+            other => cost.combine(&ManaCost::from_symbol(other)),
+        })
+    })
+}
+
+/// Whether every mode in a set can be pointed at something: a mode that
+/// would be illegal can't be chosen (CR 700.2a), in a set as alone.
+#[must_use]
+pub fn mode_set_has_legal_targets(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+    set: u8,
+) -> bool {
+    (0..8_usize)
+        .filter(|i| set & (1 << i) != 0)
+        .all(|i| mode_has_a_legal_target(state, lookup, player, card, i))
 }
 
 /// Whether choosing a mode is the **only** way to cast this face (CR 700.2).
@@ -1127,7 +1199,13 @@ pub(crate) fn can_cast_form(
         // same intersection `cast_options` makes two files away, which is the
         // half that was already right.
         let any_mode = def.abilities.iter().any(|a| match a {
-            baylee_cards_dsl::AbilityDef::ModalSpell { modes } => {
+            baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
+                mode_sets(modes, *choose).any(|set| {
+                    probe(&mode_set_cost(face.mana_cost, modes, set).with_x(0))
+                        && mode_set_has_legal_targets(state, lookup, player, card, set)
+                })
+            }
+            baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
                 modes.iter().enumerate().any(|(i, m)| {
                     probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))
                         && mode_has_a_legal_target(state, lookup, player, card, i)
@@ -1163,7 +1241,11 @@ pub(crate) fn can_cast_form(
             // player one land short, and telling them it is sends them
             // looking for the land.
             let a_mode_was_affordable = def.abilities.iter().any(|a| match a {
-                baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
+                    mode_sets(modes, *choose)
+                        .any(|set| probe(&mode_set_cost(face.mana_cost, modes, set).with_x(0)))
+                }
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => modes
                     .iter()
                     .any(|m| probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))),
                 _ => false,

@@ -3047,6 +3047,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         chosen_player,
         target_players,
         mode_index,
+        modes,
         chosen_subtype,
         chosen_color,
         face_index,
@@ -3126,6 +3127,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     chosen_player.hash(h);
     target_players.hash(h);
     mode_index.hash(h);
+    modes.hash(h);
     chosen_subtype.hash(h);
     chosen_color.hash(h);
     face_index.hash(h);
@@ -4139,6 +4141,9 @@ mod tests {
             }),
             ("mode_index", |s, id| {
                 fixture_object(s, id).mode_index = Some(1);
+            }),
+            ("modes", |s, id| {
+                fixture_object(s, id).modes = 0b101;
             }),
             ("chosen_subtype", |s, id| {
                 fixture_object(s, id).chosen_subtype = Some(SubtypeId::new(1));

@@ -65,11 +65,36 @@ fn effects(ability: &AbilityDef, mode: Option<usize>) -> &'static [Effect] {
         | AbilityDef::Triggered { effects, .. }
         | AbilityDef::SagaChapter { effects, .. }
         | AbilityDef::Loyalty { effects, .. } => effects,
-        AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
             mode.and_then(|i| modes.get(i)).map_or(&[], |m| m.effects)
         }
         _ => &[],
     }
+}
+
+/// Which of several chosen modes a cast is asking about: the one whose
+/// targets are asked — the first of them that says "target", or at the
+/// second instance of the word the second (CR 700.2c) — and otherwise the
+/// first chosen.
+fn asked_mode(def: &baylee_cards_dsl::CardDef, set: u8, second: bool) -> Option<usize> {
+    def.abilities_for_face(0).iter().find_map(|a| match a {
+        AbilityDef::ModalSpell { modes, .. } => {
+            let mut targeting = crate::casting::chosen_modes(modes, set)
+                .filter(|(_, mode)| mode.targets.is_some())
+                .map(|(i, _)| i);
+            let asked = if second {
+                targeting.nth(1)
+            } else {
+                targeting.next()
+            };
+            asked.or_else(|| {
+                crate::casting::chosen_modes(modes, set)
+                    .next()
+                    .map(|(i, _)| i)
+            })
+        }
+        _ => None,
+    })
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -201,8 +226,11 @@ impl<L: CardLookup> Engine<L> {
             Some(CastModeKind::Face(i)) => i,
             _ => 0,
         };
+        let second_stage = wizard.stage == super::cast_wizard::WizardStage::SecondTargets;
+        let several = matches!(wizard.option, Some(CastModeKind::Modes(_)));
         let mode = match wizard.option {
             Some(CastModeKind::Mode(i)) => Some(i),
+            Some(CastModeKind::Modes(set)) => asked_mode(def, set, second_stage),
             _ => None,
         };
         DecisionContext {
@@ -248,8 +276,11 @@ impl<L: CardLookup> Engine<L> {
                             .len();
                     u32::try_from(objects + players).unwrap_or(u32::MAX)
                 }),
-            second_instance: wizard.stage == super::cast_wizard::WizardStage::SecondTargets,
-            first_targets: &wizard.targets,
+            // The second instance of a spell cast with several modes belongs
+            // to a mode of its own, with its own effects: it is that mode's
+            // first, and what the other mode chose is nothing to weigh.
+            second_instance: second_stage && !several,
+            first_targets: if several { &[] } else { &wizard.targets },
             // A clone chooses as it resolves, never while it is being cast.
             copying: None,
         }

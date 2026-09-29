@@ -782,6 +782,10 @@ pub struct GameObject {
     pub target_players: baylee_core::ids::SeatSet,
     /// The chosen spell mode (modal spells / overload).
     pub mode_index: Option<u8>,
+    /// The modes chosen for a spell that chooses more than one
+    /// (`CastModeKind::Modes`, CR 700.2a): bit `i` is mode `i`, and zero on
+    /// every other object. A choose-one spell's mode is `mode_index`.
+    pub modes: u8,
     /// The creature type chosen as this entered ("the chosen type" —
     /// Roaming Throne, Reflections of Littjara, Cavern of Souls).
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
@@ -932,6 +936,7 @@ impl GameObject {
             chosen_player: None,
             target_players: baylee_core::ids::SeatSet::new(),
             mode_index: None,
+            modes: 0,
             chosen_subtype: None,
             chosen_color: None,
             face_index: 0,

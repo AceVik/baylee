@@ -5209,3 +5209,44 @@ fn rampant_growth() -> CardIndex {
 fn despotic_scepter() -> CardIndex {
     card_index("34a85d7f-d4ea-4a0f-aa4c-bf0b0f4987bf")
 }
+
+fn farewell() -> CardIndex {
+    card_index("4eb813fd-2d5a-4b02-8193-662681ef4e7d")
+}
+
+fn final_showdown() -> CardIndex {
+    card_index("7e7ec3d6-a84f-4cc3-93f4-4d181d41e126")
+}
+
+fn three_steps_ahead() -> CardIndex {
+    card_index("282dfeaa-6243-4f92-838a-5cb54fa85184")
+}
+
+/// An artifact creature with flying and indestructible, printed.
+fn darksteel_gargoyle() -> CardIndex {
+    card_index("73010421-374f-458e-aa88-248ef8ae4f8b")
+}
+
+/// Answers the cast-mode question of a spell that chooses several modes
+/// with the set `set` names (bit `i` is mode `i`), as a player presses its
+/// row, and returns every row that was offered.
+#[track_caller]
+fn choose_modes(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    set: u8,
+) -> Vec<crate::choice::CastModeDesc> {
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the modes, got {:?}", engine.pending())
+    };
+    assert_eq!(player, seat, "the caster chooses the modes");
+    let slot = options
+        .iter()
+        .position(|o| o.kind == CastModeKind::Modes(set))
+        .unwrap_or_else(|| panic!("{set:#b} is not offered: {options:?}"));
+    engine.apply(seat, PlayerAction::ChooseMode(slot)).unwrap();
+    options
+}

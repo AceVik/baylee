@@ -321,9 +321,40 @@ impl<L: CardLookup> Engine<L> {
     ) -> Vec<CastModeDesc> {
         let mut options = Vec::new();
         for ability in def.abilities_for_face(0) {
-            let AbilityDef::ModalSpell { modes } = ability else {
+            let AbilityDef::ModalSpell { modes, choose } = ability else {
                 continue;
             };
+            if !choose.is_one() {
+                // A set of modes, and each mode's own cost with it: those
+                // are additional costs, added to the alternative cost a free
+                // cast is (CR 118.9d), so a free Final Showdown still pays
+                // {1} for each "+ {1}" it chooses. Offered only when the pool
+                // already holds it, as every cost in the wizard is.
+                let with_restricted =
+                    casting::spendable_pool(&self.state, player, casting::SpendFor::Spell(card));
+                let pool = with_restricted
+                    .as_ref()
+                    .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
+                for set in casting::mode_sets(modes, *choose) {
+                    let cost = casting::mode_set_cost(ManaCost::ZERO, modes, set);
+                    if casting::wild_or_not(casting::mana_is_wild(&self.state), pool, &cost)
+                        && casting::mode_set_has_legal_targets(
+                            &self.state,
+                            &self.lookup,
+                            player,
+                            card,
+                            set,
+                        )
+                    {
+                        options.push(CastModeDesc {
+                            index: u8::try_from(options.len()).unwrap_or(u8::MAX),
+                            kind: CastModeKind::Modes(set),
+                            cost,
+                        });
+                    }
+                }
+                continue;
+            }
             for (i, mode) in modes.iter().enumerate() {
                 if mode.cost_override.is_none()
                     && casting::mode_has_a_legal_target(&self.state, &self.lookup, player, card, i)
@@ -595,11 +626,34 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
-        // Modal spells (overload & friends): one option per mode.
+        // Modal spells (overload & friends): one option per mode — or, for a
+        // spell that chooses more than one, one per set of modes it may be
+        // cast with, each priced with its modes' own costs (CR 700.2h).
         for ability in def.abilities {
-            let AbilityDef::ModalSpell { modes } = ability else {
+            let AbilityDef::ModalSpell { modes, choose } = ability else {
                 continue;
             };
+            if !choose.is_one() {
+                for set in casting::mode_sets(modes, *choose) {
+                    let cost = casting::mode_set_cost(face.mana_cost, modes, set);
+                    if afford(&cost.with_x(0))
+                        && casting::mode_set_has_legal_targets(
+                            &self.state,
+                            &self.lookup,
+                            player,
+                            card,
+                            set,
+                        )
+                    {
+                        options.push(CastModeDesc {
+                            index: (options.len()) as u8,
+                            kind: CastModeKind::Modes(set),
+                            cost: cost.with_more_generic(tax),
+                        });
+                    }
+                }
+                continue;
+            }
             for (i, mode) in modes.iter().enumerate() {
                 let cost = mode.cost_override.unwrap_or(face.mana_cost);
                 // Affordable *and* pointable. Every other option in this
@@ -1090,11 +1144,15 @@ impl<L: CardLookup> Engine<L> {
         let abilities = def.abilities_for_face(face_index);
         match wizard.option {
             Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
-                AbilityDef::ModalSpell { modes } => {
+                AbilityDef::ModalSpell { modes, .. } => {
                     modes.get(i).and_then(|m: &SpellMode| m.targets)
                 }
                 _ => None,
             }),
+            // Several modes: the first of them that says "target" is the
+            // spell's first instance of the word (CR 700.2c), the second
+            // its second — `wizard_second_target_req`.
+            Some(CastModeKind::Modes(set)) => targeted_mode(abilities, set, 0),
             _ => abilities.iter().find_map(|a| match a {
                 AbilityDef::Spell { targets, .. } => *targets,
                 _ => None,
@@ -1111,6 +1169,15 @@ impl<L: CardLookup> Engine<L> {
     pub(super) fn wizard_second_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
         if matches!(wizard.option, Some(CastModeKind::Mode(_))) {
             return None;
+        }
+        if let Some(CastModeKind::Modes(set)) = wizard.option {
+            let def = self
+                .state
+                .object(wizard.card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+                .expect("wizard card known");
+            return targeted_mode(def.abilities_for_face(0), set, 1);
         }
         let def = self
             .state
@@ -1170,7 +1237,10 @@ impl<L: CardLookup> Engine<L> {
         // units included: the colors it holds less of afterwards are the
         // colors spent (converge).
         let held_before = units_by_color(&self.state.players[player.get() as usize].mana_pool);
-        if !wizard.free || wizard.kicked {
+        // A free cast pays nothing but what is added to it: a kicker, or
+        // the costs of the modes it chose (CR 118.9d).
+        let owed = !wizard.free || wizard.kicked || total != ManaCost::ZERO;
+        if owed {
             // Restricted mana (Cavern of Souls & co.) is spent where the
             // spell may spend it, and a rider applies for each entry that
             // actually paid. A failed payment has touched nothing.
@@ -1376,6 +1446,10 @@ impl<L: CardLookup> Engine<L> {
                 Some(CastModeKind::Mode(i)) => Some(i.try_into().expect("mode index fits u8")),
                 _ => None,
             };
+            obj.modes = match wizard.option {
+                Some(CastModeKind::Modes(set)) => set,
+                _ => 0,
+            };
         }
         // Commander-cast tracking: casts from the command zone count, once
         // for the seat (Commander's Insight) and once for the commander
@@ -1413,11 +1487,7 @@ impl<L: CardLookup> Engine<L> {
         // gives it up: the spell on the stack is the object that reads it.
         // A free cast spent no mana (CR 601.2h pays nothing it was not
         // asked for), whatever its printed cost says.
-        let mana_spent = if !wizard.free || wizard.kicked {
-            total.cmc()
-        } else {
-            0
-        };
+        let mana_spent = if owed { total.cmc() } else { 0 };
         let held_after = units_by_color(&self.state.players[player.get() as usize].mana_pool);
         let colors_spent = baylee_core::color::Color::ALL
             .into_iter()
@@ -1598,6 +1668,20 @@ fn units_by_color(pool: &baylee_core::mana::ManaPool) -> [u32; 5] {
                 .filter(|r| r.color == mana)
                 .map(|r| u32::from(r.amount))
                 .sum::<u32>()
+    })
+}
+
+/// The `nth` of the chosen modes that says "target" (0 or 1), and what it
+/// asks for: a spell cast with several modes points each of up to two of
+/// them at something, as its first and second instance of the word
+/// (CR 700.2c). `lints::modes_fault` holds a spell that chooses several to
+/// at most two such modes.
+fn targeted_mode(abilities: &'static [AbilityDef], set: u8, nth: usize) -> Option<TargetReq> {
+    abilities.iter().find_map(|a| match a {
+        AbilityDef::ModalSpell { modes, .. } => casting::chosen_modes(modes, set)
+            .filter_map(|(_, mode)| mode.targets)
+            .nth(nth),
+        _ => None,
     })
 }
 

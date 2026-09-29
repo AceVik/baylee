@@ -127,6 +127,25 @@ pub struct Resolution {
     /// It is `None` at every construction site for the same reason: nothing
     /// but `run` may decide when "the resolution began" was.
     pub target_lki: Option<Vec<TargetLki>>,
+    /// Where the effects of the second targeting mode of a spell cast with
+    /// several modes begin (CR 700.2a, `progress::modal_program`), counted
+    /// as the ops of the program still to run there: at that point
+    /// `targets` becomes what that mode chose, the spell's second instance
+    /// of the word "target". Its first mode's effects read the first
+    /// instance up to there. `None` for everything else.
+    ///
+    /// Counted from the end and not as a program counter because the one
+    /// thing that rewrites a program, a nested list that stops for a
+    /// question ([`run_nested_with`]), replaces the op at the counter with
+    /// what the nested list has left and moves everything after it; what
+    /// is left after the point stays exactly what it was.
+    ///
+    /// `target_lki` is taken of the first instance only. The pool's one
+    /// such spell, Three Steps Ahead, reads no last known information in
+    /// its second targeting mode — a token copy reads the permanent's
+    /// copiable values while it is there — so nothing would read a snapshot
+    /// of the second.
+    pub retarget_left: Option<usize>,
 }
 
 /// One target as it last existed where the resolution expected it.
@@ -383,6 +402,11 @@ pub enum AwaitingOp {
     },
     /// After `UntapChosen`: untap what was chosen.
     UntapChosen,
+    /// After `ChooseYoursThen`: `then` happens to the chosen permanent.
+    ChooseYoursThen {
+        /// What happens to it.
+        then: &'static [Effect],
+    },
     /// After `Populate`: copy the chosen creature token.
     Populate,
     /// After `LookAtTopPick`: chosen go to hand, the rest to the bottom.
@@ -825,6 +849,14 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         );
     }
     while res.pc < res.effects.len() {
+        // The second targeting mode of a spell cast with several begins
+        // here: "target" means what that mode chose from now on.
+        if res.retarget_left == Some(res.effects.len() - res.pc) {
+            res.retarget_left = None;
+            res.targets = std::mem::take(&mut res.second_targets)
+                .into_iter()
+                .collect();
+        }
         let op = res.effects[res.pc];
         // Continuous effects apply at all times (CR 613), so an effect of
         // this resolution sees what the one before it did: Bridgeworks
@@ -1677,6 +1709,21 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 untap(state, id);
             }
         }
+        // The chosen permanent is what `then` is about, so it runs as a
+        // list of its own with the choice as its object — `Filter::This`
+        // names it there, as it names a target, which is what `targeted`
+        // says. The lint that keeps `then` from asking anything is what
+        // makes the nested run whole (`lints::chosen_then_fault`).
+        AwaitingOp::ChooseYoursThen { then } => {
+            if let Some(&id) = chosen.first() {
+                let targeted = std::mem::replace(&mut res.targeted, true);
+                let pending = run_nested_with(state, res, flatten(then), smallvec::smallvec![id]);
+                res.targeted = targeted;
+                if let Some(pending) = pending {
+                    return Flow::Wait(pending);
+                }
+            }
+        }
         AwaitingOp::Populate => {
             if let Some(&id) = chosen.first() {
                 tokens::populate(state, res.controller, id);
@@ -2260,6 +2307,7 @@ fn run_nested_with(
         mana_ability: false,
         countered_source: res.countered_source,
         target_lki: None,
+        retarget_left: None,
     };
     match run(state, &mut nested) {
         Flow::Complete => None,
@@ -2307,6 +2355,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ReturnToHand { .. }
         | Effect::ReturnAllToHand { .. }
         | Effect::DestroyAll { .. }
+        | Effect::ExileAll { .. }
+        | Effect::ChooseYoursThen { .. }
         | Effect::DestroyOthersNamedLike { .. }
         | Effect::ExileGraveyard { .. }
         | Effect::GraveyardToHand { .. }
@@ -2922,7 +2972,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             // with the original's targets and its controller may then choose
             // new ones (CR 707.10c), so this can suspend on a choice.
             if let Some(&target_id) = res.targets.first() {
-                let (card, mut base, targets, target_req, second) = {
+                let (card, mut base, targets, target_req, second, modes) = {
                     let obj = state.object(target_id)?;
                     (
                         obj.card,
@@ -2930,6 +2980,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         obj.targets.clone(),
                         obj.target_req,
                         obj.second.clone(),
+                        (obj.mode_index, obj.modes),
                     )
                 };
                 for m in mods {
@@ -2959,6 +3010,10 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     // what the original chose rather than being dropped,
                     // which is the choice a player declining would make.
                     obj.second = second;
+                    // And its modes: the copy's controller can't choose
+                    // others (CR 700.2g). A copy of a modal spell that was
+                    // given none resolved to nothing at all.
+                    (obj.mode_index, obj.modes) = modes;
                     obj.zone = crate::zone::Zone::Stack;
                     // CR 704.5e: it stops existing the moment it is anywhere
                     // but the stack or the battlefield. Carrying the copied
@@ -3400,6 +3455,7 @@ mod created_for_the_departed_tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),
             event_object: None,
             awaiting: None,

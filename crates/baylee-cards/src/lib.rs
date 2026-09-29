@@ -408,7 +408,7 @@ mod tests {
                     // override, and `no_modal_trigger_overrides_a_cost`
                     // below is what holds that — and is what would fail
                     // first if a card ever put a cost there.
-                    AbilityDef::ModalSpell { modes } => {
+                    AbilityDef::ModalSpell { modes, .. } => {
                         for mode in *modes {
                             if let Some(cost) = mode.cost_override {
                                 add(&cost);

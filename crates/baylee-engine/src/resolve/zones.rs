@@ -264,6 +264,31 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        // Farewell's four sweeps. Nothing is targeted, and a phased-out
+        // permanent is treated as though it doesn't exist (CR 702.26b),
+        // which `battlefield_seen` is.
+        Effect::ExileAll { filter } => {
+            let all: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                })
+                .collect();
+            for id in all {
+                let Some(owner) = state.object(id).map(|o| o.owner) else {
+                    continue;
+                };
+                let _ = state.move_object(
+                    id,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
         // Maelstrom Pulse's sweep. The name is read now, off the projected
         // characteristics of the permanent still on the battlefield — the
         // card effect destroying it comes after this one — and a nameless
@@ -744,6 +769,24 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             });
             Some(Pending::ChooseCards {
                 player,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
+        // "Choose a creature you control": a choice made as this resolves
+        // (CR 608.2d), and one that must be made when it can — the sentence
+        // is an instruction, so `min: 1`. Nothing to choose, nothing
+        // happens (CR 609.3), and nobody is asked an empty question.
+        Effect::ChooseYoursThen { filter, then } => {
+            let options = chosen::options(state, you, filter, you, res.source);
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::ChooseYoursThen { then });
+            Some(Pending::ChooseCards {
+                player: you,
                 options,
                 min: 1,
                 max: 1,

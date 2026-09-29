@@ -815,6 +815,14 @@ pub struct Mapping {
 /// The bullet a modal card lists its modes under.
 const BULLET: char = '\u{2022}';
 
+/// Whether a printed sentence is one mode of a modal card's list: a bullet,
+/// or spree's plus sign in front of the mode's own cost — "+ {1} — …"
+/// (CR 702.172b: the plus sign is a bullet with a reminder in it).
+fn is_mode_line(line: &str) -> bool {
+    let line = line.trim_start();
+    line.starts_with(BULLET) || line.starts_with("+ {")
+}
+
 /// Which printed sentence each mode of a modal spell came from.
 ///
 /// `CastModeKind::Mode(i)` is the only thing a client is told about a mode,
@@ -852,7 +860,7 @@ pub fn map_modes(modes: &[SpellMode], oracle: &str) -> Vec<Option<u8>> {
     let bullets: Vec<usize> = lines
         .iter()
         .enumerate()
-        .filter(|(_, line)| line.trim_start().starts_with(BULLET))
+        .filter(|(_, line)| is_mode_line(line))
         .map(|(at, _)| at)
         .collect();
     if !bullets.is_empty() {
@@ -870,7 +878,10 @@ pub fn map_modes(modes: &[SpellMode], oracle: &str) -> Vec<Option<u8>> {
         // own is the ordinary disagreement below, where the honest answer
         // is still to refuse the card whole.
         let declining = |m: &SpellMode| {
-            m.effects.is_empty() && m.targets.is_none() && m.cost_override.is_none()
+            m.effects.is_empty()
+                && m.targets.is_none()
+                && m.cost_override.is_none()
+                && m.additional_cost.is_none()
         };
         let spoken: Vec<usize> = modes
             .iter()
@@ -1501,6 +1512,20 @@ mod tests {
         );
     }
 
+    /// Spree lists its modes under a plus sign, each with its own cost, and
+    /// the plus sign is the bullet (CR 702.172b). Final Showdown's shape:
+    /// the keyword line first, and no mode is it.
+    #[test]
+    fn a_spree_card_gives_each_mode_its_plus_sign() {
+        let text = "Spree (Choose one or more additional costs.)\n\
+                    + {1} — All creatures lose all abilities until end of turn.\n\
+                    + {1} — Choose a creature you control. It gains indestructible \
+                    until end of turn.\n\
+                    + {3}{W}{W} — Destroy all creatures.";
+        let modes = [mode(None), mode(None), mode(None)];
+        assert_eq!(map_modes(&modes, text), vec![Some(1), Some(2), Some(3)]);
+    }
+
     /// A bullet count that disagrees with the mode count is refused whole.
     ///
     /// The counter-test the honesty rule exists for: walking them in step
@@ -1701,6 +1726,7 @@ mod tests {
             effects: draw(1),
             targets: None,
             cost_override,
+            additional_cost: None,
         }
     }
 
@@ -1711,6 +1737,7 @@ mod tests {
             effects: &[],
             targets: None,
             cost_override: None,
+            additional_cost: None,
         }
     }
 

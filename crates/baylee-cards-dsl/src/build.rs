@@ -422,6 +422,7 @@ impl SpellMode {
             effects,
             targets: None,
             cost_override: None,
+            additional_cost: None,
         }
     }
 }
@@ -880,7 +881,7 @@ macro_rules! equip {
 pub mod prelude {
     pub use crate::ability::{
         AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod,
-        SpellMode, StepKind, Trigger, TriggerEventKind,
+        ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind,
     };
     pub use crate::build::{
         ActivatedParts, EQUIP_TARGET, LoyaltyParts, ModalTriggeredParts, SagaChapterParts,

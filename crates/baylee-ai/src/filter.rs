@@ -265,6 +265,12 @@ impl HeuristicAgent {
         let Some(modes) = Self::modal_modes(view, object) else {
             return 0;
         };
+        if options
+            .iter()
+            .any(|option| matches!(option.kind, CastModeKind::Modes(_)))
+        {
+            return self.cast_modes(view, object, modes, options);
+        }
         options
             .iter()
             .enumerate()
@@ -279,6 +285,41 @@ impl HeuristicAgent {
                     Some(false) => 0,
                 };
                 (reach, std::cmp::Reverse(*position))
+            })
+            .map_or(0, |(position, _)| position)
+    }
+
+    /// Which set of modes to cast a spell that chooses several with
+    /// (Farewell, a spree card), by the same reading as one mode: a set with
+    /// a mode that reaches nothing is paid for and does nothing, so it loses
+    /// to every set without one; among those, the one reaching the most
+    /// wins; and a mode nobody could read is not bought for its own sake,
+    /// because the earlier set — the smaller one, the engine offers them by
+    /// their bits — breaks the tie.
+    fn cast_modes(
+        &self,
+        view: &PlayerView,
+        object: ObjectId,
+        modes: &[SpellMode],
+        options: &[CastModeDesc],
+    ) -> usize {
+        options
+            .iter()
+            .enumerate()
+            .filter_map(|(position, option)| match option.kind {
+                CastModeKind::Modes(set) => Some((position, set)),
+                _ => None,
+            })
+            .max_by_key(|&(position, set)| {
+                let reaches: Vec<Option<bool>> = modes
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| set & (1 << i) != 0)
+                    .map(|(_, mode)| self.mode_reaches(view, mode, object))
+                    .collect();
+                let idle = reaches.contains(&Some(false));
+                let reached = reaches.iter().filter(|r| **r == Some(true)).count();
+                (!idle, reached, std::cmp::Reverse(position))
             })
             .map_or(0, |(position, _)| position)
     }
@@ -333,7 +374,7 @@ impl HeuristicAgent {
             .abilities_for_face(usize::from(rules.face))
             .iter()
             .filter_map(|ability| match ability {
-                AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+                AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
                     Some(*modes)
                 }
                 _ => None,
@@ -408,8 +449,13 @@ impl HeuristicAgent {
             | Effect::DestroyChosenForPlayers { who, filter } => {
                 self.battlefield_has(filter, view, &self.seats(*who, view)?, Some(this))
             }
-            Effect::DestroyAll { filter, .. } | Effect::DealDamageEach { filter, .. } => {
+            Effect::DestroyAll { filter, .. }
+            | Effect::ExileAll { filter }
+            | Effect::DealDamageEach { filter, .. } => {
                 self.battlefield_has(filter, view, &everyone, Some(this))
+            }
+            Effect::ChooseYoursThen { filter, .. } => {
+                self.battlefield_has(filter, view, &[view.seat], Some(this))
             }
             _ => None,
         }))
