@@ -2,10 +2,32 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use baylee_client_core::{
+    deckbuilder::transfer::Transfer,
     deckbuilder::{Entry, Sort},
     filterdialog::FilterPanel,
     textbuf::TextBuffer,
 };
+
+/// What the import or export dialog draws from: the dialog itself, and the
+/// two things its report reads from the builder live — the cards the pool
+/// lacks and whether the pool has arrived.
+#[derive(PartialEq, Eq)]
+struct TransferKey {
+    transfer: Transfer,
+    missing: Vec<String>,
+    loaded: bool,
+    busy: bool,
+}
+
+fn transfer_key(state: &LobbyState) -> Option<TransferKey> {
+    let deck = state.lobby.builder();
+    deck.transfer().map(|transfer| TransferKey {
+        transfer: transfer.clone(),
+        missing: deck.missing().to_vec(),
+        loaded: deck.loaded(),
+        busy: state.lobby.busy(),
+    })
+}
 
 #[derive(PartialEq, Eq)]
 struct DeckKey {
@@ -61,22 +83,24 @@ pub(crate) struct Retained {
     deck: Option<Entity>,
     pool: Option<Entity>,
     picker: Option<Entity>,
+    transfer: Option<Entity>,
     deck_key: DeckKey,
     pool_key: PoolKey,
     bar_key: BarKey,
     picker_key: Option<Picker>,
+    transfer_key: Option<TransferKey>,
 }
 impl Retained {
-    #[allow(clippy::too_many_arguments)]
+    /// `drawn` is the deck list, the pool, the printing picker and the
+    /// import or export dialog, each as far as it was drawn.
     pub(super) fn new(
         state: &LobbyState,
         root: Entity,
         body: Entity,
         bar: Entity,
-        deck: Option<Entity>,
-        pool: Option<Entity>,
-        picker: Option<Entity>,
+        drawn: [Option<Entity>; 4],
     ) -> Self {
+        let [deck, pool, picker, transfer] = drawn;
         let (deck_key, pool_key, bar_key) = keys(state);
         Self {
             root,
@@ -85,10 +109,12 @@ impl Retained {
             deck,
             pool,
             picker,
+            transfer,
             deck_key,
             pool_key,
             bar_key,
             picker_key: state.lobby.builder().picker().cloned(),
+            transfer_key: transfer_key(state),
         }
     }
 
@@ -149,6 +175,26 @@ impl Retained {
                 self.picker = Some(dialog);
             }
             self.picker_key = picker.cloned();
+        }
+        let transfer = transfer_key(state);
+        if self.transfer_key != transfer {
+            if let Some(old) = self.transfer.take() {
+                commands.entity(old).despawn();
+            }
+            if let Some(open) = state.lobby.builder().transfer() {
+                let dialog = super::transfer::transfer_dialog(
+                    commands,
+                    fonts,
+                    metrics,
+                    state.lobby.lang(),
+                    state.lobby.builder(),
+                    open,
+                    scrolled,
+                );
+                commands.entity(self.root).add_child(dialog);
+                self.transfer = Some(dialog);
+            }
+            self.transfer_key = transfer;
         }
     }
 }

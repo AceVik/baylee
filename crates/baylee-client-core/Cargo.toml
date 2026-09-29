@@ -12,6 +12,8 @@ workspace = true
 [dependencies]
 baylee-cardtext.workspace = true
 baylee-core.workspace = true
+# Deck import and export: the formats, detection and URL sources.
+baylee-deckio.workspace = true
 baylee-engine.workspace = true
 # The username rule the gateway checks (`names`), so the sign-up form can
 # say what is wrong with a name before sending it (#269).

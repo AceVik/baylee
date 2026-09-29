@@ -759,7 +759,20 @@ fn table(
         palette::ACCENT,
         true,
     );
-    commands.entity(deck_tools).add_child(new_deck);
+    // A deck from elsewhere (a Moxfield export, a file of ours) opens the
+    // builder with the import dialog in front of it.
+    let import_deck = button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::ImportDeck.text(lang),
+        Press::ImportDeck,
+        palette::PANEL_LIT,
+        true,
+    );
+    commands
+        .entity(deck_tools)
+        .add_children(&[new_deck, import_deck]);
     if lobby.decks().is_empty() {
         commands.entity(deck_tools).despawn();
     } else {
@@ -793,7 +806,18 @@ fn table(
             palette::PANEL_LIT,
             true,
         );
-        commands.entity(empty).add_children(&[action, build]);
+        let import = button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::ImportDeck.text(lang),
+            Press::ImportDeck,
+            palette::PANEL_LIT,
+            true,
+        );
+        commands
+            .entity(empty)
+            .add_children(&[action, build, import]);
         commands.entity(decks).add_child(empty);
     }
     for (index, deck) in lobby.decks().iter().enumerate() {

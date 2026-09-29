@@ -30,6 +30,7 @@ description = "An unofficial, non-commercial fan implementation of a trading car
 [workspace.dependencies]
 baylee-core = { path = "crates/baylee-core" }
 baylee-cardtext = { path = "crates/baylee-cardtext" }
+baylee-deckio = { path = "crates/baylee-deckio" }
 baylee-protocol = { path = "crates/baylee-protocol" }
 baylee-view = { path = "crates/baylee-view" }
 baylee-client-core = { path = "crates/baylee-client-core" }

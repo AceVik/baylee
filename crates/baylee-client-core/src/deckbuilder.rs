@@ -876,12 +876,19 @@ pub struct DeckBuilder {
     /// already in — a shell that raises a keyboard needs the tap, not the
     /// field. Mirrors [`crate::lobby::Lobby::focus_epoch`].
     focus_epoch: u64,
+    /// The open import or export dialog.
+    transfer: Option<transfer::Transfer>,
+    /// The format the export dialog last showed, so it opens there again.
+    export_format: Option<baylee_deckio::FormatId>,
 }
 
 mod builder;
 pub mod statistics;
+pub mod transfer;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod transfer_tests;
 
 mod types;
