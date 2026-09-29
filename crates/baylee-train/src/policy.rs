@@ -11,11 +11,13 @@
 //! decision's objects have rows, an [`Opt`] triple `(head, a, b)` the net
 //! scores: see [`head`].
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
-use baylee_engine::choice::{CastModeKind, GRANTED_SLOTS, Pending, PlayerAction, granted_ability};
+use baylee_engine::choice::{
+    AttackerBound, BlockOption, CastModeKind, GRANTED_SLOTS, Pending, PlayerAction, granted_ability,
+};
 
 /// Which part of the net scores an option, and what `a` and `b` mean.
 pub mod head {
@@ -166,6 +168,114 @@ pub fn blocker_bounds(pending: &Pending) -> std::collections::BTreeMap<ObjectId,
     }
 }
 
+/// The blocks picked so far against the counts `ChooseBlockers` states per
+/// attacker. A block is offered only where its attacker has room for one
+/// more, and every attacker left short of its least (menace) can still reach
+/// it from the free blockers: else the answer runs out of blockers with one
+/// short, and finishing it is an answer the question refuses
+/// (`AnswerFault::TooFewBlockers`). Counted per attacker and in total, a
+/// necessary condition for completing them all, not a matching.
+struct BlockRoom<'a> {
+    picked: &'a Picked,
+    /// Per attacker whose least is above one, that least.
+    least: BTreeMap<ObjectId, u32>,
+    /// Per attacker with a most, that most.
+    most: BTreeMap<ObjectId, u32>,
+    /// Per attacker in `least`, the free blockers that could block it.
+    able: BTreeMap<ObjectId, BTreeSet<ObjectId>>,
+    /// The attackers blocked by fewer than their least, and how many more
+    /// each needs.
+    short: Vec<(ObjectId, usize)>,
+    /// The free blockers that could block a short attacker.
+    helpers: BTreeSet<ObjectId>,
+}
+
+impl<'a> BlockRoom<'a> {
+    fn new(blockers: &[BlockOption], bounds: &[AttackerBound], picked: &'a Picked) -> Self {
+        let least: BTreeMap<ObjectId, u32> = bounds
+            .iter()
+            .filter(|b| b.min_blockers > 1)
+            .map(|b| (b.attacker, b.min_blockers))
+            .collect();
+        let most = bounds
+            .iter()
+            .filter(|b| b.max_blockers < u32::MAX)
+            .map(|b| (b.attacker, b.max_blockers))
+            .collect();
+        let mut able: BTreeMap<ObjectId, BTreeSet<ObjectId>> = BTreeMap::new();
+        if !least.is_empty() {
+            for b in blockers
+                .iter()
+                .filter(|b| !picked.objects.contains(&b.blocker))
+            {
+                for a in b.attackers.iter().filter(|a| least.contains_key(a)) {
+                    able.entry(*a).or_default().insert(b.blocker);
+                }
+            }
+        }
+        let has = |a: &ObjectId| u32::from(picked.blocked.get(a).copied().unwrap_or(0));
+        let short: Vec<(ObjectId, usize)> = least
+            .iter()
+            .filter(|(a, l)| has(a) > 0 && has(a) < **l)
+            .map(|(a, l)| (*a, (l - has(a)) as usize))
+            .collect();
+        let helpers = short
+            .iter()
+            .filter_map(|(a, _)| able.get(a))
+            .flatten()
+            .copied()
+            .collect();
+        Self {
+            picked,
+            least,
+            most,
+            able,
+            short,
+            helpers,
+        }
+    }
+
+    /// Whether `blocker` may block `attacker` next.
+    fn allows(&self, blocker: ObjectId, attacker: ObjectId) -> bool {
+        let has = u32::from(self.picked.blocked.get(&attacker).copied().unwrap_or(0));
+        if self.most.get(&attacker).is_some_and(|m| has >= *m) {
+            return false;
+        }
+        if self.least.is_empty() {
+            return true;
+        }
+        let able_without = |a: &ObjectId| {
+            self.able
+                .get(a)
+                .map_or(0, |s| s.len() - usize::from(s.contains(&blocker)))
+        };
+        let mut total = 0;
+        for &(a, need) in &self.short {
+            let need = if a == attacker { need - 1 } else { need };
+            if need > able_without(&a) {
+                return false;
+            }
+            total += need;
+        }
+        let mut helpers = self.helpers.len() - usize::from(self.helpers.contains(&blocker));
+        if let Some(least) = self.least.get(&attacker)
+            && has == 0
+        {
+            let need = (least - 1) as usize;
+            if need > able_without(&attacker) {
+                return false;
+            }
+            total += need;
+            helpers += self.able.get(&attacker).map_or(0, |s| {
+                s.iter()
+                    .filter(|x| **x != blocker && !self.helpers.contains(x))
+                    .count()
+            });
+        }
+        total <= helpers
+    }
+}
+
 /// What is picked so far in a multi-pick answer.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Picked {
@@ -275,10 +385,18 @@ pub fn options(
                 out.extend(defenders.iter().map(|d| Choice::Attack(*a, *d)));
             }
         }
-        Pending::ChooseBlockers { blockers, .. } => {
+        Pending::ChooseBlockers {
+            blockers, bounds, ..
+        } => {
             out.push(Choice::Fixed(fixed::DONE));
+            let room = BlockRoom::new(blockers, bounds, picked);
             for b in blockers.iter().filter(|b| free(&b.blocker)) {
-                out.extend(b.attackers.iter().map(|a| Choice::Block(b.blocker, *a)));
+                out.extend(
+                    b.attackers
+                        .iter()
+                        .filter(|a| room.allows(b.blocker, **a))
+                        .map(|a| Choice::Block(b.blocker, *a)),
+                );
             }
         }
         Pending::LegendChoice { options, .. } => {
@@ -759,6 +877,78 @@ mod tests {
             }
             other => other,
         }
+    }
+
+    /// Two blockers, each able to block either attacker; `264` has menace
+    /// (as in arena game 305, whose answer the engine refused).
+    fn menace_pending(least: u32, most: u32) -> Pending {
+        let o = |n| ObjectId::new(n, 0);
+        Pending::ChooseBlockers {
+            player: PlayerId::new(1),
+            attacker: PlayerId::new(0),
+            blockers: vec![
+                BlockOption {
+                    blocker: o(251),
+                    attackers: vec![o(249), o(264)],
+                },
+                BlockOption {
+                    blocker: o(252),
+                    attackers: vec![o(249), o(264)],
+                },
+            ],
+            bounds: vec![AttackerBound {
+                attacker: o(264),
+                min_blockers: least,
+                max_blockers: most,
+            }],
+        }
+    }
+
+    fn blocks(pending: &Pending, picks: &[Choice]) -> Vec<Choice> {
+        let mut picked = Picked::default();
+        for c in picks {
+            picked.add(*c);
+        }
+        options(pending, &[], &picked)
+            .unwrap()
+            .into_iter()
+            .filter(|c| matches!(c, Choice::Block(..)))
+            .collect()
+    }
+
+    /// A menace attacker is offered a blocker only while a second one is
+    /// left to join it, and a short one only its completion: no answer ends
+    /// with it blocked by one creature.
+    #[test]
+    fn a_menace_attacker_is_blocked_only_where_the_group_can_close() {
+        let o = |n| ObjectId::new(n, 0);
+        let p = menace_pending(2, u32::MAX);
+        assert!(blocks(&p, &[]).contains(&Choice::Block(o(251), o(264))));
+        // 251 on the other attacker leaves 252 alone for the menace one.
+        assert_eq!(
+            blocks(&p, &[Choice::Block(o(251), o(249))]),
+            vec![Choice::Block(o(252), o(249))]
+        );
+        // 251 on the menace attacker: 252 must join it.
+        assert_eq!(
+            blocks(&p, &[Choice::Block(o(251), o(264))]),
+            vec![Choice::Block(o(252), o(264))]
+        );
+        let two = [Choice::Block(o(251), o(264)), Choice::Block(o(252), o(264))];
+        let action = assemble(&p, &two).unwrap();
+        assert_eq!(p.answer_fault(&action), None);
+    }
+
+    /// An attacker that may be blocked by one creature at most is offered
+    /// no second.
+    #[test]
+    fn an_attacker_at_its_most_blockers_is_offered_no_more() {
+        let o = |n| ObjectId::new(n, 0);
+        let p = menace_pending(1, 1);
+        assert_eq!(
+            blocks(&p, &[Choice::Block(o(251), o(264))]),
+            vec![Choice::Block(o(252), o(249))]
+        );
     }
 
     /// Every answer the house gave, taken apart into steps and put together
