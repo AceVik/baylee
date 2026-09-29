@@ -508,7 +508,13 @@ impl SeatCore {
         self.down = false;
         self.failures = 0;
         self.refused = None;
-        if let Some(current) = self.current.as_mut() {
+        // Only an answer already sent can have gone down with the old
+        // socket; one still being thought about goes out on the new one.
+        if let Some(current) = self
+            .current
+            .as_mut()
+            .filter(|c| matches!(c.state, State::Sent { .. }))
+        {
             current.resumed = true;
         }
         self.context
@@ -1027,3 +1033,6 @@ fn action_envelope(context: Option<&GameContext>, action: &PlayerAction) -> Enve
         })),
     }
 }
+
+#[cfg(test)]
+mod tests;

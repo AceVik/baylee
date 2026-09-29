@@ -402,3 +402,6 @@ fn flash(card: baylee_view::CardIdentity) -> bool {
             .contains(baylee_cards_dsl::KeywordSet::FLASH)
     })
 }
+
+#[cfg(test)]
+mod tests;
