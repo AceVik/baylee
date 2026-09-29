@@ -551,6 +551,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
     match trigger {
         T::EntersBattlefield(_) => &["enter"],
         T::EntersBattlefieldEvoked => &["evoke"],
+        T::CycledThis => &["cycle"],
         T::LeavesBattlefield(_) => &["leave"],
         T::Dies(_) => &["die", "put into a graveyard"],
         T::SpellCast(_) | T::NthSpellCast { .. } | T::FirstNoncreatureSpellCast(_) => &["cast"],

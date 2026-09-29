@@ -325,6 +325,14 @@ pub enum Trigger {
     /// The source entered the battlefield AND was evoked (cast for its
     /// evoke cost, CR 702.74).
     EntersBattlefieldEvoked,
+    /// "When you cycle this card" — "when you discard this card to pay an
+    /// activation cost of a cycling ability" (CR 702.29c). It triggers from
+    /// the zone the card winds up in, which is a graveyard unless something
+    /// replaced the discard. A cycling ability is the one
+    /// [`AbilityDef::is_cycling`] reads; a card's other discard-this-card
+    /// abilities (Trumpeting Carnosaur's damage, a channel ability) and a
+    /// discard for any other reason are not cycling it.
+    CycledThis,
     /// A step begins (whose turn: you/opponent/any).
     StepBegin {
         /// Which step.
@@ -565,6 +573,37 @@ pub enum AbilityDef {
 }
 
 impl AbilityDef {
+    /// Whether this is a cycling ability: "Cycling [cost]" means "[Cost],
+    /// Discard this card: Draw a card" and works only from the hand
+    /// (CR 702.29a). That shape is the whole definition, so it is what is
+    /// read: an ability activated from the hand whose cost discards the card
+    /// itself and whose effect is to draw one card. A card that discards
+    /// itself for anything else — Trumpeting Carnosaur's damage, Boseiju's
+    /// channel — is not cycled. Typecycling (702.29e), which searches
+    /// instead, is not read here; no card in the pool that cares about being
+    /// cycled prints it.
+    #[must_use]
+    pub fn is_cycling(&self) -> bool {
+        match self {
+            Self::Activated {
+                cost,
+                effects,
+                zone: ActivationZone::Hand,
+                ..
+            }
+            | Self::ActivatedConditional {
+                cost,
+                effects,
+                zone: ActivationZone::Hand,
+                ..
+            } => {
+                cost.parts.contains(&crate::cost::CostPart::DiscardSelf)
+                    && *effects == [crate::effect::Effect::draw(1)]
+            }
+            _ => false,
+        }
+    }
+
     /// Whether this is a mana ability, which the stack never sees (CR 605.1).
     ///
     /// One reading for every caller, because two would disagree: an ability
@@ -735,6 +774,40 @@ mod tests {
             condition: Condition::ControlCount(&crate::Filter::ARTIFACT, 3),
             limit: ActivationLimit::Unlimited,
         }
+    }
+
+    /// CR 702.29a is the definition, read as a shape: "[Cost], Discard this
+    /// card: Draw a card", from the hand. Each neighbour that shares all but
+    /// one half is not cycling: another effect (Trumpeting Carnosaur's
+    /// damage), another zone, a cost that keeps the card.
+    #[test]
+    fn only_discard_this_card_draw_a_card_from_the_hand_is_cycling() {
+        use crate::cost::{Cost, CostPart};
+        use crate::effect::{Amount, TargetSpec};
+        const DISCARD: Cost = Cost {
+            mana: baylee_core::mana::ManaCost::ZERO,
+            parts: &[CostPart::DiscardSelf],
+        };
+        const DRAW: &[Effect] = &[Effect::draw(1)];
+        const DAMAGE: &[Effect] = &[Effect::DealDamage {
+            amount: Amount::Fixed(3),
+            target: TargetSpec::Object(&crate::Filter::CREATURE),
+        }];
+        let ability = |cost, effects, zone| AbilityDef::Activated {
+            cost,
+            effects,
+            targets: None,
+            second_targets: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: false,
+            zone,
+            limit: ActivationLimit::Unlimited,
+        };
+        assert!(ability(DISCARD, DRAW, ActivationZone::Hand).is_cycling());
+        assert!(!ability(DISCARD, DAMAGE, ActivationZone::Hand).is_cycling());
+        assert!(!ability(DISCARD, DRAW, ActivationZone::Battlefield).is_cycling());
+        assert!(!ability(crate::cost::Cost::FREE, DRAW, ActivationZone::Hand).is_cycling());
+        assert!(!activated(false).is_cycling());
     }
 
     /// CR 605.1 makes a mana ability the exception, and the flag is the

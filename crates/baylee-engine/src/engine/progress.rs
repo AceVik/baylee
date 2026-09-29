@@ -2264,14 +2264,16 @@ impl<L: CardLookup> Engine<L> {
                         gathered: SmallVec::new(),
                         remaining: opponents,
                     };
+                    let (source, ability_index, mode) = (t.source, t.ability_index, t.chosen_mode);
                     if self
-                        .ask_next_opponent(
-                            t.controller,
-                            t.source,
-                            t.ability_index,
-                            t.chosen_mode,
-                            first,
-                        )
+                        .ask_next_opponent(t.controller, t.source, first, |asking| {
+                            PlanKind::Trigger {
+                                source,
+                                ability_index,
+                                mode,
+                                per_opponent: Some(asking),
+                            }
+                        })
                         .is_none()
                     {
                         return;
@@ -2309,6 +2311,33 @@ impl<L: CardLookup> Engine<L> {
             if t.synthetic_effects.is_some()
                 && let Some(spec) = t.synthetic_target
             {
+                // "For each opponent, … up to one target creature that player
+                // controls": one question per opponent, as the printed path
+                // asks it, and the trigger stacks even when nobody had
+                // anything to point at — "up to one" can always be targeted
+                // legally (CR 603.3d removes only a trigger that cannot).
+                if let TargetSpec::ObjectOfEachOpponent(_) = spec {
+                    let first = super::PerOpponent {
+                        spec: t.bind_target(spec),
+                        gathered: SmallVec::new(),
+                        remaining: self.opponents_in_turn_order(t.controller),
+                    };
+                    let plan_t = t.clone();
+                    let gathered =
+                        self.ask_next_opponent(t.controller, t.source, first, |asking| {
+                            PlanKind::SyntheticTriggerTarget {
+                                trigger: plan_t,
+                                per_opponent: Some(asking),
+                            }
+                        });
+                    match gathered {
+                        None => return,
+                        Some(all) => {
+                            self.push_synthetic_trigger_with_targets(&t, all);
+                            continue;
+                        }
+                    }
+                }
                 let options =
                     eval::target_options(&t.bind_target(spec), &self.state, t.controller, t.source);
                 if options.is_empty() {
@@ -2320,7 +2349,10 @@ impl<L: CardLookup> Engine<L> {
                     continue;
                 }
                 let plan_t = t.clone();
-                self.pending_plan = Some(PlanKind::SyntheticTriggerTarget { trigger: plan_t });
+                self.pending_plan = Some(PlanKind::SyntheticTriggerTarget {
+                    trigger: plan_t,
+                    per_opponent: None,
+                });
                 self.pending = Pending::ChooseTargets {
                     player: t.controller,
                     options,
@@ -3528,8 +3560,8 @@ impl<L: CardLookup> Engine<L> {
             .map_or(NameRef::new(0), |o| o.base.name)
     }
 
-    /// Pushes a synthetic trigger (prowess, ward, granted abilities) with
-    /// explicitly chosen targets onto the stack.
+    /// Pushes a synthetic trigger (prowess, ward, granted abilities, a
+    /// reflexive one) with explicitly chosen targets onto the stack.
     pub(crate) fn push_synthetic_trigger_with_targets(
         &mut self,
         t: &crate::trigger::PendingTrigger,
@@ -3567,7 +3599,7 @@ impl<L: CardLookup> Engine<L> {
             // them against it at resolution, as it does a spell's.
             obj.target_req = t
                 .synthetic_target
-                .map(|spec| TargetReq::one(t.bind_target(spec)));
+                .map(|spec| synthetic_target_req(t.bind_target(spec)));
             obj
         });
         self.synthetic_fx.insert(id, synthetic);
@@ -4719,4 +4751,16 @@ fn outlives_its_ability(layer: baylee_cards_dsl::Layer) -> bool {
         layer,
         Layer::Copy | Layer::Control | Layer::Type | Layer::Color
     )
+}
+
+/// What a synthetic trigger's targets were chosen against, for the
+/// resolution-time re-check (CR 608.2b): one object, or up to one per
+/// opponent for `ObjectOfEachOpponent` — the count the questions asked, and
+/// written as the printed cards write it (`TargetReq::up_to(spec,
+/// u8::MAX)`), so a second opponent's answer is not trimmed as a surplus.
+fn synthetic_target_req(spec: TargetSpec) -> TargetReq {
+    match spec {
+        TargetSpec::ObjectOfEachOpponent(_) => TargetReq::up_to(spec, u8::MAX),
+        _ => TargetReq::one(spec),
+    }
 }

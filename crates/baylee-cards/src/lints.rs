@@ -582,6 +582,17 @@ fn reflexive_fault_in(effects: &'static [Effect], on_the_stack: bool) -> Option<
                 return Some("waits for a sacrifice that is not the op directly before it");
             }
         }
+        ReflexiveEvent::ExiledThis => {
+            if !matches!(
+                action,
+                Effect::ExileSource
+                    | Effect::MayDo {
+                        effects: [Effect::ExileSource]
+                    }
+            ) {
+                return Some("waits for an exile that is not the op directly before it");
+            }
+        }
     }
     if !prefix.iter().all(cannot_move_the_source) {
         return Some("lets an op that could move the source stand before the action");
@@ -1700,6 +1711,18 @@ mod tests {
             },
         ];
         static PREFIX: [Effect; 3] = [DRAW, Effect::SacrificeSelf, REFLEX];
+        const EXILED: Effect = Effect::Reflexive {
+            when: ReflexiveEvent::ExiledThis,
+            effects: BODY,
+            target: None,
+        };
+        static BALROG: [Effect; 2] = [
+            Effect::MayDo {
+                effects: &[Effect::ExileSource],
+            },
+            EXILED,
+        ];
+        static EXILED_AFTER_A_SACRIFICE: [Effect; 2] = [Effect::SacrificeSelf, EXILED];
         static ALONE: [Effect; 1] = [REFLEX];
         static GRANT: [Effect; 1] = [Effect::CreateContinuousEffect {
             layer: Layer::Ability,
@@ -1714,6 +1737,7 @@ mod tests {
 
         assert_eq!(reflexive_fault_in(&FETCH, true), None);
         assert_eq!(reflexive_fault_in(&EDEN, true), None);
+        assert_eq!(reflexive_fault_in(&BALROG, true), None);
 
         for (shape, list) in [
             ("not last", &NOT_LAST[..]),
@@ -1722,6 +1746,10 @@ mod tests {
             ("inside another reflexive", &IN_A_REFLEX[..]),
             ("an unlisted op before the action", &PREFIX[..]),
             ("no action at all", &ALONE[..]),
+            (
+                "waiting for an exile after a sacrifice",
+                &EXILED_AFTER_A_SACRIFICE[..],
+            ),
         ] {
             assert!(
                 reflexive_fault_in(list, true).is_some(),

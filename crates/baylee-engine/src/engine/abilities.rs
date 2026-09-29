@@ -1237,6 +1237,13 @@ impl<L: CardLookup> Engine<L> {
                 _ => return Err(EngineError::IllegalAction("not an activated ability")),
             }
         };
+        // Read before the cost moves the card (CR 702.29c needs to know,
+        // after the discard, that it paid a cycling ability's cost).
+        let cycling = self.state.object(source).is_some_and(|o| {
+            o.abilities(&self.lookup)
+                .get(ability_index as usize)
+                .is_some_and(AbilityDef::is_cycling)
+        });
         // Read before any cost is paid, because a cost may move the source
         // and a moved copy is no longer one — see `Engine::activating_abilities`.
         self.activating_abilities = self
@@ -1493,6 +1500,16 @@ impl<L: CardLookup> Engine<L> {
         let x = self.activation_x.take().unwrap_or(0);
         self.activation_targets_answered = false;
         let sacrificed_mana_value = self.pay_cost(player, source, &cost, &answers, x)?;
+        // "When you cycle this card" is "when you discard this card to pay
+        // an activation cost of a cycling ability" (CR 702.29c), and this is
+        // the one place that knows both halves: `pay_cost` sees a cost, not
+        // whose ability it is.
+        if cycling {
+            self.state.journal.record(GameEvent::Cycled {
+                object: source,
+                player,
+            });
+        }
         // "Activate only once each turn" is spent *here* and not at the
         // offer, because this is the line the rules count: CR 602.2 makes
         // activating an ability putting it on the stack and paying its

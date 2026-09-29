@@ -416,16 +416,20 @@ pub struct ManaRestriction {
 ///
 /// "When you do" names the action printed directly before it, and the
 /// event is what makes the sentence a trigger rather than an `if`. The
-/// enum has one variant because this pool needs one. Grist's −2 ("you may
-/// sacrifice a creature. When you do, …") needs `Sacrificed(&Filter)`, and
-/// Agatha's Soul Cauldron ("when a creature card is exiled this way")
-/// needs `Exiled(&Filter)`. Both come with their cards, and each brings its
-/// own action clause to the placement lint.
+/// enum has the variants this pool needs. Grist's −2 ("you may sacrifice a
+/// creature. When you do, …") needs `Sacrificed(&Filter)`, and Agatha's
+/// Soul Cauldron ("when a creature card is exiled this way") needs
+/// `Exiled(&Filter)`. Both come with their cards, and each brings its own
+/// action clause to the placement lint.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ReflexiveEvent {
     /// "Sacrifice it. When you do, …" / "Then you may sacrifice this land.
     /// When you do, …": this resolution sacrificed its own source.
     SacrificedThis,
+    /// "You may exile it. When you do, …" (The Balrog of Moria, whose dies
+    /// trigger exiles the card from the graveyard): this resolution exiled
+    /// its own source, by `Effect::ExileSource`.
+    ExiledThis,
 }
 
 /// Relative player references.
@@ -1277,8 +1281,11 @@ pub enum Effect {
         /// Its target. It is chosen as the ability is put on the stack
         /// (CR 603.3d, which applies CR 601.2c), not while the resolution
         /// that created it runs. It is `Option<TargetSpec>` and not a
-        /// [`TargetReq`] because that is what a synthetic trigger carries,
-        /// and every reflexive target in the pool is exactly one object.
+        /// [`TargetReq`] because that is what a synthetic trigger carries.
+        /// The spec says how many: exactly one object, or
+        /// [`TargetSpec::ObjectOfEachOpponent`]'s up to one per opponent
+        /// (The Balrog of Moria), asked opponent by opponent as the printed
+        /// path asks it.
         target: Option<TargetSpec>,
     },
     /// Branch on whether the spell was kicked (paid its additional cost).

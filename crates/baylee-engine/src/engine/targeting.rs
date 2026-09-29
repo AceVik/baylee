@@ -67,14 +67,15 @@ impl<L: CardLookup> Engine<L> {
     /// over rather than shown an empty menu.
     ///
     /// `None` means a question is now pending; `Some` hands back every
-    /// target gathered, once nobody is left to ask about.
+    /// target gathered, once nobody is left to ask about. `plan` is what the
+    /// answer returns to — a printed trigger's or a synthetic one's — given
+    /// the question's state to carry.
     pub(super) fn ask_next_opponent(
         &mut self,
         controller: PlayerId,
         source: ObjectId,
-        ability_index: u32,
-        mode: Option<u8>,
         mut asking: PerOpponent,
+        plan: impl FnOnce(Box<PerOpponent>) -> PlanKind,
     ) -> Option<SmallVec<[ObjectId; 2]>> {
         while !asking.remaining.is_empty() {
             let opponent = asking.remaining.remove(0);
@@ -90,12 +91,7 @@ impl<L: CardLookup> Engine<L> {
             if options.is_empty() {
                 continue;
             }
-            self.pending_plan = Some(PlanKind::Trigger {
-                source,
-                ability_index,
-                mode,
-                per_opponent: Some(Box::new(asking)),
-            });
+            self.pending_plan = Some(plan(Box::new(asking)));
             self.pending = Pending::ChooseTargets {
                 player: controller,
                 options,

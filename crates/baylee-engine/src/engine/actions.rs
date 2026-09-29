@@ -579,9 +579,13 @@ impl<L: CardLookup> Engine<L> {
                                 match self.ask_next_opponent(
                                     controller,
                                     source,
-                                    ability_index,
-                                    mode,
                                     *asking,
+                                    |asking| PlanKind::Trigger {
+                                        source,
+                                        ability_index,
+                                        mode,
+                                        per_opponent: Some(asking),
+                                    },
                                 ) {
                                     None => return Ok(()),
                                     Some(all) => all,
@@ -684,7 +688,31 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::EntryReveal { .. } => {
                         unreachable!("entry-reveal plans are answered beside Pending::ChooseCards")
                     }
-                    PlanKind::SyntheticTriggerTarget { trigger } => {
+                    PlanKind::SyntheticTriggerTarget {
+                        trigger,
+                        per_opponent,
+                    } => {
+                        // One opponent answered; the next is asked, as on the
+                        // printed path above.
+                        let targets = match per_opponent {
+                            Some(mut asking) => {
+                                asking.gathered.extend(targets);
+                                let plan_t = trigger.clone();
+                                match self.ask_next_opponent(
+                                    trigger.controller,
+                                    trigger.source,
+                                    *asking,
+                                    |asking| PlanKind::SyntheticTriggerTarget {
+                                        trigger: plan_t,
+                                        per_opponent: Some(asking),
+                                    },
+                                ) {
+                                    None => return Ok(()),
+                                    Some(all) => all,
+                                }
+                            }
+                            None => targets,
+                        };
                         // No pop, unlike `PlanKind::Trigger` above. The
                         // ordinary targeted path publishes its question and
                         // returns *before* `collect_triggers` reaches the pop

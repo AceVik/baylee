@@ -573,14 +573,19 @@ fn collect_for_objects(
         // The look-back applies only to sources that left during this
         // event batch. A card already in a graveyard has no battlefield
         // ability to observe a later death. Keep the whole batch so a
-        // dying source still observes creatures dying alongside it.
+        // dying source still observes creatures dying alongside it. The one
+        // other card that triggers from here is one cycled in this batch:
+        // "when you cycle this card" triggers from wherever the card winds
+        // up (CR 702.29c), and it left a hand, not the battlefield.
         if !all_kinds
-            && !events.iter().any(|entry| {
-                matches!(
-                    entry.event,
-                    GameEvent::ZoneChanged { object, from: Zone::Battlefield, .. }
-                        if object == permanent
-                )
+            && !events.iter().any(|entry| match entry.event {
+                GameEvent::ZoneChanged {
+                    object,
+                    from: Zone::Battlefield,
+                    ..
+                }
+                | GameEvent::Cycled { object, .. } => object == permanent,
+                _ => false,
             })
         {
             continue;
@@ -852,7 +857,15 @@ fn collect_for_objects(
                 continue;
             };
             let trigger = firing.trigger;
-            if !all_kinds && !matches!(trigger, Trigger::LeavesBattlefield(_) | Trigger::Dies(_)) {
+            // Off the battlefield, the triggers that look back (CR 603.10a)
+            // and "when you cycle this card", which triggers from wherever
+            // the card winds up (CR 702.29c).
+            if !all_kinds
+                && !matches!(
+                    trigger,
+                    Trigger::LeavesBattlefield(_) | Trigger::Dies(_) | Trigger::CycledThis
+                )
+            {
                 continue;
             }
             // CR 603.4, the first of its two checks: an ability whose
@@ -1036,9 +1049,11 @@ fn matches(
     match (trigger, event) {
         // CR 701.27e for the second: the ability is read off the face the
         // permanent shows right after it turned over, which is the face that
-        // prints it.
+        // prints it. CR 702.29c for the third: the card cycled is the
+        // source, wherever it wound up.
         (Trigger::TurnedFaceUp, GameEvent::TurnedFaceUp { object })
-        | (Trigger::TransformsIntoThis, GameEvent::Transformed { object, .. }) => *object == source,
+        | (Trigger::TransformsIntoThis, GameEvent::Transformed { object, .. })
+        | (Trigger::CycledThis, GameEvent::Cycled { object, .. }) => *object == source,
         (
             Trigger::EntersBattlefield(filter),
             GameEvent::ZoneChanged {

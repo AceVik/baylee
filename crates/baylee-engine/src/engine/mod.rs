@@ -473,6 +473,10 @@ enum PlanKind {
     SyntheticTriggerTarget {
         /// The queued trigger.
         trigger: crate::trigger::PendingTrigger,
+        /// A reflexive trigger's `TargetSpec::ObjectOfEachOpponent`, asked
+        /// one opponent at a time as the printed path asks it (The Balrog of
+        /// Moria); `None` for the one-object question.
+        per_opponent: Option<Box<PerOpponent>>,
     },
     /// The untap step's own determination (CR 502.3), waiting for the
     /// active player to say which permanents stay tapped.
