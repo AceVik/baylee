@@ -2384,6 +2384,19 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             let branch = if kicked { then } else { otherwise };
             run_nested(state, res, branch)
         }
+        // The first target as it is now; a target that is gone was dropped
+        // by CR 608.2b before anything here ran.
+        Effect::IfTargetMatches { filter, then } => {
+            let holds = res
+                .targets
+                .first()
+                .and_then(|&t| state.object(t))
+                .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
+            if holds {
+                return run_nested(state, res, then);
+            }
+            None
+        }
         Effect::IfCreaturesDiedAtLeast { n, then } => {
             if state.per_turn.creatures_died >= n {
                 return run_nested(state, res, then);

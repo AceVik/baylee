@@ -34,7 +34,10 @@
 //!   source (CR 107.3a), which the engine keeps on the source object and no
 //!   view carries. Answering `true` would let an agent plan a tutor for a
 //!   card the search may not legally find, which is exactly the
-//!   considered-looking wrong decision above.
+//!   considered-looking wrong decision above. [`Filter::CmcAtMostColorsSpent`]
+//!   is the same refusal for the same reason: its bound is what the source's
+//!   payment spent, which the engine keeps on the source and no view
+//!   carries.
 //!
 //! - [`Filter::EnteredThisTurn`] is history rather than a characteristic: the
 //!   engine keeps its own per-turn record of arrivals, and a view carries
@@ -182,6 +185,7 @@ impl HeuristicAgent {
             Filter::MatchesChosenTypeOfSource
             | Filter::AttachedToBySource
             | Filter::CmcAtMostX
+            | Filter::CmcAtMostColorsSpent
             | Filter::EnteredThisTurn
             | Filter::PutIntoGraveyardThisTurn
             | Filter::SharesSubtypeWithCommander

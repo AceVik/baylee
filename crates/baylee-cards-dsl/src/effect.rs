@@ -1320,6 +1320,21 @@ pub enum Effect {
     /// The source gains the prepared marker (Emeritus of Woe's
     /// re-prepare trigger).
     BecomePrepared,
+    /// "… target … if it's [filter]": the effects run only when the first
+    /// target, as it is when this runs, matches `filter` (Prismatic Ending:
+    /// "Exile target nonland permanent if its mana value is less than or
+    /// equal to the number of colors of mana spent to cast this spell").
+    ///
+    /// The condition is not a targeting restriction: the target is chosen
+    /// by the requirement alone (CR 601.2c), before the costs are paid
+    /// (CR 601.2h) that converge counts, and a target that fails `filter`
+    /// is still a legal one — the spell resolves and does nothing to it.
+    IfTargetMatches {
+        /// What the target has to be.
+        filter: &'static crate::Filter,
+        /// Effects when it is.
+        then: &'static [Effect],
+    },
     /// Branch when at least N creatures died this turn (Emeritus of
     /// Woe's re-prepare condition).
     IfCreaturesDiedAtLeast {
@@ -2386,6 +2401,7 @@ impl Effect {
                 target: _,
             } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
+            | Effect::IfTargetMatches { filter: _, then }
             | Effect::IfNoCountersOnSelf { kind: _, then }
             | Effect::IfNotLostLifeThisTurn { then }
             | Effect::IfControlGreatestCmc { filter: _, then } => (then, NONE),
@@ -2599,6 +2615,25 @@ mod verb_tests {
         let mut body_seen = false;
         Effect::walk(EFFECTS, &mut seen, &mut |effect| {
             body_seen |= matches!(effect, Effect::GraveyardToBattlefield { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
+    }
+
+    /// "… if it's [filter]" carries its effects the way the other one-branch
+    /// conditionals do, and the walk goes into them.
+    #[test]
+    fn if_target_matches_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::IfTargetMatches {
+            filter: &crate::Filter::CmcAtMostColorsSpent,
+            then: &[Effect::Exile {
+                target: TargetSpec::Object(&crate::Filter::NONLAND),
+            }],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::Exile { .. });
         });
         assert_eq!(seen, 2);
         assert!(body_seen);

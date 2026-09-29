@@ -134,6 +134,15 @@ pub fn matches_projected(
             let x = state.object(this).map_or(0, |o| o.x_value);
             chars.mana_cost.cmc() <= x
         }
+        // Converge's number, off the source where the payment wrote it; no
+        // record is no mana spent, and so no colors.
+        Filter::CmcAtMostColorsSpent => {
+            let colors = state
+                .object(this)
+                .and_then(|o| o.paid.as_ref())
+                .map_or(0, |p| p.colors_spent.len());
+            chars.mana_cost.cmc() <= u32::from(colors)
+        }
         Filter::CmcAtLeast(n) => chars.mana_cost.cmc() >= *n,
         Filter::ToughnessAtMost(n) => chars.toughness.is_some_and(|t| t <= *n),
         Filter::ToughnessAtLeast(n) => chars.toughness.is_some_and(|t| t >= *n),

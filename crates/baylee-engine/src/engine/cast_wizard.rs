@@ -1165,6 +1165,10 @@ impl<L: CardLookup> Engine<L> {
         if reduction > 0 {
             total = reduce_generic(&total, reduction);
         }
+        // What the pool held of each color before the payment, restricted
+        // units included: the colors it holds less of afterwards are the
+        // colors spent (converge).
+        let held_before = units_by_color(&self.state.players[player.get() as usize].mana_pool);
         if !wizard.free || wizard.kicked {
             // Restricted mana (Cavern of Souls & co.) is spent where the
             // spell may spend it, and a rider applies for each entry that
@@ -1413,12 +1417,21 @@ impl<L: CardLookup> Engine<L> {
         } else {
             0
         };
+        let held_after = units_by_color(&self.state.players[player.get() as usize].mana_pool);
+        let colors_spent = baylee_core::color::Color::ALL
+            .into_iter()
+            .zip(held_before.into_iter().zip(held_after))
+            .filter(|(_, (before, after))| after < before)
+            .fold(baylee_core::color::ColorSet::EMPTY, |set, (color, _)| {
+                set.union(baylee_core::color::ColorSet::of(color))
+            });
         if (mana_spent > 0 || sacrificed_mana_value.is_some())
             && let Some(obj) = self.state.object_mut(card)
         {
             obj.paid = Some(Box::new(crate::object::PaidRecord {
                 sacrificed_mana_value,
                 mana_spent,
+                colors_spent,
             }));
         }
         if matches!(wizard.option, Some(CastModeKind::Prototype))
@@ -1578,6 +1591,21 @@ fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> M
 /// moments: everything downstream of the X question wants the cost with X
 /// filled in, and the X question itself has to look at the cost that still
 /// says X.
+/// How many units of each color `pool` holds, plain and restricted alike,
+/// in [`baylee_core::color::Color::ALL`]'s order.
+fn units_by_color(pool: &baylee_core::mana::ManaPool) -> [u32; 5] {
+    baylee_core::color::Color::ALL.map(|color| {
+        let mana = baylee_core::mana::ManaColor::from_color(color);
+        u32::from(pool.available(mana))
+            + pool
+                .restricted()
+                .iter()
+                .filter(|r| r.color == mana)
+                .map(|r| u32::from(r.amount))
+                .sum::<u32>()
+    })
+}
+
 fn chosen_option_cost(wizard: &CastWizard) -> ManaCost {
     wizard
         .options

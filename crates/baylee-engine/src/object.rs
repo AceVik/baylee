@@ -636,6 +636,11 @@ pub struct PaidRecord {
     /// How much mana was spent on the cost (CR 601.2h) — "the amount of mana
     /// spent to cast this spell" (Memory Deluge).
     pub mana_spent: u32,
+    /// The colors of the mana spent on the cost — "the number of colors of
+    /// mana spent to cast this spell" (converge). Colorless mana is a type
+    /// and not a color (CR 106.1a, CR 106.1b), and a creature tapped for
+    /// convoke is tapped rather than paying mana (CR 702.51a).
+    pub colors_spent: baylee_core::color::ColorSet,
 }
 
 /// A game object.

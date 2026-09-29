@@ -19,7 +19,7 @@
 //! the author of the thing it checks shares that author's blind spot, which
 //! is the same house rule `scripts/llm/README.md` states for card batches.
 
-/// What `Effect`'s body declares today: fifteen `&'static [Effect]` and three
+/// What `Effect`'s body declares today: sixteen `&'static [Effect]` and three
 /// `&'static Effect`.
 ///
 /// Derived twice from the source rather than recalled — once here and once by
@@ -37,9 +37,11 @@
 /// `verb_tests::once_each_turn_body_is_visited`.
 /// Raised 17 → 18 the same day for `NthResolutionThisTurn` (Omnath, Locus of
 /// Creation); `verb_tests::nth_resolution_effects_are_visited`.
-const NESTING_FIELDS: usize = 18;
+/// Raised 18 → 19 the same day for `IfTargetMatches` (Prismatic Ending);
+/// `verb_tests::if_target_matches_body_is_visited`.
+const NESTING_FIELDS: usize = 19;
 
-/// How many variants those eighteen fields are spread across.
+/// How many variants those nineteen fields are spread across.
 ///
 /// Pinned **beside** the field count rather than instead of it, because the
 /// two move for different reasons and only one of them describes the defect
@@ -57,9 +59,9 @@ const NESTING_FIELDS: usize = 18;
 /// to make a red test quiet.
 ///
 /// `Reflexive` moved both again on 2026-09-24: one new carrier, one new
-/// branch. `MayDoOnceEachTurn` and `NthResolutionThisTurn` moved both on
-/// 2026-09-29, the same shape.
-const CARRYING_VARIANTS: usize = 15;
+/// branch. `MayDoOnceEachTurn`, `NthResolutionThisTurn` and
+/// `IfTargetMatches` moved both on 2026-09-29, the same shape.
+const CARRYING_VARIANTS: usize = 16;
 
 /// The floor under the reader itself.
 ///

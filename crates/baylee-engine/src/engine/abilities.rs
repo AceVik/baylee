@@ -1576,6 +1576,7 @@ impl<L: CardLookup> Engine<L> {
                 obj.paid = Some(Box::new(crate::object::PaidRecord {
                     sacrificed_mana_value,
                     mana_spent: 0,
+                    colors_spent: baylee_core::color::ColorSet::EMPTY,
                 }));
             }
             // The seats that were targeted, written onto the ability now

@@ -11607,3 +11607,93 @@ fn bribery_puts_a_creature_from_the_opponents_library_under_your_control() {
     assert_eq!(library_size(&engine, p1), theirs_before - 1);
     assert_eq!(library_size(&engine, p0), mine_before);
 }
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Prismatic Ending.
+// ---------------------------------------------------------------------------
+
+fn prismatic_ending() -> CardIndex {
+    card_index("2cb98ca9-d7bb-416b-a17e-ee5f8e4d78f2")
+}
+
+/// Eternal Witness, mana value 3.
+fn prismatic_three_drop() -> CardIndex {
+    card_index("30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c")
+}
+
+/// Charming Prince, mana value 2.
+fn prismatic_two_drop() -> CardIndex {
+    card_index("c48d844c-3976-4fa5-8e0d-3f0e535e7619")
+}
+
+/// Seat 0 floats everything `sources` make, casts Prismatic Ending for X =
+/// `x` at `victim` (seat 1's only permanent) and lets it resolve.
+fn prismatic_ending_at(sources: &[CardIndex], x: u32, victim: CardIndex) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, sources)
+        .battlefield(1, &[victim])
+        .hand(0, &[prismatic_ending()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let target = on_battlefield(&engine, p1, victim).unwrap();
+    tap_all_mana_but(&mut engine, p0, None);
+    cast_with_floating(&mut engine, p0, prismatic_ending());
+    let Pending::ChooseNumber { .. } = engine.pending().clone() else {
+        panic!("X is announced, got {:?}", engine.pending())
+    };
+    engine.apply(p0, PlayerAction::ChooseNumber(x)).unwrap();
+    let _ = aim_at(&mut engine, p0, target);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the whole pool paid {{{x}}}{{W}}"
+    );
+    engine
+}
+
+/// "Converge — Exile target nonland permanent if its mana value is less
+/// than or equal to the number of colors of mana spent to cast this
+/// spell." {2}{W} paid with white, blue and black: three colors, and a
+/// three-drop is exiled.
+#[test]
+fn prismatic_ending_exiles_what_its_three_colors_reach() {
+    let p1 = PlayerId::new(1);
+    let engine = prismatic_ending_at(&[plains(), island(), swamp()], 2, prismatic_three_drop());
+    assert!(on_battlefield(&engine, p1, prismatic_three_drop()).is_none());
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p1))
+            .iter()
+            .any(|&id| engine
+                .state()
+                .object(id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == prismatic_three_drop())))
+    );
+}
+
+/// The same {2}{W} paid with three Plains is one color. The target was
+/// legal — the condition is not part of the targeting — so the spell
+/// resolves and the three-drop stays.
+#[test]
+fn prismatic_ending_of_one_color_leaves_a_three_drop() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let engine = prismatic_ending_at(&[plains(), plains(), plains()], 2, prismatic_three_drop());
+    assert!(on_battlefield(&engine, p1, prismatic_three_drop()).is_some());
+    assert!(in_graveyard(&engine, p0, prismatic_ending()).is_some());
+}
+
+/// Colorless mana is no color (CR 106.1a): {2}{W} paid with a Plains and
+/// Sol Ring's {C}{C} is one color, and a two-drop stays.
+#[test]
+fn prismatic_ending_counts_no_colorless_mana() {
+    let p1 = PlayerId::new(1);
+    let engine = prismatic_ending_at(&[plains(), sol_ring()], 2, prismatic_two_drop());
+    assert!(on_battlefield(&engine, p1, prismatic_two_drop()).is_some());
+}

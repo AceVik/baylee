@@ -134,6 +134,13 @@ pub enum Filter {
     /// [`crate::Amount::X`] does in the same position: a triggered ability
     /// has no announcement to read.
     CmcAtMostX,
+    /// Mana value at most the number of colors of mana spent to cast the
+    /// source (the number converge counts, an ability word — CR 207.2c —
+    /// with no rules of its own: Prismatic Ending). Read off
+    /// the source as it is on the stack, where the payment wrote what it
+    /// spent; a source that is gone, was cast for free or is no spell
+    /// bounds at 0, as [`Self::CmcAtMostX`] does.
+    CmcAtMostColorsSpent,
     /// Converted mana cost at least N.
     CmcAtLeast(u32),
     /// Toughness at most N (Recruiter of the Guard).

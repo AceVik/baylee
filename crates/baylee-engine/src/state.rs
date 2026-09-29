@@ -2819,6 +2819,7 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     // two-drop and after a five-drop are two different futures.
     h.option_u32(obj.paid.as_ref().and_then(|p| p.sacrificed_mana_value));
     h.u32(obj.paid.as_ref().map_or(0, |p| p.mana_spent));
+    h.u8(obj.paid.as_ref().map_or(0, |p| p.colors_spent.bits()));
     h.option_u32(obj.attached_to.map(position));
     h.usize(obj.targets.len());
     for t in &obj.targets {
@@ -3260,6 +3261,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         // read from the source at match time, so two filters that differ
         // only in *where* the number comes from are different filters.
         F::CmcAtMostX => h.u8(28),
+        F::CmcAtMostColorsSpent => h.u8(37),
         F::CmcAtMost(n) | F::CmcAtLeast(n) => {
             h.u8(if matches!(f, F::CmcAtMost(_)) { 22 } else { 23 });
             h.u32(*n);
