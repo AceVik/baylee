@@ -1240,13 +1240,18 @@ pub(crate) fn can_cast_form(
     // Escape's price is its mana and the other cards it exiles; beside a
     // graveyard permission (Muldrotha) the mana cost below is a second way.
     if escape_ok && let Some(escape) = printed_escape {
-        if probe(&escape.cost.with_x(0))
-            && escape_exile_options(state, player, card).len() >= usize::from(escape.exile)
-        {
+        let fodder = escape_exile_options(state, player, card).len() >= usize::from(escape.exile);
+        if fodder && probe(&escape.cost.with_x(0)) {
             return Ok(());
         }
+        // Too few other cards is a cost that cannot be paid (CR 601.2h),
+        // whatever the pool holds, as a missing sacrifice is above.
         if !graveyard_ok {
-            return Err(CastError::NotEnoughMana);
+            return Err(if fodder {
+                CastError::NotEnoughMana
+            } else {
+                CastError::NoWayToCast
+            });
         }
     }
     if let Some(def) = printed

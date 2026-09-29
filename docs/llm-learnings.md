@@ -1976,3 +1976,8 @@ land type"; both are convention tests that fire on a first try.
   "Sturmangriff" and escape "Befreiung" in German printings. The first
   label shipped as "Spurt" from memory. `card_faces.printed_text` for
   `lang = 'de'` in the local catalog answers it in one query.
+- **A card turned `Implemented` meets checks it was exempt from.** The
+  `validate` "you may" check skips `Partial` cards, so Ragavan first met
+  it when its impulse was written: a new permission effect (here
+  `ExileTopMayCast`) belongs on `OFFERS_A_CHOICE` in xtask with its
+  argument. Run `xtask validate` before the gate after flipping coverage.
