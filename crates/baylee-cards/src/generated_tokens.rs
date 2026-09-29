@@ -25,7 +25,7 @@
 use crate::tokens;
 pub use crate::tokens::{
     ALLY_1_1_WHITE, ANGEL_4_4_WHITE_FLYING, ARMY_0_0_BLACK, BIRD_1_1_WHITE_FLYING, BLOOD,
-    BOAR_2_2_GREEN, CLUE, CONSTRUCT_ARTIFACT_0_0, FOOD, ILLUSION_X_BLUE,
+    BOAR_2_2_GREEN, CLUE, CONSTRUCT_ARTIFACT_0_0, ELEMENTAL_X_X_GREEN_WHITE, FOOD, ILLUSION_X_BLUE,
     SHAPESHIFTER_1_1_CHANGELING, SHAPESHIFTER_2_2_BLUE_CHANGELING, SOLDIER_1_1_WHITE, TREASURE,
 };
 use baylee_cards_dsl::KeywordSet;
@@ -885,6 +885,7 @@ pub static ALL: &[&TokenDef] = &[
     &SPIRIT_3_3_WHITE_FLYING,
     &WOLF_2_2_GREEN,
     &BEAST_3_3_GREEN,
+    &tokens::ELEMENTAL_X_X_GREEN_WHITE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second

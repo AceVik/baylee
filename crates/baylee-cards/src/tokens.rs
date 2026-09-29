@@ -22,7 +22,8 @@
 //! token on the battlefield was inert whatever its name said.
 
 use baylee_cards_dsl::{
-    AbilityDef, Effect, Filter, KeywordSet, TokenDef, activated, cost, mana_ability,
+    AbilityDef, Effect, Filter, KeywordSet, Modifier, PtCount, TokenDef, activated, cost,
+    mana_ability, static_ability,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{artifact, creature};
@@ -170,6 +171,31 @@ pub static CONSTRUCT_ARTIFACT_0_0: TokenDef = TokenDef {
     toughness: Some(0),
     // MH2 #16, Urza's Saga's own set.
     scryfall_id: "a7caaf39-8f16-4f1d-bee6-a45674306319",
+    ..TokenDef::DEFAULT
+};
+
+/// "This token's power and toughness are each equal to the number of
+/// creatures you control." A characteristic-defining ability (CR 604.3),
+/// applied in layer 7a; the token counts itself.
+static POWER_IS_CREATURES_YOU_CONTROL: &[AbilityDef] = &[static_ability!(
+    Filter::This,
+    Modifier::CharacteristicPT {
+        count: PtCount::YouControl(&Filter::CREATURE),
+        toughness_plus: 0,
+    }
+)];
+
+/// Green and white Elemental whose power and toughness are each the number
+/// of creatures its controller controls (Voice of Resurgence). It prints
+/// `*/*`, so it has no base size: the ability is the whole of it.
+pub static ELEMENTAL_X_X_GREEN_WHITE: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Green, Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    abilities: POWER_IS_CREATURES_YOU_CONTROL,
+    // 2XM #20, Voice of Resurgence's own set.
+    scryfall_id: "8676704a-419e-4a00-a052-bca2ad34ecae",
     ..TokenDef::DEFAULT
 };
 
