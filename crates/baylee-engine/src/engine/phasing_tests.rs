@@ -118,11 +118,16 @@ const UNAUDITED: &[(&str, usize)] = &[
     ("trigger.rs", 1),
 ];
 
-/// Where the lint looks: the engine's own source, tests excluded.
+/// Where the lint looks: the engine's own source, tests excluded. Any
+/// directory named `*_tests` is test code, not the two there were: a list of
+/// them read `mechanics_tests/` as engine source when it arrived.
 fn is_test_source(rel: &str) -> bool {
     rel.ends_with("_tests.rs")
-        || rel.starts_with("engine/card_tests/")
-        || rel.starts_with("engine/combo_tests/")
+        || rel
+            .split('/')
+            .rev()
+            .skip(1)
+            .any(|dir| dir.ends_with("_tests"))
         || matches!(
             rel,
             "engine/testkit.rs" | "engine/synthetic.rs" | "engine/tests.rs"
