@@ -44,6 +44,13 @@ pub enum Outcome {
         /// Why, as the engine names it.
         reason: String,
     },
+    /// The game ended by its rules with a team of several seats winning.
+    TeamWon {
+        /// The seats.
+        seats: Vec<u8>,
+        /// Why, as the engine names it.
+        reason: String,
+    },
     /// The game ended by its rules without a winner.
     Draw {
         /// Why, as the engine names it.
@@ -65,7 +72,10 @@ impl Outcome {
     /// training data.
     #[must_use]
     pub const fn finished(&self) -> bool {
-        matches!(self, Self::Won { .. } | Self::Draw { .. })
+        matches!(
+            self,
+            Self::Won { .. } | Self::TeamWon { .. } | Self::Draw { .. }
+        )
     }
 }
 
@@ -90,6 +100,34 @@ pub fn table(seed: u64, a: &HouseDeck, b: &HouseDeck, profiles: [AIProfile; 2]) 
     let mut preset = preset_for(seed, &a.deck, &b.deck);
     for (seat, profile) in preset.seats.iter_mut().zip(profiles) {
         seat.controller = SeatController::Ai(profile);
+    }
+    preset
+}
+
+/// A table of 2 to 8 seats, seat `i` playing `decks[i]` with `profiles[i]`.
+/// `teams[i]` is seat `i`'s side, `0` playing alone as `xtask dev-table
+/// --teams` reads it; an empty `teams` is every seat for itself.
+///
+/// # Panics
+/// When `profiles`, or a non-empty `teams`, does not name one entry per
+/// deck.
+#[must_use]
+pub fn table_for(
+    seed: u64,
+    decks: &[&HouseDeck],
+    profiles: &[AIProfile],
+    teams: &[u8],
+) -> GamePreset {
+    assert_eq!(decks.len(), profiles.len(), "one profile per deck");
+    assert!(
+        teams.is_empty() || teams.len() == decks.len(),
+        "one side per deck, or none"
+    );
+    let loaded: Vec<&baylee_cards::decks::LoadedDeck> = decks.iter().map(|d| &d.deck).collect();
+    let mut preset = baylee_cards::decks::preset_for_all(seed, &loaded);
+    for (i, seat) in preset.seats.iter_mut().enumerate() {
+        seat.controller = SeatController::Ai(profiles[i]);
+        seat.team = teams.get(i).copied().filter(|t| *t != 0);
     }
     preset
 }
@@ -119,11 +157,15 @@ pub fn play(preset: &GamePreset, game_id: &str, caps: Caps) -> Played {
                 let reason = format!("{:?}", result.reason);
                 let winners = session.winning_seats(result);
                 return match winners.as_slice() {
+                    [] => Outcome::Draw { reason },
                     [seat] => Outcome::Won {
                         seat: seat.get(),
                         reason,
                     },
-                    _ => Outcome::Draw { reason },
+                    seats => Outcome::TeamWon {
+                        seats: seats.iter().map(|s| s.get()).collect(),
+                        reason,
+                    },
                 };
             }
             if session.decision_seq() >= caps.answers {
@@ -201,6 +243,48 @@ mod tests {
             Outcome::Won { seat, .. } => assert_eq!(end, [*seat]),
             _ => assert!(end.is_empty()),
         }
+    }
+
+    /// A table of three seats, two of them one side, plays to its end and
+    /// names the winning side's seats in its outcome as in its record.
+    #[test]
+    fn a_three_seat_table_with_teams_plays_to_its_end() {
+        let (a, b) = decks();
+        let c = HouseDeck::named("schwarzrand").unwrap();
+        let preset = table_for(11, &[&a, &b, &c], &[AIProfile::STEADY; 3], &[1, 1, 2]);
+        assert_eq!(preset.seats.len(), 3);
+        assert_eq!(
+            preset.seats.iter().map(|s| s.team).collect::<Vec<_>>(),
+            [Some(1), Some(1), Some(2)]
+        );
+        let played = play(
+            &preset,
+            "t-11",
+            Caps {
+                answers: 60_000,
+                ..OPEN
+            },
+        );
+        assert!(played.outcome.finished(), "{:?}", played.outcome);
+        let replayed = replay(&played.record).expect("the record replays");
+        assert!(replayed.ended);
+        let end = played
+            .record
+            .split(|&b| b == b'\n')
+            .filter(|l| !l.is_empty())
+            .map(|l| serde_json::from_slice::<Line>(l).unwrap())
+            .find_map(|l| match l {
+                Line::End { winners, .. } => Some(winners),
+                _ => None,
+            })
+            .expect("an end line");
+        match &played.outcome {
+            Outcome::TeamWon { seats, .. } => assert_eq!(&end, seats),
+            Outcome::Won { seat, .. } => assert_eq!(end, [*seat]),
+            _ => assert!(end.is_empty()),
+        }
+        // A side wins whole: never one seat of the pair alone.
+        assert!(end != [0] && end != [1], "{end:?}");
     }
 
     /// The game id is an input: the same table under another name is

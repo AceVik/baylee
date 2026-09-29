@@ -33,7 +33,7 @@ use baylee_core::ids::CardIndex;
 use baylee_core::preset::AIProfile;
 use baylee_train::deckgen::{self, Archetype, shape_name};
 use baylee_train::housedeck::HouseDeck;
-use baylee_train::selfplay::{Caps, Outcome, play, table};
+use baylee_train::selfplay::{Caps, Outcome, play, table, table_for};
 use baylee_train::working::{Working, repo_root};
 use clap::Parser;
 use flate2::Compression;
@@ -124,6 +124,15 @@ struct Args {
     /// cleanest check that a value net reads the game and not the decks.
     #[arg(long, default_value = "none")]
     mirrors: String,
+    /// Seats at every table, 2 to 8. Above 2 a game draws that many decks
+    /// (of one shape class with `--generated`; play Commander decks at four
+    /// seats and more), and its caps grow with the table.
+    #[arg(long, default_value_t = 2)]
+    seats: usize,
+    /// Each chair's side in seat order, `0` playing alone (`xtask dev-table
+    /// --teams`); none = every seat for itself. Needs three seats or more.
+    #[arg(long, value_delimiter = ',')]
+    teams: Vec<u8>,
     /// Where the run is written; must not exist yet.
     #[arg(long)]
     out: PathBuf,
@@ -132,6 +141,9 @@ struct Args {
 /// Which game gets which chairs: a pure function of its number.
 struct Schedule {
     first_seed: u64,
+    seats: usize,
+    /// Decks, for a table of more than two seats without shape classes.
+    deck_count: usize,
     pairs: Vec<(usize, usize)>,
     profiles: Vec<(&'static str, AIProfile)>,
     /// With generated decks: per shape class, its decks, and which of them
@@ -142,11 +154,11 @@ struct Schedule {
     mirror_share: f64,
 }
 
-/// One game's assignment.
+/// One game's assignment: a deck and a profile per seat.
 struct Assigned {
     seed: u64,
-    decks: (usize, usize),
-    profiles: [usize; 2],
+    decks: Vec<usize>,
+    profiles: Vec<usize>,
 }
 
 /// `SplitMix64`: spreads consecutive seeds over the profile pairs.
@@ -162,6 +174,15 @@ impl Schedule {
         let seed = self.first_seed + i;
         let n = self.profiles.len() as u64;
         let pick = mix(seed);
+        if self.seats > 2 {
+            return Assigned {
+                seed,
+                decks: self.table(seed),
+                profiles: (0..self.seats as u64)
+                    .map(|k| (mix(seed ^ (k + 1).wrapping_mul(0x51_7cc1_b727_220a)) % n) as usize)
+                    .collect(),
+            };
+        }
         let decks = if self.classes.is_empty() {
             self.pairs[(i % self.pairs.len() as u64) as usize]
         } else {
@@ -169,9 +190,37 @@ impl Schedule {
         };
         Assigned {
             seed,
-            decks,
-            profiles: [(pick % n) as usize, ((pick >> 32) % n) as usize],
+            decks: vec![decks.0, decks.1],
+            profiles: vec![(pick % n) as usize, ((pick >> 32) % n) as usize],
         }
+    }
+
+    /// A table's decks, drawn from the game's seed alone: of one shape
+    /// class with generated decks, and each deck once where there are
+    /// enough.
+    fn table(&self, seed: u64) -> Vec<usize> {
+        let mut rng = baylee_train::deckgen::Rng::new(mix(seed ^ 0x7ab1_e5ea_7500));
+        let all: Vec<usize> = (0..self.deck_count).collect();
+        let from: &[usize] = if self.classes.is_empty() {
+            &all
+        } else {
+            let weights: Vec<f64> = self.classes.iter().map(|c| c.0).collect();
+            let (_, decks, house) = &self.classes[rng.weighted(&weights)];
+            if house.len() >= self.seats && rng.unit() < self.house_share {
+                house
+            } else {
+                decks
+            }
+        };
+        let mut left: Vec<usize> = from.to_vec();
+        (0..self.seats)
+            .map(|_| {
+                if left.is_empty() {
+                    left = from.to_vec();
+                }
+                left.swap_remove(rng.below(left.len()))
+            })
+            .collect()
     }
 
     /// Two decks of one shape class, drawn from the game's seed alone.
@@ -424,9 +473,17 @@ fn main() -> anyhow::Result<()> {
         0 => std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get),
         n => n,
     };
+    if !(2..=8).contains(&args.seats) {
+        bail!("--seats is 2 to 8");
+    }
+    if !args.teams.is_empty() && (args.seats < 3 || args.teams.len() != args.seats) {
+        bail!("--teams needs three seats or more, and one side per seat");
+    }
+    // A bigger table plays longer: caps grow with it past two seats.
+    let scale = args.seats.max(2) as u64 / 2;
     let caps = Caps {
-        answers: args.max_answers,
-        wall: Duration::from_secs(args.max_secs),
+        answers: args.max_answers * scale,
+        wall: Duration::from_secs(args.max_secs * scale),
     };
     let run = match &args.name {
         Some(name) => name.clone(),
@@ -472,7 +529,9 @@ fn main() -> anyhow::Result<()> {
         "games": total,
         "only": args.only,
         "first_seed": args.first_seed,
-        "caps": {"answers": caps.answers, "secs": args.max_secs},
+        "caps": {"answers": caps.answers, "secs": caps.wall.as_secs()},
+        "seats": args.seats,
+        "teams": args.teams,
         "threads": threads,
         "started": unix_secs(),
     });
@@ -488,8 +547,11 @@ fn main() -> anyhow::Result<()> {
         &working.hash()[..12],
     );
 
+    let deck_count = decks.len();
     let schedule = Arc::new(Schedule {
         first_seed: args.first_seed,
+        seats: args.seats,
+        deck_count,
         pairs,
         profiles,
         classes,
@@ -515,6 +577,7 @@ fn main() -> anyhow::Result<()> {
             order.clone(),
         );
         let (records, run, shard_games) = (records.clone(), run.clone(), args.shard_games);
+        let teams = args.teams.clone();
         std::thread::spawn(move || {
             let mut shard: Option<Shard> = None;
             let mut shards = 0;
@@ -526,9 +589,23 @@ fn main() -> anyhow::Result<()> {
                 playing.lock().expect("the watch lock")[worker] = Some((i, Instant::now()));
                 let result = (|| -> anyhow::Result<Done> {
                     let game = schedule.game(i);
-                    let (a, b) = (&decks[game.decks.0], &decks[game.decks.1]);
-                    let chairs = game.profiles.map(|p| schedule.profiles[p]);
-                    let preset = table(game.seed, a, b, chairs.map(|(_, p)| p));
+                    let table_decks: Vec<&HouseDeck> =
+                        game.decks.iter().map(|d| &decks[*d]).collect();
+                    let chairs: Vec<(&str, AIProfile)> = game
+                        .profiles
+                        .iter()
+                        .map(|p| schedule.profiles[*p])
+                        .collect();
+                    let preset = if let ([a, b], [pa, pb], true) =
+                        (table_decks.as_slice(), chairs.as_slice(), teams.is_empty())
+                    {
+                        // Two seats keep the duel's own preset, so a run made
+                        // before tables grew replays game for game.
+                        table(game.seed, a, b, [pa.1, pb.1])
+                    } else {
+                        let profiles: Vec<AIProfile> = chairs.iter().map(|c| c.1).collect();
+                        table_for(game.seed, &table_decks, &profiles, &teams)
+                    };
                     let id = format!("{run}-{i:07}");
                     let played = play(&preset, &id, caps);
                     if shard.as_ref().is_none_or(|s| s.games >= shard_games) {
@@ -541,8 +618,9 @@ fn main() -> anyhow::Result<()> {
                         "game": id,
                         "i": i,
                         "seed": game.seed,
-                        "decks": [a.key, b.key],
-                        "profiles": chairs.map(|(n, _)| n),
+                        "decks": table_decks.iter().map(|d| d.key.as_str()).collect::<Vec<_>>(),
+                        "profiles": chairs.iter().map(|(n, _)| *n).collect::<Vec<_>>(),
+                        "teams": teams.as_slice(),
                         "outcome": played.outcome,
                         "answers": played.answers,
                         "turn": played.turn,
@@ -589,19 +667,28 @@ fn main() -> anyhow::Result<()> {
                         seat0_wins += u64::from(*seat == 0);
                         "won"
                     }
+                    Outcome::TeamWon { seats, .. } => {
+                        seat0_wins += u64::from(seats.contains(&0));
+                        "team_won"
+                    }
                     Outcome::Draw { .. } => "draw",
                     Outcome::AnswerCap => "answer_cap",
                     Outcome::TimeCap => "time_cap",
                     Outcome::Panicked { .. } => "panicked",
                 };
-                if let Outcome::Won { seat, .. } = &done.outcome {
+                let winners: &[u8] = match &done.outcome {
+                    Outcome::Won { seat, .. } => std::slice::from_ref(seat),
+                    Outcome::TeamWon { seats, .. } => seats,
+                    _ => &[],
+                };
+                if !winners.is_empty() {
                     let decks_played = done.line["decks"].as_array().cloned().unwrap_or_default();
                     for (s, deck) in decks_played.iter().enumerate() {
                         let entry = deck_wins
                             .entry(deck.as_str().unwrap_or("?").to_owned())
                             .or_default();
                         entry.1 += 1;
-                        if s == usize::from(*seat) {
+                        if winners.iter().any(|w| usize::from(*w) == s) {
                             entry.0 += 1;
                         }
                     }
