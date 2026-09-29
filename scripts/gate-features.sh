@@ -169,16 +169,19 @@ fi
 step test-support \
     cargo clippy -p baylee-client-core --features test-support --lib -- -D warnings
 
-# --- the card-verification hooks (docs/verification-hooks.md) ---------------
-#
-# Both are `cfg(any(test, feature = …))`, so the `test-support` reasoning
-# above is theirs too: `--all-targets` compiles them through `test`, and the
-# shape to check is the library with the feature on and `cfg(test)` off.
-# `fuzz` is how a fuzzer crate links the engine (`projection_is_fresh`);
-# `mutate` is how the engine's test binary links the card registry
-# (`BAYLEE_MUTATE`).
+# The same shape for the same reason: `fuzz` is `cfg(any(test, feature =
+# "fuzz"))` (`Engine::fingerprint`), so the engine's own tests compile it
+# either way, and a fuzzer builds the library with the feature on and
+# `cfg(test)` off.
 step fuzz \
     cargo clippy -p baylee-engine --features fuzz --lib -- -D warnings
+
+# --- the card-verification hooks (docs/verification-hooks.md) ---------------
+#
+# `fuzz` above also carries `Engine::projection_is_fresh`. `mutate` is
+# `cfg(any(test, feature = "mutate"))` on the card registry, the same shape
+# again: `BAYLEE_MUTATE` as the engine's test binary links it, where
+# `cfg(test)` is off in `baylee-cards`.
 step mutate \
     cargo clippy -p baylee-cards --features mutate --lib -- -D warnings
 
@@ -190,11 +193,13 @@ step mutate \
 # `cargo tree` prints, without which a renamed feature or a changed output
 # format would count zero leaks forever. Each `cargo tree` is read only if it
 # succeeded, because a failed one prints nothing that matches either.
+# `--target all`, so a dependency declared for one platform only (the
+# Android shim's are) cannot turn a hook on where this host never looks.
 t0=$SECONDS
 tree=$(mktemp)
-if cargo tree --workspace -e features,normal,build >"$tree" 2>"$log" \
+if cargo tree --workspace --target all -e features,normal,build >"$tree" 2>"$log" \
     && leaks=$(grep -cE 'feature "(mutate|fuzz)"' "$tree"; true) \
-    && cargo tree -p baylee-engine -e features >"$tree" 2>"$log" \
+    && cargo tree -p baylee-engine --target all -e features >"$tree" 2>"$log" \
     && control=$(grep -c 'baylee-cards feature "mutate"' "$tree"; true); then
     if [ "$leaks" -eq 0 ] && [ "$control" -gt 0 ]; then
         echo "STEP verification-hooks-shipped ok (0 in the shipped graph, $control in the engine's dev graph, $((SECONDS - t0))s)"

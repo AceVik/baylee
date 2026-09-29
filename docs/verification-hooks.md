@@ -80,7 +80,7 @@ journal and `snapshot_hash` are the same.
 
 | `kind`        | fired when | where |
 |---------------|------------|-------|
-| `spell`       | a spell whose card lists an `AbilityDef::Spell` or `ModalSpell` finished resolving (including a spell with no effects of its own, such as an Aura) | `Engine::finish_resolution`, and `resolve_stack_top` before `finalize_spell` |
+| `spell`       | a spell whose card lists an `AbilityDef::Spell` or `ModalSpell` finished resolving, by either door a resolving spell leaves the stack through | `Engine::finish_resolution`, and `resolve_stack_top` before `finalize_spell` (a spell with no effects to run) |
 | `activated`   | an `Activated`, `ActivatedConditional` or `Loyalty` ability that is not a mana ability finished resolving off the stack | `Engine::finish_resolution` |
 | `triggered`   | a `Triggered`, `ModalTriggered` or `SagaChapter` ability finished resolving; a triggered mana ability (CR 605.1b, Badgermole Cub's "add an additional {G}") produced its mana off the stack | `Engine::finish_resolution`, `resolve_triggered_mana_abilities` |
 | `mana`        | a mana ability (`mana_ability: true`) had its cost paid and produced its mana, including after the colour question it may ask; a land tapped for mana through CR 305.6 credits its printed `{T}: Add …` entry for that colour | `start_activation`'s mana branch, `mana_finished`, the two CR 305.6 taps in `actions.rs` |
@@ -147,6 +147,9 @@ inventory's entries, except a Room's with both doors unlocked
 A card is L4 when every entry with a non-null `kind` appears as a line in
 some test's file.
 
+Generate the inventory in a run **without** `BAYLEE_MUTATE`: the pool it
+reads goes through the mutation switch too.
+
 ### Rooms
 
 A Room (`"room": true`; Walk-In Closet is the pool's one) numbers its
@@ -165,9 +168,6 @@ The mutation switch replaces position k in the card-level list and in both
 faces' lists, so for a Room a mutant of k may take an ability from each
 half while one door is unlocked, and a mutant of `len(left) + p` takes the
 right half's p-th ability only while both doors are unlocked.
-
-Generate the inventory in a run **without** `BAYLEE_MUTATE`: the pool it
-reads goes through the mutation switch too.
 
 ### Measured on 2026-09-29
 
@@ -258,7 +258,8 @@ entry is killed by at least one of the card's tests.
 An entry with `"intrinsic": true` in the inventory is the mana ability CR
 305.6 gives a land for each of its basic land types, printed as reminder
 text ("({T}: Add {R}.)"). The engine taps a land for its basic types
-through that rule, whether the entry is there or not, so its mutant
+through that rule, whether the entry is there or not
+(`casting::intrinsic_mana_offer`), so its mutant
 survives by the rules, not by a hole in the tests: with Mountain's entry
 replaced, Lightning Bolt's test still passes. `verification_tests` holds
 that survivor as a test. Exclude these entries from L5; L4 still credits
@@ -274,6 +275,11 @@ baylee-engine = { workspace = true, features = ["fuzz"] }
 ```rust
 pub fn projection_is_fresh(&self) -> bool   // impl<L: CardLookup> Engine<L>
 ```
+
+The same feature carries `Engine::fingerprint` and `Fingerprint`, the
+engine's full state for a fuzzer's equality checks (`c42/engine-karn-targets`).
+This check asks a narrower question and does not use them: whether the
+cached projection is what a refresh would make of the state.
 
 The engine keeps the layered projection (CR 613) cached behind one `u64`
 generation compare, so a change to a characteristic's input that skips its
@@ -337,8 +343,8 @@ A build without dev-dependencies (every `cargo build`, every binary, every
 library a dependent links) names neither feature:
 
 ```bash
-cargo tree --workspace -e features,normal,build | grep -cE 'feature "(mutate|fuzz)"'   # 0
-cargo tree -p baylee-engine -e features | grep 'baylee-cards feature "mutate"'          # the dev edge
+cargo tree --workspace --target all -e features,normal,build | grep -cE 'feature "(mutate|fuzz)"'   # 0
+cargo tree -p baylee-engine --target all -e features | grep 'baylee-cards feature "mutate"'          # the dev edge
 ```
 
 `scripts/gate-features.sh` runs both (`verification-hooks-shipped`), the

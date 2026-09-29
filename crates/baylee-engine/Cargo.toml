@@ -9,9 +9,9 @@ description = "Deterministic MTG rules kernel (no I/O, no async)"
 workspace = true
 
 [features]
-# `Engine::projection_is_fresh`, the fuzzer's projection-cache invariant
-# (`docs/verification-hooks.md`). Non-default: nothing shipped builds it, and
-# `scripts/gate-features.sh` is what compiles it.
+# `Engine::fingerprint`, `Engine::fingerprint_light` and `Fingerprint`: every
+# field of the engine, for a fuzzer holding it to its invariants (a refused
+# `apply` changes nothing). Off in every build that plays a game.
 fuzz = []
 
 [dependencies]
