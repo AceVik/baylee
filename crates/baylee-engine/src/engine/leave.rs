@@ -259,6 +259,7 @@ impl<L: CardLookup> Engine<L> {
                 finds,
                 reveal,
                 library,
+                split,
             }) = res.awaiting
             && agent == player
             && !self.state.has_left(library)
@@ -269,6 +270,7 @@ impl<L: CardLookup> Engine<L> {
                 reveal,
                 library,
                 receiver: library,
+                split,
             });
             *asked = library;
             return;

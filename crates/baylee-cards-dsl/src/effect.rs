@@ -1833,6 +1833,26 @@ pub enum Effect {
         /// it to the search as the one-element list every search reads).
         find: &'static Find,
     },
+    /// "Search your library for up to `up_to` `filter` cards with different
+    /// names and reveal them. An opponent chooses `chosen` of those cards.
+    /// Put the chosen cards into your graveyard and the rest into your hand.
+    /// Then shuffle." (Realms Uncharted: land cards, up to four, two chosen.)
+    ///
+    /// Different names are a property of the answer, and the search offers
+    /// one card per name so that every answer has it: two copies of a card
+    /// in a library are the same card to every rule this sentence reads.
+    /// With several opponents the controller names the one who chooses, as
+    /// CR 700.2e has them do for a mode another player chooses. Finding
+    /// `chosen` or fewer leaves nothing to choose: every card found is
+    /// chosen.
+    SearchOpponentSplits {
+        /// What to find.
+        filter: &'static Filter,
+        /// How many at most.
+        up_to: u8,
+        /// How many of those the opponent sends to the graveyard.
+        chosen: u8,
+    },
     /// All objects matching a filter get computed P/T modifiers, and
     /// optionally keywords, until a duration ends (Toxic Deluge: `-X/-X`
     /// on all creatures; Overrun: `+3/+3` and trample on your team).
@@ -2470,6 +2490,7 @@ impl Effect {
             | Effect::OptionalBasicLandSearchFor { .. }
             | Effect::SearchLibraryOf { .. }
             | Effect::SearchLibraryUpTo { .. }
+            | Effect::SearchOpponentSplits { .. }
             | Effect::PumpFilter { .. }
             | Effect::ProtectionFromChosenColor { .. }
             | Effect::Regenerate { .. }

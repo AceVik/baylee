@@ -1166,7 +1166,12 @@ amount })` the resolution computes, such as `Amount::Plus { base:
 library searched is the one shuffled), `SearchLibraryUpTo { filter, count,
 find }` ("search your library for up to X … cards": the count an `Amount`
 read as the search begins, every card found going where `&Find` says; X = 0
-shuffles and asks nobody — Nylea's Intervention), `Find::…with_counter(kind, n)` for a
+shuffles and asks nobody — Nylea's Intervention), `SearchOpponentSplits {
+filter, up_to, chosen }` (Realms Uncharted: up to four cards of different
+names — one card per name is offered — revealed; an opponent sends `chosen`
+of them to the graveyard, prompt `PutIntoGraveyard`, and the rest go to the
+hand; at a table the caster names that opponent with a `ChoosePlayer`, and
+`chosen` or fewer found are all chosen), `Find::…with_counter(kind, n)` for a
 find that enters with counters (Neoform), `PutFromHandOntoBattlefield {
 filter, mana_value, optional }` (Aether Vial, with `Amount::CountersOnSource`
 as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,

@@ -214,6 +214,10 @@ pub enum AwaitingOp {
         /// that Bribery's caster searches an opponent's library and takes
         /// the creature.
         receiver: PlayerId,
+        /// `Some(n)` when the finds are not placed by `finds` at all: an
+        /// opponent chooses `n` of them for the graveyard and the rest go to
+        /// the hand (`Effect::SearchOpponentSplits`).
+        split: Option<u8>,
     },
     /// After `PutFromHandOntoBattlefield`: the chosen card goes onto the
     /// battlefield under the resolving controller's control.
@@ -318,6 +322,31 @@ pub enum AwaitingOp {
         /// agent is controlling while they search (a takeover reaches only
         /// a player searching their own library).
         library: PlayerId,
+        /// See [`AwaitingOp::SearchLibrary`].
+        split: Option<u8>,
+    },
+    /// After a split search found more cards than the opponent chooses, at a
+    /// table with several opponents: the controller names the one who
+    /// chooses (CR 700.2e's rule for a mode another player chooses).
+    PickSplitter {
+        /// The cards found, still in the library.
+        found: Vec<ObjectId>,
+        /// How many the opponent sends to the graveyard.
+        count: u8,
+        /// The library searched, shuffled at the end.
+        library: PlayerId,
+        /// Whose hand the rest go to.
+        receiver: PlayerId,
+    },
+    /// After the opponent chose which found cards go to the graveyard: the
+    /// chosen ones do, the rest go to the hand, and the library is shuffled.
+    SplitToGraveyard {
+        /// The cards found, still in the library.
+        found: Vec<ObjectId>,
+        /// The library searched.
+        library: PlayerId,
+        /// Whose hand the rest go to.
+        receiver: PlayerId,
     },
     /// After `DiscardForPlayers`: discard the chosen cards, then ask the
     /// next remaining player.
@@ -464,6 +493,11 @@ struct Search {
     /// How many cards may be found, when that is a number the resolution
     /// read rather than `finds.len()` (Nylea's Intervention's "up to X").
     count: Option<u8>,
+    /// "With different names": one card of each name is offered, so every
+    /// answer has the property.
+    distinct_names: bool,
+    /// See [`AwaitingOp::SearchLibrary`]'s `split`.
+    split: Option<u8>,
     /// Whether fewer than the most may be found.
     optional: bool,
 }
@@ -493,6 +527,8 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
         bound,
         finds,
         count,
+        distinct_names,
+        split,
         optional,
     } = search;
     // Ashiok, Dream Render: "spells and abilities your opponents control
@@ -532,7 +568,7 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
                 .map(|fx| fx.controller)
         })
         .flatten();
-    let options: Vec<ObjectId> = state
+    let mut options: Vec<ObjectId> = state
         .zones
         .list(ZoneLocation::Library(library))
         .iter()
@@ -543,6 +579,19 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
         })
         .copied()
         .collect();
+    if distinct_names {
+        let mut seen: Vec<baylee_core::ids::NameRef> = Vec::new();
+        options.retain(|id| {
+            let Some(name) = state.object(*id).map(|o| o.characteristics().name) else {
+                return false;
+            };
+            if seen.contains(&name) {
+                return false;
+            }
+            seen.push(name);
+            true
+        });
+    }
     if options.is_empty() {
         // Hidden zone: failing to find is always legal (CR 701.23b).
         state.shuffle_library(library);
@@ -566,6 +615,7 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
             finds,
             reveal,
             library,
+            split,
         });
         return Some(Pending::ChooseCards {
             player: agent,
@@ -580,6 +630,7 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
         reveal,
         library,
         receiver: searcher,
+        split,
     });
     Some(Pending::ChooseCards {
         player: searcher,
@@ -1252,6 +1303,131 @@ fn put_found(state: &mut GameState, player: PlayerId, card: ObjectId, dest: Sear
     let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
 }
 
+/// The half of `SearchOpponentSplits` after the search: the found cards are
+/// revealed, and an opponent is asked which `count` of them go to the
+/// graveyard — or nobody is, when there is nothing to choose between.
+fn begin_split(
+    state: &mut GameState,
+    res: &mut Resolution,
+    found: &[ObjectId],
+    count: u8,
+    library: PlayerId,
+    receiver: PlayerId,
+) -> Option<Pending> {
+    if found.is_empty() {
+        state.shuffle_library(library);
+        return None;
+    }
+    state.journal.record(GameEvent::Revealed {
+        player: receiver,
+        cards: found.to_vec(),
+    });
+    // "An opponent chooses two of those cards": with two or fewer found,
+    // every one of them is chosen; with no opponent left nobody chooses, and
+    // none is.
+    if found.len() <= usize::from(count) {
+        finish_split(state, found, found, library, receiver);
+        return None;
+    }
+    let opponents = eval::players(PlayerRel::Opponent, state, receiver).unwrap_or_default();
+    match opponents.as_slice() {
+        [] => {
+            finish_split(state, found, &[], library, receiver);
+            None
+        }
+        [only] => Some(ask_splitter(
+            res,
+            *only,
+            found.to_vec(),
+            count,
+            library,
+            receiver,
+        )),
+        _ => {
+            res.awaiting = Some(AwaitingOp::PickSplitter {
+                found: found.to_vec(),
+                count,
+                library,
+                receiver,
+            });
+            Some(Pending::ChoosePlayer {
+                player: res.controller,
+                options: opponents,
+            })
+        }
+    }
+}
+
+/// Asks `opponent` which `count` of the found cards go to the graveyard.
+fn ask_splitter(
+    res: &mut Resolution,
+    opponent: PlayerId,
+    found: Vec<ObjectId>,
+    count: u8,
+    library: PlayerId,
+    receiver: PlayerId,
+) -> Pending {
+    res.awaiting = Some(AwaitingOp::SplitToGraveyard {
+        found: found.clone(),
+        library,
+        receiver,
+    });
+    Pending::ChooseCards {
+        player: opponent,
+        options: found,
+        min: count,
+        max: count,
+        prompt: ChoicePrompt::PutIntoGraveyard,
+    }
+}
+
+/// "Put the chosen cards into your graveyard and the rest into your hand.
+/// Then shuffle." Only cards still in the library move: the answer arrives
+/// after the question, and nothing in between may have left them there.
+fn finish_split(
+    state: &mut GameState,
+    found: &[ObjectId],
+    chosen: &[ObjectId],
+    library: PlayerId,
+    receiver: PlayerId,
+) {
+    for &card in found {
+        let Some(owner) = state
+            .object(card)
+            .filter(|o| o.zone == crate::zone::Zone::Library)
+            .map(|o| o.owner)
+        else {
+            continue;
+        };
+        let to = if chosen.contains(&card) {
+            ZoneLocation::Graveyard(owner)
+        } else {
+            ZoneLocation::Hand(receiver)
+        };
+        let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
+    }
+    state.shuffle_library(library);
+}
+
+/// Resumes a split search once the controller named the opponent who
+/// chooses.
+///
+/// # Panics
+/// If no splitter question is suspended.
+#[must_use]
+pub fn resume_pick_splitter(res: &mut Resolution, opponent: PlayerId) -> Flow {
+    let Some(AwaitingOp::PickSplitter {
+        found,
+        count,
+        library,
+        receiver,
+    }) = res.awaiting.take()
+    else {
+        panic!("splitter not suspended");
+    };
+    Flow::Wait(ask_splitter(res, opponent, found, count, library, receiver))
+}
+
 /// Resumes a suspended resolution with the chosen cards.
 ///
 /// # Panics
@@ -1262,10 +1438,22 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
         AwaitingOp::SearchLibrary {
+            finds: _,
+            reveal: _,
+            library,
+            receiver,
+            split: Some(count),
+        } => {
+            if let Some(question) = begin_split(state, res, chosen, count, library, receiver) {
+                return Flow::Wait(question);
+            }
+        }
+        AwaitingOp::SearchLibrary {
             finds,
             reveal,
             library,
             receiver,
+            split: None,
         } => {
             if reveal && !chosen.is_empty() {
                 // Shown from the library, before they go anywhere.
@@ -1342,6 +1530,14 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     }
                 }
             }
+        }
+        AwaitingOp::SplitToGraveyard {
+            found,
+            library,
+            receiver,
+        } => finish_split(state, &found, chosen, library, receiver),
+        AwaitingOp::PickSplitter { .. } => {
+            unreachable!("the splitter is a player, answered via resume_pick_splitter")
         }
         AwaitingOp::MayPutTop {
             card,
@@ -1815,6 +2011,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::SearchLibraryOf { .. }
         | Effect::SearchLibraryUpTo { .. }
+        | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
@@ -1845,6 +2042,8 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 bound: None,
                 finds,
                 count: None,
+                distinct_names: false,
+                split: None,
                 optional,
             },
         ),
@@ -1867,10 +2066,33 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                     bound: None,
                     finds: core::slice::from_ref(find),
                     count: Some(count),
+                    distinct_names: false,
+                    split: None,
                     optional: true,
                 },
             )
         }
+        Effect::SearchOpponentSplits {
+            filter,
+            up_to,
+            chosen,
+        } => begin_search(
+            state,
+            res,
+            Search {
+                library: you,
+                searcher: you,
+                filter,
+                bound: None,
+                // Placed by the split, never by a find; a taken-over search
+                // (Opposition Agent) exiles whatever it finds either way.
+                finds: &[baylee_cards_dsl::effect::Find::HAND],
+                count: Some(up_to),
+                distinct_names: true,
+                split: Some(chosen),
+                optional: true,
+            },
+        ),
         Effect::SearchLibraryOf {
             library,
             owner_searches,
@@ -1898,6 +2120,8 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                     bound,
                     finds,
                     count: None,
+                    distinct_names: false,
+                    split: None,
                     optional,
                 },
             )
@@ -2159,6 +2383,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 reveal: false,
                 library: player,
                 receiver: player,
+                split: None,
             });
             Some(Pending::ChooseCards {
                 player,
@@ -3046,6 +3271,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::SearchLibraryOf { .. }
         | Effect::SearchLibraryUpTo { .. }
+        | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }

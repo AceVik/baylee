@@ -1657,6 +1657,16 @@ messages! {
         en: "cards to put onto the battlefield",
         de: "Karten, die aufs Spielfeld kommen",
     },
+    /// card to put into its owner's graveyard
+    NounCardToGraveyard {
+        en: "card to put into its owner's graveyard",
+        de: "Karte, die in den Friedhof ihres Besitzers kommt",
+    },
+    /// cards to put into their owner's graveyard
+    NounCardsToGraveyard {
+        en: "cards to put into their owner's graveyard",
+        de: "Karten, die in den Friedhof ihres Besitzers kommen",
+    },
     /// card from outside the game
     NounCardOutside { en: "card from outside the game", de: "Karte von außerhalb der Partie" },
     /// cards from outside the game
@@ -3501,6 +3511,7 @@ mod tests {
                 Phrase::NounCardToBattlefield,
                 Phrase::NounCardsToBattlefield,
             ),
+            (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard),
             (Phrase::LogKeptCardYou, Phrase::LogKeptCardsYou),
             (Phrase::LogKeptCard, Phrase::LogKeptCards),
             (Phrase::LogDrewCardYou, Phrase::LogDrewCardsYou),

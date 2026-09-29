@@ -315,6 +315,21 @@ impl<L: CardLookup> Engine<L> {
                     }
                     return Ok(());
                 }
+                // The opponent who chooses a split search's graveyard cards.
+                if self.resolution.as_ref().is_some_and(|r| {
+                    matches!(r.awaiting, Some(resolve::AwaitingOp::PickSplitter { .. }))
+                }) {
+                    let mut res = self.resolution.take().expect("splitter suspended");
+                    match resolve::resume_pick_splitter(&mut res, chosen) {
+                        resolve::Flow::Wait(pending) => {
+                            self.resolution = Some(res);
+                            self.pending = pending;
+                            self.awaiting_answer = true;
+                        }
+                        resolve::Flow::Complete => self.finish_resolution(&res),
+                    }
+                    return Ok(());
+                }
                 // Loyalty ability target player.
                 if let Some(PlanKind::LoyaltyPlayer {
                     source,

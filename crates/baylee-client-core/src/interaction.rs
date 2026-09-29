@@ -659,6 +659,9 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounCardToBattlefield,
             Phrase::NounCardsToBattlefield,
         ),
+        ChoicePrompt::PutIntoGraveyard => {
+            (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard)
+        }
         ChoicePrompt::Delve | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
     }
 }

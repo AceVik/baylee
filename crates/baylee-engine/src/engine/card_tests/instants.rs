@@ -19210,3 +19210,201 @@ fn consult_the_star_charts_kicked_keeps_two() {
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     keep_first(&mut engine, p0, 5, 2);
 }
+
+fn realms_uncharted() -> CardIndex {
+    card_index("e21c8fc6-d4ef-42b6-b11e-d9c931da1387")
+}
+
+/// Moves the named cards from the seat's hand into its library, the harness
+/// way, so a search has lands of several names to find among the Forests.
+#[track_caller]
+fn hide_in_library(engine: &mut Engine<RegistryLookup>, seat: PlayerId, cards: &[CardIndex]) {
+    for &card in cards {
+        let id = in_hand(engine, seat, card).expect("the card starts in hand");
+        engine
+            .dev_state_mut(seat)
+            .expect("the harness may set boards up")
+            .move_object(
+                id,
+                ZoneLocation::Library(seat),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("into the library");
+    }
+}
+
+/// Casts Realms Uncharted and finds the first `n` lands it offers, after
+/// checking the offer is one card of each name, at most four of them.
+#[track_caller]
+fn realms_search(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) -> Vec<ObjectId> {
+    cast_from_hand(engine, seat, realms_uncharted());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = pass_to_card_choice(engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, seat);
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert_eq!((min, max), (0, 4), "up to four");
+    let mut names: Vec<_> = options
+        .iter()
+        .map(|id| engine.state().object(*id).unwrap().characteristics().name)
+        .collect();
+    let offered = names.len();
+    names.sort_unstable();
+    names.dedup();
+    assert_eq!(names.len(), offered, "one card of each name is offered");
+    let found = options[..n].to_vec();
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: found.clone(),
+            },
+        )
+        .unwrap();
+    found
+}
+
+/// Realms Uncharted: "Search your library for up to four land cards with
+/// different names and reveal them. An opponent chooses two of those cards.
+/// Put the chosen cards into your graveyard and the rest into your hand."
+///
+/// Five names in the library (the Forests are one name, however many), four
+/// found, and the opponent — not the caster — picks the two for the
+/// graveyard.
+#[test]
+fn realms_uncharted_lets_the_opponent_bin_two_of_four_lands() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(
+            0,
+            &[realms_uncharted(), island(), plains(), swamp(), mountain()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    hide_in_library(&mut engine, p0, &[island(), plains(), swamp(), mountain()]);
+    let journal_from = engine.state().journal.len();
+    let found = realms_search(&mut engine, p0, 4);
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected the opponent's choice, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1, "an opponent chooses");
+    assert_eq!(options, found, "among the four found");
+    assert_eq!((min, max), (2, 2), "exactly two");
+    assert_eq!(prompt, ChoicePrompt::PutIntoGraveyard);
+    assert!(
+        engine.state().journal.entries()[journal_from..]
+            .iter()
+            .any(|e| matches!(&e.event, GameEvent::Revealed { cards, .. } if cards == &found)),
+        "\"and reveal them\" — before the opponent chooses"
+    );
+    let binned = found[..2].to_vec();
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: binned.clone(),
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    for card in &found {
+        let zone = engine
+            .state()
+            .object(*card)
+            .and_then(|o| o.zone_owner.map(|_| o.zone));
+        let expected = if binned.contains(card) {
+            crate::zone::Zone::Graveyard
+        } else {
+            crate::zone::Zone::Hand
+        };
+        assert_eq!(
+            zone,
+            Some(expected),
+            "chosen to the graveyard, the rest to hand"
+        );
+    }
+}
+
+/// Two found are two chosen: nothing to decide, both go to the graveyard.
+#[test]
+fn realms_uncharted_bins_everything_when_two_or_fewer_are_found() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[realms_uncharted(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    hide_in_library(&mut engine, p0, &[island()]);
+    let found = realms_search(&mut engine, p0, 2);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(!matches!(engine.pending(), Pending::ChooseCards { .. }));
+    for card in &found {
+        assert_eq!(
+            engine.state().object(*card).map(|o| o.zone),
+            Some(crate::zone::Zone::Graveyard)
+        );
+    }
+}
+
+/// At a table of three the caster names which opponent chooses, and that
+/// opponent is the one asked.
+#[test]
+fn realms_uncharted_at_a_table_lets_the_caster_name_the_opponent() {
+    let (p0, p2) = (PlayerId::new(0), PlayerId::new(2));
+    let mut engine = Duel::table(SEED, forest(), 3)
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[realms_uncharted(), island(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    hide_in_library(&mut engine, p0, &[island(), plains()]);
+    let found = realms_search(&mut engine, p0, 3);
+    let Pending::ChoosePlayer { player, options } = engine.pending().clone() else {
+        panic!(
+            "expected the caster to name an opponent, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options.len(), 2, "either opponent");
+    engine.apply(p0, PlayerAction::ChoosePlayer(p2)).unwrap();
+    let Pending::ChooseCards { player, .. } = engine.pending().clone() else {
+        panic!(
+            "expected the named opponent's choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p2, "the named opponent chooses");
+    engine
+        .apply(
+            p2,
+            PlayerAction::ChooseObjects {
+                objects: found[..2].to_vec(),
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(found[2]).map(|o| o.zone),
+        Some(crate::zone::Zone::Hand)
+    );
+}
