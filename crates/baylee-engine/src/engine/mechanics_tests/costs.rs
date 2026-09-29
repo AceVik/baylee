@@ -24,6 +24,7 @@ const DELUGE: u32 = 7186;
 const TITHE: u32 = 7187;
 const OFFERING: u32 = 7188;
 const OX: u32 = 7189;
+const RAY: u32 = 7190;
 
 /// A spell ability that does nothing: what is under test is how the spell
 /// was paid for, and an effect would be one more thing to read around.
@@ -119,6 +120,12 @@ fn cards() -> Vec<&'static CardDef> {
             creature_face("Ox", "{2}{G}", 2, 2),
             KeywordSet::EMPTY,
             &[],
+        ),
+        card(
+            RAY,
+            face("Ray", "{X}{G}", TypeSet::INSTANT),
+            KeywordSet::EMPTY,
+            NOTHING,
         ),
     ]
 }
@@ -326,4 +333,51 @@ fn an_additional_sacrifice_is_paid_and_its_mana_value_remembered() {
         vec![ox],
         "sacrificed"
     );
+}
+
+// ------------------------------------------------- a total nobody can pay
+
+/// A total the pool cannot pay is not paid in part (CR 601.2h: "Partial
+/// payments are not allowed"), and a casting that cannot finish is undone
+/// (CR 601.2): X is announced before the mana is counted (CR 601.2b), so an
+/// X of five over one floating mana is refused at the payment, with the card
+/// still in hand, the mana still floating and the caster holding priority
+/// again. The same card at an X the pool covers is then cast.
+#[test]
+fn a_total_the_pool_cannot_pay_undoes_the_whole_cast() {
+    let mut engine = bench(
+        7193,
+        cards(),
+        [Seat::with(&[forest()]).holding(&[RAY]), Seat::default()],
+    );
+    to_main(&mut engine, me());
+    float_all(&mut engine, me());
+    let ray = cast(&mut engine, RAY);
+    assert!(
+        matches!(engine.pending(), Pending::ChooseNumber { .. }),
+        "X is announced: {:?}",
+        engine.pending()
+    );
+    assert!(
+        engine.apply(me(), PlayerAction::ChooseNumber(5)).is_err(),
+        "{{5}}{{G}} is refused over one Forest's mana"
+    );
+    assert_eq!(
+        objects(&engine, ZoneLocation::Hand(me()), RAY),
+        vec![ray],
+        "the card never left the hand"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "and nothing of the mana was spent"
+    );
+    let (player, legal) = offer(&engine);
+    assert_eq!(player, me(), "the caster holds priority again");
+    assert!(legal.castable.contains(&ray));
+
+    cast(&mut engine, RAY);
+    engine.apply(me(), PlayerAction::ChooseNumber(0)).unwrap();
+    assert_eq!(on_the_stack(&engine, ray).x_value, 0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0, "{{G}} paid");
 }

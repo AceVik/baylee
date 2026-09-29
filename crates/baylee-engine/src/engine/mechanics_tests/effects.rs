@@ -127,7 +127,7 @@ fn grant(engine: &mut Bench, snapper: ObjectId, target: ObjectId) {
     settle(engine, me());
 }
 
-/// The grant reaches the card it targeted and no other (CR 702.34a: "you
+/// The grant goes to the card it targeted and no other (CR 702.34a: "you
 /// may cast this card from your graveyard"), and a spell cast that way is
 /// exiled as it leaves the stack rather than returned to the graveyard.
 #[test]

@@ -105,6 +105,7 @@ const DEEP_GROVE: u32 = 7162;
 const SAPLING: u32 = 7163;
 const TWIN_SAPLING: u32 = 7164;
 const GROWTH: u32 = 7165;
+const TWIN_GROVE: u32 = 7166;
 
 static CREATURE_SPELL: Filter = Filter::CREATURE;
 
@@ -123,6 +124,13 @@ static DEEP_GROVE_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::mana_ability!(&
 )
 .when_spent(&CREATURE_SPELL, SpendRider::Scry(2))])];
 
+/// The scry-1 rider on two mana made by one activation.
+static TWIN_GROVE_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::mana_ability!(&[Effect::mana(
+    ManaColor::Green,
+    2
+)
+.when_spent(&CREATURE_SPELL, SpendRider::Scry(1))])];
+
 static GAIN_ONE: &[Effect] = &[Effect::gain_life(1)];
 static GROWTH_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: GAIN_ONE,
@@ -134,6 +142,7 @@ fn grove_cards() -> Vec<&'static CardDef> {
     vec![
         super::super::synthetic::land(SCRY_GROVE, "Scry Grove", SCRY_GROVE_ABILITIES),
         super::super::synthetic::land(DEEP_GROVE, "Deep Grove", DEEP_GROVE_ABILITIES),
+        super::super::synthetic::land(TWIN_GROVE, "Twin Grove", TWIN_GROVE_ABILITIES),
         card(
             SAPLING,
             creature_face("Sapling", "{G}", 1, 1),
@@ -248,10 +257,22 @@ fn mana_spent_on_another_spell_scries_nothing() {
     );
 }
 
-/// One scry per unit of the rider's mana spent (CR 106.6a's "for each mana"):
-/// two groves paying one spell scry twice.
+/// One scry for each mana of the rider's spent on the spell, whether the two
+/// mana came from two groves or from one activation that made both: the
+/// reading `apply_spend_riders` takes from CR 106.6a, where "a separate
+/// delayed triggered ability is created for each mana produced".
 #[test]
 fn each_unit_of_ridden_mana_scries_once() {
     let (mut engine, twin) = floated(7164, &[SCRY_GROVE, SCRY_GROVE], TWIN_SAPLING);
-    assert_eq!(cast_and_count_scries(&mut engine, twin), vec![1, 1]);
+    assert_eq!(
+        cast_and_count_scries(&mut engine, twin),
+        vec![1, 1],
+        "two groves, one mana each"
+    );
+    let (mut engine, twin) = floated(7165, &[TWIN_GROVE], TWIN_SAPLING);
+    assert_eq!(
+        cast_and_count_scries(&mut engine, twin),
+        vec![1, 1],
+        "one grove, two mana"
+    );
 }
