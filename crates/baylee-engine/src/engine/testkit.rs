@@ -38,6 +38,29 @@ fn entry(card: CardIndex) -> DeckEntry {
     }
 }
 
+/// Spawns a scoped thread named after the thread spawning it.
+///
+/// libtest names a test's thread after the test, and a thread the test
+/// spawns itself has no name at all. The pool sweeps cut their work into one
+/// scoped thread per core, and what those threads fire belongs to the sweep:
+/// `BAYLEE_ABILITY_LOG` files each ability under the thread's name
+/// (`docs/verification-hooks.md`), so a sweep spawns through here.
+///
+/// # Panics
+/// When the thread cannot be started, as `Scope::spawn` does.
+pub fn spawn_named<'scope, T: Send + 'scope>(
+    scope: &'scope std::thread::Scope<'scope, '_>,
+    f: impl FnOnce() -> T + Send + 'scope,
+) -> std::thread::ScopedJoinHandle<'scope, T> {
+    let mut builder = std::thread::Builder::new();
+    if let Some(name) = std::thread::current().name() {
+        builder = builder.name(name.to_owned());
+    }
+    builder
+        .spawn_scoped(scope, f)
+        .expect("a sweep thread starts")
+}
+
 /// A two-seat duel under construction.
 pub struct Duel {
     seed: u64,

@@ -161,6 +161,8 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
             // in-progress projection — an "all creatures get +1/+1" anthem
             // has to see a land that layer 4 just animated.
             if applies(state, fx, obj, &c) {
+                #[cfg(test)]
+                crate::ability_log::static_applied(fx);
                 apply(&mut c, &mut controller, fx, state, obj);
             }
         }

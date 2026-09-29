@@ -1613,7 +1613,16 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
             };
-            match resolve::run(&mut self.state, &mut res) {
+            let flow = resolve::run(&mut self.state, &mut res);
+            #[cfg(test)]
+            crate::ability_log::mana_activated(
+                &self.state,
+                &self.lookup,
+                source,
+                ability_index,
+                matches!(flow, resolve::Flow::Complete),
+            );
+            match flow {
                 resolve::Flow::Complete => {}
                 resolve::Flow::Wait(pending) => {
                     self.resolution = Some(res);

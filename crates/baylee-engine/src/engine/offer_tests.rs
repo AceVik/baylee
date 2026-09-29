@@ -260,7 +260,7 @@ fn sweep() -> (Vec<String>, Tally) {
         let handles: Vec<_> = cards
             .chunks(chunk)
             .map(|slice| {
-                scope.spawn(move || {
+                crate::engine::testkit::spawn_named(scope, move || {
                     let mut offenders = Vec::new();
                     let mut tally = Tally::default();
                     for def in slice {

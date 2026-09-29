@@ -1016,6 +1016,9 @@ pub(crate) mod cost_wizard;
 mod leave;
 mod mulligan;
 mod progress;
+// Fuzzer invariants (`fuzz` feature; `docs/verification-hooks.md`).
+#[cfg(any(test, feature = "fuzz"))]
+mod invariants;
 
 #[cfg(test)]
 mod activation_target_tests;
@@ -1158,6 +1161,8 @@ mod token_tests;
 mod undying_tests;
 #[cfg(test)]
 mod untap_tests;
+#[cfg(test)]
+mod verification_tests;
 #[cfg(test)]
 mod vocabulary_tests;
 #[cfg(test)]

@@ -1116,6 +1116,8 @@ fn times_triggered(
                     entry.source,
                 ) =>
             {
+                #[cfg(test)]
+                crate::ability_log::replaced(entry);
                 count += 1;
             }
             baylee_cards_dsl::ReplacementRule::TriggerSuppress {
@@ -1130,6 +1132,8 @@ fn times_triggered(
                     entry.source,
                 ) =>
             {
+                #[cfg(test)]
+                crate::ability_log::replaced(entry);
                 return 0;
             }
             _ => {}
