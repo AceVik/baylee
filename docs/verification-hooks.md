@@ -82,7 +82,7 @@ journal and `snapshot_hash` are the same.
 |---------------|------------|-------|
 | `spell`       | a spell whose card lists an `AbilityDef::Spell` or `ModalSpell` finished resolving (including a spell with no effects of its own, such as an Aura) | `Engine::finish_resolution`, and `resolve_stack_top` before `finalize_spell` |
 | `activated`   | an `Activated`, `ActivatedConditional` or `Loyalty` ability that is not a mana ability finished resolving off the stack | `Engine::finish_resolution` |
-| `triggered`   | a `Triggered`, `ModalTriggered` or `SagaChapter` ability finished resolving | `Engine::finish_resolution` |
+| `triggered`   | a `Triggered`, `ModalTriggered` or `SagaChapter` ability finished resolving; a triggered mana ability (CR 605.1b, Badgermole Cub's "add an additional {G}") produced its mana off the stack | `Engine::finish_resolution`, `resolve_triggered_mana_abilities` |
 | `mana`        | a mana ability (`mana_ability: true`) had its cost paid and produced its mana, including after the colour question it may ask; a land tapped for mana through CR 305.6 credits its printed `{T}: Add …` entry for that colour | `start_activation`'s mana branch, `mana_finished`, the two CR 305.6 taps in `actions.rs` |
 | `static`      | the layer projection applied that `AbilityDef::Static`'s effect to some object | `layers::recompute_with` |
 | `replacement` | an `AbilityDef::Replacement`'s rule changed an event (every `ReplacementRule`: exile instead of a graveyard, both doublers, trigger multiplier, trigger suppression), or a `CopyOnEnter` / `CopyOnEnterUntilEot` permanent entered as a copy | `replacement.rs`, `trigger.rs`, `apply_copy_choice` |
@@ -119,7 +119,7 @@ casting one logs nothing; its own abilities are logged when they fire.
 (`baylee_cards::all()`), which is the set L4 is computed against:
 
 ```json
-{"card":163,"name":"Mountain","oracle_id":"a3fb7228-e76b-4e96-a40e-20b5fed75685","implemented":true,
+{"card":163,"name":"Mountain","oracle_id":"a3fb7228-e76b-4e96-a40e-20b5fed75685","implemented":true,"room":false,
  "abilities":[{"index":0,"position":0,"variant":"Activated","kind":"mana","intrinsic":true,"faces":[0]}]}
 ```
 
@@ -127,6 +127,7 @@ casting one logs nothing; its own abilities are logged when they fire.
 |-------|---------|
 | `card`, `name`, `oracle_id` | the card |
 | `implemented` | `Coverage::Implemented` |
+| `room` | a Room, which numbers its abilities by its unlocked doors ([Rooms](#rooms)) |
 | `abilities[].index` | what the recorder logs: the position, or `4294967295` for a spell ability |
 | `abilities[].position` | the position in the list, also for a spell ability |
 | `abilities[].variant` | the `AbilityDef` variant's name |
@@ -140,10 +141,30 @@ list when it has none; every other face reads its own. An entry is one
 transforming card whose back face has a different ability at the same
 position has two entries under that index. Key an L4 check on
 `(card, index, kind)`: every line the recorder writes is one of the
-inventory's entries (measured: none outside it).
+inventory's entries, except a Room's with both doors unlocked
+([Rooms](#rooms)).
 
 A card is L4 when every entry with a non-null `kind` appears as a line in
 some test's file.
+
+### Rooms
+
+A Room (`"room": true`; Walk-In Closet is the pool's one) numbers its
+abilities by the doors that are unlocked (CR 709.5, `CardDef::door_abilities`):
+with only the left door unlocked an index is a position in face 0's list,
+with only the right door in face 1's list, and with both in the card-level
+list, which is the left half's entries followed by the right half's. The
+recorder logs the index of the list in force when the ability fired. So a
+right-half entry at `position` p fires as index `p` with the right door
+alone and as index `len(left entries) + p` with both doors open; the second
+spelling is not an inventory entry, and is the one kind of line a full run
+writes outside the inventory (measured: `(Walk-In Closet, 1, triggered)`).
+Map it back through the left half's length.
+
+The mutation switch replaces position k in the card-level list and in both
+faces' lists, so for a Room a mutant of k may take an ability from each
+half while one door is unlocked, and a mutant of `len(left) + p` takes the
+right half's p-th ability only while both doors are unlocked.
 
 Generate the inventory in a run **without** `BAYLEE_MUTATE`: the pool it
 reads goes through the mutation switch too.
@@ -151,11 +172,12 @@ reads goes through the mutation switch too.
 ### Measured on 2026-09-29
 
 A full `BAYLEE_ABILITY_LOG` run of `cargo test -p baylee-engine --lib` at
-this commit: 3454 tests passed, 2898 test files plus the inventory, 12823
-lines, 3511 distinct `(card, index, kind)` over 3481 `(card, index)`, no
-`unnamed-thread.jsonl`. The inventory holds 2749 cards and 3644 loggable
-entries (108 of them `intrinsic`); 3512 of the entries fired, and 2350 cards
-had every loggable entry fire.
+this commit: 3487 tests passed, 2928 test files plus the inventory, 12960
+lines, 3523 distinct `(card, index, kind)` over 3492 `(card, index)`, no
+`unnamed-thread.jsonl`. The inventory holds 2749 cards and 3652 distinct
+loggable entries (108 of them `intrinsic`); 3522 of them fired, the one
+line outside them is the Room case above, and 2353 cards had every loggable
+entry fire.
 
 ## L5: the mutation switch
 
@@ -256,28 +278,52 @@ pub fn projection_is_fresh(&self) -> bool   // impl<L: CardLookup> Engine<L>
 The engine keeps the layered projection (CR 613) cached behind one `u64`
 generation compare, so a change to a characteristic's input that skips its
 invalidation leaves every reader on the old value while the generation
-says all is well. This asks the content, not the number: every object the
-refresh is responsible for (the battlefield and the spells on the stack;
-every object while an effect reaches into another zone; any object still
-holding a cached projection) is projected again from scratch through the
-layers and compared, every characteristic and the controller, with what it
-answers now. `true` means they all agree.
+says all is well. This asks the content, not the number: a copy of the
+state is invalidated and refreshed by the engine's own
+`GameState::refresh_characteristics`, and every object's characteristics
+and controller are compared with what the object answers now. `true` means
+a refresh would change nothing anyone can read. Using the engine's refresh
+rather than a second statement of which objects it projects keeps the check
+from drifting away from it: that set has grown (spells on the stack, every
+object under a cross-zone effect, cards defining their own power and
+toughness in every zone).
 
-It reads only; it writes no cache and moves no generation. It costs a full
-projection, so call it between answers (after `apply` returns), not inside
-a hot loop. Its test, `invariants::tests::a_skipped_invalidation_is_a_stale_projection`,
-puts a +1/+1 counter on a creature without invalidating and gets `false`,
-then `true` after an invalidation and a refresh.
+It writes nothing in the engine, neither a cache nor a generation. It costs
+a clone of the state (journal included) and a full refresh, so call it
+between answers (after `apply` returns), not in a hot loop. Its test,
+`invariants::tests::a_skipped_invalidation_is_a_stale_projection`, puts a
++1/+1 counter on a creature without invalidating and gets `false`, still
+`false` once the invalidation is made and the refresh has not run, and
+`true` after the refresh.
 
-Measured on 2026-09-29, called after every `apply` of the full engine suite
-(a probe, not committed): `false` 11 times in 4 tests. Three of the tests
-write state from the harness without invalidating (a counter set on Bristly
-Bill; a counter planted on Walking Ballista and Arcbound Ravager before the
-mulligans, with the refresh still due when the mulligan answers return). The
-fourth, `combo_tests::filters::the_nexus_makes_a_spell_the_chosen_type_for_littjara`,
-is the engine's: at both priority grants after Llanowar Elves is cast under
-Maskwood Nexus, a Llanowar Elves spell on the stack still answers its two
-printed creature types, where a recompute gives it every creature type.
+A `false` has two readings, and the public state tells them apart:
+
+| `state().characteristics_generation == state().effects.generation` | reading |
+|------|---------|
+| yes  | nothing told the cache it is old: a skipped invalidation, or a refresh whose single walk is not yet a fixpoint. The engine will not correct it by itself |
+| no   | the engine knows and refreshes at the top of its driving loop; `apply` returned before that (a question asked in the middle of a resolution, or the mulligan window). A reader of the state in between still reads the old value |
+
+Measured on 2026-09-29 with a probe (not committed) calling it after every
+`apply` of the full engine suite: `false` 96 times in 8 tests.
+
+- Generation equal, 85 times in 4 tests. One is the harness writing state
+  past the engine (`combo_tests::doubling::bristly_bills_doubling_is_doubled_again_by_a_doubling_season`
+  sets Bill's counters by hand, 7). Three are the engine's:
+  `combo_tests::filters::the_nexus_makes_a_spell_the_chosen_type_for_littjara`,
+  where at both priority grants after Llanowar Elves is cast under Maskwood
+  Nexus a Llanowar Elves spell on the stack still answers its two printed
+  creature types while a refresh gives it every creature type; and
+  `offer_tests::every_offered_ability_can_be_activated` (51) and
+  `target_tests::an_ability_that_targets_reaches_the_target_and_nothing_else`
+  (25), where Ashaya, Soul of the Wild on the battlefield answers 21/21 and
+  a refresh gives 22/22 or 24/24. Ashaya counts the lands its controller
+  controls and makes that player's nontoken creatures lands; why one
+  refresh leaves it short was not investigated here.
+- Generation moved, refresh due, 11 times in 6 tests: a card defining its
+  own power and toughness (Ashaya, Recruiter of the Guard, Pyrogoyf) in a
+  hand with its printed `*` while a question is open, and the counters the
+  harness plants on Walking Ballista and Arcbound Ravager before the
+  mulligans.
 
 ## Not in a shipped build
 

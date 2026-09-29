@@ -5,26 +5,24 @@
 //! the fuzzer builds against.
 
 use super::Engine;
-use crate::effects::EffectFilter;
-use crate::layers::{self, LayerPlan};
-use crate::object::GameObject;
 use crate::state::{CardLookup, GameState};
-use crate::zone::ZoneLocation;
 
 impl<L: CardLookup> Engine<L> {
-    /// Whether the cached layered projection equals a from-scratch recompute
-    /// on the current state.
+    /// Whether the cached layered projection is what a refresh would make of
+    /// the current state.
     ///
     /// The projection is cached behind one `u64` generation compare
     /// (`GameState::refresh_characteristics`), so a change that moves a
-    /// characteristic input without invalidating leaves every reader looking
-    /// at the old value while the generation says all is well. This asks the
-    /// content rather than the number: every object a refresh is responsible
-    /// for is projected again through the layers and compared, field for
-    /// field, with what `GameObject::characteristics` and
-    /// `GameObject::controller` answer now.
+    /// characteristic's input without invalidating leaves every reader
+    /// looking at the old value while the generation says all is well. This
+    /// asks the content rather than the number: a copy of the state is
+    /// invalidated and refreshed, and every object's characteristics and
+    /// controller are compared, field for field, with what
+    /// `GameObject::characteristics` and `GameObject::controller` answer
+    /// now.
     ///
-    /// Read-only and deterministic; it writes nothing, not even a cache.
+    /// Read-only and deterministic; the engine's own state is not written,
+    /// not even a cache. It costs a clone of the state and a full refresh.
     #[must_use]
     pub fn projection_is_fresh(&self) -> bool {
         projection_is_fresh(&self.state)
@@ -33,38 +31,22 @@ impl<L: CardLookup> Engine<L> {
 
 /// [`Engine::projection_is_fresh`] on a bare state.
 ///
-/// The objects checked are the ones `refresh_characteristics` projects:
-/// the battlefield and the spells on the stack always; every object while an
-/// effect reaches into another zone; and any other object that is holding a
-/// cached projection, which only a cross-zone refresh leaves behind and the
-/// next refresh has to clear (#120).
+/// The refresh is the engine's own, run on a copy, rather than a second
+/// statement here of which objects it projects and how: that set has grown
+/// (the stack's spells, every object under a cross-zone effect, the cached
+/// leftovers of one, the cards defining their own power and toughness in
+/// every zone), and a copy of it would drift from it in silence, reporting
+/// either a stale object the refresh never looks at or nothing about one it
+/// does.
 pub(crate) fn projection_is_fresh(state: &GameState) -> bool {
-    let plan = LayerPlan::build(&state.effects);
-    let cross_zone = state.effects.iter().any(|fx| {
-        matches!(fx.filter, EffectFilter::Dsl(f) if crate::state::filter_reaches_other_zones(f))
-    });
-    let on_board = |id| {
-        // phasing: the refresh projects phased-out permanents too, so the
-        // check of its output has to look at them.
-        state.zones.list(ZoneLocation::Battlefield).contains(&id)
-            || state.zones.stack_projectable().contains(&id)
-    };
+    let mut settled = state.clone();
+    settled.invalidate_projections();
+    settled.refresh_characteristics();
     state.arena.iter().all(|(id, obj)| {
-        let refreshed = cross_zone || obj.cache.value().is_some() || on_board(id);
-        !refreshed || agrees_with_a_recompute(state, obj, &plan)
+        settled.object(id).is_some_and(|fresh| {
+            fresh.characteristics() == obj.characteristics() && fresh.controller == obj.controller
+        })
     })
-}
-
-/// Whether one object's cached projection is what the layers make of it now.
-fn agrees_with_a_recompute(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> bool {
-    if layers::needs_projection(plan, obj) {
-        let fresh = layers::recompute_with(state, obj, plan);
-        *obj.characteristics() == fresh.characteristics && obj.controller == fresh.controller
-    } else {
-        // What the refresh writes for an object nothing can reach: no cache,
-        // so the base answers, and the base controller.
-        *obj.characteristics() == *obj.base && obj.controller == obj.base_controller
-    }
 }
 
 #[cfg(test)]
@@ -119,6 +101,11 @@ mod tests {
         );
 
         engine.state.invalidate_projections();
+        assert!(
+            !engine.projection_is_fresh(),
+            "a refresh that is due and has not run is no fresher: the cache still answers the \
+             old body, and the generation says so"
+        );
         engine.state.refresh_characteristics();
         assert!(
             engine.projection_is_fresh(),

@@ -18,7 +18,7 @@
 //! |---------------|--------------------------------------------------------------------|--------------------------------|
 //! | `spell`       | a spell whose face lists a spell ability finished resolving        | `Engine::finish_resolution`, `finalize_spell`'s door |
 //! | `activated`   | an activated or loyalty ability finished resolving off the stack   | `Engine::finish_resolution`    |
-//! | `triggered`   | a triggered, modal-triggered or chapter ability finished resolving | `Engine::finish_resolution`    |
+//! | `triggered`   | a triggered, modal-triggered or chapter ability finished resolving, or a triggered mana ability produced its mana | `Engine::finish_resolution`, `resolve_triggered_mana_abilities` |
 //! | `mana`        | a mana ability's cost was paid and it produced its mana            | `start_activation`, the CR 305.6 taps |
 //! | `static`      | the projection applied a static ability's effect to an object      | `layers::recompute_with`       |
 //! | `replacement` | a replacement rule changed an event, or a clone entered as a copy  | `replacement.rs`, `trigger.rs`, `apply_copy_choice` |
@@ -289,7 +289,7 @@ pub(crate) fn resolved(state: &GameState, lookup: &impl CardLookup, on_stack: Ob
 thread_local! {
     /// Mana abilities whose resolution stopped to ask a colour, by source:
     /// they produce their mana when the answer finishes them.
-    static MANA_ASKING: RefCell<Vec<(ObjectId, PrintedFace, u32)>> = const { RefCell::new(Vec::new()) };
+    static MANA_ASKING: RefCell<Vec<(ObjectId, PrintedFace, u32, Kind)>> = const { RefCell::new(Vec::new()) };
 }
 
 /// A mana ability of `source` at `index` had its cost paid and resolved
@@ -302,6 +302,31 @@ pub(crate) fn mana_activated(
     index: u32,
     produced: bool,
 ) {
+    mana_resolved(state, lookup, source, index, Kind::Mana, produced);
+}
+
+/// A triggered mana ability of `source` at `index` (CR 605.1b, Badgermole
+/// Cub's "add an additional {G}") resolved off the stack as it triggered
+/// (CR 605.4a): `triggered`, as its entry is, logged when it has produced
+/// its mana as [`mana_activated`] is.
+pub(crate) fn triggered_mana(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    source: ObjectId,
+    index: u32,
+    produced: bool,
+) {
+    mana_resolved(state, lookup, source, index, Kind::Triggered, produced);
+}
+
+fn mana_resolved(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    source: ObjectId,
+    index: u32,
+    kind: Kind,
+    produced: bool,
+) {
     if !enabled() {
         return;
     }
@@ -309,9 +334,9 @@ pub(crate) fn mana_activated(
         return;
     };
     if produced {
-        fired_from(lookup, Some(face), index, Kind::Mana);
+        fired_from(lookup, Some(face), index, kind);
     } else {
-        MANA_ASKING.with_borrow_mut(|asking| asking.push((source, face, index)));
+        MANA_ASKING.with_borrow_mut(|asking| asking.push((source, face, index, kind)));
     }
 }
 
@@ -324,8 +349,8 @@ pub(crate) fn mana_finished(lookup: &impl CardLookup, source: ObjectId) {
         let at = asking.iter().rposition(|(s, ..)| *s == source)?;
         Some(asking.remove(at))
     });
-    if let Some((_, face, index)) = asked {
-        fired_from(lookup, Some(face), index, Kind::Mana);
+    if let Some((_, face, index, kind)) = asked {
+        fired_from(lookup, Some(face), index, kind);
     }
 }
 

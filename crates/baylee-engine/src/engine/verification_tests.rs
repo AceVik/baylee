@@ -349,12 +349,15 @@ fn inventory_row(def: &CardDef) -> String {
             }
         }
     }
+    // A Room numbers its abilities by the doors unlocked (CR 709.5):
+    // `CardDef::door_abilities`. The contract says how to read that.
     let mut row = format!(
-        "{{\"card\":{},\"name\":{},\"oracle_id\":\"{}\",\"implemented\":{},\"abilities\":[",
+        "{{\"card\":{},\"name\":{},\"oracle_id\":\"{}\",\"implemented\":{},\"room\":{},\"abilities\":[",
         def.index.get(),
         json_str(def.name()),
         def.oracle_id,
-        def.is_implemented()
+        def.is_implemented(),
+        def.has_shared_type_line()
     );
     for (n, e) in entries.iter().enumerate() {
         let kind = e
@@ -414,6 +417,10 @@ fn pool_inventory() {
         rows.iter()
             .any(|r| r.contains("\"variant\":\"Ward\",\"kind\":null")),
         "ward is in the pool and is listed as not logged"
+    );
+    assert!(
+        rows.iter().any(|r| r.contains("\"room\":true")),
+        "a Room is in the pool and says so"
     );
     if let Some(dir) = ability_log::dir() {
         let path = dir.join("pool-inventory.json");
