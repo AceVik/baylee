@@ -1051,7 +1051,8 @@ where the oracle sentence it encodes is a line above it.
 **The common ones have a verb**, and the verb is the word the card prints:
 `Effect::draw(1)`, `scry(2)`, `gain_life(3)`, `destroy(t)`,
 `destroy_no_regen(t)`, `regenerate(t)`, `exile(t)`,
-`blink(t)`, `bounce(t)`, and `continuous(filter, modifier, duration)`
+`blink_to_owner(t)`, `blink_to_you(t)`, `bounce(t)`, and
+`continuous(filter, modifier, duration)`
 with the layer derived. `Effect::mana` is the precedent — 219 uses in the
 pool against zero raw `AddMana` literals.
 
@@ -1060,7 +1061,7 @@ and only where the variant has one answer to give**: `SearchLibrary { filter,
 finds, optional }` has two real choices in it, so it stays a literal rather
 than becoming a `search` / `may_search` / `search_to_hand` family. And **the
 name is the word this pool already says**, which is usually the printed one;
-`blink` and `bounce` are the two that are not. Neither is a coinage: the
+blink and `bounce` are the two that are not. Neither is a coinage: the
 engine named `Blink` because "exile it, then return it" has no printed verb,
 and `bounce` was in this repository before there was a verb to hang it on —
 Cyclonic Rift's comment calls both of its modes a bounce and Aether
@@ -1102,10 +1103,29 @@ halves at once, and a card printing one of them prints all of it. The counter
 goes on through the same door `EnterModifier::WithCounters` uses, so a
 doubler has its say (CR 614.16).
 
-A card that says nothing about a graveyard cannot use either: the effect
-checks that its object is still in one (CR 400.7). A reanimation *spell* is
-already held to that by target legality (CR 608.2b) — the guard is there for
-undying and persist, which target nothing at all.
+**Blink is two verbs for the same reason, and the difference is who ends
+up controlling the card.** `Effect::blink_to_owner(t)` is "exile …, then
+return it to the battlefield under its **owner's** control" (Ephemerate,
+Soulherder, Emiel the Blessed); `Effect::blink_to_you(t)` is "… under **your**
+control" (Restoration Angel, Aminatou's −1, Sword of Hearth and Home). Both
+are `Effect::Blink { target, owner_control }`, the field and the question
+`GraveyardToBattlefield` already had. Write the one the card prints, even
+where a filter such as "you own" makes the two agree: there is no bare
+`blink`, because an unmarked default is how Restoration Angel came to hand a
+stolen creature back to its owner. What returns is a new object (CR 400.7),
+so no control effect over the old one reaches it, and it enters under the
+player the sentence names (CR 110.2a). CR 610.3c ("returns under its owner's
+control unless otherwise specified") is about a card that comes back after
+an "until" event — Palace Jailer's "until an opponent becomes the monarch",
+Werefox Bodyguard's "until this creature leaves the battlefield" — and does
+not decide an immediate blink. Only control is chosen: the owner never changes
+(CR 108.3), so a creature kept this way still dies into its owner's
+graveyard and leaves the game with its owner (CR 800.4a).
+
+A card that says nothing about a graveyard cannot use either reanimation
+verb: the effect checks that its object is still in one (CR 400.7). A
+reanimation *spell* is already held to that by target legality (CR 608.2b) —
+the guard is there for undying and persist, which target nothing at all.
 
 Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
 `DrawCards`, `DrawCardsFor`, `Scry`, `ScryFor`, `Mill`,
@@ -1206,7 +1226,8 @@ find that enters with counters (Neoform), `PutFromHandOntoBattlefield {
 filter, mana_value, optional }` (Aether Vial, with `Amount::CountersOnSource`
 as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
 `GraveyardToTop`,
-`GraveyardToHand`, `GraveyardToBattlefield`, `ExileGraveyard`, `Blink`,
+`GraveyardToHand`, `GraveyardToBattlefield`, `ExileGraveyard`, `Blink`
+(through its two verbs),
 `ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
 `PutSourceOnTopOfLibrary`, `ExileAndReturnAtEndStep` (Venser +2, Eerie
 Interlude), `BottomCardFromHand`, `WishToHand` (Karn's −2: a card you own

@@ -3284,3 +3284,93 @@ re-check (#116) asks. The header names that half as well — "effects **and
 targets**" — and it wants its own pass: the target list is read at 73 sites
 in the engine and converted once in `baylee-gamehost`'s view, where the
 effect filter was nine sites and two readers.
+
+### 60. Restoration Angel handed a stolen creature back to its owner — FIXED
+
+Reported from play: Restoration Angel ("…then return that card to the
+battlefield under your control") on a creature the owner controlled and an
+opponent owned. The creature came back under the opponent's control.
+
+`Effect::Blink` had no field for who gets the card, and its resolver set every
+returned card's controller to its owner, citing CR 610.3c. That rule is about a
+card returned by a second one-shot effect after an "until" event, and an
+immediate blink is not one. What returns is a new object (CR 400.7), so the
+steal no longer reaches it, and it enters under the player the sentence names
+(CR 110.2a). The first half of the fault is in `docs/llm-learnings.md`: an
+earlier pass recorded "blink family returns under OWNER's control" as a rules
+fix.
+
+**Fixed as the DSL, not as a rule.** `Blink { target, owner_control }` takes
+the field `GraveyardToBattlefield` already had, spelled with two verbs:
+`blink_to_owner` for Ephemerate, Soulherder and Emiel, and `blink_to_you` for
+Restoration Angel, Aminatou's −1 and Sword of Hearth and Home. The last two
+were right only because their targets must be owned by you. Only control
+changes: the Elves Restoration Angel keeps still belong to seat 1, die into
+seat 1's graveyard, are not "a permanent you own" to Aminatou, and leave the
+game with seat 1 (CR 108.3, 400.3, 800.4a). A blink "under your control" for a
+player who has left leaves the card in exile (CR 800.4b), as reanimation does.
+The tests are `resolve::zones::arrival_control_tests` and the card tests for
+Restoration Angel and Ephemerate. The rule tests and the Angel's failed on the
+old resolver.
+
+**Three arrivals wrote no controller at all**, and the blink made that
+reachable. A card that is put onto the battlefield without `set_controller`
+keeps the default it last had there, and `blink_to_you` now leaves that
+default with a player who is not the owner. The three are fixed where the card
+arrives, and each has a test that failed first:
+
+- `ReturnLinkedToBattlefield` (Endless Sands, Safe Haven: "under its owner's
+  control") now uses the owner. Before, a kept creature exiled by Endless
+  Sands came back to the player who had kept it.
+- The monarch release in `GameState::set_monarch` (Palace Jailer, CR 610.3c)
+  now uses the owner.
+- `put_found` (Coiling Oracle: "put it onto the battlefield") now uses the
+  revealing player (CR 110.2a).
+
+**The sweep.** These are every effect that puts an object onto the
+battlefield, checked against the printed text of the pool cards that use
+them:
+
+| Effect | Engine's controller | Verdict |
+|---|---|---|
+| `Blink` | the field | fixed (above) |
+| `GraveyardToBattlefield` (`reanimate`, `return_to_owner_with`) | the field | matches: every reanimation spell ("your" or silent), Kenrith's and Enduring Vitality's "owner's", undying and persist |
+| `AllGraveyardCreaturesToBattlefield` | you | matches (The True Scriptures III) |
+| `ExileAndReturnAtEndStep` (delayed return) | owner | matches Eerie Interlude and Twining Twins. Venser +2 and Charming Prince print "your", and are right only because the target must be owned by you |
+| `ReturnLinkedToBattlefield`, monarch release | owner | fixed (above) |
+| `ExileSelfReturnAsFace` | owner | **not fixed**, see below |
+| `SearchLibrary*` to battlefield, `PutFromHandOntoBattlefield` | the receiver / you | matches, Bribery included |
+| `RevealTopAndSort` (`put_found`) | the revealer | fixed (above) |
+| token creation and token copies | you, or the target's controller / the linked card's owner where printed | matches |
+| earthbend (CR 701.66a "under your control") | nothing to judge | no engine path yet: Badgermole Cub and Ba Sing Se leave the return NOT SUPPORTED |
+
+No reader emits any of these from a card script with a control parameter.
+`scriptgen` has no Graveyard→Battlefield or exile-and-return pair and refuses
+`GainControl$`, so no machine-owned card needed a reader fix.
+
+**Commander (CR 903.9): nothing to fix.** CR 903.9b replaces a move to a hand
+or a library, and exile is neither. CR 903.9a is a state-based action, and a
+blink exiles and returns inside one resolution, so no check sees the
+commander in exile (`commander_tests::a_blinked_commander_returns_…` pins it).
+
+**Found and not fixed:**
+
+- `ExileSelfReturnAsFace` always returns under the owner. That is right for
+  Sheoldred's `{4}{B}` and the three Ojer dies triggers ("its owner's"). It is
+  wrong on a stolen permanent for Golden Guardian, Conqueror's Galleon,
+  Journey to Eternity's self-return, Fable of the Mirror-Breaker III and
+  Welcome to … III ("under your control"), for The True Scriptures III's
+  silent "return it to the battlefield" (CR 110.2a), and for the "transform
+  this" cards it stands in for, since a transform keeps its controller. Golden
+  Guardian stolen with Song-Mad Treachery shows it. The fix is the same field,
+  but it touches 26 hand-owned cards, and `c42/cards-library` is rewriting
+  Fable, so it waits for its own branch.
+- Werefox Bodyguard (`Implemented`) never returns what it exiles "until this
+  creature leaves the battlefield": nothing returns a linked card when its
+  host leaves.
+- `set_monarch` releases every linked exile, not only Palace Jailer's. That
+  includes Skyclave Apparition's permanent one, and it tests "not the host's
+  controller" rather than "an opponent".
+- Crib Swap's `CreateTokenForTargetController` reads `controller` off the
+  exiled card. The stale value is the right last-known controller until a
+  cross-zone effect re-projects exile.

@@ -1188,6 +1188,11 @@ fn put_found(state: &mut GameState, player: PlayerId, card: ObjectId, dest: Sear
         SearchDest::Battlefield => {
             if let Some(obj) = state.object_mut(card) {
                 obj.kind = ObjectKind::Permanent;
+                // "Put it onto the battlefield" names no controller, so it
+                // is the player told to put it there (CR 110.2a), written
+                // where it arrives rather than inherited from the last time
+                // the card was on the battlefield.
+                obj.set_controller(player);
             }
             ZoneLocation::Battlefield
         }

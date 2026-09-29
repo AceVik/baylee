@@ -1673,6 +1673,10 @@ impl GameState {
         for card in returning {
             if let Some(obj) = self.object_mut(card) {
                 obj.kind = crate::object::ObjectKind::Permanent;
+                // Under its owner's control (CR 610.3c), written where it
+                // arrives: the default it last had on the battlefield is
+                // whoever put it there, which may not be its owner.
+                obj.set_controller(obj.owner);
             }
             let _ = self.move_object(
                 card,

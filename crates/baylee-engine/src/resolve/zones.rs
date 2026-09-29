@@ -144,7 +144,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::Blink { .. } => {
+        Effect::Blink { owner_control, .. } => {
             if let Some(&target_id) = res.targets.first() {
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
                 if let Some(obj) = state.object_mut(target_id) {
@@ -156,12 +156,28 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+                // "Under your control" when `you` has left the game: the card
+                // stays in exile (CR 800.4b). Under its owner's it comes
+                // back, since an owner who had left would have taken the
+                // card with them (CR 800.4a).
+                if !owner_control && state.has_left(you) {
+                    return None;
+                }
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Permanent;
-                    // Blink returns under its OWNER's control (Eerie
-                    // Interlude, Momentary Blink family, CR 610.3c note:
-                    // "return … under its owner's control").
-                    obj.set_controller(owner);
+                    // The card that comes back is a new object (CR 400.7):
+                    // whatever control effect held the one that left named
+                    // that object and reaches this one no more. So it enters
+                    // under the control the sentence names, written here
+                    // where it arrives, and as its default rather than as a
+                    // layer-2 effect: "under its owner's control"
+                    // (Ephemerate) or "under your control" (Restoration
+                    // Angel), the latter being the resolving ability's
+                    // controller (CR 110.2a). Not CR 610.3c, which is about
+                    // a card returned after an "until" event and does not
+                    // reach an immediate return. Only control is chosen: the
+                    // owner stays who it was (CR 108.3).
+                    obj.set_controller(if owner_control { owner } else { you });
                 }
                 let _ = state.move_object(
                     target_id,
@@ -916,7 +932,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::ReturnLinkedToBattlefield => {
             // Everything exiled with a link to the source returns under its
-            // owner's control (Skyclave Apparition & co.).
+            // owner's control: Endless Sands and Safe Haven print it, and an
+            // "until" return says it when the card is silent (CR 610.3c).
             let mut returning = Vec::new();
             for seat in 0..state.players.len() {
                 let p = PlayerId::new(seat as u8);
@@ -935,6 +952,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     obj.kind = ObjectKind::Permanent;
                     obj.riders
                         .retain(|r| !matches!(r, crate::object::Rider::Linked { host } if *host == res.source));
+                    // Written where it arrives, and not left to the default
+                    // the card last had on the battlefield: that is whoever
+                    // put it there, which after a reanimation or a blink
+                    // "under your control" may not be its owner.
+                    obj.set_controller(obj.owner);
                 }
                 let _ = state.move_object(
                     card,
@@ -1064,5 +1086,273 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         _ => unreachable!("not a zone effect"),
+    }
+}
+
+/// Who a card put onto the battlefield by an effect comes back under: the
+/// controller its sentence names, and only the controller.
+///
+/// Every case starts from a stolen creature — owned by seat 1 and controlled
+/// by seat 0 through a real layer-2 `GainControl` effect — because that is
+/// the one board where "under your control" and "under its owner's control"
+/// differ, and so the only board that can tell the two apart. The engine
+/// used to return every blinked card to its owner, citing CR 610.3c, which
+/// is about a card coming back after an "until" event and not about an
+/// immediate return. Restoration Angel then handed the creature it flickered
+/// back to the opponent it had been stolen from.
+///
+/// The second half is the arrivals that wrote no controller at all and so
+/// inherited whatever default the card last had on the battlefield. Once a
+/// blink can leave a card's default with a player who does not own it, a
+/// return "under its owner's control" gave the card to that player instead.
+#[cfg(test)]
+mod arrival_control_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_cards_dsl::Filter;
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+
+    fn them() -> PlayerId {
+        PlayerId::new(1)
+    }
+
+    /// A two-seat game with a creature seat 1 owns on the battlefield.
+    fn theirs(seed: u64) -> (GameState, ObjectId) {
+        let mut state = GameState::from_preset(&preset(seed, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let name = state.names.intern("Creature");
+        let it = state.create_bare(
+            them(),
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let obj = state.object_mut(it).expect("fresh");
+        let mut base = (*obj.base).clone();
+        base.types = baylee_core::types::TypeSet::CREATURE;
+        obj.base = std::sync::Arc::new(base);
+        state.invalidate_projections();
+        (state, it)
+    }
+
+    /// A creature seat 1 owns and seat 0 has stolen.
+    fn stolen() -> (GameState, ObjectId) {
+        let (mut state, it) = theirs(610);
+        crate::resolve::gain_control(&mut state, &[(it, me())]);
+        let obj = state.object(it).expect("still there");
+        assert_eq!(
+            (obj.owner, obj.controller, obj.base_controller),
+            (them(), me(), them()),
+            "the steal is a layer-2 effect over seat 1's own default"
+        );
+        (state, it)
+    }
+
+    /// Seat 0 blinks `it`: an ability of seat 0's, resolving.
+    fn blink(state: &mut GameState, it: ObjectId, owner_control: bool) {
+        let effect = Effect::Blink {
+            target: TargetSpec::Object(&Filter::CREATURE),
+            owner_control,
+        };
+        resolve(state, ObjectId::NO_SOURCE, &[it], effect);
+    }
+
+    /// An ability of seat 0's with `source` and `targets`, resolving.
+    fn resolve(state: &mut GameState, source: ObjectId, targets: &[ObjectId], effect: Effect) {
+        let mut res = Resolution {
+            source,
+            on_stack: ObjectId::NO_SOURCE,
+            controller: me(),
+            effects: vec![effect],
+            pc: 0,
+            targets: SmallVec::from_slice(targets),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_lki: None,
+            target_players: baylee_core::ids::SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: true,
+            mana_ability: false,
+            countered_source: None,
+        };
+        assert!(matches!(run(state, &mut res), Flow::Complete));
+        state.refresh_characteristics();
+    }
+
+    /// "…then return that card to the battlefield under your control"
+    /// (Restoration Angel): the new object enters under seat 0's control
+    /// (CR 110.2a, CR 400.7) and stays there with no control effect holding
+    /// it, while seat 1 still owns it (CR 108.3).
+    #[test]
+    fn under_your_control_a_stolen_creature_comes_back_yours_and_still_theirs() {
+        let (mut state, it) = stolen();
+        blink(&mut state, it, false);
+        let obj = state.object(it).expect("the same arena handle");
+        assert_eq!(obj.zone, crate::zone::Zone::Battlefield, "it came back");
+        assert_eq!(
+            (obj.controller, obj.base_controller),
+            (me(), me()),
+            "entered under the blinking player's control, by default and not by an effect"
+        );
+        assert_eq!(obj.owner, them(), "ownership never changes");
+
+        // The steal effect named the old object (CR 400.7), and ending it
+        // hands nothing back: seat 0's control is the new object's own.
+        state
+            .effects
+            .remove_where(|fx| fx.modifier == baylee_cards_dsl::Modifier::GainControl);
+        state.refresh_characteristics();
+        assert_eq!(state.object(it).map(|o| o.controller), Some(me()));
+
+        // "You own" still reads the owner.
+        let obj = state.object(it).expect("still there");
+        assert!(!eval::matches(&Filter::OwnedByYou, &state, obj, me(), it));
+        assert!(eval::matches(&Filter::OwnedByYou, &state, obj, them(), it));
+
+        // And it dies into its owner's graveyard (CR 400.3).
+        sba::destroy(&mut state, it);
+        assert_eq!(state.zones.list(ZoneLocation::Graveyard(them()))[..], [it]);
+        assert!(state.zones.list(ZoneLocation::Graveyard(me())).is_empty());
+    }
+
+    /// "…under its owner's control" (Ephemerate): the other sentence, on the
+    /// same board, sends the creature home.
+    #[test]
+    fn under_its_owners_control_a_stolen_creature_goes_home() {
+        let (mut state, it) = stolen();
+        blink(&mut state, it, true);
+        let obj = state.object(it).expect("the same arena handle");
+        assert_eq!(obj.zone, crate::zone::Zone::Battlefield, "it came back");
+        assert_eq!(
+            (obj.owner, obj.controller, obj.base_controller),
+            (them(), them(), them())
+        );
+    }
+
+    /// A creature kept this way leaves the game with its owner (CR 800.4a:
+    /// "all objects … owned by that player leave the game").
+    #[test]
+    fn a_creature_kept_by_a_blink_leaves_the_game_with_its_owner() {
+        let (mut state, it) = stolen();
+        blink(&mut state, it, false);
+        assert_eq!(state.object(it).map(|o| o.controller), Some(me()));
+        crate::sba::eliminate_player(&mut state, them(), crate::event::LossReason::Conceded);
+        assert!(state.object(it).is_none());
+        assert!(!state.zones.list(ZoneLocation::Battlefield).contains(&it));
+    }
+
+    /// Nothing is put onto the battlefield under the control of a player
+    /// who has left (CR 800.4b): a blink "under your control" resolving for
+    /// one exiles its target and leaves it in exile. Under its owner's it
+    /// comes back, since its owner is still in the game.
+    #[test]
+    fn a_blink_under_your_control_returns_nothing_to_a_player_who_has_left() {
+        for (owner_control, back) in [(false, false), (true, true)] {
+            let (mut state, it) = theirs(611);
+            crate::sba::eliminate_player(&mut state, me(), crate::event::LossReason::Conceded);
+            blink(&mut state, it, owner_control);
+            let obj = state.object(it).expect("seat 1's own card");
+            let want = if back {
+                crate::zone::Zone::Battlefield
+            } else {
+                crate::zone::Zone::Exile
+            };
+            assert_eq!(obj.zone, want, "owner_control: {owner_control}");
+        }
+    }
+
+    /// Restoration Angel keeps the stolen creature: seat 0 now controls it
+    /// by default, and seat 1 still owns it.
+    fn kept() -> (GameState, ObjectId) {
+        let (mut state, it) = stolen();
+        blink(&mut state, it, false);
+        let obj = state.object(it).expect("back");
+        assert_eq!((obj.owner, obj.base_controller), (them(), me()));
+        (state, it)
+    }
+
+    /// A permanent of seat 0's that `ExileLinked` names as the host.
+    fn host(state: &mut GameState) -> ObjectId {
+        let name = state.names.intern("Host");
+        state.create_bare(me(), ObjectKind::Permanent, name, ZoneLocation::Battlefield)
+    }
+
+    /// Endless Sands and Safe Haven: "Return each creature card exiled with
+    /// this land to the battlefield under its owner's control." The kept
+    /// creature goes home (CR 610.3c), not back to the default a blink gave
+    /// it.
+    #[test]
+    fn a_linked_exile_returns_under_its_owners_control() {
+        let (mut state, it) = kept();
+        let host = host(&mut state);
+        let exile = Effect::ExileLinked {
+            target: TargetSpec::Object(&Filter::CREATURE),
+        };
+        resolve(&mut state, host, &[it], exile);
+        assert_eq!(
+            state.object(it).map(|o| o.zone),
+            Some(crate::zone::Zone::Exile)
+        );
+        resolve(&mut state, host, &[], Effect::ReturnLinkedToBattlefield);
+        let obj = state.object(it).expect("back");
+        assert_eq!(obj.zone, crate::zone::Zone::Battlefield);
+        assert_eq!(
+            (obj.owner, obj.controller, obj.base_controller),
+            (them(), them(), them())
+        );
+    }
+
+    /// Palace Jailer: "exile target creature an opponent controls until an
+    /// opponent becomes the monarch". The card returns when the "until"
+    /// event happens, under its owner's control (CR 610.3c).
+    #[test]
+    fn a_monarch_linked_exile_returns_under_its_owners_control() {
+        let (mut state, it) = kept();
+        let host = host(&mut state);
+        let exile = Effect::ExileLinked {
+            target: TargetSpec::Object(&Filter::CREATURE),
+        };
+        resolve(&mut state, host, &[it], exile);
+        state.set_monarch(them());
+        state.refresh_characteristics();
+        let obj = state.object(it).expect("back");
+        assert_eq!(obj.zone, crate::zone::Zone::Battlefield);
+        assert_eq!(
+            (obj.owner, obj.controller, obj.base_controller),
+            (them(), them(), them())
+        );
+    }
+
+    /// Coiling Oracle: "Reveal the top card of your library. If it's a land
+    /// card, put it onto the battlefield." No control is named, so the land
+    /// enters under the player the effect told to put it there (CR 110.2a)
+    /// — whatever default the card carried from its last time on the
+    /// battlefield, here seat 1's.
+    #[test]
+    fn a_revealed_land_enters_under_the_player_who_puts_it_there() {
+        let (mut state, _) = theirs(612);
+        let name = state.names.intern("Land");
+        let land = state.create_bare(me(), ObjectKind::Card, name, ZoneLocation::Library(me()));
+        state
+            .object_mut(land)
+            .expect("fresh")
+            .set_controller(them());
+        let reveal = Effect::RevealTopAndSort {
+            filter: &Filter::Any,
+            matched: baylee_cards_dsl::effect::SearchDest::Battlefield,
+            otherwise: baylee_cards_dsl::effect::SearchDest::Hand,
+        };
+        resolve(&mut state, ObjectId::NO_SOURCE, &[], reveal);
+        let obj = state.object(land).expect("put onto the battlefield");
+        assert_eq!(obj.zone, crate::zone::Zone::Battlefield);
+        assert_eq!(
+            (obj.owner, obj.controller, obj.base_controller),
+            (me(), me(), me())
+        );
     }
 }

@@ -742,10 +742,34 @@ pub enum Effect {
         target: TargetSpec,
     },
     /// Exile a target and return it to the battlefield immediately
-    /// (Ephemerate).
+    /// (Ephemerate, Restoration Angel). Written with [`Effect::blink_to_owner`]
+    /// or [`Effect::blink_to_you`], the two sentences the pool prints.
     Blink {
         /// What.
         target: TargetSpec,
+        /// Under whose control the card comes back: its owner's (`true`) or
+        /// that of the player who controls the resolving spell or ability
+        /// (`false`).
+        ///
+        /// The same field, and the same question, as
+        /// [`Effect::GraveyardToBattlefield`]'s. The card that returns is a
+        /// new object (CR 400.7), so whatever control effect held the one
+        /// that was exiled is gone with it, and the new one enters under the
+        /// control the sentence names. That is a printed choice, not a rule:
+        /// CR 610.3c's "under its owner's control unless otherwise
+        /// specified" is about a card returned by a *second* one-shot effect
+        /// after an "until" event, which an immediate blink is not. So
+        /// Ephemerate, Soulherder and Emiel the Blessed print "under its
+        /// owner's control" and take `true`, while Restoration Angel,
+        /// Aminatou's −1 and Sword of Hearth and Home print "under your
+        /// control" and take `false` — and a player notices the difference
+        /// the moment the creature they flicker is one they stole.
+        ///
+        /// Only control is chosen here. The owner never changes (CR 108.3),
+        /// so a stolen creature kept this way still dies into its owner's
+        /// graveyard (CR 400.3) and still leaves the game with its owner
+        /// (CR 800.4a).
+        owner_control: bool,
     },
     /// Look at the top `count` cards of your library; put `pick` of them
     /// into your hand and the rest on the bottom in any order (Dig
@@ -1869,16 +1893,19 @@ impl Effect {
     ///
     /// **The name is the word this pool already says**, which is usually the
     /// printed one. "Draw", "scry", "destroy", "exile" are all oracle text.
-    /// [`Effect::blink`] is what the engine had already named a thing oracle
-    /// spells out in a clause ("exile it, then return it to the
-    /// battlefield"), and [`Effect::bounce`] is the same shape from the other
-    /// direction: the printing says "return … to its owner's hand" and the
-    /// variant says `ReturnToHand`, but the table says bounce, and so did
-    /// this repository before there was a verb — Cyclonic Rift's own comment
-    /// calls both of its modes a bounce and Aether Channeler's effect list is
-    /// named `BOUNCE_EFFECTS`. That is the owner's decision and it is paid
-    /// for: `bounce` is a word no `//! Oracle:` header carries, so a grep
-    /// from the printed sentence to the code stops here and at `blink`.
+    /// "Blink" is what the engine had already named a thing oracle spells
+    /// out in a clause ("exile it, then return it to the battlefield"), and
+    /// it is two verbs, [`Effect::blink_to_owner`] and
+    /// [`Effect::blink_to_you`], because the clause ends in one of two
+    /// controllers and the card names which. [`Effect::bounce`] is the same
+    /// shape from the other direction: the printing says "return … to its
+    /// owner's hand" and the variant says `ReturnToHand`, but the table says
+    /// bounce, and so did this repository before there was a verb —
+    /// Cyclonic Rift's own comment calls both of its modes a bounce and
+    /// Aether Channeler's effect list is named `BOUNCE_EFFECTS`. That is the
+    /// owner's decision and it is paid for: `bounce` is a word no
+    /// `//! Oracle:` header carries, so a grep from the printed sentence to
+    /// the code stops here and at `blink_*`.
     ///
     /// It buys nothing where the variant is not one answer.
     /// [`Effect::ReturnAllToHand`] is the overloaded half of the same card
@@ -2003,10 +2030,25 @@ impl Effect {
     }
 
     /// "Exile target …, then return it to the battlefield under its owner's
-    /// control."
+    /// control" (Ephemerate).
     #[must_use]
-    pub const fn blink(target: TargetSpec) -> Self {
-        Self::Blink { target }
+    pub const fn blink_to_owner(target: TargetSpec) -> Self {
+        Self::Blink {
+            target,
+            owner_control: true,
+        }
+    }
+
+    /// "Exile target …, then return that card to the battlefield under your
+    /// control" (Restoration Angel): the new object enters under the control
+    /// of whoever controls the resolving spell or ability (CR 110.2a), and
+    /// its owner stays who it was.
+    #[must_use]
+    pub const fn blink_to_you(target: TargetSpec) -> Self {
+        Self::Blink {
+            target,
+            owner_control: false,
+        }
     }
 
     /// "Return target … to its owner's hand."
@@ -2509,7 +2551,20 @@ mod verb_tests {
             }
         );
         assert_eq!(Effect::exile(target), Effect::Exile { target });
-        assert_eq!(Effect::blink(target), Effect::Blink { target });
+        assert_eq!(
+            Effect::blink_to_owner(target),
+            Effect::Blink {
+                target,
+                owner_control: true
+            }
+        );
+        assert_eq!(
+            Effect::blink_to_you(target),
+            Effect::Blink {
+                target,
+                owner_control: false
+            }
+        );
         assert_eq!(Effect::bounce(target), Effect::ReturnToHand { target });
     }
 
