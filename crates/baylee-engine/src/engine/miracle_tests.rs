@@ -472,18 +472,12 @@ fn a_refused_miracle_yes_leaves_the_offer_standing() {
                 prompt: crate::choice::YesNoPrompt::Miracle { card },
                 ..
             } => {
-                let before = engine.fingerprint(true);
+                let before = engine.fingerprint();
                 assert!(
                     engine.apply(player, PlayerAction::YesNo(true)).is_err(),
                     "an empty pool paid {{1}}{{U}}"
                 );
-                let after = engine.fingerprint(true);
-                let moved: Vec<_> = before
-                    .iter()
-                    .zip(&after)
-                    .filter(|(a, b)| a.1 != b.1)
-                    .map(|(a, _)| a.0)
-                    .collect();
+                let moved = before.differing(&engine.fingerprint());
                 assert!(moved.is_empty(), "the refused yes moved {moved:?}");
                 engine.apply(player, PlayerAction::YesNo(false)).unwrap();
                 assert!(

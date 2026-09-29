@@ -3,14 +3,15 @@
 #
 # `cargo clippy --workspace --all-targets`, `cargo test --workspace
 # --all-targets` and CI's jobs for both compile each crate with its
-# **default** features. Six non-default ones are declared here:
+# **default** features. Seven non-default ones are declared here:
 #
 #   baylee-client          dev-control, dev-reload, dev-dylink
 #   baylee-client-android  dev-control
 #   baylee-gateway         dev-table
 #   baylee-client-core     test-support
+#   baylee-engine          fuzz
 #
-# so six pieces of this workspace were compiled by nobody. It fails in
+# so seven pieces of this workspace were compiled by nobody. It fails in
 # **both** directions, which is the half that is easy to miss. A feature adds
 # code the default build never sees — `devctl.rs` broke on `Option<Refusal>`
 # with the whole gate green, and the commit had to be pulled back out of a
@@ -166,6 +167,13 @@ fi
 # reaching for something only `cfg(test)` provides would break.
 step test-support \
     cargo clippy -p baylee-client-core --features test-support --lib -- -D warnings
+
+# The same shape for the same reason: `fuzz` is `cfg(any(test, feature =
+# "fuzz"))` (`Engine::fingerprint`), so the engine's own tests compile it
+# either way, and a fuzzer builds the library with the feature on and
+# `cfg(test)` off.
+step fuzz \
+    cargo clippy -p baylee-engine --features fuzz --lib -- -D warnings
 
 if [ "$fail" -ne 0 ]; then
     echo "done rc=1"

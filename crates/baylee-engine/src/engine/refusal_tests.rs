@@ -408,18 +408,6 @@ impl Findings {
     }
 }
 
-fn differing(
-    before: &[(&'static str, String)],
-    after: &[(&'static str, String)],
-) -> Vec<&'static str> {
-    before
-        .iter()
-        .zip(after)
-        .filter(|(a, b)| a.1 != b.1)
-        .map(|(a, _)| a.0)
-        .collect()
-}
-
 /// The question's own arithmetic, where it can say there is no answer
 /// without trying one.
 fn malformed(pending: &Pending) -> Option<String> {
@@ -499,14 +487,14 @@ fn play(
         // decisions: the whole print is half a megabyte of text in a long
         // game, and the fields it adds (the arena, the base cache, the
         // names) are the ones a refusal is least likely to reach.
-        let whole = dice.chance(WHOLE_PERCENT).then(|| engine.fingerprint(true));
-        let light = engine.fingerprint(false);
+        let whole = dice.chance(WHOLE_PERCENT).then(|| engine.fingerprint());
+        let light = engine.fingerprint_light();
         let unchanged = |engine: &Engine<RegistryLookup>, found: &mut Findings, what: String| {
-            let mut fields = differing(&light, &engine.fingerprint(false));
+            let mut fields = light.differing(&engine.fingerprint_light());
             if fields.is_empty()
                 && let Some(whole) = &whole
             {
-                fields = differing(whole, &engine.fingerprint(true));
+                fields = whole.differing(&engine.fingerprint());
             }
             if fields.is_empty() {
                 return true;
@@ -522,7 +510,7 @@ fn play(
                 ));
                 return found;
             }
-            let fields = differing(&light, &engine.fingerprint(false));
+            let fields = light.differing(&engine.fingerprint_light());
             if !fields.is_empty() {
                 found.changed.push(format!(
                     "{}: {action:?} by {seat:?} to {pending:?} changed {fields:?}",
@@ -683,9 +671,9 @@ fn a_refused_answer_moves_no_field_of_the_engine() {
     let preset = baylee_cards::decks::preset_for(3, &deck, &deck);
     let mut engine = Engine::new(&preset, RegistryLookup).expect("the table builds");
     let asked = engine.pending().asked().expect("a mulligan is asked");
-    let before = engine.fingerprint(true);
+    let before = engine.fingerprint();
     assert!(engine.apply(asked, PlayerAction::ChooseMode(99)).is_err());
-    let moved = differing(&before, &engine.fingerprint(true));
+    let moved = before.differing(&engine.fingerprint());
     assert!(moved.is_empty(), "a refused answer moved {moved:?}");
 }
 
@@ -717,12 +705,12 @@ fn a_press_refused_at_its_payment_moves_no_field_of_the_engine() {
         "the map's ability is offered off a floating {{G}}"
     );
     engine.state.players[0].mana_pool = baylee_core::mana::ManaPool::new();
-    let before = engine.fingerprint(true);
+    let before = engine.fingerprint();
     let press = PlayerAction::ActivateAbility {
         source,
         ability_index: 0,
     };
     assert!(engine.apply(seat, press).is_err(), "nothing pays the {{1}}");
-    let moved = differing(&before, &engine.fingerprint(true));
+    let moved = before.differing(&engine.fingerprint());
     assert!(moved.is_empty(), "a refused press moved {moved:?}");
 }

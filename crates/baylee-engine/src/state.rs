@@ -712,7 +712,7 @@ pub struct GameState {
     token_cleanup: Vec<ObjectId>,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "fuzz"))]
 impl GameState {
     /// Every field, one line each, for `Engine::fingerprint`.
     ///

@@ -129,6 +129,31 @@ struct Held {
     loyalty_player_choice: Option<PlayerId>,
 }
 
+/// Every field of an [`Engine`], one entry each, in declaration order
+/// ([`Engine::fingerprint`]). Equal prints are an engine nobody can tell
+/// apart from the other; [`Fingerprint::differing`] names the fields that
+/// are not.
+#[cfg(any(test, feature = "fuzz"))]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Fingerprint(Vec<(&'static str, String)>);
+
+#[cfg(any(test, feature = "fuzz"))]
+impl Fingerprint {
+    /// The names of the fields whose prints differ, in declaration order;
+    /// empty for two equal prints. Both prints must be the same kind (two
+    /// whole or two light ones): a light one reads its left-out fields as
+    /// empty.
+    #[must_use]
+    pub fn differing(&self, other: &Self) -> Vec<&'static str> {
+        self.0
+            .iter()
+            .zip(&other.0)
+            .filter(|(a, b)| a.1 != b.1)
+            .map(|(a, _)| a.0)
+            .collect()
+    }
+}
+
 /// A deterministic, self-contained game of Magic.
 // The driver genuinely is a set of independent latches (a pending answer,
 // a queued resolution, an agreed draw, a broken loop); folding them into an
@@ -853,20 +878,41 @@ impl<L: CardLookup> Engine<L> {
         base ^ extra.rotate_left(17)
     }
 
-    /// Every field of the engine but its card lookup, one line each, for a
-    /// test to compare before and after an answer the engine refused.
+    /// Every field of the engine but its card lookup, one entry each: what
+    /// to compare before and after an answer the engine refused, which must
+    /// leave nothing behind (`apply`'s promise). Behind the `fuzz` feature
+    /// for a fuzzer that holds the engine to it; the engine's own tests have
+    /// it always.
     ///
     /// Not [`Self::snapshot_hash`]: that one is a *replay* comparison, and
     /// it leaves out on purpose what a replay rebuilds on its own (the
     /// question being asked, the loop watch, the continuation slots). A
-    /// refused answer is not recorded at all, so it must leave *nothing*
-    /// behind, and the only comparison that can say so is one over
-    /// everything. The destructuring names every field without `..`, so a
-    /// field added to the engine does not compile until it is added here.
+    /// refused answer is not recorded at all, so the only comparison that
+    /// can say it left nothing is one over everything. The destructuring
+    /// names every field without `..`, so a field added to the engine does
+    /// not compile until it is added here.
     ///
-    /// `whole` false leaves out the largest prints (`GameState::fingerprint`).
-    #[cfg(test)]
-    pub(crate) fn fingerprint(&self, whole: bool) -> Vec<(&'static str, String)> {
+    /// Costly: a print of every object, in a long game hundreds of
+    /// kilobytes. [`Self::fingerprint_light`] is the one to take at every
+    /// step.
+    #[cfg(any(test, feature = "fuzz"))]
+    #[must_use]
+    pub fn fingerprint(&self) -> Fingerprint {
+        self.print(true)
+    }
+
+    /// [`Self::fingerprint`] less the three prints that are nearly all of its
+    /// size (the arena, the base-characteristics cache, the names), which
+    /// stand in it as empty entries. Cheap enough for every decision, and
+    /// blind to a refusal that touched only an object.
+    #[cfg(any(test, feature = "fuzz"))]
+    #[must_use]
+    pub fn fingerprint_light(&self) -> Fingerprint {
+        self.print(false)
+    }
+
+    #[cfg(any(test, feature = "fuzz"))]
+    fn print(&self, whole: bool) -> Fingerprint {
         let Engine {
             lookup: _,
             state,
@@ -967,7 +1013,7 @@ impl<L: CardLookup> Engine<L> {
             ("action_loops", format!("{action_loops:?}")),
             ("loops_broken", format!("{loops_broken:?}")),
         ]);
-        out
+        Fingerprint(out)
     }
 
     /// Applies a player's action and advances automatically until the next
