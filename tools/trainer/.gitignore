@@ -1,2 +1,3 @@
 # the environment uv builds from pyproject.toml and uv.lock
 .venv/
+__pycache__/
