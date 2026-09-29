@@ -477,11 +477,18 @@ fn drive_watching(
 /// one: an effect that legitimately touches more than its target is a fact
 /// about *that card's* rules text, and a rule inferred from it would excuse
 /// the next card by accident.
-const REACHES_FURTHER: &[(&str, &str)] = &[(
-    "Maelstrom Pulse",
-    "\"and all other permanents with the same name as that permanent\": the sweep's \
-     bystanders are Llanowar Elves, and so is the target",
-)];
+const REACHES_FURTHER: &[(&str, &str)] = &[
+    (
+        "Maelstrom Pulse",
+        "\"and all other permanents with the same name as that permanent\": the sweep's \
+         bystanders are Llanowar Elves, and so is the target",
+    ),
+    (
+        "Cryptic Command",
+        "\"Tap all creatures your opponents control\" is a mode of its own: chosen beside \
+         the bounce, it taps every opposing Elf the bounce did not take",
+    ),
+];
 
 /// How small the sweep may get before it has stopped measuring anything.
 ///

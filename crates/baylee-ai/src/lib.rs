@@ -5440,6 +5440,64 @@ mod tests {
         }
     }
 
+    /// "Choose two" with nothing on the stack to counter: the engine offers
+    /// the three pairs of bounce, tap and draw. "Tap all creatures your
+    /// opponents control" is read off the board: against an opposing
+    /// creature it reaches and bounce plus tap is taken; against no creature
+    /// at all it would be paid for and idle, so bounce plus draw is. Before
+    /// the agent read the tap, both boards answered bounce plus tap.
+    #[test]
+    fn choose_two_leaves_out_a_tap_with_nothing_to_tap() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let options: Vec<CastModeDesc> = [0b0110_u8, 0b1010, 0b1100]
+            .into_iter()
+            .enumerate()
+            .map(|(index, set)| CastModeDesc {
+                index: u8::try_from(index).unwrap(),
+                kind: CastModeKind::Modes(set),
+                cost: baylee_core::mana::ManaCost::parse("{1}{U}{U}{U}"),
+            })
+            .collect();
+        let land = |id, seat| carded(permanent(obj(id), seat, 0), "Island", TypeSet::LAND);
+        let creature = carded(
+            permanent(obj(2), them, 2),
+            "Baleful Strix",
+            TypeSet::CREATURE,
+        );
+        for (what, board, expected) in [
+            (
+                "a creature of theirs",
+                vec![land(1, them), creature],
+                0b0110,
+            ),
+            ("only lands", vec![land(1, them), land(3, me)], 0b1010),
+        ] {
+            let mut v = view(0, &[20, 20], board);
+            v.stack = vec![carded(
+                permanent(obj(9), me, 0),
+                "Cryptic Command",
+                TypeSet::INSTANT,
+            )];
+            let answer = agent().act(
+                &v,
+                &Pending::ChooseCastMode {
+                    player: v.seat,
+                    object: obj(9),
+                    options: options.clone(),
+                },
+            );
+            let PlayerAction::ChooseMode(slot) = answer else {
+                panic!("expected a set of modes, got {answer:?}")
+            };
+            assert_eq!(
+                options[slot].kind,
+                CastModeKind::Modes(expected),
+                "against {what}"
+            );
+        }
+    }
+
     /// An empty board is read, and the reading is that nothing is reached.
     ///
     /// Every mode scores nought, so the printed order is all that is left and

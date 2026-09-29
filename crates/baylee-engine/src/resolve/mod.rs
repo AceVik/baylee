@@ -4324,6 +4324,24 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        // Cryptic Command's third mode. Nothing is targeted, and a
+        // phased-out permanent is treated as though it doesn't exist (CR
+        // 702.26b), which `battlefield_seen` is.
+        Effect::TapAll { filter } => {
+            let you = res.controller;
+            let all: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                })
+                .collect();
+            for id in all {
+                state.set_tapped(id, true);
+            }
+            None
+        }
         Effect::UntapTarget => {
             for &target in &res.targets {
                 untap(state, target);

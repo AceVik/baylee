@@ -455,6 +455,7 @@ impl HeuristicAgent {
             }
             Effect::DestroyAll { filter, .. }
             | Effect::ExileAll { filter }
+            | Effect::TapAll { filter }
             | Effect::DealDamageEach { filter, .. } => {
                 self.battlefield_has(filter, view, &everyone, Some(this))
             }

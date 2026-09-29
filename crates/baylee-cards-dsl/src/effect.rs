@@ -2364,6 +2364,15 @@ pub enum Effect {
         /// How long.
         duration: crate::static_ability::Duration,
     },
+    /// "Tap all creatures your opponents control" (Cryptic Command): every
+    /// permanent `filter` matches as this resolves becomes tapped (CR
+    /// 701.26a). Nothing is targeted (CR 115.1a names a target by the
+    /// word), so hexproof and protection do not stop it, and a permanent
+    /// already tapped stays as it is.
+    TapAll {
+        /// What.
+        filter: &'static Filter,
+    },
 }
 
 impl Effect {
@@ -2875,6 +2884,7 @@ impl Effect {
             | Effect::TakeExtraTurn
             | Effect::ExileSource
             | Effect::TapTarget
+            | Effect::TapAll { .. }
             | Effect::UntapTarget
             | Effect::UntapSelf
             | Effect::ExileAndReturnAtEndStep

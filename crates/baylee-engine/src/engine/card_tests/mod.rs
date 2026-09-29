@@ -5431,3 +5431,7 @@ fn choose_modes(
     engine.apply(seat, PlayerAction::ChooseMode(slot)).unwrap();
     options
 }
+
+fn cryptic_command() -> CardIndex {
+    card_index("a3e51a35-09df-4189-b131-08a21e6a557d")
+}

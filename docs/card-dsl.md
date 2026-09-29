@@ -1906,6 +1906,15 @@ Filters, conditions, modifiers and durations:
 - **`Duration::WhileYouControlSource`** is "for as long as you control this
   creature" (Extraction Specialist, CR 611.2b).
 
+### Pieces added for the friends' decks, last round (29.09.2026)
+
+- **`Effect::TapAll { filter }`** is "Tap all [permanents]" (Cryptic
+  Command's "Tap all creatures your opponents control", with
+  `Filter::OPPONENT_CREATURE`). Nothing is targeted, so hexproof does not
+  stop it; a permanent already tapped stays as it is (CR 701.26a). Cryptic
+  Command is `ModeCount::TWO`: a pair of its four modes, each pair at the
+  card's own cost.
+
 ## Worked examples
 
 A land with two basic land types must print its own mana ability. CR 305.6
