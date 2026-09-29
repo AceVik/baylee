@@ -808,18 +808,12 @@ fn battery(table: &mut Table) -> (u64, Option<String>) {
                     return (mark, Some("seat 1's attack was refused".into()));
                 }
             }
-            asked => {
+            _ => {
                 let (player, action) = match answer_one(engine) {
                     Ok(pair) => pair,
                     Err(rest) => return (mark, Some(rest_name(&rest))),
                 };
                 if let Err(e) = engine.apply(player, action) {
-                    // A refused answer that moved the engine on regardless
-                    // (a miracle "yes" with no mana floating: the offer is
-                    // gone and priority is back) does not stop the walk.
-                    if std::mem::discriminant(engine.pending()) != std::mem::discriminant(&asked) {
-                        continue;
-                    }
                     return (mark, Some(format!("refused: {e:?}")));
                 }
             }

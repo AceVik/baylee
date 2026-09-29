@@ -532,9 +532,11 @@ A walk is full at 2 lands played, 2 spells cast, 4 permanents entering,
 walk (the card's own rules can stop a cast or an attack: The Tabernacle at
 Pendrell Vale, Night of Souls' Betrayal) is still judged on what happened,
 and the sweep prints it. Every question on the way is answered with the
-kit's `answer_one`; an answer the engine refuses stops the walk short,
-unless the engine moved on regardless (today a miracle "yes" with no mana
-floating does: the offer is gone and priority is back).
+kit's `answer_one`; an answer the engine refuses stops the walk short.
+Until `28698c03` the engine refused Metamorphosis Fanatic's miracle "yes"
+after spending the offer, and the probe carried on past it; that "yes" is
+now taken and a cast it cannot pay is reversed, and the sweep after the
+merge stopped no walk short on a refused answer.
 
 ### A run
 
