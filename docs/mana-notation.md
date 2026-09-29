@@ -20,8 +20,16 @@ compile errors). Runtime parsing: `ManaCost::from_str`.
 
 Rules:
 
-- Symbols are stored in canonical order (variables/generic first, then
-  WUBRG order, then colorless/snow/special); equality is order-insensitive.
+- Symbols are written in canonical order (variables, generic, the
+  silver-bordered two, WUBRG, hybrid, `{2/C}`, Phyrexian, hybrid Phyrexian,
+  snow, colorless); equality is order-insensitive.
+- A cost is counted, not listed: a count per symbol, and generic mana as one
+  amount, as a printed cost writes it (`{1}` and `{1}` make `{2}`; `{X}{X}`
+  for 2 is `{4}`). No cost is too long to hold: a replicate cost paid fifty
+  times is fifty more symbols. A count stops at 65 535 of one symbol, far past
+  anything a game makes.
+- On the wire (serde) a cost is its notation; `ManaCost::try_parse` never
+  panics, whatever the text.
 - CMC: generic adds its value, `{2/W}` adds 2, every other symbol adds 1,
   variables and silver-bordered symbols add 0.
 - `ManaPool`: six plain counters (W U B R G C) plus a side list of

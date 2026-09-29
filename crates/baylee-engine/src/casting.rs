@@ -351,17 +351,14 @@ pub(crate) fn ordinary_targets_reachable(
     })
 }
 
-/// Complete printed mana price of a kicked spell, before increases/reductions.
+/// Complete printed mana price of a kicked spell, before increases/reductions:
+/// the mana cost plus every additional cost's mana (CR 601.2f), with one
+/// generic symbol as `ManaCost::combine` makes it.
 #[must_use]
 pub fn kicked_mana_cost(face: &baylee_cards_dsl::FaceDef) -> ManaCost {
-    let total = face
-        .additional_costs
+    face.additional_costs
         .iter()
-        .fold(face.mana_cost, |cost, extra| cost.combine(&extra.mana));
-    // One generic symbol also keeps the complete price readable in the chooser.
-    total
-        .with_less_generic(total.generic_total())
-        .with_more_generic(total.generic_total())
+        .fold(face.mana_cost, |cost, extra| cost.combine(&extra.mana))
 }
 
 /// Whether one mode of a modal spell (CR 700.2) can be pointed at anything.
@@ -439,9 +436,9 @@ pub fn chosen_modes(
 /// What a set of modes costs: `base`, the spell's own price, with every
 /// chosen mode's cost added to it (CR 700.2h, 601.2f) — spree's "+ {1}".
 ///
-/// With one generic symbol, as a printed cost has: two "+ {1}" on {W} are
-/// {2}{W}, which is what a row draws, and not the {1}{1}{W} that
-/// [`ManaCost::combine`] would make of them.
+/// With one generic symbol, as a printed cost has and as
+/// [`ManaCost::combine`] keeps it: two "+ {1}" on {W} are {2}{W}, which is
+/// what a row draws.
 #[must_use]
 pub fn mode_set_cost(
     base: ManaCost,
@@ -449,13 +446,8 @@ pub fn mode_set_cost(
     set: u8,
 ) -> ManaCost {
     chosen_modes(modes, set).fold(base, |cost, (_, mode)| {
-        let Some(extra) = mode.additional_cost else {
-            return cost;
-        };
-        extra.symbols().fold(cost, |cost, symbol| match symbol {
-            baylee_core::mana::ManaSymbol::Generic(n) => cost.with_more_generic(n),
-            other => cost.combine(&ManaCost::from_symbol(other)),
-        })
+        mode.additional_cost
+            .map_or(cost, |extra| cost.combine(&extra))
     })
 }
 

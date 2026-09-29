@@ -255,6 +255,41 @@ const MESSAGES: &[(&str, &str)] = &[
     ),
     ("unknown card", "Unbekannte Karte."),
     ("unknown linked card", "Unbekannte verknüpfte Karte."),
+    // The reasons a question states for refusing an answer
+    // (`baylee_engine::choice::AnswerFault::reason`).
+    ("not among the options", "Das steht nicht zur Auswahl."),
+    (
+        "one choice named twice",
+        "Eine Auswahl wurde doppelt genannt.",
+    ),
+    (
+        "fewer choices than the question asks for",
+        "Es ist weniger ausgewählt, als die Frage verlangt.",
+    ),
+    (
+        "more choices than the question allows",
+        "Es ist mehr ausgewählt, als die Frage erlaubt.",
+    ),
+    (
+        "the chosen total is too low",
+        "Die gewählte Summe ist zu niedrig.",
+    ),
+    (
+        "the chosen total is too high",
+        "Die gewählte Summe ist zu hoch.",
+    ),
+    (
+        "too few blockers for that attacker",
+        "Zu wenige Blocker für diesen Angreifer.",
+    ),
+    (
+        "too many blockers for that attacker",
+        "Zu viele Blocker für diesen Angreifer.",
+    ),
+    (
+        "a hand that would open with zero cards takes no further mulligan",
+        "Eine Hand, die mit null Karten beginnen würde, erlaubt keinen weiteren Mulligan.",
+    ),
     (
         "a deck has at most two commanders",
         "Ein Deck darf höchstens zwei Commander haben.",

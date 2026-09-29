@@ -460,7 +460,8 @@ fn ashnods_altar_eats_the_creature_you_name_and_pays_two_colorless() {
     assert!(
         matches!(
             refused,
-            Err(EngineError::IllegalAction("invalid card selection"))
+            Err(EngineError::IllegalAction(why))
+                if why == crate::choice::AnswerFault::NotOffered.reason()
         ),
         "the answer is validated against the list that was published: {refused:?}"
     );
@@ -584,6 +585,7 @@ fn the_ironworks_is_on_its_own_menu_and_eats_itself_for_two_colorless() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -1665,6 +1667,7 @@ fn grinding_station_mills_three_for_an_artifact_and_untaps_for_one_entering() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(
                     prompt,
@@ -3209,6 +3212,7 @@ fn unlicensed_hearse_is_crewed_by_two_elves_and_not_by_one() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected the crew question, got {:?}", engine.pending())
@@ -3283,6 +3287,109 @@ fn unlicensed_hearse_is_not_offered_crew_below_its_number() {
         !hearse_offers(&engine, hearse, 2),
         "one power-1 creature cannot crew 2"
     );
+}
+
+/// Unlicensed Hearse's Crew 2 beside two Llanowar Elves (power 1) and an
+/// Aurochs (power 2), activated and asking which creatures crew it.
+fn hearse_crew_question() -> (Engine<RegistryLookup>, Vec<ObjectId>) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                unlicensed_hearse(),
+                llanowar_elves(),
+                llanowar_elves(),
+                aurochs(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    activate(&mut engine, p0, unlicensed_hearse(), 2);
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected the crew question, got {:?}", engine.pending())
+    };
+    (engine, options)
+}
+
+/// Crew 2 (CR 702.122a: "Tap any number of other untapped creatures you
+/// control with total power N or greater") states its total in the
+/// question: each option's power as the engine counts it and the least the
+/// chosen powers add up to. A lone Elf is power 1, so the question itself
+/// names that answer short (`AnswerFault::TotalTooLow`), and `apply` refuses
+/// exactly the answers the question faults: for every subset of the offered
+/// creatures, accepted if and only if the question finds no fault in it.
+///
+/// Before the total was stated, the question said only "one to three of
+/// these", and a player (the trained AI's fuzzer, 38 times in 2000 games)
+/// naming one Elf inside those bounds was refused for a reason it could not
+/// read.
+#[test]
+fn crew_states_its_total_power_and_apply_refuses_only_what_it_states() {
+    let p0 = PlayerId::new(0);
+    let (engine, options) = hearse_crew_question();
+    let question = engine.pending().clone();
+    let Pending::ChooseCards {
+        min, max, total, ..
+    } = &question
+    else {
+        unreachable!("hearse_crew_question returns the crew question")
+    };
+    assert_eq!((*min, *max), (1, 3), "any number of the three creatures");
+    let power = |id: &ObjectId| i32::from(pt(&engine, *id).0);
+    assert_eq!(
+        total.as_ref(),
+        Some(&crate::choice::CardTotal {
+            of: crate::choice::Measure::Power,
+            weights: options.iter().map(power).collect(),
+            at_least: Some(2),
+            at_most: None,
+        }),
+        "the question states Crew 2 as a total power of 2 or more"
+    );
+    let elves = elves_of(&engine, p0);
+    assert_eq!(elves.len(), 2);
+    assert_eq!(
+        question.answer_fault(&PlayerAction::ChooseObjects {
+            objects: vec![elves[0]],
+        }),
+        Some(crate::choice::AnswerFault::TotalTooLow),
+        "a lone power-1 Elf is short of Crew 2, and the question says so"
+    );
+    drop(engine);
+
+    let mut accepted = 0;
+    for mask in 0u32..(1 << options.len()) {
+        let objects: Vec<ObjectId> = options
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| mask & (1 << i) != 0)
+            .map(|(_, id)| *id)
+            .collect();
+        let answer = PlayerAction::ChooseObjects {
+            objects: objects.clone(),
+        };
+        let fault = question.answer_fault(&answer);
+        let (mut engine, again) = hearse_crew_question();
+        assert_eq!(again, options, "the question is asked alike every time");
+        let applied = engine.apply(p0, answer);
+        match fault {
+            None => {
+                applied.unwrap_or_else(|e| {
+                    panic!("{objects:?} keeps every stated bound and was refused: {e:?}")
+                });
+                accepted += 1;
+            }
+            Some(fault) => assert!(
+                matches!(applied, Err(EngineError::IllegalAction(why)) if why == fault.reason()),
+                "{objects:?} is refused for the reason the question states \
+                 ({fault:?}), got {applied:?}"
+            ),
+        }
+    }
+    // Aurochs alone, with either Elf, with both, and the two Elves together.
+    assert_eq!(accepted, 5, "every answer reaching power 2 is taken");
 }
 
 /// Conduit of Worlds: "You may play lands from your graveyard."
@@ -4191,6 +4298,7 @@ fn matzalantli_the_great_door_draws_and_discards_and_omits_transform() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("pass_until stopped on card choice");
@@ -5087,6 +5195,7 @@ fn claws_of_gix_eats_a_permanent_you_control_for_one_life() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -8012,6 +8121,7 @@ fn zuran_orb_eats_a_land_of_your_own_for_two_life() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which land, got {:?}", engine.pending())
@@ -10026,6 +10136,7 @@ fn diamond_kaleidoscope_builds_a_prism_and_trades_it_for_one_mana_of_any_color()
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the seat paying the cost answers it");
                 assert_eq!(
@@ -10765,6 +10876,7 @@ fn honor_worn_shaku_taps_a_legendary_permanent_of_yours_to_untap_itself() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -11258,6 +11370,7 @@ fn phyrexian_altar_sacrifices_a_creature_for_one_mana_of_the_color_its_controlle
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which creature, got {:?}", engine.pending())
@@ -11595,6 +11708,7 @@ fn phyrexian_vault_eats_a_creature_of_its_own_side_for_a_card() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -14158,6 +14272,7 @@ fn skull_catapult_eats_a_creature_of_its_own_side_for_two_damage_at_any_target()
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat pays its own cost");
                 assert_eq!(
@@ -15613,6 +15728,7 @@ fn wand_of_the_elements_sacrifices_an_island_to_create_flying_elemental() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected CostSacrifice prompt, got {:?}", engine.pending());

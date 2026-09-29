@@ -11,7 +11,7 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-pub const PROTOCOL_VERSION: u32 = 7;
+pub const PROTOCOL_VERSION: u32 = 8;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -217,7 +217,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_seven() {
+    fn the_wire_version_is_eight() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -229,7 +229,9 @@ mod tests {
         // and a peer from before them passes over either
         // (`an_envelope_from_a_newer_peer_is_read_as_nothing_rather_than_refused`).
         // 7: PayLife choices for Ward; older clients cannot decode this enum.
-        assert_eq!(PROTOCOL_VERSION, 7);
+        // 8: a `ManaCost` in a `Pending` is its notation (`"{2}{U}{U}"`), not
+        // the sixteen-slot list a replicated cost overflowed.
+        assert_eq!(PROTOCOL_VERSION, 8);
     }
 
     #[test]

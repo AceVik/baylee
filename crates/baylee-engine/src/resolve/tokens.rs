@@ -116,6 +116,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         Effect::CreateTokenCopyOfFirstToken => {

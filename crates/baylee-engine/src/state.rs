@@ -4205,45 +4205,37 @@ pub(crate) fn mana_cost_fingerprint(cost: &baylee_core::mana::ManaCost) -> u64 {
 }
 
 fn hash_mana_cost(h: &mut Hasher, cost: &baylee_core::mana::ManaCost) {
-    h.u8(cost.len());
-    for s in cost.symbols() {
-        match s {
-            ManaSymbol::Generic(n) => {
-                h.u8(0);
-                h.u32(n);
+    // The cost is counted (`ManaCost`): how many kinds it holds, then one
+    // five-byte record per kind, its tag, what names it and how many of it,
+    // rather than one per symbol. The count fits a byte, and a byte is what
+    // an empty cost, most objects' (tokens'), costs the stream: a wider
+    // prefix measured 7 % slower on `snapshot_hash_3k_tokens`.
+    h.u8(cost.kinds());
+    for (symbol, count) in cost.runs() {
+        let [count_lo, count_hi] = count.to_le_bytes();
+        let (tag, first, second) = match symbol {
+            ManaSymbol::Generic(amount) => {
+                // Always one generic symbol: its amount says it all.
+                let [w0, w1, w2, w3] = amount.to_le_bytes();
+                h.bytes(&[0, w0, w1, w2, w3]);
+                continue;
             }
-            ManaSymbol::Colorless => h.u8(1),
-            ManaSymbol::White => h.u8(2),
-            ManaSymbol::Blue => h.u8(3),
-            ManaSymbol::Black => h.u8(4),
-            ManaSymbol::Red => h.u8(5),
-            ManaSymbol::Green => h.u8(6),
-            ManaSymbol::Hybrid(p) => {
-                h.u8(7);
-                h.u8(p.first() as u8);
-                h.u8(p.second() as u8);
-            }
-            ManaSymbol::TwoOrColor(c) => {
-                h.u8(8);
-                h.u8(c as u8);
-            }
-            ManaSymbol::Phyrexian(c) => {
-                h.u8(9);
-                h.u8(c as u8);
-            }
-            ManaSymbol::HybridPhyrexian(p) => {
-                h.u8(10);
-                h.u8(p.first() as u8);
-                h.u8(p.second() as u8);
-            }
-            ManaSymbol::Snow => h.u8(11),
-            ManaSymbol::Variable(v) => {
-                h.u8(12);
-                h.u8(v as u8);
-            }
-            ManaSymbol::HalfGeneric => h.u8(13),
-            ManaSymbol::Infinite => h.u8(14),
-        }
+            ManaSymbol::Colorless => (1, 0, 0),
+            ManaSymbol::White => (2, 0, 0),
+            ManaSymbol::Blue => (3, 0, 0),
+            ManaSymbol::Black => (4, 0, 0),
+            ManaSymbol::Red => (5, 0, 0),
+            ManaSymbol::Green => (6, 0, 0),
+            ManaSymbol::Hybrid(pair) => (7, pair.first() as u8, pair.second() as u8),
+            ManaSymbol::TwoOrColor(color) => (8, color as u8, 0),
+            ManaSymbol::Phyrexian(color) => (9, color as u8, 0),
+            ManaSymbol::HybridPhyrexian(pair) => (10, pair.first() as u8, pair.second() as u8),
+            ManaSymbol::Snow => (11, 0, 0),
+            ManaSymbol::Variable(variable) => (12, variable as u8, 0),
+            ManaSymbol::HalfGeneric => (13, 0, 0),
+            ManaSymbol::Infinite => (14, 0, 0),
+        };
+        h.bytes(&[tag, first, second, count_lo, count_hi]);
     }
 }
 
@@ -4829,6 +4821,46 @@ mod tests {
             "and the constant is a spelling of the general form, not a second counter"
         );
     }
+
+    /// A mana cost is hashed by every symbol it holds and how many of it,
+    /// and by nothing else.
+    ///
+    /// The cost is counted (`ManaCost`), so the hash walks kinds, not
+    /// symbols; each inequality is a way that walk could lose a cost: the
+    /// count's high byte, the generic amount, which pair a hybrid names, the
+    /// tag between two symbols that name one color, and no mana cost against
+    /// `{0}` (an unpayable cost against a free one, CR 202.1b). The
+    /// equalities hold the other half: one cost, however it was put
+    /// together, is one state.
+    #[test]
+    fn a_mana_cost_is_hashed_by_its_symbols_and_their_counts() {
+        use baylee_core::mana::ManaCost;
+        let hash = |cost: &ManaCost| mana_cost_fingerprint(cost);
+        let text = |text: &str| hash(&ManaCost::parse(text));
+        let blue = ManaCost::parse("{U}");
+        let blues = |n: u32| hash(&ManaCost::ZERO.combine_n(&blue, n));
+
+        assert_ne!(blues(1), blues(257), "257 is 1 in its low byte");
+        assert_ne!(blues(1), blues(2));
+        assert_ne!(text("{1}"), text("{2}"));
+        assert_ne!(text("{W/U}"), text("{U/B}"));
+        assert_ne!(text("{2/W}"), text("{W/P}"));
+        assert_ne!(text("{W}{U}"), text("{W/U}"));
+        assert_ne!(hash(&ManaCost::ZERO), text("{0}"));
+
+        assert_eq!(text("{U}{1}"), text("{1}{U}"), "written in any order");
+        assert_eq!(
+            text("{1}{1}{U}"),
+            text("{2}{U}"),
+            "generic mana is one amount"
+        );
+        assert_eq!(
+            hash(&ManaCost::parse("{1}{U}").combine_n(&blue, 20)),
+            text("{1}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}"),
+            "twenty payments added at once are the twenty written out"
+        );
+    }
+
     /// What an ability has already been used for this turn is part of the
     /// state a loop detector compares.
     ///

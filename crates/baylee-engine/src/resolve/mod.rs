@@ -767,7 +767,7 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
     }
     let least = if optional { 0 } else { want };
     let reveal = reveals(filter, finds);
-    if let Some(agent) = takeover {
+    let player = if let Some(agent) = takeover {
         res.awaiting = Some(AwaitingOp::SearchTakeover {
             agent,
             finds,
@@ -775,27 +775,24 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
             library,
             split,
         });
-        return Some(Pending::ChooseCards {
-            player: agent,
-            options,
-            min: least,
-            max: want,
-            prompt: ChoicePrompt::SearchLibrary,
+        agent
+    } else {
+        res.awaiting = Some(AwaitingOp::SearchLibrary {
+            finds,
+            reveal,
+            library,
+            receiver: searcher,
+            split,
         });
-    }
-    res.awaiting = Some(AwaitingOp::SearchLibrary {
-        finds,
-        reveal,
-        library,
-        receiver: searcher,
-        split,
-    });
+        searcher
+    };
     Some(Pending::ChooseCards {
-        player: searcher,
+        player,
         options,
         min: least,
         max: want,
         prompt: ChoicePrompt::SearchLibrary,
+        total: None,
     })
 }
 
@@ -1318,6 +1315,7 @@ fn one_per_type(
             min: 0,
             max: 1,
             prompt: ChoicePrompt::OneOfType { card_type },
+            total: None,
         });
     }
     let mut rest: Vec<ObjectId> = revealed
@@ -1602,7 +1600,7 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
     let actually_paid = paid
         && mana_pay::pay(
             &mut state.players[player.get() as usize].mana_pool,
-            &baylee_core::mana::ManaCost::parse(&format!("{{{mana}}}")),
+            &baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
         );
     debug_assert!(!paid || actually_paid, "tax was offered as payable");
     if actually_paid {
@@ -1829,6 +1827,7 @@ fn ask_separator(res: &mut Resolution, opponent: PlayerId, cards: Vec<ObjectId>)
         min: 0,
         max: n,
         prompt: ChoicePrompt::FirstPile,
+        total: None,
     }
 }
 
@@ -1884,6 +1883,7 @@ fn ask_splitter(
         min: count,
         max: count,
         prompt: ChoicePrompt::PutIntoGraveyard,
+        total: None,
     }
 }
 
@@ -2212,6 +2212,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     min: 1,
                     max: 1,
                     prompt: ChoicePrompt::PutOnBottom,
+                    total: None,
                 });
             }
             // One card left is the bottom card: the sentence puts one there
@@ -2409,6 +2410,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     min: n,
                     max: n,
                     prompt: ChoicePrompt::Generic,
+                    total: None,
                 });
             }
         }
@@ -2427,6 +2429,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     min: 0,
                     max: 1,
                     prompt: ChoicePrompt::Generic,
+                    total: None,
                 });
             }
         }
@@ -2455,6 +2458,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     min: 1,
                     max: 1,
                     prompt: ChoicePrompt::Generic,
+                    total: None,
                 });
             }
         }
@@ -2503,6 +2507,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     min: 1,
                     max: 1,
                     prompt: ChoicePrompt::Generic,
+                    total: None,
                 });
             }
         }
@@ -2635,6 +2640,7 @@ fn put_back_question(
         min: u8::try_from(must_go_back).unwrap_or(n),
         max: n,
         prompt: ChoicePrompt::PutBackOnTop,
+        total: None,
     })
 }
 
@@ -2980,6 +2986,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 min: n as u8,
                 max: n as u8,
                 prompt: ChoicePrompt::PutBackOnTop,
+                total: None,
             })
         }
         Effect::PutFromHandOntoBattlefield {
@@ -3012,6 +3019,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 min: u8::from(!optional),
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         Effect::PlayerMayPayOr {
@@ -3104,6 +3112,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 min: 0,
                 max: 1,
                 prompt: cost_wizard::prompt(cost),
+                total: None,
             })
         }
         Effect::ReorderTopLibrary { count } => {
@@ -3174,6 +3183,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::SearchLibrary,
+                total: None,
             })
         }
         Effect::AddMana { .. } => mana::exec(state, res, op),
@@ -4018,6 +4028,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::PutIntoHand,
+                total: None,
             })
         }
         Effect::Cascade => {
@@ -4106,6 +4117,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::FromGraveyard,
+                total: None,
             })
         }
         Effect::DiscardUpToThenDraw { count } => {
@@ -4121,6 +4133,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: 0,
                 max: most,
                 prompt: ChoicePrompt::Discard,
+                total: None,
             })
         }
         Effect::LookAtTopMayPut {
@@ -4158,6 +4171,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     SearchDest::Hand => ChoicePrompt::PutIntoHand,
                     SearchDest::TopOfLibrary => ChoicePrompt::PutBackOnTop,
                 },
+                total: None,
             })
         }
         Effect::RevealTopOnePerType { count } => {
@@ -4215,6 +4229,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: pick,
                 max: pick,
                 prompt: ChoicePrompt::PutIntoHand,
+                total: None,
             })
         }
         Effect::LookAtTopKeepBottomPlay { count } => {
@@ -4238,6 +4253,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::PutIntoHand,
+                total: None,
             })
         }
         Effect::PayLifeOrPutBackDrawn { count, life } => {
@@ -4264,6 +4280,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     min: count,
                     max: count,
                     prompt: ChoicePrompt::Generic,
+                    total: None,
                 });
             }
             put_back_question(state, res, drawn, life)
@@ -4296,6 +4313,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::PlayFromExile,
+                total: None,
             })
         }
         Effect::WishToHand { filter } => {
@@ -4320,6 +4338,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::Wish,
+                total: None,
             })
         }
         // The new targets are chosen at resolution (CR 115.7).

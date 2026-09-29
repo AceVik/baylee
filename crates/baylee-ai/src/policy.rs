@@ -255,33 +255,6 @@ impl HeuristicAgent {
         result
     }
 
-    /// The creatures that crew: the strongest first, until their total
-    /// power reaches `power`. Every creature with a power above zero when
-    /// the board does not reach it, which the engine then refuses as it
-    /// would any short answer.
-    fn crew(view: &PlayerView, options: &[ObjectId], power: u8) -> Vec<ObjectId> {
-        let power_of = |id: &ObjectId| {
-            view.object(*id)
-                .map_or(0, |o| i32::from(o.power.unwrap_or(0)))
-        };
-        let mut ranked: Vec<ObjectId> = options
-            .iter()
-            .copied()
-            .filter(|id| power_of(id) > 0)
-            .collect();
-        ranked.sort_by_key(|id| (std::cmp::Reverse(power_of(id)), *id));
-        let mut total = 0;
-        let mut crew = Vec::new();
-        for id in ranked {
-            if total >= i32::from(power) {
-                break;
-            }
-            total += power_of(&id);
-            crew.push(id);
-        }
-        crew
-    }
-
     pub(crate) fn select_cards(
         &self,
         view: &PlayerView,
@@ -301,13 +274,6 @@ impl HeuristicAgent {
             ranked.sort_unstable();
             ranked.truncate(usize::from(max));
             return Some(ranked);
-        }
-        // Crew (CR 702.122a), also ahead of the gate: it is a price the
-        // seat already chose to pay, and `min` (one creature) is refused
-        // whenever one is not enough. The strongest first, until the total
-        // is reached, so as few creatures as the board allows are tapped.
-        if let ChoicePrompt::CostCrew { power } = prompt {
-            return Some(Self::crew(view, options, power));
         }
         // Ahead of the gate as well: a revealed card put into the hand is a
         // card, and one left goes to the bottom of the library. The best of
@@ -1242,7 +1208,7 @@ fn aim(
         .and_then(|each| {
             (1..=budget.min(50))
                 .rev()
-                .map(|n| (0..n).fold(cost, |total, _| total.combine(&each)))
+                .map(|n| cost.combine_n(&each, n))
                 .find(fits)
         })
         .map_or((cost, false), |net| (net, true))
@@ -1528,6 +1494,36 @@ fn own_sources(view: &PlayerView, now: bool) -> Vec<Source> {
         }
     }
     sources(view, &estimate)
+}
+
+/// The cards that keep a total the question states (crew's "total power N
+/// or greater", CR 702.122a): the heaviest first, by the weights the
+/// question counts with, until there are `min` of them and the total is
+/// reached, so as few cards as the question allows are spent. `None` where
+/// that walk keeps no answer: a total with an upper bound, which nothing in
+/// the pool asks.
+pub(crate) fn reach_total(
+    options: &[ObjectId],
+    min: u8,
+    max: u8,
+    total: &baylee_engine::choice::CardTotal,
+) -> Option<Vec<ObjectId>> {
+    let (min, max) = (usize::from(min), usize::from(max));
+    let mut ranked: Vec<(i32, ObjectId)> = options
+        .iter()
+        .zip(&total.weights)
+        .map(|(id, weight)| (*weight, *id))
+        .collect();
+    ranked.sort_by_key(|&(weight, id)| (std::cmp::Reverse(weight), id));
+    let mut chosen = Vec::new();
+    for (_, id) in ranked {
+        if chosen.len() >= max || chosen.len() >= min && total.fault(options, &chosen).is_none() {
+            break;
+        }
+        chosen.push(id);
+    }
+    ((min..=max).contains(&chosen.len()) && total.fault(options, &chosen).is_none())
+        .then_some(chosen)
 }
 
 #[cfg(test)]

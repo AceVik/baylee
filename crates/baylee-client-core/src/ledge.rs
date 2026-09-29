@@ -331,6 +331,7 @@ mod tests {
                 player: me,
                 taken: 0,
                 next_is_free: true,
+                can_take: true,
             },
             Pending::ChooseAttackers {
                 player: me,
@@ -344,6 +345,7 @@ mod tests {
                     blocker: creature,
                     attackers: vec![ObjectId::new(2, 0)],
                 }],
+                bounds: Vec::new(),
             },
             yes_no(YesNoPrompt::Kicker),
             yes_no(YesNoPrompt::MayDo),

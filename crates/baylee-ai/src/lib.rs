@@ -310,14 +310,21 @@ impl HeuristicAgent {
                 };
                 PlayerAction::DeclareAttackers { attackers }
             }
-            Pending::ChooseBlockers { blockers, .. } => PlayerAction::DeclareBlockers {
-                blockers: search::blockers(
+            Pending::ChooseBlockers {
+                blockers, bounds, ..
+            } => {
+                let mut pairs = search::blockers(
                     view,
                     &blockers,
                     view.seat(player).map_or(0, |s| s.life),
                     self.profile,
-                ),
-            },
+                );
+                // Whatever chose them, the blocks are held to the counts the
+                // question states (menace, CR 702.111b), which are the ones
+                // the engine holds the declaration to.
+                combat::keep_bounds(&board::Board::new(view), &blockers, &bounds, &mut pairs);
+                PlayerAction::DeclareBlockers { blockers: pairs }
+            }
             Pending::LegendChoice { options, .. } => PlayerAction::ChooseObjects {
                 objects: vec![options[0]],
             },
@@ -326,8 +333,17 @@ impl HeuristicAgent {
                 min,
                 max,
                 prompt,
+                total,
                 ..
             } => {
+                // A total the question states (crew's power, CR 702.122a) is
+                // a price the seat already chose to pay: the fewest cards
+                // that reach it, by the weights the engine counts.
+                if let Some(total) = &total
+                    && let Some(objects) = policy::reach_total(&options, min, max, total)
+                {
+                    return PlayerAction::ChooseObjects { objects };
+                }
                 if let Some(objects) = self.select_cards(view, &options, min, max, prompt) {
                     return PlayerAction::ChooseObjects { objects };
                 }
@@ -861,6 +877,7 @@ mod tests {
                     min: 0,
                     max: 1,
                     prompt,
+                    total: None,
                 },
             );
             let PlayerAction::ChooseObjects { objects } = action else {
@@ -881,6 +898,7 @@ mod tests {
                 min: 1,
                 max: 2,
                 prompt: ChoicePrompt::CostSacrifice,
+                total: None,
             },
         );
         let PlayerAction::ChooseObjects { objects } = action else {
@@ -955,6 +973,7 @@ mod tests {
                         min,
                         max: 1,
                         prompt,
+                        total: None,
                     },
                 );
                 assert_eq!(
@@ -995,6 +1014,7 @@ mod tests {
                 min: 2,
                 max: 2,
                 prompt: ChoicePrompt::CostExile,
+                total: None,
             },
         );
         let PlayerAction::ChooseObjects { mut objects } = action else {
@@ -1029,6 +1049,7 @@ mod tests {
                 prompt: ChoicePrompt::OneOfType {
                     card_type: TypeSet::CREATURE,
                 },
+                total: None,
             },
         );
         assert_eq!(
@@ -1938,6 +1959,7 @@ mod tests {
                 blocker: obj(2),
                 attackers: vec![obj(1)],
             }],
+            bounds: Vec::new(),
         };
         let agent = HeuristicAgent::new(AIProfile::EXPERT);
         assert_eq!(
@@ -2093,6 +2115,7 @@ mod tests {
             player: v.seat,
             taken,
             next_is_free: taken == 0,
+            can_take: true,
         };
         assert_eq!(
             HeuristicAgent::new(AIProfile::SHARP).act(&v, &decision(0)),
@@ -2199,6 +2222,7 @@ mod tests {
                 blocker: obj(3),
                 attackers: vec![obj(1)],
             }],
+            bounds: Vec::new(),
         };
         for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
             assert_eq!(
@@ -2235,6 +2259,7 @@ mod tests {
                 blocker: obj(3),
                 attackers: vec![obj(1), obj(2)],
             }],
+            bounds: Vec::new(),
         };
         for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
             assert_eq!(
@@ -2367,6 +2392,7 @@ mod tests {
                     .map(|a| obj(a.0))
                     .collect(),
             }],
+            bounds: Vec::new(),
         };
         (v, pending)
     }
@@ -2501,6 +2527,7 @@ mod tests {
                 blocker: obj(3),
                 attackers: vec![obj(1), obj(2)],
             }],
+            bounds: Vec::new(),
         };
         for (name, profile) in PROFILES {
             assert_eq!(
@@ -2522,6 +2549,7 @@ mod tests {
             player: v.seat,
             taken: 0,
             next_is_free: true,
+            can_take: true,
         };
         let answer = |profile, view: &PlayerView, pending: &Pending| {
             HeuristicAgent::new(profile).act(view, pending)
@@ -3359,6 +3387,7 @@ mod tests {
                     attackers: vec![obj(1)],
                 })
                 .collect(),
+            bounds: Vec::new(),
         };
         (v, pending)
     }
@@ -3396,6 +3425,7 @@ mod tests {
                     attackers: vec![obj(1)],
                 })
                 .collect(),
+            bounds: Vec::new(),
         };
         (v, pending)
     }
@@ -3827,6 +3857,7 @@ mod tests {
             player: v.seat,
             taken: 0,
             next_is_free: false,
+            can_take: true,
         };
         for (name, profile) in PROFILES {
             if profile.mulligan_skill == 0 {
@@ -3857,6 +3888,7 @@ mod tests {
             player: v.seat,
             taken: 0,
             next_is_free: false,
+            can_take: true,
         };
         for (name, profile) in PROFILES {
             if profile.mulligan_skill == 0 {
@@ -3884,6 +3916,7 @@ mod tests {
             player: v.seat,
             taken: 0,
             next_is_free: false,
+            can_take: true,
         };
         for (name, profile) in PROFILES {
             if profile.mulligan_skill == 0 {
@@ -4074,6 +4107,7 @@ mod tests {
                     attackers: vec![obj(1)],
                 },
             ],
+            bounds: Vec::new(),
         };
         assert_eq!(
             HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
@@ -4083,10 +4117,11 @@ mod tests {
         );
     }
 
-    /// Crew (CR 702.122a) is answered by total power: the strongest
-    /// creatures first, until the number is reached, a creature with a
-    /// negative power never. A default profile answers it too, because the
-    /// seat is already paying the price.
+    /// Crew (CR 702.122a) is answered by the total power the question
+    /// states: the strongest creatures first, by the powers the question
+    /// counts, until the number is reached, a creature with a negative power
+    /// never. A default profile answers it too, because the seat is already
+    /// paying the price.
     #[test]
     fn crew_taps_the_strongest_until_the_total_is_reached() {
         let me = PlayerId::new(0);
@@ -4106,6 +4141,12 @@ mod tests {
             min: 1,
             max: 4,
             prompt: ChoicePrompt::CostCrew { power },
+            total: Some(baylee_engine::choice::CardTotal {
+                of: baylee_engine::choice::Measure::Power,
+                weights: vec![1, 3, 1, -1],
+                at_least: Some(i32::from(power)),
+                at_most: None,
+            }),
         };
         assert_eq!(
             agent().act(&v, &ask(3)),
@@ -4118,6 +4159,68 @@ mod tests {
             PlayerAction::ChooseObjects {
                 objects: vec![obj(2), obj(1), obj(3)]
             }
+        );
+    }
+
+    /// Every profile holds its blocks to the bounds the blockers question
+    /// states, not only to the menace it reads off the view: an attacker the
+    /// question bounds to two or more blockers (CR 702.111b) is blocked by
+    /// two or by none, whatever the view shows of its keywords. With two
+    /// creatures offered against a lethal attacker the default profile
+    /// blocks with both; with one offered, nobody blocks it.
+    #[test]
+    fn every_profile_holds_its_blocks_to_the_bounds_the_question_states() {
+        let me = PlayerId::new(0);
+        let v = {
+            let mut v = view(
+                0,
+                &[3, 20],
+                vec![
+                    permanent(obj(1), PlayerId::new(1), 4),
+                    permanent(obj(2), me, 2),
+                    permanent(obj(3), me, 2),
+                ],
+            );
+            v.combat.attackers.push(baylee_view::AttackerView {
+                creature: obj(1),
+                defending: Defender::Player(v.seat),
+                blocked: false,
+            });
+            v
+        };
+        let ask = |blockers: &[u32]| Pending::ChooseBlockers {
+            player: me,
+            attacker: PlayerId::new(1),
+            blockers: blockers
+                .iter()
+                .map(|&b| baylee_engine::choice::BlockOption {
+                    blocker: obj(b),
+                    attackers: vec![obj(1)],
+                })
+                .collect(),
+            bounds: vec![baylee_engine::choice::AttackerBound {
+                attacker: obj(1),
+                min_blockers: 2,
+                max_blockers: u32::MAX,
+            }],
+        };
+        for blockers in [&[2, 3][..], &[2]] {
+            let pending = ask(blockers);
+            for (profile_name, profile) in PROFILES {
+                let answer = HeuristicAgent::new(profile).act(&v, &pending);
+                assert_eq!(
+                    pending.answer_fault(&answer),
+                    None,
+                    "{profile_name} against {blockers:?}: {answer:?}"
+                );
+            }
+        }
+        assert_eq!(
+            agent().act(&v, &ask(&[2, 3])),
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(obj(2), obj(1)), (obj(3), obj(1))]
+            },
+            "three life against four power: both block"
         );
     }
 
@@ -4625,6 +4728,7 @@ mod tests {
                 blocker: obj(2),
                 attackers: vec![obj(1)],
             }],
+            bounds: Vec::new(),
         };
 
         assert_eq!(
@@ -4658,6 +4762,7 @@ mod tests {
                 blocker: obj(2),
                 attackers: vec![obj(1)],
             }],
+            bounds: Vec::new(),
         };
 
         assert_eq!(
@@ -5391,6 +5496,7 @@ mod tests {
             min: 0,
             max: 6,
             prompt,
+            total: None,
         };
 
         let PlayerAction::ChooseObjects { objects } = agent().act(&v, &pile(ChoicePrompt::Delve))
@@ -5451,6 +5557,7 @@ mod tests {
             min: 0,
             max: 1,
             prompt,
+            total: None,
         };
 
         let PlayerAction::ChooseObjects { objects } =

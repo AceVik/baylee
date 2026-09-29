@@ -1325,6 +1325,7 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             min,
             max,
             prompt,
+            ..
         } => {
             // One of these is answered the other way round. The untap
             // step's determination (CR 502.3) asks which permanents stay

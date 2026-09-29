@@ -34,8 +34,8 @@ use crate::i18n::{Lang, Phrase, seat_name};
 use baylee_core::ids::{CardIndex, Defender, ObjectId, PlayerId, SeatSet, SubtypeId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
-    ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt, LegalActions,
-    NumberPrompt, Pending, PlayerAction, TargetPrompt, YesNoPrompt,
+    AnswerFault, ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt,
+    LegalActions, NumberPrompt, Pending, PlayerAction, TargetPrompt, YesNoPrompt,
 };
 use baylee_engine::win::{EndReason, GameResult, Victor};
 use baylee_view::{GameStatic, HouseAnswer, LossCause, PlayerView, SeatView};
@@ -1928,10 +1928,11 @@ impl Interaction {
         self.choice_index
     }
 
-    /// Whether the current answer is complete enough to submit.
+    /// Whether the current answer is complete enough to submit, and inside
+    /// every bound the question states ([`Self::answer_fault`]).
     #[must_use]
     pub fn can_confirm(&self) -> bool {
-        match &self.mode {
+        let complete = match &self.mode {
             Mode::Objects { min, .. } => self.picks.len() >= *min,
             Mode::Arrange(arrangement) => arrangement.answer().is_some(),
             // Declaring nothing is always legal (no attacks, no blocks), a
@@ -1947,15 +1948,37 @@ impl Interaction {
             | Mode::Subtype { .. } => self.choice_index.is_some(),
             Mode::CardName { named } => named.is_some(),
             Mode::Mulligan | Mode::YesNo | Mode::Idle | Mode::GameOver => false,
-        }
+        };
+        complete && self.answer_fault().is_none()
     }
 
-    /// Builds the action for the current answer, if it is complete.
+    /// Why the answer picked so far is one the engine refuses, by a bound
+    /// the question states (`Pending::answer_fault`): creatures short of a
+    /// crew's total power, one creature blocking an attacker with menace.
+    /// `None` while the answer is incomplete or keeps every bound; the
+    /// table shows the reason beside a confirm it holds back.
+    #[must_use]
+    pub fn answer_fault(&self) -> Option<AnswerFault> {
+        self.answer()
+            .and_then(|answer| self.pending.answer_fault(&answer))
+    }
+
+    /// Builds the action for the current answer, if it is complete and
+    /// inside every bound the question states: the engine refuses any
+    /// other, so none is sent.
     #[must_use]
     pub fn confirm(&self) -> Option<PlayerAction> {
         if !self.is_mine() {
             return None;
         }
+        self.answer()
+            .filter(|answer| self.pending.answer_fault(answer).is_none())
+    }
+
+    /// The action the current picks make, once they are complete by their
+    /// own mode; [`Self::confirm`] less the checks on who is asked and on
+    /// the question's bounds.
+    fn answer(&self) -> Option<PlayerAction> {
         match &self.mode {
             Mode::Objects { min, .. } if self.picks.len() >= *min => {
                 let objects: Vec<ObjectId> = self.selected().collect();
@@ -2010,16 +2033,17 @@ impl Interaction {
         matches!(self.mode, Mode::YesNo).then_some(PlayerAction::YesNo(yes))
     }
 
-    /// Answers a mulligan decision.
+    /// Answers a mulligan decision; `None` for a further mulligan the
+    /// question says may not be taken (CR 103.5, `Pending::Mulligan::can_take`).
     #[must_use]
     pub fn answer_mulligan(&self, keep: bool) -> Option<PlayerAction> {
-        matches!(self.mode, Mode::Mulligan).then(|| {
-            if keep {
-                PlayerAction::MulliganKeep
-            } else {
-                PlayerAction::MulliganTake
-            }
-        })
+        let answer = if keep {
+            PlayerAction::MulliganKeep
+        } else {
+            PlayerAction::MulliganTake
+        };
+        (matches!(self.mode, Mode::Mulligan) && self.pending.answer_fault(&answer).is_none())
+            .then_some(answer)
     }
 
     /// The legal actions offered with priority, if this is a priority choice.

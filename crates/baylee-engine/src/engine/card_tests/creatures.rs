@@ -4481,6 +4481,7 @@ fn viscera_seer_eats_the_elf_then_herself_and_scries_for_each() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("paying asks which creature, got {:?}", engine.pending())
@@ -7975,6 +7976,7 @@ fn quirion_ranger_bounces_a_tapped_forest_and_only_once_a_turn() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which Forest: {:?}", engine.pending())
@@ -8138,6 +8140,7 @@ fn arcbound_ravager_eats_the_artifact_you_name_and_grows_itself() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -8487,6 +8490,7 @@ fn carrion_feeder_eats_a_creature_of_yours_for_a_counter_and_may_not_eat_theirs(
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which creature, got {:?}", engine.pending())
@@ -9871,6 +9875,7 @@ fn lotleth_troll_trades_a_creature_card_for_a_counter_and_regenerates() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which card, got {:?}", engine.pending())
@@ -10882,6 +10887,7 @@ fn ranger_captain_of_eos_searches_up_a_one_mana_creature_and_is_never_offered_it
         prompt,
         min,
         max,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
@@ -11446,6 +11452,7 @@ fn scryb_ranger_trades_a_forest_for_one_untap_and_then_its_limit_bites() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(
                     prompt,
@@ -11759,6 +11766,7 @@ fn urza_builds_a_construct_that_counts_your_artifacts_and_taps_one_for_blue() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -11924,6 +11932,7 @@ fn yawgmoth_pays_a_life_and_another_creature_for_a_minus_counter_and_a_card() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat pays");
                 assert_eq!(
@@ -14050,6 +14059,7 @@ fn flamekin_harbinger_searches_library_for_elemental_and_puts_on_top() {
         prompt,
         min,
         max,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected ChooseCards prompt, got {:?}", engine.pending());
@@ -15165,6 +15175,7 @@ fn lake_town_lookout_dies_draws_and_discards_without_token() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected ChooseCards prompt, got {:?}", engine.pending());
@@ -23865,6 +23876,7 @@ fn goblin_sledder_eats_a_goblin_to_pump_any_target() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -24915,6 +24927,7 @@ fn kris_mage_pays_a_red_a_tap_and_a_card_for_exactly_one_damage() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating player gives up the card");
                 assert_eq!(
@@ -25641,6 +25654,7 @@ fn mogg_raider_eats_a_goblin_to_pump_the_creature_it_targets() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat pays the cost");
                 assert_eq!(
@@ -26177,6 +26191,7 @@ fn orcish_lumberjack_sacrifices_a_forest_of_yours_for_three_mana_in_any_combinat
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which Forest, got {:?}", engine.pending())
@@ -26586,6 +26601,7 @@ fn plagued_rusalka_sacrifices_a_creature_and_a_black_to_shrink_a_one_one_to_deat
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat pays");
                 assert_eq!(
@@ -27597,6 +27613,7 @@ fn skirk_prospector_eats_a_goblin_you_control_for_one_red_mana() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -28060,6 +28077,7 @@ fn agent_of_shauku_sacrifices_a_land_to_pump_the_creature_it_names() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -29051,6 +29069,7 @@ fn auratog_eats_an_enchantment_you_control_and_grows_by_two() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -29535,6 +29554,7 @@ fn blighted_shaman_trades_a_swamp_for_one_and_a_creature_for_two() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the cost is the activator's to pay");
                 assert_eq!(
@@ -30429,6 +30449,7 @@ fn sylvan_safekeeper_trades_a_land_for_shroud_on_one_of_your_creatures() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat pays the cost");
                 assert_eq!(
@@ -30890,6 +30911,7 @@ fn tireless_tribe_discards_a_card_to_become_a_one_five() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -31464,6 +31486,7 @@ fn wirewood_symbiote_trades_an_elf_for_an_untap_and_refuses_a_second_one() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the seat paying the cost is the one asked");
                 assert_eq!(
@@ -35226,6 +35249,7 @@ fn oboro_breezecaller_returns_a_land_to_untap_the_land_it_names() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat pays its own cost");
                 assert_eq!(
@@ -35591,6 +35615,7 @@ fn patrol_hound_discards_a_card_to_gain_first_strike() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -35920,6 +35945,7 @@ fn plague_witch_discards_a_card_and_a_swamp_to_shrink_the_creature_it_names() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     {
         assert_eq!(player, p0, "the activating seat gives up its own card");
@@ -37205,6 +37231,7 @@ fn sage_of_lat_nam_eats_an_artifact_of_yours_to_draw_a_card() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which artifact, got {:?}", engine.pending())
@@ -37372,6 +37399,7 @@ fn sakura_tribe_elder_sacrifices_itself_for_a_basic_land_that_arrives_tapped() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
@@ -37845,6 +37873,7 @@ fn selesnya_evangel_taps_two_creatures_for_one_green_saproling() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -38099,6 +38128,7 @@ fn silverglade_pathfinder_discards_for_a_basic_land_that_arrives_tapped() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -38700,6 +38730,7 @@ fn slobad_sacrifices_an_artifact_to_make_another_indestructible() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which artifact, got {:?}", engine.pending())
@@ -39803,6 +39834,7 @@ fn tonic_peddler_discards_a_card_to_give_targeted_player_three_life() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(
                     prompt,
@@ -41019,6 +41051,7 @@ fn arms_dealer_eats_a_goblin_and_deals_four_damage_to_a_creature() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -42089,6 +42122,7 @@ fn wall_of_mulch_eats_a_wall_you_control_for_a_card() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -42347,6 +42381,7 @@ fn waterfront_bouncer_pitches_a_card_to_bounce_a_creature_to_its_owners_hand() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -43703,6 +43738,7 @@ fn army_ants_eats_a_land_of_its_own_to_destroy_a_land_across_the_table() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -44030,6 +44066,7 @@ fn balloon_peddler_pays_a_blue_a_tap_and_a_card_to_grant_flying() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -44421,6 +44458,7 @@ fn barrin_master_wizard_trades_a_permanent_for_an_opponents_creature() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(
                     prompt,
@@ -44928,6 +44966,7 @@ fn blaster_mage_discards_and_taps_to_kill_the_wall_it_names() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat gives up its own card");
                 assert_eq!(
@@ -45240,6 +45279,7 @@ fn bog_witch_taps_discards_and_adds_three_black_without_using_the_stack() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -45660,6 +45700,7 @@ fn cabal_archon_sacrifices_a_cleric_to_drain_two_life_and_gain_two() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "der aktivierende Platz zahlt seine Kosten");
                 assert_eq!(
@@ -46245,6 +46286,7 @@ fn devout_witness_discards_and_taps_to_destroy_the_artifact_it_names() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(
                     prompt,
@@ -46879,6 +46921,7 @@ fn dwarven_bloodboiler_taps_a_dwarf_you_control_to_pump_a_creature_it_names() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat pays its own cost");
                 assert_eq!(
@@ -47447,6 +47490,7 @@ fn fault_riders_eats_a_land_for_two_power_and_first_strike_once_a_turn() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -47937,6 +47981,7 @@ fn fledgling_imp_discards_a_card_for_its_own_flying_and_no_one_elses() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -48013,6 +48058,7 @@ fn fleshgrafter() -> CardIndex {
 /// Grafter *and* off a bare Elf standing next to it, because `Filter::This`
 /// names one creature and not the seat's board.
 #[test]
+#[allow(clippy::too_many_lines)]
 fn fleshgrafter_discards_an_artifact_card_for_two_power_and_leaves_the_board_alone() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
@@ -48040,6 +48086,7 @@ fn fleshgrafter_discards_an_artifact_card_for_two_power_and_leaves_the_board_alo
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -48401,6 +48448,7 @@ fn foratog_eats_a_forest_of_your_own_for_two_and_two() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which Forest, got {:?}", engine.pending())
@@ -49950,6 +49998,7 @@ fn hidden_horror_trades_a_creature_card_for_itself_and_dies_without_one() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(
                     prompt,
@@ -51290,6 +51339,7 @@ fn krark_clan_grunt_eats_its_own_artifacts_to_pump_itself_one_at_a_time() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which artifact, got {:?}", engine.pending())
@@ -51486,6 +51536,7 @@ fn krark_clan_stoker_taps_and_eats_an_artifact_for_two_red() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -53724,6 +53775,7 @@ fn nantuko_husk_eats_a_creature_you_control_to_grow_itself() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which creature, got {:?}", engine.pending())
@@ -54316,6 +54368,7 @@ fn orcish_mechanics_eats_an_artifact_of_yours_for_two_damage_to_any_target() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat answers its own cost");
                 assert_eq!(
@@ -54457,6 +54510,7 @@ fn overeager_apprentice_discards_a_card_and_eats_itself_for_three_black() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -54623,6 +54677,7 @@ fn pegasus_charger_flies_over_the_ground_and_strikes_first() {
         player,
         attacker,
         blockers,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -54767,6 +54822,7 @@ fn phyrexian_broodlings_eats_a_creature_of_yours_for_a_counter_on_itself() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -55534,6 +55590,7 @@ fn quagmire_druid_trades_a_creature_and_a_forest_for_an_enchantment_across_the_t
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which creature, got {:?}", engine.pending())
@@ -57209,6 +57266,7 @@ fn seton_krosan_protector_taps_a_druid_you_control_for_one_green() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -58300,6 +58358,7 @@ fn soratami_rainshaper_returns_a_tapped_land_to_give_a_creature_shroud() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which land, got {:?}", engine.pending())
@@ -59088,6 +59147,7 @@ fn stronghold_machinist_discards_a_card_to_counter_a_noncreature_spell() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -62140,6 +62200,7 @@ fn anaba_bodyguard_kills_its_blocker_before_the_blocker_can_strike_back() {
         player,
         attacker,
         blockers,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
@@ -63216,6 +63277,7 @@ fn aven_trooper_discards_a_card_to_grow_itself() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -64124,6 +64186,7 @@ fn clickslither_eats_a_goblin_of_yours_for_two_two_and_trample() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which Goblin, got {:?}", engine.pending())
@@ -68750,6 +68813,7 @@ fn azami_taps_wizards_of_her_own_side_for_cards_until_none_are_left_untapped() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -70187,6 +70251,7 @@ fn trenching_steed_eats_a_land_of_yours_for_three_toughness_until_the_turn_ends(
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which land, got {:?}", engine.pending())
@@ -71856,6 +71921,7 @@ fn lithophage_eats_a_mountain_at_its_upkeep_or_eats_itself_when_there_is_none() 
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the seat that pays the price names it");
                 assert_eq!(
@@ -72128,6 +72194,7 @@ fn megatog_eats_an_artifact_of_its_own_side_for_three_and_trample() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which artifact, got {:?}", engine.pending())
@@ -72410,6 +72477,7 @@ fn phyrexian_plaguelord_sells_a_creature_for_minus_one_and_itself_for_minus_four
                 min,
                 max,
                 prompt,
+                ..
             } if menu.is_none() => {
                 assert_eq!(player, p0, "the activating seat pays its own cost");
                 assert_eq!(
@@ -73146,6 +73214,7 @@ fn skirge_familiar_discards_a_card_for_black_mana_and_keeps_itself_untapped() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -77888,6 +77957,7 @@ fn thing_from_the_deep_drowns_itself_without_an_island_and_buys_the_attack_with_
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 asked = true;
                 assert_eq!(
@@ -78667,6 +78737,7 @@ fn goblin_clearcutter_sacrifices_a_forest_for_three_mana_in_any_combination_of_r
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected CostSacrifice prompt, got {:?}", engine.pending());
@@ -80068,6 +80139,7 @@ fn coastal_hornclaw_trades_a_land_of_its_own_for_flying_until_the_turn_ends() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -81150,6 +81222,7 @@ fn meloku_the_clouded_mirror_returns_a_land_for_a_blue_illusion_token() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -82713,6 +82786,7 @@ fn siege_gang_commander_makes_three_goblins_and_feeds_one_back_to_its_own_gun() 
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat answers its own cost");
                 assert_eq!(
@@ -84016,6 +84090,7 @@ fn endless_wurm_sacrifices_enchantment_during_upkeep_to_survive() {
         prompt,
         min,
         max,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -85313,6 +85388,7 @@ fn fallen_angel_sacrifices_a_creature_of_its_own_side_to_grow_until_the_turn_end
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which creature, got {:?}", engine.pending())
@@ -86486,6 +86562,7 @@ fn krosan_archer_trades_a_card_and_a_green_for_two_toughness() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -87519,6 +87596,7 @@ fn soratami_mindsweeper_returns_its_own_land_to_mill_the_player_it_names() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat pays its own cost");
                 assert_eq!(
@@ -90498,6 +90576,7 @@ fn spellseeker_searches_out_a_cheap_instant_and_declines_the_rest() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the tutor asks for a card, got {:?}", engine.pending());
@@ -91369,6 +91448,7 @@ fn void_walk(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: ObjectId
         min,
         max,
         prompt,
+        ..
     } = pass_to_card_choice(engine)
     else {
         unreachable!("the helper returns only a card choice")
@@ -91522,6 +91602,7 @@ fn reef_question(engine: &mut Engine<RegistryLookup>, seat: PlayerId, put: bool)
         min,
         max,
         prompt,
+        ..
     } = pass_to_card_choice(engine)
     else {
         unreachable!("the helper returns only a card choice")
@@ -95228,6 +95309,7 @@ fn atraxa_question(engine: &Engine<RegistryLookup>) -> Option<(TypeSet, Vec<Obje
             min: 0,
             max: 1,
             prompt: ChoicePrompt::OneOfType { card_type },
+            ..
         } if player == PlayerId::new(0) => Some((card_type, options)),
         _ => None,
     }
@@ -96127,6 +96209,7 @@ fn resolve_uro(engine: &mut Engine<RegistryLookup>, land: Option<ObjectId>) {
             min: 0,
             max: 1,
             prompt: ChoicePrompt::Generic,
+            ..
         } = engine.pending().clone()
         {
             let objects = land.filter(|l| options.contains(l)).into_iter().collect();

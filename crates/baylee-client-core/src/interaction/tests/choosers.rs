@@ -216,6 +216,7 @@ fn mulligan_and_yes_no_answers_are_mode_gated() {
         player: me(),
         taken: 1,
         next_is_free: false,
+        can_take: true,
     });
     assert_eq!(mull.answer_mulligan(true), Some(PlayerAction::MulliganKeep));
     assert_eq!(

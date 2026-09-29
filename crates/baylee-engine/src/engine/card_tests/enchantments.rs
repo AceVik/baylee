@@ -376,6 +376,7 @@ fn survival_of_the_fittest_asks_which_creature_card_to_discard() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -1529,6 +1530,7 @@ fn earthcraft_taps_a_summoning_sick_creature_to_untap_a_land() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -10220,6 +10222,7 @@ fn arenson_s_aura_sacrifices_an_enchantment_to_destroy_one_and_counters_an_encha
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(
                     prompt,
@@ -10625,6 +10628,7 @@ fn aura_fracture_trades_a_land_for_the_enchantment_it_names() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which land, got {:?}", engine.pending())
@@ -11434,6 +11438,7 @@ fn deadapult_eats_a_zombie_for_two_damage_to_any_target() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which Zombie, got {:?}", engine.pending())
@@ -12311,6 +12316,7 @@ fn goblin_bombardment_sacrifices_a_creature_to_deal_one_damage_to_any_target() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -12520,6 +12526,7 @@ fn goblin_trenches_eats_a_land_of_your_own_for_two_goblin_soldiers() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -13025,6 +13032,7 @@ fn peace_of_mind_discards_a_card_for_white_and_three_life() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -13535,6 +13543,7 @@ fn shivan_harvest_sacrifices_a_creature_to_destroy_a_nonbasic_land() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -13727,6 +13736,7 @@ fn sustenance_trades_a_land_for_one_more_power_on_the_creature_it_targets() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which land, got {:?}", engine.pending())
@@ -13985,6 +13995,7 @@ fn trade_routes_bounces_a_land_then_trades_one_for_a_card() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -14216,6 +14227,7 @@ fn mental_discipline_spends_mana_and_a_card_to_draw_a_card() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the discard is a cost, got {:?}", engine.pending())
@@ -14446,6 +14458,7 @@ fn overgrown_estate_eats_a_land_of_your_own_for_three_life() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which land, got {:?}", engine.pending())
@@ -15041,6 +15054,7 @@ fn narcissism_pumps_for_a_discarded_card_and_then_for_the_enchantment_itself() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -15447,6 +15461,7 @@ fn opposition_taps_an_untapped_creature_of_yours_to_tap_the_permanent_it_names()
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat answers its own cost");
                 assert_eq!(
@@ -15907,6 +15922,7 @@ fn seismic_assault_discards_a_land_to_deal_two_damage() {
         min: cost_min,
         max: cost_max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected discard cost prompt, got {:?}", engine.pending())
@@ -16069,6 +16085,7 @@ fn dispersing_orb_sacrifices_a_permanent_it_controls_to_return_any_permanent_to_
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat pays its own cost");
                 assert_eq!(
@@ -17493,6 +17510,7 @@ fn pegasus_refuge_discards_a_card_for_a_flying_pegasus() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -17891,6 +17909,7 @@ fn sacred_mesa_trades_one_pegasus_for_one_of_its_two_copies_at_the_upkeep() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the cost is paid by the Mesa's controller");
                 assert_eq!(
@@ -18084,6 +18103,7 @@ fn teferis_care_sacrifices_an_enchantment_to_destroy_one_and_counters_an_enchant
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
