@@ -685,6 +685,22 @@ pub enum Effect {
         /// How many to keep.
         pick: u8,
     },
+    /// Reveal the top card of your library and put it where the filter
+    /// sends it: `matched` if it is a `filter` card, `otherwise` if not
+    /// (Coiling Oracle: "If it's a land card, put it onto the battlefield.
+    /// Otherwise, put that card into your hand.").
+    ///
+    /// No choice anywhere in it, so no player is asked: the card is shown
+    /// to every player (CR 701.20a) and then goes where the text says. An
+    /// empty library reveals nothing and does nothing.
+    RevealTopAndSort {
+        /// What the revealed card is asked about.
+        filter: &'static Filter,
+        /// Where it goes if it matches.
+        matched: SearchDest,
+        /// Where it goes if it does not.
+        otherwise: SearchDest,
+    },
     /// Put cards from your hand on top of your library, in the order they
     /// were chosen (Brainstorm-style).
     PutFromHandOnTop {
@@ -2095,6 +2111,7 @@ impl Effect {
             | Effect::Exile { .. }
             | Effect::Blink { .. }
             | Effect::LookAtTopPick { .. }
+            | Effect::RevealTopAndSort { .. }
             | Effect::PutFromHandOnTop { .. }
             | Effect::LoseLife { .. }
             | Effect::DrawCards { .. }

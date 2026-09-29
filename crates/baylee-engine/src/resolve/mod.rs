@@ -953,6 +953,26 @@ pub fn resume_targets(
     run(state, res)
 }
 
+/// Puts a card a player found in their library where the text sends it:
+/// their hand, the top of their library, or the battlefield.
+///
+/// One door for the search (after its shuffle) and for a revealed top card
+/// (Coiling Oracle), so a card put onto the battlefield from the library
+/// becomes a permanent the same way whichever sentence put it there.
+fn put_found(state: &mut GameState, player: PlayerId, card: ObjectId, dest: SearchDest) {
+    let to = match dest {
+        SearchDest::Hand => ZoneLocation::Hand(player),
+        SearchDest::TopOfLibrary => ZoneLocation::Library(player),
+        SearchDest::Battlefield => {
+            if let Some(obj) = state.object_mut(card) {
+                obj.kind = ObjectKind::Permanent;
+            }
+            ZoneLocation::Battlefield
+        }
+    };
+    let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
+}
+
 /// Resumes a suspended resolution with the chosen cards.
 ///
 /// # Panics
@@ -987,39 +1007,10 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             // finding only one card then puts that one onto the battlefield —
             // the same order the printed text reads in.
             for (&card, find) in chosen.iter().zip(finds) {
-                let (dest, tapped) = (find.dest, find.tapped);
-                match dest {
-                    SearchDest::Hand => {
-                        let _ = state.move_object(
-                            card,
-                            ZoneLocation::Hand(res.controller),
-                            ZonePosition::Top,
-                            Cause::Effect,
-                        );
-                    }
-                    SearchDest::TopOfLibrary => {
-                        let _ = state.move_object(
-                            card,
-                            ZoneLocation::Library(res.controller),
-                            ZonePosition::Top,
-                            Cause::Effect,
-                        );
-                    }
-                    SearchDest::Battlefield => {
-                        if let Some(obj) = state.object_mut(card) {
-                            obj.kind = ObjectKind::Permanent;
-                        }
-                        if tapped {
-                            state.set_tapped(card, true);
-                        }
-                        let _ = state.move_object(
-                            card,
-                            ZoneLocation::Battlefield,
-                            ZonePosition::Top,
-                            Cause::Effect,
-                        );
-                    }
+                if find.tapped && find.dest == SearchDest::Battlefield {
+                    state.set_tapped(card, true);
                 }
+                put_found(state, res.controller, card, find.dest);
             }
         }
         AwaitingOp::PutBackOnTop => {
@@ -2059,6 +2050,29 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 when: crate::state::DelayedWhen::NextUpkeep,
                 action: crate::state::DelayedAction::PayCostOrLose { cost },
             });
+            None
+        }
+        Effect::RevealTopAndSort {
+            filter,
+            matched,
+            otherwise,
+        } => {
+            let top = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .last()
+                .copied()?;
+            // Shown from the library to every player, before it goes
+            // anywhere (CR 701.20a), and asked about as the card it is
+            // there.
+            state.journal.record(GameEvent::Revealed {
+                player: you,
+                cards: vec![top],
+            });
+            let fits = state
+                .object(top)
+                .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
+            put_found(state, you, top, if fits { matched } else { otherwise });
             None
         }
         Effect::LookAtTopPick { count, pick } => {

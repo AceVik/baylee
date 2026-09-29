@@ -89108,3 +89108,231 @@ fn kiki_jiki_sacrifices_nothing_else_when_the_copy_is_already_gone() {
         "spent, not kept for a later turn"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Coiling Oracle.
+// ---------------------------------------------------------------------------
+
+fn coiling_oracle() -> CardIndex {
+    card_index("69fd4ddf-9ed8-4c56-bef3-9944daf05e4f")
+}
+
+/// Casts Coiling Oracle off a Forest and an Island and lets it resolve with
+/// its enter trigger; answers the top card it revealed.
+fn coil(filler: CardIndex) -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, filler)
+        .battlefield(0, &[forest(), island()])
+        .hand(0, &[coiling_oracle()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let top = *engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p0))
+        .last()
+        .expect("a library under the Oracle");
+    cast_from_hand(&mut engine, p0, coiling_oracle());
+    pass_until(&mut engine, stack_is_empty);
+    (engine, top)
+}
+
+fn revealed(engine: &Engine<RegistryLookup>, card: ObjectId) -> bool {
+    engine.journal().entries().iter().any(|e| {
+        matches!(&e.event, crate::event::GameEvent::Revealed { player, cards }
+            if *player == PlayerId::new(0) && *cards == vec![card])
+    })
+}
+
+/// "If it's a land card, put it onto the battlefield." The top card is a
+/// Forest: shown to everyone, then on the battlefield, untapped.
+#[test]
+fn coiling_oracle_puts_a_revealed_land_onto_the_battlefield() {
+    let p0 = PlayerId::new(0);
+    let (engine, top) = coil(forest());
+    assert!(revealed(&engine, top), "revealed before it moved");
+    let land = engine.state().object(top).expect("the revealed Forest");
+    assert_eq!(land.zone, crate::zone::Zone::Battlefield);
+    assert!(
+        !land.status.contains(crate::object::Status::TAPPED),
+        "put onto the battlefield, not tapped"
+    );
+    let lands = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.controller == p0 && o.card.is_some_and(|c| c.index == forest()))
+        })
+        .count();
+    assert_eq!(lands, 2, "the Forest it paid with and the one it revealed");
+    let hand = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+    assert_eq!(hand, 0, "nothing went to the hand");
+}
+
+/// "Otherwise, put that card into your hand." A creature on top goes to the
+/// hand, not the battlefield.
+#[test]
+fn coiling_oracle_puts_a_revealed_nonland_into_the_hand() {
+    let p0 = PlayerId::new(0);
+    let (engine, top) = coil(steadfast_guard());
+    assert!(revealed(&engine, top));
+    assert!(on_battlefield(&engine, p0, steadfast_guard()).is_none());
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .iter()
+            .any(|id| engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == steadfast_guard()))),
+        "the Guard is in the hand"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: three cards that were already written, played.
+// ---------------------------------------------------------------------------
+
+fn acidic_slime() -> CardIndex {
+    card_index("21f45043-5419-4019-8b6c-e5294bd5f549")
+}
+
+fn fulminator_mage() -> CardIndex {
+    card_index("bd4c46a3-b723-4b35-9061-9a1dee7cc9d8")
+}
+
+fn karmic_guide_card() -> CardIndex {
+    card_index("8c31fec9-e4b3-4761-990e-7be38eb05604")
+}
+
+/// "When this creature enters, destroy target artifact, enchantment, or
+/// land." The menu is every land on the table and nothing else here — not
+/// the opponent's creature — and the named land is destroyed. Deathtouch
+/// is printed.
+#[test]
+fn acidic_slime_destroys_the_land_it_points_at() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest(), forest()])
+        .battlefield(1, &[rogue_s_passage(), steadfast_guard()])
+        .hand(0, &[acidic_slime()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, acidic_slime());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let passage = on_battlefield(&engine, p1, rogue_s_passage()).unwrap();
+    let guard = on_battlefield(&engine, p1, steadfast_guard()).unwrap();
+    let menu = aim_at(&mut engine, p0, passage);
+    assert_eq!(menu.len(), 6, "five Forests and the Passage");
+    assert!(!menu.contains(&guard), "a creature is none of the three");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p1, rogue_s_passage()).is_none());
+    assert!(in_graveyard(&engine, p1, rogue_s_passage()).is_some());
+    let slime = on_battlefield(&engine, p0, acidic_slime()).unwrap();
+    assert!(keywords(&engine, slime).contains(KeywordSet::DEATHTOUCH));
+}
+
+/// "Sacrifice this creature: Destroy target nonbasic land." A basic is not
+/// on the menu; the nonbasic is destroyed and the Mage is in its owner's
+/// graveyard as the cost.
+#[test]
+fn fulminator_mage_sacrifices_itself_to_destroy_a_nonbasic_land() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[fulminator_mage()])
+        .battlefield(1, &[rogue_s_passage(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let passage = on_battlefield(&engine, p1, rogue_s_passage()).unwrap();
+    activate(&mut engine, p0, fulminator_mage(), 0);
+    let menu = aim_at(&mut engine, p0, passage);
+    assert_eq!(menu, vec![passage], "the basic Forest is no target");
+    assert!(
+        in_graveyard(&engine, p0, fulminator_mage()).is_some(),
+        "sacrificed as the cost"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p1, rogue_s_passage()).is_some());
+    assert!(on_battlefield(&engine, p1, forest()).is_some());
+}
+
+/// Karmic Guide returns a creature card from its controller's graveyard as
+/// it enters; it flies; and at its controller's next upkeep its echo comes
+/// due, and with nothing to pay it with it is sacrificed while the creature
+/// it brought back stays.
+#[test]
+fn karmic_guide_reanimates_and_its_echo_takes_it_when_unpaid() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                steadfast_guard(),
+            ],
+        )
+        .hand(0, &[karmic_guide_card()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let guard = on_battlefield(&engine, p0, steadfast_guard()).unwrap();
+    bury(&mut engine, &[guard]);
+    assert!(in_graveyard(&engine, p0, steadfast_guard()).is_some());
+    cast_from_hand(&mut engine, p0, karmic_guide_card());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let dead = in_graveyard(&engine, p0, steadfast_guard()).unwrap();
+    aim_at(&mut engine, p0, dead);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, steadfast_guard()).is_some(),
+        "back"
+    );
+    let guide = on_battlefield(&engine, p0, karmic_guide_card()).unwrap();
+    assert!(keywords(&engine, guide).contains(KeywordSet::FLYING));
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    assert!(
+        on_battlefield(&engine, p0, karmic_guide_card()).is_some(),
+        "echo waits for our upkeep"
+    );
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && !matches!(
+                e.state().turn.step,
+                crate::turn::Step::Untap | crate::turn::Step::Upkeep
+            )
+    });
+    assert!(
+        in_graveyard(&engine, p0, karmic_guide_card()).is_some(),
+        "echo unpaid: sacrificed"
+    );
+    assert!(
+        on_battlefield(&engine, p0, steadfast_guard()).is_some(),
+        "what it returned stays"
+    );
+}
