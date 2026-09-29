@@ -54,6 +54,7 @@ static BOUNCE_SELF: &[AbilityDef] = &[AbilityDef::Activated {
     mana_ability: false,
     zone: ActivationZone::Battlefield,
     limit: ActivationLimit::Unlimited,
+    cost_reduction: None,
 }];
 
 fn lookup() -> SyntheticLookup {
@@ -253,6 +254,11 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
     const READ: &[&str] = &[
         "spec: EventObject",
         "GraveyardToBattlefield { target: EventObject",
+        "PutOnBottomOfLibraryFromGraveyard { target: EventObject",
+        // Pyrogoyf's "that creature deals damage equal to its power": the
+        // variant names the event object itself and `resolve::life` reads
+        // `res.event_object`; its `target` is the damage's recipient.
+        "EventObjectDealsDamageEqualToPower",
     ];
 
     let mut unread = Vec::new();
@@ -316,6 +322,7 @@ static GAIN_THE_TRIGGER: &[AbilityDef] = &[AbilityDef::Activated {
     mana_ability: false,
     zone: ActivationZone::Battlefield,
     limit: ActivationLimit::Unlimited,
+    cost_reduction: None,
 }];
 
 /// The rule for a granted trigger: its "this" is the object that has it.

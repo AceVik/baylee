@@ -24,7 +24,10 @@ apply matching `ContinuousEffect`s by layer (1 copy, 2 control, 3 text,
 dependency topological order within a layer. Cache validity = one
 `u64` generation compare. Durations: `WhileSourceOnBattlefield`
 (deregistered structurally on the source's zone change), `UntilEndOfTurn`,
-`Indefinitely`, conditions. Subtypes are a 1024-bit bitmap (changeling =
+`Indefinitely`, conditions. An emblem's static abilities function in the
+command zone (CR 114.4): `sync_static_effects` registers them once, as
+`Indefinitely` effects (`progress::emblem_statics`), and nothing removes
+them, because an emblem never leaves. Subtypes are a 1024-bit bitmap (changeling =
 one mask OR, not a scan), and the ids in it are **append-only** since #43:
 `ALL_CREATURE_TYPES` is the mask a changeling gets and it is a generated
 list rather than a range, because a new creature type no longer sits next to
@@ -67,10 +70,18 @@ while it runs, that object's cached characteristics are still the previous
 projection — and a modifier that counts permanents (`ModifyPTPerCount`) used
 to read its own source off that cache. Ashaya, Soul of the Wild makes your
 nontoken creatures into lands at layer 4 and is then as big as the lands you
-control at 7c, so it has to count itself: it came down one short. The object
+control at 7a, so it has to count itself: it came down one short. The object
 under projection is now matched against the in-progress characteristics
-(`eval::matches_projected`), which is what CR 613.1 says; every other object
-is read from its own finished projection. The other way is the generation
+(`eval::matches_projected`), which is what CR 613.1 says. Every other object
+is read from its cache, which is this refresh's only once the walk has
+reached it: an Elf later in the list was still the last refresh's Elf, so a
+freshly cast one left Ashaya one short until something else invalidated it.
+A count therefore marks its projection (`Projection::read_board`), and the
+refresh projects the counting objects again after the walk, repeating while
+one moved (a counter can count another), bounded by their number. That is
+CR 613.1 again, not a dependency: CR 613.8a asks for two effects in the same
+layer or sublayer, and a count in layer 7 and the type change it reads in
+layer 4 are not. The other way is the generation
 compare itself: it watches the effect **table**, so an input the filters read
 that is *not* an effect leaves every projection stale. Naming a creature type
 is one — Steely Resolve's static is registered as the enchantment enters and
@@ -78,6 +89,22 @@ the type is chosen one question later — so `ChooseSubtype` calls
 `GameState::invalidate_projections`, as anything writing a counter already
 does. `card_tests::rules::a_cached_projection_is_what_a_fresh_one_would_compute`
 is the guard for both: a recompute may not disagree with the cache.
+
+**A characteristic-defining ability works in every zone** (CR 604.3), and
+a static is registered only while its source is on the battlefield, so a
+card whose power and toughness are `*` was its printed 0 in a library, a
+hand or a graveyard. Recruiter of the Guard offered a 3/3 Ashaya as a
+creature with toughness 2 or less. `GameState::printed_pt_cda` holds, per
+card object, the `Modifier::CharacteristicPT` its front face prints on
+itself (CR 712.8a: off the battlefield a card has only its front face),
+read once in `create_card`. `layers::recompute_with` applies it in layer 7a
+wherever the card is *not* on the battlefield; there the registered static
+does, so an effect that removes abilities still removes it. Those cards
+join the ids of every refresh, and any move of one invalidates the
+projection, since the move cleared its cache (a drawn Ashaya read 0/0 until
+something else moved). Only a printed `Filter::This` P/T with no condition
+qualifies; `Modifier::SetPTToCount` is granted, and CR 604.3a counts only
+printed, token-made, copied or text-changed characteristic-defining abilities.
 
 Layer 2 is not cached separately: the refresh writes the projected
 controller straight into `GameObject::controller`, so every rule that asks
@@ -173,6 +200,38 @@ Proposed events are rewritten by applicable replacement effects (each at
 most once per event, CR 614.5), applied, journaled; matching triggers are
 collected and stacked APNAP (per-player ordering via ChoiceRequest).
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
+
+### A delayed trigger that watches an object (CR 603.7)
+Earthbend (CR 701.66a) leaves "when that land dies or is put into exile,
+return it to the battlefield tapped under your control" behind. It is a
+`DelayedTrigger` like the step-timed ones, with `DelayedWhen::DiesOrIsExiled
+{ card, version, after }` and `DelayedAction::Trigger { source, effects }`,
+but it is never polled at a step: `trigger::watch_triggers` reads it off the
+journal with the other triggers, and fires it on the first time that object
+leaves the battlefield after sequence `after` (CR 603.7a, 603.7b), if that
+was to a graveyard or into exile. It goes on the stack as a synthetic trigger
+whose event object is the card and whose source and controller are the
+earthbending ability's (CR 603.7e). `queue_new_triggers` then removes every
+watch whose object is no longer on the battlefield at `version`, fired or
+not: a land bounced to hand is a new object (CR 400.7). The animation binds
+the object by version, so the land that returns is a plain land. The return
+checks only that the card is in a graveyard or in exile (CR 603.7c); a card
+moved from the graveyard into exile in response would come back from exile,
+because a synthetic trigger carries no version.
+
+### A triggered mana ability resolves as it triggers (CR 605.4a)
+"Whenever you tap a creature for mana, add an additional {G}" is a mana
+ability (CR 605.1b: no target, triggers from a mana ability, could add mana;
+`AbilityDef::is_triggered_mana_ability`). `Trigger::TappedForMana` matches a
+`ManaProduced` whose nearest earlier journal entry about the same object is
+its `ObjectTapped` under `Cause::Cost` — the pair every {T} mana ability
+writes (CR 106.12, 106.12a) — so the second colour of one activation and a
+tap to attack both miss. `collect_triggers` resolves every queued triggered
+mana ability first, through `resolve::run` with `mana_ability: true`, before
+any ordinary trigger is asked about: the mana is in the pool when the player
+who tapped next has priority, and nothing went on the stack. One that asked
+a question would suspend like a colour-choice mana ability; none in the pool
+does.
 
 ### An upkeep payment is asked after the upkeep's priority (CR 503.1a)
 Echo and a pact's "at the beginning of your next upkeep, pay …; if you
@@ -482,6 +541,19 @@ Three more things the rule needs, each of which was wrong first:
   nothing, so nothing else would stop it pulling a card out of *exile* if
   somebody exiled it in response.
 
+The fifth store is what the permanent **was**. `GameState::ltb_characteristics`
+holds its projected characteristics as it left the battlefield, written and
+cleared where `ltb_abilities` is, and the three leaves-the-battlefield
+triggers (`Trigger::LeavesBattlefield`, `ExiledFromBattlefield`, `Dies`, one
+match arm) ask their filter of it (`trigger::departed_matches`, CR 603.10a).
+Before it, they asked the card in the graveyard: a Forest that Living Lands
+had made a creature died as a land and "whenever a creature dies" never saw
+it, and an Enduring Vitality that had come back as a non-creature
+enchantment died as an enchantment creature card and came back again. Nothing else reads it; every
+other question about a card off the battlefield is about the card as it is
+now. The undying scan above still reads the printed keyword bits and could
+read this store instead.
+
 ### "When you do": a trigger the resolution creates (CR 603.12)
 
 A reflexive triggered ability is not in any card's ability list. The
@@ -654,6 +726,126 @@ Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing
 override) + `PendingCast` (with expiry) + `DelayedTrigger` + `ExileRider`.
 Keywords exist on stack objects (rebound can be granted).
+Casting a permanent card from a graveyard under a player's permission
+(Muldrotha, Wrenn and Realmbreaker's emblem) has one reader,
+`casting::graveyard_cast_permission`, which the offer, `can_cast_form`, the
+cast wizard and the view's graveyard price all ask. Muldrotha's plays are
+written down per source and version in `PerTurn::graveyard_plays`; the
+emblem's are not, and it is asked first, so a cast under it leaves
+Muldrotha's allowance whole.
+
+**A back face is cast at its own timing** (CR 601.3e). Only the face that
+will be up on the stack is evaluated to see whether a modal double-faced
+card can be cast (CR 712.11c), and only the alternative characteristics for
+an Adventure (CR 715.3a). So `casting::can_cast_form` reads the front's
+timing off its projected characteristics and each castable back face's off
+that face (`casting::face_timing_allows`); the card is offered when either
+may be cast now, affordable and with something to point at. The wizard's
+`cast_options` keeps the same split: an option that casts the front needs
+the front's timing, a `Face(i)` its own, and the list is renumbered after.
+Vantress Visions is an instant on the back of an enchantment; read with the
+front's timing it could only be cast on an empty stack, which for a spell
+that targets an ability on the stack is never.
+
+**A lock by name is a narrowing of the offer** (Pithing Needle, CR 602.5).
+`Engine::compute_legal` builds `LegalActions` from every door an activation
+comes through, printed, loyalty, granted and a card's in hand, and `apply`
+refuses an activation the offer does not hold; so the lock is one pass over
+the finished `legal.abilities` (`narrow_under_chosen_names`), beside split
+second's, and not a guard in each door. The names are read from the
+`Modifier::ChosenNameCantActivate` effects in force, each through its
+source's `chosen_name`, and compared as interned names (`Names::find`): a
+name no object of the game has carried was never interned and locks nothing,
+and a source's projected name is what is compared, so a copy answers to the
+name it copies. A mana ability, a special action
+(`choice::is_special_action`: `TURN_FACE_UP` and the two unlock slots) and
+`PREPARED_CAST` stay.
+Nothing projected reads the name, so choosing one invalidates no projection;
+the name is cleared as its permanent leaves the battlefield (CR 400.7).
+
+**A Room's doors are designations on the permanent** (CR 709.5c,
+`GameObject::doors`, one byte: a Room bit and the two unlocked halves). They
+are given where enter modifiers are (`apply_enter_modifiers`), like "enters
+transformed", so the trigger scan later in the same pass sees them: cast as
+a half, that door is unlocked and `GameEvent::DoorUnlocked` is journalled
+(CR 709.5d, 709.5h); not cast (a setup placement, a reanimation), neither
+is. The unlock itself is a special action (CR 116.2m, 709.5e) under two
+reserved indices below `TURN_FACE_UP` (`choice::unlock_door`,
+`choice::door_to_unlock`), offered only at sorcery timing and only once the
+half's mana cost floats, as turning a permanent face up is; it uses no
+stack and journals the same event (`engine/room.rs`). What a door state
+means is `GameState::set_doors`: one half is that half's face (a
+`switch_face`), both is the left face with both mana costs and keywords,
+neither is the left face with no name, cost, colour or keyword; the rules
+text is `CardDef::door_abilities`, read by `GameObject::printed_abilities`,
+and `printed_face` is `None` while no door is open. `set_doors` drops the
+Room's static effects and replacement rules so the next
+`sync_static_effects` registers what the new doors print: that scan only
+adds while a permanent stays on the battlefield, and a Room placed uncast
+had been scanned as its left half first. The printed front is stashed in
+`original_base`, which the move off the battlefield restores, and the doors
+are cleared there (CR 400.7). Off the battlefield the card is its left face,
+as every multi-face card is here; the combined characteristics of CR 709.4
+are not modelled. With both doors open the list's printed face is the left
+one, so an ability of the right half has no stack-text line in that state
+(Forgotten Cellar's trigger after an unlock from the Closet shows its card,
+not its sentence).
+
+**A copy of an ability is a clone of it** (CR 707.10,
+`resolve::copy_target_ability`). Every decision made for the original rides
+on its object, so the copy is that object cloned under a new id, newly
+timestamped, controlled by the player who copied it, with the same
+`AbilityLoc` and so the same source (CR 707.10b). An ability pushed from its
+definition carries no `target_req`; the copy is given one
+(`object::ability_target_req`, the arm list `stack_target_req` also reads)
+so `retarget::start_copy` can ask about new targets against it (CR 707.10c).
+It journals no `AbilityTriggered`, and `record_new_targets` journals what it
+ends up targeting, with nothing counted as already targeted. A synthetic
+ability's effects live in `Engine::synthetic_fx`, out of the resolver's
+reach, so the resolver names `(original, copy)` in
+`GameState::synthetic_copies` and `finish_resolution` hands the copy the
+original's effects; the original is below the copy on the stack, so its
+entry is still there. That list is hashed, because the question about new
+targets is out before the resolution that made the copy ends.
+
+**Replicate is a count on the spell and a trigger with that many copies**
+(CR 702.56a, Lose Focus). The cast wizard's `Replicate` stage, after
+`Kicker` and before `Targets`, asks `Pending::ChooseNumber` with
+`NumberPrompt::Replicate { cost }`, and the answer is told from an X by the
+stage it arrives in. The bound (`replicate_bound`) is the largest count the
+floating pool pays beside the rest of the cast, through the same
+`can_pay_mana` and `spend_for` the payment in `finish_cast` uses, with the
+generic mana delve, convoke or a paid waterbend could still take off counted
+as paid: an upper bound, so the question never offers less than could be
+paid, and a count the payment cannot cover unwinds the cast (CR 601.2h), as
+an X too large does. No payment covered skips the question. The count is
+added to the total (CR 601.2f), is paid even by a free cast (CR 118.9d,
+`pays_mana`), and is written on the spell as `GameObject::replicated`, which
+is hashed. `trigger::replicate_triggers` reads it off `SpellCast`: one
+synthetic trigger whose effects are the first `n` entries of the static
+`REPLICATE_COPIES`, so the count is fixed as the spell is cast. Each
+`Effect::CopyThisSpell` builds the copy with `resolve::copy_spell`, the one
+spell-copy constructor `CopyTargetSpell` also uses (mode, X, face, kicker,
+object and player targets, CR 707.10), from the spell's last known
+information once it has left the stack (CR 608.2h), and asks about new
+targets with `retarget::start_copy` (CR 707.10c). A copy carries the
+count, as it carries every decision made for the spell (CR 707.10), and
+copies nothing further: a copy is not cast, so no `SpellCast` names it.
+
+**A back face's mana value is its front face's** (CR 202.3b). A nonmodal
+double-faced card's back face has no mana cost, and up on the battlefield
+(CR 712.8e) or cast transformed (CR 712.8c) its mana value is computed
+from the front face's: Ravager of the Fells is a four, not a zero, and a
+disturbed Benevolent Geist a two. A disturb face keeps its disturb cost in
+`mana_cost`, since that is what it is cast for, so the cost is not the
+answer either. `Characteristics::from_face` writes the front face's mana
+value into `front_mana_value` on a back face no one may cast from hand
+(the flag `xtask validate` holds against Scryfall's layout), and every
+reader asks `Characteristics::mana_value()`, never `mana_cost.cmc()`. A
+copy of such a face has mana value 0: `layers::copiable_values`, the one
+door every copy takes its values through, writes the 0. Nothing counts
+devotion yet; whatever does must not count a disturb face's `mana_cost`,
+because the back face has no mana cost.
 
 ## Loop detection
 A real endless loop is a *repeat*, not a long run. Every mandatory loop in
@@ -723,6 +915,14 @@ the open mulligans: who is still deciding, and where each seat's stream
 stands. `house_rules_tests` pins all three, and pins the opening deal of a
 table that only keeps against the engine that asked in seat order.
 
+`Engine::snapshot_hash` is not a complete comparison: it leaves out the
+journal, the open question and its bookkeeping (`pending`, `pending_plan`, the
+cast wizard, `priority_holder`, `awaiting_answer`, `resolve_next`,
+`regrant_priority`, the activation checklist's scratch fields), the loop watch
+and its latches, `delayed_queue` and most of `trigger_queue`, so two engines
+that hash equal can still answer the next question differently; the complete
+comparison is `Engine::fingerprint` (feature `fuzz`), which names every field.
+
 ## Control rotation at a multiplayer table
 
 `Effect::ControlRotation` asks the controller which adjacent living seat to
@@ -748,7 +948,16 @@ that original calculation restored.
    they were making for somebody else when they left goes back to that
    player, with the same cards and limits, to finish as their own search
    (CR 722.5).
-3. `sba::exile_what_the_departed_control` removes what they still control:
+3. What a permanent of theirs held "until it leaves the battlefield" comes
+   back (CR 610.3, `GameState::return_what_departed_hosts_held`): their
+   permanents left without a move, so this is the one departure
+   `move_object` does not see. If they were the monarch, the crown passes
+   as they leave (CR 724.4, `GameState::monarch_leaves`): to the active
+   player, or, when the leaver is the active player, to the next player in
+   turn order still in the game, and to nobody when nobody is left. It
+   passes through `set_monarch`, so Palace Jailer's exile ends if the heir
+   is an opponent of the player who exiled.
+4. `sba::exile_what_the_departed_control` removes what they still control:
    an ability or a copy of a spell on the stack ceases to exist, and
    everything else is exiled through `move_object` with
    `Cause::PlayerLeft`. That leaves what they control by default: a creature

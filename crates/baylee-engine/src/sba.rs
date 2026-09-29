@@ -411,6 +411,10 @@ fn run_attachment_sbas(state: &mut GameState, lookup: &impl crate::state::CardLo
                     && restriction.is_none_or(|filter| {
                         crate::eval::matches(filter, state, h, controller, id)
                     })
+                    // CR 702.16c/d: and not one whose protection this
+                    // attachment has the quality of. An Aura falls off, an
+                    // Equipment stays on the battlefield unattached.
+                    && !crate::eval::protected_from(state, host, id)
             })
         });
         if host_ok {
@@ -596,7 +600,10 @@ pub fn lose_by_effect(state: &mut GameState, player: PlayerId) -> bool {
 ///    controls it without them. So does every effect giving them control of
 ///    a player: the one the engine has is Opposition Agent's search takeover
 ///    (CR 722.2), and `every_card_that_controls_a_player_does_it_by_taking_over_a_search`
-///    fails the day a card controls a player some other way.
+///    fails the day a card controls a player some other way. What a
+///    permanent of theirs held "until it leaves the battlefield" comes back,
+///    and if they were the monarch, the designation passes on as they leave
+///    (CR 724.4, `GameState::monarch_leaves`).
 /// 2. [`exile_what_the_departed_control`]: an ability or a copy of a spell
 ///    they control ceases to exist, and what else they still control is
 ///    exiled. That is what they control by default: a creature they
@@ -638,14 +645,20 @@ pub fn eliminate_player(
             baylee_cards_dsl::Modifier::GainControl | baylee_cards_dsl::Modifier::SearchTakeover
         ) && fx.controller == player
     });
+    // A permanent of theirs that held a card "until it leaves the
+    // battlefield" has just left it without passing through `move_object`,
+    // and the card comes back to its owner (CR 610.3).
+    state.return_what_departed_hosts_held();
+    state.monarch_leaves(player);
     let exiled = exile_what_the_departed_control(state);
-    let attackers: Vec<_> = state
+    let mut gone: Vec<_> = state
         .combat
-        .attackers
+        .attackers()
         .iter()
-        .filter(|a| state.object(a.creature).is_some())
-        .copied()
+        .filter(|a| state.object(a.creature).is_none())
+        .map(|a| a.creature)
         .collect();
+    gone.sort_unstable();
     let blockers: Vec<_> = state
         .combat
         .blockers
@@ -653,7 +666,9 @@ pub fn eliminate_player(
         .filter(|b| state.object(b.blocker).is_some() && state.object(b.attacker).is_some())
         .copied()
         .collect();
-    state.combat.attackers = attackers;
+    state
+        .combat
+        .retain_attackers(|a| gone.binary_search(&a.creature).is_err());
     state.combat.blockers = blockers;
     // A delayed trigger they control can never be put on the stack again
     // (CR 800.4d), and one waiting for a turn of theirs would otherwise sit
@@ -1361,6 +1376,52 @@ mod tests {
         assert!(state.players[1].has_lost());
         assert_eq!(state.players[0].loss, None);
         assert!(!state.players[0].has_lost());
+    }
+
+    /// `seats` empty boards.
+    fn empty_table(seed: u64, seats: usize) -> GameState {
+        let mut preset = empty_boards_preset(seed);
+        let seat = preset.seats[0].clone();
+        preset.seats.resize(seats, seat);
+        GameState::from_preset(&preset, &RegistryLookup).expect("game starts")
+    }
+
+    /// The monarch leaves the game, and the crown passes at the same time
+    /// (CR 724.4). During another player's turn it goes to the active player,
+    /// not to the next seat after the leaver; during the monarch's own turn,
+    /// to the next player in turn order still in the game; and with nobody
+    /// left who can take it, to nobody. A player who is not the monarch
+    /// leaving moves nothing.
+    ///
+    /// The crown stayed with the player who had left.
+    #[test]
+    fn the_crown_passes_as_the_monarch_leaves_the_game() {
+        let seat = PlayerId::new;
+        let mut state = empty_table(43, 4);
+
+        state.monarch = Some(seat(1));
+        state.turn.active = seat(3);
+        eliminate_player(&mut state, seat(1), LossReason::Conceded);
+        assert_eq!(
+            state.monarch,
+            Some(seat(3)),
+            "the active player, not seat 2"
+        );
+
+        state.monarch = Some(seat(0));
+        state.turn.active = seat(0);
+        eliminate_player(&mut state, seat(0), LossReason::Conceded);
+        assert_eq!(
+            state.monarch,
+            Some(seat(2)),
+            "the next in turn order still in the game: seat 1 has left"
+        );
+
+        eliminate_player(&mut state, seat(3), LossReason::Conceded);
+        assert_eq!(state.monarch, Some(seat(2)), "seat 3 was not the monarch");
+
+        eliminate_player(&mut state, seat(2), LossReason::Conceded);
+        assert_eq!(state.monarch, None, "nobody is left to take it");
     }
 
     /// A player loses the game once. A seat already out that is eliminated

@@ -48,6 +48,7 @@ static BASIN_ABILITIES: &[AbilityDef] = &[
         mana_ability: true,
         zone: ActivationZone::Battlefield,
         limit: ActivationLimit::Unlimited,
+        cost_reduction: None,
     },
 ];
 
@@ -73,6 +74,7 @@ static FROZEN_ABILITIES: &[AbilityDef] = &[
         mana_ability: true,
         zone: ActivationZone::Battlefield,
         limit: ActivationLimit::Unlimited,
+        cost_reduction: None,
     },
 ];
 
@@ -267,6 +269,7 @@ static SLOW_ABILITIES: &[AbilityDef] = &[AbilityDef::Activated {
     mana_ability: true,
     zone: ActivationZone::Battlefield,
     limit: ActivationLimit::Unlimited,
+    cost_reduction: None,
 }];
 
 /// The same lookup with the slow land in it.

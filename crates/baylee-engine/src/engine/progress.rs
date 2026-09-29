@@ -12,7 +12,7 @@ use crate::event::PolicyAnswer;
 use crate::state::Side;
 use crate::turn::DayNight;
 use crate::win::Victor;
-use baylee_cards_dsl::{Filter, PlayerRel, SpellMode, TargetReq, TargetSpec};
+use baylee_cards_dsl::{Effect, Filter, PlayerRel, SpellMode, TargetReq, TargetSpec};
 use baylee_core::ids::{AbilityRef, SeatSet};
 use baylee_core::preset::LoopPolicy;
 
@@ -248,10 +248,19 @@ impl<L: CardLookup> Engine<L> {
             self.settle_copied_rules_text();
             // 0a. Continuous effects: sync statics with the battlefield and
             //    refresh characteristic caches (generation compare).
+            // `sync_static_effects` refreshes the projection it reads, so
+            // whether the effect set moved is asked before it as well.
+            let stale = self.state.characteristics_generation != self.state.effects.generation;
             self.sync_static_effects();
-            let moved = self.state.characteristics_generation != self.state.effects.generation;
+            let moved =
+                stale || self.state.characteristics_generation != self.state.effects.generation;
             self.state.refresh_characteristics();
             if self.state.award_enduring_stories() {
+                continue;
+            }
+            // CR 702.131d: continuous effects are reapplied after a player
+            // gets the city's blessing, before anything else is asked.
+            if self.state.award_citys_blessings() {
                 continue;
             }
             // What a player who has left still controls is exiled as the
@@ -445,6 +454,11 @@ impl<L: CardLookup> Engine<L> {
             if def.faces[obj.face_index as usize].miracle.is_none() {
                 continue;
             }
+            // A miracle whose spell could not choose its targets could only
+            // be declined, so it is not offered (CR 601.2c, 601.2).
+            if !self.miracle_targets_available(player, card) {
+                continue;
+            }
             let source = obj
                 .card
                 .map(|c| AbilityRef::new(c.index, AbilityRef::MIRACLE));
@@ -517,14 +531,14 @@ impl<L: CardLookup> Engine<L> {
                 let defending = self
                     .state
                     .combat
-                    .attackers
+                    .attackers()
                     .first()
                     .and_then(|a| combat::defending_player(&self.state, a.defending))
                     .unwrap_or_else(|| self.next_alive_after(active));
                 let attacking: Vec<ObjectId> = self
                     .state
                     .combat
-                    .attackers
+                    .attackers()
                     .iter()
                     .map(|a| a.creature)
                     .collect();
@@ -535,15 +549,19 @@ impl<L: CardLookup> Engine<L> {
                 // would name a block `declare_blockers` has to refuse (#156).
                 // Asked once per attacker rather than once per pair, because
                 // the answer is the same for every blocker.
+                //
+                // Both walks go over the defender's ready creatures, not the
+                // battlefield: the pairs they skip are ones `can_block`
+                // refuses on the blocker's half alone, and walking the
+                // battlefield per attacker made this step cost permanents ×
+                // attackers (`combat::ready_blockers`).
+                let candidates = combat::ready_blockers(&self.state, defending);
                 let blockable: Vec<ObjectId> = attacking
                     .iter()
                     .copied()
-                    .filter(|a| combat::menace_satisfiable(&self.state, defending, *a))
+                    .filter(|a| combat::menace_satisfiable(&self.state, defending, *a, &candidates))
                     .collect();
-                let blockers: Vec<crate::choice::BlockOption> = self
-                    .state
-                    .zones
-                    .list(crate::zone::ZoneLocation::Battlefield)
+                let blockers: Vec<crate::choice::BlockOption> = candidates
                     .iter()
                     .copied()
                     .filter_map(|blocker| {
@@ -769,6 +787,29 @@ impl<L: CardLookup> Engine<L> {
                 self.state.transform(id, def, 1);
                 changed = true;
             }
+            // A Room is given the unlocked designation of the half it was
+            // cast as as it enters, and neither when it was not cast
+            // (CR 709.5d). Here, like "enters transformed", so what the
+            // trigger scan later in this pass finds is the half that entered.
+            // The unlock is journalled because CR 709.5h triggers on the
+            // designation however it was given.
+            if let Some((def, half)) = self
+                .state
+                .object(id)
+                .filter(|o| o.zone == Zone::Battlefield && !o.doors.is_room())
+                .and_then(|o| Some((self.lookup.card(o.card?.index)?, o.face_index)))
+                .filter(|(def, _)| def.has_shared_type_line())
+            {
+                let cast = from_zone == Zone::Stack && half < 2;
+                self.state
+                    .set_doors(id, def, if cast { 1 << half } else { 0 });
+                if cast {
+                    self.state
+                        .journal
+                        .record(GameEvent::DoorUnlocked { object: id, half });
+                }
+                changed = true;
+            }
             // Echo (CR 702.30): register the pay-or-sacrifice choice at
             // the controller's next upkeep.
             if let Some(cost) = self.state.object(id).and_then(|o| {
@@ -822,32 +863,7 @@ impl<L: CardLookup> Engine<L> {
             }
             // Planeswalkers enter with their printed loyalty counters
             // (CR 306.5b).
-            if let Some(loyalty) = self
-                .state
-                .object(id)
-                .and_then(|o| o.card)
-                .and_then(|c| self.lookup.card(c.index))
-                .and_then(|def| {
-                    let face = &def.faces[0];
-                    if face
-                        .types
-                        .contains(baylee_core::types::TypeSet::PLANESWALKER)
-                    {
-                        face.loyalty
-                    } else {
-                        None
-                    }
-                })
-            {
-                // Starting loyalty is counters put on the permanent as it
-                // enters, so the counter-placement replacements apply
-                // (CR 614.16): Doubling Season doubles it.
-                crate::replacement::put_counters(
-                    &mut self.state,
-                    id,
-                    baylee_cards_dsl::CounterKind::Loyalty,
-                    loyalty,
-                );
+            if self.put_starting_loyalty(id) {
                 changed = true;
             }
             // Clone-on-enter, for every door that is not a permanent spell.
@@ -981,6 +997,7 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                     EnterModifier::ChooseSubtype
+                    | EnterModifier::ChooseCardName
                     | EnterModifier::ChooseColor
                     | EnterModifier::ChooseColorExcept(_)
                     | EnterModifier::TappedOrPayLife(_)
@@ -997,6 +1014,12 @@ impl<L: CardLookup> Engine<L> {
                         player: controller,
                         options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
                     };
+                    self.awaiting_answer = true;
+                    return true; // one choice at a time
+                }
+                Some(EnterModifier::ChooseCardName) => {
+                    self.pending_plan = Some(PlanKind::ChooseCardName { object: id });
+                    self.pending = Pending::ChooseCardName { player: controller };
                     self.awaiting_answer = true;
                     return true; // one choice at a time
                 }
@@ -1280,6 +1303,42 @@ impl<L: CardLookup> Engine<L> {
         self.offer_copy_on_enter(id, options, controller, false)
     }
 
+    /// CR 306.5b: a planeswalker enters with as many loyalty counters as its
+    /// printed loyalty. Returns whether it put any.
+    ///
+    /// "Printed" is read off the entering permanent's copiable values and not
+    /// off its card. CR 614.12 decides which replacement effects apply to a
+    /// permanent entering from the permanent as it would exist on the
+    /// battlefield, counting replacement effects that already modified how it
+    /// enters, and a copy is one (CR 614.1c "enters as"). Loyalty is a
+    /// copiable value (CR 707.2), counters are not. So a Spark Double that
+    /// enters as a copy of Karn, the Great Creator is a planeswalker with
+    /// Karn's printed 5, whatever Karn has now, and takes 5 here beside the
+    /// one its own text adds. Read off the card, it was a 0/0 creature with no
+    /// loyalty and entered with that one alone.
+    ///
+    /// Starting loyalty is counters put on the permanent as it enters, so the
+    /// counter-placement replacements apply (CR 614.16): Doubling Season
+    /// doubles it.
+    pub(crate) fn put_starting_loyalty(&mut self, id: ObjectId) -> bool {
+        let Some(loyalty) = crate::layers::copiable_values(&self.state, id).and_then(|values| {
+            values
+                .types
+                .contains(baylee_core::types::TypeSet::PLANESWALKER)
+                .then_some(values.loyalty)
+                .flatten()
+        }) else {
+            return false;
+        };
+        crate::replacement::put_counters(
+            &mut self.state,
+            id,
+            baylee_cards_dsl::CounterKind::Loyalty,
+            loyalty,
+        );
+        true
+    }
+
     /// Applies the clone-on-enter choice: the permanent's copiable base is
     /// replaced by the target's base, with the card's modifications. For
     /// `CopyOnEnterUntilEot` (Cursed Mirror), that half is a layer-1
@@ -1323,6 +1382,8 @@ impl<L: CardLookup> Engine<L> {
     /// [`CopyMod::KeepOtherAbilities`]: baylee_cards_dsl::CopyMod::KeepOtherAbilities
     #[allow(clippy::too_many_lines)]
     pub(crate) fn apply_copy_choice(&mut self, id: ObjectId, target: ObjectId) {
+        #[cfg(test)]
+        crate::ability_log::copied_on_entry(&self.state, &self.lookup, id);
         // The copier's own printed list is read *here* and not where it is
         // used, because both branches below overwrite `own_abilities` with
         // the copied one — after which `abilities` answers with the
@@ -1336,7 +1397,7 @@ impl<L: CardLookup> Engine<L> {
             let Some(obj) = self.state.object(id) else {
                 return;
             };
-            let own = obj.abilities(&self.lookup);
+            let own = obj.printed_abilities(&self.lookup);
             let (mods, until_eot) = own
                 .iter()
                 .find_map(|a| match a {
@@ -1350,6 +1411,20 @@ impl<L: CardLookup> Engine<L> {
         let keeps_its_own = mods
             .iter()
             .any(|m| matches!(m, baylee_cards_dsl::CopyMod::KeepOtherAbilities));
+        // What the permanent became, for a counter that asks ("…if it's a
+        // creature"): the copied values (CR 707.2) with this copy's own type
+        // changes (CR 707.9b). Read here, before either branch, because the
+        // two carry those changes in different places — the base, or effects
+        // of their own that end with the turn — and the answer is the same.
+        let became = mods.iter().fold(
+            crate::layers::copiable_values(&self.state, target)
+                .map_or(baylee_core::types::TypeSet::EMPTY, |values| values.types),
+            |types, m| match m {
+                baylee_cards_dsl::CopyMod::AddType(t) => types.union(*t),
+                baylee_cards_dsl::CopyMod::RemoveType(t) => types.difference(*t),
+                _ => types,
+            },
+        );
         if until_eot {
             // Temporary copy: layer-1 effect + mods as their own effects.
             let controller = self
@@ -1384,7 +1459,7 @@ impl<L: CardLookup> Engine<L> {
             let copied = self
                 .state
                 .object(target)
-                .map(|o| o.ability_list(&self.lookup));
+                .map(|o| o.printed_ability_list(&self.lookup));
             if let Some(copied) = copied
                 && let Some(obj) = self.state.object_mut(id)
             {
@@ -1419,6 +1494,14 @@ impl<L: CardLookup> Engine<L> {
                     // its modifier derives (CR 613.1f for a grant), ending
                     // with the turn like the rest of this copy.
                     baylee_cards_dsl::CopyMod::Grant(modifier) => (modifier.layer(), *modifier),
+                    baylee_cards_dsl::CopyMod::SetPT(p, t) => (
+                        baylee_cards_dsl::Layer::PtSet,
+                        baylee_cards_dsl::Modifier::SetPT(p, t),
+                    ),
+                    baylee_cards_dsl::CopyMod::SetColor(c) => (
+                        baylee_cards_dsl::Layer::Color,
+                        baylee_cards_dsl::Modifier::SetColor(c),
+                    ),
                     baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
                         // "…except it enters with an additional counter on
                         // it" is a replacement effect (CR 614.1c), and a
@@ -1433,14 +1516,32 @@ impl<L: CardLookup> Engine<L> {
                         crate::replacement::put_counters(&mut self.state, id, kind, n);
                         continue;
                     }
+                    baylee_cards_dsl::CopyMod::AddCounterIf(types, kind, n) => {
+                        if became.intersects(types) {
+                            crate::replacement::put_counters(&mut self.state, id, kind, n);
+                        }
+                        continue;
+                    }
+                    baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
+                        let x = self.state.object(id).map_or(0, |o| o.x_value);
+                        let n = u16::try_from(x).unwrap_or(u16::MAX);
+                        if n > 0 {
+                            crate::replacement::put_counters(&mut self.state, id, kind, n);
+                        }
+                        continue;
+                    }
                     // Two different reasons for one empty arm. There is no
                     // `Modifier` that takes a supertype away; and keeping
                     // the copier's own abilities is not a modification of
                     // what was copied at all but an addition beside it
                     // (CR 707.9a), already paid above and before this loop,
                     // while the copier's own list is still reachable.
+                    // And no `Modifier` sets a mana cost: "with no mana
+                    // cost" is printed on token copies (embalm, eternalize)
+                    // and on no copy that lasts until end of turn.
                     baylee_cards_dsl::CopyMod::RemoveSupertype(_)
-                    | baylee_cards_dsl::CopyMod::KeepOtherAbilities => continue,
+                    | baylee_cards_dsl::CopyMod::KeepOtherAbilities
+                    | baylee_cards_dsl::CopyMod::NoManaCost => continue,
                 };
                 let ts = self.state.next_timestamp();
                 self.state
@@ -1474,7 +1575,7 @@ impl<L: CardLookup> Engine<L> {
         let Some(target_abilities) = self
             .state
             .object(target)
-            .map(|o| o.ability_list(&self.lookup))
+            .map(|o| o.printed_ability_list(&self.lookup))
         else {
             return;
         };
@@ -1517,14 +1618,37 @@ impl<L: CardLookup> Engine<L> {
                     let b = obj.base_mut();
                     b.keywords = b.keywords.union(k);
                 }
+                baylee_cards_dsl::CopyMod::SetPT(p, t) => {
+                    let b = obj.base_mut();
+                    b.power = Some(p);
+                    b.toughness = Some(t);
+                }
+                baylee_cards_dsl::CopyMod::SetColor(c) => {
+                    obj.base_mut().colors = c;
+                }
+                baylee_cards_dsl::CopyMod::NoManaCost => {
+                    obj.base_mut().mana_cost = baylee_core::mana::ManaCost::ZERO;
+                }
                 baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
                     // The same door as the temporary branch above, for the
-                    // same reason (CR 614.1c, CR 614.16). This is the arm
-                    // a card in the pool actually reaches: Spark Double
-                    // enters with one +1/+1 counter and one loyalty
-                    // counter, and under a Doubling Season it enters with
-                    // two of whichever it can hold.
+                    // same reason (CR 614.1c, CR 614.16).
                     crate::replacement::put_counters(&mut self.state, id, kind, n);
+                }
+                // The arm a card in the pool reaches: Spark Double enters
+                // with a +1/+1 counter if it became a creature and a loyalty
+                // counter if it became a planeswalker, and under a Doubling
+                // Season with two of each it takes.
+                baylee_cards_dsl::CopyMod::AddCounterIf(types, kind, n) => {
+                    if became.intersects(types) {
+                        crate::replacement::put_counters(&mut self.state, id, kind, n);
+                    }
+                }
+                // CR 107.3m: the X announced for the spell that became it.
+                baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
+                    let n = u16::try_from(obj.x_value).unwrap_or(u16::MAX);
+                    if n > 0 {
+                        crate::replacement::put_counters(&mut self.state, id, kind, n);
+                    }
                 }
                 // Paid before this loop, for the reason the temporary
                 // branch's twin gives.
@@ -1635,6 +1759,7 @@ impl<L: CardLookup> Engine<L> {
             matches!(fx.duration, Duration::WhileSourceOnBattlefield)
                 && fx.source.is_some_and(|s| gone.contains(&s))
         });
+        end_control_durations(&mut self.state);
         forget_effects_on_moved_objects(&mut self.state);
         // Collect statics of permanents not yet registered (then apply,
         // so the borrow of `state` ends before mutation).
@@ -1694,6 +1819,19 @@ impl<L: CardLookup> Engine<L> {
         // registered on the pass that finds it true and removed on the pass
         // that finds it false. Both move the effect generation, which is the
         // projection's cache key, so no filter has to read the source.
+        //
+        // A permanent that has lost all its abilities (CR 613.1f) keeps only
+        // what its statics do in layers 1, 2, 4 and 5: those effects began
+        // before layer 6 took the abilities away and go on applying (CR
+        // 613.6). The rest — layer 6 on, and every rules effect parked in
+        // layer 3 — is gone with the ability, so it lapses like a static
+        // whose condition failed. (CR 613.6 also carries one ability's
+        // effect on into its later layers; the DSL writes each layer's part
+        // as a static of its own, so a printed ability that spans layer 4
+        // and layer 7 is not told apart here and loses its layer-7 part.)
+        // That reads the projection, so it is made current first: the effect
+        // that took the abilities may have been registered a moment ago.
+        self.state.refresh_characteristics();
         let ids: Vec<ObjectId> = self.state.zones.list(ZoneLocation::Battlefield).clone();
         let mut to_register = Vec::new();
         let mut lapsed = Vec::new();
@@ -1701,13 +1839,17 @@ impl<L: CardLookup> Engine<L> {
             let Some(obj) = self.state.object(id) else {
                 continue;
             };
-            for ability in obj.abilities(&self.lookup) {
+            let lost = obj.characteristics().abilities_lost.is_some();
+            for ability in obj.printed_abilities(&self.lookup) {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
                 };
                 let registered = self.state.effects.has_source_ability(id, sa.modifier);
-                if let Some(condition) = sa.condition
-                    && !crate::eval::condition_holds(&self.state, obj.controller, id, condition)
+                let gone_with_the_ability = lost && !outlives_its_ability(sa.layer);
+                if gone_with_the_ability
+                    || sa.condition.is_some_and(|condition| {
+                        !crate::eval::condition_holds(&self.state, obj.controller, id, condition)
+                    })
                 {
                     if registered {
                         lapsed.push((id, sa.modifier));
@@ -1733,20 +1875,27 @@ impl<L: CardLookup> Engine<L> {
         for (source, modifier) in lapsed {
             self.state.effects.remove_static(source, modifier);
         }
+        to_register.extend(emblem_statics(&self.state));
         for fx in to_register {
             self.state.effects.register(fx);
         }
-        // Sync replacement rules (drop rules of departed sources, register
-        // new ones).
+        self.sync_replacement_rules();
+        #[cfg(test)]
+        crate::ability_log::note_sources(&self.state, &self.lookup);
+    }
+
+    /// Drops the replacement rules of sources that left the battlefield or
+    /// lost their abilities (CR 613.1f) and registers the new ones.
+    fn sync_replacement_rules(&mut self) {
         let gone_rules: Vec<ObjectId> = self
             .state
             .replacement_rules
             .iter()
             .map(|r| r.source)
             .filter(|s| {
-                self.state
-                    .object(*s)
-                    .is_none_or(|o| o.zone != Zone::Battlefield)
+                self.state.object(*s).is_none_or(|o| {
+                    o.zone != Zone::Battlefield || o.characteristics().abilities_lost.is_some()
+                })
             })
             .collect();
         self.state
@@ -1909,7 +2058,7 @@ impl<L: CardLookup> Engine<L> {
     /// target requirement, and two of the three doors to the stack — at four
     /// different moments, and the object underneath is free to change between
     /// them, so all four ask here.
-    fn trigger_abilities(
+    pub(super) fn trigger_abilities(
         &self,
         t: &crate::trigger::PendingTrigger,
     ) -> &'static [baylee_cards_dsl::AbilityDef] {
@@ -1917,7 +2066,7 @@ impl<L: CardLookup> Engine<L> {
             || {
                 self.state
                     .object(t.source)
-                    .map_or(&[][..], |o| o.abilities(&self.lookup))
+                    .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
             },
             |list| list.abilities,
         )
@@ -1949,6 +2098,14 @@ impl<L: CardLookup> Engine<L> {
         });
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
+            object.event_amount = trigger
+                .event_damage
+                .and_then(|(_, n)| core::num::NonZeroU16::new(n));
+            if let Some((player, _)) = trigger.event_damage {
+                object
+                    .riders
+                    .push(crate::object::Rider::EventPlayer(player));
+            }
             object.target_req = bound;
         }
     }
@@ -1995,6 +2152,82 @@ impl<L: CardLookup> Engine<L> {
         objects + players >= req.min as usize
     }
 
+    /// Resolves every queued triggered mana ability at once, off the stack
+    /// (CR 605.4a): Badgermole Cub's "whenever you tap a creature for mana,
+    /// add an additional {G}" puts its {G} in the pool before the player who
+    /// tapped acts again, and before any ordinary trigger of the same batch
+    /// is asked about. Returns `true` when one suspended on a choice.
+    ///
+    /// Which triggers are mana abilities is `AbilityDef::is_triggered_mana_ability`'s
+    /// answer (CR 605.1b); every other trigger stays in the queue, in its order.
+    fn resolve_triggered_mana_abilities(&mut self) -> bool {
+        let mut i = 0;
+        while i < self.trigger_queue.len() {
+            let t = &self.trigger_queue[i];
+            let effects = if t.ability_index == baylee_core::ids::AbilityRef::SYNTHETIC {
+                None
+            } else {
+                match self.trigger_abilities(t).get(t.ability_index as usize) {
+                    Some(ability @ AbilityDef::Triggered { effects, .. })
+                        if ability.is_triggered_mana_ability() =>
+                    {
+                        Some(*effects)
+                    }
+                    _ => None,
+                }
+            };
+            let Some(effects) = effects else {
+                i += 1;
+                continue;
+            };
+            let Some(t) = self.trigger_queue.remove(i) else {
+                break;
+            };
+            // CR 800.4d, as for every trigger.
+            if self.state.has_left(t.controller) {
+                continue;
+            }
+            let mut res = crate::resolve::Resolution {
+                retarget_left: None,
+                source: t.source,
+                on_stack: t.source,
+                controller: t.controller,
+                effects: crate::resolve::flatten(effects),
+                pc: 0,
+                targets: SmallVec::new(),
+                second_targets: SmallVec::new(),
+                x: None,
+                chosen_player: None,
+                target_players: baylee_core::ids::SeatSet::new(),
+                event_object: t.event_object,
+                targeted: false,
+                awaiting: None,
+                mana_ability: true,
+                countered_source: None,
+                target_lki: None,
+            };
+            let flow = crate::resolve::run(&mut self.state, &mut res);
+            #[cfg(test)]
+            crate::ability_log::triggered_mana(
+                &self.state,
+                &self.lookup,
+                t.source,
+                t.ability_index,
+                matches!(flow, crate::resolve::Flow::Complete),
+            );
+            match flow {
+                crate::resolve::Flow::Complete => {}
+                crate::resolve::Flow::Wait(pending) => {
+                    self.resolution = Some(res);
+                    self.pending = pending;
+                    self.awaiting_answer = true;
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// Remember event-time abilities before a state-based action removes them.
     fn queue_new_triggers(&mut self) {
         if self.breaking_loop {
@@ -2032,6 +2265,22 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state.ceased.clear();
         self.state.ltb_mana_values.clear();
+        // A watch whose object has left the battlefield is spent, whether
+        // the scan just fired it or the object left some other way: the
+        // object it watched no longer exists (CR 400.7, 603.7b). Here and
+        // not in the scan, which reads the state and writes nothing.
+        let delayed = std::mem::take(&mut self.state.delayed);
+        self.state.delayed = delayed
+            .into_iter()
+            .filter(|d| match d.when {
+                crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. } => {
+                    self.state.object(card).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield && o.version == version
+                    })
+                }
+                _ => true,
+            })
+            .collect();
         self.trigger_queue.extend(found);
         let active = self.state.turn.active.get();
         let seats = self.state.players.len() as u8;
@@ -2054,6 +2303,9 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         self.queue_new_triggers();
+        if self.resolve_triggered_mana_abilities() {
+            return;
+        }
         while let Some(t) = self.trigger_queue.front().cloned() {
             // A triggered ability controlled by a player who has left the
             // game isn't put on the stack (CR 800.4d). Every queued trigger
@@ -2160,6 +2412,9 @@ impl<L: CardLookup> Engine<L> {
                             obj.event_object = Some(event_object);
                         }
                     }
+                    if self.ask_trigger_second_target() {
+                        return;
+                    }
                     continue;
                 }
                 let options = eval::target_options(
@@ -2205,11 +2460,35 @@ impl<L: CardLookup> Engine<L> {
                 // number of target creatures you control" (`max` 255) walks
                 // past the `max == 0` test and is stopped by the empty
                 // option list beside it.
-                if offered > 0 {
+                if let baylee_cards_dsl::TargetSpec::ObjectOfEachOpponent(_) = req.spec {
+                    let opponents = self.opponents_in_turn_order(t.controller);
+                    let first = super::PerOpponent {
+                        spec: req.spec,
+                        gathered: SmallVec::new(),
+                        remaining: opponents,
+                    };
+                    let (source, ability_index, mode) = (t.source, t.ability_index, t.chosen_mode);
+                    if self
+                        .ask_next_opponent(t.controller, t.source, first, |asking| {
+                            PlanKind::Trigger {
+                                source,
+                                ability_index,
+                                mode,
+                                per_opponent: Some(asking),
+                            }
+                        })
+                        .is_none()
+                    {
+                        return;
+                    }
+                    // Nobody has anything to point at: it stacks targeting
+                    // nothing, like any "up to one" with nothing legal.
+                } else if offered > 0 {
                     self.pending_plan = Some(PlanKind::Trigger {
                         source: t.source,
                         ability_index: t.ability_index,
                         mode: t.chosen_mode,
+                        per_opponent: None,
                     });
                     let max = req.max.min(offered as u8);
                     self.pending = Pending::ChooseTargets {
@@ -2235,6 +2514,33 @@ impl<L: CardLookup> Engine<L> {
             if t.synthetic_effects.is_some()
                 && let Some(spec) = t.synthetic_target
             {
+                // "For each opponent, … up to one target creature that player
+                // controls": one question per opponent, as the printed path
+                // asks it, and the trigger stacks even when nobody had
+                // anything to point at — "up to one" can always be targeted
+                // legally (CR 603.3d removes only a trigger that cannot).
+                if let TargetSpec::ObjectOfEachOpponent(_) = spec {
+                    let first = super::PerOpponent {
+                        spec: t.bind_target(spec),
+                        gathered: SmallVec::new(),
+                        remaining: self.opponents_in_turn_order(t.controller),
+                    };
+                    let plan_t = t.clone();
+                    let gathered =
+                        self.ask_next_opponent(t.controller, t.source, first, |asking| {
+                            PlanKind::SyntheticTriggerTarget {
+                                trigger: plan_t,
+                                per_opponent: Some(asking),
+                            }
+                        });
+                    match gathered {
+                        None => return,
+                        Some(all) => {
+                            self.push_synthetic_trigger_with_targets(&t, all);
+                            continue;
+                        }
+                    }
+                }
                 let options =
                     eval::target_options(&t.bind_target(spec), &self.state, t.controller, t.source);
                 if options.is_empty() {
@@ -2246,7 +2552,10 @@ impl<L: CardLookup> Engine<L> {
                     continue;
                 }
                 let plan_t = t.clone();
-                self.pending_plan = Some(PlanKind::SyntheticTriggerTarget { trigger: plan_t });
+                self.pending_plan = Some(PlanKind::SyntheticTriggerTarget {
+                    trigger: plan_t,
+                    per_opponent: None,
+                });
                 self.pending = Pending::ChooseTargets {
                     player: t.controller,
                     options,
@@ -2337,6 +2646,9 @@ impl<L: CardLookup> Engine<L> {
                         obj.targets.extend(t.implicit_target);
                     }
                 }
+                if self.ask_trigger_second_target() {
+                    return;
+                }
             }
         }
     }
@@ -2375,7 +2687,7 @@ impl<L: CardLookup> Engine<L> {
         let abilities = obj.own_abilities.unwrap_or_else(|| {
             self.state
                 .object(loc.source)
-                .map_or(&[][..], |o| o.abilities(&self.lookup))
+                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
         });
         let condition = match abilities.get(loc.index as usize) {
             Some(
@@ -2421,29 +2733,32 @@ impl<L: CardLookup> Engine<L> {
         let abilities = obj.own_abilities.unwrap_or_else(|| {
             self.state
                 .object(loc.source)
-                .map_or(&[][..], |o| o.abilities(&self.lookup))
+                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
         });
-        match abilities.get(loc.index as usize)? {
-            AbilityDef::Activated { targets, .. }
-            | AbilityDef::ActivatedConditional { targets, .. }
-            | AbilityDef::Loyalty { targets, .. }
-            | AbilityDef::Triggered { targets, .. }
-            | AbilityDef::SagaChapter { targets, .. } => *targets,
-            AbilityDef::ModalTriggered { modes, .. } => {
-                // The same `expect` the resolution path below makes, and for
-                // the reason written there: the mode is announced as the
-                // ability goes on the stack (CR 603.3c), so one that reached
-                // resolution without it came off a push site that forgot to
-                // carry it. Falling back to the first mode is how a card
-                // resolves the wrong half of itself in silence.
-                let idx = obj
-                    .mode_index
-                    .expect("a modal trigger on the stack has its mode")
-                    as usize;
-                modes.get(idx).and_then(|m| m.targets)
-            }
-            _ => None,
+        crate::object::ability_target_req(abilities, loc.index, obj.mode_index)
+    }
+
+    /// The damage a triggered ability on the stack divides as its controller
+    /// chooses ([`baylee_cards_dsl::Effect::DealDamageDivided`]), read off
+    /// the list it was put on the stack with, as its second target is.
+    pub(super) fn stack_divided_amount(&self, on_stack: ObjectId) -> Option<u32> {
+        let obj = self.state.object(on_stack)?;
+        let loc = obj.ability?;
+        if obj.kind != ObjectKind::AbilityOnStack || loc.index == AbilityRef::SYNTHETIC {
+            return None;
         }
+        let abilities = obj.own_abilities.unwrap_or_else(|| {
+            self.state
+                .object(loc.source)
+                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
+        });
+        let AbilityDef::Triggered { effects, .. } = abilities.get(loc.index as usize)? else {
+            return None;
+        };
+        effects.iter().find_map(|effect| match effect {
+            baylee_cards_dsl::Effect::DealDamageDivided { amount } => Some(*amount),
+            _ => None,
+        })
     }
 
     /// What the top of the stack may target with its **second** instance of
@@ -2453,9 +2768,13 @@ impl<L: CardLookup> Engine<L> {
     /// Two arms and not the whole list, because only two shapes can say it —
     /// [`AbilityDef::Spell`] through the object and the activated twins here.
     /// Both twins, for the reason `stack_target_req` gives.
-    fn stack_second_target_req(&self, on_stack: ObjectId) -> Option<TargetReq> {
+    pub(super) fn stack_second_target_req(&self, on_stack: ObjectId) -> Option<TargetReq> {
         let obj = self.state.object(on_stack)?;
-        if obj.kind != ObjectKind::AbilityOnStack {
+        // A requirement written on the object wins: the cast wizard writes a
+        // spell's, and a trigger's is written bound to the player its first
+        // instance named (`Engine::ask_trigger_second_target`), which is the
+        // question its re-check has to ask again.
+        if obj.kind != ObjectKind::AbilityOnStack || obj.second_target_req().is_some() {
             return obj.second_target_req();
         }
         let loc = obj.ability?;
@@ -2465,11 +2784,13 @@ impl<L: CardLookup> Engine<L> {
         let abilities = obj.own_abilities.unwrap_or_else(|| {
             self.state
                 .object(loc.source)
-                .map_or(&[][..], |o| o.abilities(&self.lookup))
+                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
         });
         match abilities.get(loc.index as usize)? {
             AbilityDef::Activated { second_targets, .. }
-            | AbilityDef::ActivatedConditional { second_targets, .. } => *second_targets,
+            | AbilityDef::ActivatedConditional { second_targets, .. }
+            | AbilityDef::Loyalty { second_targets, .. }
+            | AbilityDef::Triggered { second_targets, .. } => *second_targets,
             _ => None,
         }
     }
@@ -2706,6 +3027,18 @@ impl<L: CardLookup> Engine<L> {
             .record(GameEvent::StackObjectResolved { object: top });
         let kind = self.state.object(top).map(|o| o.kind);
         if kind == Some(ObjectKind::AbilityOnStack) {
+            // "The second time this ability has resolved this turn": counted
+            // here, as it begins to resolve, so the resolution asking is one
+            // of those it counts. A synthetic keyword trigger has no index of
+            // its own to count under.
+            if let Some(loc) = self.state.object(top).and_then(|o| o.ability)
+                && loc.index != baylee_core::ids::AbilityRef::SYNTHETIC
+            {
+                let version = self.state.object(loc.source).map_or(0, |o| o.version);
+                self.state
+                    .per_turn
+                    .note_resolution(loc.source, version, loc.index);
+            }
             let obj = self.state.object(top).expect("stack object exists");
             let loc = obj.ability.expect("ability object has a location");
             // The list `loc.index` points into, captured when the ability was
@@ -2718,7 +3051,7 @@ impl<L: CardLookup> Engine<L> {
             let abilities = obj.own_abilities.unwrap_or_else(|| {
                 self.state
                     .object(loc.source)
-                    .map_or(&[][..], |o| o.abilities(&self.lookup))
+                    .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
             });
             let effects = if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
                 // Synthetic keyword trigger (prowess, ward): effects live
@@ -2802,6 +3135,7 @@ impl<L: CardLookup> Engine<L> {
                     mana_ability: false,
                     countered_source: None,
                     target_lki: None,
+                    retarget_left: None,
                 };
                 match resolve::run(&mut self.state, &mut res) {
                     resolve::Flow::Complete => self.finish_resolution(&res),
@@ -2834,6 +3168,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
+                retarget_left: None,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
@@ -2860,32 +3195,20 @@ impl<L: CardLookup> Engine<L> {
                 abilities.iter().find_map(|a| match a {
                     AbilityDef::Spell {
                         effects, targets, ..
-                    } if !effects.is_empty() => Some((*effects, targets.is_some())),
+                    } if !effects.is_empty() => {
+                        Some((resolve::flatten(effects), targets.is_some(), None))
+                    }
                     _ => None,
                 })
             })
-            .or_else(|| {
-                let mode_index = self.state.object(top)?.mode_index?;
-                let face = self.state.object(top)?.face_index as usize;
-                let def = self
-                    .state
-                    .object(top)
-                    .and_then(|o| o.card)
-                    .and_then(|c| self.lookup.card(c.index))?;
-                def.abilities_for_face(face).iter().find_map(|a| match a {
-                    AbilityDef::ModalSpell { modes } => modes
-                        .get(mode_index as usize)
-                        .map(|m| (m.effects, m.targets.is_some())),
-                    _ => None,
-                })
-            });
-        if let Some((fx, targeted)) = spell_fx {
+            .or_else(|| self.modal_program(top));
+        if let Some((program, targeted, retarget_left)) = spell_fx {
             let obj = self.state.object(top).expect("stack object exists");
             let mut res = Resolution {
                 source: top,
                 on_stack: top,
                 controller: obj.controller,
-                effects: resolve::flatten(fx),
+                effects: program,
                 pc: 0,
                 targets: obj.targets.clone(),
                 second_targets: SmallVec::from_slice(obj.second_targets()),
@@ -2898,6 +3221,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
+                retarget_left,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
@@ -2908,8 +3232,49 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         } else {
+            #[cfg(test)]
+            crate::ability_log::resolved(&self.state, &self.lookup, top);
             self.finalize_spell(top);
         }
+    }
+
+    /// What a modal spell on the stack does: its chosen mode's effects, or,
+    /// for a spell cast with several (`GameObject::modes`), every chosen
+    /// mode's, in the order they are printed and not the order they were
+    /// picked in (CR 608.2c).
+    ///
+    /// Beside the program, whether it targets, and where the second of its
+    /// modes that says "target" begins: that mode's targets were chosen as
+    /// the spell's second instance of the word, and from there on they are
+    /// the ones "target" means (`Resolution::retarget_left`).
+    fn modal_program(&self, top: ObjectId) -> Option<(Vec<Effect>, bool, Option<usize>)> {
+        let obj = self.state.object(top)?;
+        let def = obj.card.and_then(|c| self.lookup.card(c.index))?;
+        let modes = def
+            .abilities_for_face(obj.face_index as usize)
+            .iter()
+            .find_map(|a| match a {
+                AbilityDef::ModalSpell { modes, .. } => Some(*modes),
+                _ => None,
+            })?;
+        if obj.modes != 0 {
+            let mut program = Vec::new();
+            let mut targeting = 0_usize;
+            let mut second = None;
+            for (_, mode) in crate::casting::chosen_modes(modes, obj.modes) {
+                if mode.targets.is_some() {
+                    if targeting == 1 {
+                        second = Some(program.len());
+                    }
+                    targeting += 1;
+                }
+                program.extend(resolve::flatten(mode.effects));
+            }
+            let left = second.map(|at| program.len() - at);
+            return Some((program, targeting > 0, left));
+        }
+        let mode = modes.get(usize::from(obj.mode_index?))?;
+        Some((resolve::flatten(mode.effects), mode.targets.is_some(), None))
     }
 
     /// Applies a face switch queued by a resolution effect (transforms).
@@ -3069,6 +3434,12 @@ impl<L: CardLookup> Engine<L> {
     }
 
     pub(crate) fn finish_resolution(&mut self, res: &Resolution) {
+        #[cfg(test)]
+        if res.mana_ability {
+            crate::ability_log::mana_finished(&self.lookup, res.source);
+        } else {
+            crate::ability_log::resolved(&self.state, &self.lookup, res.on_stack);
+        }
         // The reflexive triggers this resolution created (CR 603.12) join
         // the queue as it ends, and from there take the ordinary path.
         // `queue_new_triggers` sorts them with that pass's other triggers
@@ -3079,6 +3450,38 @@ impl<L: CardLookup> Engine<L> {
         // a question (an as-enters choice) before that runs, and the list
         // must be empty whenever a question is out.
         self.trigger_queue.extend(self.state.reflexive.drain(..));
+        // What this resolution left for the engine to do as it ends
+        // (cascade's cast, CR 702.85a), ahead of everything already queued.
+        let mut i = self.state.delayed.len();
+        while i > 0 {
+            i -= 1;
+            if matches!(
+                self.state.delayed[i].when,
+                crate::state::DelayedWhen::AsResolutionEnds
+            ) {
+                let trigger = self.state.delayed.remove(i);
+                self.delayed_queue
+                    .push_front((trigger.controller, trigger.action));
+            }
+        }
+        // A card this resolution discovered is offered once it is over
+        // (CR 701.57a), through the queue step 3b of `run_machine` drains
+        // before anybody receives priority. CR 608.2g casts it *during* the
+        // resolution; the difference is only in what the resolution's own
+        // triggers see, which step 3 stacks first.
+        for (player, card, version) in self.state.discovered.drain(..) {
+            self.delayed_queue.push_back((
+                player,
+                crate::state::DelayedAction::CastDiscovered { card, version },
+            ));
+        }
+        // A copy of a synthetic ability (CR 707.10) takes the original's
+        // effects, which live here and not on the object the resolver made.
+        for (original, copy) in std::mem::take(&mut self.state.synthetic_copies) {
+            if let Some(&effects) = self.synthetic_fx.get(&original) {
+                self.synthetic_fx.insert(copy, effects);
+            }
+        }
         // A mana ability never went on the stack (CR 605.3b), and its
         // `on_stack` is the source permanent itself. Falling through here
         // treated that permanent as a resolving spell: `finalize_spell`
@@ -3137,7 +3540,7 @@ impl<L: CardLookup> Engine<L> {
         let printed = self
             .state
             .object(spell)
-            .map(|o| o.ability_list(&self.lookup));
+            .map(|o| o.printed_ability_list(&self.lookup));
         if let Some(obj) = self.state.object_mut(spell) {
             if obj.own_abilities.is_none()
                 && let Some(printed) = printed
@@ -3213,6 +3616,22 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         if is_permanent {
+            // Dash (CR 702.109a): "return the permanent this spell becomes to
+            // its owner's hand at the beginning of the next end step" — a
+            // delayed triggered ability that uses the stack (CR 603.7), and
+            // asks as it resolves whether it is still that permanent.
+            if let Some(obj) = self.state.object(spell)
+                && obj.riders.contains(&crate::object::Rider::Dashed)
+            {
+                self.state.delayed.push(crate::state::DelayedTrigger {
+                    controller: obj.controller,
+                    when: crate::state::DelayedWhen::NextEndStep,
+                    action: crate::state::DelayedAction::Trigger {
+                        source: spell,
+                        effects: &DASH_RETURN,
+                    },
+                });
+            }
             self.a_copy_becomes_a_token(spell);
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Permanent;
@@ -3301,9 +3720,12 @@ impl<L: CardLookup> Engine<L> {
         // pair is taken here, at the one instant both are still true.
         self.state.previous_turn = (!first_turn).then(|| {
             let active = self.state.turn.active;
+            let spells = &self.state.per_turn.spells_cast;
             crate::state::PreviousTurn {
                 active,
-                spells_cast: self.state.per_turn.spells_cast[active.get() as usize],
+                spells_cast: spells[active.get() as usize],
+                spells_by_all: spells.iter().sum(),
+                most_by_one: spells.iter().copied().max().unwrap_or(0),
             }
         });
         if !first_turn {
@@ -3393,10 +3815,11 @@ impl<L: CardLookup> Engine<L> {
         // Delayed triggers registered for this upkeep.
         let mut i = 0;
         while i < self.state.delayed.len() {
-            let fire = matches!(
-                self.state.delayed[i].when,
-                crate::state::DelayedWhen::NextUpkeep
-            ) && self.state.delayed[i].controller == active;
+            let fire = match self.state.delayed[i].when {
+                crate::state::DelayedWhen::NextUpkeep => self.state.delayed[i].controller == active,
+                crate::state::DelayedWhen::NextUpkeepOfAnyone => true,
+                _ => false,
+            };
             if fire {
                 let trigger = self.state.delayed.remove(i);
                 // A payment waits for this upkeep's priority window; see
@@ -3430,8 +3853,8 @@ impl<L: CardLookup> Engine<L> {
             .map_or(NameRef::new(0), |o| o.base.name)
     }
 
-    /// Pushes a synthetic trigger (prowess, ward, granted abilities) with
-    /// explicitly chosen targets onto the stack.
+    /// Pushes a synthetic trigger (prowess, ward, granted abilities, a
+    /// reflexive one) with explicitly chosen targets onto the stack.
     pub(crate) fn push_synthetic_trigger_with_targets(
         &mut self,
         t: &crate::trigger::PendingTrigger,
@@ -3469,7 +3892,7 @@ impl<L: CardLookup> Engine<L> {
             // them against it at resolution, as it does a spell's.
             obj.target_req = t
                 .synthetic_target
-                .map(|spec| TargetReq::one(t.bind_target(spec)));
+                .map(|spec| synthetic_target_req(t.bind_target(spec)));
             obj
         });
         self.synthetic_fx.insert(id, synthetic);
@@ -3543,7 +3966,7 @@ impl<L: CardLookup> Engine<L> {
             .any(|o| {
                 o.ability.is_some_and(|loc| {
                     loc.source == source
-                        && o.abilities(&self.lookup)
+                        && o.printed_abilities(&self.lookup)
                             .get(loc.index as usize)
                             .is_some_and(|a| {
                                 matches!(a, baylee_cards_dsl::AbilityDef::SagaChapter { .. })
@@ -3560,7 +3983,7 @@ impl<L: CardLookup> Engine<L> {
         index != baylee_core::ids::AbilityRef::SYNTHETIC
             && self.state.object(source).is_some_and(|o| {
                 matches!(
-                    o.abilities(&self.lookup).get(index as usize),
+                    o.printed_abilities(&self.lookup).get(index as usize),
                     Some(baylee_cards_dsl::AbilityDef::SagaChapter { .. })
                 )
             })
@@ -3711,6 +4134,7 @@ impl<L: CardLookup> Engine<L> {
             self.trigger_queue
                 .push_back(crate::trigger::PendingTrigger {
                     event_mana_value: None,
+                    event_damage: None,
                     source: id,
                     ability_index: *ability_index,
                     abilities: None,
@@ -3785,8 +4209,158 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Cascade's cast (CR 702.85a), as its resolution ends: the exiled
+    /// card is cast without paying its mana cost, or put on the bottom of
+    /// its owner's library when it cannot be. Returns whether a question is
+    /// out.
+    fn cast_free_or_bottom(&mut self, controller: PlayerId, card: ObjectId, version: u32) -> bool {
+        let in_exile = |state: &crate::state::GameState| {
+            state
+                .object(card)
+                .filter(|o| o.zone == crate::zone::Zone::Exile && o.version == version)
+                .map(|o| o.owner)
+        };
+        if in_exile(&self.state).is_none() {
+            return false;
+        }
+        // A spell nothing can be pointed at cannot be cast
+        // (CR 601.2c); asked first, so a refusal leaves no wizard
+        // behind to unwind.
+        let cast =
+            crate::casting::face_has_a_legal_target(&self.state, &self.lookup, controller, card, 0)
+                && self.start_permitted_free_cast(controller, card).is_ok();
+        if !cast && let Some(owner) = in_exile(&self.state) {
+            // "…that weren't cast on the bottom of your library."
+            let _ = self.state.move_object(
+                card,
+                ZoneLocation::Library(owner),
+                ZonePosition::Bottom,
+                Cause::Effect,
+            );
+        }
+        self.awaiting_answer
+    }
+
+    /// `Effect::MayCastTarget`'s cast, said yes to: a CR 605.3a payment
+    /// window for the card's mana cost, where the caster makes the mana
+    /// the cast will be paid with (CR 608.2g lets them). Nothing opens for
+    /// a card that has left the zone it was targeted in (CR 400.7) or that
+    /// its caster may not begin to cast at all (CR 601.3). Returns whether
+    /// a question is out.
+    fn open_cast_payment(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        version: u32,
+        then_no_more_spells: bool,
+    ) -> bool {
+        let Some(cost) = self
+            .state
+            .object(card)
+            .filter(|o| o.version == version)
+            .map(|o| o.characteristics().mana_cost)
+        else {
+            return false;
+        };
+        if !crate::casting::may_begin_casting(&self.state, player) {
+            return false;
+        }
+        let mut legal = self.compute_legal(player);
+        self.narrow_to_mana(&mut legal);
+        self.mana_window = Some(super::PaymentWindow {
+            player,
+            suspended: super::PaymentContinuation::Cast {
+                card,
+                version,
+                cost,
+                then_no_more_spells,
+            },
+        });
+        self.pending = Pending::Priority {
+            player,
+            legal: Box::new(legal),
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    /// Offers a discovered card's cast to the player who discovered it
+    /// (CR 701.57a), if it is still the card in exile that was found
+    /// (`version`) — or puts it into the hand without asking when it cannot
+    /// be cast. Returns `true` when the question is out.
+    fn offer_discovered(&mut self, player: PlayerId, card: ObjectId, version: u32) -> bool {
+        if !self
+            .state
+            .object(card)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Exile && o.version == version)
+        {
+            return false;
+        }
+        if !self.free_cast_possible(player, card) {
+            self.discovered_to_hand(card);
+            return false;
+        }
+        self.pending_plan = Some(PlanKind::Discovered { card });
+        self.pending = Pending::YesNo {
+            player,
+            prompt: crate::choice::YesNoPrompt::Discover { card },
+            source: None,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    /// A discovered card that is not cast goes to its owner's hand
+    /// (CR 701.57a), if it is still in exile.
+    ///
+    /// A priority grant already out is asked again: this runs after a free
+    /// cast the wizard refused, which resumes the game on its way out, and
+    /// the card joins a hand that grant's legal actions did not see.
+    pub(crate) fn discovered_to_hand(&mut self, card: ObjectId) {
+        let Some(owner) = self
+            .state
+            .object(card)
+            .filter(|o| o.zone == crate::zone::Zone::Exile)
+            .map(|o| o.owner)
+        else {
+            return;
+        };
+        let _ = self.state.move_object(
+            card,
+            ZoneLocation::Hand(owner),
+            ZonePosition::Top,
+            Cause::Effect,
+        );
+        if let Pending::Priority { player, .. } = self.pending {
+            self.pending = Pending::Priority {
+                player,
+                legal: Box::new(self.compute_legal(player)),
+            };
+        }
+    }
+
+    /// A delayed "transform it": only the permanent it was made for, on the
+    /// battlefield as the same object and still showing the same face
+    /// (CR 400.7), turns over.
+    fn transform_if_unchanged(&mut self, card: ObjectId, version: u32, face: u8) {
+        let still_there = self.state.object(card).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Battlefield && o.version == version && o.face_index == face
+        });
+        if still_there
+            && let Some(def) = self
+                .state
+                .object(card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+        {
+            self.state
+                .transform(card, def, 1 - usize::from(face.min(1)));
+        }
+    }
+
     /// Processes one queued delayed action; returns `true` when a pending
     /// choice was produced.
+    #[allow(clippy::too_many_lines)] // one arm per delayed action; splitting hides the list
     pub(crate) fn process_delayed(&mut self) -> bool {
         let Some((controller, action)) = self.delayed_queue.pop_front() else {
             return false;
@@ -3811,6 +4385,42 @@ impl<L: CardLookup> Engine<L> {
                 let owner = object.owner;
                 let _ = self.start_free_cast(owner, card);
                 self.awaiting_answer
+            }
+            crate::state::DelayedAction::CastFreeOrBottom { card, version } => {
+                self.cast_free_or_bottom(controller, card, version)
+            }
+            crate::state::DelayedAction::CastPaying {
+                card,
+                version,
+                then_no_more_spells,
+            } => self.open_cast_payment(controller, card, version, then_no_more_spells),
+            crate::state::DelayedAction::Transform {
+                card,
+                version,
+                face,
+            } => {
+                self.transform_if_unchanged(card, version, face);
+                false
+            }
+            crate::state::DelayedAction::Sacrifice { card, version } => {
+                let owner = self.state.object(card).and_then(|o| {
+                    (o.zone == crate::zone::Zone::Battlefield
+                        && o.version == version
+                        && o.controller == controller)
+                        .then_some(o.owner)
+                });
+                if let Some(owner) = owner {
+                    let _ = self.state.move_object(
+                        card,
+                        ZoneLocation::Graveyard(owner),
+                        ZonePosition::Top,
+                        crate::event::Cause::Effect,
+                    );
+                }
+                false
+            }
+            crate::state::DelayedAction::CastDiscovered { card, version } => {
+                self.offer_discovered(controller, card, version)
             }
             crate::state::DelayedAction::ReturnToBattlefield { card } => {
                 if self
@@ -3853,7 +4463,42 @@ impl<L: CardLookup> Engine<L> {
                 self.demand_echo(cost, card)
             }
             crate::state::DelayedAction::PayCostOrLose { cost } => self.demand_pact(cost),
+            // A delayed triggered ability that uses the stack, come due at a
+            // step: it joins the trigger queue and is put on the stack from
+            // there, as any trigger is. Earthbend's watch is read off the
+            // journal (`trigger::watch_triggers`) and never reaches this
+            // queue; no step-timed one exists yet.
+            crate::state::DelayedAction::Trigger { source, effects } => {
+                self.queue_delayed_trigger(controller, source, effects);
+                false
+            }
         }
+    }
+
+    /// A delayed triggered ability come due at a step joins the trigger
+    /// queue, and is put on the stack from there (CR 603.7).
+    fn queue_delayed_trigger(
+        &mut self,
+        controller: PlayerId,
+        source: ObjectId,
+        effects: &'static [baylee_cards_dsl::Effect],
+    ) {
+        self.trigger_queue
+            .push_back(crate::trigger::PendingTrigger {
+                event_damage: None,
+                event_mana_value: None,
+                source,
+                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                abilities: None,
+                controller,
+                timestamp: self.state.object(source).map_or(0, |o| o.timestamp),
+                event_object: None,
+                implicit_target: None,
+                synthetic_effects: Some(effects),
+                once_per_turn: false,
+                synthetic_target: None,
+                chosen_mode: None,
+            });
     }
 
     /// Echo come due (CR 702.30a): "sacrifice it unless you pay [cost]",
@@ -3928,6 +4573,50 @@ impl<L: CardLookup> Engine<L> {
         true
     }
 
+    /// Deals one combat damage step's damage, and what toxic adds to it.
+    ///
+    /// "Combat damage dealt to a player by a creature with toxic causes that
+    /// creature's controller to give the player a number of poison counters
+    /// equal to that creature's total toxic value, in addition to the
+    /// damage's other results" (CR 702.164c, 120.3g). It is a result of the
+    /// damage, so it is read off what the step actually journalled: damage
+    /// prevented to nothing gives nothing, and damage a trampler assigned to
+    /// a planeswalker is not dealt to a player. The total is summed over the
+    /// creature's toxic abilities as it has them now (CR 702.164b), asked of
+    /// the object and not its card, so a copy's list answers.
+    fn deal_combat_damage(&mut self, first_strike_step: bool) {
+        let from = self.state.journal.len();
+        combat::deal_combat_damage(&mut self.state, first_strike_step);
+        let poisoned: Vec<(PlayerId, u16)> = self.state.journal.entries()[from..]
+            .iter()
+            .filter_map(|entry| match entry.event {
+                GameEvent::DamageDealt {
+                    source: Some(source),
+                    target: crate::event::DamageTarget::Player(player),
+                    amount,
+                    is_combat: true,
+                } if amount > 0 => {
+                    let toxic: u16 = self
+                        .state
+                        .object(source)?
+                        .abilities(&self.lookup)
+                        .iter()
+                        .map(|ability| match ability {
+                            baylee_cards_dsl::AbilityDef::Toxic { poison } => u16::from(*poison),
+                            _ => 0,
+                        })
+                        .sum();
+                    (toxic > 0).then_some((player, toxic))
+                }
+                _ => None,
+            })
+            .collect();
+        for (player, toxic) in poisoned {
+            let counters = &mut self.state.players[player.get() as usize].poison;
+            *counters = counters.saturating_add(toxic);
+        }
+    }
+
     /// Ends the current step and begins the next one.
     ///
     /// **An arm is named for the step being left, and its block runs the
@@ -3972,12 +4661,25 @@ impl<L: CardLookup> Engine<L> {
                 let skip = self.state.turn.number == 1
                     && self.state.players.len() == 2
                     && self.state.turn.active.get() == 0;
-                // Nobody draws for an active player who has left (CR 800.4j).
-                if !skip && !self.active_has_left() {
-                    let active = self.state.turn.active;
-                    self.state.draw_cards(active, 1);
+                if skip {
+                    // CR 103.8a skips the *step*, not only its draw: there is
+                    // no beginning of it for "at the beginning of your draw
+                    // step" to trigger on, and Sylvan Library drew two cards
+                    // on the play's first turn when this went on to
+                    // `Step::Draw` without drawing. Straight on to the main
+                    // phase, with the turn-based actions that begin it.
+                    self.saga_precombat_main_counters();
+                    self.queue_first_main_delayed();
+                    (Phase::FirstMain, Step::Main)
+                } else {
+                    // Nobody draws for an active player who has left
+                    // (CR 800.4j).
+                    if !self.active_has_left() {
+                        let active = self.state.turn.active;
+                        self.state.draw_cards(active, 1);
+                    }
+                    (Phase::Beginning, Step::Draw)
                 }
-                (Phase::Beginning, Step::Draw)
             }
             (_, Step::Draw) => {
                 // The precombat main phase's own turn-based actions, which
@@ -4006,7 +4708,7 @@ impl<L: CardLookup> Engine<L> {
                 // rules never asked. Nothing is lost by leaving them out —
                 // there is no damage to deal and no trigger can be waiting
                 // on a step that is skipped.
-                if self.state.combat.attackers.is_empty() {
+                if self.state.combat.attackers().is_empty() {
                     (Phase::Combat, Step::CombatEnd)
                 } else {
                     (Phase::Combat, Step::DeclareBlockers)
@@ -4015,15 +4717,15 @@ impl<L: CardLookup> Engine<L> {
             (_, Step::DeclareBlockers) => {
                 // Deal combat damage on entering the damage step(s).
                 if self.any_first_or_double_striker() {
-                    combat::deal_combat_damage(&mut self.state, true);
+                    self.deal_combat_damage(true);
                     (Phase::Combat, Step::CombatDamageFirst)
                 } else {
-                    combat::deal_combat_damage(&mut self.state, false);
+                    self.deal_combat_damage(false);
                     (Phase::Combat, Step::CombatDamage)
                 }
             }
             (_, Step::CombatDamageFirst) => {
-                combat::deal_combat_damage(&mut self.state, false);
+                self.deal_combat_damage(false);
                 (Phase::Combat, Step::CombatDamage)
             }
             (_, Step::CombatDamage) => (Phase::Combat, Step::CombatEnd),
@@ -4062,7 +4764,7 @@ impl<L: CardLookup> Engine<L> {
         use baylee_cards_dsl::KeywordSet as K;
         self.state
             .combat
-            .attackers
+            .attackers()
             .iter()
             .map(|a| a.creature)
             .chain(self.state.combat.blockers.iter().map(|b| b.blocker))
@@ -4414,10 +5116,80 @@ impl<L: CardLookup> Engine<L> {
     }
 }
 
+/// Ends every "for as long as you control [the source]" whose controller no
+/// longer controls its source (CR 611.2b). The source leaving is handled as
+/// it moves (`GameState::move_object`); this is the other half, a change of
+/// control, which moves nothing.
+fn end_control_durations(state: &mut crate::state::GameState) {
+    use baylee_cards_dsl::Duration;
+    let lost: Vec<(ObjectId, PlayerId)> = state
+        .effects
+        .iter()
+        .filter(|fx| matches!(fx.duration, Duration::WhileYouControlSource))
+        .filter_map(|fx| {
+            let source = fx.source?;
+            let held = state
+                .object(source)
+                .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == fx.controller);
+            (!held).then_some((source, fx.controller))
+        })
+        .collect();
+    if !lost.is_empty() {
+        state.effects.remove_where(|fx| {
+            matches!(fx.duration, Duration::WhileYouControlSource)
+                && fx
+                    .source
+                    .is_some_and(|s| lost.contains(&(s, fx.controller)))
+        });
+    }
+}
+
 /// Drops every effect for as long as the game lasts that names one object
 /// which has since moved: it is a new object the effect never named
 /// (CR 400.7), and a control change would otherwise sit in the hashed table
 /// for the rest of the game.
+/// The static abilities of emblems not yet registered. "Abilities of emblems
+/// function in the command zone" (CR 114.4), and an emblem never leaves it,
+/// so each is registered once and lasts the game (Wrenn and Realmbreaker's
+/// "You may play lands and cast permanent spells from your graveyard").
+fn emblem_statics(state: &crate::state::GameState) -> Vec<crate::effects::ContinuousEffect> {
+    let mut found = Vec::new();
+    for seat in 0..state.players.len() {
+        let zone = ZoneLocation::Command(PlayerId::new(seat as u8));
+        for &id in state.zones.list(zone) {
+            let Some(obj) = state.object(id) else {
+                continue;
+            };
+            if obj.kind != crate::object::ObjectKind::Emblem {
+                continue;
+            }
+            let Some(abilities) = obj.own_abilities else {
+                continue;
+            };
+            for ability in abilities {
+                let AbilityDef::Static(sa) = ability else {
+                    continue;
+                };
+                if state.effects.has_source_ability(id, sa.modifier) {
+                    continue;
+                }
+                found.push(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(id),
+                    controller: obj.controller,
+                    origin: crate::effects::EffectOrigin::Static,
+                    layer: sa.layer,
+                    timestamp: obj.timestamp,
+                    duration: baylee_cards_dsl::Duration::Indefinitely,
+                    filter: crate::effects::EffectFilter::Dsl(&sa.filter),
+                    modifier: sa.modifier,
+                });
+            }
+        }
+    }
+    found
+}
+
 fn forget_effects_on_moved_objects(state: &mut crate::state::GameState) {
     use baylee_cards_dsl::Duration;
     let stale: Vec<(ObjectId, u32)> = state
@@ -4440,3 +5212,41 @@ fn forget_effects_on_moved_objects(state: &mut crate::state::GameState) {
         });
     }
 }
+
+/// Whether a static ability's effect in `layer` goes on applying after the
+/// ability is gone (CR 613.6): the characteristic-changing layers before 6.
+/// Layer 3 is where rules effects are parked (`Modifier::layer`), and those
+/// are the ability itself, so they go with it.
+fn outlives_its_ability(layer: baylee_cards_dsl::Layer) -> bool {
+    use baylee_cards_dsl::Layer;
+    matches!(
+        layer,
+        Layer::Copy | Layer::Control | Layer::Type | Layer::Color
+    )
+}
+
+/// What a synthetic trigger's targets were chosen against, for the
+/// resolution-time re-check (CR 608.2b): one object, or up to one per
+/// opponent for `ObjectOfEachOpponent` — the count the questions asked, and
+/// written as the printed cards write it (`TargetReq::up_to(spec,
+/// u8::MAX)`), so a second opponent's answer is not trimmed as a surplus.
+fn synthetic_target_req(spec: TargetSpec) -> TargetReq {
+    match spec {
+        TargetSpec::ObjectOfEachOpponent(_) => TargetReq::up_to(spec, u8::MAX),
+        _ => TargetReq::one(spec),
+    }
+}
+
+/// Dash's delayed triggered ability (CR 702.109a): "return the permanent this
+/// spell becomes to its owner's hand at the beginning of the next end step".
+/// It asks as it resolves whether its source is still that permanent
+/// (`Condition::DashCostPaid`), because a permanent that has left the
+/// battlefield since is a new object (CR 400.7) and a card in a graveyard is
+/// not returned by it.
+static DASH_RETURN: [Effect; 1] = [Effect::IfCondition {
+    condition: baylee_cards_dsl::Condition::DashCostPaid,
+    then: &[Effect::ReturnToHand {
+        target: TargetSpec::ThisObject,
+    }],
+    otherwise: &[],
+}];

@@ -238,6 +238,49 @@ object grows by the eight its alignment rounds them to. The budget was raised
 to 288 deliberately. `state/clone` was not re-benched, on the argument the
 entry above makes for the same eight bytes.
 
+## What was paid for a spell (29.09.2026)
+
+`GameObject` **288 → 296 B**. "The sacrificed creature's mana value"
+(Eldritch Evolution, Neoform, Birthing Pod) and "the amount of mana spent to
+cast this spell" are read back from the stack object as it resolves, and by
+then the sacrificed creature is a card in a graveyard. The payment writes a
+`PaidRecord` onto the stack object, behind one `Option<Box<…>>` for the reason
+`second` is: null on every object that is not a paid-for spell or ability on
+the stack, and dropped at every zone change. The eight bytes of the pointer
+are the whole cost in a clone (plus one small allocation per spell cast for
+mana); the budget was raised to 296 deliberately.
+`state/clone` was not re-benched, on the argument the two entries above make
+for the same eight bytes.
+
+## "That much" damage an event dealt (29.09.2026)
+
+`GameObject` **296 → 304 B**. Questing Beast deals "that much damage" as the
+combat damage that triggered it, so the amount rides from the event onto the
+triggered ability as it is put on the stack (`GameObject::event_amount`). It
+is an `Option<NonZeroU16>` (damage of 0 is never dealt, CR 120.8), two
+bytes; 296 had no padding left, so the object grew by the eight its alignment
+rounds to, and a `Box` would have cost the same pointer. The budget was
+raised to 304 deliberately. Folding `event_object` and `event_amount` into one
+`Option<Box<…>>`, null on every object that is not a triggered ability,
+would take the object back to 296 at the cost of touching every reader of
+`event_object`. `state/clone` was not re-benched, on the argument the entries
+above make for the same eight bytes.
+
+## A chosen card name (29.09.2026)
+
+`GameObject` **296 → 304 B**. "As this artifact enters, choose a card name"
+(Pithing Needle) is kept on the permanent as the card and face it names
+(`GameObject::chosen_name`), beside the chosen subtype and colour, because the
+lock reads it on every offer and the view shows it. It is a `PrintedFace`, so
+the `Option` is four bytes; the object had no four-byte hole left and grows by
+the eight its alignment rounds them to. The budget was raised to 304
+deliberately, and `state/clone` was not re-benched, on the argument the
+entries above make for the same eight bytes.
+
+These two entries were made on two branches, each from 296. Merged, the
+two fields share the one eight-byte step, and `GameObject` measured 304 B
+with both (`tests/footprint.rs`).
+
 ## The snapshot hash names every field (24.09.2026, #122)
 
 `GameState::snapshot_hash` now takes every struct it walks apart by name, so
@@ -272,3 +315,140 @@ A token's definition is hashed by its content, never by its address, and on
 the 3k board that was about 40 µs in the same series (13 ns a token).
 Counters no longer go through a `Vec` per object; what that saves was not
 measured on its own.
+
+## A token army's combat stops being quadratic (29.09.2026)
+
+Self-play games where an Ally deck attacks with tens of thousands of tokens
+took seconds per answer, and the time was not in the payment search. Four
+walks cost permanents × attackers (or permanents × effects): `Filter::Attacking`
+scanned the attacker list for every object a filter walk asked about (Kor
+Haven's "target attacking creature" is probed at every priority grant); the
+blockers offer, and `menace_satisfiable`, asked `can_block` of every
+permanent against every attacker; the duplicate checks in the two
+declarations were a `contains` per entry; and `compute_legal` asked the whole
+effect table per permanent for granted abilities and searched
+`mana_abilities` with `contains`. `CombatState` now keeps a sorted index
+beside its (private) attacker list, the offer walks `combat::ready_blockers`,
+the checks are sets, and the grants are collected once
+(`effects::grants`). No legal move changes; `CombatState`'s hash is the one
+the derived impl gave, and replays of r001 records reach the same snapshot
+hash after every input before and after.
+
+`combat/attack_to_blocks_{100,900}` is new: seat 0 declares 100 or 900
+vanilla attackers into a defender with Kor Haven and two creatures, and the
+timed body runs from the declaration to the blockers offer. Both columns are
+`--quick` runs on the M1 Max in one session, `66a83dd9` with the current
+bench file copied in and then this change, under a load average of about
+30 from other work; differences under ~10 % on unchanged paths are noise.
+
+| Bench | Before | After | Change |
+|---|---|---|---|
+| `combat/attack_to_blocks_100` | 61.5 µs | 31.0 µs | −50 % |
+| `combat/attack_to_blocks_900` | 2.52 ms | 297.6 µs | **8.5× faster** |
+| `engine/priority_pass_x4` | 4.67 µs | 3.42 µs | −27 % |
+| `setup/from_preset` | 10.92 µs | 11.04 µs | +1 % |
+| `state/clone` | 7.28 µs | 6.35 µs | noise |
+| `state/snapshot_hash` | 9.03 µs | 9.10 µs | +1 % |
+| `state/snapshot_hash_3k_tokens` | 373.4 µs | 306.2 µs | noise |
+| `layers/refresh_x1` | 7.80 µs | 7.37 µs | −6 % |
+| `layers/refresh_x8` | 8.91 µs | 9.04 µs | +1 % |
+| `layers/refresh_x32` | 15.55 µs | 16.50 µs | +6 % |
+| `layers/refresh_over_20k_stack` | 10.29 ns | 10.30 ns | 0 % |
+| `state/clone_3k_tokens` | 154.7 µs | 154.5 µs | 0 % |
+| `layers/refresh_3k_tokens` | 264.5 µs | 269.1 µs | +2 % |
+| `zones/drain_stack_100` | 251.4 ns | 253.4 ns | +1 % |
+| `zones/drain_stack_20000` | 46.5 µs | 47.0 µs | +1 % |
+
+From 100 to 900 attackers the step cost 41× before and 9.6× now.
+`priority_pass_x4` is the one unchanged path that moved: a land's
+`{T}: Add …` has no mana symbol in its cost, and `can_pay_mana` now answers
+that without merging pools or walking the effect table.
+
+`compute_legal` alone, in a local probe (not committed) on the shared
+testkit, `ci-release`, µs per call:
+
+| Permanents | Granted mana board, before | after | Attack into Kor Haven, before | after |
+|---|---|---|---|---|
+| 20 | 5.9 | 3.5 | 2.0 | 2.8 |
+| 80 | 22.4 | 12.5 | 5.3 | 3.9 |
+| 320 | 113.7 | 44.9 | 35.6 | 12.2 |
+| 700 | 327.2 | 96.5 | 131.7 | 25.5 |
+| 950 | 528.5 | 129.3 | 240.5 | 34.9 |
+
+The granted mana board is n Forests under Great Divide Guide; the attack
+board is n vanilla attackers against a defender holding Kor Haven.
+
+Whole games, engine only (a record replayed through `Engine::apply`, nothing
+else): r001 game 431 (168,000 permanents by turn 40, one declaration of
+33,600 attackers) **54.6 s → 1.3 s**, of which one blockers offer alone was
+18–29 s; game 685 **56.0 s → 3.2 s**. Played through `Session` with the
+house AI the same games are still slow, and now for another reason: in 431
+the AI's `PlayerView::object`, a linear scan over the view, called per
+attacker and per blocker option, is 90 % of the main thread's samples,
+where `Engine::apply` is 4 % and building the agent's view 2 %.
+
+## What a departing permanent held (29.09.2026)
+
+A permanent leaving the battlefield now asks the exile zones whether a card
+there was held "until it leaves the battlefield" (CR 610.3,
+`GameState::return_what_departed_hosts_held`): a walk over every exiled card,
+once per departure. Nothing in the suite moved a permanent off the
+battlefield, so `zones/wrath_60_exile_{0,800}` is new: sixty creatures moved
+to the graveyard one after another, with no card or 800 cards in exile. 800
+is every card at a table of eight Commander decks; a token in exile ceases to
+exist (CR 704.5d), so the exile zone never holds more than the cards.
+
+Scan off (`move_object` skips the call) and on, the whole suite `--quick`,
+same machine, back to back, two rounds. The machine was not idle: other
+worktrees were compiling, load average 19 to 86 over the four runs.
+
+| Bench | Off | On |
+|---|---|---|
+| `zones/wrath_60_exile_0` | 11.93 / 12.62 µs | 11.79 / 12.77 µs |
+| `zones/wrath_60_exile_800` | 12.33 / 12.85 µs | 106.6 / 83.4 µs |
+
+About 2 ns per exiled card per departure: at the 800-card ceiling a
+departure costs about 1.5 µs and a sixty-permanent wrath about 90 µs, once.
+At a real table, a few dozen cards in exile, it is well under a tenth of a
+microsecond a departure. The other benches move nothing off the battlefield,
+and their spread between runs, up to three times and in both directions
+between off and on, is the load. No early exit was added: a flag, a count
+of live links or a mark on the host is more state to keep in step with the
+riders, for a cost no game can see.
+
+## The refresh projects its counters again (29.09.2026)
+
+A projection that counts the board (Ashaya, Soul of the Wild: as big as the
+lands you control) read every object the walk had not reached yet as the last
+refresh left it, and came out short. The refresh now projects the counting
+objects again once the board is done, repeating while one of them moved
+(`GameState::refresh_characteristics`). `layers/refresh_x8_counting` is new:
+`layers/refresh_x8` with every creature counting the creatures you control,
+the repeat at its widest.
+
+Both columns are this M1 Max under a shared load (load average 15 to 50),
+"before" being `9dbd6e56` with the current bench file. The two bench binaries
+ran alternately, six `--quick` rounds each, and each cell is the smallest
+median of the six: a single round's median moved several times over on rows
+neither commit touches. The rows below were run six rounds more; both series
+are given.
+
+| Bench | Before | After | Change |
+|---|---|---|---|
+| `layers/refresh_x8_counting` | 13.64 / 12.81 µs | 22.14 / 22.05 µs | **+62 / +72 %** |
+| `layers/refresh_over_20k_stack` | 10.27 / 10.18 ns | 11.64 / 11.32 ns | +13 / +11 % |
+| `layers/refresh_x1` | 6.29 / 6.01 µs | 6.43 / 6.26 µs | +2 / +4 % |
+| `layers/refresh_x8` | 7.73 / 7.50 µs | 8.37 / 7.50 µs | +8 / 0 % |
+| `layers/refresh_x32` | 14.51 / 15.18 µs | 15.22 / 14.69 µs | +5 / −3 % |
+| `layers/refresh_3k_tokens` | 269.5 / 266.4 µs | 281.4 / 276.7 µs | +4 / +4 % |
+| `engine/priority_pass_x4` | 3.09 / 2.82 µs | 3.36 / 2.88 µs | +9 / +2 % |
+
+- **A board where something counts pays one more projection per counter.**
+  With every creature a counter that is 1.6 to 1.7 times the refresh; a real
+  board has one or two, and every other board has none and projects nothing
+  twice.
+- **The fixed cost is about a nanosecond.** `refresh_over_20k_stack` projects
+  nothing at all, so its 1.1 to 1.4 ns is the new bookkeeping (a list that
+  stays empty and never allocates) on every refresh.
+- The other rows moved within what the same code moves between rounds here
+  (`state/clone`, which neither commit touches: +2 %).

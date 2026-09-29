@@ -25,8 +25,9 @@
 use crate::tokens;
 pub use crate::tokens::{
     ALLY_1_1_WHITE, ANGEL_4_4_WHITE_FLYING, ARMY_0_0_BLACK, BIRD_1_1_WHITE_FLYING, BLOOD,
-    BOAR_2_2_GREEN, CLUE, CONSTRUCT_ARTIFACT_0_0, FOOD, ILLUSION_X_BLUE,
-    SHAPESHIFTER_1_1_CHANGELING, SHAPESHIFTER_2_2_BLUE_CHANGELING, SOLDIER_1_1_WHITE, TREASURE,
+    BOAR_2_2_GREEN, CLUE, CONSTRUCT_ARTIFACT_0_0, ELEMENTAL_X_X_GREEN_WHITE, FOOD,
+    GOBLIN_SHAMAN_2_2_RED, ILLUSION_X_BLUE, SHAPESHIFTER_1_1_CHANGELING,
+    SHAPESHIFTER_2_2_BLUE_CHANGELING, SOLDIER_1_1_WHITE, TREASURE,
 };
 use baylee_cards_dsl::KeywordSet;
 use baylee_cards_dsl::TokenDef;
@@ -780,6 +781,28 @@ pub static SPIRIT_3_3_WHITE_FLYING: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/2 green Wolf.
+pub static WOLF_2_2_GREEN: TokenDef = TokenDef {
+    name: "Wolf",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WOLF],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 green Beast.
+pub static BEAST_3_3_GREEN: TokenDef = TokenDef {
+    name: "Beast",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BEAST],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -861,6 +884,10 @@ pub static ALL: &[&TokenDef] = &[
     &ILLUSION_1_1_BLUE_FLYING,
     &ELEMENTAL_2_2_BLUE_FLYING,
     &SPIRIT_3_3_WHITE_FLYING,
+    &WOLF_2_2_GREEN,
+    &BEAST_3_3_GREEN,
+    &tokens::ELEMENTAL_X_X_GREEN_WHITE,
+    &tokens::GOBLIN_SHAMAN_2_2_RED,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -931,4 +958,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &ILLUSION_1_1_BLUE_FLYING,
     &ELEMENTAL_2_2_BLUE_FLYING,
     &SPIRIT_3_3_WHITE_FLYING,
+    &WOLF_2_2_GREEN,
+    &BEAST_3_3_GREEN,
 ];

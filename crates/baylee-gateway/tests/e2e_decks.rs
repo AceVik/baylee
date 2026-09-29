@@ -601,7 +601,7 @@ fn going_back_is_a_change_and_not_an_erasure() {
     assert!(deck.contains("second edition"), "{deck}");
 }
 
-/// The four house decks are there to be played and to be copied.
+/// The house decks are there to be played and to be copied.
 #[test]
 fn the_house_decks_belong_to_nobody_and_anybody_may_take_a_copy() {
     let gateway = spawn_gateway("house");
@@ -614,12 +614,13 @@ fn the_house_decks_belong_to_nobody_and_anybody_may_take_a_copy() {
     assert!(shared.contains("Kenrith, the Returned King"), "{shared}");
     assert!(shared.contains("Kess, Dissident Mage"), "{shared}");
     assert!(shared.contains("Tayam, Luminous Enigma"), "{shared}");
-    // And the four that came from a table rather than from the engine's
-    // needs: two of the owner's, two of his friends'.
+    // And the five that came from a table rather than from the engine's
+    // needs: two of the owner's, three of his friends'.
     assert!(shared.contains("Allytifact"), "{shared}");
     assert!(shared.contains("Victory"), "{shared}");
     assert!(shared.contains("Schwarzrand"), "{shared}");
     assert!(shared.contains("Weltenbaum"), "{shared}");
+    assert!(shared.contains("Euro-Highlander"), "{shared}");
     // `cards` in this answer is the number of *rows*, not of cards: a deck
     // stores `"N Card Name"` lines, so a playset is one row. Every house deck
     // is a hundred cards and they run from 97 rows to 100, which is why the

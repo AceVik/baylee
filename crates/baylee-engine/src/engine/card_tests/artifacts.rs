@@ -2939,14 +2939,15 @@ fn aether_vial() -> CardIndex {
 
 /// `Aether Vial` prints `At the beginning of your upkeep, you may put a charge counter on this artifact.` and `{{T}}: You may put a creature card with mana value equal to the number of charge counters on this artifact from your hand onto the battlefield.`
 ///
-/// Marked `Coverage::Partial`, its upkeep trigger uses `Trigger::StepBegin` with `StepKind::Upkeep` to prompt via `Pending::YesNo` for `Effect::MayDo`, placing a `CounterKind::Charge`.
-/// The unmodelled `{{T}}` creature put ability is excluded from `legal.abilities` even while `Aether Vial` stands untapped.
+/// The upkeep trigger uses `Trigger::StepBegin` with `StepKind::Upkeep` to prompt via `Pending::YesNo` for `Effect::MayDo`, placing a `CounterKind::Charge`.
+/// With one counter, the `{{T}}` ability puts the mana value 1 Elves from hand onto the battlefield and leaves the mana value 2 Spider where it is.
 #[test]
-fn aether_vial_adds_charge_counter_at_upkeep_and_omits_creature_ability() {
+fn aether_vial_adds_charge_counter_at_upkeep_and_puts_a_matching_creature_into_play() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[aether_vial()])
+        .hand(0, &[llanowar_elves(), canopy_spider()])
         .start();
     keep_mulligans(&mut engine);
 
@@ -2990,25 +2991,306 @@ fn aether_vial_adds_charge_counter_at_upkeep_and_omits_creature_ability() {
     assert_eq!(counters_on(&engine, vial, CounterKind::Charge), 1);
     assert!(!is_tapped(&engine, vial));
 
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending());
+    // One charge counter: the Elves (mana value 1) may come in, the Spider
+    // (2) may not, and nothing is paid for either.
+    let elves = in_hand(&engine, p0, llanowar_elves()).expect("the Elves wait in hand");
+    activate(&mut engine, p0, aether_vial(), 1);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = pass_to_card_choice(&mut engine)
+    else {
+        unreachable!("the helper returns only a card choice")
     };
-    assert!(
-        !legal.abilities.iter().any(|(src, _)| *src == vial),
-        "under `Coverage::Partial` the unmodelled {{T}} ability is omitted from `legal.abilities`"
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (0, 1), "\"you may put a creature card\"");
+    assert_eq!(
+        options,
+        vec![elves],
+        "mana value equal to one counter: not the Spider, not the land"
     );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+    assert!(in_hand(&engine, p0, canopy_spider()).is_some());
+    assert!(is_tapped(&engine, vial));
 }
 
 fn conduit_of_worlds() -> CardIndex {
     card_index("ed14be15-8f8d-4fe3-a147-f5da8ed873bf")
 }
 
-/// `Conduit of Worlds` prints `You may play lands from your graveyard.` and `{{T}}: Choose target nonland permanent card in your graveyard. If you haven't cast a spell this turn, you may cast that card. If you do, you can't cast additional spells this turn. Activate only as a sorcery.`
+fn unlicensed_hearse() -> CardIndex {
+    card_index("c640654c-487e-4a2c-aced-126ed835b78f")
+}
+
+/// Unlicensed Hearse: "{T}: Exile up to two target cards from a single
+/// graveyard." and "Unlicensed Hearse's power and toughness are each equal
+/// to the number of cards exiled with it."
 ///
-/// Marked `Coverage::Partial`, its static ability grants `Modifier::PlayLandsFromGraveyard`, allowing a `forest()` card in the graveyard to be offered in `legal.lands` and played via `PlayerAction::PlayLand`.
-/// The unmodelled `{{T}}` activated ability is omitted from `legal.abilities` even while `Conduit of Worlds` stands untapped.
+/// A Forest lies in p0's graveyard and a Plains and a Swamp in p1's. Two
+/// graveyards hold cards, so the activation asks which one first; p1's is
+/// named, and the targets offered are its two cards and not the Forest.
+/// Both go to their owner's exile, and the Hearse, 0/0 before, is 2/2.
 #[test]
-fn conduit_of_worlds_allows_playing_lands_from_graveyard_and_omits_activated_ability() {
+fn unlicensed_hearse_exiles_two_cards_from_one_graveyard_and_counts_them() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[unlicensed_hearse()])
+        .hand(0, &[forest()])
+        .hand(1, &[plains(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let their_cards = [
+        hand_to_graveyard(&mut engine, p1, plains()),
+        hand_to_graveyard(&mut engine, p1, swamp()),
+    ];
+    let my_forest = hand_to_graveyard(&mut engine, p0, forest());
+    let hearse = on_battlefield(&engine, p0, unlicensed_hearse()).expect("the Hearse is out");
+    assert_eq!(pt(&engine, hearse), (0, 0), "nothing is exiled with it yet");
+
+    activate(&mut engine, p0, unlicensed_hearse(), 0);
+    let Pending::ChoosePlayer { player, options } = engine.pending().clone() else {
+        panic!(
+            "expected the graveyard question, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options, vec![p0, p1], "both graveyards hold a card");
+    engine
+        .apply(p0, PlayerAction::ChoosePlayer(p1))
+        .expect("p1's graveyard is named");
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the targets, got {:?}", engine.pending())
+    };
+    assert_eq!((min, max), (0, 2), "\"up to two target cards\"");
+    assert_eq!(options.len(), 2, "p1's two cards: {options:?}");
+    assert!(their_cards.iter().all(|card| options.contains(card)));
+    assert!(
+        !options.contains(&my_forest),
+        "\"from a single graveyard\": the Forest is in the other one"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: their_cards.to_vec(),
+            },
+        )
+        .expect("both of p1's cards are targeted");
+    pass_until(&mut engine, stack_is_empty);
+
+    for card in their_cards {
+        assert_eq!(
+            engine.state().object(card).map(|o| (o.zone, o.owner)),
+            Some((Zone::Exile, p1)),
+            "exiled, into its owner's exile"
+        );
+    }
+    assert_eq!(
+        engine.state().object(my_forest).map(|o| o.zone),
+        Some(Zone::Graveyard)
+    );
+    assert_eq!(
+        pt(&engine, hearse),
+        (2, 2),
+        "\"equal to the number of cards exiled with it\""
+    );
+}
+
+/// Unlicensed Hearse with cards in one graveyard only: nothing asks which
+/// graveyard, and the targets are asked at once.
+#[test]
+fn unlicensed_hearse_asks_no_graveyard_when_only_one_holds_cards() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[unlicensed_hearse()])
+        .hand(1, &[plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let plains_card = hand_to_graveyard(&mut engine, p1, plains());
+
+    activate(&mut engine, p0, unlicensed_hearse(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the targets at once, got {:?}", engine.pending())
+    };
+    assert_eq!(options, vec![plains_card]);
+}
+
+/// Whether `seat` is offered ability `index` of `object` right now.
+fn hearse_offers(engine: &Engine<RegistryLookup>, object: ObjectId, index: u32) -> bool {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        return false;
+    };
+    legal.abilities.contains(&(object, index))
+}
+
+/// Every Llanowar Elves `seat` controls.
+fn elves_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+    engine
+        .state()
+        .battlefield_view()
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == seat && o.card.is_some_and(|c| c.index == llanowar_elves())
+            })
+        })
+        .collect()
+}
+
+/// Unlicensed Hearse's Crew 2 (CR 702.122a): with two cards exiled with it
+/// and two Llanowar Elves beside it, crew asks for creatures and offers both
+/// Elves and never the Hearse ("other"). One Elf, power 1, is refused and
+/// the question stands; both are taken, both are tapped, and once the
+/// ability resolves the Hearse is a 2/2 artifact creature.
+#[test]
+fn unlicensed_hearse_is_crewed_by_two_elves_and_not_by_one() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[unlicensed_hearse(), llanowar_elves(), llanowar_elves()],
+        )
+        .hand(1, &[plains(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let their_cards = [
+        hand_to_graveyard(&mut engine, p1, plains()),
+        hand_to_graveyard(&mut engine, p1, swamp()),
+    ];
+    let hearse = on_battlefield(&engine, p0, unlicensed_hearse()).expect("the Hearse is out");
+    let elves = elves_of(&engine, p0);
+    assert_eq!(elves.len(), 2);
+
+    activate(&mut engine, p0, unlicensed_hearse(), 0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: their_cards.to_vec(),
+            },
+        )
+        .expect("both of p1's cards are targeted");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, hearse), (2, 2), "two cards exiled with it");
+    let creature = |engine: &Engine<RegistryLookup>| {
+        engine.state().object(hearse).is_some_and(|o| {
+            o.characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::CREATURE)
+        })
+    };
+    assert!(!creature(&engine), "a Vehicle is not a creature uncrewed");
+
+    // Ability 2 is Crew 2 (0 is the exile, 1 the power-and-toughness static).
+    activate(&mut engine, p0, unlicensed_hearse(), 2);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected the crew question, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert_eq!(prompt, ChoicePrompt::CostCrew { power: 2 });
+    assert_eq!((min, max), (1, 2), "any number of the two Elves");
+    assert_eq!(options.len(), 2);
+    assert!(elves.iter().all(|elf| options.contains(elf)));
+    assert!(!options.contains(&hearse), "\"other untapped creatures\"");
+
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![elves[0]],
+                },
+            )
+            .is_err(),
+        "one Elf is power 1, short of Crew 2"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::ChooseCards { .. }),
+        "the question stands after a short answer"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: elves.clone(),
+            },
+        )
+        .expect("two Elves are power 2");
+    for elf in &elves {
+        assert!(
+            engine
+                .state()
+                .object(*elf)
+                .is_some_and(|o| o.status.contains(Status::TAPPED)),
+            "a creature that crews is tapped to pay"
+        );
+    }
+    pass_until(&mut engine, stack_is_empty);
+    assert!(creature(&engine), "\"becomes an artifact creature\"");
+    assert!(
+        engine.state().object(hearse).is_some_and(|o| o
+            .characteristics()
+            .types
+            .contains(baylee_core::types::TypeSet::ARTIFACT)),
+        "and stays an artifact"
+    );
+    assert_eq!(pt(&engine, hearse), (2, 2), "the exiled cards still count");
+}
+
+/// Unlicensed Hearse beside one Llanowar Elves: power 1 cannot reach Crew 2,
+/// so crew is not offered at all, while the Hearse's own {T} is.
+#[test]
+fn unlicensed_hearse_is_not_offered_crew_below_its_number() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[unlicensed_hearse(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let hearse = on_battlefield(&engine, p0, unlicensed_hearse()).expect("the Hearse is out");
+    assert!(
+        hearse_offers(&engine, hearse, 0),
+        "the {{T}} ability is offered"
+    );
+    assert!(
+        !hearse_offers(&engine, hearse, 2),
+        "one power-1 creature cannot crew 2"
+    );
+}
+
+/// Conduit of Worlds: "You may play lands from your graveyard."
+///
+/// A Forest in the graveyard is offered as a land play and played from
+/// there.
+#[test]
+fn conduit_of_worlds_plays_a_land_from_the_graveyard() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[conduit_of_worlds()])
@@ -3027,13 +3309,6 @@ fn conduit_of_worlds_allows_playing_lands_from_graveyard_and_omits_activated_abi
         "graveyard land offered as legal land play"
     );
 
-    let conduit = on_battlefield(&engine, p0, conduit_of_worlds()).expect("conduit on battlefield");
-    assert!(!is_tapped(&engine, conduit));
-    assert!(
-        !legal.abilities.iter().any(|(src, _)| *src == conduit),
-        "under `Coverage::Partial` the unmodelled {{T}} ability is omitted"
-    );
-
     engine
         .apply(p0, PlayerAction::PlayLand { card: gy_forest })
         .unwrap();
@@ -3045,6 +3320,144 @@ fn conduit_of_worlds_allows_playing_lands_from_graveyard_and_omits_activated_abi
     assert!(
         in_graveyard(&engine, p0, forest()).is_none(),
         "forest no longer in graveyard"
+    );
+}
+
+/// Conduit of Worlds' board: the Conduit and three Forests for p0, a Llanowar
+/// Elves in its graveyard and a Sol Ring in its hand, at its own main phase
+/// with priority. Returns the engine and the Elves.
+fn a_conduit_with_elves_in_the_graveyard() -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[conduit_of_worlds(), forest(), forest(), forest()])
+        .hand(0, &[llanowar_elves(), sol_ring()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let elves = hand_to_graveyard(&mut engine, p0, llanowar_elves());
+    (engine, elves)
+}
+
+/// Activates the Conduit's {T} ability and points it at `card`.
+fn conduit_targets(engine: &mut Engine<RegistryLookup>, card: ObjectId) {
+    let p0 = PlayerId::new(0);
+    activate(engine, p0, conduit_of_worlds(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the target question, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![card],
+        "\"target nonland permanent card in your graveyard\""
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![card],
+            },
+        )
+        .expect("the Conduit targets the card");
+}
+
+/// Conduit of Worlds: "{T}: Choose target nonland permanent card in your
+/// graveyard. If you haven't cast a spell this turn, you may cast that card.
+/// If you do, you can't cast additional spells this turn."
+///
+/// One Forest is tapped first, and Sol Ring is offered on that floating
+/// green. No spell has been cast this turn, so the resolving ability asks;
+/// a yes opens a payment window for the Elves' {G}, the seat taps its other
+/// Forests, and passing casts the Elves off the graveyard, paid out of the
+/// pool. The Elves resolve onto the battlefield. Sol Ring, with two green
+/// still floating, is then not offered: the lock is on.
+#[test]
+fn conduit_of_worlds_casts_a_graveyard_card_and_locks_further_spells() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, elves) = a_conduit_with_elves_in_the_graveyard();
+    let ring = in_hand(&engine, p0, sol_ring()).expect("the Ring is in hand");
+    let first_forest = on_battlefield(&engine, p0, forest()).expect("a Forest stands");
+    assert_eq!(tap_mana_where(&mut engine, p0, |id| id == first_forest), 1);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&ring),
+        "the Ring is castable before the Conduit is used"
+    );
+
+    conduit_targets(&mut engine, elves);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on nothing else")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        prompt,
+        crate::choice::YesNoPrompt::CastPaying { card: elves },
+        "\"you may cast that card\""
+    );
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    assert_eq!(
+        engine.payment_window(),
+        Some((p0, baylee_core::mana::ManaCost::parse("{G}"))),
+        "the window owes the card's mana cost"
+    );
+    assert_eq!(tap_all_mana(&mut engine, p0), 2, "the other two Forests");
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(engine.payment_window().is_none());
+    assert!(
+        on_stack(&engine, llanowar_elves()).is_some(),
+        "the Elves were cast from the graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "paid {{G}} out of the three made"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 2);
+    assert!(
+        !legal.castable.contains(&ring),
+        "\"you can't cast additional spells this turn\""
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::CastSpell { card: ring })
+            .is_err(),
+        "and a cast named anyway is refused"
+    );
+}
+
+/// Conduit of Worlds: "If you haven't cast a spell this turn". The seat
+/// casts Sol Ring first; the Conduit's ability then resolves without asking,
+/// and the Elves stay in the graveyard.
+#[test]
+fn conduit_of_worlds_offers_nothing_once_a_spell_was_cast_this_turn() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, elves) = a_conduit_with_elves_in_the_graveyard();
+    cast_from_hand(&mut engine, p0, sol_ring());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, sol_ring()).is_some());
+
+    conduit_targets(&mut engine, elves);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !matches!(engine.pending(), Pending::YesNo { .. }),
+        "nothing is offered"
+    );
+    assert!(engine.payment_window().is_none());
+    assert_eq!(
+        engine.state().object(elves).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "the Elves stay where they are"
     );
 }
 
@@ -16693,5 +17106,462 @@ fn inspirit_combat_trigger_needs_a_charge_counter_and_outlives_it() {
             .map(|o| o.counters.get(CounterKind::Charge)),
         Some(2),
         "the trigger resolved although the Vessel lost its counter"
+    );
+}
+
+/// Birthing Pod — {3}{G/P} artifact: "{1}{G/P}, {T}, Sacrifice a creature:
+/// Search your library for a creature card with mana value equal to 1 plus
+/// the sacrificed creature's mana value, put that card onto the battlefield,
+/// then shuffle. Activate only as a sorcery."
+///
+/// The sacrificed creature's mana value is written on the ability as the
+/// cost is paid, and read back when it resolves — by then the creature is a
+/// card in the graveyard, which is why it cannot be asked then. Ornithopter
+/// (0) is paid, and the library of Llanowar Elves (1) is offered whole. Two
+/// Forests pay the `{G/P}` either way, so the seat is asked and pays green.
+#[test]
+fn birthing_pod_finds_a_creature_one_mana_value_above_the_sacrifice() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, llanowar_elves())
+        .battlefield(0, &[forest(), forest(), birthing_pod(), ornithopter()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let thopter = on_battlefield(&engine, p0, ornithopter()).unwrap();
+    let library_before = library_size(&engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, birthing_pod(), 0);
+    let Pending::YesNo { prompt, .. } = engine.pending().clone() else {
+        panic!("{{G/P}} asks 2 life or green, got {:?}", engine.pending())
+    };
+    assert_eq!(prompt, crate::choice::YesNoPrompt::PayLife { amount: 2 });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!("the cost asks which creature, got {:?}", engine.pending())
+    };
+    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert_eq!(options, vec![thopter]);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![thopter],
+            },
+        )
+        .unwrap();
+    assert!(in_graveyard(&engine, p0, ornithopter()).is_some());
+
+    let Pending::ChooseCards { options, .. } = pass_to_card_choice(&mut engine) else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(options.len(), library_before, "0 + 1 is every Elves");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+    assert_eq!(library_size(&engine, p0), library_before - 1);
+    let pod = on_battlefield(&engine, p0, birthing_pod()).unwrap();
+    assert!(is_tapped(&engine, pod));
+    assert_eq!(engine.state().players[0].life, 20, "paid with green");
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+}
+
+/// "{G/P} can be paid with either {G} or 2 life." One Forest pays the `{1}`
+/// and nothing is left for the green, so the `{G/P}` can only be 2 life: the
+/// activation is offered, nobody is asked, and the life is paid with the
+/// rest of the cost. Before activation costs read Phyrexian mana the Pod was
+/// never offered off one Forest.
+#[test]
+fn birthing_pod_pays_its_phyrexian_green_with_two_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, llanowar_elves())
+        .battlefield(0, &[forest(), birthing_pod(), ornithopter()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let thopter = on_battlefield(&engine, p0, ornithopter()).unwrap();
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, birthing_pod(), 0);
+    let Pending::ChooseCards { prompt, .. } = engine.pending().clone() else {
+        panic!(
+            "only life can pay the {{G/P}}, so nothing is asked; got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![thopter],
+            },
+        )
+        .unwrap();
+    assert_eq!(engine.state().players[0].life, 18, "2 life for the {{G/P}}");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the Forest's one"
+    );
+    let Pending::ChooseCards { options, .. } = pass_to_card_choice(&mut engine) else {
+        unreachable!("the helper returns only a card choice")
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+}
+
+/// With green to spare the seat chooses, and 2 life is an answer: the
+/// green stays in the pool. At 1 life with one Forest neither way pays,
+/// and the Pod is not offered (CR 119.4).
+#[test]
+fn birthing_pod_asks_life_or_green_and_is_not_offered_when_neither_pays() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, llanowar_elves())
+        .battlefield(0, &[forest(), forest(), birthing_pod(), ornithopter()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, birthing_pod(), 0);
+    assert!(matches!(engine.pending(), Pending::YesNo { .. }));
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    let thopter = on_battlefield(&engine, p0, ornithopter()).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![thopter],
+            },
+        )
+        .unwrap();
+    assert_eq!(engine.state().players[0].life, 18);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "one Forest paid the {{1}}, the other is still floating"
+    );
+
+    let mut broke = Duel::new(SEED, llanowar_elves())
+        .battlefield(0, &[forest(), birthing_pod(), ornithopter()])
+        .life(0, 1)
+        .start();
+    keep_mulligans(&mut broke);
+    reach_main_phase(&mut broke, p0);
+    tap_all_mana(&mut broke, p0);
+    let Pending::Priority { legal, .. } = broke.pending() else {
+        panic!("expected priority, got {:?}", broke.pending())
+    };
+    let pod = on_battlefield(&broke, p0, birthing_pod()).unwrap();
+    assert!(
+        !legal.abilities.contains(&(pod, 0)),
+        "one mana and one life pay neither {{1}}{{G}} nor {{1}} and 2 life"
+    );
+}
+
+fn pithing_needle() -> CardIndex {
+    card_index("a188fe7e-68de-4c7c-806c-bfe8fc7b44bf")
+}
+
+/// Pithing Needle naming a Room leaves its unlock alone: unlocking a door
+/// is a special action (CR 116.2m) and not an activated ability, and the
+/// Needle stops only the second (CR 602.5). Walk-In Closet is cast as its
+/// left half, so the permanent's name is the one named, and Forgotten
+/// Cellar is then unlocked with the Needle on the table.
+#[test]
+fn pithing_needle_naming_a_room_leaves_its_doors_to_unlock() {
+    let p0 = PlayerId::new(0);
+    let mut board = vec![forest(); 9];
+    board.push(llanowar_elves());
+    let mut engine = Duel::new(601, forest())
+        .battlefield(0, &board)
+        .hand(0, &[walk_in_closet(), pithing_needle()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    float_green(&mut engine, p0, 3);
+    cast_with_floating(&mut engine, p0, walk_in_closet());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let room = on_battlefield(&engine, p0, walk_in_closet()).expect("the Closet resolved");
+
+    // Everything else is tapped for it: six Forests and the Elf, one of
+    // which pays for the Needle.
+    needle_naming(&mut engine, walk_in_closet());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(
+        unlocks_offered(&engine, room),
+        [1],
+        "the Needle names the Room, and the unlock is not an ability it stops"
+    );
+    unlock(&mut engine, p0, room, 1).expect("Forgotten Cellar unlocks under the Needle");
+    assert_eq!(doors_of(&engine, room), crate::object::Doors::room(0b11));
+}
+
+/// Seat 0 casts Pithing Needle in its first main phase, off everything it
+/// can tap, and names face 0 of `named` when the Needle asks as it enters.
+#[track_caller]
+fn needle_naming(engine: &mut Engine<RegistryLookup>, named: CardIndex) -> ObjectId {
+    let p0 = PlayerId::new(0);
+    reach_main_phase(engine, p0);
+    cast_from_hand(engine, p0, pithing_needle());
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseCardName { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseCardName {
+                card: named,
+                face: 0,
+            },
+        )
+        .expect("any card of the pool may be named");
+    on_battlefield(engine, p0, pithing_needle()).expect("the Needle is out")
+}
+
+/// Pithing Needle: "As this artifact enters, choose a card name. Activated
+/// abilities of sources with the chosen name can't be activated unless
+/// they're mana abilities."
+///
+/// One name, two sources with it and one without. The Desert on the table
+/// still taps for {G}, because that is a mana ability (CR 605.1a); the copy
+/// in hand no longer cycles, because cycling is an activated ability of a
+/// card in a hand (CR 602.1, 113.6b) and "sources" is not "permanents"; and
+/// Lay Waste beside it, another name, still does, which is what makes the
+/// second reading one about the name and not about the hand. The question is
+/// asked of the Needle's controller as it enters, and a face the card does
+/// not print, a card the pool does not have and the other seat's answer are
+/// each refused with the question left open.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn pithing_needle_stops_the_named_card_activating_but_not_tapping_for_mana() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let desert = desert_of_the_indomitable();
+    let mut engine = Duel::new(601, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[pithing_needle()])
+        .battlefield(1, &[desert, forest(), forest()])
+        .hand(1, &[desert, lay_waste()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, pithing_needle());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCardName { .. })
+    });
+    assert!(
+        matches!(engine.pending(), Pending::ChooseCardName { player } if *player == p0),
+        "the Needle's controller names the card, as it enters: {:?}",
+        engine.pending()
+    );
+
+    for (seat, card, face, what) in [
+        (p0, desert, 1, "a face the Desert does not print"),
+        (
+            p0,
+            CardIndex::new(0x0FFF_FFFF),
+            0,
+            "a card the pool does not have",
+        ),
+        (p1, desert, 0, "the other seat's answer"),
+    ] {
+        assert!(
+            engine
+                .apply(seat, PlayerAction::ChooseCardName { card, face })
+                .is_err(),
+            "{what} is refused"
+        );
+        assert!(
+            matches!(engine.pending(), Pending::ChooseCardName { player } if *player == p0),
+            "and the question is still open after {what}: {:?}",
+            engine.pending()
+        );
+    }
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseCardName {
+                card: desert,
+                face: 0,
+            },
+        )
+        .expect("any card of the pool may be named");
+    let needle = on_battlefield(&engine, p0, pithing_needle()).expect("the Needle is out");
+    assert_eq!(
+        engine
+            .state()
+            .object(needle)
+            .and_then(|o| o.chosen_name)
+            .map(|n| (n.card(), n.face())),
+        Some((desert, 0)),
+        "the name is kept on the Needle, as the card and face it was read off"
+    );
+
+    // Their own turn, because the Desert was seated tapped (it enters
+    // tapped) and stands again only in their untap step.
+    reach_their_main_phase(&mut engine, p1);
+    let on_table = on_battlefield(&engine, p1, desert).expect("their Desert is out");
+    tap_mana_except(&mut engine, p1, on_table);
+    let in_their_hand = in_hand(&engine, p1, desert).expect("the second Desert is in hand");
+    let waste = in_hand(&engine, p1, lay_waste()).expect("Lay Waste is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(on_table, 0)),
+        "{{T}}: Add {{G}} is a mana ability, which the Needle spares: {:?}",
+        legal.abilities
+    );
+    assert!(
+        !legal.abilities.contains(&(in_their_hand, 1)),
+        "cycling the named card is an activated ability, and it is not \
+         offered with {{1}}{{G}} floating: {:?}",
+        legal.abilities
+    );
+    assert!(
+        legal.abilities.contains(&(waste, 0)),
+        "Lay Waste is another name, so its cycling is: {:?}",
+        legal.abilities
+    );
+    assert!(
+        engine
+            .apply(
+                p1,
+                PlayerAction::ActivateAbility {
+                    source: in_their_hand,
+                    ability_index: 1,
+                },
+            )
+            .is_err(),
+        "and cycling it anyway is refused"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: on_table,
+                ability_index: 0,
+            },
+        )
+        .expect("the named Desert still taps for mana");
+    assert_eq!(
+        engine.state().players[1]
+            .mana_pool
+            .available(ManaColor::Green),
+        3,
+        "two Forests and the Desert"
+    );
+}
+
+/// Pithing Needle on a planeswalker. A loyalty ability is an activated
+/// ability (CR 606.1) and never a mana ability (CR 605.1a), so naming Karn
+/// leaves him nothing to do on his controller's turn. The same board with
+/// another name chosen offers his +1, which is what makes the first reading
+/// one about the name.
+#[test]
+fn pithing_needle_named_after_a_planeswalker_leaves_it_nothing_to_activate() {
+    let p1 = PlayerId::new(1);
+    for (named, offered) in [(karn_the_great_creator(), false), (lay_waste(), true)] {
+        let mut engine = Duel::new(602, forest())
+            .battlefield(0, &[forest()])
+            .hand(0, &[pithing_needle()])
+            .battlefield(1, &[karn_the_great_creator()])
+            .start();
+        keep_mulligans(&mut engine);
+        needle_naming(&mut engine, named);
+        reach_their_main_phase(&mut engine, p1);
+        let karn = on_battlefield(&engine, p1, karn_the_great_creator()).expect("Karn is out");
+        let Pending::Priority { player, legal } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        assert_eq!(player, p1, "Karn's controller, in their own main phase");
+        assert_eq!(
+            legal.abilities.contains(&(karn, 1)),
+            offered,
+            "Karn's +1 with the Needle naming {:?}: {:?}",
+            engine
+                .lookup
+                .card(named)
+                .map(baylee_cards_dsl::CardDef::name),
+            legal.abilities
+        );
+    }
+}
+
+/// The name belongs to the permanent that entered (CR 400.7). Boomerang the
+/// Needle and the lock goes with it, so the Desert cycles again; the card in
+/// the hand carries no name; and cast again, the Needle asks again, and the
+/// new name is the one that locks.
+#[test]
+fn pithing_needle_returned_to_hand_forgets_its_name_and_asks_again() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let desert = desert_of_the_indomitable();
+    let mut engine = Duel::new(603, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[pithing_needle(), desert])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[boomerang()])
+        .start();
+    keep_mulligans(&mut engine);
+    let cycles = |engine: &Engine<RegistryLookup>| {
+        let card = in_hand(engine, p0, desert).expect("the Desert is in hand");
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        legal.abilities.contains(&(card, 1))
+    };
+    let needle = needle_naming(&mut engine, desert);
+    // Four Forests paid {1}, and {G}{G}{G} float: the Desert's cycling
+    // now, and a second Needle with its cycling after.
+    assert!(!cycles(&engine), "the Needle names the Desert");
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    cast_from_hand(&mut engine, p1, boomerang());
+    aim_at(&mut engine, p1, needle);
+    pass_until(&mut engine, stack_is_empty);
+    let card = in_hand(&engine, p0, pithing_needle()).expect("the Needle is back in hand");
+    assert_eq!(
+        engine.state().object(card).and_then(|o| o.chosen_name),
+        None,
+        "the card in hand is a new object, with no name chosen"
+    );
+    assert!(
+        cycles(&engine),
+        "and with the Needle gone, the Desert cycles"
+    );
+
+    cast_with_floating(&mut engine, p0, pithing_needle());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCardName { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseCardName {
+                card: boomerang(),
+                face: 0,
+            },
+        )
+        .expect("Boomerang is a card of the pool");
+    assert!(
+        cycles(&engine),
+        "cast again, the Needle names Boomerang, and the Desert is free"
     );
 }

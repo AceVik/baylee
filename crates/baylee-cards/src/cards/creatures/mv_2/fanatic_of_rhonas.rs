@@ -3,8 +3,6 @@
 //! Oracle: Ferocious — {T}: Add {G}{G}{G}{G}. Activate only if you control a creature with power 4 or greater.
 //! Oracle: Eternalize {2}{G}{G} ({2}{G}{G}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a 4/4 black Zombie Snake Druid with no mana cost. Eternalize only as a sorcery.)
 //! Set: MH3 #152 — Modern Horizons 3 | Scryfall ID: 1f9fb33a-3b39-4aff-93b8-aedafe0ea694 | Oracle ID: 7973820b-fdaf-46ec-9e3e-d4c0e77b5067
-// PARTIAL — both mana abilities are built; Eternalize has no spelling in
-// the DSL, see the NOT SUPPORTED line below.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -22,9 +20,7 @@ card!(
         power = Some(1),
         toughness = Some(4),
     ),],
-    coverage = Coverage::Partial(
-        "Eternalize needs an ability activated from the graveyard (ActivationZone has only Battlefield and Hand) that makes a token copy that is a 4/4 black Zombie with no mana cost, which no CopyMod states",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
         // Ferocious — "Activate only if you control a creature with power 4
@@ -37,10 +33,23 @@ card!(
                 1
             )),
         ),
-        // NOT SUPPORTED: "Eternalize {2}{G}{G} ({2}{G}{G}, Exile this card
-        // from your graveyard: Create a token that's a copy of it, except it's
-        // a 4/4 black Zombie Snake Druid with no mana cost. Eternalize only as
-        // a sorcery.)" `ActivationZone` has `Battlefield` and `Hand` and no
-        // graveyard, and no `CopyMod` sets power and toughness to 4/4.
+        // Eternalize {2}{G}{G} (CR 702.129a): "{2}{G}{G}, Exile this card
+        // from your graveyard: Create a token that's a copy of it, except
+        // it's a 4/4 black Zombie Snake Druid with no mana cost. Eternalize
+        // only as a sorcery." The copy is of the card, so Snake Druid comes
+        // with it and Zombie is added.
+        activated!(
+            cost!("{2}{G}{G}", ExileSelf),
+            &[Effect::CreateTokenCopyOfSource {
+                mods: &[
+                    CopyMod::SetPT(4, 4),
+                    CopyMod::SetColor(ColorSet::from_slice(&[Color::Black])),
+                    CopyMod::AddSubtype(subtypes::creature::ZOMBIE),
+                    CopyMod::NoManaCost,
+                ],
+            }],
+            zone = ActivationZone::Graveyard,
+            timing = ActivationTiming::SorcerySpeed,
+        ),
     ],
 );

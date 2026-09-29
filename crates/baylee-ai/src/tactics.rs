@@ -2,11 +2,11 @@
 //! Unknown effects retain the general policy; new cards need no name table.
 
 use baylee_cards_dsl::{AbilityDef, Amount, CounterKind, Effect, Modifier};
-use baylee_core::ids::{ObjectId, PlayerId, SubtypeId};
+use baylee_core::ids::{CardIndex, ObjectId, PlayerId, SubtypeId};
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::PlayerAction;
 use baylee_engine::engine::DecisionContext;
-use baylee_view::{CounterKind as ViewCounter, PlayerView, PublicObject};
+use baylee_view::{CounterKind as ViewCounter, PlayerView, PublicObject, RulesFace};
 
 use crate::HeuristicAgent;
 
@@ -247,6 +247,10 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 m.damage = u32::try_from(amount(*n, x)).unwrap_or(0);
                 m.benefit = -1;
             }
+            Effect::DealDamageDivided { amount: n } => {
+                m.damage = *n;
+                m.benefit = -1;
+            }
             Effect::Blink { .. }
             | Effect::ExileAndReturnAtEndStep
             | Effect::UntapTarget
@@ -278,7 +282,11 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 m.value = 500;
             }
             Effect::TakeExtraTurn | Effect::ExileLibraryAndShuffleHand { .. } => m.value = 10_000,
-            Effect::SearchLibrary { .. } | Effect::LookAtTopPick { .. } => m.value = 350,
+            Effect::SearchLibrary { .. }
+            | Effect::SearchLibraryUpTo { .. }
+            | Effect::LookAtTopPick { .. }
+            | Effect::RevealTopAndSort { .. }
+            | Effect::LookAtTopMayPut { .. } => m.value = 350,
             Effect::GainLife { .. } => m.value = 80,
             _ => {}
         }
@@ -311,6 +319,23 @@ impl Meaning {
     }
 }
 
+/// The damage that finishes a creature (its toughness less what is marked on
+/// it) or a planeswalker (its loyalty); a creature planeswalker takes the
+/// larger. Never less than 1: a 0-toughness creature is already dying.
+pub(crate) fn damage_to_finish(o: &PublicObject) -> i64 {
+    let creature = if o.types.contains(TypeSet::CREATURE) {
+        i64::from(o.toughness.unwrap_or(0)) - i64::from(o.damage)
+    } else {
+        0
+    };
+    let walker = if o.types.contains(TypeSet::PLANESWALKER) {
+        i64::from(o.loyalty.unwrap_or(0))
+    } else {
+        0
+    };
+    creature.max(walker).max(1)
+}
+
 pub(crate) fn material(o: &PublicObject) -> i64 {
     200 + i64::from(o.mana_value) * 70
         + i64::from(o.power.unwrap_or(0).max(0)) * 110
@@ -324,6 +349,63 @@ pub(crate) fn material(o: &PublicObject) -> i64 {
 }
 
 impl HeuristicAgent {
+    /// The card name a Pithing Needle of the agent's names: the opponents'
+    /// permanent it would stop that is worth the most.
+    ///
+    /// The lock spares a mana ability and not a loyalty ability (CR 605.1a),
+    /// so a permanent counts when its printed list has a non-mana
+    /// `Activated` or `ActivatedConditional`, or a `Loyalty`. The name is read
+    /// off the face its abilities are printed on (`rules`), which for a copy
+    /// is the copied card's, and that is the name the copy answers to.
+    ///
+    /// With nothing to stop, the first card of the pool that is none of the
+    /// agent's own visible cards: the engine takes any name its pool has,
+    /// and this one locks nothing of the agent's.
+    pub(crate) fn card_name(&self, view: &PlayerView) -> (CardIndex, u8) {
+        let stops = |face: RulesFace| {
+            baylee_cards::by_index(face.card).is_some_and(|def| {
+                def.abilities_for_face(usize::from(face.face))
+                    .iter()
+                    .any(|ability| match ability {
+                        AbilityDef::Activated { .. } | AbilityDef::ActivatedConditional { .. } => {
+                            !ability.is_mana_ability()
+                        }
+                        AbilityDef::Loyalty { .. } => true,
+                        _ => false,
+                    })
+            })
+        };
+        let named = |o: &PublicObject| o.rules.or_else(|| o.card.map(RulesFace::from));
+        if let Some(face) = view
+            .battlefield
+            .iter()
+            .filter(|o| self.hostile(o.controller, view.seat))
+            .filter_map(|o| {
+                named(o)
+                    .filter(|face| stops(*face))
+                    .map(|face| (material(o), face))
+            })
+            .max_by_key(|(worth, _)| *worth)
+            .map(|(_, face)| face)
+        {
+            return (face.card, face.face);
+        }
+        let own: Vec<CardIndex> = view
+            .hand
+            .iter()
+            .map(|c| c.card.index)
+            .chain(
+                view.battlefield_of(view.seat)
+                    .filter_map(named)
+                    .map(|face| face.card),
+            )
+            .collect();
+        baylee_cards::all()
+            .map(|def| def.index)
+            .find(|card| !own.contains(card))
+            .map_or((CardIndex::new(0), 0), |card| (card, 0))
+    }
+
     pub(crate) fn subtype(&self, view: &PlayerView, options: &[SubtypeId]) -> SubtypeId {
         options
             .iter()
@@ -568,6 +650,12 @@ impl HeuristicAgent {
         if let Some(action) = self.stack_targets(view, offer, context) {
             return Some(action);
         }
+        if let Some(total) = context.effects.iter().find_map(|e| match e {
+            Effect::DealDamageDivided { amount } => Some(*amount),
+            _ => None,
+        }) {
+            return Some(self.divided_targets(view, offer, total));
+        }
         self.rank(
             view,
             offer,
@@ -575,6 +663,51 @@ impl HeuristicAgent {
             meaning(context.effects, context.x),
             &[],
         )
+    }
+
+    /// The targets for damage divided as this seat chooses (CR 601.2d): the
+    /// opponents' creatures and planeswalkers it can finish, most valuable
+    /// first, while the damage lasts — a target it cannot finish would only
+    /// take a share from one it can. Failing that, the single most valuable
+    /// opponent's permanent, which takes it all. Never one of this seat's
+    /// own unless the count demands it.
+    fn divided_targets(&self, view: &PlayerView, offer: Offer<'_>, total: u32) -> PlayerAction {
+        let Offer {
+            objects, min, max, ..
+        } = offer;
+        let mut hostile: Vec<&PublicObject> = objects
+            .iter()
+            .filter_map(|id| view.object(*id))
+            .filter(|o| self.hostile(o.controller, view.seat))
+            .collect();
+        hostile.sort_by_key(|o| (std::cmp::Reverse(material(o)), o.id));
+        let mut left = i64::from(total);
+        let mut chosen: Vec<ObjectId> = Vec::new();
+        for o in &hostile {
+            let need = damage_to_finish(o);
+            if chosen.len() < usize::from(max) && need <= left {
+                chosen.push(o.id);
+                left -= need;
+            }
+        }
+        if chosen.is_empty()
+            && max > 0
+            && let Some(o) = hostile.first()
+        {
+            chosen.push(o.id);
+        }
+        for id in objects {
+            if chosen.len() >= usize::from(min) {
+                break;
+            }
+            if !chosen.contains(id) {
+                chosen.push(*id);
+            }
+        }
+        PlayerAction::ChooseTargets {
+            objects: chosen,
+            players: Vec::new(),
+        }
     }
 
     /// Names the best of `offer` for an effect that means `m`, or `None`

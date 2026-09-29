@@ -65,6 +65,7 @@ const TAP_FOR_MANA: AbilityDef = AbilityDef::Activated {
     mana_ability: true,
     zone: ActivationZone::Battlefield,
     limit: ActivationLimit::Unlimited,
+    cost_reduction: None,
 };
 
 static WAKING_ABILITIES: &[AbilityDef] = &[
@@ -72,6 +73,7 @@ static WAKING_ABILITIES: &[AbilityDef] = &[
         trigger: UPKEEP,
         effects: BANK_ONE,
         targets: None,
+        second_targets: None,
         once_per_turn: false,
         condition: Some(Condition::SourceMatches(&UNTAPPED_F)),
     },
@@ -83,6 +85,7 @@ static BANKING_ABILITIES: &[AbilityDef] = &[
         trigger: UPKEEP,
         effects: BANK_ONE,
         targets: None,
+        second_targets: None,
         once_per_turn: false,
         condition: Some(Condition::SourceMatches(&TAPPED_F)),
     },
@@ -94,6 +97,7 @@ static COUNTING_ABILITIES: &[AbilityDef] = &[
         trigger: UPKEEP,
         effects: BANK_ONE,
         targets: None,
+        second_targets: None,
         once_per_turn: false,
         condition: Some(Condition::ControlCount(&LAND_F, 2)),
     },
@@ -109,6 +113,7 @@ static STATION_ABILITIES: &[AbilityDef] = &[
         trigger: UPKEEP,
         effects: BANK_ONE,
         targets: None,
+        second_targets: None,
         once_per_turn: false,
         condition: Some(Condition::Station(1)),
     },

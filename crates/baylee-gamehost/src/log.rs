@@ -363,6 +363,7 @@ impl GameLog {
     ) {
         match event {
             GameEvent::BecameTarget { .. }
+            | GameEvent::PlayerBecameTarget { .. }
             | GameEvent::GameStarted { .. }
             | GameEvent::StepChanged { .. }
             | GameEvent::ManaProduced { .. }
@@ -371,11 +372,17 @@ impl GameLog {
             | GameEvent::PhaseChanged { .. }
             | GameEvent::StackObjectResolved { .. }
             | GameEvent::DevCommandApplied { .. }
+            // The discard it paid is a line of its own, and the draw is the
+            // ability's.
+            | GameEvent::Cycled { .. }
             // What a seat's own policy answered for it is told to that seat
             // alone, in its view (#234). A line here would reach every seat,
             // or, kept to one, stop an automated loop from folding for all
             // of them.
             | GameEvent::AutoAnswered { .. }
+            // The permanent's own label says which doors are open, and a
+            // trigger the unlock set off has its own line.
+            | GameEvent::DoorUnlocked { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.
             | GameEvent::ZoneChanged {
@@ -1062,6 +1069,7 @@ mod tests {
     static SELF_ONLY: Filter = Filter::This;
     static BLINK_SELF: &[Effect] = &[Effect::Blink {
         target: TargetSpec::ThisObject,
+        owner_control: true,
     }];
     static LOOPING_CARD: CardDef = CardDef {
         index: LOOPING,
@@ -1083,6 +1091,7 @@ mod tests {
                 },
                 effects: BLINK_SELF,
                 targets: Some(TargetReq::one(TargetSpec::ThisObject)),
+                second_targets: None,
                 once_per_turn: false,
                 condition: None,
             },
@@ -1090,6 +1099,7 @@ mod tests {
                 trigger: Trigger::EntersBattlefield(&SELF_ONLY),
                 effects: BLINK_SELF,
                 targets: Some(TargetReq::one(TargetSpec::ThisObject)),
+                second_targets: None,
                 once_per_turn: false,
                 condition: None,
             },
@@ -1210,7 +1220,15 @@ mod tests {
             eprintln!("{line:?}");
         }
         assert!(repeats > 1_000, "the loop ran: {repeats}");
-        assert!(lines.len() <= 16, "{} lines", lines.len());
+        // The turn the loop ran and broke in. The answer budget reaches on
+        // into a later turn of the looping player, where the same permanent
+        // starts again, and how far it reaches moves with every priority
+        // window before the loop: CR 103.8a's missing first draw step gave
+        // it two answers more and a seventeenth line that is no part of the
+        // loop being folded.
+        let that_turn = lines[broken].turn;
+        let in_that_turn = lines.iter().filter(|line| line.turn == that_turn).count();
+        assert!(in_that_turn <= 16, "{in_that_turn} lines");
     }
 
     /// What a seat's policy answers for it is told to that seat alone, in

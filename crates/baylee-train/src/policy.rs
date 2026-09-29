@@ -106,6 +106,10 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
         CastModeKind::Prototype => 6,
         CastModeKind::Disguise => 7,
         CastModeKind::Miracle => 8,
+        CastModeKind::Modes(_) => 9,
+        CastModeKind::Flashback => 10,
+        CastModeKind::Dash => 11,
+        CastModeKind::Escape => 12,
     }
 }
 
@@ -315,7 +319,9 @@ pub fn options(
         Pending::ChoosePlayer { options, .. } => {
             out.extend(options.iter().map(|p| Choice::Player(*p)));
         }
-        Pending::Arrange { .. } => return Err(Unscored::Unsupported),
+        Pending::Arrange { .. } | Pending::ChooseCardName { .. } | Pending::ChoosePile { .. } => {
+            return Err(Unscored::Unsupported);
+        }
         Pending::GameOver(_) => return Err(Unscored::Over),
     }
     Ok(out)
@@ -459,7 +465,12 @@ pub fn steps(
         (Pending::ChooseCastMode { .. }, PlayerAction::ChooseMode(i)) => single(Choice::Mode(*i)),
         (Pending::ChooseNumber { .. }, PlayerAction::ChooseNumber(n)) => single(Choice::Number(*n)),
         (Pending::ChoosePlayer { .. }, PlayerAction::ChoosePlayer(p)) => single(Choice::Player(*p)),
-        (Pending::Arrange { .. }, _) => return Err(Unmatched::Unscored(Unscored::Unsupported)),
+        (
+            Pending::Arrange { .. } | Pending::ChooseCardName { .. } | Pending::ChoosePile { .. },
+            _,
+        ) => {
+            return Err(Unmatched::Unscored(Unscored::Unsupported));
+        }
         _ => return Err(Unmatched::Shape),
     };
     let multi = matches!(
@@ -611,7 +622,9 @@ pub fn assemble(pending: &Pending, picks: &[Choice]) -> Result<PlayerAction, Unm
             Choice::Player(p) => PlayerAction::ChoosePlayer(p),
             _ => return Err(Unmatched::Shape),
         },
-        Pending::Arrange { .. } => return Err(Unmatched::Unscored(Unscored::Unsupported)),
+        Pending::Arrange { .. } | Pending::ChooseCardName { .. } | Pending::ChoosePile { .. } => {
+            return Err(Unmatched::Unscored(Unscored::Unsupported));
+        }
         Pending::GameOver(_) => return Err(Unmatched::Unscored(Unscored::Over)),
     })
 }

@@ -30,8 +30,8 @@ pub const ALL_MANA_COLORS: &[baylee_core::mana::ManaColor] = &[
 pub static ANY_COLOR_MANA: &[crate::effect::Effect] = &[crate::effect::Effect::mana_of_any_color()];
 
 pub use ability::{
-    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod, SpellMode,
-    StepKind, Trigger, TriggerEventKind,
+    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod, ModeCount,
+    SpellMode, StepKind, Trigger, TriggerEventKind,
 };
 pub use build::prelude;
 pub use build::{
@@ -40,8 +40,9 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, PlayerRel, ReflexiveEvent,
-    SearchDest, SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef, ZoneSel,
+    Amount, CounterKind, Effect, ExileUntil, Find, ManaRestriction, ManaSource, ManaValueBound,
+    ManaValueCmp, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot,
+    TargetSpec, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use manaread::{
@@ -55,7 +56,9 @@ pub use baylee_core::ids::{CardIndex, SubtypeId};
 pub use baylee_core::mana;
 pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
-pub use static_ability::{Duration, LAYERS, Layer, Modifier, ReplacementRule, StaticAbility};
+pub use static_ability::{
+    Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule, StaticAbility,
+};
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.
 #[derive(Debug)]
@@ -133,6 +136,41 @@ impl CardDef {
             }
         } else {
             self.faces[face.min(self.faces.len() - 1)].abilities
+        }
+    }
+
+    /// Whether this is a split card with one shared type line (CR 709.5), a
+    /// Room: two halves, each a door that is locked or unlocked on the
+    /// battlefield.
+    #[must_use]
+    pub fn has_shared_type_line(&self) -> bool {
+        self.faces.len() == 2
+            && self.faces.iter().all(|f| {
+                f.subtypes
+                    .contains(&baylee_core::generated::subtypes::enchantment::ROOM)
+            })
+    }
+
+    /// The rules text a permanent with a shared type line has while the
+    /// halves `unlocked` names are unlocked (bit 0 the left half, bit 1 the
+    /// right; CR 709.5c): a locked half has none (CR 709.5). One half is
+    /// that half's own list; both are the card-level list, which a Room
+    /// writes as its halves' lists end to end, the left first
+    /// (`lints::a_rooms_card_list_is_its_doors_lists_end_to_end` holds it).
+    ///
+    /// Each half's own list and never [`Self::abilities_for_face`], whose
+    /// face 0 falls back to the card-level list: a Room whose left half
+    /// prints nothing would have had the right half's text with only the
+    /// left door open.
+    #[must_use]
+    pub fn door_abilities(&self, unlocked: u8) -> &'static [crate::ability::AbilityDef] {
+        match unlocked & 0b11 {
+            0 => &[],
+            0b11 => self.abilities,
+            half => self
+                .faces
+                .get(usize::from(half >> 1))
+                .map_or(&[], |f| f.abilities),
         }
     }
 
@@ -215,6 +253,16 @@ pub struct Prototype {
     pub toughness: i16,
 }
 
+/// Escape's cost (CR 702.138a): "Escape—[mana], Exile [N] other cards from
+/// your graveyard." Every printed escape cost is that shape.
+#[derive(Clone, Copy, Debug)]
+pub struct Escape {
+    /// The mana part, paid rather than the mana cost.
+    pub cost: ManaCost,
+    /// How many *other* cards in the caster's graveyard are exiled with it.
+    pub exile: u8,
+}
+
 /// One face of a card.
 #[derive(Debug)]
 #[allow(clippy::struct_excessive_bools)] // card faces accumulate boolean rule markers
@@ -223,6 +271,19 @@ pub struct FaceDef {
     pub prototype: Option<Prototype>,
     /// Disguise cost to turn this permanent face up (CR 702.168).
     pub disguise: Option<ManaCost>,
+    /// Replicate (CR 702.56a): "as an additional cost to cast this spell,
+    /// you may pay [cost] any number of times" and "when you cast this
+    /// spell, if a replicate cost was paid for it, copy it for each time
+    /// its replicate cost was paid; if the spell has any targets, you may
+    /// choose new targets for any of the copies".
+    ///
+    /// A face field and not an ability, as miracle and disguise are: the
+    /// cast wizard asks how many times as it announces the additional costs
+    /// (CR 601.2b), the payment adds the cost that many times (CR 601.2f),
+    /// and the engine writes the cast trigger itself, one
+    /// `Effect::CopyThisSpell` for each payment. Every printed replicate
+    /// cost is mana.
+    pub replicate: Option<ManaCost>,
     /// Face name.
     pub name: &'static str,
     /// Mana cost (`ManaCost::ZERO` for lands/MDFC backs without cost).
@@ -271,12 +332,21 @@ pub struct FaceDef {
     /// nothing but this says so, so without it every werewolf stopped being
     /// green the moment it turned over.
     pub color_indicator: ColorSet,
-    /// Whether this face can be cast from the hand (false for disturb
-    /// backs — they are cast from the graveyard instead).
+    /// Whether this face can be cast from the hand. False exactly on a
+    /// nonmodal double-faced card's back face — a transforming back, which
+    /// is reached by turning over, and a disturb back, which is cast from
+    /// the graveyard (`xtask validate` holds it against Scryfall's
+    /// `layout`). The engine reads it as that: such a face's mana value is
+    /// its front face's (CR 202.3b, `Characteristics::front_mana_value`).
     pub castable_from_hand: bool,
     /// Miracle cost: when revealed as the first card drawn this turn, the
     /// card may be cast for this cost (CR 702.94).
     pub miracle: Option<ManaCost>,
+    /// Flashback (CR 702.34a): this card may be cast from its owner's
+    /// graveyard for this cost rather than its mana cost, and is exiled
+    /// instead of going anywhere else afterwards. Mana only: a flashback
+    /// that costs something other than mana is not written here.
+    pub flashback: Option<ManaCost>,
     /// Delve (CR 702.66): each card exiled from your graveyard while
     /// casting pays for {1} — as many cards as the spell's total cost has
     /// generic mana, and no more (CR 702.66a).
@@ -303,6 +373,16 @@ pub struct FaceDef {
     /// resolves, exile the card; the front face may then be cast from
     /// exile.
     pub adventure: bool,
+    /// Dash (CR 702.109a): the card may be cast for this cost rather than
+    /// its mana cost; if it was, the permanent it becomes has haste and
+    /// returns to its owner's hand at the beginning of the next end step.
+    /// Mana only, as every printed dash cost is.
+    pub dash: Option<ManaCost>,
+    /// Escape (CR 702.138a): the card may be cast from its owner's
+    /// graveyard for this cost rather than its mana cost. A spell cast so,
+    /// and the permanent it becomes, "escaped" (CR 702.138b), which
+    /// `Condition::Escaped` asks.
+    pub escape: Option<Escape>,
 }
 
 impl FaceDef {
@@ -314,10 +394,11 @@ impl FaceDef {
     /// file, and a card that does not care about the new rule keeps compiling.
     ///
     /// `castable_from_hand` defaults to `true` because that is what a printed
-    /// face normally is; only disturb/adventure backs opt out.
+    /// face normally is; only a nonmodal double-faced card's back opts out.
     pub const DEFAULT: Self = Self {
         prototype: None,
         disguise: None,
+        replicate: None,
         name: "",
         mana_cost: ManaCost::ZERO,
         types: TypeSet::EMPTY,
@@ -336,12 +417,15 @@ impl FaceDef {
         color_indicator: ColorSet::EMPTY,
         castable_from_hand: true,
         miracle: None,
+        flashback: None,
         delve: false,
         convoke: false,
         waterbend: false,
         cost_reduction: None,
         disturb: false,
         adventure: false,
+        dash: None,
+        escape: None,
     };
 }
 
@@ -444,6 +528,14 @@ pub enum EnterModifier {
     /// "As this enters, choose a creature type" (Roaming Throne,
     /// Reflections of Littjara, Cavern of Souls).
     ChooseSubtype,
+    /// "As this enters, choose a card name" (Pithing Needle).
+    ///
+    /// Any card's name, and of any of its faces (CR 201.4, 201.4b–f); the
+    /// name of a token only when a card has it too, so the pool's cards are
+    /// the whole list a game can mean. The answer is kept on the permanent
+    /// as the card and face it was read off, and
+    /// [`crate::Modifier::ChosenNameCantActivate`] reads it back.
+    ChooseCardName,
     /// "As this enters, choose a color" (Uncharted Haven, Shimmerdrift Vale,
     /// the Gates).
     ///
@@ -557,6 +649,12 @@ keywords! {
     // sentence implies the other.
     CANT_BLOCK = 34, "Can't block.";
     STORIED = 35, "Storied (CR 702.195).";
+    SPLIT_SECOND = 36, "Split second (CR 702.61).";
+    ASCEND = 37, "Ascend (CR 702.131).";
+    // Not a printed keyword: the mirror of `CANT_BLOCK`, for the same
+    // reason. A static that grants it while a condition holds is
+    // "can't attack unless …" (Wayward Swordtooth).
+    CANT_ATTACK = 38, "Can't attack.";
 }
 
 impl KeywordSet {

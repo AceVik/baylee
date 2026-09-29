@@ -4,8 +4,9 @@
 //! Oracle: Station (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)
 //! Oracle: 12+ | {G}, {T}: Add {G} for each creature you control.
 //! Set: EOE #253 — Edge of Eternities | Scryfall ID: 2fa09104-acbe-4410-b101-2fe6ac28efde | Oracle ID: 83161d59-2520-4741-9328-e2a4a8b5d5bc
-// PARTIAL — enters tapped, {T}: Add {G}, and the 12+ charge-counter mana
-// line; Station is off the card, see NOT SUPPORTED below.
+// IMPLEMENTED — enters tapped, {T}: Add {G}, station (tap another creature
+// you control as the cost, its power in charge counters, sorcery speed), and
+// the 12+ mana ability.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -21,11 +22,23 @@ card!(
         subtypes = &[subtypes::land::PLANET],
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
-    coverage = Coverage::Partial(
-        "Station — put charge counters equal to the power of the creature tapped as its cost: no Amount reads an object named by a cost",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
+        // Station (CR 702.184a): "Tap another untapped creature you
+        // control: Put a number of charge counters on this permanent equal
+        // to the tapped creature's power. Activate only as a sorcery." The
+        // creature is a cost, not a target.
+        activated!(
+            cost!(TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)),
+            &[Effect::AddCounter {
+                kind: CounterKind::Charge,
+                amount: Amount::TappedPower,
+            }],
+            timing = ActivationTiming::SorcerySpeed
+        ),
+        // 12+ (CR 721.2a): it has this ability while it has twelve or more
+        // charge counters.
         mana_ability!(
             cost!("{G}", TapSelf),
             &[Effect::mana_dynamic(
@@ -35,21 +48,7 @@ card!(
                     zone: ZoneSel::Battlefield,
                 },
             )],
-            condition = Some(Condition::CountersOnSelf(CounterKind::Charge, 12)),
+            condition = Some(Condition::Station(12)),
         ),
     ],
 );
-
-// NOT SUPPORTED: Station — "Put charge counters equal to its power on this
-// Planet. Station only as a sorcery." The cost half is expressible
-// (`CostPart::TapOther` over another creature you control, at
-// `ActivationTiming::SorcerySpeed`), but the amount is not: no `Amount`
-// variant reaches an object named by a cost, and `Amount::TargetPower`
-// would mean the ability *targets* the creature — which the printed
-// sentence does not say and which hexproof would then answer. An ability
-// cannot be written at a wrong size, so it comes off the card.
-//
-// The 12+ line is written as printed: `Condition::CountersOnSelf(Charge, 12)`
-// reads the charge counters Station would have put there. Those counters
-// cannot come from this card any more, so the gate only opens under another
-// card's counters.

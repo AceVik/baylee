@@ -18,5 +18,9 @@ card!(
     )],
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Implemented,
-    abilities = &[spell!(&[Effect::LookAtTopPick { count: 7, pick: 2 }])],
+    abilities = &[spell!(&[Effect::LookAtTopPick {
+        count: Amount::Fixed(7),
+        pick: 2,
+        random: false,
+    }])],
 );

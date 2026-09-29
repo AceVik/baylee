@@ -146,19 +146,25 @@ pub fn line_shape(line: &str) -> LineShape {
     // `triggered!` here — so for the purpose of finding which sentence an
     // ability came from it is a third trigger word, not a fourth shape.
     //
-    // The word is not only that sentence's, and that is a known boundary
-    // rather than an oversight: "As long as …" opens a *static* ability and
-    // lands here too, which is how The World Tree and Riftstone Portal
-    // both read as `Triggered`. Neither card has a triggered ability to be
-    // given the wrong sentence, so it is latent today — and it is the next
-    // hole of the kind [`ability_colon`] closed, not a second instance of
-    // that one.
+    // The word is not only that sentence's: "As long as …" opens a
+    // *static* ability, and read as a trigger it left The World Tree's
+    // conditional grant without its sentence once the grant was built. It
+    // goes on to the colon test below, where a quoted ability makes it a
+    // grant.
     if lower.starts_with("when")
         || lower.starts_with("at ")
-        || lower.starts_with("as ")
+        || (lower.starts_with("as ") && !lower.starts_with("as long as "))
         || lower.starts_with("ward ")
         || lower.starts_with("ward—")
     {
+        // A trigger on tapping for mana that adds mana and targets nothing
+        // is a mana ability (CR 605.1b) and never a stack entry: Badgermole
+        // Cub's "Whenever you tap a creature for mana, add an additional
+        // {G}." Forbidden Orchard's, which targets an opponent, stays a
+        // trigger.
+        if lower.contains(" for mana, add ") && !lower.contains("target") {
+            return LineShape::Mana;
+        }
         return LineShape::Triggered;
     }
     // A chapter's separator is an em dash, not a colon.
@@ -189,7 +195,9 @@ pub fn line_shape(line: &str) -> LineShape {
         // instead of side by side.
         return if line.len() <= 40
             && !line.ends_with('.')
-            && (line.contains('{') || reminder_spells_out_an_ability(printed))
+            && (line.contains('{')
+                || reminder_spells_out_an_ability(printed)
+                || a_numbered_tapping_keyword(line))
         {
             LineShape::Activated
         } else {
@@ -274,6 +282,21 @@ fn ability_colon(line: &str) -> Option<usize> {
     None
 }
 
+/// Whether the line is "Crew N" (CR 702.122a) or "Saddle N" (CR 702.171a)
+/// and nothing else.
+///
+/// Both are activated abilities whose cost is tapping creatures, so the line
+/// carries no `{`, and a printing that drops the reminder leaves no colon for
+/// [`reminder_spells_out_an_ability`] to find either: Unlicensed Hearse
+/// prints "Crew 2" and not a word more, and its crew ability had no
+/// sentence.
+fn a_numbered_tapping_keyword(line: &str) -> bool {
+    ["Crew ", "Saddle "].iter().any(|keyword| {
+        line.strip_prefix(keyword)
+            .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
+    })
+}
+
 /// Whether a keyword line's own reminder text writes out an activated
 /// ability.
 ///
@@ -318,6 +341,8 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
     use baylee_cards_dsl::AbilityDef as A;
     match ability {
         A::Loyalty { .. } => LineShape::Loyalty,
+        // The one trigger that is not a stack entry (CR 605.1b, 605.4a).
+        A::Triggered { .. } if ability.is_triggered_mana_ability() => LineShape::Mana,
         A::Triggered { .. } | A::ModalTriggered { .. } | A::Echo { .. } | A::Ward { .. } => {
             LineShape::Triggered
         }
@@ -551,16 +576,25 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
     match trigger {
         T::EntersBattlefield(_) => &["enter"],
         T::EntersBattlefieldEvoked => &["evoke"],
+        T::CycledThis => &["cycle"],
         T::LeavesBattlefield(_) => &["leave"],
         T::Dies(_) => &["die", "put into a graveyard"],
         T::SpellCast(_) | T::NthSpellCast { .. } | T::FirstNoncreatureSpellCast(_) => &["cast"],
-        T::BecomesTarget => &["becomes the target"],
+        T::BecomesTarget | T::TargetedByOpponent { .. } => &["becomes the target"],
         T::TurnedFaceUp => &["turned face up"],
+        T::TransformsIntoThis => &["transforms into"],
+        T::UnlockThisDoor(_) => &["unlock this door"],
         T::Ward => &["ward"],
         T::ExiledFromBattlefield(_) => &["exiled"],
-        T::DealsCombatDamageToPlayer(_) => &["damage"],
+        T::DealsCombatDamageToPlayer(_) | T::DealsCombatDamageToOpponent(_) => &["damage"],
         T::BecomesTapped(_) => &["tap"],
+        // Badgermole Cub, "Whenever you tap a creature for mana".
+        T::TappedForMana(_) => &["for mana"],
+        // Druid Class, "When this Class becomes level 3".
+        T::CountersReach { .. } => &["becomes level"],
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
+        // Fastbond, "Whenever you play a land".
+        T::PlaysLand(_) => &["play a land"],
         T::Attacks(_) => &["attack"],
         T::AttacksAlone(_) => &["exalted", "attacks alone"],
         // The step, not the word "beginning" — every one of these sentences
@@ -636,6 +670,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         // sentence.
         Trigger::Draws(rel)
         | Trigger::DrawsExceptFirst(rel)
+        | Trigger::PlaysLand(rel)
         | Trigger::FirstNoncreatureSpellCast(rel)
         | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),
@@ -648,8 +683,10 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::Attacks(filter)
         | Trigger::AttacksAlone(filter)
         | Trigger::BecomesTapped(filter)
+        | Trigger::TappedForMana(filter)
         | Trigger::ExiledFromBattlefield(filter)
         | Trigger::DealsCombatDamageToPlayer(filter)
+        | Trigger::DealsCombatDamageToOpponent(filter)
         | Trigger::SpellCast(filter) => {
             if matches!(filter, baylee_cards_dsl::Filter::This) {
                 !about_someone_else()
@@ -810,6 +847,14 @@ pub struct Mapping {
 /// The bullet a modal card lists its modes under.
 const BULLET: char = '\u{2022}';
 
+/// Whether a printed sentence is one mode of a modal card's list: a bullet,
+/// or spree's plus sign in front of the mode's own cost — "+ {1} — …"
+/// (CR 702.172b: the plus sign is a bullet with a reminder in it).
+fn is_mode_line(line: &str) -> bool {
+    let line = line.trim_start();
+    line.starts_with(BULLET) || line.starts_with("+ {")
+}
+
 /// Which printed sentence each mode of a modal spell came from.
 ///
 /// `CastModeKind::Mode(i)` is the only thing a client is told about a mode,
@@ -847,7 +892,7 @@ pub fn map_modes(modes: &[SpellMode], oracle: &str) -> Vec<Option<u8>> {
     let bullets: Vec<usize> = lines
         .iter()
         .enumerate()
-        .filter(|(_, line)| line.trim_start().starts_with(BULLET))
+        .filter(|(_, line)| is_mode_line(line))
         .map(|(at, _)| at)
         .collect();
     if !bullets.is_empty() {
@@ -865,7 +910,10 @@ pub fn map_modes(modes: &[SpellMode], oracle: &str) -> Vec<Option<u8>> {
         // own is the ordinary disagreement below, where the honest answer
         // is still to refuse the card whole.
         let declining = |m: &SpellMode| {
-            m.effects.is_empty() && m.targets.is_none() && m.cost_override.is_none()
+            m.effects.is_empty()
+                && m.targets.is_none()
+                && m.cost_override.is_none()
+                && m.additional_cost.is_none()
         };
         let spoken: Vec<usize> = modes
             .iter()
@@ -1258,6 +1306,54 @@ mod tests {
         );
     }
 
+    /// "As long as …" opens a static ability, never a trigger: The World
+    /// Tree's conditional grant was read as `Triggered`, and once the grant
+    /// was built no ability could claim its sentence. "As this creature
+    /// enters" stays the third trigger word it is.
+    #[test]
+    fn as_long_as_opens_a_static_and_as_it_enters_a_trigger() {
+        assert_eq!(
+            line_shape(
+                r#"As long as you control six or more lands, lands you control have "{T}: Add one mana of any color.""#
+            ),
+            LineShape::Grant,
+        );
+        assert_eq!(
+            line_shape("As this creature enters, choose a creature type."),
+            LineShape::Triggered,
+        );
+    }
+
+    /// A trigger on tapping for mana that adds mana is a mana ability
+    /// (CR 605.1b) and is read as one on both sides, so it is not counted
+    /// as a stack entry. One that targets is not (CR 605.1b's first test).
+    #[test]
+    fn a_triggered_mana_ability_is_mana_on_both_sides() {
+        static GREEN: [baylee_cards_dsl::Effect; 1] = [baylee_cards_dsl::Effect::mana(
+            baylee_core::mana::ManaColor::Green,
+            1,
+        )];
+        assert_eq!(
+            line_shape("Whenever you tap a creature for mana, add an additional {G}."),
+            LineShape::Mana,
+        );
+        assert_eq!(
+            line_shape(
+                "Whenever you tap this land for mana, target opponent creates a 1/1 colorless Spirit creature token."
+            ),
+            LineShape::Triggered,
+        );
+        let cub = baylee_cards_dsl::AbilityDef::Triggered {
+            trigger: baylee_cards_dsl::Trigger::TappedForMana(&baylee_cards_dsl::Filter::CREATURE),
+            effects: &GREEN,
+            targets: None,
+            second_targets: None,
+            once_per_turn: false,
+            condition: None,
+        };
+        assert_eq!(ability_shape(&cub), LineShape::Mana);
+    }
+
     /// A static that grants an ability is placed on the sentence that
     /// quotes it, and the ability it grants is not (#212).
     ///
@@ -1315,6 +1411,21 @@ mod tests {
     /// The colon is read from the **printed** line and not from the line with
     /// its reminder stripped, which is the whole trick: strip the reminder
     /// first and both of these are one bare word.
+    /// "Crew 2" with no reminder is still an activated ability (CR
+    /// 702.122a): Unlicensed Hearse prints it bare. A word that merely
+    /// starts the same way is not one.
+    #[test]
+    fn a_bare_crew_line_is_an_activated_one() {
+        assert_eq!(line_shape("Crew 2"), LineShape::Activated);
+        assert_eq!(line_shape("Saddle 1"), LineShape::Activated);
+        assert_eq!(line_shape("Crew"), LineShape::Other, "no number, no cost");
+        assert_eq!(
+            line_shape("Crew Captain"),
+            LineShape::Other,
+            "a name is not a keyword"
+        );
+    }
+
     #[test]
     fn a_keyword_whose_reminder_spells_out_an_ability_is_an_activated_one() {
         let station = "Station (Tap another creature you control: Put charge \
@@ -1494,6 +1605,20 @@ mod tests {
             vec![Some(1), Some(2), Some(3)],
             "the header is a sentence too, and no mode is it"
         );
+    }
+
+    /// Spree lists its modes under a plus sign, each with its own cost, and
+    /// the plus sign is the bullet (CR 702.172b). Final Showdown's shape:
+    /// the keyword line first, and no mode is it.
+    #[test]
+    fn a_spree_card_gives_each_mode_its_plus_sign() {
+        let text = "Spree (Choose one or more additional costs.)\n\
+                    + {1} — All creatures lose all abilities until end of turn.\n\
+                    + {1} — Choose a creature you control. It gains indestructible \
+                    until end of turn.\n\
+                    + {3}{W}{W} — Destroy all creatures.";
+        let modes = [mode(None), mode(None), mode(None)];
+        assert_eq!(map_modes(&modes, text), vec![Some(1), Some(2), Some(3)]);
     }
 
     /// A bullet count that disagrees with the mode count is refused whole.
@@ -1695,7 +1820,9 @@ mod tests {
         SpellMode {
             effects: draw(1),
             targets: None,
+            second_targets: None,
             cost_override,
+            additional_cost: None,
         }
     }
 
@@ -1705,7 +1832,9 @@ mod tests {
         SpellMode {
             effects: &[],
             targets: None,
+            second_targets: None,
             cost_override: None,
+            additional_cost: None,
         }
     }
 

@@ -232,7 +232,7 @@ fn sweep() -> (Vec<String>, Tally) {
     std::thread::scope(|scope| {
         let handles: Vec<_> = cards
             .chunks(chunk)
-            .map(|slice| scope.spawn(move || walk(slice)))
+            .map(|slice| crate::engine::testkit::spawn_named(scope, move || walk(slice)))
             .collect();
         handles
             .into_iter()

@@ -203,6 +203,8 @@ fn a_treasure_carries_the_ability_printed_on_it() {
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
             produced_chosen: false,
+            abilities_lost: None,
+            front_mana_value: None,
         },
     );
 

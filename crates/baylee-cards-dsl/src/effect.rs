@@ -245,8 +245,49 @@ pub enum Amount {
     /// ability whose amount comes off a permanent has nothing to read when
     /// the permanent is gone.
     SourcePower,
+    /// How many counters of a kind are on the ability's own source — Aether
+    /// Vial's "the number of charge counters on this artifact", cumulative
+    /// upkeep's "for each age counter on it" (CR 702.24a).
+    ///
+    /// Read off the source as it is when asked, so after the effect before
+    /// it in the same list put a new counter there; a source that has left
+    /// the battlefield has shed its counters (CR 122.2) and counts zero,
+    /// where CR 608.2h would read the last one it had. No card in the pool
+    /// loses its source in between: Aether Vial taps itself and stays, and
+    /// the intervening `if` cumulative upkeep prints keeps a gone source
+    /// from mattering.
+    CountersOnSource(CounterKind),
     /// The mana value of the first target (Reanimate's life loss).
     TargetCmc,
+    /// "That much": the amount of damage the triggering event dealt
+    /// (Questing Beast's redirect). Carried from the event onto the
+    /// triggered ability as it goes on the stack; 0 anywhere else.
+    EventAmount,
+    /// "The sacrificed creature's mana value": the mana value, as it last
+    /// existed on the battlefield (CR 608.2h), of the permanent sacrificed
+    /// to pay the cost of the spell or ability that is resolving (Eldritch
+    /// Evolution, Neoform, Birthing Pod).
+    ///
+    /// Read off the stack object, which is where the payment wrote it down:
+    /// a spell's `Sacrifice` additional cost in the cast wizard, an
+    /// activation's in `pay_cost`. Nothing sacrificed reads 0.
+    SacrificedManaValue,
+    /// "The amount of mana spent to cast this spell" (Memory Deluge): what
+    /// the cast paid in mana (CR 601.2h), read off the stack object where
+    /// the payment wrote it, as [`Self::SacrificedManaValue`] is. A free
+    /// cast spent none; a flashback spent its flashback cost.
+    ManaSpentToCast,
+    /// "The tapped creature's power": the power of the permanent a
+    /// `CostPart::TapOther` tapped to pay the cost of the ability that is
+    /// resolving — station's "put a number of charge counters on this
+    /// permanent equal to the tapped creature's power" (CR 702.184a). Its
+    /// power as the effect applies while it is still on the battlefield as
+    /// the same object, and as it last existed there otherwise (CR 608.2h).
+    ///
+    /// The creature is not a target (station targets nothing), so hexproof
+    /// does not stop it. Read off the stack object, where `pay_cost` wrote
+    /// which creature it tapped; nothing tapped reads 0.
+    TappedPower,
     /// Number of objects matching a filter in a zone.
     CountOf {
         /// What to count.
@@ -391,16 +432,20 @@ pub struct ManaRestriction {
 ///
 /// "When you do" names the action printed directly before it, and the
 /// event is what makes the sentence a trigger rather than an `if`. The
-/// enum has one variant because this pool needs one. Grist's −2 ("you may
-/// sacrifice a creature. When you do, …") needs `Sacrificed(&Filter)`, and
-/// Agatha's Soul Cauldron ("when a creature card is exiled this way")
-/// needs `Exiled(&Filter)`. Both come with their cards, and each brings its
-/// own action clause to the placement lint.
+/// enum has the variants this pool needs. Grist's −2 ("you may sacrifice a
+/// creature. When you do, …") needs `Sacrificed(&Filter)`, and Agatha's
+/// Soul Cauldron ("when a creature card is exiled this way") needs
+/// `Exiled(&Filter)`. Both come with their cards, and each brings its own
+/// action clause to the placement lint.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ReflexiveEvent {
     /// "Sacrifice it. When you do, …" / "Then you may sacrifice this land.
     /// When you do, …": this resolution sacrificed its own source.
     SacrificedThis,
+    /// "You may exile it. When you do, …" (The Balrog of Moria, whose dies
+    /// trigger exiles the card from the graveyard): this resolution exiled
+    /// its own source, by `Effect::ExileSource`.
+    ExiledThis,
 }
 
 /// Relative player references.
@@ -416,8 +461,26 @@ pub enum PlayerRel {
     EachOpponent,
     /// The controller of the first target.
     ControllerOfTarget,
+    /// The player who controlled the object the triggering event was about,
+    /// as the event happened — Massacre Wurm's "whenever a creature an
+    /// opponent controls dies, **that player** loses 2 life". Nothing is
+    /// targeted (CR 115.1): the seat is read off the trigger's event, and
+    /// last-known (CR 603.10a) because a creature that died is no longer
+    /// controlled by anyone and a token that died no longer exists at all.
+    ControllerOfEvent,
     /// The player chosen via `Pending::ChoosePlayer`.
+    ///
+    /// In `TargetSpec::CardInGraveyard` it is "from a single graveyard"
+    /// (Unlicensed Hearse): the activation asks which graveyard before it
+    /// asks for the targets, and offers only that one's cards.
     Chosen,
+    /// "That player" of a trigger on damage dealt to a player — Ragavan,
+    /// Nimble Pilferer's "whenever Ragavan deals combat damage to a player,
+    /// … exile the top card of **that player's** library". Nothing is
+    /// targeted (CR 115.1): the seat is read off the event the ability
+    /// triggered on, and a player who has since left the game is nobody's
+    /// "that player" (CR 800.4a).
+    DamagedPlayer,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).
@@ -425,6 +488,37 @@ pub enum PlayerRel {
 pub enum TargetSpec {
     /// An object matching the filter (battlefield, or stack for spells).
     Object(&'static Filter),
+    /// "For each opponent, … up to one target [filter] that player
+    /// controls" (The True Scriptures I): one question per opponent, each
+    /// offering only that player's permanents, the answers gathered into
+    /// one list. Written with `TargetReq::up_to(spec, u8::MAX)`; the count
+    /// is the opponents' (CR 601.2c, 115.1).
+    ObjectOfEachOpponent(&'static Filter),
+    /// "Target opponent or [filter]" (Ravager of the Fells: "target opponent
+    /// or planeswalker"): one choice over the opponents and the permanents
+    /// the filter matches, offered together the way "any target" offers its
+    /// two lists (CR 115.1d).
+    OpponentOrObject(&'static Filter),
+    /// "Target [filter] that player or that planeswalker's controller
+    /// controls" — a **second** instance of "target" whose permanents are
+    /// those of the player the first instance named, or of the controller of
+    /// the permanent it named (Ravager of the Fells). Written only as an
+    /// ability's `second_targets`; the engine binds it to
+    /// [`Self::ObjectControlledBy`] once the first answer is in, since the
+    /// targets of one instance are chosen before the next (CR 601.2c).
+    ObjectOfFirstTargetsPlayer(&'static Filter),
+    /// A permanent matching the filter that one named player controls. Never
+    /// written on a card: it is what a spec that names "that player" becomes
+    /// once the engine knows which player that is, kept on the stack object
+    /// so the resolution-time re-check (CR 608.2b) asks the same question
+    /// the offer did.
+    ObjectControlledBy(&'static Filter, baylee_core::ids::PlayerId),
+    /// "Target [filter] that player controls", where "that player" is the
+    /// one the triggering event dealt damage to (Questing Beast: "it deals
+    /// that much damage to target planeswalker that player controls"). The
+    /// engine binds it to [`Self::ObjectControlledBy`] as the trigger is
+    /// put on the stack.
+    ObjectOfEventPlayer(&'static Filter),
     /// A spell on the stack matching the filter.
     Spell(&'static Filter),
     /// A spell on the stack OR a permanent on the battlefield (Venser).
@@ -594,6 +688,29 @@ pub enum SpendRider {
     Scry(u8),
 }
 
+/// How a card's mana value is compared with a [`ManaValueBound`]'s amount.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ManaValueCmp {
+    /// "With mana value X or less."
+    AtMost,
+    /// "With mana value equal to …."
+    Exactly,
+}
+
+/// "A creature card with mana value equal to 1 plus the sacrificed
+/// creature's mana value": a bound whose number the resolution computes.
+///
+/// A `Filter` cannot carry it — a filter is asked with no resolution in
+/// hand, and the sacrificed creature is written on the stack object that is
+/// resolving, not on the source a filter can see.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct ManaValueBound {
+    /// How the card's mana value is compared.
+    pub cmp: ManaValueCmp,
+    /// What it is compared with.
+    pub amount: Amount,
+}
+
 /// Where a searched card goes.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum SearchDest {
@@ -616,6 +733,26 @@ pub struct Find {
     pub dest: SearchDest,
     /// Whether it enters tapped (battlefield only).
     pub tapped: bool,
+    /// A counter it enters with (battlefield only): Neoform's "put that card
+    /// onto the battlefield with an additional +1/+1 counter on it".
+    ///
+    /// Put on through `replacement::put_counters` once the card has arrived,
+    /// the door `GraveyardToBattlefield`'s counter takes, so a doubler has
+    /// its say (CR 614.16). Written with [`Find::with_counter`].
+    pub counter: Option<(CounterKind, u16)>,
+    /// A fork on the card found: one that matches the filter goes where the
+    /// inner find says instead. Archdruid's Charm, "Put it onto the
+    /// battlefield tapped if it's a land card. Otherwise, put it into your
+    /// hand", is `Find::HAND.when_matching(&Filter::LAND,
+    /// &Find::BATTLEFIELD_TAPPED)`. Asked of the card once it is chosen, as
+    /// it is in the library. Written with [`Find::when_matching`].
+    pub instead_if: Option<(&'static Filter, &'static Find)>,
+    /// This find takes every further card the search finds as well, so the
+    /// search may find as many cards as match: The World Tree's "search
+    /// your library for any number of God cards, put them onto the
+    /// battlefield" is one repeating find in an optional search. Only the
+    /// last find of a search repeats. Written with [`Find::any_number`].
+    pub repeats: bool,
 }
 
 impl Find {
@@ -623,22 +760,78 @@ impl Find {
     pub const HAND: Self = Self {
         dest: SearchDest::Hand,
         tapped: false,
+        counter: None,
+        instead_if: None,
+        repeats: false,
     };
     /// Onto the battlefield, untapped (Nature's Lore, a fetchland).
     pub const BATTLEFIELD: Self = Self {
         dest: SearchDest::Battlefield,
         tapped: false,
+        counter: None,
+        instead_if: None,
+        repeats: false,
     };
     /// Onto the battlefield tapped (Rampant Growth, Evolving Wilds).
     pub const BATTLEFIELD_TAPPED: Self = Self {
         dest: SearchDest::Battlefield,
         tapped: true,
+        counter: None,
+        instead_if: None,
+        repeats: false,
     };
     /// On top of your library (a tutor that does not draw).
     pub const TOP_OF_LIBRARY: Self = Self {
         dest: SearchDest::TopOfLibrary,
         tapped: false,
+        counter: None,
+        instead_if: None,
+        repeats: false,
     };
+
+    /// The same find, entering with `n` counters of `kind` on it — "with an
+    /// additional +1/+1 counter on it" (Neoform).
+    #[must_use]
+    pub const fn with_counter(self, kind: CounterKind, n: u16) -> Self {
+        Self {
+            counter: Some((kind, n)),
+            ..self
+        }
+    }
+
+    /// The same find, except that a found card matching `filter` goes
+    /// where `then` says ([`Find::instead_if`]).
+    #[must_use]
+    pub const fn when_matching(self, filter: &'static Filter, then: &'static Self) -> Self {
+        Self {
+            instead_if: Some((filter, then)),
+            ..self
+        }
+    }
+
+    /// The same find, for "any number of" cards ([`Find::repeats`]).
+    #[must_use]
+    pub const fn any_number(self) -> Self {
+        Self {
+            repeats: true,
+            ..self
+        }
+    }
+}
+
+/// The event an "exile … until …" sentence waits for (CR 610.3), read by
+/// [`Effect::ExileLinked`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ExileUntil {
+    /// "until this creature leaves the battlefield" (Werefox Bodyguard):
+    /// the source, as the object it was when the ability triggered or was
+    /// activated. A blink ends it too, since the permanent that comes back
+    /// is a new object (CR 400.7).
+    SourceLeavesBattlefield,
+    /// "until an opponent becomes the monarch" (Palace Jailer): an opponent
+    /// of the player who controlled the exiling ability, whoever controls
+    /// the source later.
+    OpponentBecomesMonarch,
 }
 
 /// A single effect operation.
@@ -663,26 +856,252 @@ pub enum Effect {
         /// What.
         target: TargetSpec,
     },
+    /// "It deals `amount` damage divided as you choose among any number of
+    /// target creatures and/or planeswalkers" (Fury): the ability's targets
+    /// share the damage as its controller divided it.
+    ///
+    /// The division is announced as the ability is put on the stack, after
+    /// its targets (CR 601.2d, which CR 603.3d applies to a triggered
+    /// ability), and every target is given at least 1 — so the ability's
+    /// `TargetReq` asks for at most `amount` of them. It is asked target by
+    /// target in the order they were chosen; the last one takes the rest.
+    /// At resolution a target that has become illegal is dealt nothing, and
+    /// its share goes to nobody else (CR 608.2b).
+    ///
+    /// A fixed amount, and only on a triggered ability: nothing in the cast
+    /// wizard asks a division yet, so Fire // Ice's "2 damage divided as you
+    /// choose among one or two targets" and Shatterskull Smashing's X are
+    /// not said by this. `lints::every_divided_damage_is_a_trigger_that_can_divide`
+    /// holds both halves.
+    DealDamageDivided {
+        /// The damage divided.
+        amount: u32,
+    },
     /// Exile a target and return it to the battlefield immediately
-    /// (Ephemerate).
+    /// (Ephemerate, Restoration Angel). Written with [`Effect::blink_to_owner`]
+    /// or [`Effect::blink_to_you`], the two sentences the pool prints.
     Blink {
         /// What.
         target: TargetSpec,
+        /// Under whose control the card comes back: its owner's (`true`) or
+        /// that of the player who controls the resolving spell or ability
+        /// (`false`).
+        ///
+        /// The same field, and the same question, as
+        /// [`Effect::GraveyardToBattlefield`]'s. The card that returns is a
+        /// new object (CR 400.7), so whatever control effect held the one
+        /// that was exiled is gone with it, and the new one enters under the
+        /// control the sentence names. That is a printed choice, not a rule:
+        /// CR 610.3c's "under its owner's control unless otherwise
+        /// specified" is about a card returned by a *second* one-shot effect
+        /// after an "until" event, which an immediate blink is not. So
+        /// Ephemerate, Soulherder and Emiel the Blessed print "under its
+        /// owner's control" and take `true`, while Restoration Angel,
+        /// Aminatou's −1 and Sword of Hearth and Home print "under your
+        /// control" and take `false` — and a player notices the difference
+        /// the moment the creature they flicker is one they stole.
+        ///
+        /// Only control is chosen here. The owner never changes (CR 108.3),
+        /// so a stolen creature kept this way still dies into its owner's
+        /// graveyard (CR 400.3) and still leaves the game with its owner
+        /// (CR 800.4a).
+        owner_control: bool,
     },
     /// Look at the top `count` cards of your library; put `pick` of them
-    /// into your hand and the rest on the bottom in any order (Dig
-    /// Through Time).
+    /// into your hand and the rest on the bottom — in any order (Dig
+    /// Through Time), or in a random order when `random` (Memory Deluge,
+    /// Consult the Star Charts). `count` is read as the effect begins.
     LookAtTopPick {
         /// How many to look at.
-        count: u8,
+        count: Amount,
         /// How many to keep.
         pick: u8,
+        /// "In a random order": the rest are shuffled onto the bottom and
+        /// nobody is asked.
+        random: bool,
+    },
+    /// Look at the top `count` cards of your library; put one of them into
+    /// your hand, one on the bottom of your library, and exile the rest —
+    /// which you may play this turn (Expressive Iteration). Two choices in
+    /// that order: the card for the hand, then the card for the bottom.
+    LookAtTopKeepBottomPlay {
+        /// How many to look at.
+        count: u8,
+    },
+    /// "Choose an exiled card an opponent owns with a void counter on it.
+    /// You may play it this turn without paying its mana cost." (Dauthi
+    /// Voidwalker) — the choice is of a card in any exile whose owner
+    /// stands in `owner` to you and which carries `counter`, and the answer
+    /// is a permission for you to play that object this turn
+    /// (`PlayPermission` in the engine), free when `free`. Not a target:
+    /// "choose" (CR 115.10a says only the word "target" makes one).
+    ChooseExiledToPlay {
+        /// Whose cards: the owner's relation to you.
+        owner: PlayerRel,
+        /// A counter the card must carry.
+        counter: Option<CounterKind>,
+        /// "Without paying its mana cost".
+        free: bool,
+    },
+    /// "Reveal the top `count` cards of your library. An opponent separates
+    /// those cards into two piles. Put one pile into your hand and the other
+    /// into your graveyard." (Fact or Fiction.) The opponent answers a
+    /// `ChooseCards` naming the first pile (`ChoicePrompt::FirstPile`, any
+    /// number, the rest are the second), and the controller a
+    /// `Pending::ChoosePile`. At a table with several opponents the
+    /// controller first names the one who separates.
+    RevealAndSeparate {
+        /// Cards revealed.
+        count: u32,
+    },
+    /// "Mill `amount` cards. You may put a [filter] card from among the
+    /// milled cards into your hand." (Wrenn and Realmbreaker's −2.) The
+    /// choice is a `ChooseCards` with `min: 0` over the milled cards that
+    /// match, found wherever they went if that zone is public (CR 701.17c),
+    /// a replacement's exile included, and none matching asks nothing.
+    MillMayTakeOne {
+        /// Cards milled.
+        amount: u32,
+        /// What may be taken.
+        filter: &'static Filter,
+    },
+    /// Cascade's effect (CR 702.85a): "exile cards from the top of your
+    /// library until you exile a nonland card whose mana value is less than
+    /// this spell's mana value. You may cast that card without paying its
+    /// mana cost if the resulting spell's mana value is less than this
+    /// spell's mana value. Then put all cards exiled this way that weren't
+    /// cast on the bottom of your library in a random order."
+    ///
+    /// The body of a `Trigger::SpellCast(&Filter::This)` ability — "when you
+    /// cast this spell" — so "this spell" is the ability's source. The cast
+    /// is asked as a `YesNoPrompt::CastWithoutPaying` and made the moment
+    /// the ability has finished resolving, through the free-cast wizard, so
+    /// targets and modes are chosen as for any spell; a card that turns out
+    /// not to be castable goes to the bottom with the rest. "Cascade,
+    /// cascade" is two of these abilities (CR 702.85c).
+    Cascade,
+    /// "You may cast that card", where the card is the ability's first
+    /// target (Conduit of Worlds), as the ability resolves (CR 608.2g),
+    /// paying its costs; the timing its type would impose does not apply,
+    /// because nobody is casting it with priority.
+    ///
+    /// Asked as a `YesNoPrompt::CastPaying`. A yes opens a CR 605.3a
+    /// payment window for the card's mana cost the moment the ability has
+    /// finished resolving; passing it casts the card through the cast
+    /// wizard, paid out of the pool, and a pool that cannot pay casts
+    /// nothing. `then_no_more_spells` is "If you do, you can't cast
+    /// additional spells this turn", set once the spell has been cast.
+    MayCastTarget {
+        /// Whether casting it forbids further spells this turn.
+        then_no_more_spells: bool,
+    },
+    /// "Reveal cards from the top of your library until you reveal a
+    /// [filter] card. Put that card [where `found` says] and the rest on the
+    /// bottom of your library in a random order." (Nissa, Resurgent
+    /// Animist.) No player is asked anything: every revealed card is shown
+    /// to every player (CR 701.20a), the first match goes where `found`
+    /// says, and the rest go to the bottom in an order the table's generator
+    /// picks. A library with no match reveals every card and puts them all
+    /// on the bottom, again at random.
+    RevealUntil {
+        /// What stops the reveal.
+        filter: &'static Filter,
+        /// Where the match goes.
+        found: SearchDest,
+    },
+    /// Reveal the top card of your library and put it where the filter
+    /// sends it: `matched` if it is a `filter` card, `otherwise` if not
+    /// (Coiling Oracle: "If it's a land card, put it onto the battlefield.
+    /// Otherwise, put that card into your hand.").
+    ///
+    /// No choice anywhere in it, so no player is asked: the card is shown
+    /// to every player (CR 701.20a) and then goes where the text says. An
+    /// empty library reveals nothing and does nothing.
+    RevealTopAndSort {
+        /// What the revealed card is asked about.
+        filter: &'static Filter,
+        /// Where it goes if it matches.
+        matched: SearchDest,
+        /// Where it goes if it does not.
+        otherwise: SearchDest,
+    },
+    /// Look at the top card of your library; if it is a `filter` card you
+    /// may put it where `matched` says, and if you don't — or it is not —
+    /// put it `otherwise` (Risen Reef: "If it's a land card, you may put it
+    /// onto the battlefield tapped. If you don't put the card onto the
+    /// battlefield, put it into your hand.").
+    ///
+    /// [`Self::RevealTopAndSort`]'s sibling with the two words that make it
+    /// a different sentence: "look", so nothing is shown to the table, and
+    /// "you may", so a matching card is a question — asked as a choice of
+    /// that one card, which is what lets the asked player see it. An empty
+    /// library does nothing.
+    LookAtTopMayPut {
+        /// What the card has to be for the question to be asked.
+        filter: &'static Filter,
+        /// Where a matching card goes if the player puts it there, and
+        /// whether it enters tapped.
+        matched: Find,
+        /// Where the card goes otherwise.
+        otherwise: SearchDest,
+    },
+    /// "Search your library and/or graveyard for a [filter] card and put it
+    /// [where `find` says]. If you search your library this way, shuffle."
+    /// (Finale of Devastation.) One card from either zone: the graveyard is
+    /// public, so its matches are offered first (`ChoicePrompt::FromGraveyard`,
+    /// naming none to search the library instead); a graveyard card taken is
+    /// the whole search and nothing is shuffled. Declining, or a graveyard
+    /// with no match, is the library search `SearchLibrary` makes, shuffle
+    /// and all — so a library once seen is always shuffled.
+    SearchLibraryOrGraveyard {
+        /// What may be found.
+        filter: &'static Filter,
+        /// Where the card goes.
+        find: &'static Find,
+    },
+    /// "You may discard up to `count` cards. If you do, draw that many
+    /// cards." (Fable of the Mirror-Breaker's chapter II.) One question —
+    /// which cards, naming none to decline — and the draw is the number of
+    /// cards actually discarded, read off the answer rather than printed.
+    DiscardUpToThenDraw {
+        /// The most that may be discarded.
+        count: u8,
     },
     /// Put cards from your hand on top of your library, in the order they
     /// were chosen (Brainstorm-style).
     PutFromHandOnTop {
         /// How many.
         count: u8,
+    },
+    /// "Choose `count` cards in your hand drawn this turn. For each of those
+    /// cards, pay `life` life or put the card on top of your library"
+    /// (Sylvan Library). Two questions: which cards — asked only when more
+    /// than `count` were drawn and are still in the hand — and then which of
+    /// them go back on top, in the order put back; the rest are paid for.
+    /// A card whose life cannot be paid has to go back (CR 119.4), which is
+    /// the second question's minimum.
+    PayLifeOrPutBackDrawn {
+        /// How many drawn cards are chosen.
+        count: u8,
+        /// The life each one kept costs.
+        life: u16,
+    },
+    /// You put a card matching the filter from your hand onto the
+    /// battlefield, untapped and under your control — Aether Vial's "you may
+    /// put a creature card with mana value equal to the number of charge
+    /// counters on this artifact from your hand onto the battlefield", Uro's
+    /// "you may put a land card from your hand onto the battlefield".
+    ///
+    /// Not a cast and not a land play (CR 305.4): nothing is paid, and no
+    /// land drop is spent. `mana_value` is read as the effect begins, as
+    /// [`Effect::SearchLibraryOf`]'s is.
+    PutFromHandOntoBattlefield {
+        /// What may be put.
+        filter: &'static Filter,
+        /// A mana-value bound read at resolution, on top of `filter`.
+        mana_value: Option<ManaValueBound>,
+        /// "You may" — the chooser may put nothing.
+        optional: bool,
     },
     /// A player loses life.
     LoseLife {
@@ -744,6 +1163,20 @@ pub enum Effect {
         /// What is dealt to — a creature, or a planeswalker (CR 306.8).
         to: TargetSlot,
     },
+    /// "that creature deals damage equal to its power to `target`", where
+    /// "that creature" is the object the trigger's event named (Pyrogoyf:
+    /// "Whenever this creature or another Lhurgoyf creature you control
+    /// enters, that creature deals damage equal to its power to any
+    /// target").
+    ///
+    /// The creature is the damage's source (CR 120.3 reads the source's
+    /// deathtouch and lifelink), and if it has left the battlefield by the
+    /// time the ability resolves, its power and its characteristics are as
+    /// it last existed there (CR 608.2h).
+    EventObjectDealsDamageEqualToPower {
+        /// What is dealt to.
+        target: TargetSpec,
+    },
     /// Deal damage to the first target's controller (Tuktuk Scrapper).
     DealDamageToTargetController {
         /// How much.
@@ -801,6 +1234,20 @@ pub enum Effect {
     /// Put each target on the bottom of its owner's library (Banishing
     /// Stroke).
     PutTargetOnBottomOfLibrary,
+    /// Put a card that is in a graveyard on the bottom of its owner's
+    /// library: Murderous Rider's "when this creature dies, put it on the
+    /// bottom of its owner's library", where "it" is
+    /// [`TargetSpec::EventObject`] and nothing is targeted.
+    ///
+    /// Its own variant rather than [`Self::PutTargetOnBottomOfLibrary`]
+    /// aimed at the card that died, because that one moves its target from
+    /// wherever it is: a card that left the graveyard in response is a new
+    /// object (CR 400.7) the trigger knows nothing about, and it stays where
+    /// it went (#240).
+    PutOnBottomOfLibraryFromGraveyard {
+        /// Which card, read at resolution.
+        target: TargetSpec,
+    },
     /// The first target (a card in a graveyard) gains flashback with
     /// flashback cost = its mana cost until end of turn (Snapcaster
     /// Mage).
@@ -834,6 +1281,54 @@ pub enum Effect {
     /// Exile each target; return it to the battlefield under its owner's
     /// control at the beginning of the next end step (Venser +2).
     ExileAndReturnAtEndStep,
+    /// "Its owner puts it on their choice of the top or bottom of their
+    /// library" (Subtlety). The target leaves the stack or the battlefield
+    /// for its owner's library, and the **owner** picks the end, whoever
+    /// controls this ability. Not a counter: a spell that can't be countered
+    /// goes all the same.
+    OwnerPutsOnTopOrBottom {
+        /// What (a spell or a permanent the ability targeted).
+        target: TargetSpec,
+    },
+    /// "If that creature would die this turn, exile it instead" (Mawloc):
+    /// a replacement effect (CR 614.1a) on each object the spec names, for
+    /// the rest of the turn and for that object only — a creature that left
+    /// the battlefield and came back is a new object (CR 400.7) and dies as
+    /// usual. A token is exiled instead as well, and does not die.
+    ExileIfDiesThisTurn {
+        /// Which creature.
+        target: TargetSpec,
+    },
+    /// Discover N (CR 701.57a): "Exile cards from the top of your library
+    /// until you exile a nonland card with mana value N or less. You may
+    /// cast that card without paying its mana cost if the resulting spell's
+    /// mana value is less than or equal to N. If you don't cast it, put
+    /// that card into your hand. Put the remaining exiled cards on the
+    /// bottom of your library in a random order." (Trumpeting Carnosaur.)
+    ///
+    /// The exiling and the random bottom happen as the ability resolves;
+    /// the cast is offered as soon as the resolution is over, before anybody
+    /// receives priority (the engine's `GameState::discovered`), and a card
+    /// that cannot be cast, or that its owner declines, goes to the hand.
+    Discover {
+        /// N: the highest mana value that stops the exiling.
+        mana_value: u8,
+    },
+    /// "Reveal the top `count` cards of your library. For each card type,
+    /// you may put a card of that type from among the revealed cards into
+    /// your hand. Put the rest on the bottom of your library in a random
+    /// order." (Atraxa, Grand Unifier.)
+    ///
+    /// One question per card type (CR 205.2a) that a revealed card still in
+    /// the library has, in that rule's order: up to one card of that type.
+    /// A card taken for one type is out of the later questions, which is
+    /// what "a card of that type" for each type means for a card with two:
+    /// it is put into the hand once, for one of them, and every set of
+    /// cards the sentence allows is some sequence of answers.
+    RevealTopOnePerType {
+        /// How many cards are revealed.
+        count: u8,
+    },
     /// Counter a spell on the stack; it goes to exile instead of the
     /// graveyard (Force of Negation).
     CounterTargetSpellToExile,
@@ -885,6 +1380,10 @@ pub enum Effect {
     /// Drake); if no exchange happens (no/illegal target), sacrifice the
     /// source.
     ExchangeControlOrSacrifice,
+    /// Exchange control of the first target and the second (Oko, Thief of
+    /// Crowns' −5). CR 701.12a–b: if either is gone or both have one
+    /// controller, nothing changes hands.
+    ExchangeControl,
     /// For each player in `who`, that player chooses up to one matching
     /// permanent they control and it is destroyed (The True
     /// Scriptures I).
@@ -918,6 +1417,49 @@ pub enum Effect {
     /// Put all creature cards from all graveyards onto the battlefield
     /// under your control (The True Scriptures III).
     AllGraveyardCreaturesToBattlefield,
+    /// Put every card matching `filter` in your graveyard onto the
+    /// battlefield, tapped when `tapped`: World Shaper's "return all land
+    /// cards from your graveyard to the battlefield tapped", which Lumra,
+    /// Bellow of the Woods prints too. Nothing is targeted or chosen; the
+    /// cards are the ones there as the effect resolves.
+    YourGraveyardToBattlefield {
+        /// Which cards.
+        filter: &'static Filter,
+        /// Whether they enter tapped.
+        tapped: bool,
+    },
+    /// "Earthbend N" (CR 701.66a): "Target land you control becomes a 0/0
+    /// land creature with haste in addition to its other types. Put N +1/+1
+    /// counters on it. When that land dies or is put into exile, return it
+    /// to the battlefield tapped under your control."
+    ///
+    /// The land is the ability's first target, which the card states as
+    /// `TargetReq::one(TargetSpec::Object(&Filter::YOUR_LAND))` beside it.
+    /// The animation lasts indefinitely and binds that object, so the land
+    /// that comes back is a new object and a plain land again (CR 400.7).
+    /// The last sentence is a delayed triggered ability (CR 603.7) whose
+    /// controller and source are this ability's (CR 603.7d, 603.7e); it
+    /// triggers once (CR 603.7b) and uses the stack.
+    Earthbend(u16),
+    /// "Return it to the battlefield tapped under your control", where "it"
+    /// is a card that has just gone to a graveyard or into exile: the
+    /// delayed trigger [`Effect::Earthbend`] leaves behind. `target` is
+    /// [`TargetSpec::EventObject`]; nothing is targeted. A card that is no
+    /// longer in a graveyard or in exile stays where it is (CR 603.7c).
+    ReturnToBattlefieldTapped {
+        /// The card (`EventObject`).
+        target: TargetSpec,
+    },
+    /// "Transform this creature" (CR 701.27a): the source turns over to its
+    /// other face where it stands. Only a permanent represented by a
+    /// transforming double-faced card does (CR 701.27c) — a token copy or a
+    /// clone of one turns over nothing.
+    TransformSource,
+    /// "Transform [this] at the beginning of the next upkeep" (Archangel
+    /// Avacyn): a delayed trigger that fires in the next upkeep whoever's
+    /// turn it is, and does nothing if the permanent has left or has already
+    /// transformed since it was created (CR 701.27f).
+    TransformSourceAtNextUpkeep,
     /// Exile the source, then return it to the battlefield under its
     /// owner's control as the given face (transform; Sheoldred's flip,
     /// saga final chapters).
@@ -969,6 +1511,15 @@ pub enum Effect {
         /// What may be returned.
         filter: &'static Filter,
     },
+    /// "Untap up to N [permanents]" with no "target" (Treachery, Frantic
+    /// Search): the controller picks them as the effect resolves, any
+    /// controller's, so a permanent with shroud is as good as any.
+    UntapChosen {
+        /// What may be untapped.
+        filter: &'static Filter,
+        /// The most that may be.
+        count: u8,
+    },
     /// Remove all counters from all permanents; the source enters with
     /// that many +1/+1 counters (Thief of Blood).
     DrainAllCountersIntoSelf,
@@ -992,6 +1543,20 @@ pub enum Effect {
     /// The whole point of a "may" is that the player is allowed to decline,
     /// so the engine has to ask.
     MayDo {
+        /// What happens on a yes.
+        effects: &'static [Effect],
+    },
+    /// "You may …. Do this only once each turn." (The Reaper, King No More.)
+    ///
+    /// The ability still triggers every time; what is limited is the
+    /// optional action. A yes uses the turn's one go and a no does not, so
+    /// the question is asked again the next time the ability resolves. A
+    /// source that has used it this turn is not asked at all, and neither is
+    /// one whose action has become impossible (CR 608.2d): the card to put
+    /// onto the battlefield has left the graveyard. The limit is kept per
+    /// object, so a source that left the battlefield and came back is a new
+    /// object with a fresh turn (CR 400.7).
+    MayDoOnceEachTurn {
         /// What happens on a yes.
         effects: &'static [Effect],
     },
@@ -1024,8 +1589,11 @@ pub enum Effect {
         /// Its target. It is chosen as the ability is put on the stack
         /// (CR 603.3d, which applies CR 601.2c), not while the resolution
         /// that created it runs. It is `Option<TargetSpec>` and not a
-        /// [`TargetReq`] because that is what a synthetic trigger carries,
-        /// and every reflexive target in the pool is exactly one object.
+        /// [`TargetReq`] because that is what a synthetic trigger carries.
+        /// The spec says how many: exactly one object, or
+        /// [`TargetSpec::ObjectOfEachOpponent`]'s up to one per opponent
+        /// (The Balrog of Moria), asked opponent by opponent as the printed
+        /// path asks it.
         target: Option<TargetSpec>,
     },
     /// Branch on whether the spell was kicked (paid its additional cost).
@@ -1064,15 +1632,59 @@ pub enum Effect {
         /// Effects when it does not.
         otherwise: &'static [Effect],
     },
+    /// "…if this is the first time this ability has resolved this turn. If
+    /// it's the second time, …. If it's the third time, …." (Omnath, Locus
+    /// of Creation.) The nth effect runs as this ability resolves for the
+    /// nth time this turn, and a resolution past the end of the list does
+    /// nothing.
+    ///
+    /// The count is the ability's own, kept per object and ability index in
+    /// the turn's tally (`GameState::ability_fires` in the engine), so a
+    /// source that left the battlefield and came back starts over
+    /// (CR 400.7). It is counted as this effect runs, which is the ability
+    /// resolving when the effect is the whole of it, as Omnath's is.
+    NthResolutionThisTurn {
+        /// One effect per resolution, the first time first.
+        effects: &'static [Effect],
+    },
     /// The source gains the prepared marker (Emeritus of Woe's
     /// re-prepare trigger).
     BecomePrepared,
+    /// "… target … if it's [filter]": the effects run only when the first
+    /// target, as it is when this runs, matches `filter` (Prismatic Ending:
+    /// "Exile target nonland permanent if its mana value is less than or
+    /// equal to the number of colors of mana spent to cast this spell").
+    ///
+    /// The condition is not a targeting restriction: the target is chosen
+    /// by the requirement alone (CR 601.2c), before the costs are paid
+    /// (CR 601.2h) that converge counts, and a target that fails `filter`
+    /// is still a legal one — the spell resolves and does nothing to it.
+    IfTargetMatches {
+        /// What the target has to be.
+        filter: &'static crate::Filter,
+        /// Effects when it is.
+        then: &'static [Effect],
+    },
     /// Branch when at least N creatures died this turn (Emeritus of
     /// Woe's re-prepare condition).
     IfCreaturesDiedAtLeast {
         /// Threshold.
         n: u32,
         /// Effects when the condition holds.
+        then: &'static [Effect],
+    },
+    /// Branch: "if this is the `times`th time this ability has resolved this
+    /// turn" (Nissa, Resurgent Animist: "Then if this is the second time
+    /// this ability has resolved this turn, …"). The engine counts every
+    /// resolution of an ability of one object in its per-turn record, this
+    /// one included, and the branch runs when the count is exactly `times`:
+    /// a third resolution is not the second. The object is the source as it
+    /// is now (CR 400.7), so a Nissa that left and came back is a new object
+    /// whose abilities start counting again.
+    IfResolvedTimesThisTurn {
+        /// The count at which the branch runs.
+        times: u32,
+        /// Effects when it does.
         then: &'static [Effect],
     },
     /// Branch: you didn't lose life this turn (Luminarch Ascension).
@@ -1237,6 +1849,20 @@ pub enum Effect {
         /// How many per object.
         amount: Amount,
     },
+    /// Double the number of counters of a kind on every permanent a filter
+    /// matches (Bristly Bill's "double the number of +1/+1 counters on each
+    /// creature you control").
+    ///
+    /// CR 701.10e: each gets as many of those counters as it already has,
+    /// and that is *putting* counters, so a Doubling Season has its say
+    /// (Bristly Bill's ruling) — the counters go through the same door as
+    /// [`Self::AddCounterFilter`]'s.
+    DoubleCountersFilter {
+        /// Which permanents.
+        filter: &'static Filter,
+        /// Which counters.
+        kind: CounterKind,
+    },
     /// Return a target object (battlefield or stack) to its owner's hand.
     ReturnToHand {
         /// What.
@@ -1249,6 +1875,31 @@ pub enum Effect {
         /// Only objects controlled by opponents (Cyclonic Rift style).
         opponents_only: bool,
     },
+    /// "Exile all [permanents]" (Farewell): every permanent `filter`
+    /// matches as this resolves. Nothing is targeted (CR 115.1a names a
+    /// target by the word), so hexproof and protection do not stop it.
+    ExileAll {
+        /// What.
+        filter: &'static Filter,
+    },
+    /// "Choose a creature you control. It gains indestructible until end of
+    /// turn." (Final Showdown): as this resolves its controller chooses one
+    /// permanent they control that `filter` matches (CR 608.2d), and `then`
+    /// happens to it — the chosen permanent is what `Filter::This` names
+    /// inside `then`. A choice and not a target (CR 115.1a), so hexproof
+    /// does not stop it; with nothing to choose, `then` does nothing
+    /// (CR 609.3).
+    ///
+    /// `then` is run as a nested list with the choice as its object, and a
+    /// nested list that stops for a question hands the rest of itself back
+    /// to the outer one, which does not know the choice — so `then` holds
+    /// only effects that ask nothing (`lints::chosen_then_fault`).
+    ChooseYoursThen {
+        /// What may be chosen, among the permanents its controller controls.
+        filter: &'static Filter,
+        /// What happens to the chosen one.
+        then: &'static [Effect],
+    },
     /// Destroy all objects matching a filter (wraths).
     DestroyAll {
         /// What.
@@ -1256,6 +1907,21 @@ pub enum Effect {
         /// "They can't be regenerated" (CR 701.19c) — see
         /// [`Effect::Destroy::no_regen`].
         no_regen: bool,
+    },
+    /// "…and all other permanents with the same name as that permanent"
+    /// (Maelstrom Pulse): destroy every permanent other than the object
+    /// `target` names that shares its name.
+    ///
+    /// The name is the target's **current** one, read as this resolves, so
+    /// it goes before the effect that destroys the target: a Clone copying
+    /// a Llanowar Elves is named Llanowar Elves only while it is on the
+    /// battlefield. A nameless permanent (a face-down one, CR 708.2a) shares
+    /// a name with nothing (CR 201.2a), so it sweeps nothing. The sweep
+    /// targets nothing but the one permanent, so hexproof or protection on
+    /// the others does not stop it.
+    DestroyOthersNamedLike {
+        /// The permanent whose name is swept.
+        target: TargetSpec,
     },
     /// Regenerate a permanent (CR 701.19a): the next time it would be
     /// destroyed this turn, instead remove all damage marked on it, its
@@ -1290,6 +1956,13 @@ pub enum Effect {
     GraveyardToHand {
         /// What (`CardInGraveyard`).
         target: TargetSpec,
+    },
+    /// "Return to your hand all [filter] cards in your graveyard" (Garna,
+    /// the Bloodflame). No target: every matching card in the controller's
+    /// graveyard as the effect resolves.
+    GraveyardAllToHand {
+        /// Which cards.
+        filter: &'static Filter,
     },
     /// Put a graveyard card onto the battlefield (reanimation).
     GraveyardToBattlefield {
@@ -1373,6 +2046,32 @@ pub enum Effect {
         /// bonus tokens for a total of 5).
         kicked_bonus: u8,
     },
+    /// Populate (CR 701.36): choose a creature token you control as this
+    /// resolves and create a token that's a copy of it; none, no token
+    /// (701.36b). A choice and not a target, so shroud does not stop it
+    /// (Nesting Dovehawk).
+    Populate,
+    /// "Create a token that's a copy of target …, except …" with the
+    /// exceptions as copy modifications (CR 707.9), and, when
+    /// `sacrifice_at_next_end_step`, "Sacrifice it at the beginning of the
+    /// next end step" as a delayed trigger that follows the token and no
+    /// other object (Kiki-Jiki, Mirror Breaker; Reflection of Kiki-Jiki).
+    /// Reads the first target.
+    CreateTokenCopyOfTarget {
+        /// The "except" clauses, applied to the copiable values before the
+        /// token is made.
+        mods: &'static [crate::ability::CopyMod],
+        /// "Sacrifice it at the beginning of the next end step."
+        sacrifice_at_next_end_step: bool,
+    },
+    /// "Create a token that's a copy of it, except …" where "it" is the
+    /// source card itself (eternalize and embalm, CR 702.129a, 702.128a):
+    /// the card was exiled to pay the cost, and the copy takes its copiable
+    /// values there (CR 707.2) with `mods` applied (CR 707.9).
+    CreateTokenCopyOfSource {
+        /// The "except" clauses.
+        mods: &'static [crate::ability::CopyMod],
+    },
     /// Create a token that's a copy of the creature the source is attached
     /// to (Helm of the Host).
     CreateTokenCopyOfEquipped {
@@ -1401,6 +2100,33 @@ pub enum Effect {
         /// Copy modifications.
         mods: &'static [crate::ability::CopyMod],
     },
+    /// "Copy target activated or triggered ability you control. You may
+    /// choose new targets for the copy." (Vantress Visions.) The first
+    /// target is an ability on the stack (`TargetSpec::AbilityOnStack`).
+    ///
+    /// The copy is put on the stack under your control with every decision
+    /// made for the original: its mode, targets, X and what paid its costs
+    /// (CR 707.10), and the same source (CR 707.10b). It is neither
+    /// activated nor triggered (CR 707.10), so nothing that watches for
+    /// either sees it. Its controller may then leave any number of its
+    /// targets unchanged and change the rest to legal ones (CR 707.10c),
+    /// one target at a time as `ChooseNewTargets` asks.
+    CopyTargetAbility,
+    /// One copy of the spell a keyword's cast trigger is about: "copy it",
+    /// for replicate's "copy it for each time its replicate cost was paid.
+    /// If the spell has any targets, you may choose new targets for any of
+    /// the copies" (CR 702.56a).
+    ///
+    /// Written by the engine and never by a card: a card prints
+    /// `replicate = Some(…)` on its face, and the trigger the engine puts on
+    /// the stack for it lists this once for each payment, so the count is
+    /// fixed as the spell is cast. The spell is the trigger's first target
+    /// (its implicit one), copied as it last existed if it has left the
+    /// stack by then (CR 608.2h). The copy is put on the stack with every
+    /// decision made for the original (CR 707.10), and its controller may
+    /// then keep or change each of its targets, one at a time
+    /// (CR 707.10c), as `ChooseNewTargets` asks.
+    CopyThisSpell,
     /// Attach the source (equipment/aura) to a target permanent.
     AttachSelf {
         /// To what.
@@ -1497,12 +2223,34 @@ pub enum Effect {
         /// What phases out (first target when set, else the source).
         target: Option<TargetSpec>,
     },
-    /// Exile a target with a link to the source ("until ~ leaves the
-    /// battlefield", Skyclave Apparition).
+    /// Exile a target with a link to the source, so that a later ability of
+    /// the source can find it among the cards "exiled with" it (CR 607.2a),
+    /// for as long as `until` says.
+    ///
+    /// `None` is an exile with no end of its own. The card stays until an
+    /// effect of the source brings it back (Safe Haven and Endless Sands,
+    /// [`Effect::ReturnLinkedToBattlefield`]) or for good (Skyclave
+    /// Apparition). `Some` is an "until" sentence (CR 610.3): the return is
+    /// the second half of the same effect and not a triggered ability, so
+    /// it happens the moment the event does, uses no stack, and puts the
+    /// card back under its owner's control (CR 610.3c). If the event has
+    /// already happened when the exile would, the card does not move
+    /// (CR 610.3a, 610.3b).
+    ///
+    /// Spelled [`Effect::exile_linked`] and [`Effect::exile_until`].
     ExileLinked {
         /// What.
         target: TargetSpec,
+        /// The event that ends the exile, when the sentence names one.
+        until: Option<ExileUntil>,
     },
+    /// Exile every target, each **exiled with** the source (CR 406.6):
+    /// "Exile up to two target cards from a single graveyard" (Unlicensed
+    /// Hearse), whose power and toughness count them
+    /// (`PtCount::ExiledWithThis`). Nothing brings them back, which is what
+    /// keeps it apart from [`Effect::ExileLinked`]'s "until …" exile and its
+    /// rider, which a leaving host and a new monarch both read.
+    ExileTargetsWithSource,
     /// Return everything exiled with a link to the source to the
     /// battlefield under its owner's control.
     ReturnLinkedToBattlefield,
@@ -1538,6 +2286,82 @@ pub enum Effect {
     OptionalBasicLandSearchFor {
         /// Who may search.
         player: PlayerRel,
+    },
+    /// A search [`Effect::SearchLibrary`] cannot say: somebody else's
+    /// library, somebody else doing the searching, or a mana-value bound
+    /// that only the resolution knows.
+    ///
+    /// A sibling rather than three more fields on `SearchLibrary`, which
+    /// thirty-odd card files and a reader write as a literal. Every search
+    /// that fits `SearchLibrary` keeps writing it.
+    ///
+    /// - Boseiju, Who Endures and Assassin's Trophy: "**that player** may
+    ///   search **their** library for …, put it onto the battlefield" —
+    ///   `library: ControllerOfTarget`, `owner_searches: true`, `optional`.
+    /// - Bribery: "search **target opponent's** library for a creature card
+    ///   and put that card onto the battlefield **under your control**. Then
+    ///   that player shuffles." — `library: Chosen`, `owner_searches: false`.
+    /// - Eldritch Evolution, Neoform, Birthing Pod: "a creature card with
+    ///   mana value X or less, where X is 2 plus the sacrificed creature's
+    ///   mana value" — `mana_value`, read as the search begins.
+    ///
+    /// Whoever searches, the library searched is the one shuffled
+    /// afterwards, and a find that goes to a hand goes to the searcher's.
+    SearchLibraryOf {
+        /// Whose library is searched.
+        library: PlayerRel,
+        /// Whether that library's owner searches it and gets what they find
+        /// (true), or you search it and what you find is yours to control
+        /// (false). With `library: You` the two are the same.
+        owner_searches: bool,
+        /// What to find.
+        filter: &'static Filter,
+        /// A mana-value bound read at resolution, on top of `filter`.
+        mana_value: Option<ManaValueBound>,
+        /// Where each found card goes, positionally, as for `SearchLibrary`.
+        finds: &'static [Find],
+        /// Whether fewer than `finds.len()` may be found ("up to", "may").
+        optional: bool,
+    },
+    /// "Search your library for up to `count` `filter` cards", where the
+    /// count is a number only the resolution knows (Nylea's Intervention:
+    /// "up to X land cards, reveal them, put them into your hand, then
+    /// shuffle"). Every card found goes where `find` says.
+    ///
+    /// A sibling for the reason [`Self::SearchLibraryOf`] is one:
+    /// `SearchLibrary`'s `finds` is a count written into the card, one
+    /// [`Find`] per card, and no slice can be X long. Always "up to": a
+    /// search for a number of cards the searcher did not choose is not a
+    /// sentence any printing uses. A reveal follows the rule every search
+    /// follows (narrower than "a card", ending in a hidden zone).
+    SearchLibraryUpTo {
+        /// What to find.
+        filter: &'static Filter,
+        /// How many at most, read as the search begins.
+        count: Amount,
+        /// Where each card found goes (a reference, so the engine can hand
+        /// it to the search as the one-element list every search reads).
+        find: &'static Find,
+    },
+    /// "Search your library for up to `up_to` `filter` cards with different
+    /// names and reveal them. An opponent chooses `chosen` of those cards.
+    /// Put the chosen cards into your graveyard and the rest into your hand.
+    /// Then shuffle." (Realms Uncharted: land cards, up to four, two chosen.)
+    ///
+    /// Different names are a property of the answer, and the search offers
+    /// one card per name so that every answer has it: two copies of a card
+    /// in a library are the same card to every rule this sentence reads.
+    /// With several opponents the controller names the one who chooses, as
+    /// CR 700.2e has them do for a mode another player chooses. Finding
+    /// `chosen` or fewer leaves nothing to choose: every card found is
+    /// chosen.
+    SearchOpponentSplits {
+        /// What to find.
+        filter: &'static Filter,
+        /// How many at most.
+        up_to: u8,
+        /// How many of those the opponent sends to the graveyard.
+        chosen: u8,
     },
     /// All objects matching a filter get computed P/T modifiers, and
     /// optionally keywords, until a duration ends (Toxic Deluge: `-X/-X`
@@ -1591,6 +2415,35 @@ pub enum Effect {
         /// How long.
         duration: crate::static_ability::Duration,
     },
+    /// "target creature gains protection from the color of your choice
+    /// until end of turn" (Sejiri Steppe). The color is chosen as the
+    /// effect resolves (CR 608.2d asks it then, not on activation), by its
+    /// controller, among the five; the protection is a layer-6 grant
+    /// (CR 613.1f) on the first target for `duration`.
+    ProtectionFromChosenColor {
+        /// How long.
+        duration: crate::static_ability::Duration,
+    },
+    /// "Tap all creatures your opponents control" (Cryptic Command): every
+    /// permanent `filter` matches as this resolves becomes tapped (CR
+    /// 701.26a). Nothing is targeted (CR 115.1a names a target by the
+    /// word), so hexproof and protection do not stop it, and a permanent
+    /// already tapped stays as it is.
+    TapAll {
+        /// What.
+        filter: &'static Filter,
+    },
+    /// "Exile the top card of that player's library. Until end of turn, you
+    /// may cast that card." (Ragavan, Nimble Pilferer): the top card of each
+    /// library `who` names goes to its owner's exile face up, and the
+    /// controller may cast it this turn, paying its costs (a
+    /// `PlayPermission` in the engine, cast only: a land exiled this way is
+    /// not played). Nothing is targeted, and an empty library exiles
+    /// nothing.
+    ExileTopMayCast {
+        /// Whose library: the owner's relation to you.
+        who: PlayerRel,
+    },
 }
 
 impl Effect {
@@ -1615,16 +2468,19 @@ impl Effect {
     ///
     /// **The name is the word this pool already says**, which is usually the
     /// printed one. "Draw", "scry", "destroy", "exile" are all oracle text.
-    /// [`Effect::blink`] is what the engine had already named a thing oracle
-    /// spells out in a clause ("exile it, then return it to the
-    /// battlefield"), and [`Effect::bounce`] is the same shape from the other
-    /// direction: the printing says "return … to its owner's hand" and the
-    /// variant says `ReturnToHand`, but the table says bounce, and so did
-    /// this repository before there was a verb — Cyclonic Rift's own comment
-    /// calls both of its modes a bounce and Aether Channeler's effect list is
-    /// named `BOUNCE_EFFECTS`. That is the owner's decision and it is paid
-    /// for: `bounce` is a word no `//! Oracle:` header carries, so a grep
-    /// from the printed sentence to the code stops here and at `blink`.
+    /// "Blink" is what the engine had already named a thing oracle spells
+    /// out in a clause ("exile it, then return it to the battlefield"), and
+    /// it is two verbs, [`Effect::blink_to_owner`] and
+    /// [`Effect::blink_to_you`], because the clause ends in one of two
+    /// controllers and the card names which. [`Effect::bounce`] is the same
+    /// shape from the other direction: the printing says "return … to its
+    /// owner's hand" and the variant says `ReturnToHand`, but the table says
+    /// bounce, and so did this repository before there was a verb —
+    /// Cyclonic Rift's own comment calls both of its modes a bounce and
+    /// Aether Channeler's effect list is named `BOUNCE_EFFECTS`. That is the
+    /// owner's decision and it is paid for: `bounce` is a word no
+    /// `//! Oracle:` header carries, so a grep from the printed sentence to
+    /// the code stops here and at `blink_*`.
     ///
     /// It buys nothing where the variant is not one answer.
     /// [`Effect::ReturnAllToHand`] is the overloaded half of the same card
@@ -1748,11 +2604,48 @@ impl Effect {
         Self::Exile { target }
     }
 
-    /// "Exile target …, then return it to the battlefield under its owner's
-    /// control."
+    /// "Exile target …" by an ability that another ability of the same
+    /// object reads back as the card "exiled with" it (CR 607.2a), with no
+    /// end of its own (Skyclave Apparition, Safe Haven).
     #[must_use]
-    pub const fn blink(target: TargetSpec) -> Self {
-        Self::Blink { target }
+    pub const fn exile_linked(target: TargetSpec) -> Self {
+        Self::ExileLinked {
+            target,
+            until: None,
+        }
+    }
+
+    /// "Exile target … until …" (CR 610.3): Werefox Bodyguard's "until this
+    /// creature leaves the battlefield", Palace Jailer's "until an opponent
+    /// becomes the monarch".
+    #[must_use]
+    pub const fn exile_until(target: TargetSpec, until: ExileUntil) -> Self {
+        Self::ExileLinked {
+            target,
+            until: Some(until),
+        }
+    }
+
+    /// "Exile target …, then return it to the battlefield under its owner's
+    /// control" (Ephemerate).
+    #[must_use]
+    pub const fn blink_to_owner(target: TargetSpec) -> Self {
+        Self::Blink {
+            target,
+            owner_control: true,
+        }
+    }
+
+    /// "Exile target …, then return that card to the battlefield under your
+    /// control" (Restoration Angel): the new object enters under the control
+    /// of whoever controls the resolving spell or ability (CR 110.2a), and
+    /// its owner stays who it was.
+    #[must_use]
+    pub const fn blink_to_you(target: TargetSpec) -> Self {
+        Self::Blink {
+            target,
+            owner_control: false,
+        }
     }
 
     /// "Return target … to its owner's hand."
@@ -2026,14 +2919,19 @@ impl Effect {
             // has to read it.
             Effect::Sequence(effects)
             | Effect::MayDo { effects }
+            | Effect::MayDoOnceEachTurn { effects }
+            | Effect::NthResolutionThisTurn { effects }
             | Effect::Reflexive {
                 when: _,
                 effects,
                 target: _,
             } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
+            | Effect::ChooseYoursThen { filter: _, then }
+            | Effect::IfTargetMatches { filter: _, then }
             | Effect::IfNoCountersOnSelf { kind: _, then }
             | Effect::IfNotLostLifeThisTurn { then }
+            | Effect::IfResolvedTimesThisTurn { times: _, then }
             | Effect::IfControlGreatestCmc { filter: _, then } => (then, NONE),
             Effect::IfKicked { then, otherwise }
             | Effect::IfCondition {
@@ -2065,7 +2963,20 @@ impl Effect {
             | Effect::Exile { .. }
             | Effect::Blink { .. }
             | Effect::LookAtTopPick { .. }
+            | Effect::LookAtTopKeepBottomPlay { .. }
+            | Effect::ChooseExiledToPlay { .. }
+            | Effect::PayLifeOrPutBackDrawn { .. }
+            | Effect::RevealTopAndSort { .. }
+            | Effect::RevealUntil { .. }
+            | Effect::Cascade
+            | Effect::MayCastTarget { .. }
+            | Effect::MillMayTakeOne { .. }
+            | Effect::RevealAndSeparate { .. }
+            | Effect::LookAtTopMayPut { .. }
+            | Effect::DiscardUpToThenDraw { .. }
+            | Effect::SearchLibraryOrGraveyard { .. }
             | Effect::PutFromHandOnTop { .. }
+            | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }
             | Effect::DrawCards { .. }
             | Effect::DrawCardsFor { .. }
@@ -2073,18 +2984,27 @@ impl Effect {
             | Effect::DealDamage { .. }
             | Effect::Fight { .. }
             | Effect::DamageEqualToPower { .. }
+            | Effect::EventObjectDealsDamageEqualToPower { .. }
             | Effect::DealDamageToTargetController { .. }
             | Effect::DealDamageEach { .. }
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }
             | Effect::PutTargetOnBottomOfLibrary
+            | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
             | Effect::GrantFlashback
             | Effect::TakeExtraTurn
             | Effect::ExileSource
             | Effect::TapTarget
+            | Effect::TapAll { .. }
+            | Effect::ExileTopMayCast { .. }
             | Effect::UntapTarget
             | Effect::UntapSelf
             | Effect::ExileAndReturnAtEndStep
+            | Effect::OwnerPutsOnTopOrBottom { .. }
+            | Effect::ExileIfDiesThisTurn { .. }
+            | Effect::Discover { .. }
+            | Effect::RevealTopOnePerType { .. }
+            | Effect::DealDamageDivided { .. }
             | Effect::CounterTargetSpellToExile
             | Effect::CounterTargetSpell
             | Effect::CounterTargetAbility
@@ -2094,14 +3014,22 @@ impl Effect {
             | Effect::ChangeTarget { .. }
             | Effect::ChooseNewTargets
             | Effect::ExchangeControlOrSacrifice
+            | Effect::ExchangeControl
             | Effect::DestroyChosenForPlayers { .. }
             | Effect::DiscardForPlayers { .. }
             | Effect::DiscardRandom { .. }
             | Effect::RevealHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
+            | Effect::GraveyardAllToHand { .. }
+            | Effect::YourGraveyardToBattlefield { .. }
+            | Effect::Earthbend(_)
+            | Effect::ReturnToBattlefieldTapped { .. }
+            | Effect::TransformSource
+            | Effect::TransformSourceAtNextUpkeep
             | Effect::ExileSelfReturnAsFace { .. }
             | Effect::SacrificeFilter { .. }
             | Effect::ReturnChosenToHand { .. }
+            | Effect::UntapChosen { .. }
             | Effect::DrainAllCountersIntoSelf
             | Effect::ShuffleGraveyardIntoLibrary
             | Effect::BecomePrepared
@@ -2117,9 +3045,12 @@ impl Effect {
             | Effect::GrantSubtype { .. }
             | Effect::AddCounter { .. }
             | Effect::AddCounterFilter { .. }
+            | Effect::DoubleCountersFilter { .. }
             | Effect::ReturnToHand { .. }
             | Effect::ReturnAllToHand { .. }
             | Effect::DestroyAll { .. }
+            | Effect::ExileAll { .. }
+            | Effect::DestroyOthersNamedLike { .. }
             | Effect::ExileGraveyard { .. }
             | Effect::GraveyardToTop { .. }
             | Effect::GraveyardToHand { .. }
@@ -2131,10 +3062,15 @@ impl Effect {
             | Effect::Amass { .. }
             | Effect::PutSourceOnTopOfLibrary
             | Effect::CreateTokenCopyOf { .. }
+            | Effect::Populate
             | Effect::CreateTokenCopyOfEquipped { .. }
+            | Effect::CreateTokenCopyOfTarget { .. }
+            | Effect::CreateTokenCopyOfSource { .. }
             | Effect::CreateTokenCopyOfFirstToken
             | Effect::BottomCardFromHand { .. }
             | Effect::CopyTargetSpell { .. }
+            | Effect::CopyTargetAbility
+            | Effect::CopyThisSpell
             | Effect::AttachSelf { .. }
             | Effect::ReorderTopLibrary { .. }
             | Effect::PayLifeOrEnterTapped { .. }
@@ -2144,6 +3080,7 @@ impl Effect {
             | Effect::ControlRotation
             | Effect::PhaseOut { .. }
             | Effect::ExileLinked { .. }
+            | Effect::ExileTargetsWithSource
             | Effect::ReturnLinkedToBattlefield
             | Effect::CreateTokenFromLinked { .. }
             | Effect::SacrificeSelf
@@ -2151,7 +3088,11 @@ impl Effect {
             | Effect::CreateEmblem { .. }
             | Effect::BecomeMonarch(_)
             | Effect::OptionalBasicLandSearchFor { .. }
+            | Effect::SearchLibraryOf { .. }
+            | Effect::SearchLibraryUpTo { .. }
+            | Effect::SearchOpponentSplits { .. }
             | Effect::PumpFilter { .. }
+            | Effect::ProtectionFromChosenColor { .. }
             | Effect::Regenerate { .. }
             | Effect::PumpTarget { .. } => (NONE, NONE),
         }
@@ -2195,6 +3136,98 @@ mod verb_tests {
         });
         assert_eq!(seen, 2);
         assert!(counter_seen);
+    }
+
+    /// Nissa, Resurgent Animist's reveal sits inside
+    /// `IfResolvedTimesThisTurn`, and a pool walk has to find it there.
+    #[test]
+    fn the_nth_resolution_branch_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::IfResolvedTimesThisTurn {
+            times: 2,
+            then: &[Effect::RevealUntil {
+                filter: &crate::Filter::Any,
+                found: SearchDest::Hand,
+            }],
+        }];
+        let mut seen = 0;
+        let mut reveal_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            reveal_seen |= matches!(effect, Effect::RevealUntil { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(reveal_seen);
+    }
+
+    /// Each of the nth-resolution effects is walked.
+    #[test]
+    fn nth_resolution_effects_are_visited() {
+        static EFFECTS: &[Effect] = &[Effect::NthResolutionThisTurn {
+            effects: &[Effect::gain_life(4), Effect::draw(1)],
+        }];
+        let mut seen = 0;
+        let mut draw_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            draw_seen |= matches!(effect, Effect::DrawCards { .. });
+        });
+        assert_eq!(seen, 3);
+        assert!(draw_seen);
+    }
+
+    /// "You may …. Do this only once each turn." carries its body the way
+    /// `MayDo` does, and the walk goes into it.
+    #[test]
+    fn once_each_turn_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::MayDoOnceEachTurn {
+            effects: &[Effect::GraveyardToBattlefield {
+                target: TargetSpec::EventObject,
+                owner_control: false,
+                counters: None,
+            }],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::GraveyardToBattlefield { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
+    }
+
+    /// "Choose a creature you control. It …" carries what happens to the
+    /// chosen one the way a one-branch conditional does, and the walk goes
+    /// into it.
+    #[test]
+    fn chosen_permanent_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::ChooseYoursThen {
+            filter: &crate::Filter::CREATURE,
+            then: &[Effect::draw(1)],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::DrawCards { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
+    }
+
+    /// "… if it's [filter]" carries its effects the way the other one-branch
+    /// conditionals do, and the walk goes into them.
+    #[test]
+    fn if_target_matches_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::IfTargetMatches {
+            filter: &crate::Filter::CmcAtMostColorsSpent,
+            then: &[Effect::Exile {
+                target: TargetSpec::Object(&crate::Filter::NONLAND),
+            }],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::Exile { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
     }
 
     use crate::ability::Trigger;
@@ -2241,7 +3274,20 @@ mod verb_tests {
             }
         );
         assert_eq!(Effect::exile(target), Effect::Exile { target });
-        assert_eq!(Effect::blink(target), Effect::Blink { target });
+        assert_eq!(
+            Effect::blink_to_owner(target),
+            Effect::Blink {
+                target,
+                owner_control: true
+            }
+        );
+        assert_eq!(
+            Effect::blink_to_you(target),
+            Effect::Blink {
+                target,
+                owner_control: false
+            }
+        );
         assert_eq!(Effect::bounce(target), Effect::ReturnToHand { target });
     }
 
@@ -2293,7 +3339,7 @@ mod amount_and_target_tests {
     /// a sign as a bug on its own: the card resolves, the creature changes
     /// size, and only the direction is wrong.
     ///
-    /// All twelve variants are named. That is a population rather than a
+    /// All fifteen variants are named. That is a population rather than a
     /// guard — the exhaustive `match` is what a new variant has to answer —
     /// but the answers themselves are what no compiler can check.
     #[test]
@@ -2309,7 +3355,10 @@ mod amount_and_target_tests {
             Amount::DistinctColorsAmong(&Filter::CREATURE),
             Amount::TargetPower,
             Amount::SourcePower,
+            Amount::CountersOnSource(CounterKind::Charge),
             Amount::TargetCmc,
+            Amount::SacrificedManaValue,
+            Amount::ManaSpentToCast,
             Amount::CountOf {
                 filter: &Filter::CREATURE,
                 zone: ZoneSel::Battlefield,
@@ -2321,8 +3370,8 @@ mod amount_and_target_tests {
         ];
         assert_eq!(
             downwards.len() + upwards.len(),
-            13,
-            "thirteen values over twelve variants — `Negated` is in both \
+            16,
+            "sixteen values over fifteen variants — `Negated` is in both \
              lists, which is the parity rule being read from both sides"
         );
         for a in downwards {

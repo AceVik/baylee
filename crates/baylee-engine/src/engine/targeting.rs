@@ -1,5 +1,10 @@
 //! Explicit shortcuts over an existing sequence of target decisions.
-use super::{CardLookup, Engine, EngineError, ObjectId, Pending, PlanKind, PlayerAction, PlayerId};
+use super::{
+    CardLookup, Engine, EngineError, ObjectId, Pending, PerOpponent, PlanKind, PlayerAction,
+    PlayerId, SmallVec,
+};
+use crate::choice::TargetPrompt;
+use crate::eval;
 use crate::trigger::PendingTrigger;
 
 /// Same source, controller, captured rules and chosen mode. Each occurrence
@@ -19,20 +24,274 @@ fn same(a: &PendingTrigger, b: &PendingTrigger) -> bool {
         && b.synthetic_effects.is_none()
 }
 
+/// `spec` with "that player" read off the first instance of "target" of the
+/// ability `obj` on the stack: the player it named, or the controller of the
+/// permanent it named (last known, if it has left since). Every other spec
+/// comes back as it was.
+fn bind_to_first_targets_player(
+    state: &crate::state::GameState,
+    obj: &crate::object::GameObject,
+    spec: baylee_cards_dsl::TargetSpec,
+) -> baylee_cards_dsl::TargetSpec {
+    let baylee_cards_dsl::TargetSpec::ObjectOfFirstTargetsPlayer(filter) = spec else {
+        return spec;
+    };
+    let player = obj.target_players.iter().next().or_else(|| {
+        obj.targets
+            .first()
+            .and_then(|id| state.object_or_departed(*id))
+            .map(|o| o.controller)
+    });
+    match player {
+        Some(player) => baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player),
+        // Nobody was named, so there is no "that player" and nothing to
+        // offer; left unbound, it enumerates empty.
+        None => spec,
+    }
+}
+
 impl<L: CardLookup> Engine<L> {
+    /// `controller`'s opponents, starting with the next seat in turn order
+    /// (CR 101.4's order, the one a table reads round).
+    pub(super) fn opponents_in_turn_order(&self, controller: PlayerId) -> Vec<PlayerId> {
+        let seats = self.state.players.len();
+        (1..seats)
+            .map(|step| PlayerId::new(((usize::from(controller.get()) + step) % seats) as u8))
+            .filter(|p| self.state.is_opponent(*p, controller))
+            .collect()
+    }
+
+    /// Asks `controller` for the next opponent's target of a
+    /// `TargetSpec::ObjectOfEachOpponent` trigger: up to one permanent that
+    /// opponent controls. An opponent with nothing to point at is passed
+    /// over rather than shown an empty menu.
+    ///
+    /// `None` means a question is now pending; `Some` hands back every
+    /// target gathered, once nobody is left to ask about. `plan` is what the
+    /// answer returns to — a printed trigger's or a synthetic one's — given
+    /// the question's state to carry.
+    pub(super) fn ask_next_opponent(
+        &mut self,
+        controller: PlayerId,
+        source: ObjectId,
+        mut asking: PerOpponent,
+        plan: impl FnOnce(Box<PerOpponent>) -> PlanKind,
+    ) -> Option<SmallVec<[ObjectId; 2]>> {
+        while !asking.remaining.is_empty() {
+            let opponent = asking.remaining.remove(0);
+            let options: Vec<ObjectId> =
+                eval::target_options(&asking.spec, &self.state, controller, source)
+                    .into_iter()
+                    .filter(|id| {
+                        self.state
+                            .object(*id)
+                            .is_some_and(|o| o.controller == opponent)
+                    })
+                    .collect();
+            if options.is_empty() {
+                continue;
+            }
+            self.pending_plan = Some(plan(Box::new(asking)));
+            self.pending = Pending::ChooseTargets {
+                player: controller,
+                options,
+                player_options: Vec::new(),
+                min: 0,
+                max: 1,
+                reason: TargetPrompt::Targets,
+            };
+            self.awaiting_answer = true;
+            return None;
+        }
+        Some(asking.gathered)
+    }
+
+    /// Asks the second instance of "target" of the triggered ability that was
+    /// just put on the stack, if it prints one.
+    ///
+    /// CR 603.3d makes putting a trigger on the stack the casting process
+    /// from 601.2c on, and 601.2c announces the targets instance by instance,
+    /// so the second is asked after the first is chosen — which is what lets
+    /// "target creature **that player or that planeswalker's controller**
+    /// controls" (Ravager of the Fells) name a player at all. The spec is
+    /// bound to that player here and written onto the stack object, so the
+    /// resolution-time re-check (CR 608.2b) asks the question the offer did.
+    ///
+    /// Returns whether a question is now pending.
+    pub(crate) fn ask_trigger_second_target(&mut self) -> bool {
+        let Some(top) = self
+            .state
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .last()
+            .copied()
+        else {
+            return false;
+        };
+        let Some(obj) = self.state.object(top) else {
+            return false;
+        };
+        if obj.kind != crate::object::ObjectKind::AbilityOnStack
+            || obj.second_target_req().is_some()
+        {
+            return false;
+        }
+        let Some(mut req) = self.stack_second_target_req(top) else {
+            return false;
+        };
+        req.spec = bind_to_first_targets_player(&self.state, obj, req.spec);
+        let controller = obj.controller;
+        let (options, _) = eval::stack_target_options(&self.state, obj, &req.spec);
+        if let Some(obj) = self.state.object_mut(top) {
+            obj.set_second(SmallVec::new(), Some(req));
+        }
+        if options.len() < usize::from(req.min) {
+            // No legal choice for a required target: "the ability is simply
+            // removed from the stack" (CR 603.3d). No card prints a required
+            // second target on a trigger today; Ravager's is "up to one".
+            self.state
+                .zones
+                .remove(top, crate::zone::ZoneLocation::Stack);
+            let _ = self.state.arena.remove(top);
+            return false;
+        }
+        if options.is_empty() {
+            // "Up to one" with nothing to point at: nothing to decide.
+            return false;
+        }
+        let max = req.max.min(u8::try_from(options.len()).unwrap_or(u8::MAX));
+        self.pending_plan = Some(PlanKind::TriggerSecondTarget { on_stack: top });
+        self.pending = Pending::ChooseTargets {
+            player: controller,
+            options,
+            player_options: Vec::new(),
+            min: req.min,
+            max,
+            reason: TargetPrompt::Targets,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    /// Asks how the triggered ability just put on the stack divides its
+    /// damage, if it prints "damage divided as you choose"
+    /// ([`baylee_cards_dsl::Effect::DealDamageDivided`]).
+    ///
+    /// CR 601.2d, which CR 603.3d applies to a triggered ability: the
+    /// division is announced as it is put on the stack, after its targets,
+    /// and each target gets at least 1. One target takes it all and is not
+    /// asked; no target divides nothing. Asked only when the second instance
+    /// of "target" did not ask first — no card prints both.
+    ///
+    /// Returns whether a question is now pending.
+    pub(crate) fn ask_trigger_division(&mut self) -> bool {
+        let Some(top) = self
+            .state
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .last()
+            .copied()
+        else {
+            return false;
+        };
+        let Some(total) = self.stack_divided_amount(top) else {
+            return false;
+        };
+        let Some(obj) = self.state.object(top) else {
+            return false;
+        };
+        let (controller, targets) = (obj.controller, obj.targets.clone());
+        // Entries for abilities that have left the stack since are dead.
+        let state = &mut self.state;
+        let on_stack = state.zones.list(crate::zone::ZoneLocation::Stack);
+        state.divided.retain(|(id, _)| on_stack.contains(id));
+        if targets.is_empty() {
+            return false;
+        }
+        self.ask_division(controller, top, targets, Vec::new(), total)
+    }
+
+    /// Asks the next target's share of a division, or, when only the last
+    /// target is left, gives it the rest and writes the division down.
+    /// Returns whether a question is now pending.
+    pub(super) fn ask_division(
+        &mut self,
+        controller: PlayerId,
+        on_stack: ObjectId,
+        targets: SmallVec<[ObjectId; 2]>,
+        mut shares: Vec<u32>,
+        total: u32,
+    ) -> bool {
+        let given: u32 = shares.iter().sum();
+        let left = total.saturating_sub(given);
+        let asked = shares.len();
+        if asked + 1 >= targets.len() {
+            shares.push(left);
+            let division = targets.iter().copied().zip(shares).collect();
+            self.state.divided.push((on_stack, division));
+            return false;
+        }
+        // Each target still to come needs at least 1 (CR 601.2d); the
+        // `TargetReq` asks for no more targets than there is damage, so this
+        // leaves at least 1 for this one.
+        let after = u32::try_from(targets.len() - asked - 1).unwrap_or(u32::MAX);
+        let max = left.saturating_sub(after).max(1);
+        let reason = crate::choice::NumberPrompt::DivideDamage {
+            target: targets[asked],
+            index: u8::try_from(asked).unwrap_or(u8::MAX),
+            of: u8::try_from(targets.len()).unwrap_or(u8::MAX),
+            left,
+        };
+        self.pending_plan = Some(PlanKind::DivideDamage {
+            on_stack,
+            targets,
+            shares,
+            total,
+        });
+        self.pending = Pending::ChooseNumber {
+            player: controller,
+            min: 1,
+            max,
+            reason,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
     /// Number of consecutive occurrences of the exact current trigger.
     /// Non-trigger questions (including payments and modal choices) never
     /// qualify. Only the already collected queue is examined.
     #[must_use]
     pub fn target_batch_count(&self) -> u32 {
+        // A question per opponent is one trigger's several answers, never
+        // several triggers' one.
         if !matches!(self.pending, Pending::ChooseTargets { .. })
-            || !matches!(self.pending_plan, Some(PlanKind::Trigger { .. }))
+            || !matches!(
+                self.pending_plan,
+                Some(PlanKind::Trigger {
+                    per_opponent: None,
+                    ..
+                })
+            )
         {
             return 0;
         }
         let Some(first) = self.trigger_queue.front() else {
             return 0;
         };
+        // A trigger that asks a second instance of "target" asks it between
+        // one occurrence and the next, so the series is not one answer
+        // repeated.
+        if matches!(
+            self.trigger_abilities(first)
+                .get(first.ability_index as usize),
+            Some(baylee_cards_dsl::AbilityDef::Triggered {
+                second_targets: Some(_),
+                ..
+            })
+        ) {
+            return 0;
+        }
         u32::try_from(
             self.trigger_queue
                 .iter()
@@ -78,13 +337,23 @@ impl<L: CardLookup> Engine<L> {
                 }
                 break;
             }
-            self.apply(
+            let answered = self.apply(
                 player,
                 PlayerAction::ChooseTargets {
                     objects: objects.to_vec(),
                     players: players.to_vec(),
                 },
-            )?;
+            );
+            // Only the first answer may refuse the batch: past it, earlier
+            // answers are taken, and a refusal would tell the record the
+            // batch changed nothing when it did (the batch ends here instead,
+            // as it does on an answer that stops fitting).
+            if answered.is_err() {
+                if at == 0 {
+                    return answered;
+                }
+                break;
+            }
         }
         Ok(())
     }

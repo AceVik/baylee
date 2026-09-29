@@ -505,8 +505,10 @@ kernel's encoding. That is **`VIEW_VERSION` 9 → 11**, two bumps in one night:
 10 added the field and 11 added the slot to it.
 
 Two functions rather than a third copy of the rule. `effects::granted_activated`
-is the engine's own lookup: `legal_actions` offers the ability through it,
-`start_granted` runs it, and `crates/baylee-gamehost/src/view.rs` projects it.
+is the engine's own lookup: `legal_actions` offers the ability through it
+(as `granted_activated_among` over `effects::grants`, the same walk over the
+table's granting effects collected once per offer), `start_granted` runs it,
+and `crates/baylee-gamehost/src/view.rs` projects it.
 `baylee_cards_dsl::simple_mana` is the reading — free cost, a single `AddMana`,
 a fixed amount, no restriction — and the client's `manasources` asks it of a
 *printed* mana ability. An offer and a projection that disagreed would be a
@@ -2629,3 +2631,78 @@ countdown. Every seat receives the same public flag and time counters. The
 client keeps a scrollable list of these cards, with their owners and counters,
 independent of the camera's current seat; a click opens that owner's exile.
 The flag defaults to false when absent. No hidden zone is added to the view.
+
+### Choosing a card name (view 41)
+
+"As this artifact enters, choose a card name" (Pithing Needle) is
+`Pending::ChooseCardName { player }`, and it carries **no options**: any
+card's name may be chosen, of any of its faces (CR 201.4, 201.4b–f), so the
+option set is the card pool, which every client and agent of the same build
+already has. A list here would send a few thousand names with every frame
+that asks. The answer is `PlayerAction::ChooseCardName { card, face }`, a
+`CardIndex` and a face index; the engine refuses a card its pool does not
+have and a face the card does not print, and the question stays open. There
+is no answer that does nothing, so the decision clock leaves it to the house
+(`timeout_answer` is `None`), which names an opponent's permanent it would
+stop. Both ride as JSON inside the envelope like every other question, so
+`PROTOCOL_VERSION` does not move, as it did not for `Arrange`.
+
+`PublicObject.chosen_name` is the name chosen for that permanent, a
+`NamedFace { card, face }`. The choice is public and every seat is told it;
+a missing field decodes as `None`. Two permanents naming different cards do
+not share a board pile, and the client labels the permanent with the face's
+name.
+
+### A Room's doors (view 42)
+
+`PublicObject.unlocked_doors` is `Some([left, right])` for a Room on the
+battlefield, each `true` while that half is unlocked (CR 709.5c), and `None`
+for everything else; a missing field decodes as `None`. The designations
+are public and every seat is told them. A Room with different doors open is
+a different board pile. What a locked half would print is already absent
+from the other fields (a locked half has no name, mana cost or rules text,
+CR 709.5; with no door open `rules` is `None`).
+
+Unlocking a door is a special action (CR 116.2m, 709.5e), offered in
+`legal.abilities` under two reserved indices below `TURN_FACE_UP`:
+`choice::unlock_door(half)` names the index, `choice::door_to_unlock`
+reads it back, and `choice::is_special_action` is true of both and of
+`TURN_FACE_UP`. The answer is the usual `PlayerAction::ActivateAbility`,
+so `PROTOCOL_VERSION` does not move. It is offered only with the half's
+mana cost floating, at sorcery timing.
+
+### What a number counts: `ChooseNumber.reason`
+
+`Pending::ChooseNumber` asks for an X, and since Lose Focus also for how
+many times to pay a replicate cost (CR 702.56a). The two are the same
+answer, `PlayerAction::ChooseNumber(n)`, and differ in what the question
+means, so the question says: `reason` is `NumberPrompt::X` or
+`NumberPrompt::Replicate { cost }`, the cost paid each time. A missing
+`reason` decodes as `X`, which is every question sent before it existed, so
+neither `PROTOCOL_VERSION` nor `VIEW_VERSION` moves. A replicate question
+offers `0..=max`, where `max` is the most payments the caster's mana can
+cover; the copies then ask their new targets as the trigger resolves, with
+the question every copy asks.
+
+### Dash (`CastModeKind::Dash`)
+
+A card with dash (CR 702.109a) is offered `CastModeKind::Dash` in
+`Pending::ChooseCastMode`, with the dash cost as the option's cost, beside
+`Normal`. It rides as JSON inside the envelope like every other cast
+option and is part of the unreleased protocol-7 batch, so
+`PROTOCOL_VERSION` does not move. The client labels the row with the
+keyword in the player's language. The haste and the return at the next end
+step are the engine's; the return is an ordinary triggered ability on the
+stack, with no question of its own.
+
+### Escape (`CastModeKind::Escape`)
+
+A card with escape (CR 702.138a) in its owner's graveyard is offered
+`CastModeKind::Escape` in `Pending::ChooseCastMode`, with the escape mana
+as the option's cost, once the graveyard holds enough other cards to exile.
+The exile is asked next, as `Pending::ChooseCards` with
+`ChoicePrompt::CostExile` and `min == max`, over the other cards in that
+graveyard. Like dash it is part of the unreleased protocol-7 batch, so
+`PROTOCOL_VERSION` does not move. `PublicObject::flashback` carries the
+escape mana to the owner while the cast can be paid, so a planner taps for
+it. The client labels the row with the keyword in the player's language.

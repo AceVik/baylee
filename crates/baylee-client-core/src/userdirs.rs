@@ -53,6 +53,9 @@ pub enum Kind {
     Config,
     /// What may be thrown away and fetched again: card art.
     Cache,
+    /// Where a file the player asked for is saved: an exported deck. The
+    /// player's own folder, not the client's.
+    Downloads,
 }
 
 /// The client's own directory of `kind` on `os`, reading the environment
@@ -104,6 +107,21 @@ pub fn user_dir(kind: Kind, os: Os, env: &dyn Fn(&str) -> Option<OsString>) -> O
             };
             base.map(|dir| dir.join("baylee"))
         }
+        Kind::Downloads => {
+            // The XDG name is normally in `user-dirs.dirs`, not the
+            // environment; when somebody did export it, it is what they
+            // meant, and it is how a live check keeps its files in a
+            // scratch folder.
+            if let Some(xdg) = set("XDG_DOWNLOAD_DIR").filter(|dir| dir.is_absolute()) {
+                return Some(xdg);
+            }
+            match os {
+                Os::Windows => set("USERPROFILE").map(|home| home.join("Downloads")),
+                Os::Apple | Os::Other => set("HOME").map(|home| home.join("Downloads")),
+                // No folder a player can open from outside the app.
+                Os::Android => None,
+            }
+        }
     }
 }
 
@@ -132,6 +150,39 @@ mod tests {
 
     fn cache(os: Os, vars: &'static [(&'static str, &'static str)]) -> Option<PathBuf> {
         user_dir(Kind::Cache, os, &env(vars))
+    }
+
+    fn downloads(os: Os, vars: &'static [(&'static str, &'static str)]) -> Option<PathBuf> {
+        user_dir(Kind::Downloads, os, &env(vars))
+    }
+
+    #[test]
+    fn a_saved_file_goes_to_the_players_downloads() {
+        assert_eq!(
+            downloads(Os::Apple, &[("HOME", "/Users/ada")]),
+            Some(PathBuf::from("/Users/ada/Downloads"))
+        );
+        assert_eq!(
+            downloads(
+                Os::Other,
+                &[("HOME", "/home/ada"), ("XDG_DOWNLOAD_DIR", "/x/dl")]
+            ),
+            Some(PathBuf::from("/x/dl"))
+        );
+        // A relative one is not a place.
+        assert_eq!(
+            downloads(
+                Os::Other,
+                &[("HOME", "/home/ada"), ("XDG_DOWNLOAD_DIR", "dl")]
+            ),
+            Some(PathBuf::from("/home/ada/Downloads"))
+        );
+        assert_eq!(
+            downloads(Os::Windows, &[("USERPROFILE", r"C:\Users\ada")]),
+            Some(PathBuf::from(r"C:\Users\ada").join("Downloads"))
+        );
+        assert_eq!(downloads(Os::Android, &[("HOME", "/data")]), None);
+        assert_eq!(downloads(Os::Apple, &[]), None);
     }
 
     /// The fault (#324): a Windows machine sets `APPDATA` and

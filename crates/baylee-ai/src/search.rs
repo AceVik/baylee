@@ -6,6 +6,7 @@
 //! from surviving creatures. This is a tactical model: spells, triggers,
 //! protection and damage-replacement effects are not simulated.
 
+use crate::board::Board;
 use crate::combat::{Fighter, could_block};
 use baylee_cards_dsl::KeywordSet;
 use baylee_core::ids::{ObjectId, PlayerId};
@@ -261,11 +262,12 @@ impl Counterattack {
 
 /// CR 903.10a counts each commander's combat damage independently. The
 /// view's history is keyed by the commander's persistent object handle.
-fn commander_remaining(view: &PlayerView, victim: PlayerId, source: ObjectId) -> i32 {
-    if !view.object(source).is_some_and(|o| o.commander) {
+fn commander_remaining(board: &Board, victim: PlayerId, source: ObjectId) -> i32 {
+    if !board.object(source).is_some_and(|o| o.commander) {
         return i32::MAX;
     }
-    21 - view
+    21 - board
+        .view
         .seat(victim)
         .and_then(|s| s.commander_damage.iter().find(|d| d.source == source))
         .map_or(0, |d| i32::from(d.amount))
@@ -488,22 +490,21 @@ pub struct AttackSearch {
 
 #[allow(clippy::too_many_lines)] // construct one bounded combat position and its caches
 fn attack_position(
-    view: &PlayerView,
+    board: &Board,
     squad: &[ObjectId],
     victim: PlayerId,
     profile: AIProfile,
 ) -> Option<Position> {
-    let fighters: Vec<_> = squad
-        .iter()
-        .filter_map(|&id| Fighter::of(view, id))
-        .collect();
+    let view = board.view;
+    // What decides that there is no position is asked before anything is
+    // built for one: a squad of ten thousand tokens is not a search.
+    if squad.is_empty() || squad.len() > MAX || profile.lookahead == 0 {
+        return None;
+    }
+    let fighters: Vec<_> = squad.iter().filter_map(|&id| board.fighter(id)).collect();
     // Keep the exact offered-index mapping. A hidden identity is fine (P/T
     // remain public); a missing projected P/T is not a creature to invent.
-    if fighters.len() != squad.len()
-        || fighters.len() > MAX
-        || fighters.is_empty()
-        || profile.lookahead == 0
-    {
+    if fighters.len() != squad.len() {
         return None;
     }
     let mut defending: Vec<_> = view
@@ -511,8 +512,11 @@ fn attack_position(
         .filter(|o| {
             o.types.contains(TypeSet::CREATURE) && !o.status.contains(ObjectStatus::PHASED_OUT)
         })
-        .filter_map(|o| Fighter::of(view, o.id).map(|f| (o, f)))
+        .filter_map(|o| Fighter::from_object(o).map(|f| (o, f)))
         .collect();
+    if defending.len() > MAX {
+        return None;
+    }
     defending.sort_by_key(|(o, f)| {
         (
             o.status.contains(ObjectStatus::TAPPED),
@@ -525,9 +529,6 @@ fn attack_position(
         .filter(|(o, _)| !o.status.contains(ObjectStatus::TAPPED))
         .map(|(_, f)| *f)
         .collect();
-    if defending.len() > MAX {
-        return None;
-    }
     let refreshed = |o: &baylee_view::PublicObject, mut f: Fighter| {
         f.toughness += i32::from(o.damage);
         f
@@ -537,7 +538,7 @@ fn attack_position(
     let mut defenders: Vec<_> = squad
         .iter()
         .zip(&fighters)
-        .filter_map(|(&id, &f)| view.object(id).map(|o| refreshed(o, f)))
+        .filter_map(|(&id, &f)| board.object(id).map(|o| refreshed(o, f)))
         .collect();
     defenders.extend(
         view.battlefield_of(view.seat)
@@ -547,7 +548,7 @@ fn attack_position(
                     && !o.status.contains(ObjectStatus::PHASED_OUT)
                     && !squad.contains(&o.id)
             })
-            .filter_map(|o| Fighter::of(view, o.id).map(|f| refreshed(o, f))),
+            .filter_map(|o| Fighter::from_object(o).map(|f| refreshed(o, f))),
     );
     if defenders.len() > MAX * 2 {
         return None;
@@ -559,7 +560,7 @@ fn attack_position(
             (
                 if i < blockers.len() { 1 << i } else { 0 },
                 refreshed(o, *f),
-                commander_remaining(view, view.seat, o.id),
+                commander_remaining(board, view.seat, o.id),
             )
         })
         .collect();
@@ -577,7 +578,7 @@ fn attack_position(
             walker_base: [0; WALKERS],
             commander_remaining: squad
                 .iter()
-                .map(|&id| commander_remaining(view, victim, id))
+                .map(|&id| commander_remaining(board, victim, id))
                 .collect(),
             can_block: blockers
                 .iter()
@@ -592,7 +593,9 @@ fn attack_position(
             retaliation: if profile.lookahead >= 2 {
                 retaliation
                     .into_iter()
-                    .filter(|(_, f, _)| !has(*f, KeywordSet::DEFENDER))
+                    .filter(|(_, f, _)| {
+                        !has(*f, KeywordSet::DEFENDER) && !has(*f, KeywordSet::CANT_ATTACK)
+                    })
                     .map(|(mask, f, remaining)| Counterattack::new(mask, f, &defenders, remaining))
                     .collect()
             } else {
@@ -615,14 +618,25 @@ pub fn attackers(
     victim: PlayerId,
     profile: AIProfile,
 ) -> AttackSearch {
-    let fallback = crate::combat::choose_attackers(view, squad, victim);
+    attackers_on(&Board::new(view), squad, victim, profile)
+}
+
+/// [`attackers`] on a table whose objects are already indexed, so that one
+/// decision indexes them once.
+pub(crate) fn attackers_on(
+    board: &Board,
+    squad: &[ObjectId],
+    victim: PlayerId,
+    profile: AIProfile,
+) -> AttackSearch {
+    let fallback = crate::combat::choose_attackers(board, squad, victim);
     let mut result = AttackSearch {
         attackers: fallback,
         nodes: 0,
         completed: 0,
         lethal: false,
     };
-    let Some(position) = attack_position(view, squad, victim, profile) else {
+    let Some(position) = attack_position(board, squad, victim, profile) else {
         return result;
     };
     let all = (1_u32 << squad.len()) - 1;
@@ -705,20 +719,15 @@ pub fn attackers(
 /// each of `ids` is aimed at; and what the attackers nothing can block bring
 /// before any block, to each of those walkers and to this seat.
 type Defended = (Vec<(i32, i64)>, Vec<Option<u8>>, [i32; WALKERS], Balance);
-fn defended(view: &PlayerView, ids: &[ObjectId]) -> Defended {
+fn defended(board: &Board, ids: &[ObjectId]) -> Defended {
+    let view = board.view;
     let mut walker_ids: Vec<ObjectId> = Vec::new();
     let mut walkers: Vec<(i32, i64)> = Vec::new();
     let mut walker_of = |id: ObjectId| -> Option<u8> {
-        let defending = view
-            .combat
-            .attackers
-            .iter()
-            .find(|a| a.creature == id)?
-            .defending;
-        let baylee_core::ids::Defender::Planeswalker(walker) = defending else {
+        let baylee_core::ids::Defender::Planeswalker(walker) = board.aim(id)? else {
             return None;
         };
-        let object = view.object(walker).filter(|o| o.controller == view.seat)?;
+        let object = board.object(walker).filter(|o| o.controller == view.seat)?;
         if let Some(i) = walker_ids.iter().position(|w| *w == walker) {
             return u8::try_from(i).ok();
         }
@@ -744,7 +753,7 @@ fn defended(view: &PlayerView, ids: &[ObjectId]) -> Defended {
             let at_me = a.defending == baylee_core::ids::Defender::Player(view.seat);
             let walker = walker_of(a.creature);
             (at_me || walker.is_some())
-                .then(|| Fighter::of(view, a.creature).map(|f| (a.creature, f, walker)))
+                .then(|| board.fighter(a.creature).map(|f| (a.creature, f, walker)))
                 .flatten()
         })
         .fold(Balance::default(), |balance, (id, f, walker)| {
@@ -753,7 +762,7 @@ fn defended(view: &PlayerView, ids: &[ObjectId]) -> Defended {
                 base[usize::from(w)] += result.damage;
                 return balance;
             }
-            result.commander_lethal = result.damage >= commander_remaining(view, view.seat, id);
+            result.commander_lethal = result.damage >= commander_remaining(board, view.seat, id);
             balance.replacing(Result::default(), result)
         });
     (walkers, aimed, base, unblockable)
@@ -767,18 +776,22 @@ pub fn blockers(
     life: i32,
     profile: AIProfile,
 ) -> Vec<(ObjectId, ObjectId)> {
+    let board = Board::new(view);
     if profile.lookahead == 0 || options.len() > MAX {
-        return crate::combat::choose_blocks(view, options, life);
+        return crate::combat::choose_blocks(&board, options, life);
     }
     // Out of the engine's own pairings, not out of the view's combat block:
     // the offer is the authority on what is attacking this seat, and it is
     // the one source that survives a view the agent cannot read the attack
     // out of. In a healthy game the two name the same creatures.
     let ids = crate::combat::deduped(options.iter().flat_map(|o| o.attackers.iter().copied()));
-    let attackers: Vec<_> = ids.iter().filter_map(|&id| Fighter::of(view, id)).collect();
+    if ids.len() > MAX {
+        return crate::combat::choose_blocks(&board, options, life);
+    }
+    let attackers: Vec<_> = ids.iter().filter_map(|&id| board.fighter(id)).collect();
     let defenders: Vec<_> = options
         .iter()
-        .filter_map(|o| Fighter::of(view, o.blocker))
+        .filter_map(|o| board.fighter(o.blocker))
         .collect();
     // The search needs a body for every attacker and needs to know what each
     // one is aiming at; `position` below reads both. When the view supplies
@@ -786,24 +799,18 @@ pub fn blockers(
     // `choose_blocks` is the half that answers it — which is what the length
     // compare was always for, and could not do while the fallback shared this
     // function's blind spot.
-    let described = ids
-        .iter()
-        .all(|id| view.combat.attackers.iter().any(|a| a.creature == *id));
-    if ids.len() > MAX
-        || !described
-        || attackers.len() != ids.len()
-        || defenders.len() != options.len()
-    {
-        return crate::combat::choose_blocks(view, options, life);
+    let described = ids.iter().all(|id| board.aim(*id).is_some());
+    if !described || attackers.len() != ids.len() || defenders.len() != options.len() {
+        return crate::combat::choose_blocks(&board, options, life);
     }
-    let (walkers, aimed, walker_base, unblockable) = defended(view, &ids);
+    let (walkers, aimed, walker_base, unblockable) = defended(&board, &ids);
     let position = Position {
         walkers,
         walker_of: aimed,
         walker_base,
         commander_remaining: ids
             .iter()
-            .map(|&id| commander_remaining(view, view.seat, id))
+            .map(|&id| commander_remaining(&board, view.seat, id))
             .collect(),
         player_damage: ids.iter().enumerate().fold(0, |mask, (i, id)| {
             mask | if view.combat.attackers.iter().any(|a| {

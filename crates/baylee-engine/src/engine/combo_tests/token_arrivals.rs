@@ -174,7 +174,7 @@ fn the_dovehawk_grows_on_the_token_its_own_populate_made() {
 
     // And now its own populate, at the beginning of combat.
     for _ in 0..40 {
-        if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+        if matches!(engine.pending(), Pending::ChooseCards { .. }) {
             break;
         }
         match engine.pending().clone() {
@@ -184,7 +184,7 @@ fn the_dovehawk_grows_on_the_token_its_own_populate_made() {
             other => panic!("unexpected on the way to combat: {other:?}"),
         }
     }
-    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
         panic!(
             "the populate trigger asked for no token: {:?}",
             engine.pending()
@@ -245,7 +245,7 @@ fn a_doubled_populate_grows_the_dovehawk_twice() {
     );
 
     for _ in 0..40 {
-        if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+        if matches!(engine.pending(), Pending::ChooseCards { .. }) {
             break;
         }
         match engine.pending().clone() {
@@ -255,7 +255,7 @@ fn a_doubled_populate_grows_the_dovehawk_twice() {
             other => panic!("unexpected on the way to combat: {other:?}"),
         }
     }
-    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
         panic!(
             "the populate trigger asked for no token: {:?}",
             engine.pending()
@@ -283,9 +283,9 @@ fn a_doubled_populate_grows_the_dovehawk_twice() {
 ///
 /// The card said "up to one target" (`min: 0`), so the Dovehawk's combat
 /// trigger could be answered with the empty list and resolve into nothing
-/// while a copyable token stood on the battlefield — and with no token at
-/// all it went on the stack anyway and resolved into nothing there too,
-/// which is the trigger the owner watched fire and do nothing.
+/// while a copyable token stood on the battlefield, which is the trigger the
+/// owner watched fire and do nothing. Populate is now the choice it prints,
+/// asked as the trigger resolves, and the empty answer is refused.
 #[test]
 fn the_dovehawks_populate_cannot_be_declined() {
     let p0 = PlayerId::new(0);
@@ -309,7 +309,7 @@ fn the_dovehawks_populate_cannot_be_declined() {
     settle(&mut engine);
 
     for _ in 0..40 {
-        if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+        if matches!(engine.pending(), Pending::ChooseCards { .. }) {
             break;
         }
         let Pending::Priority { player, .. } = engine.pending().clone() else {
@@ -317,7 +317,7 @@ fn the_dovehawks_populate_cannot_be_declined() {
         };
         engine.apply(player, PlayerAction::PassPriority).unwrap();
     }
-    let Pending::ChooseTargets { min, options, .. } = engine.pending().clone() else {
+    let Pending::ChooseCards { min, options, .. } = engine.pending().clone() else {
         panic!("populate asked nothing: {:?}", engine.pending())
     };
     assert_eq!(
@@ -347,10 +347,12 @@ fn the_dovehawks_populate_cannot_be_declined() {
     );
 }
 
-/// The counter-test: with no creature token to copy, the trigger never
-/// reaches the stack at all.
+/// The counter-test: with no creature token to copy, populate makes nothing
+/// (CR 701.36b) and asks nothing. It is a choice and not a target, so the
+/// trigger still goes on the stack and resolves, as a trigger with no
+/// target does.
 #[test]
-fn a_populate_with_nothing_to_copy_never_reaches_the_stack() {
+fn a_populate_with_nothing_to_copy_asks_nothing_and_makes_nothing() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(139, forest())
         .battlefield(0, &[nesting_dovehawk(), forest(), forest()])
@@ -362,16 +364,24 @@ fn a_populate_with_nothing_to_copy_never_reaches_the_stack() {
         // Combat arriving with the question never asked is the whole
         // assertion: the trigger was dropped instead of stacked.
         if matches!(engine.pending(), Pending::ChooseAttackers { .. }) {
+            let tokens = engine
+                .state()
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .filter(|id| {
+                    engine
+                        .state()
+                        .object(**id)
+                        .is_some_and(|o| o.card.is_none())
+                })
+                .count();
+            assert_eq!(tokens, 0, "nothing was copied");
             return;
         }
         let Pending::Priority { player, .. } = engine.pending().clone() else {
             panic!("populate asked something: {:?}", engine.pending())
         };
-        assert!(
-            stack_is_empty(&engine),
-            "a populate with nothing to copy was put on the stack in {:?}",
-            engine.state().turn.step,
-        );
         engine.apply(player, PlayerAction::PassPriority).unwrap();
     }
     panic!("combat never arrived");

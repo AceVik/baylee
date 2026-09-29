@@ -279,9 +279,9 @@ jobs:
   # settings and Web Crypto entropy live behind `cfg(target_arch = "wasm32")`
   # and would rot unnoticed without a target-specific job.
   #
-  # All six crates are named rather than the client alone, and that is not
+  # All seven crates are named rather than the client alone, and that is not
   # redundancy: cargo unifies features across the members a command selects,
-  # so `-p baylee-client` resolves the other five with whatever the client
+  # so `-p baylee-client` resolves the other six with whatever the client
   # happens to ask for. Naming them is what checks that each one still
   # compiles for this target on its *own* default features, which is the
   # promise the architecture section of CLAUDE.md makes about them.
@@ -300,20 +300,22 @@ jobs:
           cargo check
           -p baylee-cardtext
           -p baylee-core
+          -p baylee-deckio
           -p baylee-protocol
           -p baylee-view
           -p baylee-client-core
           -p baylee-client
           --target wasm32-unknown-unknown
 
-  # The six features `--workspace` never builds.
+  # The eight features `--workspace` never builds.
   #
   # The clippy job above, `cargo test --workspace --all-targets`, and every
   # local gate compile each crate with its **default** features. This
-  # workspace declares six non-default ones — `dev-control`, `dev-reload` and
+  # workspace declares eight non-default ones — `dev-control`, `dev-reload` and
   # `dev-dylink` on the client, `dev-control` on the Android shim, `dev-table`
-  # on the gateway, `test-support` on client-core — so six pieces of it were
-  # compiled by nobody.
+  # on the gateway, `test-support` on client-core, `fuzz` on the engine,
+  # `mutate` on the card registry — so eight pieces of it were compiled by
+  # nobody.
   #
   # The hole is real and it runs in **both** directions. `devctl.rs` broke on
   # `Option<Refusal>` while every job here was green, and the commit had to be
@@ -330,7 +332,7 @@ jobs:
   # here, so a developer and this runner cannot drift apart, and that file
   # says per feature what shape of check it gets and why it is that shape.
   #
-  # PostgreSQL is here for one of the six: `dev-table` is a gateway feature
+  # PostgreSQL is here for one of the eight: `dev-table` is a gateway feature
   # and a gateway with no database refuses to start.
   features:
     runs-on: ubuntu-latest

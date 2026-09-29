@@ -69,6 +69,11 @@ pub mod replacement;
 /// Endless-loop detection for decision-free segments (house rule).
 pub mod loops;
 
+// The L4 firing recorder, `BAYLEE_ABILITY_LOG` (this crate's tests only;
+// `docs/verification-hooks.md`).
+#[cfg(test)]
+mod ability_log;
+
 // NOTE: the roadmap items (pipeline formalization, replacement registry,
 // legality precompute, cost model, unusual casting, copy machinery, format
 // modifiers, automation, dev mode, loop detection, scripted modifiers)

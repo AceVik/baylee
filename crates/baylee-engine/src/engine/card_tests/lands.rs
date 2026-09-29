@@ -4443,13 +4443,18 @@ fn boseiju_who_endures() -> CardIndex {
 ///
 /// The menu the activation offers is the whole grammar of the sentence. The
 /// opponent's Sol Ring and their Badlands are on it; the basic Forest beside
-/// them is not, which is the one thing "nonbasic land" is worth; the Sol Ring
-/// under Boseiju's own controller is on it, because "an opponent controls"
-/// sits on the land and not on the artifact; and the nonbasic land this seat
-/// already has on the battlefield is *not* on it, because that clause does
-/// read the controller. The `Coverage::Partial` gaps — the per-legend cost
-/// reduction and the search the victim is granted — are deliberately left
-/// unasserted: nothing here may search anybody's library.
+/// them is not, which is the one thing "nonbasic land" is worth; and neither
+/// the Sol Ring nor the nonbasic land on this seat's own side is, because "an
+/// opponent controls" qualifies all three nouns. (It was read as sitting on
+/// the land alone until the search half was built, and this test asserted
+/// the seat's own Sol Ring onto the menu.)
+///
+/// Then the victim's half: "That player may search their library for a land
+/// card with a basic land type, put it onto the battlefield, then shuffle."
+/// The question goes to the Sol Ring's controller, over their own library,
+/// and the Forest they take enters untapped. With no legendary creature on
+/// this seat's side the channel costs its whole printed `{1}{G}`; the
+/// reduction is the two tests after this one.
 #[test]
 #[allow(clippy::too_many_lines)] // both printed lines, and the second one's menu
 fn boseiju_taps_for_green_and_channels_itself_away_for_an_artifact_or_a_nonbasic_land() {
@@ -4528,9 +4533,9 @@ fn boseiju_taps_for_green_and_channels_itself_away_for_an_artifact_or_a_nonbasic
         "\"nonbasic land an opponent controls\": {options:?}"
     );
     assert!(
-        options.contains(&my_rock),
-        "the controller clause sits on the land, so an artifact of your own \
-         is a legal target too: {options:?}"
+        !options.contains(&my_rock),
+        "\"an opponent controls\" qualifies the artifact too, so this seat's \
+         own Sol Ring is no target: {options:?}"
     );
     assert!(
         !options.contains(&their_forest),
@@ -4545,8 +4550,8 @@ fn boseiju_taps_for_green_and_channels_itself_away_for_an_artifact_or_a_nonbasic
     );
     assert_eq!(
         options.len(),
-        3,
-        "the two artifacts and the Badlands are the whole menu: {options:?}"
+        2,
+        "their artifact and their Badlands are the whole menu: {options:?}"
     );
 
     engine
@@ -4557,7 +4562,48 @@ fn boseiju_taps_for_green_and_channels_itself_away_for_an_artifact_or_a_nonbasic
             },
         )
         .expect("the Sol Ring was one of the options");
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        ..
+    } = pass_to_card_choice(&mut engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, p1, "\"that player may search their library\"");
+    assert_eq!(min, 0, "may");
+    let theirs = engine.state().zones.list(ZoneLocation::Library(p1)).clone();
+    assert!(
+        !options.is_empty() && options.iter().all(|o| theirs.contains(o)),
+        "the search is of the victim's own library: {options:?}"
+    );
+    let found = options[0];
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![found],
+            },
+        )
+        .unwrap();
     pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&found)
+            && engine
+                .state()
+                .object(found)
+                .is_some_and(|o| o.controller == p1),
+        "the Forest they found is on the battlefield under their control"
+    );
+    assert!(
+        !is_tapped(&engine, found),
+        "\"put it onto the battlefield\", untapped"
+    );
 
     assert!(
         in_graveyard(&engine, p1, quiet_artifact()).is_some(),
@@ -4585,6 +4631,99 @@ fn boseiju_taps_for_green_and_channels_itself_away_for_an_artifact_or_a_nonbasic
         engine.state().players[0].mana_pool.total(),
         pool_before - 2,
         "{{1}}{{G}} left the pool, so the ability was paid for and not free"
+    );
+}
+
+/// Whether the Boseiju in `seat`'s hand offers its channel (ability 1).
+fn boseiju_channel_offered(engine: &Engine<RegistryLookup>, seat: PlayerId) -> bool {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let hand = engine.state().zones.list(ZoneLocation::Hand(seat));
+    legal.abilities.iter().any(|(source, index)| {
+        *index == 1
+            && hand.contains(source)
+            && engine
+                .state()
+                .object(*source)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == boseiju_who_endures()))
+    })
+}
+
+/// "This ability costs {1} less to activate for each legendary creature you
+/// control." One Forest and one legend of this seat's: the `{1}{G}` channel
+/// costs `{G}`, so it is offered off a single green in the pool, activates,
+/// spends exactly that green, and destroys the opponent's artifact. Before
+/// the reduction was read the channel cost its printed `{1}{G}` and was never
+/// offered on this board.
+#[test]
+fn boseiju_channel_costs_one_less_for_each_legendary_creature_you_control() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(29, forest())
+        .battlefield(0, &[forest(), thrun_the_last_troll()])
+        .hand(0, &[boseiju_who_endures()])
+        .battlefield(1, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1, "one green");
+    assert!(
+        boseiju_channel_offered(&engine, p0),
+        "{{1}}{{G}} less {{1}} for Thrun is {{G}}, which the pool holds"
+    );
+    let rock = on_battlefield(&engine, p1, quiet_artifact()).unwrap();
+    activate(&mut engine, p0, boseiju_who_endures(), 1);
+    aim_at(&mut engine, p0, rock);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the green paid the whole reduced cost"
+    );
+    let Pending::ChooseCards { player, .. } = pass_to_card_choice(&mut engine) else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, p1, "that player may search");
+    engine
+        .apply(p1, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p1, quiet_artifact()).is_some());
+    assert!(in_graveyard(&engine, p0, boseiju_who_endures()).is_some());
+}
+
+/// The reduction counts only this seat's legends and takes only generic
+/// mana (CR 118.7a): an opponent's legendary creature leaves the channel at
+/// `{1}{G}`, so one green does not reach it; and two legends of this seat's
+/// take off the `{1}` but never the `{G}`, so with an empty pool it is still
+/// not offered.
+#[test]
+fn boseiju_channel_counts_only_your_legends_and_never_its_green() {
+    let p0 = PlayerId::new(0);
+    let mut theirs = Duel::new(29, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[boseiju_who_endures()])
+        .battlefield(1, &[quiet_artifact(), thrun_the_last_troll()])
+        .start();
+    keep_mulligans(&mut theirs);
+    assert!(walk_to_own_main(&mut theirs, p0));
+    tap_all_mana(&mut theirs, p0);
+    assert!(
+        !boseiju_channel_offered(&theirs, p0),
+        "\"you control\": the opponent's Thrun takes nothing off"
+    );
+
+    let mut mine = Duel::new(29, forest())
+        .battlefield(0, &[thrun_the_last_troll(), vendilion_clique()])
+        .hand(0, &[boseiju_who_endures()])
+        .battlefield(1, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut mine);
+    assert!(walk_to_own_main(&mut mine, p0));
+    assert_eq!(mine.state().players[0].mana_pool.total(), 0);
+    assert!(
+        !boseiju_channel_offered(&mine, p0),
+        "two legends take the {{1}} off and leave the {{G}}"
     );
 }
 
@@ -14205,14 +14344,18 @@ fn avengers_tower_enters_untapped_and_taps_for_colorless() {
 }
 
 /// Ba Sing Se: "This land enters tapped unless you control a basic land." / "{T}: Add {G}." / "{2}{G}, {T}: Earthbend 2. Activate only as a sorcery."
-/// Under `Coverage::Partial`, controlling a basic land allows Ba Sing Se to enter untapped.
-/// Activating ability 1 animates a target land into a creature with haste and places two `+1/+1` counters on it.
+/// Controlling a basic land allows Ba Sing Se to enter untapped.
+/// Activating ability 1 earthbends itself: a 2/2 land creature with haste,
+/// two `+1/+1` counters on it. A Lightning Bolt kills it, and earthbend's
+/// delayed trigger returns it to the battlefield tapped, a land again.
 #[test]
 fn ba_sing_se_enters_untapped_and_animates_land() {
-    let p0 = PlayerId::new(0);
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(206, forest())
         .battlefield(0, &[forest(), forest(), forest()])
         .hand(0, &[ba_sing_se()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[lightning_bolt()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -14253,6 +14396,32 @@ fn ba_sing_se_enters_untapped_and_animates_land() {
             .types
             .contains(TypeSet::CREATURE)
     );
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    tap_all_mana(&mut engine, p1);
+    let bolt = in_hand(&engine, p1, lightning_bolt()).expect("the Bolt");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: bolt })
+        .expect("a Mountain pays for the Bolt");
+    aim_at(&mut engine, p1, land);
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e)
+            && e.journal().entries().iter().any(|entry| {
+                matches!(entry.event, crate::event::GameEvent::ZoneChanged {
+                    object, from: crate::zone::Zone::Graveyard, to: crate::zone::Zone::Battlefield, ..
+                } if object == land)
+            })
+    });
+    let back = engine.state().object(land).expect("Ba Sing Se");
+    assert_eq!(back.zone, crate::zone::Zone::Battlefield, "it came back");
+    assert!(is_tapped(&engine, land), "tapped");
+    assert!(
+        !back.characteristics().types.contains(TypeSet::CREATURE),
+        "a land and no creature: a new object (CR 400.7)"
+    );
+    assert_eq!(counters_on(&engine, land, CounterKind::P1P1), 0);
 }
 
 /// Balamb Garden, `SeeD` Academy // Balamb Garden, Airborne: "This land enters tapped." / "{T}: Add {G} or {U}." / "{5}{G}{U}, {T}: Transform this land..."
@@ -15337,9 +15506,9 @@ fn susur_secundi_void_altar_enters_tapped_and_taps_for_black() {
     assert!(is_tapped(&engine, land));
 }
 
-/// The World Tree: "This land enters tapped." / "{T}: Add {G}." / "As long as you control six or more lands, lands you control have '{T}: Add one mana of any color.'"
-/// Under `Coverage::Partial`, the conditional land grant and the unbounded God search are omitted.
-/// Playing this land causes it to enter tapped, and after untapping on a subsequent turn it taps for green mana.
+/// The World Tree: "This land enters tapped." / "{T}: Add {G}."
+/// Playing this land causes it to enter tapped, and after untapping on a
+/// subsequent turn it taps for green mana.
 #[test]
 fn the_world_tree_enters_tapped_and_taps_for_green() {
     let p0 = PlayerId::new(0);
@@ -15363,6 +15532,231 @@ fn the_world_tree_enters_tapped_and_taps_for_green() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Green), 1);
     assert!(is_tapped(&engine, land));
+}
+
+/// Whether `land` is offered the any-colour ability The World Tree grants.
+fn offered_any_colour(engine: &Engine<RegistryLookup>, land: ObjectId) -> bool {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    legal
+        .abilities
+        .contains(&(land, crate::choice::GRANTED_ABILITY))
+}
+
+/// The World Tree: "As long as you control six or more lands, lands you
+/// control have '{T}: Add one mana of any color.'"
+///
+/// Five lands: nothing is granted. The sixth, a Strip Mine, played, turns
+/// it on for every land its controller has, the Tree included, and a Forest
+/// then taps for black. Six Mountains across the table count for nothing and
+/// gain nothing. The Strip Mine sacrificed makes five again, and the grant
+/// is gone.
+#[test]
+fn the_world_tree_colours_your_lands_from_the_sixth_on() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(212, forest())
+        .battlefield(
+            0,
+            &[the_world_tree(), forest(), forest(), forest(), forest()],
+        )
+        .hand(0, &[strip_mine()])
+        .battlefield(
+            1,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let tree = on_battlefield(&engine, p0, the_world_tree()).expect("the Tree is out");
+    let first = on_battlefield(&engine, p0, forest()).expect("a Forest is out");
+    let theirs = on_battlefield(&engine, p1, mountain()).expect("a Mountain across the table");
+    assert!(
+        !offered_any_colour(&engine, first),
+        "five lands: nothing is granted"
+    );
+
+    let sixth = play_land(&mut engine, p0, strip_mine());
+    assert!(
+        offered_any_colour(&engine, first),
+        "six lands: the Forest has it"
+    );
+    assert!(
+        offered_any_colour(&engine, sixth),
+        "and the land that made six"
+    );
+    assert!(offered_any_colour(&engine, tree), "and the Tree itself");
+    assert!(
+        !offered_any_colour(&engine, theirs),
+        "\"lands you control\": not the opponent's six"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: first,
+                ability_index: crate::choice::GRANTED_ABILITY,
+            },
+        )
+        .expect("the granted mana ability activates");
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected a colour choice, got {:?}", engine.pending());
+    };
+    assert_eq!(options.len(), 5, "one mana of any color");
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black is a colour");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "a Forest made black"
+    );
+
+    // Back to five: Strip Mine, the sixth land, is sacrificed to destroy
+    // a Mountain across the table.
+    activate(&mut engine, p0, strip_mine(), 1);
+    aim_at(&mut engine, p0, theirs);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, strip_mine()).is_some());
+    let untapped = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|id| {
+            *id != first
+                && engine.state().object(*id).is_some_and(|o| {
+                    o.controller == p0
+                        && o.card.is_some_and(|c| c.index == forest())
+                        && !is_tapped(&engine, *id)
+                })
+        })
+        .expect("an untapped Forest");
+    assert!(
+        !offered_any_colour(&engine, untapped),
+        "five lands again: the grant is gone"
+    );
+    assert!(!offered_any_colour(&engine, tree));
+}
+
+/// "{W}{W}{U}{U}{B}{B}{R}{R}{G}{G}, {T}, Sacrifice this land: Search your
+/// library for any number of God cards, put them onto the battlefield, then
+/// shuffle."
+///
+/// Two Gods and a creature that is not one in the library: the search
+/// offers the two Gods and nothing else, may settle for none, may take
+/// both, and puts both onto the battlefield; the Tree is sacrificed.
+#[test]
+fn the_world_tree_finds_any_number_of_gods() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(213, forest())
+        .battlefield(
+            0,
+            &[
+                the_world_tree(),
+                plains(),
+                plains(),
+                island(),
+                island(),
+                swamp(),
+                swamp(),
+                mountain(),
+                mountain(),
+                forest(),
+                forest(),
+            ],
+        )
+        .hand(
+            0,
+            &[
+                ojer_kaslem_deepest_growth(),
+                ojer_taq_deepest_foundation(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let moves: Vec<ObjectId> = [
+        ojer_kaslem_deepest_growth(),
+        ojer_taq_deepest_foundation(),
+        llanowar_elves(),
+    ]
+    .into_iter()
+    .map(|card| in_hand(&engine, p0, card).expect("dealt into the hand"))
+    .collect();
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        for card in moves {
+            state
+                .move_object(
+                    card,
+                    ZoneLocation::Library(p0),
+                    ZonePosition::Top,
+                    crate::event::Cause::DevCommand,
+                )
+                .expect("into the library");
+        }
+    }
+    engine.refresh_offer();
+
+    let tree = on_battlefield(&engine, p0, the_world_tree()).expect("the Tree is out");
+    tap_mana_except(&mut engine, p0, tree);
+    activate(&mut engine, p0, the_world_tree(), 2);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched");
+    };
+    let offered: Vec<CardIndex> = options
+        .iter()
+        .filter_map(|id| engine.state().object(*id).and_then(|o| o.card))
+        .map(|c| c.index)
+        .collect();
+    assert_eq!(
+        offered.len(),
+        2,
+        "the two Gods and nothing else: {offered:?}"
+    );
+    assert!(offered.contains(&ojer_kaslem_deepest_growth()));
+    assert!(offered.contains(&ojer_taq_deepest_foundation()));
+    assert_eq!(
+        (min, max),
+        (0, 2),
+        "any number: none, or as many as there are"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: options })
+        .expect("both Gods");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, ojer_kaslem_deepest_growth()).is_some());
+    assert!(on_battlefield(&engine, p0, ojer_taq_deepest_foundation()).is_some());
+    assert!(
+        in_graveyard(&engine, p0, the_world_tree()).is_some(),
+        "the Tree was sacrificed"
+    );
 }
 
 /// Villainous Hideout: "{T}: Add {C}." / "{T}: Add one mana of any color. Spend this mana only to cast a Villain spell..." / "{3}, {T}: Target Villain you control connives."
@@ -27663,10 +28057,9 @@ fn centaur_garden_activates_to_give_target_creature_plus_three_plus_three() {
 /// Evendo, Waking Haven prints `This land enters tapped.`, `{{T}}: Add {{G}}.`,
 /// Station, and `12+ | {{G}}, {{T}}: Add {{G}} for each creature you control.`
 ///
-/// Under `Coverage::Partial`, Station is omitted because no amount can read the
-/// power of a creature tapped as a cost. This test plays the land to confirm it
-/// enters tapped, passes the turn to untap it, verifies that ability 1 is withheld
-/// while charge counters are below twelve, and taps ability 0 for `{G}`.
+/// This test plays the land to confirm it enters tapped, passes the turn to
+/// untap it, verifies that with no other creature to tap and no charge
+/// counters only ability 0 is offered, and taps it for `{G}`.
 #[test]
 fn evendo_waking_haven_enters_tapped_and_taps_for_green() {
     let p0 = PlayerId::new(0);
@@ -27700,6 +28093,188 @@ fn evendo_waking_haven_enters_tapped_and_taps_for_green() {
         1
     );
     assert!(is_tapped(&engine, land));
+}
+
+/// Stations Evendo by tapping `creature`, answering the cost's question as
+/// a player would.
+#[track_caller]
+fn station_evendo(engine: &mut Engine<RegistryLookup>, creature: ObjectId) {
+    let p0 = PlayerId::new(0);
+    activate(engine, p0, evendo_waking_haven(), 1);
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "station asks which creature pays, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(prompt, ChoicePrompt::CostTap, "a cost, not a target");
+    assert!(options.contains(&creature), "another creature you control");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![creature],
+            },
+        )
+        .expect("the creature taps");
+}
+
+/// Evendo's station (CR 702.184a): "Tap another untapped creature you
+/// control: Put a number of charge counters on this permanent equal to the
+/// tapped creature's power." A Llanowar Elves with two +1/+1 counters is a
+/// 3/3, and three charge counters is what it puts there. The Elves is paid,
+/// not targeted: the ability on the stack names no target.
+#[test]
+fn evendo_stations_off_the_tapped_creatures_power() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[evendo_waking_haven(), llanowar_elves(), llanowar_elves()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    let evendo = on_battlefield(&engine, p0, evendo_waking_haven()).expect("Evendo");
+    let elves = all_on_battlefield(&engine, p0, llanowar_elves());
+    crate::replacement::put_counters(
+        engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up"),
+        elves[0],
+        CounterKind::P1P1,
+        2,
+    );
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(pt(&engine, elves[0]), (3, 3));
+
+    station_evendo(&mut engine, elves[0]);
+    assert!(is_tapped(&engine, elves[0]), "the cost is paid");
+    let ability = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .expect("station is on the stack");
+    assert!(
+        engine
+            .state()
+            .object(ability)
+            .is_some_and(|o| o.targets.is_empty()),
+        "station targets nothing"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        counters_on(&engine, evendo, CounterKind::Charge),
+        3,
+        "the tapped creature's power"
+    );
+    assert!(!is_tapped(&engine, elves[1]), "one creature, one tap");
+}
+
+/// The tapped creature's power is read as station resolves, and a creature
+/// that has left by then counts as it last existed on the battlefield
+/// (CR 608.2h): the Elves tapped for station and Lightning Bolted in
+/// response still puts one counter on Evendo.
+#[test]
+fn evendo_counts_a_creature_killed_in_response_as_it_last_was() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[evendo_waking_haven(), llanowar_elves()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let evendo = on_battlefield(&engine, p0, evendo_waking_haven()).expect("Evendo");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves");
+
+    station_evendo(&mut engine, elves);
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    tap_all_mana(&mut engine, p1);
+    let bolt = in_hand(&engine, p1, lightning_bolt()).expect("the Bolt");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: bolt })
+        .expect("a Mountain pays for the Bolt");
+    aim_at(&mut engine, p1, elves);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "the Elves died first"
+    );
+    assert_eq!(
+        counters_on(&engine, evendo, CounterKind::Charge),
+        1,
+        "its power as it last existed on the battlefield"
+    );
+}
+
+/// Evendo at 12+ (CR 721.2a): "{G}, {T}: Add {G} for each creature you
+/// control." At eleven charge counters the ability is not there; a station
+/// off a 1/1 makes twelve, and then {G} and a tap make one {G} for each of
+/// the three Elves.
+#[test]
+fn evendo_at_twelve_adds_green_for_each_creature_you_control() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                evendo_waking_haven(),
+                forest(),
+                llanowar_elves(),
+                llanowar_elves(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    let evendo = on_battlefield(&engine, p0, evendo_waking_haven()).expect("Evendo");
+    let land = on_battlefield(&engine, p0, forest()).expect("the Forest");
+    let elves = all_on_battlefield(&engine, p0, llanowar_elves());
+    crate::replacement::put_counters(
+        engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up"),
+        evendo,
+        CounterKind::Charge,
+        11,
+    );
+    reach_main_phase(&mut engine, p0);
+    let offered = |engine: &Engine<RegistryLookup>| {
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        legal.abilities.contains(&(evendo, 2))
+    };
+    // The {G} floats first: the offer names an ability whose mana is
+    // already in the pool, so without it neither answer below would say
+    // anything about the counters.
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: land })
+        .expect("the Forest taps for {G}");
+    assert!(!offered(&engine), "eleven is not 12+");
+
+    station_evendo(&mut engine, elves[0]);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(counters_on(&engine, evendo, CounterKind::Charge), 12);
+    assert!(offered(&engine), "12+");
+
+    activate(&mut engine, p0, evendo_waking_haven(), 2);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        3,
+        "{{G}} paid, and one {{G}} for each of three creatures"
+    );
+    assert!(is_tapped(&engine, evendo));
 }
 
 /// Fortified Beachhead prints `As this land enters, you may reveal a Soldier card
@@ -29654,11 +30229,13 @@ fn field_of_ruin_destroys_opponent_nonbasic_land_and_omits_search() {
 
 /// Field of the Dead prints `This land enters tapped.`, `{{T}}: Add {{C}}.`, and `Whenever this land or another land you control enters, if you control seven or more lands with different names, create a 2/2 black Zombie creature token.`
 ///
-/// Under `Coverage::Partial`, the land enters tapped and taps for colorless mana, while the Zombie token trigger is omitted because the intervening-if counts distinct card names.
-/// When played as the seventh land with a distinct name alongside `forest()`, `plains()`, `island()`, `swamp()`, `mountain()`, and `badlands()`, it enters tapped and creates no token on the stack.
-/// On the following turn, it untaps and ability 0 produces one colorless mana.
+/// Played as the seventh land with a distinct name alongside `forest()`,
+/// `plains()`, `island()`, `swamp()`, `mountain()`, and `badlands()`, it
+/// enters tapped, and its own entry triggers: seven names, one Zombie. On the
+/// following turn, it untaps and ability 0 produces one colorless mana.
+/// (The trigger was off the card while no condition could count names.)
 #[test]
-fn field_of_the_dead_enters_tapped_omits_token_trigger_and_taps_for_colorless() {
+fn field_of_the_dead_enters_tapped_makes_a_zombie_as_the_seventh_name_and_taps_for_colorless() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
@@ -29684,11 +30261,15 @@ fn field_of_the_dead_enters_tapped_omits_token_trigger_and_taps_for_colorless() 
         "field of the dead enters tapped"
     );
 
-    // Under `Coverage::Partial`, no Zombie token trigger is placed on the stack.
-    assert!(stack_is_empty(&engine), "no trigger on the stack");
     assert!(
-        tokens_of(&engine, p0).is_empty(),
-        "no zombie tokens created"
+        !stack_is_empty(&engine),
+        "\"whenever this land … enters\": its own entry triggers"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        1,
+        "seven lands, seven names: one 2/2 Zombie"
     );
 
     // Untap on the next turn to activate the mana ability.
@@ -29702,6 +30283,32 @@ fn field_of_the_dead_enters_tapped_omits_token_trigger_and_taps_for_colorless() 
     assert_eq!(pool.available(ManaColor::Colorless), 1);
     assert_eq!(pool.total(), 1);
     assert!(is_tapped(&engine, land));
+}
+
+/// The intervening-if counts *names*, not lands: seven lands where two are
+/// Forests are six names, and Field of the Dead's entry makes nothing. The
+/// board differs from the test above by one Badlands turned into a second
+/// Forest, so the land count is the same and only the names moved.
+#[test]
+fn field_of_the_dead_makes_nothing_while_two_lands_share_a_name() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), plains(), island(), swamp(), mountain(), forest()],
+        )
+        .hand(0, &[field_of_the_dead()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    play_land(&mut engine, p0, field_of_the_dead());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(lands_of(&engine, p0).len(), 7);
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "seven lands but six names: no Zombie"
+    );
 }
 
 /// Fomori Vault prints `{{T}}: Add {{C}}.` and `{{3}}, {{T}}, Discard a card: Look at the top X cards of your library, where X is the number of artifacts you control. Put one of those cards into your hand and the rest on the bottom of your library in a random order.`
@@ -31659,6 +32266,158 @@ fn safe_haven_exiles_creature_and_returns_it_on_upkeep_sacrifice() {
     assert!(
         on_battlefield(&engine, p0, young_wolf()).is_some(),
         "wolf returned to the battlefield"
+    );
+}
+
+/// Whether `card` carries a link to an exile.
+fn linked(engine: &Engine<RegistryLookup>, card: ObjectId) -> bool {
+    engine.state().object(card).is_some_and(|o| {
+        o.riders
+            .iter()
+            .any(|r| matches!(r, crate::object::Rider::Linked { .. }))
+    })
+}
+
+/// Safe Haven's "each card exiled with this land" is the card it exiled and
+/// not a later object that card became (CR 400.7). The Wolf it exiled is
+/// cast out of exile, and Swords to Plowshares exiles it again. Sacrificing
+/// Safe Haven then returns nothing: the Wolf in exile now was exiled with
+/// Swords.
+///
+/// The link rode along with the card through the stack and the battlefield,
+/// so Safe Haven brought the Swords' Wolf back.
+///
+/// Nothing in the pool lets a player cast a card Safe Haven exiled, so the
+/// harness grants the permission the engine uses for a card castable from
+/// exile (`Rider::PlayableFromExileFor`). The cast itself is an ordinary one.
+#[test]
+#[allow(clippy::too_many_lines)] // an exile, a cast, a second exile and an upkeep, told in order
+fn a_card_cast_out_of_safe_havens_exile_and_exiled_again_stays_exiled() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                safe_haven(),
+                forest(),
+                forest(),
+                forest(),
+                plains(),
+                young_wolf(),
+            ],
+        )
+        .hand(0, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    reach_main_phase(&mut engine, p0);
+
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("the Wolf");
+    let lands_of = |engine: &Engine<RegistryLookup>, land: CardIndex| -> Vec<ObjectId> {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|id| {
+                engine
+                    .state()
+                    .object(*id)
+                    .is_some_and(|o| o.card.is_some_and(|c| c.index == land))
+            })
+            .collect()
+    };
+    let forests = lands_of(&engine, forest());
+    let plains = lands_of(&engine, plains());
+    assert_eq!((forests.len(), plains.len()), (3, 1));
+
+    // {2}, {T}: Exile target creature you control.
+    tap_mana_where(&mut engine, p0, |id| forests[..2].contains(&id));
+    activate(&mut engine, p0, safe_haven(), 0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wolf],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(wolf).map(|o| o.zone),
+        Some(Zone::Exile)
+    );
+    assert!(linked(&engine, wolf), "exiled with Safe Haven");
+
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .object_mut(wolf)
+        .expect("the Wolf in exile")
+        .riders
+        .push(crate::object::Rider::PlayableFromExileFor(p0));
+    engine.refresh_offer();
+    tap_mana_where(&mut engine, p0, |id| id == forests[2]);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: wolf })
+        .expect("the Wolf is cast from exile");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        on_battlefield(&engine, p0, young_wolf()),
+        Some(wolf),
+        "the Wolf resolved"
+    );
+
+    tap_mana_where(&mut engine, p0, |id| plains.contains(&id));
+    cast_with_floating(&mut engine, p0, swords_to_plowshares());
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(options.contains(&wolf), "{options:?}");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![wolf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(wolf).map(|o| o.zone),
+        Some(Zone::Exile),
+        "exiled again, by Swords"
+    );
+
+    // The next upkeep: sacrifice Safe Haven, and nothing comes back.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, safe_haven()).is_none(),
+        "Safe Haven was sacrificed"
+    );
+    assert_eq!(
+        engine.state().object(wolf).map(|o| o.zone),
+        Some(Zone::Exile),
+        "the Wolf Swords exiled stays in exile"
     );
 }
 
@@ -44909,10 +45668,6 @@ fn desert_of_the_glorified_enters_tapped_taps_for_black_and_cycles_out_of_hand()
         "{{1}}{{B}} out of the three floating — the pool is what says the cost \
          was paid rather than waved"
     );
-}
-
-fn desert_of_the_indomitable() -> CardIndex {
-    card_index("852d4dc3-404d-4565-99e9-1eac8f6eca5e")
 }
 
 /// Desert of the Indomitable prints three lines — it enters tapped, it taps
@@ -60115,6 +60870,80 @@ fn breeding_pool_enters_untapped_for_two_life_or_tapped_for_free() {
 
         assert!(!is_tapped(&engine, land));
         assert_eq!(engine.state().players[0].life, life_before - 2);
+    }
+}
+
+/// Breeding Pool under Chromatic Lantern taps for either of its colours
+/// through either door the offer lists.
+///
+/// The land prints "Add {G} or {U}" (`legal.abilities`), and the Lantern
+/// grants it "{T}: Add one mana of any color" (`legal.mana_abilities`, the
+/// door with no index). The offer listed the second door and `apply` refused
+/// it: it asked only whether a land with basic types could be tapped, took
+/// the CR 305.6 shortcut, and found no colour there, because the card's own
+/// ability already makes both. 63 of 10,000 fuzzed games pressed that refused
+/// door (Breeding Pool 39, Stomping Ground 14, Canopy Vista 10).
+#[test]
+fn breeding_pool_under_chromatic_lantern_taps_for_either_colour_through_either_door() {
+    let p0 = PlayerId::new(0);
+    for colour in [ManaColor::Green, ManaColor::Blue] {
+        for granted in [true, false] {
+            let mut engine = Duel::new(2314, forest())
+                .battlefield(0, &[chromatic_lantern()])
+                .hand(0, &[breeding_pool()])
+                .start();
+            keep_mulligans(&mut engine);
+            reach_main_phase(&mut engine, p0);
+            let land = play_land(&mut engine, p0, breeding_pool());
+            engine
+                .apply(p0, PlayerAction::YesNo(true))
+                .expect("2 life for an untapped land");
+            pass_until(&mut engine, stack_is_empty);
+            assert!(!is_tapped(&engine, land), "it entered untapped");
+
+            let Pending::Priority { legal, .. } = engine.pending().clone() else {
+                panic!("expected priority, got {:?}", engine.pending())
+            };
+            let press = if granted {
+                assert!(
+                    legal.mana_abilities.contains(&land),
+                    "the Lantern's grant is offered: {legal:?}"
+                );
+                PlayerAction::ActivateManaAbility { source: land }
+            } else {
+                assert!(
+                    legal.abilities.contains(&(land, 0)),
+                    "the printed ability is offered: {legal:?}"
+                );
+                PlayerAction::ActivateAbility {
+                    source: land,
+                    ability_index: 0,
+                }
+            };
+            engine
+                .apply(p0, press)
+                .expect("a press the offer listed is taken");
+
+            let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+                panic!("the colour is asked: {:?}", engine.pending())
+            };
+            assert!(options.contains(&colour), "{colour:?} is among {options:?}");
+            assert_eq!(
+                options.len(),
+                if granted { 5 } else { 2 },
+                "any colour through the grant, the printed two through the card"
+            );
+            engine
+                .apply(p0, PlayerAction::ChooseColor(colour))
+                .expect("a colour the engine offered");
+
+            assert!(is_tapped(&engine, land), "the land paid its {{T}}");
+            assert_eq!(
+                engine.state().players[0].mana_pool.available(colour),
+                1,
+                "one {colour:?} floats (granted: {granted})"
+            );
+        }
     }
 }
 
@@ -76996,5 +77825,60 @@ fn tower_of_the_magistrate_grants_protection_from_artifacts_to_target_creature()
             )
         }),
         "continuous effect granting protection from artifacts is active"
+    );
+}
+
+/// "When this land enters, target creature you control gains protection
+/// from the color of your choice until end of turn." The color is asked as
+/// the trigger resolves, of its controller, among the five; red is named,
+/// and the creature is protected from a red source and not from a white
+/// one, until the turn ends.
+#[test]
+fn sejiri_steppe_protects_a_creature_from_the_color_its_controller_names() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[llanowar_elves()])
+        .battlefield(1, &[thundering_giant()])
+        .hand(0, &[sejiri_steppe()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let guard = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    play_land(&mut engine, p0, sejiri_steppe());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let menu = aim_at(&mut engine, p0, guard);
+    assert_eq!(menu, vec![guard], "a creature you control, and only that");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseColor { .. })
+    });
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        unreachable!()
+    };
+    assert_eq!(player, p0, "the color of *your* choice");
+    assert_eq!(options.len(), 5, "any of the five colors");
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
+        .expect("red is on the list");
+    pass_until(&mut engine, stack_is_empty);
+
+    let red = on_battlefield(&engine, p1, thundering_giant()).unwrap();
+    let white = in_hand(&engine, p1, swords_to_plowshares()).unwrap();
+    assert!(
+        crate::eval::protected_from(engine.state(), guard, red),
+        "protection from red"
+    );
+    assert!(
+        !crate::eval::protected_from(engine.state(), guard, white),
+        "and from nothing else"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    assert!(
+        !crate::eval::protected_from(engine.state(), guard, red),
+        "until end of turn"
     );
 }

@@ -299,3 +299,87 @@ fn the_nexus_makes_a_spell_the_chosen_type_for_littjara() {
         "the Elf is an Ally while it is a spell, so Reflections copied it",
     );
 }
+
+/// A copy of a creature spell under Maskwood Nexus is every creature type
+/// from the moment it is on the stack, as the spell it copies is.
+///
+/// The copy is a new object put straight onto the stack (CR 707.10), not
+/// moved there, so nothing told the projection it had a spell to project:
+/// until some other change came along, the copy answered the Elf Druid its
+/// copied values print, while the Nexus says it is every creature type
+/// (and a "target Ally spell" in response would have found no Ally).
+/// Held at the priority after the copy is made, where a player can respond.
+#[test]
+fn the_nexus_makes_a_copied_creature_spell_every_type() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(113, forest())
+        .battlefield(
+            0,
+            &[
+                maskwood_nexus(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                forest(),
+            ],
+        )
+        .hand(0, &[reflections_of_littjara(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, reflections_of_littjara());
+    settle(&mut engine);
+    let Pending::ChooseSubtype { player, .. } = engine.pending().clone() else {
+        panic!(
+            "the enchantment names a creature type: {:?}",
+            engine.pending()
+        )
+    };
+    let ally = baylee_core::generated::subtypes::creature::ALLY;
+    engine
+        .apply(player, PlayerAction::ChooseSubtype(ally))
+        .unwrap();
+    settle(&mut engine);
+
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    let elves_on_stack = |engine: &Engine<RegistryLookup>| {
+        let state = engine.state();
+        state
+            .zones
+            .list(ZoneLocation::Stack)
+            .iter()
+            .filter(|id| {
+                state
+                    .object(**id)
+                    .is_some_and(|o| o.card.is_some_and(|c| c.index == llanowar_elves()))
+            })
+            .count()
+    };
+    pass_until(&mut engine, |e| elves_on_stack(e) == 2);
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "priority with the copy on the stack: {:?}",
+        engine.pending()
+    );
+    let copy = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .expect("the copy is on top");
+    let wizard = baylee_core::generated::subtypes::creature::WIZARD;
+    let subtypes = engine
+        .state()
+        .object(copy)
+        .expect("the copy")
+        .characteristics()
+        .subtypes;
+    assert!(
+        subtypes.contains(ally) && subtypes.contains(wizard),
+        "the Nexus makes the copy every creature type"
+    );
+    assert!(engine.projection_is_fresh(), "and nothing else is behind");
+}

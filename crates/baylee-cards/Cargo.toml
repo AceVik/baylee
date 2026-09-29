@@ -8,6 +8,13 @@ description = "Compiled card registry (one file per card)"
 [lints]
 workspace = true
 
+[features]
+# The L5 mutation switch, `BAYLEE_MUTATE` (`src/mutate.rs`,
+# `docs/verification-hooks.md`). Only `baylee-engine`'s dev-dependencies
+# enable it, so no binary or library build carries it;
+# `scripts/gate-features.sh` compiles it on its own and proves that.
+mutate = []
+
 [dependencies]
 baylee-core.workspace = true
 baylee-cards-dsl.workspace = true

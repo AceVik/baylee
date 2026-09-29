@@ -142,6 +142,8 @@ fn named(action: &PlayerAction) -> Vec<ObjectId> {
         | PlayerAction::PassPriority
         | PlayerAction::ChooseColor(_)
         | PlayerAction::ChooseSubtype(_)
+        // A card name is a card of the pool, not an object of the game.
+        | PlayerAction::ChooseCardName { .. }
         | PlayerAction::ChooseMode(_)
         | PlayerAction::ChooseNumber(_)
         | PlayerAction::ChoosePlayer(_)
@@ -474,8 +476,19 @@ fn drive_watching(
 /// A named list rather than a predicate, for the reason `offer_tests` keeps
 /// one: an effect that legitimately touches more than its target is a fact
 /// about *that card's* rules text, and a rule inferred from it would excuse
-/// the next card by accident. Empty until a run finds one.
-const REACHES_FURTHER: &[(&str, &str)] = &[];
+/// the next card by accident.
+const REACHES_FURTHER: &[(&str, &str)] = &[
+    (
+        "Maelstrom Pulse",
+        "\"and all other permanents with the same name as that permanent\": the sweep's \
+         bystanders are Llanowar Elves, and so is the target",
+    ),
+    (
+        "Cryptic Command",
+        "\"Tap all creatures your opponents control\" is a mode of its own: chosen beside \
+         the bounce, it taps every opposing Elf the bounce did not take",
+    ),
+];
 
 /// How small the sweep may get before it has stopped measuring anything.
 ///
@@ -657,7 +670,7 @@ fn sweep() -> (Vec<String>, Tally) {
         let handles: Vec<_> = cards
             .chunks(chunk)
             .map(|slice| {
-                scope.spawn(move || {
+                crate::engine::testkit::spawn_named(scope, move || {
                     let mut found = Vec::new();
                     let mut counted = Tally::default();
                     for def in slice {

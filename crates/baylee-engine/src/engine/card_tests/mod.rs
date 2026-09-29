@@ -120,6 +120,10 @@ fn jin_gitaxias() -> CardIndex {
     card_index("f5daadc1-98ff-480a-82bb-fe7bfaa7b60e")
 }
 
+fn unsummon() -> CardIndex {
+    card_index("837182db-1bf3-4a2c-bd01-1af9d9873561")
+}
+
 fn swords_to_plowshares() -> CardIndex {
     card_index("b1544f21-7e98-461b-aed5-e748b0168c52")
 }
@@ -162,6 +166,41 @@ fn storm_of_saruman() -> CardIndex {
 
 fn karn_the_great_creator() -> CardIndex {
     card_index("a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1")
+}
+
+fn spark_double() -> CardIndex {
+    card_index("8dcb35e5-ae44-455f-86e3-4a77d496ff34")
+}
+
+fn dig_through_time() -> CardIndex {
+    card_index("f8b17b89-26ce-4208-874a-9e1d66514640")
+}
+
+/// Casts the Spark Double in `seat`'s hand off everything that seat can tap
+/// and has it enter as a copy of `original`, a permanent that seat controls.
+/// Answers the copy, which is still Spark Double's card.
+#[track_caller]
+fn spark_double_copying(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    original: ObjectId,
+) -> ObjectId {
+    cast_from_hand(engine, seat, spark_double());
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: vec![original],
+            },
+        )
+        .expect("the Double may copy it");
+    pass_until(engine, |e| {
+        on_battlefield(e, seat, spark_double()).is_some() && stack_is_empty(e)
+    });
+    on_battlefield(engine, seat, spark_double()).expect("the copy entered")
 }
 
 fn chromatic_lantern() -> CardIndex {
@@ -398,6 +437,22 @@ fn temur_ascendancy() -> CardIndex {
 
 fn virtue_of_knowledge() -> CardIndex {
     card_index("f0bbcabf-29e7-4c7e-893f-86b64d3620a9")
+}
+
+fn badgermole_cub() -> CardIndex {
+    card_index("2b0afb89-0944-4861-b9c3-e909e2ac215e")
+}
+
+fn pinnacle_monk() -> CardIndex {
+    card_index("f3d48efa-910a-4872-a5b1-a353c5dbce99")
+}
+
+fn desert_of_the_indomitable() -> CardIndex {
+    card_index("852d4dc3-404d-4565-99e9-1eac8f6eca5e")
+}
+
+fn boomerang() -> CardIndex {
+    card_index("dc4a4996-108a-4aac-850f-2d9f76403446")
 }
 
 fn erode() -> CardIndex {
@@ -677,6 +732,70 @@ fn reveal_on_entry(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: Ob
             },
         )
         .expect("a card the entry question put on the menu is a legal answer");
+}
+
+/// What the player holding priority may do now.
+#[track_caller]
+fn priority_offer(engine: &Engine<RegistryLookup>) -> crate::choice::LegalActions {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    *legal
+}
+
+/// Casts the object `card` (wherever it is) off floating mana and lets it
+/// resolve.
+#[track_caller]
+fn cast_object_and_resolve(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: ObjectId) {
+    engine
+        .apply(seat, PlayerAction::CastSpell { card })
+        .expect("the offer listed the card");
+    pass_until(engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(card).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "the permanent spell resolved"
+    );
+}
+
+/// Puts `card` from `seat`'s hand on top of its library, the harness way.
+fn hand_to_library_top(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> ObjectId {
+    hand_to(engine, seat, card, ZoneLocation::Library(seat))
+}
+
+/// Puts `card` from `seat`'s hand into its graveyard, the harness way, and
+/// refreshes the offer the graveyard is now part of.
+fn hand_to_graveyard(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> ObjectId {
+    let id = hand_to(engine, seat, card, ZoneLocation::Graveyard(seat));
+    engine.refresh_offer();
+    id
+}
+
+fn hand_to(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+    to: ZoneLocation,
+) -> ObjectId {
+    let id = in_hand(engine, seat, card).expect("the card starts in hand");
+    engine
+        .state
+        .move_object(
+            id,
+            to,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("the harness moves a card");
+    id
 }
 
 /// Plays `card` out of `seat`'s hand and answers with the object it became.
@@ -1412,6 +1531,64 @@ fn tatyova_benthic_druid() -> CardIndex {
 
 fn crop_rotation() -> CardIndex {
     card_index("28b46183-c62f-47b1-9fee-3ba148202cab")
+}
+
+fn natural_order() -> CardIndex {
+    card_index("8c1fe337-375a-4add-93b6-0ac39ed72b4f")
+}
+
+fn eldritch_evolution() -> CardIndex {
+    card_index("0f77c0c9-4dc4-489a-b547-e93287c4d1a5")
+}
+
+fn neoform() -> CardIndex {
+    card_index("420c6dcf-966d-4a4c-a0ef-23037ab8b325")
+}
+
+fn birthing_pod() -> CardIndex {
+    card_index("f8b9dd54-0837-47f4-ad14-7a0322d46d5f")
+}
+
+fn imperial_recruiter() -> CardIndex {
+    card_index("4d6a1391-817a-4ddc-840d-886b138eeb3f")
+}
+
+fn bribery() -> CardIndex {
+    card_index("6d194882-ca37-49bb-ac9f-a751c53850a8")
+}
+
+/// Ornithopter: a creature of mana value 0, the smallest a sacrifice can
+/// hand a "plus the sacrificed creature's mana value" bound.
+fn ornithopter() -> CardIndex {
+    card_index("a3a98bc9-caa0-49b7-951c-fe4e4f54e4ba")
+}
+
+/// Canopy Spider: a green creature of mana value 2.
+fn canopy_spider() -> CardIndex {
+    card_index("37f3733e-cc4e-4d84-b29b-d474f6e254a2")
+}
+
+/// Land Leeches: a green creature of mana value 3 and power 2.
+fn land_leeches() -> CardIndex {
+    card_index("228f0afa-146b-4564-a380-71595cdf1ef4")
+}
+
+/// Passes priority until a card choice is asked, and returns it.
+///
+/// Not `pass_until`: that walker answers or panics on a library search, and
+/// the search is what these tests are about.
+#[track_caller]
+fn pass_to_card_choice(engine: &mut Engine<RegistryLookup>) -> Pending {
+    for _ in 0..20 {
+        match engine.pending().clone() {
+            choice @ Pending::ChooseCards { .. } => return choice,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("expected priority or a card choice, got {other:?}"),
+        }
+    }
+    panic!("no card choice was asked within twenty passes")
 }
 
 fn heroes_downfall() -> CardIndex {
@@ -2892,6 +3069,103 @@ fn walk_in_closet() -> CardIndex {
     card_index("52e77cc3-f8e9-4a20-811b-fe1e46a96ad7")
 }
 
+fn naturalize() -> CardIndex {
+    card_index("bdb3ca68-ec1f-4e16-81cc-d23f8f52c728")
+}
+
+/// The doors of the Room `room`, as the permanent holds them.
+fn doors_of(engine: &Engine<RegistryLookup>, room: ObjectId) -> crate::object::Doors {
+    engine
+        .state()
+        .object(room)
+        .expect("the Room is on the battlefield")
+        .doors
+}
+
+/// Which halves of `room` the priority offer unlocks, 0 the left.
+fn unlocks_offered(engine: &Engine<RegistryLookup>, room: ObjectId) -> Vec<u8> {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        return Vec::new();
+    };
+    legal
+        .abilities
+        .iter()
+        .filter(|(source, _)| *source == room)
+        .filter_map(|&(_, index)| crate::choice::door_to_unlock(index))
+        .collect()
+}
+
+/// Unlocks `half` of `room` the way a player does: the offered special
+/// action.
+fn unlock(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    room: ObjectId,
+    half: u8,
+) -> Result<(), EngineError> {
+    engine.apply(
+        seat,
+        PlayerAction::ActivateAbility {
+            source: room,
+            ability_index: crate::choice::unlock_door(half),
+        },
+    )
+}
+
+/// The indices of the abilities on the stack whose source is `room`.
+fn room_abilities_on_stack(engine: &Engine<RegistryLookup>, room: ObjectId) -> Vec<u32> {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .iter()
+        .filter_map(|id| engine.state().object(*id)?.ability)
+        .filter(|loc| loc.source == room)
+        .map(|loc| loc.index)
+        .collect()
+}
+
+/// The name, mana value and colours `object` has now.
+fn name_value_colors(
+    engine: &Engine<RegistryLookup>,
+    object: ObjectId,
+) -> (String, u32, baylee_core::color::ColorSet) {
+    let o = engine.state().object(object).expect("the object is there");
+    let c = o.characteristics();
+    (
+        engine.state().names.get(c.name).to_string(),
+        c.mana_value(),
+        c.colors,
+    )
+}
+
+/// `seat`'s Forests on the battlefield, the first `n` of them.
+fn forests(engine: &Engine<RegistryLookup>, seat: PlayerId, n: usize) -> Vec<ObjectId> {
+    let forests: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == seat
+                    && !o.status.contains(Status::TAPPED)
+                    && o.card.is_some_and(|c| c.index == forest())
+            })
+        })
+        .take(n)
+        .collect();
+    assert_eq!(forests.len(), n, "{seat:?} has {n} untapped Forests");
+    forests
+}
+
+/// Taps `n` of `seat`'s untapped Forests for mana.
+fn float_green(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) {
+    let these = forests(engine, seat, n);
+    tap_mana_where(engine, seat, |id| these.contains(&id));
+}
+
 fn legion_s_landing() -> CardIndex {
     card_index("f7d8b91b-6541-4d3e-af51-7e000eac69c1")
 }
@@ -3062,6 +3336,63 @@ fn sea_gate_restoration() -> CardIndex {
 
 fn song_mad_treachery() -> CardIndex {
     card_index("81b61770-2ed5-4a50-84d0-97790002fc5a")
+}
+
+fn restoration_angel() -> CardIndex {
+    card_index("dfbd3afc-9905-4cff-a4f4-df08a4d0a7fa")
+}
+
+fn werefox_bodyguard() -> CardIndex {
+    card_index("d5ee2ced-29f4-430f-962e-2f930b92624c")
+}
+
+/// `thief` casts Song-Mad Treachery on `victim` off five Mountains it
+/// controls, and it resolves: a real layer-2 `GainControl` until end of turn
+/// over the owner's own default, which is what a stolen creature is. The
+/// board's other lands stay untapped for whatever the test casts next.
+#[track_caller]
+fn steal_with_song_mad_treachery(
+    engine: &mut Engine<RegistryLookup>,
+    thief: PlayerId,
+    victim: ObjectId,
+) {
+    let mountains: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == thief && o.card.is_some_and(|c| c.index == mountain())
+            })
+        })
+        .collect();
+    assert_eq!(
+        mountains.len(),
+        5,
+        "{{3}}{{R}}{{R}} is paid by five Mountains"
+    );
+    tap_mana_where(engine, thief, |id| mountains.contains(&id));
+    cast_front_face(engine, thief, song_mad_treachery());
+    engine
+        .apply(
+            thief,
+            PlayerAction::ChooseObjects {
+                objects: vec![victim],
+            },
+        )
+        .expect("the victim is a legal target");
+    pass_until(engine, stack_is_empty);
+    let obj = engine
+        .state()
+        .object(victim)
+        .expect("the victim is still there");
+    assert_eq!(
+        (obj.controller, obj.base_controller),
+        (thief, obj.owner),
+        "stolen by a layer-2 effect, over its owner's own default"
+    );
 }
 
 fn suppression_ray() -> CardIndex {
@@ -5150,4 +5481,62 @@ fn rampant_growth() -> CardIndex {
 
 fn despotic_scepter() -> CardIndex {
     card_index("34a85d7f-d4ea-4a0f-aa4c-bf0b0f4987bf")
+}
+
+fn farewell() -> CardIndex {
+    card_index("4eb813fd-2d5a-4b02-8193-662681ef4e7d")
+}
+
+fn final_showdown() -> CardIndex {
+    card_index("7e7ec3d6-a84f-4cc3-93f4-4d181d41e126")
+}
+
+fn three_steps_ahead() -> CardIndex {
+    card_index("282dfeaa-6243-4f92-838a-5cb54fa85184")
+}
+
+/// An artifact creature with flying and indestructible, printed.
+fn darksteel_gargoyle() -> CardIndex {
+    card_index("73010421-374f-458e-aa88-248ef8ae4f8b")
+}
+
+/// Answers the cast-mode question of a spell that chooses several modes
+/// with the set `set` names (bit `i` is mode `i`), as a player presses its
+/// row, and returns every row that was offered.
+#[track_caller]
+fn choose_modes(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    set: u8,
+) -> Vec<crate::choice::CastModeDesc> {
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the modes, got {:?}", engine.pending())
+    };
+    assert_eq!(player, seat, "the caster chooses the modes");
+    let slot = options
+        .iter()
+        .position(|o| o.kind == CastModeKind::Modes(set))
+        .unwrap_or_else(|| panic!("{set:#b} is not offered: {options:?}"));
+    engine.apply(seat, PlayerAction::ChooseMode(slot)).unwrap();
+    options
+}
+
+fn cryptic_command() -> CardIndex {
+    card_index("a3e51a35-09df-4189-b131-08a21e6a557d")
+}
+
+/// The slot of the cast option of `kind` in the cast-mode question that is
+/// out, for a test that picks one way of casting among several.
+#[track_caller]
+fn choose_cast_kind(engine: &Engine<RegistryLookup>, kind: CastModeKind) -> usize {
+    let Pending::ChooseCastMode { options, .. } = engine.pending() else {
+        panic!("expected the cast options, got {:?}", engine.pending())
+    };
+    options
+        .iter()
+        .position(|o| o.kind == kind)
+        .unwrap_or_else(|| panic!("{kind:?} is not offered: {options:?}"))
 }

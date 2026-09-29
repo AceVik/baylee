@@ -40,53 +40,27 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::DealDamage { amount, target } => {
             let n = amount2(&amount, state, you, res) as i16;
-            match target {
-                TargetSpec::Player(rel) => {
-                    for player in super::players_of(rel, state, you, res) {
-                        deal_to_player(state, res.source, player, n);
-                    }
-                }
-                // "Any target" (CR 115.4) chose from one set spanning both,
-                // so both halves are dealt to — a spell with two any-targets
-                // can have picked a creature and a face.
-                TargetSpec::AnyTarget => {
-                    for &target_id in &res.targets.clone() {
-                        deal_to_object_with_loyalty(state, target_id, n, res.source);
-                    }
-                    for player in res.target_players.iter() {
-                        deal_to_player(state, res.source, player, n);
-                    }
-                }
-                // A chosen player is a player. The choice landed in
-                // `target_players`, so reading `targets` here would deal to
-                // whatever object the spell also happened to point at — or,
-                // far more often, to nothing at all. No card in the pool
-                // says this yet; they all spell "target opponent" as
-                // `Player(Chosen)` with the choice on the ability's
-                // `TargetReq`, which is why the catch-all that used to be
-                // here could hold this and stay green.
-                TargetSpec::AnyPlayer | TargetSpec::AnyOpponent => {
-                    for player in res.target_players.iter() {
-                        deal_to_player(state, res.source, player, n);
-                    }
-                }
-                // Everything else names an object, and the damage goes to
-                // the one that was chosen. Spelled out rather than left to
-                // a `_` arm: a new player-flavoured `TargetSpec` would land
-                // in a catch-all silently and be dealt to as an object.
-                TargetSpec::Object(_)
-                | TargetSpec::Spell(_)
-                | TargetSpec::StackOrBattlefield(_)
-                | TargetSpec::CardInGraveyard(..)
-                | TargetSpec::CardInGraveyardBelowEvent(..)
-                | TargetSpec::CardInGraveyardBelowValue(..)
-                | TargetSpec::ThisObject
-                | TargetSpec::AbilityOnStack(_)
-                | TargetSpec::SpellOrAbility(_)
-                | TargetSpec::EventObject => {
-                    if let Some(&target_id) = res.targets.first() {
-                        deal_to_object_with_loyalty(state, target_id, n, res.source);
-                    }
+            deal_to_spec(state, res, you, res.source, n, target);
+            None
+        }
+        Effect::DealDamageDivided { .. } => {
+            // As divided when the ability went on the stack (CR 601.2d).
+            // `res.targets` holds only the targets still legal, and one that
+            // is not is dealt nothing: its share goes to nobody (CR 608.2b).
+            let shares = state
+                .divided
+                .iter()
+                .find(|(id, _)| *id == res.on_stack)
+                .map(|(_, shares)| shares.clone())
+                .unwrap_or_default();
+            for &target in &res.targets.clone() {
+                if let Some(&(_, n)) = shares.iter().find(|(t, _)| *t == target) {
+                    deal_to_object_with_loyalty(
+                        state,
+                        target,
+                        i16::try_from(n).unwrap_or(i16::MAX),
+                        res.source,
+                    );
                 }
             }
             None
@@ -97,6 +71,28 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::DamageEqualToPower { dealer, to } => {
             damage_equal_to_power(state, res, dealer, to);
+            None
+        }
+        Effect::EventObjectDealsDamageEqualToPower { target } => {
+            // "That creature": the object the event named. Its power now if
+            // it is still on the battlefield as the same object, else as it
+            // last existed there (CR 608.2h); with neither, the effect
+            // fails to determine an amount and deals nothing.
+            let dealer = res.event_object?;
+            let power = state
+                .object(dealer)
+                .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                .map(|o| o.characteristics().power.unwrap_or(0))
+                .or_else(|| {
+                    state
+                        .ltb_powers
+                        .iter()
+                        .find(|(id, _)| *id == dealer)
+                        .map(|(_, p)| *p)
+                });
+            if let Some(n) = power.map(|p| p.max(0)) {
+                deal_to_spec(state, res, you, dealer, n, target);
+            }
             None
         }
         Effect::DealDamageToTargetController { amount } => {
@@ -112,6 +108,91 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         _ => unreachable!("not a life/damage effect"),
+    }
+}
+
+/// Deals `n` damage from `source` to what `target` names — the object or
+/// player it chose, every player it names, or both halves of "any target".
+///
+/// The recipient half of [`Effect::DealDamage`], shared with the effects
+/// whose damage comes from something other than the resolving ability's
+/// own source (Pyrogoyf's "that creature deals damage").
+fn deal_to_spec(
+    state: &mut GameState,
+    res: &Resolution,
+    you: PlayerId,
+    source: ObjectId,
+    n: i16,
+    target: TargetSpec,
+) {
+    match target {
+        TargetSpec::Player(rel) => {
+            for player in super::players_of(rel, state, you, res) {
+                deal_to_player(state, source, player, n);
+            }
+        }
+        // "Any target" (CR 115.4) chose from one set spanning both,
+        // so both halves are dealt to — a spell with two any-targets
+        // can have picked a creature and a face.
+        TargetSpec::AnyTarget => {
+            for &target_id in &res.targets.clone() {
+                deal_to_object_with_loyalty(state, target_id, n, source);
+            }
+            for player in res.target_players.iter() {
+                deal_to_player(state, source, player, n);
+            }
+        }
+        // "Target opponent or planeswalker": one choice over both lists, so
+        // whichever half it landed in is dealt to.
+        TargetSpec::OpponentOrObject(_) => {
+            if let Some(&target_id) = res.targets.first() {
+                deal_to_object_with_loyalty(state, target_id, n, source);
+            }
+            for player in res.target_players.iter() {
+                deal_to_player(state, source, player, n);
+            }
+        }
+        // Only ever a second instance of "target": the damage goes to what
+        // that instance chose, if it chose anything ("up to one").
+        TargetSpec::ObjectOfFirstTargetsPlayer(_) => {
+            if let Some(&target_id) = res.second_targets.first() {
+                deal_to_object_with_loyalty(state, target_id, n, source);
+            }
+        }
+        // A chosen player is a player. The choice landed in
+        // `target_players`, so reading `targets` here would deal to
+        // whatever object the spell also happened to point at — or,
+        // far more often, to nothing at all. No card in the pool
+        // says this yet; they all spell "target opponent" as
+        // `Player(Chosen)` with the choice on the ability's
+        // `TargetReq`, which is why the catch-all that used to be
+        // here could hold this and stay green.
+        TargetSpec::AnyPlayer | TargetSpec::AnyOpponent => {
+            for player in res.target_players.iter() {
+                deal_to_player(state, source, player, n);
+            }
+        }
+        // Everything else names an object, and the damage goes to
+        // the one that was chosen. Spelled out rather than left to
+        // a `_` arm: a new player-flavoured `TargetSpec` would land
+        // in a catch-all silently and be dealt to as an object.
+        TargetSpec::Object(_)
+        | TargetSpec::ObjectOfEachOpponent(_)
+        | TargetSpec::ObjectControlledBy(..)
+        | TargetSpec::ObjectOfEventPlayer(_)
+        | TargetSpec::Spell(_)
+        | TargetSpec::StackOrBattlefield(_)
+        | TargetSpec::CardInGraveyard(..)
+        | TargetSpec::CardInGraveyardBelowEvent(..)
+        | TargetSpec::CardInGraveyardBelowValue(..)
+        | TargetSpec::ThisObject
+        | TargetSpec::AbilityOnStack(_)
+        | TargetSpec::SpellOrAbility(_)
+        | TargetSpec::EventObject => {
+            if let Some(&target_id) = res.targets.first() {
+                deal_to_object_with_loyalty(state, target_id, n, source);
+            }
+        }
     }
 }
 
@@ -676,6 +757,7 @@ mod tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),
             event_object: None,
             awaiting: None,

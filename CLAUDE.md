@@ -12,11 +12,11 @@ cargo fmt --all
 DATABASE_URL=… ./scripts/gate.sh             # full gate as CI: fmt --check, clippy, nextest, validate (needs cargo-nextest)
 ./scripts/gate-rules.sh                      # while working: fmt, lint-rules, test-rules, validate (if data/scryfall-cache)
 ./scripts/gate-touched.sh [<rev>]            # fmt + clippy on changed files only; not a gate
-DATABASE_URL=… ./scripts/gate-features.sh    # the six non-default features
+DATABASE_URL=… ./scripts/gate-features.sh    # the eight non-default features
 ```
 
 - `lint-rules`/`test-rules` (`.cargo/config.toml`) exclude only `baylee-client`, never a hand-written crate list. Run the full gate before every push.
-- Non-default features: `dev-control`, `dev-reload`, `dev-dylink` (client), `dev-control` (Android shim), `dev-table` (gateway), `test-support` (client-core). `--workspace` builds none, so run `gate-features.sh` before every push too (CI's `features` job): shared code (a type `devctl.rs` uses) breaks feature builds, and a feature can make an import live that `-D warnings` flags only then. Never `--all-features`: nobody runs it.
+- Non-default features: `dev-control`, `dev-reload`, `dev-dylink` (client), `dev-control` (Android shim), `dev-table` (gateway), `test-support` (client-core), `fuzz` (engine: `Engine::fingerprint`, every field, for a fuzzer; `Engine::projection_is_fresh`), `mutate` (cards: `BAYLEE_MUTATE`, on only through the engine's dev-dependencies; `docs/verification-hooks.md`). `--workspace` builds none, so run `gate-features.sh` before every push too (CI's `features` job): shared code (a type `devctl.rs` uses) breaks feature builds, and a feature can make an import live that `-D warnings` flags only then. Never `--all-features`: nobody runs it.
 - CI also runs tests in `--release` (never hide required behaviour in `debug_assert!`), a cross-platform `build` matrix (`--bins`, `check --all-targets`), `scryfall-cache` + `validate`, wasm32, benches, MSRV, `cargo-deny`, `cargo-audit`.
 - macOS uses `-Csplit-debuginfo=packed`. Builds crawl? Check `stat -f %z target/debug/deps`; sweep by renaming `target/debug` away.
 - Servers are silent without `RUST_LOG=info`.
@@ -32,6 +32,7 @@ cargo test -p baylee-engine --lib -- --list
 cargo build --workspace --bins && cargo test -p baylee-gateway --test e2e_processes -- --ignored
 cargo test -p baylee-catalog --test cardtext_provenance -- --ignored
 cargo bench -p baylee-engine --bench basics -- --quick   # vs docs/perf-baseline.md
+BAYLEE_ABILITY_LOG=<dir> cargo test -p baylee-engine --lib   # which abilities fired, per test; BAYLEE_MUTATE=<card>:<index> takes one away (docs/verification-hooks.md)
 ```
 
 ### xtask
@@ -122,8 +123,9 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - `baylee-view` depends only on `baylee-core` ids, serde.
 - `baylee-client-core` is the client brain, knows no renderer, holds most client tests. Only `baylee-client` needs a GPU.
 - `baylee-protocol`: protobuf `Envelope`; `Pending`/`PlayerAction` ride as `serde_json`; shared by `LocalHost` and both servers.
+- `baylee-deckio` (core → deckio → client-core): deck documents in four formats (Baylee text, JSON, YAML, Moxfield text), auto-detect, and a registry of deck-link sources that answer an instruction or a fetch plan; pure, never fetches (Moxfield is its text export only). `docs/deck-format.md`.
 - `baylee-cardtext` sits under core, links only serde: `/catalog/text` wire shape and sentence pairing (`pick`, `align`, `verify`, `split_cost`) for catalog and client.
-- Must build for `wasm32-unknown-unknown`: `baylee-cardtext`, `-core`, `-protocol`, `-view`, `-client-core`, `-client`.
+- Must build for `wasm32-unknown-unknown`: `baylee-cardtext`, `-core`, `-deckio`, `-protocol`, `-view`, `-client-core`, `-client`.
 
 ### Engine
 

@@ -46,6 +46,9 @@ pub enum ActivationZone {
     Battlefield,
     /// From your hand (cycling).
     Hand,
+    /// From your graveyard (eternalize, embalm): the card is in its owner's
+    /// graveyard and the owner activates it.
+    Graveyard,
 }
 
 /// Steps/phases triggers can listen to.
@@ -82,6 +85,17 @@ pub enum StepKind {
 pub enum Condition {
     /// It is the current controller's turn (not necessarily the owner's).
     YourTurn,
+    /// "If no spells were cast last turn" — by any player (the Innistrad
+    /// werewolves). There was no last turn at the first upkeep of the game,
+    /// so the sentence is false there, as daybound's own check is skipped.
+    NoSpellsCastLastTurn,
+    /// "If you haven't cast a spell this turn" (Conduit of Worlds): the
+    /// controller has cast no spell this turn, counting spells that were
+    /// countered since and spells cast before the source was theirs.
+    YouCastNoSpellThisTurn,
+    /// "If a player cast N or more spells last turn" — one player, any
+    /// player: the werewolves' way back to their front face.
+    APlayerCastLastTurnAtLeast(u8),
     /// You control at least N permanents matching the filter.
     ControlCount(&'static Filter, u8),
     /// You control **at most** N permanents matching the filter —
@@ -96,6 +110,14 @@ pub enum Condition {
     /// that never sacrifices itself and so is strictly stronger than the one
     /// printed.
     ControlCountAtMost(&'static Filter, u8),
+    /// You control permanents matching the filter with at least N
+    /// **different names** among them — Field of the Dead's "if you
+    /// control seven or more lands with different names".
+    ///
+    /// A count of names, not of permanents: two Forests are one. A
+    /// permanent with no name (a face-down one, CR 708.2a) has no name to
+    /// differ by and adds nothing.
+    ControlDistinctNames(&'static Filter, u8),
     /// **An opponent** controls at least N permanents matching the filter
     /// (Tectonic Edge — "activate only if an opponent controls four or more
     /// lands").
@@ -119,6 +141,14 @@ pub enum Condition {
     /// threshold below, so the count is a parameter rather than a fixed
     /// nought and nothing here may read the word.
     HandSizeAtMost(u8),
+    /// The controller has played at least N lands this turn (CR 305.2).
+    /// Fastbond's "if it wasn't the first land you played this turn" is 2:
+    /// a trigger on the play is collected after the land it is about was
+    /// counted, and the count only grows within a turn, so the second ask
+    /// at resolution (CR 603.4) answers as the first did. The count is
+    /// reset as its player's own turn begins, which is the only turn this
+    /// engine lets a player play lands on.
+    LandsPlayedThisTurnAtLeast(u8),
     /// You have **exactly** N cards in hand (Library of Alexandria).
     ///
     /// The sibling of the line above for the same reason
@@ -153,6 +183,12 @@ pub enum Condition {
     CountersOnSelf(crate::effect::CounterKind, u8),
     /// The source has EXACTLY N counters of a kind (class level gating).
     CountersOnSelfExactly(crate::effect::CounterKind, u8),
+    /// The source has at least the first number and no more than the second
+    /// of a kind of counter: a leveler's `{LEVEL N1-N2}` band (CR 711.2a,
+    /// "As long as this creature has at least N1 level counters on it, but
+    /// no more than N2 level counters on it"). The open `{LEVEL N3+}` band
+    /// is [`Self::CountersOnSelf`] (CR 711.2b).
+    CountersOnSelfBetween(crate::effect::CounterKind, u8, u8),
     /// A station symbol, `{N+}`: the source has N or more charge counters
     /// on it (CR 721.2a, "As long as this permanent has N or more charge
     /// counters on it, it has [abilities]").
@@ -169,6 +205,8 @@ pub enum Condition {
     Station(u8),
     /// The controller has earned an enduring story (CR 702.195).
     EnduringStory,
+    /// The controller has the city's blessing (CR 702.131c).
+    CitysBlessing,
     /// The source itself matches the filter — "if this land is tapped".
     ///
     /// The other four sentences here count something the source is not;
@@ -198,6 +236,24 @@ pub enum Condition {
     /// condition is all there is room for (an activation restriction, an
     /// intervening `if`), and not before.
     Any(&'static [Condition]),
+    /// "If X is N or more" — the X announced for the spell that is the
+    /// source (Finale of Devastation). Read off the source's announced X,
+    /// as `Filter::CmcAtMostX` reads it; a source that is gone or announced
+    /// none has X = 0.
+    XAtLeast(u32),
+    /// Holds while the condition it names does not — the printed "unless":
+    /// Wayward Swordtooth "can't attack or block unless you have the city's
+    /// blessing" is a static that holds while `Not(&CitysBlessing)` does.
+    Not(&'static Condition),
+    /// "If this spell's dash cost was paid" (CR 702.109a), asked of the
+    /// source: it is on the battlefield as the permanent a spell cast for
+    /// its dash cost became, and has not left it since. The engine writes
+    /// dash's return itself; no card prints this.
+    DashCostPaid,
+    /// "Unless it escaped" (Uro, Titan of Nature's Wrath): the source is the
+    /// spell cast from a graveyard with escape, or the permanent that spell
+    /// became, and has not left the battlefield since (CR 702.138b).
+    Escaped,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -205,6 +261,18 @@ pub enum Condition {
 pub enum Trigger {
     /// This permanent is turned face up (not transformed or entering).
     TurnedFaceUp,
+    /// "Whenever this creature transforms into [this face]" (CR 701.27e):
+    /// printed on the face the permanent turns *to*, and read off the face
+    /// it shows right after the transform — which is how Huntmaster of the
+    /// Fells' front and Ravager of the Fells' back each hear only their own
+    /// half of the flip.
+    TransformsIntoThis,
+    /// "When you unlock this door" (CR 709.5h), printed on half `n` of a
+    /// Room: 0 the left, 1 the right. It hears the permanent being given
+    /// that half's unlocked designation, however it was given: as the Room
+    /// enters cast as that half (CR 709.5d), or later, when its controller
+    /// pays the half's mana cost (CR 709.5e).
+    UnlockThisDoor(u8),
     /// An object matching the filter enters the battlefield.
     EntersBattlefield(&'static Filter),
     /// An object matching the filter leaves the battlefield.
@@ -219,14 +287,50 @@ pub enum Trigger {
     /// This permanent becomes a target of an opponent's spell or ability.
     /// Its implicit resolution subject is that stack object (ward).
     Ward,
+    /// "Whenever you or a permanent you control becomes the target of a
+    /// spell or ability an opponent controls" (Leovold, Emissary of Trest).
+    ///
+    /// It fires once **per target** that fits, not once per spell: a spell
+    /// that targets you and one of your permanents triggers it twice, and so
+    /// does one that targets two of your permanents (Leovold's Scryfall
+    /// rulings). `filter` names the permanents that count, read against
+    /// the controller of this ability; `you` is whether the controller
+    /// counts as well.
+    TargetedByOpponent {
+        /// The permanents whose targeting fires this.
+        filter: &'static Filter,
+        /// Whether "you" — this ability's controller — counts too.
+        you: bool,
+    },
     /// A creature matching the filter is exiled from the battlefield
     /// (Soulherder).
     ExiledFromBattlefield(&'static Filter),
     /// A source matching the filter deals combat damage to a player
     /// (Sword of Hearth and Home: the equipped creature).
     DealsCombatDamageToPlayer(&'static Filter),
+    /// A source matching the filter deals combat damage to an **opponent**
+    /// of the ability's controller (Questing Beast). The player dealt to
+    /// and the amount ride on the trigger, for "that player" and "that
+    /// much".
+    DealsCombatDamageToOpponent(&'static Filter),
     /// The source becomes tapped (City of Brass).
     BecomesTapped(&'static Filter),
+    /// The count of a kind of counter on the source rises from below `n`
+    /// to `n` or more — the window CR 714.2b writes out for a chapter
+    /// symbol, asked of any kind.
+    ///
+    /// Druid Class's "When this Class becomes level 3": this pool keeps a
+    /// Class's level as level counters over level 1 (Wizard Class), so
+    /// level 3 is `n: 2`. It is a trigger of its own and not a rider on
+    /// the level-up activation, because the ability it starts targets: a
+    /// target removed in response would otherwise take the level with it
+    /// (CR 608.2b).
+    CountersReach {
+        /// The kind counted.
+        kind: crate::effect::CounterKind,
+        /// The count that must be reached.
+        n: u8,
+    },
     /// The controller casts their Nth spell this turn (Storm of
     /// Saruman's second-spell trigger).
     NthSpellCast {
@@ -237,6 +341,21 @@ pub enum Trigger {
     },
     /// A player draws a card.
     Draws(crate::effect::PlayerRel),
+    /// "Whenever [a player] plays a land" (Fastbond): the special action of
+    /// playing a land (CR 116.2a, 305.1), from whatever zone a permission
+    /// allows, and never a land an effect puts onto the battlefield, which
+    /// is not played. The relation names whose play: `You` for "you".
+    PlaysLand(crate::effect::PlayerRel),
+    /// "Whenever you tap [a permanent matching the filter] for mana"
+    /// (Badgermole Cub): its controller activates a mana ability of it with
+    /// {T} in the cost (CR 106.12), and that ability resolves and produces
+    /// mana (CR 106.12a). Once per activation, however many colours it made.
+    ///
+    /// Without a target and with effects that add mana, the ability is
+    /// itself a mana ability (CR 605.1b) and resolves at once, off the
+    /// stack (CR 605.4a): "add an additional {G}" is in the pool before the
+    /// player acts again.
+    TappedForMana(&'static Filter),
     /// A player draws a card except the first one they draw each turn
     /// (Orcish Bowmasters).
     DrawsExceptFirst(crate::effect::PlayerRel),
@@ -251,6 +370,14 @@ pub enum Trigger {
     /// The source entered the battlefield AND was evoked (cast for its
     /// evoke cost, CR 702.74).
     EntersBattlefieldEvoked,
+    /// "When you cycle this card" — "when you discard this card to pay an
+    /// activation cost of a cycling ability" (CR 702.29c). It triggers from
+    /// the zone the card winds up in, which is a graveyard unless something
+    /// replaced the discard. A cycling ability is the one
+    /// [`AbilityDef::is_cycling`] reads; a card's other discard-this-card
+    /// abilities (Trumpeting Carnosaur's damage, a channel ability) and a
+    /// discard for any other reason are not cycling it.
+    CycledThis,
     /// A step begins (whose turn: you/opponent/any).
     StepBegin {
         /// Which step.
@@ -319,6 +446,9 @@ pub enum AbilityDef {
         zone: ActivationZone,
         /// "Activate only once each turn", if the card prints one.
         limit: ActivationLimit,
+        /// "This ability costs {1} less to activate for each …", if the
+        /// ability prints one.
+        cost_reduction: Option<crate::cost::CostReduction>,
     },
     /// Triggered ability (`when/whenever/at …, effect`).
     Triggered {
@@ -328,6 +458,12 @@ pub enum AbilityDef {
         effects: &'static [Effect],
         /// Target requirement.
         targets: Option<crate::effect::TargetReq>,
+        /// A second instance of the word "target", as on
+        /// [`AbilityDef::Spell::second_targets`], chosen after the first as
+        /// the ability goes on the stack (CR 603.3d, 601.2c): Ravager of the
+        /// Fells' "and 2 damage to up to one target creature that player or
+        /// that planeswalker's controller controls".
+        second_targets: Option<crate::effect::TargetReq>,
         /// Fires at most once each turn (Jin-Gitaxias).
         once_per_turn: bool,
         /// The intervening-`if` clause, if the card prints one (CR 603.4).
@@ -347,6 +483,15 @@ pub enum AbilityDef {
     Ward {
         /// Generic mana to pay.
         mana: u16,
+    },
+    /// Toxic N (CR 702.164a): a static ability. Combat damage this
+    /// creature deals to a player also gives that player poison counters
+    /// equal to its total toxic value, the sum over every toxic ability it
+    /// has (CR 702.164b–c). Read by the engine where combat damage is
+    /// dealt; like ward, a keyword with a number is data and not a bit.
+    Toxic {
+        /// N.
+        poison: u8,
     },
     /// Static/continuous ability (layers, CR 613).
     /// An activated ability with a precondition (Mox Opal's metalcraft,
@@ -371,6 +516,8 @@ pub enum AbilityDef {
         condition: Condition,
         /// "Activate only once each turn", if the card prints one.
         limit: ActivationLimit,
+        /// As on the unconditional twin.
+        cost_reduction: Option<crate::cost::CostReduction>,
     },
     /// One chapter of a saga (CR 714): triggers when the corresponding
     /// lore counter is added.
@@ -401,11 +548,15 @@ pub enum AbilityDef {
     /// A replacement or trigger-modification rule (CR 614; Doubling
     /// Season, Panharmonicon, Elesh Norn).
     Replacement(crate::static_ability::ReplacementRule),
-    /// A spell with modes: the caster chooses one (overload, choose-one
-    /// charms). Each mode may override the cost.
+    /// A spell with modes (CR 700.2): the caster chooses as many as
+    /// `choose` says as the spell is cast (CR 700.2a, 601.2b). Each mode may
+    /// override the cost (overload) or add one of its own (spree).
     ModalSpell {
         /// The modes to choose from.
         modes: &'static [SpellMode],
+        /// How many of them are chosen: "Choose one —", "Choose two —",
+        /// "Choose one or more —".
+        choose: ModeCount,
     },
     /// Suspend: exile with N time counters from your hand (sorcery speed);
     /// remove one at your upkeep, cast for free when the last is removed.
@@ -449,6 +600,10 @@ pub enum AbilityDef {
         /// card that cannot be drawn, and for Karn a loyalty tick that cannot
         /// be taken.
         targets: Option<crate::effect::TargetReq>,
+        /// A second instance of the word "target", as on
+        /// [`AbilityDef::Spell::second_targets`] (Oko, Thief of Crowns' −5:
+        /// one of yours, one of theirs).
+        second_targets: Option<crate::effect::TargetReq>,
     },
     /// A triggered ability with modes: the controller chooses one when it
     /// triggers (Charming Prince, Aether Channeler).
@@ -472,6 +627,37 @@ pub enum AbilityDef {
 }
 
 impl AbilityDef {
+    /// Whether this is a cycling ability: "Cycling [cost]" means "[Cost],
+    /// Discard this card: Draw a card" and works only from the hand
+    /// (CR 702.29a). That shape is the whole definition, so it is what is
+    /// read: an ability activated from the hand whose cost discards the card
+    /// itself and whose effect is to draw one card. A card that discards
+    /// itself for anything else — Trumpeting Carnosaur's damage, Boseiju's
+    /// channel — is not cycled. Typecycling (702.29e), which searches
+    /// instead, is not read here; no card in the pool that cares about being
+    /// cycled prints it.
+    #[must_use]
+    pub fn is_cycling(&self) -> bool {
+        match self {
+            Self::Activated {
+                cost,
+                effects,
+                zone: ActivationZone::Hand,
+                ..
+            }
+            | Self::ActivatedConditional {
+                cost,
+                effects,
+                zone: ActivationZone::Hand,
+                ..
+            } => {
+                cost.parts.contains(&crate::cost::CostPart::DiscardSelf)
+                    && *effects == [crate::effect::Effect::draw(1)]
+            }
+            _ => false,
+        }
+    }
+
     /// Whether this is a mana ability, which the stack never sees (CR 605.1).
     ///
     /// One reading for every caller, because two would disagree: an ability
@@ -494,6 +680,31 @@ impl AbilityDef {
             }
         )
     }
+
+    /// Whether this is a **triggered** mana ability (CR 605.1b): it has no
+    /// target, it triggers from a mana ability — [`Trigger::TappedForMana`]
+    /// is the one trigger in the vocabulary that does — and it could add
+    /// mana. Such an ability resolves the moment it triggers, off the stack
+    /// (CR 605.4a).
+    ///
+    /// Derived, as [`Self::is_mana_ability`]'s flag is checked against the
+    /// same three questions by `lints::mana_ability_fault`: a "whenever you
+    /// tap this land for mana" that targets (Forbidden Orchard's) is an
+    /// ordinary trigger and goes on the stack.
+    #[must_use]
+    pub fn is_triggered_mana_ability(&self) -> bool {
+        matches!(
+            self,
+            Self::Triggered {
+                trigger: Trigger::TappedForMana(_),
+                targets: None,
+                effects,
+                ..
+            } if effects
+                .iter()
+                .any(|effect| matches!(effect, crate::effect::Effect::AddMana { .. }))
+        )
+    }
 }
 
 /// A modification applied after a clone copies its target.
@@ -511,6 +722,38 @@ pub enum CopyMod {
     AddKeyword(crate::KeywordSet),
     /// Enters with counters of a kind.
     AddCounter(crate::CounterKind, u16),
+    /// Sets power and toughness ("except it's a 4/4", eternalize,
+    /// CR 702.129a). A copiable value of the copy (CR 707.9b).
+    SetPT(i16, i16),
+    /// Sets the colors ("except it's black"), replacing the copied ones
+    /// (CR 707.9b).
+    SetColor(baylee_core::color::ColorSet),
+    /// "…with no mana cost" (embalm, eternalize): the copy has no mana
+    /// cost, so its mana value is 0 (CR 202.3a).
+    NoManaCost,
+    /// Enters with **X** counters of a kind: Altered Ego's "except it enters
+    /// with X additional +1/+1 counters on it".
+    ///
+    /// X is the value announced for the spell that became this permanent
+    /// (CR 107.3m), which is what the entering object's X holds by the time
+    /// the copy is made; a copier put onto the battlefield from anywhere but
+    /// the stack has an X of 0 (CR 107.3g) and gets none. The counters come
+    /// with the copy and only with it, which is why this is not
+    /// `EnterModifier::WithCounters`: an Ego that declines to copy is the
+    /// 0/0 it prints.
+    AddCounterX(crate::CounterKind),
+    /// Enters with counters of a kind **if** what it became has one of these
+    /// card types: Spark Double's "…except it enters with an additional
+    /// +1/+1 counter on it if it's a creature, it enters with an additional
+    /// loyalty counter on it if it's a planeswalker".
+    ///
+    /// The types asked are the copy's, read after the copying: the copied
+    /// permanent's copiable values (CR 707.2) with this list's own type
+    /// changes applied (CR 707.9b), never the copier's printed types, which
+    /// the copy replaced. Each clause asks for itself, so a copy of a
+    /// permanent that is both a creature and a planeswalker takes both
+    /// counters, and a copy of one that is neither takes none.
+    AddCounterIf(baylee_core::types::TypeSet, crate::CounterKind, u16),
     /// Keeps the copier's own printed **static** abilities beside the
     /// copied ones ("except it has Sakashima's other abilities").
     ///
@@ -574,6 +817,40 @@ pub enum CopyMod {
     Grant(&'static crate::static_ability::Modifier),
 }
 
+/// How many modes a modal spell's caster chooses (CR 700.2): the count
+/// its instruction prints before the bulleted list.
+///
+/// A choice of more than one is announced as one set (CR 700.2a), no mode
+/// twice (CR 700.2d), and the chosen modes are carried out in the order
+/// they are printed, whatever order they were picked in (CR 608.2c).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct ModeCount {
+    /// The fewest modes that may be chosen.
+    pub min: u8,
+    /// The most, never more than the modes printed.
+    pub max: u8,
+}
+
+impl ModeCount {
+    /// "Choose one —".
+    pub const ONE: Self = Self { min: 1, max: 1 };
+    /// "Choose two —" (Cryptic Command).
+    pub const TWO: Self = Self { min: 2, max: 2 };
+    /// "Choose one or more —" (Farewell), and what spree means
+    /// (CR 702.172a).
+    pub const ONE_OR_MORE: Self = Self {
+        min: 1,
+        max: u8::MAX,
+    };
+
+    /// Whether only one mode is ever chosen: the spell carries a mode index
+    /// rather than a set of them.
+    #[must_use]
+    pub const fn is_one(self) -> bool {
+        self.max == 1
+    }
+}
+
 /// One mode of a [`crate::AbilityDef::ModalSpell`].
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct SpellMode {
@@ -586,8 +863,23 @@ pub struct SpellMode {
     /// target artifact", and read as exactly one that trigger vanishes off
     /// the stack on a board with no other artifact on it.
     pub targets: Option<crate::effect::TargetReq>,
+    /// A second instance of the word "target" in this mode, as on
+    /// [`crate::AbilityDef::Spell::second_targets`]: Archdruid's Charm's
+    /// "Put a +1/+1 counter on target creature you control. It deals damage
+    /// equal to its power to target creature you don't control."
+    ///
+    /// A modal **spell**'s only: the cast wizard asks it once the mode is
+    /// chosen. A modal trigger's mode never carries one, which
+    /// `no_modal_trigger_mode_prints_a_second_target` holds.
+    pub second_targets: Option<crate::effect::TargetReq>,
     /// Cost override for this mode (overload); `None` = the printed cost.
     pub cost_override: Option<baylee_core::mana::ManaCost>,
+    /// The cost printed before this mode's effect, paid on top of the
+    /// spell's when the mode is chosen (CR 700.2h): spree's "+ {1} —"
+    /// (CR 702.172a). Several chosen modes pay every one of theirs. Not an
+    /// alternative cost: a spell cast for one — without paying its mana
+    /// cost, say — still has these added to it (CR 118.9d, 601.2f).
+    pub additional_cost: Option<baylee_core::mana::ManaCost>,
 }
 
 /// Which event a trigger-modifying rule cares about.
@@ -616,6 +908,7 @@ mod tests {
             mana_ability,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         }
     }
 
@@ -630,7 +923,43 @@ mod tests {
             zone: ActivationZone::Battlefield,
             condition: Condition::ControlCount(&crate::Filter::ARTIFACT, 3),
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         }
+    }
+
+    /// CR 702.29a is the definition, read as a shape: "[Cost], Discard this
+    /// card: Draw a card", from the hand. Each neighbour that shares all but
+    /// one half is not cycling: another effect (Trumpeting Carnosaur's
+    /// damage), another zone, a cost that keeps the card.
+    #[test]
+    fn only_discard_this_card_draw_a_card_from_the_hand_is_cycling() {
+        use crate::cost::{Cost, CostPart};
+        use crate::effect::{Amount, TargetSpec};
+        const DISCARD: Cost = Cost {
+            mana: baylee_core::mana::ManaCost::ZERO,
+            parts: &[CostPart::DiscardSelf],
+        };
+        const DRAW: &[Effect] = &[Effect::draw(1)];
+        const DAMAGE: &[Effect] = &[Effect::DealDamage {
+            amount: Amount::Fixed(3),
+            target: TargetSpec::Object(&crate::Filter::CREATURE),
+        }];
+        let ability = |cost, effects, zone| AbilityDef::Activated {
+            cost,
+            effects,
+            targets: None,
+            second_targets: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: false,
+            zone,
+            limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
+        };
+        assert!(ability(DISCARD, DRAW, ActivationZone::Hand).is_cycling());
+        assert!(!ability(DISCARD, DAMAGE, ActivationZone::Hand).is_cycling());
+        assert!(!ability(DISCARD, DRAW, ActivationZone::Battlefield).is_cycling());
+        assert!(!ability(crate::cost::Cost::FREE, DRAW, ActivationZone::Hand).is_cycling());
+        assert!(!activated(false).is_cycling());
     }
 
     /// CR 605.1 makes a mana ability the exception, and the flag is the
@@ -672,6 +1001,7 @@ mod tests {
                 trigger: Trigger::ETB,
                 effects: NOTHING,
                 targets: None,
+                second_targets: None,
                 once_per_turn: false,
                 condition: None,
             },
@@ -702,7 +1032,10 @@ mod tests {
             AbilityDef::Replacement(ReplacementRule::DoubleTokenCreation {
                 controller_filter: &crate::Filter::Any,
             }),
-            AbilityDef::ModalSpell { modes: &[] },
+            AbilityDef::ModalSpell {
+                modes: &[],
+                choose: ModeCount::ONE,
+            },
             AbilityDef::Suspend {
                 counters: 3,
                 cost: baylee_core::mana::ManaCost::ZERO,
@@ -719,6 +1052,7 @@ mod tests {
                 cost: 1,
                 effects: NOTHING,
                 targets: None,
+                second_targets: None,
             },
             AbilityDef::ModalTriggered {
                 trigger: Trigger::ETB,

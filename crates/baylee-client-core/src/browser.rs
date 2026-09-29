@@ -1362,6 +1362,9 @@ impl Browser {
     /// pile it *also* offers, because the tabs would then be claiming the
     /// permanent is not an answer.
     fn sole_zone(view: &PlayerView, interaction: &Interaction) -> Option<BrowseZone> {
+        if Self::about_the_shown(view, interaction) {
+            return Some(BrowseZone::Looking);
+        }
         let mut only = None;
         for id in interaction.selectable() {
             let found = zones_of(view).into_iter().find(|zone| {
@@ -1436,9 +1439,21 @@ impl Browser {
         if interaction.is_ordering() {
             return true;
         }
+        if Self::about_the_shown(view, interaction) {
+            return true;
+        }
         interaction.selectable().iter().any(|id| {
             !view.battlefield.iter().any(|o| o.id == *id) && !view.hand.iter().any(|h| h.id == *id)
         })
+    }
+
+    /// Whether the question is about the cards the seat is being shown
+    /// while it names none of them: a pile choice (Fact or Fiction), which
+    /// is answered by position. `looking_at` holds only what the seat's own
+    /// question is about, so shown cards and nothing to click is exactly
+    /// that, and the sheet the reveal opened stays open under it.
+    fn about_the_shown(view: &PlayerView, interaction: &Interaction) -> bool {
+        interaction.is_mine() && interaction.selectable().is_empty() && !view.looking_at.is_empty()
     }
 
     /// Every zone with something in it, in tab order.
@@ -1526,7 +1541,17 @@ impl Browser {
                 // A chooser lists answers, not the entire graveyard. Manual
                 // browsing still shows every public card, even while another
                 // player has a question or this seat holds normal priority.
-                if self.open == Opening::ForChoice && mine.is_some() && !selectable {
+                //
+                // What the seat is being shown is never filtered: every card
+                // in `looking_at` is one the question is about. A pile choice
+                // (Fact or Fiction) is answered by position, so none of its
+                // cards is selectable, and they are the whole of what the
+                // player chooses between.
+                if self.open == Opening::ForChoice
+                    && mine.is_some()
+                    && !selectable
+                    && zone != BrowseZone::Looking
+                {
                     continue;
                 }
                 out.push(BrowseRow {

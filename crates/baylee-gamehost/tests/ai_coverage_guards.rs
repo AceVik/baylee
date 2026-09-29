@@ -105,11 +105,12 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
         | AbilityDef::ActivatedConditional { effects, .. }
         | AbilityDef::SagaChapter { effects, .. }
         | AbilityDef::Loyalty { effects, .. } => vec![effects],
-        AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
             modes.iter().map(|mode| mode.effects).collect()
         }
         AbilityDef::Unimplemented
         | AbilityDef::Ward { .. }
+        | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
         | AbilityDef::Static(_)
@@ -129,7 +130,10 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
 /// now 2731.
 fn counters_put(effects: &'static [Effect], seen: &mut usize, found: &mut Vec<CounterKind>) {
     Effect::walk(effects, seen, &mut |effect| {
-        if let Effect::AddCounter { kind, .. } | Effect::AddCounterFilter { kind, .. } = effect {
+        if let Effect::AddCounter { kind, .. }
+        | Effect::AddCounterFilter { kind, .. }
+        | Effect::DoubleCountersFilter { kind, .. } = effect
+        {
             found.push(*kind);
         }
     });
@@ -347,7 +351,9 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
             count_reaching(|effect| {
                 matches!(
                     effect,
-                    Effect::SearchLibrary { .. } | Effect::OptionalBasicLandSearchFor { .. }
+                    Effect::SearchLibrary { .. }
+                        | Effect::SearchLibraryUpTo { .. }
+                        | Effect::OptionalBasicLandSearchFor { .. }
                 )
             }),
         ),
@@ -841,8 +847,8 @@ fn no_pool_face_states_two_mode_lists() {
             let mut lists: Vec<&'static [baylee_cards::dsl::SpellMode]> = Vec::new();
             let mut here = 0;
             for ability in def.abilities_for_face(index) {
-                let (AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. }) =
-                    ability
+                let (AbilityDef::ModalSpell { modes, .. }
+                | AbilityDef::ModalTriggered { modes, .. }) = ability
                 else {
                     continue;
                 };

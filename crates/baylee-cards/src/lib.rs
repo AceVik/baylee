@@ -38,6 +38,10 @@ pub mod lines;
 /// Pool-wide lints over the card data (tests only).
 #[cfg(test)]
 mod lints;
+/// The L5 mutation switch, `BAYLEE_MUTATE` (tests and the `mutate` feature
+/// only; `docs/verification-hooks.md`).
+#[cfg(any(test, feature = "mutate"))]
+pub mod mutate;
 /// The English Oracle text of a card's face (the reader of
 /// [`generated_oracle`]).
 pub mod oracle;
@@ -53,13 +57,24 @@ pub use baylee_cards_dsl as dsl;
 /// Looks up a card definition by Scryfall oracle id.
 #[must_use]
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
-    generated::by_oracle_id(oracle_id)
+    generated::by_oracle_id(oracle_id).map(mutated)
 }
 
 /// Looks up a card definition by its dense runtime index.
 #[must_use]
 pub fn by_index(index: CardIndex) -> Option<&'static CardDef> {
-    generated::by_index(index)
+    generated::by_index(index).map(mutated)
+}
+
+// The registry's three doors hand out a mutant in the card's place while
+// `BAYLEE_MUTATE` names one (`mutate`), and the card itself everywhere else.
+#[cfg(any(test, feature = "mutate"))]
+use mutate::apply as mutated;
+
+#[cfg(not(any(test, feature = "mutate")))]
+#[inline]
+const fn mutated(def: &'static CardDef) -> &'static CardDef {
+    def
 }
 
 /// Number of registered cards.
@@ -75,7 +90,10 @@ pub fn count() -> usize {
 /// sees when nothing else sorts the list, and a `HashMap`'s order is not an
 /// order.
 pub fn all() -> impl Iterator<Item = &'static CardDef> {
-    generated::BY_INDEX.iter().filter_map(|slot| *slot)
+    generated::BY_INDEX
+        .iter()
+        .filter_map(|slot| *slot)
+        .map(mutated)
 }
 
 /// Hash of the whole pool (client cache invalidation / gateway handshake).
@@ -410,7 +428,7 @@ mod tests {
                     // override, and `no_modal_trigger_overrides_a_cost`
                     // below is what holds that — and is what would fail
                     // first if a card ever put a cost there.
-                    AbilityDef::ModalSpell { modes } => {
+                    AbilityDef::ModalSpell { modes, .. } => {
                         for mode in *modes {
                             if let Some(cost) = mode.cost_override {
                                 add(&cost);
@@ -475,6 +493,43 @@ mod tests {
             seen >= 7,
             "only {seen} modal triggers in the pool, so this proves nothing; \
              six cards print seven of them"
+        );
+    }
+
+    /// A mode of a modal **trigger** never prints a second target.
+    ///
+    /// `SpellMode::second_targets` is read by the cast wizard alone, which a
+    /// trigger never passes through: its targets are chosen as it is put on
+    /// the stack (CR 603.3d), by a path that asks one instance of the word.
+    /// A trigger's mode that wrote one would be put on the stack with the
+    /// second instance unanswered and resolve against nothing, so the day a
+    /// card needs it this fails first and names the card, rather than the
+    /// card resolving half of itself.
+    #[test]
+    fn no_modal_trigger_mode_prints_a_second_target() {
+        use baylee_cards_dsl::AbilityDef;
+
+        let mut seen = 0usize;
+        for (_, def) in generated::ALL {
+            for face in 0..def.faces.len() {
+                for ability in def.abilities_for_face(face) {
+                    let AbilityDef::ModalTriggered { modes, .. } = ability else {
+                        continue;
+                    };
+                    seen += 1;
+                    for (at, mode) in modes.iter().enumerate() {
+                        assert!(
+                            mode.second_targets.is_none(),
+                            "{} face {face} mode {at} is a trigger's and says \"target\" twice",
+                            def.name()
+                        );
+                    }
+                }
+            }
+        }
+        assert!(
+            seen >= 7,
+            "only {seen} modal triggers in the pool, so this proves nothing"
         );
     }
 
@@ -586,7 +641,11 @@ mod tests {
                 .collect::<Vec<_>>()
                 .join(" ")
                 .to_uppercase();
-            let prints_all_five = SUBTYPES.iter().all(|s| printed.contains(s));
+            // Boseiju, Who Endures prints the modern wording of the same
+            // thing Spoils of Victory lists: "a land card with a basic land
+            // type" (CR 205.3i), which a Breeding Pool satisfies too.
+            let prints_all_five = SUBTYPES.iter().all(|s| printed.contains(s))
+                || printed.contains("WITH A BASIC LAND TYPE");
             if names_all_five && !prints_all_five {
                 offenders.push(name);
             }

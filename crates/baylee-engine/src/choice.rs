@@ -139,6 +139,20 @@ pub enum Pending {
         /// All creature types (ids 0..=349).
         options: Vec<baylee_core::ids::SubtypeId>,
     },
+    /// Choose a card name ("as this enters, choose a card name" — Pithing
+    /// Needle), answered with [`PlayerAction::ChooseCardName`].
+    ///
+    /// No list rides with the question. Any card's name may be chosen, of
+    /// any of its faces (CR 201.4, 201.4b–f), and the pool is the whole of
+    /// what a game can mean by one (a token's name only counts when a card
+    /// has it too), so the options are the card pool itself: a few thousand
+    /// faces every client and agent already has, which a list here would
+    /// send again with every frame that asks. The engine checks the answer
+    /// against the pool it plays with.
+    ChooseCardName {
+        /// Choosing player.
+        player: PlayerId,
+    },
     /// Choose a mana color (choice-restricted mana abilities).
     ChooseColor {
         /// Choosing player.
@@ -177,7 +191,8 @@ pub enum Pending {
         /// The legal cast options.
         options: Vec<CastModeDesc>,
     },
-    /// Choose the value of X for a spell.
+    /// Choose a number: the value of X, how many times to pay a replicate
+    /// cost, or a share of a division. `reason` says which.
     ChooseNumber {
         /// Choosing player.
         player: PlayerId,
@@ -185,6 +200,9 @@ pub enum Pending {
         min: u32,
         /// Maximum value.
         max: u32,
+        /// What the number is (UI hint). A frame without it is asking for X.
+        #[serde(default)]
+        reason: NumberPrompt,
     },
     /// Choose a target player.
     ChoosePlayer {
@@ -208,6 +226,16 @@ pub enum Pending {
         /// Why the question is asked (UI hint).
         prompt: ArrangePrompt,
     },
+    /// Choose one of the piles another player separated (Fact or Fiction):
+    /// the chosen pile goes into the hand and the others into the
+    /// graveyard. Answered with [`PlayerAction::ChooseMode`], the pile's
+    /// position; a pile may be empty and is still a pile to choose.
+    ChoosePile {
+        /// Choosing player.
+        player: PlayerId,
+        /// The piles, in the order the separation gave them.
+        piles: Vec<Vec<ObjectId>>,
+    },
     /// The game is over.
     GameOver(GameResult),
 }
@@ -230,11 +258,13 @@ impl Pending {
             | Self::ChooseCards { player, .. }
             | Self::ChooseTargets { player, .. }
             | Self::ChooseSubtype { player, .. }
+            | Self::ChooseCardName { player }
             | Self::ChooseColor { player, .. }
             | Self::YesNo { player, .. }
             | Self::ChooseCastMode { player, .. }
             | Self::ChooseNumber { player, .. }
             | Self::ChoosePlayer { player, .. }
+            | Self::ChoosePile { player, .. }
             | Self::Arrange { player, .. } => Some(*player),
             Self::GameOver(_) => None,
         }
@@ -263,6 +293,11 @@ pub enum CastModeKind {
     Alternative(usize),
     /// A spell mode (overload and friends).
     Mode(usize),
+    /// Several modes of a spell that chooses more than one (CR 700.2a):
+    /// bit `i` is mode `i`. Announced as one set, and carried out in the
+    /// order the modes are printed (CR 608.2c). The option's cost is the
+    /// spell's plus every chosen mode's own (spree, CR 702.172a).
+    Modes(u8),
     /// Cast a non-front face for its own printed cost — an MDFC's back
     /// (CR 712.11b), an adventure (CR 715), a disturb back (CR 702.146).
     ///
@@ -280,6 +315,18 @@ pub enum CastModeKind {
     Disguise,
     /// Miracle cast (CR 702.94).
     Miracle,
+    /// Cast from the graveyard for the card's printed flashback cost
+    /// (CR 702.34a). A *granted* flashback is paid with the mana cost and is
+    /// offered as [`Self::Normal`].
+    Flashback,
+    /// Cast for the card's dash cost rather than its mana cost
+    /// (CR 702.109a): the permanent it becomes has haste and returns to its
+    /// owner's hand at the beginning of the next end step.
+    Dash,
+    /// Cast from the owner's graveyard for the card's escape cost
+    /// (CR 702.138a): its mana, and as many other cards from that graveyard
+    /// exiled, asked as the cast's cost (`ChoicePrompt::CostExile`).
+    Escape,
 }
 
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
@@ -338,7 +385,9 @@ pub enum ChoicePrompt {
     /// takes either, and tapping the Forest for mana *first* is the play.
     CostReturn,
     /// "Exile a creature card from your graveyard" in an activation cost
-    /// (Moorland Haunt, Mines of Moria).
+    /// (Moorland Haunt, Mines of Moria), and escape's "exile five other
+    /// cards from your graveyard" (CR 702.138a), asked once with `min` and
+    /// `max` both the count.
     ///
     /// Not [`Self::CostDiscard`], though both answers end up somewhere a
     /// card is not played from: the noun has to say which pile the card
@@ -359,6 +408,16 @@ pub enum ChoicePrompt {
     /// listing everything the player controls would ask them to re-confirm
     /// the whole board every turn.
     LeaveTapped,
+    /// Revealed cards of one card type, one of which may be put into the
+    /// hand (Atraxa, Grand Unifier: "for each card type, you may put a card
+    /// of that type … into your hand"). Asked once per type, and the type
+    /// is the question: the menu holds only that type's cards. Taking one is
+    /// never worse than leaving it, since the rest go to the bottom, so the
+    /// house AI takes the best.
+    OneOfType {
+        /// The card type asked about.
+        card_type: baylee_core::types::TypeSet,
+    },
     /// "You may reveal a matching card from your hand; if you don't, this
     /// land enters tapped."
     ///
@@ -369,8 +428,89 @@ pub enum ChoicePrompt {
     /// does not recognise, so a generic one would have every AI reveal land
     /// enter tapped for the rest of the game.
     RevealOrEnterTapped,
+    /// Looked-at cards, one or more of which go into the hand (Expressive
+    /// Iteration's first question, a dig's keep). The answer is what the
+    /// player keeps, so the house AI takes the best of them.
+    PutIntoHand,
+    /// Looked-at cards, the chosen one of which goes on the bottom of the
+    /// library (Expressive Iteration's second question): the answer is what
+    /// the player gives up.
+    PutOnBottom,
+    /// Exiled cards, the chosen one of which the player may play this turn
+    /// (Dauthi Voidwalker).
+    PlayFromExile,
+    /// A looked-at card the player may put onto the battlefield, and which
+    /// goes elsewhere if they name nothing (Risen Reef's land). The answer
+    /// is what the player puts down, so the house AI puts it down.
+    PutOntoBattlefield,
+    /// Cards in a graveyard, one of which may be put where the effect says;
+    /// naming none searches the library instead (Finale of Devastation's
+    /// "search your library and/or graveyard"). The house AI takes the best.
+    FromGraveyard,
+    /// Cards in the hand, the chosen ones of which are discarded — not as a
+    /// price but as the effect itself ("you may discard up to two cards; if
+    /// you do, draw that many"). The house AI lets its least valuable card
+    /// go.
+    Discard,
+    /// Another player's found cards, the chosen ones of which go to their
+    /// owner's graveyard and the rest to that player's hand (Realms
+    /// Uncharted's opponent). The chooser is denying the other player, so
+    /// the house AI sends the best of them away.
+    PutIntoGraveyard,
+    /// Revealed cards to separate into two piles (Fact or Fiction's
+    /// opponent): the chosen ones are the first pile and the rest the
+    /// second, and either may be empty. The other player then takes one
+    /// pile into their hand, so the house AI puts the best card alone.
+    FirstPile,
+    /// Creatures to tap to crew a Vehicle (CR 702.122a): any number of
+    /// them, with total power `power` or greater. The engine refuses an
+    /// answer whose total is short.
+    CostCrew {
+        /// The N of "Crew N".
+        power: u8,
+    },
     /// Generic selection.
     Generic,
+}
+
+/// What a [`Pending::ChooseNumber`] counts (UI hint).
+///
+/// Three questions share the variant because each is a bounded number the
+/// player announces as the spell or ability is put on the stack (CR 601.2b,
+/// 601.2d), and the answer is [`PlayerAction::ChooseNumber`] every time;
+/// what they *mean* is this field, for the reason [`TargetPrompt`] gives
+/// about convoke. Without it a
+/// player casting Lose Focus with mana to spare was asked to "choose a
+/// number (0–2)" and nothing said what for.
+#[derive(
+    Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
+)]
+pub enum NumberPrompt {
+    /// The value of X (CR 107.3): a spell's printed `{X}`, an activation's,
+    /// or the X of a counter cost.
+    #[default]
+    X,
+    /// How many times to pay a spell's replicate cost (CR 702.56a). The
+    /// maximum is the most the caster's floating mana pays for, and the
+    /// spell is copied once for each.
+    Replicate {
+        /// The cost paid each time.
+        cost: baylee_core::mana::ManaCost,
+    },
+    /// "Damage divided as you choose" (CR 601.2d): how much of what is left
+    /// goes to one target, asked target by target in the order they were
+    /// chosen. The last target takes the rest and is not asked, and each
+    /// target is given at least 1, which is what `min` and `max` say.
+    DivideDamage {
+        /// The target this share goes to.
+        target: ObjectId,
+        /// Its place among the targets, from 0.
+        index: u8,
+        /// How many targets share the damage.
+        of: u8,
+        /// The damage not yet given to a target.
+        left: u32,
+    },
 }
 
 /// Why a [`Pending::ChooseTargets`] is presented (UI hint).
@@ -450,8 +590,36 @@ pub enum YesNoPrompt {
         /// (CR 903.8), so the prompt has to say which is happening.
         to_library: bool,
     },
+    /// "You may cast that card without paying its mana cost" — cascade's
+    /// offer (CR 702.85a), about the card it just exiled.
+    CastWithoutPaying {
+        /// The exiled card.
+        card: baylee_core::ids::ObjectId,
+    },
+    /// "You may cast that card", paying its costs, as the ability resolves
+    /// (Conduit of Worlds, CR 608.2g). A yes opens a payment window for its
+    /// mana cost.
+    CastPaying {
+        /// The card to cast.
+        card: baylee_core::ids::ObjectId,
+    },
     /// "You may …" inside a resolving ability ([`baylee_cards_dsl::Effect::MayDo`]).
     MayDo,
+    /// "Its owner puts it on their choice of the top or bottom of their
+    /// library" ([`baylee_cards_dsl::Effect::OwnerPutsOnTopOrBottom`]),
+    /// asked of the owner: yes is the top, no the bottom.
+    TopOfLibrary {
+        /// The card that is going.
+        card: baylee_core::ids::ObjectId,
+    },
+    /// "You may cast that card without paying its mana cost. If you don't
+    /// cast it, put that card into your hand." (discover, CR 701.57a),
+    /// asked of the player who discovered it: yes casts it, no puts it
+    /// into their hand. Asked only of a card that can be cast.
+    Discover {
+        /// The discovered card, in exile.
+        card: baylee_core::ids::ObjectId,
+    },
     /// Generic yes/no (optional effects).
     Generic,
 }
@@ -493,7 +661,9 @@ impl YesNoPrompt {
     /// the "you may" not done, and a draw offer not accepted. The two
     /// commander questions are not: declining leaves the commander in a
     /// graveyard, in exile, or tucked into a library, which is a loss and
-    /// not a pause. The house answers those.
+    /// not a pause. The house answers those. Neither is
+    /// [`Self::TopOfLibrary`]: both answers move the card, and "no" is the
+    /// bottom rather than nothing.
     #[must_use]
     pub const fn declining_does_nothing(self) -> bool {
         match self {
@@ -502,12 +672,96 @@ impl YesNoPrompt {
             | Self::PayTax { .. }
             | Self::PayLife { .. }
             | Self::Miracle { .. }
+            | Self::CastWithoutPaying { .. }
+            | Self::CastPaying { .. }
             | Self::DrawOffer { .. }
             | Self::MayDo
             | Self::Generic => true,
-            Self::CommanderZone { .. } | Self::CommanderReplace { .. } | Self::PayPact { .. } => {
-                false
+            // Declining discover moves the card into the hand: a card for
+            // the player, but not nothing, and a free spell is not a
+            // question to answer by the clock.
+            Self::CommanderZone { .. }
+            | Self::CommanderReplace { .. }
+            | Self::PayPact { .. }
+            | Self::TopOfLibrary { .. }
+            | Self::Discover { .. } => false,
+        }
+    }
+}
+
+impl Pending {
+    /// Brings a counted choice within what its options can give, and says
+    /// whether the question then has an answer at all.
+    ///
+    /// A choice of cards asks for no more cards than it offers: an effect
+    /// that attempts the impossible does only as much as possible (CR
+    /// 609.3), a player can't choose what is impossible (CR 608.2d), and a
+    /// search that is short finds as many as it can (CR 701.23d). The piles
+    /// of an arrangement are held to the cards left the same way. That is
+    /// the whole of what fitting does; `Engine::apply` runs it over every
+    /// question it hands out, so a builder that forgets the bound asks a
+    /// question that still has an answer.
+    ///
+    /// Every other question has an answer by its shape or has none, and
+    /// fitting cannot give it one. A target choice with fewer options than
+    /// it must name is a spell or ability that cannot be put on the stack
+    /// (CR 601.2c, CR 603.3d), which its builder refuses; shrinking its `min`
+    /// here would cast a spell with fewer targets than it requires. A menu
+    /// with nothing on it has no answer at all.
+    ///
+    /// An exhaustive match on purpose, for [`timeout_answer`]'s reason: a new
+    /// question is classified here before it compiles.
+    pub fn fit_to_options(&mut self) -> bool {
+        match self {
+            Self::ChooseCards {
+                options, min, max, ..
+            } => {
+                let n = u8::try_from(options.len()).unwrap_or(u8::MAX);
+                *max = (*max).min(n);
+                *min = (*min).min(*max);
+                true
             }
+            Self::Arrange { cards, piles, .. } => {
+                // Every card still goes somewhere, and no pile asks for more
+                // than is left once the piles before it have their least.
+                let total = u32::try_from(cards.len()).unwrap_or(u32::MAX);
+                let mut left = total;
+                let mut room = 0_u32;
+                for pile in piles.iter_mut() {
+                    pile.min = pile.min.min(left);
+                    pile.max = pile.max.min(total);
+                    left -= pile.min;
+                    room = room.saturating_add(pile.max);
+                }
+                room >= total
+            }
+            Self::ChooseTargets {
+                options,
+                player_options,
+                min,
+                max,
+                ..
+            } => usize::from(*min) <= options.len() + player_options.len() && min <= max,
+            Self::ChooseNumber { min, max, .. } => min <= max,
+            Self::LegendChoice { options, .. } => !options.is_empty(),
+            Self::ChooseSubtype { options, .. } => !options.is_empty(),
+            Self::ChooseColor { options, .. } => !options.is_empty(),
+            Self::ChooseCastMode { options, .. } => !options.is_empty(),
+            Self::ChoosePlayer { options, .. } => !options.is_empty(),
+            // One of the piles, and a pile may be empty.
+            Self::ChoosePile { piles, .. } => !piles.is_empty(),
+            // Answered by passing, keeping, declining or declaring nothing,
+            // by a count of cards the engine checks against the hand, or by
+            // any card name the pool has.
+            Self::Mulligan { .. }
+            | Self::ChooseCardName { .. }
+            | Self::MulliganBottom { .. }
+            | Self::Priority { .. }
+            | Self::ChooseAttackers { .. }
+            | Self::ChooseBlockers { .. }
+            | Self::DiscardChoice { .. }
+            | Self::YesNo { .. }
+            | Self::GameOver(_) => true,
         }
     }
 }
@@ -552,10 +806,12 @@ pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
         | Pending::ChooseCards { .. }
         | Pending::ChooseTargets { .. }
         | Pending::ChooseSubtype { .. }
+        | Pending::ChooseCardName { .. }
         | Pending::ChooseColor { .. }
         | Pending::ChooseCastMode { .. }
         | Pending::ChooseNumber { .. }
         | Pending::ChoosePlayer { .. }
+        | Pending::ChoosePile { .. }
         | Pending::Arrange { .. }
         | Pending::GameOver(_) => None,
     }
@@ -788,6 +1044,43 @@ pub const PREPARED_CAST: u32 = u32::MAX - GRANTED_SLOTS;
 /// A face-up special action, carried by the existing permanent action menu.
 pub const TURN_FACE_UP: u32 = PREPARED_CAST - 1;
 
+/// How many unlock slots there are: one per half of a Room.
+pub const UNLOCK_SLOTS: u32 = 2;
+
+/// The index unlocking `half` of a Room (0 the left, 1 the right) is
+/// offered under: CR 709.5e's special action (CR 116.2m), carried by the
+/// permanent's action menu as turning one face up is.
+#[must_use]
+pub const fn unlock_door(half: u8) -> u32 {
+    // `u32::from` is not const.
+    #[allow(clippy::cast_lossless)]
+    let half = (half & 1) as u32;
+    TURN_FACE_UP - 1 - half
+}
+
+/// Which half `index` unlocks, if it names an unlock: the decoder half of
+/// [`unlock_door`], and the one place that partition is read.
+#[must_use]
+pub const fn door_to_unlock(index: u32) -> Option<u8> {
+    let n = (TURN_FACE_UP - 1).wrapping_sub(index);
+    // Below `UNLOCK_SLOTS`, so it fits.
+    #[allow(clippy::cast_possible_truncation)]
+    if n < UNLOCK_SLOTS {
+        Some(n as u8)
+    } else {
+        None
+    }
+}
+
+/// Whether `index` is a special action (CR 116.2): turning a permanent face
+/// up, or unlocking a door. Neither is an activated ability, so what stops
+/// activating one stops neither (Pithing Needle, CR 602.5; split second,
+/// CR 702.61a).
+#[must_use]
+pub const fn is_special_action(index: u32) -> bool {
+    index == TURN_FACE_UP || door_to_unlock(index).is_some()
+}
+
 // The indices in this module are **not** `AbilityRef` indices, and that is
 // the distinction to keep before adding another one here. They name a slot in
 // one `LegalActions` — chosen fresh every time it is built, held by nothing
@@ -957,6 +1250,16 @@ pub enum PlayerAction {
     ChooseColor(baylee_core::mana::ManaColor),
     /// Choose a creature type (Roaming Throne & co.).
     ChooseSubtype(baylee_core::ids::SubtypeId),
+    /// Choose a card name: face `face` of the card `card` (Pithing Needle,
+    /// CR 201.4). Refused for a card the pool does not have and for a face
+    /// it does not print.
+    ChooseCardName {
+        /// The card whose name it is.
+        card: baylee_core::ids::CardIndex,
+        /// Which of its faces, since each face's name may be chosen
+        /// (CR 201.4b, 201.4d, 201.4f).
+        face: u8,
+    },
     /// Choose a cast option (index into `ChooseCastMode::options`).
     ChooseMode(usize),
     /// Choose a number (X values).
@@ -1091,10 +1394,26 @@ mod choice_tests {
             (yes_no(YesNoPrompt::PayTax { mana: 1 }), no.clone()),
             (yes_no(YesNoPrompt::PayLife { amount: 7 }), no.clone()),
             (yes_no(YesNoPrompt::Miracle { card: object() }), no.clone()),
+            (
+                yes_no(YesNoPrompt::CastWithoutPaying { card: object() }),
+                no.clone(),
+            ),
+            (
+                yes_no(YesNoPrompt::CastPaying { card: object() }),
+                no.clone(),
+            ),
             (yes_no(YesNoPrompt::DrawOffer { proposer: p }), no.clone()),
             (yes_no(YesNoPrompt::MayDo), no.clone()),
             (yes_no(YesNoPrompt::Generic), no),
             (yes_no(YesNoPrompt::CommanderZone { card: object() }), None),
+            // Declining a pact's payment loses the game, so nobody's clock
+            // declines it for them.
+            (
+                yes_no(YesNoPrompt::PayPact {
+                    cost: baylee_core::mana::ManaCost::from_symbol_generic(2),
+                }),
+                None,
+            ),
             (
                 yes_no(YesNoPrompt::CommanderReplace {
                     card: object(),
@@ -1102,6 +1421,16 @@ mod choice_tests {
                 }),
                 None,
             ),
+            (
+                yes_no(YesNoPrompt::PayPact {
+                    cost: baylee_core::mana::ManaCost::ZERO,
+                }),
+                None,
+            ),
+            // Both answers move the card; the house picks the end.
+            (yes_no(YesNoPrompt::TopOfLibrary { card: object() }), None),
+            // No still moves the card, into the hand; the house casts it.
+            (yes_no(YesNoPrompt::Discover { card: object() }), None),
             (
                 Pending::MulliganBottom {
                     player: p,
@@ -1158,6 +1487,7 @@ mod choice_tests {
                 },
                 None,
             ),
+            (Pending::ChooseCardName { player: p }, None),
             (
                 Pending::ChooseCastMode {
                     player: p,
@@ -1171,6 +1501,7 @@ mod choice_tests {
                     player: p,
                     min: 0,
                     max: 3,
+                    reason: NumberPrompt::X,
                 },
                 None,
             ),
@@ -1187,6 +1518,13 @@ mod choice_tests {
                     cards: vec![object()],
                     piles: vec![],
                     prompt: ArrangePrompt::Order,
+                },
+                None,
+            ),
+            (
+                Pending::ChoosePile {
+                    player: p,
+                    piles: vec![vec![object()], vec![]],
                 },
                 None,
             ),
@@ -1217,7 +1555,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 16 + 10;
+    const KINDS: usize = 18 + 15;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -1240,8 +1578,9 @@ mod choice_tests {
             Pending::ChoosePlayer { .. } => 13,
             Pending::Arrange { .. } => 14,
             Pending::GameOver(_) => 15,
+            Pending::ChooseCardName { .. } => 16,
             Pending::YesNo { prompt, .. } => {
-                16 + match prompt {
+                17 + match prompt {
                     YesNoPrompt::PayLifeOrEnterTapped { .. } => 0,
                     YesNoPrompt::Kicker => 1,
                     YesNoPrompt::PayTax { .. } => 2,
@@ -1253,8 +1592,13 @@ mod choice_tests {
                     YesNoPrompt::CommanderReplace { .. } => 6,
                     YesNoPrompt::MayDo => 7,
                     YesNoPrompt::Generic => 8,
+                    YesNoPrompt::TopOfLibrary { .. } => 11,
+                    YesNoPrompt::Discover { .. } => 12,
+                    YesNoPrompt::CastWithoutPaying { .. } => 13,
+                    YesNoPrompt::CastPaying { .. } => 14,
                 }
             }
+            Pending::ChoosePile { .. } => 17 + 15,
         }
     }
 
@@ -1315,6 +1659,33 @@ mod choice_tests {
         for n in 0..GRANTED_SLOTS {
             assert_ne!(PREPARED_CAST, granted_ability(n));
         }
+    }
+
+    #[test]
+    fn the_unlock_slots_sit_below_turning_face_up_and_decode_to_their_halves() {
+        // A Room's two doors take the next two indices down. Each decodes
+        // to its own half, none of them is another reserved index, and no
+        // other reserved index or printed position decodes as a door: one
+        // that did would unlock a door when a player pressed something else.
+        assert_eq!(door_to_unlock(unlock_door(0)), Some(0));
+        assert_eq!(door_to_unlock(unlock_door(1)), Some(1));
+        assert_eq!(unlock_door(0), TURN_FACE_UP - 1);
+        assert_eq!(unlock_door(1), TURN_FACE_UP - UNLOCK_SLOTS);
+        let others = (0..GRANTED_SLOTS)
+            .map(granted_ability)
+            .chain([PREPARED_CAST, TURN_FACE_UP, TURN_FACE_UP - UNLOCK_SLOTS - 1])
+            .chain([0, 1, 2, 7, 100, 65_535]);
+        for index in others {
+            assert_eq!(
+                door_to_unlock(index),
+                None,
+                "index {index} decoded as a door"
+            );
+        }
+        assert!(is_special_action(TURN_FACE_UP));
+        assert!(is_special_action(unlock_door(1)));
+        assert!(!is_special_action(PREPARED_CAST));
+        assert!(!is_special_action(granted_ability(0)));
     }
 
     // ---- priority holds ------------------------------------------------
@@ -1439,8 +1810,12 @@ mod choice_tests {
                 | YesNoPrompt::PayLife { .. }
                 | YesNoPrompt::PayPact { .. }
                 | YesNoPrompt::Miracle { .. }
+                | YesNoPrompt::CastWithoutPaying { .. }
+                | YesNoPrompt::CastPaying { .. }
                 | YesNoPrompt::DrawOffer { .. }
                 | YesNoPrompt::CommanderReplace { .. }
+                | YesNoPrompt::TopOfLibrary { .. }
+                | YesNoPrompt::Discover { .. }
                 | YesNoPrompt::Generic => false,
             }
         }
@@ -1452,7 +1827,11 @@ mod choice_tests {
             YesNoPrompt::PayTax { mana: 2 },
             YesNoPrompt::PayLife { amount: 7 },
             YesNoPrompt::Miracle { card: object() },
+            YesNoPrompt::CastWithoutPaying { card: object() },
+            YesNoPrompt::CastPaying { card: object() },
             YesNoPrompt::CommanderZone { card: object() },
+            YesNoPrompt::TopOfLibrary { card: object() },
+            YesNoPrompt::Discover { card: object() },
             YesNoPrompt::CommanderReplace {
                 card: object(),
                 to_library: true,
@@ -1473,5 +1852,57 @@ mod choice_tests {
         let nothing = LegalActions::default();
         assert!(nothing.nothing_but_passing());
         assert!(!nothing.has_mana_source());
+    }
+}
+
+#[cfg(test)]
+mod fit_to_options_tests {
+    use super::*;
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+
+    fn card(n: u32) -> ObjectId {
+        ObjectId::new(n, 0)
+    }
+
+    /// A choice of cards is held to the cards it offers (CR 609.3), and a
+    /// target choice is not: shrinking it would cast a spell with fewer
+    /// targets than it requires (CR 601.2c).
+    #[test]
+    fn a_choice_of_cards_is_fitted_and_a_short_target_choice_is_not() {
+        let mut cards = Pending::ChooseCards {
+            player: me(),
+            options: vec![card(1)],
+            min: 2,
+            max: 2,
+            prompt: ChoicePrompt::Generic,
+        };
+        assert!(cards.fit_to_options());
+        let Pending::ChooseCards { min, max, .. } = cards else {
+            unreachable!()
+        };
+        assert_eq!((min, max), (1, 1));
+
+        let mut targets = Pending::ChooseTargets {
+            player: me(),
+            options: vec![card(1)],
+            player_options: vec![],
+            min: 2,
+            max: 2,
+            reason: TargetPrompt::Targets,
+        };
+        assert!(!targets.fit_to_options());
+        let Pending::ChooseTargets { min, .. } = targets else {
+            unreachable!()
+        };
+        assert_eq!(min, 2, "a target choice keeps what it requires");
+
+        let mut nobody = Pending::ChoosePlayer {
+            player: me(),
+            options: vec![],
+        };
+        assert!(!nobody.fit_to_options(), "an empty menu has no answer");
     }
 }

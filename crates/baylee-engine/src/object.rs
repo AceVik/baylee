@@ -115,6 +115,51 @@ impl std::fmt::Debug for PrintedFace {
     }
 }
 
+/// A Room's unlocked designations (CR 709.5c), and whether it is one.
+///
+/// A permanent with a shared type line has two halves, each locked or
+/// unlocked; nothing else has either designation. One byte says both "not a
+/// Room" and "a Room with both doors locked" apart: the high bit marks a
+/// Room, the low two its unlocked halves (bit 0 the left, bit 1 the right).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+pub struct Doors(u8);
+
+impl Doors {
+    /// Not a Room permanent: nothing to be locked.
+    pub const NONE: Self = Self(0);
+    const ROOM: u8 = 0b1000_0000;
+
+    /// A Room permanent with the halves `unlocked` names unlocked.
+    #[must_use]
+    pub const fn room(unlocked: u8) -> Self {
+        Self(Self::ROOM | (unlocked & 0b11))
+    }
+
+    /// Whether this is a Room permanent at all.
+    #[must_use]
+    pub const fn is_room(self) -> bool {
+        self.0 & Self::ROOM != 0
+    }
+
+    /// The unlocked halves: bit 0 the left, bit 1 the right.
+    #[must_use]
+    pub const fn unlocked(self) -> u8 {
+        self.0 & 0b11
+    }
+
+    /// Whether `half` (0 the left, 1 the right) is unlocked.
+    #[must_use]
+    pub const fn is_unlocked(self, half: u8) -> bool {
+        half < 2 && self.unlocked() & (1 << half) != 0
+    }
+
+    /// The byte, for a hash.
+    #[must_use]
+    pub const fn bits(self) -> u8 {
+        self.0
+    }
+}
+
 /// An ability list, and the printed face it is when it is one.
 ///
 /// One value so the two cannot come apart: every place the engine sets a
@@ -161,6 +206,43 @@ pub struct AbilityLoc {
     pub source: ObjectId,
 }
 
+/// What the ability at `index` of `abilities` may target with its first
+/// instance of the word "target", `mode_index` naming a modal trigger's
+/// announced mode (CR 603.3c).
+///
+/// One arm list for two askers: `Engine::stack_target_req`, CR 608.2b's
+/// re-check, which reads the list an ability on the stack carries or its
+/// source's, and a copy of an ability (CR 707.10c), which writes the answer
+/// onto the copy so its new targets can be chosen against it. The
+/// activated twins are both here for the reason `stack_target_req` gives.
+///
+/// # Panics
+///
+/// On a modal trigger with no announced mode: the mode is announced as the
+/// ability goes on the stack (CR 603.3c), so one without it came off a push
+/// site that forgot to carry it, and falling back to the first mode is how a
+/// card resolves the wrong half of itself in silence.
+#[must_use]
+pub fn ability_target_req(
+    abilities: &[baylee_cards_dsl::AbilityDef],
+    index: u32,
+    mode_index: Option<u8>,
+) -> Option<baylee_cards_dsl::TargetReq> {
+    use baylee_cards_dsl::AbilityDef;
+    match abilities.get(index as usize)? {
+        AbilityDef::Activated { targets, .. }
+        | AbilityDef::ActivatedConditional { targets, .. }
+        | AbilityDef::Loyalty { targets, .. }
+        | AbilityDef::Triggered { targets, .. }
+        | AbilityDef::SagaChapter { targets, .. } => *targets,
+        AbilityDef::ModalTriggered { modes, .. } => {
+            let idx = mode_index.expect("a modal trigger on the stack has its mode") as usize;
+            modes.get(idx).and_then(|m| m.targets)
+        }
+        _ => None,
+    }
+}
+
 /// Copiable values (CR 707.2): printed or token-defined characteristics.
 ///
 /// Computed/layered characteristics are a *projection* of this base plus
@@ -203,14 +285,59 @@ pub struct Characteristics {
     /// by an entry and says nothing about what the permanent does with it,
     /// so Reflecting Pool asks this before counting that colour as mana.
     pub produced_chosen: bool,
+    /// The timestamp of the latest effect under which this object lost all
+    /// its abilities (CR 613.1f), if one did; never a printed value.
+    ///
+    /// Not a characteristic either, and nothing a copy takes: layer 1 copies
+    /// from the target's copiable values, which no layer-6 effect reaches
+    /// (CR 707.2). It is what [`GameObject::abilities`] reads to answer with
+    /// nothing, and the timestamp is what lets a grant applied after it
+    /// still land (CR 613.7): `effects::applies_to` compares against it.
+    ///
+    /// A `NonZeroU32` so the `Option` is four bytes and fits the padding the
+    /// three flags above leave (`tests/footprint.rs`); a timestamp is never
+    /// zero, and a game four billion timestamps long saturates rather than
+    /// wraps (`lost_at`).
+    pub abilities_lost: Option<std::num::NonZeroU32>,
+    /// The mana value, where it is not the mana cost's (CR 202.3b). A
+    /// nonmodal double-faced card's back face has no mana cost of its own,
+    /// and its mana value is its front face's, whether it is up on the
+    /// battlefield (CR 712.8e) or was cast transformed (CR 712.8c): a
+    /// Ravager of the Fells is a four, Benevolent Geist a two. A copy of such
+    /// a face is 0 (`layers::copiable_values`). `None` on every other face,
+    /// whose mana value is its cost's. Read it through [`Self::mana_value`],
+    /// never `mana_cost.cmc()`: a disturb face keeps its disturb cost in
+    /// `mana_cost`, which is what it is cast for and not its mana value.
+    pub front_mana_value: Option<u8>,
 }
 
 impl Characteristics {
+    /// The mana value (CR 202.3): the front face's for a nonmodal
+    /// double-faced card's back face ([`Self::front_mana_value`]), else the
+    /// mana cost's.
+    #[must_use]
+    pub const fn mana_value(&self) -> u32 {
+        match self.front_mana_value {
+            Some(value) => value as u32,
+            None => self.mana_cost.cmc(),
+        }
+    }
+
+    /// The timestamp [`Self::abilities_lost`] stores for an effect's, which
+    /// is never zero; past `u32::MAX` it saturates, so a later effect never
+    /// sorts before an earlier one.
+    #[must_use]
+    pub fn lost_at(timestamp: u64) -> std::num::NonZeroU32 {
+        std::num::NonZeroU32::new(u32::try_from(timestamp).unwrap_or(u32::MAX))
+            .unwrap_or(std::num::NonZeroU32::MIN)
+    }
+
     /// Builds the base characteristics from a card definition face.
     #[must_use]
     #[allow(clippy::too_many_lines)] // the color scan is one flat table
     pub fn from_face(def: &CardDef, face: usize, name: NameRef) -> Self {
-        let f = &def.faces[face.min(def.faces.len() - 1)];
+        let face = face.min(def.faces.len() - 1);
+        let f = &def.faces[face];
         let mut subtypes = SubtypeSet::from_slice(f.subtypes);
         // CR 702.73a: changeling is a **characteristic-defining ability** —
         // "this object is every creature type" — and CR 604.3 makes a CDA
@@ -367,6 +494,14 @@ impl Characteristics {
             produced_colors: produced,
             produced_chosen,
             produced_colorless,
+            abilities_lost: None,
+            // A back face nobody may cast out of hand is a nonmodal one
+            // (`xtask validate` holds the flag against Scryfall's layout):
+            // its mana value is the front face's (CR 202.3b). A modal back,
+            // an adventure and a split half are cast for their own cost and
+            // keep it.
+            front_mana_value: (face > 0 && !f.castable_from_hand)
+                .then(|| u8::try_from(def.faces[0].mana_cost.cmc()).unwrap_or(u8::MAX)),
         }
     }
 }
@@ -528,10 +663,27 @@ impl Status {
 /// Typed payload attached to cards in exile (or similar) by effects.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Rider {
-    /// Exiled by another object ("until ~ leaves the battlefield", imprint).
+    /// Exiled by another object, which finds it again as a card "exiled
+    /// with" it (CR 607.2a): Skyclave Apparition, Safe Haven, and the two
+    /// "until" exiles.
     Linked {
         /// The host object this card is linked to.
         host: ObjectId,
+        /// The event that returns it, when the exile named one (CR 610.3).
+        until: Option<LinkUntil>,
+    },
+    /// Exiled **with** another object (CR 406.6, 607.2a): what
+    /// `Effect::ExileTargetsWithSource` marks and `PtCount::ExiledWithThis`
+    /// counts. Not [`Rider::Linked`], which an "until" exile is released by.
+    /// The host's version is kept because a host that left and came back
+    /// is a new object (CR 400.7), and nothing was exiled with that one.
+    ExiledWith {
+        /// The object the card was exiled with.
+        host: ObjectId,
+        /// Its version at the time, in sixteen bits ([`Rider::version_of`]):
+        /// a rider is eight bytes, and a `u32` here made every object's
+        /// inline rider list eight bytes longer (`tests/footprint.rs`).
+        version: u16,
     },
     /// Rebound: cast from hand, may be cast again at the next upkeep.
     Rebound,
@@ -546,6 +698,13 @@ pub enum Rider {
     /// Cast via flashback: exile instead of the graveyard on resolution
     /// (CR 702.34).
     Flashback,
+    /// A spell whose face prints "if this would be put into a graveyard from
+    /// anywhere, exile it instead" (a disturb back,
+    /// `ReplacementRule::ExileSelfInsteadOfGraveyard`): the stack's half of
+    /// that rule, read only while the object is on the stack and set or
+    /// cleared by every cast. On the battlefield the registered rule takes
+    /// over.
+    ExileInsteadOfGraveyard,
     /// Can't be countered (Cavern of Souls mana rider).
     Uncounterable,
     /// The permanent has the prepared marker (Emeritus of Woe & co.).
@@ -562,6 +721,96 @@ pub enum Rider {
     /// it was copied from — and a token is the opposite thing, card-less
     /// and swept up by CR 704.5d.
     SpellCopy,
+    /// Cast for its dash cost (CR 702.109a): the spell, and the permanent
+    /// it becomes, which has haste while this is on it. Written by every
+    /// cast, set or cleared, and given up by every zone change but the one
+    /// from the stack to the battlefield (`GameState::move_object`).
+    Dashed,
+    /// "That player": the player the triggering event dealt damage to, on
+    /// a triggered ability put on the stack for one (Ragavan, Nimble
+    /// Pilferer), read by `PlayerRel::DamagedPlayer`. A rider and not a
+    /// field because `GameObject` had no byte to spare for it
+    /// (`tests/footprint.rs`), and a triggered ability carries no other.
+    EventPlayer(PlayerId),
+    /// Cast from a graveyard with escape (CR 702.138b): the spell, and the
+    /// permanent it becomes, "escaped". Kept and given up as
+    /// [`Rider::Dashed`] is.
+    Escaped,
+}
+
+/// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
+/// it: `baylee_cards_dsl::ExileUntil` with the player the sentence is about
+/// written down at the moment of the exile.
+///
+/// Two bytes, so that the rider it rides in stays as small as it was: two
+/// riders sit inline in every object (`RiderSet`), and `GameObject` has a
+/// size budget (`tests/footprint.rs`). That is why the host leaving is
+/// caught as it happens ([`crate::state::GameState::move_object`]) rather
+/// than recognised later by a stored version of the host.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum LinkUntil {
+    /// "until this creature leaves the battlefield": the host.
+    HostLeaves,
+    /// "until an opponent becomes the monarch": an opponent of `of`, the
+    /// player who controlled the exiling ability.
+    OpponentBecomesMonarch {
+        /// The exiling ability's controller.
+        of: PlayerId,
+    },
+}
+
+impl Rider {
+    /// An object's version as [`Rider::ExiledWith`] keeps it. A version past
+    /// `u16::MAX` is a permanent that changed zones sixty-five thousand
+    /// times; they all read as the last one.
+    #[must_use]
+    pub fn version_of(object: &GameObject) -> u16 {
+        u16::try_from(object.version).unwrap_or(u16::MAX)
+    }
+
+    /// Whether this says what the card is *in exile*, and so ends as the
+    /// card leaves exile ([`crate::state::GameState::move_object`]).
+    ///
+    /// A card that leaves exile is a new object with no relation to the
+    /// exile it left (CR 400.7). Exiled with a host, on an adventure
+    /// (CR 715.3d: "for as long as that card remains exiled"), castable from
+    /// exile by a player, suspended (CR 702.62b), rebounding, foretold,
+    /// plotted: each is read only while the card is in exile, and a card
+    /// exiled again later by something else is none of them. The readers ask
+    /// "in exile, with this rider", which that card passed: Twining Twins
+    /// cast off its adventure and hit by Swords to Plowshares was castable
+    /// from exile again, and a suspended card that resolved and was exiled
+    /// from the graveyard was cast for free at the next upkeep.
+    ///
+    /// Every variant is named, so a new rider has to answer.
+    #[must_use]
+    pub const fn ends_as_it_leaves_exile(self) -> bool {
+        match self {
+            Self::Linked { .. }
+            | Self::ExiledWith { .. }
+            | Self::Adventure
+            | Self::PlayableFromExileFor(_)
+            | Self::Suspend
+            | Self::Rebound
+            | Self::Foretold
+            | Self::Plotted => true,
+            // About the stack or the battlefield, not exile.
+            Self::Flashback
+            | Self::ExileInsteadOfGraveyard
+            | Self::Uncounterable
+            | Self::Prepared
+            | Self::SpellCopy
+            // How the spell was cast, written before it moves to the stack:
+            // a dashed spell cast out of exile (an impulse's permission)
+            // carries its dash to the stack and the battlefield, and
+            // `move_object` ends these where the spell's object ends.
+            | Self::Dashed
+            | Self::Escaped
+            // "That player" of a triggered ability on the stack, which is
+            // never in exile.
+            | Self::EventPlayer(_) => false,
+        }
+    }
 }
 
 /// Riders attached to an object.
@@ -585,6 +834,35 @@ pub struct SecondInstance {
     /// time the face and the copy status are settled on the object and not
     /// in the card. An activated ability's is read off its definition.
     pub req: Option<baylee_cards_dsl::TargetReq>,
+}
+
+/// What was paid to cast a spell or activate an ability, as far as an effect
+/// of it may ask (CR 601.2h, CR 602.2b).
+///
+/// Written by the payment — the cast wizard's `finish_cast` and an
+/// activation's `pay_cost` — after the object is on the stack, and given up
+/// by `GameState::move_object` at every zone change (CR 400.7). A permanent
+/// spell gives it up as it resolves as well: nothing on the battlefield
+/// reads it yet (adamant would be the first), and a record held there would
+/// be an allocation in every AI ply's clone.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct PaidRecord {
+    /// The mana value of the permanent sacrificed to pay the cost, as it
+    /// last existed on the battlefield (CR 608.2h) — "the sacrificed
+    /// creature's mana value". `None` when nothing was sacrificed.
+    pub sacrificed_mana_value: Option<u32>,
+    /// How much mana was spent on the cost (CR 601.2h) — "the amount of mana
+    /// spent to cast this spell" (Memory Deluge).
+    pub mana_spent: u32,
+    /// The colors of the mana spent on the cost — "the number of colors of
+    /// mana spent to cast this spell" (converge). Colorless mana is a type
+    /// and not a color (CR 106.1a, CR 106.1b), and a creature tapped for
+    /// convoke is tapped rather than paying mana (CR 702.51a).
+    pub colors_spent: baylee_core::color::ColorSet,
+    /// The permanent a `CostPart::TapOther` tapped, as the object it was
+    /// then (id and version) — "the tapped creature" station counts the
+    /// power of (CR 702.184a). `None` when the cost tapped nothing else.
+    pub tapped: Option<(ObjectId, u32)>,
 }
 
 /// A game object.
@@ -697,17 +975,32 @@ pub struct GameObject {
     /// (`tests/footprint.rs`).
     pub second: Option<Box<SecondInstance>>,
     /// What this object's base was before it became a copy; restored when it
-    /// changes zones (CR 400.7), because the new object is not a copy.
+    /// changes zones (CR 400.7), because the new object is not a copy. A
+    /// Room keeps its printed front here while its doors decide what it is
+    /// (CR 709.5), for the same move to restore.
     pub original_base: Option<Arc<Characteristics>>,
     /// Which ability this is (`AbilityOnStack` objects only).
     pub ability: Option<AbilityLoc>,
     /// Source power frozen when it leaves the battlefield while this ability waits.
     /// Once frozen it survives a blink: the returning object is a new source.
     pub source_power_lki: Option<i16>,
+    /// What was paid to put this spell or ability on the stack, where an
+    /// effect reads it back ("the sacrificed creature's mana value", "the
+    /// amount of mana spent to cast this spell") — see [`PaidRecord`].
+    ///
+    /// Boxed for `second`'s reason: `None` on every object that is not a
+    /// paid-for spell or ability on the stack, and `GameState::clone`
+    /// copies every object in every AI ply.
+    pub paid: Option<Box<PaidRecord>>,
     /// The value of X chosen at cast time (spells).
     pub x_value: u32,
     /// Whether the kicker/additional cost was paid (spells).
     pub kicked: bool,
+    /// How many times its replicate cost was paid (spells, CR 702.56a),
+    /// which is how many copies the cast trigger makes. A copy carries the
+    /// original's count, as it carries every cost decision (CR 707.10), and
+    /// is not cast, so nothing copies it again.
+    pub replicated: u8,
     /// Whether this spell was cast for an alternative cost (evoke checks).
     pub alt_cast: bool,
     /// Uses secondary prototype characteristics until leaving stack/battlefield.
@@ -718,6 +1011,10 @@ pub struct GameObject {
     pub target_players: baylee_core::ids::SeatSet,
     /// The chosen spell mode (modal spells / overload).
     pub mode_index: Option<u8>,
+    /// The modes chosen for a spell that chooses more than one
+    /// (`CastModeKind::Modes`, CR 700.2a): bit `i` is mode `i`, and zero on
+    /// every other object. A choose-one spell's mode is `mode_index`.
+    pub modes: u8,
     /// The creature type chosen as this entered ("the chosen type" —
     /// Roaming Throne, Reflections of Littjara, Cavern of Souls).
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
@@ -728,6 +1025,17 @@ pub struct GameObject {
     /// differs: two Thriving Moors on one battlefield are two colours, and
     /// the card they share can say neither.
     pub chosen_color: Option<baylee_core::mana::ManaColor>,
+    /// The card name chosen as this entered (Pithing Needle, CR 201.4): the
+    /// card and face it is the name of, packed as a [`PrintedFace`] so the
+    /// `Option` is four bytes. What `Modifier::ChosenNameCantActivate`
+    /// reads, and what a client shows beside the permanent.
+    pub chosen_name: Option<PrintedFace>,
+    /// A Room's unlocked halves (CR 709.5c), [`Doors::NONE`] for anything
+    /// else. Set as it enters and as a door is unlocked, and cleared as it
+    /// leaves the battlefield: the designations are the permanent's, and
+    /// the next object has none (CR 400.7). While it is a Room, its face
+    /// and its base are what the doors leave it (`GameState::set_doors`).
+    pub doors: Doors,
     /// Which face of the card is active (MDFC/split; 0 = front).
     pub face_index: u8,
     /// Abilities this object carries itself, instead of reading them off a
@@ -812,6 +1120,13 @@ pub struct GameObject {
     pub pending_face_change: Option<u8>,
     /// The object a triggering event was about (event-driven triggers).
     pub event_object: Option<ObjectId>,
+    /// "That much": the amount of damage the triggering event dealt, on a
+    /// triggered ability that was put on the stack for one (Questing
+    /// Beast), read by `Amount::EventAmount`. Never zero: a source that
+    /// would deal 0 damage deals none (CR 120.8), so no damage event carries
+    /// it. The field is two bytes, but `GameObject` had no padding left and
+    /// the object grew by eight (`tests/footprint.rs`).
+    pub event_amount: Option<core::num::NonZeroU16>,
     /// Whether the spell was cast from the hand (rebound condition).
     pub cast_from_hand: bool,
 }
@@ -850,17 +1165,23 @@ impl GameObject {
             second: None,
             original_base: None,
             event_object: None,
+            event_amount: None,
             ability: None,
             source_power_lki: None,
+            paid: None,
             x_value: 0,
             kicked: false,
+            replicated: 0,
             alt_cast: false,
             prototyped: false,
             chosen_player: None,
             target_players: baylee_core::ids::SeatSet::new(),
             mode_index: None,
+            modes: 0,
             chosen_subtype: None,
             chosen_color: None,
+            chosen_name: None,
+            doors: Doors::NONE,
             face_index: 0,
             own_abilities: None,
             own_abilities_until_eot: false,
@@ -966,16 +1287,33 @@ impl GameObject {
         if self.own_abilities.is_some() {
             return self.own_face;
         }
+        // A Room with both doors locked has no rules text (CR 709.5), so it
+        // names no face to read any from.
+        if self.doors.is_room() && self.doors.unlocked() == 0 {
+            return None;
+        }
         self.card
             .and_then(|card| PrintedFace::new(card.index, self.face_index))
     }
 
     /// [`Self::abilities`] and [`Self::printed_face`] together — what an
-    /// ability put on the stack, or a copy made of this object, takes.
+    /// ability put on the stack, or a trigger, takes.
     #[must_use]
     pub fn ability_list(&self, lookup: &impl crate::state::CardLookup) -> AbilityList {
         AbilityList {
             abilities: self.abilities(lookup),
+            printed: self.printed_face(),
+        }
+    }
+
+    /// [`Self::printed_abilities`] and [`Self::printed_face`] together —
+    /// what a copy made of this object takes. A copy takes copiable values
+    /// (CR 707.2), and an effect that took the abilities away is not one of
+    /// them.
+    #[must_use]
+    pub fn printed_ability_list(&self, lookup: &impl crate::state::CardLookup) -> AbilityList {
+        AbilityList {
+            abilities: self.printed_abilities(lookup),
             printed: self.printed_face(),
         }
     }
@@ -1006,6 +1344,29 @@ impl GameObject {
         &self,
         lookup: &impl crate::state::CardLookup,
     ) -> &'static [baylee_cards_dsl::AbilityDef] {
+        // "Loses all abilities" (CR 613.1f): nothing to activate, nothing to
+        // trigger, nothing to register. What already left the object — an
+        // ability on the stack (CR 113.7a) — reads `printed_abilities`.
+        if self.characteristics().abilities_lost.is_some() {
+            return &[];
+        }
+        self.printed_abilities(lookup)
+    }
+
+    /// The abilities this object has before any layer-6 effect takes them
+    /// away: its card's (for its face), a token's definition's, or the list a
+    /// copy took (`own_abilities`).
+    ///
+    /// For every reader that is not asking what the object can do *now*: an
+    /// ability already on the stack resolving by its index (CR 113.7a), a
+    /// copy taking copiable values (CR 707.2), and a static ability's effects
+    /// in the layers before 6, which apply even once the ability is gone
+    /// (CR 613.6; `Engine::sync_static_effects` keeps those).
+    #[must_use]
+    pub fn printed_abilities(
+        &self,
+        lookup: &impl crate::state::CardLookup,
+    ) -> &'static [baylee_cards_dsl::AbilityDef] {
         if self.status.contains(Status::FACE_DOWN) {
             return crate::engine::disguise::WARD;
         }
@@ -1014,9 +1375,14 @@ impl GameObject {
             return abilities;
         }
         if let Some(card) = self.card {
-            return lookup
-                .card(card.index)
-                .map_or(&[], |def| def.abilities_for_face(self.face_index as usize));
+            return lookup.card(card.index).map_or(&[], |def| {
+                if self.doors.is_room() {
+                    // A locked half has no rules text (CR 709.5).
+                    def.door_abilities(self.doors.unlocked())
+                } else {
+                    def.abilities_for_face(self.face_index as usize)
+                }
+            });
         }
         self.token.map_or(&[], |token| token.abilities)
     }

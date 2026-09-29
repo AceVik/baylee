@@ -99,6 +99,10 @@ pub struct ActivatedParts {
     /// activation but the cost (CR 602.2), and a card that caps it prints
     /// the sentence.
     pub limit: ActivationLimit,
+    /// "This ability costs {1} less to activate for each …".
+    ///
+    /// `None` is the rules default: an ability costs what it prints.
+    pub cost_reduction: Option<crate::cost::CostReduction>,
 }
 
 impl ActivatedParts {
@@ -118,6 +122,7 @@ impl ActivatedParts {
             zone: ActivationZone::Battlefield,
             condition: None,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         }
     }
 
@@ -156,6 +161,7 @@ impl ActivatedParts {
                 mana_ability: self.mana_ability,
                 zone: self.zone,
                 limit: self.limit,
+                cost_reduction: self.cost_reduction,
             },
             Some(condition) => AbilityDef::ActivatedConditional {
                 cost: self.cost,
@@ -167,6 +173,7 @@ impl ActivatedParts {
                 zone: self.zone,
                 condition,
                 limit: self.limit,
+                cost_reduction: self.cost_reduction,
             },
         }
     }
@@ -181,6 +188,8 @@ pub struct TriggeredParts {
     pub effects: &'static [Effect],
     /// What it targets, if anything.
     pub targets: Option<TargetReq>,
+    /// A second instance of "target", chosen after the first.
+    pub second_targets: Option<TargetReq>,
     /// Whether it fires at most once each turn.
     pub once_per_turn: bool,
     /// The intervening-`if` clause, if the card prints one (CR 603.4).
@@ -196,6 +205,7 @@ impl TriggeredParts {
             trigger,
             effects,
             targets: None,
+            second_targets: None,
             once_per_turn: false,
             condition: None,
         }
@@ -208,6 +218,7 @@ impl TriggeredParts {
             trigger: self.trigger,
             effects: self.effects,
             targets: self.targets,
+            second_targets: self.second_targets,
             once_per_turn: self.once_per_turn,
             condition: self.condition,
         }
@@ -296,6 +307,9 @@ pub struct LoyaltyParts {
     pub effects: &'static [Effect],
     /// What it targets, if anything.
     pub targets: Option<crate::effect::TargetReq>,
+    /// A second instance of the word "target"; see
+    /// [`AbilityDef::Loyalty::second_targets`].
+    pub second_targets: Option<crate::effect::TargetReq>,
 }
 
 impl LoyaltyParts {
@@ -306,6 +320,7 @@ impl LoyaltyParts {
             cost,
             effects,
             targets: None,
+            second_targets: None,
         }
     }
 
@@ -316,6 +331,7 @@ impl LoyaltyParts {
             cost: self.cost,
             effects: self.effects,
             targets: self.targets,
+            second_targets: self.second_targets,
         }
     }
 }
@@ -412,7 +428,9 @@ impl SpellMode {
         Self {
             effects,
             targets: None,
+            second_targets: None,
             cost_override: None,
+            additional_cost: None,
         }
     }
 }
@@ -860,6 +878,39 @@ macro_rules! equip {
     };
 }
 
+/// Crew N (CR 702.122a): `crew!(2)`.
+///
+/// "Tap any number of other untapped creatures you control with total power
+/// N or greater: This permanent becomes an artifact creature until end of
+/// turn." The number is the only thing a Vehicle prints; the cost is
+/// [`CostPart::Crew`](crate::CostPart::Crew) alone, and the effect makes the
+/// source an artifact creature until end of turn (layer 4). A crew ability
+/// may be activated whenever its controller has priority, so there is no
+/// timing to write.
+///
+/// ```ignore
+/// crew!(2)   // Crew 2
+/// ```
+#[macro_export]
+macro_rules! crew {
+    ($power:literal) => {
+        $crate::ActivatedParts::new(
+            $crate::Cost {
+                mana: $crate::ManaCost::ZERO,
+                parts: &[$crate::CostPart::Crew($power)],
+            },
+            &[$crate::Effect::continuous(
+                &$crate::Filter::This,
+                $crate::Modifier::AddType(
+                    $crate::TypeSet::ARTIFACT.union($crate::TypeSet::CREATURE),
+                ),
+                $crate::Duration::UntilEndOfTurn,
+            )],
+        )
+        .build()
+    };
+}
+
 /// Everything a card file needs, in one import.
 ///
 /// A card file used to open with eight `use` lines and
@@ -871,7 +922,7 @@ macro_rules! equip {
 pub mod prelude {
     pub use crate::ability::{
         AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod,
-        SpellMode, StepKind, Trigger, TriggerEventKind,
+        ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind,
     };
     pub use crate::build::{
         ActivatedParts, EQUIP_TARGET, LoyaltyParts, ModalTriggeredParts, SagaChapterParts,
@@ -886,20 +937,21 @@ pub mod prelude {
     /// of every card file.
     pub use crate::counters;
     pub use crate::effect::{
-        Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, PlayerRel, ReflexiveEvent,
-        SearchDest, SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef, ZoneSel,
+        Amount, CounterKind, Effect, ExileUntil, Find, ManaRestriction, ManaSource, ManaValueBound,
+        ManaValueCmp, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot,
+        TargetSpec, TokenDef, ZoneSel,
     };
     pub use crate::filter::{Filter, ZoneRef};
     pub use crate::static_ability::{
-        Duration, LAYERS, Layer, Modifier, ReplacementRule, StaticAbility,
+        Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule, StaticAbility,
     };
     pub use crate::{
-        ALL_MANA_COLORS, ANY_COLOR_MANA, CardDef, CommanderRule, Coverage, EnterModifier, FaceDef,
-        KeywordSet, PartnerKind,
+        ALL_MANA_COLORS, ANY_COLOR_MANA, CardDef, CommanderRule, Coverage, EnterModifier, Escape,
+        FaceDef, KeywordSet, PartnerKind,
     };
     pub use crate::{
-        activated, card, chapter, cost, equip, f, face, loyalty, mana_ability, modal_triggered,
-        mode, spell, static_ability, triggered,
+        activated, card, chapter, cost, crew, equip, f, face, loyalty, mana_ability,
+        modal_triggered, mode, spell, static_ability, triggered,
     };
     pub use baylee_core::color::{Color, ColorSet};
     /// Every card's `CardIndex` under the name the ledger froze for it.
@@ -977,6 +1029,7 @@ mod tests {
                 mana_ability: false,
                 zone: ActivationZone::Battlefield,
                 limit: ActivationLimit::Unlimited,
+                cost_reduction: None,
             },
             "no condition is the plain ability, at the rules defaults"
         );
@@ -992,6 +1045,7 @@ mod tests {
                 zone: ActivationZone::Battlefield,
                 condition: METALCRAFT,
                 limit: ActivationLimit::Unlimited,
+                cost_reduction: None,
             },
             "the condition moves it to the twin and changes nothing else"
         );
@@ -1092,6 +1146,7 @@ mod tests {
             mana_ability: false,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         };
 
         assert_eq!(equip!("{2}"), BY_HAND);
@@ -1152,6 +1207,7 @@ mod tests {
             Modifier::AddKeyword(KeywordSet::HASTE),
             Modifier::RemoveKeyword(KeywordSet::HASTE),
             Modifier::LoseKeywords,
+            Modifier::LoseAllAbilities,
             Modifier::GrantsFlashback,
             Modifier::ProtectionFrom(&Filter::ARTIFACT),
             Modifier::GrantTriggered {

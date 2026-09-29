@@ -71,6 +71,17 @@ pub enum Modifier {
     AddSubtype(SubtypeId),
     /// Affected creatures are every creature type (Maskwood Nexus).
     AllCreatureTypes,
+    /// "Becomes a [subtype] [types]" with nothing retained (CR 205.1a):
+    /// `types` replace every card type (an instant or sorcery keeps its
+    /// own) and `subtype` replaces every subtype, since those of the card
+    /// types it lost go with them. Supertypes stay (Oko, Thief of Crowns:
+    /// "becomes a green Elk creature" keeps legendary, loses artifact).
+    BecomeType {
+        /// The card types it has now.
+        types: TypeSet,
+        /// Its one subtype now.
+        subtype: SubtypeId,
+    },
     /// Affected lands are every basic land type (Great Divide Guide).
     AllBasicLandTypes,
     /// Adds colors.
@@ -81,8 +92,13 @@ pub enum Modifier {
     AddKeyword(KeywordSet),
     /// Removes keywords.
     RemoveKeyword(KeywordSet),
-    /// Removes all keyword abilities (Tishana's Tidebinder).
+    /// Removes all keyword abilities.
     LoseKeywords,
+    /// "Loses all abilities" (CR 613.1f): every ability the object has at
+    /// this point of layer 6, keywords and its printed activated, triggered
+    /// and static abilities alike (Tishana's Tidebinder, Oko, Thief of
+    /// Crowns). A grant applied later in layer 6 still lands (CR 613.7).
+    LoseAllAbilities,
     /// The legend rule doesn't apply to the effect's controller (Sakashima).
     LegendRuleOff,
     /// The effect's controller may play lands from their graveyard
@@ -101,6 +117,23 @@ pub enum Modifier {
     /// left may play nothing, from their graveyard or anywhere else
     /// (CR 305.2b).
     PlayLandsFromGraveyard,
+    /// The effect's controller may cast permanent spells from their
+    /// graveyard (Wrenn and Realmbreaker's emblem: "You may play lands and
+    /// cast permanent spells from your graveyard."). A permission like
+    /// [`Self::PlayLandsFromGraveyard`], and its casting half: the spell
+    /// is cast at its usual timing and for its usual costs, and nothing
+    /// exiles it afterwards — it is not flashback. How many is not limited.
+    CastPermanentSpellsFromGraveyard,
+    /// Muldrotha, the Gravetide: "During each of your turns, you may play a
+    /// land and cast a permanent spell of each permanent type from your
+    /// graveyard." Each such permission is its own allowance, counted per
+    /// source object and turn in the engine's per-turn record: one land,
+    /// and one spell for each of artifact, creature, enchantment,
+    /// planeswalker and battle. A card of two permanent types uses one of
+    /// them ("choose one as you play it"); the engine keeps the choice open
+    /// until a later card needs it, which lets through exactly the casts
+    /// some sequence of choices would have.
+    PermanentOfEachTypeFromGraveyard,
     /// The controller may play a land from the top of their library.
     PlayLandsFromLibraryTop,
     /// All players can see the top card of the controller's library.
@@ -116,6 +149,17 @@ pub enum Modifier {
     /// Activated abilities of artifacts the effect's opponents control
     /// can't be activated (Karn).
     CantActivateArtifacts,
+    /// "Activated abilities of sources with the chosen name can't be
+    /// activated unless they're mana abilities" (Pithing Needle, CR 602.5).
+    ///
+    /// The name is the one chosen as the effect's source entered
+    /// ([`crate::EnterModifier::ChooseCardName`]), and "sources" is every
+    /// object that could have an ability to activate, wherever it is: a
+    /// permanent, and a card in a hand or a graveyard whose ability works
+    /// there (cycling, channel). Every player's, the effect's controller's
+    /// too. A mana ability (CR 605.1a) is spared, and so is what is not an
+    /// activated ability at all: a special action, a cast.
+    ChosenNameCantActivate,
     /// The effect's opponents can cast spells only as though they were
     /// sorceries (Teferi).
     OpponentsCastAsSorcery,
@@ -172,6 +216,18 @@ pub enum Modifier {
     /// Prevent all damage that would be dealt BY the affected object
     /// (Maze of Ith).
     PreventDamageFromIt,
+    /// Combat damage the affected object would deal can't be prevented
+    /// (Questing Beast: "Combat damage that would be dealt by creatures you
+    /// control can't be prevented"). CR 615.12: a prevention effect applied
+    /// to that damage does nothing, protection's included (CR 702.16e is a
+    /// prevention effect).
+    CombatDamageCantBePrevented,
+    /// The affected creature can't be blocked by creatures the filter
+    /// matches (Questing Beast: "can't be blocked by creatures with power 2
+    /// or less"; Delney's "power 3 or greater"). A restriction on the
+    /// declaration of blockers, CR 509.1b, read against each blocker as it
+    /// stands; the filter's "you" is the effect's controller.
+    CantBeBlockedBy(&'static crate::Filter),
     /// The effect's opponents can't search libraries (Ashiok, Dream
     /// Render).
     OpponentsCantSearch,
@@ -180,6 +236,18 @@ pub enum Modifier {
     /// Protection from sources matching the filter: can't be damaged,
     /// targeted, or blocked by them (CR 702.16).
     ProtectionFrom(&'static crate::Filter),
+    /// The affected permanent can't be the target of spells, or of abilities
+    /// from sources, that match the filter — "Thrun can't be the target of
+    /// nongreen spells your opponents control or abilities from nongreen
+    /// sources your opponents control" (Thrun, Breaker of Silence).
+    ///
+    /// Protection's targeting half and nothing else (CR 702.16b): no damage
+    /// is prevented and no block is stopped. The filter is asked of the
+    /// spell or of the ability's source, with the effect's controller as
+    /// "you", so "your opponents control" is `ControlledByOpponent`. A rule
+    /// about the permanent and not a characteristic of it, so it has no
+    /// layer.
+    CantBeTargetedBy(&'static crate::Filter),
     /// The affected object becomes a copy of the given object (layer 1
     /// copiable values; Cursed Mirror's until-EOT copy).
     BecomeCopyOf(baylee_core::ids::ObjectId),
@@ -266,6 +334,14 @@ pub enum Modifier {
     /// answer does the same thing is the offer/apply contradiction this
     /// engine treats as its worst kind.
     MayChooseNotToUntap,
+    /// "If a card would be put into your graveyard from anywhere, exile it
+    /// instead", for the effect's controller: Forgotten Cellar's, for a
+    /// turn. A replacement effect (CR 614.1a) that a resolving ability made
+    /// (CR 611.2a), so it lasts as long as its duration and not as long as a
+    /// source: `replacement::graveyard_destination` reads it beside the
+    /// rules a permanent registers. Cards only, as the sentence says: a
+    /// token is not one (CR 111.1), nor is a copy of a spell.
+    ExileInsteadOfYourGraveyard,
     /// The affected object gains types while it has at least N counters
     /// of a kind (station's "artifact creature at 8+").
     AddTypeIfCountersAtLeast {
@@ -305,9 +381,37 @@ pub enum Modifier {
         /// Target requirement of the ability.
         target: Option<crate::effect::TargetSpec>,
     },
+    /// A characteristic-defining ability (CR 604.3) that sets power to a
+    /// count and toughness to that count plus `toughness_plus`: "power and
+    /// toughness are each equal to the number of creatures you control"
+    /// (Voice of Resurgence's Elemental), "power is equal to the number of
+    /// card types among cards in all graveyards and its toughness is equal
+    /// to that number plus 1" (Pyrogoyf).
+    ///
+    /// Layer 7a (CR 613.4a), so a later "base power and toughness N/N"
+    /// (7b) overrides it and a pump (7c) adds to it — the two orders a
+    /// `ModifyPTPerCount` on a 0/0, which is 7c, gets wrong.
+    CharacteristicPT {
+        /// What the number is.
+        count: PtCount,
+        /// What toughness adds to it (Lhurgoyf's "plus 1").
+        toughness_plus: i8,
+    },
     /// The affected object gets +P/+T for each filter-matching permanent
     /// its controller controls (Construct tokens, "for each artifact").
     ModifyPTPerCount {
+        /// What to count.
+        filter: &'static crate::Filter,
+        /// Power per match.
+        p: i16,
+        /// Toughness per match.
+        t: i16,
+    },
+    /// The affected object gets +P/+T for each card in its controller's
+    /// graveyard that matches the filter (Fiend Artisan: "+1/+1 for each
+    /// creature card in your graveyard"). Layer 7c like
+    /// [`Self::ModifyPTPerCount`], which counts permanents instead.
+    ModifyPTPerGraveyardCard {
         /// What to count.
         filter: &'static crate::Filter,
         /// Power per match.
@@ -319,8 +423,45 @@ pub enum Modifier {
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.
     SetPT(i16, i16),
+    /// "This creature's power and toughness are each equal to [count]"
+    /// **granted** by an effect — Druid Class's land that "becomes a
+    /// creature with haste and 'This creature's power and toughness are
+    /// each equal to the number of lands you control.'" Only a printed (or
+    /// token-creating, or copied) ability is characteristic-defining (CR
+    /// 604.3a), so this one sets power and toughness to a value in layer 7b
+    /// (CR 613.4b), where the printed sentence is
+    /// [`Modifier::CharacteristicPT`] in 7a. "You" in the count is the
+    /// affected object's controller, because the ability is that object's.
+    SetPTToCount(PtCount),
     /// Switches power and toughness.
     SwitchPT,
+    /// The effect's controller may cast spells from their graveyard:
+    /// Forgotten Cellar's "you may cast spells from your graveyard this
+    /// turn", for a turn by its `Duration::UntilEndOfTurn`.
+    /// [`Self::CastPermanentSpellsFromGraveyard`] without the word
+    /// "permanent", and read by the same one reader
+    /// (`casting::graveyard_cast_permission`): any spell, at its usual
+    /// timing and for its usual costs. It is not flashback (CR 702.34a), so
+    /// nothing exiles an instant cast this way; Forgotten Cellar's own
+    /// replacement, beside it, is what does. A land card is played and not
+    /// cast (CR 305.9), so it gets nothing from this.
+    CastSpellsFromGraveyard,
+}
+
+/// What a [`Modifier::CharacteristicPT`] counts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PtCount {
+    /// Permanents the ability's controller controls that match the filter
+    /// ("the number of creatures you control").
+    YouControl(&'static crate::Filter),
+    /// Card types among cards in all graveyards (Tarmogoyf's number): the
+    /// nine card types of CR 205.2a, each counted once however many cards
+    /// share it.
+    CardTypesInAllGraveyards,
+    /// Cards exiled with the object (CR 406.6): "the number of cards exiled
+    /// with it" (Unlicensed Hearse), the cards in exile that
+    /// `Effect::ExileTargetsWithSource` put there for this object.
+    ExiledWithThis,
 }
 
 impl Modifier {
@@ -386,6 +527,7 @@ impl Modifier {
             | Self::AddSubtype(_)
             | Self::AllCreatureTypes
             | Self::AllBasicLandTypes
+            | Self::BecomeType { .. }
             | Self::AddTypeIfCountersAtLeast { .. } => Layer::Type,
             // Layer 5: color-changing effects.
             Self::AddColor(_) | Self::SetColor(_) => Layer::Color,
@@ -393,6 +535,7 @@ impl Modifier {
             Self::AddKeyword(_)
             | Self::RemoveKeyword(_)
             | Self::LoseKeywords
+            | Self::LoseAllAbilities
             | Self::AddKeywordIfCountersAtLeast { .. }
             | Self::GrantActivated { .. }
             | Self::GrantsFlashback
@@ -405,23 +548,32 @@ impl Modifier {
             // ability-adding effect, and so is granting a trigger.
             | Self::ProtectionFrom(_)
             | Self::GrantTriggered { .. } => Layer::Ability,
-            // Layer 7b/7c/7e: power and toughness.
-            Self::SetPT(..) => Layer::PtSet,
-            Self::ModifyPT(..) | Self::ModifyPTPerCount { .. } => Layer::PtModify,
+            // Layer 7a/7b/7c/7e: power and toughness.
+            Self::CharacteristicPT { .. } => Layer::PtCda,
+            Self::SetPT(..) | Self::SetPTToCount(_) => Layer::PtSet,
+            Self::ModifyPT(..)
+            | Self::ModifyPTPerCount { .. }
+            | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
             Self::LegendRuleOff
             | Self::PlayLandsFromGraveyard
+            | Self::CastPermanentSpellsFromGraveyard
+            | Self::PermanentOfEachTypeFromGraveyard
             | Self::PlayLandsFromLibraryTop
             | Self::RevealLibraryTop
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
+            | Self::ChosenNameCantActivate
             | Self::OpponentsCantCast(_)
+            | Self::CantBeTargetedBy(_)
             | Self::DrawLimitPerTurn { .. }
             | Self::PlayersCantLose
             | Self::CantLoseLife { .. }
             | Self::PreventDamageToIt
             | Self::PreventDamageFromIt
+            | Self::CombatDamageCantBePrevented
+            | Self::CantBeBlockedBy(_)
             | Self::OpponentsCantSearch
             | Self::NoMaxHandSize
             | Self::PlayerHexproof
@@ -429,7 +581,9 @@ impl Modifier {
             | Self::ManaIsAnyColor
             | Self::SearchTakeover
             | Self::DoesNotUntap
-            | Self::MayChooseNotToUntap => Layer::Text,
+            | Self::MayChooseNotToUntap
+            | Self::ExileInsteadOfYourGraveyard
+            | Self::CastSpellsFromGraveyard => Layer::Text,
         }
     }
 }
@@ -475,6 +629,12 @@ pub struct StaticAbility {
 pub enum Duration {
     /// While the source permanent is on the battlefield.
     WhileSourceOnBattlefield,
+    /// "For as long as you control this creature" (Extraction Specialist,
+    /// CR 611.2b): over once the source leaves the battlefield or another
+    /// player gains control of it. A duration that is already over as the
+    /// effect would begin never starts, and the effect does nothing — the
+    /// source left while the ability waited, or is somebody else's.
+    WhileYouControlSource,
     /// Until end of turn (cleanup).
     UntilEndOfTurn,
     /// Until end of combat.
@@ -515,6 +675,11 @@ pub enum Duration {
 /// Panharmonicon, Elesh Norn, Roaming Throne).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ReplacementRule {
+    /// "If this would be put into a graveyard from anywhere, exile it
+    /// instead" (every disturb back: Ghastly Mimicry). On the battlefield
+    /// the rule is registered like any other; a spell cast with it carries
+    /// it on the stack as a rider, since nothing registers a spell's rules.
+    ExileSelfInsteadOfGraveyard,
     /// Cards destined for an opponent's graveyard go to exile instead,
     /// optionally with the specified counter (Dauthi Voidwalker).
     ExileOpponentsGraveyard {
@@ -633,6 +798,13 @@ mod tests {
             (Modifier::AllCreatureTypes, Layer::Type),
             (Modifier::AllBasicLandTypes, Layer::Type),
             (
+                Modifier::BecomeType {
+                    types: TypeSet::CREATURE,
+                    subtype: SubtypeId::new(1),
+                },
+                Layer::Type,
+            ),
+            (
                 Modifier::AddTypeIfCountersAtLeast {
                     kind: crate::effect::CounterKind::Charge,
                     at_least: 8,
@@ -645,6 +817,7 @@ mod tests {
             (Modifier::AddKeyword(KeywordSet::FLYING), Layer::Ability),
             (Modifier::RemoveKeyword(KeywordSet::FLYING), Layer::Ability),
             (Modifier::LoseKeywords, Layer::Ability),
+            (Modifier::LoseAllAbilities, Layer::Ability),
             (
                 Modifier::AddKeywordIfCountersAtLeast {
                     kind: crate::effect::CounterKind::Charge,
@@ -673,7 +846,18 @@ mod tests {
                 },
                 Layer::Ability,
             ),
+            (
+                Modifier::CharacteristicPT {
+                    count: PtCount::CardTypesInAllGraveyards,
+                    toughness_plus: 1,
+                },
+                Layer::PtCda,
+            ),
             (Modifier::SetPT(2, 2), Layer::PtSet),
+            (
+                Modifier::SetPTToCount(PtCount::YouControl(&Filter::YOUR_LAND)),
+                Layer::PtSet,
+            ),
             (Modifier::ModifyPT(1, 1), Layer::PtModify),
             (
                 Modifier::ModifyPTPerCount {
@@ -703,16 +887,21 @@ mod tests {
         for modifier in [
             Modifier::LegendRuleOff,
             Modifier::PlayLandsFromGraveyard,
+            Modifier::CastPermanentSpellsFromGraveyard,
+            Modifier::PermanentOfEachTypeFromGraveyard,
             Modifier::PlayLandsFromLibraryTop,
             Modifier::RevealLibraryTop,
             Modifier::ExtraLandDrops(2),
             Modifier::OpponentsCastAsSorcery,
+            Modifier::ChosenNameCantActivate,
             Modifier::PlayersCantLose,
             Modifier::CantLoseLife {
                 who: crate::effect::PlayerRel::EachPlayer,
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
+            Modifier::CombatDamageCantBePrevented,
+            Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::PlayerHexproof,
@@ -721,6 +910,8 @@ mod tests {
             Modifier::SearchTakeover,
             Modifier::DoesNotUntap,
             Modifier::MayChooseNotToUntap,
+            Modifier::ExileInsteadOfYourGraveyard,
+            Modifier::CastSpellsFromGraveyard,
         ] {
             assert_eq!(
                 modifier.layer(),

@@ -47,6 +47,11 @@ enum Cmd {
         /// what `baylee_cards_codegen::lines` reads, to bring the two
         /// tables back in step with the pool. A machine that has the corpus
         /// runs the whole thing and never needs it.
+        ///
+        /// It also files a token newly written by hand in `tokens.rs` in
+        /// `generated_tokens.rs`: that half of the ledger reads only
+        /// `tokens.rs` and the ledger itself, and may only append, so a card
+        /// finished by hand can name a token of its own without the corpus.
         #[arg(long)]
         tables: bool,
         /// Path to the card-script reference cardsfolder.
@@ -1107,7 +1112,20 @@ fn codegen(
     // on a machine with none checked out it rewrites every machine-owned
     // card as an honest stub. `--tables` is the way past it: the two tables
     // below are built from the compiled pool alone.
-    if !tables_only {
+    if tables_only {
+        // 3, the hand-written half. A token written into `tokens.rs` for a
+        // card finished by hand needs its id before a card may name it, and
+        // that half reads nothing from the corpus: the ledger keeps every
+        // row it already has (generated ones included, bodies and all) and
+        // appends what `tokens.rs` declares that it lacks. With nothing new
+        // the file comes out byte for byte as it went in.
+        write_or_check(
+            check,
+            &root.join("crates/baylee-cards/src/generated_tokens.rs"),
+            &render_token_ledger(root, &[])?,
+            &mut changed,
+        )?;
+    } else {
         // 1. Subtype catalogs → generated subtypes.rs.
         //
         // The table is its own ledger (#43): what this binary compiled against
@@ -2032,18 +2050,19 @@ fn check_code_matches_the_printing(
         // sentence.
         //
         // What is worth saying instead is whether the card keeps the
-        // promise that base implies. `Layer::PtCda` is declared in the DSL
-        // and no `Modifier` reaches it, so the ability cannot be written
-        // today — and a card claiming `Coverage::Implemented` with a
-        // printed `*` is therefore claiming something no rule performs.
-        // None of the pool's three do; this is the gate that keeps it that
-        // way rather than a count that goes stale.
+        // promise that base implies. The one `Modifier` on `Layer::PtCda`
+        // is `CharacteristicPT`, so a card claiming `Coverage::Implemented`
+        // with a printed `*` and no such modifier is claiming something no
+        // rule performs. Pyrogoyf writes it; this is the gate that keeps
+        // the rest honest rather than a count that goes stale.
         if printed.parse::<i32>().is_err() {
             tally.defined_pt += 1;
-            if knob(content, "coverage").is_some_and(|v| v.starts_with("Coverage::Implemented")) {
+            if knob(content, "coverage").is_some_and(|v| v.starts_with("Coverage::Implemented"))
+                && !content.contains("Modifier::CharacteristicPT")
+            {
                 println!(
                     "{slug}: the printing defines {key} by an ability ({printed}) and the card \
-                     claims Coverage::Implemented — the DSL has no Modifier on Layer::PtCda"
+                     claims Coverage::Implemented without a Modifier::CharacteristicPT"
                 );
                 *problems += 1;
             }
@@ -2205,9 +2224,18 @@ fn check_target_counts_match_the_printing(
         return;
     };
     tally.targets += 1;
-    if ["up_to_one(", "up_to(", "x_targets(", "min: 0"]
-        .iter()
-        .any(|way| content.contains(way))
+    // `ObjectOfEachOpponent` is "for each opponent, up to one target … that
+    // player controls" and nothing else: the engine asks it as up to one per
+    // opponent (`progress.rs`), so the spec is itself a minimum of none.
+    if [
+        "up_to_one(",
+        "up_to(",
+        "x_targets(",
+        "min: 0",
+        "ObjectOfEachOpponent(",
+    ]
+    .iter()
+    .any(|way| content.contains(way))
     {
         return;
     }
@@ -2263,10 +2291,13 @@ fn check_player_targets_match_the_printing(
         return;
     };
     tally.player_targets += 1;
+    // `OpponentOrObject` is "target opponent or [filter]" (Huntmaster of
+    // the Fells' back face): one instance of the word that may name a player.
     if [
         "TargetSpec::AnyPlayer",
         "TargetSpec::AnyOpponent",
         "TargetSpec::AnyTarget",
+        "TargetSpec::OpponentOrObject",
     ]
     .iter()
     .any(|spec| content.contains(spec))
@@ -2311,7 +2342,8 @@ fn check_player_targets_match_the_printing(
 ///   `AlternativeCost`; a kicker is an additional cost.
 /// - "you may have this enter as a copy" — `CopyOnEnter`.
 /// - "you may choose new targets for the copy" — the copy effects, which ask
-///   on their own (`AwaitingOp::CopyNewTargets`).
+///   on their own (`AwaitingOp::CopyNewTargets`; a copied ability through
+///   `retarget::start_copy`, Vantress Visions).
 /// - "you may choose a nonland card from it" — `BottomCardFromHand`, which
 ///   offers a choice of none (Vendilion Clique).
 /// - "you may search your library" — an optional search.
@@ -2328,6 +2360,29 @@ fn check_player_targets_match_the_printing(
 ///   Excavator and Exploration are the three, and they were the first cards
 ///   through a modifier family that had none when it landed — which is why
 ///   this bullet exists rather than the list quietly growing.
+/// - "you may play it this turn" (Dauthi Voidwalker, Expressive Iteration)
+///   — `ChooseExiledToPlay` and `LookAtTopKeepBottomPlay`, which leave a
+///   permission to play one card, and the `SearchTakeover` argument again:
+///   the player plays it or does not, and nothing is asked.
+/// - "you may put it onto the battlefield tapped" (Risen Reef) —
+///   `LookAtTopMayPut`, which asks about the looked-at card with `min: 0`
+///   in the engine, not in the definition; and "you may discard up to two
+///   cards" (Fable of the Mirror-Breaker) — `DiscardUpToThenDraw`, the
+///   same `min: 0` question over the hand.
+/// - "you may play a land and cast a permanent spell of each permanent type
+///   from your graveyard" (Muldrotha) and "you may … cast permanent spells
+///   from your graveyard" (Wrenn and Realmbreaker's emblem) —
+///   `PermanentOfEachTypeFromGraveyard` and `CastPermanentSpellsFromGraveyard`,
+///   the Crucible argument for casting: a permission, not a decision.
+/// - "you may put a permanent card from among the milled cards into your
+///   hand" (Wrenn's −2) — `MillMayTakeOne`, the `min: 0` question asked in
+///   the engine.
+/// - "for each card type, you may put a card of that type from among them
+///   into your hand" — `RevealTopOnePerType` (Atraxa, Grand Unifier), which
+///   asks once per card type with a minimum of none (`resolve::one_per_type`).
+/// - "until end of turn, you may cast that card" (Ragavan, Nimble Pilferer)
+///   — `ExileTopMayCast`, which leaves a cast-only permission: the
+///   `ChooseExiledToPlay` argument, the card is cast or it is not.
 ///
 /// A stub claims nothing and a `Partial` card has said in writing that it
 /// diverges, so both are skipped — the same two exemptions the checks above
@@ -2356,6 +2411,7 @@ fn check_optional_clauses_are_offered(
         "PlayerMayPayOr",
         "CopyOnEnter",
         "CopyTargetSpell",
+        "CopyTargetAbility",
         "CopySpell",
         "BottomCardFromHand",
         "OptionalBasicLandSearchFor",
@@ -2367,6 +2423,15 @@ fn check_optional_clauses_are_offered(
         "PlayLandsFromGraveyard",
         "PlayLandsFromLibraryTop",
         "ExtraLandDrops",
+        "ChooseExiledToPlay",
+        "LookAtTopKeepBottomPlay",
+        "LookAtTopMayPut",
+        "DiscardUpToThenDraw",
+        "PermanentOfEachTypeFromGraveyard",
+        "CastPermanentSpellsFromGraveyard",
+        "MillMayTakeOne",
+        "RevealTopOnePerType",
+        "ExileTopMayCast",
     ];
     if !def.is_implemented() {
         return;
@@ -2649,6 +2714,9 @@ const KEYWORD_WORDS: &[(baylee_cards::dsl::KeywordSet, &str)] = {
         (K::DAYBOUND, "daybound"),
         (K::NIGHTBOUND, "nightbound"),
         (K::CANT_BLOCK, "can't block"),
+        (K::SPLIT_SECOND, "split second"),
+        (K::ASCEND, "ascend"),
+        (K::CANT_ATTACK, "can't attack"),
         (K::UNDYING, "undying"),
         (K::PERSIST, "persist"),
     ]
@@ -3142,6 +3210,42 @@ fn check_def_against_the_printing(
     check_optional_clauses_are_offered(slug, def, payload, tally, problems);
     check_enters_tapped_bound_matches_the_printing(slug, def, payload, tally, problems);
     check_back_face_castability_matches_the_layout(slug, def, payload, tally, problems);
+    check_flashback_matches_the_printing(slug, def, payload, problems);
+}
+
+/// A printed "Flashback {…}" is `FaceDef::flashback`, at the printed price,
+/// and a `flashback` the printing does not have is a graveyard cast nobody
+/// may make (CR 702.34a).
+///
+/// Mana only, both ways: "Flashback—Pay 3 life" and the like are no
+/// `ManaCost` and are left to the card's coverage. Implemented cards only,
+/// the exemption every check here takes.
+fn check_flashback_matches_the_printing(
+    slug: &str,
+    def: &baylee_cards::dsl::CardDef,
+    payload: &serde_json::Value,
+    problems: &mut usize,
+) {
+    if !def.is_implemented() {
+        return;
+    }
+    let printed: Vec<String> = printed_text(payload)
+        .lines()
+        .filter_map(|line| line.strip_prefix("Flashback "))
+        .filter_map(|rest| rest.split(" (").next())
+        .filter_map(|cost| cost.trim().parse::<baylee_core::mana::ManaCost>().ok())
+        .map(|cost| cost.to_string())
+        .collect();
+    let written: Vec<String> = def
+        .faces
+        .iter()
+        .filter_map(|f| f.flashback)
+        .map(|cost| cost.to_string())
+        .collect();
+    if printed != written {
+        println!("{slug}: the printing's flashback is {printed:?} and the code's is {written:?}");
+        *problems += 1;
+    }
 }
 
 /// Whether a two-faced card's **back** may be played out of hand, against the
@@ -4094,6 +4198,10 @@ fn with_oracle_header(text: &str, printed: &str) -> Option<String> {
 const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
     ("Bleachbone Verge", "an Condition, not a filter"),
     ("Mox Opal", "metalcraft is an Condition"),
+    (
+        "Treachery",
+        "\"you control enchanted creature\" is Modifier::GainControl, not a filter",
+    ),
     ("Fierce Guardianship", "an AlternativeCost condition"),
     (
         "Deadly Rollick",
@@ -4125,6 +4233,10 @@ const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
     (
         "Karn, the Great Creator",
         "the lock is a player rule; see karns_lock_spares_a_teammate",
+    ),
+    (
+        "Leovold, Emissary of Trest",
+        "the opponent controls the spell or ability, and `Trigger::TargetedByOpponent` asks that of its controller, not of a permanent",
     ),
 ];
 
@@ -4169,7 +4281,17 @@ fn check_scope_matches_the_text(
     // Island", "if you control three or more artifacts" — would otherwise be
     // asked for a `ControlledByYou` that would change nothing, and eighteen
     // generated lands landed in one commit with exactly that shape.
-    let filters_you = built.contains("ControlledByYou") || built.contains("ControlCount(");
+    //
+    // Two more say it without a filter. `PtCount::YouControl` counts only
+    // what the ability's controller controls ("the number of creatures you
+    // control", `layers.rs`), and the rendering reaches into a token's
+    // abilities, so Voice of Resurgence's Elemental says it there.
+    // `Duration::WhileYouControlSource` is "for as long as you control this
+    // creature" (CR 611.2b): a duration, not a set of objects.
+    let filters_you = built.contains("ControlledByYou")
+        || built.contains("ControlCount(")
+        || built.contains("YouControl(")
+        || built.contains("WhileYouControlSource");
     let filters_theirs = built.contains("ControlledByOpponent");
 
     if says_you && !filters_you {

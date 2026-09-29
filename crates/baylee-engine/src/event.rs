@@ -58,6 +58,17 @@ pub enum GameEvent {
         /// Controller of the spell or ability, not the retargeting effect.
         controller: PlayerId,
     },
+    /// The same for a player a copy or a retargeting effect newly aimed a
+    /// spell or ability at: "whenever you … become the target" (Leovold)
+    /// reads it the way ward reads [`GameEvent::BecameTarget`].
+    PlayerBecameTarget {
+        /// The spell or ability on the stack.
+        object: ObjectId,
+        /// The newly targeted player.
+        player: PlayerId,
+        /// Controller of the spell or ability, not the retargeting effect.
+        controller: PlayerId,
+    },
     /// The game was set up from a preset.
     GameStarted {
         /// RNG seed.
@@ -242,6 +253,16 @@ pub enum GameEvent {
         /// The player.
         player: PlayerId,
     },
+    /// A card was cycled: discarded to pay the cost of its own cycling
+    /// ability (CR 702.29c). Recorded after that discard's own
+    /// [`Self::Discarded`], which is the event every other reader of a
+    /// discard hears; this one exists for "when you cycle this card".
+    Cycled {
+        /// The card, wherever the discard put it.
+        object: ObjectId,
+        /// The player who cycled it.
+        player: PlayerId,
+    },
     /// Cards were drawn (drives "whenever you draw" triggers).
     CardsDrawn {
         /// The drawing player.
@@ -313,6 +334,14 @@ pub enum GameEvent {
         object: ObjectId,
         /// The face it now shows.
         face: u8,
+    },
+    /// A Room was given a half's unlocked designation (CR 709.5c), as it
+    /// entered cast as that half or by the unlock special action.
+    DoorUnlocked {
+        /// The permanent.
+        object: ObjectId,
+        /// Which half: 0 the left, 1 the right.
+        half: u8,
     },
     /// A decision-free segment was found to repeat itself: a real endless
     /// loop rather than a large-but-finite pile of work (house rule, see
@@ -459,6 +488,13 @@ impl Journal {
     #[must_use]
     pub fn last_seq(&self) -> u64 {
         self.entries.len() as u64
+    }
+
+    /// Drops every entry after the first `len`: the one exception to "only
+    /// grows", for a payment that was canceled (CR 732.1) and so never
+    /// happened ([`crate::state::GameState::roll_back`]).
+    pub(crate) fn cancel_from(&mut self, len: usize) {
+        self.entries.truncate(len);
     }
 }
 

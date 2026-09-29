@@ -2587,3 +2587,37 @@ Barbarian Riftcutter
 Boros Guildmage
 Boros Recruit
 Boros Signet
+# Maik's European Highlander (data/decks/maik.txt), main deck and sideboard.
+Archangel Avacyn // Avacyn, the Purifier
+Atraxa, Grand Unifier
+Birthing Pod
+Bribery
+Extraction Specialist
+Farewell
+Final Showdown
+Fury
+Huntmaster of the Fells // Ravager of the Fells
+Imperial Recruiter
+Kiki-Jiki, Mirror Breaker
+Massacre Wurm
+Mawloc
+Natural Order
+Omnath, Locus of Creation
+Prismatic Ending
+Pyrogoyf
+Questing Beast
+Thragtusk
+Uro, Titan of Nature's Wrath
+Voice of Resurgence
+Acidic Slime
+Coiling Oracle
+Delney, Streetwise Lookout
+Fiend Artisan
+Fulminator Mage
+Garna, the Bloodflame
+Subtlety
+The Balrog of Moria
+The Reaper, King No More
+Three Steps Ahead
+Treachery
+Trumpeting Carnosaur

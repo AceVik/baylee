@@ -145,6 +145,11 @@ fn sweep_preset(cards: &[&'static CardDef]) -> GamePreset {
             board.push(deck_entry(by_name(name)));
         }
     }
+    // One creature with nothing to activate, so an Equipment's "Equip" is
+    // offered whatever its batch holds: which cards shared a batch used to
+    // decide whether Nettlecyst's row was read at all, and a card added to
+    // the pool elsewhere shifted every batch after it.
+    board.push(deck_entry(by_name("Land Leeches")));
     board.extend(cards.iter().map(|def| deck_entry(def.index)));
     preset.seats[0].starting_battlefield = board;
     preset
@@ -1148,20 +1153,30 @@ fn every_written_row_draws_its_printed_cost_or_its_whole_sentence() {
 /// whole with no column. Held equal by the sweep above.
 ///
 /// Every one a keyword line whose cost stands after the keyword and whose
-/// only colon is in its reminder: Equip on sixteen of them, Level up
-/// (Hexdrinker), Reconfigure (Rabbit Battery), Station (U.S.S. Enterprise-D).
-/// Measured 24.09.2026 over the compiled English Oracle: 1302 rows drew a
-/// printed head, these 19 cards drew whole, none was refused.
+/// only colon is in its reminder: Equip on twenty of them, Level up
+/// (Hexdrinker), Reconfigure (Rabbit Battery), Station (U.S.S. Enterprise-D,
+/// Inspirit, Evendo). Measured 24.09.2026 over the compiled English Oracle: 1302 rows
+/// drew a printed head, 19 cards drew whole, none was refused. Five more on
+/// 29.09.2026, when every batch was given a creature to equip: until then an
+/// Equipment's row was read only if its batch happened to hold one. Evendo,
+/// Waking Haven the same day, when its station was written. And Unlicensed
+/// Hearse the same day, whose "Crew 2" is the whole line: its cost is
+/// creatures, not a symbol, and the printing drops the reminder.
 const DRAWN_WHOLE: &[&str] = &[
     "Basilisk Collar",
     "Bonesplitter",
+    "Dowsing Dagger",
+    "Evendo, Waking Haven",
     "Fireshrieker",
+    "Helm of the Host",
     "Hexdrinker",
+    "Inspirit, Flagship Vessel",
     "Leonin Scimitar",
     "Lightning Greaves",
     "Loxodon Warhammer",
     "Nettlecyst",
     "Neurok Hoversail",
+    "Nim Deathmantle",
     "No-Dachi",
     "Rabbit Battery",
     "Shuko",
@@ -1169,7 +1184,9 @@ const DRAWN_WHOLE: &[&str] = &[
     "Slagwurm Armor",
     "Swiftfoot Boots",
     "Sword of Hearth and Home",
+    "Sword of the Meek",
     "U.S.S. Enterprise-D, Galaxy-Class",
+    "Unlicensed Hearse",
     "Vulshok Battlegear",
     "Vulshok Morningstar",
 ];

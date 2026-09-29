@@ -137,6 +137,16 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
         // half a spell in hand is pointed at. A permanent spell already on
         // the stack is somebody else's problem and is counted by `Spell`.
         TargetSpec::Object(filter) => count(view, view.battlefield.iter(), filter),
+        // One per opponent, and an ally's permanent is none of them: the
+        // count errs, if at all, towards "there is something to point at",
+        // since a teammate is not told apart here.
+        TargetSpec::ObjectOfEachOpponent(filter) => count(
+            view,
+            view.battlefield
+                .iter()
+                .filter(|o| o.controller != view.seat),
+            filter,
+        ),
         // The stack holds both kinds and these three specs want different
         // halves of it, which `PublicObject::stack_item` is the field to ask.
         // Counting the whole stack for all three would over-count and so err
@@ -168,9 +178,11 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
         // Which piles the spell may look in is what the printed `PlayerRel`
         // says, and two of them cannot be settled here: `ControllerOfTarget`
         // names the controller of a target this spell has not chosen, and
-        // `Chosen` the answer to a `Pending::ChoosePlayer` nobody has been
-        // asked yet. Both refuse to the safe direction, like every other
-        // question this view cannot close.
+        // `ControllerOfEvent` an event that has not happened. Both refuse to
+        // the safe direction, like every other question this view cannot
+        // close. `Chosen` can be: it is "from a single graveyard", whichever
+        // the player names as the targets are chosen, so any graveyard
+        // holding a card is enough.
         //
         // `Opponent` is folded in with `EachOpponent` rather than resolved:
         // heads-up they are the same pile, and in multiplayer the union is
@@ -180,7 +192,9 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
             let mine = usize::from(view.seat.get());
             let piles: Vec<&PublicObject> = match rel {
                 PlayerRel::You => view.graveyards.get(mine).into_iter().flatten().collect(),
-                PlayerRel::EachPlayer => view.graveyards.iter().flatten().collect(),
+                PlayerRel::EachPlayer | PlayerRel::Chosen => {
+                    view.graveyards.iter().flatten().collect()
+                }
                 PlayerRel::Opponent | PlayerRel::EachOpponent => view
                     .graveyards
                     .iter()
@@ -188,7 +202,11 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                     .filter(|(seat, _)| *seat != mine)
                     .flat_map(|(_, pile)| pile)
                     .collect(),
-                PlayerRel::ControllerOfTarget | PlayerRel::Chosen => return None,
+                PlayerRel::ControllerOfTarget
+                | PlayerRel::ControllerOfEvent
+                | PlayerRel::DamagedPlayer => {
+                    return None;
+                }
             };
             count(view, piles.into_iter(), filter)
         }
@@ -294,6 +312,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // field the view carries for exactly this question — and the
         // face-down bail above is what keeps the two apart.
         Filter::IsToken => object.token.is_some(),
+        Filter::WithSingleTarget => object.targets.len() == 1,
         Filter::ControlledByYou => object.controller == view.seat,
         // Exact at a duel and refused above it. The engine asks
         // `state.is_opponent`, which knows about teams; a `PlayerView` does
@@ -340,9 +359,16 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::AttachedToBySource
         | Filter::HasKeyword(_)
         | Filter::CmcAtMostX
+        // Bounded by what the source's payment spent, which no view carries
+        // either.
+        | Filter::CmcAtMostColorsSpent
         // When a permanent arrived is history, and a view carries no
         // journal — the same refusal as the rest of this list.
         | Filter::EnteredThisTurn
+        | Filter::PutIntoGraveyardThisTurn
+        // The engine's counter kind against the view's wire kind, and the
+        // translation is gamehost's; `baylee-ai` refuses it for that reason.
+        | Filter::HasCounter(_)
         | Filter::InZone(_) => return None,
     })
 }
@@ -600,6 +626,7 @@ mod tests {
                         TargetSpec::Player(_)
                         | TargetSpec::AnyPlayer
                         | TargetSpec::AnyOpponent
+                        | TargetSpec::OpponentOrObject(_)
                         | TargetSpec::AnyTarget
                         | TargetSpec::ThisObject
                         | TargetSpec::EventObject => {
@@ -607,6 +634,10 @@ mod tests {
                             continue;
                         }
                         TargetSpec::Object(f)
+                        | TargetSpec::ObjectOfEachOpponent(f)
+                        | TargetSpec::ObjectOfFirstTargetsPlayer(f)
+                        | TargetSpec::ObjectControlledBy(f, _)
+                        | TargetSpec::ObjectOfEventPlayer(f)
                         | TargetSpec::Spell(f)
                         | TargetSpec::StackOrBattlefield(f)
                         | TargetSpec::AbilityOnStack(f)

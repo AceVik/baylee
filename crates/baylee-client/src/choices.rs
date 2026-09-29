@@ -27,10 +27,18 @@
 //! That is what [`ChoiceOption::index`] is for. Cavern of Souls asks this
 //! question as it *enters*, so a client that cannot answer it loses the game
 //! on a land drop.
+//!
+//! **A card name is the same shape, larger.** [`Prompt::ChooseCardName`]
+//! carries no list, because any card's name may be chosen (CR 201.4) and the
+//! pool is the list: this client's own, which is the engine's, since the two
+//! ship as one build. So the rows are every face of the pool, in one fixed
+//! order ([`card_name_at`]), narrowed by the same box, and a row's index is
+//! its place in that order. The model is told the card and face through
+//! [`pick`], which is the door every chooser press goes through.
 
 use baylee_client_core::card_face::TextBlock;
 use baylee_client_core::i18n::{Lang, Phrase, seat_name};
-use baylee_client_core::interaction::Prompt;
+use baylee_client_core::interaction::{Interaction, Prompt};
 use baylee_client_core::manapip::{self, Pip};
 use baylee_core::generated::subtypes;
 use baylee_core::ids::{CardIndex, ObjectId, SubtypeId};
@@ -140,10 +148,51 @@ fn printed_sentence(
     // is computed against the English text and is unaffected; only what the
     // row draws is.
     let said = said.join(" ");
-    let said = said
-        .trim_start_matches(['\u{2022}', '*', '\u{30fb}', ' '])
-        .trim();
+    let said = without_spree_cost(
+        said.trim_start_matches(['\u{2022}', '*', '\u{30fb}', ' '])
+            .trim(),
+    );
     (!said.is_empty()).then(|| said.to_string())
+}
+
+/// A spree mode's words without the plus sign and the mode's own cost in
+/// front of them: "+ {1} — Destroy all creatures." is drawn "Destroy all
+/// creatures.", because the row draws beside it what the whole set of modes
+/// costs, and the mode's share of that is not what the player pays.
+///
+/// Anything that does not have the whole shape — the sign, one or more
+/// symbols, a dash — is returned as it was.
+fn without_spree_cost(said: &str) -> &str {
+    let Some(rest) = said.strip_prefix('+') else {
+        return said;
+    };
+    let mut rest = rest.trim_start();
+    let mut symbols = 0;
+    while let Some(after) = rest.strip_prefix('{') {
+        let Some(end) = after.find('}') else {
+            return said;
+        };
+        rest = &after[end + 1..];
+        symbols += 1;
+    }
+    let rest = rest.trim_start();
+    match rest.strip_prefix(['\u{2014}', '\u{2013}', '-']) {
+        Some(words) if symbols > 0 => words.trim_start(),
+        _ => said,
+    }
+}
+
+/// What one mode of a modal card says: its printed sentence, the card's own
+/// words for a choice made inside one sentence, and failing both its number.
+fn mode_label(lang: Lang, object: ObjectId, names: FaceNames<'_>, i: usize) -> String {
+    // One-based in the fallback, because the printed card numbers its
+    // modes from one and a player reads the card, not the index.
+    printed_sentence(names, object, baylee_cards::lines::mode_line, i)
+        .or_else(|| {
+            let card = cast_card(names, object)?;
+            baylee_cards::lines::inline_mode_words(card, CAST_FACE, i).map(str::to_string)
+        })
+        .unwrap_or_else(|| Phrase::CastModeNumber.fill(lang, &[&(i + 1).to_string()]))
 }
 
 /// One row of an indexed chooser.
@@ -300,8 +349,136 @@ pub fn options(
                 .collect(),
         ),
         Prompt::ChooseSubtype { options } => Some(subtype_rows(options, filter, lang)),
+        // A pile is its cards: the row names them, in the order the
+        // separation gave them, and an empty pile says so rather than
+        // drawing a blank row, because it is a pile that may be taken.
+        Prompt::ChoosePile { piles } => Some(
+            piles
+                .iter()
+                .enumerate()
+                .map(|(i, pile)| {
+                    let cards = if pile.is_empty() {
+                        Phrase::EmptyPile.text(lang).to_string()
+                    } else {
+                        pile.iter()
+                            .map(|id| names.of(*id, 0).unwrap_or_else(|| "?".to_string()))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    };
+                    ChoiceOption::text(
+                        i,
+                        Phrase::PileRow.fill(lang, &[&(i + 1).to_string(), &cards]),
+                    )
+                })
+                .collect(),
+        ),
+        Prompt::ChooseCardName => Some(card_name_rows(filter)),
         _ => None,
     }
+}
+
+/// Picks row `index` of the chooser [`options`] draws for `interaction`'s
+/// prompt: by position for an indexed choice, and for a card name by the
+/// card and face that row stands for.
+///
+/// One door for every press, key and click alike, so a row can only ever
+/// answer what it says. Returns `false` when the row answers nothing.
+pub fn pick(interaction: &mut Interaction, index: usize) -> bool {
+    if matches!(interaction.prompt(), Prompt::ChooseCardName) {
+        return card_name_at(index)
+            .is_some_and(|(card, face)| interaction.choose_card_name(card, face));
+    }
+    interaction.choose_index(index)
+}
+
+/// The row that is picked, in the numbering [`options`] gives its rows.
+#[must_use]
+pub fn picked(interaction: &Interaction) -> Option<usize> {
+    interaction
+        .chosen_card_name()
+        .and_then(|(card, face)| card_name_row(card, face))
+        .or_else(|| interaction.chosen_index())
+}
+
+/// One face of the pool, as the card-name chooser lists it.
+struct NamedRow {
+    card: CardIndex,
+    face: u8,
+    name: &'static str,
+    /// The name as it is matched, lower-cased once.
+    lower: String,
+}
+
+/// Every name the pool prints, one row per face, alphabetized, a name two
+/// faces share listed once.
+///
+/// Built once: the pool is compiled in, and a chooser that rebuilt three
+/// thousand rows would do it every frame the box is open.
+fn card_names() -> &'static [NamedRow] {
+    static NAMES: std::sync::LazyLock<Vec<NamedRow>> = std::sync::LazyLock::new(|| {
+        let mut rows: Vec<NamedRow> = baylee_cards::all()
+            .flat_map(|def| {
+                def.faces
+                    .iter()
+                    .enumerate()
+                    .filter_map(move |(face, printed)| {
+                        Some(NamedRow {
+                            card: def.index,
+                            face: u8::try_from(face).ok()?,
+                            name: printed.name,
+                            lower: printed.name.to_lowercase(),
+                        })
+                    })
+            })
+            .collect();
+        rows.sort_by(|a, b| {
+            (&a.lower, a.name, a.card, a.face).cmp(&(&b.lower, b.name, b.card, b.face))
+        });
+        rows.dedup_by(|a, b| a.name == b.name);
+        rows
+    });
+    &NAMES
+}
+
+/// The card and face row `index` of the card-name chooser names.
+#[must_use]
+pub fn card_name_at(index: usize) -> Option<(CardIndex, u8)> {
+    card_names().get(index).map(|row| (row.card, row.face))
+}
+
+/// The row that names face `face` of `card`.
+fn card_name_row(card: CardIndex, face: u8) -> Option<usize> {
+    card_names()
+        .iter()
+        .position(|row| row.card == card && row.face == face)
+}
+
+/// The card names matching `filter`, cut to what the bar holds.
+///
+/// A name that begins with what was typed first, then one with a word that
+/// does, each alphabetized: typing `needle` is how a player looks for Pithing
+/// Needle, and a prefix match alone would never offer it. In the pool's
+/// English, which is the name's identity in the rules and the one every
+/// client has; nothing is matched inside a word.
+fn card_name_rows(filter: &str) -> Vec<ChoiceOption> {
+    let needle = filter.trim().to_lowercase();
+    let word_start = |lower: &str| {
+        lower
+            .split(|c: char| !c.is_alphanumeric())
+            .any(|word| word.starts_with(&needle))
+    };
+    let mut rows: Vec<(bool, ChoiceOption)> = card_names()
+        .iter()
+        .enumerate()
+        .filter_map(|(i, row)| {
+            let first = row.lower.starts_with(&needle);
+            (first || word_start(&row.lower))
+                .then(|| (!first, ChoiceOption::text(i, row.name.to_string())))
+        })
+        .collect();
+    rows.sort_by_key(|(later, _)| *later);
+    rows.truncate(SUBTYPE_ROWS);
+    rows.into_iter().map(|(_, row)| row).collect()
 }
 
 /// What one cast option is called.
@@ -360,14 +537,16 @@ fn cast_label(
             printed_sentence(names, object, baylee_cards::lines::alternative_line, i)
                 .unwrap_or_default()
         }
-        // One-based in the fallback, because the printed card numbers its
-        // modes from one and a player reads the card, not the index.
-        K::Mode(i) => printed_sentence(names, object, baylee_cards::lines::mode_line, i)
-            .or_else(|| {
-                let card = cast_card(names, object)?;
-                baylee_cards::lines::inline_mode_words(card, CAST_FACE, i).map(str::to_string)
-            })
-            .unwrap_or_else(|| Phrase::CastModeNumber.fill(lang, &[&(i + 1).to_string()])),
+        K::Mode(i) => mode_label(lang, object, names, i),
+        // Several modes at once (Farewell, a spree card): each one's own
+        // words, in the order the card prints them, which is the order they
+        // happen in (CR 608.2c), joined by the plus a spree card lists them
+        // under.
+        K::Modes(set) => (0..u8::BITS as usize)
+            .filter(|i| set & (1 << i) != 0)
+            .map(|i| mode_label(lang, object, names, i))
+            .collect::<Vec<_>>()
+            .join(" + "),
         K::Face(i) => names
             .of(object, i)
             .unwrap_or_else(|| Phrase::CastBackFace.text(lang).to_string()),
@@ -377,6 +556,9 @@ fn cast_label(
         K::Disguise => Phrase::CastDisguise.text(lang).to_string(),
         K::Prototype => Phrase::CastPrototype.text(lang).to_string(),
         K::Miracle => Phrase::CastMiracle.text(lang).to_string(),
+        K::Flashback => Phrase::CastFlashback.text(lang).to_string(),
+        K::Dash => Phrase::CastDash.text(lang).to_string(),
+        K::Escape => Phrase::CastEscape.text(lang).to_string(),
     }
 }
 
@@ -740,6 +922,65 @@ mod tests {
         assert_eq!(subtype_rows(&offered, "ally", Lang::En)[0].label, "Ally");
     }
 
+    /// A card name is answered out of the pool: typing a word of the name
+    /// offers it, the row stands for its card and face, and picking it is
+    /// what the model sends.
+    #[test]
+    fn a_card_name_is_found_by_any_word_of_it_and_sent_as_its_card() {
+        let needle = baylee_cards::decks::by_name("Pithing Needle").expect("in the pool");
+        let rows = options(
+            &Prompt::ChooseCardName,
+            Lang::En,
+            None,
+            "needle",
+            FaceNames::default(),
+        )
+        .expect("a card name is a chooser");
+        let row = rows
+            .iter()
+            .find(|row| row.label == "Pithing Needle")
+            .expect("a word of the name finds it, not only its start");
+        assert_eq!(card_name_at(row.index), Some((needle, 0)));
+        assert!(rows.len() <= SUBTYPE_ROWS);
+
+        let pending = baylee_engine::choice::Pending::ChooseCardName {
+            player: baylee_core::ids::PlayerId::new(0),
+        };
+        let mut interaction = Interaction::new(pending, baylee_core::ids::PlayerId::new(0));
+        assert!(pick(&mut interaction, row.index));
+        assert_eq!(picked(&interaction), Some(row.index));
+        assert_eq!(
+            interaction.confirm(),
+            Some(baylee_engine::choice::PlayerAction::ChooseCardName {
+                card: needle,
+                face: 0
+            })
+        );
+        assert!(
+            !pick(&mut interaction, usize::MAX),
+            "a row past the pool answers nothing"
+        );
+    }
+
+    /// A back face's name is a name of its own (CR 201.4d), and a name that
+    /// begins with what was typed comes before one with a later word that does.
+    #[test]
+    fn a_back_face_is_named_and_a_leading_match_comes_first() {
+        let rebirth = baylee_cards::decks::by_name("Malakir Rebirth").expect("in the pool");
+        let rows = card_name_rows("malakir mire");
+        assert_eq!(
+            rows.first().and_then(|row| card_name_at(row.index)),
+            Some((rebirth, 1)),
+            "Malakir Mire is the back of Malakir Rebirth"
+        );
+        let rows = card_name_rows("pith");
+        assert_eq!(
+            rows.first().map(|row| row.label.as_str()),
+            Some("Pithing Needle")
+        );
+        assert!(card_name_rows("zzzzqq").is_empty());
+    }
+
     #[test]
     fn a_filter_that_matches_nothing_offers_nothing() {
         let rows = options(
@@ -907,6 +1148,105 @@ mod tests {
             rows[0].label,
             "Jeder Gegner opfert einen Kreaturenspielstein, den er bestimmt."
         );
+    }
+
+    /// A row for several modes says each one's words, in printed order, and
+    /// for a spree card without the plus sign and the mode's own cost in
+    /// front of them: the row draws beside it what the whole set costs.
+    #[test]
+    fn a_row_of_several_modes_says_each_without_its_own_cost() {
+        let (view, texts, object) = asking_about(
+            "7e7ec3d6-a84f-4cc3-93f4-4d181d41e126",
+            "en",
+            "Spree (Choose one or more additional costs.)\n\
+             + {1} — All creatures lose all abilities until end of turn.\n\
+             + {1} — Choose a creature you control. It gains indestructible \
+             until end of turn.\n\
+             + {3}{W}{W} — Destroy all creatures.",
+        );
+        let rows = cast_rows(
+            object,
+            &[CastModeKind::Modes(0b101)],
+            FaceNames {
+                view: Some(&view),
+                texts: Some(&texts),
+            },
+            Lang::En,
+        );
+        assert_eq!(
+            rows[0].label,
+            "All creatures lose all abilities until end of turn. + Destroy all creatures."
+        );
+    }
+
+    /// "Choose two": Cryptic Command's row for a pair says both modes' words,
+    /// in printed order, the way a spree row does.
+    #[test]
+    fn a_row_of_two_chosen_modes_says_both() {
+        let (view, texts, object) = asking_about(
+            "a3e51a35-09df-4189-b131-08a21e6a557d",
+            "en",
+            "Choose two —\n\
+             • Counter target spell.\n\
+             • Return target permanent to its owner's hand.\n\
+             • Tap all creatures your opponents control.\n\
+             • Draw a card.",
+        );
+        let rows = cast_rows(
+            object,
+            &[CastModeKind::Modes(0b1100)],
+            FaceNames {
+                view: Some(&view),
+                texts: Some(&texts),
+            },
+            Lang::En,
+        );
+        assert_eq!(
+            rows[0].label,
+            "Tap all creatures your opponents control. + Draw a card."
+        );
+    }
+
+    /// Ragavan's dash row names the keyword in the player's language, beside
+    /// the printed cost's row, which needs no words.
+    #[test]
+    fn a_dash_row_names_the_keyword() {
+        for (lang, code, dash) in [(Lang::En, "en", "Dash"), (Lang::De, "de", "Sturmangriff")] {
+            let (view, texts, object) =
+                asking_about("37108cd4-bbab-4ce3-9ed6-f60e8422e703", code, "Dash {1}{R}");
+            let rows = cast_rows(
+                object,
+                &[CastModeKind::Normal, CastModeKind::Dash],
+                FaceNames {
+                    view: Some(&view),
+                    texts: Some(&texts),
+                },
+                lang,
+            );
+            assert_eq!(rows[1].label, dash);
+        }
+    }
+
+    /// Uro's escape row names the keyword in the player's language.
+    #[test]
+    fn an_escape_row_names_the_keyword() {
+        for (lang, code, escape) in [(Lang::En, "en", "Escape"), (Lang::De, "de", "Befreiung")] {
+            let (view, texts, object) = asking_about(
+                "ee302659-59ed-4eef-babe-451b9ccf7f14",
+                code,
+                "Escape—{G}{G}{U}{U}, Exile five other cards from your graveyard.",
+            );
+            let rows = cast_rows(
+                object,
+                &[CastModeKind::Escape],
+                FaceNames {
+                    view: Some(&view),
+                    texts: Some(&texts),
+                },
+                lang,
+            );
+            assert_eq!(rows[0].label, escape);
+        }
     }
 
     /// A printing whose own split is a different length is refused whole,

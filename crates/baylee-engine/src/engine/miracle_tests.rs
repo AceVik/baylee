@@ -449,3 +449,62 @@ fn a_miracle_cost_with_an_x_asks_for_x() {
         "both creatures came back: the miracle was cast for the X it announced"
     );
 }
+
+/// A miracle "yes" the payment cannot follow is a "no": taken, the cast
+/// reversed, and the engine just as a "no" leaves it.
+///
+/// Answering is part of casting, and a cast that cannot be completed is
+/// illegal and reversed (CR 601.2, CR 732.1); the offer was the miracle's one
+/// chance (CR 702.94a). The answer used to spend the offer before the cast
+/// was tried and then refuse it, which no record could replay (r001 games
+/// 1581, 3288, 3554); then it was refused with the offer left standing,
+/// which a driver proposing "yes" again met as a question with no answer.
+///
+/// Nobody here has a land, so `{1}{U}` cannot be paid. Two engines from one
+/// seed, one told yes and one told no, must come out the same in every
+/// field.
+#[test]
+fn an_unpayable_miracle_yes_is_a_no() {
+    let answered = |yes: bool| {
+        let mut engine = Engine::new(&preset(11, vec![], vec![]), RegistryLookup).unwrap();
+        keep_mulligans(&mut engine);
+        for _ in 0..200 {
+            match engine.pending().clone() {
+                Pending::YesNo {
+                    player,
+                    prompt: crate::choice::YesNoPrompt::Miracle { card },
+                    ..
+                } => {
+                    engine
+                        .apply(player, PlayerAction::YesNo(yes))
+                        .expect("an offered answer is taken");
+                    assert!(
+                        engine
+                            .state()
+                            .zones
+                            .list(crate::zone::ZoneLocation::Hand(player))
+                            .contains(&card),
+                        "the miracle stays in hand (yes: {yes})"
+                    );
+                    return engine;
+                }
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                Pending::ChooseAttackers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                        .unwrap();
+                }
+                other => panic!("unexpected pending: {other:?}"),
+            }
+        }
+        panic!("no miracle was offered");
+    };
+    let (yes, no) = (answered(true), answered(false));
+    let differ = yes.fingerprint().differing(&no.fingerprint());
+    assert!(
+        differ.is_empty(),
+        "an unpaid yes differs from a no in {differ:?}"
+    );
+}

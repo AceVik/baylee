@@ -171,6 +171,47 @@ fn loyalty_now(obj: &GameObject, printed: Option<u16>) -> Option<u16> {
     }
 }
 
+/// What `seat` would pay to cast `obj` from its own graveyard, if it may:
+/// [`PublicObject::flashback`].
+///
+/// The same facts `casting::can_cast` asks before it lets the card off the
+/// graveyard, so the view never says "castable" of a card the engine would
+/// refuse for being somewhere else. The price is what the cast charges: a
+/// printed flashback's own cost (CR 702.34a), or for a granted one the
+/// card's mana cost. A permanent card that Muldrotha or Wrenn's emblem lets
+/// the seat cast from there is priced at its own mana cost too. Escape last
+/// (CR 702.138a): its mana, once the graveyard holds the other cards it
+/// exiles, counted off the list the cast wizard asks from.
+fn graveyard_price(
+    state: &GameState,
+    id: ObjectId,
+    obj: &GameObject,
+    seat: PlayerId,
+    mana_cost: ManaCost,
+) -> Option<ManaCost> {
+    if obj.zone != Zone::Graveyard || obj.zone_owner != Some(seat) {
+        return None;
+    }
+    let face = obj
+        .card
+        .and_then(|c| baylee_cards::by_index(c.index))
+        .map(|def| &def.faces[0]);
+    face.and_then(|face| face.flashback)
+        .or_else(|| {
+            (baylee_engine::casting::flashback_granted(state, id)
+                || baylee_engine::casting::graveyard_cast_permission(state, seat, obj).is_some())
+            .then_some(mana_cost)
+        })
+        .or_else(|| {
+            face.and_then(|face| face.escape)
+                .filter(|escape| {
+                    baylee_engine::casting::escape_exile_options(state, seat, id).len()
+                        >= usize::from(escape.exile)
+                })
+                .map(|escape| escape.cost)
+        })
+}
+
 /// Projects one object into its public form for `seat`.
 fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<PublicObject> {
     let obj = state.object(id)?;
@@ -205,6 +246,14 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         supertypes: chars.supertypes,
         subtypes: chars.subtypes,
         chosen_subtype: obj.chosen_subtype,
+        chosen_name: obj.chosen_name.map(|named| baylee_view::NamedFace {
+            card: named.card(),
+            face: named.face(),
+        }),
+        unlocked_doors: obj
+            .doors
+            .is_room()
+            .then(|| [obj.doors.is_unlocked(0), obj.doors.is_unlocked(1)]),
         suspended: known
             && obj.zone == Zone::Exile
             && obj.riders.contains(&baylee_engine::object::Rider::Suspend)
@@ -234,7 +283,7 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         base_power: obj.base.power,
         base_toughness: obj.base.toughness,
         loyalty: loyalty_now(obj, chars.loyalty),
-        mana_value: chars.mana_cost.cmc(),
+        mana_value: chars.mana_value(),
         damage: obj.damage,
         counters: obj
             .counters
@@ -284,14 +333,7 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         board_mana: (obj.kind == ObjectKind::Permanent)
             .then(|| board_mana(state, id))
             .flatten(),
-        // The same two facts `casting::can_cast` asks before it lets the
-        // card off the graveyard, so the view never says "castable" of a
-        // card the engine would refuse for being somewhere else. The price
-        // is the card's own mana cost, as the cast charges it.
-        flashback: (obj.zone == Zone::Graveyard
-            && obj.zone_owner == Some(seat)
-            && baylee_engine::casting::flashback_granted(state, id))
-        .then_some(chars.mana_cost),
+        flashback: graveyard_price(state, id, obj, seat, chars.mana_cost),
         // Permanents only, for `granted_mana`'s reason: the engine offers a
         // granted ability on a permanent and nowhere else, and each entry
         // here is one of those offers.
@@ -364,9 +406,12 @@ fn grant_home(
         let index = baylee_cards::lines::grant_home(abilities, grant)?;
         Some((face, u32::try_from(index).ok()?))
     };
-    let own = grantor
-        .printed_face()
-        .and_then(|face| found(face, grantor.abilities(&crate::session::RegistryLookup)));
+    let own = grantor.printed_face().and_then(|face| {
+        found(
+            face,
+            grantor.printed_abilities(&crate::session::RegistryLookup),
+        )
+    });
     own.or_else(|| {
         let card = grantor.card?.index;
         let def = baylee_cards::by_index(card)?;
@@ -608,14 +653,17 @@ fn mana_pool(pool: &baylee_core::mana::ManaPool) -> baylee_view::ManaPoolView {
 /// creatures, and every creature in a declaration is on the battlefield, which
 /// the view already carries in full. Neither is [`Pending::YesNo`]'s miracle
 /// card — a miracle is revealed from the hand it was drawn into, and that is
-/// the asking seat's own hand.
-const fn offered(pending: &Pending) -> &[ObjectId] {
+/// the asking seat's own hand. A pile choice ([`Pending::ChoosePile`]) names
+/// every card of every pile: all of them were revealed, and the pile taken
+/// is chosen by what is in it.
+fn offered(pending: &Pending) -> Vec<ObjectId> {
     match pending {
         Pending::ChooseCards { options, .. }
         | Pending::ChooseTargets { options, .. }
-        | Pending::LegendChoice { options, .. } => options.as_slice(),
-        Pending::Arrange { cards, .. } => cards.as_slice(),
-        _ => &[],
+        | Pending::LegendChoice { options, .. } => options.clone(),
+        Pending::Arrange { cards, .. } => cards.clone(),
+        Pending::ChoosePile { piles, .. } => piles.concat(),
+        _ => Vec::new(),
     }
 }
 
@@ -656,13 +704,13 @@ fn looking_at(state: &GameState, seat: PlayerId, pending: Option<&Pending>) -> V
         return Vec::new();
     }
     offered(pending)
-        .iter()
+        .into_iter()
         .filter(|id| {
             state
-                .object(**id)
+                .object(*id)
                 .is_some_and(|obj| !shown_elsewhere(obj, seat))
         })
-        .filter_map(|id| public_object(state, *id, seat))
+        .filter_map(|id| public_object(state, id, seat))
         .collect()
 }
 
@@ -814,7 +862,7 @@ pub(crate) fn own_hand(state: &GameState, seat: PlayerId) -> Vec<HandObject> {
                     face: obj.face_index,
                 },
                 name: state.names.get(chars.name).to_string(),
-                mana_value: chars.mana_cost.cmc(),
+                mana_value: chars.mana_value(),
                 colors: chars.colors,
                 types: chars.types,
                 commander: is_commander(state, *id),
@@ -912,7 +960,7 @@ pub fn player_view(
         combat: CombatView {
             attackers: state
                 .combat
-                .attackers
+                .attackers()
                 .iter()
                 .map(|a| AttackerView {
                     creature: a.creature,
@@ -1397,6 +1445,145 @@ mod tests {
                     .iter()
                     .filter(|o| o.id != card)
                     .all(|o| o.chosen_subtype.is_none())
+            );
+        }
+    }
+
+    /// The card name chosen for a Pithing Needle is announced as it is chosen
+    /// (CR 201.4), so every seat is told it, on that permanent and no other.
+    #[test]
+    fn a_needle_s_chosen_name_reaches_every_seat() {
+        let needle = baylee_cards::decks::by_name("Pithing Needle").unwrap();
+        let named = baylee_cards::decks::by_name("Karn, the Great Creator").unwrap();
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_hand = Some(vec![DeckEntry {
+            card: needle,
+            print: PrintRef::new(0),
+        }]);
+        preset.seats[0].starting_battlefield = vec![DeckEntry {
+            card: island(),
+            print: PrintRef::new(0),
+        }];
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        let view = settle(&mut engine, None);
+        let me = PlayerId::new(0);
+        engine
+            .apply(
+                me,
+                PlayerAction::ActivateManaAbility {
+                    source: view.battlefield[0].id,
+                },
+            )
+            .unwrap();
+        let card = view
+            .hand
+            .iter()
+            .find(|o| o.card.index == needle)
+            .unwrap()
+            .id;
+        engine.apply(me, PlayerAction::CastSpell { card }).unwrap();
+        for _ in 0..5 {
+            if let Pending::Priority { player, .. } = engine.pending() {
+                engine.apply(*player, PlayerAction::PassPriority).unwrap();
+            } else {
+                break;
+            }
+        }
+        assert!(matches!(engine.pending(), Pending::ChooseCardName { .. }));
+        engine
+            .apply(
+                me,
+                PlayerAction::ChooseCardName {
+                    card: named,
+                    face: 0,
+                },
+            )
+            .unwrap();
+        for seat in [me, PlayerId::new(1)] {
+            let view = seen_by(&engine, seat);
+            assert_eq!(
+                view.object(card).unwrap().chosen_name,
+                Some(baylee_view::NamedFace {
+                    card: named,
+                    face: 0
+                }),
+                "seat {seat:?} is told the name"
+            );
+            assert!(
+                view.battlefield
+                    .iter()
+                    .filter(|o| o.id != card)
+                    .all(|o| o.chosen_name.is_none())
+            );
+        }
+    }
+
+    /// A Room's doors are designations (CR 709.5c), as public as the
+    /// permanent: every seat is told which halves are unlocked, on that
+    /// permanent alone. Put onto the battlefield uncast, neither is
+    /// (CR 709.5d); its controller unlocks the left one, and both seats see
+    /// it open.
+    #[test]
+    fn a_rooms_doors_reach_every_seat() {
+        let room = baylee_cards::decks::by_name("Walk-In Closet").unwrap();
+        let entry = |card| DeckEntry {
+            card,
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_battlefield = vec![
+            entry(room),
+            entry(forest()),
+            entry(forest()),
+            entry(forest()),
+        ];
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        let view = settle(&mut engine, None);
+        let me = PlayerId::new(0);
+        let id = view
+            .battlefield
+            .iter()
+            .find(|o| o.card.is_some_and(|c| c.index == room))
+            .unwrap()
+            .id;
+        for seat in [me, PlayerId::new(1)] {
+            assert_eq!(
+                seen_by(&engine, seat).object(id).unwrap().unlocked_doors,
+                Some([false, false]),
+                "uncast, seat {seat:?} is told both doors are locked"
+            );
+        }
+        for land in view
+            .battlefield
+            .iter()
+            .filter(|o| o.card.is_some_and(|c| c.index == forest()))
+        {
+            engine
+                .apply(me, PlayerAction::ActivateManaAbility { source: land.id })
+                .unwrap();
+        }
+        engine
+            .apply(
+                me,
+                PlayerAction::ActivateAbility {
+                    source: id,
+                    ability_index: baylee_engine::choice::unlock_door(0),
+                },
+            )
+            .unwrap();
+        for seat in [me, PlayerId::new(1)] {
+            let view = seen_by(&engine, seat);
+            assert_eq!(
+                view.object(id).unwrap().unlocked_doors,
+                Some([true, false]),
+                "seat {seat:?} is told the left door is open"
+            );
+            assert!(
+                view.battlefield
+                    .iter()
+                    .filter(|o| o.id != id)
+                    .all(|o| o.unlocked_doors.is_none()),
+                "and nothing else is a Room"
             );
         }
     }
@@ -1986,6 +2173,57 @@ mod tests {
         assert!(
             theirs.looking_at.is_empty(),
             "an opponent was shown the cards a searching seat is looking through"
+        );
+    }
+
+    /// Fact or Fiction's two questions name cards in the caster's library:
+    /// the opponent who separates them is asked about another seat's
+    /// library, and the caster then about piles. Each is shown the revealed
+    /// cards with their identity while asked, or the piles are blanks.
+    #[test]
+    fn a_separator_and_a_pile_chooser_are_shown_the_revealed_cards() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let caster = PlayerId::new(0);
+        let separator = PlayerId::new(1);
+        let revealed = library(&engine, caster, 3);
+        let shown = |seat: PlayerId, pending: &Pending| {
+            let view = player_view(
+                engine.state(),
+                seat,
+                0,
+                Some(pending),
+                &SeatContext::default(),
+                &[],
+            );
+            assert!(
+                view.looking_at.iter().all(|o| o.card.is_some()),
+                "a revealed card arrived without its identity"
+            );
+            view.looking_at.iter().map(|o| o.id).collect::<Vec<_>>()
+        };
+
+        let separate = Pending::ChooseCards {
+            player: separator,
+            options: revealed.clone(),
+            min: 0,
+            max: 3,
+            prompt: baylee_engine::choice::ChoicePrompt::FirstPile,
+        };
+        assert_eq!(shown(separator, &separate), revealed);
+
+        let choose = Pending::ChoosePile {
+            player: caster,
+            piles: vec![vec![revealed[1]], vec![revealed[0], revealed[2]]],
+        };
+        assert_eq!(
+            shown(caster, &choose),
+            vec![revealed[1], revealed[0], revealed[2]],
+            "every pile's cards, in pile order"
+        );
+        assert!(
+            shown(separator, &choose).is_empty(),
+            "the pile question is the caster's alone"
         );
     }
 
@@ -3799,48 +4037,215 @@ mod tests {
         );
     }
 
-    /// The other door to [`PublicObject::flashback`], pinned shut.
-    ///
-    /// A granted flashback costs the card's own mana cost, and that is the
-    /// price the field carries. A printed one costs what the card prints —
-    /// Faithless Looting is `{R}` and flashes back for `{2}{R}` — and no face
-    /// in the pool has one written yet: each card that prints the keyword
-    /// says so in its coverage. The day one is written, this goes red, and
-    /// the projection has to learn the printed price first, or the view
-    /// tells a planner the cast costs what the front of the card says.
+    /// Muldrotha's door to [`PublicObject::flashback`]: a permanent card its
+    /// owner may cast from the graveyard is priced at its own mana cost, to
+    /// its owner alone, and only while the allowance lasts. Without it the
+    /// client's planner never tapped for a graveyard creature, because the
+    /// engine offers it in `castable` only once the mana is floating (#242's
+    /// reason, one permission further on).
     #[test]
-    fn no_face_that_prints_flashback_has_it_written_yet() {
-        let printed: Vec<(&str, bool)> = baylee_cards::all()
-            .flat_map(|def| (0..def.faces.len()).map(move |face| (def, face)))
-            .filter(|&(def, face)| {
-                baylee_cards::oracle::face(def.index, face)
-                    .is_some_and(|text| text.lines().any(|line| line.starts_with("Flashback")))
-            })
-            .map(|(def, _)| {
-                (
-                    def.name(),
-                    matches!(def.coverage, baylee_cards::dsl::Coverage::Implemented),
-                )
-            })
-            .collect();
-        // Four on 24.09.2026: Faithless Looting, Memory Deluge, Past in
-        // Flames, Sevinne's Reclamation. Floor and ceiling both, since a
-        // misread line count reads as zero and an overbroad one as many.
-        assert!(
-            (4..=12).contains(&printed.len()),
-            "{} faces print flashback: {printed:?}",
-            printed.len()
-        );
-        let written: Vec<&str> = printed
+    fn a_graveyard_permission_is_priced_for_the_owner_while_it_lasts() {
+        use baylee_engine::{event::Cause, zone::ZonePosition};
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let entry = |name| DeckEntry {
+            card: baylee_cards::decks::by_name(name).unwrap(),
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_battlefield = vec![entry("Muldrotha, the Gravetide")];
+        preset.seats[0].starting_hand = Some(vec![entry("Llanowar Elves")]);
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        let view = settle(&mut engine, None);
+        let elf = view
+            .hand
             .iter()
-            .filter(|(_, implemented)| *implemented)
-            .map(|(name, _)| *name)
+            .find(|o| o.name == "Llanowar Elves")
+            .expect("the Elves in hand")
+            .id;
+        engine
+            .dev_state_mut(me)
+            .unwrap()
+            .move_object(
+                elf,
+                ZoneLocation::Graveyard(me),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .unwrap();
+        engine.refresh_offer();
+        let printed = baylee_cards::by_index(entry("Llanowar Elves").card)
+            .expect("Llanowar Elves")
+            .faces[0]
+            .mana_cost;
+        assert_eq!(
+            (
+                flashback_for(&engine, me, elf),
+                flashback_for(&engine, them, elf)
+            ),
+            (Some(printed), None),
+            "the owner is told the Elves' own cost, the opponent nothing"
+        );
+
+        for _ in 0..40 {
+            if engine.state().turn.active == them {
+                break;
+            }
+            match engine.pending().clone() {
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                Pending::ChooseAttackers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                        .unwrap();
+                }
+                other => panic!("unexpected question: {other:?}"),
+            }
+        }
+        assert_eq!(
+            flashback_for(&engine, me, elf),
+            None,
+            "\"during each of your turns\": not on the opponent's"
+        );
+    }
+
+    /// Escape's door to [`PublicObject::flashback`]: Uro in its owner's
+    /// graveyard is priced at its escape mana once five *other* cards lie
+    /// beside it, and at nothing while there are four, because the cast
+    /// cannot be paid (CR 702.138a). To its owner alone.
+    #[test]
+    fn an_escape_is_priced_once_the_graveyard_can_pay_it() {
+        use baylee_engine::{event::Cause, zone::ZonePosition};
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let entry = |name| DeckEntry {
+            card: baylee_cards::decks::by_name(name).unwrap(),
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        let mut hand = vec![entry("Uro, Titan of Nature's Wrath")];
+        hand.extend(std::iter::repeat_n(entry("Llanowar Elves"), 5));
+        preset.seats[0].starting_hand = Some(hand);
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        let view = settle(&mut engine, None);
+        let uro = view
+            .hand
+            .iter()
+            .find(|o| o.name == "Uro, Titan of Nature's Wrath")
+            .expect("Uro in hand")
+            .id;
+        let elves: Vec<ObjectId> = view
+            .hand
+            .iter()
+            .filter(|o| o.name == "Llanowar Elves")
+            .map(|o| o.id)
             .collect();
-        assert!(
-            written.is_empty(),
-            "{written:?} print flashback and are implemented: the view prices a \
-             graveyard cast at the card's mana cost, which is right for a \
-             granted flashback only"
+        assert_eq!(elves.len(), 5);
+        let bury = |engine: &mut Engine<Registry>, card| {
+            engine
+                .dev_state_mut(me)
+                .unwrap()
+                .move_object(
+                    card,
+                    ZoneLocation::Graveyard(me),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .unwrap();
+            engine.refresh_offer();
+        };
+        bury(&mut engine, uro);
+        for &elf in &elves[..4] {
+            bury(&mut engine, elf);
+        }
+        assert_eq!(
+            flashback_for(&engine, me, uro),
+            None,
+            "four other cards cannot pay an escape that exiles five"
+        );
+        bury(&mut engine, elves[4]);
+        assert_eq!(
+            (
+                flashback_for(&engine, me, uro),
+                flashback_for(&engine, them, uro)
+            ),
+            (Some(ManaCost::parse("{G}{G}{U}{U}")), None),
+            "the escape's mana to its owner, nothing to the opponent"
+        );
+    }
+
+    /// The other door to [`PublicObject::flashback`]: a *printed* flashback
+    /// is priced at what the card prints, not at its mana cost.
+    ///
+    /// This was pinned shut while no face that prints the keyword had it
+    /// written; Memory Deluge is the first, `{2}{U}{U}` in front of a
+    /// `{5}{U}{U}` flashback, and a view that said four would have a planner
+    /// tap four lands for a cast the engine then refuses. Played, not
+    /// built: the Deluge is cast off four Islands and resolves into the
+    /// graveyard, where its owner alone is told the flashback price.
+    #[test]
+    fn a_printed_flashback_is_priced_at_its_printed_cost() {
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let deluge = by_oracle_id("e6fd55f2-7e26-469c-a44a-ea2eb90e19a9")
+            .unwrap()
+            .index;
+        let entry = |card| DeckEntry {
+            card,
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_hand = Some(vec![entry(deluge)]);
+        preset.seats[0].starting_battlefield = vec![entry(island()); 4];
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+
+        let view = settle(&mut engine, None);
+        let card = view
+            .hand
+            .iter()
+            .find(|c| c.name == "Memory Deluge")
+            .unwrap()
+            .id;
+        for source in view.battlefield_of(me).map(|o| o.id).collect::<Vec<_>>() {
+            engine
+                .apply(me, PlayerAction::ActivateManaAbility { source })
+                .expect("an Island taps for blue");
+        }
+        engine
+            .apply(me, PlayerAction::CastSpell { card })
+            .expect("the mana for it is floating");
+        for _ in 0..10 {
+            match engine.pending().clone() {
+                Pending::ChooseCards {
+                    player,
+                    options,
+                    min,
+                    ..
+                } => {
+                    engine
+                        .apply(
+                            player,
+                            PlayerAction::ChooseObjects {
+                                objects: options[..usize::from(min)].to_vec(),
+                            },
+                        )
+                        .expect("two of the four looked at");
+                    break;
+                }
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                other => panic!("unexpected question: {other:?}"),
+            }
+        }
+        settle(&mut engine, None);
+        assert_eq!(
+            flashback_for(&engine, me, card),
+            Some(baylee_core::mana::ManaCost::parse("{5}{U}{U}")),
+            "the printed flashback cost, not the mana cost"
+        );
+        assert_eq!(
+            flashback_for(&engine, them, card),
+            None,
+            "to its owner alone"
         );
     }
 

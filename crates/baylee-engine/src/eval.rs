@@ -55,16 +55,17 @@ pub fn matches_projected(
         // characteristics, so a clone answers to what it copied.
         Filter::Named(name) => state.names.get(chars.name) == *name,
         Filter::IsToken => obj.card.is_none(),
+        Filter::WithSingleTarget => {
+            obj.targets.len() + obj.second_targets().len() + obj.target_players.len() == 1
+        }
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
         Filter::OwnedByYou => obj.owner == you,
         Filter::Tapped => obj.status.contains(Status::TAPPED),
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
-        Filter::Attacking => state
-            .combat
-            .attackers
-            .iter()
-            .any(|info| info.creature == obj.id),
+        // A lookup and not a scan: this arm runs once per object whenever a
+        // filter is walked over the battlefield (`CombatState`'s doc).
+        Filter::Attacking => state.combat.is_attacking(obj.id),
         // The turn's record of arrivals. It is written where a `ZoneChanged`
         // into the battlefield is journaled, and it holds the id
         // `move_object` returns, so the handle a permanent has now is the one
@@ -79,6 +80,11 @@ pub fn matches_projected(
         // `arrival_tests::a_permanent_entered_this_turn_only_on_the_turn_it_was_played`
         // asserts both halves of what makes it unnecessary.
         Filter::EnteredThisTurn => state.per_turn.entered_battlefield.contains(&obj.id),
+        Filter::PutIntoGraveyardThisTurn => state.per_turn.entered_graveyard.contains(&obj.id),
+        // The object's own counters. A leaves-the-battlefield trigger asks
+        // the object as it last existed there, and `trigger::departed_matches`
+        // hands in that object, counters and all.
+        Filter::HasCounter(kind) => obj.counters.get(*kind) > 0,
         Filter::MatchesChosenTypeOfSource => state
             .object(this)
             .and_then(|src| src.chosen_subtype)
@@ -116,7 +122,7 @@ pub fn matches_projected(
                 .any(|commander| obj_subs.intersects(commander.characteristics().subtypes))
         }
         Filter::HasKeyword(k) => chars.keywords.contains(*k),
-        Filter::CmcAtMost(n) => chars.mana_cost.cmc() <= *n,
+        Filter::CmcAtMost(n) => chars.mana_value() <= *n,
         // The bound is the announced X on the ability's own source, which is
         // where `cast_wizard` writes it and what `res.x` is read from one
         // layer up. A source that is gone, or that announced nothing, bounds
@@ -124,9 +130,18 @@ pub fn matches_projected(
         // whole library would be a tutor with no price.
         Filter::CmcAtMostX => {
             let x = state.object(this).map_or(0, |o| o.x_value);
-            chars.mana_cost.cmc() <= x
+            chars.mana_value() <= x
         }
-        Filter::CmcAtLeast(n) => chars.mana_cost.cmc() >= *n,
+        // Converge's number, off the source where the payment wrote it; no
+        // record is no mana spent, and so no colors.
+        Filter::CmcAtMostColorsSpent => {
+            let colors = state
+                .object(this)
+                .and_then(|o| o.paid.as_ref())
+                .map_or(0, |p| p.colors_spent.len());
+            chars.mana_value() <= u32::from(colors)
+        }
+        Filter::CmcAtLeast(n) => chars.mana_value() >= *n,
         Filter::ToughnessAtMost(n) => chars.toughness.is_some_and(|t| t <= *n),
         Filter::ToughnessAtLeast(n) => chars.toughness.is_some_and(|t| t >= *n),
         // `is_some_and`, so an object with no power at all — a land, an
@@ -183,7 +198,12 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
             .filter(|p| !p.has_lost())
             .map(|p| p.id)
             .collect(),
-        PlayerRel::ControllerOfTarget | PlayerRel::Chosen => return None,
+        PlayerRel::ControllerOfTarget
+        | PlayerRel::ControllerOfEvent
+        | PlayerRel::Chosen
+        | PlayerRel::DamagedPlayer => {
+            return None;
+        }
     })
 }
 
@@ -194,8 +214,13 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
 /// is the **only** caller allowed to read [`players`]' `None` as "nobody".
 /// [`players`] has four callers in all and the other three
 /// (`resolve::players_of` and two in `team_tests`) `expect` a relation the
-/// state can answer. Every `CardInGraveyard` in the pool names `You` or
-/// `EachPlayer`; one naming `Chosen` would be a bug in the card.
+/// state can answer.
+///
+/// `Chosen` is the exception, and it is not a context relation here: it is
+/// "from a single graveyard" (Unlicensed Hearse), and the graveyard is chosen
+/// as part of choosing the targets. So every graveyard is enumerated — what
+/// the offer counts, and what CR 608.2b re-checks a target against — and
+/// `start_activation` narrows the list to the graveyard its player named.
 fn graveyard_options(
     filter: &Filter,
     rel: PlayerRel,
@@ -203,6 +228,11 @@ fn graveyard_options(
     you: PlayerId,
     this: ObjectId,
 ) -> Vec<ObjectId> {
+    let rel = if rel == PlayerRel::Chosen {
+        PlayerRel::EachPlayer
+    } else {
+        rel
+    };
     let Some(seats) = players(rel, state, you) else {
         return Vec::new();
     };
@@ -222,6 +252,35 @@ fn graveyard_options(
         );
     }
     out
+}
+
+/// "The tapped creature's power" (station, CR 702.184a): the permanent the
+/// payment of `paid_on`'s cost tapped, at its power now if it is still on
+/// the battlefield as that object, and as it last existed there otherwise
+/// (CR 608.2h). Negative power puts no counters (CR 107.1b); nothing
+/// tapped, 0.
+#[must_use]
+pub fn tapped_power(state: &GameState, paid_on: ObjectId) -> u32 {
+    let Some((tapped, version)) = state
+        .object(paid_on)
+        .and_then(|o| o.paid.as_ref())
+        .and_then(|p| p.tapped)
+    else {
+        return 0;
+    };
+    let power = state
+        .object(tapped)
+        .filter(|o| o.zone == crate::zone::Zone::Battlefield && o.version == version)
+        .map(|o| o.characteristics().power.unwrap_or(0))
+        .or_else(|| {
+            state
+                .ltb_powers
+                .iter()
+                .find(|(id, _)| *id == tapped)
+                .map(|(_, power)| *power)
+        })
+        .unwrap_or(0);
+    u32::try_from(power.max(0)).unwrap_or(0)
 }
 
 /// Evaluates an [`Amount`].
@@ -285,7 +344,26 @@ pub fn amount(
             .object(this)
             .and_then(|o| o.characteristics().power)
             .map_or(0, |p| p.max(0) as u32),
-        Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
+        Amount::CountersOnSource(kind) => state
+            .object(this)
+            .map_or(0, |o| u32::from(o.counters.get(*kind))),
+        // Resolved in resolve.rs, which has the stack object these read.
+        Amount::TargetPower | Amount::TargetCmc | Amount::EventAmount => 0,
+        // The object the payment wrote it on. A resolution asks
+        // `resolve::amount2`, which reads the stack object: an activated
+        // ability's source is the permanent and its payment is on the
+        // ability. Here, with no resolution, `this` is all there is, which
+        // answers for a spell (its own source) and 0 for anything else.
+        Amount::SacrificedManaValue => state
+            .object(this)
+            .and_then(|o| o.paid.as_ref())
+            .and_then(|p| p.sacrificed_mana_value)
+            .unwrap_or(0),
+        Amount::ManaSpentToCast => state
+            .object(this)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |p| p.mana_spent),
+        Amount::TappedPower => tapped_power(state, this),
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
                 ZoneSel::Battlefield => state.zones.list(ZoneLocation::Battlefield).clone(),
@@ -346,6 +424,7 @@ pub fn amount(
 /// upkeep, which is where this clause is commonest — the sweep is the next
 /// thing that runs and the two are the same moment.
 #[must_use]
+#[allow(clippy::too_many_lines)] // one arm per `Condition`: the match is the list
 pub fn condition_holds(
     state: &GameState,
     you: PlayerId,
@@ -354,6 +433,18 @@ pub fn condition_holds(
 ) -> bool {
     match condition {
         Condition::YourTurn => state.turn.active == you,
+        // The announced X on the source, where `cast_wizard` writes it and
+        // where `Filter::CmcAtMostX` reads it.
+        Condition::XAtLeast(n) => state.object(source).map_or(0, |o| o.x_value) >= n,
+        // No last turn at the first upkeep of the game, so nothing was cast
+        // in it and nothing wasn't: both sentences are false there.
+        Condition::NoSpellsCastLastTurn => {
+            state.previous_turn.is_some_and(|p| p.spells_by_all == 0)
+        }
+        Condition::YouCastNoSpellThisTurn => state.per_turn.spells_cast_by(you) == 0,
+        Condition::APlayerCastLastTurnAtLeast(n) => state
+            .previous_turn
+            .is_some_and(|p| p.most_by_one >= u32::from(n)),
         Condition::ControlCount(filter, min) => {
             let count = state
                 .zones
@@ -384,6 +475,20 @@ pub fn condition_holds(
                 .count();
             count <= max as usize
         }
+        Condition::ControlDistinctNames(filter, min) => {
+            // A phased-out land is treated as though it does not exist
+            // (CR 702.26b), so its name is not one of yours.
+            let mut names: Vec<baylee_core::ids::NameRef> = state
+                .battlefield_seen()
+                .filter_map(|id| state.object(id))
+                .filter(|o| o.controller == you && matches(filter, state, o, you, o.id))
+                .map(|o| o.characteristics().name)
+                .filter(|name| *name != crate::state::NAMELESS)
+                .collect();
+            names.sort_unstable();
+            names.dedup();
+            names.len() >= min as usize
+        }
         // `you` in the filter is the **opponent** being counted, not the
         // ability's controller: "an opponent controls four or more lands"
         // asks the question of each seat in turn, and a filter evaluated
@@ -404,6 +509,10 @@ pub fn condition_holds(
                     .count()
                     >= min as usize
             }),
+        Condition::LandsPlayedThisTurnAtLeast(n) => state
+            .players
+            .get(you.get() as usize)
+            .is_some_and(|p| p.lands_played_this_turn >= n),
         Condition::HandSizeAtMost(max) => {
             state.zones.list(ZoneLocation::Hand(you)).len() <= max as usize
         }
@@ -428,10 +537,17 @@ pub fn condition_holds(
         Condition::CountersOnSelfExactly(kind, n) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) == u16::from(n)),
+        Condition::CountersOnSelfBetween(kind, min, max) => state
+            .object(source)
+            .is_some_and(|o| (u16::from(min)..=u16::from(max)).contains(&o.counters.get(kind))),
         Condition::EnduringStory => state
             .players
             .get(usize::from(you.get()))
             .is_some_and(|p| p.enduring_story),
+        Condition::CitysBlessing => state
+            .players
+            .get(usize::from(you.get()))
+            .is_some_and(|p| p.citys_blessing),
         Condition::Station(min) => state.object(source).is_some_and(|o| {
             o.counters.get(baylee_cards_dsl::CounterKind::Charge) >= u16::from(min)
         }),
@@ -443,6 +559,22 @@ pub fn condition_holds(
         Condition::Any(parts) => parts
             .iter()
             .any(|part| condition_holds(state, you, source, *part)),
+        Condition::Not(part) => !condition_holds(state, you, source, *part),
+        // Dash's return (CR 702.109a): the rider the cast wrote goes with
+        // the permanent the spell became and is given up by every other
+        // move (`GameState::move_object`), so a permanent that left the
+        // battlefield and came back is not the one the dash cost was paid
+        // for (CR 400.7).
+        Condition::DashCostPaid => state.object(source).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Battlefield
+                && o.riders.contains(&crate::object::Rider::Dashed)
+        }),
+        // "Unless it escaped" (CR 702.138b): the rider the escape cast wrote,
+        // kept by the spell and the permanent it becomes and by nothing
+        // later (`GameState::move_object`).
+        Condition::Escaped => state
+            .object(source)
+            .is_some_and(|o| o.riders.contains(&crate::object::Rider::Escaped)),
         Condition::SourceMatches(filter) => state
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),
@@ -475,6 +607,26 @@ pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> 
     };
     state.effects.iter().any(|fx| {
         let baylee_cards_dsl::Modifier::ProtectionFrom(f) = fx.modifier else {
+            return false;
+        };
+        crate::effects::applies_to(state, fx, obj)
+            && matches(f, state, src, fx.controller, fx.source.unwrap_or(source))
+    })
+}
+
+/// Does a static ability on `object` say it can't be the target of `source`
+/// ([`baylee_cards_dsl::Modifier::CantBeTargetedBy`], Thrun, Breaker of
+/// Silence)? `source` is the spell, or the source of the ability, doing the
+/// targeting, and the filter is asked of it with the effect's controller as
+/// "you" — the same reading [`protected_from`] gives protection, whose
+/// targeting half this is.
+#[must_use]
+pub fn untargetable_by_source(state: &GameState, object: ObjectId, source: ObjectId) -> bool {
+    let (Some(obj), Some(src)) = (state.object(object), state.object(source)) else {
+        return false;
+    };
+    state.effects.iter().any(|fx| {
+        let baylee_cards_dsl::Modifier::CantBeTargetedBy(f) = fx.modifier else {
             return false;
         };
         crate::effects::applies_to(state, fx, obj)
@@ -517,11 +669,17 @@ pub fn untargetable_by(state: &GameState, object: ObjectId, you: PlayerId) -> bo
 pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId) -> Vec<PlayerId> {
     if !matches!(
         spec,
-        TargetSpec::AnyTarget | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent
+        TargetSpec::AnyTarget
+            | TargetSpec::AnyPlayer
+            | TargetSpec::AnyOpponent
+            | TargetSpec::OpponentOrObject(_)
     ) {
         return Vec::new();
     }
-    let opponents_only = matches!(spec, TargetSpec::AnyOpponent);
+    let opponents_only = matches!(
+        spec,
+        TargetSpec::AnyOpponent | TargetSpec::OpponentOrObject(_)
+    );
     state
         .players
         .iter()
@@ -567,6 +725,67 @@ fn any_target_objects(state: &GameState) -> Vec<ObjectId> {
         .collect()
 }
 
+/// [`TargetSpec::CardInGraveyardBelowValue`]'s options: the graveyard cards
+/// matching `filter` whose mana value is less than `limit`.
+fn graveyard_options_below(
+    filter: &'static baylee_cards_dsl::Filter,
+    rel: baylee_cards_dsl::PlayerRel,
+    limit: u32,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+) -> Vec<ObjectId> {
+    graveyard_options(filter, rel, state, you, this)
+        .into_iter()
+        .filter(|id| {
+            state
+                .object(*id)
+                .is_some_and(|o| o.characteristics().mana_value() < limit)
+        })
+        .collect()
+}
+
+/// The object options of the specs that are about one player's permanents.
+fn objects_of_a_player(
+    spec: &TargetSpec,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+) -> Vec<ObjectId> {
+    match *spec {
+        // The object half of "target opponent or [filter]"; the opponents
+        // come from `target_player_options`, offered beside it.
+        TargetSpec::OpponentOrObject(filter) => {
+            target_options(&TargetSpec::Object(filter), state, you, this)
+        }
+        TargetSpec::ObjectControlledBy(filter, player) => {
+            let mut all = target_options(&TargetSpec::Object(filter), state, you, this);
+            all.retain(|id| state.object(*id).is_some_and(|o| o.controller == player));
+            all
+        }
+        // Unbound, "that player" is nobody yet: the engine asks these only
+        // after binding them to `ObjectControlledBy`.
+        _ => Vec::new(),
+    }
+}
+
+/// [`TargetSpec::ObjectOfEachOpponent`]'s options: every opponent's at once,
+/// which each question narrows to one (`Engine::ask_next_opponent`).
+fn opponents_objects(
+    filter: &'static baylee_cards_dsl::Filter,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+) -> Vec<ObjectId> {
+    let mut all = target_options(&TargetSpec::Object(filter), state, you, this);
+    all.retain(|id| {
+        state
+            .object(*id)
+            .is_some_and(|o| state.is_opponent(o.controller, you))
+    });
+    all
+}
+
 /// Legal target options for a [`TargetSpec`] (empty = cannot be chosen).
 #[must_use]
 pub fn target_options(
@@ -586,6 +805,11 @@ pub fn target_options(
             })
             .copied()
             .collect(),
+        TargetSpec::ObjectOfEachOpponent(filter) => opponents_objects(filter, state, you, this),
+        TargetSpec::OpponentOrObject(_)
+        | TargetSpec::ObjectControlledBy(..)
+        | TargetSpec::ObjectOfFirstTargetsPlayer(_)
+        | TargetSpec::ObjectOfEventPlayer(_) => objects_of_a_player(spec, state, you, this),
         TargetSpec::Spell(filter) => state
             .zones
             .list(ZoneLocation::Stack)
@@ -606,14 +830,7 @@ pub fn target_options(
         }
         TargetSpec::CardInGraveyardBelowEvent(..) => Vec::new(),
         TargetSpec::CardInGraveyardBelowValue(filter, rel, limit) => {
-            graveyard_options(filter, *rel, state, you, this)
-                .into_iter()
-                .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|o| o.characteristics().mana_cost.cmc() < *limit)
-                })
-                .collect()
+            graveyard_options_below(filter, *rel, *limit, state, you, this)
         }
         TargetSpec::StackOrBattlefield(filter) => {
             let mut out: Vec<ObjectId> = state
@@ -672,11 +889,16 @@ pub fn target_options(
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent => vec![],
     };
-    // Protection (CR 702.16b) keeps out matching sources; hexproof and
-    // shroud (CR 702.11b/702.18b) keep out whole classes of chooser.
+    // Protection (CR 702.16b) keeps out matching sources, and so does a
+    // printed "can't be the target of" sentence; hexproof and shroud
+    // (CR 702.11b/702.18b) keep out whole classes of chooser.
     options
         .into_iter()
-        .filter(|id| !protected_from(state, *id, this) && !untargetable_by(state, *id, you))
+        .filter(|id| {
+            !protected_from(state, *id, this)
+                && !untargetable_by_source(state, *id, this)
+                && !untargetable_by(state, *id, you)
+        })
         .collect()
 }
 
@@ -695,7 +917,10 @@ pub fn targeted_players(obj: &GameObject, spec: &TargetSpec) -> baylee_core::ids
     let mut players = baylee_core::ids::SeatSet::new();
     if matches!(
         spec,
-        TargetSpec::AnyTarget | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent
+        TargetSpec::AnyTarget
+            | TargetSpec::AnyPlayer
+            | TargetSpec::AnyOpponent
+            | TargetSpec::OpponentOrObject(_)
     ) {
         players = obj.target_players;
         if let Some(player) = obj.chosen_player {
@@ -1440,6 +1665,31 @@ mod tests {
             source,
             Condition::CountersOnSelfExactly(kind, 2)
         ));
+    }
+
+    /// A leveler's `{LEVEL N1-N2}` band (CR 711.2a) is closed at both ends:
+    /// Hexdrinker's "LEVEL 3-7" holds at three and at seven and at neither
+    /// two nor eight.
+    #[test]
+    fn a_level_band_holds_at_both_ends_and_not_beyond_them() {
+        let mut state = empty_state();
+        let source = creature(&mut state, P0, KeywordSet::EMPTY);
+        let kind = baylee_cards_dsl::CounterKind::Level;
+        let band = Condition::CountersOnSelfBetween(kind, 3, 7);
+        let mut held = Vec::new();
+        for _ in 0..9 {
+            held.push(condition_holds(&state, P0, source, band));
+            state
+                .object_mut(source)
+                .expect("just made it")
+                .counters
+                .add(kind, 1);
+        }
+        assert_eq!(
+            held,
+            [false, false, false, true, true, true, true, true, false],
+            "levels 0 to 8"
+        );
     }
 
     /// CR 113.7a: an ability is a separate object from its source the

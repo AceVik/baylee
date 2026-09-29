@@ -24,7 +24,9 @@
 use baylee_core::ids::CardIndex;
 
 /// Cards whose pinned printing has a second picture.
-pub static BACK_IMAGE: [CardIndex; 108] = [
+pub static BACK_IMAGE: [CardIndex; 110] = [
+    CardIndex::new(12269),
+    CardIndex::new(15585),
     CardIndex::new(15830),
     CardIndex::new(17113),
     CardIndex::new(17140),
@@ -136,7 +138,9 @@ pub static BACK_IMAGE: [CardIndex; 108] = [
 ];
 
 /// Cards that are double-faced cards under CR 712.1.
-pub static DOUBLE_FACED: [CardIndex; 110] = [
+pub static DOUBLE_FACED: [CardIndex; 112] = [
+    CardIndex::new(12269),
+    CardIndex::new(15585),
     CardIndex::new(15830),
     CardIndex::new(15923),
     CardIndex::new(17113),

@@ -14,11 +14,13 @@
 //! question (CR 509.1a) and the engine answers it in
 //! [`BlockOption::attackers`].
 
+use crate::board::Board;
 use baylee_cards_dsl::KeywordSet;
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::BlockOption;
 use baylee_view::{ObjectStatus, PlayerView, PublicObject};
+use std::collections::BTreeSet;
 
 /// A creature, reduced to what a combat exchange depends on.
 #[derive(Clone, Copy, Debug)]
@@ -35,11 +37,11 @@ pub(crate) struct Fighter {
 }
 
 impl Fighter {
-    pub(crate) fn of(view: &PlayerView, id: ObjectId) -> Option<Self> {
-        Self::from_object(view.object(id)?)
-    }
-
-    fn from_object(o: &PublicObject) -> Option<Self> {
+    /// `None` for an object whose power or toughness the view does not say.
+    /// Found by handle through a [`Board`], never by `PlayerView::object`,
+    /// whose walk over every zone made a combat decision quadratic in the
+    /// creatures on the table.
+    pub(crate) fn from_object(o: &PublicObject) -> Option<Self> {
         Some(Self {
             power: i32::from(o.power?),
             toughness: i32::from(o.toughness?) - i32::from(o.damage),
@@ -116,16 +118,13 @@ fn spillover(attacker: Fighter, blocker: Fighter) -> i32 {
 
 /// Every id in `ids`, once each, in the order they first appear.
 ///
-/// A `Vec` scan rather than a set: these lists are a combat's worth of
-/// creatures, and an ordering that depends on a hash is an ordering the
-/// agent would replay differently.
+/// The order is the input's; the set only answers "seen already?". It is an
+/// ordered set and not a hash, so nothing about the answer can depend on a
+/// hasher, and not the `Vec` scan it used to be, which made a board of ten
+/// thousand tokens a hundred million comparisons.
 pub(crate) fn deduped(ids: impl Iterator<Item = ObjectId>) -> Vec<ObjectId> {
-    ids.fold(Vec::new(), |mut acc: Vec<ObjectId>, id| {
-        if !acc.contains(&id) {
-            acc.push(id);
-        }
-        acc
-    })
+    let mut seen = BTreeSet::new();
+    ids.filter(|id| seen.insert(*id)).collect()
 }
 
 /// Every creature attacking that this seat may have to survive.
@@ -175,24 +174,24 @@ fn attacking(view: &PlayerView, options: &[BlockOption]) -> Vec<ObjectId> {
 /// one exception is not a judgement but a legality — menace takes two
 /// blockers or none, and [`enforce_menace`] settles that against the finished
 /// declaration rather than while it is being built.
-#[must_use]
-pub fn choose_blocks(
-    view: &PlayerView,
+pub(crate) fn choose_blocks(
+    board: &Board,
     options: &[BlockOption],
     life: i32,
 ) -> Vec<(ObjectId, ObjectId)> {
+    let view = board.view;
     let attacking = attacking(view, options);
     let me = Defender::Player(view.seat);
-    let aimed = |id: ObjectId| aimed(view, id);
+    let aimed = |id: ObjectId| aimed(board, id);
     let incoming: i32 = attacking
         .iter()
         .filter(|id| aimed(**id) == me)
-        .filter_map(|id| Fighter::of(view, *id))
+        .filter_map(|id| board.fighter(*id))
         .map(|f| f.power)
         .sum();
-    let mut walkers = walkers_under_attack(view, &attacking);
+    let mut walkers = walkers_under_attack(board, &attacking);
     // Every attacker the engine offered a pairing against that the view
-    // cannot describe. `Fighter::of` is three `?` in a row — the object, its
+    // cannot describe. `Board::fighter` is three `?` in a row — the object, its
     // power, its toughness — and each of them reads to a caller as "no such
     // attacker". Here that is wrong twice over: it is the engine that named
     // this creature, so it is *there*, and its damage is **unknown** rather
@@ -202,11 +201,13 @@ pub fn choose_blocks(
     let mut unread: Vec<ObjectId> = attacking
         .iter()
         .copied()
+        .filter(|id| board.fighter(*id).is_none())
         // Only what the engine offered a pairing against. An id the view
         // still names but nothing can be blocked against is an attacker
         // that has left the battlefield, and that one really is absent.
+        // Asked second: it walks every offer, and almost every attacker
+        // reads.
         .filter(|id| options.iter().any(|o| o.attackers.contains(id)))
-        .filter(|id| Fighter::of(view, *id).is_none())
         .collect();
     // The engine offers a pairing per blocker; a creature with nothing it
     // may legally block is not a decision.
@@ -214,7 +215,7 @@ pub fn choose_blocks(
     // Biggest blockers first, so the creature that can actually kill
     // something is not spent chumping.
     free.sort_by_key(|o| {
-        let f = Fighter::of(view, o.blocker);
+        let f = board.fighter(o.blocker);
         (
             -f.map_or(0, |f| f.power),
             -f.map_or(0, |f| f.toughness),
@@ -223,11 +224,11 @@ pub fn choose_blocks(
     });
 
     let mut pairs: Vec<(ObjectId, ObjectId)> = Vec::new();
-    let mut taken: Vec<ObjectId> = Vec::new();
+    let mut taken: BTreeSet<ObjectId> = BTreeSet::new();
     let mut still_coming = incoming;
 
     for option in free {
-        let Some(blocker) = Fighter::of(view, option.blocker) else {
+        let Some(blocker) = board.fighter(option.blocker) else {
             continue;
         };
         // Read before the pairing, because an attacker nobody can describe
@@ -239,7 +240,7 @@ pub fn choose_blocks(
             .attackers
             .iter()
             .filter(|id| !taken.contains(id))
-            .filter_map(|id| Fighter::of(view, *id).map(|f| (*id, f)))
+            .filter_map(|id| board.fighter(*id).map(|f| (*id, f)))
             .max_by_key(|(id, attacker)| {
                 let e = exchange(*attacker, blocker);
                 let saved = attacker.power - spillover(*attacker, blocker);
@@ -273,7 +274,7 @@ pub fn choose_blocks(
             {
                 let attacker_id = unread.remove(i);
                 pairs.push((option.blocker, attacker_id));
-                taken.push(attacker_id);
+                taken.insert(attacker_id);
             }
             continue;
         };
@@ -298,7 +299,7 @@ pub fn choose_blocks(
         };
         if worth_it {
             pairs.push((option.blocker, attacker_id));
-            taken.push(attacker_id);
+            taken.insert(attacker_id);
             if at_me {
                 still_coming -= saved;
             } else if let Defender::Planeswalker(walker) = aimed(attacker_id)
@@ -308,18 +309,14 @@ pub fn choose_blocks(
             }
         }
     }
-    enforce_menace(view, options, &mut pairs);
+    enforce_menace(board, options, &mut pairs);
     pairs
 }
 
 /// What an attacker is aimed at (CR 508.1b). One the view does not describe
 /// is taken to be aimed at this seat, the reading that cannot cost the game.
-fn aimed(view: &PlayerView, id: ObjectId) -> Defender {
-    view.combat
-        .attackers
-        .iter()
-        .find(|a| a.creature == id)
-        .map_or(Defender::Player(view.seat), |a| a.defending)
+fn aimed(board: &Board, id: ObjectId) -> Defender {
+    board.aim(id).unwrap_or(Defender::Player(board.view.seat))
 }
 
 /// One of this seat's planeswalkers under attack.
@@ -331,16 +328,19 @@ struct Besieged {
     mana_value: u32,
 }
 
-fn walkers_under_attack(view: &PlayerView, attacking: &[ObjectId]) -> Vec<Besieged> {
+fn walkers_under_attack(board: &Board, attacking: &[ObjectId]) -> Vec<Besieged> {
     let mut walkers: Vec<Besieged> = Vec::new();
     for id in attacking {
-        let Defender::Planeswalker(walker) = aimed(view, *id) else {
+        let Defender::Planeswalker(walker) = aimed(board, *id) else {
             continue;
         };
-        let Some(object) = view.object(walker).filter(|o| o.controller == view.seat) else {
+        let Some(object) = board
+            .object(walker)
+            .filter(|o| o.controller == board.view.seat)
+        else {
             continue;
         };
-        let power = Fighter::of(view, *id).map_or(0, |f| f.power.max(0));
+        let power = board.fighter(*id).map_or(0, |f| f.power.max(0));
         match walkers.iter_mut().find(|w| w.id == walker) {
             Some(entry) => entry.coming += power,
             None => walkers.push(Besieged {
@@ -388,17 +388,16 @@ fn rescues(walkers: &[Besieged], target: Defender, saved: i32, blocker: Fighter)
 ///
 /// It reads menace off the view's projected keywords, so a granted or
 /// removed one counts (CR 613.1). An attacker the view cannot describe at
-/// all is the one case it cannot answer: `Fighter::of` is `None` there, so
+/// all is the one case it cannot answer: `Board::fighter` is `None` there, so
 /// nothing can be read about it, menace included — see the chump-block
 /// branch above, which is the same gap seen from the other side.
-fn enforce_menace(
-    view: &PlayerView,
-    options: &[BlockOption],
-    pairs: &mut Vec<(ObjectId, ObjectId)>,
-) {
+fn enforce_menace(board: &Board, options: &[BlockOption], pairs: &mut Vec<(ObjectId, ObjectId)>) {
     let menacing = deduped(pairs.iter().map(|(_, attacker)| *attacker));
     for attacker in menacing {
-        if !Fighter::of(view, attacker).is_some_and(|f| f.has(KeywordSet::MENACE)) {
+        if !board
+            .fighter(attacker)
+            .is_some_and(|f| f.has(KeywordSet::MENACE))
+        {
             continue;
         }
         if pairs.iter().filter(|(_, a)| *a == attacker).count() != 1 {
@@ -410,7 +409,7 @@ fn enforce_menace(
             .filter(|o| !pairs.iter().any(|(blocker, _)| *blocker == o.blocker))
             .collect();
         spare.sort_by_key(|o| {
-            let f = Fighter::of(view, o.blocker);
+            let f = board.fighter(o.blocker);
             (
                 f.map_or(0, |f| f.power),
                 f.map_or(0, |f| f.toughness),
@@ -469,12 +468,12 @@ pub(crate) fn could_block(attacker: Fighter, blocker: Fighter) -> bool {
 /// None of these rules looks at the turn after. What this returns, and what
 /// the search returns, passes `hold_back_for_the_crack_back` before it is
 /// sent.
-#[must_use]
-pub fn choose_attackers(
-    view: &PlayerView,
+pub(crate) fn choose_attackers(
+    board: &Board,
     squad: &[ObjectId],
     victim: baylee_core::ids::PlayerId,
 ) -> Vec<ObjectId> {
+    let view = board.view;
     let defenders: Vec<Fighter> = view
         .battlefield_of(victim)
         .filter(|o| {
@@ -485,7 +484,7 @@ pub fn choose_attackers(
         .collect();
     let total: i32 = squad
         .iter()
-        .filter_map(|id| Fighter::of(view, *id))
+        .filter_map(|id| board.fighter(*id))
         .map(|f| f.power)
         .sum();
     let lethal = total >= view.seat(victim).map_or(i32::MAX, |s| s.life);
@@ -494,7 +493,7 @@ pub fn choose_attackers(
         .iter()
         .copied()
         .filter(|id| {
-            let Some(attacker) = Fighter::of(view, *id) else {
+            let Some(attacker) = board.fighter(*id) else {
                 return false;
             };
             if lethal || attacker.has(KeywordSet::VIGILANCE) {
@@ -535,7 +534,9 @@ pub fn choose_attackers(
 /// home, creatures are held back one at a time — the one that stops the most,
 /// the cheapest on a tie — until it would not. A table that dies next turn
 /// whatever it keeps home attacks as it meant to, since holding back buys it
-/// nothing.
+/// nothing. Whether the attack ends the game is the caller's
+/// `attack_is_lethal`: the search's proof or [`breaks_through`], asked
+/// once per decision.
 ///
 /// What comes back is every creature a hostile seat controls, tapped or
 /// phased out or not: it phases in and untaps first (CR 502.1, 502.3), and
@@ -553,40 +554,39 @@ pub fn choose_attackers(
 /// makes one point lethal damage (CR 702.2c), which is not read into a
 /// trampler's excess here, so a deathtouch trampler is undercounted.
 pub(crate) fn hold_back_for_the_crack_back(
-    view: &PlayerView,
+    board: &Board,
     going: Vec<ObjectId>,
     victim: PlayerId,
     attack_is_lethal: bool,
     hostile: impl Fn(PlayerId) -> bool,
 ) -> Vec<ObjectId> {
+    let view = board.view;
     let Some(life) = view.seat(view.seat).map(|s| s.life) else {
         return going;
     };
-    let attackers: Vec<Fighter> = going
-        .iter()
-        .filter_map(|&id| Fighter::of(view, id))
-        .collect();
-    let lethal = attack_is_lethal
-        || view
-            .seat(victim)
-            .is_some_and(|s| through(&attackers, &creatures(view, victim, ready)) >= s.life);
     // What each seat still in the game could swing back with. The victim's
     // is nothing when this attack ends them.
     let threats: Vec<Vec<Fighter>> = view
         .seats
         .iter()
         .filter(|s| !s.has_lost() && hostile(s.player))
-        .filter(|s| !(lethal && s.player == victim))
+        .filter(|s| !(attack_is_lethal && s.player == victim))
         .map(|s| {
             creatures(view, s.player, |_| true)
                 .into_iter()
-                .filter(|f| !f.has(KeywordSet::DEFENDER) && f.power > 0)
+                .filter(|f| {
+                    !f.has(KeywordSet::DEFENDER) && !f.has(KeywordSet::CANT_ATTACK) && f.power > 0
+                })
                 .collect()
         })
         .collect();
     let dies = |going: &[ObjectId]| -> i32 {
+        let mut sorted = going.to_vec();
+        sorted.sort_unstable();
         let home = creatures(view, view.seat, |o| {
-            ready(o) && (!going.contains(&o.id) || o.keywords & KeywordSet::VIGILANCE.bits() != 0)
+            ready(o)
+                && (sorted.binary_search(&o.id).is_err()
+                    || o.keywords & KeywordSet::VIGILANCE.bits() != 0)
         });
         threats.iter().map(|t| through(t, &home)).max().unwrap_or(0)
     };
@@ -601,12 +601,14 @@ pub(crate) fn hold_back_for_the_crack_back(
             .iter()
             .enumerate()
             .filter(|(_, id)| {
-                Fighter::of(view, **id).is_some_and(|f| !f.has(KeywordSet::VIGILANCE))
+                board
+                    .fighter(**id)
+                    .is_some_and(|f| !f.has(KeywordSet::VIGILANCE))
             })
             .min_by_key(|(i, id)| {
                 let mut rest = kept.clone();
                 rest.remove(*i);
-                let f = Fighter::of(view, **id);
+                let f = board.fighter(**id);
                 (
                     dies(&rest),
                     f.map_or(0, |f| f.worth),
@@ -623,6 +625,114 @@ pub(crate) fn hold_back_for_the_crack_back(
             return kept;
         }
     }
+}
+
+/// Whether `going` kills `victim` this combat (CR 704.5a): what gets past
+/// the victim's untapped creatures, by the same estimate [`through`] makes
+/// for the swing back, reaches their life.
+///
+/// The estimate every profile has, where only the searching ones have a
+/// proof, and the search gives up on more than sixteen creatures a side.
+/// Its defender blocks greedily, the attacker with the fewest possible
+/// blockers first; a cleverer assignment could keep more out, so a close
+/// race can read as lethal here. Lifelink, first strike and damage
+/// prevention are not in it.
+pub(crate) fn breaks_through(board: &Board, going: &[ObjectId], victim: PlayerId) -> bool {
+    let attackers: Vec<Fighter> = going.iter().filter_map(|&id| board.fighter(id)).collect();
+    board
+        .view
+        .seat(victim)
+        .is_some_and(|s| through(&attackers, &creatures(board.view, victim, ready)) >= s.life)
+}
+
+/// What each creature in `going` attacks when the attack does not win: the
+/// victim, and one of their planeswalkers with as much as it takes to kill
+/// it (CR 120.3c, CR 704.5i).
+///
+/// *Whether* a walker is attacked is the rule it always was: the cheapest
+/// one the victim controls whose loyalty the squad's power reaches, never
+/// one it could only chip. *How much* goes at it is what changed. The whole
+/// squad used to go, so a board that doubled every turn spent all of it on a
+/// commander walker recast every turn, and its controller's life never moved
+/// (self-play r001 #431). Now the walker gets the weakest attackers, fewest
+/// first, until what [`through`] lets past every untapped creature the
+/// victim has reaches its loyalty — the walker dies even if every blocker
+/// stands in front of it — and the rest go at the player. What the walker
+/// does not need is pressure on the player, and costs the walker plan
+/// nothing. A walker the blockers could save whatever is sent is still sent
+/// the whole squad, as before: the defender then has to spend its blocks on
+/// it.
+///
+/// An attack that wins does not come here. It goes at the player whole,
+/// because a walker plan is worth nothing after the game is over.
+pub(crate) fn aim(
+    board: &Board,
+    victim: PlayerId,
+    going: &[ObjectId],
+    defenders: &[Defender],
+) -> Vec<(ObjectId, Defender)> {
+    let player = Defender::Player(victim);
+    let power: i32 = going
+        .iter()
+        .filter_map(|&id| board.object(id))
+        .map(|o| i32::from(o.power.unwrap_or(0)))
+        .sum();
+    let walker = defenders
+        .iter()
+        .filter_map(|&d| {
+            let Defender::Planeswalker(id) = d else {
+                return None;
+            };
+            let walker = board.object(id)?;
+            if walker.controller != victim {
+                return None;
+            }
+            let loyalty = i32::from(walker.counter_count(baylee_view::CounterKind::Loyalty));
+            (loyalty > 0 && loyalty <= power).then_some((loyalty, d))
+        })
+        .min_by_key(|(loyalty, _)| *loyalty);
+    let Some((loyalty, walker)) = walker else {
+        return going.iter().map(|&id| (id, player)).collect();
+    };
+    // Weakest first, so what the walker takes is what the player misses
+    // least; the lowest slot breaks ties without consulting a clock.
+    let mut squad: Vec<(ObjectId, Fighter)> = going
+        .iter()
+        .filter_map(|&id| board.fighter(id).map(|f| (id, f)))
+        .collect();
+    squad.sort_by_key(|(id, f)| (f.power, f.worth, id.slot()));
+    let fighters: Vec<Fighter> = squad.iter().map(|(_, f)| *f).collect();
+    let blockers = creatures(board.view, victim, ready);
+    let kills = |n: usize| through(&fighters[..n], &blockers) >= loyalty;
+    // The fewest that kill it, by bisection: `through` is a greedy block and
+    // not promised monotone in the attackers, so `hi` is only ever a count
+    // that was measured to kill, and the answer is one.
+    let mut hi = fighters.len();
+    if !kills(hi) {
+        return going.iter().map(|&id| (id, walker)).collect();
+    }
+    let mut lo = 0;
+    while hi - lo > 1 {
+        let mid = lo + (hi - lo) / 2;
+        if kills(mid) {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+    }
+    let mut sent: Vec<ObjectId> = squad[..hi].iter().map(|(id, _)| *id).collect();
+    sent.sort_unstable();
+    going
+        .iter()
+        .map(|&id| {
+            let at = if sent.binary_search(&id).is_ok() {
+                walker
+            } else {
+                player
+            };
+            (id, at)
+        })
+        .collect()
 }
 
 /// `seat`'s creatures on the battlefield that pass `keep`, phased out or

@@ -17,7 +17,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 // the tokens would be created under, not whose spell is
                 // creating them. My Doubling Season must not double the
                 // Shapeshifter my own removal hands them, and theirs must.
-                let controller = state.object(target_id).map_or(you, |o| o.controller);
+                //
+                // "Its controller" once the sentence before has exiled it:
+                // the controller it had as it last existed on the
+                // battlefield (CR 608.2h), not the field on the exiled card.
+                let controller = state.last_known_controller(target_id).unwrap_or(you);
                 create_tokens(state, controller, token, None, 1);
             }
             None
@@ -94,6 +98,31 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::Populate => {
+            let options: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.card.is_none()
+                            && o.controller == you
+                            && o.characteristics()
+                                .types
+                                .contains(baylee_core::types::TypeSet::CREATURE)
+                    })
+                })
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::Populate);
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
         Effect::CreateTokenCopyOfFirstToken => {
             let token = state
                 .zones
@@ -113,6 +142,47 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 && let Some(base) = crate::layers::copiable_values(state, id)
             {
                 create_token_copies(state, you, id, &base, 1);
+            }
+            None
+        }
+        Effect::CreateTokenCopyOfTarget {
+            mods,
+            sacrifice_at_next_end_step,
+        } => {
+            if let Some(original) = res.targets.first().copied()
+                && let Some(base) = crate::layers::copiable_values(state, original)
+            {
+                let mut modified = (*base).clone();
+                for m in mods {
+                    apply_copy_mod(&mut modified, m);
+                }
+                let made =
+                    create_token_copies(state, you, original, &std::sync::Arc::new(modified), 1);
+                // One delayed trigger per token, naming that token and no
+                // other object: a token that has left and been replaced is
+                // not "it" (CR 400.7), and the version says so.
+                if sacrifice_at_next_end_step {
+                    for id in made {
+                        let version = state.object(id).map_or(0, |o| o.version);
+                        state.delayed.push(crate::state::DelayedTrigger {
+                            controller: you,
+                            when: crate::state::DelayedWhen::NextEndStep,
+                            action: crate::state::DelayedAction::Sacrifice { card: id, version },
+                        });
+                    }
+                }
+            }
+            None
+        }
+        Effect::CreateTokenCopyOfSource { mods } => {
+            // The source card, wherever the cost put it: exile, for
+            // eternalize. Its copiable values there are the card's own.
+            if let Some(base) = crate::layers::copiable_values(state, res.source) {
+                let mut modified = (*base).clone();
+                for m in mods {
+                    apply_copy_mod(&mut modified, m);
+                }
+                create_token_copies(state, you, res.source, &std::sync::Arc::new(modified), 1);
             }
             None
         }
@@ -179,12 +249,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     if state.object(card).is_some_and(|o| {
                         o.riders
                             .iter()
-                            .any(|r| matches!(r, crate::object::Rider::Linked { host } if *host == res.source))
+                            .any(|r| matches!(r, crate::object::Rider::Linked { host, .. } if *host == res.source))
                     }) {
                         owner = Some(p);
                         cmc = state
                             .object(card)
-                            .map_or(0, |o| o.characteristics().mana_cost.cmc());
+                            .map_or(0, |o| o.characteristics().mana_value());
                         break 'scan;
                     }
                 }
@@ -216,16 +286,31 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
         baylee_cards_dsl::CopyMod::AddKeyword(k) => {
             base.keywords = base.keywords.union(*k);
         }
-        // All three are about the object rather than about the
-        // characteristics this function is handed. A counter is put on by
-        // the caller (CR 614.1c), and an ability is not a `Characteristics`
-        // field at all — `progress::apply_copy_choice` keeps the copier's
-        // statics by registering them as the copy's own continuous effects,
-        // and this token door reaches no effect table. A granted ability
-        // (`CopyMod::Grant`, CR 707.9a) is the same case: a token or spell
-        // copy made "except it has …" would lose it here, and nothing in the
-        // pool is one.
+        baylee_cards_dsl::CopyMod::SetPT(p, t) => {
+            base.power = Some(*p);
+            base.toughness = Some(*t);
+        }
+        baylee_cards_dsl::CopyMod::SetColor(c) => {
+            base.colors = *c;
+        }
+        baylee_cards_dsl::CopyMod::NoManaCost => {
+            base.mana_cost = baylee_core::mana::ManaCost::ZERO;
+        }
+        // These are about the object rather than about the characteristics
+        // this function is handed. A counter is put on the permanent as it
+        // enters (CR 614.1c), which `progress::apply_copy_choice` does for
+        // the doors that copy a permanent; no token or spell-copy door puts
+        // one, and no card in the pool makes a token copy that enters with a
+        // counter (Littjara Mirrorlake stays Partial for it). An ability is
+        // not a `Characteristics` field at all — `progress::apply_copy_choice`
+        // keeps the copier's statics by registering them as the copy's own
+        // continuous effects, and this token door reaches no effect table.
+        // A granted ability (`CopyMod::Grant`, CR 707.9a) is the same case:
+        // a token or spell copy made "except it has …" would lose it here,
+        // and nothing in the pool is one.
         baylee_cards_dsl::CopyMod::AddCounter(_, _)
+        | baylee_cards_dsl::CopyMod::AddCounterIf(_, _, _)
+        | baylee_cards_dsl::CopyMod::AddCounterX(_)
         | baylee_cards_dsl::CopyMod::KeepOtherAbilities
         | baylee_cards_dsl::CopyMod::Grant(_) => {}
     }
@@ -287,6 +372,14 @@ pub(super) fn create_tokens(
 /// still owes — [`GameState::pending_copied_faces`], because a face's
 /// abilities are behind the card registry and this crate has no lookup for
 /// it.
+/// Creates the copy of `token` that populate chose (CR 701.36a), from its
+/// copiable values (CR 707.2).
+pub(super) fn populate(state: &mut GameState, you: PlayerId, token: ObjectId) {
+    if let Some(base) = crate::layers::copiable_values(state, token) {
+        create_token_copies(state, you, token, &base, 1);
+    }
+}
+
 pub(super) fn create_token_copies(
     state: &mut GameState,
     controller: PlayerId,
@@ -652,6 +745,105 @@ mod tests {
             ),
             "recorded {:?}",
             state.journal.entries().last().expect("an entry").event
+        );
+    }
+
+    /// An ability of seat 0's with `targets`, resolving `effects` in order.
+    fn resolve(state: &mut GameState, targets: &[ObjectId], effects: Vec<Effect>) {
+        let mut res = Resolution {
+            source: ObjectId::NO_SOURCE,
+            on_stack: ObjectId::NO_SOURCE,
+            controller: me(),
+            effects,
+            pc: 0,
+            targets: SmallVec::from_slice(targets),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_lki: None,
+            retarget_left: None,
+            target_players: baylee_core::ids::SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: true,
+            mana_ability: false,
+            countered_source: None,
+        };
+        assert!(matches!(run(state, &mut res), Flow::Complete));
+        state.refresh_characteristics();
+    }
+
+    /// Crib Swap: "Exile target creature. Its controller creates a 1/1
+    /// colorless Shapeshifter creature token with changeling."
+    ///
+    /// By the time the second sentence is read the creature is in exile, so
+    /// "its controller" is the controller it had as it last existed on the
+    /// battlefield (CR 608.2h), here the player who had taken it. The field
+    /// on the exiled card is no answer: it holds whatever the last refresh
+    /// left there, and a refresh that reaches into exile settles it to the
+    /// card's default, which after a steal is the player it was stolen from.
+    /// Any effect whose filter names another zone makes every refresh reach
+    /// every zone; Past in Flames' is the one used here.
+    #[test]
+    fn its_controller_is_the_one_the_creature_had_on_the_battlefield() {
+        static FLASHBACK_REACH: Filter = Filter::And(&[
+            Filter::INSTANT_OR_SORCERY,
+            Filter::InZone(baylee_cards_dsl::ZoneRef::Graveyard),
+            Filter::OwnedByYou,
+        ]);
+        let mut state = state();
+        let name = state.names.intern("Creature");
+        let it = state.create_bare(
+            them(),
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let obj = state.object_mut(it).expect("fresh");
+        let mut base = (*obj.base).clone();
+        base.types = baylee_core::types::TypeSet::CREATURE;
+        obj.base = std::sync::Arc::new(base);
+        state.invalidate_projections();
+        crate::resolve::gain_control(&mut state, &[(it, me())]);
+        resolve(
+            &mut state,
+            &[],
+            vec![Effect::continuous(
+                &FLASHBACK_REACH,
+                baylee_cards_dsl::Modifier::GrantsFlashback,
+                baylee_cards_dsl::Duration::UntilEndOfTurn,
+            )],
+        );
+        let obj = state.object(it).expect("still there");
+        assert_eq!((obj.owner, obj.controller), (them(), me()), "taken");
+
+        let shapeshifter = &baylee_cards::tokens::SHAPESHIFTER_1_1_CHANGELING;
+        resolve(
+            &mut state,
+            &[it],
+            vec![
+                Effect::exile(baylee_cards_dsl::TargetSpec::Object(&Filter::CREATURE)),
+                Effect::CreateTokenForTargetController {
+                    token: shapeshifter,
+                },
+            ],
+        );
+        assert_eq!(
+            state.object(it).map(|o| o.zone),
+            Some(crate::zone::Zone::Exile)
+        );
+        let tokens: Vec<PlayerId> = state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .filter_map(|id| state.object(*id))
+            .filter(|o| o.token.is_some_and(|t| std::ptr::eq(t, shapeshifter)))
+            .map(|o| o.controller)
+            .collect();
+        assert_eq!(
+            tokens,
+            vec![me()],
+            "one Shapeshifter, for the player who controlled the creature when it was exiled"
         );
     }
 

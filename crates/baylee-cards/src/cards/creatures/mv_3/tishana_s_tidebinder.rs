@@ -5,13 +5,8 @@
 // IMPLEMENTED — flash + counter target ability + the rider that follows it.
 // The count is "up to one": a Tidebinder flashed in with an empty stack is a
 // 2/1 that enters, not a trigger the rules remove for want of a target.
-// NOT SUPPORTED: "loses all abilities" reaches only the permanent's keyword
-// abilities. Activated, triggered and static abilities survive, because
-// `GameObject::abilities` reads the card (or `own_abilities`) directly and is
-// not projected through the layer system the way characteristics are — so
-// there is nowhere for a continuous effect to take one away. Everything the
-// rider does here the printed card also does; it is the half of the sentence
-// that a mana dork or a planeswalker would notice and a flier would not.
+// The rider is `Modifier::LoseAllAbilities` (CR 613.1f): keywords, activated,
+// triggered and static abilities alike, for as long as this creature stays.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
@@ -30,7 +25,7 @@ card!(
     )],
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Partial("loses all abilities reaches only keywords"),
+    coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::ETB,
         &[

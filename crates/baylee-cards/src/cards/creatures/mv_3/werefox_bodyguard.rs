@@ -3,7 +3,10 @@
 //! Oracle: When this creature enters, exile up to one other target non-Fox creature until this creature leaves the battlefield.
 //! Oracle: {1}{W}, Sacrifice this creature: You gain 2 life.
 //! Set: WOE #39 — Wilds of Eldraine | Scryfall ID: 4494dfa1-1343-417e-b0c5-2b096442dd0e | Oracle ID: d5ee2ced-29f4-430f-962e-2f930b92624c
-// IMPLEMENTED — flash, linked-exile ETB, sacrifice-for-life outlet.
+// IMPLEMENTED — flash, the sacrifice-for-life outlet, and the exile "until
+// this creature leaves the battlefield" (Effect::exile_until, CR 610.3):
+// the card comes back the moment the Bodyguard leaves, with no stack, under
+// its owner's control, and nothing is exiled if it has already left.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
@@ -32,9 +35,10 @@ card!(
     abilities = &[
         triggered!(
             Trigger::ETB,
-            &[Effect::ExileLinked {
-                target: TargetSpec::Object(&OTHER_NON_FOX_CREATURE),
-            }],
+            &[Effect::exile_until(
+                TargetSpec::Object(&OTHER_NON_FOX_CREATURE),
+                ExileUntil::SourceLeavesBattlefield
+            )],
             targets = Some(TargetReq {
                 spec: TargetSpec::Object(&OTHER_NON_FOX_CREATURE),
                 min: 0,
