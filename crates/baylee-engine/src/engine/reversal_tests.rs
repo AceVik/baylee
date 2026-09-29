@@ -541,7 +541,7 @@ fn a_reversed_pitch_gives_the_life_back_and_the_card_stays_in_hand() {
         "nothing is exiled"
     );
     assert_eq!(
-        engine.state().zones.list(ZoneLocation::Stack).to_vec(),
+        engine.state().zones.list(ZoneLocation::Stack).clone(),
         vec![elves_spell],
         "the spell Force of Will would have countered is untouched"
     );
@@ -577,16 +577,15 @@ fn a_reversed_graveyard_choice_touches_neither_graveyard() {
     seed_graveyard(&mut engine, p0, 1);
     seed_graveyard(&mut engine, p1, 1);
     let hearse = on_battlefield(&engine, p0, unlicensed_hearse()).expect("the Hearse");
-    let p0_graveyard_before = engine
-        .state()
-        .zones
-        .list(ZoneLocation::Graveyard(p0))
-        .to_vec();
-    let p1_graveyard_before = engine
-        .state()
-        .zones
-        .list(ZoneLocation::Graveyard(p1))
-        .to_vec();
+    let graveyard = |engine: &Engine<RegistryLookup>, seat: PlayerId| {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(seat))
+            .clone()
+    };
+    let p0_graveyard_before = graveyard(&engine, p0);
+    let p1_graveyard_before = graveyard(&engine, p1);
     let life0_before = engine.state().players[p0.get() as usize].life;
     let life1_before = engine.state().players[p1.get() as usize].life;
     let journal = engine.state().journal.len();
@@ -628,20 +627,12 @@ fn a_reversed_graveyard_choice_touches_neither_graveyard() {
     );
     assert!(stack_is_empty(&engine), "nothing was activated");
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(ZoneLocation::Graveyard(p0))
-            .to_vec(),
+        graveyard(&engine, p0),
         p0_graveyard_before,
         "p0's graveyard is untouched"
     );
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(ZoneLocation::Graveyard(p1))
-            .to_vec(),
+        graveyard(&engine, p1),
         p1_graveyard_before,
         "p1's graveyard is untouched"
     );
