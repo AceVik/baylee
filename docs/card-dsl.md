@@ -1261,7 +1261,9 @@ for one is a card that never gives its prisoner back. Every way back, a
 host's effect, a new monarch or a host leaving, goes through
 `GameState::return_linked`. The link ends as well when the card leaves exile
 any other way (cast, returned to a hand): exiled again later, it is a new
-object and not "exiled with" the old host (CR 400.7).
+object and not "exiled with" the old host (CR 400.7). So does everything
+else the card was in exile, on an adventure, suspended, castable from exile
+(`Rider::ends_as_it_leaves_exile`).
 
 A card that says nothing about a graveyard cannot use either reanimation
 verb: the effect checks that its object is still in one (CR 400.7). A

@@ -1743,6 +1743,51 @@ mod arrival_control_tests {
         assert!(!linked(&state, it));
     }
 
+    /// Every rider that says what a card is *in exile* ends as the card leaves
+    /// exile (CR 400.7): exiled with a host, on an adventure (CR 715.3d, "for
+    /// as long as that card remains exiled"), castable from exile by a
+    /// player, suspended, rebounding, foretold, plotted. A move from exile to
+    /// exile is no leaving, and keeps them all.
+    #[test]
+    fn what_a_card_was_in_exile_ends_as_it_leaves_exile() {
+        use crate::object::Rider;
+        let (mut state, it) = theirs(621);
+        let host = host(&mut state);
+        let in_exile = [
+            Rider::Linked { host, until: None },
+            Rider::ExiledWith { host, version: 0 },
+            Rider::Adventure,
+            Rider::PlayableFromExileFor(me()),
+            Rider::Suspend,
+            Rider::Rebound,
+            Rider::Foretold,
+            Rider::Plotted,
+        ];
+        let riders = |state: &GameState| state.object(it).expect("there").riders.clone();
+        for to in [ZoneLocation::Exile(them()), ZoneLocation::Exile(them())] {
+            state
+                .move_object(it, to, ZonePosition::Top, Cause::Effect)
+                .expect("the card is there");
+            if riders(&state).is_empty() {
+                state
+                    .object_mut(it)
+                    .expect("in exile")
+                    .riders
+                    .extend(in_exile);
+            }
+        }
+        assert_eq!(riders(&state)[..], in_exile, "exile to exile keeps them");
+        state
+            .move_object(
+                it,
+                ZoneLocation::Hand(them()),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("the card is there");
+        assert!(riders(&state).is_empty(), "{:?}", riders(&state));
+    }
+
     /// Coiling Oracle: "Reveal the top card of your library. If it's a land
     /// card, put it onto the battlefield." No control is named, so the land
     /// enters under the player the effect told to put it there (CR 110.2a)

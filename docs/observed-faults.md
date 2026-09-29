@@ -3451,15 +3451,22 @@ the crown can pass through a player who is about to leave on its way to the
 heir. At a table with teams, a Jailer's exile can end on that passage when it
 would not have at the heir.
 
-Also not done, found by reading and not run: the other riders that give a
-card a permission in exile (`Rider::Adventure`, `Rider::PlayableFromExileFor`)
-are not dropped as the card leaves exile either. Their readers check that the
-card is in exile now, which a card exiled again by something else passes.
-Twining Twins cast as Swift Spiral, cast from exile, and later exiled by
-Swords to Plowshares would be castable from exile again (CR 715.3d gives the
-permission "for as long as that card remains exiled"). Suspend, Rebound and
-Foretold riders may be read after the card leaves exile, so they need a look
-each before a general rule.
+**Everything else a card was in exile outlived the exile too.** The link was
+one of eight riders that say what a card is in exile, and none of them was
+dropped as the card left. Their readers ask "in exile, with this rider", which
+a card exiled again by something else passes. Twining Twins cast as Swift
+Spiral, cast from exile, and later exiled by Swords to Plowshares was castable
+from exile every turn after (CR 715.3d gives the permission "for as long as
+that card remains exiled"). A suspended card that was cast, resolved, and was
+exiled from the graveyard by Bojuka Bog kept its suspend mark and no time
+counter, and the upkeep countdown cast it for free again. Before widening the
+rule, every reader was checked: none of `Suspend`, `Rebound`, `Foretold`,
+`Plotted`, `Adventure`, `PlayableFromExileFor` or `ExiledWith` is read
+anywhere but in exile (`Rebound`, `Foretold` and `Plotted` are read nowhere
+at all; the rebound re-cast is a delayed trigger keyed on the card's version).
+`Rider::ends_as_it_leaves_exile` names all eight, with the five that are about
+the stack or the battlefield on the other side, and `move_object` drops the
+eight as the card leaves exile.
 
 Tests, each failing on the old behaviour: `card_tests::creatures::`
 `werefox_bodyguard_holds_a_creature_until_it_leaves_the_battlefield`,
@@ -3476,4 +3483,9 @@ The follow-ups, each failing on the old behaviour:
 and `a_card_that_left_exile_does_not_come_back_as_its_old_host_leaves`;
 `card_tests::creatures::a_monarch_who_leaves_crowns_the_active_player_and_frees_the_jailers_prisoner`
 (three seats) and `sba::tests::the_crown_passes_as_the_monarch_leaves_the_game`
-(four seats).
+(four seats). For the other riders:
+`cast_face_tests::a_card_cast_off_its_adventure_and_exiled_again_is_not_castable_from_exile`,
+`card_tests::sorceries::a_suspended_card_that_resolved_and_was_exiled_again_is_not_cast_again`
+and `resolve::zones::arrival_control_tests::what_a_card_was_in_exile_ends_as_it_leaves_exile`.
+`cast_face_tests::the_adventure_is_not_offered_again_from_the_exile_it_was_cast_into`
+held the stale rider as its premise and now holds that it is gone.
