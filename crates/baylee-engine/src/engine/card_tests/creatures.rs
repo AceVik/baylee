@@ -92626,6 +92626,556 @@ fn delney_doubles_the_triggers_of_small_creatures_only() {
     assert_eq!(engine.state().players[0].life, 25, "a 5/3 triggers once");
 }
 
+/// Metamorphosis Fanatic's miracle over an untapped Sol Ring and Swamp, with
+/// nothing floating: "yes" is taken, and the card stays in hand.
+///
+/// By the rules this {1}{B} can be paid, because mana abilities may be
+/// activated while a spell's costs are paid (CR 601.2g). This engine pays a
+/// cast out of the pool alone, and a miracle is offered at the draw, before
+/// any priority in which the mana could be made; so the cast cannot be
+/// completed and is reversed (CR 732.1), which for a miracle is a "no". It
+/// was refused instead, and a driver that proposed "yes" again met a
+/// question with no answer it would give (the arena's first case). A pinned
+/// limitation: when a cast opens a window for its mana, this is the test
+/// that must change.
+#[test]
+fn metamorphosis_fanatics_miracle_yes_is_taken_over_mana_the_cast_cannot_tap() {
+    let mut engine = Duel::new(41, metamorphosis_fanatic())
+        .battlefield(0, &[sol_ring(), swamp()])
+        .battlefield(1, &[sol_ring(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    for _ in 0..200 {
+        match engine.pending().clone() {
+            Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::Miracle { card },
+                ..
+            } => {
+                engine
+                    .apply(player, PlayerAction::YesNo(true))
+                    .expect("an offered yes is an answer");
+                assert!(
+                    engine
+                        .state()
+                        .zones
+                        .list(ZoneLocation::Hand(player))
+                        .contains(&card),
+                    "the reversed cast left the card in hand"
+                );
+                assert!(
+                    engine.state().zones.stack_is_empty(),
+                    "an unpaid miracle reached the stack"
+                );
+                assert_eq!(
+                    engine.state().players[player.get() as usize]
+                        .mana_pool
+                        .total(),
+                    0,
+                    "nothing was made, so nothing floats"
+                );
+                return;
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected question: {other:?}"),
+        }
+    }
+    panic!("no miracle was offered");
+}
+
+/// Restoration Angel: "When this creature enters, you may exile target
+/// non-Angel creature you control, then return that card to the battlefield
+/// under your control."
+///
+/// The owner played it on a creature they had stolen, and the creature went
+/// home. It must not: the card that returns is a new object (CR 400.7), no
+/// control effect reaches it, and it enters under the control the sentence
+/// names — "your", the Angel's controller's (CR 110.2a). The engine sent
+/// every blinked card to its owner, reading CR 610.3c, which is about a card
+/// that comes back after an "until" event.
+///
+/// And it changes **control only**. Seat 1 still owns the Elves (CR 108.3),
+/// so Aminatou's "another target permanent you own" does not offer them to
+/// seat 0, and when they die they go to seat 1's graveyard (CR 400.3).
+///
+/// The steal is Song-Mad Treachery's, until end of turn, and the test walks
+/// past that end into seat 1's turn before it looks again: a creature kept
+/// only by the Treachery would have gone back in the cleanup step.
+#[test]
+#[allow(clippy::too_many_lines)] // one game across two turns, told in order
+fn restoration_angel_keeps_a_stolen_creature_and_its_owner_keeps_owning_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(612, mountain())
+        .battlefield(
+            0,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                aminatou(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves(), mountain()])
+        .hand(0, &[song_mad_treachery(), restoration_angel()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("p1's Elves");
+    steal_with_song_mad_treachery(&mut engine, p0, elves);
+
+    // The Angel, off the four Plains.
+    let plains_ids: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == plains()))
+        })
+        .collect();
+    tap_mana_where(&mut engine, p0, |id| plains_ids.contains(&id));
+    cast_with_floating(&mut engine, p0, restoration_angel());
+    let options = pass_until_targets(&mut engine, p0);
+    let angel = on_battlefield(&engine, p0, restoration_angel()).expect("the Angel entered");
+    assert!(
+        options.contains(&elves),
+        "a stolen creature is a non-Angel creature you control: {options:?}"
+    );
+    assert!(!options.contains(&angel), "not an Angel: {options:?}");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .expect("the Elves are targeted");
+    pass_until(&mut engine, stack_is_empty);
+
+    let obj = engine.state().object(elves).expect("the Elves came back");
+    assert_eq!(obj.zone, Zone::Battlefield, "exiled and returned");
+    assert_eq!(
+        (obj.controller, obj.base_controller),
+        (p0, p0),
+        "returned under the Angel's controller's control, not its owner's"
+    );
+    assert_eq!(obj.owner, p1, "control changed and ownership did not");
+
+    // "Another target permanent you own" reads the owner: the Elves are
+    // seat 0's to use and not seat 0's to flicker with Aminatou.
+    let plains = on_battlefield(&engine, p0, plains()).expect("a Plains seat 0 owns");
+    activate(&mut engine, p0, aminatou(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Aminatou's −1 asks for a target: {:?}", engine.pending())
+    };
+    assert!(
+        !options.contains(&elves),
+        "the Elves are not a permanent seat 0 owns: {options:?}"
+    );
+    assert!(options.contains(&plains), "a Plains is: {options:?}");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![plains],
+                players: vec![],
+            },
+        )
+        .expect("the Plains is targeted");
+    pass_until(&mut engine, stack_is_empty);
+
+    // Past the Treachery's end of turn and into seat 1's: nothing holds the
+    // Elves any more, and seat 0 still controls them.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        !engine
+            .state()
+            .effects
+            .iter()
+            .any(|fx| fx.modifier == baylee_cards_dsl::Modifier::GainControl),
+        "the Treachery's control effect has ended"
+    );
+    let obj = engine
+        .state()
+        .object(elves)
+        .expect("still on the battlefield");
+    assert_eq!((obj.controller, obj.owner), (p0, p1));
+
+    // Seat 1 bolts them, and they die into seat 1's graveyard.
+    cast_from_hand(&mut engine, p1, lightning_bolt());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the Bolt asks for a target: {:?}", engine.pending())
+    };
+    assert!(options.contains(&elves));
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .expect("the Elves are targeted");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "a creature dies into its owner's graveyard"
+    );
+    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_none());
+}
+
+/// Every Plains `seat` controls, in battlefield order, so a test can tap a
+/// few of them for one spell and keep the rest for the next.
+fn plains_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == seat && o.card.is_some_and(|c| c.index == plains())
+            })
+        })
+        .collect()
+}
+
+/// Werefox Bodyguard on seat 0's side, cast off three of its five Plains,
+/// with its enters trigger aimed at seat 1's Elves and still on the stack.
+/// The Elves and the Plains left over.
+fn a_bodyguard_aimed_at_their_elves(
+    seed: u64,
+) -> (Engine<RegistryLookup>, ObjectId, Vec<ObjectId>) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(seed, plains())
+        .battlefield(0, &[plains(), plains(), plains(), plains(), plains()])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[werefox_bodyguard()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("p1's Elves");
+    let plains = plains_of(&engine, p0);
+    assert_eq!(plains.len(), 5);
+    tap_mana_where(&mut engine, p0, |id| plains[..3].contains(&id));
+    cast_with_floating(&mut engine, p0, werefox_bodyguard());
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(
+        options.contains(&elves),
+        "a non-Fox creature is on the offer: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .expect("the Elves are targeted");
+    (engine, elves, plains[3..].to_vec())
+}
+
+/// Werefox Bodyguard: "When this creature enters, exile up to one other
+/// target non-Fox creature until this creature leaves the battlefield."
+///
+/// The return is not a triggered ability. CR 610.3 makes it a second
+/// one-shot effect, created "immediately after the specified event", so
+/// nothing happens between the Bodyguard leaving and the Elves coming back:
+/// they are on the battlefield again the moment the Bodyguard is sacrificed
+/// to pay for its own last ability, while that ability, the only object on
+/// the stack, has not resolved. They come back under their owner's control
+/// (CR 610.3c), as a new object (CR 400.7).
+///
+/// The card exiled its target with nothing to bring it back, and the Elves
+/// stayed in exile for the rest of the game.
+#[test]
+fn werefox_bodyguard_holds_a_creature_until_it_leaves_the_battlefield() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, elves, spare) = a_bodyguard_aimed_at_their_elves(614);
+    pass_until(&mut engine, stack_is_empty);
+    let exiled = engine.state().object(elves).expect("the Elves");
+    assert_eq!(exiled.zone, Zone::Exile, "exiled by the enters trigger");
+    let version = exiled.version;
+    assert!(
+        on_battlefield(&engine, p0, werefox_bodyguard()).is_some(),
+        "and held for as long as the Bodyguard stays"
+    );
+
+    // {1}{W}, Sacrifice this creature: You gain 2 life.
+    let life = engine.state().players[0].life;
+    tap_mana_where(&mut engine, p0, |id| spare.contains(&id));
+    activate(&mut engine, p0, werefox_bodyguard(), 1);
+    assert!(
+        in_graveyard(&engine, p0, werefox_bodyguard()).is_some(),
+        "sacrificed to pay the cost"
+    );
+    let stack = engine.state().zones.list(ZoneLocation::Stack).clone();
+    assert_eq!(
+        stack.len(),
+        1,
+        "the life-gain ability and nothing else: the return is no ability \
+         and uses no stack: {stack:?}"
+    );
+    let back = engine.state().object(elves).expect("the Elves");
+    assert_eq!(
+        back.zone,
+        Zone::Battlefield,
+        "back before the ability the sacrifice paid for has resolved"
+    );
+    assert_eq!(
+        (back.owner, back.controller, back.base_controller),
+        (p1, p1, p1),
+        "under their owner's control (CR 610.3c)"
+    );
+    assert_ne!(back.version, version, "a new object (CR 400.7)");
+    assert!(
+        !back
+            .riders
+            .iter()
+            .any(|r| matches!(r, crate::object::Rider::Linked { .. })),
+        "and linked to nothing any more"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, life + 2);
+    assert!(on_battlefield(&engine, p1, llanowar_elves()).is_some());
+}
+
+/// The same Bodyguard, sacrificed while its enters trigger is still on the
+/// stack. The event the exile lasts until has already happened when the
+/// exile would, so the Elves do not move at all (CR 610.3b). The card
+/// exiled them anyway, and with nothing left to bring them back, for good.
+#[test]
+fn werefox_bodyguard_gone_before_its_trigger_resolves_exiles_nothing() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, elves, spare) = a_bodyguard_aimed_at_their_elves(615);
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the trigger waits on the stack and its controller holds priority: {:?}",
+        engine.pending()
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "the enters trigger is on the stack"
+    );
+    let version = engine.state().object(elves).expect("the Elves").version;
+
+    let life = engine.state().players[0].life;
+    tap_mana_where(&mut engine, p0, |id| spare.contains(&id));
+    activate(&mut engine, p0, werefox_bodyguard(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(engine.state().players[0].life, life + 2, "both resolved");
+    let obj = engine.state().object(elves).expect("the Elves");
+    assert_eq!(obj.zone, Zone::Battlefield, "never exiled");
+    assert_eq!(obj.version, version, "never moved: the same object");
+}
+
+/// Palace Jailer's exile ends when "an opponent becomes the monarch", and
+/// only then. Skyclave Apparition's has no end at all. Each holds one of
+/// seat 1's Elves when seat 1 takes the crown with a third Elf's combat
+/// damage (CR 724.2), and only the Jailer's prisoner comes back, under its
+/// owner's control (CR 610.3c).
+///
+/// Every card linked to an exile was released as soon as anyone but its
+/// host's controller became the monarch, so the Apparition's Elf walked out
+/// with the Jailer's.
+#[test]
+#[allow(clippy::too_many_lines)] // two exiles, a turn and a combat, told in order
+fn palace_jailer_frees_its_prisoner_when_an_opponent_is_crowned_and_skyclave_keeps_its_own() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(616, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves(), llanowar_elves(), llanowar_elves()])
+        .hand(0, &[palace_jailer(), skyclave_apparition()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let elves: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == llanowar_elves()))
+        })
+        .collect();
+    let [jailed, held, attacker] = elves[..] else {
+        panic!("three Elves on seat 1's side: {elves:?}")
+    };
+    let plains = plains_of(&engine, p0);
+
+    tap_mana_where(&mut engine, p0, |id| plains[..4].contains(&id));
+    cast_with_floating(&mut engine, p0, palace_jailer());
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(options.contains(&jailed), "{options:?}");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![jailed],
+                players: vec![],
+            },
+        )
+        .expect("the first Elf is targeted");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().monarch,
+        Some(p0),
+        "the Jailer crowned seat 0"
+    );
+
+    tap_mana_where(&mut engine, p0, |id| plains[4..].contains(&id));
+    cast_with_floating(&mut engine, p0, skyclave_apparition());
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(options.contains(&held), "{options:?}");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![held],
+                players: vec![],
+            },
+        )
+        .expect("the second Elf is targeted");
+    pass_until(&mut engine, stack_is_empty);
+    for elf in [jailed, held] {
+        assert_eq!(
+            engine.state().object(elf).map(|o| o.zone),
+            Some(Zone::Exile),
+            "both Elves are exiled"
+        );
+    }
+
+    // Seat 1's turn: the third Elf attacks the monarch and nobody blocks.
+    reach_their_main_phase(&mut engine, p1);
+    let _ = attack_and_collect_blocks(&mut engine, attacker, p0);
+    pass_until(&mut engine, |e| {
+        e.state().monarch == Some(p1) && stack_is_empty(e)
+    });
+
+    let freed = engine.state().object(jailed).expect("the Jailer's Elf");
+    assert_eq!(
+        freed.zone,
+        Zone::Battlefield,
+        "an opponent of the Jailer's controller became the monarch"
+    );
+    assert_eq!((freed.owner, freed.controller), (p1, p1));
+    assert_eq!(
+        engine.state().object(held).map(|o| o.zone),
+        Some(Zone::Exile),
+        "Skyclave Apparition's exile names no event it lasts until"
+    );
+    assert!(
+        on_battlefield(&engine, p0, palace_jailer()).is_some()
+            && on_battlefield(&engine, p0, skyclave_apparition()).is_some(),
+        "and both hosts are still standing: only the crown moved"
+    );
+}
+
+/// Palace Jailer at a table of three, and the monarch leaves the game
+/// (CR 724.4). Seat 0 is the monarch, with seat 1's Elves in the Jailer's
+/// exile, and concedes during seat 2's turn. The crown passes to the active
+/// player, seat 2, as seat 0 leaves: not to seat 1, the next seat after the
+/// leaver. Seat 2 is an opponent of the player who exiled the Elves, so the
+/// Jailer's exile ends and they come back to seat 1 (CR 610.3c).
+///
+/// The crown stayed with the seat that had left, and the Elves stayed in
+/// exile for the rest of the game.
+#[test]
+fn a_monarch_who_leaves_crowns_the_active_player_and_frees_the_jailers_prisoner() {
+    let (p0, p1, p2) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
+    let mut engine = Duel::table(619, plains(), 3)
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[palace_jailer()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("p1's Elves");
+    let plains = plains_of(&engine, p0);
+    tap_mana_where(&mut engine, p0, |id| plains.contains(&id));
+    cast_with_floating(&mut engine, p0, palace_jailer());
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(options.contains(&elves), "{options:?}");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .expect("the Elves are targeted");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().monarch,
+        Some(p0),
+        "the Jailer crowned seat 0"
+    );
+    assert_eq!(
+        engine.state().object(elves).map(|o| o.zone),
+        Some(Zone::Exile)
+    );
+
+    reach_their_main_phase(&mut engine, p2);
+    assert_eq!(engine.state().turn.active, p2);
+    engine
+        .apply(p0, PlayerAction::Concede)
+        .expect("a concession is legal at any time");
+    assert!(engine.state().has_left(p0));
+    assert_eq!(
+        engine.state().monarch,
+        Some(p2),
+        "the active player, and not seat 1, who sits next to the leaver"
+    );
+    let freed = engine.state().object(elves).expect("seat 1's Elves");
+    assert_eq!(freed.zone, Zone::Battlefield, "an opponent was crowned");
+    assert_eq!((freed.owner, freed.controller), (p1, p1));
+}
+
 // ---------------------------------------------------------------------------
 // Maik's European Highlander, round 2: Voice of Resurgence.
 // ---------------------------------------------------------------------------

@@ -43,9 +43,7 @@ card!(
     abilities = &[
         triggered!(
             Trigger::ETB,
-            &[Effect::ExileLinked {
-                target: TargetSpec::Object(&TARGET_F),
-            }],
+            &[Effect::exile_linked(TargetSpec::Object(&TARGET_F))],
             targets = Some(TargetReq::up_to_one(TargetSpec::Object(&TARGET_F)))
         ),
         triggered!(

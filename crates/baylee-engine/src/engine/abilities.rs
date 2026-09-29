@@ -63,6 +63,40 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
     }
 }
 
+/// Whether paying `part` can refuse after something of the cost was already
+/// paid, which is when [`Engine::pay_cost`] keeps a checkpoint to cancel the
+/// payment with (CR 732.1).
+///
+/// The mana is paid first and all at once or not at all, so a cost whose
+/// every part answers `false` here can refuse only before it has written
+/// anything: a land's `{T}: Add {G}`, which is most of what is ever paid,
+/// takes no copy of the game. Exhaustive for the reason the function above
+/// is: a new part says which side it is on.
+const fn can_refuse_part_way(part: &CostPart) -> bool {
+    match part {
+        // A move of an object that may no longer be there, a counter that
+        // may already be gone, an answer that may be missing.
+        CostPart::SacrificeSelf
+        | CostPart::DiscardSelf
+        | CostPart::ExileSelf
+        | CostPart::ReturnSelfToHand
+        | CostPart::RemoveCounterSelf { .. }
+        | CostPart::RemoveCounterSelfX { .. }
+        | CostPart::Sacrifice(_)
+        | CostPart::Discard(_)
+        | CostPart::TapOther(_)
+        | CostPart::Crew(_)
+        | CostPart::ReturnToHand(_)
+        | CostPart::ExileFromGraveyard(_) => true,
+        CostPart::TapSelf
+        | CostPart::UntapSelf
+        | CostPart::PayLife(_)
+        | CostPart::PutCounterSelf { .. }
+        | CostPart::ExileFromHand(_)
+        | CostPart::PayLifeX => false,
+    }
+}
+
 /// The counter a cost asks the player for a *number* of, if it asks at all.
 ///
 /// A finder rather than a classifier, which is why the `_` arm is honest
@@ -249,6 +283,12 @@ impl<L: CardLookup> Engine<L> {
                 legal.castable.push(card);
             }
         }
+        // The grants are collected once rather than asked of the whole
+        // effect table per permanent (`effects::grants`): an Ally board
+        // carries thousands of "until end of turn" effects and grants
+        // through one or two of them.
+        let grants: smallvec::SmallVec<[&crate::effects::ContinuousEffect; 4]> =
+            crate::effects::grants(&self.state).collect();
         for &id in self.state.zones.list(ZoneLocation::Battlefield) {
             // Karn's lock, asked on the offering side too. It stops every
             // activated ability of the permanent, a mana ability included —
@@ -258,8 +298,8 @@ impl<L: CardLookup> Engine<L> {
             // rider below offers a spell.
             let locked = self.artifact_activations_are_locked(id);
             if !locked
-                && casting::can_activate_mana(&self.state, player, id)
-                && !casting::intrinsic_mana_offer(&self.state, &self.lookup, id).is_empty()
+                && !casting::intrinsic_mana_choices(&self.state, &self.lookup, player, id)
+                    .is_empty()
             {
                 legal.mana_abilities.push(id);
             }
@@ -423,9 +463,10 @@ impl<L: CardLookup> Engine<L> {
             // is the *position among the grants that apply*, affordable or
             // not — an index that shifted when a cost became payable would
             // name a different ability from one priority window to the next.
-            for (n, granted) in crate::effects::granted_activated(&self.state, id)
-                .take(crate::choice::GRANTED_SLOTS as usize)
-                .enumerate()
+            for (n, granted) in
+                crate::effects::granted_activated_among(&self.state, grants.iter().copied(), id)
+                    .take(crate::choice::GRANTED_SLOTS as usize)
+                    .enumerate()
             {
                 if !self.can_afford(player, id, &granted.cost, casting::SpendFor::Ability(id)) {
                     continue;
@@ -445,7 +486,13 @@ impl<L: CardLookup> Engine<L> {
                 // `apply`: intrinsic first, and the granted ability is
                 // reached by naming `GRANTED_ABILITY` in `legal.abilities`,
                 // where it also appears.
-                if granted.mana_ability && !legal.mana_abilities.contains(&id) {
+                //
+                // `last` and not `contains`: both pushes onto this list are
+                // made in this permanent's own turn of the loop, so an entry
+                // for it can only be the latest one, and searching the whole
+                // list made a board of granted mana abilities (a Great Divide
+                // Guide over a few thousand Allies) quadratic.
+                if granted.mana_ability && legal.mana_abilities.last() != Some(&id) {
                     legal.mana_abilities.push(id);
                 }
             }
@@ -920,6 +967,16 @@ impl<L: CardLookup> Engine<L> {
         what: casting::SpendFor,
         cost: &baylee_core::mana::ManaCost,
     ) -> bool {
+        // No mana symbol at all — `{T}`, a sacrifice, a granted "{T}: Add
+        // one mana of any color" — is paid by every pool, the Lattice's
+        // included (`mana_pay::payment_preferring` over no symbols pays
+        // nothing and succeeds). Answered here because the offer asks it
+        // once per permanent: the pool merge and the effect-table walk that
+        // reads the Lattice below were most of what a board of granted mana
+        // abilities cost.
+        if cost.symbols().next().is_none() {
+            return true;
+        }
         let with_restricted = casting::spendable_pool(&self.state, player, what);
         let pool = with_restricted
             .as_ref()
@@ -1373,13 +1430,8 @@ impl<L: CardLookup> Engine<L> {
             return self.start_granted_activation(player, source, slot, targets);
         }
         // Loyalty abilities route to their own activation path first.
-        if let Some(AbilityDef::Loyalty { cost, .. }) = self
-            .state
-            .object(source)
-            .map(|o| o.abilities(&self.lookup))
-            .and_then(|abilities| abilities.get(ability_index as usize))
-        {
-            return self.start_loyalty_activation(player, source, ability_index, targets, *cost);
+        if let Some(cost) = self.loyalty_cost(source, ability_index) {
+            return self.start_loyalty_activation(player, source, ability_index, targets, cost);
         }
         let (cost, effects, (first, second), mana_ability, zone, limit, cost_reduction) = {
             let obj = self
@@ -2008,6 +2060,30 @@ impl<L: CardLookup> Engine<L> {
         self.after_action(player);
     }
 
+    /// The loyalty cost of `source`'s ability at `ability_index` (CR 606.4),
+    /// or `None` when that ability is not a loyalty ability.
+    ///
+    /// The one probe for "is this a loyalty activation", read off the
+    /// object's own list: the list the offer indexed, and the one a copy's
+    /// abilities are in (CR 707.2). Starting an activation and finishing it
+    /// after its target answer used to ask two different lists. The answer
+    /// read the card's printed one, so a Spark Double that had entered as a
+    /// copy of Karn had a loyalty ability when it was started and an
+    /// ordinary one when it was answered. The answer was then sent into a
+    /// second activation, which refused it, and the target question was
+    /// left with nothing to answer it.
+    pub(crate) fn loyalty_cost(&self, source: ObjectId, ability_index: u32) -> Option<i8> {
+        match self
+            .state
+            .object(source)?
+            .abilities(&self.lookup)
+            .get(ability_index as usize)?
+        {
+            AbilityDef::Loyalty { cost, .. } => Some(*cost),
+            _ => None,
+        }
+    }
+
     /// The second instance of "target" on a loyalty ability, if it prints
     /// one; `None` as well for an ability that is not a loyalty ability.
     pub(crate) fn loyalty_second_targets(
@@ -2100,19 +2176,23 @@ impl<L: CardLookup> Engine<L> {
         if cost < 0 && old < (-cost) as u16 {
             return Err(EngineError::IllegalAction("not enough loyalty"));
         }
+        // Counted as the questions below count them, a player spec in
+        // players and every other in objects, so that no refusal waits past
+        // the payment: loyalty paid and a refusal after it is a changed
+        // engine the record never sees.
         for req in [wanted, self.loyalty_second_targets(source, ability_index)]
             .into_iter()
             .flatten()
         {
-            if req.min > 0
-                && !matches!(
-                    req.spec,
-                    baylee_cards_dsl::TargetSpec::AnyPlayer
-                        | baylee_cards_dsl::TargetSpec::AnyOpponent
-                )
-                && eval::target_options(&req.spec, &self.state, player, source).len()
-                    < req.min as usize
-            {
+            let found = if matches!(
+                req.spec,
+                baylee_cards_dsl::TargetSpec::AnyPlayer | baylee_cards_dsl::TargetSpec::AnyOpponent
+            ) {
+                eval::target_player_options(&self.state, &req.spec, player).len()
+            } else {
+                eval::target_options(&req.spec, &self.state, player, source).len()
+            };
+            if found < req.min as usize {
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
         }
@@ -2205,8 +2285,41 @@ impl<L: CardLookup> Engine<L> {
     /// and refusing is the point: the failure mode
     /// [`paid_by_the_casting_wizard`] documents is a part silently skipped,
     /// and a free sacrifice is worse than a refused activation.
-    #[allow(clippy::too_many_lines)] // one arm per `CostPart`, and the list is the point
+    ///
+    /// A refusal pays nothing. CR 732.1 reverses an action that cannot be
+    /// completed and cancels "any payments already made", and a part that
+    /// refuses after another was paid (a move of an object that is gone, a
+    /// counter that is not there) used to leave the mana spent and the
+    /// source tapped under an activation that never happened. The game is
+    /// kept before the first part and put back on a refusal, whenever a part
+    /// of the cost can refuse part way ([`can_refuse_part_way`]).
+    ///
+    /// The other half of 732.1, reversing the mana abilities activated while
+    /// making the play, has nothing to undo here: this engine pays out of the
+    /// pool, and the mana abilities that filled it were activated before the
+    /// play began, so their mana stays in the pool, as it would.
     pub(crate) fn pay_cost(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        cost: &Cost,
+        chosen: &[ObjectId],
+        x: u32,
+    ) -> Result<crate::object::PaidRecord, EngineError> {
+        if !cost.parts.iter().any(can_refuse_part_way) {
+            return self.pay_cost_parts(player, source, cost, chosen, x);
+        }
+        let before = self.state.checkpoint();
+        let paid = self.pay_cost_parts(player, source, cost, chosen, x);
+        if paid.is_err() {
+            self.state.roll_back(before);
+        }
+        paid
+    }
+
+    /// [`Self::pay_cost`] without the checkpoint: what it pays, part by part.
+    #[allow(clippy::too_many_lines)] // one arm per `CostPart`, and the list is the point
+    fn pay_cost_parts(
         &mut self,
         player: PlayerId,
         source: ObjectId,

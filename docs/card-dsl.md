@@ -567,8 +567,14 @@ has built.
 - `AbilityDef::Loyalty { cost: i8, effects, targets }`
 - `AbilityDef::CopyOnEnter { target, mods: &[CopyMod] }` — the `mods` are the
   card's "except …" clauses (CR 707.9). Types, supertypes, subtypes, keywords
-  and entry counters are all sayable, and so is "except it has its **other**
-  abilities" (`CopyMod::KeepOtherAbilities`, CR 707.9a) — with one limit worth
+  and entry counters are all sayable. A counter that depends on what the copy
+  is ("…an additional +1/+1 counter on it if it's a creature") is
+  `CopyMod::AddCounterIf(TypeSet::CREATURE, CounterKind::P1P1, 1)`, asked of
+  what the permanent became (the copied values with the clause list's own
+  type changes, CR 707.2, 707.9b) and never of the copier's printed types;
+  a plain `AddCounter` would put it on every copy. "Except it has its
+  **other** abilities" is sayable too (`CopyMod::KeepOtherAbilities`, CR
+  707.9a), with one limit worth
   knowing before writing a card on it: the kept abilities are registered as
   the copy's own continuous effects, so a **static** survives and a triggered
   or activated one does not. A card that needs the second keeps a
@@ -1171,7 +1177,8 @@ where the oracle sentence it encodes is a line above it.
 **The common ones have a verb**, and the verb is the word the card prints:
 `Effect::draw(1)`, `scry(2)`, `gain_life(3)`, `destroy(t)`,
 `destroy_no_regen(t)`, `regenerate(t)`, `exile(t)`,
-`blink(t)`, `bounce(t)`, and `continuous(filter, modifier, duration)`
+`blink_to_owner(t)`, `blink_to_you(t)`, `bounce(t)`, and
+`continuous(filter, modifier, duration)`
 with the layer derived. `Effect::mana` is the precedent — 219 uses in the
 pool against zero raw `AddMana` literals.
 
@@ -1180,7 +1187,7 @@ and only where the variant has one answer to give**: `SearchLibrary { filter,
 finds, optional }` has two real choices in it, so it stays a literal rather
 than becoming a `search` / `may_search` / `search_to_hand` family. And **the
 name is the word this pool already says**, which is usually the printed one;
-`blink` and `bounce` are the two that are not. Neither is a coinage: the
+blink and `bounce` are the two that are not. Neither is a coinage: the
 engine named `Blink` because "exile it, then return it" has no printed verb,
 and `bounce` was in this repository before there was a verb to hang it on —
 Cyclonic Rift's comment calls both of its modes a bounce and Aether
@@ -1222,10 +1229,52 @@ halves at once, and a card printing one of them prints all of it. The counter
 goes on through the same door `EnterModifier::WithCounters` uses, so a
 doubler has its say (CR 614.16).
 
-A card that says nothing about a graveyard cannot use either: the effect
-checks that its object is still in one (CR 400.7). A reanimation *spell* is
-already held to that by target legality (CR 608.2b) — the guard is there for
-undying and persist, which target nothing at all.
+**Blink is two verbs for the same reason, and the difference is who ends
+up controlling the card.** `Effect::blink_to_owner(t)` is "exile …, then
+return it to the battlefield under its **owner's** control" (Ephemerate,
+Soulherder, Emiel the Blessed); `Effect::blink_to_you(t)` is "… under **your**
+control" (Restoration Angel, Aminatou's −1, Sword of Hearth and Home). Both
+are `Effect::Blink { target, owner_control }`, the field and the question
+`GraveyardToBattlefield` already had. Write the one the card prints, even
+where a filter such as "you own" makes the two agree: there is no bare
+`blink`, because an unmarked default is how Restoration Angel came to hand a
+stolen creature back to its owner. What returns is a new object (CR 400.7),
+so no control effect over the old one reaches it, and it enters under the
+player the sentence names (CR 110.2a). CR 610.3c ("returns under its owner's
+control unless otherwise specified") is about a card that comes back after
+an "until" event — Palace Jailer's "until an opponent becomes the monarch",
+Werefox Bodyguard's "until this creature leaves the battlefield" — and does
+not decide an immediate blink. Only control is chosen: the owner never changes
+(CR 108.3), so a creature kept this way still dies into its owner's
+graveyard and leaves the game with its owner (CR 800.4a).
+
+**A linked exile is two verbs as well, and the difference is when it ends.**
+`Effect::exile_linked(t)` exiles with a link and no end of its own: the card
+stays until another ability of the same object brings it back (Safe Haven and
+Endless Sands, `ReturnLinkedToBattlefield`) or for good (Skyclave Apparition).
+`Effect::exile_until(t, ExileUntil::…)` is an "until" sentence (CR 610.3):
+`SourceLeavesBattlefield` for Werefox Bodyguard's "until this creature leaves
+the battlefield", `OpponentBecomesMonarch` for Palace Jailer's "until an
+opponent becomes the monarch" (an opponent of the player who controlled the
+exiling ability, whoever controls the Jailer by then). Both are
+`Effect::ExileLinked { target, until }`. The return is not a triggered
+ability: it happens the moment the event does, uses no stack, and puts the
+card back under its owner's control (CR 610.3c). If the event has already
+happened when the exile would, nothing is exiled (CR 610.3a, 610.3b): a
+Bodyguard sacrificed in response to its own trigger holds nothing. Write
+`exile_until` wherever the card prints "until"; an `exile_linked` that stands
+for one is a card that never gives its prisoner back. Every way back, a
+host's effect, a new monarch or a host leaving, goes through
+`GameState::return_linked`. The link ends as well when the card leaves exile
+any other way (cast, returned to a hand): exiled again later, it is a new
+object and not "exiled with" the old host (CR 400.7). So does everything
+else the card was in exile, on an adventure, suspended, castable from exile
+(`Rider::ends_as_it_leaves_exile`).
+
+A card that says nothing about a graveyard cannot use either reanimation
+verb: the effect checks that its object is still in one (CR 400.7). A
+reanimation *spell* is already held to that by target legality (CR 608.2b) —
+the guard is there for undying and persist, which target nothing at all.
 
 Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
 `DrawCards`, `DrawCardsFor`, `Scry`, `ScryFor`, `Mill`,
@@ -1356,8 +1405,9 @@ becomes a 0/0 land creature with haste, gets `n` +1/+1 counters, and a
 delayed trigger returns it tapped under your control when it dies or is
 exiled — Badgermole Cub, Ba Sing Se; never spell the three continuous
 effects out), `ReturnToBattlefieldTapped { target }` (that delayed trigger's
-own effect, on the `EventObject`; no card writes it), `ExileGraveyard`, `Blink`,
-`ExileLinked`, `ExileTargetsWithSource` (every target, each exiled with the
+own effect, on the `EventObject`; no card writes it), `ExileGraveyard`, `Blink`
+(through its two verbs), `ExileLinked` (through its two verbs),
+`ExileTargetsWithSource` (every target, each exiled with the
 source for good, CR 406.6: Unlicensed Hearse; `Rider::ExiledWith`, never
 `Linked`, which "until" exiles and the monarchy release),
 `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,

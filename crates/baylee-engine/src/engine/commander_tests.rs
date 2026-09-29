@@ -47,6 +47,12 @@ fn supreme_verdict() -> CardIndex {
 fn swords_to_plowshares() -> CardIndex {
     card_index("b1544f21-7e98-461b-aed5-e748b0168c52")
 }
+/// Ephemerate — {W}: "Exile target creature you control, then return it to
+/// the battlefield under its owner's control." The blink that leaves a
+/// commander in exile for no state-based action to see.
+fn ephemerate() -> CardIndex {
+    card_index("0fd57894-b917-41c8-a394-360d1d31b236")
+}
 
 /// True once `seat` has `card` on the battlefield *and* holds priority
 /// again.
@@ -1114,5 +1120,62 @@ fn one_mass_bounce_asks_every_commanders_owner_and_takes_both_answers() {
         zone_of(&engine, second),
         crate::zone::Zone::Hand,
         "and the owner who declined got the printed bounce"
+    );
+}
+
+/// A blinked commander comes straight back, and its owner is asked nothing.
+///
+/// Neither half of CR 903.9 reaches an immediate blink. CR 903.9b replaces a
+/// move to a hand or a library, and exile is neither. CR 903.9a is a
+/// state-based action about a commander that *is* in a graveyard or in exile
+/// when state-based actions are checked (CR 704.3: whenever a player would
+/// get priority), and Ephemerate exiles and returns inside one resolution,
+/// so no check ever sees Katara in exile. `pass_until` panics on the
+/// command-zone question, so reaching an empty stack is the "nothing asked".
+#[test]
+fn a_blinked_commander_returns_to_the_battlefield_without_a_command_zone_question() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(11, forest())
+        .commander(0, &[katara()])
+        .battlefield(0, &[forest(), plains(), island(), plains()])
+        .hand(0, &[ephemerate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let card = commander_of(&engine, p0);
+    tap_land(&mut engine, p0, forest());
+    tap_land(&mut engine, p0, plains());
+    tap_land(&mut engine, p0, island());
+    engine.apply(p0, PlayerAction::CastSpell { card }).unwrap();
+    pass_until(&mut engine, |e| resolved_and_back_to(e, p0, katara()));
+    let on_table = on_battlefield(&engine, p0, katara()).expect("she resolved");
+    let version = engine.state().object(card).map(|o| o.version);
+
+    tap_land(&mut engine, p0, plains());
+    let spell = in_hand(&engine, p0, ephemerate());
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![on_table],
+            },
+        )
+        .expect("the commander is a creature you control");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(zone_of(&engine, card), crate::zone::Zone::Battlefield);
+    assert_ne!(
+        engine.state().object(card).map(|o| o.version),
+        version,
+        "she left and came back: a new object (CR 400.7)"
+    );
+    assert!(!asking_about_a_commander(&engine));
+    assert_eq!(
+        engine.state().object(card).map(|o| (o.owner, o.controller)),
+        Some((p0, p0))
     );
 }

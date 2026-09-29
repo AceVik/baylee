@@ -8,6 +8,12 @@ description = "Deterministic MTG rules kernel (no I/O, no async)"
 [lints]
 workspace = true
 
+[features]
+# `Engine::fingerprint`, `Engine::fingerprint_light` and `Fingerprint`: every
+# field of the engine, for a fuzzer holding it to its invariants (a refused
+# `apply` changes nothing). Off in every build that plays a game.
+fuzz = []
+
 [dependencies]
 baylee-core.workspace = true
 baylee-cards-dsl.workspace = true

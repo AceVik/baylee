@@ -454,6 +454,11 @@ impl<L: CardLookup> Engine<L> {
             if def.faces[obj.face_index as usize].miracle.is_none() {
                 continue;
             }
+            // A miracle whose spell could not choose its targets could only
+            // be declined, so it is not offered (CR 601.2c, 601.2).
+            if !self.miracle_targets_available(player, card) {
+                continue;
+            }
             let source = obj
                 .card
                 .map(|c| AbilityRef::new(c.index, AbilityRef::MIRACLE));
@@ -526,14 +531,14 @@ impl<L: CardLookup> Engine<L> {
                 let defending = self
                     .state
                     .combat
-                    .attackers
+                    .attackers()
                     .first()
                     .and_then(|a| combat::defending_player(&self.state, a.defending))
                     .unwrap_or_else(|| self.next_alive_after(active));
                 let attacking: Vec<ObjectId> = self
                     .state
                     .combat
-                    .attackers
+                    .attackers()
                     .iter()
                     .map(|a| a.creature)
                     .collect();
@@ -544,15 +549,19 @@ impl<L: CardLookup> Engine<L> {
                 // would name a block `declare_blockers` has to refuse (#156).
                 // Asked once per attacker rather than once per pair, because
                 // the answer is the same for every blocker.
+                //
+                // Both walks go over the defender's ready creatures, not the
+                // battlefield: the pairs they skip are ones `can_block`
+                // refuses on the blocker's half alone, and walking the
+                // battlefield per attacker made this step cost permanents ×
+                // attackers (`combat::ready_blockers`).
+                let candidates = combat::ready_blockers(&self.state, defending);
                 let blockable: Vec<ObjectId> = attacking
                     .iter()
                     .copied()
-                    .filter(|a| combat::menace_satisfiable(&self.state, defending, *a))
+                    .filter(|a| combat::menace_satisfiable(&self.state, defending, *a, &candidates))
                     .collect();
-                let blockers: Vec<crate::choice::BlockOption> = self
-                    .state
-                    .zones
-                    .list(crate::zone::ZoneLocation::Battlefield)
+                let blockers: Vec<crate::choice::BlockOption> = candidates
                     .iter()
                     .copied()
                     .filter_map(|blocker| {
@@ -854,32 +863,7 @@ impl<L: CardLookup> Engine<L> {
             }
             // Planeswalkers enter with their printed loyalty counters
             // (CR 306.5b).
-            if let Some(loyalty) = self
-                .state
-                .object(id)
-                .and_then(|o| o.card)
-                .and_then(|c| self.lookup.card(c.index))
-                .and_then(|def| {
-                    let face = &def.faces[0];
-                    if face
-                        .types
-                        .contains(baylee_core::types::TypeSet::PLANESWALKER)
-                    {
-                        face.loyalty
-                    } else {
-                        None
-                    }
-                })
-            {
-                // Starting loyalty is counters put on the permanent as it
-                // enters, so the counter-placement replacements apply
-                // (CR 614.16): Doubling Season doubles it.
-                crate::replacement::put_counters(
-                    &mut self.state,
-                    id,
-                    baylee_cards_dsl::CounterKind::Loyalty,
-                    loyalty,
-                );
+            if self.put_starting_loyalty(id) {
                 changed = true;
             }
             // Clone-on-enter, for every door that is not a permanent spell.
@@ -1319,6 +1303,42 @@ impl<L: CardLookup> Engine<L> {
         self.offer_copy_on_enter(id, options, controller, false)
     }
 
+    /// CR 306.5b: a planeswalker enters with as many loyalty counters as its
+    /// printed loyalty. Returns whether it put any.
+    ///
+    /// "Printed" is read off the entering permanent's copiable values and not
+    /// off its card. CR 614.12 decides which replacement effects apply to a
+    /// permanent entering from the permanent as it would exist on the
+    /// battlefield, counting replacement effects that already modified how it
+    /// enters, and a copy is one (CR 614.1c "enters as"). Loyalty is a
+    /// copiable value (CR 707.2), counters are not. So a Spark Double that
+    /// enters as a copy of Karn, the Great Creator is a planeswalker with
+    /// Karn's printed 5, whatever Karn has now, and takes 5 here beside the
+    /// one its own text adds. Read off the card, it was a 0/0 creature with no
+    /// loyalty and entered with that one alone.
+    ///
+    /// Starting loyalty is counters put on the permanent as it enters, so the
+    /// counter-placement replacements apply (CR 614.16): Doubling Season
+    /// doubles it.
+    pub(crate) fn put_starting_loyalty(&mut self, id: ObjectId) -> bool {
+        let Some(loyalty) = crate::layers::copiable_values(&self.state, id).and_then(|values| {
+            values
+                .types
+                .contains(baylee_core::types::TypeSet::PLANESWALKER)
+                .then_some(values.loyalty)
+                .flatten()
+        }) else {
+            return false;
+        };
+        crate::replacement::put_counters(
+            &mut self.state,
+            id,
+            baylee_cards_dsl::CounterKind::Loyalty,
+            loyalty,
+        );
+        true
+    }
+
     /// Applies the clone-on-enter choice: the permanent's copiable base is
     /// replaced by the target's base, with the card's modifications. For
     /// `CopyOnEnterUntilEot` (Cursed Mirror), that half is a layer-1
@@ -1389,6 +1409,20 @@ impl<L: CardLookup> Engine<L> {
         let keeps_its_own = mods
             .iter()
             .any(|m| matches!(m, baylee_cards_dsl::CopyMod::KeepOtherAbilities));
+        // What the permanent became, for a counter that asks ("…if it's a
+        // creature"): the copied values (CR 707.2) with this copy's own type
+        // changes (CR 707.9b). Read here, before either branch, because the
+        // two carry those changes in different places — the base, or effects
+        // of their own that end with the turn — and the answer is the same.
+        let became = mods.iter().fold(
+            crate::layers::copiable_values(&self.state, target)
+                .map_or(baylee_core::types::TypeSet::EMPTY, |values| values.types),
+            |types, m| match m {
+                baylee_cards_dsl::CopyMod::AddType(t) => types.union(*t),
+                baylee_cards_dsl::CopyMod::RemoveType(t) => types.difference(*t),
+                _ => types,
+            },
+        );
         if until_eot {
             // Temporary copy: layer-1 effect + mods as their own effects.
             let controller = self
@@ -1478,6 +1512,12 @@ impl<L: CardLookup> Engine<L> {
                         // arriving with counters needs (CR 613.4c), since
                         // nothing in the effect table moved to say so.
                         crate::replacement::put_counters(&mut self.state, id, kind, n);
+                        continue;
+                    }
+                    baylee_cards_dsl::CopyMod::AddCounterIf(types, kind, n) => {
+                        if became.intersects(types) {
+                            crate::replacement::put_counters(&mut self.state, id, kind, n);
+                        }
                         continue;
                     }
                     baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
@@ -1589,12 +1629,17 @@ impl<L: CardLookup> Engine<L> {
                 }
                 baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
                     // The same door as the temporary branch above, for the
-                    // same reason (CR 614.1c, CR 614.16). This is the arm
-                    // a card in the pool actually reaches: Spark Double
-                    // enters with one +1/+1 counter and one loyalty
-                    // counter, and under a Doubling Season it enters with
-                    // two of whichever it can hold.
+                    // same reason (CR 614.1c, CR 614.16).
                     crate::replacement::put_counters(&mut self.state, id, kind, n);
+                }
+                // The arm a card in the pool reaches: Spark Double enters
+                // with a +1/+1 counter if it became a creature and a loyalty
+                // counter if it became a planeswalker, and under a Doubling
+                // Season with two of each it takes.
+                baylee_cards_dsl::CopyMod::AddCounterIf(types, kind, n) => {
+                    if became.intersects(types) {
+                        crate::replacement::put_counters(&mut self.state, id, kind, n);
+                    }
                 }
                 // CR 107.3m: the X announced for the spell that became it.
                 baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
@@ -4642,7 +4687,7 @@ impl<L: CardLookup> Engine<L> {
                 // rules never asked. Nothing is lost by leaving them out —
                 // there is no damage to deal and no trigger can be waiting
                 // on a step that is skipped.
-                if self.state.combat.attackers.is_empty() {
+                if self.state.combat.attackers().is_empty() {
                     (Phase::Combat, Step::CombatEnd)
                 } else {
                     (Phase::Combat, Step::DeclareBlockers)
@@ -4698,7 +4743,7 @@ impl<L: CardLookup> Engine<L> {
         use baylee_cards_dsl::KeywordSet as K;
         self.state
             .combat
-            .attackers
+            .attackers()
             .iter()
             .map(|a| a.creature)
             .chain(self.state.combat.blockers.iter().map(|b| b.blocker))

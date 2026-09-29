@@ -20032,6 +20032,345 @@ fn clever_concealment_s_convoke_is_asked_for_its_generic_and_no_more_until_230()
     );
 }
 
+/// Banishing Stroke: its miracle is offered only over something to target.
+///
+/// "Put target artifact, creature, or enchantment on the bottom of its
+/// owner's library." Choosing that target is a step of casting it (CR
+/// 601.2c), and a spell that cannot take the step cannot be cast (CR 601.2):
+/// drawn onto a board with no artifact, creature or enchantment, the miracle
+/// could only be declined, so it is not asked. It was, and the house said
+/// yes to it in r001's games 1581, 3288 and 3554; the engine refused the
+/// "yes" after spending the offer, and none of the three could be replayed.
+///
+/// Every card in both libraries is a Banishing Stroke, so every first draw of
+/// a turn is one. With a creature on the table each of those draws offers
+/// the miracle, which is what keeps the empty board's silence from being a
+/// test that sees nothing.
+#[test]
+fn banishing_stroke_offers_its_miracle_only_over_a_target() {
+    for (board, targets) in [(vec![], false), (vec![ondu_cleric()], true)] {
+        let mut engine = Duel::new(31, banishing_stroke())
+            .battlefield(1, &board)
+            .start();
+        keep_mulligans(&mut engine);
+        let mut offers = 0;
+        for _ in 0..200 {
+            if engine.state().turn.number > 4 {
+                break;
+            }
+            match engine.pending().clone() {
+                Pending::YesNo {
+                    player,
+                    prompt: YesNoPrompt::Miracle { .. },
+                    ..
+                } => {
+                    offers += 1;
+                    engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+                }
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                Pending::ChooseAttackers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                        .unwrap();
+                }
+                Pending::ChooseBlockers { player, .. } => {
+                    engine
+                        .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                        .unwrap();
+                }
+                other => panic!("unexpected question: {other:?}"),
+            }
+        }
+        assert!(engine.state().turn.number > 4, "the game stalled");
+        if targets {
+            assert!(
+                offers >= 3,
+                "a draw over a creature was not offered: {offers}"
+            );
+        } else {
+            assert_eq!(offers, 0, "a miracle with nothing to target was offered");
+        }
+    }
+}
+
+/// Dig Through Time over a library of one puts that one into your hand.
+///
+/// "Look at the top seven cards of your library. Put two of them into your
+/// hand and the rest on the bottom of your library in any order." With one
+/// card left the effect does only as much as possible (CR 609.3): it puts the
+/// one. It asked for two out of one instead, a question no answer could
+/// satisfy, and the table stopped — the house's proposal and its fallback
+/// both refused (r002 games 368 and 2675).
+#[test]
+fn dig_through_time_over_a_library_of_one_puts_that_one_into_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(17, island())
+        .battlefield(0, &[island(); 8])
+        .hand(0, &[dig_through_time()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let left = library_size(&engine, p0);
+    seed_graveyard(&mut engine, p0, left - 1);
+    let last = engine.state().zones.list(ZoneLocation::Library(p0))[0];
+    cast_from_hand(&mut engine, p0, dig_through_time());
+    // Delve offers the graveyard just filled; eight Islands pay without it.
+    if let Pending::ChooseCards {
+        prompt: ChoicePrompt::Delve,
+        ..
+    } = engine.pending()
+    {
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+            .expect("delving nothing is an answer");
+    }
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::PutIntoHand,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(options, vec![last], "the one card there is");
+    assert_eq!((min, max), (1, 1), "asked for as many as there are");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![last],
+            },
+        )
+        .expect("the one card is the answer");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&last),
+        "the card went to hand"
+    );
+    assert_eq!(library_size(&engine, p0), 0);
+}
+
+/// Dig Through Time cast from the graveyard (Snapcaster Mage's flashback)
+/// cannot delve itself away.
+///
+/// CR 601.2a moves a spell to the stack before its costs are paid (601.2h),
+/// so while delve (CR 702.66a) exiles cards from the graveyard to pay, the
+/// spell is not one of them. The engine moves the card at the end of the
+/// payment instead, and the delve question offered the whole graveyard, the
+/// card being cast included: exiled for delve, it paid {1} of its own cost
+/// and went on to the stack from exile.
+#[test]
+fn dig_through_time_flashed_back_does_not_offer_itself_to_its_own_delve() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(17, island())
+        .battlefield(0, &[island(); 9])
+        .hand(0, &[snapcaster_mage(), dig_through_time()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p0, 3);
+    let dig = in_hand(&engine, p0, dig_through_time()).expect("the Dig in hand");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            dig,
+            ZoneLocation::Graveyard(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Cost,
+        )
+        .expect("the Dig goes to the graveyard");
+    engine.refresh_offer();
+    let dig = in_graveyard(&engine, p0, dig_through_time()).expect("the Dig in the graveyard");
+    let two: Vec<ObjectId> = engine.state().zones.list(ZoneLocation::Battlefield)[..2].to_vec();
+    tap_mana_where(&mut engine, p0, |id| two.contains(&id));
+    cast_with_floating(&mut engine, p0, snapcaster_mage());
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseTargets { options, .. } if options.contains(&dig)),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![dig],
+                players: vec![],
+            },
+        )
+        .expect("the Dig is Snapcaster's target");
+    pass_until(&mut engine, stack_is_empty);
+    tap_all_mana(&mut engine, p0);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: dig })
+        .expect("the Dig has flashback");
+    let Pending::ChooseCards {
+        options,
+        prompt: ChoicePrompt::Delve,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the delve question, got {:?}", engine.pending())
+    };
+    assert_eq!(options.len(), 3, "the three other cards: {options:?}");
+    assert!(!options.contains(&dig), "the spell cannot pay for itself");
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: options })
+        .expect("delving the other three is an answer");
+    assert!(
+        on_stack(&engine, dig_through_time()).is_some(),
+        "the Dig is cast: {:?}",
+        engine.pending()
+    );
+}
+
+/// Heliod's Intervention with an X its pool cannot pay: the X is taken, so is
+/// the player it then names, and the cast is reversed.
+///
+/// CR 601.2b lets the caster announce any X, and a total cost they cannot
+/// then pay makes the cast illegal: it is reversed (CR 601.2h, 732.1), with
+/// the mana back in the pool and the card back in hand. The arena's net
+/// named X = 50 over five floating mana; the X was taken, and both players
+/// the lifegain mode then offered were refused with "cannot pay the total
+/// cost", a question no answer could leave (its third and fourth cases).
+#[test]
+fn heliods_intervention_over_an_x_it_cannot_pay_is_taken_and_reversed() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .hand(0, &[heliods_intervention()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    let floating = engine.state().players[0].mana_pool.total();
+    cast_with_floating(&mut engine, p0, heliods_intervention());
+    let mut named = None;
+    for _ in 0..12 {
+        match engine.pending().clone() {
+            Pending::ChooseNumber { player, max, .. } => {
+                assert!(max > floating, "the range ends where the pool does: {max}");
+                engine
+                    .apply(player, PlayerAction::ChooseNumber(max))
+                    .expect("an X the question offers is an answer");
+            }
+            Pending::ChooseCastMode {
+                player, options, ..
+            } => {
+                let slot = options
+                    .iter()
+                    .position(|o| matches!(o.kind, CastModeKind::Mode(1)))
+                    .expect("the lifegain mode is one of the ways to cast this card");
+                engine
+                    .apply(player, PlayerAction::ChooseMode(slot))
+                    .unwrap();
+            }
+            Pending::ChoosePlayer { player, options } => {
+                let chosen = options[0];
+                engine
+                    .apply(player, PlayerAction::ChoosePlayer(chosen))
+                    .expect("a player the question offers is an answer");
+                named = Some(chosen);
+                break;
+            }
+            other => panic!("unexpected while casting Heliod's Intervention: {other:?}"),
+        }
+    }
+    assert!(
+        named.is_some(),
+        "the lifegain mode never asked for its player"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the reversed cast gave the caster their priority back: {:?}",
+        engine.pending()
+    );
+    assert!(
+        engine.state().zones.stack_is_empty(),
+        "the unpayable spell reached the stack"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        floating,
+        "the reversed cast spent nothing"
+    );
+    assert!(
+        in_hand(&engine, p0, heliods_intervention()).is_some(),
+        "the card went back to hand"
+    );
+}
+
+/// Ephemerate: "Exile target creature you control, then return it to the
+/// battlefield under its owner's control."
+///
+/// The other half of what Restoration Angel's test holds. The same stolen
+/// Elves, the same Song-Mad Treachery, and the sentence names the owner, so
+/// the new object enters under seat 1's control (CR 400.7) and seat 0's
+/// borrowed creature goes home at once rather than at end of turn.
+#[test]
+fn ephemerate_returns_a_stolen_creature_to_its_owner() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(613, mountain())
+        .battlefield(
+            0,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                plains(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[song_mad_treachery(), ephemerate()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("p1's Elves");
+    steal_with_song_mad_treachery(&mut engine, p0, elves);
+
+    cast_from_hand(&mut engine, p0, ephemerate());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Ephemerate asks for a target: {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&elves),
+        "a stolen creature is a creature you control: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .expect("the Elves are targeted");
+    pass_until(&mut engine, stack_is_empty);
+
+    let obj = engine.state().object(elves).expect("the Elves came back");
+    assert_eq!(obj.zone, Zone::Battlefield, "exiled and returned");
+    assert_eq!(
+        (obj.owner, obj.controller, obj.base_controller),
+        (p1, p1, p1),
+        "returned under its owner's control"
+    );
+}
+
 fn memory_deluge() -> CardIndex {
     card_index("e6fd55f2-7e26-469c-a44a-ea2eb90e19a9")
 }
@@ -20242,7 +20581,13 @@ fn realms_search(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) 
     };
     assert_eq!(player, seat);
     assert_eq!(prompt, ChoicePrompt::SearchLibrary);
-    assert_eq!((min, max), (0, 4), "up to four");
+    // "Up to four", and a counted choice is fitted to what it offers
+    // (CR 609.3): four of five names, two of two.
+    assert_eq!(
+        (min, usize::from(max)),
+        (0, options.len().min(4)),
+        "up to four"
+    );
     let mut names: Vec<_> = options
         .iter()
         .map(|id| engine.state().object(*id).unwrap().characteristics().name)

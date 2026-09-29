@@ -960,7 +960,7 @@ pub fn player_view(
         combat: CombatView {
             attackers: state
                 .combat
-                .attackers
+                .attackers()
                 .iter()
                 .map(|a| AttackerView {
                     creature: a.creature,

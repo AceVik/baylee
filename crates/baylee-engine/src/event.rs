@@ -489,6 +489,13 @@ impl Journal {
     pub fn last_seq(&self) -> u64 {
         self.entries.len() as u64
     }
+
+    /// Drops every entry after the first `len`: the one exception to "only
+    /// grows", for a payment that was canceled (CR 732.1) and so never
+    /// happened ([`crate::state::GameState::roll_back`]).
+    pub(crate) fn cancel_from(&mut self, len: usize) {
+        self.entries.truncate(len);
+    }
 }
 
 #[cfg(test)]

@@ -647,18 +647,23 @@ fn within(
 /// How many cards a search may find: a count the resolution read
 /// (`SearchLibraryUpTo`), as many as match for "any number of" (a repeating
 /// last find), and otherwise one per find.
+///
+/// Never more than match: a player told to find two cards finds as many as
+/// possible when the zone doesn't contain enough (CR 701.23d), and a menu of
+/// one that demands two has no answer.
 fn most_found(
     count: Option<u8>,
     finds: &[baylee_cards_dsl::effect::Find],
     matching: usize,
 ) -> usize {
-    if let Some(n) = count {
+    let most = if let Some(n) = count {
         usize::from(n)
     } else if finds.last().is_some_and(|f| f.repeats) {
-        matching.max(finds.len())
+        matching
     } else {
         finds.len()
-    }
+    };
+    most.min(matching)
 }
 
 /// Opens a library search: the question, or nothing when there is nothing
@@ -993,11 +998,16 @@ pub(super) fn players_of(
 ) -> Vec<PlayerId> {
     match rel {
         PlayerRel::Chosen => res.chosen_player.into_iter().collect(),
+        // Last known first (CR 608.2h), for the same reason as the event's
+        // below: "Exile target creature. Its controller gains life …" reads
+        // its second sentence after the first has moved the creature, and
+        // nothing controls a card in exile.
         PlayerRel::ControllerOfTarget => res
             .targets
             .first()
-            .and_then(|t| state.object(*t))
-            .map_or_else(Vec::new, |o| vec![o.controller]),
+            .and_then(|t| state.last_known_controller(*t))
+            .into_iter()
+            .collect(),
         // Last known first (CR 603.10a): the object left the battlefield,
         // and what it is now — a card in a graveyard, or no object at all —
         // is controlled by nobody. An event about a permanent that is still
@@ -1006,14 +1016,7 @@ pub(super) fn players_of(
         // is nobody's "that player" (CR 800.4a).
         PlayerRel::ControllerOfEvent => res
             .event_object
-            .and_then(|id| {
-                state
-                    .ltb_controllers
-                    .iter()
-                    .find(|(object, _)| *object == id)
-                    .map(|(_, seat)| *seat)
-                    .or_else(|| state.object(id).map(|o| o.controller))
-            })
+            .and_then(|id| state.last_known_controller(id))
             .filter(|seat| !state.has_left(*seat))
             .into_iter()
             .collect(),
@@ -1653,6 +1656,11 @@ fn put_found(state: &mut GameState, player: PlayerId, card: ObjectId, dest: Sear
         SearchDest::Battlefield => {
             if let Some(obj) = state.object_mut(card) {
                 obj.kind = ObjectKind::Permanent;
+                // "Put it onto the battlefield" names no controller, so it
+                // is the player told to put it there (CR 110.2a), written
+                // where it arrives rather than inherited from the last time
+                // the card was on the battlefield.
+                obj.set_controller(player);
             }
             ZoneLocation::Battlefield
         }
@@ -4185,8 +4193,13 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             if top.is_empty() {
                 return None;
             }
-            // "Put two of them into your hand": as many as there are, when
-            // the library held fewer than were to be kept.
+            // "Put two of them into your hand" over a library of one puts
+            // the one: an effect that attempts the impossible does only as
+            // much as possible (CR 609.3), and a player can't choose what is
+            // impossible (CR 608.2d). Asking for `pick` regardless was a
+            // question with no answer — Dig Through Time late in a game
+            // asked for two cards out of one, and the table stopped (r002
+            // games 368 and 2675).
             let pick = pick.min(u8::try_from(top.len()).unwrap_or(u8::MAX));
             res.awaiting = Some(AwaitingOp::DigRest {
                 rest: top.clone(),
@@ -5095,5 +5108,210 @@ mod created_for_the_departed_tests {
                 (crate::zone::Zone::Exile, ObjectKind::Card)
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod counted_choice_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+
+    /// A two-seat game whose seat 0 has `cards` cards in its library.
+    fn library_of(cards: usize) -> (GameState, Vec<ObjectId>) {
+        let mut state = GameState::from_preset(&preset(311, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let library = state.zones.list(ZoneLocation::Library(me())).clone();
+        for card in library {
+            let _ = state.move_object(
+                card,
+                ZoneLocation::Exile(me()),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+        }
+        let name = state.names.intern("Card");
+        let made = (0..cards)
+            .map(|_| state.create_bare(me(), ObjectKind::Card, name, ZoneLocation::Library(me())))
+            .collect();
+        (state, made)
+    }
+
+    fn mine(effect: Effect) -> Resolution {
+        Resolution {
+            source: ObjectId::NO_SOURCE,
+            on_stack: ObjectId::NO_SOURCE,
+            controller: me(),
+            effects: vec![effect],
+            pc: 0,
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_lki: None,
+            target_players: baylee_core::ids::SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: false,
+            mana_ability: false,
+            countered_source: None,
+            retarget_left: None,
+        }
+    }
+
+    /// "Put two of them into your hand" over a library of one asks for the
+    /// one (CR 609.3). It asked for two, and nothing could answer.
+    #[test]
+    fn a_look_that_picks_more_than_the_library_holds_asks_for_what_is_there() {
+        let (mut state, cards) = library_of(1);
+        let mut res = mine(Effect::LookAtTopPick {
+            count: baylee_cards_dsl::Amount::Fixed(7),
+            pick: 2,
+            random: false,
+        });
+        let Flow::Wait(Pending::ChooseCards {
+            options, min, max, ..
+        }) = run(&mut state, &mut res)
+        else {
+            panic!("the look asks");
+        };
+        assert_eq!(options, cards);
+        assert_eq!((min, max), (1, 1));
+    }
+
+    /// A search told to find two cards over a library holding one finds as
+    /// many as possible (CR 701.23d): one.
+    #[test]
+    fn a_search_for_more_than_the_library_holds_finds_what_is_there() {
+        const TWO: &[baylee_cards_dsl::effect::Find] = &[
+            baylee_cards_dsl::effect::Find::HAND,
+            baylee_cards_dsl::effect::Find::HAND,
+        ];
+        let (mut state, cards) = library_of(1);
+        let mut res = mine(Effect::SearchLibrary {
+            filter: &baylee_cards_dsl::Filter::Any,
+            finds: TWO,
+            optional: false,
+        });
+        let Flow::Wait(Pending::ChooseCards {
+            options, min, max, ..
+        }) = run(&mut state, &mut res)
+        else {
+            panic!("the search asks");
+        };
+        assert_eq!(options, cards);
+        assert_eq!((min, max), (1, 1));
+    }
+}
+
+#[cfg(test)]
+mod controller_of_target_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_cards_dsl::{Duration, Filter, Modifier, ZoneRef};
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+
+    fn them() -> PlayerId {
+        PlayerId::new(1)
+    }
+
+    /// An ability of seat 0's with `targets`, resolving `effects` in order.
+    fn resolve(state: &mut GameState, targets: &[ObjectId], effects: Vec<Effect>) {
+        let mut res = Resolution {
+            source: ObjectId::NO_SOURCE,
+            on_stack: ObjectId::NO_SOURCE,
+            controller: me(),
+            effects,
+            pc: 0,
+            targets: SmallVec::from_slice(targets),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_lki: None,
+            retarget_left: None,
+            target_players: baylee_core::ids::SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: true,
+            mana_ability: false,
+            countered_source: None,
+        };
+        assert!(matches!(run(state, &mut res), Flow::Complete));
+        state.refresh_characteristics();
+    }
+
+    /// A 3/3 seat 1 owns and seat 0 has taken, on a board where every
+    /// refresh reaches every zone: Past in Flames' filter names the
+    /// graveyard (`state::filter_reaches_other_zones`).
+    fn taken() -> (GameState, ObjectId) {
+        static FLASHBACK_REACH: Filter = Filter::And(&[
+            Filter::INSTANT_OR_SORCERY,
+            Filter::InZone(ZoneRef::Graveyard),
+            Filter::OwnedByYou,
+        ]);
+        let mut state = GameState::from_preset(&preset(619, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let name = state.names.intern("Creature");
+        let it = state.create_bare(
+            them(),
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let obj = state.object_mut(it).expect("fresh");
+        let mut base = (*obj.base).clone();
+        base.types = baylee_core::types::TypeSet::CREATURE;
+        base.power = Some(3);
+        base.toughness = Some(3);
+        obj.base = std::sync::Arc::new(base);
+        state.invalidate_projections();
+        gain_control(&mut state, &[(it, me())]);
+        resolve(
+            &mut state,
+            &[],
+            vec![Effect::continuous(
+                &FLASHBACK_REACH,
+                Modifier::GrantsFlashback,
+                Duration::UntilEndOfTurn,
+            )],
+        );
+        let obj = state.object(it).expect("still there");
+        assert_eq!((obj.owner, obj.controller), (them(), me()), "taken");
+        (state, it)
+    }
+
+    /// Swords to Plowshares: "Exile target creature. Its controller gains
+    /// life equal to its power." The second sentence is read after the
+    /// first has exiled the creature, so "its controller" is the one it had
+    /// as it last existed on the battlefield (CR 608.2h): seat 0, who had
+    /// taken it. The field on the exiled card had been settled to seat 1's
+    /// default by a refresh that reaches every zone.
+    #[test]
+    fn its_controller_is_the_one_it_had_on_the_battlefield() {
+        let (mut state, it) = taken();
+        let life = |state: &GameState| (state.players[0].life, state.players[1].life);
+        let (mine, theirs) = life(&state);
+        resolve(
+            &mut state,
+            &[it],
+            vec![
+                Effect::exile(TargetSpec::Object(&Filter::CREATURE)),
+                Effect::GainLifeFor {
+                    amount: Amount::TargetPower,
+                    who: PlayerRel::ControllerOfTarget,
+                },
+            ],
+        );
+        assert_eq!(
+            state.object(it).map(|o| o.zone),
+            Some(crate::zone::Zone::Exile)
+        );
+        assert_eq!(life(&state), (mine + 3, theirs));
     }
 }

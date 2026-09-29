@@ -338,8 +338,39 @@ pub fn granted_activated(
     state: &crate::state::GameState,
     source: ObjectId,
 ) -> impl Iterator<Item = GrantedAbility> {
+    granted_activated_among(state, state.effects.iter(), source)
+}
+
+/// The effects that grant an activated ability, in registration order: the
+/// only ones [`granted_activated`] can find anything in.
+///
+/// For a caller that asks every permanent on the battlefield, which is what
+/// the offer (`Engine::compute_legal`) and the view do. Asked per permanent
+/// of the whole table, the question costs `permanents × effects`, and the
+/// table is not small when it matters: every prowess or rally resolution
+/// registers an "until end of turn" effect, so an Ally board carries
+/// thousands of them, and not one grants anything. Walked once and handed
+/// to [`granted_activated_among`], it costs `effects + permanents × grants`.
+pub fn grants(state: &crate::state::GameState) -> impl Iterator<Item = &ContinuousEffect> {
+    state
+        .effects
+        .iter()
+        .filter(|fx| matches!(fx.modifier, Modifier::GrantActivated { .. }))
+}
+
+/// [`granted_activated`] over `effects` rather than the whole table.
+///
+/// The same answer whenever `effects` holds every [`grants`] entry in the
+/// table's order — effects of any other kind grant nothing and are passed
+/// over — and the slot numbers with it, because slots count the grants that
+/// apply, in that order.
+pub fn granted_activated_among<'a>(
+    state: &'a crate::state::GameState,
+    effects: impl Iterator<Item = &'a ContinuousEffect> + 'a,
+    source: ObjectId,
+) -> impl Iterator<Item = GrantedAbility> + 'a {
     let obj = state.object(source);
-    state.effects.iter().filter_map(move |fx| {
+    effects.filter_map(move |fx| {
         let obj = obj?;
         let Modifier::GrantActivated {
             cost,

@@ -3,7 +3,9 @@
 //! Oracle: Flying
 //! Oracle: When this creature enters, you may exile target non-Angel creature you control, then return that card to the battlefield under your control.
 //! Set: INR #38 — Innistrad Remastered | Scryfall ID: f17f85d3-58e5-4128-90c5-98b524256af8 | Oracle ID: dfbd3afc-9905-4cff-a4f4-df08a4d0a7fa
-// IMPLEMENTED — flash flying + immediate blink of a non-Angel creature.
+// IMPLEMENTED — flash flying + immediate blink of a non-Angel creature,
+// back under *your* control: a creature you stole stays yours, and its
+// owner stays its owner.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
@@ -31,7 +33,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::ETB,
-        &[Effect::blink(TargetSpec::Object(
+        &[Effect::blink_to_you(TargetSpec::Object(
             &NON_ANGEL_CREATURE_YOU_CONTROL
         ))],
         targets = Some(TargetReq {

@@ -32269,6 +32269,158 @@ fn safe_haven_exiles_creature_and_returns_it_on_upkeep_sacrifice() {
     );
 }
 
+/// Whether `card` carries a link to an exile.
+fn linked(engine: &Engine<RegistryLookup>, card: ObjectId) -> bool {
+    engine.state().object(card).is_some_and(|o| {
+        o.riders
+            .iter()
+            .any(|r| matches!(r, crate::object::Rider::Linked { .. }))
+    })
+}
+
+/// Safe Haven's "each card exiled with this land" is the card it exiled and
+/// not a later object that card became (CR 400.7). The Wolf it exiled is
+/// cast out of exile, and Swords to Plowshares exiles it again. Sacrificing
+/// Safe Haven then returns nothing: the Wolf in exile now was exiled with
+/// Swords.
+///
+/// The link rode along with the card through the stack and the battlefield,
+/// so Safe Haven brought the Swords' Wolf back.
+///
+/// Nothing in the pool lets a player cast a card Safe Haven exiled, so the
+/// harness grants the permission the engine uses for a card castable from
+/// exile (`Rider::PlayableFromExileFor`). The cast itself is an ordinary one.
+#[test]
+#[allow(clippy::too_many_lines)] // an exile, a cast, a second exile and an upkeep, told in order
+fn a_card_cast_out_of_safe_havens_exile_and_exiled_again_stays_exiled() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                safe_haven(),
+                forest(),
+                forest(),
+                forest(),
+                plains(),
+                young_wolf(),
+            ],
+        )
+        .hand(0, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    reach_main_phase(&mut engine, p0);
+
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("the Wolf");
+    let lands_of = |engine: &Engine<RegistryLookup>, land: CardIndex| -> Vec<ObjectId> {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|id| {
+                engine
+                    .state()
+                    .object(*id)
+                    .is_some_and(|o| o.card.is_some_and(|c| c.index == land))
+            })
+            .collect()
+    };
+    let forests = lands_of(&engine, forest());
+    let plains = lands_of(&engine, plains());
+    assert_eq!((forests.len(), plains.len()), (3, 1));
+
+    // {2}, {T}: Exile target creature you control.
+    tap_mana_where(&mut engine, p0, |id| forests[..2].contains(&id));
+    activate(&mut engine, p0, safe_haven(), 0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wolf],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(wolf).map(|o| o.zone),
+        Some(Zone::Exile)
+    );
+    assert!(linked(&engine, wolf), "exiled with Safe Haven");
+
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .object_mut(wolf)
+        .expect("the Wolf in exile")
+        .riders
+        .push(crate::object::Rider::PlayableFromExileFor(p0));
+    engine.refresh_offer();
+    tap_mana_where(&mut engine, p0, |id| id == forests[2]);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: wolf })
+        .expect("the Wolf is cast from exile");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        on_battlefield(&engine, p0, young_wolf()),
+        Some(wolf),
+        "the Wolf resolved"
+    );
+
+    tap_mana_where(&mut engine, p0, |id| plains.contains(&id));
+    cast_with_floating(&mut engine, p0, swords_to_plowshares());
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(options.contains(&wolf), "{options:?}");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![wolf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(wolf).map(|o| o.zone),
+        Some(Zone::Exile),
+        "exiled again, by Swords"
+    );
+
+    // The next upkeep: sacrifice Safe Haven, and nothing comes back.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, safe_haven()).is_none(),
+        "Safe Haven was sacrificed"
+    );
+    assert_eq!(
+        engine.state().object(wolf).map(|o| o.zone),
+        Some(Zone::Exile),
+        "the Wolf Swords exiled stays in exile"
+    );
+}
+
 /// Scrying Sheets prints `{{T}}: Add {{C}}.` and `{{1}}{{S}}, {{T}}: Look at the top card of your library. If that card is snow, you may reveal it and put it into your hand.`
 ///
 /// Under `Coverage::Partial`, the top-card inspection ability is omitted because branching on printed characteristics of the top library card is unsupported.
@@ -60718,6 +60870,80 @@ fn breeding_pool_enters_untapped_for_two_life_or_tapped_for_free() {
 
         assert!(!is_tapped(&engine, land));
         assert_eq!(engine.state().players[0].life, life_before - 2);
+    }
+}
+
+/// Breeding Pool under Chromatic Lantern taps for either of its colours
+/// through either door the offer lists.
+///
+/// The land prints "Add {G} or {U}" (`legal.abilities`), and the Lantern
+/// grants it "{T}: Add one mana of any color" (`legal.mana_abilities`, the
+/// door with no index). The offer listed the second door and `apply` refused
+/// it: it asked only whether a land with basic types could be tapped, took
+/// the CR 305.6 shortcut, and found no colour there, because the card's own
+/// ability already makes both. 63 of 10,000 fuzzed games pressed that refused
+/// door (Breeding Pool 39, Stomping Ground 14, Canopy Vista 10).
+#[test]
+fn breeding_pool_under_chromatic_lantern_taps_for_either_colour_through_either_door() {
+    let p0 = PlayerId::new(0);
+    for colour in [ManaColor::Green, ManaColor::Blue] {
+        for granted in [true, false] {
+            let mut engine = Duel::new(2314, forest())
+                .battlefield(0, &[chromatic_lantern()])
+                .hand(0, &[breeding_pool()])
+                .start();
+            keep_mulligans(&mut engine);
+            reach_main_phase(&mut engine, p0);
+            let land = play_land(&mut engine, p0, breeding_pool());
+            engine
+                .apply(p0, PlayerAction::YesNo(true))
+                .expect("2 life for an untapped land");
+            pass_until(&mut engine, stack_is_empty);
+            assert!(!is_tapped(&engine, land), "it entered untapped");
+
+            let Pending::Priority { legal, .. } = engine.pending().clone() else {
+                panic!("expected priority, got {:?}", engine.pending())
+            };
+            let press = if granted {
+                assert!(
+                    legal.mana_abilities.contains(&land),
+                    "the Lantern's grant is offered: {legal:?}"
+                );
+                PlayerAction::ActivateManaAbility { source: land }
+            } else {
+                assert!(
+                    legal.abilities.contains(&(land, 0)),
+                    "the printed ability is offered: {legal:?}"
+                );
+                PlayerAction::ActivateAbility {
+                    source: land,
+                    ability_index: 0,
+                }
+            };
+            engine
+                .apply(p0, press)
+                .expect("a press the offer listed is taken");
+
+            let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+                panic!("the colour is asked: {:?}", engine.pending())
+            };
+            assert!(options.contains(&colour), "{colour:?} is among {options:?}");
+            assert_eq!(
+                options.len(),
+                if granted { 5 } else { 2 },
+                "any colour through the grant, the printed two through the card"
+            );
+            engine
+                .apply(p0, PlayerAction::ChooseColor(colour))
+                .expect("a colour the engine offered");
+
+            assert!(is_tapped(&engine, land), "the land paid its {{T}}");
+            assert_eq!(
+                engine.state().players[0].mana_pool.available(colour),
+                1,
+                "one {colour:?} floats (granted: {granted})"
+            );
+        }
     }
 }
 

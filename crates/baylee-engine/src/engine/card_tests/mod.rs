@@ -168,6 +168,41 @@ fn karn_the_great_creator() -> CardIndex {
     card_index("a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1")
 }
 
+fn spark_double() -> CardIndex {
+    card_index("8dcb35e5-ae44-455f-86e3-4a77d496ff34")
+}
+
+fn dig_through_time() -> CardIndex {
+    card_index("f8b17b89-26ce-4208-874a-9e1d66514640")
+}
+
+/// Casts the Spark Double in `seat`'s hand off everything that seat can tap
+/// and has it enter as a copy of `original`, a permanent that seat controls.
+/// Answers the copy, which is still Spark Double's card.
+#[track_caller]
+fn spark_double_copying(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    original: ObjectId,
+) -> ObjectId {
+    cast_from_hand(engine, seat, spark_double());
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: vec![original],
+            },
+        )
+        .expect("the Double may copy it");
+    pass_until(engine, |e| {
+        on_battlefield(e, seat, spark_double()).is_some() && stack_is_empty(e)
+    });
+    on_battlefield(engine, seat, spark_double()).expect("the copy entered")
+}
+
 fn chromatic_lantern() -> CardIndex {
     card_index("539f5396-d99a-417d-a84c-dff7930b5900")
 }
@@ -3301,6 +3336,63 @@ fn sea_gate_restoration() -> CardIndex {
 
 fn song_mad_treachery() -> CardIndex {
     card_index("81b61770-2ed5-4a50-84d0-97790002fc5a")
+}
+
+fn restoration_angel() -> CardIndex {
+    card_index("dfbd3afc-9905-4cff-a4f4-df08a4d0a7fa")
+}
+
+fn werefox_bodyguard() -> CardIndex {
+    card_index("d5ee2ced-29f4-430f-962e-2f930b92624c")
+}
+
+/// `thief` casts Song-Mad Treachery on `victim` off five Mountains it
+/// controls, and it resolves: a real layer-2 `GainControl` until end of turn
+/// over the owner's own default, which is what a stolen creature is. The
+/// board's other lands stay untapped for whatever the test casts next.
+#[track_caller]
+fn steal_with_song_mad_treachery(
+    engine: &mut Engine<RegistryLookup>,
+    thief: PlayerId,
+    victim: ObjectId,
+) {
+    let mountains: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == thief && o.card.is_some_and(|c| c.index == mountain())
+            })
+        })
+        .collect();
+    assert_eq!(
+        mountains.len(),
+        5,
+        "{{3}}{{R}}{{R}} is paid by five Mountains"
+    );
+    tap_mana_where(engine, thief, |id| mountains.contains(&id));
+    cast_front_face(engine, thief, song_mad_treachery());
+    engine
+        .apply(
+            thief,
+            PlayerAction::ChooseObjects {
+                objects: vec![victim],
+            },
+        )
+        .expect("the victim is a legal target");
+    pass_until(engine, stack_is_empty);
+    let obj = engine
+        .state()
+        .object(victim)
+        .expect("the victim is still there");
+    assert_eq!(
+        (obj.controller, obj.base_controller),
+        (thief, obj.owner),
+        "stolen by a layer-2 effect, over its owner's own default"
+    );
 }
 
 fn suppression_ray() -> CardIndex {

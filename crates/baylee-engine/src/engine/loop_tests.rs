@@ -31,6 +31,7 @@ const FILLER: CardIndex = CardIndex::new(60_001);
 static SELF_ONLY: Filter = Filter::This;
 static BLINK_SELF: &[Effect] = &[Effect::Blink {
     target: TargetSpec::ThisObject,
+    owner_control: true,
 }];
 
 static LOOPING_CARD: CardDef = CardDef {

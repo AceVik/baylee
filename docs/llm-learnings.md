@@ -217,8 +217,10 @@ Maze of Ith, Urza's Saga (partial), Venser the Sojourner (partial) plus the
   "handled elsewhere" match arm of `layers.rs` + `state.rs` modifier hash).
   Every new `Modifier` variant MUST be added to BOTH match statements or
   the build breaks with non-exhaustive errors.
-- `Filter::Attacking` (Maze of Ith): evaluated against
-  `state.combat.attackers` in `eval.rs`.
+- `Filter::Attacking` (Maze of Ith): evaluated by
+  `state.combat.is_attacking` in `eval.rs`, a lookup in a sorted index kept
+  beside the attacker list. The list is private: declare and remove through
+  `CombatState`'s methods, which keep the two in step.
 - No-lose suppression: `Modifier::PlayersCantLose` is read by one predicate,
   `sba::players_cant_lose`, which both the SBA loss check and
   `sba::lose_by_effect` (an effect saying a player loses, e.g. an unpaid
@@ -479,7 +481,10 @@ Open milestones discovered tonight:
   were EMPTY); Bojuka Bog targets ANY player (not opponents);
   Heliod's Intervention target player (GainLifeFor Chosen + DoubleX);
   Cyclonic Rift = "you don't control" (not opponents-only); blink family
-  returns under OWNER's control; suspend costs are PAID ({U}/{1}{B} —
+  returns under OWNER's control (**wrong as a rule**, corrected 29.09.2026:
+  only where the card prints "its owner's"; Restoration Angel's "under your
+  control" keeps a stolen creature, so a blink now names its controller,
+  `Effect::blink_to_owner` / `blink_to_you`); suspend costs are PAID ({U}/{1}{B} —
   the action was free before); triomes have mana abilities + cycling as
   hand-zone DiscardSelf→draw; produced_colors includes restricted mana
   (Exotic Orchard sees Cavern's full range).

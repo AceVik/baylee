@@ -63,11 +63,9 @@ pub fn matches_projected(
         Filter::OwnedByYou => obj.owner == you,
         Filter::Tapped => obj.status.contains(Status::TAPPED),
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
-        Filter::Attacking => state
-            .combat
-            .attackers
-            .iter()
-            .any(|info| info.creature == obj.id),
+        // A lookup and not a scan: this arm runs once per object whenever a
+        // filter is walked over the battlefield (`CombatState`'s doc).
+        Filter::Attacking => state.combat.is_attacking(obj.id),
         // The turn's record of arrivals. It is written where a `ZoneChanged`
         // into the battlefield is journaled, and it holds the id
         // `move_object` returns, so the handle a permanent has now is the one
