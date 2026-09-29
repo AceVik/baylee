@@ -1944,8 +1944,10 @@ land type"; both are convention tests that fire on a first try.
   reader gap.
 - **The house AI answers crew but does not choose to crew.** `policy::crew`
   taps the strongest creatures until the total is reached. `activate::gains`
-  does not count `CreateContinuousEffect` as a gain, and Conduit of Worlds'
-  `MayCastTarget` is not on that list either.
+  did not count `CreateContinuousEffect` as a gain, and Conduit of Worlds'
+  `MayCastTarget` was not on that list either. (Since 29.09.2026 the list is
+  `worth::effect_worth`, which prices a continuous effect by its modifier and
+  still has no row for `MayCastTarget`.)
 - **A graveyard cast is not flashback unless flashback paid for it.** The
   cast wizard used to put `Rider::Flashback` on every instant or sorcery
   cast from a graveyard, which was true only while the permissions (Wrenn's

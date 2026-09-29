@@ -21,6 +21,7 @@ mod redirect;
 mod restricted;
 pub mod search;
 mod tactics;
+mod worth;
 
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 pub use baylee_core::preset::AIProfile;
@@ -167,6 +168,21 @@ impl HeuristicAgent {
         if let Some(action) = policy::pay_owed(view, legal) {
             return action;
         }
+        // 0b. Spend nothing in this seat's own upkeep on an empty stack.
+        //
+        //    The step's payments — a pact's price, echo, cumulative upkeep
+        //    — are demanded when this round of passes closes (CR 605.3a
+        //    lets them be paid with mana abilities then), from whatever is
+        //    still untapped. A spell cast here could as well be cast a step
+        //    later; a pact whose mana went on one is a game lost.
+        //    With something on the stack there is something to answer, and
+        //    the round is an ordinary one.
+        if view.active == view.seat
+            && view.step == baylee_view::Step::Upkeep
+            && view.stack.is_empty()
+        {
+            return PlayerAction::PassPriority;
+        }
         // 1. Play a land.
         if let Some(&card) = legal.lands.first() {
             return PlayerAction::PlayLand { card };
@@ -199,7 +215,8 @@ impl HeuristicAgent {
         //    `LegalActions` is built from, so the handle is gone or
         //    unaffordable when the seat next has priority.
         //    `activate::choose` refuses the free shape and takes
-        //    the rest by an explicit whitelist.
+        //    the rest by what `worth` says each is worth, net of
+        //    its cost.
         if let Some((source, ability_index)) = activate::choose(view, legal, self) {
             return PlayerAction::ActivateAbility {
                 source,
@@ -668,6 +685,10 @@ mod tests {
         CombatView, CounterEntry, CounterKind, ObjectStatus, PlayerView, PublicObject, SeatView,
     };
 
+    /// `worth`'s takes and declines, on this module's boards: a child of
+    /// it, so the helpers below serve both.
+    mod worth_tests;
+
     fn obj(slot: u32) -> ObjectId {
         ObjectId::new(slot, 0)
     }
@@ -881,11 +902,14 @@ mod tests {
     /// of them, and nothing logged it. An activation asks the same question
     /// with `min: 1`, so both shapes are asked here.
     ///
-    /// The menu lists Llanowar Elves first on purpose: the fallback answers
-    /// `options[0]`, so an agent that paid without ranking would pass the
-    /// "how many" half and fail this one. With no lands on the table the
-    /// Elves are worth 800 - 150 and the five-drop Wurm 800 - 750, so the
-    /// Wurm is what goes.
+    /// A card in hand or a graveyard is worth what it would be to cast:
+    /// with no lands on the table the Elves are worth 800 - 150 and the
+    /// five-drop Wurm 800 - 750, so the Wurm is what goes. A permanent on
+    /// the table is worth what it is there (`worth::given_up`, the number
+    /// the activation was priced with), and a 1/1 is worth less than a 6/6:
+    /// the Elves go. The menu lists the one that must *not* go first on the
+    /// table and the one that must go second elsewhere, so an agent that
+    /// paid `options[0]` without ranking fails one or the other.
     #[test]
     fn a_price_that_may_be_declined_is_paid_with_the_least_valuable_card() {
         use baylee_engine::choice::ChoicePrompt;
@@ -907,17 +931,27 @@ mod tests {
             carded(permanent(wurm, me, 6), "Endless Wurm", TypeSet::CREATURE),
         ];
 
-        for (prompt, view) in [
-            (ChoicePrompt::CostSacrifice, &on_the_table),
-            (ChoicePrompt::CostDiscard, &in_hand),
-            (ChoicePrompt::CostExile, &in_the_graveyard),
+        for (prompt, view, options, goes) in [
+            (
+                ChoicePrompt::CostSacrifice,
+                &on_the_table,
+                vec![wurm, elves],
+                elves,
+            ),
+            (ChoicePrompt::CostDiscard, &in_hand, vec![elves, wurm], wurm),
+            (
+                ChoicePrompt::CostExile,
+                &in_the_graveyard,
+                vec![elves, wurm],
+                wurm,
+            ),
         ] {
             for min in [0, 1] {
                 let action = HeuristicAgent::new(AIProfile::EXPERT).act(
                     view,
                     &Pending::ChooseCards {
                         player: view.seat,
-                        options: vec![elves, wurm],
+                        options: options.clone(),
                         min,
                         max: 1,
                         prompt,
@@ -926,7 +960,7 @@ mod tests {
                 assert_eq!(
                     action,
                     PlayerAction::ChooseObjects {
-                        objects: vec![wurm]
+                        objects: vec![goes]
                     },
                     "{prompt:?} at min {min}: the price is paid, with the card \
                      worth least"
@@ -4729,6 +4763,11 @@ mod tests {
     /// A Glasspool Mimic that is a Werefox Bodyguard prints one ability of
     /// its own and is offered the Fox's second, so reading the Mimic finds
     /// nothing there and the agent never uses anything a copy has.
+    ///
+    /// The Mimic is under an opponent's Lightning Bolt on the opponent's
+    /// turn, because that is when a 2/2 is worth two life: it is going
+    /// anyway (`worth::doomed`), and a body sacrificed for two life on an
+    /// empty stack is a card thrown away.
     #[test]
     fn a_copy_is_offered_what_it_copied_and_the_agent_reads_that() {
         let mimic = copying(
@@ -4739,7 +4778,15 @@ mod tests {
             ),
             "Werefox Bodyguard",
         );
-        let v = view(0, &[20, 20], vec![mimic]);
+        let mut v = view(0, &[20, 20], vec![mimic]);
+        v.active = PlayerId::new(1);
+        let mut bolt = carded(
+            permanent(obj(9), PlayerId::new(1), 0),
+            "Lightning Bolt",
+            TypeSet::INSTANT,
+        );
+        bolt.targets = vec![baylee_view::TargetRef::Object(obj(1))];
+        v.stack.push(bolt);
 
         assert_eq!(
             agent().act(&v, &offering(vec![(obj(1), 1)])),
@@ -4757,6 +4804,9 @@ mod tests {
     /// one ability and presses another. A Sakura-Tribe Elder that has become
     /// an Electric Eel reads as a sacrifice that finds a land, and the button
     /// it presses is `{R}{R}: +2/+0 and 1 damage to you`.
+    ///
+    /// The Elder is blocking a 3/3, which is when its sacrifice is right:
+    /// it dies in the fight either way, and the land is what it leaves.
     #[test]
     fn a_copy_is_not_weighed_by_the_ability_its_own_card_prints_there() {
         let elder = carded(
@@ -4764,7 +4814,26 @@ mod tests {
             "Sakura-Tribe Elder",
             TypeSet::CREATURE,
         );
-        let v = view(0, &[20, 20], vec![elder.clone()]);
+        let blocked = |elder: PublicObject| {
+            let mut v = view(
+                0,
+                &[20, 20],
+                vec![elder, permanent(obj(2), PlayerId::new(1), 3)],
+            );
+            v.active = PlayerId::new(1);
+            v.step = baylee_view::Step::DeclareBlockers;
+            v.combat.attackers.push(baylee_view::AttackerView {
+                creature: obj(2),
+                defending: Defender::Player(PlayerId::new(0)),
+                blocked: true,
+            });
+            v.combat.blockers.push(baylee_view::BlockerView {
+                blocker: obj(1),
+                attacker: obj(2),
+            });
+            v
+        };
+        let v = blocked(elder.clone());
         assert_eq!(
             agent().act(&v, &offering(vec![(obj(1), 0)])),
             PlayerAction::ActivateAbility {
@@ -4775,7 +4844,7 @@ mod tests {
              so the pass below is the copy and not a refusal of the Elder"
         );
 
-        let v = view(0, &[20, 20], vec![copying(elder, "Electric Eel")]);
+        let v = blocked(copying(elder, "Electric Eel"));
         assert_eq!(
             agent().act(&v, &offering(vec![(obj(1), 0)])),
             PlayerAction::PassPriority,
@@ -5791,6 +5860,67 @@ mod tests {
             agent().act(&v, &pending),
             PlayerAction::PassPriority,
             "this seat is not the one being asked for the payment"
+        );
+    }
+
+    /// A colour named inside this seat's own payment window is named for the
+    /// price, and outside it for the hand.
+    ///
+    /// Owed `{1}{U}{U}` with an Island and a Mountain still untapped: the
+    /// dual just tapped must make blue, or the two lands left cannot finish
+    /// the price. Before, the question was answered for the (empty) hand and
+    /// named white, and the seat lost the pact it had agreed to pay. The
+    /// second half is the same prompt with the price owed by the other seat:
+    /// there the hand's Brainstorm decides, as it always did.
+    #[test]
+    fn a_colour_named_in_a_payment_window_keeps_the_price_payable() {
+        use baylee_core::generated::subtypes::land;
+        use baylee_core::mana::{ManaColor, ManaCost, ManaSymbol};
+        let seat = PlayerId::new(0);
+        let lands = [land::ISLAND, land::MOUNTAIN]
+            .into_iter()
+            .enumerate()
+            .map(|(i, basic)| {
+                let mut source = permanent(obj(u32::try_from(i).unwrap() + 1), seat, 0);
+                source.types = TypeSet::LAND;
+                source.power = None;
+                source.toughness = None;
+                source.subtypes.insert(basic);
+                source
+            })
+            .collect();
+        let pending = Pending::ChooseColor {
+            player: seat,
+            options: vec![ManaColor::White, ManaColor::Blue],
+        };
+        let base = view(0, &[20, 20], lands);
+
+        let mut v = base.clone();
+        v.awaiting = Some(seat);
+        v.owed = Some(ManaCost::parse("{1}{U}{U}"));
+        for profile in [
+            AIProfile::NOVICE,
+            AIProfile::CASUAL,
+            AIProfile::STEADY,
+            AIProfile::SHARP,
+            AIProfile::EXPERT,
+        ] {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::ChooseColor(ManaColor::Blue),
+                "{profile:?} named a colour that leaves {{1}}{{U}}{{U}} out of \
+                 reach of an Island and a Mountain"
+            );
+        }
+
+        let mut v = base;
+        v.awaiting = Some(PlayerId::new(1));
+        v.owed = Some(ManaCost::from_symbol(ManaSymbol::White));
+        v.hand = vec![hand_card(3, "Brainstorm")];
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
+            PlayerAction::ChooseColor(ManaColor::Blue),
+            "the other seat's price is not this seat's to name a colour for"
         );
     }
 

@@ -413,7 +413,7 @@ impl HeuristicAgent {
     /// and are `None` here: only a resolution knows who was chosen, who
     /// controls the target or who controls the event's object, and answering
     /// "nobody" reads exactly like "no seat matched".
-    fn seats(&self, rel: PlayerRel, view: &PlayerView) -> Option<Vec<PlayerId>> {
+    pub(crate) fn seats(&self, rel: PlayerRel, view: &PlayerView) -> Option<Vec<PlayerId>> {
         let every = || {
             view.seats
                 .iter()
