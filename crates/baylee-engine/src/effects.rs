@@ -110,6 +110,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AddKeywordIfCountersAtLeast { .. }
         | Modifier::GrantActivated { .. }
         | Modifier::GrantTriggered { .. }
+        | Modifier::CharacteristicPT { .. }
         | Modifier::ModifyPTPerCount { .. }
         | Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
@@ -137,6 +138,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantLoseLife { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
+        | Modifier::CombatDamageCantBePrevented
+        | Modifier::CantBeBlockedBy(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
         | Modifier::PlayerHexproof
@@ -678,6 +681,10 @@ mod tests {
             },
             Modifier::GrantsFlashback,
             Modifier::ProtectionFrom(&Filter::CREATURE),
+            Modifier::CharacteristicPT {
+                count: baylee_cards_dsl::PtCount::YouControl(&Filter::CREATURE),
+                toughness_plus: 0,
+            },
             Modifier::SetPT(2, 2),
             Modifier::ModifyPT(1, 1),
             Modifier::ModifyPTPerCount {
@@ -704,6 +711,8 @@ mod tests {
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
+            Modifier::CombatDamageCantBePrevented,
+            Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::PlayerHexproof,
@@ -750,7 +759,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            45,
+            48,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -801,8 +810,8 @@ mod tests {
     }
 
     /// The counts, so that a change which flips a modifier from one side to
-    /// the other is a failure and not a quiet re-balancing: twenty-four
-    /// modifiers lock the objects they found, twenty-one do not.
+    /// the other is a failure and not a quiet re-balancing: twenty-five
+    /// modifiers lock the objects they found, twenty-three do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -810,10 +819,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_four_modifiers_lock_a_set_and_twenty_one_do_not() {
+    fn twenty_five_modifiers_lock_a_set_and_twenty_three_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (24, 21));
+        assert_eq!((locking, all.len() - locking), (25, 23));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

@@ -278,7 +278,9 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 m.value = 500;
             }
             Effect::TakeExtraTurn | Effect::ExileLibraryAndShuffleHand { .. } => m.value = 10_000,
-            Effect::SearchLibrary { .. } | Effect::LookAtTopPick { .. } => m.value = 350,
+            Effect::SearchLibrary { .. }
+            | Effect::LookAtTopPick { .. }
+            | Effect::RevealTopAndSort { .. } => m.value = 350,
             Effect::GainLife { .. } => m.value = 80,
             _ => {}
         }

@@ -89043,3 +89043,1054 @@ fn dauthi_voidwalkers_permission_ends_with_the_turn() {
             .contains(&elf)
     );
 }
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander (28.09.2026): Thragtusk, Massacre Wurm.
+// ---------------------------------------------------------------------------
+
+fn thragtusk() -> CardIndex {
+    card_index("0dd0e91a-d16b-4718-8d11-1a3fcf8e0753")
+}
+
+fn massacre_wurm() -> CardIndex {
+    card_index("93cf50cf-0ecc-4d3e-abea-778c1ebacec4")
+}
+
+/// Thragtusk: "When this creature enters, you gain 5 life. When this
+/// creature leaves the battlefield, create a 3/3 green Beast creature
+/// token." Cast from hand, then killed: five life on the way in, and the
+/// Beast is its controller's on the way out.
+#[test]
+fn thragtusk_gains_five_as_it_enters_and_leaves_a_beast_when_it_dies() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest(), forest()])
+        .hand(0, &[thragtusk()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, thragtusk());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 25, "you gain 5 life");
+    assert_eq!(engine.state().players[1].life, 20);
+    let tusk = on_battlefield(&engine, p0, thragtusk()).expect("Thragtusk resolved");
+    assert!(tokens_of(&engine, p0).is_empty(), "no Beast while it stays");
+
+    kill(&mut engine, tusk);
+    let beasts = tokens_of(&engine, p0);
+    assert_eq!(beasts.len(), 1, "one Beast for one departure");
+    assert_eq!(pt(&engine, beasts[0]), (3, 3));
+    let beast = engine.state().object(beasts[0]).unwrap().characteristics();
+    assert_eq!(
+        beast.colors,
+        baylee_core::color::ColorSet::of(baylee_core::color::Color::Green)
+    );
+    assert!(beast.types.contains(TypeSet::CREATURE));
+    assert_eq!(engine.state().players[0].life, 25, "leaving gains nothing");
+}
+
+/// "Leaves the battlefield" is not "dies" (CR 603.6c): exiled by Swords to
+/// Plowshares, Thragtusk still leaves a Beast behind.
+#[test]
+fn thragtusk_leaves_a_beast_when_it_is_exiled_too() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[thragtusk(), plains()])
+        .hand(0, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let tusk = on_battlefield(&engine, p0, thragtusk()).expect("in play");
+    cast_from_hand(&mut engine, p0, swords_to_plowshares());
+    aim_at(&mut engine, p0, tusk);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, thragtusk()).is_none(), "exiled");
+    assert!(in_graveyard(&engine, p0, thragtusk()).is_none(), "not died");
+    let beasts = tokens_of(&engine, p0);
+    assert_eq!(beasts.len(), 1, "exile is a departure, so the Beast comes");
+    assert_eq!(pt(&engine, beasts[0]), (3, 3));
+}
+
+/// Massacre Wurm at a table of three: the -2/-2 reaches every creature an
+/// opponent controls and none of its caster's, and each opponent loses 2
+/// life per creature of **theirs** that died — "that player", not every
+/// opponent.
+#[test]
+fn massacre_wurm_shrinks_every_opponents_creatures_and_each_loses_for_their_own_dead() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::table(SEED, swamp(), 3)
+        .battlefield(
+            0,
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                steadfast_guard(),
+            ],
+        )
+        .battlefield(1, &[steadfast_guard(), thundering_giant()])
+        .battlefield(2, &[steadfast_guard()])
+        .hand(0, &[massacre_wurm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let giant = on_battlefield(&engine, PlayerId::new(1), thundering_giant()).unwrap();
+    assert_eq!(pt(&engine, giant), (4, 3));
+    cast_from_hand(&mut engine, p0, massacre_wurm());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(on_battlefield(&engine, p0, massacre_wurm()).is_some());
+    assert!(
+        on_battlefield(&engine, p0, steadfast_guard()).is_some(),
+        "the caster's own 2/2 is not an opponent's creature"
+    );
+    assert!(on_battlefield(&engine, PlayerId::new(1), steadfast_guard()).is_none());
+    assert!(on_battlefield(&engine, PlayerId::new(2), steadfast_guard()).is_none());
+    assert_eq!(pt(&engine, giant), (2, 1), "a survivor wears the -2/-2");
+    assert_eq!(engine.state().players[0].life, 20);
+    assert_eq!(engine.state().players[1].life, 18, "one of seat 1's died");
+    assert_eq!(engine.state().players[2].life, 18, "one of seat 2's died");
+
+    // Until end of turn, and only for what was there as it resolved.
+    pass_until(&mut engine, |e| e.state().turn.active == PlayerId::new(1));
+    assert_eq!(pt(&engine, giant), (4, 3), "the -2/-2 ended with the turn");
+}
+
+/// A token that dies still costs its controller 2 life, though it has
+/// ceased to exist by the time the trigger resolves — "that player" is
+/// read as the creature last was. Thragtusk's Beast is the token.
+#[test]
+fn massacre_wurm_charges_for_a_dead_token_and_ignores_its_controllers_own_dead() {
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[massacre_wurm(), steadfast_guard()])
+        .battlefield(1, &[thragtusk()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    let tusk = on_battlefield(&engine, p1, thragtusk()).unwrap();
+    kill(&mut engine, tusk);
+    assert_eq!(engine.state().players[1].life, 18, "Thragtusk was theirs");
+    let beast = tokens_of(&engine, p1);
+    assert_eq!(beast.len(), 1);
+    kill(&mut engine, beast[0]);
+    assert!(tokens_of(&engine, p1).is_empty(), "the token is gone");
+    assert_eq!(engine.state().players[1].life, 16, "and still cost 2 life");
+
+    let mine = on_battlefield(&engine, PlayerId::new(0), steadfast_guard()).unwrap();
+    kill(&mut engine, mine);
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "not an opponent's creature"
+    );
+    assert_eq!(engine.state().players[1].life, 16);
+}
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: the two transforming cards, Archangel Avacyn
+// and Huntmaster of the Fells.
+// ---------------------------------------------------------------------------
+
+fn archangel_avacyn() -> CardIndex {
+    card_index("432b37a5-d32a-4b78-91ab-860aa026b7cc")
+}
+
+fn huntmaster_of_the_fells() -> CardIndex {
+    card_index("582328cd-660d-47a4-bb23-e91e80b9a907")
+}
+
+fn face_shown(engine: &Engine<RegistryLookup>, id: ObjectId) -> u8 {
+    engine.state().object(id).expect("still there").face_index
+}
+
+/// Passes until the upkeep of `seat`'s next turn has begun and everything
+/// it put on the stack has resolved.
+fn through_upkeep_of(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    pass_until(engine, |e| {
+        e.state().turn.active == seat && matches!(e.state().turn.step, crate::turn::Step::Upkeep)
+    });
+    pass_until(engine, |e| {
+        e.state().turn.active == seat && !matches!(e.state().turn.step, crate::turn::Step::Upkeep)
+    });
+}
+
+/// "When Archangel Avacyn enters, creatures you control gain indestructible
+/// until end of turn." Her own side only, and only for the turn; she has
+/// flash, flying and vigilance.
+#[test]
+fn archangel_avacyn_makes_her_side_indestructible_for_the_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                steadfast_guard(),
+            ],
+        )
+        .battlefield(1, &[steadfast_guard()])
+        .hand(0, &[archangel_avacyn()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, archangel_avacyn());
+    pass_until(&mut engine, stack_is_empty);
+    let avacyn = on_battlefield(&engine, p0, archangel_avacyn()).expect("resolved");
+    let mine = on_battlefield(&engine, p0, steadfast_guard()).unwrap();
+    let theirs = on_battlefield(&engine, PlayerId::new(1), steadfast_guard()).unwrap();
+    let front = keywords(&engine, avacyn);
+    assert!(
+        front.contains(
+            KeywordSet::FLASH
+                .union(KeywordSet::FLYING)
+                .union(KeywordSet::VIGILANCE)
+        )
+    );
+    assert!(
+        front.contains(KeywordSet::INDESTRUCTIBLE),
+        "she is one of them"
+    );
+    assert!(keywords(&engine, mine).contains(KeywordSet::INDESTRUCTIBLE));
+    assert!(
+        !keywords(&engine, theirs).contains(KeywordSet::INDESTRUCTIBLE),
+        "an opponent's creature is not one you control"
+    );
+    pass_until(&mut engine, |e| e.state().turn.active == PlayerId::new(1));
+    assert!(
+        !keywords(&engine, mine).contains(KeywordSet::INDESTRUCTIBLE),
+        "until end of turn"
+    );
+}
+
+/// A non-Angel creature of hers dies: at the beginning of the next upkeep —
+/// the opponent's here, "regardless of whose turn it is" — she transforms,
+/// and Avacyn, the Purifier deals 3 to each other creature and each
+/// opponent, and none to her controller.
+#[test]
+fn archangel_avacyn_transforms_at_the_next_upkeep_and_purifies_the_board() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[archangel_avacyn(), steadfast_guard(), thundering_giant()],
+        )
+        .battlefield(1, &[thundering_giant(), steadfast_guard()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let avacyn = on_battlefield(&engine, p0, archangel_avacyn()).unwrap();
+    let guard = on_battlefield(&engine, p0, steadfast_guard()).unwrap();
+    kill(&mut engine, guard);
+    assert_eq!(face_shown(&engine, avacyn), 0, "not yet: the next upkeep");
+    assert_eq!(
+        engine.state().delayed.len(),
+        1,
+        "one delayed transform waits"
+    );
+
+    through_upkeep_of(&mut engine, p1);
+    assert_eq!(face_shown(&engine, avacyn), 1, "Avacyn, the Purifier");
+    assert_eq!(pt(&engine, avacyn), (6, 5));
+    let back = keywords(&engine, avacyn);
+    assert!(back.contains(KeywordSet::FLYING));
+    assert!(
+        !back.contains(KeywordSet::VIGILANCE),
+        "the back face prints flying only"
+    );
+    let purifier = engine.state().object(avacyn).unwrap().characteristics();
+    assert!(
+        purifier.colors.contains(baylee_core::color::Color::Red),
+        "the color indicator"
+    );
+    assert!(
+        on_battlefield(&engine, p1, steadfast_guard()).is_none(),
+        "3 kills a 2/2"
+    );
+    assert!(
+        on_battlefield(&engine, p1, thundering_giant()).is_none(),
+        "and a 4/3"
+    );
+    assert!(
+        on_battlefield(&engine, p0, thundering_giant()).is_none(),
+        "each other creature, her own side's too"
+    );
+    assert_eq!(
+        engine.state().object(avacyn).unwrap().damage,
+        0,
+        "not herself"
+    );
+    assert_eq!(engine.state().players[1].life, 17, "each opponent");
+    assert_eq!(engine.state().players[0].life, 20, "not her controller");
+}
+
+/// Two non-Angels die in one turn: two delayed triggers, one transform. The
+/// second is ignored because she has transformed since it was created
+/// (CR 701.27f) — she does not flip back, and the board is purified once.
+#[test]
+fn archangel_avacyn_does_not_flip_back_when_two_delayed_transforms_fire() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[archangel_avacyn(), steadfast_guard(), steadfast_guard()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let avacyn = on_battlefield(&engine, p0, archangel_avacyn()).unwrap();
+    for _ in 0..2 {
+        let guard = on_battlefield(&engine, p0, steadfast_guard()).unwrap();
+        kill(&mut engine, guard);
+    }
+    assert_eq!(engine.state().delayed.len(), 2);
+    through_upkeep_of(&mut engine, p1);
+    assert_eq!(
+        face_shown(&engine, avacyn),
+        1,
+        "transformed once, and stayed"
+    );
+    assert_eq!(engine.state().players[1].life, 17, "purified once");
+    assert!(engine.state().delayed.is_empty());
+}
+
+/// Huntmaster of the Fells: a Wolf and 2 life as it enters; at an upkeep
+/// after a turn with no spells it becomes Ravager of the Fells (4/4 trample);
+/// after a turn in which a player cast two it turns back, and transforming
+/// into Huntmaster makes another Wolf and 2 life. One spell in a turn does
+/// neither.
+#[test]
+fn huntmaster_of_the_fells_flips_on_quiet_turns_and_back_on_busy_ones() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(
+            0,
+            &[mountain(), forest(), mountain(), forest(), swamp(), swamp()],
+        )
+        .hand(
+            0,
+            &[huntmaster_of_the_fells(), dark_ritual(), dark_ritual()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_mana_where(&mut engine, p0, |_| true);
+    cast_with_floating(&mut engine, p0, huntmaster_of_the_fells());
+    pass_until(&mut engine, stack_is_empty);
+    let hunt = on_battlefield(&engine, p0, huntmaster_of_the_fells()).expect("resolved");
+    assert_eq!(tokens_of(&engine, p0).len(), 1, "a Wolf on entering");
+    assert_eq!(pt(&engine, tokens_of(&engine, p0)[0]), (2, 2));
+    assert_eq!(engine.state().players[0].life, 22);
+
+    // Turn 1 had a spell in it: the opponent's upkeep leaves it alone.
+    through_upkeep_of(&mut engine, p1);
+    assert_eq!(face_shown(&engine, hunt), 0, "one spell was cast last turn");
+
+    // Turn 2 had none: at our upkeep it turns over.
+    through_upkeep_of(&mut engine, p0);
+    assert_eq!(face_shown(&engine, hunt), 1, "Ravager of the Fells");
+    assert_eq!(pt(&engine, hunt), (4, 4));
+    assert!(keywords(&engine, hunt).contains(KeywordSet::TRAMPLE));
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        1,
+        "no Wolf for becoming Ravager"
+    );
+
+    // Two spells this turn: at the opponent's upkeep it turns back, and
+    // "transforms into Huntmaster of the Fells" makes a Wolf and 2 life.
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, dark_ritual());
+    pass_until(&mut engine, stack_is_empty);
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    pass_until(&mut engine, stack_is_empty);
+    through_upkeep_of(&mut engine, p1);
+    assert_eq!(face_shown(&engine, hunt), 0, "a player cast two spells");
+    assert_eq!(tokens_of(&engine, p0).len(), 2, "a second Wolf");
+    assert_eq!(engine.state().players[0].life, 24, "and 2 more life");
+}
+
+/// No last turn at the first upkeep of the game: a Huntmaster that starts
+/// on the battlefield stays as it is there, and flips at the next upkeep
+/// after a turn nobody cast anything in.
+#[test]
+fn huntmaster_of_the_fells_does_not_flip_at_the_first_upkeep_of_the_game() {
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[huntmaster_of_the_fells()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    let hunt = on_battlefield(&engine, PlayerId::new(0), huntmaster_of_the_fells()).unwrap();
+    assert_eq!(face_shown(&engine, hunt), 0);
+    through_upkeep_of(&mut engine, p1);
+    assert_eq!(face_shown(&engine, hunt), 1, "nothing was cast in turn 1");
+    assert!(tokens_of(&engine, PlayerId::new(0)).is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Kiki-Jiki, Mirror Breaker.
+// ---------------------------------------------------------------------------
+
+fn kiki_jiki_mirror_breaker() -> CardIndex {
+    card_index("a34b7416-cfe3-4a1e-a8c1-a3056b747519")
+}
+
+/// "{T}: Create a token that's a copy of target nonlegendary creature you
+/// control, except it has haste. Sacrifice it at the beginning of the next
+/// end step." The menu holds only the Thragtusk: not Kiki-Jiki (legendary),
+/// not the opponent's creature. The copy enters as a Thragtusk does (5
+/// life), has haste, and leaves at this turn's end step, leaving a Beast.
+#[test]
+fn kiki_jiki_copies_a_nonlegendary_creature_with_haste_until_the_end_step() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[kiki_jiki_mirror_breaker(), thragtusk()])
+        .battlefield(1, &[steadfast_guard()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let kiki = on_battlefield(&engine, p0, kiki_jiki_mirror_breaker()).unwrap();
+    assert!(keywords(&engine, kiki).contains(KeywordSet::HASTE));
+    let tusk = on_battlefield(&engine, p0, thragtusk()).unwrap();
+    let guard = on_battlefield(&engine, p1, steadfast_guard()).unwrap();
+
+    activate(&mut engine, p0, kiki_jiki_mirror_breaker(), 0);
+    let menu = aim_at(&mut engine, p0, tusk);
+    assert_eq!(menu, vec![tusk], "not Kiki-Jiki, not {guard:?}");
+    pass_until(&mut engine, stack_is_empty);
+
+    let copies: Vec<ObjectId> = tokens_of(&engine, p0);
+    assert_eq!(copies.len(), 1, "one token");
+    let copy = copies[0];
+    assert_eq!(pt(&engine, copy), (5, 3), "a copy of Thragtusk");
+    assert!(
+        keywords(&engine, copy).contains(KeywordSet::HASTE),
+        "except it has haste"
+    );
+    assert!(
+        !keywords(&engine, tusk).contains(KeywordSet::HASTE),
+        "the original keeps its own"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        25,
+        "the copy's own enters trigger"
+    );
+    assert_eq!(
+        engine.state().delayed.len(),
+        1,
+        "a sacrifice waits for the end step"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    assert!(
+        engine
+            .state()
+            .object(copy)
+            .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield),
+        "sacrificed at the beginning of the next end step"
+    );
+    let left = tokens_of(&engine, p0);
+    assert_eq!(left.len(), 1, "the copy's leaves trigger made a Beast");
+    assert_eq!(pt(&engine, left[0]), (3, 3));
+    assert!(
+        on_battlefield(&engine, p0, thragtusk()).is_some(),
+        "the original stays"
+    );
+    assert!(engine.state().delayed.is_empty());
+}
+
+/// The delayed sacrifice names that one token: a copy that has already left
+/// by the end step is not replaced by anything else there, and the original
+/// is never what is sacrificed.
+#[test]
+fn kiki_jiki_sacrifices_nothing_else_when_the_copy_is_already_gone() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[kiki_jiki_mirror_breaker(), steadfast_guard()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let guard = on_battlefield(&engine, p0, steadfast_guard()).unwrap();
+    activate(&mut engine, p0, kiki_jiki_mirror_breaker(), 0);
+    aim_at(&mut engine, p0, guard);
+    pass_until(&mut engine, stack_is_empty);
+    let copy = tokens_of(&engine, p0)[0];
+    kill(&mut engine, copy);
+    assert!(tokens_of(&engine, p0).is_empty());
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    assert!(on_battlefield(&engine, p0, steadfast_guard()).is_some());
+    assert!(on_battlefield(&engine, p0, kiki_jiki_mirror_breaker()).is_some());
+    assert!(
+        engine.state().delayed.is_empty(),
+        "spent, not kept for a later turn"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Coiling Oracle.
+// ---------------------------------------------------------------------------
+
+fn coiling_oracle() -> CardIndex {
+    card_index("69fd4ddf-9ed8-4c56-bef3-9944daf05e4f")
+}
+
+/// Casts Coiling Oracle off a Forest and an Island and lets it resolve with
+/// its enter trigger; answers the top card it revealed.
+fn coil(filler: CardIndex) -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, filler)
+        .battlefield(0, &[forest(), island()])
+        .hand(0, &[coiling_oracle()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let top = *engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p0))
+        .last()
+        .expect("a library under the Oracle");
+    cast_from_hand(&mut engine, p0, coiling_oracle());
+    pass_until(&mut engine, stack_is_empty);
+    (engine, top)
+}
+
+fn revealed(engine: &Engine<RegistryLookup>, card: ObjectId) -> bool {
+    engine.journal().entries().iter().any(|e| {
+        matches!(&e.event, crate::event::GameEvent::Revealed { player, cards }
+            if *player == PlayerId::new(0) && *cards == vec![card])
+    })
+}
+
+/// "If it's a land card, put it onto the battlefield." The top card is a
+/// Forest: shown to everyone, then on the battlefield, untapped.
+#[test]
+fn coiling_oracle_puts_a_revealed_land_onto_the_battlefield() {
+    let p0 = PlayerId::new(0);
+    let (engine, top) = coil(forest());
+    assert!(revealed(&engine, top), "revealed before it moved");
+    let land = engine.state().object(top).expect("the revealed Forest");
+    assert_eq!(land.zone, crate::zone::Zone::Battlefield);
+    assert!(
+        !land.status.contains(crate::object::Status::TAPPED),
+        "put onto the battlefield, not tapped"
+    );
+    let lands = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.controller == p0 && o.card.is_some_and(|c| c.index == forest()))
+        })
+        .count();
+    assert_eq!(lands, 2, "the Forest it paid with and the one it revealed");
+    let hand = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+    assert_eq!(hand, 0, "nothing went to the hand");
+}
+
+/// "Otherwise, put that card into your hand." A creature on top goes to the
+/// hand, not the battlefield.
+#[test]
+fn coiling_oracle_puts_a_revealed_nonland_into_the_hand() {
+    let p0 = PlayerId::new(0);
+    let (engine, top) = coil(steadfast_guard());
+    assert!(revealed(&engine, top));
+    assert!(on_battlefield(&engine, p0, steadfast_guard()).is_none());
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .iter()
+            .any(|id| engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == steadfast_guard()))),
+        "the Guard is in the hand"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: three cards that were already written, played.
+// ---------------------------------------------------------------------------
+
+fn acidic_slime() -> CardIndex {
+    card_index("21f45043-5419-4019-8b6c-e5294bd5f549")
+}
+
+fn fulminator_mage() -> CardIndex {
+    card_index("bd4c46a3-b723-4b35-9061-9a1dee7cc9d8")
+}
+
+fn karmic_guide_card() -> CardIndex {
+    card_index("8c31fec9-e4b3-4761-990e-7be38eb05604")
+}
+
+/// "When this creature enters, destroy target artifact, enchantment, or
+/// land." The menu is every land on the table and nothing else here — not
+/// the opponent's creature — and the named land is destroyed. Deathtouch
+/// is printed.
+#[test]
+fn acidic_slime_destroys_the_land_it_points_at() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest(), forest()])
+        .battlefield(1, &[rogue_s_passage(), steadfast_guard()])
+        .hand(0, &[acidic_slime()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, acidic_slime());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let passage = on_battlefield(&engine, p1, rogue_s_passage()).unwrap();
+    let guard = on_battlefield(&engine, p1, steadfast_guard()).unwrap();
+    let menu = aim_at(&mut engine, p0, passage);
+    assert_eq!(menu.len(), 6, "five Forests and the Passage");
+    assert!(!menu.contains(&guard), "a creature is none of the three");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p1, rogue_s_passage()).is_none());
+    assert!(in_graveyard(&engine, p1, rogue_s_passage()).is_some());
+    let slime = on_battlefield(&engine, p0, acidic_slime()).unwrap();
+    assert!(keywords(&engine, slime).contains(KeywordSet::DEATHTOUCH));
+}
+
+/// "Sacrifice this creature: Destroy target nonbasic land." A basic is not
+/// on the menu; the nonbasic is destroyed and the Mage is in its owner's
+/// graveyard as the cost.
+#[test]
+fn fulminator_mage_sacrifices_itself_to_destroy_a_nonbasic_land() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[fulminator_mage()])
+        .battlefield(1, &[rogue_s_passage(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let passage = on_battlefield(&engine, p1, rogue_s_passage()).unwrap();
+    activate(&mut engine, p0, fulminator_mage(), 0);
+    let menu = aim_at(&mut engine, p0, passage);
+    assert_eq!(menu, vec![passage], "the basic Forest is no target");
+    assert!(
+        in_graveyard(&engine, p0, fulminator_mage()).is_some(),
+        "sacrificed as the cost"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p1, rogue_s_passage()).is_some());
+    assert!(on_battlefield(&engine, p1, forest()).is_some());
+}
+
+/// Karmic Guide returns a creature card from its controller's graveyard as
+/// it enters; it flies; and at its controller's next upkeep its echo comes
+/// due, and with nothing to pay it with it is sacrificed while the creature
+/// it brought back stays.
+#[test]
+fn karmic_guide_reanimates_and_its_echo_takes_it_when_unpaid() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                steadfast_guard(),
+            ],
+        )
+        .hand(0, &[karmic_guide_card()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let guard = on_battlefield(&engine, p0, steadfast_guard()).unwrap();
+    bury(&mut engine, &[guard]);
+    assert!(in_graveyard(&engine, p0, steadfast_guard()).is_some());
+    cast_from_hand(&mut engine, p0, karmic_guide_card());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let dead = in_graveyard(&engine, p0, steadfast_guard()).unwrap();
+    aim_at(&mut engine, p0, dead);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, steadfast_guard()).is_some(),
+        "back"
+    );
+    let guide = on_battlefield(&engine, p0, karmic_guide_card()).unwrap();
+    assert!(keywords(&engine, guide).contains(KeywordSet::FLYING));
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    assert!(
+        on_battlefield(&engine, p0, karmic_guide_card()).is_some(),
+        "echo waits for our upkeep"
+    );
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && !matches!(
+                e.state().turn.step,
+                crate::turn::Step::Untap | crate::turn::Step::Upkeep
+            )
+    });
+    assert!(
+        in_graveyard(&engine, p0, karmic_guide_card()).is_some(),
+        "echo unpaid: sacrificed"
+    );
+    assert!(
+        on_battlefield(&engine, p0, steadfast_guard()).is_some(),
+        "what it returned stays"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Pyrogoyf.
+// ---------------------------------------------------------------------------
+
+fn pyrogoyf() -> CardIndex {
+    card_index("7fd7457a-388d-4cca-a7cf-86b4ea922037")
+}
+
+/// "Pyrogoyf's power is equal to the number of card types among cards in
+/// all graveyards and its toughness is equal to that number plus 1." Empty
+/// graveyards: 0/1. A creature card milled into the opponent's: 1/2 — a
+/// card that went from a library to a graveyard, with no permanent moving,
+/// still grows it. A second creature card adds no type. A land card joins:
+/// 2/3.
+#[test]
+fn pyrogoyf_counts_the_card_types_in_every_graveyard() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, steadfast_guard())
+        .battlefield(0, &[pyrogoyf(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let goyf = on_battlefield(&engine, p0, pyrogoyf()).unwrap();
+    assert_eq!(pt(&engine, goyf), (0, 1), "no card in any graveyard");
+
+    // The harness mills outside the engine's loop, so the refresh the
+    // engine runs before its next priority grant is run by hand; what it
+    // proves is that a mill made the projection stale at all.
+    let refresh = |engine: &mut Engine<RegistryLookup>| {
+        engine
+            .dev_state_mut(p0)
+            .expect("the harness may look")
+            .refresh_characteristics();
+    };
+    seed_graveyard(&mut engine, p1, 1);
+    refresh(&mut engine);
+    assert_eq!(
+        pt(&engine, goyf),
+        (1, 2),
+        "a creature card, in the opponent's graveyard"
+    );
+    seed_graveyard(&mut engine, p0, 1);
+    refresh(&mut engine);
+    assert_eq!(
+        pt(&engine, goyf),
+        (1, 2),
+        "a second creature card is no second type"
+    );
+
+    let land = on_battlefield(&engine, p0, mountain()).unwrap();
+    bury(&mut engine, &[land]);
+    refresh(&mut engine);
+    assert_eq!(pt(&engine, goyf), (2, 3), "creature and land");
+}
+
+/// Casts Pyrogoyf with a creature card and a land card in the graveyards,
+/// so it enters a 2/3, and aims its own enter trigger at the opponent.
+fn a_pyrogoyf_aimed_at_the_opponent() -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, steadfast_guard())
+        .battlefield(
+            0,
+            &[mountain(), mountain(), mountain(), mountain(), forest()],
+        )
+        .hand(0, &[pyrogoyf()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p1, 1);
+    let spare = on_battlefield(&engine, p0, forest()).unwrap();
+    bury(&mut engine, &[spare]);
+    cast_from_hand(&mut engine, p0, pyrogoyf());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("any target takes a player");
+    let goyf = on_battlefield(&engine, p0, pyrogoyf()).unwrap();
+    (engine, goyf)
+}
+
+/// "…that creature deals damage equal to its power to any target." It
+/// enters a 2/3 and deals 2 to the opponent.
+#[test]
+fn pyrogoyf_deals_its_power_to_any_target_as_it_enters() {
+    let (mut engine, goyf) = a_pyrogoyf_aimed_at_the_opponent();
+    assert_eq!(pt(&engine, goyf), (2, 3));
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[1].life, 18);
+}
+
+/// The Pyrogoyf leaves before its trigger resolves: it deals damage equal to
+/// its power as it last existed on the battlefield (CR 608.2h) — 2, not the
+/// 0 a card in a graveyard prints, and not the new count its own arrival in
+/// the graveyard would make.
+#[test]
+fn pyrogoyf_that_has_left_deals_its_last_known_power() {
+    let (mut engine, goyf) = a_pyrogoyf_aimed_at_the_opponent();
+    bury(&mut engine, &[goyf]);
+    assert!(on_battlefield(&engine, PlayerId::new(0), pyrogoyf()).is_none());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[1].life, 18, "2, as it last existed");
+}
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Questing Beast.
+// ---------------------------------------------------------------------------
+
+fn questing_beast() -> CardIndex {
+    card_index("b685757b-521e-4353-a233-97052359723d")
+}
+
+/// Sends Questing Beast at seat 1 on seat 0's first turn.
+fn questing_beast_attacks(opponent: &[CardIndex]) -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[questing_beast()])
+        .battlefield(1, opponent)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let beast = on_battlefield(&engine, p0, questing_beast()).unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { attackers, .. } if attackers.contains(&beast)),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(beast, Defender::Player(p1))],
+            },
+        )
+        .expect("haste: it attacks the turn it arrives");
+    (engine, beast)
+}
+
+/// "Questing Beast can't be blocked by creatures with power 2 or less." The
+/// 2/2 is offered no block on it and the 4/3 is; vigilance, deathtouch and
+/// haste are printed.
+#[test]
+fn questing_beast_cannot_be_blocked_by_power_two_or_less() {
+    let p1 = PlayerId::new(1);
+    let (mut engine, beast) = questing_beast_attacks(&[steadfast_guard(), thundering_giant()]);
+    let kw = keywords(&engine, beast);
+    assert!(
+        kw.contains(
+            KeywordSet::VIGILANCE
+                .union(KeywordSet::DEATHTOUCH)
+                .union(KeywordSet::HASTE)
+        )
+    );
+    assert!(
+        !is_tapped(&engine, beast),
+        "vigilance: attacking did not tap it"
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        unreachable!()
+    };
+    let may_block = |card: CardIndex| {
+        let id = on_battlefield(&engine, p1, card).unwrap();
+        blockers
+            .iter()
+            .any(|o| o.blocker == id && o.attackers.contains(&beast))
+    };
+    assert!(!may_block(steadfast_guard()), "a 2/2 has power 2 or less");
+    assert!(may_block(thundering_giant()), "a 4/3 does not");
+}
+
+/// "Combat damage that would be dealt by creatures you control can't be
+/// prevented." Maze of Ith untaps the Beast and prevents the combat damage
+/// it would deal: the prevention does nothing (CR 615.12), and the opponent
+/// takes 4.
+#[test]
+fn questing_beast_s_combat_damage_goes_through_a_maze_of_ith() {
+    let p1 = PlayerId::new(1);
+    let (mut engine, beast) = questing_beast_attacks(&[maze_of_ith()]);
+    let mut mazed = false;
+    for _ in 0..20 {
+        if let Pending::Priority { player, .. } = engine.pending().clone() {
+            if player == p1 {
+                activate(&mut engine, p1, maze_of_ith(), 0);
+                aim_at(&mut engine, p1, beast);
+                mazed = true;
+                break;
+            }
+            engine.apply(player, PlayerAction::PassPriority).unwrap();
+        } else {
+            break;
+        }
+    }
+    assert!(
+        mazed,
+        "the defender gets a window after attackers are declared"
+    );
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "4 from the Beast, unprevented"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Delney, Streetwise Lookout.
+// ---------------------------------------------------------------------------
+
+fn delney_streetwise_lookout() -> CardIndex {
+    card_index("245d0ccf-87b6-460a-8b99-9e2079f2d375")
+}
+
+/// "Creatures you control with power 2 or less can't be blocked by
+/// creatures with power 3 or greater." Delney (2/2) and a 4/3 attack: the
+/// defender's 4/3 may block the 4/3 and not Delney; its 2/2 may block
+/// either.
+#[test]
+fn delney_keeps_the_big_blockers_off_her_small_creatures() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[delney_streetwise_lookout(), thundering_giant()])
+        .battlefield(1, &[thundering_giant(), steadfast_guard()])
+        .start();
+    keep_mulligans(&mut engine);
+    let delney = on_battlefield(&engine, p0, delney_streetwise_lookout()).unwrap();
+    let mine = on_battlefield(&engine, p0, thundering_giant()).unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { attackers, .. }
+            if attackers.contains(&delney) && attackers.contains(&mine))
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(delney, Defender::Player(p1)), (mine, Defender::Player(p1))],
+            },
+        )
+        .expect("both may attack");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        unreachable!()
+    };
+    let offered = |card: CardIndex| -> Vec<ObjectId> {
+        let id = on_battlefield(&engine, p1, card).unwrap();
+        blockers
+            .iter()
+            .find(|o| o.blocker == id)
+            .map(|o| o.attackers.clone())
+            .unwrap_or_default()
+    };
+    let giant = offered(thundering_giant());
+    assert!(giant.contains(&mine), "a 4/3 on a 4/3");
+    assert!(
+        !giant.contains(&delney),
+        "power 3 or greater on power 2 or less"
+    );
+    let guard = offered(steadfast_guard());
+    assert!(
+        guard.contains(&delney) && guard.contains(&mine),
+        "a 2/2 may block either"
+    );
+}
+
+/// "If a triggered ability of a creature you control with power 2 or less
+/// triggers, that ability triggers an additional time." Coiling Oracle (1/1)
+/// reveals twice and puts two Forests onto the battlefield; Thragtusk (5/3)
+/// gains its 5 life once.
+#[test]
+fn delney_doubles_the_triggers_of_small_creatures_only() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                delney_streetwise_lookout(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                island(),
+            ],
+        )
+        .hand(0, &[coiling_oracle(), thragtusk()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let lands_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .len();
+    tap_mana_where(&mut engine, p0, |_| true);
+    cast_with_floating(&mut engine, p0, coiling_oracle());
+    pass_until(&mut engine, stack_is_empty);
+    let after_oracle = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .len();
+    assert_eq!(
+        after_oracle,
+        lands_before + 3,
+        "the Oracle and two revealed Forests"
+    );
+
+    cast_with_floating(&mut engine, p0, thragtusk());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 25, "a 5/3 triggers once");
+}

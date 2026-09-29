@@ -2016,18 +2016,19 @@ fn check_code_matches_the_printing(
         // sentence.
         //
         // What is worth saying instead is whether the card keeps the
-        // promise that base implies. `Layer::PtCda` is declared in the DSL
-        // and no `Modifier` reaches it, so the ability cannot be written
-        // today — and a card claiming `Coverage::Implemented` with a
-        // printed `*` is therefore claiming something no rule performs.
-        // None of the pool's three do; this is the gate that keeps it that
-        // way rather than a count that goes stale.
+        // promise that base implies. The one `Modifier` on `Layer::PtCda`
+        // is `CharacteristicPT`, so a card claiming `Coverage::Implemented`
+        // with a printed `*` and no such modifier is claiming something no
+        // rule performs. Pyrogoyf writes it; this is the gate that keeps
+        // the rest honest rather than a count that goes stale.
         if printed.parse::<i32>().is_err() {
             tally.defined_pt += 1;
-            if knob(content, "coverage").is_some_and(|v| v.starts_with("Coverage::Implemented")) {
+            if knob(content, "coverage").is_some_and(|v| v.starts_with("Coverage::Implemented"))
+                && !content.contains("Modifier::CharacteristicPT")
+            {
                 println!(
                     "{slug}: the printing defines {key} by an ability ({printed}) and the card \
-                     claims Coverage::Implemented — the DSL has no Modifier on Layer::PtCda"
+                     claims Coverage::Implemented without a Modifier::CharacteristicPT"
                 );
                 *problems += 1;
             }

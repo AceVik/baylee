@@ -438,6 +438,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
             Modifier::ModifyPT(..)
                 | Modifier::SetPT(..)
                 | Modifier::SwitchPT
+                | Modifier::CharacteristicPT { .. }
                 | Modifier::ModifyPTPerCount { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
@@ -481,6 +482,73 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
     }
 }
 
+/// The permanents `controller` controls that match `filter`, as a count for
+/// a P/T that grows with the board.
+///
+/// CR 613.1: every earlier layer is already applied, and for the object
+/// being projected that result lives in `c` and not yet in its cache —
+/// `recompute_with` walks one object through all the layers, so its cached
+/// characteristics are the *previous* projection until this one is written
+/// back. Ashaya, Soul of the Wild is the card that reads the difference: it
+/// makes your nontoken creatures into lands at layer 4 and is then as big as
+/// the lands you control at 7c, so it has to count **itself**, and a count
+/// off the cache left it one short for exactly one refresh. Every other
+/// object is read from the cache, which is that object's own finished
+/// projection.
+fn count_controlled(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    controller: PlayerId,
+    filter: &baylee_cards_dsl::Filter,
+) -> usize {
+    state
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            state.object(**id).is_some_and(|o| {
+                o.controller == controller
+                    && if o.id == obj.id {
+                        crate::eval::matches_projected(filter, state, o, c, controller, **id)
+                    } else {
+                        crate::eval::matches(filter, state, o, controller, **id)
+                    }
+            })
+        })
+        .count()
+}
+
+/// The number of card types (CR 205.2a) among cards in all graveyards.
+///
+/// Read off each card's own characteristics: a card in a graveyard is
+/// what it prints (CR 400.7 left every effect on it behind), and a
+/// double-faced card is its front face there (CR 712.8a).
+fn card_types_in_all_graveyards(state: &GameState) -> usize {
+    use baylee_core::types::TypeSet;
+    const CARD_TYPES: [TypeSet; 9] = [
+        TypeSet::ARTIFACT,
+        TypeSet::BATTLE,
+        TypeSet::CREATURE,
+        TypeSet::ENCHANTMENT,
+        TypeSet::INSTANT,
+        TypeSet::KINDRED,
+        TypeSet::LAND,
+        TypeSet::PLANESWALKER,
+        TypeSet::SORCERY,
+    ];
+    let mut seen = TypeSet::EMPTY;
+    for player in 0..state.players.len() {
+        let seat = PlayerId::new(u8::try_from(player).unwrap_or(u8::MAX));
+        for id in state.zones.list(crate::zone::ZoneLocation::Graveyard(seat)) {
+            if let Some(o) = state.object(*id) {
+                seen = seen.union(o.characteristics().types);
+            }
+        }
+    }
+    CARD_TYPES.iter().filter(|t| seen.contains(**t)).count()
+}
+
 #[allow(clippy::too_many_lines)] // the modifier vocabulary is one flat table
 fn apply(
     c: &mut Characteristics,
@@ -510,40 +578,26 @@ fn apply(
                 *c = (*values).clone();
             }
         }
+        Modifier::CharacteristicPT {
+            count,
+            toughness_plus,
+        } => {
+            // CR 604.3 and 613.4a: it defines the number, whatever the card
+            // printed as its `*`, before anything in 7b–7e reads it.
+            let n = match count {
+                baylee_cards_dsl::PtCount::YouControl(filter) => {
+                    count_controlled(state, obj, c, fx.controller, filter)
+                }
+                baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => {
+                    card_types_in_all_graveyards(state)
+                }
+            };
+            let n = i16::try_from(n).unwrap_or(i16::MAX);
+            c.power = Some(n);
+            c.toughness = Some(n.saturating_add(i16::from(*toughness_plus)));
+        }
         Modifier::ModifyPTPerCount { filter, p, t } => {
-            // CR 613.1: every earlier layer is already applied, and for the
-            // object being projected that result lives in `c` and not yet in
-            // its cache — `recompute_with` walks one object through all the
-            // layers, so its cached characteristics are the *previous*
-            // projection until this one is written back. Ashaya, Soul of the
-            // Wild is the card that reads the difference: it makes your
-            // nontoken creatures into lands at layer 4 and is then as big as
-            // the lands you control at 7c, so it has to count **itself**, and
-            // a count off the cache left it one short for exactly one
-            // refresh. Every other object is read from the cache, which is
-            // that object's own finished projection.
-            let count = state
-                .zones
-                .list(crate::zone::ZoneLocation::Battlefield)
-                .iter()
-                .filter(|id| {
-                    state.object(**id).is_some_and(|o| {
-                        o.controller == fx.controller
-                            && if o.id == obj.id {
-                                crate::eval::matches_projected(
-                                    filter,
-                                    state,
-                                    o,
-                                    c,
-                                    fx.controller,
-                                    **id,
-                                )
-                            } else {
-                                crate::eval::matches(filter, state, o, fx.controller, **id)
-                            }
-                    })
-                })
-                .count();
+            let count = count_controlled(state, obj, c, fx.controller, filter);
             let count = i16::try_from(count).unwrap_or(i16::MAX);
             if let Some(pow) = &mut c.power {
                 *pow = pow.saturating_add(count.saturating_mul(*p));
@@ -604,6 +658,8 @@ fn apply(
         | Modifier::CantLoseLife { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
+        | Modifier::CombatDamageCantBePrevented
+        | Modifier::CantBeBlockedBy(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
         | Modifier::ProtectionFrom(_)

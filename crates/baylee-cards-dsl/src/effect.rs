@@ -438,6 +438,13 @@ pub enum PlayerRel {
     EachOpponent,
     /// The controller of the first target.
     ControllerOfTarget,
+    /// The player who controlled the object the triggering event was about,
+    /// as the event happened — Massacre Wurm's "whenever a creature an
+    /// opponent controls dies, **that player** loses 2 life". Nothing is
+    /// targeted (CR 115.1): the seat is read off the trigger's event, and
+    /// last-known (CR 603.10a) because a creature that died is no longer
+    /// controlled by anyone and a token that died no longer exists at all.
+    ControllerOfEvent,
     /// The player chosen via `Pending::ChoosePlayer`.
     Chosen,
 }
@@ -777,6 +784,22 @@ pub enum Effect {
         /// "Without paying its mana cost".
         free: bool,
     },
+    /// Reveal the top card of your library and put it where the filter
+    /// sends it: `matched` if it is a `filter` card, `otherwise` if not
+    /// (Coiling Oracle: "If it's a land card, put it onto the battlefield.
+    /// Otherwise, put that card into your hand.").
+    ///
+    /// No choice anywhere in it, so no player is asked: the card is shown
+    /// to every player (CR 701.20a) and then goes where the text says. An
+    /// empty library reveals nothing and does nothing.
+    RevealTopAndSort {
+        /// What the revealed card is asked about.
+        filter: &'static Filter,
+        /// Where it goes if it matches.
+        matched: SearchDest,
+        /// Where it goes if it does not.
+        otherwise: SearchDest,
+    },
     /// Put cards from your hand on top of your library, in the order they
     /// were chosen (Brainstorm-style).
     PutFromHandOnTop {
@@ -872,6 +895,20 @@ pub enum Effect {
         dealer: TargetSlot,
         /// What is dealt to — a creature, or a planeswalker (CR 306.8).
         to: TargetSlot,
+    },
+    /// "that creature deals damage equal to its power to `target`", where
+    /// "that creature" is the object the trigger's event named (Pyrogoyf:
+    /// "Whenever this creature or another Lhurgoyf creature you control
+    /// enters, that creature deals damage equal to its power to any
+    /// target").
+    ///
+    /// The creature is the damage's source (CR 120.3 reads the source's
+    /// deathtouch and lifelink), and if it has left the battlefield by the
+    /// time the ability resolves, its power and its characteristics are as
+    /// it last existed there (CR 608.2h).
+    EventObjectDealsDamageEqualToPower {
+        /// What is dealt to.
+        target: TargetSpec,
     },
     /// Deal damage to the first target's controller (Tuktuk Scrapper).
     DealDamageToTargetController {
@@ -1051,6 +1088,16 @@ pub enum Effect {
     /// Put all creature cards from all graveyards onto the battlefield
     /// under your control (The True Scriptures III).
     AllGraveyardCreaturesToBattlefield,
+    /// "Transform this creature" (CR 701.27a): the source turns over to its
+    /// other face where it stands. Only a permanent represented by a
+    /// transforming double-faced card does (CR 701.27c) — a token copy or a
+    /// clone of one turns over nothing.
+    TransformSource,
+    /// "Transform [this] at the beginning of the next upkeep" (Archangel
+    /// Avacyn): a delayed trigger that fires in the next upkeep whoever's
+    /// turn it is, and does nothing if the permanent has left or has already
+    /// transformed since it was created (CR 701.27f).
+    TransformSourceAtNextUpkeep,
     /// Exile the source, then return it to the battlefield under its
     /// owner's control as the given face (transform; Sheoldred's flip,
     /// saga final chapters).
@@ -1520,6 +1567,19 @@ pub enum Effect {
     /// (701.36b). A choice and not a target, so shroud does not stop it
     /// (Nesting Dovehawk).
     Populate,
+    /// "Create a token that's a copy of target …, except …" with the
+    /// exceptions as copy modifications (CR 707.9), and, when
+    /// `sacrifice_at_next_end_step`, "Sacrifice it at the beginning of the
+    /// next end step" as a delayed trigger that follows the token and no
+    /// other object (Kiki-Jiki, Mirror Breaker; Reflection of Kiki-Jiki).
+    /// Reads the first target.
+    CreateTokenCopyOfTarget {
+        /// The "except" clauses, applied to the copiable values before the
+        /// token is made.
+        mods: &'static [crate::ability::CopyMod],
+        /// "Sacrifice it at the beginning of the next end step."
+        sacrifice_at_next_end_step: bool,
+    },
     /// Create a token that's a copy of the creature the source is attached
     /// to (Helm of the Host).
     CreateTokenCopyOfEquipped {
@@ -1771,6 +1831,15 @@ pub enum Effect {
         /// Keywords granted for the same duration ([`KeywordSet::EMPTY`]
         /// for a plain pump).
         keywords: KeywordSet,
+        /// How long.
+        duration: crate::static_ability::Duration,
+    },
+    /// "target creature gains protection from the color of your choice
+    /// until end of turn" (Sejiri Steppe). The color is chosen as the
+    /// effect resolves (CR 608.2d asks it then, not on activation), by its
+    /// controller, among the five; the protection is a layer-6 grant
+    /// (CR 613.1f) on the first target for `duration`.
+    ProtectionFromChosenColor {
         /// How long.
         duration: crate::static_ability::Duration,
     },
@@ -2251,6 +2320,7 @@ impl Effect {
             | Effect::LookAtTopKeepBottomPlay { .. }
             | Effect::ChooseExiledToPlay { .. }
             | Effect::PayLifeOrPutBackDrawn { .. }
+            | Effect::RevealTopAndSort { .. }
             | Effect::PutFromHandOnTop { .. }
             | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }
@@ -2260,6 +2330,7 @@ impl Effect {
             | Effect::DealDamage { .. }
             | Effect::Fight { .. }
             | Effect::DamageEqualToPower { .. }
+            | Effect::EventObjectDealsDamageEqualToPower { .. }
             | Effect::DealDamageToTargetController { .. }
             | Effect::DealDamageEach { .. }
             | Effect::WishToHand { .. }
@@ -2287,6 +2358,8 @@ impl Effect {
             | Effect::DiscardRandom { .. }
             | Effect::RevealHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
+            | Effect::TransformSource
+            | Effect::TransformSourceAtNextUpkeep
             | Effect::ExileSelfReturnAsFace { .. }
             | Effect::SacrificeFilter { .. }
             | Effect::ReturnChosenToHand { .. }
@@ -2322,6 +2395,7 @@ impl Effect {
             | Effect::CreateTokenCopyOf { .. }
             | Effect::Populate
             | Effect::CreateTokenCopyOfEquipped { .. }
+            | Effect::CreateTokenCopyOfTarget { .. }
             | Effect::CreateTokenCopyOfFirstToken
             | Effect::BottomCardFromHand { .. }
             | Effect::CopyTargetSpell { .. }
@@ -2343,6 +2417,7 @@ impl Effect {
             | Effect::OptionalBasicLandSearchFor { .. }
             | Effect::SearchLibraryOf { .. }
             | Effect::PumpFilter { .. }
+            | Effect::ProtectionFromChosenColor { .. }
             | Effect::Regenerate { .. }
             | Effect::PumpTarget { .. } => (NONE, NONE),
         }

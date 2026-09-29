@@ -3349,9 +3349,12 @@ impl<L: CardLookup> Engine<L> {
         // pair is taken here, at the one instant both are still true.
         self.state.previous_turn = (!first_turn).then(|| {
             let active = self.state.turn.active;
+            let spells = &self.state.per_turn.spells_cast;
             crate::state::PreviousTurn {
                 active,
-                spells_cast: self.state.per_turn.spells_cast[active.get() as usize],
+                spells_cast: spells[active.get() as usize],
+                spells_by_all: spells.iter().sum(),
+                most_by_one: spells.iter().copied().max().unwrap_or(0),
             }
         });
         if !first_turn {
@@ -3441,10 +3444,11 @@ impl<L: CardLookup> Engine<L> {
         // Delayed triggers registered for this upkeep.
         let mut i = 0;
         while i < self.state.delayed.len() {
-            let fire = matches!(
-                self.state.delayed[i].when,
-                crate::state::DelayedWhen::NextUpkeep
-            ) && self.state.delayed[i].controller == active;
+            let fire = match self.state.delayed[i].when {
+                crate::state::DelayedWhen::NextUpkeep => self.state.delayed[i].controller == active,
+                crate::state::DelayedWhen::NextUpkeepOfAnyone => true,
+                _ => false,
+            };
             if fire {
                 let trigger = self.state.delayed.remove(i);
                 // A payment waits for this upkeep's priority window; see
@@ -3859,6 +3863,45 @@ impl<L: CardLookup> Engine<L> {
                 let owner = object.owner;
                 let _ = self.start_free_cast(owner, card);
                 self.awaiting_answer
+            }
+            crate::state::DelayedAction::Transform {
+                card,
+                version,
+                face,
+            } => {
+                let still_there = self.state.object(card).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && o.version == version
+                        && o.face_index == face
+                });
+                if still_there
+                    && let Some(def) = self
+                        .state
+                        .object(card)
+                        .and_then(|o| o.card)
+                        .and_then(|c| self.lookup.card(c.index))
+                {
+                    self.state
+                        .transform(card, def, 1 - usize::from(face.min(1)));
+                }
+                false
+            }
+            crate::state::DelayedAction::Sacrifice { card, version } => {
+                let owner = self.state.object(card).and_then(|o| {
+                    (o.zone == crate::zone::Zone::Battlefield
+                        && o.version == version
+                        && o.controller == controller)
+                        .then_some(o.owner)
+                });
+                if let Some(owner) = owner {
+                    let _ = self.state.move_object(
+                        card,
+                        ZoneLocation::Graveyard(owner),
+                        ZonePosition::Top,
+                        crate::event::Cause::Effect,
+                    );
+                }
+                false
             }
             crate::state::DelayedAction::ReturnToBattlefield { card } => {
                 if self
