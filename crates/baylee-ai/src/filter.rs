@@ -423,6 +423,7 @@ impl HeuristicAgent {
         Some(match rel {
             PlayerRel::You => vec![view.seat],
             PlayerRel::EachPlayer => every().collect(),
+            PlayerRel::ActivePlayer => every().filter(|p| *p == view.active).collect(),
             // One opponent or all of them is the same question for
             // reachability: either way the effect has somewhere to land.
             PlayerRel::Opponent | PlayerRel::EachOpponent => {
@@ -431,7 +432,8 @@ impl HeuristicAgent {
             PlayerRel::Chosen
             | PlayerRel::ControllerOfTarget
             | PlayerRel::ControllerOfEvent
-            | PlayerRel::DamagedPlayer => {
+            | PlayerRel::DamagedPlayer
+            | PlayerRel::ControllerOfAttached => {
                 return None;
             }
         })

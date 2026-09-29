@@ -171,6 +171,17 @@ pub fn matches_projected(
     }
 }
 
+/// Who controls the permanent `source` is attached to: "enchanted land's
+/// controller", which need not be the Aura's own (CR 303.4e). `None` when the
+/// source is gone or attached to nothing, or its host has left the game's
+/// players.
+#[must_use]
+pub fn controller_of_attached(state: &GameState, source: ObjectId) -> Option<PlayerId> {
+    let host = state.object(source)?.attached_to?;
+    let seat = state.object(host)?.controller;
+    (!state.has_left(seat)).then_some(seat)
+}
+
 /// Resolves a relative player reference to concrete players — or `None` for
 /// the two relations the game state alone cannot answer.
 ///
@@ -198,10 +209,17 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
             .filter(|p| !p.has_lost())
             .map(|p| p.id)
             .collect(),
+        PlayerRel::ActivePlayer => state
+            .players
+            .iter()
+            .filter(|p| p.id == state.turn.active && !p.has_lost())
+            .map(|p| p.id)
+            .collect(),
         PlayerRel::ControllerOfTarget
         | PlayerRel::ControllerOfEvent
         | PlayerRel::Chosen
-        | PlayerRel::DamagedPlayer => {
+        | PlayerRel::DamagedPlayer
+        | PlayerRel::ControllerOfAttached => {
             return None;
         }
     })
@@ -1024,6 +1042,33 @@ mod tests {
         b.toughness = Some(1);
         b.keywords = keywords;
         id
+    }
+
+    /// "That player" of a step trigger is whoever's turn it is (CR 102.1),
+    /// read from the state alone; the enchanted permanent's controller needs
+    /// the source and is the resolution's to answer.
+    #[test]
+    fn the_active_player_is_whoever_s_turn_it_is() {
+        let mut state = empty_state();
+        state.turn.active = P1;
+        assert_eq!(players(PlayerRel::ActivePlayer, &state, P0), Some(vec![P1]));
+        state.turn.active = P0;
+        assert_eq!(players(PlayerRel::ActivePlayer, &state, P1), Some(vec![P0]));
+        assert_eq!(players(PlayerRel::ControllerOfAttached, &state, P0), None);
+
+        let host = land(&mut state, P1, &[]);
+        let aura = creature(&mut state, P0, KeywordSet::EMPTY);
+        assert_eq!(
+            controller_of_attached(&state, aura),
+            None,
+            "attached to nothing"
+        );
+        state.object_mut(aura).expect("just made").attached_to = Some(host);
+        assert_eq!(
+            controller_of_attached(&state, aura),
+            Some(P1),
+            "the host's controller, not the Aura's (CR 303.4e)"
+        );
     }
 
     /// A land on `controller`'s battlefield carrying `subtypes`.

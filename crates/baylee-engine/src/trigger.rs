@@ -1495,6 +1495,11 @@ fn matches(
             match whose {
                 PlayerRel::You => state.turn.active == you,
                 PlayerRel::Opponent => state.is_opponent(state.turn.active, you),
+                // "At the beginning of the upkeep of enchanted land's
+                // controller" (Cursed Land): that controller's step only.
+                PlayerRel::ControllerOfAttached => {
+                    crate::eval::controller_of_attached(state, source) == Some(state.turn.active)
+                }
                 _ => true,
             }
         }
@@ -1612,6 +1617,47 @@ mod tests {
             controller,
             rule,
         });
+    }
+
+    /// "At the beginning of the upkeep of enchanted land's controller"
+    /// (Cursed Land) is that controller's upkeep, whoever controls the Aura
+    /// (CR 303.4e) — and nobody's once the Aura enchants nothing. Before
+    /// `PlayerRel::ControllerOfAttached` was sorted into `whose`, anything
+    /// that was not `You` or `Opponent` fired on every player's step.
+    #[test]
+    fn an_upkeep_of_the_enchanted_permanents_controller_is_theirs_alone() {
+        let mut state = state();
+        let land = permanent(&mut state, them(), "Forest");
+        let aura = permanent(&mut state, me(), "Cursed Land");
+        state.object_mut(aura).expect("just made").attached_to = Some(land);
+        let upkeep = GameEvent::StepChanged {
+            phase: crate::turn::Phase::Beginning,
+            step: crate::turn::Step::Upkeep,
+        };
+        let cursed = Trigger::StepBegin {
+            step: baylee_cards_dsl::StepKind::Upkeep,
+            whose: PlayerRel::ControllerOfAttached,
+        };
+
+        state.turn.active = them();
+        assert_eq!(
+            hits(&cursed, &upkeep, &[], &state, aura, me()),
+            1,
+            "the land's controller's upkeep, though the Aura is mine"
+        );
+        state.turn.active = me();
+        assert_eq!(
+            hits(&cursed, &upkeep, &[], &state, aura, me()),
+            0,
+            "not the Aura controller's own"
+        );
+        state.turn.active = them();
+        state.object_mut(aura).expect("still here").attached_to = None;
+        assert_eq!(
+            hits(&cursed, &upkeep, &[], &state, aura, me()),
+            0,
+            "an Aura attached to nothing has no enchanted land's controller"
+        );
     }
 
     /// "Except the first one they draw in each of their draw steps" skips

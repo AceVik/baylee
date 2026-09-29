@@ -1700,11 +1700,13 @@ mod tests {
                         PlayerRel::You
                         | PlayerRel::Opponent
                         | PlayerRel::EachOpponent
-                        | PlayerRel::EachPlayer => true,
+                        | PlayerRel::EachPlayer
+                        | PlayerRel::ActivePlayer => true,
                         PlayerRel::Chosen
                         | PlayerRel::ControllerOfTarget
                         | PlayerRel::ControllerOfEvent
-                        | PlayerRel::DamagedPlayer => false,
+                        | PlayerRel::DamagedPlayer
+                        | PlayerRel::ControllerOfAttached => false,
                     };
                     if !answerable {
                         wrong.push(format!("{}: {modifier:?}", def.name()));

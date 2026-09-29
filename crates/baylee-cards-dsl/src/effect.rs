@@ -486,6 +486,17 @@ pub enum PlayerRel {
     /// triggered on, and a player who has since left the game is nobody's
     /// "that player" (CR 800.4a).
     DamagedPlayer,
+    /// The active player, the one whose turn it is (CR 102.1): "that
+    /// player" of a trigger at the beginning of a step — Copper Tablet's
+    /// "at the beginning of each player's upkeep, this artifact deals 1
+    /// damage to that player". The ability resolves in the step it
+    /// triggered in, so the player whose step it was is still the active
+    /// one.
+    ActivePlayer,
+    /// The controller of the permanent the source is attached to —
+    /// "enchanted land's controller" (Cursed Land). Not the Aura's own
+    /// controller: the two need not be the same (CR 303.4e).
+    ControllerOfAttached,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).

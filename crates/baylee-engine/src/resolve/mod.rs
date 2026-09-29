@@ -1037,6 +1037,12 @@ pub(super) fn players_of(
             .filter(|seat| !state.has_left(*seat))
             .into_iter()
             .collect(),
+        // "Enchanted land's controller" (CR 303.4e): whoever controls what
+        // the source is attached to now. An Aura that has left, or that
+        // enchants nothing, names nobody.
+        PlayerRel::ControllerOfAttached => eval::controller_of_attached(state, res.source)
+            .into_iter()
+            .collect(),
         other => eval::players(other, state, you)
             .expect("the context relations are matched above this arm"),
     }

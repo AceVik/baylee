@@ -232,6 +232,10 @@ struct Tx<'a> {
     /// once it resolves, so a clause that defaults to the source means
     /// nothing on one.
     on_a_spell: bool,
+    /// The mode of the `T:` line being read (`Phase`, `ChangesZone`, …), and
+    /// `None` on every other kind of line: what "that player" means is the
+    /// trigger's to say.
+    trigger_mode: Option<String>,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -698,11 +702,28 @@ impl Tx<'_> {
     }
 
     /// `Defined$ You` and friends as a `PlayerRel`.
-    fn player_rel(defined: Option<&str>) -> Option<&'static str> {
+    ///
+    /// Two of them mean "that player" of the trigger being read, and what
+    /// that is depends on the trigger: the player whose step began for a
+    /// `Phase` trigger, the controller of the card that moved for a
+    /// `ChangesZone` one. Anywhere else the same words name something this
+    /// reader cannot see, and refuse.
+    fn player_rel(&self, defined: Option<&str>) -> Option<&'static str> {
+        let trigger = self.trigger_mode.as_deref();
         Some(match defined.unwrap_or("You") {
             "You" => "PlayerRel::You",
             "Opponent" | "Player.Opponent" => "PlayerRel::Opponent",
             "Player" => "PlayerRel::EachPlayer",
+            // "Enchanted land's controller" (CR 303.4e).
+            "EnchantedController" | "Player.EnchantedController" => {
+                "PlayerRel::ControllerOfAttached"
+            }
+            "TriggeredPlayer" if trigger == Some("Phase") => "PlayerRel::ActivePlayer",
+            // Last known (CR 603.10a): a land put into a graveyard is
+            // controlled by nobody by the time the ability resolves.
+            "TriggeredCardController" if trigger == Some("ChangesZone") => {
+                "PlayerRel::ControllerOfEvent"
+            }
             _ => return None,
         })
     }
@@ -722,11 +743,11 @@ impl Tx<'_> {
     /// `LoseLife` followed by a bare `GainLife` and a bare `Draw`, and read
     /// against the chain it generated as a sorcery whose target gained the
     /// life and drew the card while its caster got neither.
-    fn player_rel_of(defined: Option<&str>, targets_a_player: bool) -> Option<&'static str> {
+    fn player_rel_of(&self, defined: Option<&str>, targets_a_player: bool) -> Option<&'static str> {
         if defined.is_none() && targets_a_player {
             return Some("PlayerRel::Chosen");
         }
-        Self::player_rel(defined)
+        self.player_rel(defined)
     }
 
     /// One effect and everything its `SubAbility$` chain adds.
@@ -819,9 +840,9 @@ impl Tx<'_> {
                 let n = amount(&p.take("NumDmg")?, self.svars, self.has_x)?;
                 let to = match p.take("Defined").as_deref() {
                     None => aimed.to_string(),
-                    Some("You") => "TargetSpec::Player(PlayerRel::You)".to_string(),
-                    Some("Opponent") => "TargetSpec::Player(PlayerRel::Opponent)".to_string(),
-                    Some(_) => return None,
+                    // "Deals 1 damage to that player" and every other
+                    // player the line names without targeting one.
+                    Some(who) => format!("TargetSpec::Player({})", self.player_rel(Some(who))?),
                 };
                 vec![format!(
                     "Effect::DealDamage {{ amount: {n}, target: {to} }}"
@@ -829,7 +850,7 @@ impl Tx<'_> {
             }
             "GainLife" => {
                 let n = plain_number(&p.take("LifeAmount")?, self.svars)?;
-                match Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)? {
+                match self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)? {
                     "PlayerRel::You" => vec![format!("Effect::gain_life({n})")],
                     who => vec![format!(
                         "Effect::GainLifeFor {{ amount: Amount::Fixed({n}), who: {who} }}"
@@ -838,12 +859,12 @@ impl Tx<'_> {
             }
             "LoseLife" => {
                 let n = amount(&p.take("LifeAmount")?, self.svars, self.has_x)?;
-                let who = Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
+                let who = self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
             "Draw" => {
                 let n = plain_number(p.take("NumCards").as_deref().unwrap_or("1"), self.svars)?;
-                match Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)? {
+                match self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)? {
                     "PlayerRel::You" => vec![format!("Effect::draw({n})")],
                     who => vec![format!(
                         "Effect::DrawCardsFor {{ amount: Amount::Fixed({n}), who: {who} }}"
@@ -861,14 +882,14 @@ impl Tx<'_> {
                     self.svars,
                     self.has_x,
                 )?;
-                let who = Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
+                let who = self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
                 vec![format!(
                     "Effect::DiscardRandom {{ who: {who}, count: {n} }}"
                 )]
             }
             "Mill" => {
                 let n = amount(&p.take("NumCards")?, self.svars, self.has_x)?;
-                let who = Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
+                let who = self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
                 vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
             }
             "PutCounter" => {
@@ -1111,7 +1132,7 @@ impl Tx<'_> {
         // where this line targets a player, and as you where it does not.
         let owner = match p.take("TokenOwner").as_deref() {
             Some("You") => "PlayerRel::You",
-            None => Self::player_rel_of(None, targets_a_player)?,
+            None => self.player_rel_of(None, targets_a_player)?,
             Some(who) => return self.deny(format!("token owner `{who}`")),
         };
         if owner != "PlayerRel::You" {
@@ -1208,8 +1229,8 @@ impl Tx<'_> {
             (Some(_), Some(_)) => {
                 return self.deny("`Investigate` naming its player twice".to_string());
             }
-            (Some(d), None) | (None, Some(d)) => Self::player_rel(Some(&d)),
-            (None, None) => Self::player_rel_of(None, targets_a_player),
+            (Some(d), None) | (None, Some(d)) => self.player_rel(Some(&d)),
+            (None, None) => self.player_rel_of(None, targets_a_player),
         };
         if who != Some("PlayerRel::You") {
             return self.deny("somebody other than you investigating".to_string());
@@ -2159,7 +2180,7 @@ impl Tx<'_> {
                     other => return self.deny(format!("trigger at step `{other}`")),
                 };
                 let valid = p.take("ValidPlayer");
-                let Some(whose) = Self::player_rel(valid.as_deref()) else {
+                let Some(whose) = self.player_rel(valid.as_deref()) else {
                     return self.deny(format!(
                         "trigger for player `{}`",
                         valid.unwrap_or_default()
@@ -2443,6 +2464,7 @@ impl Tx<'_> {
     fn rule(&mut self, kind: char, spec: &str) -> Option<()> {
         self.has_x = kind == 'A';
         self.on_a_spell = kind == 'A' && spec.trim_start().starts_with("SP$");
+        self.trigger_mode = None;
         match kind {
             'A' => self.activated_or_spell(spec),
             'T' => self.triggered(spec),
@@ -3303,6 +3325,7 @@ impl Tx<'_> {
             return self.deny("a `T:` line with no `$` in it".to_string());
         };
         p.drop_prose();
+        self.trigger_mode = Some(mode.clone());
         let trigger = self.trigger_expr(&mut p, &mode)?;
         let condition = self.condition(&mut p)?;
         let Some(execute) = p.take("Execute") else {
@@ -3734,6 +3757,7 @@ pub fn transcode(
         tokens,
         has_x: false,
         on_a_spell: false,
+        trigger_mode: None,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -3789,6 +3813,7 @@ pub fn refusal_reason(
         tokens,
         has_x: false,
         on_a_spell: false,
+        trigger_mode: None,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -4290,6 +4315,7 @@ SVar:X:Count$xPaid",
             tokens: None,
             has_x: false,
             on_a_spell: false,
+            trigger_mode: None,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         };
@@ -4650,6 +4676,57 @@ SVar:X:Count$xPaid",
             refusal_reason(&script, &cats(), None).as_deref(),
             Some("unclaimed parameter `GainLife.Cost`")
         );
+    }
+
+    /// "That player" is the trigger's to say: whose step began for a
+    /// `Phase` trigger (Copper Tablet), the moved card's controller for a
+    /// `ChangesZone` one (Dingus Egg), and the enchanted permanent's
+    /// controller where the upkeep is theirs (Cursed Land). The same words
+    /// on an activated ability name nothing this reader can see.
+    #[test]
+    fn that_player_is_the_one_the_trigger_names() {
+        let tablet = read(
+            "Name:X\nManaCost:2\nTypes:Artifact\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | TriggerZones$ Battlefield \
+             | Execute$ TrigDamage | TriggerDescription$ x.\n\
+             SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ 1",
+        );
+        assert_eq!(
+            tablet.abilities,
+            [
+                "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::EachPlayer }, \
+                 &[Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::ActivePlayer) }])"
+            ]
+        );
+
+        let egg = read(
+            "Name:X\nManaCost:4\nTypes:Artifact\n\
+             T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Land \
+             | TriggerZones$ Battlefield | Execute$ TrigDamage | TriggerDescription$ x.\n\
+             SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredCardController | NumDmg$ 2",
+        );
+        let text = egg.abilities.join("\n");
+        assert!(
+            text.contains("TargetSpec::Player(PlayerRel::ControllerOfEvent)"),
+            "{text}"
+        );
+
+        let cursed = read(
+            "Name:X\nManaCost:2 B B\nTypes:Enchantment Aura\nK:Enchant:Land\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player.EnchantedController \
+             | TriggerZones$ Battlefield | Execute$ TrigDamage | TriggerDescription$ x.\n\
+             SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ 1",
+        );
+        let text = cursed.abilities.join("\n");
+        assert!(
+            text.contains("whose: PlayerRel::ControllerOfAttached"),
+            "{text}"
+        );
+
+        assert!(refused(
+            "Name:X\nManaCost:2\nTypes:Artifact\n\
+             A:AB$ DealDamage | Cost$ T | Defined$ TriggeredPlayer | NumDmg$ 1"
+        ));
     }
 
     #[test]
@@ -6061,6 +6138,7 @@ SVar:X:Count$xPaid",
             tokens: None,
             has_x: false,
             on_a_spell: false,
+            trigger_mode: None,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         };
