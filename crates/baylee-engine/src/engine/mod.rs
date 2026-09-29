@@ -1097,6 +1097,8 @@ mod mana_tests;
 #[cfg(test)]
 mod mdfc_tests;
 #[cfg(test)]
+mod mechanics_tests;
+#[cfg(test)]
 mod mind_twist_tests;
 #[cfg(test)]
 mod miracle_tests;
