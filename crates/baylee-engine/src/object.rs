@@ -728,6 +728,10 @@ pub enum Rider {
     /// field because `GameObject` had no byte to spare for it
     /// (`tests/footprint.rs`), and a triggered ability carries no other.
     EventPlayer(PlayerId),
+    /// Cast from a graveyard with escape (CR 702.138b): the spell, and the
+    /// permanent it becomes, "escaped". Kept and given up as
+    /// [`Rider::Dashed`] is.
+    Escaped,
 }
 
 impl Rider {

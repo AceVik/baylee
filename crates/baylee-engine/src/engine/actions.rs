@@ -1298,6 +1298,18 @@ impl<L: CardLookup> Engine<L> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.pitch = objects.into_iter().collect();
+                    wizard.stage = cast_wizard::WizardStage::Escape;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
+                // Wizard path: escape's other cards (CR 702.138a).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Escape)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.escape_exiles = objects.into_iter().collect();
                     wizard.stage = cast_wizard::WizardStage::Delve;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();

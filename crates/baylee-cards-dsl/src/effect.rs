@@ -918,9 +918,8 @@ pub enum Effect {
     /// "Mill `amount` cards. You may put a [filter] card from among the
     /// milled cards into your hand." (Wrenn and Realmbreaker's −2.) The
     /// choice is a `ChooseCards` with `min: 0` over the milled cards that
-    /// match, found wherever they went if that zone is public — a
-    /// replacement's exile included (CR 701.17c) — and none matching asks
-    /// nothing.
+    /// match, found wherever they went if that zone is public (CR 701.17c),
+    /// a replacement's exile included, and none matching asks nothing.
     MillMayTakeOne {
         /// Cards milled.
         amount: u32,

@@ -323,6 +323,10 @@ pub enum CastModeKind {
     /// (CR 702.109a): the permanent it becomes has haste and returns to its
     /// owner's hand at the beginning of the next end step.
     Dash,
+    /// Cast from the owner's graveyard for the card's escape cost
+    /// (CR 702.138a): its mana, and as many other cards from that graveyard
+    /// exiled, asked as the cast's cost (`ChoicePrompt::CostExile`).
+    Escape,
 }
 
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
@@ -381,7 +385,9 @@ pub enum ChoicePrompt {
     /// takes either, and tapping the Forest for mana *first* is the play.
     CostReturn,
     /// "Exile a creature card from your graveyard" in an activation cost
-    /// (Moorland Haunt, Mines of Moria).
+    /// (Moorland Haunt, Mines of Moria), and escape's "exile five other
+    /// cards from your graveyard" (CR 702.138a), asked once with `min` and
+    /// `max` both the count.
     ///
     /// Not [`Self::CostDiscard`], though both answers end up somewhere a
     /// card is not played from: the noun has to say which pile the card

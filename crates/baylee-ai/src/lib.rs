@@ -956,6 +956,41 @@ mod tests {
         }
     }
 
+    /// Escape's "exile five other cards from your graveyard" (CR 702.138a)
+    /// is the same price asked with `min == max`: exactly that many go, and
+    /// they are the least valuable, so the Elves listed first stay.
+    #[test]
+    fn an_escape_exiles_exactly_its_count_and_the_least_valuable() {
+        use baylee_engine::choice::ChoicePrompt;
+        let me = PlayerId::new(0);
+        let (elves, wurm, other_wurm) = (obj(1), obj(2), obj(3));
+        let mut v = view(0, &[20, 20], vec![]);
+        v.graveyards[0] = vec![
+            carded(permanent(elves, me, 1), "Llanowar Elves", TypeSet::CREATURE),
+            carded(permanent(wurm, me, 6), "Endless Wurm", TypeSet::CREATURE),
+            carded(
+                permanent(other_wurm, me, 6),
+                "Endless Wurm",
+                TypeSet::CREATURE,
+            ),
+        ];
+        let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+            &v,
+            &Pending::ChooseCards {
+                player: v.seat,
+                options: vec![elves, wurm, other_wurm],
+                min: 2,
+                max: 2,
+                prompt: ChoicePrompt::CostExile,
+            },
+        );
+        let PlayerAction::ChooseObjects { mut objects } = action else {
+            panic!("expected cards, got {action:?}")
+        };
+        objects.sort();
+        assert_eq!(objects, vec![wurm, other_wurm], "two, and not the Elves");
+    }
+
     /// Atraxa's "for each card type, you may put a card of that type … into
     /// your hand": one of the type's cards is taken, and the best of them.
     /// The Wurm is listed first on purpose, because the fallback answers

@@ -558,6 +558,7 @@ fn cast_label(
         K::Miracle => Phrase::CastMiracle.text(lang).to_string(),
         K::Flashback => Phrase::CastFlashback.text(lang).to_string(),
         K::Dash => Phrase::CastDash.text(lang).to_string(),
+        K::Escape => Phrase::CastEscape.text(lang).to_string(),
     }
 }
 
@@ -1210,7 +1211,7 @@ mod tests {
     /// the printed cost's row, which needs no words.
     #[test]
     fn a_dash_row_names_the_keyword() {
-        for (lang, code, dash) in [(Lang::En, "en", "Dash"), (Lang::De, "de", "Spurt")] {
+        for (lang, code, dash) in [(Lang::En, "en", "Dash"), (Lang::De, "de", "Sturmangriff")] {
             let (view, texts, object) =
                 asking_about("37108cd4-bbab-4ce3-9ed6-f60e8422e703", code, "Dash {1}{R}");
             let rows = cast_rows(
@@ -1223,6 +1224,28 @@ mod tests {
                 lang,
             );
             assert_eq!(rows[1].label, dash);
+        }
+    }
+
+    /// Uro's escape row names the keyword in the player's language.
+    #[test]
+    fn an_escape_row_names_the_keyword() {
+        for (lang, code, escape) in [(Lang::En, "en", "Escape"), (Lang::De, "de", "Befreiung")] {
+            let (view, texts, object) = asking_about(
+                "ee302659-59ed-4eef-babe-451b9ccf7f14",
+                code,
+                "Escape—{G}{G}{U}{U}, Exile five other cards from your graveyard.",
+            );
+            let rows = cast_rows(
+                object,
+                &[CastModeKind::Escape],
+                FaceNames {
+                    view: Some(&view),
+                    texts: Some(&texts),
+                },
+                lang,
+            );
+            assert_eq!(rows[0].label, escape);
         }
     }
 

@@ -2692,3 +2692,15 @@ option and is part of the unreleased protocol-7 batch, so
 keyword in the player's language. The haste and the return at the next end
 step are the engine's; the return is an ordinary triggered ability on the
 stack, with no question of its own.
+
+### Escape (`CastModeKind::Escape`)
+
+A card with escape (CR 702.138a) in its owner's graveyard is offered
+`CastModeKind::Escape` in `Pending::ChooseCastMode`, with the escape mana
+as the option's cost, once the graveyard holds enough other cards to exile.
+The exile is asked next, as `Pending::ChooseCards` with
+`ChoicePrompt::CostExile` and `min == max`, over the other cards in that
+graveyard. Like dash it is part of the unreleased protocol-7 batch, so
+`PROTOCOL_VERSION` does not move. `PublicObject::flashback` carries the
+escape mana to the owner while the cast can be paid, so a planner taps for
+it. The client labels the row with the keyword in the player's language.

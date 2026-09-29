@@ -1065,6 +1065,12 @@ pub(crate) fn can_cast_form(
     let flashback_ok = !in_hand
         && in_own_graveyard
         && (printed_flashback.is_some() || flashback_granted(state, card));
+    // Escape (CR 702.138a): from its owner's graveyard, for its own cost.
+    let printed_escape = obj
+        .card
+        .and_then(|c| lookup.card(c.index))
+        .and_then(|def| def.faces[0].escape);
+    let escape_ok = !in_hand && in_own_graveyard && printed_escape.is_some();
     // Disturb (CR 702.146): a face with disturb is castable from the
     // owner's graveyard.
     let disturb_ok = !in_hand
@@ -1110,6 +1116,7 @@ pub(crate) fn can_cast_form(
     if !in_hand
         && !graveyard_ok
         && !flashback_ok
+        && !escape_ok
         && !disturb_ok
         && !adventure_ok
         && !takeover_ok
@@ -1227,6 +1234,18 @@ pub(crate) fn can_cast_form(
             return Ok(());
         }
         if !flashback_granted(state, card) {
+            return Err(CastError::NotEnoughMana);
+        }
+    }
+    // Escape's price is its mana and the other cards it exiles; beside a
+    // graveyard permission (Muldrotha) the mana cost below is a second way.
+    if escape_ok && let Some(escape) = printed_escape {
+        if probe(&escape.cost.with_x(0))
+            && escape_exile_options(state, player, card).len() >= usize::from(escape.exile)
+        {
+            return Ok(());
+        }
+        if !graveyard_ok {
             return Err(CastError::NotEnoughMana);
         }
     }
@@ -1630,6 +1649,20 @@ pub fn land_zone_open(state: &GameState, player: PlayerId, zone: Zone) -> bool {
         }),
         _ => false,
     }
+}
+
+/// The cards `player` may exile to pay `card`'s escape cost: every other
+/// card in their graveyard (CR 702.138a, "exile [N] other cards"). The same
+/// list for the offer's count and the cast wizard's question.
+#[must_use]
+pub fn escape_exile_options(state: &GameState, player: PlayerId, card: ObjectId) -> Vec<ObjectId> {
+    state
+        .zones
+        .list(ZoneLocation::Graveyard(player))
+        .iter()
+        .copied()
+        .filter(|id| *id != card)
+        .collect()
 }
 
 /// The permission `player` holds to play `card` this turn, if any

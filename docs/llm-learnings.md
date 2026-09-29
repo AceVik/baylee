@@ -1952,3 +1952,27 @@ land type"; both are convention tests that fire on a first try.
   door the cast came through (CR 702.34a: "if the flashback cost was paid").
   Its own replacement exiles the card anyway, so an "it was exiled" check
   passes either way; assert the rider on the stack.
+- **The `GameObject` budget decides where a per-object fact lives.** "That
+  player" of Ragavan's trigger was first an `Option<PlayerId>` field on
+  `GameObject`; `tests/footprint.rs` measured 312 B against the 304 B
+  budget. It is now `Rider::EventPlayer(PlayerId)`: riders are a
+  `SmallVec` already paid for, and a triggered ability carries no others.
+- **Riders survive zone changes unless something clears them.** `Dashed`
+  and `Escaped` are how a spell was cast, which belongs to the spell and the
+  permanent it becomes and to no later object (CR 400.7).
+  `GameState::move_object` keeps them only on the move to the stack and the
+  stack-to-battlefield move. A blink test is the one that fails without
+  that clearing; a plain cast test passes either way.
+- **`castable` lists a card only once its mana is floating.** A test that
+  reads `legal.castable` for a graveyard or exile cast taps the lands
+  first. The view's `PublicObject::flashback` price is what lets a planner
+  tap for such a cast before it is offered, so a new graveyard cast
+  (escape) adds its price there too.
+- **An existing cost prompt may already answer a new keyword.** Escape's
+  "exile five other cards" is `ChoicePrompt::CostExile` with
+  `min == max == 5`: the house AI pays it with the least valuable cards and
+  client-core already names it. Check the prompt list before adding one.
+- **Look the German keyword up in the catalog, never guess it.** Dash is
+  "Sturmangriff" and escape "Befreiung" in German printings. The first
+  label shipped as "Spurt" from memory. `card_faces.printed_text` for
+  `lang = 'de'` in the local catalog answers it in one query.

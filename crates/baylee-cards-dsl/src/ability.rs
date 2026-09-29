@@ -250,6 +250,10 @@ pub enum Condition {
     /// its dash cost became, and has not left it since. The engine writes
     /// dash's return itself; no card prints this.
     DashCostPaid,
+    /// "Unless it escaped" (Uro, Titan of Nature's Wrath): the source is the
+    /// spell cast from a graveyard with escape, or the permanent that spell
+    /// became, and has not left the battlefield since (CR 702.138b).
+    Escaped,
 }
 
 /// Trigger conditions for triggered abilities.

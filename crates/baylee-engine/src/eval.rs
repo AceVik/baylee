@@ -571,6 +571,12 @@ pub fn condition_holds(
             o.zone == crate::zone::Zone::Battlefield
                 && o.riders.contains(&crate::object::Rider::Dashed)
         }),
+        // "Unless it escaped" (CR 702.138b): the rider the escape cast wrote,
+        // kept by the spell and the permanent it becomes and by nothing
+        // later (`GameState::move_object`).
+        Condition::Escaped => state
+            .object(source)
+            .is_some_and(|o| o.riders.contains(&crate::object::Rider::Escaped)),
         Condition::SourceMatches(filter) => state
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),

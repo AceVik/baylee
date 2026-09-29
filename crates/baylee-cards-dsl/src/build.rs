@@ -946,8 +946,8 @@ pub mod prelude {
         Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule, StaticAbility,
     };
     pub use crate::{
-        ALL_MANA_COLORS, ANY_COLOR_MANA, CardDef, CommanderRule, Coverage, EnterModifier, FaceDef,
-        KeywordSet, PartnerKind,
+        ALL_MANA_COLORS, ANY_COLOR_MANA, CardDef, CommanderRule, Coverage, EnterModifier, Escape,
+        FaceDef, KeywordSet, PartnerKind,
     };
     pub use crate::{
         activated, card, chapter, cost, crew, equip, f, face, loyalty, mana_ability,

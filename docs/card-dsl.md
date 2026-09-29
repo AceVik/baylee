@@ -1753,8 +1753,8 @@ hashes, layers and does nothing. This paragraph said THREE until
 - **`Effect::MillMayTakeOne { amount, filter }`** is "mill `amount` cards. You
   may put a [filter] card from among the milled cards into your hand" (Wrenn's
   −2). A `ChooseCards` with `min: 0`, `max: 1`, prompt `PutIntoHand`, over the
-  milled cards that match and are found in the public zone they moved to
-  (CR 701.17c), which is the graveyard unless a replacement said exile.
+  milled cards that match, found in the public zone they moved to
+  (CR 701.17c): the graveyard, or wherever a replacement sent them.
 - **`Effect::RevealAndSeparate { count }`** is "reveal the top `count` cards
   of your library. An opponent separates those cards into two piles. Put one
   pile into your hand and the other into your graveyard" (Fact or Fiction).
@@ -1932,6 +1932,21 @@ Filters, conditions, modifiers and durations:
   blinked or bounced one is a new object, CR 400.7). No card writes the
   haste or the return. `Condition::DashCostPaid` is what that trigger asks;
   no card prints it.
+- **`FaceDef.escape: Option<Escape>`** is "Escape—[mana], Exile [N] other
+  cards from your graveyard" (CR 702.138a): `Escape { cost, exile }`, the
+  shape every printed escape cost has. From its owner's graveyard the cast
+  offers `CastModeKind::Escape` once the mana is affordable and at least
+  `exile` other cards lie there; the cast then asks which, as
+  `ChoicePrompt::CostExile` with `min == max == exile`, and exiles them after
+  the mana is paid. Beside a graveyard permission (Muldrotha) the mana cost is
+  offered too, as `Normal`. From a hand nothing changes.
+- **`Condition::Escaped`** is "unless it escaped" and "if it escaped"
+  (CR 702.138b): the source is the spell cast with escape or the permanent
+  it became. A blinked or bounced one is a new object (CR 400.7) and did not
+  escape. Uro's "sacrifice it unless it escaped" is
+  `IfCondition { condition: Escaped, then: &[], otherwise: &[SacrificeSelf] }`
+  on an enters trigger. "Escapes with" counters (CR 702.138c) are not
+  written yet.
 
 ## Worked examples
 

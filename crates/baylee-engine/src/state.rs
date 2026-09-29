@@ -2311,12 +2311,18 @@ impl GameState {
             // How a spell was cast belongs to the spell and to the permanent
             // it becomes, and to no later object (CR 400.7): a dashed
             // creature blinked or bounced and put back has had no dash cost
-            // paid for it. The cast writes the rider before the card moves
-            // to the stack, so that move keeps it too.
+            // paid for it, and one that escaped and was blinked did not
+            // escape. The cast writes the rider before the card moves to the
+            // stack, so that move keeps it too.
             if to.zone() != Zone::Stack
                 && !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield)
             {
-                obj.riders.retain(|r| *r != crate::object::Rider::Dashed);
+                obj.riders.retain(|r| {
+                    !matches!(
+                        r,
+                        crate::object::Rider::Dashed | crate::object::Rider::Escaped
+                    )
+                });
             }
             // What was paid is the spell's and no later object's (a flashback
             // is a new payment); nothing on the battlefield reads it yet, so
@@ -3500,6 +3506,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(15);
                 h.u8(p.get());
             }
+            Rider::Escaped => h.u8(16),
         }
     }
     // What the spell or ability on the stack was cast or put there with:
