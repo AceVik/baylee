@@ -5043,6 +5043,8 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .effects
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
+        // Every prevention shield says "this turn" (`crate::prevention`).
+        self.state.shields.clear();
         for player in &mut self.state.players {
             player.mana_pool.expire_turn_retention();
         }

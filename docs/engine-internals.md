@@ -493,6 +493,38 @@ Three things about it are easy to get backwards:
   position as the board without one and loop detection would otherwise call
   them equal.
 
+### Prevention shields, and the question the engine does not ask (CR 615)
+
+"Prevent the next 3 damage that would be dealt to any target this turn" and
+Fog leave a shield behind as they resolve (CR 615.1, 615.3), and the shield
+waits for damage. The shields live in `GameState::shields` in the order they
+were made, and `prevention::apply` is the one function that spends them:
+every writer of damage asks it how much of what it is about to deal still
+gets through, after the standing prevention it already asked (a permanent's
+protection, Maze of Ith's `PreventDamageToIt`, which are never used up) and
+before anything is lost, marked or journalled. Four writers ask today — two
+in `combat`, two in `resolve::life` — and damage prevented in full is never
+dealt at all: no life change, no `DamageDealt`, no deathtouch, no lifelink.
+
+- **A shield on a permanent is on that object** (id and version, CR 400.7):
+  the creature that leaves and comes back is a new object with no shield.
+- **Damage that can't be prevented passes every shield untouched** and
+  reduces none of them (CR 615.12).
+- **Every shield ends at the cleanup step** (CR 514.2); they all say "this
+  turn". They are in `snapshot_hash`, `loop_signature` and the fingerprint.
+
+The question the engine does not ask is CR 616.1's: when two shields could
+apply to one event, the affected player (or the controller of the affected
+permanent) chooses which applies first — and CR 615.7's last sentence, which
+of several simultaneous sources one shield prevents. `prevention::rank`
+applies them in the order that player would always pick where there is one:
+a shield that is never used up (Fog) before any that is, then amounts oldest
+first, which spend the same total whichever goes first. A new kind of shield
+is placed in that order with the reason its place is the one the player
+would choose; a pair of kinds for which no order is always best is where
+the missing question starts to matter, and such a pair needs the question
+rather than a rank.
+
 ### The monarch's abilities have no source (CR 724.2)
 
 `trigger::monarch_triggers` reads both off the events and queues synthetic

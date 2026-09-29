@@ -657,6 +657,16 @@ fn deal_damage_to_player(
     if prevent_from(state, source) && !unpreventable(state, source, is_combat) {
         return 0;
     }
+    let amount = shielded(
+        state,
+        source,
+        DamageTarget::Player(player),
+        amount,
+        is_combat,
+    );
+    if amount <= 0 {
+        return 0;
+    }
     state.change_life(player, -i32::from(amount), crate::event::Cause::Spell);
     state.journal.record(GameEvent::DamageDealt {
         source: Some(source),
@@ -704,6 +714,16 @@ fn deal_damage_to_object(
     {
         return 0;
     }
+    let amount = shielded(
+        state,
+        source,
+        DamageTarget::Object(target),
+        amount,
+        is_combat,
+    );
+    if amount <= 0 {
+        return 0;
+    }
     // Damage to a planeswalker removes loyalty instead of marking damage
     // (CR 306.8), the same way the spell-resolution path does it.
     let is_walker = state
@@ -740,6 +760,22 @@ fn deal_damage_to_object(
     amount
 }
 
+/// What is left of `amount` once the prevention shields have had it
+/// ([`crate::prevention::apply`]), in the signed width the writers count in.
+pub(crate) fn shielded(
+    state: &mut GameState,
+    source: ObjectId,
+    recipient: DamageTarget,
+    amount: i16,
+    is_combat: bool,
+) -> i16 {
+    let Ok(wanted) = u32::try_from(amount) else {
+        return amount;
+    };
+    let left = crate::prevention::apply(state, source, recipient, wanted, is_combat);
+    i16::try_from(left).unwrap_or(i16::MAX)
+}
+
 /// True if the source object may not deal damage (`PreventDamageFromIt`).
 ///
 /// `EffectFilter::names` and not an id compare written out here: a shield
@@ -760,7 +796,7 @@ fn prevent_from(state: &GameState, source: ObjectId) -> bool {
 /// (`CombatDamageCantBePrevented`, CR 615.12): combat damage from an object
 /// an effect says so of. Every prevention effect then does nothing to it,
 /// protection's (CR 702.16e) as much as a shield's.
-fn unpreventable(state: &GameState, source: ObjectId, is_combat: bool) -> bool {
+pub(crate) fn unpreventable(state: &GameState, source: ObjectId, is_combat: bool) -> bool {
     is_combat
         && state.object(source).is_some_and(|obj| {
             state.effects.iter().any(|fx| {
@@ -1594,6 +1630,40 @@ mod tests {
         b.types = TypeSet::LAND;
         b.subtypes = baylee_core::types::SubtypeSet::from_slice(&[subtype]);
         id
+    }
+
+    /// Fog (a `ShieldKind::AllCombat` shield) prevents the combat damage
+    /// both writers here deal, to a player and to a creature; the old
+    /// writers dealt all of it.
+    #[test]
+    fn combat_damage_meets_the_prevention_shields() {
+        let mut state = empty_state();
+        let attacker = creature(&mut state, P0, 3, 3, KeywordSet::EMPTY);
+        let blocked = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let blocker = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        state.combat.declare_attackers([
+            AttackerInfo {
+                creature: attacker,
+                defending: Defender::Player(P1),
+                blocked: false,
+            },
+            AttackerInfo {
+                creature: blocked,
+                defending: Defender::Player(P1),
+                blocked: false,
+            },
+        ]);
+        state.combat.declare_block(blocker, blocked);
+        state.shields.push(crate::prevention::Shield {
+            protects: crate::prevention::Shielded::Everything,
+            kind: crate::prevention::ShieldKind::AllCombat,
+            controller: P1,
+        });
+        deal_combat_damage(&mut state, false);
+        assert_eq!(state.players[1].life, 20, "nothing got through");
+        assert_eq!(state.object(blocker).unwrap().damage, 0);
+        assert_eq!(state.object(blocked).unwrap().damage, 0);
+        assert_eq!(state.shields.len(), 1, "Fog is never used up");
     }
 
     /// Fear (CR 702.36b): an artifact creature or a black one may block,

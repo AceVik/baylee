@@ -1127,6 +1127,27 @@ impl Tx<'_> {
             // Where the reference deals the damage `DamageMap$` gathered:
             // the `DealDamage` lines before it already did.
             "DamageResolve" => Vec::new(),
+            // "Prevent the next N damage that would be dealt to any target
+            // this turn" (Samite Healer; CR 615.7): a shield on what the
+            // line targets, or on the player `Defined$` names. With
+            // neither, nothing is shielded, and that is not a card.
+            "PreventDamage" => {
+                let n = amount(&p.take("Amount")?, self.svars, self.has_x)?;
+                let to = match (p.take("Defined").as_deref(), target) {
+                    (Some(who), None) => {
+                        format!("TargetSpec::Player({})", self.player_rel(Some(who))?)
+                    }
+                    (None, Some(aimed)) => aimed.to_string(),
+                    _ => return None,
+                };
+                vec![format!(
+                    "Effect::PreventNextDamage {{ target: {to}, amount: {n} }}"
+                )]
+            }
+            // "Prevent all combat damage that would be dealt this turn."
+            // The bare line only: the reference narrows it with keys this
+            // rule does not claim, and those refuse.
+            "Fog" => vec!["Effect::PreventAllCombatDamageThisTurn".to_string()],
             "DamageAll" => {
                 if target.is_some() {
                     return None;
@@ -4238,6 +4259,8 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "DestroyAll",
     "DamageAll",
     "DamageResolve",
+    "PreventDamage",
+    "Fog",
     "Regenerate",
     "Tap",
     "Untap",
@@ -5974,6 +5997,59 @@ SVar:X:Count$xPaid",
         ));
     }
 
+    /// Samite Healer, Conservator, Fog: the shields a line names.
+    #[test]
+    fn prevention_is_a_shield_on_what_the_line_names() {
+        let body = read(
+            "Name:X\nManaCost:1 W\nTypes:Creature Goblin\nPT:1/1\n\
+             A:AB$ PreventDamage | Cost$ T | ValidTgts$ Any | Amount$ 1 | \
+             SpellDescription$ Prevent the next 1 damage.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains(
+                "Effect::PreventNextDamage { target: TargetSpec::AnyTarget, amount: Amount::Fixed(1) }"
+            ),
+            "{text}"
+        );
+        assert!(
+            text.contains("target = Some(TargetSpec::AnyTarget)"),
+            "{text}"
+        );
+
+        let body = read(
+            "Name:X\nManaCost:2\nTypes:Artifact\n\
+             A:AB$ PreventDamage | Cost$ 3 T | Defined$ You | Amount$ 2 | \
+             SpellDescription$ Prevent the next 2 damage that would be dealt to you.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("target: TargetSpec::Player(PlayerRel::You), amount: Amount::Fixed(2)"),
+            "{text}"
+        );
+
+        let body = read("Name:X\nManaCost:G\nTypes:Instant\nA:SP$ Fog | SpellDescription$ Fog.\n");
+        assert!(
+            body.abilities
+                .join("\n")
+                .contains("Effect::PreventAllCombatDamageThisTurn"),
+            "{:?}",
+            body.abilities
+        );
+
+        // A shield on nothing, and a Fog narrowed by a key it does not claim.
+        assert!(refused(
+            "Name:X\nTypes:Instant\nA:SP$ PreventDamage | Amount$ 2\n"
+        ));
+        assert!(refused(
+            "Name:X\nTypes:Instant\nA:SP$ Fog | ValidSource$ Creature.nonBlack\n"
+        ));
+        assert!(refused(
+            "Name:X\nTypes:Instant\nA:SP$ PreventDamage | ValidTgts$ Any | Amount$ 3 | \
+             DividedAsYouChoose$ 3\n"
+        ));
+    }
+
     /// A charm is a modal spell, each mode targeting for itself.
     #[test]
     fn a_charm_is_a_modal_spell_whose_modes_target_for_themselves() {
@@ -5994,9 +6070,9 @@ SVar:X:Count$xPaid",
 
         // A mode the reader cannot say takes the whole card with it.
         assert!(refused(
-            "Name:X\nTypes:Instant\nA:SP$ Charm | Choices$ DBGain,DBPrevent\n\
+            "Name:X\nTypes:Instant\nA:SP$ Charm | Choices$ DBGain,DBBalance\n\
              SVar:DBGain:DB$ GainLife | ValidTgts$ Player | LifeAmount$ 3\n\
-             SVar:DBPrevent:DB$ PreventDamage | ValidTgts$ Any | Amount$ 3\n"
+             SVar:DBBalance:DB$ Balance | Valid$ Land\n"
         ));
         // A count it has not met.
         assert!(refused(

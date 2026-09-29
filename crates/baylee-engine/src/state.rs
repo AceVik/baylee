@@ -947,6 +947,10 @@ pub struct GameState {
     pub effects: crate::effects::EffectTable,
     /// Registered replacement rules (Doubling Season, Panharmonicon, …).
     pub replacement_rules: Vec<ReplacementEntry>,
+    /// Prevention shields resolved spells and abilities left behind
+    /// (CR 615), in the order they were made; every one ends at the turn's
+    /// cleanup (CR 514.2). See [`crate::prevention`].
+    pub shields: Vec<crate::prevention::Shield>,
     /// The effect generation the characteristic caches were computed at.
     pub characteristics_generation: u64,
     /// Scratch list reused by [`GameState::refresh_characteristics`].
@@ -1046,6 +1050,7 @@ impl GameState {
             timestamp,
             effects,
             replacement_rules,
+            shields,
             characteristics_generation,
             projection_ids,
             projected_cross_zone,
@@ -1118,6 +1123,7 @@ impl GameState {
             ("state.timestamp", format!("{timestamp:?}")),
             ("state.effects", format!("{effects:?}")),
             ("state.replacement_rules", format!("{replacement_rules:?}")),
+            ("state.shields", format!("{shields:?}")),
             (
                 "state.characteristics_generation",
                 format!("{characteristics_generation:?}"),
@@ -1337,6 +1343,7 @@ impl GameState {
             timestamp: 0,
             effects: crate::effects::EffectTable::default(),
             replacement_rules: Vec::new(),
+            shields: Vec::new(),
             characteristics_generation: u64::MAX,
             projection_ids: Vec::new(),
             projected_cross_zone: false,
@@ -3119,6 +3126,7 @@ impl GameState {
             timestamp,
             effects,
             replacement_rules,
+            shields,
             characteristics_generation,
             // Scratch, always left empty.
             projection_ids: _,
@@ -3135,6 +3143,7 @@ impl GameState {
         h.u64(*characteristics_generation);
         hash_effects(&mut h, effects);
         replacement_rules.hash(&mut h);
+        shields.hash(&mut h);
         turn.hash(&mut h);
         day_night.hash(&mut h);
         previous_turn.hash(&mut h);
@@ -3378,6 +3387,9 @@ impl GameState {
             h.u32(index);
             h.u32(n);
         }
+        // Prevention shields are what damage will do next, so two states
+        // that differ only in what is shielded are two states.
+        hash_shields(&mut h, &self.shields, &position);
         h.finish()
     }
 
@@ -3433,6 +3445,37 @@ fn library_place(pos: ZonePosition, len: usize) -> LibraryPlace {
                 n => LibraryPlace::FromTop(u32::try_from(n).unwrap_or(u32::MAX)),
             }
         }
+    }
+}
+
+/// The shields as [`GameState::loop_signature`] hashes them: every object
+/// they name by its canonical `position`, like every other reference there.
+fn hash_shields(
+    h: &mut Hasher,
+    shields: &[crate::prevention::Shield],
+    position: &dyn Fn(ObjectId) -> u32,
+) {
+    h.usize(shields.len());
+    for shield in shields {
+        match shield.protects {
+            crate::prevention::Shielded::Player(p) => {
+                h.u8(0);
+                h.u8(p.get());
+            }
+            crate::prevention::Shielded::Object(id, _) => {
+                h.u8(1);
+                h.u32(position(id));
+            }
+            crate::prevention::Shielded::Everything => h.u8(2),
+        }
+        match shield.kind {
+            crate::prevention::ShieldKind::Next(n) => {
+                h.u8(0);
+                h.u32(n);
+            }
+            crate::prevention::ShieldKind::AllCombat => h.u8(1),
+        }
+        h.u8(shield.controller.get());
     }
 }
 

@@ -1481,6 +1481,13 @@ a `PayLife(2)` there
 would put up an empty menu and decline itself on every board, which
 `vocabulary_tests::every_price_paid_by_naming_an_object_puts_a_menu_up`
 refuses over the compiled pool.
+Prevention is a shield the effect leaves behind (CR 615.7):
+`PreventNextDamage { target, amount }` is "prevent the next N damage that
+would be dealt to <target> this turn", its `target` naming recipients as
+`DealDamage`'s does (Samite Healer's any target, Conservator's
+`Player(PlayerRel::You)`), and `PreventAllCombatDamageThisTurn` is Fog.
+Both last until the turn's cleanup; `docs/engine-internals.md` §"Prevention
+shields" says how they are spent.
 The mirror of the first is `PlayerMayPayThen { player, mana, effects }`:
 "you may pay {1}. If you do, you gain 1 life" (Crystal Rod, Soul Net). The
 same question and payment, with the effects on a yes; the price *is* the

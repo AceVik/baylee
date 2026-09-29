@@ -3439,7 +3439,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::DealDamageToTargetController { .. }
         | Effect::DealDamageDivided { .. }
-        | Effect::DealDamageEach { .. } => life::exec(state, res, op),
+        | Effect::DealDamageEach { .. }
+        | Effect::PreventNextDamage { .. }
+        | Effect::PreventAllCombatDamageThisTurn => life::exec(state, res, op),
         Effect::Exile { .. }
         | Effect::Blink { .. }
         | Effect::ReturnToHand { .. }

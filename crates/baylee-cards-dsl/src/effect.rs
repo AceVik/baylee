@@ -1223,6 +1223,25 @@ pub enum Effect {
         /// Which permanents.
         filter: &'static Filter,
     },
+    /// "Prevent the next N damage that would be dealt to any target this
+    /// turn" (Samite Healer; CR 615.7): a shield on each recipient the
+    /// target names, reduced by 1 for each 1 damage it prevents and gone
+    /// once it reaches 0 or the turn's cleanup ends it (CR 514.2).
+    ///
+    /// The recipient is fixed as this resolves and the shield is on that
+    /// object — a creature that leaves the battlefield and comes back is a
+    /// new object (CR 400.7) with no shield.
+    PreventNextDamage {
+        /// Whom the shield is on, as [`Effect::DealDamage`] names a
+        /// recipient.
+        target: TargetSpec,
+        /// How much it prevents in all.
+        amount: Amount,
+    },
+    /// "Prevent all combat damage that would be dealt this turn" (Fog):
+    /// every combat damage event until the turn's cleanup, to anything
+    /// and from anything, and never used up.
+    PreventAllCombatDamageThisTurn,
     /// "You may reveal a card you own from outside the game, or choose a
     /// face-up card you own in exile. Put that card into your hand."
     /// (wishes; Karn, the Great Creator's −2).
@@ -3046,6 +3065,8 @@ impl Effect {
             | Effect::EventObjectDealsDamageEqualToPower { .. }
             | Effect::DealDamageToTargetController { .. }
             | Effect::DealDamageEach { .. }
+            | Effect::PreventNextDamage { .. }
+            | Effect::PreventAllCombatDamageThisTurn
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }
             | Effect::PutTargetOnBottomOfLibrary
