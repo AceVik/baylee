@@ -599,6 +599,18 @@ pub enum CopyMod {
     /// `EnterModifier::WithCounters`: an Ego that declines to copy is the
     /// 0/0 it prints.
     AddCounterX(crate::CounterKind),
+    /// Enters with counters of a kind **if** what it became has one of these
+    /// card types: Spark Double's "…except it enters with an additional
+    /// +1/+1 counter on it if it's a creature, it enters with an additional
+    /// loyalty counter on it if it's a planeswalker".
+    ///
+    /// The types asked are the copy's, read after the copying: the copied
+    /// permanent's copiable values (CR 707.2) with this list's own type
+    /// changes applied (CR 707.9b), never the copier's printed types, which
+    /// the copy replaced. Each clause asks for itself, so a copy of a
+    /// permanent that is both a creature and a planeswalker takes both
+    /// counters, and a copy of one that is neither takes none.
+    AddCounterIf(baylee_core::types::TypeSet, crate::CounterKind, u16),
     /// Keeps the copier's own printed **static** abilities beside the
     /// copied ones ("except it has Sakashima's other abilities").
     ///

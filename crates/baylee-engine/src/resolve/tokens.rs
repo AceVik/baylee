@@ -270,16 +270,21 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
         baylee_cards_dsl::CopyMod::AddKeyword(k) => {
             base.keywords = base.keywords.union(*k);
         }
-        // All three are about the object rather than about the
-        // characteristics this function is handed. A counter is put on by
-        // the caller (CR 614.1c), and an ability is not a `Characteristics`
-        // field at all — `progress::apply_copy_choice` keeps the copier's
-        // statics by registering them as the copy's own continuous effects,
-        // and this token door reaches no effect table. A granted ability
+        // These are about the object rather than about the characteristics
+        // this function is handed. A counter is put on the permanent as it
+        // enters (CR 614.1c), which `progress::apply_copy_choice` does for
+        // the doors that copy a permanent; no token or spell-copy door puts
+        // one, and no card in the pool makes a token copy that enters with a
+        // counter (Littjara Mirrorlake stays Partial for it). An ability is
+        // not a `Characteristics` field at all — `progress::apply_copy_choice`
+        // keeps the copier's statics by registering them as the copy's own
+        // continuous effects, and this token door reaches no effect table.
+        // A granted ability
         // (`CopyMod::Grant`, CR 707.9a) is the same case: a token or spell
         // copy made "except it has …" would lose it here, and nothing in the
         // pool is one.
         baylee_cards_dsl::CopyMod::AddCounter(_, _)
+        | baylee_cards_dsl::CopyMod::AddCounterIf(_, _, _)
         | baylee_cards_dsl::CopyMod::AddCounterX(_)
         | baylee_cards_dsl::CopyMod::KeepOtherAbilities
         | baylee_cards_dsl::CopyMod::Grant(_) => {}

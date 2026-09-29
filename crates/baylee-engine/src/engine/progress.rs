@@ -1375,6 +1375,20 @@ impl<L: CardLookup> Engine<L> {
         let keeps_its_own = mods
             .iter()
             .any(|m| matches!(m, baylee_cards_dsl::CopyMod::KeepOtherAbilities));
+        // What the permanent became, for a counter that asks ("…if it's a
+        // creature"): the copied values (CR 707.2) with this copy's own type
+        // changes (CR 707.9b). Read here, before either branch, because the
+        // two carry those changes in different places — the base, or effects
+        // of their own that end with the turn — and the answer is the same.
+        let became = mods.iter().fold(
+            crate::layers::copiable_values(&self.state, target)
+                .map_or(baylee_core::types::TypeSet::EMPTY, |values| values.types),
+            |types, m| match m {
+                baylee_cards_dsl::CopyMod::AddType(t) => types.union(*t),
+                baylee_cards_dsl::CopyMod::RemoveType(t) => types.difference(*t),
+                _ => types,
+            },
+        );
         if until_eot {
             // Temporary copy: layer-1 effect + mods as their own effects.
             let controller = self
@@ -1456,6 +1470,12 @@ impl<L: CardLookup> Engine<L> {
                         // arriving with counters needs (CR 613.4c), since
                         // nothing in the effect table moved to say so.
                         crate::replacement::put_counters(&mut self.state, id, kind, n);
+                        continue;
+                    }
+                    baylee_cards_dsl::CopyMod::AddCounterIf(types, kind, n) => {
+                        if became.intersects(types) {
+                            crate::replacement::put_counters(&mut self.state, id, kind, n);
+                        }
                         continue;
                     }
                     baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
@@ -1552,12 +1572,17 @@ impl<L: CardLookup> Engine<L> {
                 }
                 baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
                     // The same door as the temporary branch above, for the
-                    // same reason (CR 614.1c, CR 614.16). This is the arm
-                    // a card in the pool actually reaches: Spark Double
-                    // enters with one +1/+1 counter and one loyalty
-                    // counter, and under a Doubling Season it enters with
-                    // two of whichever it can hold.
+                    // same reason (CR 614.1c, CR 614.16).
                     crate::replacement::put_counters(&mut self.state, id, kind, n);
+                }
+                // The arm a card in the pool reaches: Spark Double enters
+                // with a +1/+1 counter if it became a creature and a loyalty
+                // counter if it became a planeswalker, and under a Doubling
+                // Season with two of each it takes.
+                baylee_cards_dsl::CopyMod::AddCounterIf(types, kind, n) => {
+                    if became.intersects(types) {
+                        crate::replacement::put_counters(&mut self.state, id, kind, n);
+                    }
                 }
                 // CR 107.3m: the X announced for the spell that became it.
                 baylee_cards_dsl::CopyMod::AddCounterX(kind) => {

@@ -1353,6 +1353,59 @@ fn a_blinked_spark_double_that_comes_back_as_karn_has_his_printed_loyalty_and_on
     );
 }
 
+/// A copy of a permanent that is both a creature and a planeswalker takes
+/// both of Spark Double's counters: each "if it's a …" clause asks what the
+/// copy became for itself.
+///
+/// No card in the pool prints both types, so Karn's own values are made a
+/// 4/4 creature planeswalker behind the offer's back. It is his copiable
+/// values that change, which is what a copy reads (CR 707.2); an effect that
+/// animated him would not be copied.
+#[test]
+fn a_spark_double_copy_of_a_creature_planeswalker_takes_both_counters() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(50, island())
+        .battlefield(
+            0,
+            &[
+                karn_the_great_creator(),
+                island(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[spark_double()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("karn deployed");
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        let base = state.object_mut(karn).expect("Karn").base_mut();
+        base.types = base.types.union(TypeSet::CREATURE);
+        base.power = Some(4);
+        base.toughness = Some(4);
+        state.invalidate_projections();
+    }
+    engine.refresh_offer();
+
+    let copy = spark_double_copying(&mut engine, p0, karn);
+    let counters = &engine.state().object(copy).expect("the copy").counters;
+    assert_eq!(
+        counters.get(CounterKind::P1P1),
+        1,
+        "a creature: the +1/+1 counter"
+    );
+    assert_eq!(
+        counters.get(CounterKind::Loyalty),
+        karns_printed_loyalty() + 1,
+        "a planeswalker: Karn's printed loyalty and the loyalty counter"
+    );
+}
+
 /// Karn's +1 reads what a permanent is when it is asked, not what it was
 /// printed as: an Island Liquimetal Coating has made an artifact is a
 /// noncreature artifact, and the copy's +1 can point at it. It becomes an

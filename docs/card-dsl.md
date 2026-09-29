@@ -507,8 +507,14 @@ has built.
 - `AbilityDef::Loyalty { cost: i8, effects, targets }`
 - `AbilityDef::CopyOnEnter { target, mods: &[CopyMod] }` — the `mods` are the
   card's "except …" clauses (CR 707.9). Types, supertypes, subtypes, keywords
-  and entry counters are all sayable, and so is "except it has its **other**
-  abilities" (`CopyMod::KeepOtherAbilities`, CR 707.9a) — with one limit worth
+  and entry counters are all sayable. A counter that depends on what the copy
+  is ("…an additional +1/+1 counter on it if it's a creature") is
+  `CopyMod::AddCounterIf(TypeSet::CREATURE, CounterKind::P1P1, 1)`, asked of
+  what the permanent became (the copied values with the clause list's own
+  type changes, CR 707.2, 707.9b) and never of the copier's printed types;
+  a plain `AddCounter` would put it on every copy. "Except it has its
+  **other** abilities" is sayable too (`CopyMod::KeepOtherAbilities`, CR
+  707.9a), with one limit worth
   knowing before writing a card on it: the kept abilities are registered as
   the copy's own continuous effects, so a **static** survives and a triggered
   or activated one does not. A card that needs the second keeps a
