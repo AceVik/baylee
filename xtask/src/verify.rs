@@ -99,6 +99,23 @@ fn validate_findings(root: &Path) -> anyhow::Result<Findings> {
     Ok((by_slug, global))
 }
 
+/// Whether any face of `card` is of a permanent type (CR 110.4).
+fn can_be_permanent(card: CardIndex) -> bool {
+    use baylee_core::types::TypeSet;
+    let permanent = [
+        TypeSet::ARTIFACT,
+        TypeSet::CREATURE,
+        TypeSet::ENCHANTMENT,
+        TypeSet::LAND,
+        TypeSet::PLANESWALKER,
+        TypeSet::BATTLE,
+    ]
+    .iter()
+    .fold(0, |m, t| m | t.bits());
+    baylee_cards::by_index(card)
+        .is_none_or(|d| d.faces.iter().any(|f| f.types.bits() & permanent != 0))
+}
+
 /// Cards named in `path`, one card name or `CardIndex` per line; `#` starts
 /// a comment.
 fn demoted(path: &Path) -> anyhow::Result<BTreeSet<CardIndex>> {
@@ -198,7 +215,9 @@ pub fn verify(root: &Path, inputs: &Args) -> anyhow::Result<()> {
         }
         let mechanics = analysis.as_ref().map(|a| a.stop(*card));
         let fired = firing.as_ref().map(|f| f.gap(*card, analysis.as_ref()));
-        let left = leave.as_ref().and_then(|l| l.gap(*card));
+        let left = leave
+            .as_ref()
+            .and_then(|l| l.gap(*card, can_be_permanent(*card)));
         let stop = match (mechanics, fired, left) {
             (Some(Some(stop)), _, _)
             | (_, Some(Some(stop)), _)

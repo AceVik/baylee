@@ -53,7 +53,7 @@ use baylee_gamehost::Session;
 use baylee_train::deckgen::{self, Archetype, Rng, shape_name};
 use baylee_train::features::{PENDING_KINDS, question};
 use baylee_train::housedeck::HouseDeck;
-use baylee_train::policy::{self, Choice, Picked, Unscored};
+use baylee_train::policy::{self, Picked, Unscored};
 use baylee_train::selfplay::table;
 use baylee_train::working::{Working, repo_root};
 use clap::Parser;
@@ -219,16 +219,7 @@ fn random_answer(
         }
         let choice = options[rng.below(options.len())];
         picks.push(choice);
-        picked.count += 1;
-        match choice {
-            Choice::Entity(o, _) | Choice::Attack(o, _) | Choice::Block(o, _) => {
-                picked.objects.insert(o);
-            }
-            Choice::Player(p) => {
-                picked.players.insert(p);
-            }
-            _ => {}
-        }
+        picked.add(choice);
         if policy::finished(pending, &picked, choice) {
             break;
         }

@@ -299,9 +299,11 @@ impl Leave {
     }
 
     /// Why `card` is not known to leave the battlefield clean, if it is not.
-    pub fn gap(&self, card: CardIndex) -> Option<String> {
+    /// A card that can never be a permanent (an instant, a sorcery) has
+    /// nothing to leave, and the probe rightly does not try it.
+    pub fn gap(&self, card: CardIndex, permanent: bool) -> Option<String> {
         let Some(routes) = self.routes.get(&card) else {
-            return Some("the leave probe did not try it".into());
+            return permanent.then(|| "the leave probe did not try it".into());
         };
         let bad: Vec<String> = routes
             .iter()
@@ -661,17 +663,22 @@ mod tests {
         fs::write(dir.join("leave.jsonl"), lines.join("\n")).unwrap();
         let leave = Leave::read(&dir).unwrap();
         fs::remove_dir_all(&dir).unwrap();
-        assert_eq!(leave.gap(CardIndex::new(1)), None);
+        assert_eq!(leave.gap(CardIndex::new(1), true), None);
         assert!(
             leave
-                .gap(CardIndex::new(2))
+                .gap(CardIndex::new(2), true)
                 .is_some_and(|g| g.contains("bounce lingers (its anthem stays)"))
         );
         assert!(
-            leave.gap(CardIndex::new(3)).is_some(),
+            leave.gap(CardIndex::new(3), true).is_some(),
             "skipped is not known"
         );
-        assert!(leave.gap(CardIndex::new(4)).is_some(), "not probed");
+        assert!(leave.gap(CardIndex::new(4), true).is_some(), "not probed");
+        assert_eq!(
+            leave.gap(CardIndex::new(4), false),
+            None,
+            "an instant has nothing to leave"
+        );
     }
 
     #[test]

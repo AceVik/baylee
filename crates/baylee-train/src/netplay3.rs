@@ -226,16 +226,7 @@ impl NetPlayer3 {
                 return Ok(None);
             };
             picks.push(choice);
-            picked.count += 1;
-            match choice {
-                Choice::Entity(o, _) | Choice::Attack(o, _) | Choice::Block(o, _) => {
-                    picked.objects.insert(o);
-                }
-                Choice::Player(p) => {
-                    picked.players.insert(p);
-                }
-                _ => {}
-            }
+            picked.add(choice);
             if policy::finished(pending, &picked, choice) {
                 break;
             }

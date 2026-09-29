@@ -8,9 +8,11 @@
 //!   decision reads) with the zone and what the question offers for the
 //!   object. A question can offer one of two identical objects and not the
 //!   other; the key keeps them apart, so a pile's member is always as
-//!   offered as its row says. Objects others point at (attackers, blockers,
-//!   an Aura and what it enchants, what a spell targets) and face-down ones
-//!   keep rows of their own. Consecutive identical items on the stack (the
+//!   offered as its row says. Objects others point at (an Aura and what it
+//!   enchants, what a spell targets, an attacked planeswalker) and face-down
+//!   ones keep rows of their own. In combat the key also holds what an
+//!   attacker attacks and who blocks it, and what a blocker blocks: a swarm
+//!   attacking together is one row. Consecutive identical items on the stack (the
 //!   same card, kind, controller and targets) are one row too. Grouping
 //!   comes before the entity cap, and offered rows before the others, so a
 //!   board of hundreds of tokens loses nothing a question can name.
@@ -244,14 +246,9 @@ fn offers(pending: &Pending) -> BTreeMap<ObjectId, i16> {
 fn individual(view: &PlayerView) -> BTreeSet<ObjectId> {
     let mut out = BTreeSet::new();
     for a in &view.combat.attackers {
-        out.insert(a.creature);
         if let Defender::Planeswalker(pw) = a.defending {
             out.insert(pw);
         }
-    }
-    for b in &view.combat.blockers {
-        out.insert(b.blocker);
-        out.insert(b.attacker);
     }
     let publics = view
         .battlefield
@@ -275,6 +272,30 @@ fn individual(view: &PlayerView) -> BTreeSet<ObjectId> {
                 out.insert(*id);
             }
         }
+    }
+    out
+}
+
+/// What combat says about an object, as part of its pile key: an attacker's
+/// defender, whether it is blocked and by whom; a blocker's attackers.
+type CombatKey = (u8, Option<Defender>, bool, Vec<ObjectId>);
+
+fn combat_keys(view: &PlayerView) -> BTreeMap<ObjectId, CombatKey> {
+    let mut blockers_of: BTreeMap<ObjectId, Vec<ObjectId>> = BTreeMap::new();
+    let mut attacked_by: BTreeMap<ObjectId, Vec<ObjectId>> = BTreeMap::new();
+    for b in &view.combat.blockers {
+        blockers_of.entry(b.attacker).or_default().push(b.blocker);
+        attacked_by.entry(b.blocker).or_default().push(b.attacker);
+    }
+    let mut out = BTreeMap::new();
+    for a in &view.combat.attackers {
+        let mut by = blockers_of.remove(&a.creature).unwrap_or_default();
+        by.sort_unstable();
+        out.insert(a.creature, (1, Some(a.defending), a.blocked, by));
+    }
+    for (blocker, mut attackers) in attacked_by {
+        attackers.sort_unstable();
+        out.entry(blocker).or_insert((2, None, false, attackers));
     }
     out
 }
@@ -330,7 +351,8 @@ fn entities<'a>(
         (zone::EXILE, view.exile.iter().flatten().collect()),
     ];
     // Looked up only, never iterated: the order is the view's.
-    let mut piles: HashMap<(i16, ObjectSummaryKey, i16), usize> = HashMap::new();
+    let combat = combat_keys(view);
+    let mut piles: HashMap<(i16, ObjectSummaryKey, i16, Option<CombatKey>), usize> = HashMap::new();
     for (z, objects) in publics {
         for o in objects {
             if alone.contains(&o.id) {
@@ -341,7 +363,12 @@ fn entities<'a>(
                 });
                 continue;
             }
-            let key = (z, o.summary_key(), offers.get(&o.id).copied().unwrap_or(0));
+            let key = (
+                z,
+                o.summary_key(),
+                offers.get(&o.id).copied().unwrap_or(0),
+                combat.get(&o.id).cloned(),
+            );
             if let Some(&at) = piles.get(&key) {
                 out[at].members.push(o.id);
             } else {
@@ -653,6 +680,10 @@ pub fn encode(view: &PlayerView, pending: &Pending, picked: &Picked, table: &Tab
 /// The answers `pending` offers at this step, one per row an answer can
 /// name: of several members of one pile, the lowest unpicked one stands for
 /// the pile. Each with the (head, a, b) triple the policy scores.
+///
+/// A blocker assigned to a pile of identical attackers blocks the one with
+/// the fewest blockers so far, so blocks spread over the pile. The price: of
+/// identical attackers, the net cannot double-block one and leave another.
 #[must_use]
 pub fn options(
     encoded: &Encoded,
@@ -665,8 +696,13 @@ pub fn options(
     let row_of = |id| encoded.slots.get(&id).copied();
     let rel_of = |p| rel(view.seat, p, seats);
     let mut choices = policy::options(pending, &hand, picked).unwrap_or_default();
-    // Lowest member first, so the first choice kept for a triple is it.
+    // Lowest member first, so the first choice kept for a triple is it; for
+    // a block, the attacker with the fewest blockers first.
     choices.sort();
+    choices.sort_by_key(|c| match c {
+        Choice::Block(_, attacker) => picked.blocked.get(attacker).copied().unwrap_or(0),
+        _ => 0,
+    });
     let mut seen: BTreeSet<(i16, i16, i16)> = BTreeSet::new();
     let mut out = Vec::new();
     for c in choices {
@@ -852,6 +888,85 @@ mod tests {
             .collect();
         assert_eq!(standing.len(), 1);
         assert!(matches!(standing[0], Choice::Entity(o, _) if *o == pile[0]));
+    }
+
+    /// Two swarms of 300 identical creatures in combat: the attackers are one
+    /// row and the blockers one row, nothing offered is dropped, and two
+    /// blockers assigned into the attacking pile block two of its members.
+    #[test]
+    fn a_swarm_in_combat_is_one_row_per_side() {
+        let (a, b) = (house("allytifact"), house("victory"));
+        let mut preset = crate::selfplay::table(5, &a, &b, [AIProfile::default(); 2]);
+        let creature = [
+            "Grizzly Bears",
+            "Savannah Lions",
+            "Llanowar Elves",
+            "Elvish Mystic",
+        ]
+        .iter()
+        .find_map(|n| baylee_cards::decks::by_name(n))
+        .expect("a small creature in the pool");
+        for seat in &mut preset.seats {
+            let print = seat.deck[0].print;
+            seat.starting_battlefield = vec![
+                DeckEntry {
+                    card: creature,
+                    print
+                };
+                300
+            ];
+        }
+        let mut engine = dealt(&preset);
+        let mut checked = false;
+        for _ in 0..400 {
+            match engine.pending().clone() {
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                Pending::ChooseAttackers {
+                    player, attackers, ..
+                } => {
+                    let defender = PlayerId::new(1 - player.get());
+                    let all = attackers
+                        .iter()
+                        .map(|a| (*a, Defender::Player(defender)))
+                        .collect();
+                    engine
+                        .apply(player, PlayerAction::DeclareAttackers { attackers: all })
+                        .unwrap();
+                }
+                Pending::ChooseBlockers { player, .. } => {
+                    let pending = engine.pending().clone();
+                    let view = seat_view(&engine, player, &pending, 0);
+                    assert!(view.combat.attackers.len() >= 300);
+                    let deck = deck_list(&preset.seats[usize::from(player.get())]);
+                    let table = Table {
+                        teams: &[],
+                        deck: &deck,
+                    };
+                    let enc = encode(&view, &pending, &Picked::default(), &table);
+                    assert_eq!(enc.offered_dropped, 0);
+                    assert!(enc.rows.len() < 20, "{} rows", enc.rows.len());
+                    let mut picked = Picked::default();
+                    let mut blocked = Vec::new();
+                    for _ in 0..2 {
+                        let (choice, _) = options(&enc, &view, &pending, &picked)
+                            .into_iter()
+                            .find(|(c, _)| matches!(c, Choice::Block(..)))
+                            .expect("a block is offered");
+                        if let Choice::Block(_, attacker) = choice {
+                            blocked.push(attacker);
+                        }
+                        picked.add(choice);
+                    }
+                    assert_ne!(blocked[0], blocked[1], "blocks spread over the pile");
+                    checked = true;
+                    break;
+                }
+                other => panic!("unexpected question {other:?}"),
+            }
+        }
+        assert!(checked, "the game reached a declaration of blockers");
     }
 
     /// Seats are rows in turn order from the deciding seat, with their side.

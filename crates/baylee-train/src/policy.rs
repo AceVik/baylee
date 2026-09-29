@@ -147,6 +147,28 @@ pub struct Picked {
     pub players: BTreeSet<PlayerId>,
     /// How many picks were made.
     pub count: usize,
+    /// Per attacker, how many blockers the answer so far assigned to it.
+    pub blocked: std::collections::BTreeMap<ObjectId, u16>,
+}
+
+impl Picked {
+    /// Records `choice` as the answer's next pick.
+    pub fn add(&mut self, choice: Choice) {
+        self.count += 1;
+        match choice {
+            Choice::Entity(o, _) | Choice::Attack(o, _) => {
+                self.objects.insert(o);
+            }
+            Choice::Block(blocker, attacker) => {
+                self.objects.insert(blocker);
+                *self.blocked.entry(attacker).or_default() += 1;
+            }
+            Choice::Player(p) => {
+                self.players.insert(p);
+            }
+            _ => {}
+        }
+    }
 }
 
 /// Why a question has no options the net scores.
@@ -461,16 +483,7 @@ pub fn steps(
             picked: picked.clone(),
             chosen: choice,
         });
-        picked.count += 1;
-        match choice {
-            Choice::Entity(o, _) | Choice::Attack(o, _) | Choice::Block(o, _) => {
-                picked.objects.insert(o);
-            }
-            Choice::Player(p) => {
-                picked.players.insert(p);
-            }
-            _ => {}
-        }
+        picked.add(choice);
     }
     if multi && !complete(pending, &picked) {
         let offered = options(pending, hand, &picked).map_err(Unmatched::Unscored)?;
