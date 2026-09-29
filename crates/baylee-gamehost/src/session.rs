@@ -1397,6 +1397,22 @@ impl Session {
         )
     }
 
+    /// What an agent that is not the house answers `seat`'s current question
+    /// from — the question and [`Session::agent_view`]'s view of it — or
+    /// `None` when `seat` is asked nothing.
+    ///
+    /// For an offline player of a chair taken over with
+    /// [`Session::take_over`] (the trained AI's self-play in `baylee-train`),
+    /// which then answers with [`Session::act`]. It is the house's answering
+    /// view, not what a socket is sent: no clock, no policy acts, and never a
+    /// teammate's shared hand, because an AI chair is shown nothing (#265).
+    #[must_use]
+    pub fn view_for(&self, seat: PlayerId) -> Option<(Pending, PlayerView)> {
+        let pending = self.engine.pending_for(seat)?.clone();
+        let view = self.agent_view(seat, &pending);
+        Some((pending, view))
+    }
+
     /// The sequence number a client should report back when it resumes.
     #[must_use]
     pub const fn seq(&self) -> u64 {

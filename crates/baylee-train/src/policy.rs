@@ -485,6 +485,124 @@ pub fn steps(
     Ok(out)
 }
 
+/// Whether an answer to `pending` is finished once `picked` holds `last`:
+/// "done" was picked, a single-pick question was answered, or a multi-pick
+/// one reached its count.
+#[must_use]
+pub fn finished(pending: &Pending, picked: &Picked, last: Choice) -> bool {
+    last == Choice::Fixed(fixed::DONE)
+        || !matches!(
+            pending,
+            Pending::ChooseAttackers { .. }
+                | Pending::ChooseBlockers { .. }
+                | Pending::MulliganBottom { .. }
+                | Pending::DiscardChoice { .. }
+                | Pending::LegendChoice { .. }
+                | Pending::ChooseCards { .. }
+                | Pending::ChooseTargets { .. }
+        )
+        || complete(pending, picked)
+}
+
+/// The one answer a sequence of picks makes: the inverse of [`steps`].
+///
+/// # Errors
+/// [`Unmatched::Shape`] when the picks do not make an answer to `pending`.
+pub fn assemble(pending: &Pending, picks: &[Choice]) -> Result<PlayerAction, Unmatched> {
+    let objects = || -> Vec<ObjectId> {
+        picks
+            .iter()
+            .filter_map(|c| match c {
+                Choice::Entity(o, verb::PICK) => Some(*o),
+                _ => None,
+            })
+            .collect()
+    };
+    let players = || -> Vec<PlayerId> {
+        picks
+            .iter()
+            .filter_map(|c| match c {
+                Choice::Player(p) => Some(*p),
+                _ => None,
+            })
+            .collect()
+    };
+    let first = picks.first().copied().ok_or(Unmatched::Shape)?;
+    Ok(match pending {
+        Pending::Mulligan { .. } | Pending::YesNo { .. } | Pending::Priority { .. } => {
+            match first {
+                Choice::Fixed(fixed::KEEP) => PlayerAction::MulliganKeep,
+                Choice::Fixed(fixed::MULLIGAN) => PlayerAction::MulliganTake,
+                Choice::Fixed(fixed::YES) => PlayerAction::YesNo(true),
+                Choice::Fixed(fixed::NO) => PlayerAction::YesNo(false),
+                Choice::Fixed(fixed::PASS) => PlayerAction::PassPriority,
+                Choice::Entity(card, verb::LAND) => PlayerAction::PlayLand { card },
+                Choice::Entity(card, verb::CAST) => PlayerAction::CastSpell { card },
+                Choice::Entity(card, verb::SUSPEND) => PlayerAction::Suspend { card },
+                Choice::Entity(source, verb::MANA) => PlayerAction::ActivateManaAbility { source },
+                Choice::Ability(source, ability_index) => PlayerAction::ActivateAbility {
+                    source,
+                    ability_index,
+                },
+                _ => return Err(Unmatched::Shape),
+            }
+        }
+        Pending::ChooseAttackers { .. } => PlayerAction::DeclareAttackers {
+            attackers: picks
+                .iter()
+                .filter_map(|c| match c {
+                    Choice::Attack(a, d) => Some((*a, *d)),
+                    _ => None,
+                })
+                .collect(),
+        },
+        Pending::ChooseBlockers { .. } => PlayerAction::DeclareBlockers {
+            blockers: picks
+                .iter()
+                .filter_map(|c| match c {
+                    Choice::Block(b, a) => Some((*b, *a)),
+                    _ => None,
+                })
+                .collect(),
+        },
+        Pending::MulliganBottom { .. }
+        | Pending::DiscardChoice { .. }
+        | Pending::LegendChoice { .. }
+        | Pending::ChooseCards { .. } => PlayerAction::ChooseObjects { objects: objects() },
+        Pending::ChooseTargets { .. } => PlayerAction::ChooseTargets {
+            objects: objects(),
+            players: players(),
+        },
+        Pending::ChooseSubtype { .. } => match first {
+            Choice::Subtype(s) => PlayerAction::ChooseSubtype(baylee_core::ids::SubtypeId::new(s)),
+            _ => return Err(Unmatched::Shape),
+        },
+        Pending::ChooseColor { options, .. } => match first {
+            Choice::Color(c) => PlayerAction::ChooseColor(
+                *options
+                    .iter()
+                    .find(|o| color_number(**o) == c)
+                    .ok_or(Unmatched::Shape)?,
+            ),
+            _ => return Err(Unmatched::Shape),
+        },
+        Pending::ChooseCastMode { .. } => match first {
+            Choice::Mode(i) => PlayerAction::ChooseMode(i),
+            _ => return Err(Unmatched::Shape),
+        },
+        Pending::ChooseNumber { .. } => match first {
+            Choice::Number(n) => PlayerAction::ChooseNumber(n),
+            _ => return Err(Unmatched::Shape),
+        },
+        Pending::ChoosePlayer { .. } => match first {
+            Choice::Player(p) => PlayerAction::ChoosePlayer(p),
+            _ => return Err(Unmatched::Shape),
+        },
+        Pending::Arrange { .. } => return Err(Unmatched::Unscored(Unscored::Unsupported)),
+        Pending::GameOver(_) => return Err(Unmatched::Unscored(Unscored::Over)),
+    })
+}
+
 /// An option as the net scores it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Opt {
@@ -545,4 +663,114 @@ pub fn offered_objects(pending: &Pending, hand: &[ObjectId]) -> BTreeSet<ObjectI
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::housedeck::HouseDeck;
+    use crate::selfplay::{Caps, play, table};
+    use baylee_core::preset::AIProfile;
+    use baylee_engine::engine::Engine;
+    use baylee_gamehost::RegistryLookup;
+    use baylee_gamehost::record::Line;
+
+    /// The same answer with its lists in handle order, since the order of a
+    /// declaration's pairs or of chosen objects carries nothing.
+    fn canonical(action: PlayerAction) -> PlayerAction {
+        match action {
+            PlayerAction::DeclareAttackers { mut attackers } => {
+                attackers.sort();
+                PlayerAction::DeclareAttackers { attackers }
+            }
+            PlayerAction::DeclareBlockers { mut blockers } => {
+                blockers.sort();
+                PlayerAction::DeclareBlockers { blockers }
+            }
+            PlayerAction::ChooseObjects { mut objects } => {
+                objects.sort();
+                PlayerAction::ChooseObjects { objects }
+            }
+            PlayerAction::ChooseTargets {
+                mut objects,
+                mut players,
+            }
+            | PlayerAction::ChooseTargetBatch {
+                mut objects,
+                mut players,
+                ..
+            } => {
+                objects.sort();
+                players.sort();
+                PlayerAction::ChooseTargets { objects, players }
+            }
+            other => other,
+        }
+    }
+
+    /// Every answer the house gave, taken apart into steps and put together
+    /// again, is the answer it gave: what the net will send when it plays is
+    /// what it was taught from. An object-only target answer comes back as
+    /// `ChooseTargets` with no players, which the engine takes the same way.
+    #[test]
+    fn steps_and_assemble_are_inverses() {
+        let a = HouseDeck::named("allytifact").unwrap();
+        let b = HouseDeck::named("victory").unwrap();
+        let mut checked = 0;
+        for seed in [21, 22] {
+            let preset = table(seed, &a, &b, [AIProfile::SHARP, AIProfile::STEADY]);
+            let caps = Caps {
+                answers: 20_000,
+                wall: std::time::Duration::from_secs(120),
+            };
+            let record = play(&preset, &format!("policy-{seed}"), caps).record;
+            let lines: Vec<Line> = record
+                .split(|&b| b == b'\n')
+                .filter(|l| !l.is_empty())
+                .map(|l| serde_json::from_slice(l).unwrap())
+                .collect();
+            let Line::Header { preset, .. } = &lines[0] else {
+                panic!("a header")
+            };
+            let mut engine = Engine::new(preset, RegistryLookup).unwrap();
+            for line in &lines[1..] {
+                let Line::Input { seat, action, .. } = line else {
+                    continue;
+                };
+                let player = PlayerId::new(*seat);
+                if let Some(pending) = engine.pending_for(player).cloned()
+                    && !action.is_automation_setting()
+                {
+                    let hand: Vec<ObjectId> = engine
+                        .state()
+                        .zones
+                        .list(baylee_engine::zone::ZoneLocation::Hand(player))
+                        .clone();
+                    if let Ok(steps) = steps(&pending, &hand, action) {
+                        let picks: Vec<Choice> = steps.iter().map(|s| s.chosen).collect();
+                        let rebuilt = assemble(&pending, &picks).expect("the picks assemble");
+                        let expected = match action.clone() {
+                            PlayerAction::ChooseObjects { objects }
+                                if matches!(pending, Pending::ChooseTargets { .. }) =>
+                            {
+                                PlayerAction::ChooseTargets {
+                                    objects,
+                                    players: vec![],
+                                }
+                            }
+                            other => other,
+                        };
+                        assert_eq!(canonical(rebuilt), canonical(expected));
+                        let last = steps.last().unwrap();
+                        let mut picked = last.picked.clone();
+                        picked.count += 1;
+                        assert!(finished(&pending, &picked, last.chosen), "{pending:?}");
+                        checked += 1;
+                    }
+                }
+                engine.apply(player, action.clone()).unwrap();
+            }
+        }
+        assert!(checked > 500, "only {checked} answers checked");
+    }
 }
