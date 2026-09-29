@@ -2787,6 +2787,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::CreateTokenCopyOfFirstToken
         | Effect::CreateTokenCopyOfEquipped { .. }
         | Effect::CreateTokenCopyOfTarget { .. }
+        | Effect::CreateTokenCopyOfSource { .. }
         | Effect::CreateTokenN { .. }
         | Effect::CreateTokenPtPerCount { .. }
         | Effect::CreateToken { .. }

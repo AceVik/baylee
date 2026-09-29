@@ -1688,6 +1688,14 @@ pub enum Effect {
         /// "Sacrifice it at the beginning of the next end step."
         sacrifice_at_next_end_step: bool,
     },
+    /// "Create a token that's a copy of it, except …" where "it" is the
+    /// source card itself (eternalize and embalm, CR 702.129a, 702.128a):
+    /// the card was exiled to pay the cost, and the copy takes its copiable
+    /// values there (CR 707.2) with `mods` applied (CR 707.9).
+    CreateTokenCopyOfSource {
+        /// The "except" clauses.
+        mods: &'static [crate::ability::CopyMod],
+    },
     /// Create a token that's a copy of the creature the source is attached
     /// to (Helm of the Host).
     CreateTokenCopyOfEquipped {
@@ -2552,6 +2560,7 @@ impl Effect {
             | Effect::Populate
             | Effect::CreateTokenCopyOfEquipped { .. }
             | Effect::CreateTokenCopyOfTarget { .. }
+            | Effect::CreateTokenCopyOfSource { .. }
             | Effect::CreateTokenCopyOfFirstToken
             | Effect::BottomCardFromHand { .. }
             | Effect::CopyTargetSpell { .. }

@@ -1509,6 +1509,15 @@ hashes, layers and does nothing. This paragraph said THREE until
 - **Emblem statics** register from the command zone (CR 114.4), once, with
   `Duration::Indefinitely` (`progress::emblem_statics`). Before this, an
   emblem's static ability compiled and did nothing.
+- **`ActivationZone::Graveyard`** is an ability activated from its owner's
+  graveyard (eternalize, embalm). The offer walks the graveyard beside the
+  hand, with the same arms, and `ExileSelf` pays "exile this card from your
+  graveyard".
+- **`Effect::CreateTokenCopyOfSource { mods }`** is "create a token that's a
+  copy of it, except …" where "it" is the source card, wherever the cost put
+  it (CR 707.2). The new `CopyMod`s are `SetPT(p, t)`, `SetColor(colors)`
+  (replaces the colors) and `NoManaCost` (mana value 0), all copiable values
+  of the token (CR 707.9b). Fanatic of Rhonas writes eternalize with them.
 - **`Effect::MillMayTakeOne { amount, filter }`** is "mill `amount` cards. You
   may put a [filter] card from among the milled cards into your hand" (Wrenn's
   −2). A `ChooseCards` with `min: 0`, `max: 1`, prompt `PutIntoHand`, over the

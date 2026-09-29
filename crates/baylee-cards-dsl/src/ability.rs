@@ -46,6 +46,9 @@ pub enum ActivationZone {
     Battlefield,
     /// From your hand (cycling).
     Hand,
+    /// From your graveyard (eternalize, embalm): the card is in its owner's
+    /// graveyard and the owner activates it.
+    Graveyard,
 }
 
 /// Steps/phases triggers can listen to.
@@ -546,6 +549,15 @@ pub enum CopyMod {
     AddKeyword(crate::KeywordSet),
     /// Enters with counters of a kind.
     AddCounter(crate::CounterKind, u16),
+    /// Sets power and toughness ("except it's a 4/4", eternalize,
+    /// CR 702.129a). A copiable value of the copy (CR 707.9b).
+    SetPT(i16, i16),
+    /// Sets the colors ("except it's black"), replacing the copied ones
+    /// (CR 707.9b).
+    SetColor(baylee_core::color::ColorSet),
+    /// "…with no mana cost" (embalm, eternalize): the copy has no mana
+    /// cost, so its mana value is 0 (CR 202.3a).
+    NoManaCost,
     /// Keeps the copier's own printed **static** abilities beside the
     /// copied ones ("except it has Sakashima's other abilities").
     ///

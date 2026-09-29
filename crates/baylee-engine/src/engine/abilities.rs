@@ -440,116 +440,125 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
-        // Hand-zone activations (cycling) and suspensions.
-        for &card in self.state.zones.list(ZoneLocation::Hand(player)) {
-            let Some(obj) = self.state.object(card) else {
-                continue;
-            };
-            let Some(card_ref) = obj.card else { continue };
-            let Some(def) = self.lookup.card(card_ref.index) else {
-                continue;
-            };
-            for (i, ability) in def
-                .abilities_for_face(obj.face_index as usize)
-                .iter()
-                .enumerate()
-            {
-                match ability {
-                    AbilityDef::Activated {
-                        cost,
-                        timing,
-                        zone,
-                        targets,
-                        second_targets,
-                        limit,
-                        cost_reduction,
-                        ..
-                    } => {
-                        if *zone != ActivationZone::Hand {
-                            continue;
+        // Hand-zone activations (cycling) and suspensions, and the
+        // graveyard's (eternalize): the same arms, each ability asked
+        // whether the zone it is in is the zone it works from.
+        for (from_zone, from) in [
+            (ZoneLocation::Hand(player), ActivationZone::Hand),
+            (ZoneLocation::Graveyard(player), ActivationZone::Graveyard),
+        ] {
+            for &card in self.state.zones.list(from_zone) {
+                let Some(obj) = self.state.object(card) else {
+                    continue;
+                };
+                let Some(card_ref) = obj.card else { continue };
+                let Some(def) = self.lookup.card(card_ref.index) else {
+                    continue;
+                };
+                for (i, ability) in def
+                    .abilities_for_face(obj.face_index as usize)
+                    .iter()
+                    .enumerate()
+                {
+                    match ability {
+                        AbilityDef::Activated {
+                            cost,
+                            timing,
+                            zone,
+                            targets,
+                            second_targets,
+                            limit,
+                            cost_reduction,
+                            ..
+                        } => {
+                            if *zone != from {
+                                continue;
+                            }
+                            if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                                continue;
+                            }
+                            if self.activation_limit_spent(card, i as u32, *limit) {
+                                continue;
+                            }
+                            // The same probe as the battlefield arms, for the
+                            // reason `ability_has_a_target` gives. This arm once
+                            // asked only about the turn and the price, so
+                            // Rustic Clachan's reinforce was offered on a board
+                            // with no creature and then refused with "no legal
+                            // targets". The source is the card in hand, so a
+                            // filter saying "another" still reads it right.
+                            if !self.ability_has_a_target(player, card, *targets)
+                                || !self.ability_has_a_target(player, card, *second_targets)
+                            {
+                                continue;
+                            }
+                            let cost = self.activation_price(player, card, cost, *cost_reduction);
+                            if self.activation_affordable(player, card, &cost, &[]) {
+                                legal.abilities.push((card, i as u32));
+                            }
                         }
-                        if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
-                            continue;
+                        AbilityDef::ActivatedConditional {
+                            cost,
+                            timing,
+                            zone,
+                            condition,
+                            targets,
+                            second_targets,
+                            limit,
+                            cost_reduction,
+                            ..
+                        } => {
+                            // The same ability with a precondition on it — the
+                            // battlefield scan above has both arms, and this one
+                            // had only the first, so a cycling ability behind an
+                            // "activate only if…" clause would never be offered
+                            // at all. No card in the pool prints one today; the
+                            // hole is closed rather than recorded, because the
+                            // arm is four lines longer than the note would be.
+                            if *zone != from {
+                                continue;
+                            }
+                            if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                                continue;
+                            }
+                            if self.activation_limit_spent(card, i as u32, *limit) {
+                                continue;
+                            }
+                            if !crate::eval::condition_holds(&self.state, player, card, *condition)
+                            {
+                                continue;
+                            }
+                            if !self.ability_has_a_target(player, card, *targets)
+                                || !self.ability_has_a_target(player, card, *second_targets)
+                            {
+                                continue;
+                            }
+                            let cost = self.activation_price(player, card, cost, *cost_reduction);
+                            if self.activation_affordable(player, card, &cost, &[]) {
+                                legal.abilities.push((card, i as u32));
+                            }
                         }
-                        if self.activation_limit_spent(card, i as u32, *limit) {
-                            continue;
-                        }
-                        // The same probe as the battlefield arms, for the
-                        // reason `ability_has_a_target` gives. This arm once
-                        // asked only about the turn and the price, so
-                        // Rustic Clachan's reinforce was offered on a board
-                        // with no creature and then refused with "no legal
-                        // targets". The source is the card in hand, so a
-                        // filter saying "another" still reads it right.
-                        if !self.ability_has_a_target(player, card, *targets)
-                            || !self.ability_has_a_target(player, card, *second_targets)
+                        // Suspend's first ability is an activated one with a cost
+                        // and "activate only as a sorcery" on it (CR 702.62a) —
+                        // "rather than cast this card from your hand, **pay
+                        // {U}** and exile it", as Ancestral Vision's reminder
+                        // text puts it. So it is offered on the same two
+                        // conditions as every other activation above, and this
+                        // was the one branch here that asked only about the
+                        // turn: a card with suspend was offered as suspendable
+                        // off an empty pool, and `actions.rs` — which *does* pay
+                        // the cost — then refused it. An offer the answer
+                        // disagrees with is worse than no offer, because the
+                        // client draws it as something to click.
+                        AbilityDef::Suspend { cost, .. }
+                            if from == ActivationZone::Hand
+                                && sorcery_timing
+                                && self.can_pay_mana(player, casting::SpendFor::Other, cost) =>
                         {
-                            continue;
+                            legal.suspendable.push(card);
                         }
-                        let cost = self.activation_price(player, card, cost, *cost_reduction);
-                        if self.activation_affordable(player, card, &cost, &[]) {
-                            legal.abilities.push((card, i as u32));
-                        }
+                        _ => {}
                     }
-                    AbilityDef::ActivatedConditional {
-                        cost,
-                        timing,
-                        zone,
-                        condition,
-                        targets,
-                        second_targets,
-                        limit,
-                        cost_reduction,
-                        ..
-                    } => {
-                        // The same ability with a precondition on it — the
-                        // battlefield scan above has both arms, and this one
-                        // had only the first, so a cycling ability behind an
-                        // "activate only if…" clause would never be offered
-                        // at all. No card in the pool prints one today; the
-                        // hole is closed rather than recorded, because the
-                        // arm is four lines longer than the note would be.
-                        if *zone != ActivationZone::Hand {
-                            continue;
-                        }
-                        if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
-                            continue;
-                        }
-                        if self.activation_limit_spent(card, i as u32, *limit) {
-                            continue;
-                        }
-                        if !crate::eval::condition_holds(&self.state, player, card, *condition) {
-                            continue;
-                        }
-                        if !self.ability_has_a_target(player, card, *targets)
-                            || !self.ability_has_a_target(player, card, *second_targets)
-                        {
-                            continue;
-                        }
-                        let cost = self.activation_price(player, card, cost, *cost_reduction);
-                        if self.activation_affordable(player, card, &cost, &[]) {
-                            legal.abilities.push((card, i as u32));
-                        }
-                    }
-                    // Suspend's first ability is an activated one with a cost
-                    // and "activate only as a sorcery" on it (CR 702.62a) —
-                    // "rather than cast this card from your hand, **pay
-                    // {U}** and exile it", as Ancestral Vision's reminder
-                    // text puts it. So it is offered on the same two
-                    // conditions as every other activation above, and this
-                    // was the one branch here that asked only about the
-                    // turn: a card with suspend was offered as suspendable
-                    // off an empty pool, and `actions.rs` — which *does* pay
-                    // the cost — then refused it. An offer the answer
-                    // disagrees with is worse than no offer, because the
-                    // client draws it as something to click.
-                    AbilityDef::Suspend { cost, .. }
-                        if sorcery_timing
-                            && self.can_pay_mana(player, casting::SpendFor::Other, cost) =>
-                    {
-                        legal.suspendable.push(card);
-                    }
-                    _ => {}
                 }
             }
         }
@@ -1333,6 +1342,10 @@ impl<L: CardLookup> Engine<L> {
                 .state
                 .object(source)
                 .is_some_and(|o| o.zone == Zone::Hand && o.zone_owner == Some(player)),
+            ActivationZone::Graveyard => self
+                .state
+                .object(source)
+                .is_some_and(|o| o.zone == Zone::Graveyard && o.zone_owner == Some(player)),
         };
         if !in_right_zone {
             return Err(EngineError::IllegalAction(

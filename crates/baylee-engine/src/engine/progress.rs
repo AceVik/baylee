@@ -1423,6 +1423,14 @@ impl<L: CardLookup> Engine<L> {
                     // its modifier derives (CR 613.1f for a grant), ending
                     // with the turn like the rest of this copy.
                     baylee_cards_dsl::CopyMod::Grant(modifier) => (modifier.layer(), *modifier),
+                    baylee_cards_dsl::CopyMod::SetPT(p, t) => (
+                        baylee_cards_dsl::Layer::PtSet,
+                        baylee_cards_dsl::Modifier::SetPT(p, t),
+                    ),
+                    baylee_cards_dsl::CopyMod::SetColor(c) => (
+                        baylee_cards_dsl::Layer::Color,
+                        baylee_cards_dsl::Modifier::SetColor(c),
+                    ),
                     baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
                         // "…except it enters with an additional counter on
                         // it" is a replacement effect (CR 614.1c), and a
@@ -1443,8 +1451,12 @@ impl<L: CardLookup> Engine<L> {
                     // what was copied at all but an addition beside it
                     // (CR 707.9a), already paid above and before this loop,
                     // while the copier's own list is still reachable.
+                    // And no `Modifier` sets a mana cost: "with no mana
+                    // cost" is printed on token copies (embalm, eternalize)
+                    // and on no copy that lasts until end of turn.
                     baylee_cards_dsl::CopyMod::RemoveSupertype(_)
-                    | baylee_cards_dsl::CopyMod::KeepOtherAbilities => continue,
+                    | baylee_cards_dsl::CopyMod::KeepOtherAbilities
+                    | baylee_cards_dsl::CopyMod::NoManaCost => continue,
                 };
                 let ts = self.state.next_timestamp();
                 self.state
@@ -1520,6 +1532,17 @@ impl<L: CardLookup> Engine<L> {
                 baylee_cards_dsl::CopyMod::AddKeyword(k) => {
                     let b = obj.base_mut();
                     b.keywords = b.keywords.union(k);
+                }
+                baylee_cards_dsl::CopyMod::SetPT(p, t) => {
+                    let b = obj.base_mut();
+                    b.power = Some(p);
+                    b.toughness = Some(t);
+                }
+                baylee_cards_dsl::CopyMod::SetColor(c) => {
+                    obj.base_mut().colors = c;
+                }
+                baylee_cards_dsl::CopyMod::NoManaCost => {
+                    obj.base_mut().mana_cost = baylee_core::mana::ManaCost::ZERO;
                 }
                 baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
                     // The same door as the temporary branch above, for the
