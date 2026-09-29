@@ -161,7 +161,7 @@ pub fn face_modes(
     abilities
         .iter()
         .find_map(|a| match a {
-            AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+            AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
                 Some(*modes)
             }
             _ => None,
@@ -340,7 +340,7 @@ pub fn grants_in(
         | AbilityDef::ActivatedConditional { effects, .. }
         | AbilityDef::SagaChapter { effects, .. }
         | AbilityDef::Loyalty { effects, .. } => vec![*effects],
-        AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
             modes.iter().map(|m| m.effects).collect()
         }
         // Nothing here resolves through an effect list a card wrote: a
@@ -663,6 +663,16 @@ mod tests {
     /// Archangel Avacyn, hand-written with `Trigger::TransformsIntoThis` —
     /// a transforming back face prints the trigger that fires as it turns
     /// up, so both backs reach the stack. Two cards, no generator round.
+    ///
+    /// Read again the same day, at **eighteen**: Fable of the Mirror-Breaker,
+    /// whose Reflection of Kiki-Jiki copies a creature for `{1}, {T}` —
+    /// written by hand once `CreateTokenCopyOfTarget` carried its haste and
+    /// its end-step sacrifice. One card, no generator round.
+    /// Read again the same day, at **nineteen**: Walk-In Closet, whose right
+    /// half, Forgotten Cellar, prints "When you unlock this door" once Rooms
+    /// were written. A Room's second half is its "back" here only because a
+    /// card's second face is; it is cast as often as the first. One card,
+    /// no generator round.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -688,11 +698,13 @@ mod tests {
                 "Path of Mettle",
                 "Hostile Hostel",
                 "Mirrorhall Mimic",
+                "Fable of the Mirror-Breaker",
                 "Sheoldred",
                 "Dowsing Device",
                 "Grasping Shadows",
                 "Ojer Kaslem, Deepest Growth",
                 "Ojer Pakpatiq, Deepest Epoch",
+                "Walk-In Closet",
                 "Balamb Garden, SeeD Academy",
                 "Sidequest: Catch a Fish"
             ],
@@ -1002,7 +1014,7 @@ mod tests {
                 let sets: Vec<&'static [baylee_cards_dsl::SpellMode]> = abilities
                     .iter()
                     .filter_map(|a| match a {
-                        AbilityDef::ModalSpell { modes }
+                        AbilityDef::ModalSpell { modes, .. }
                         | AbilityDef::ModalTriggered { modes, .. } => Some(*modes),
                         _ => None,
                     })

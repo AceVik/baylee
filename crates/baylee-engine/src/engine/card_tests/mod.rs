@@ -120,6 +120,10 @@ fn jin_gitaxias() -> CardIndex {
     card_index("f5daadc1-98ff-480a-82bb-fe7bfaa7b60e")
 }
 
+fn unsummon() -> CardIndex {
+    card_index("837182db-1bf3-4a2c-bd01-1af9d9873561")
+}
+
 fn swords_to_plowshares() -> CardIndex {
     card_index("b1544f21-7e98-461b-aed5-e748b0168c52")
 }
@@ -400,6 +404,22 @@ fn virtue_of_knowledge() -> CardIndex {
     card_index("f0bbcabf-29e7-4c7e-893f-86b64d3620a9")
 }
 
+fn badgermole_cub() -> CardIndex {
+    card_index("2b0afb89-0944-4861-b9c3-e909e2ac215e")
+}
+
+fn pinnacle_monk() -> CardIndex {
+    card_index("f3d48efa-910a-4872-a5b1-a353c5dbce99")
+}
+
+fn desert_of_the_indomitable() -> CardIndex {
+    card_index("852d4dc3-404d-4565-99e9-1eac8f6eca5e")
+}
+
+fn boomerang() -> CardIndex {
+    card_index("dc4a4996-108a-4aac-850f-2d9f76403446")
+}
+
 fn erode() -> CardIndex {
     card_index("2e467fab-e808-44d3-99bf-e3621baeb7cb")
 }
@@ -677,6 +697,70 @@ fn reveal_on_entry(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: Ob
             },
         )
         .expect("a card the entry question put on the menu is a legal answer");
+}
+
+/// What the player holding priority may do now.
+#[track_caller]
+fn priority_offer(engine: &Engine<RegistryLookup>) -> crate::choice::LegalActions {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    *legal
+}
+
+/// Casts the object `card` (wherever it is) off floating mana and lets it
+/// resolve.
+#[track_caller]
+fn cast_object_and_resolve(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: ObjectId) {
+    engine
+        .apply(seat, PlayerAction::CastSpell { card })
+        .expect("the offer listed the card");
+    pass_until(engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(card).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "the permanent spell resolved"
+    );
+}
+
+/// Puts `card` from `seat`'s hand on top of its library, the harness way.
+fn hand_to_library_top(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> ObjectId {
+    hand_to(engine, seat, card, ZoneLocation::Library(seat))
+}
+
+/// Puts `card` from `seat`'s hand into its graveyard, the harness way, and
+/// refreshes the offer the graveyard is now part of.
+fn hand_to_graveyard(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> ObjectId {
+    let id = hand_to(engine, seat, card, ZoneLocation::Graveyard(seat));
+    engine.refresh_offer();
+    id
+}
+
+fn hand_to(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+    to: ZoneLocation,
+) -> ObjectId {
+    let id = in_hand(engine, seat, card).expect("the card starts in hand");
+    engine
+        .state
+        .move_object(
+            id,
+            to,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("the harness moves a card");
+    id
 }
 
 /// Plays `card` out of `seat`'s hand and answers with the object it became.
@@ -2948,6 +3032,103 @@ fn archdruid_s_charm() -> CardIndex {
 
 fn walk_in_closet() -> CardIndex {
     card_index("52e77cc3-f8e9-4a20-811b-fe1e46a96ad7")
+}
+
+fn naturalize() -> CardIndex {
+    card_index("bdb3ca68-ec1f-4e16-81cc-d23f8f52c728")
+}
+
+/// The doors of the Room `room`, as the permanent holds them.
+fn doors_of(engine: &Engine<RegistryLookup>, room: ObjectId) -> crate::object::Doors {
+    engine
+        .state()
+        .object(room)
+        .expect("the Room is on the battlefield")
+        .doors
+}
+
+/// Which halves of `room` the priority offer unlocks, 0 the left.
+fn unlocks_offered(engine: &Engine<RegistryLookup>, room: ObjectId) -> Vec<u8> {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        return Vec::new();
+    };
+    legal
+        .abilities
+        .iter()
+        .filter(|(source, _)| *source == room)
+        .filter_map(|&(_, index)| crate::choice::door_to_unlock(index))
+        .collect()
+}
+
+/// Unlocks `half` of `room` the way a player does: the offered special
+/// action.
+fn unlock(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    room: ObjectId,
+    half: u8,
+) -> Result<(), EngineError> {
+    engine.apply(
+        seat,
+        PlayerAction::ActivateAbility {
+            source: room,
+            ability_index: crate::choice::unlock_door(half),
+        },
+    )
+}
+
+/// The indices of the abilities on the stack whose source is `room`.
+fn room_abilities_on_stack(engine: &Engine<RegistryLookup>, room: ObjectId) -> Vec<u32> {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .iter()
+        .filter_map(|id| engine.state().object(*id)?.ability)
+        .filter(|loc| loc.source == room)
+        .map(|loc| loc.index)
+        .collect()
+}
+
+/// The name, mana value and colours `object` has now.
+fn name_value_colors(
+    engine: &Engine<RegistryLookup>,
+    object: ObjectId,
+) -> (String, u32, baylee_core::color::ColorSet) {
+    let o = engine.state().object(object).expect("the object is there");
+    let c = o.characteristics();
+    (
+        engine.state().names.get(c.name).to_string(),
+        c.mana_value(),
+        c.colors,
+    )
+}
+
+/// `seat`'s Forests on the battlefield, the first `n` of them.
+fn forests(engine: &Engine<RegistryLookup>, seat: PlayerId, n: usize) -> Vec<ObjectId> {
+    let forests: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == seat
+                    && !o.status.contains(Status::TAPPED)
+                    && o.card.is_some_and(|c| c.index == forest())
+            })
+        })
+        .take(n)
+        .collect();
+    assert_eq!(forests.len(), n, "{seat:?} has {n} untapped Forests");
+    forests
+}
+
+/// Taps `n` of `seat`'s untapped Forests for mana.
+fn float_green(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) {
+    let these = forests(engine, seat, n);
+    tap_mana_where(engine, seat, |id| these.contains(&id));
 }
 
 fn legion_s_landing() -> CardIndex {
@@ -5265,4 +5446,45 @@ fn rampant_growth() -> CardIndex {
 
 fn despotic_scepter() -> CardIndex {
     card_index("34a85d7f-d4ea-4a0f-aa4c-bf0b0f4987bf")
+}
+
+fn farewell() -> CardIndex {
+    card_index("4eb813fd-2d5a-4b02-8193-662681ef4e7d")
+}
+
+fn final_showdown() -> CardIndex {
+    card_index("7e7ec3d6-a84f-4cc3-93f4-4d181d41e126")
+}
+
+fn three_steps_ahead() -> CardIndex {
+    card_index("282dfeaa-6243-4f92-838a-5cb54fa85184")
+}
+
+/// An artifact creature with flying and indestructible, printed.
+fn darksteel_gargoyle() -> CardIndex {
+    card_index("73010421-374f-458e-aa88-248ef8ae4f8b")
+}
+
+/// Answers the cast-mode question of a spell that chooses several modes
+/// with the set `set` names (bit `i` is mode `i`), as a player presses its
+/// row, and returns every row that was offered.
+#[track_caller]
+fn choose_modes(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    set: u8,
+) -> Vec<crate::choice::CastModeDesc> {
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the modes, got {:?}", engine.pending())
+    };
+    assert_eq!(player, seat, "the caster chooses the modes");
+    let slot = options
+        .iter()
+        .position(|o| o.kind == CastModeKind::Modes(set))
+        .unwrap_or_else(|| panic!("{set:#b} is not offered: {options:?}"));
+    engine.apply(seat, PlayerAction::ChooseMode(slot)).unwrap();
+    options
 }

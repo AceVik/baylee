@@ -2165,10 +2165,9 @@ fn twists_and_turns_transforms_on_your_seventh_land_and_not_on_the_tables() {
 /// refuses the land drop; with it on the battlefield, the graveyard's Forest
 /// is a land drop and is taken.
 ///
-/// The file is `Coverage::Partial` for the Room mechanic itself — nothing
-/// unlocks a door, nothing charges a locked door's cost as a sorcery — and
-/// for Forgotten Cellar's whole trigger. Neither is reachable here: what is
-/// cast is the front half, as an ordinary enchantment.
+/// Cast as its left half, the Room enters with that door unlocked and the
+/// other locked (CR 709.5d), so Forgotten Cellar's trigger is not there to
+/// hear anything: the Closet resolves to an empty stack.
 #[test]
 fn walk_in_closet_lets_its_controller_play_a_land_out_of_the_graveyard() {
     let p0 = PlayerId::new(0);
@@ -2198,9 +2197,16 @@ fn walk_in_closet_lets_its_controller_play_a_land_out_of_the_graveyard() {
     tap_all_mana(&mut engine, p0);
     cast_with_floating(&mut engine, p0, walk_in_closet());
     pass_until(&mut engine, |e| at_rest(e, p0));
+    let room = on_battlefield(&engine, p0, walk_in_closet())
+        .expect("the left half resolves to a Room on the battlefield");
+    assert_eq!(
+        doors_of(&engine, room),
+        crate::object::Doors::room(0b01),
+        "cast as Walk-In Closet, that door is unlocked and Forgotten Cellar's is not"
+    );
     assert!(
-        on_battlefield(&engine, p0, walk_in_closet()).is_some(),
-        "the front half resolves as an ordinary enchantment"
+        stack_is_empty(&engine),
+        "the locked door's trigger heard nothing"
     );
 
     seed_graveyard(&mut engine, p0, 1);
@@ -2222,6 +2228,651 @@ fn walk_in_closet_lets_its_controller_play_a_land_out_of_the_graveyard() {
             .list(ZoneLocation::Battlefield)
             .contains(&buried),
         "and the Forest left the graveyard for the battlefield"
+    );
+}
+
+/// Casts Walk-In Closet's right half, Forgotten Cellar, off floating mana.
+#[track_caller]
+fn cast_forgotten_cellar(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    cast_with_floating(engine, seat, walk_in_closet());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!(
+            "with both halves affordable a Room asks which is cast, got {:?}",
+            engine.pending()
+        )
+    };
+    let cellar = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Face(1)))
+        .expect("Forgotten Cellar is a half to cast");
+    engine
+        .apply(seat, PlayerAction::ChooseMode(cellar))
+        .expect("casting the right half");
+}
+
+/// Casts Giant Growth from `seat`'s hand on `seat`'s Llanowar Elves, off
+/// floating mana, and lets it resolve.
+#[track_caller]
+fn grow_own_elf(engine: &mut Engine<RegistryLookup>, seat: PlayerId, rest: PlayerId) {
+    let elf = on_battlefield(engine, seat, llanowar_elves()).expect("the Elf is out");
+    cast_with_floating(engine, seat, giant_growth());
+    engine
+        .apply(seat, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the Elf is a legal target");
+    pass_until(engine, |e| at_rest(e, rest));
+}
+
+/// Whether `card` is in `seat`'s exile.
+fn exiled_card(
+    engine: &Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> Option<ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Exile(seat))
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+        })
+}
+
+/// Forgotten Cellar, cast as its own half: "When you unlock this door, ...
+/// if a card would be put into your graveyard from anywhere this turn,
+/// exile it instead."
+///
+/// Cast as the right half, the Room enters with that door unlocked
+/// (CR 709.5d), and the unlock is what the trigger hears: CR 709.5h makes
+/// entering that way an unlock. The permanent is Forgotten Cellar and not
+/// Walk-In Closet, a five and not a three, with the left door's static
+/// absent. Once the trigger resolves, the seat's own Giant Growth is exiled
+/// as it would reach the graveyard, the other seat's reaches theirs ("your
+/// graveyard"), and next turn a second Giant Growth reaches the graveyard
+/// again ("this turn"). Then the left door is unlocked for its {2}{G}, and
+/// that fires nothing: the trigger is Forgotten Cellar's door's, not any
+/// door's. Only then is the graveyard's Forest a land drop.
+///
+/// The clause "you may cast spells from your graveyard this turn" is the
+/// next two tests'.
+#[allow(clippy::too_many_lines)] // One Room, played across two turns.
+#[test]
+fn forgotten_cellar_cast_as_its_half_opens_that_door_and_exiles_what_would_reach_the_graveyard_this_turn()
+ {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[walk_in_closet(), giant_growth(), giant_growth()])
+        .battlefield(1, &[forest(), llanowar_elves()])
+        .hand(1, &[giant_growth()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    float_green(&mut engine, p0, 6);
+    cast_forgotten_cellar(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, walk_in_closet()).is_some()
+    });
+    let room = on_battlefield(&engine, p0, walk_in_closet()).expect("the Room entered");
+    assert_eq!(
+        doors_of(&engine, room),
+        crate::object::Doors::room(0b10),
+        "cast as Forgotten Cellar, that door enters unlocked and the other locked (CR 709.5d)"
+    );
+    assert_eq!(
+        room_abilities_on_stack(&engine, room),
+        [0],
+        "\"When you unlock this door\" heard the door the Room entered with (CR 709.5h)"
+    );
+    assert_eq!(
+        name_value_colors(&engine, room),
+        (
+            "Forgotten Cellar".to_string(),
+            5,
+            baylee_core::color::ColorSet::of(baylee_core::color::Color::Green)
+        ),
+        "a locked half has no name or mana cost (CR 709.5): the Room is the Cellar alone"
+    );
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    // The seat's own card, on its way to the graveyard from the stack.
+    grow_own_elf(&mut engine, p0, p0);
+    assert_eq!(
+        in_graveyard(&engine, p0, giant_growth()),
+        None,
+        "\"if a card would be put into your graveyard from anywhere this turn\""
+    );
+    assert!(
+        exiled_card(&engine, p0, giant_growth()).is_some(),
+        "\"exile it instead\""
+    );
+
+    // The other seat's, cast while p0's main phase is open.
+    engine
+        .apply(p0, PlayerAction::PassPriority)
+        .expect("p0 passes with the stack empty");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p1),
+        "p1 holds priority in p0's main phase, got {:?}",
+        engine.pending()
+    );
+    float_green(&mut engine, p1, 1);
+    grow_own_elf(&mut engine, p1, p0);
+    assert!(
+        in_graveyard(&engine, p1, giant_growth()).is_some(),
+        "the Cellar's controller's graveyard, and not every graveyard"
+    );
+
+    // Next turn: the effect lasted this turn only.
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+    float_green(&mut engine, p0, 1);
+    grow_own_elf(&mut engine, p0, p0);
+    assert!(
+        in_graveyard(&engine, p0, giant_growth()).is_some(),
+        "\"this turn\" was last turn"
+    );
+
+    // The left door is still locked, so its static is not there.
+    seed_graveyard(&mut engine, p0, 1);
+    let buried = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Graveyard(p0))
+        .iter()
+        .find(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == forest()))
+        })
+        .expect("a Forest in the graveyard");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.lands.contains(&buried),
+        "a locked half has no rules text (CR 709.5): no land drop from the graveyard"
+    );
+
+    float_green(&mut engine, p0, 3);
+    assert_eq!(
+        unlocks_offered(&engine, room),
+        [0],
+        "the Closet's door is offered"
+    );
+    unlock(&mut engine, p0, room, 0).expect("the left door unlocks for {2}{G}");
+    assert_eq!(doors_of(&engine, room), crate::object::Doors::room(0b11));
+    assert!(
+        stack_is_empty(&engine),
+        "unlocking Walk-In Closet is not unlocking Forgotten Cellar: the trigger is that door's"
+    );
+    assert_eq!(
+        name_value_colors(&engine, room).1,
+        8,
+        "both halves' mana costs, {{2}}{{G}} and {{3}}{{G}}{{G}}"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.lands.contains(&buried),
+        "\"You may play lands from your graveyard\", now that its door is open"
+    );
+}
+
+/// Forgotten Cellar's other clause: "When you unlock this door, you may cast
+/// spells from your graveyard this turn".
+///
+/// A Giant Growth in the seat's graveyard is not castable before the door
+/// opens, with its {G} floating, and is once the trigger resolves: an
+/// instant, which the permanent-only permissions beside this one never let
+/// through. Cast on the seat's Elf, it is not a flashback (CR 702.34a), so
+/// it carries no flashback rider on the stack; it resolves (+3/+3) and is
+/// exiled by the Cellar's own replacement as it would reach the graveyard.
+/// The other seat's Giant Growth, in their own graveyard, is not theirs to
+/// cast: the permission is its controller's. Next turn a Giant Growth in
+/// the seat's graveyard is not castable again ("this turn").
+#[allow(clippy::too_many_lines)] // One permission, from both sides and across a turn.
+#[test]
+fn forgotten_cellar_lets_its_controller_cast_spells_from_the_graveyard_this_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[walk_in_closet(), giant_growth(), giant_growth()])
+        .battlefield(1, &[forest(), llanowar_elves()])
+        .hand(1, &[giant_growth()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let growth = hand_to_graveyard(&mut engine, p0, giant_growth());
+    let theirs = hand_to_graveyard(&mut engine, p1, giant_growth());
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is out");
+
+    float_green(&mut engine, p0, 1);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&growth),
+        "before the door opens, an instant in the graveyard is not castable, its {{G}} floating"
+    );
+
+    float_green(&mut engine, p0, 5);
+    cast_forgotten_cellar(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, walk_in_closet()).is_some()
+    });
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&growth),
+        "\"you may cast spells from your graveyard this turn\": an instant too"
+    );
+
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: growth })
+        .expect("the Giant Growth in the graveyard is cast");
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the Elf is a legal target");
+    let spell = on_stack(&engine, giant_growth()).expect("Giant Growth is on the stack");
+    assert!(
+        !engine
+            .state()
+            .object(spell)
+            .expect("the spell exists")
+            .riders
+            .contains(&crate::object::Rider::Flashback),
+        "a permission to cast from the graveyard is not flashback (CR 702.34a)"
+    );
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(power_of(&engine, elf), Some(4), "and it resolved: +3/+3");
+    assert_eq!(
+        in_graveyard(&engine, p0, giant_growth()),
+        None,
+        "it did not go back to the graveyard"
+    );
+    assert!(
+        exiled_card(&engine, p0, giant_growth()).is_some(),
+        "the Cellar's replacement exiled it"
+    );
+
+    // The other seat, holding priority in p0's main phase with {G} floating.
+    engine
+        .apply(p0, PlayerAction::PassPriority)
+        .expect("p0 passes with the stack empty");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p1),
+        "p1 holds priority in p0's main phase, got {:?}",
+        engine.pending()
+    );
+    float_green(&mut engine, p1, 1);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&theirs),
+        "the permission is the Cellar's controller's, and not every player's"
+    );
+
+    // Next turn: the permission lasted this turn only.
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+    let again = hand_to_graveyard(&mut engine, p0, giant_growth());
+    float_green(&mut engine, p0, 1);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&again),
+        "\"this turn\" was last turn"
+    );
+}
+
+/// A card with printed flashback in the graveyard, under Forgotten Cellar's
+/// permission, is offered at its mana cost beside its flashback cost: the
+/// permission casts any spell from there, and a flashback cost is an
+/// alternative cost the caster "may pay rather than paying the spell's mana
+/// cost" (CR 118.9), not the only price. Memory Deluge, with seven
+/// floating: `Normal` for {2}{U}{U} and `Flashback` for {5}{U}{U}. Cast at
+/// its mana cost, the flashback cost was not paid, so the card carries no
+/// flashback rider on the stack.
+#[test]
+fn under_forgotten_cellar_a_flashback_card_is_offered_at_its_mana_cost_too() {
+    let p0 = PlayerId::new(0);
+    // Memory Deluge: {2}{U}{U}, flashback {5}{U}{U}.
+    let deluge = card_index("e6fd55f2-7e26-469c-a44a-ea2eb90e19a9");
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[walk_in_closet(), deluge])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let buried = hand_to_graveyard(&mut engine, p0, deluge);
+    float_green(&mut engine, p0, 5);
+    cast_forgotten_cellar(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, walk_in_closet()).is_some()
+    });
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    tap_all_mana(&mut engine, p0);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: buried })
+        .expect("Memory Deluge is cast from the graveyard");
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!(
+            "two ways to cast it, so the seat is asked, got {:?}",
+            engine.pending()
+        )
+    };
+    let offered: Vec<_> = options.iter().map(|o| (o.kind, o.cost)).collect();
+    assert_eq!(
+        offered,
+        [
+            (
+                CastModeKind::Normal,
+                baylee_core::mana::ManaCost::parse("{2}{U}{U}")
+            ),
+            (
+                CastModeKind::Flashback,
+                baylee_core::mana::ManaCost::parse("{5}{U}{U}")
+            ),
+        ],
+        "its mana cost under the permission, and its flashback cost"
+    );
+    let normal = options
+        .iter()
+        .position(|o| o.kind == CastModeKind::Normal)
+        .expect("the mana cost is offered");
+    engine
+        .apply(p0, PlayerAction::ChooseMode(normal))
+        .expect("cast for its mana cost");
+    let spell = on_stack(&engine, deluge).expect("Memory Deluge is on the stack");
+    assert!(
+        !engine
+            .state()
+            .object(spell)
+            .expect("the spell exists")
+            .riders
+            .contains(&crate::object::Rider::Flashback),
+        "the flashback cost was not paid (CR 702.34a)"
+    );
+}
+
+/// The unlock itself: "As a sorcery, you may pay the mana cost of a locked
+/// door to unlock it" (CR 709.5e), a special action (CR 116.2m).
+///
+/// Walk-In Closet is cast as its left half and Forgotten Cellar is unlocked
+/// later, which is how the card is mostly played. The unlock is offered only
+/// with the Cellar's {3}{G}{G} floating and the stack empty in the seat's own
+/// main phase, and refused otherwise: with nothing floating, and with a
+/// Giant Growth on the stack. Taken, it uses no stack, and the Cellar's
+/// trigger hears it; the Room is then both halves, a mana value of eight,
+/// and keeps the Closet's static beside the trigger.
+#[allow(clippy::too_many_lines)] // One unlock, refused twice and then taken.
+#[test]
+fn a_locked_door_unlocks_as_a_sorcery_for_its_mana_cost_and_its_trigger_hears_it() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[walk_in_closet(), giant_growth()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    float_green(&mut engine, p0, 3);
+    cast_with_floating(&mut engine, p0, walk_in_closet());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let room = on_battlefield(&engine, p0, walk_in_closet()).expect("the Closet resolved");
+    assert_eq!(doors_of(&engine, room), crate::object::Doors::room(0b01));
+    seed_graveyard(&mut engine, p0, 1);
+    let buried = engine.state().zones.list(ZoneLocation::Graveyard(p0))[0];
+
+    assert_eq!(
+        unlocks_offered(&engine, room),
+        [] as [u8; 0],
+        "nothing floating, nothing offered"
+    );
+    assert!(
+        unlock(&mut engine, p0, room, 1).is_err(),
+        "and the unlock is refused"
+    );
+
+    // With a spell on the stack, the Cellar's cost floating is not enough.
+    float_green(&mut engine, p0, 1);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is out");
+    cast_with_floating(&mut engine, p0, giant_growth());
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the Elf is a legal target");
+    float_green(&mut engine, p0, 5);
+    assert!(
+        on_stack(&engine, giant_growth()).is_some(),
+        "Giant Growth waits on the stack"
+    );
+    assert_eq!(
+        unlocks_offered(&engine, room),
+        [] as [u8; 0],
+        "not while the stack holds a spell: \"as a sorcery\""
+    );
+    assert!(
+        unlock(&mut engine, p0, room, 1).is_err(),
+        "and the unlock is refused"
+    );
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert_eq!(
+        unlocks_offered(&engine, room),
+        [1],
+        "the stack empty, the Cellar's {{3}}{{G}}{{G}} floating: the locked door, and only it"
+    );
+    unlock(&mut engine, p0, room, 1).expect("Forgotten Cellar unlocks");
+    assert_eq!(doors_of(&engine, room), crate::object::Doors::room(0b11));
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).len(),
+        1,
+        "a special action uses no stack (CR 116.1); what is there is the trigger"
+    );
+    assert_eq!(
+        room_abilities_on_stack(&engine, room),
+        [1],
+        "\"When you unlock this door\", second in the Room's list with both doors open"
+    );
+    assert_eq!(
+        name_value_colors(&engine, room),
+        (
+            "Walk-In Closet".to_string(),
+            8,
+            baylee_core::color::ColorSet::of(baylee_core::color::Color::Green)
+        ),
+        "both halves' mana costs make its mana value"
+    );
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.lands.contains(&buried),
+        "the Closet's static is still there with both doors open"
+    );
+}
+
+/// A Room put onto the battlefield without being cast has neither door
+/// unlocked (CR 709.5d): no name, no mana cost and no rules text (CR 709.5),
+/// so a mana value of zero and no graveyard land drop. Each door is then
+/// unlocked in turn, the left one firing nothing and the right one its
+/// trigger; and once Naturalize destroys the Room, the card it leaves is the
+/// card again, left half first, with no doors (CR 400.7). This turn that is
+/// an exiled card: the Cellar's replacement caught the Room itself.
+#[allow(clippy::too_many_lines)] // One Room, from locked to gone.
+#[test]
+fn a_room_put_onto_the_battlefield_uncast_has_both_doors_locked() {
+    let p0 = PlayerId::new(0);
+    let mut board = vec![walk_in_closet()];
+    board.extend(std::iter::repeat_n(forest(), 10));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &board)
+        .hand(0, &[naturalize()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let room = on_battlefield(&engine, p0, walk_in_closet()).expect("the Room is out");
+    assert_eq!(
+        doors_of(&engine, room),
+        crate::object::Doors::room(0),
+        "not cast, so neither door is unlocked (CR 709.5d)"
+    );
+    assert_eq!(
+        name_value_colors(&engine, room),
+        (String::new(), 0, baylee_core::color::ColorSet::EMPTY),
+        "no name and no mana cost, so no colour either (CR 709.5)"
+    );
+    seed_graveyard(&mut engine, p0, 1);
+    let buried = engine.state().zones.list(ZoneLocation::Graveyard(p0))[0];
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.lands.contains(&buried),
+        "no rules text, so no land drop from the graveyard"
+    );
+
+    float_green(&mut engine, p0, 3);
+    assert_eq!(
+        unlocks_offered(&engine, room),
+        [0],
+        "{{2}}{{G}} floating opens the Closet and not the Cellar"
+    );
+    unlock(&mut engine, p0, room, 0).expect("the left door unlocks");
+    assert!(stack_is_empty(&engine), "the Closet's door fires nothing");
+    assert_eq!(
+        name_value_colors(&engine, room),
+        (
+            "Walk-In Closet".to_string(),
+            3,
+            baylee_core::color::ColorSet::of(baylee_core::color::Color::Green)
+        )
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(legal.lands.contains(&buried), "the Closet's static is on");
+
+    float_green(&mut engine, p0, 5);
+    assert_eq!(unlocks_offered(&engine, room), [1]);
+    unlock(&mut engine, p0, room, 1).expect("the right door unlocks");
+    assert_eq!(room_abilities_on_stack(&engine, room), [1]);
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    float_green(&mut engine, p0, 2);
+    cast_with_floating(&mut engine, p0, naturalize());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![room],
+            },
+        )
+        .expect("the Room is an enchantment to destroy");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        on_battlefield(&engine, p0, walk_in_closet()).is_none(),
+        "destroyed"
+    );
+    assert_eq!(
+        in_graveyard(&engine, p0, walk_in_closet()),
+        None,
+        "the Cellar's replacement is on this turn, and the Room is a card"
+    );
+    let card = exiled_card(&engine, p0, walk_in_closet()).expect("exiled instead");
+    let gone = engine.state().object(card).expect("the exiled card");
+    assert_eq!(
+        (gone.doors, gone.face_index),
+        (crate::object::Doors::NONE, 0),
+        "the designations were the permanent's (CR 400.7)"
+    );
+    assert_eq!(
+        (
+            engine
+                .state()
+                .names
+                .get(gone.characteristics().name)
+                .to_string(),
+            gone.characteristics().mana_cost
+        ),
+        (
+            "Walk-In Closet".to_string(),
+            "{2}{G}"
+                .parse::<baylee_core::mana::ManaCost>()
+                .expect("a mana cost")
+        ),
+        "off the battlefield the card is its printed front again"
     );
 }
 
@@ -2323,29 +2974,79 @@ fn rancor_pumps_its_host_and_comes_back_when_it_dies() {
     );
 }
 
-/// Fastbond: "any number of lands", which is the half the card claims.
+/// Fastbond: "You may play any number of lands on each of your turns.
+/// Whenever you play a land, if it wasn't the first land you played this
+/// turn, this enchantment deals 1 damage to you."
 ///
-/// `Modifier::ExtraLandDrops(u8::MAX)` is the whole expressible sentence; the
-/// damage trigger is refused by name for want of a "you play a land" event.
-/// Three lands in one turn is what separates it from Aesi's single extra
-/// drop, and from no Fastbond at all.
+/// Three Forests out of the hand: the first triggers nothing at all (the
+/// `if` is an intervening one, CR 603.4, so nothing even goes on the stack),
+/// the second and the third cost a point each. A Forest Rampant Growth puts
+/// onto the battlefield is not played and costs nothing; a Forest played out
+/// of the graveyard under Crucible of Worlds is played, and costs one.
 #[test]
-fn fastbond_plays_three_lands_in_one_turn() {
+fn fastbond_plays_any_number_of_lands_and_charges_for_all_but_the_first() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(398, forest())
-        .battlefield(0, &[fastbond()])
-        .hand(0, &[forest(), forest(), forest()])
+        .battlefield(0, &[fastbond(), crucible_of_worlds()])
+        .hand(0, &[forest(), forest(), forest(), rampant_growth()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    let life = |engine: &Engine<RegistryLookup>| engine.state().players[0].life;
 
-    for nth in 1..=3 {
+    play_land(&mut engine, p0, forest());
+    assert!(
+        engine.state().zones.list(ZoneLocation::Stack).is_empty(),
+        "the first land of the turn does not trigger at all"
+    );
+    assert_eq!(life(&engine), 20);
+    for (nth, left) in [(2, 19), (3, 18)] {
         let card = in_hand(&engine, p0, forest()).expect("a Forest is in hand");
         engine
             .apply(p0, PlayerAction::PlayLand { card })
             .unwrap_or_else(|err| panic!("land drop {nth} was refused: {err:?}"));
         pass_until(&mut engine, stack_is_empty);
+        assert_eq!(life(&engine), left, "land {nth} deals 1 damage to you");
     }
+
+    // A land an effect puts onto the battlefield is not played.
+    cast_from_hand(&mut engine, p0, rampant_growth());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched");
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .expect("a basic land from the library");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(options[0]).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "Rampant Growth put its Forest onto the battlefield"
+    );
+    assert_eq!(life(&engine), 18, "which nobody played");
+
+    // A land played out of the graveyard is played.
+    seed_graveyard(&mut engine, p0, 1);
+    let buried = in_graveyard(&engine, p0, forest()).expect("a Forest in the graveyard");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: buried })
+        .expect("Crucible of Worlds lets it be played");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life(&engine), 17, "the fourth land played this turn");
 
     let lands = engine
         .state()
@@ -2359,16 +3060,36 @@ fn fastbond_plays_three_lands_in_one_turn() {
                 .is_some_and(|o| o.characteristics().types.intersects(TypeSet::LAND))
         })
         .count();
-    assert_eq!(
-        lands, 3,
-        "three land drops in one turn, and no damage taken"
+    assert_eq!(lands, 5, "four played and one put there");
+}
+
+/// The first land played on a turn is the first whatever came before: the
+/// count is per turn, so the next turn's first Forest is free again.
+#[test]
+fn fastbond_forgives_the_first_land_of_every_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(399, forest())
+        .battlefield(0, &[fastbond()])
+        .hand(0, &[forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    play_land(&mut engine, p0, forest());
+    play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 19);
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 reaches its next main"
     );
-    assert_eq!(
-        engine.state().players[0].life,
-        20,
-        "the printed \"deals 1 damage to you\" is refused by name, so nothing \
-         charged for the second and third"
+    play_land(&mut engine, p0, forest());
+    assert!(
+        engine.state().zones.list(ZoneLocation::Stack).is_empty(),
+        "a new turn's first land"
     );
+    assert_eq!(engine.state().players[0].life, 19);
 }
 
 /// Mirri's Guile: the upkeep question, and the library it leaves alone.
@@ -2544,22 +3265,14 @@ fn sterling_grove_shrouds_its_neighbours_and_tutors_to_the_top() {
     let _ = p1;
 }
 
-/// Sylvan Library: the two extra cards, which is the half the card claims.
-///
-/// The put-back-or-pay-4-life rider is refused by name, so what is left is a
-/// draw step that draws three instead of one — and the `MayDo` in front of it
-/// is what makes the assertion a decision rather than a side effect.
-#[test]
-fn sylvan_library_draws_two_more_at_the_draw_step() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(403, forest())
-        .battlefield(0, &[sylvan_library()])
-        .start();
-    keep_mulligans(&mut engine);
-
-    let before = library_size(&engine, p0);
-    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
-    pass_until(&mut engine, |e| {
+/// Takes Sylvan Library's offer at `p0`'s draw step and answers "which two
+/// drawn this turn" with the first two, returning them and the hand size
+/// from before the draw step.
+fn sylvan_library_offer(
+    engine: &mut Engine<RegistryLookup>,
+    p0: PlayerId,
+) -> (Vec<ObjectId>, usize) {
+    let offered = |e: &Engine<RegistryLookup>| {
         matches!(
             e.pending(),
             Pending::YesNo {
@@ -2567,22 +3280,142 @@ fn sylvan_library_draws_two_more_at_the_draw_step() {
                 ..
             }
         )
-    });
+    };
+    // The player on the play has no draw step on turn 1 (CR 103.8a), so the
+    // first offer is turn 3's; the step's own draw came before the trigger
+    // (CR 504.1) and is already in the hand.
+    pass_until(engine, offered);
+    assert_eq!(engine.state().turn.number, 3, "no offer on the first turn");
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
-    assert!(
-        matches!(drive_to_rest(&mut engine, p0), Rest::Reached),
-        "the trigger resolves"
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the drawn cards, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        options.len(),
+        3,
+        "the draw step's card and the two additional ones"
     );
+    assert_eq!((min, max), (2, 2), "choose two of them");
+    let chosen = options[..2].to_vec();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: chosen.clone(),
+            },
+        )
+        .unwrap();
+    (chosen, hand_before)
+}
 
+/// "At the beginning of your draw step, you may draw two additional cards.
+/// If you do, choose two cards in your hand drawn this turn. For each of
+/// those cards, pay 4 life or put the card on top of your library." — both
+/// kept: eight life for them, and three cards more in hand.
+#[test]
+fn sylvan_library_keeps_both_cards_for_eight_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(403, forest())
+        .battlefield(0, &[sylvan_library()])
+        .start();
+    keep_mulligans(&mut engine);
+    let (chosen, hand_before) = sylvan_library_offer(&mut engine, p0);
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the put-back question, got {:?}", engine.pending())
+    };
+    assert_eq!(prompt, ChoicePrompt::PutBackOnTop);
+    assert_eq!(options, chosen);
+    assert_eq!((min, max), (0, 2), "twenty life pays for both");
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        12,
+        "four life for each card kept"
+    );
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
-        hand_before + 2,
-        "two additional cards, on top of whatever the draw step itself drew"
+        hand_before + 2
     );
+}
+
+/// Both put back, in the order named, and no life paid: the last named is
+/// the top card, as every put-back in this engine reads it.
+#[test]
+fn sylvan_library_puts_both_back_on_top_for_nothing() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(403, forest())
+        .battlefield(0, &[sylvan_library()])
+        .start();
+    keep_mulligans(&mut engine);
+    let (chosen, hand_before) = sylvan_library_offer(&mut engine, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: chosen.clone(),
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 20);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before
+    );
+    let library = engine.state().zones.list(ZoneLocation::Library(p0));
+    assert_eq!(&library[library.len() - 2..], &[chosen[0], chosen[1]]);
+}
+
+/// Five life pays for one card and not two (CR 119.4): at least one of the
+/// two has to go back, and the question says so.
+#[test]
+fn sylvan_library_sends_back_what_the_life_total_cannot_pay_for() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(403, forest())
+        .battlefield(0, &[sylvan_library()])
+        .life(0, 5)
+        .start();
+    keep_mulligans(&mut engine);
+    let (chosen, _) = sylvan_library_offer(&mut engine, p0);
+    let Pending::ChooseCards { min, max, .. } = engine.pending().clone() else {
+        panic!("expected the put-back question, got {:?}", engine.pending())
+    };
+    assert_eq!((min, max), (1, 2), "one of the two must go back");
     assert!(
-        library_size(&engine, p0) <= before - 2,
-        "and they came off the library"
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+            .is_err(),
+        "keeping both is not an answer at five life"
     );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![chosen[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 1);
 }
 
 /// The Meathook Massacre: the X it announces sweeps the board, and the two
@@ -3826,77 +4659,268 @@ fn vance_s_blasting_cannons_transforms_on_third_spell_and_taps_for_red() {
     );
 }
 
-/// `Fable of the Mirror-Breaker` // `Reflection of Kiki-Jiki` (`Coverage::Partial`):
-/// "I — Create a 2/2 red Goblin Shaman creature token with 'Whenever this token attacks,
-/// create a Treasure token.'
-/// II — You may discard up to two cards. If you do, draw that many cards.
-/// III — Exile this Saga, then return it to the battlefield transformed under your control. //
-/// `{{1}}`, `{{T}}`: Create a token that's a copy of another target nonlegendary creature you
-/// control, except it has haste. Sacrifice it at the beginning of the next end step."
-///
-/// Under `Coverage::Partial`, chapters I and II and the back face's copy ability are omitted.
-/// Chapter III (`Effect::ExileSelfReturnAsFace { face: 1 }`) is implemented.
-/// The test casts `Fable of the Mirror-Breaker`, tracks lore counters advancing across turns,
-/// and verifies that chapter III exiles the Saga and returns it transformed as
-/// `Reflection of Kiki-Jiki` on face 1 as a 2/2 creature.
-#[test]
-fn fable_of_the_mirror_breaker_advances_to_chapter_three_and_transforms() {
+/// The Goblin Shaman tokens `seat` controls.
+fn goblin_shamans(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+    tokens_of(engine, seat)
+        .into_iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.token)
+                .is_some_and(|t| t.name == "Goblin Shaman")
+        })
+        .collect()
+}
+
+/// The Treasure tokens `seat` controls.
+fn treasures(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+    tokens_of(engine, seat)
+        .into_iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.token)
+                .is_some_and(|t| t.name == "Treasure")
+        })
+        .collect()
+}
+
+/// Casts Fable of the Mirror-Breaker off three Mountains and resolves it and
+/// its chapter I.
+fn cast_fable(hand: &[CardIndex]) -> Engine<RegistryLookup> {
     let p0 = PlayerId::new(0);
-    let p1 = PlayerId::new(1);
+    let mut cards = vec![fable_of_the_mirror_breaker()];
+    cards.extend_from_slice(hand);
     let mut engine = Duel::new(101, mountain())
         .battlefield(0, &[mountain(), mountain(), mountain()])
-        .hand(0, &[fable_of_the_mirror_breaker()])
+        .hand(0, &cards)
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
-
     cast_from_hand(&mut engine, p0, fable_of_the_mirror_breaker());
     pass_until(&mut engine, stack_is_empty);
+    engine
+}
 
-    let saga = on_battlefield(&engine, p0, fable_of_the_mirror_breaker())
-        .expect("Fable of the Mirror-Breaker on battlefield");
+/// Walks from the turn Fable was cast to its controller's next main phase,
+/// where chapter II triggers, and stops on the question it asks.
+fn to_fable_chapter_two(engine: &mut Engine<RegistryLookup>) -> (Vec<ObjectId>, u8, u8) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    reach_their_main_phase(engine, p1);
+    pass_until(engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::Discard,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0, "the Saga's controller discards");
     assert_eq!(
-        counters_on(&engine, saga, CounterKind::Lore),
-        1,
-        "enters with one lore counter"
+        options,
+        engine.state().zones.list(ZoneLocation::Hand(p0)).clone(),
+        "any card in hand"
     );
+    (options, min, max)
+}
 
-    reach_their_main_phase(&mut engine, p1);
-    reach_their_main_phase(&mut engine, p0);
-
-    let saga = on_battlefield(&engine, p0, fable_of_the_mirror_breaker())
-        .expect("Fable on battlefield in turn 2");
+/// Fable of the Mirror-Breaker, chapter I: "Create a 2/2 red Goblin Shaman
+/// creature token with 'Whenever this token attacks, create a Treasure
+/// token.'" The token arrives as the Saga's first chapter resolves, and when
+/// it attacks two turns later its own trigger makes a Treasure. Chapter II
+/// is declined on the way, and declining moves nothing: no card is
+/// discarded, none drawn.
+#[test]
+fn fable_chapter_one_makes_a_goblin_shaman_whose_attack_makes_a_treasure() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = cast_fable(&[]);
+    let goblins = goblin_shamans(&engine, p0);
+    assert_eq!(goblins.len(), 1, "chapter I made one Goblin Shaman");
+    let goblin = goblins[0];
+    assert_eq!(pt(&engine, goblin), (2, 2));
+    let face = engine.state().object(goblin).unwrap().characteristics();
+    assert!(face.types.contains(TypeSet::CREATURE));
     assert_eq!(
-        counters_on(&engine, saga, CounterKind::Lore),
-        2,
-        "second lore counter added in precombat main phase"
+        face.colors,
+        baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Red])
     );
+    assert!(
+        face.subtypes
+            .contains(baylee_core::generated::subtypes::creature::GOBLIN)
+            && face
+                .subtypes
+                .contains(baylee_core::generated::subtypes::creature::SHAMAN),
+        "a Goblin Shaman"
+    );
+    assert!(treasures(&engine, p0).is_empty());
 
-    reach_their_main_phase(&mut engine, p1);
-    reach_their_main_phase(&mut engine, p0);
-
-    // Chapter III triggered at the start of turn 3's precombat main phase; resolve it.
+    let (_, min, max) = to_fable_chapter_two(&mut engine);
+    assert_eq!((min, max), (0, 1), "up to two, of the one card in hand");
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).clone();
+    let library = library_size(&engine, p0);
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)),
+        &hand,
+        "nothing discarded"
+    );
+    assert_eq!(library_size(&engine, p0), library, "nothing drawn");
     pass_until(&mut engine, stack_is_empty);
 
+    attack_and_collect_blocks(&mut engine, goblin, p1);
+    assert_eq!(
+        treasures(&engine, p0).len(),
+        1,
+        "the token's own attack trigger made a Treasure"
+    );
+}
+
+/// Chapter II: "You may discard up to two cards. If you do, draw that many
+/// cards." Two named, two discarded, two drawn: the hand keeps its size, the
+/// library is two shorter, and the journal says both were discarded.
+#[test]
+fn fable_chapter_two_discards_up_to_two_and_draws_that_many() {
+    let p0 = PlayerId::new(0);
+    let mut engine = cast_fable(&[quiet_creature(), lightning_elemental()]);
+    let (options, min, max) = to_fable_chapter_two(&mut engine);
+    assert_eq!((min, max), (0, 2), "up to two");
+    let creature = in_hand(&engine, p0, quiet_creature()).unwrap();
+    let elemental = in_hand(&engine, p0, lightning_elemental()).unwrap();
+    assert!(options.contains(&creature) && options.contains(&elemental));
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let library = library_size(&engine, p0);
+    let journal_from = engine.state().journal.len();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![creature, elemental],
+            },
+        )
+        .unwrap();
+    for card in [quiet_creature(), lightning_elemental()] {
+        assert!(in_graveyard(&engine, p0, card).is_some(), "discarded");
+    }
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand,
+        "two out, two in"
+    );
+    assert_eq!(library_size(&engine, p0), library - 2, "that many drawn");
+    let discarded = engine.state().journal.entries()[journal_from..]
+        .iter()
+        .filter(|e| matches!(e.event, GameEvent::Discarded { player, .. } if player == p0))
+        .count();
+    assert_eq!(discarded, 2, "each one a discard, for what cares about one");
+}
+
+/// Chapter II with one card named: one discarded, one drawn — "that many"
+/// is what was discarded, not the two the chapter allows.
+#[test]
+fn fable_chapter_two_draws_one_for_one_discard() {
+    let p0 = PlayerId::new(0);
+    let mut engine = cast_fable(&[quiet_creature(), lightning_elemental()]);
+    to_fable_chapter_two(&mut engine);
+    let creature = in_hand(&engine, p0, quiet_creature()).unwrap();
+    let library = library_size(&engine, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![creature],
+            },
+        )
+        .unwrap();
+    assert!(in_graveyard(&engine, p0, quiet_creature()).is_some());
+    assert!(in_hand(&engine, p0, lightning_elemental()).is_some());
+    assert_eq!(library_size(&engine, p0), library - 1, "one drawn");
+}
+
+/// Chapter III exiles the Saga and returns it transformed as Reflection of
+/// Kiki-Jiki, a 2/2 Goblin Shaman creature; a turn later its "{1}, {T}:
+/// Create a token that's a copy of another target nonlegendary creature you
+/// control, except it has haste. Sacrifice it at the beginning of the next
+/// end step." copies the chapter I Goblin Shaman — the Reflection itself is
+/// not on the menu — and the copy is gone at the end step.
+#[test]
+fn fable_transforms_and_its_reflection_copies_another_creature_until_the_end_step() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = cast_fable(&[]);
+    let saga = on_battlefield(&engine, p0, fable_of_the_mirror_breaker())
+        .expect("Fable of the Mirror-Breaker on battlefield");
+    assert_eq!(counters_on(&engine, saga, CounterKind::Lore), 1);
+    let goblin = goblin_shamans(&engine, p0)[0];
+
+    to_fable_chapter_two(&mut engine);
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let saga = on_battlefield(&engine, p0, fable_of_the_mirror_breaker()).unwrap();
+    assert_eq!(counters_on(&engine, saga, CounterKind::Lore), 2);
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    pass_until(&mut engine, stack_is_empty);
     let kiki = on_battlefield(&engine, p0, fable_of_the_mirror_breaker())
         .expect("Reflection of Kiki-Jiki on battlefield");
-    assert_eq!(
-        engine
-            .state()
-            .object(kiki)
-            .expect("object exists")
-            .face_index,
-        1,
-        "transformed to face 1"
-    );
+    assert_eq!(engine.state().object(kiki).unwrap().face_index, 1);
     assert_eq!(
         pt(&engine, kiki),
         (2, 2),
         "Reflection of Kiki-Jiki is a 2/2"
     );
+    assert!(types(&engine, kiki).contains(TypeSet::CREATURE));
+
+    // It came back this turn, so its {T} waits a turn.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, fable_of_the_mirror_breaker(), 0);
+    let menu = aim_at(&mut engine, p0, goblin);
+    assert_eq!(menu, vec![goblin], "another creature: not the Reflection");
+    pass_until(&mut engine, stack_is_empty);
+    let copies: Vec<ObjectId> = goblin_shamans(&engine, p0)
+        .into_iter()
+        .filter(|id| *id != goblin)
+        .collect();
+    assert_eq!(copies.len(), 1, "a copy of the Goblin Shaman");
+    let copy = copies[0];
+    assert_eq!(pt(&engine, copy), (2, 2));
     assert!(
-        types(&engine, kiki).contains(TypeSet::CREATURE),
-        "Reflection of Kiki-Jiki is a creature"
+        keywords(&engine, copy).contains(KeywordSet::HASTE),
+        "except it has haste"
+    );
+    assert!(!keywords(&engine, goblin).contains(KeywordSet::HASTE));
+    assert!(is_tapped(&engine, kiki), "the {{T}} of the cost");
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    assert!(
+        engine
+            .state()
+            .object(copy)
+            .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield),
+        "sacrificed at the beginning of the next end step"
+    );
+    assert_eq!(
+        goblin_shamans(&engine, p0),
+        vec![goblin],
+        "the original stays"
     );
 }
 

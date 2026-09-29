@@ -516,7 +516,13 @@ fn reading(
     let filter = duel
         .interaction
         .as_ref()
-        .filter(|i| !waiting && matches!(i.prompt(), Prompt::ChooseSubtype { .. }))
+        .filter(|i| {
+            !waiting
+                && matches!(
+                    i.prompt(),
+                    Prompt::ChooseSubtype { .. } | Prompt::ChooseCardName
+                )
+        })
         .map(|_| duel.subtype_filter.clone());
 
     // **Neither cast chooser is drawn here.** Both stand on the parchment leaf
@@ -556,10 +562,7 @@ fn reading(
     }
     // The cursor of the one chooser this drawer still draws. `CastMenu::pick`
     // went with its rows to the sheet.
-    let picked = duel
-        .interaction
-        .as_ref()
-        .and_then(baylee_client_core::Interaction::chosen_index);
+    let picked = duel.interaction.as_ref().and_then(crate::choices::picked);
 
     DrawerRevision {
         lines,
@@ -824,7 +827,7 @@ const fn pick_hint(prompt: &Prompt) -> Option<Phrase> {
         // is already private — `Interaction::selectable` is empty for both.
         Prompt::Discard { .. } | Prompt::BottomCards { .. } => Some(Phrase::HintClickHand),
         Prompt::ChooseCards { .. } | Prompt::LegendRule => Some(Phrase::HintClickBoard),
-        Prompt::ChooseSubtype { .. } => Some(Phrase::HintTypeToFilter),
+        Prompt::ChooseSubtype { .. } | Prompt::ChooseCardName => Some(Phrase::HintTypeToFilter),
         _ => None,
     }
 }

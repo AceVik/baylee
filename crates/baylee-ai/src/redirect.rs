@@ -1,7 +1,8 @@
 //! Turning a spell and copying one (#226 B): Misdirection, Deflecting Swat,
 //! Hydroelectric Specimen, Dualcaster Mage and every other
 //! `Effect::ChangeTarget`, `Effect::ChooseNewTargets` or
-//! `Effect::CopyTargetSpell`.
+//! `Effect::CopyTargetSpell` — and a replicate trigger's
+//! `Effect::CopyThisSpell`, whose only question is the second one.
 //!
 //! Each asks two target questions, and neither is answered by its own
 //! effect, which means nothing to [`crate::tactics::meaning`]: read that way
@@ -59,7 +60,7 @@ enum Kind {
 fn kind(effects: &[Effect]) -> Option<Kind> {
     effects.iter().find_map(|effect| match effect {
         Effect::ChangeTarget { .. } | Effect::ChooseNewTargets => Some(Kind::Redirect),
-        Effect::CopyTargetSpell { .. } => Some(Kind::Copy),
+        Effect::CopyTargetSpell { .. } | Effect::CopyThisSpell => Some(Kind::Copy),
         _ => {
             let (then, otherwise) = effect.branches();
             kind(then).or_else(|| kind(otherwise))
@@ -69,15 +70,21 @@ fn kind(effects: &[Effect]) -> Option<Kind> {
 
 /// The spell a resolving redirect or copy is about: its first target, while
 /// it is on the stack. `None` while it is being cast or put there.
+///
+/// An ability of the source is looked for before the source itself, because
+/// a replicate trigger's source is a spell still on the stack below it
+/// (CR 702.56a): read first, the spell answered with *its own* target, and
+/// the copy was weighed as the spell it counters rather than as itself.
 fn resolving_about<'v>(
     view: &'v PlayerView,
     context: &DecisionContext<'_>,
 ) -> Option<&'v PublicObject> {
     let source = context.source?;
-    let resolving = view.stack.iter().find(|o| {
-        o.id == source
-            || matches!(o.stack_item, Some(StackItem::Ability { source: s, .. }) if s == source)
-    })?;
+    let resolving = view
+        .stack
+        .iter()
+        .find(|o| matches!(o.stack_item, Some(StackItem::Ability { source: s, .. }) if s == source))
+        .or_else(|| view.stack.iter().find(|o| o.id == source))?;
     let &TargetRef::Object(spell) = resolving.targets.first()? else {
         return None;
     };

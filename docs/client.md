@@ -4672,6 +4672,31 @@ is why this is not a nicety: it asks its question **as it enters**, so the
 lock it caused was a land drop rather than a deliberate tap, and the card is
 `Coverage::Implemented`, so the deckbuilder offers it.
 
+A card name (Pithing Needle) is the same box over a longer list, and one the
+engine does not send: `Prompt::ChooseCardName` carries no options, because any
+card's name may be chosen and the pool is the list. `choices::card_name_at`
+is every face of this build's pool in one fixed order, alphabetized, and a row
+is its place there; typing narrows it to names that begin with what was typed
+and then names with a later word that does ("needle" finds Pithing Needle), in
+the pool's English. Every press goes through `choices::pick`, which tells the
+model the card and face the row stands for (`Interaction::choose_card_name`)
+where an indexed choice is told a position, and `choices::picked` is the row
+the highlight stands on. The permanent then carries a label with the name
+(`hud::chosen_type`, `Phrase::ChosenName`), as a named creature type does.
+
+A Room's locked doors are the same kind of label: "Locked: Forgotten Cellar"
+(`Phrase::LockedDoors`, the halves by their English names as a named card
+is), gone once every door is open. Unlocking one is a row on the permanent's
+ability sheet, as turning a permanent face up is: "Unlock Forgotten Cellar"
+(`Phrase::UnlockDoor`) at that half's mana cost (`abilities::unlock_label`,
+`offered_cost`), never a mana ability and never a printed index.
+
+The number stepper answers two questions, and the headline tells them apart.
+`Prompt::ChooseNumber` carries the engine's `reason`: an X reads "Choose a
+number (0–50)", and a replicate cost reads "Replicate {U}: pay it how many
+times? (0–2)" (`Phrase::ReplicateHowOften`), because over a Lose Focus
+"choose a number" did not say what the number bought.
+
 The filter forces one thing that is easy to get wrong and silent when you do:
 **a row's position stops being its answer.** Twelve rows out of three hundred
 and fifty are on screen, so `ChoiceOption` carries the engine's own `index`,

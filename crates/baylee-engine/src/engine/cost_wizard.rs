@@ -48,6 +48,7 @@ use super::{
 use crate::choice::ChoicePrompt;
 use crate::eval;
 use crate::state::GameState;
+use baylee_core::types::TypeSet;
 
 /// Whether this part cannot be paid until somebody names an object.
 ///
@@ -62,6 +63,7 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
         CostPart::Sacrifice(_)
             | CostPart::Discard(_)
             | CostPart::TapOther(_)
+            | CostPart::Crew(_)
             | CostPart::ReturnToHand(_)
             | CostPart::ExileFromGraveyard(_)
     )
@@ -131,6 +133,23 @@ pub(crate) fn options(
     source: ObjectId,
     part: &CostPart,
 ) -> Vec<ObjectId> {
+    // Crew (CR 702.122a): "other untapped creatures you control". Every
+    // word is the rule's, so none of them is a filter the card carries.
+    if matches!(part, CostPart::Crew(_)) {
+        return state
+            .battlefield_view()
+            .iter()
+            .filter(|id| {
+                **id != source
+                    && state.object(**id).is_some_and(|o| {
+                        o.controller == player
+                            && !o.status.contains(Status::TAPPED)
+                            && o.characteristics().types.contains(TypeSet::CREATURE)
+                    })
+            })
+            .copied()
+            .collect();
+    }
     let (zone, controlled, untapped) = match part {
         CostPart::Sacrifice(_) | CostPart::ReturnToHand(_) => {
             (ZoneLocation::Battlefield, true, false)
@@ -223,10 +242,20 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
     match part {
         CostPart::Discard(_) => ChoicePrompt::CostDiscard,
         CostPart::TapOther(_) => ChoicePrompt::CostTap,
+        CostPart::Crew(power) => ChoicePrompt::CostCrew { power: *power },
         CostPart::ReturnToHand(_) => ChoicePrompt::CostReturn,
         CostPart::ExileFromGraveyard(_) => ChoicePrompt::CostExile,
         _ => ChoicePrompt::CostSacrifice,
     }
+}
+
+/// The total power of the creatures named to crew (CR 702.122a), each read
+/// as it is now, a negative power counting as negative (CR 107.1b).
+pub(crate) fn crew_power(state: &GameState, crew: &[ObjectId]) -> i32 {
+    crew.iter()
+        .filter_map(|id| state.object(*id))
+        .map(|o| i32::from(o.characteristics().power.unwrap_or(0)))
+        .sum()
 }
 
 /// Pays one asking part with the object the player named.
@@ -260,7 +289,7 @@ pub(crate) fn pay(
     part: &CostPart,
     chosen: ObjectId,
 ) -> Result<(), EngineError> {
-    if matches!(part, CostPart::TapOther(_)) {
+    if matches!(part, CostPart::TapOther(_) | CostPart::Crew(_)) {
         state.set_tapped(chosen, true);
         state.journal.record(GameEvent::ObjectTapped {
             object: chosen,

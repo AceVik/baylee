@@ -1389,7 +1389,7 @@ fn subtype_keys(
 ) -> bool {
     if !matches!(
         duel.interaction.as_ref().map(Interaction::prompt),
-        Some(Prompt::ChooseSubtype { .. })
+        Some(Prompt::ChooseSubtype { .. } | Prompt::ChooseCardName)
     ) {
         return false;
     }
@@ -1416,7 +1416,7 @@ fn subtype_keys(
         if let Some(first) = rows.first().map(|row| row.index)
             && let Some(i) = duel.interaction.as_mut()
         {
-            i.choose_index(first);
+            crate::choices::pick(i, first);
         }
         return true;
     }
@@ -1427,10 +1427,7 @@ fn subtype_keys(
     let step = i32::from(fired.has(Action::CursorDown)) - i32::from(fired.has(Action::CursorUp))
         + i32::from(fired.has(Action::CursorRight))
         - i32::from(fired.has(Action::CursorLeft));
-    let picked = duel
-        .interaction
-        .as_ref()
-        .and_then(Interaction::chosen_index);
+    let picked = duel.interaction.as_ref().and_then(crate::choices::picked);
     if step != 0 && !rows.is_empty() {
         let at = picked
             .and_then(|p| rows.iter().position(|row| row.index == p))
@@ -1441,7 +1438,7 @@ fn subtype_keys(
         if let Some(row) = rows.get(next)
             && let Some(i) = duel.interaction.as_mut()
         {
-            i.choose_index(row.index);
+            crate::choices::pick(i, row.index);
         }
         return true;
     }
@@ -2568,7 +2565,7 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
     let action = duel
         .interaction
         .as_mut()
-        .and_then(|i| i.choose_index(index).then(|| i.confirm())?);
+        .and_then(|i| crate::choices::pick(i, index).then(|| i.confirm())?);
     if let Some(action) = action {
         duel.submit(action);
     }

@@ -144,6 +144,11 @@ impl<L: CardLookup> Engine<L> {
             }
             Pending::LegendChoice { options, .. } => options.retain(here),
             Pending::ChoosePlayer { options, .. } => options.retain(playing),
+            Pending::ChoosePile { piles, .. } => {
+                for pile in piles {
+                    pile.retain(here);
+                }
+            }
             Pending::Arrange { cards, piles, .. } => {
                 cards.retain(here);
                 // Every card still goes somewhere, and no pile asks for more
@@ -259,6 +264,7 @@ impl<L: CardLookup> Engine<L> {
                 finds,
                 reveal,
                 library,
+                split,
             }) = res.awaiting
             && agent == player
             && !self.state.has_left(library)
@@ -269,6 +275,7 @@ impl<L: CardLookup> Engine<L> {
                 reveal,
                 library,
                 receiver: library,
+                split,
             });
             *asked = library;
             return;

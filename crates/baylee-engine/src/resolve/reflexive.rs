@@ -53,6 +53,7 @@ pub(super) fn arm(
     for _ in 0..times {
         state.reflexive.push(PendingTrigger {
             event_mana_value: None,
+            event_damage: None,
             source: res.source,
             ability_index: AbilityRef::SYNTHETIC,
             abilities: None,
@@ -123,6 +124,20 @@ fn happened(when: ReflexiveEvent, res: &Resolution, event: &GameEvent) -> bool {
                 ..
             } if *object == res.source
         ),
+        // The source exiled by effect, from wherever it was: a dies
+        // trigger's source is the card in the graveyard, and
+        // `Effect::ExileSource` moves it from there.
+        // `lints::every_reflexive_sits_where_it_can_trigger` makes that
+        // exile the op directly before the reflexive.
+        ReflexiveEvent::ExiledThis => matches!(
+            event,
+            GameEvent::ZoneChanged {
+                object,
+                to: Zone::Exile,
+                cause: Cause::Effect,
+                ..
+            } if *object == res.source
+        ),
     }
 }
 
@@ -171,6 +186,7 @@ mod tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            retarget_left: None,
         }
     }
 
@@ -246,6 +262,59 @@ mod tests {
         assert_eq!(t.implicit_target, None, "never an implicit target");
         assert_eq!(t.event_object, None, "and no event object to name");
         assert_eq!(t.synthetic_effects, Some(BODY));
+    }
+
+    /// "You may exile it. When you do, …" (The Balrog of Moria): the
+    /// source exiled by effect out of a graveyard counts, and the three
+    /// moves beside it do not — the source going to a graveyard instead,
+    /// another card exiled, and the source exiled as a cost.
+    #[test]
+    fn only_the_source_exiled_by_effect_is_exiled_this() {
+        let exile = |state: &mut GameState, id: ObjectId, cause: Cause| {
+            state
+                .move_object(id, ZoneLocation::Exile(me()), ZonePosition::Top, cause)
+                .expect("the card moves");
+        };
+        let mut state = state();
+        let ability = object(&mut state, ObjectKind::AbilityOnStack, ZoneLocation::Stack);
+        let run = |state: &mut GameState, act: &dyn Fn(&mut GameState, ObjectId)| {
+            let card = object(state, ObjectKind::Card, ZoneLocation::Graveyard(me()));
+            let res = resolution(card, ability);
+            state
+                .journal
+                .record(GameEvent::StackObjectResolved { object: ability });
+            act(state, card);
+            let before = state.reflexive.len();
+            arm(state, &res, ReflexiveEvent::ExiledThis, BODY, None);
+            state.reflexive.len() - before
+        };
+        assert_eq!(run(&mut state, &|s, card| exile(s, card, Cause::Effect)), 1);
+        assert_eq!(
+            run(&mut state, &|s, card| {
+                s.move_object(
+                    card,
+                    ZoneLocation::Hand(me()),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .expect("the card moves");
+            }),
+            0,
+            "not an exile"
+        );
+        assert_eq!(
+            run(&mut state, &|s, _| {
+                let other = object(s, ObjectKind::Card, ZoneLocation::Graveyard(me()));
+                exile(s, other, Cause::Effect);
+            }),
+            0,
+            "another card"
+        );
+        assert_eq!(
+            run(&mut state, &|s, card| exile(s, card, Cause::Cost)),
+            0,
+            "a cost is not the action"
+        );
     }
 
     /// A mana ability never goes on the stack (CR 605.3b), so it has no

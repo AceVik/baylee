@@ -174,6 +174,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::CreateTokenCopyOfSource { mods } => {
+            // The source card, wherever the cost put it: exile, for
+            // eternalize. Its copiable values there are the card's own.
+            if let Some(base) = crate::layers::copiable_values(state, res.source) {
+                let mut modified = (*base).clone();
+                for m in mods {
+                    apply_copy_mod(&mut modified, m);
+                }
+                create_token_copies(state, you, res.source, &std::sync::Arc::new(modified), 1);
+            }
+            None
+        }
         Effect::CreateTokenCopyOfEquipped { kicked_bonus, mods } => {
             let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
@@ -242,7 +254,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         owner = Some(p);
                         cmc = state
                             .object(card)
-                            .map_or(0, |o| o.characteristics().mana_cost.cmc());
+                            .map_or(0, |o| o.characteristics().mana_value());
                         break 'scan;
                     }
                 }
@@ -273,6 +285,16 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
         }
         baylee_cards_dsl::CopyMod::AddKeyword(k) => {
             base.keywords = base.keywords.union(*k);
+        }
+        baylee_cards_dsl::CopyMod::SetPT(p, t) => {
+            base.power = Some(*p);
+            base.toughness = Some(*t);
+        }
+        baylee_cards_dsl::CopyMod::SetColor(c) => {
+            base.colors = *c;
+        }
+        baylee_cards_dsl::CopyMod::NoManaCost => {
+            base.mana_cost = baylee_core::mana::ManaCost::ZERO;
         }
         // All three are about the object rather than about the
         // characteristics this function is handed. A counter is put on by
@@ -735,6 +757,7 @@ mod tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),
             event_object: None,
             awaiting: None,

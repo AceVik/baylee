@@ -167,12 +167,31 @@ pub fn printed_reduction(
     state: &GameState,
     face: &baylee_cards_dsl::FaceDef,
     player: PlayerId,
+    source: ObjectId,
 ) -> u32 {
-    match face.cost_reduction {
+    reduction_amount(state, face.cost_reduction, player, source)
+}
+
+/// The generic mana `reduction` takes off a cost `player` is paying with
+/// `source` — a card being cast or the object whose ability is activated —
+/// read now, as the total cost is determined (CR 601.2f, and CR 602.2b for
+/// an ability). The taking-off is `ManaCost::with_less_generic`, which
+/// touches only the generic component and stops at {0} (CR 118.7a).
+#[must_use]
+pub fn reduction_amount(
+    state: &GameState,
+    reduction: Option<baylee_cards_dsl::CostReduction>,
+    player: PlayerId,
+    source: ObjectId,
+) -> u32 {
+    match reduction {
         Some(baylee_cards_dsl::CostReduction::NotStartingPlayer(n))
             if player != state.starting_player =>
         {
             n
+        }
+        Some(baylee_cards_dsl::CostReduction::PerCount { amount, each }) => {
+            crate::eval::amount(&amount, state, player, source, None).saturating_mul(each)
         }
         _ => 0,
     }
@@ -249,16 +268,23 @@ pub fn face_has_a_legal_target(
     };
     let abilities = def.abilities_for_face(face);
     // A modal spell is answered mode by mode (CR 700.2): the card is castable
-    // when *any* one of its modes can be pointed at something, and which one
-    // is `cast_options`' question, not this one's.
+    // when as many of its modes as it must choose can each be pointed at
+    // something, through every instance of the word each prints — one for
+    // "choose one", two for "choose two" — and which ones is
+    // `cast_options`' question, not this one's.
     let mut modal = abilities.iter().filter_map(|a| match a {
-        baylee_cards_dsl::AbilityDef::ModalSpell { modes } => Some(modes),
+        baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } => Some((modes, choose)),
         _ => None,
     });
-    if let Some(modes) = modal.next() {
-        return modes
+    if let Some((modes, choose)) = modal.next() {
+        let takeable = modes
             .iter()
-            .any(|mode| requirement_is_reachable(mode.targets, state, player, card));
+            .filter(|mode| {
+                requirement_is_reachable(mode.targets, state, player, card)
+                    && requirement_is_reachable(mode.second_targets, state, player, card)
+            })
+            .count();
+        return takeable >= usize::from(choose.min.max(1));
     }
     let spell = abilities.iter().find_map(|a| match a {
         baylee_cards_dsl::AbilityDef::Spell {
@@ -339,14 +365,89 @@ pub fn mode_has_a_legal_target(
     else {
         return true;
     };
-    let req = def.abilities.iter().find_map(|a| match a {
-        baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes.get(mode).map(|m| m.targets),
+    let reqs = def.abilities.iter().find_map(|a| match a {
+        baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
+            modes.get(mode).map(|m| (m.targets, m.second_targets))
+        }
         _ => None,
     });
-    match req {
-        Some(req) => requirement_is_reachable(req, state, player, card),
+    // Both instances of the word, as `face_has_a_legal_target` asks them
+    // (CR 601.2c): Archdruid's Charm's second mode with no creature on the
+    // other side of the table is not a mode that can be chosen (CR 700.2a).
+    match reqs {
+        Some((first, second)) => {
+            requirement_is_reachable(first, state, player, card)
+                && requirement_is_reachable(second, state, player, card)
+        }
         None => true,
     }
+}
+
+/// Every set of modes a spell that chooses more than one may be cast with
+/// (CR 700.2a), as a bitmask — bit `i` is mode `i` — in increasing order:
+/// each holds as many modes as `choose` allows, none twice (CR 700.2d).
+///
+/// Eight modes at most, which is a byte. The pool's widest is four.
+pub fn mode_sets(
+    modes: &[baylee_cards_dsl::SpellMode],
+    choose: baylee_cards_dsl::ModeCount,
+) -> impl Iterator<Item = u8> {
+    let every = 1_u16 << modes.len().min(8);
+    (1..every).filter_map(move |set| {
+        let set = u8::try_from(set).ok()?;
+        let count = u8::try_from(set.count_ones()).ok()?;
+        (choose.min <= count && count <= choose.max).then_some(set)
+    })
+}
+
+/// The modes a set names, with their indices, in the order they are
+/// printed — which is the order they are carried out in (CR 608.2c).
+pub fn chosen_modes(
+    modes: &'static [baylee_cards_dsl::SpellMode],
+    set: u8,
+) -> impl Iterator<Item = (usize, &'static baylee_cards_dsl::SpellMode)> {
+    modes
+        .iter()
+        .enumerate()
+        .filter(move |(i, _)| *i < 8 && set & (1 << i) != 0)
+}
+
+/// What a set of modes costs: `base`, the spell's own price, with every
+/// chosen mode's cost added to it (CR 700.2h, 601.2f) — spree's "+ {1}".
+///
+/// With one generic symbol, as a printed cost has: two "+ {1}" on {W} are
+/// {2}{W}, which is what a row draws, and not the {1}{1}{W} that
+/// [`ManaCost::combine`] would make of them.
+#[must_use]
+pub fn mode_set_cost(
+    base: ManaCost,
+    modes: &'static [baylee_cards_dsl::SpellMode],
+    set: u8,
+) -> ManaCost {
+    chosen_modes(modes, set).fold(base, |cost, (_, mode)| {
+        let Some(extra) = mode.additional_cost else {
+            return cost;
+        };
+        extra.symbols().fold(cost, |cost, symbol| match symbol {
+            baylee_core::mana::ManaSymbol::Generic(n) => cost.with_more_generic(n),
+            other => cost.combine(&ManaCost::from_symbol(other)),
+        })
+    })
+}
+
+/// Whether every mode in a set can be pointed at something: a mode that
+/// would be illegal can't be chosen (CR 700.2a), in a set as alone.
+#[must_use]
+pub fn mode_set_has_legal_targets(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+    set: u8,
+) -> bool {
+    (0..8_usize)
+        .filter(|i| set & (1 << i) != 0)
+        .all(|i| mode_has_a_legal_target(state, lookup, player, card, i))
 }
 
 /// Whether choosing a mode is the **only** way to cast this face (CR 700.2).
@@ -811,6 +912,28 @@ pub(crate) fn timing_allows(
     true
 }
 
+/// Whether `player` may cast back face `face` of `def` now, as far as timing
+/// goes (CR 601.3).
+///
+/// A face that is cast in place of the front is judged by its own
+/// characteristics (CR 601.3e): only the face that will be up on the stack
+/// is evaluated for an MDFC (CR 712.11c), and only the alternative
+/// characteristics for an Adventure (CR 715.3a). So an instant printed on
+/// the back of a creature or an enchantment is cast whenever an instant
+/// could be, and the front is not. Read off the printed face: nothing can
+/// have granted a face that is not up anything, and the two player-scoped
+/// effects `timing_allows` reads still apply.
+pub(crate) fn face_timing_allows(
+    state: &GameState,
+    player: PlayerId,
+    def: &baylee_cards_dsl::CardDef,
+    face: usize,
+) -> bool {
+    def.faces
+        .get(face)
+        .is_some_and(|f| timing_allows(state, player, f.types, def.keywords_for_face(face)))
+}
+
 /// Whether a continuous effect forbids `player` casting `obj` at all
 /// (CR 601.3a).
 ///
@@ -821,7 +944,11 @@ pub(crate) fn timing_allows(
 /// player's sentence about somebody else's card — and `this` is the effect's
 /// own source, so a filter naming `Filter::This` means the forbidding
 /// permanent rather than the card being cast.
-fn cast_is_forbidden(state: &GameState, player: PlayerId, obj: &crate::object::GameObject) -> bool {
+pub(crate) fn cast_is_forbidden(
+    state: &GameState,
+    player: PlayerId,
+    obj: &crate::object::GameObject,
+) -> bool {
     state.effects.iter().any(|fx| {
         let baylee_cards_dsl::Modifier::OpponentsCantCast(filter) = fx.modifier else {
             return false;
@@ -900,6 +1027,23 @@ pub fn can_cast(
     normal
 }
 
+/// Whether `player` may begin to cast a spell at all this turn (CR 601.3).
+///
+/// Conduit of Worlds' "If you do, you can't cast additional spells this
+/// turn" is the one sentence that says no: it names the player and every
+/// spell, so it is asked here, beside the table's other refusals, by every
+/// door a cast comes through — the priority offer, a free cast an effect
+/// makes (cascade, rebound, suspend), a miracle, a prepared copy.
+#[must_use]
+pub(crate) fn may_begin_casting(state: &GameState, player: PlayerId) -> bool {
+    !state
+        .per_turn
+        .no_more_spells
+        .get(player.get() as usize)
+        .copied()
+        .unwrap_or(false)
+}
+
 #[allow(clippy::too_many_lines)] // one gate per casting rule
 pub(crate) fn can_cast_form(
     state: &GameState,
@@ -911,9 +1055,16 @@ pub(crate) fn can_cast_form(
     let obj = state.object(card).ok_or(CastError::NotInHand)?;
     let in_hand = obj.zone == Zone::Hand && obj.zone_owner == Some(player);
     let in_own_graveyard = obj.zone == Zone::Graveyard && obj.zone_owner == Some(player);
-    // Flashback (CR 702.34): a granted card may be cast from its owner's
-    // graveyard.
-    let flashback_ok = !in_hand && in_own_graveyard && flashback_granted(state, card);
+    // Flashback (CR 702.34a): a card may be cast from its owner's graveyard
+    // when a grant or its own printed flashback says so. The printed one
+    // has its own price, probed below.
+    let printed_flashback = obj
+        .card
+        .and_then(|c| lookup.card(c.index))
+        .and_then(|def| def.faces[0].flashback);
+    let flashback_ok = !in_hand
+        && in_own_graveyard
+        && (printed_flashback.is_some() || flashback_granted(state, card));
     // Disturb (CR 702.146): a face with disturb is castable from the
     // owner's graveyard.
     let disturb_ok = !in_hand
@@ -945,7 +1096,26 @@ pub(crate) fn can_cast_form(
             .commanders
             .get(player.get() as usize)
             .is_some_and(|cs| cs.iter().any(|c| c.object == card));
-    if !in_hand && !flashback_ok && !disturb_ok && !adventure_ok && !takeover_ok && !commander_ok {
+    // "You may play that card this turn" (Dauthi Voidwalker, Expressive
+    // Iteration): a permission for this object, from whatever exile it lies
+    // in — the owner's, which is not the caster's.
+    let permission = if in_hand {
+        None
+    } else {
+        play_permission(state, player, card)
+    };
+    // Wrenn's emblem and Muldrotha: a permanent card cast from its owner's
+    // graveyard at its own price.
+    let graveyard_ok = !in_hand && graveyard_cast_permission(state, player, obj).is_some();
+    if !in_hand
+        && !graveyard_ok
+        && !flashback_ok
+        && !disturb_ok
+        && !adventure_ok
+        && !takeover_ok
+        && !commander_ok
+        && permission.is_none()
+    {
         return Err(CastError::NotInHand);
     }
     let projected = form.map(|f| f.project(obj));
@@ -959,12 +1129,23 @@ pub(crate) fn can_cast_form(
     // Silence does not move a spell to sorcery speed, it removes the
     // permission, and a player reading "sorcery-speed timing not met" on
     // their own main phase would go looking for a rule that is not there.
-    if cast_is_forbidden(state, player, obj) {
+    if cast_is_forbidden(state, player, obj) || !may_begin_casting(state, player) {
         return Err(CastError::Forbidden);
     }
     // Timing (CR 601.3). Read off the projected characteristics, so a
-    // granted flash counts.
-    if !timing_allows(state, player, c.types, c.keywords) {
+    // granted flash counts. That is the front face's timing, and when it
+    // says no, a back face cast in its place may still say yes by its own
+    // (`face_timing_allows`): Vantress Visions is an instant on the back of
+    // an enchantment, and it is cast in answer to an ability on the stack
+    // or not at all. A prototype or a disguise is the front, cast another
+    // way.
+    let front_now = timing_allows(state, player, c.types, c.keywords);
+    let printed = obj.card.and_then(|c| lookup.card(c.index));
+    let a_back_face_now = printed.is_some_and(|def| {
+        castable_back_faces(def, on_adventure)
+            .any(|(i, _)| face_timing_allows(state, player, def, i))
+    });
+    if !front_now && (form.is_some() || !a_back_face_now) {
         return Err(CastError::BadTiming);
     }
     // "As an additional cost to cast this spell, sacrifice a creature": a
@@ -977,6 +1158,12 @@ pub(crate) fn can_cast_form(
             .any(|part| crate::engine::cost_wizard::options(state, player, card, part).is_empty())
     {
         return Err(CastError::NoWayToCast);
+    }
+    // "Without paying its mana cost" is an alternative cost (CR 118.9):
+    // nothing is paid, so there is nothing to afford, and a card that
+    // prints no mana cost is castable this way too (CR 118.6a).
+    if form.is_none() && permission.is_some_and(|p| p.free) {
+        return Ok(());
     }
     // Restricted mana this spell may be paid with counts towards it; see
     // [`spendable_pool`].
@@ -1003,7 +1190,6 @@ pub(crate) fn can_cast_form(
     // Convoke and delve are *reductions* of the generic part, so they go on
     // the same probes the tax does and in the other direction. Read off the
     // printed face: a granted convoke does not exist.
-    let printed = obj.card.and_then(|c| lookup.card(c.index));
     let printed_face = printed.map(|def| &def.faces[0]);
     let reduction = printed_face.map_or(0, |face| keyword_reduction(state, face, player));
     let probe = |cost: &ManaCost| {
@@ -1013,19 +1199,51 @@ pub(crate) fn can_cast_form(
             &cost.with_more_generic(tax).with_less_generic(reduction),
         )
     };
+    // A back face that may be cast now, affordable and with something to
+    // point at: the same three questions the wizard asks of it.
+    let a_back_face_castable = || {
+        printed.is_some_and(|def| {
+            castable_back_faces(def, on_adventure).any(|(i, f)| {
+                face_timing_allows(state, player, def, i)
+                    && probe(&f.mana_cost.with_x(0))
+                    && face_has_a_legal_target(state, lookup, player, card, i)
+            })
+        })
+    };
+    // The front may not be cast now, so no front-face price is an answer:
+    // only a back face can make the card castable.
+    if !front_now {
+        return if a_back_face_castable() {
+            Ok(())
+        } else {
+            Err(CastError::NotEnoughMana)
+        };
+    }
+    // A printed flashback is paid "rather than its mana cost" (CR 702.34a),
+    // so from the graveyard its cost is the price — or, beside a grant
+    // (Past in Flames), one of two, the grant's being the mana cost below.
+    if flashback_ok && let Some(cost) = printed_flashback {
+        if probe(&cost.with_x(0)) {
+            return Ok(());
+        }
+        if !flashback_granted(state, card) {
+            return Err(CastError::NotEnoughMana);
+        }
+    }
     if let Some(def) = printed
         && let Some(req) = def.faces[0].kicked_targets
     {
         let ordinary = ordinary_targets_reachable(state, def, player, card)
             && probe(
                 &c.mana_cost
-                    .with_less_generic(printed_reduction(state, &def.faces[0], player))
+                    .with_less_generic(printed_reduction(state, &def.faces[0], player, card))
                     .with_x(0),
             );
         let kicked_cost = kicked_mana_cost(&def.faces[0]).with_less_generic(printed_reduction(
             state,
             &def.faces[0],
             player,
+            card,
         ));
         let kicked = requirement_is_reachable(Some(req), state, player, card)
             && probe(&kicked_cost.with_x(0));
@@ -1051,19 +1269,22 @@ pub(crate) fn can_cast_form(
                     && face_has_a_legal_target(state, lookup, player, card, i)
             })
         });
-        return if affordable_disturb {
-            Ok(())
-        } else {
-            Err(CastError::NotEnoughMana)
-        };
+        if affordable_disturb {
+            return Ok(());
+        }
+        // Muldrotha or Wrenn's emblem cast the *front* from the graveyard
+        // too, at its own price — the probes below.
+        if !graveyard_ok {
+            return Err(CastError::NotEnoughMana);
+        }
     }
     // Printed cost probed with X = 0, and after a reduction printed on the
     // card itself; the full payment is validated when the wizard finishes.
     // A face with no printed cost has no normal way to be cast at all
     // (CR 202.1b) and falls straight through to the alternatives.
-    let normal_cost = c
-        .mana_cost
-        .with_less_generic(printed_face.map_or(0, |face| printed_reduction(state, face, player)));
+    let normal_cost = c.mana_cost.with_less_generic(
+        printed_face.map_or(0, |face| printed_reduction(state, face, player, card)),
+    );
     // `c.mana_cost` and not `normal_cost`: the question is what the card
     // *prints*, and cost arithmetic does not preserve the answer —
     // `with_less_generic` rebuilds a cost symbol by symbol and drops a
@@ -1123,7 +1344,13 @@ pub(crate) fn can_cast_form(
         // same intersection `cast_options` makes two files away, which is the
         // half that was already right.
         let any_mode = def.abilities.iter().any(|a| match a {
-            baylee_cards_dsl::AbilityDef::ModalSpell { modes } => {
+            baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
+                mode_sets(modes, *choose).any(|set| {
+                    probe(&mode_set_cost(face.mana_cost, modes, set).with_x(0))
+                        && mode_set_has_legal_targets(state, lookup, player, card, set)
+                })
+            }
+            baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
                 modes.iter().enumerate().any(|(i, m)| {
                     probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))
                         && mode_has_a_legal_target(state, lookup, player, card, i)
@@ -1136,10 +1363,10 @@ pub(crate) fn can_cast_form(
         // a `{1}{W}` instant, so the adventure was unreachable on exactly the
         // boards it is for: the ones where the creature cannot be paid for.
         //
-        // Timing is still the front face's alone, here and in the wizard, so
-        // a `{1}{W}` instant on the back of a creature is a sorcery-speed
-        // instant. The two agree about that, which is what this probe is for;
-        // that they agree on something wrong is a separate fault.
+        // Each face at its own timing (`face_timing_allows`), here and in
+        // the wizard: a `{1}{W}` instant on the back of a creature is cast
+        // whenever an instant could be, and a sorcery on the back of a
+        // creature with flash is not.
         //
         // The target line is asked per face and beside the price, because
         // both have to hold of the *same* face for it to be a way of casting
@@ -1150,16 +1377,18 @@ pub(crate) fn can_cast_form(
         // it means folding the face-0 question into the probes below and
         // giving `CastError` a variant that does not call a target problem
         // "not enough mana".
-        let any_face = castable_back_faces(def, on_adventure).any(|(i, f)| {
-            probe(&f.mana_cost.with_x(0)) && face_has_a_legal_target(state, lookup, player, card, i)
-        });
+        let any_face = a_back_face_castable();
         if !any_alt && !any_mode && !any_face {
             // Which of the two refused matters to whoever reads it. A mode
             // that was affordable and had nothing to point at is not a
             // player one land short, and telling them it is sends them
             // looking for the land.
             let a_mode_was_affordable = def.abilities.iter().any(|a| match a {
-                baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
+                    mode_sets(modes, *choose)
+                        .any(|set| probe(&mode_set_cost(face.mana_cost, modes, set).with_x(0)))
+                }
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => modes
                     .iter()
                     .any(|m| probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))),
                 _ => false,
@@ -1212,6 +1441,171 @@ pub fn has_a_land_drop_left(state: &GameState, player: PlayerId) -> bool {
     state.players[player.get() as usize].lands_played_this_turn < land_drops_allowed(state, player)
 }
 
+/// The permanent types a spell can be cast "of" under Muldrotha's allowance:
+/// every permanent type but land, which is played and not cast (CR 305.9).
+const SPELL_PERMANENT_TYPES: [TypeSet; 5] = [
+    TypeSet::ARTIFACT,
+    TypeSet::CREATURE,
+    TypeSet::ENCHANTMENT,
+    TypeSet::PLANESWALKER,
+    TypeSet::BATTLE,
+];
+
+/// Whether each card in `cards` can be given a permanent type of its own,
+/// no two the same: "a permanent spell of each permanent type", with a card
+/// of several types using one of them. Five types at most, so the search is
+/// small enough to try every assignment.
+fn one_type_each(cards: &[TypeSet]) -> bool {
+    fn assign(cards: &[TypeSet], used: u8) -> bool {
+        let Some((first, rest)) = cards.split_first() else {
+            return true;
+        };
+        SPELL_PERMANENT_TYPES.iter().enumerate().any(|(i, t)| {
+            used & (1 << i) == 0 && first.contains(*t) && assign(rest, used | (1 << i))
+        })
+    }
+    cards.len() <= SPELL_PERMANENT_TYPES.len() && assign(cards, 0)
+}
+
+/// Which permission lets a card be played from its owner's graveyard, when
+/// the one that does is counted.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum GraveyardPermission {
+    /// Uncounted: Wrenn and Realmbreaker's emblem, Crucible of Worlds.
+    Unlimited,
+    /// Muldrotha's allowance, which this play uses up a part of.
+    EachType {
+        /// The allowance's source.
+        source: ObjectId,
+        /// Its version.
+        version: u32,
+    },
+}
+
+/// The Muldrotha-style allowances `player` holds right now: during their own
+/// turn only ("during each of your turns"), each with the plays already made
+/// under it this turn.
+fn each_type_allowances(
+    state: &GameState,
+    player: PlayerId,
+) -> impl Iterator<Item = (ObjectId, u32, Vec<TypeSet>)> + '_ {
+    let my_turn = state.turn.active == player;
+    state
+        .effects
+        .iter()
+        .filter(move |fx| {
+            my_turn
+                && fx.controller == player
+                && matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::PermanentOfEachTypeFromGraveyard
+                )
+        })
+        .filter_map(move |fx| {
+            let source = fx.source?;
+            let version = state.object(source)?.version;
+            let plays = state
+                .per_turn
+                .graveyard_plays
+                .iter()
+                .filter(|p| p.player == player && p.source == source && p.version == version)
+                .map(|p| p.types)
+                .collect();
+            Some((source, version, plays))
+        })
+}
+
+/// Which permission, if any, lets `player` cast the card `obj` from their
+/// own graveyard: Forgotten Cellar's first, the one that casts any spell;
+/// then, for a permanent card, Wrenn's emblem, because it costs nothing to
+/// use, and a Muldrotha allowance with a type still open for it. A land card
+/// is played and never cast (CR 305.9), whichever permission is there.
+#[must_use]
+pub fn graveyard_cast_permission(
+    state: &GameState,
+    player: PlayerId,
+    obj: &crate::object::GameObject,
+) -> Option<GraveyardPermission> {
+    let types = obj.characteristics().types;
+    if obj.zone != Zone::Graveyard
+        || obj.zone_owner != Some(player)
+        || types.contains(TypeSet::LAND)
+    {
+        return None;
+    }
+    // "You may cast spells from your graveyard this turn": every spell, so
+    // it is asked before the word "permanent" is.
+    if state.effects.iter().any(|fx| {
+        fx.controller == player
+            && matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::CastSpellsFromGraveyard
+            )
+    }) {
+        return Some(GraveyardPermission::Unlimited);
+    }
+    if !types.is_permanent() {
+        return None;
+    }
+    if state.effects.iter().any(|fx| {
+        fx.controller == player
+            && matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::CastPermanentSpellsFromGraveyard
+            )
+    }) {
+        return Some(GraveyardPermission::Unlimited);
+    }
+    each_type_allowances(state, player).find_map(|(source, version, mut plays)| {
+        plays.retain(|t| !t.contains(TypeSet::LAND));
+        plays.push(types);
+        one_type_each(&plays).then_some(GraveyardPermission::EachType { source, version })
+    })
+}
+
+/// Which permission lets `player` play a land from their own graveyard:
+/// Crucible of Worlds' first, then a Muldrotha allowance whose land is still
+/// unplayed this turn.
+#[must_use]
+pub fn graveyard_land_permission(
+    state: &GameState,
+    player: PlayerId,
+) -> Option<GraveyardPermission> {
+    if state.effects.iter().any(|fx| {
+        fx.controller == player
+            && matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::PlayLandsFromGraveyard
+            )
+    }) {
+        return Some(GraveyardPermission::Unlimited);
+    }
+    each_type_allowances(state, player).find_map(|(source, version, plays)| {
+        (!plays.iter().any(|t| t.contains(TypeSet::LAND)))
+            .then_some(GraveyardPermission::EachType { source, version })
+    })
+}
+
+/// Writes down a play made under a Muldrotha allowance.
+pub fn note_graveyard_play(
+    state: &mut GameState,
+    player: PlayerId,
+    permission: Option<GraveyardPermission>,
+    types: TypeSet,
+) {
+    if let Some(GraveyardPermission::EachType { source, version }) = permission {
+        state
+            .per_turn
+            .graveyard_plays
+            .push(crate::state::GraveyardPlay {
+                player,
+                source,
+                version,
+                types,
+            });
+    }
+}
+
 /// Whether a land sitting in `zone` is one `player` may play (CR 305.1, and
 /// the permissions that widen it).
 ///
@@ -1224,13 +1618,7 @@ pub fn has_a_land_drop_left(state: &GameState, player: PlayerId) -> bool {
 pub fn land_zone_open(state: &GameState, player: PlayerId, zone: Zone) -> bool {
     match zone {
         Zone::Hand => true,
-        Zone::Graveyard => state.effects.iter().any(|fx| {
-            fx.controller == player
-                && matches!(
-                    fx.modifier,
-                    baylee_cards_dsl::Modifier::PlayLandsFromGraveyard
-                )
-        }),
+        Zone::Graveyard => graveyard_land_permission(state, player).is_some(),
         Zone::Library => state.effects.iter().any(|fx| {
             fx.controller == player
                 && matches!(
@@ -1242,10 +1630,33 @@ pub fn land_zone_open(state: &GameState, player: PlayerId, zone: Zone) -> bool {
     }
 }
 
+/// The permission `player` holds to play `card` this turn, if any
+/// ([`crate::state::PlayPermission`]): one given for this very object, so a
+/// card that has moved since holds none (CR 400.7).
+#[must_use]
+pub fn play_permission(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+) -> Option<crate::state::PlayPermission> {
+    let version = state.object(card)?.version;
+    state
+        .per_turn
+        .playable
+        .iter()
+        .copied()
+        .find(|p| p.player == player && p.card == card && p.version == version)
+}
+
 /// The zone permission plus the particular card restriction. A library
-/// permission never grants access to a card below the top.
+/// permission never grants access to a card below the top. A permission for
+/// the card itself ([`play_permission`]) opens it wherever it lies, an
+/// opponent's exile included.
 #[must_use]
 pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
+    if play_permission(state, player, card).is_some() {
+        return true;
+    }
     state.object(card).is_some_and(|obj| {
         obj.zone_owner == Some(player)
             && land_zone_open(state, player, obj.zone)
@@ -1279,6 +1690,12 @@ pub fn play_land(
     }
     if !has_a_land_drop_left(state, player) {
         return Err(CastFailure::Legality(CastError::BadTiming));
+    }
+    // A land from the graveyard under Muldrotha's allowance uses its land
+    // for the turn; one a permission for this very card opened does not.
+    if obj.zone == Zone::Graveyard && play_permission(state, player, card).is_none() {
+        let permission = graveyard_land_permission(state, player);
+        note_graveyard_play(state, player, permission, TypeSet::LAND);
     }
     state.players[player.get() as usize].lands_played_this_turn += 1;
     {
@@ -1534,6 +1951,7 @@ fn alternative_parts_payable(
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
+        | CostPart::Crew(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::DiscardSelf
@@ -2148,7 +2566,8 @@ mod tests {
     /// out for.
     #[test]
     fn a_printed_reduction_reaches_the_seat_it_was_printed_for() {
-        let state = state();
+        let mut state = state();
+        let card = permanent(&mut state, me(), "Probe");
         let face = probe_face(
             false,
             false,
@@ -2157,12 +2576,46 @@ mod tests {
         let starter = state.starting_player;
         let other = if starter == me() { them() } else { me() };
 
-        assert_eq!(printed_reduction(&state, &face, starter), 0);
-        assert_eq!(printed_reduction(&state, &face, other), 1);
+        assert_eq!(printed_reduction(&state, &face, starter, card), 0);
+        assert_eq!(printed_reduction(&state, &face, other, card), 1);
         assert_eq!(
-            printed_reduction(&state, &probe_face(false, false, None), other),
+            printed_reduction(&state, &probe_face(false, false, None), other, card),
             0,
             "and a card that prints no reduction gets none"
+        );
+    }
+
+    /// "Costs {1} less … for each creature you control" counts for the seat
+    /// paying: two creatures of mine take two off my price, and my
+    /// opponent's one creature takes one off theirs. `each` multiplies.
+    #[test]
+    fn a_counted_reduction_takes_generic_mana_per_thing_counted() {
+        let mut state = state();
+        let card = permanent(&mut state, me(), "Probe");
+        creature(&mut state, me(), "Mine");
+        creature(&mut state, me(), "Also mine");
+        creature(&mut state, them(), "Theirs");
+        let per = |each| {
+            probe_face(
+                false,
+                false,
+                Some(baylee_cards_dsl::CostReduction::PerCount {
+                    amount: baylee_cards_dsl::Amount::CountOf {
+                        filter: &Filter::YOUR_CREATURE,
+                        zone: baylee_cards_dsl::ZoneSel::Battlefield,
+                    },
+                    each,
+                }),
+            )
+        };
+        assert_eq!(printed_reduction(&state, &per(1), me(), card), 2);
+        assert_eq!(printed_reduction(&state, &per(1), them(), card), 1);
+        assert_eq!(printed_reduction(&state, &per(2), me(), card), 4);
+        let cost = ManaCost::parse("{1}{G}");
+        assert_eq!(
+            cost.with_less_generic(printed_reduction(&state, &per(1), me(), card)),
+            ManaCost::parse("{G}"),
+            "generic only, and never below nothing (CR 118.7a)"
         );
     }
 

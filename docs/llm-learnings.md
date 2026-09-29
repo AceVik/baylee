@@ -217,8 +217,10 @@ Maze of Ith, Urza's Saga (partial), Venser the Sojourner (partial) plus the
   "handled elsewhere" match arm of `layers.rs` + `state.rs` modifier hash).
   Every new `Modifier` variant MUST be added to BOTH match statements or
   the build breaks with non-exhaustive errors.
-- `Filter::Attacking` (Maze of Ith): evaluated against
-  `state.combat.attackers` in `eval.rs`.
+- `Filter::Attacking` (Maze of Ith): evaluated by
+  `state.combat.is_attacking` in `eval.rs`, a lookup in a sorted index kept
+  beside the attacker list. The list is private: declare and remove through
+  `CombatState`'s methods, which keep the two in step.
 - No-lose suppression: `Modifier::PlayersCantLose` is read by one predicate,
   `sba::players_cant_lose`, which both the SBA loss check and
   `sba::lose_by_effect` (an effect saying a player loses, e.g. an unpaid
@@ -1779,3 +1781,179 @@ land type"; both are convention tests that fire on a first try.
   stack has a blank face, so `NONCREATURE` alone is true of it. "Noncreature
   spells you control" also asks for a noncreature card type (Benevolent
   Geist).
+
+### 2026-09-29 — friends group, round 2: Weltenbaum's rules pieces
+
+- **Set the harness's counters before walking to a step.** A counter put on
+  a permanent after `reach_main_phase` leaves the projection stale until
+  something else changes; the station test saw a 1/1 where the counters said
+  otherwise. Put them first, then walk.
+- **An ability with a mana cost is offered only once its mana floats.** Ask
+  the offer after tapping, as for `castable`. A test that asked first read
+  "not offered" and blamed the threshold it was written for.
+- **A back face is cast at its own timing** (CR 601.3e, 712.11c, 715.3a).
+  An instant on the back of an enchantment read as a sorcery for as long as
+  the front's timing was the only one asked. A card whose two faces differ
+  in speed is the case to test.
+- **A triggered ability journals `AbilityTriggered`, not `BecameTarget`.**
+  Count a copy's targets off `BecameTarget`, and expect the original's to be
+  missing from it.
+- **An ability on the stack is not projectable.** Insert one with
+  `projectable = false`, or `stack_projectable` panics as it drifts.
+- **A lock by name belongs on the offer, not in each door.** `apply` refuses
+  what `legal.abilities` does not hold, so one narrowing pass over it covers
+  printed, loyalty, granted and in-hand activations at once. Karn's lock
+  sits in every door separately and needed a comment per door.
+- **A board seated by `Duel::battlefield` enters tapped where the card
+  says so** (the Deserts): an older test comment says otherwise. Read the
+  status before tapping it for mana, or take the test to that seat's own
+  turn, after its untap step.
+- **A new field on `GameObject` can cost eight bytes for four.** The
+  footprint test measures alignment, not the field: an `Option<PrintedFace>`
+  grew the object from 296 to 304. Raise the budget deliberately, with a
+  line in `docs/perf-baseline.md`.
+
+### 2026-09-29 — friends group, round 2: Lose Focus and replicate
+
+- **One constructor for a spell copy.** `CopyTargetSpell` copied the object
+  and its object targets but not X, the mode, the face, a kicker or a player
+  target; a copied Blaze dealt 0 to nobody. Replicate needed the same copy,
+  so both go through `resolve::copy_spell` now, and a new copy effect should
+  too.
+- **A count fixed at cast time is a slice of a static table.** The
+  replicate trigger's effects are `&REPLICATE_COPIES[..n]`, one
+  `CopyThisSpell` each, so nothing has to allocate or read the count back
+  at resolution. Storm could take the same shape.
+- **A question that shares an answer with another says which it is.**
+  `ChooseNumber` answers X and replicate alike; the `reason` field is what
+  lets the client's headline and the AI tell them apart. The engine itself
+  tells them apart by the wizard stage.
+- **A trigger's source can be a spell on the stack below it.** An AI reader
+  that looked up "what is resolving" by the source id found the spell before
+  its trigger, and aimed the copy at the spell it was copying. Look for the
+  ability of the source first.
+- **Bound an optional count by what the payment reads.** The replicate
+  bound asks the same `can_pay_mana` with the same `spend_for` as
+  `finish_cast`, so restricted mana (Cavern of Souls) cannot make the offer
+  and the payment disagree.
+
+### 2026-09-29 — friends group, round 2: Walk-In Closet and Rooms
+
+- **A designation that changes the rules text must end what the old text
+  started.** `sync_static_effects` registers statics and drops them only
+  when their source leaves or a condition fails, so a Room placed uncast
+  kept the left door's static it was scanned with before its doors were
+  set. `set_doors` drops the Room's statics and lets the next scan
+  re-register them.
+- **"Enters with" belongs where enter modifiers are.** Giving the door in
+  `apply_enter_modifiers`, before the trigger scan of the same pass, is what
+  lets the Room's own "when you unlock this door" hear its entry.
+- **A reserved index needs one predicate.** Pithing Needle and split second
+  each kept `TURN_FACE_UP` by name; a second special action would have been
+  stopped by both. `choice::is_special_action` is the one question.
+- **A test's second turn must leave the first.** `reach_their_main_phase`
+  returns at once when the seat is already in its main phase; "next turn"
+  needs a pass into the other seat's turn first, or "this turn" is never
+  over.
+
+### 2026-09-29 — Maik's European Highlander, second round
+
+- **An item inserted "before `fn x`" lands between `x`'s doc and `x`.** A
+  splice anchored on the `fn` line moves the doc comment onto the new item,
+  and the compiler says nothing. It happened four times in this round.
+  Anchor an insertion on the doc block's first line, and after a batch of
+  splices look for a `///` block followed by a different item than the one
+  it describes.
+- **`Duel::battlefield(seat, …)` replaces, it does not add.** A second call
+  for the same seat throws the first list away. Build one list per seat.
+- **`ManaCost::combine` does not merge generic symbols.** `{W}` plus `{1}`
+  plus `{1}` is `{1}{1}{W}`, which compares unequal to `{2}{W}` and is drawn
+  that way. Add generic mana with `with_more_generic`.
+- **A cast question with one answer is not asked.** When only one set of
+  modes is affordable and legal, the wizard takes it. A test that expects
+  `ChooseCastMode` there fails; assert the spell is on the stack instead.
+- **A copy must carry everything that was chosen for the original.** The
+  spell copy carried the targets but not the chosen mode, so a copied modal
+  spell resolved to nothing (CR 700.2g). Any new per-cast field
+  (`GameObject::modes`) goes into `CopyTargetSpell` too.
+- **An index into a program that gets spliced moves.** A nested list that
+  stops for a question replaces the op at the program counter with its own
+  remaining ops, so every later index shifts. Count such a point from the
+  end of the program: that part is never changed.
+- **Check each term of an AI score against the tie-break.** "Prefer a set
+  with no idle mode" never mattered while the earliest (smallest) set won
+  ties. Only an empty board, where every mode but the unreadable one is
+  idle, showed it doing anything. That board is the case in the test.
+- **Code no card reaches has no test to fail.** A snapshot of the second
+  target instance's last known information and a splice adjustment passed
+  every injection, because nothing in the pool read them. Both were taken
+  out, and the doc says what is not covered.
+
+## 29.09.2026 — library group, round two: piles, a cast out of a graveyard, a single graveyard, crew
+
+- **After a hand edit to a card, run `xtask codegen --tables`, never full
+  codegen.** It rewrites the four compiled-pool tables (`generated_lines.rs`
+  above all) and needs no corpus. `gate-rules.sh` stops early without
+  `DATABASE_URL`, so give it one while working.
+- **Clippy on client tests runs only in the full gate.** `gate-rules` leaves
+  `baylee-client` out, and `duel_flow.rs` crossed `too_many_lines` there
+  first. Run `gate.sh` before a push, not after.
+- **A new `Pending`, `YesNoPrompt` or `ChoicePrompt` variant moves pinned
+  tables in `choice.rs`.** `kind_of` must number every kind without a gap or a
+  collision, and the timeout table needs one row per kind. `ChoosePile` and
+  `PayPact` once shared a number, and `PayPact` had no row: adding
+  `CastPaying` exposed both.
+- **A reveal to be sorted is shown in the client's Looking tab.** The browser
+  hid rows a `ForChoice` sheet could not select and closed the sheet when the
+  question was not about it. A pile question selects nothing, so the pile was
+  invisible until `rows` exempted the Looking tab.
+- **A Partial's reason can go stale without anyone noticing.** World Shaper
+  named a missing effect that another card had already added (Lumra's
+  sweep). Grep for the machinery before believing a reason. The friends
+  group finished World Shaper the same night with a sweep of its own, so the
+  merge kept one of the two identical effects (`YourGraveyardToBattlefield`)
+  and dropped `ReturnAllFromGraveyard`.
+- **"You may cast that card" during a resolution is a delayed cast plus a
+  payment window.** `Effect::MayCastTarget` asks `CastPaying`. A yes opens a
+  CR 605.3a window for the card's mana cost as the resolution ends, and
+  passing it starts `start_paid_cast`, paid out of the pool. A lock such as
+  "you can't cast additional spells this turn" lives in `PerTurn` and is read
+  by `casting::may_begin_casting`, at every door a cast comes through: the
+  offer, free casts, miracle, and a prepared copy.
+- **`castable` in a test needs the mana already floating.** Tap a land first
+  when a test wants to show that a spell *is* offered.
+- **A new `bool` on `CastWizard` is refused by clippy after three.** Use one
+  small enum field for a cast's origin (`EffectCast`).
+- **`Rider::Linked` is released by more than its host leaving.**
+  `GameState::set_monarch` returns every `Linked` card whose host's
+  controller is not the new monarch, not only Palace Jailer's. A card that
+  exiles "with" itself for good (Unlicensed Hearse) takes `Rider::ExiledWith`,
+  which carries the host's version so a host that returned counts nothing
+  (CR 400.7).
+- **"From a single graveyard" is `CardInGraveyard(filter, PlayerRel::Chosen)`.**
+  The activation asks `ChoosePlayer` over the graveyards holding a match
+  (skipped for one), and the targets are that graveyard's. The enumeration
+  (offer and CR 608.2b re-check) reads every graveyard.
+- **Crew is one question answered with a set.** `CostPart::Crew(n)` asks a
+  `ChooseCards` whose `max` is every creature offered, and `apply` refuses an
+  answer short of the total power. Both hosts answer a refusal by asking the
+  question again, so a short answer costs a click and not the game. Crew is
+  alone in its cost (`lints::crew_is_alone_in_its_cost`), because the payment
+  taps every answer left.
+- **A bare keyword line can lose its ability's sentence.** Unlicensed Hearse
+  prints "Crew 2" with no reminder and no `{`, so the lines reader saw
+  `LineShape::Other` and the crew ability's line was `None`. Read the
+  `generated_lines.rs` diff after `--tables`: a `None` for a new ability is a
+  reader gap.
+- **The house AI answers crew but does not choose to crew.** `policy::crew`
+  taps the strongest creatures until the total is reached. `activate::gains`
+  does not count `CreateContinuousEffect` as a gain, and Conduit of Worlds'
+  `MayCastTarget` is not on that list either.
+- **A graveyard cast is not flashback unless flashback paid for it.** The
+  cast wizard used to put `Rider::Flashback` on every instant or sorcery
+  cast from a graveyard, which was true only while the permissions (Wrenn's
+  emblem, Muldrotha) cast permanents alone. Forgotten Cellar's
+  `CastSpellsFromGraveyard` casts instants too, so the rider now asks which
+  door the cast came through (CR 702.34a: "if the flashback cost was paid").
+  Its own replacement exiles the card anyway, so an "it was exiled" check
+  passes either way; assert the rider on the stack.

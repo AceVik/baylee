@@ -31,11 +31,11 @@
 
 use crate::arrange::{Arrangement, Nudge, Row};
 use crate::i18n::{Lang, Phrase, seat_name};
-use baylee_core::ids::{Defender, ObjectId, PlayerId, SeatSet, SubtypeId};
+use baylee_core::ids::{CardIndex, Defender, ObjectId, PlayerId, SeatSet, SubtypeId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
-    ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending,
-    PlayerAction, TargetPrompt, YesNoPrompt,
+    ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt, LegalActions,
+    NumberPrompt, Pending, PlayerAction, TargetPrompt, YesNoPrompt,
 };
 use baylee_engine::win::{EndReason, GameResult, Victor};
 use baylee_view::{GameStatic, HouseAnswer, LossCause, PlayerView, SeatView};
@@ -160,17 +160,27 @@ pub enum Prompt {
         /// this is the one indexed choice with a filter in front of it.
         options: Vec<SubtypeId>,
     },
+    /// Choose a card name (Pithing Needle).
+    ///
+    /// No list rides with it: any card's name may be chosen (CR 201.4), so
+    /// the pool is the list, and a renderer that links the card pool offers
+    /// it narrowed by what the player types. The model hears which card and
+    /// face was picked ([`Interaction::choose_card_name`]).
+    ChooseCardName,
     /// Choose a colour.
     ChooseColor {
         /// The allowed colours.
         options: Vec<ManaColor>,
     },
-    /// Choose a number, typically X.
+    /// Choose a number: X, how many times to pay a replicate cost, or one
+    /// target's share of divided damage.
     ChooseNumber {
         /// Lowest legal value.
         min: u32,
         /// Highest legal value.
         max: u32,
+        /// What the number counts, which is what the headline says.
+        reason: NumberPrompt,
     },
     /// Choose a player.
     ChoosePlayer {
@@ -189,6 +199,12 @@ pub enum Prompt {
         object: ObjectId,
         /// The offered options.
         options: Vec<CastModeDesc>,
+    },
+    /// Choose one of the piles another player separated (Fact or Fiction).
+    /// Answered by position, as a cast option is.
+    ChoosePile {
+        /// The piles, in the engine's order; one may be empty.
+        piles: Vec<Vec<ObjectId>>,
     },
     /// Put cards into places, each in an order.
     Arrange {
@@ -358,6 +374,20 @@ impl Prompt {
                 reason: ChoicePrompt::Delve,
                 ..
             } => Phrase::DelveToHelpPay.text(lang).to_string(),
+            // Crew is not "choose between one and three": the number that
+            // decides is the creatures' total power, and the engine refuses
+            // an answer short of it, so the line says the total.
+            Self::ChooseCards {
+                reason: ChoicePrompt::CostCrew { power },
+                ..
+            } => Phrase::CrewWithPower.fill(lang, &[&power.to_string()]),
+            // One card type at a time, and the type is the whole question:
+            // the menu is that type's cards, and the next question is the
+            // next type's.
+            Self::ChooseCards {
+                reason: ChoicePrompt::OneOfType { card_type },
+                ..
+            } => Phrase::TakeOneOfType.fill(lang, &[card_type_name(*card_type).text(lang)]),
             // Every other reason is said by the noun that is counted, which is
             // the one place in this sentence where it fits: "Wähle bis zu 2
             // Karten, die nach unten gehen". Without it a tutor, a scry, a
@@ -375,12 +405,12 @@ impl Prompt {
                 choose_line(lang, Phrase::NounTarget, Phrase::NounTargets, *min, *max)
             }
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
+            Self::ChooseCardName => Phrase::ChooseCardName.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
-            Self::ChooseNumber { min, max } => {
-                Phrase::ChooseNumberIn.fill(lang, &[&min.to_string(), &max.to_string()])
-            }
+            Self::ChooseNumber { min, max, reason } => number_line(lang, *min, *max, *reason),
             Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
             Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
+            Self::ChoosePile { .. } => Phrase::ChoosePileForHand.text(lang).to_string(),
             Self::Arrange { reason, onto } => match (reason, onto) {
                 (ArrangePrompt::Order, Some(ArrangePlace::LibraryTop)) => {
                     Phrase::OrderOnTop.text(lang).to_string()
@@ -640,8 +670,12 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounPermanentToSacrifice,
             Phrase::NounPermanentsToSacrifice,
         ),
-        ChoicePrompt::CostDiscard => (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard),
-        ChoicePrompt::CostTap => (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap),
+        ChoicePrompt::CostDiscard | ChoicePrompt::Discard => {
+            (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard)
+        }
+        ChoicePrompt::CostTap | ChoicePrompt::CostCrew { .. } => {
+            (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap)
+        }
         ChoicePrompt::CostReturn => (
             Phrase::NounPermanentToReturn,
             Phrase::NounPermanentsToReturn,
@@ -652,8 +686,68 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounPermanentsToLeaveTapped,
         ),
         ChoicePrompt::RevealOrEnterTapped => (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
-        ChoicePrompt::Delve | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
+        ChoicePrompt::PutIntoHand => (Phrase::NounCardToHand, Phrase::NounCardsToHand),
+        ChoicePrompt::PutOnBottom => (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
+        ChoicePrompt::PlayFromExile => (Phrase::NounCardToPlay, Phrase::NounCardsToPlay),
+        ChoicePrompt::PutOntoBattlefield => (
+            Phrase::NounCardToBattlefield,
+            Phrase::NounCardsToBattlefield,
+        ),
+        ChoicePrompt::PutIntoGraveyard => {
+            (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard)
+        }
+        ChoicePrompt::FirstPile => (Phrase::NounCardForFirstPile, Phrase::NounCardsForFirstPile),
+        ChoicePrompt::FromGraveyard => (
+            Phrase::NounCardFromGraveyard,
+            Phrase::NounCardsFromGraveyard,
+        ),
+        ChoicePrompt::Delve | ChoicePrompt::OneOfType { .. } | ChoicePrompt::Generic => {
+            (Phrase::NounCard, Phrase::NounCards)
+        }
     }
+}
+
+/// The line a number question gets: the range to choose from, or, for one
+/// target's share of a division, that target by its place in the order the
+/// player chose them (the order the stack shows) and what is still to give.
+fn number_line(lang: Lang, min: u32, max: u32, reason: NumberPrompt) -> String {
+    let (min, max) = (min.to_string(), max.to_string());
+    match reason {
+        NumberPrompt::X => Phrase::ChooseNumberIn.fill(lang, &[&min, &max]),
+        NumberPrompt::Replicate { cost } => {
+            Phrase::ReplicateHowOften.fill(lang, &[&cost.to_string(), &min, &max])
+        }
+        NumberPrompt::DivideDamage {
+            index, of, left, ..
+        } => Phrase::DamageShare.fill(
+            lang,
+            &[
+                &(u32::from(index) + 1).to_string(),
+                &of.to_string(),
+                &left.to_string(),
+                &min,
+                &max,
+            ],
+        ),
+    }
+}
+
+/// The name of one card type, for a question asked about it.
+fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
+    use baylee_core::types::TypeSet;
+    [
+        (TypeSet::ARTIFACT, Phrase::KindArtifact),
+        (TypeSet::BATTLE, Phrase::KindBattle),
+        (TypeSet::CREATURE, Phrase::KindCreature),
+        (TypeSet::ENCHANTMENT, Phrase::KindEnchantment),
+        (TypeSet::INSTANT, Phrase::KindInstant),
+        (TypeSet::LAND, Phrase::KindLand),
+        (TypeSet::PLANESWALKER, Phrase::KindPlaneswalker),
+        (TypeSet::SORCERY, Phrase::KindSorcery),
+    ]
+    .into_iter()
+    .find_map(|(t, name)| card_type.contains(t).then_some(name))
+    .unwrap_or(Phrase::KindOther)
 }
 
 /// "Choose two cards", with the noun as an argument rather than glued on.
@@ -686,6 +780,8 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
         YesNoPrompt::PayPact { cost } => Phrase::PayPact.fill(lang, &[&cost.to_string()]),
         YesNoPrompt::Miracle { .. } => Phrase::CastForMiracle.text(lang).to_string(),
+        YesNoPrompt::CastWithoutPaying { .. } => Phrase::CastWithoutPaying.text(lang).to_string(),
+        YesNoPrompt::CastPaying { .. } => Phrase::CastPaying.text(lang).to_string(),
         // The `..` here is what the whole repair was: `proposer` travels with
         // the question and was dropped one line short of the sentence.
         YesNoPrompt::DrawOffer { proposer } => {
@@ -707,6 +803,12 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         // a second rendering of it here would be a translation of a
         // translation.
         YesNoPrompt::MayDo => Phrase::UseTheOptionalAbility.text(lang).to_string(),
+        // The owner answers, about a card that may be somebody else's
+        // spell's target: the answer names both ends, so "no" is not read
+        // as "leave it where it is".
+        YesNoPrompt::TopOfLibrary { .. } => Phrase::TopOfLibraryOrBottom.text(lang).to_string(),
+        // "No" is not "nothing": the card still leaves exile, for the hand.
+        YesNoPrompt::Discover { .. } => Phrase::CastDiscovered.text(lang).to_string(),
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
     }
 }
@@ -788,6 +890,12 @@ enum Mode {
     /// a creature type is not a thing on the table. Narrowing that list is
     /// the renderer's job; the model only ever hears which row was picked.
     Subtype { options: Vec<SubtypeId> },
+    /// A card name: the card and the face whose name it is, once one is
+    /// picked.
+    ///
+    /// Not an index, because there is no list to index: the pool is the
+    /// option set (CR 201.4), and the engine checks the answer against it.
+    CardName { named: Option<(CardIndex, u8)> },
     /// A yes-or-no answer.
     YesNo,
     /// Priority: an action menu rather than a selection.
@@ -959,6 +1067,9 @@ impl Interaction {
             Pending::ChooseCastMode { options, .. } => Mode::CastOption {
                 count: options.len(),
             },
+            // A pile is answered by its position, with the same action a
+            // cast option is (`PlayerAction::ChooseMode`).
+            Pending::ChoosePile { piles, .. } => Mode::CastOption { count: piles.len() },
             Pending::YesNo { .. } => Mode::YesNo,
             // Answered from a list rather than from the board, because a
             // creature type is not a thing on it. `Mode::Idle` stood here
@@ -967,6 +1078,7 @@ impl Interaction {
             Pending::ChooseSubtype { options, .. } => Mode::Subtype {
                 options: options.clone(),
             },
+            Pending::ChooseCardName { .. } => Mode::CardName { named: None },
             Pending::GameOver(_) => Mode::GameOver,
         }
     }
@@ -1030,12 +1142,16 @@ impl Interaction {
             Pending::ChooseSubtype { options, .. } => Prompt::ChooseSubtype {
                 options: options.clone(),
             },
+            Pending::ChooseCardName { .. } => Prompt::ChooseCardName,
             Pending::ChooseColor { options, .. } => Prompt::ChooseColor {
                 options: options.clone(),
             },
-            Pending::ChooseNumber { min, max, .. } => Prompt::ChooseNumber {
+            Pending::ChooseNumber {
+                min, max, reason, ..
+            } => Prompt::ChooseNumber {
                 min: *min,
                 max: *max,
+                reason: *reason,
             },
             Pending::ChoosePlayer { options, .. } => Prompt::ChoosePlayer {
                 options: options.clone(),
@@ -1045,6 +1161,9 @@ impl Interaction {
             } => Prompt::CastMode {
                 object: *object,
                 options: options.clone(),
+            },
+            Pending::ChoosePile { piles, .. } => Prompt::ChoosePile {
+                piles: piles.clone(),
             },
             Pending::Arrange { piles, prompt, .. } => Prompt::Arrange {
                 reason: *prompt,
@@ -1650,6 +1769,7 @@ impl Interaction {
             Mode::Arrange(arrangement) => {
                 arrangement.cancel();
             }
+            Mode::CardName { named } => *named = None,
             _ => {}
         }
     }
@@ -1775,6 +1895,29 @@ impl Interaction {
         true
     }
 
+    /// Names face `face` of `card` for a card-name question (Pithing
+    /// Needle).
+    ///
+    /// Returns `false` when no card name is being asked. Whether the pool
+    /// has that card and the card that face is the engine's to say, against
+    /// the pool it plays with; this model links no pool to ask.
+    pub fn choose_card_name(&mut self, card: CardIndex, face: u8) -> bool {
+        let Mode::CardName { named } = &mut self.mode else {
+            return false;
+        };
+        *named = Some((card, face));
+        true
+    }
+
+    /// The card name picked so far, as its card and face.
+    #[must_use]
+    pub const fn chosen_card_name(&self) -> Option<(CardIndex, u8)> {
+        match &self.mode {
+            Mode::CardName { named } => *named,
+            _ => None,
+        }
+    }
+
     /// Which row of an indexed choice is picked, if one is.
     ///
     /// A colour, a seat, a cast option and a creature type are all answered
@@ -1802,6 +1945,7 @@ impl Interaction {
             | Mode::Player { .. }
             | Mode::CastOption { .. }
             | Mode::Subtype { .. } => self.choice_index.is_some(),
+            Mode::CardName { named } => named.is_some(),
             Mode::Mulligan | Mode::YesNo | Mode::Idle | Mode::GameOver => false,
         }
     }
@@ -1853,6 +1997,9 @@ impl Interaction {
                 .get(self.choice_index?)
                 .copied()
                 .map(PlayerAction::ChooseSubtype),
+            Mode::CardName { named } => {
+                named.map(|(card, face)| PlayerAction::ChooseCardName { card, face })
+            }
             _ => None,
         }
     }
@@ -1978,10 +2125,12 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseCards { player, .. }
         | Pending::ChooseTargets { player, .. }
         | Pending::ChooseSubtype { player, .. }
+        | Pending::ChooseCardName { player }
         | Pending::ChooseColor { player, .. }
         | Pending::ChooseNumber { player, .. }
         | Pending::ChoosePlayer { player, .. }
         | Pending::ChooseCastMode { player, .. }
+        | Pending::ChoosePile { player, .. }
         | Pending::Arrange { player, .. }
         | Pending::YesNo { player, .. } => Some(*player),
         Pending::GameOver(_) => None,

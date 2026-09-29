@@ -721,14 +721,9 @@ fn oko_minus_five_exchanges_an_artifact_for_a_small_creature() {
     assert_eq!(controller(&engine, lord), p0, "the exchange lasts");
 }
 
-/// `Wrenn and Realmbreaker` (`Coverage::Partial`):
-/// "Lands you control have '{T}: Add one mana of any color.'
-/// +1: Up to one target land you control becomes a 3/3 Elemental creature with vigilance, hexproof, and haste until your next turn. It's still a land.
-/// −2: Mill three cards. You may put a permanent card from among the milled cards into your hand.
-/// −7: You get an emblem with 'You may play lands and cast permanent spells from your graveyard.'"
+/// `Wrenn and Realmbreaker`'s +1, cast rather than seated.
 ///
-/// Under `Coverage::Partial`, the any-color land static, −2 milled-card selection, and −7 permanent spell graveyard permission are omitted.
-/// The +1 land animation is implemented. The test casts `Wrenn and Realmbreaker`, activates its +1 ability targeting
+/// The test casts `Wrenn and Realmbreaker`, activates its +1 ability targeting
 /// a controlled `Forest`, verifies that Wrenn ticks up from 4 to 5 loyalty, and confirms that the targeted land becomes
 /// a 3/3 Elemental creature retaining its land type with vigilance, hexproof, and haste.
 #[test]
@@ -856,10 +851,144 @@ fn grist_offers_only_the_ability_that_is_written() {
     );
 }
 
-/// Wrenn and Realmbreaker prints `Lands you control have "{{T}}: Add one mana of any color."` and
-/// `+1: Up to one target land you control becomes a 3/3 Elemental creature with vigilance, hexproof, and haste until your next turn. It's still a land.`
-/// Under `Coverage::Partial`, the static mana grant and +1 animation are implemented, while the −2 selection and −7 permanent casting are omitted.
-/// This test verifies that Wrenn starts with 4 loyalty, grants an any-color mana ability to controlled lands (used by `forest()` to produce black mana),
+/// Wrenn and Realmbreaker's −2: "Mill three cards. You may put a permanent
+/// card from among the milled cards into your hand."
+///
+/// The top three are Llanowar Elves, Lightning Bolt and a Forest. The choice
+/// offers the Elves and the Forest and not the Bolt (an instant is not a
+/// permanent card), "may" lets the answer be empty, and the card named goes
+/// to hand while the other two stay milled.
+#[test]
+fn wrenn_and_realmbreaker_minus_two_mills_three_and_takes_a_permanent_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[wrenn_and_realmbreaker()])
+        .hand(0, &[forest(), lightning_bolt(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let land = hand_to_library_top(&mut engine, p0, forest());
+    let bolt = hand_to_library_top(&mut engine, p0, lightning_bolt());
+    let elf = hand_to_library_top(&mut engine, p0, llanowar_elves());
+    let wrenn =
+        on_battlefield(&engine, p0, wrenn_and_realmbreaker()).expect("Wrenn on battlefield");
+
+    activate(&mut engine, p0, wrenn_and_realmbreaker(), 2);
+    assert_eq!(counters_on(&engine, wrenn, CounterKind::Loyalty), 2);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stops on the choice")
+    };
+    let mut offered = options.clone();
+    offered.sort_unstable();
+    let mut permanents = vec![elf, land];
+    permanents.sort_unstable();
+    assert_eq!(
+        offered, permanents,
+        "the milled permanent cards, and not the Bolt"
+    );
+    assert_eq!((min, max), (0, 1), "\"you may put a … card\"");
+    assert_eq!(prompt, crate::choice::ChoicePrompt::PutIntoHand);
+    let zone = |e: &Engine<RegistryLookup>, id: ObjectId| e.state().object(id).map(|o| o.zone);
+    assert_eq!(zone(&engine, bolt), Some(Zone::Graveyard), "milled");
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("a milled permanent card is a legal answer");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(zone(&engine, elf), Some(Zone::Hand), "into your hand");
+    assert_eq!(zone(&engine, land), Some(Zone::Graveyard));
+    assert_eq!(zone(&engine, bolt), Some(Zone::Graveyard));
+}
+
+/// Wrenn and Realmbreaker's −7: an emblem with "You may play lands and cast
+/// permanent spells from your graveyard."
+///
+/// Unlike Muldrotha the emblem counts nothing: with one Llanowar Elves cast
+/// from the graveyard the second is still offered, a land in the graveyard
+/// is a land play, Wrenn herself (dead on zero loyalty) is castable again,
+/// and Lightning Bolt, affordable off the Mountain, is not a permanent spell
+/// and is not offered.
+#[test]
+fn wrenn_and_realmbreaker_emblem_casts_permanent_spells_from_the_graveyard() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                wrenn_and_realmbreaker(),
+                forest(),
+                forest(),
+                forest(),
+                mountain(),
+            ],
+        )
+        .hand(
+            0,
+            &[
+                forest(),
+                lightning_bolt(),
+                llanowar_elves(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wrenn =
+        on_battlefield(&engine, p0, wrenn_and_realmbreaker()).expect("Wrenn on battlefield");
+    engine
+        .state
+        .object_mut(wrenn)
+        .expect("Wrenn")
+        .counters
+        .set(CounterKind::Loyalty, 7);
+    engine.refresh_offer();
+
+    activate(&mut engine, p0, wrenn_and_realmbreaker(), 3);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(wrenn).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "zero loyalty"
+    );
+    let land = hand_to_graveyard(&mut engine, p0, forest());
+    let bolt = hand_to_graveyard(&mut engine, p0, lightning_bolt());
+    let first_elf = hand_to_graveyard(&mut engine, p0, llanowar_elves());
+    let second_elf = hand_to_graveyard(&mut engine, p0, llanowar_elves());
+
+    tap_all_mana(&mut engine, p0);
+    let legal = priority_offer(&engine);
+    assert!(
+        legal.lands.contains(&land),
+        "\"play lands … from your graveyard\""
+    );
+    assert!(
+        legal.castable.contains(&first_elf) && legal.castable.contains(&wrenn),
+        "permanent spells from the graveyard: {:?}",
+        legal.castable
+    );
+    assert!(
+        !legal.castable.contains(&bolt),
+        "an instant is no permanent spell: {:?}",
+        legal.castable
+    );
+    cast_object_and_resolve(&mut engine, p0, first_elf);
+    assert!(
+        priority_offer(&engine).castable.contains(&second_elf),
+        "the emblem counts nothing"
+    );
+}
+
 /// Wrenn and Realmbreaker prints "Lands you control have \"{T}: Add one mana
 /// of any color.\"" — the same static Chromatic Lantern prints, and the half
 /// this card silently dropped for as long as `Modifier::GrantActivated` was

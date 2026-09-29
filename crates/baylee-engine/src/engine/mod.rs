@@ -102,6 +102,18 @@ struct PaymentWindow {
 enum PaymentContinuation {
     Tax(Box<crate::resolve::Resolution>),
     Pact(baylee_core::mana::ManaCost),
+    /// "You may cast that card" said yes to (CR 608.2g): the mana is made
+    /// here, and passing casts the card out of the pool.
+    Cast {
+        /// The card.
+        card: ObjectId,
+        /// Its identity when it was targeted (CR 400.7).
+        version: u32,
+        /// Its mana cost, which is what the window shows as owed.
+        cost: baylee_core::mana::ManaCost,
+        /// "If you do, you can't cast additional spells this turn."
+        then_no_more_spells: bool,
+    },
 }
 
 /// A deterministic, self-contained game of Magic.
@@ -245,6 +257,19 @@ pub struct Engine<L: CardLookup> {
     /// over: a stale answer here would pay the *next* activation's cost with
     /// the last one's number and never ask again.
     activation_x: Option<u32>,
+    /// The graveyard an activation's targets come from, for "target cards
+    /// from a single graveyard" (Unlicensed Hearse): asked as a
+    /// `Pending::ChoosePlayer` before the targets, put here by the answer,
+    /// and taken by the target question it narrows, so it never outlives
+    /// the activation that asked for it.
+    activation_graveyard: Option<PlayerId>,
+    /// How this activation pays its Phyrexian symbols, one answer per
+    /// symbol in the cost's order: `true` is 2 life, `false` its mana
+    /// (CR 107.4f, announced by CR 601.2b through CR 602.2b). Asked after the
+    /// X and before the targets, kept across the re-entries the later
+    /// questions make, and taken when the cost is paid; cleared on a fresh
+    /// press like [`Engine::activation_x`].
+    activation_phyrexian: Vec<bool>,
     /// The ability list the next push to the stack should use instead of
     /// asking the source — read before its cost is paid, or carried on a
     /// trigger that is looking back in time.
@@ -372,6 +397,24 @@ enum PlanKind {
         /// `None` for every other trigger.
         per_opponent: Option<Box<PerOpponent>>,
     },
+    /// A trigger's second instance of "target", asked once the trigger is on
+    /// the stack with its first (Ravager of the Fells).
+    TriggerSecondTarget {
+        /// The triggered ability on the stack.
+        on_stack: ObjectId,
+    },
+    /// A triggered ability's "damage divided as you choose", asked target
+    /// by target once it is on the stack with its targets (CR 601.2d).
+    DivideDamage {
+        /// The triggered ability on the stack.
+        on_stack: ObjectId,
+        /// Its targets, in the order they were chosen.
+        targets: SmallVec<[ObjectId; 2]>,
+        /// The shares given so far, one per target from the first.
+        shares: Vec<u32>,
+        /// The damage divided.
+        total: u32,
+    },
     /// A shockland entry choice (pay life or enter tapped).
     EntryTap {
         /// The entering land.
@@ -421,6 +464,11 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// Choosing a card name as a permanent enters (Pithing Needle).
+    ChooseCardName {
+        /// The entering permanent.
+        object: ObjectId,
+    },
     /// Choosing a color as a permanent enters (Uncharted Haven).
     ///
     /// `Pending::ChooseColor` is asked for two different reasons — this, and
@@ -452,6 +500,12 @@ enum PlanKind {
         /// The drawn card.
         card: ObjectId,
     },
+    /// A discovered card offered for a cast without paying its mana cost
+    /// (CR 701.57a); no puts it into its owner's hand.
+    Discovered {
+        /// The card, in exile.
+        card: ObjectId,
+    },
     /// A commander offered its way back to the command zone (CR 903.9a).
     CommanderZone {
         /// The commander card, in a graveyard or in exile.
@@ -461,6 +515,10 @@ enum PlanKind {
     SyntheticTriggerTarget {
         /// The queued trigger.
         trigger: crate::trigger::PendingTrigger,
+        /// A reflexive trigger's `TargetSpec::ObjectOfEachOpponent`, asked
+        /// one opponent at a time as the printed path asks it (The Balrog of
+        /// Moria); `None` for the one-object question.
+        per_opponent: Option<Box<PerOpponent>>,
     },
     /// The untap step's own determination (CR 502.3), waiting for the
     /// active player to say which permanents stay tapped.
@@ -499,6 +557,25 @@ enum PlanKind {
     /// re-entry.
     ChooseActivationX {
         /// The permanent whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+    },
+    /// An activation asking which graveyard its targets come from ("target
+    /// cards from a single graveyard"), before it asks for them. Carries
+    /// only the ability, for [`PlanKind::ChooseActivationX`]'s reason.
+    ChooseActivationGraveyard {
+        /// The object whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+    },
+    /// An activation asking whether its next Phyrexian symbol is paid with
+    /// 2 life (yes) or with its mana (no) — asked only where both can be
+    /// paid. Carries only the ability, for [`PlanKind::ChooseActivationX`]'s
+    /// reason: it is asked before the targets.
+    ChoosePhyrexianLife {
+        /// The object whose ability is being activated.
         source: ObjectId,
         /// Ability index.
         ability_index: u32,
@@ -587,6 +664,8 @@ impl<L: CardLookup> Engine<L> {
             activation_targets_answered: false,
             activation_cost_choices: Vec::new(),
             activation_x: None,
+            activation_graveyard: None,
+            activation_phyrexian: Vec::new(),
             activating_abilities: None,
             entry_scan_seq: 0,
             delayed_queue: VecDeque::new(),
@@ -644,7 +723,9 @@ impl<L: CardLookup> Engine<L> {
     pub fn payment_window(&self) -> Option<(PlayerId, baylee_core::mana::ManaCost)> {
         let window = self.mana_window.as_ref()?;
         match &window.suspended {
-            PaymentContinuation::Pact(cost) => Some((window.player, *cost)),
+            PaymentContinuation::Pact(cost) | PaymentContinuation::Cast { cost, .. } => {
+                Some((window.player, *cost))
+            }
             PaymentContinuation::Tax(resolution) => match resolution.awaiting {
                 Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. })
                     if player == window.player =>
@@ -786,6 +867,18 @@ impl<L: CardLookup> Engine<L> {
                     .wrapping_add(u64::from(r.on_stack.slot()))
                     .wrapping_add(u64::from(r.controller.get())),
                 PaymentContinuation::Pact(cost) => crate::state::mana_cost_fingerprint(cost),
+                PaymentContinuation::Cast {
+                    card,
+                    version,
+                    cost,
+                    then_no_more_spells,
+                } => u64::from(card.slot())
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(*version))
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::mana_cost_fingerprint(cost))
+                    .wrapping_mul(2)
+                    .wrapping_add(u64::from(*then_no_more_spells)),
             });
         }
         // A cleanup step's check and its window close differently: nothing
@@ -957,12 +1050,15 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::ActivateAbility { .. }
                         | PlanKind::ActivateAbilitySecondTargets { .. }
                         | PlanKind::ChooseActivationX { .. }
+                        | PlanKind::ChooseActivationGraveyard { .. }
+                        | PlanKind::ChoosePhyrexianLife { .. }
                         | PlanKind::PayActivationCost { .. }
                         | PlanKind::LoyaltyPlayer { .. }
                         | PlanKind::EntryTap { .. }
                         | PlanKind::EntryReveal { .. }
                         | PlanKind::CopyOnEnter { .. }
                         | PlanKind::ChooseSubtype { .. }
+                        | PlanKind::ChooseCardName { .. }
                         | PlanKind::ChooseColor { .. }
                         | PlanKind::IntrinsicMana { .. }
                         | PlanKind::PlayLandFace { .. }
@@ -1000,6 +1096,7 @@ mod abilities;
 mod ascend;
 mod decision;
 pub(crate) mod disguise;
+mod room;
 mod storied;
 mod targeting;
 pub use decision::DecisionContext;

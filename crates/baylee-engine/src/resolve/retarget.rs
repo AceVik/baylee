@@ -74,6 +74,10 @@ pub struct Retarget {
     /// What each of `was` becomes, as far as it has been asked about.
     /// `None` stays.
     now: Vec<Option<Aim>>,
+    /// A copy choosing its targets (CR 707.10c) and not a spell changing
+    /// them: nothing it holds has been journalled as its target yet, so
+    /// every target it ends with becomes one, kept or new.
+    copy: bool,
 }
 
 /// Starts a change of the first target's targets. `change_to` is `Some` for
@@ -85,6 +89,34 @@ pub(super) fn start(
     change_to: Option<&'static Filter>,
 ) -> Option<Pending> {
     let &spell = res.targets.first()?;
+    begin(state, res, spell, change_to, false)
+}
+
+/// "You may choose new targets for the copy" (CR 707.10c): the copy's
+/// controller may leave any number of its targets unchanged, even illegal
+/// ones, and change the rest to legal ones, which is CR 115.7d's question
+/// asked of `copy`. Once it is answered, every target the copy holds is
+/// journalled as newly targeted: the copy is a new object, and "becomes the
+/// target" sees it arrive with all of them.
+pub(super) fn start_copy(
+    state: &mut GameState,
+    res: &mut Resolution,
+    copy: ObjectId,
+) -> Option<Pending> {
+    if state.object(copy).is_none_or(|o| o.target_req.is_none()) {
+        record_new_targets(state, copy, &[], &[]);
+        return None;
+    }
+    begin(state, res, copy, None, true)
+}
+
+fn begin(
+    state: &mut GameState,
+    res: &mut Resolution,
+    spell: ObjectId,
+    change_to: Option<&'static Filter>,
+    copy: bool,
+) -> Option<Pending> {
     let obj = state.object(spell).filter(|o| o.zone == Zone::Stack)?;
     let req = obj.target_req?;
     let was: Vec<Aim> = obj
@@ -108,6 +140,7 @@ pub(super) fn start(
             change_to,
             was,
             now: Vec::new(),
+            copy,
         },
     )
 }
@@ -201,15 +234,19 @@ fn options(
 /// kept it: an object in `targets`, in its place, and a player in
 /// `target_players` or `chosen_player`, whichever held it.
 fn write(state: &mut GameState, retarget: &Retarget) {
-    let previous = state.object(retarget.spell).map_or_else(Vec::new, |obj| {
-        obj.targets
-            .iter()
-            .chain(obj.second_targets())
-            .copied()
-            .collect()
-    });
+    let previous = state
+        .object(retarget.spell)
+        .filter(|_| !retarget.copy)
+        .map_or_else(Vec::new, |obj| {
+            obj.targets
+                .iter()
+                .chain(obj.second_targets())
+                .copied()
+                .collect()
+        });
     let previous_players = state
         .object(retarget.spell)
+        .filter(|_| !retarget.copy)
         .map_or_else(Vec::new, targeted_players);
     let Some(obj) = state.object_mut(retarget.spell) else {
         return;

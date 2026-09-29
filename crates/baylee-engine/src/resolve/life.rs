@@ -43,6 +43,28 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             deal_to_spec(state, res, you, res.source, n, target);
             None
         }
+        Effect::DealDamageDivided { .. } => {
+            // As divided when the ability went on the stack (CR 601.2d).
+            // `res.targets` holds only the targets still legal, and one that
+            // is not is dealt nothing: its share goes to nobody (CR 608.2b).
+            let shares = state
+                .divided
+                .iter()
+                .find(|(id, _)| *id == res.on_stack)
+                .map(|(_, shares)| shares.clone())
+                .unwrap_or_default();
+            for &target in &res.targets.clone() {
+                if let Some(&(_, n)) = shares.iter().find(|(t, _)| *t == target) {
+                    deal_to_object_with_loyalty(
+                        state,
+                        target,
+                        i16::try_from(n).unwrap_or(i16::MAX),
+                        res.source,
+                    );
+                }
+            }
+            None
+        }
         Effect::Fight { fighter, foe } => {
             fight(state, res, fighter, foe);
             None
@@ -120,6 +142,23 @@ fn deal_to_spec(
                 deal_to_player(state, source, player, n);
             }
         }
+        // "Target opponent or planeswalker": one choice over both lists, so
+        // whichever half it landed in is dealt to.
+        TargetSpec::OpponentOrObject(_) => {
+            if let Some(&target_id) = res.targets.first() {
+                deal_to_object_with_loyalty(state, target_id, n, source);
+            }
+            for player in res.target_players.iter() {
+                deal_to_player(state, source, player, n);
+            }
+        }
+        // Only ever a second instance of "target": the damage goes to what
+        // that instance chose, if it chose anything ("up to one").
+        TargetSpec::ObjectOfFirstTargetsPlayer(_) => {
+            if let Some(&target_id) = res.second_targets.first() {
+                deal_to_object_with_loyalty(state, target_id, n, source);
+            }
+        }
         // A chosen player is a player. The choice landed in
         // `target_players`, so reading `targets` here would deal to
         // whatever object the spell also happened to point at — or,
@@ -139,6 +178,8 @@ fn deal_to_spec(
         // in a catch-all silently and be dealt to as an object.
         TargetSpec::Object(_)
         | TargetSpec::ObjectOfEachOpponent(_)
+        | TargetSpec::ObjectControlledBy(..)
+        | TargetSpec::ObjectOfEventPlayer(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)
@@ -716,6 +757,7 @@ mod tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),
             event_object: None,
             awaiting: None,
