@@ -135,11 +135,15 @@ fn untapped_of(state: &GameState, player: PlayerId, types: TypeSet) -> Vec<Objec
 /// no probe of the printed cost includes, and paying it adds at least as much
 /// as they take off. Counting them was #229: Spirit Water Revival was offered
 /// off `{U}{U}` and one creature.
+///
+/// `card` is the card being cast, which delve never counts
+/// ([`delve_sources`]).
 #[must_use]
 pub fn keyword_reduction(
     state: &GameState,
     face: &baylee_cards_dsl::FaceDef,
     player: PlayerId,
+    card: ObjectId,
 ) -> u32 {
     let convoke = if face.convoke {
         u32::try_from(convoke_sources(state, player).len()).unwrap_or(u32::MAX)
@@ -147,11 +151,31 @@ pub fn keyword_reduction(
         0
     };
     let delve = if face.delve {
-        u32::try_from(state.zones.list(ZoneLocation::Graveyard(player)).len()).unwrap_or(u32::MAX)
+        u32::try_from(delve_sources(state, player, card).len()).unwrap_or(u32::MAX)
     } else {
         0
     };
     convoke.saturating_add(delve)
+}
+
+/// The cards delve (CR 702.66a) may exile to pay for `card`: its caster's
+/// graveyard, less the card itself.
+///
+/// CR 601.2a puts a spell on the stack before any of its costs is paid
+/// (601.2h), so a spell cast from a graveyard (a flashback grant) is not
+/// there to exile for itself. This engine moves the card at the end of the
+/// payment instead, and the delve question offered the whole graveyard: Dig
+/// Through Time flashed back by Snapcaster Mage paid {1} of its own cost with
+/// itself. One list for the offer's count and the question's options.
+#[must_use]
+pub fn delve_sources(state: &GameState, player: PlayerId, card: ObjectId) -> Vec<ObjectId> {
+    state
+        .zones
+        .list(ZoneLocation::Graveyard(player))
+        .iter()
+        .copied()
+        .filter(|id| *id != card)
+        .collect()
 }
 
 /// The generic mana a cost reduction printed on the card itself takes off
@@ -1005,7 +1029,7 @@ pub(crate) fn can_cast_form(
     // printed face: a granted convoke does not exist.
     let printed = obj.card.and_then(|c| lookup.card(c.index));
     let printed_face = printed.map(|def| &def.faces[0]);
-    let reduction = printed_face.map_or(0, |face| keyword_reduction(state, face, player));
+    let reduction = printed_face.map_or(0, |face| keyword_reduction(state, face, player, card));
     let probe = |cost: &ManaCost| {
         affordable(
             state,
@@ -2090,17 +2114,17 @@ mod tests {
         // What the keyword is then worth, which is the number the two probes
         // must agree on — and nothing at all on a face that does not print it.
         assert_eq!(
-            keyword_reduction(&state, &probe_face(true, false, None), me()),
+            keyword_reduction(&state, &probe_face(true, false, None), me(), bear),
             1
         );
         assert_eq!(
-            keyword_reduction(&state, &probe_face(false, false, None), me()),
+            keyword_reduction(&state, &probe_face(false, false, None), me(), bear),
             0
         );
         let mut waterbend = probe_face(false, false, None);
         waterbend.waterbend = true;
         assert_eq!(
-            keyword_reduction(&state, &waterbend, me()),
+            keyword_reduction(&state, &waterbend, me(), bear),
             0,
             "a waterbend's taps pay the waterbend and never the printed cost"
         );
@@ -2113,10 +2137,12 @@ mod tests {
     #[test]
     fn delve_counts_a_graveyard_and_adds_to_whatever_else_the_face_prints() {
         let mut state = state();
-        for i in 0..3 {
-            let name = state.names.intern(&format!("Buried {i}"));
-            state.create_bare(me(), ObjectKind::Card, name, ZoneLocation::Graveyard(me()));
-        }
+        let buried: Vec<ObjectId> = (0..3)
+            .map(|i| {
+                let name = state.names.intern(&format!("Buried {i}"));
+                state.create_bare(me(), ObjectKind::Card, name, ZoneLocation::Graveyard(me()))
+            })
+            .collect();
         let name = state.names.intern("Theirs");
         state.create_bare(
             them(),
@@ -2124,21 +2150,28 @@ mod tests {
             name,
             ZoneLocation::Graveyard(them()),
         );
-        creature(&mut state, me(), "Bear");
+        let bear = creature(&mut state, me(), "Bear");
 
         assert_eq!(
-            keyword_reduction(&state, &probe_face(false, true, None), me()),
+            keyword_reduction(&state, &probe_face(false, true, None), me(), bear),
             3,
             "my graveyard, and not the table's"
         );
         assert_eq!(
-            keyword_reduction(&state, &probe_face(false, true, None), them()),
+            keyword_reduction(&state, &probe_face(false, true, None), them(), bear),
             1
         );
         assert_eq!(
-            keyword_reduction(&state, &probe_face(true, true, None), me()),
+            keyword_reduction(&state, &probe_face(true, true, None), me(), bear),
             4,
             "a face printing both adds them"
+        );
+        // Cast out of that graveyard, the spell is on the stack while it is
+        // paid for (CR 601.2a) and is not one of the cards it may exile.
+        assert_eq!(
+            keyword_reduction(&state, &probe_face(false, true, None), me(), buried[0]),
+            2,
+            "the card being cast is not its own delve"
         );
     }
 

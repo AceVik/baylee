@@ -19284,6 +19284,79 @@ fn dig_through_time_over_a_library_of_one_puts_that_one_into_hand() {
     assert_eq!(library_size(&engine, p0), 0);
 }
 
+/// Dig Through Time cast from the graveyard (Snapcaster Mage's flashback)
+/// cannot delve itself away.
+///
+/// CR 601.2a moves a spell to the stack before its costs are paid (601.2h),
+/// so while delve (CR 702.66a) exiles cards from the graveyard to pay, the
+/// spell is not one of them. The engine moves the card at the end of the
+/// payment instead, and the delve question offered the whole graveyard, the
+/// card being cast included: exiled for delve, it paid {1} of its own cost
+/// and went on to the stack from exile.
+#[test]
+fn dig_through_time_flashed_back_does_not_offer_itself_to_its_own_delve() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(17, island())
+        .battlefield(0, &[island(); 9])
+        .hand(0, &[snapcaster_mage(), dig_through_time()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p0, 3);
+    let dig = in_hand(&engine, p0, dig_through_time()).expect("the Dig in hand");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            dig,
+            ZoneLocation::Graveyard(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Cost,
+        )
+        .expect("the Dig goes to the graveyard");
+    engine.refresh_offer();
+    let dig = in_graveyard(&engine, p0, dig_through_time()).expect("the Dig in the graveyard");
+    let two: Vec<ObjectId> = engine.state().zones.list(ZoneLocation::Battlefield)[..2].to_vec();
+    tap_mana_where(&mut engine, p0, |id| two.contains(&id));
+    cast_with_floating(&mut engine, p0, snapcaster_mage());
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseTargets { options, .. } if options.contains(&dig)),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![dig],
+                players: vec![],
+            },
+        )
+        .expect("the Dig is Snapcaster's target");
+    pass_until(&mut engine, stack_is_empty);
+    tap_all_mana(&mut engine, p0);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: dig })
+        .expect("the Dig has flashback");
+    let Pending::ChooseCards {
+        options,
+        prompt: ChoicePrompt::Delve,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the delve question, got {:?}", engine.pending())
+    };
+    assert_eq!(options.len(), 3, "the three other cards: {options:?}");
+    assert!(!options.contains(&dig), "the spell cannot pay for itself");
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: options })
+        .expect("delving the other three is an answer");
+    assert!(
+        on_stack(&engine, dig_through_time()).is_some(),
+        "the Dig is cast: {:?}",
+        engine.pending()
+    );
+}
+
 /// Heliod's Intervention with an X its pool cannot pay: the X is taken, so is
 /// the player it then names, and the cast is reversed.
 ///

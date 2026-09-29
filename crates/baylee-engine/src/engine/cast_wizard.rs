@@ -376,7 +376,7 @@ impl<L: CardLookup> Engine<L> {
         // `LegalActions` and then refused here as "no way to cast this
         // spell" — which is what happened, and it is why the count lives in
         // one function rather than in each of them.
-        let reduction = casting::keyword_reduction(&self.state, face, player);
+        let reduction = casting::keyword_reduction(&self.state, face, player, card);
         // Mycosynth Lattice: every probe below asks whether the pool covers a
         // cost, and under the Lattice any mana answers any pip.
         let afford = |cost: &baylee_core::mana::ManaCost| {
@@ -926,11 +926,10 @@ impl<L: CardLookup> Engine<L> {
             }
             WizardStage::Delve => {
                 let face = self.wizard_face(&wizard);
-                let graveyard: Vec<ObjectId> = self
-                    .state
-                    .zones
-                    .list(ZoneLocation::Graveyard(wizard.player))
-                    .clone();
+                // The offer's own list (`casting::delve_sources`): the
+                // graveyard less the card being cast (CR 601.2a).
+                let graveyard =
+                    crate::casting::delve_sources(&self.state, wizard.player, wizard.card);
                 // How many may be exiled is bounded by the *cost*, not by the
                 // graveyard. CR 702.66a is "for each generic mana in this
                 // spell's total cost, you may exile a card from your
