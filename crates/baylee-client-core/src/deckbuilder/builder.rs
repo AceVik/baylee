@@ -241,12 +241,32 @@ impl DeckBuilder {
         changed
     }
 
-    /// The pool slot holding a card, by its English name.
+    /// The pool slot holding a card, by the name a deck row gives it.
+    ///
+    /// Three tiers, each an exact spelling somebody printed, the first that
+    /// answers wins: the pool's English name (what the builder saves), then
+    /// any other name the card goes by (`alt_names`: Scryfall's two-face
+    /// spelling `Front // Back`, which the gateway's `POST /decks` accepts
+    /// too, and the printed names in other languages once the catalog has
+    /// sent them), then the English name ignoring case, for a list typed by
+    /// hand. It never splits a name or guesses at one: `Front // Anything`
+    /// is not a card, which is `baylee_cards::decks::by_name`'s rule as well.
     #[must_use]
-    pub fn slot_of(&self, english_name: &str) -> Option<usize> {
+    pub fn slot_of(&self, name: &str) -> Option<usize> {
+        let name = name.trim();
         self.pool
             .iter()
-            .position(|c| c.english_name == english_name)
+            .position(|c| c.english_name == name)
+            .or_else(|| {
+                self.pool
+                    .iter()
+                    .position(|c| c.alt_names.iter().any(|alt| alt == name))
+            })
+            .or_else(|| {
+                self.pool
+                    .iter()
+                    .position(|c| c.english_name.eq_ignore_ascii_case(name))
+            })
     }
 
     // ----------------------------------------------------------- the filter
@@ -1560,13 +1580,7 @@ impl DeckBuilder {
                     // saved again has to come back out the way it went in, or
                     // editing one line would quietly strip every other line's
                     // foils.
-                    Ok(parsed) => self.pending.push(Held {
-                        count: u16::try_from(parsed.count).unwrap_or(u16::MAX),
-                        name: parsed.name,
-                        zone,
-                        print: parsed.print,
-                        note: parsed.note,
-                    }),
+                    Ok(parsed) => self.hold_rows(vec![parsed], zone),
                     // A malformed row will never resolve, whatever the pool
                     // holds, so it is missing right away.
                     Err(_) => self.missing.push(row.clone()),
@@ -1580,7 +1594,7 @@ impl DeckBuilder {
     }
 
     /// Turns held rows into deck entries, as far as the pool allows.
-    fn resolve_pending(&mut self) {
+    pub(super) fn resolve_pending(&mut self) {
         for name in std::mem::take(&mut self.pending_commander) {
             let Some(slot) = self.slot_of(&name) else {
                 // No pool yet, or no such card: keep holding the name.

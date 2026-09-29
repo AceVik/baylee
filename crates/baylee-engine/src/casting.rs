@@ -967,6 +967,17 @@ pub(crate) fn can_cast_form(
     if !timing_allows(state, player, c.types, c.keywords) {
         return Err(CastError::BadTiming);
     }
+    // "As an additional cost to cast this spell, sacrifice a creature": a
+    // board with nothing to sacrifice cannot pay it, so the spell is not a
+    // cast this player can make (CR 601.2h). The reader is the one the cast
+    // wizard's `Sacrifice` stage builds its question from, so the offer and
+    // the question cannot disagree — Force of Will's pitch is the precedent.
+    if let Some(def) = obj.card.and_then(|card| lookup.card(card.index))
+        && crate::engine::cast_wizard::additional_sacrifices(&def.faces[0])
+            .any(|part| crate::engine::cost_wizard::options(state, player, card, part).is_empty())
+    {
+        return Err(CastError::NoWayToCast);
+    }
     // Restricted mana this spell may be paid with counts towards it; see
     // [`spendable_pool`].
     let with_restricted = spendable_pool(

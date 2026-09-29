@@ -373,6 +373,12 @@ express at all yet.
   `PayLifeX` is bounded where it is asked instead — the wizard offers X up to
   the caster's life total (CR 119.4) and never up to a constant. A `PayLife(n)`
   written here is bounded by nothing and would be paid past zero.
+  `Sacrifice(filter)` here is "as an additional cost to cast this spell,
+  sacrifice a …" (Crop Rotation, Natural Order): the cast wizard's
+  `Sacrifice` stage asks which one with `ChoicePrompt::CostSacrifice`, the
+  spell is not castable while nothing can pay it, and the sacrificed
+  permanent's mana value is written on the spell for
+  `Amount::SacrificedManaValue`.
 - `cost!("{1}{G}", TapSelf, SacrificeSelf)` — a cost, read left to right the
   way the card prints it: the mana string first (omitted when there is none),
   then the parts. A part is named without its `CostPart::` prefix, which on a
@@ -667,6 +673,8 @@ ability there was.
 `Condition` is the shared vocabulary for "only while this is true" and is
 not activation-specific — it was called `ActivationCondition` after its one
 reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
+`ControlDistinctNames(&filter, n)` counts names rather than permanents
+(Field of the Dead's "seven or more lands with different names"),
 `OpponentGraveyardCountAtLeast(n)` is Sheoldred's flip,
 `CountersOnSelf(kind, n)`, `CountersOnSelfExactly(kind, n)` and
 `CountersOnSelfBetween(kind, lo, hi)` read the permanent the ability is
@@ -1136,7 +1144,8 @@ a fight is the one sentence whose two creatures are two *different* instances
 of "target": Khalni Ambush's "target creature you control fights target
 creature you don't control" is two requirements, not one requirement for two
 objects. The second is written `second_targets = Some(TargetReq::…)` on
-`spell!` or `activated!`, beside `targets`/`target` — never on a mana
+`spell!`, `activated!` or `loyalty!` (Oko, Thief of Crowns' −5), beside
+`targets`/`target` — never on a mana
 ability, which may not target at all (CR 605.1a) and which
 `lints::mana_ability_fault` refuses through either instance.
 It is asked after the first, is its own list at every layer, and is never
@@ -1185,7 +1194,18 @@ card prints no "target", so CR 115.1 never applies. It is mandatory, because
 the printed sentence is: "you may return …" is the same effect wrapped in
 `MayDo`. `SacrificeFilter` and `DestroyChosenForPlayers` are its two
 siblings, identical but for where the permanent ends up.
-Zones: `SearchLibrary`, `OptionalBasicLandSearchFor`, `GraveyardToTop`,
+Zones: `SearchLibrary`, `SearchLibraryOf` (the search `SearchLibrary`
+cannot say: another player's library — `library: ControllerOfTarget` with
+`owner_searches: true` is "that player may search their library", `library:
+Chosen` with `owner_searches: false` is Bribery's "search target opponent's
+library … under your control" — or a `mana_value: Some(ManaValueBound { cmp,
+amount })` the resolution computes, such as `Amount::Plus { base:
+&Amount::SacrificedManaValue, offset: 2 }` for Eldritch Evolution; the
+library searched is the one shuffled), `Find::…with_counter(kind, n)` for a
+find that enters with counters (Neoform), `PutFromHandOntoBattlefield {
+filter, mana_value, optional }` (Aether Vial, with `Amount::CountersOnSource`
+as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
+`GraveyardToTop`,
 `GraveyardToHand`, `GraveyardToBattlefield`, `ExileGraveyard`, `Blink`,
 `ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
 `PutSourceOnTopOfLibrary`, `ExileAndReturnAtEndStep` (Venser +2, Eerie
@@ -1199,7 +1219,21 @@ seat is a choice no `Filter` can be told about), `PumpTarget`
 (the spell's or ability's targets, all of them — Giant Growth), both of which
 carry a `KeywordSet` so "+2/+2 and gains trample" is one effect,
 `SetPTFilter`, `ChangeController`, `AllCreaturesToOwner`,
-`ExchangeControlOrSacrifice` (Gilded Drake), `PhaseOut`, `AttachSelf`.
+`ExchangeControlOrSacrifice` (Gilded Drake), `ExchangeControl` (the first
+target's controller and the second's swap them, CR 701.12a–b: all or
+nothing, and nothing between two permanents of one player), `PhaseOut`,
+`AttachSelf`, `UntapChosen { filter, count }` ("untap up to N lands" with no
+"target": chosen as it resolves, Treachery), `Populate` (CR 701.36: a choice
+on resolution, never a target, Nesting Dovehawk).
+"For each opponent, … up to one target [filter] that player controls" is
+`TargetReq::up_to(TargetSpec::ObjectOfEachOpponent(&FILTER), u8::MAX)` (The
+True Scriptures I): the controller is asked once per opponent, in turn order,
+each question offering only that player's permanents. Triggers only for now.
+A spell "with a single target" is `TargetSpec::Spell(&Filter::WithSingleTarget)`
+(CR 115.9a: every instance of "target" and every player counted, Misdirection).
+"If this would be put into a graveyard from anywhere, exile it instead" (every
+disturb back) is `AbilityDef::Replacement(ReplacementRule::ExileSelfInsteadOfGraveyard)`
+on that face: registered on the battlefield, carried on the stack by the cast.
 Tokens/copy: `CreateToken`, `CreateTokenN`, `CreateTokenForTargetController`,
 `CreateTokenFromLinked`, `CreateTokenCopyOf`, `CreateTokenCopyOfEquipped`,
 `CreateTokenCopyOfFirstToken`, `CopyTargetSpell`, `Amass`.
@@ -1218,7 +1252,7 @@ a `PayLife(2)` there
 would put up an empty menu and decline itself on every board, which
 `vocabulary_tests::every_price_paid_by_naming_an_object_puts_a_menu_up`
 refuses over the compiled pool.
-"That player" in a cast trigger's tax is `PlayerRel::ControllerOfEventObject`
+"That player" in a cast trigger's tax is `PlayerRel::ControllerOfEvent`
 — the one who cast the spell. `PlayerRel::Opponent` is the first living
 opponent, which is the same seat heads-up and the wrong one at a table of
 three (Mystic Remora).
@@ -1288,25 +1322,23 @@ Modal/sequence: `Sequence(&[..])`.
 ### Modifiers (layer effects)
 
 `AddType`, `RemoveType`, `AddSubtype`, `AllCreatureTypes`,
-`AllBasicLandTypes`, `AddColor`, `SetColor`, `AddKeyword`, `RemoveKeyword`,
-`LoseKeywords`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
+`AllBasicLandTypes`, `BecomeType { types, subtype }`, `AddColor`, `SetColor`,
+`AddKeyword`, `RemoveKeyword`, `LoseKeywords`, `LoseAllAbilities`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
 `CantActivateArtifacts`, `OpponentsCastAsSorcery`, `PlayersCantLose`,
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
-`DrawLimitPerTurn`, `CantBeTargetedBy`, `DefinePTByCount`, `SetPTToCount`.
+`DrawLimitPerTurn`, `CantBeTargetedBy`, `SetPTToCount`.
 
-`DefinePTByCount(&filter)` and `SetPTToCount(&filter)` are "power and
-toughness are each equal to the number of [filter]", with "you" in the
-filter being the affected object's controller. The first is the sentence
-printed on the card it defines, a characteristic-defining ability in layer
-7a (Ashaya, Soul of the Wild); the second is the same sentence granted by an
-effect, which CR 604.3a says is no characteristic-defining ability, so it
-sets power and toughness in layer 7b (Druid Class's animated land). Write a
-printed `*/*` with the first, never as `ModifyPTPerCount` over a 0/0 body:
-that is layer 7c and survives a 7b "becomes 1/1" it should lose to. Like
-every static the first is registered only on the battlefield, which is why a
-`*` card with it is still `Partial` (CR 604.3; `xtask validate` holds it).
+`SetPTToCount(count)` is "this creature's power and toughness are each equal
+to [count]" **granted** by an effect (Druid Class's animated land), with
+`count` a `PtCount` and "you" in it the affected object's controller. CR
+604.3a makes only a printed (or token-creating, or copied) ability
+characteristic-defining, so the granted sentence sets power and toughness in
+layer 7b; the printed one is `CharacteristicPT` in 7a (Ashaya, Soul of the
+Wild). Write a printed `*/*` with `CharacteristicPT`, never as
+`ModifyPTPerCount` over a 0/0 body: that is layer 7c and survives a 7b
+"becomes 1/1" it should lose to.
 
 `CantBeTargetedBy(&filter)` is "[this] can't be the target of [spells] or
 abilities from [sources]" — protection's targeting half alone (CR 702.16b),
@@ -1314,6 +1346,15 @@ read at `eval::target_options` beside it. The filter is asked of the spell
 or of the ability's source, with the static's controller as "you", so
 Thrun, Breaker of Silence's "nongreen spells your opponents control or
 abilities from nongreen sources your opponents control" is one filter.
+
+`BecomeType` is "becomes a [subtype] [type]" with nothing retained (CR
+205.1a): the card types and subtypes are replaced, supertypes stay, so
+Oko's Elk is still legendary and no longer an artifact. A sentence that
+says "in addition to its other types" or "still a …" (CR 205.1b) is
+`AddType`/`AddSubtype` instead. `LoseAllAbilities` (CR 613.1f) takes
+keywords and printed abilities alike; a static of the object keeps only its
+parts in layers 1, 2, 4 and 5 (CR 613.6), and a grant with a later
+timestamp still lands (CR 613.7).
 
 `DrawLimitPerTurn { who, limit }` is "each player can't draw more than one
 card each turn" (Spirit of the Labyrinth) and its opponents-only twin
@@ -1330,7 +1371,7 @@ damage itself is still dealt. `GameState::can_pay_life` refuses a payment
 before it is made (CR 119.8), which also caps a pay-X-life cost at X = 0.
 Either `who` may only name a relation the game state can answer on its own
 (`lints::a_continuous_player_relation_is_one_the_state_can_answer`):
-`Chosen`, `ControllerOfTarget` and `ControllerOfEventObject` need a
+`Chosen`, `ControllerOfTarget` and `ControllerOfEvent` need a
 resolution, and a continuous effect has none.
 
 What makes it a variant rather than a replacement effect is the second
@@ -1398,6 +1439,49 @@ nothing will ask for — whatever system enforces the rule (SBAs, combat,
 casting) — and a variant with no enforcer is a static ability that compiles,
 hashes, layers and does nothing. This paragraph said THREE until
 `PlayLandsFromGraveyard` was added and the compiler named two more.
+
+### Pieces added for Maik's European Highlander (29.09.2026)
+
+- **Transform.** `Effect::TransformSource` turns the source over now, and
+  `Effect::TransformSourceAtNextUpkeep` does it at the beginning of the next
+  upkeep (Archangel Avacyn). `Trigger::TransformsIntoThis` is "whenever this
+  creature transforms into [this face]" (Huntmaster of the Fells). The
+  conditions `NoSpellsCastLastTurn` and `APlayerCastLastTurnAtLeast(n)` are
+  the werewolf upkeep checks.
+- **`PlayerRel::ControllerOfEvent`** is the controller of the event's object
+  (Massacre Wurm: "its controller loses 2 life").
+- **`Effect::CreateTokenCopyOfTarget { mods, sacrifice_at_next_end_step }`**
+  (Kiki-Jiki) copies the first target's copiable values (CR 707.2), applies
+  `mods` (for example `CopyMod::AddKeyword(HASTE)`), and can register a
+  delayed "sacrifice it at the beginning of the next end step". That delayed
+  sacrifice is `DelayedAction::Sacrifice { card, version }`. It does nothing
+  if the token has left the battlefield or changed controller.
+- **`Effect::RevealTopAndSort { filter, matched, otherwise }`** (Coiling
+  Oracle, CR 701.20a) reveals the top card of your library. It puts the card
+  where `matched` says if it matches `filter`, and where `otherwise` says if
+  it doesn't. The `SearchDest` values are the ones a library search uses.
+- **`Modifier::CharacteristicPT { count, toughness_plus }`** is a
+  characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
+  - `YouControl(filter)`
+  - `CardTypesInAllGraveyards`
+
+  Power is the count, and toughness is the count plus `toughness_plus`
+  (Pyrogoyf: `+1`). Like every static ability, it works only on the
+  battlefield. A graveyard change invalidates the projection.
+- **`Effect::EventObjectDealsDamageEqualToPower { target }`**: "that creature
+  deals damage equal to its power to any target". The dealer is the event's
+  object, and its power is read now, or as it last existed on the
+  battlefield (`GameState::ltb_powers`).
+- **`Modifier::CantBeBlockedBy(filter)`** is "can't be blocked by [filter]".
+  Examples: Questing Beast (`PowerAtMost(2)`) and Delney (`PowerAtLeast(3)`).
+  `combat::can_block` enforces it.
+- **`Modifier::CombatDamageCantBePrevented`** makes combat damage dealt by the
+  matching creatures unpreventable. It overrides prevention effects and
+  protection's prevention (CR 615.12, 702.16e).
+- **`Effect::ProtectionFromChosenColor { duration }`** (Sejiri Steppe) asks
+  the controller for a color as it resolves (`Pending::ChooseColor`). It then
+  grants layer-6 protection from that color to the first target for
+  `duration`.
 
 ## Worked examples
 

@@ -237,6 +237,7 @@ fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
 fn target_filter(spec: TargetSpec) -> Option<&'static Filter> {
     match spec {
         TargetSpec::Object(f)
+        | TargetSpec::ObjectOfEachOpponent(f)
         | TargetSpec::Spell(f)
         | TargetSpec::StackOrBattlefield(f)
         | TargetSpec::CardInGraveyard(f, _)
@@ -285,6 +286,7 @@ fn target_reuse(ability: &AbilityDef) -> Option<&'static Filter> {
 fn can_target_an_object(spec: TargetSpec) -> bool {
     match spec {
         TargetSpec::Object(_)
+        | TargetSpec::ObjectOfEachOpponent(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)
@@ -1167,6 +1169,7 @@ mod tests {
             targets: Some(TargetReq::up_to_one(TargetSpec::Object(
                 &NONCREATURE_ARTIFACT,
             ))),
+            second_targets: None,
         };
         assert!(
             target_reuse(&broken).is_some(),
@@ -1180,6 +1183,7 @@ mod tests {
             targets: Some(TargetReq::up_to_one(TargetSpec::Object(
                 &NONCREATURE_ARTIFACT,
             ))),
+            second_targets: None,
         };
         assert!(
             target_reuse(&fixed).is_none(),
@@ -1275,6 +1279,7 @@ mod tests {
             cost: -1,
             effects: &MILL_THE_CONTROLLER,
             targets: Some(TargetReq::one(TargetSpec::AnyPlayer)),
+            second_targets: None,
         };
         assert_eq!(
             controller_of_a_player_target(&broken),
@@ -1287,6 +1292,7 @@ mod tests {
             cost: -1,
             effects: &MILL_THE_CHOSEN,
             targets: Some(TargetReq::one(TargetSpec::AnyPlayer)),
+            second_targets: None,
         };
         assert!(
             controller_of_a_player_target(&fixed).is_none(),
@@ -1299,6 +1305,7 @@ mod tests {
             cost: -1,
             effects: &MILL_THE_CONTROLLER,
             targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+            second_targets: None,
         };
         assert!(
             controller_of_a_player_target(&object).is_none(),
@@ -1512,7 +1519,7 @@ mod tests {
                         | PlayerRel::EachPlayer => true,
                         PlayerRel::Chosen
                         | PlayerRel::ControllerOfTarget
-                        | PlayerRel::ControllerOfEventObject => false,
+                        | PlayerRel::ControllerOfEvent => false,
                     };
                     if !answerable {
                         wrong.push(format!("{}: {modifier:?}", def.name()));

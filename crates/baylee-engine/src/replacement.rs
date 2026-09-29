@@ -47,6 +47,17 @@ pub(crate) fn graveyard_destination(
     if card.card.is_none() || card.riders.contains(&Rider::SpellCopy) {
         return (to, None);
     }
+    // Its own "exile it instead": on the stack as a rider, on the
+    // battlefield as the rule its face registered.
+    if (card.zone == crate::zone::Zone::Stack
+        && card.riders.contains(&Rider::ExileInsteadOfGraveyard))
+        || state.replacement_rules.iter().any(|entry| {
+            entry.source == id
+                && entry.rule == baylee_cards_dsl::ReplacementRule::ExileSelfInsteadOfGraveyard
+        })
+    {
+        return (ZoneLocation::Exile(card.owner), None);
+    }
     for entry in &state.replacement_rules {
         if let baylee_cards_dsl::ReplacementRule::ExileOpponentsGraveyard { counter } = entry.rule
             && state.is_opponent(player, entry.controller)

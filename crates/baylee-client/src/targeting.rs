@@ -137,6 +137,16 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
         // half a spell in hand is pointed at. A permanent spell already on
         // the stack is somebody else's problem and is counted by `Spell`.
         TargetSpec::Object(filter) => count(view, view.battlefield.iter(), filter),
+        // One per opponent, and an ally's permanent is none of them: the
+        // count errs, if at all, towards "there is something to point at",
+        // since a teammate is not told apart here.
+        TargetSpec::ObjectOfEachOpponent(filter) => count(
+            view,
+            view.battlefield
+                .iter()
+                .filter(|o| o.controller != view.seat),
+            filter,
+        ),
         // The stack holds both kinds and these three specs want different
         // halves of it, which `PublicObject::stack_item` is the field to ask.
         // Counting the whole stack for all three would over-count and so err
@@ -189,8 +199,10 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                     .flat_map(|(_, pile)| pile)
                     .collect(),
                 PlayerRel::ControllerOfTarget
-                | PlayerRel::ControllerOfEventObject
-                | PlayerRel::Chosen => return None,
+                | PlayerRel::ControllerOfEvent
+                | PlayerRel::Chosen => {
+                    return None;
+                }
             };
             count(view, piles.into_iter(), filter)
         }
@@ -296,6 +308,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // field the view carries for exactly this question — and the
         // face-down bail above is what keeps the two apart.
         Filter::IsToken => object.token.is_some(),
+        Filter::WithSingleTarget => object.targets.len() == 1,
         Filter::ControlledByYou => object.controller == view.seat,
         // Exact at a duel and refused above it. The engine asks
         // `state.is_opponent`, which knows about teams; a `PlayerView` does
@@ -609,6 +622,7 @@ mod tests {
                             continue;
                         }
                         TargetSpec::Object(f)
+                        | TargetSpec::ObjectOfEachOpponent(f)
                         | TargetSpec::Spell(f)
                         | TargetSpec::StackOrBattlefield(f)
                         | TargetSpec::AbilityOnStack(f)

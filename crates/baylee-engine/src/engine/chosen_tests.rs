@@ -178,26 +178,36 @@ fn sheoldred() -> CardIndex {
     card_index("97652492-7906-4d79-983c-fa1dc1239eba")
 }
 
-/// Chapter I of The True Scriptures, which is the same chain destroying.
+fn taoist_hermit() -> CardIndex {
+    card_index("960b1251-12af-4766-8df1-bb98e7e967f5")
+}
+
+/// Chapter I of The True Scriptures: "For each opponent, destroy up to one
+/// target creature or planeswalker that player controls."
 ///
-/// The road to it is the test: Sheoldred is a creature until `{4}{B}` exiles
-/// her and returns her transformed, and that ability is offered only while an
-/// opponent holds eight cards in their graveyard. Nothing shorter reaches the
-/// back face, and a chapter nothing reaches is a rule nothing plays — which
-/// is what this arm was before this test.
+/// The road to it is part of the test: Sheoldred is a creature until
+/// `{4}{B}` exiles her and returns her transformed, and that ability is
+/// offered only while an opponent holds eight cards in their graveyard.
+///
+/// Three seats, because a duel cannot tell "one per opponent" from "one":
+/// the Saga's controller is asked once for each opponent, each question
+/// offers only that player's permanents, a hexproof creature is not on the
+/// menu (it is targeting), and both answers die together.
 #[test]
-fn a_saga_chapter_lets_each_opponent_pick_which_of_theirs_dies() {
-    let mut engine = Duel::new(SEED, swamp())
+#[allow(clippy::too_many_lines)] // the road to the back face is part of the test
+fn a_saga_chapter_targets_one_permanent_of_each_opponent() {
+    let mut engine = Duel::table(SEED, swamp(), 3)
         .battlefield(
             0,
             &[sheoldred(), swamp(), swamp(), swamp(), swamp(), swamp()],
         )
-        .battlefield(1, &[quiet_creature(), quiet_creature()])
+        .battlefield(1, &[quiet_creature(), quiet_creature(), taoist_hermit()])
+        .battlefield(2, &[quiet_creature()])
         .start();
     keep_mulligans(&mut engine);
     let seat = PlayerId::new(0);
-    let them = PlayerId::new(1);
-    super::testkit::seed_graveyard(&mut engine, them, 8);
+    let (left, right) = (PlayerId::new(1), PlayerId::new(2));
+    super::testkit::seed_graveyard(&mut engine, left, 8);
     reach_main_phase(&mut engine, seat);
 
     // Tap for {4}{B} and press the transform ability.
@@ -231,53 +241,67 @@ fn a_saga_chapter_lets_each_opponent_pick_which_of_theirs_dies() {
         )
         .expect("the transform ability activates at sorcery speed");
 
-    // Resolve everything until the chapter asks its question.
-    let mut guard = 0;
-    let (player, options, min, max) = loop {
-        guard += 1;
-        assert!(guard < 60, "chapter I never asked: {:?}", engine.pending());
+    let controller_of =
+        |e: &Engine<RegistryLookup>, id: ObjectId| e.state().object(id).map(|o| o.controller);
+    let mut asked = Vec::new();
+    let mut doomed = Vec::new();
+    for _ in 0..80 {
         match engine.pending().clone() {
-            Pending::ChooseCards {
+            Pending::ChooseTargets {
                 player,
                 options,
                 min,
                 max,
                 ..
             } => {
-                break (player, options, min, max);
+                assert_eq!(player, seat, "the Saga's controller chooses the targets");
+                assert_eq!((min, max), (0, 1), "up to one per opponent");
+                let owners: Vec<_> = options.iter().map(|o| controller_of(&engine, *o)).collect();
+                assert!(
+                    owners.windows(2).all(|w| w[0] == w[1]),
+                    "one question offers one opponent's permanents: {owners:?}"
+                );
+                asked.push(owners[0].expect("a permanent"));
+                let pick = options[0];
+                doomed.push(pick);
+                if owners[0] == Some(left) {
+                    assert_eq!(
+                        options.len(),
+                        2,
+                        "the two Elves and not the hexproof Hermit"
+                    );
+                }
+                engine
+                    .apply(
+                        seat,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![pick],
+                            players: vec![],
+                        },
+                    )
+                    .expect("an offered permanent");
             }
             Pending::Priority { player, .. } => {
+                if asked.len() == 2 && stack_is_empty(&engine) {
+                    break;
+                }
                 engine
                     .apply(player, PlayerAction::PassPriority)
                     .expect("passing is legal");
             }
-            other => panic!("unexpected question on the way to chapter I: {other:?}"),
+            other => panic!("unexpected question on the way through chapter I: {other:?}"),
         }
-    };
-
+    }
     assert_eq!(
-        player, them,
-        "'that player controls' means the opponent picks, not the Saga's controller"
+        asked,
+        vec![left, right],
+        "each opponent once, in turn order"
     );
-    assert_eq!(options.len(), 2, "both of their creatures are candidates");
-    assert_eq!(
-        (min, max),
-        (0, 1),
-        "'up to one' is a choice they may decline, unlike the edict"
-    );
-
-    let doomed = options[0];
-    engine
-        .apply(
-            them,
-            PlayerAction::ChooseObjects {
-                objects: vec![doomed],
-            },
-        )
-        .expect("naming one offered creature is legal");
-    assert_eq!(
-        engine.state().object(doomed).map(|o| o.zone),
-        Some(crate::zone::Zone::Graveyard),
-        "the chosen creature was not destroyed"
-    );
+    for id in doomed {
+        assert_eq!(
+            engine.state().object(id).map(|o| o.zone),
+            Some(crate::zone::Zone::Graveyard),
+            "a chosen target was not destroyed"
+        );
+    }
 }

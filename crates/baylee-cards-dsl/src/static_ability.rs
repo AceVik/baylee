@@ -71,6 +71,17 @@ pub enum Modifier {
     AddSubtype(SubtypeId),
     /// Affected creatures are every creature type (Maskwood Nexus).
     AllCreatureTypes,
+    /// "Becomes a [subtype] [types]" with nothing retained (CR 205.1a):
+    /// `types` replace every card type (an instant or sorcery keeps its
+    /// own) and `subtype` replaces every subtype, since those of the card
+    /// types it lost go with them. Supertypes stay (Oko, Thief of Crowns:
+    /// "becomes a green Elk creature" keeps legendary, loses artifact).
+    BecomeType {
+        /// The card types it has now.
+        types: TypeSet,
+        /// Its one subtype now.
+        subtype: SubtypeId,
+    },
     /// Affected lands are every basic land type (Great Divide Guide).
     AllBasicLandTypes,
     /// Adds colors.
@@ -81,8 +92,13 @@ pub enum Modifier {
     AddKeyword(KeywordSet),
     /// Removes keywords.
     RemoveKeyword(KeywordSet),
-    /// Removes all keyword abilities (Tishana's Tidebinder).
+    /// Removes all keyword abilities.
     LoseKeywords,
+    /// "Loses all abilities" (CR 613.1f): every ability the object has at
+    /// this point of layer 6, keywords and its printed activated, triggered
+    /// and static abilities alike (Tishana's Tidebinder, Oko, Thief of
+    /// Crowns). A grant applied later in layer 6 still lands (CR 613.7).
+    LoseAllAbilities,
     /// The legend rule doesn't apply to the effect's controller (Sakashima).
     LegendRuleOff,
     /// The effect's controller may play lands from their graveyard
@@ -172,6 +188,18 @@ pub enum Modifier {
     /// Prevent all damage that would be dealt BY the affected object
     /// (Maze of Ith).
     PreventDamageFromIt,
+    /// Combat damage the affected object would deal can't be prevented
+    /// (Questing Beast: "Combat damage that would be dealt by creatures you
+    /// control can't be prevented"). CR 615.12: a prevention effect applied
+    /// to that damage does nothing, protection's included (CR 702.16e is a
+    /// prevention effect).
+    CombatDamageCantBePrevented,
+    /// The affected creature can't be blocked by creatures the filter
+    /// matches (Questing Beast: "can't be blocked by creatures with power 2
+    /// or less"; Delney's "power 3 or greater"). A restriction on the
+    /// declaration of blockers, CR 509.1b, read against each blocker as it
+    /// stands; the filter's "you" is the effect's controller.
+    CantBeBlockedBy(&'static crate::Filter),
     /// The effect's opponents can't search libraries (Ashiok, Dream
     /// Render).
     OpponentsCantSearch,
@@ -317,6 +345,22 @@ pub enum Modifier {
         /// Target requirement of the ability.
         target: Option<crate::effect::TargetSpec>,
     },
+    /// A characteristic-defining ability (CR 604.3) that sets power to a
+    /// count and toughness to that count plus `toughness_plus`: "power and
+    /// toughness are each equal to the number of creatures you control"
+    /// (Voice of Resurgence's Elemental), "power is equal to the number of
+    /// card types among cards in all graveyards and its toughness is equal
+    /// to that number plus 1" (Pyrogoyf).
+    ///
+    /// Layer 7a (CR 613.4a), so a later "base power and toughness N/N"
+    /// (7b) overrides it and a pump (7c) adds to it — the two orders a
+    /// `ModifyPTPerCount` on a 0/0, which is 7c, gets wrong.
+    CharacteristicPT {
+        /// What the number is.
+        count: PtCount,
+        /// What toughness adds to it (Lhurgoyf's "plus 1").
+        toughness_plus: i8,
+    },
     /// The affected object gets +P/+T for each filter-matching permanent
     /// its controller controls (Construct tokens, "for each artifact").
     ModifyPTPerCount {
@@ -331,25 +375,30 @@ pub enum Modifier {
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.
     SetPT(i16, i16),
-    /// "[This]'s power and toughness are each equal to the number of
-    /// [filter]", printed on the card it defines: a characteristic-defining
-    /// ability (CR 604.3), applied in layer 7a (CR 613.4a) — Ashaya, Soul
-    /// of the Wild's "number of lands you control".
-    ///
-    /// "You" in the filter is the affected object's controller, because the
-    /// ability is that object's own. Like every static, it is registered
-    /// while its source is on the battlefield, so in another zone the card
-    /// has its printed base (CR 604.3 would have it defined there too).
-    DefinePTByCount(&'static crate::Filter),
-    /// The same sentence **granted** by an effect — Druid Class's land that
-    /// "becomes a creature with … 'This creature's power and toughness are
-    /// each equal to the number of lands you control.'" A granted ability
-    /// is no characteristic-defining ability (CR 604.3a), so it sets power
-    /// and toughness to a value in layer 7b (CR 613.4b). "You" is the
-    /// affected object's controller, as above.
-    SetPTToCount(&'static crate::Filter),
+    /// "This creature's power and toughness are each equal to [count]"
+    /// **granted** by an effect — Druid Class's land that "becomes a
+    /// creature with haste and 'This creature's power and toughness are
+    /// each equal to the number of lands you control.'" Only a printed (or
+    /// token-creating, or copied) ability is characteristic-defining (CR
+    /// 604.3a), so this one sets power and toughness to a value in layer 7b
+    /// (CR 613.4b), where the printed sentence is
+    /// [`Modifier::CharacteristicPT`] in 7a. "You" in the count is the
+    /// affected object's controller, because the ability is that object's.
+    SetPTToCount(PtCount),
     /// Switches power and toughness.
     SwitchPT,
+}
+
+/// What a [`Modifier::CharacteristicPT`] counts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PtCount {
+    /// Permanents the ability's controller controls that match the filter
+    /// ("the number of creatures you control").
+    YouControl(&'static crate::Filter),
+    /// Card types among cards in all graveyards (Tarmogoyf's number): the
+    /// nine card types of CR 205.2a, each counted once however many cards
+    /// share it.
+    CardTypesInAllGraveyards,
 }
 
 impl Modifier {
@@ -415,6 +464,7 @@ impl Modifier {
             | Self::AddSubtype(_)
             | Self::AllCreatureTypes
             | Self::AllBasicLandTypes
+            | Self::BecomeType { .. }
             | Self::AddTypeIfCountersAtLeast { .. } => Layer::Type,
             // Layer 5: color-changing effects.
             Self::AddColor(_) | Self::SetColor(_) => Layer::Color,
@@ -422,6 +472,7 @@ impl Modifier {
             Self::AddKeyword(_)
             | Self::RemoveKeyword(_)
             | Self::LoseKeywords
+            | Self::LoseAllAbilities
             | Self::AddKeywordIfCountersAtLeast { .. }
             | Self::GrantActivated { .. }
             | Self::GrantsFlashback
@@ -434,8 +485,8 @@ impl Modifier {
             // ability-adding effect, and so is granting a trigger.
             | Self::ProtectionFrom(_)
             | Self::GrantTriggered { .. } => Layer::Ability,
-            // Layer 7b/7c/7e: power and toughness.
-            Self::DefinePTByCount(_) => Layer::PtCda,
+            // Layer 7a/7b/7c/7e: power and toughness.
+            Self::CharacteristicPT { .. } => Layer::PtCda,
             Self::SetPT(..) | Self::SetPTToCount(_) => Layer::PtSet,
             Self::ModifyPT(..) | Self::ModifyPTPerCount { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
@@ -453,6 +504,8 @@ impl Modifier {
             | Self::CantLoseLife { .. }
             | Self::PreventDamageToIt
             | Self::PreventDamageFromIt
+            | Self::CombatDamageCantBePrevented
+            | Self::CantBeBlockedBy(_)
             | Self::OpponentsCantSearch
             | Self::NoMaxHandSize
             | Self::PlayerHexproof
@@ -546,6 +599,11 @@ pub enum Duration {
 /// Panharmonicon, Elesh Norn, Roaming Throne).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ReplacementRule {
+    /// "If this would be put into a graveyard from anywhere, exile it
+    /// instead" (every disturb back: Ghastly Mimicry). On the battlefield
+    /// the rule is registered like any other; a spell cast with it carries
+    /// it on the stack as a rider, since nothing registers a spell's rules.
+    ExileSelfInsteadOfGraveyard,
     /// Cards destined for an opponent's graveyard go to exile instead,
     /// optionally with the specified counter (Dauthi Voidwalker).
     ExileOpponentsGraveyard {
@@ -664,6 +722,13 @@ mod tests {
             (Modifier::AllCreatureTypes, Layer::Type),
             (Modifier::AllBasicLandTypes, Layer::Type),
             (
+                Modifier::BecomeType {
+                    types: TypeSet::CREATURE,
+                    subtype: SubtypeId::new(1),
+                },
+                Layer::Type,
+            ),
+            (
                 Modifier::AddTypeIfCountersAtLeast {
                     kind: crate::effect::CounterKind::Charge,
                     at_least: 8,
@@ -676,6 +741,7 @@ mod tests {
             (Modifier::AddKeyword(KeywordSet::FLYING), Layer::Ability),
             (Modifier::RemoveKeyword(KeywordSet::FLYING), Layer::Ability),
             (Modifier::LoseKeywords, Layer::Ability),
+            (Modifier::LoseAllAbilities, Layer::Ability),
             (
                 Modifier::AddKeywordIfCountersAtLeast {
                     kind: crate::effect::CounterKind::Charge,
@@ -704,9 +770,18 @@ mod tests {
                 },
                 Layer::Ability,
             ),
-            (Modifier::DefinePTByCount(&Filter::YOUR_LAND), Layer::PtCda),
+            (
+                Modifier::CharacteristicPT {
+                    count: PtCount::CardTypesInAllGraveyards,
+                    toughness_plus: 1,
+                },
+                Layer::PtCda,
+            ),
             (Modifier::SetPT(2, 2), Layer::PtSet),
-            (Modifier::SetPTToCount(&Filter::YOUR_LAND), Layer::PtSet),
+            (
+                Modifier::SetPTToCount(PtCount::YouControl(&Filter::YOUR_LAND)),
+                Layer::PtSet,
+            ),
             (Modifier::ModifyPT(1, 1), Layer::PtModify),
             (
                 Modifier::ModifyPTPerCount {
@@ -746,6 +821,8 @@ mod tests {
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
+            Modifier::CombatDamageCantBePrevented,
+            Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::PlayerHexproof,

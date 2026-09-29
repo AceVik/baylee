@@ -95,11 +95,13 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AddSubtype(_)
         | Modifier::AllCreatureTypes
         | Modifier::AllBasicLandTypes
+        | Modifier::BecomeType { .. }
         | Modifier::AddColor(_)
         | Modifier::SetColor(_)
         | Modifier::AddKeyword(_)
         | Modifier::RemoveKeyword(_)
         | Modifier::LoseKeywords
+        | Modifier::LoseAllAbilities
         | Modifier::ProtectionFrom(_)
         | Modifier::BecomeCopyOf(_)
         | Modifier::GrantsFlashback
@@ -108,10 +110,10 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AddKeywordIfCountersAtLeast { .. }
         | Modifier::GrantActivated { .. }
         | Modifier::GrantTriggered { .. }
+        | Modifier::CharacteristicPT { .. }
         | Modifier::ModifyPTPerCount { .. }
         | Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
-        | Modifier::DefinePTByCount(_)
         | Modifier::SetPTToCount(_)
         | Modifier::SwitchPT => true,
         // Neither: a shield that prevents damage, and the rules a player
@@ -138,6 +140,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantLoseLife { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
+        | Modifier::CombatDamageCantBePrevented
+        | Modifier::CantBeBlockedBy(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
         | Modifier::PlayerHexproof
@@ -368,6 +372,18 @@ pub fn applies_to(
     fx: &ContinuousEffect,
     obj: &crate::object::GameObject,
 ) -> bool {
+    // An ability granted before the object lost all its abilities is lost
+    // with them; one granted after lands (CR 613.7, timestamp order within
+    // layer 6). Keywords get the same ordering inside the projection.
+    if fx.layer == baylee_cards_dsl::Layer::Ability
+        && obj
+            .characteristics()
+            .abilities_lost
+            .is_some_and(|lost| crate::object::Characteristics::lost_at(fx.timestamp) <= lost)
+        && !matches!(fx.modifier, Modifier::LoseAllAbilities)
+    {
+        return false;
+    }
     match &fx.filter {
         EffectFilter::ObjectIs(..) => fx.filter.names(obj),
         EffectFilter::Dsl(filter) => {
@@ -635,6 +651,10 @@ mod tests {
             Modifier::AddSubtype(SubtypeId::new(1)),
             Modifier::AllCreatureTypes,
             Modifier::AllBasicLandTypes,
+            Modifier::BecomeType {
+                types: TypeSet::CREATURE,
+                subtype: SubtypeId::new(1),
+            },
             Modifier::AddTypeIfCountersAtLeast {
                 kind: CounterKind::Charge,
                 at_least: 8,
@@ -645,6 +665,7 @@ mod tests {
             Modifier::AddKeyword(KeywordSet::FLYING),
             Modifier::RemoveKeyword(KeywordSet::FLYING),
             Modifier::LoseKeywords,
+            Modifier::LoseAllAbilities,
             Modifier::AddKeywordIfCountersAtLeast {
                 kind: CounterKind::Charge,
                 at_least: 8,
@@ -662,9 +683,12 @@ mod tests {
             },
             Modifier::GrantsFlashback,
             Modifier::ProtectionFrom(&Filter::CREATURE),
+            Modifier::CharacteristicPT {
+                count: baylee_cards_dsl::PtCount::YouControl(&Filter::CREATURE),
+                toughness_plus: 0,
+            },
             Modifier::SetPT(2, 2),
-            Modifier::DefinePTByCount(&Filter::YOUR_LAND),
-            Modifier::SetPTToCount(&Filter::YOUR_LAND),
+            Modifier::SetPTToCount(baylee_cards_dsl::PtCount::YouControl(&Filter::YOUR_LAND)),
             Modifier::ModifyPT(1, 1),
             Modifier::ModifyPTPerCount {
                 filter: &Filter::CREATURE,
@@ -691,6 +715,8 @@ mod tests {
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
+            Modifier::CombatDamageCantBePrevented,
+            Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::PlayerHexproof,
@@ -737,7 +763,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            46,
+            50,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -788,8 +814,8 @@ mod tests {
     }
 
     /// The counts, so that a change which flips a modifier from one side to
-    /// the other is a failure and not a quiet re-balancing: twenty-four
-    /// modifiers lock the objects they found, twenty-two do not.
+    /// the other is a failure and not a quiet re-balancing: twenty-six
+    /// modifiers lock the objects they found, twenty-four do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -797,10 +823,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_four_modifiers_lock_a_set_and_twenty_two_do_not() {
+    fn twenty_six_modifiers_lock_a_set_and_twenty_four_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (24, 22));
+        assert_eq!((locking, all.len() - locking), (26, 24));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

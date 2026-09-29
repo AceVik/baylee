@@ -339,7 +339,7 @@ async fn postgres_mints_the_keys() {
     sandbox.close().await;
 }
 
-/// The eight house decks are in every database, and they belong to nobody.
+/// The nine house decks are in every database, and they belong to nobody.
 ///
 /// A migration that seeds is a migration whose data is part of the schema:
 /// there is no file to forget to load and no first-run step to skip, which
@@ -354,7 +354,7 @@ async fn every_database_comes_with_the_house_decks() {
         .all(&sandbox.db)
         .await
         .expect("reading the house decks");
-    assert_eq!(house.len(), 8, "eight decks ship with the schema");
+    assert_eq!(house.len(), 9, "nine decks ship with the schema");
 
     for seeded in &house {
         assert!(
@@ -712,7 +712,7 @@ async fn deleting_an_account_takes_everything_it_owned() {
     // The decklist survives the round trip as an ordered array, which is the
     // one thing `text[]` has to do that a join table with a position column
     // would have done more elaborately.
-    // Whose deck, explicitly: every database ships with the eight house
+    // Whose deck, explicitly: every database ships with the house
     // decks, so "the deck" is no longer a question with one answer.
     let saved = Deck::find()
         .filter(deck::Column::AccountId.eq(id))

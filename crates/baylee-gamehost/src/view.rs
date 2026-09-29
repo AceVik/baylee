@@ -364,9 +364,12 @@ fn grant_home(
         let index = baylee_cards::lines::grant_home(abilities, grant)?;
         Some((face, u32::try_from(index).ok()?))
     };
-    let own = grantor
-        .printed_face()
-        .and_then(|face| found(face, grantor.abilities(&crate::session::RegistryLookup)));
+    let own = grantor.printed_face().and_then(|face| {
+        found(
+            face,
+            grantor.printed_abilities(&crate::session::RegistryLookup),
+        )
+    });
     own.or_else(|| {
         let card = grantor.card?.index;
         let def = baylee_cards::by_index(card)?;

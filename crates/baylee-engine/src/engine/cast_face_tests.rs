@@ -132,9 +132,19 @@ fn find(
 fn a_disturb_cast_is_offered_at_the_back_face_s_cost_and_not_the_front_s() {
     let mut engine = Duel::new(31, island())
         .hand(0, &[mirrorhall_mimic()])
+        // The Elves are what Ghastly Mimicry, an Aura, has to enchant: an
+        // Aura spell with nothing to target is not offered at all.
         .battlefield(
             0,
-            &[island(), island(), island(), island(), island(), plains()],
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                plains(),
+                llanowar_elves(),
+            ],
         )
         .start();
     keep_mulligans(&mut engine);
@@ -176,6 +186,21 @@ fn a_disturb_cast_is_offered_at_the_back_face_s_cost_and_not_the_front_s() {
     engine
         .apply(p0, PlayerAction::CastSpell { card })
         .expect("the offer is honoured");
+    let elves = find(
+        &engine,
+        crate::zone::ZoneLocation::Battlefield,
+        llanowar_elves(),
+    )
+    .expect("the Elves are out");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .expect("the Aura enchants the Elves");
     let stack = engine.state().zones.list(crate::zone::ZoneLocation::Stack);
     let spell = stack.last().copied().expect("a spell on the stack");
     let obj = engine.state().object(spell).unwrap();

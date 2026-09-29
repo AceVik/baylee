@@ -79,6 +79,7 @@ fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
         TargetSpec::ThisObject => Some(res.source),
         TargetSpec::EventObject => res.event_object,
         TargetSpec::Object(_)
+        | TargetSpec::ObjectOfEachOpponent(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)
@@ -718,6 +719,31 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 prompt: ChoicePrompt::Generic,
             })
         }
+        Effect::UntapChosen { filter, count } => {
+            // "Up to", so `min: 0`, and only what is tapped is offered: an
+            // untapped land is a legal pick that does nothing, and a list
+            // with nothing tapped in it is no question at all (CR 608.2d).
+            let options: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.status.contains(crate::object::Status::TAPPED)
+                            && crate::eval::matches(filter, state, o, you, res.source)
+                    })
+                })
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::UntapChosen);
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 0,
+                max: count,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
         Effect::DiscardForPlayers { who, count } => {
             let players = players_of(who, state, you, res);
             let mut remaining: Vec<PlayerId> = players
@@ -826,6 +852,39 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         }
                     }
                 }
+            }
+            None
+        }
+        // CR 701.27a: turned over where it stands, queued for the engine,
+        // which holds the card registry `state.transform` needs and applies
+        // it as this resolution completes. A source that has left the
+        // battlefield, or is phased out, is no permanent to transform.
+        Effect::TransformSource => {
+            if let Some(obj) = state.object_mut(res.source)
+                && obj.zone == crate::zone::Zone::Battlefield
+                && !obj.status.contains(crate::object::Status::PHASED_OUT)
+            {
+                obj.pending_face_change = Some(1 - obj.face_index.min(1));
+            }
+            None
+        }
+        // The delayed trigger remembers the object and the face it showed
+        // as it was created: CR 701.27f ignores the instruction once the
+        // permanent has transformed since, and CR 400.7 once it has left.
+        Effect::TransformSourceAtNextUpkeep => {
+            if let Some(obj) = state.object(res.source)
+                && obj.zone == crate::zone::Zone::Battlefield
+            {
+                let action = crate::state::DelayedAction::Transform {
+                    card: res.source,
+                    version: obj.version,
+                    face: obj.face_index,
+                };
+                state.delayed.push(crate::state::DelayedTrigger {
+                    controller: you,
+                    when: crate::state::DelayedWhen::NextUpkeepOfAnyone,
+                    action,
+                });
             }
             None
         }

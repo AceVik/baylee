@@ -291,6 +291,17 @@ pub fn can_block(
     if crate::eval::protected_from(state, attacker, blocker) {
         return false;
     }
+    // "Can't be blocked by creatures with power 2 or less" (CR 509.1b):
+    // the attacker's restriction, asked of this blocker.
+    if state.effects.iter().any(|fx| {
+        let baylee_cards_dsl::Modifier::CantBeBlockedBy(f) = fx.modifier else {
+            return false;
+        };
+        crate::effects::applies_to(state, fx, a)
+            && crate::eval::matches(f, state, b, fx.controller, fx.source.unwrap_or(attacker))
+    }) {
+        return false;
+    }
     true
 }
 
@@ -504,7 +515,7 @@ fn deal_damage_to_player(
     if amount <= 0 {
         return 0;
     }
-    if prevent_from(state, source) {
+    if prevent_from(state, source) && !unpreventable(state, source, is_combat) {
         return 0;
     }
     state.change_life(player, -i32::from(amount), crate::event::Cause::Spell);
@@ -547,9 +558,10 @@ fn deal_damage_to_object(
     if amount <= 0 {
         return 0;
     }
-    if prevent_from(state, source)
+    if (prevent_from(state, source)
         || prevent_to(state, target)
-        || crate::eval::protected_from(state, target, source)
+        || crate::eval::protected_from(state, target, source))
+        && !unpreventable(state, source, is_combat)
     {
         return 0;
     }
@@ -603,6 +615,22 @@ fn prevent_from(state: &GameState, source: ObjectId) -> bool {
                 && fx.filter.names(obj)
         })
     })
+}
+
+/// True if the damage `source` is dealing can't be prevented
+/// (`CombatDamageCantBePrevented`, CR 615.12): combat damage from an object
+/// an effect says so of. Every prevention effect then does nothing to it,
+/// protection's (CR 702.16e) as much as a shield's.
+fn unpreventable(state: &GameState, source: ObjectId, is_combat: bool) -> bool {
+    is_combat
+        && state.object(source).is_some_and(|obj| {
+            state.effects.iter().any(|fx| {
+                matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::CombatDamageCantBePrevented
+                ) && crate::effects::applies_to(state, fx, obj)
+            })
+        })
 }
 
 /// True if the target object may not be dealt damage (`PreventDamageToIt`).

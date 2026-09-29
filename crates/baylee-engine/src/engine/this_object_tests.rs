@@ -254,9 +254,10 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         "spec: EventObject",
         "GraveyardToBattlefield { target: EventObject",
         "PutOnBottomOfLibraryFromGraveyard { target: EventObject",
-        // A player and not an object: `resolve::players_of` reads the
-        // event object's controller (Mystic Remora's "that player").
-        "ControllerOfEventObject",
+        // Pyrogoyf's "that creature deals damage equal to its power": the
+        // variant names the event object itself and `resolve::life` reads
+        // `res.event_object`; its `target` is the damage's recipient.
+        "EventObjectDealsDamageEqualToPower",
     ];
 
     let mut unread = Vec::new();

@@ -9,7 +9,7 @@
 //! Set: MOM #125 — March of the Machine | Scryfall ID: bf2249e6-af74-4b88-8eb7-144ce8fa7f6b | Oracle ID: 97652492-7906-4d79-983c-fa1dc1239eba
 // IMPLEMENTED — menace + ETB edict + conditional flip; all three saga
 // chapters on the back face (lore counters, chapter triggers, sacrifice
-// after III).
+// after III), chapter I targeting one permanent per opponent.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{creature, enchantment};
@@ -20,21 +20,18 @@ static NONTOKEN_CREATURE_OR_WALKER: Filter = Filter::And(&[
 ]);
 
 static BACK_ABILITIES: &[AbilityDef] = &[
-    // NOT SUPPORTED: chapter I prints "For each opponent, destroy up to one
-    // target creature or planeswalker that player controls" — one target per
-    // opponent, chosen when the chapter goes on the stack. `TargetReq` states
-    // a fixed minimum and maximum, so a count that grows with the table is
-    // not a number it has, and a saga chapter carries a bare `TargetSpec`
-    // besides. `DestroyChosenForPlayers` picks one permanent per opponent on
-    // resolution instead, which reaches the same board and skips the
-    // targeting rules: hexproof, ward and protection do not answer it, and
-    // nothing triggers on becoming a target.
+    // "For each opponent, destroy up to one target creature or planeswalker
+    // that player controls": one question per opponent, the answers destroyed
+    // together, and hexproof, ward and protection answer it as targeting.
     chapter!(
         1,
-        &[Effect::DestroyChosenForPlayers {
-            who: PlayerRel::EachOpponent,
-            filter: &Filter::CREATURE_OR_PLANESWALKER,
-        }]
+        &[Effect::destroy(TargetSpec::ObjectOfEachOpponent(
+            &Filter::CREATURE_OR_PLANESWALKER
+        ))],
+        targets = Some(TargetReq::up_to(
+            TargetSpec::ObjectOfEachOpponent(&Filter::CREATURE_OR_PLANESWALKER),
+            u8::MAX
+        ))
     ),
     chapter!(
         2,
@@ -90,7 +87,7 @@ card!(
     ],
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::MENACE,
-    coverage = Coverage::Partial("chapter I destroys one permanent per opponent without targeting"),
+    coverage = Coverage::Implemented,
     abilities = &[
         triggered!(
             Trigger::ETB,

@@ -311,7 +311,12 @@ impl<L: CardLookup> Engine<L> {
                 }) = self.pending_plan.take()
                 {
                     self.loyalty_player_choice = Some(chosen);
-                    self.finish_loyalty_activation(player, source, ability_index, SmallVec::new());
+                    self.continue_loyalty_activation(
+                        player,
+                        source,
+                        ability_index,
+                        SmallVec::new(),
+                    );
                     return Ok(());
                 }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
@@ -440,7 +445,7 @@ impl<L: CardLookup> Engine<L> {
                 if let Some(mut wizard) = self.cast_wizard.take() {
                     if wizard.stage == cast_wizard::WizardStage::Convoke {
                         wizard.convoke_taps = objects.into_iter().collect();
-                        wizard.stage = cast_wizard::WizardStage::Done;
+                        wizard.stage = cast_wizard::WizardStage::Sacrifice;
                     } else if wizard.stage == cast_wizard::WizardStage::SecondTargets {
                         // The second instance of "target" is objects only in
                         // every shape that prints one, so no seat is kept.
@@ -490,9 +495,20 @@ impl<L: CardLookup> Engine<L> {
                         targets: first,
                         target_players,
                     } => {
-                        self.activation_second_targets = Some(targets.into_iter().collect());
-                        self.activation_target_players = target_players;
-                        self.start_activation(player, source, ability_index, first)?;
+                        let second = targets.into_iter().collect();
+                        if self.loyalty_second_targets(source, ability_index).is_some() {
+                            self.finish_loyalty_activation(
+                                player,
+                                source,
+                                ability_index,
+                                first,
+                                second,
+                            );
+                        } else {
+                            self.activation_second_targets = Some(second);
+                            self.activation_target_players = target_players;
+                            self.start_activation(player, source, ability_index, first)?;
+                        }
                     }
                     PlanKind::ActivateAbility {
                         source,
@@ -512,7 +528,12 @@ impl<L: CardLookup> Engine<L> {
                                 .and_then(|abilities| abilities.get(ability_index as usize)),
                             Some(AbilityDef::Loyalty { .. })
                         ) {
-                            self.finish_loyalty_activation(player, source, ability_index, targets);
+                            self.continue_loyalty_activation(
+                                player,
+                                source,
+                                ability_index,
+                                targets,
+                            );
                         } else {
                             // Only on this arm. A loyalty ability shares the
                             // plan and finishes elsewhere, so setting the
@@ -545,7 +566,29 @@ impl<L: CardLookup> Engine<L> {
                         source,
                         ability_index,
                         mode,
+                        per_opponent,
                     } => {
+                        // One opponent answered; the next is asked before
+                        // anything leaves the queue, and the trigger stacks
+                        // with every answer once the last has been given.
+                        let targets = match per_opponent {
+                            Some(mut asking) => {
+                                asking.gathered.extend(targets);
+                                let controller =
+                                    self.trigger_queue.front().map_or(player, |t| t.controller);
+                                match self.ask_next_opponent(
+                                    controller,
+                                    source,
+                                    ability_index,
+                                    mode,
+                                    *asking,
+                                ) {
+                                    None => return Ok(()),
+                                    Some(all) => all,
+                                }
+                            }
+                            None => targets,
+                        };
                         // Consume the queued trigger before stacking it — and
                         // keep it, because it is carrying the ability list its
                         // index points into when the source has stopped
@@ -1070,6 +1113,19 @@ impl<L: CardLookup> Engine<L> {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.delve_exiles = objects.into_iter().collect();
                     wizard.stage = cast_wizard::WizardStage::Convoke;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
+                // Wizard path: what pays the additional cost's sacrifice. The
+                // stage stays where it is and asks about the next part, if
+                // the face prints one; it moves on when there is none.
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Sacrifice)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.sacrifices.extend(objects);
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }

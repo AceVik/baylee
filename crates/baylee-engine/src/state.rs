@@ -178,6 +178,9 @@ pub struct DelayedTrigger {
 pub enum DelayedWhen {
     /// At the controller's next upkeep.
     NextUpkeep,
+    /// At the beginning of the next upkeep, whoever's turn it is
+    /// (Archangel Avacyn's delayed transform).
+    NextUpkeepOfAnyone,
     /// At the controller's next first main phase (Mana Drain).
     NextFirstMain,
     /// At the beginning of the next end step (Venser +2).
@@ -216,6 +219,28 @@ pub enum DelayedAction {
         color: baylee_core::mana::ManaColor,
         /// Amount.
         amount: u16,
+    },
+    /// Transform a permanent (Archangel Avacyn), unless it has left the
+    /// battlefield (`version`, CR 400.7) or no longer shows `face`, the face
+    /// it showed when this was created — it has transformed since, and the
+    /// instruction is ignored (CR 701.27f).
+    Transform {
+        /// The permanent.
+        card: ObjectId,
+        /// Its identity when this was created.
+        version: u32,
+        /// The face it showed then.
+        face: u8,
+    },
+    /// Sacrifice a permanent (Kiki-Jiki's token at the next end step), if
+    /// it is still that object (`version`, CR 400.7) and still controlled
+    /// by the delayed trigger's controller — a player sacrifices only a
+    /// permanent they control (CR 701.21a).
+    Sacrifice {
+        /// The permanent.
+        card: ObjectId,
+        /// Its identity when this was created.
+        version: u32,
     },
     /// Return an exiled card to the battlefield under its owner's control
     /// (Venser +2).
@@ -283,6 +308,12 @@ pub struct PreviousTurn {
     pub active: PlayerId,
     /// How many spells that player cast during it.
     pub spells_cast: u32,
+    /// How many spells every player together cast during it — the
+    /// werewolves' "if no spells were cast last turn".
+    pub spells_by_all: u32,
+    /// The most spells any one player cast during it — "if a player cast
+    /// two or more spells last turn".
+    pub most_by_one: u32,
 }
 
 /// A registered replacement rule from a permanent on the battlefield.
@@ -483,6 +514,25 @@ pub struct GameState {
     /// Mana values immediately before battlefield departures. Captured by
     /// triggers before this bounded look-back store is cleared.
     pub ltb_mana_values: Vec<(ObjectId, u32)>,
+    /// Who controlled a permanent immediately before it left the
+    /// battlefield (CR 603.10a) — what `PlayerRel::ControllerOfEvent`
+    /// reads for Massacre Wurm's "whenever a creature an opponent controls
+    /// dies, **that player** loses 2 life".
+    ///
+    /// The object cannot answer for itself: a card in a graveyard is
+    /// controlled by nobody and the refresh settles its field back to its
+    /// owner, and a token that died has ceased to exist (CR 704.5d) before
+    /// its trigger resolves. Same lifecycle as [`Self::ltb_mana_values`]:
+    /// cleared for an object on every move and written again only on a
+    /// departure from the battlefield.
+    pub ltb_controllers: Vec<(ObjectId, PlayerId)>,
+    /// The power each object had the moment it last left the battlefield
+    /// (CR 608.2h: an effect that needs a value from an object that has
+    /// left uses its last known information) — what
+    /// `Effect::EventObjectDealsDamageEqualToPower` reads when "that
+    /// creature" is gone by the time Pyrogoyf's trigger resolves. Same
+    /// lifecycle as [`Self::ltb_controllers`].
+    pub ltb_powers: Vec<(ObjectId, i16)>,
     /// What was attached to a permanent the moment it left the battlefield.
     ///
     /// The other half of CR 603.10a, and it is needed for the same reason and
@@ -802,6 +852,8 @@ impl GameState {
             commander_redirect: Vec::new(),
             pending_copied_faces: Vec::new(),
             ltb_mana_values: Vec::new(),
+            ltb_controllers: Vec::new(),
+            ltb_powers: Vec::new(),
             ltb_abilities: Vec::new(),
             ltb_counters: Vec::new(),
             ltb_characteristics: Vec::new(),
@@ -994,6 +1046,7 @@ impl GameState {
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
             produced_chosen: false,
+            abilities_lost: None,
         });
         Arc::make_mut(&mut self.bases)
             .bare
@@ -1035,6 +1088,7 @@ impl GameState {
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
             produced_chosen: false,
+            abilities_lost: None,
         });
         Arc::make_mut(&mut self.bases)
             .tokens
@@ -1685,11 +1739,19 @@ impl GameState {
     /// last such departure and no earlier one.
     fn record_last_known(&mut self, id: ObjectId, from_zone: Zone) {
         self.ltb_mana_values.retain(|(other, _)| *other != id);
+        self.ltb_controllers.retain(|(other, _)| *other != id);
+        self.ltb_powers.retain(|(other, _)| *other != id);
         if from_zone == Zone::Battlefield
             && let Some(object) = self.object(id)
         {
-            self.ltb_mana_values
-                .push((id, object.characteristics().mana_cost.cmc()));
+            let controller = object.controller;
+            let characteristics = object.characteristics();
+            let (mana_value, power) = (characteristics.mana_cost.cmc(), characteristics.power);
+            self.ltb_mana_values.push((id, mana_value));
+            if let Some(power) = power {
+                self.ltb_powers.push((id, power));
+            }
+            self.ltb_controllers.push((id, controller));
         }
         if from_zone == Zone::Battlefield {
             let power = self
@@ -1776,6 +1838,7 @@ impl GameState {
     ///
     /// # Panics
     /// Internal invariant violations (existence is checked above).
+    #[allow(clippy::too_many_lines)] // one reset per field CR 400.7 clears
     pub fn move_object(
         &mut self,
         id: ObjectId,
@@ -1852,6 +1915,10 @@ impl GameState {
             if matches!(from_zone, Zone::Battlefield | Zone::Exile) {
                 obj.counters = crate::object::Counters::default();
             }
+            // What was paid is the spell's and no later object's (a flashback
+            // is a new payment); nothing on the battlefield reads it yet, so
+            // a resolved permanent spell gives it up too (`PaidRecord`).
+            obj.paid = None;
             // The same rule for the other thing a copy replaced. Copiable
             // values are fixed while the copy exists (CR 707.2a) and the
             // new object has none of them: the card in the graveyard is
@@ -1939,12 +2006,15 @@ impl GameState {
         // "+1/+1 for each artifact you control", so a permanent leaving
         // changes what a permanent that stayed projects to.
         //
-        // Only the battlefield and the stack, which is exactly what the
-        // refresh pass revisits — a card drawn changes no projection unless
-        // a cross-zone effect is registered, and that pass projects every
-        // zone anyway.
-        if matches!(from_zone, Zone::Battlefield | Zone::Stack)
-            || matches!(to.zone(), Zone::Battlefield | Zone::Stack)
+        // The battlefield and the stack, which is exactly what the refresh
+        // pass revisits — a card drawn changes no projection unless a
+        // cross-zone effect is registered, and that pass projects every
+        // zone anyway. And the graveyards, because a permanent's projection
+        // may count them: Pyrogoyf is as big as the card types among cards
+        // in all graveyards (`PtCount::CardTypesInAllGraveyards`), so a card
+        // milled or discarded grows a permanent that never moved.
+        if matches!(from_zone, Zone::Battlefield | Zone::Stack | Zone::Graveyard)
+            || matches!(to.zone(), Zone::Battlefield | Zone::Stack | Zone::Graveyard)
         {
             self.invalidate_projections();
         }
@@ -2167,6 +2237,8 @@ impl GameState {
             commander_redirect,
             pending_copied_faces,
             ltb_mana_values,
+            ltb_controllers,
+            ltb_powers,
             ltb_abilities,
             ltb_attachments,
             ltb_counters,
@@ -2268,6 +2340,8 @@ impl GameState {
             object.hash(&mut h);
             hash_characteristics(&mut h, was);
         }
+        ltb_controllers.hash(&mut h);
+        ltb_powers.hash(&mut h);
         hash_unordered(
             &mut h,
             restriction_info.iter(),
@@ -2349,6 +2423,8 @@ impl GameState {
         h.u8(self.day_night.map_or(255, |d| d as u8));
         h.u8(self.previous_turn.map_or(255, |p| p.active.get()));
         h.u32(self.previous_turn.map_or(0, |p| p.spells_cast));
+        h.u32(self.previous_turn.map_or(0, |p| p.spells_by_all));
+        h.u32(self.previous_turn.map_or(0, |p| p.most_by_one));
         h.usize(self.players.len());
         for p in &self.players {
             h.u8(p.id.get());
@@ -2677,6 +2753,10 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     // creature will survive are different situations.
     h.u8(obj.regeneration_shields);
     h.option_u32(obj.source_power_lki.map(|p| p as u32));
+    // What was paid is part of what the spell will do: Neoform after a
+    // two-drop and after a five-drop are two different futures.
+    h.option_u32(obj.paid.as_ref().and_then(|p| p.sacrificed_mana_value));
+    h.u32(obj.paid.as_ref().map_or(0, |p| p.mana_spent));
     h.option_u32(obj.attached_to.map(position));
     h.usize(obj.targets.len());
     for t in &obj.targets {
@@ -2834,6 +2914,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
         produced_colors,
         produced_colorless,
         produced_chosen,
+        abilities_lost,
     } = characteristics;
     name.hash(h);
     hash_mana_cost(h, mana_cost);
@@ -2849,6 +2930,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     produced_colors.hash(h);
     produced_colorless.hash(h);
     produced_chosen.hash(h);
+    abilities_lost.hash(h);
 }
 
 #[allow(clippy::too_many_lines)] // one line per field: the list is the guard
@@ -2881,6 +2963,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         original_base,
         ability,
         source_power_lki,
+        paid,
         x_value,
         kicked,
         alt_cast,
@@ -2946,6 +3029,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             }
             Rider::Prepared => h.u8(10),
             Rider::SpellCopy => h.u8(11),
+            Rider::ExileInsteadOfGraveyard => h.u8(12),
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -2957,6 +3041,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     second.hash(h);
     ability.hash(h);
     source_power_lki.hash(h);
+    paid.hash(h);
     x_value.hash(h);
     kicked.hash(h);
     alt_cast.hash(h);
@@ -3101,6 +3186,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         // different effects, and a tag table that left it out would make
         // them one.
         F::EnteredThisTurn => h.u8(30),
+        F::WithSingleTarget => h.u8(34),
         // Its own tag rather than a payload on `CmcAtMost`: the bound is
         // read from the source at match time, so two filters that differ
         // only in *where* the number comes from are different filters.
@@ -3885,6 +3971,12 @@ mod tests {
             ("ltb_mana_values", |s, id| {
                 s.ltb_mana_values.push((id, 3));
             }),
+            ("ltb_controllers", |s, id| {
+                s.ltb_controllers.push((id, PlayerId::new(1)));
+            }),
+            ("ltb_powers", |s, id| {
+                s.ltb_powers.push((id, 4));
+            }),
             ("ltb_counters", |s, id| {
                 s.ltb_counters.push((id, Counters::default()));
             }),
@@ -4009,6 +4101,9 @@ mod tests {
             }),
             ("produced_chosen", |s, id| {
                 fixture_object(s, id).base_mut().produced_chosen = true;
+            }),
+            ("abilities_lost", |s, id| {
+                fixture_object(s, id).base_mut().abilities_lost = std::num::NonZeroU32::new(7);
             }),
         ];
 

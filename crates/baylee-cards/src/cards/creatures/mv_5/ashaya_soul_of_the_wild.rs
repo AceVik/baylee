@@ -37,7 +37,7 @@ card!(
     coverage = Coverage::Partial(
         "\"Ashaya's power and toughness are each equal to the number of lands you control\" is a \
          characteristic-defining ability, which works in every zone (CR 604.3); \
-         `Modifier::DefinePTByCount` is registered only while Ashaya is on the battlefield, so in \
+         `Modifier::CharacteristicPT` is registered only while Ashaya is on the battlefield, so in \
          a library or a graveyard it is its 0/0 base, which Recruiter of the Guard's toughness \
          and Reveillark's power read"
     ),
@@ -47,7 +47,13 @@ card!(
         // count too — Ashaya itself included.
         // NOT SUPPORTED: the same ability off the battlefield (CR 604.3) —
         // statics are registered while their source is on the battlefield.
-        static_ability!(Filter::This, Modifier::DefinePTByCount(&Filter::YOUR_LAND)),
+        static_ability!(
+            Filter::This,
+            Modifier::CharacteristicPT {
+                count: PtCount::YouControl(&Filter::YOUR_LAND),
+                toughness_plus: 0,
+            }
+        ),
         // "…are Forest lands": the land type and the Forest land type are two
         // modifiers, and both are additive, so the creature keeps its types.
         static_ability!(

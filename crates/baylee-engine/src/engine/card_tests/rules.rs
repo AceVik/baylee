@@ -17,11 +17,11 @@ use super::*;
 /// nothing, and Baleful Strix kept its flying and its deathtouch with a
 /// Tidebinder standing over it.
 ///
-/// The keywords are what this asserts because they are what the engine can
-/// take away; the rest of the sentence is the `NOT SUPPORTED` note on the
-/// card. Both halves are checked: the effect has to be registered *against
-/// the Strix*, because a rider aimed at nothing leaves exactly the same
-/// keywords standing on a creature that happens to have none.
+/// The keywords are what this asserts; the rest of "all abilities" is
+/// `a_tidebinder_takes_the_statics_and_activated_abilities_too`. Both halves
+/// are checked: the effect has to be registered *against the Strix*, because
+/// a rider aimed at nothing leaves exactly the same keywords standing on a
+/// creature that happens to have none.
 #[test]
 fn tishanas_tidebinder_strips_the_permanent_whose_ability_it_countered() {
     let (engine, _p0, _p1, strix) = a_strix_the_tidebinder_answered();
@@ -36,6 +36,125 @@ fn tishanas_tidebinder_strips_the_permanent_whose_ability_it_countered() {
         ),
         "nothing was registered against the strix, so the keywords went \
          somewhere else or were never there"
+    );
+}
+
+/// Tishana's Tidebinder, the rest of its sentence: "that permanent loses
+/// **all** abilities" (CR 613.1f) — not only its keywords.
+///
+/// Balthor the Stout has one of each kind the engine had kept out of reach:
+/// a static ("Other Barbarian creatures get +1/+1", layer 7c) and an
+/// activated ability ({R}: another target Barbarian gets +1/+0). Its
+/// activation is what the Tidebinder counters, so Balthor is the permanent
+/// that loses everything: the Riftcutter beside it shrinks back to its
+/// printed size, and the {R} ability is no longer offered. When the
+/// Tidebinder leaves, both come back (its rider lasts only "for as long as
+/// this creature remains on the battlefield").
+#[test]
+fn a_tidebinder_takes_the_statics_and_activated_abilities_too() {
+    let balthor = card_index("23669721-fe9e-49d7-9504-ae6164de723a");
+    let riftcutter = card_index("e9612e4c-1527-4255-9f2f-b8d8cee65cc6");
+    let tidebinder = card_index("2993dc7d-723d-4a9b-94bd-4bb02a9f7243");
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(61, island())
+        .battlefield(0, &[balthor, riftcutter, mountain(), mountain()])
+        .battlefield(1, &[island(), island(), island()])
+        .hand(1, &[tidebinder])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let lord = on_battlefield(&engine, p0, balthor).expect("Balthor is out");
+    let barbarian = on_battlefield(&engine, p0, riftcutter).expect("the Riftcutter is out");
+    let printed = engine
+        .state()
+        .object(barbarian)
+        .unwrap()
+        .base
+        .power
+        .unwrap();
+    assert_eq!(
+        pt(&engine, barbarian).0,
+        printed + 1,
+        "Balthor's anthem applies"
+    );
+    let offered = |engine: &Engine<RegistryLookup>| {
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        legal.abilities.iter().copied().find(|(id, _)| *id == lord)
+    };
+    // An ability is offered with its mana already floating.
+    tap_all_mana(&mut engine, p0);
+    let (source, ability_index) = offered(&engine).expect("Balthor's {R} ability is offered");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![barbarian],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        !stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    let activation = engine.state().zones.list(ZoneLocation::Stack)[0];
+    tap_all_mana(&mut engine, p1);
+    let card = in_hand(&engine, p1, tidebinder).expect("the Tidebinder is in hand");
+    engine.apply(p1, PlayerAction::CastSpell { card }).unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![activation],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+
+    assert_eq!(
+        pt(&engine, barbarian).0,
+        printed,
+        "Balthor lost its static: the Riftcutter is back to its printed power"
+    );
+    assert_eq!(
+        offered(&engine),
+        None,
+        "Balthor lost its activated ability, so it is not offered"
+    );
+
+    let binder = on_battlefield(&engine, p1, tidebinder).expect("the Tidebinder stayed");
+    kill(&mut engine, binder);
+    assert_eq!(
+        pt(&engine, barbarian).0,
+        printed + 1,
+        "with the Tidebinder gone, Balthor's anthem is back"
+    );
+    // The next turn, with the Mountains untapped and their mana floating.
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && matches!(e.state().turn.phase, Phase::FirstMain)
+    });
+    tap_all_mana(&mut engine, p0);
+    assert!(
+        offered(&engine).is_some(),
+        "with the Tidebinder gone, Balthor's ability is offered again"
     );
 }
 

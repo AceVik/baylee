@@ -314,6 +314,77 @@ fn path_to_exile_offers_the_ramp_to_the_creatures_controller() {
     );
 }
 
+/// "…search their library for a basic land card, put that card onto the
+/// battlefield tapped, then shuffle": the library shuffled is the one that
+/// was searched. The resumed search shuffled the *resolving spell's
+/// controller's* library, so Path's caster had their library shuffled for
+/// nothing and the victim kept theirs in the order they had just looked
+/// through.
+///
+/// The libraries are read as orders of object ids: the caster's must be
+/// exactly as it was, and the victim's, less the land they took, must not.
+#[test]
+fn path_to_exile_shuffles_the_library_its_victim_searched() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(11, forest())
+        .battlefield(0, &[quiet_creature()])
+        .battlefield(1, &[plains()])
+        .hand(1, &[path_to_exile()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let victim = on_battlefield(&engine, p0, quiet_creature()).unwrap();
+    let order = |e: &Engine<RegistryLookup>, seat: PlayerId| {
+        e.state().zones.list(ZoneLocation::Library(seat)).clone()
+    };
+    let (searched_before, caster_before) = (order(&engine, p0), order(&engine, p1));
+
+    cast_from_hand(&mut engine, p1, path_to_exile());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![victim],
+            },
+        )
+        .unwrap();
+    let Pending::ChooseCards {
+        player, options, ..
+    } = pass_to_card_choice(&mut engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, p0);
+    let found = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![found],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        order(&engine, p1),
+        caster_before,
+        "the caster searched nothing and is not shuffled"
+    );
+    let unshuffled: Vec<ObjectId> = searched_before
+        .iter()
+        .copied()
+        .filter(|id| *id != found)
+        .collect();
+    let searched_after: Vec<ObjectId> = order(&engine, p0);
+    assert_eq!(searched_after.len(), unshuffled.len());
+    assert_ne!(
+        searched_after, unshuffled,
+        "\"then shuffle\": the searched library is not left in the order its \
+         owner just saw"
+    );
+}
+
 /// A tutor to the top of the library leaves the card it found on top.
 ///
 /// Mystical Tutor prints "search your library for an instant or sorcery
@@ -2591,36 +2662,95 @@ fn teferis_protection_exiles_itself_and_leaves_everything_else_exactly_as_it_was
 /// sacrifice a land. Search your library for a land card, put that card onto
 /// the battlefield, then shuffle."
 ///
-/// This played the whole card until the transcoder was caught dropping the
-/// additional cost. The reader emitted the search and nothing else, so what
-/// shipped was a one-mana tutor that sacrifices no land — and the played
-/// test was green over it, because its graveyard assertion sat inside
-/// `if let Some(paid) = sacrificed`. The `CostSacrifice` prompt never fired,
-/// the binding stayed `None`, and a conditional assertion asserts nothing.
-///
-/// The card is an honest stub again, and the engine is why it cannot yet be
-/// more than one: `cast_wizard::paid_as_a_mandatory_additional_cost` answers
-/// for `PayLife` and `PayLifeX` and nothing else, so a
-/// `mandatory_additional_costs` entry naming an object would be *skipped* at
-/// cast — the same silence one crate over. #52 is both halves, and the day
-/// it lands this goes red and the played test comes back with its assertion
-/// out of the `if`.
+/// This played the whole card once before, until the transcoder was caught
+/// dropping the additional cost: the played test was green over a one-mana
+/// tutor that sacrificed nothing, because its graveyard assertion sat inside
+/// `if let Some(paid) = sacrificed`. Here nothing is conditional (#52). The
+/// cast must stop at the `CostSacrifice` question, that question must offer
+/// the caster's lands and not the Elves beside them, and the land named must
+/// be in the graveyard before the spell resolves.
 #[test]
-fn crop_rotation_is_a_stub_until_a_spell_can_charge_more_than_mana() {
-    use baylee_cards_dsl::Coverage;
+fn crop_rotation_sacrifices_a_land_to_put_a_land_from_the_library_onto_the_battlefield() {
+    use crate::choice::ChoicePrompt;
 
-    let def = baylee_cards::by_oracle_id("28b46183-c62f-47b1-9fee-3ba148202cab")
-        .expect("the registry contains the card");
-    assert_eq!(def.index, crop_rotation());
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[forest(), forest(), llanowar_elves()])
+        .hand(0, &[crop_rotation()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let library_before = library_size(&engine, p0);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+
+    cast_from_hand(&mut engine, p0, crop_rotation());
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the additional cost asks which land, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert_eq!(prompt, ChoicePrompt::CostSacrifice);
+    assert_eq!((min, max), (1, 1), "\"sacrifice a land\" is one land");
     assert_eq!(
-        def.coverage,
-        Coverage::Unimplemented,
-        "a spell whose printed additional cost nothing charges is a stub"
+        options.len(),
+        2,
+        "both Forests and nothing else: {options:?}"
     );
+    assert!(!options.contains(&elves), "a creature is not a land");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
     assert!(
-        def.faces[0].mandatory_additional_costs.is_empty(),
-        "and it names no cost part the cast wizard would walk past in silence"
+        in_graveyard(&engine, p0, forest()).is_some(),
+        "the land is paid as the spell is cast, before anything resolves"
     );
+    assert!(on_stack(&engine, crop_rotation()).is_some());
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        prompt,
+        ..
+    } = pass_to_card_choice(&mut engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    assert!(!options.is_empty() && options.iter().all(|o| library.contains(o)));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let found = on_battlefield(&engine, p0, plains()).expect("the found land arrived");
+    assert!(
+        !is_tapped(&engine, found),
+        "\"put that card onto the battlefield\" says nothing of tapped"
+    );
+    assert_eq!(library_size(&engine, p0), library_before - 1);
+    assert!(in_graveyard(&engine, p0, crop_rotation()).is_some());
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
 }
 
 /// Hero's Downfall — {1}{B}{B} instant: "Destroy target creature or
@@ -4037,15 +4167,14 @@ fn malakir_caverns_enters_tapped_and_makes_black() {
     );
 }
 
-/// Assassin's Trophy (`Coverage::Partial`): "Destroy target permanent an
-/// opponent controls. Its controller may search their library for a basic
-/// land card, put it onto the battlefield, then shuffle."
+/// Assassin's Trophy: "Destroy target permanent an opponent controls. Its
+/// controller may search their library for a basic land card, put it onto
+/// the battlefield, then shuffle."
 ///
-/// Both the destroy half and the optional search half are implemented. The
-/// `Coverage::Partial` gap is that the found land enters tapped. This test
-/// proves that the permanent is destroyed, that the offer goes to the
-/// *target's controller* (p1, not p0), and then documents the gap by
-/// asserting the fetched land arrived tapped.
+/// This proves that the permanent is destroyed, that the offer goes to the
+/// *target's controller* (p1, not p0), over p1's own library, and that the
+/// fetched land arrives untapped — it arrived tapped while the card borrowed
+/// Path to Exile's search.
 #[test]
 fn assassins_trophy_destroys_the_target_and_offers_its_controller_a_basic_land_search() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -4100,9 +4229,10 @@ fn assassins_trophy_destroys_the_target_and_offers_its_controller_a_basic_land_s
         "\"Its controller\" is the target's controller (p1), not the caster (p0)"
     );
     assert_eq!((min, max), (0, 1), "\"may search\" — zero or one card");
+    let theirs = engine.state().zones.list(ZoneLocation::Library(p1)).clone();
     assert!(
-        !options.is_empty(),
-        "the library holds basics to search for"
+        !options.is_empty() && options.iter().all(|o| theirs.contains(o)),
+        "their own library holds basics to search for"
     );
 
     // The destroy half happened before the search was offered.
@@ -4111,7 +4241,7 @@ fn assassins_trophy_destroys_the_target_and_offers_its_controller_a_basic_land_s
         "\"Destroy target permanent\" — the Elf is no longer on the battlefield"
     );
 
-    // Take the land; verify it arrived tapped (the Coverage::Partial gap).
+    // Take the land; it arrives untapped.
     engine
         .apply(
             p1,
@@ -4126,9 +4256,8 @@ fn assassins_trophy_destroys_the_target_and_offers_its_controller_a_basic_land_s
         .last()
         .expect("the fetched land arrived");
     assert!(
-        is_tapped(&engine, fetched),
-        "Coverage::Partial gap: the fetched land enters tapped, \
-         which the printed Oracle text does not say"
+        !is_tapped(&engine, fetched),
+        "\"put it onto the battlefield\" says nothing of tapped"
     );
 }
 
@@ -17759,6 +17888,50 @@ fn mana_drain_counters_a_five_mana_spell_and_pays_five_colorless_a_turn_later() 
         0,
         "\"add an amount of {{C}}\": the mana is colourless, and no blue land \
          on this board made any of it"
+    );
+}
+
+/// Misdirection's "target spell with a single target" (CR 115.9a): Khalni
+/// Ambush holds two targets, one per instance of "target", so with only it
+/// on the stack Misdirection has nothing to aim at and is not offered.
+#[test]
+fn misdirection_cannot_aim_at_a_spell_with_two_targets() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(4727, forest())
+        .battlefield(0, &[forest(), forest(), forest(), fangren_hunter()])
+        .battlefield(1, &[wild_colos()])
+        .hand(0, &[khalni_ambush()])
+        .hand(1, &[misdirection(), counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let hunter = on_battlefield(&engine, p0, fangren_hunter()).expect("my Hunter is out");
+    let colos = on_battlefield(&engine, p1, wild_colos()).expect("their Colos is out");
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, khalni_ambush());
+    for target in [hunter, colos] {
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![target],
+                    players: vec![],
+                },
+            )
+            .expect("the fight's two creatures");
+    }
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    assert!(!stack_is_empty(&engine), "the Ambush waits on the stack");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        unreachable!()
+    };
+    let card = in_hand(&engine, p1, misdirection()).expect("Misdirection is in hand");
+    assert!(
+        !legal.castable.contains(&card),
+        "a spell with two targets is no target for Misdirection"
     );
 }
 

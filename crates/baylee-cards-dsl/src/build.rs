@@ -296,6 +296,9 @@ pub struct LoyaltyParts {
     pub effects: &'static [Effect],
     /// What it targets, if anything.
     pub targets: Option<crate::effect::TargetReq>,
+    /// A second instance of the word "target"; see
+    /// [`AbilityDef::Loyalty::second_targets`].
+    pub second_targets: Option<crate::effect::TargetReq>,
 }
 
 impl LoyaltyParts {
@@ -306,6 +309,7 @@ impl LoyaltyParts {
             cost,
             effects,
             targets: None,
+            second_targets: None,
         }
     }
 
@@ -316,6 +320,7 @@ impl LoyaltyParts {
             cost: self.cost,
             effects: self.effects,
             targets: self.targets,
+            second_targets: self.second_targets,
         }
     }
 }
@@ -886,12 +891,13 @@ pub mod prelude {
     /// of every card file.
     pub use crate::counters;
     pub use crate::effect::{
-        Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, PlayerRel, ReflexiveEvent,
-        SearchDest, SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef, ZoneSel,
+        Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, ManaValueBound,
+        ManaValueCmp, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot,
+        TargetSpec, TokenDef, ZoneSel,
     };
     pub use crate::filter::{Filter, ZoneRef};
     pub use crate::static_ability::{
-        Duration, LAYERS, Layer, Modifier, ReplacementRule, StaticAbility,
+        Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule, StaticAbility,
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, CardDef, CommanderRule, Coverage, EnterModifier, FaceDef,
@@ -1152,6 +1158,7 @@ mod tests {
             Modifier::AddKeyword(KeywordSet::HASTE),
             Modifier::RemoveKeyword(KeywordSet::HASTE),
             Modifier::LoseKeywords,
+            Modifier::LoseAllAbilities,
             Modifier::GrantsFlashback,
             Modifier::ProtectionFrom(&Filter::ARTIFACT),
             Modifier::GrantTriggered {

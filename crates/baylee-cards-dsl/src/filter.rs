@@ -62,6 +62,10 @@ pub enum Filter {
     Named(&'static str),
     /// Is a token (Sheoldred's Edict: "creature token").
     IsToken,
+    /// A spell or ability "with a single target" (Misdirection): chosen as
+    /// a target once in all, counting every instance of "target" and every
+    /// player (CR 115.9a).
+    WithSingleTarget,
     /// Controlled by `you`.
     ControlledByYou,
     /// Controlled by an opponent of `you`.

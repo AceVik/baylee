@@ -164,6 +164,9 @@ impl HeuristicAgent {
             Filter::PowerAtLeast(n) => Some(object.power.is_some_and(|p| p >= *n)),
             Filter::PowerAtMost(n) => Some(object.power.is_some_and(|p| p <= *n)),
             Filter::InZone(want) => Some(zone == *want),
+            // The view lists every instance's targets and every player on a
+            // stack object, which is the count CR 115.9a asks for.
+            Filter::WithSingleTarget => Some(object.targets.len() == 1),
             // The five the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
@@ -364,9 +367,9 @@ impl HeuristicAgent {
             PlayerRel::Opponent | PlayerRel::EachOpponent => {
                 every().filter(|p| self.hostile(*p, view.seat)).collect()
             }
-            PlayerRel::Chosen
-            | PlayerRel::ControllerOfTarget
-            | PlayerRel::ControllerOfEventObject => return None,
+            PlayerRel::Chosen | PlayerRel::ControllerOfTarget | PlayerRel::ControllerOfEvent => {
+                return None;
+            }
         })
     }
 

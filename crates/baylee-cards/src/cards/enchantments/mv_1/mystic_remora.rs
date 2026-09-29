@@ -51,7 +51,7 @@ card!(
         triggered!(
             Trigger::SpellCast(&OPPONENT_NONCREATURE_SPELL),
             &[Effect::PlayerMayPayOr {
-                player: PlayerRel::ControllerOfEventObject,
+                player: PlayerRel::ControllerOfEvent,
                 mana: Amount::Fixed(4),
                 effect: &Effect::MayDo {
                     effects: &[Effect::draw(1)]

@@ -83,7 +83,7 @@ card!(
                 ),
                 Effect::continuous(
                     &Filter::This,
-                    Modifier::SetPTToCount(&Filter::YOUR_LAND),
+                    Modifier::SetPTToCount(PtCount::YouControl(&Filter::YOUR_LAND)),
                     Duration::Indefinitely,
                 ),
             ],

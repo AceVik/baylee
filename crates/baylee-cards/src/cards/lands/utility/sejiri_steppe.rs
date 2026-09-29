@@ -3,7 +3,8 @@
 //! Oracle: When this land enters, target creature you control gains protection from the color of your choice until end of turn.
 //! Oracle: {T}: Add {W}.
 //! Set: DDG #36 — Duel Decks: Knights vs. Dragons | Scryfall ID: d45b0ed8-8692-4fa7-b32c-30d29028da3d | Oracle ID: 3dfbf95e-a91b-429c-96e2-95ac777e7027
-// PARTIAL — enters tapped and {T}: Add {W} are built; protection from a color chosen on resolution has no DSL variant.
+// IMPLEMENTED — enters tapped; on entering, target creature you control gains
+// protection from a color its controller chooses as the trigger resolves.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -17,11 +18,15 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
-    coverage = Coverage::Partial(
-        "granting protection from a color chosen on resolution is not expressible in the DSL"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
-        // NOT SUPPORTED: "When this land enters, target creature you control gains protection from the color of your choice until end of turn."
+        triggered!(
+            Trigger::ETB,
+            &[Effect::ProtectionFromChosenColor {
+                duration: Duration::UntilEndOfTurn,
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE)))
+        ),
     ],
 );

@@ -2016,22 +2016,19 @@ fn check_code_matches_the_printing(
         // sentence.
         //
         // What is worth saying instead is whether the card keeps the
-        // promise that base implies. `Modifier::DefinePTByCount` reaches
-        // `Layer::PtCda`, but like every static it is registered only while
-        // its source is on the battlefield, and CR 604.3 has a
-        // characteristic-defining ability work in every zone — which
-        // Recruiter of the Guard and Reveillark read. So a card claiming
-        // `Coverage::Implemented` with a printed `*` still claims something
-        // no rule performs everywhere it is asked. None of the pool's do;
-        // this is the gate that keeps it that way rather than a count that
-        // goes stale.
+        // promise that base implies. The one `Modifier` on `Layer::PtCda`
+        // is `CharacteristicPT`, so a card claiming `Coverage::Implemented`
+        // with a printed `*` and no such modifier is claiming something no
+        // rule performs. Pyrogoyf writes it; this is the gate that keeps
+        // the rest honest rather than a count that goes stale.
         if printed.parse::<i32>().is_err() {
             tally.defined_pt += 1;
-            if knob(content, "coverage").is_some_and(|v| v.starts_with("Coverage::Implemented")) {
+            if knob(content, "coverage").is_some_and(|v| v.starts_with("Coverage::Implemented"))
+                && !content.contains("Modifier::CharacteristicPT")
+            {
                 println!(
                     "{slug}: the printing defines {key} by an ability ({printed}) and the card \
-                     claims Coverage::Implemented — no Layer::PtCda ability works off the \
-                     battlefield (CR 604.3)"
+                     claims Coverage::Implemented without a Modifier::CharacteristicPT"
                 );
                 *problems += 1;
             }
@@ -4085,6 +4082,10 @@ fn with_oracle_header(text: &str, printed: &str) -> Option<String> {
 const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
     ("Bleachbone Verge", "an Condition, not a filter"),
     ("Mox Opal", "metalcraft is an Condition"),
+    (
+        "Treachery",
+        "\"you control enchanted creature\" is Modifier::GainControl, not a filter",
+    ),
     ("Fierce Guardianship", "an AlternativeCost condition"),
     (
         "Deadly Rollick",

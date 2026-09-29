@@ -116,6 +116,7 @@ impl<L: CardLookup> Engine<L> {
                 source,
                 ability_index,
                 mode,
+                ..
             }) => Some((*source, *ability_index, mode.map(usize::from))),
             _ => None,
         };
@@ -127,9 +128,11 @@ impl<L: CardLookup> Engine<L> {
                     .filter(|(id, _)| *id == source)
                     .map(|(_, list)| list)
             };
-            let abilities = captured
-                .map(|list| list.abilities)
-                .or_else(|| self.state.object(source).map(|o| o.abilities(&self.lookup)));
+            let abilities = captured.map(|list| list.abilities).or_else(|| {
+                self.state
+                    .object(source)
+                    .map(|o| o.printed_abilities(&self.lookup))
+            });
             return DecisionContext {
                 source: Some(source),
                 printed: captured.and_then(|list| list.printed).or_else(|| {

@@ -55,6 +55,9 @@ pub fn matches_projected(
         // characteristics, so a clone answers to what it copied.
         Filter::Named(name) => state.names.get(chars.name) == *name,
         Filter::IsToken => obj.card.is_none(),
+        Filter::WithSingleTarget => {
+            obj.targets.len() + obj.second_targets().len() + obj.target_players.len() == 1
+        }
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
         Filter::OwnedByYou => obj.owner == you,
@@ -183,7 +186,7 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
             .filter(|p| !p.has_lost())
             .map(|p| p.id)
             .collect(),
-        PlayerRel::ControllerOfTarget | PlayerRel::ControllerOfEventObject | PlayerRel::Chosen => {
+        PlayerRel::ControllerOfTarget | PlayerRel::ControllerOfEvent | PlayerRel::Chosen => {
             return None;
         }
     })
@@ -291,6 +294,16 @@ pub fn amount(
             .object(this)
             .map_or(0, |o| u32::from(o.counters.get(*kind))),
         Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
+        // The object the payment wrote it on. A resolution asks
+        // `resolve::amount2`, which reads the stack object: an activated
+        // ability's source is the permanent and its payment is on the
+        // ability. Here, with no resolution, `this` is all there is, which
+        // answers for a spell (its own source) and 0 for anything else.
+        Amount::SacrificedManaValue => state
+            .object(this)
+            .and_then(|o| o.paid.as_ref())
+            .and_then(|p| p.sacrificed_mana_value)
+            .unwrap_or(0),
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
                 ZoneSel::Battlefield => state.zones.list(ZoneLocation::Battlefield).clone(),
@@ -359,6 +372,14 @@ pub fn condition_holds(
 ) -> bool {
     match condition {
         Condition::YourTurn => state.turn.active == you,
+        // No last turn at the first upkeep of the game, so nothing was cast
+        // in it and nothing wasn't: both sentences are false there.
+        Condition::NoSpellsCastLastTurn => {
+            state.previous_turn.is_some_and(|p| p.spells_by_all == 0)
+        }
+        Condition::APlayerCastLastTurnAtLeast(n) => state
+            .previous_turn
+            .is_some_and(|p| p.most_by_one >= u32::from(n)),
         Condition::ControlCount(filter, min) => {
             let count = state
                 .zones
@@ -388,6 +409,20 @@ pub fn condition_holds(
                 })
                 .count();
             count <= max as usize
+        }
+        Condition::ControlDistinctNames(filter, min) => {
+            // A phased-out land is treated as though it does not exist
+            // (CR 702.26b), so its name is not one of yours.
+            let mut names: Vec<baylee_core::ids::NameRef> = state
+                .battlefield_seen()
+                .filter_map(|id| state.object(id))
+                .filter(|o| o.controller == you && matches(filter, state, o, you, o.id))
+                .map(|o| o.characteristics().name)
+                .filter(|name| *name != crate::state::NAMELESS)
+                .collect();
+            names.sort_unstable();
+            names.dedup();
+            names.len() >= min as usize
         }
         // `you` in the filter is the **opponent** being counted, not the
         // ability's controller: "an opponent controls four or more lands"
@@ -600,6 +635,23 @@ fn any_target_objects(state: &GameState) -> Vec<ObjectId> {
         .collect()
 }
 
+/// [`TargetSpec::ObjectOfEachOpponent`]'s options: every opponent's at once,
+/// which each question narrows to one (`Engine::ask_next_opponent`).
+fn opponents_objects(
+    filter: &'static baylee_cards_dsl::Filter,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+) -> Vec<ObjectId> {
+    let mut all = target_options(&TargetSpec::Object(filter), state, you, this);
+    all.retain(|id| {
+        state
+            .object(*id)
+            .is_some_and(|o| state.is_opponent(o.controller, you))
+    });
+    all
+}
+
 /// Legal target options for a [`TargetSpec`] (empty = cannot be chosen).
 #[must_use]
 pub fn target_options(
@@ -619,6 +671,7 @@ pub fn target_options(
             })
             .copied()
             .collect(),
+        TargetSpec::ObjectOfEachOpponent(filter) => opponents_objects(filter, state, you, this),
         TargetSpec::Spell(filter) => state
             .zones
             .list(ZoneLocation::Stack)

@@ -40,8 +40,9 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, PlayerRel, ReflexiveEvent,
-    SearchDest, SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef, ZoneSel,
+    Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, ManaValueBound, ManaValueCmp,
+    PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef,
+    ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use manaread::{
@@ -55,7 +56,9 @@ pub use baylee_core::ids::{CardIndex, SubtypeId};
 pub use baylee_core::mana;
 pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
-pub use static_ability::{Duration, LAYERS, Layer, Modifier, ReplacementRule, StaticAbility};
+pub use static_ability::{
+    Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule, StaticAbility,
+};
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.
 #[derive(Debug)]

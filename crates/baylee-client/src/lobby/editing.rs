@@ -250,3 +250,75 @@ pub(super) fn builder_keys(
     }
     save && !picking
 }
+
+/// The import and export dialogs' keys, and the two chords that open them.
+///
+/// Nothing is typed into either dialog (the box shows what was pasted), so
+/// only chords and navigation keys are read, and from `codes`, which the
+/// browser's typing field does not take away: the dialogs answer the same
+/// keys on every platform. Returns whether it used the frame's keys.
+pub(super) fn transfer_keys(
+    codes: &ButtonInput<KeyCode>,
+    state: &mut ResMut<LobbyState>,
+    scrolled: &mut Scrolled,
+) -> bool {
+    use crate::buildui::transfer::Ask;
+    use baylee_client_core::deckbuilder::transfer::{Stage, Transfer};
+    let command = codes.any_pressed([
+        KeyCode::SuperLeft,
+        KeyCode::SuperRight,
+        KeyCode::ControlLeft,
+        KeyCode::ControlRight,
+    ]);
+    let chord = |key| command && codes.just_pressed(key);
+    let Some(open) = state.lobby.builder().transfer() else {
+        // Not over another dialog, and not while the builder is waiting on
+        // the gateway: the bar greys its two buttons then too.
+        let free = state.lobby.builder().picker().is_none()
+            && state.lobby.builder().panel().is_none()
+            && !state.lobby.busy();
+        if !free {
+            return false;
+        }
+        if chord(KeyCode::KeyI) {
+            scrolled.set(List::Transfer, 0.0);
+            state.lobby.builder_mut().open_import();
+            return true;
+        }
+        if chord(KeyCode::KeyE) {
+            scrolled.set(List::Transfer, 0.0);
+            state.lobby.builder_mut().open_export();
+            return true;
+        }
+        return false;
+    };
+    let (importing, ready, done) = match open {
+        Transfer::Import(it) => (true, it.ready(), matches!(it.stage(), Stage::Done(_))),
+        Transfer::Export(_) => (false, false, false),
+    };
+    if codes.just_pressed(KeyCode::Escape) {
+        state.lobby.builder_mut().close_transfer();
+    } else if importing {
+        if chord(KeyCode::KeyV) {
+            state.transfer_asks.push(Ask::Paste);
+        } else if codes.just_pressed(KeyCode::Enter) && ready {
+            let lang = state.lobby.lang();
+            state.lobby.builder_mut().import_confirm(lang);
+            scrolled.set(List::Deck, 0.0);
+        } else if codes.just_pressed(KeyCode::Enter) && done {
+            // A finished import's one button is Close, and Enter presses it.
+            state.lobby.builder_mut().close_transfer();
+        }
+    } else if chord(KeyCode::KeyC) {
+        state.transfer_asks.push(Ask::Copy);
+    } else if chord(KeyCode::KeyS) {
+        if crate::buildui::transfer::can_save_files() {
+            state.transfer_asks.push(Ask::Save);
+        }
+    } else if codes.just_pressed(KeyCode::ArrowLeft) {
+        state.lobby.builder_mut().export_step(false);
+    } else if codes.just_pressed(KeyCode::ArrowRight) {
+        state.lobby.builder_mut().export_step(true);
+    }
+    true
+}

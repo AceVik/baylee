@@ -182,41 +182,6 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
     }
 }
 
-/// How many permanents `you` control on the battlefield match `filter`, for
-/// the modifiers that count.
-///
-/// CR 613.1: every earlier layer is already applied, and for the object
-/// being projected that result lives in `c` and not yet in its cache —
-/// `recompute_with` walks one object through all the layers, so its cached
-/// characteristics are the *previous* projection until this one is written
-/// back. Ashaya, Soul of the Wild is the card that reads the difference: it
-/// makes your nontoken creatures into lands at layer 4 and is then as big
-/// as the lands you control, so it has to count **itself**, and a count off
-/// the cache left it one short for exactly one refresh. Every other object
-/// is read from the cache, which is that object's own finished projection.
-/// Phased-out permanents are not there to count (CR 702.26b).
-fn count_on_battlefield(
-    state: &GameState,
-    obj: &GameObject,
-    c: &Characteristics,
-    filter: &Filter,
-    you: PlayerId,
-) -> i16 {
-    let count = state
-        .battlefield_seen()
-        .filter_map(|id| state.object(id))
-        .filter(|o| {
-            o.controller == you
-                && if o.id == obj.id {
-                    crate::eval::matches_projected(filter, state, o, c, you, o.id)
-                } else {
-                    crate::eval::matches(filter, state, o, you, o.id)
-                }
-        })
-        .count();
-    i16::try_from(count).unwrap_or(i16::MAX)
-}
-
 /// Layer 7c: counters that modify power and toughness (CR 613.4c) —
 /// applied inside the layer loop so they land BEFORE the 7d switch.
 ///
@@ -448,6 +413,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::AddSubtype(_)
                 | Modifier::AllCreatureTypes
                 | Modifier::AllBasicLandTypes
+                | Modifier::BecomeType { .. }
                 | Modifier::AddTypeIfCountersAtLeast { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
@@ -460,6 +426,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
             Modifier::AddKeyword(_)
                 | Modifier::RemoveKeyword(_)
                 | Modifier::LoseKeywords
+                | Modifier::LoseAllAbilities
                 | Modifier::AddKeywordIfCountersAtLeast { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
@@ -470,9 +437,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
             modifier,
             Modifier::ModifyPT(..)
                 | Modifier::SetPT(..)
-                | Modifier::DefinePTByCount(_)
                 | Modifier::SetPTToCount(_)
                 | Modifier::SwitchPT
+                | Modifier::CharacteristicPT { .. }
                 | Modifier::ModifyPTPerCount { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
@@ -502,6 +469,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::Another
         | Filter::HasSupertype(_)
         | Filter::IsToken
+        | Filter::WithSingleTarget
         | Filter::OwnedByYou
         | Filter::Tapped
         | Filter::Untapped
@@ -513,6 +481,89 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::CmcAtLeast(_)
         | Filter::InZone(_) => false,
     }
+}
+
+/// The permanents `controller` controls that match `filter`, as a count for
+/// a P/T that grows with the board.
+///
+/// CR 613.1: every earlier layer is already applied, and for the object
+/// being projected that result lives in `c` and not yet in its cache —
+/// `recompute_with` walks one object through all the layers, so its cached
+/// characteristics are the *previous* projection until this one is written
+/// back. Ashaya, Soul of the Wild is the card that reads the difference: it
+/// makes your nontoken creatures into lands at layer 4 and is then as big as
+/// the lands you control at 7c, so it has to count **itself**, and a count
+/// off the cache left it one short for exactly one refresh. Every other
+/// object is read from the cache, which is that object's own finished
+/// projection. Phased-out permanents are not there to count (CR 702.26b).
+fn count_controlled(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    controller: PlayerId,
+    filter: &baylee_cards_dsl::Filter,
+) -> usize {
+    state
+        .battlefield_seen()
+        .filter_map(|id| state.object(id))
+        .filter(|o| {
+            o.controller == controller
+                && if o.id == obj.id {
+                    crate::eval::matches_projected(filter, state, o, c, controller, o.id)
+                } else {
+                    crate::eval::matches(filter, state, o, controller, o.id)
+                }
+        })
+        .count()
+}
+
+/// The number a [`PtCount`](baylee_cards_dsl::PtCount) names, for
+/// `CharacteristicPT` (7a) and `SetPTToCount` (7b) alike; `you` is whose
+/// permanents `YouControl` counts.
+fn pt_count(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    you: PlayerId,
+    count: baylee_cards_dsl::PtCount,
+) -> i16 {
+    let n = match count {
+        baylee_cards_dsl::PtCount::YouControl(filter) => {
+            count_controlled(state, obj, c, you, filter)
+        }
+        baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => card_types_in_all_graveyards(state),
+    };
+    i16::try_from(n).unwrap_or(i16::MAX)
+}
+
+/// The number of card types (CR 205.2a) among cards in all graveyards.
+///
+/// Read off each card's own characteristics: a card in a graveyard is
+/// what it prints (CR 400.7 left every effect on it behind), and a
+/// double-faced card is its front face there (CR 712.8a).
+fn card_types_in_all_graveyards(state: &GameState) -> usize {
+    use baylee_core::types::TypeSet;
+    const CARD_TYPES: [TypeSet; 9] = [
+        TypeSet::ARTIFACT,
+        TypeSet::BATTLE,
+        TypeSet::CREATURE,
+        TypeSet::ENCHANTMENT,
+        TypeSet::INSTANT,
+        TypeSet::KINDRED,
+        TypeSet::LAND,
+        TypeSet::PLANESWALKER,
+        TypeSet::SORCERY,
+    ];
+    let mut seen = TypeSet::EMPTY;
+    for player in 0..state.players.len() {
+        let seat = PlayerId::new(u8::try_from(player).unwrap_or(u8::MAX));
+        for id in state.zones.list(crate::zone::ZoneLocation::Graveyard(seat)) {
+            if let Some(o) = state.object(*id) {
+                seen = seen.union(o.characteristics().types);
+            }
+        }
+    }
+    CARD_TYPES.iter().filter(|t| seen.contains(**t)).count()
 }
 
 #[allow(clippy::too_many_lines)] // the modifier vocabulary is one flat table
@@ -544,8 +595,19 @@ fn apply(
                 *c = (*values).clone();
             }
         }
+        Modifier::CharacteristicPT {
+            count,
+            toughness_plus,
+        } => {
+            // CR 604.3 and 613.4a: it defines the number, whatever the card
+            // printed as its `*`, before anything in 7b–7e reads it.
+            let n = pt_count(state, obj, c, fx.controller, *count);
+            c.power = Some(n);
+            c.toughness = Some(n.saturating_add(i16::from(*toughness_plus)));
+        }
         Modifier::ModifyPTPerCount { filter, p, t } => {
-            let count = count_on_battlefield(state, obj, c, filter, fx.controller);
+            let count = count_controlled(state, obj, c, fx.controller, filter);
+            let count = i16::try_from(count).unwrap_or(i16::MAX);
             if let Some(pow) = &mut c.power {
                 *pow = pow.saturating_add(count.saturating_mul(*p));
             }
@@ -575,12 +637,22 @@ fn apply(
         Modifier::RemoveType(t) => c.types = c.types.difference(*t),
         Modifier::AddSubtype(s) => c.subtypes.insert(*s),
         Modifier::AllCreatureTypes => c.subtypes = c.subtypes.union(SubtypeSet::ALL_CREATURE),
+        Modifier::BecomeType { types, subtype } => {
+            let kept = c.types.intersection(baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY));
+            c.types = types.union(kept);
+            c.subtypes = SubtypeSet::EMPTY;
+            c.subtypes.insert(*subtype);
+        }
         Modifier::AllBasicLandTypes => c.subtypes = c.subtypes.union(SubtypeSet::BASIC_LANDS),
         Modifier::AddColor(col) => c.colors = c.colors.union(*col),
         Modifier::SetColor(col) => c.colors = *col,
         Modifier::AddKeyword(k) => c.keywords = c.keywords.union(*k),
         Modifier::RemoveKeyword(k) => c.keywords = c.keywords.difference(*k),
         Modifier::LoseKeywords => c.keywords = KeywordSet::EMPTY,
+        Modifier::LoseAllAbilities => {
+            c.keywords = KeywordSet::EMPTY;
+            c.abilities_lost = Some(Characteristics::lost_at(fx.timestamp));
+        }
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::LegendRuleOff
         | Modifier::PlayLandsFromGraveyard
@@ -596,6 +668,8 @@ fn apply(
         | Modifier::CantLoseLife { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
+        | Modifier::CombatDamageCantBePrevented
+        | Modifier::CantBeBlockedBy(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
         | Modifier::ProtectionFrom(_)
@@ -632,15 +706,14 @@ fn apply(
                 c.toughness = Some(*t);
             }
         }
-        // CR 613.4a (a printed characteristic-defining ability) and 613.4b
-        // (the same sentence granted): power and toughness are each the
-        // count, set outright like `SetPT` and on a creature only. "You" is
-        // the object's own controller as layer 2 left it, because the
-        // ability is the object's: Ashaya stolen counts its new
-        // controller's lands.
-        Modifier::DefinePTByCount(filter) | Modifier::SetPTToCount(filter) => {
+        // CR 613.4b: the granted sentence sets power and toughness to the
+        // count, outright like `SetPT` and on a creature only. "You" is the
+        // object's own controller as layer 2 left it, because the ability
+        // is the object's: a land Druid Class animated, stolen, counts its
+        // new controller's lands.
+        Modifier::SetPTToCount(count) => {
             if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
-                let n = count_on_battlefield(state, obj, c, filter, *controller);
+                let n = pt_count(state, obj, c, *controller, *count);
                 c.power = Some(n);
                 c.toughness = Some(n);
             }

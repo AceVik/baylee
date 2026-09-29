@@ -331,6 +331,19 @@ fn hold_tag(hold: crate::choice::PriorityHold) -> u64 {
     }
 }
 
+/// A trigger's `TargetSpec::ObjectOfEachOpponent`, asked one opponent at a
+/// time (CR 601.2c: the targets are chosen together, and a question per
+/// player is how a menu says "one of each").
+#[derive(Clone, Debug)]
+struct PerOpponent {
+    /// The spec being answered.
+    spec: baylee_cards_dsl::TargetSpec,
+    /// The answers so far, in the order the opponents were asked.
+    gathered: SmallVec<[ObjectId; 2]>,
+    /// The opponents not yet asked about.
+    remaining: Vec<PlayerId>,
+}
+
 /// What a `Pending::ChooseTargets` is targeting for.
 #[derive(Clone, Debug)]
 enum PlanKind {
@@ -354,6 +367,10 @@ enum PlanKind {
         /// but nothing in the type says so, and a mode read off the wrong
         /// entry resolves the wrong half of a card.
         mode: Option<u8>,
+        /// "For each opponent, … target … that player controls": the
+        /// opponents still to be asked and the targets gathered so far.
+        /// `None` for every other trigger.
+        per_opponent: Option<Box<PerOpponent>>,
     },
     /// A shockland entry choice (pay life or enter tapped).
     EntryTap {
@@ -987,7 +1004,7 @@ mod storied;
 mod targeting;
 pub use decision::DecisionContext;
 mod actions;
-mod cast_wizard;
+pub(crate) mod cast_wizard;
 pub(crate) mod cost_wizard;
 mod leave;
 mod mulligan;

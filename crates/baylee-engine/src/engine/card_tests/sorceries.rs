@@ -11287,3 +11287,323 @@ fn spirit_water_revival_s_waterbend_taps_pay_the_six_and_no_more() {
         "a tap was not spent"
     );
 }
+
+/// Answers the `CostSacrifice` question a spell's "as an additional cost,
+/// sacrifice …" asks at cast, with `paid`, after checking it was offered.
+/// Returns the objects that were offered.
+#[track_caller]
+fn sacrifice_as_cast(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    paid: ObjectId,
+) -> Vec<ObjectId> {
+    let Pending::ChooseCards {
+        player,
+        options,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "an additional sacrifice is asked at cast, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, seat);
+    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert!(options.contains(&paid), "{paid:?} is not among {options:?}");
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: vec![paid],
+            },
+        )
+        .unwrap();
+    options
+}
+
+/// How many copies of `card` lie in `seat`'s exile.
+fn exiled(engine: &Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> usize {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Exile(seat))
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+        })
+        .count()
+}
+
+/// How many copies of `card` `seat` controls on the battlefield.
+fn fielded(engine: &Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> usize {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == card))
+        })
+        .count()
+}
+
+/// Natural Order — {2}{G}{G} sorcery: "As an additional cost to cast this
+/// spell, sacrifice a green creature. Search your library for a green
+/// creature card, put it onto the battlefield, then shuffle."
+///
+/// Ornithopter stands beside the Elves as the creature that is *not* green:
+/// the cost's question must leave it out, which is what separates "a green
+/// creature" from "a creature".
+#[test]
+fn natural_order_sacrifices_a_green_creature_for_a_green_creature_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, canopy_spider())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                ornithopter(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[natural_order()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    let library_before = library_size(&engine, p0);
+
+    cast_from_hand(&mut engine, p0, natural_order());
+    let offered = sacrifice_as_cast(&mut engine, p0, elves);
+    assert_eq!(offered, vec![elves], "Ornithopter is colourless");
+    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
+    assert!(on_battlefield(&engine, p0, ornithopter()).is_some());
+
+    let Pending::ChooseCards { options, .. } = pass_to_card_choice(&mut engine) else {
+        unreachable!("the helper returns only a card choice")
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(fielded(&engine, p0, canopy_spider()), 1);
+    assert_eq!(library_size(&engine, p0), library_before - 1);
+    assert!(in_graveyard(&engine, p0, natural_order()).is_some());
+}
+
+/// Eldritch Evolution — {1}{G}{G} sorcery: "As an additional cost to cast
+/// this spell, sacrifice a creature. Search your library for a creature card
+/// with mana value X or less, where X is 2 plus the sacrificed creature's
+/// mana value. Put that card onto the battlefield, then shuffle. Exile
+/// Eldritch Evolution."
+///
+/// The library is Land Leeches, mana value 3, and the spell is cast twice.
+/// Sacrificing Ornithopter (mana value 0) makes X 2, and the search finds
+/// nothing; sacrificing the Elves (1) makes X 3, and it finds Leeches. The
+/// pair is what shows the bound is read off the creature that was paid, and
+/// that it is "or less" and "2 plus": a bound that ignored the sacrifice, or
+/// added 1, gives a different pair of answers.
+#[test]
+fn eldritch_evolution_bounds_its_search_by_the_sacrificed_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, land_leeches())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                ornithopter(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[eldritch_evolution(), eldritch_evolution()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    let thopter = on_battlefield(&engine, p0, ornithopter()).unwrap();
+    let library_before = library_size(&engine, p0);
+
+    cast_from_hand(&mut engine, p0, eldritch_evolution());
+    sacrifice_as_cast(&mut engine, p0, thopter);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        fielded(&engine, p0, land_leeches()),
+        0,
+        "X = 2 + 0 finds no mana value 3 creature"
+    );
+    assert_eq!(library_size(&engine, p0), library_before);
+    assert_eq!(exiled(&engine, p0, eldritch_evolution()), 1);
+    assert!(in_graveyard(&engine, p0, eldritch_evolution()).is_none());
+
+    cast_with_floating(&mut engine, p0, eldritch_evolution());
+    sacrifice_as_cast(&mut engine, p0, elves);
+    let Pending::ChooseCards { options, min, .. } = pass_to_card_choice(&mut engine) else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(min, 1);
+    assert_eq!(
+        options.len(),
+        library_before,
+        "X = 2 + 1 offers every Leeches"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(fielded(&engine, p0, land_leeches()), 1);
+    assert_eq!(exiled(&engine, p0, eldritch_evolution()), 2);
+}
+
+/// Neoform — {G}{U} sorcery: "As an additional cost to cast this spell,
+/// sacrifice a creature. Search your library for a creature card with mana
+/// value equal to 1 plus the sacrificed creature's mana value, put that card
+/// onto the battlefield with an additional +1/+1 counter on it, then
+/// shuffle."
+///
+/// The library is Llanowar Elves, mana value 1. Sacrificing Ornithopter (0)
+/// finds one, which arrives with its counter; sacrificing an Elves (1) asks
+/// for exactly 2 and finds none — the half that separates "equal to" from
+/// "or less".
+#[test]
+fn neoform_finds_exactly_one_more_and_puts_a_counter_on_it() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, llanowar_elves())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                island(),
+                island(),
+                ornithopter(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[neoform(), neoform()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let first_elves = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    let thopter = on_battlefield(&engine, p0, ornithopter()).unwrap();
+
+    cast_from_hand(&mut engine, p0, neoform());
+    sacrifice_as_cast(&mut engine, p0, thopter);
+    let Pending::ChooseCards { options, .. } = pass_to_card_choice(&mut engine) else {
+        unreachable!("the helper returns only a card choice")
+    };
+    let found = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![found],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(fielded(&engine, p0, llanowar_elves()), 2);
+    assert_eq!(
+        counters_on(&engine, found, CounterKind::P1P1),
+        1,
+        "\"with an additional +1/+1 counter on it\""
+    );
+    assert_eq!(counters_on(&engine, first_elves, CounterKind::P1P1), 0);
+
+    let library_before = library_size(&engine, p0);
+    cast_with_floating(&mut engine, p0, neoform());
+    sacrifice_as_cast(&mut engine, p0, first_elves);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        fielded(&engine, p0, llanowar_elves()),
+        1,
+        "mana value exactly 1 + 1 finds no Elves"
+    );
+    assert_eq!(library_size(&engine, p0), library_before);
+}
+
+/// Bribery — {3}{U}{U} sorcery: "Search target opponent's library for a
+/// creature card and put that card onto the battlefield under your control.
+/// Then that player shuffles."
+///
+/// The caster searches, the options come out of the *opponent's* library,
+/// and the find is the caster's to control while its owner stays the
+/// opponent.
+#[test]
+fn bribery_puts_a_creature_from_the_opponents_library_under_your_control() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, canopy_spider())
+        .battlefield(0, &[island(), island(), island(), island(), island()])
+        .hand(0, &[bribery()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let (mine_before, theirs_before) = (library_size(&engine, p0), library_size(&engine, p1));
+
+    cast_from_hand(&mut engine, p0, bribery());
+    let Pending::ChoosePlayer { player, options } = engine.pending().clone() else {
+        panic!("\"target opponent\" is asked, got {:?}", engine.pending())
+    };
+    assert_eq!((player, options), (p0, vec![p1]), "only an opponent");
+    engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
+    let Pending::ChooseCards {
+        player, options, ..
+    } = pass_to_card_choice(&mut engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, p0, "you search");
+    let theirs = engine.state().zones.list(ZoneLocation::Library(p1)).clone();
+    assert!(
+        !options.is_empty() && options.iter().all(|o| theirs.contains(o)),
+        "the search is of the targeted opponent's library"
+    );
+    let found = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![found],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let object = engine.state().object(found).expect("still an object");
+    assert_eq!(object.controller, p0, "under your control");
+    assert_eq!(object.owner, p1, "and still theirs to own");
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&found)
+    );
+    assert_eq!(library_size(&engine, p1), theirs_before - 1);
+    assert_eq!(library_size(&engine, p0), mine_before);
+}

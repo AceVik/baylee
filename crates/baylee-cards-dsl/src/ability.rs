@@ -82,6 +82,13 @@ pub enum StepKind {
 pub enum Condition {
     /// It is the current controller's turn (not necessarily the owner's).
     YourTurn,
+    /// "If no spells were cast last turn" — by any player (the Innistrad
+    /// werewolves). There was no last turn at the first upkeep of the game,
+    /// so the sentence is false there, as daybound's own check is skipped.
+    NoSpellsCastLastTurn,
+    /// "If a player cast N or more spells last turn" — one player, any
+    /// player: the werewolves' way back to their front face.
+    APlayerCastLastTurnAtLeast(u8),
     /// You control at least N permanents matching the filter.
     ControlCount(&'static Filter, u8),
     /// You control **at most** N permanents matching the filter —
@@ -96,6 +103,14 @@ pub enum Condition {
     /// that never sacrifices itself and so is strictly stronger than the one
     /// printed.
     ControlCountAtMost(&'static Filter, u8),
+    /// You control permanents matching the filter with at least N
+    /// **different names** among them — Field of the Dead's "if you
+    /// control seven or more lands with different names".
+    ///
+    /// A count of names, not of permanents: two Forests are one. A
+    /// permanent with no name (a face-down one, CR 708.2a) has no name to
+    /// differ by and adds nothing.
+    ControlDistinctNames(&'static Filter, u8),
     /// **An opponent** controls at least N permanents matching the filter
     /// (Tectonic Edge — "activate only if an opponent controls four or more
     /// lands").
@@ -217,6 +232,12 @@ pub enum Condition {
 pub enum Trigger {
     /// This permanent is turned face up (not transformed or entering).
     TurnedFaceUp,
+    /// "Whenever this creature transforms into [this face]" (CR 701.27e):
+    /// printed on the face the permanent turns *to*, and read off the face
+    /// it shows right after the transform — which is how Huntmaster of the
+    /// Fells' front and Ravager of the Fells' back each hear only their own
+    /// half of the flip.
+    TransformsIntoThis,
     /// An object matching the filter enters the battlefield.
     EntersBattlefield(&'static Filter),
     /// An object matching the filter leaves the battlefield.
@@ -501,6 +522,10 @@ pub enum AbilityDef {
         /// card that cannot be drawn, and for Karn a loyalty tick that cannot
         /// be taken.
         targets: Option<crate::effect::TargetReq>,
+        /// A second instance of the word "target", as on
+        /// [`AbilityDef::Spell::second_targets`] (Oko, Thief of Crowns' −5:
+        /// one of yours, one of theirs).
+        second_targets: Option<crate::effect::TargetReq>,
     },
     /// A triggered ability with modes: the controller chooses one when it
     /// triggers (Charming Prince, Aether Channeler).
@@ -782,6 +807,7 @@ mod tests {
                 cost: 1,
                 effects: NOTHING,
                 targets: None,
+                second_targets: None,
             },
             AbilityDef::ModalTriggered {
                 trigger: Trigger::ETB,

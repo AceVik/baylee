@@ -584,7 +584,11 @@ mod tests {
                 .collect::<Vec<_>>()
                 .join(" ")
                 .to_uppercase();
-            let prints_all_five = SUBTYPES.iter().all(|s| printed.contains(s));
+            // Boseiju, Who Endures prints the modern wording of the same
+            // thing Spoils of Victory lists: "a land card with a basic land
+            // type" (CR 205.3i), which a Breeding Pool satisfies too.
+            let prints_all_five = SUBTYPES.iter().all(|s| printed.contains(s))
+                || printed.contains("WITH A BASIC LAND TYPE");
             if names_all_five && !prints_all_five {
                 offenders.push(name);
             }

@@ -1,0 +1,24 @@
+[package]
+name = "baylee-deckio"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deck documents in and out: one model, a registry of formats (Baylee text, JSON, YAML, Moxfield) and one of URL sources"
+
+[lints]
+workspace = true
+
+[dependencies]
+# `deckrow`, the row grammar every text format's rows go through, and
+# `Finish`.
+baylee-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+# YAML through the same serde model as JSON. Not `serde_yaml`: deprecated and
+# archived by its author. Not `serde_yml`: RUSTSEC-2025-0068 (unsound,
+# unmaintained). `serde-saphyr` is pure safe Rust over its own parser, says
+# "panic-free parsing" of the untrusted input a pasted deck is, bounds alias
+# expansion by default, and builds for the browser.
+serde-saphyr = { version = "1.3", default-features = false, features = ["serialize", "deserialize"] }

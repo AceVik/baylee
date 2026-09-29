@@ -992,7 +992,11 @@ fn matches(
     you: PlayerId,
 ) -> bool {
     match (trigger, event) {
-        (Trigger::TurnedFaceUp, GameEvent::TurnedFaceUp { object }) => *object == source,
+        // CR 701.27e for the second: the ability is read off the face the
+        // permanent shows right after it turned over, which is the face that
+        // prints it.
+        (Trigger::TurnedFaceUp, GameEvent::TurnedFaceUp { object })
+        | (Trigger::TransformsIntoThis, GameEvent::Transformed { object, .. }) => *object == source,
         (
             Trigger::EntersBattlefield(filter),
             GameEvent::ZoneChanged {
