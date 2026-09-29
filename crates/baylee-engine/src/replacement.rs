@@ -44,6 +44,14 @@ pub(crate) fn graveyard_destination(
     let Some(card) = state.object(id) else {
         return (to, None);
     };
+    // "If that creature would die this turn, exile it instead" (Mawloc),
+    // for that object only. Before the token test below: a token is exiled
+    // instead as well, and so does not die.
+    if card.zone == crate::zone::Zone::Battlefield
+        && state.per_turn.exile_if_dies.contains(&(id, card.version))
+    {
+        return (ZoneLocation::Exile(card.owner), None);
+    }
     if card.card.is_none() || card.riders.contains(&Rider::SpellCopy) {
         return (to, None);
     }
@@ -56,6 +64,16 @@ pub(crate) fn graveyard_destination(
                 && entry.rule == baylee_cards_dsl::ReplacementRule::ExileSelfInsteadOfGraveyard
         })
     {
+        return (ZoneLocation::Exile(card.owner), None);
+    }
+    // "If a card would be put into your graveyard from anywhere this turn,
+    // exile it instead" (Forgotten Cellar): a replacement a resolving ability
+    // made, so an effect with a duration rather than a rule a permanent
+    // registered (CR 614.1a, 611.2a), and the graveyard's owner's.
+    if state.effects.iter().any(|fx| {
+        fx.controller == player
+            && fx.modifier == baylee_cards_dsl::Modifier::ExileInsteadOfYourGraveyard
+    }) {
         return (ZoneLocation::Exile(card.owner), None);
     }
     for entry in &state.replacement_rules {

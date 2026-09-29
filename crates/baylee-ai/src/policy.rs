@@ -102,6 +102,28 @@ impl HeuristicAgent {
             .is_some_and(|s| manaplan::plan(&cost.with_x(0), &s.mana_pool, &[]).is_some())
     }
 
+    /// One target's share of damage this seat divides (CR 601.2d): what
+    /// finishes an opponent's creature or planeswalker — its toughness less
+    /// the damage already marked on it, or its loyalty — within the
+    /// question's bounds, and the least to anything else, which leaves the
+    /// most for the targets still to come.
+    pub(crate) fn damage_share(
+        &self,
+        view: &PlayerView,
+        target: ObjectId,
+        min: u32,
+        max: u32,
+    ) -> u32 {
+        let Some(o) = view.object(target) else {
+            return min;
+        };
+        if !self.hostile(o.controller, view.seat) {
+            return min;
+        }
+        let need = crate::tactics::damage_to_finish(o);
+        u32::try_from(need).unwrap_or(0).clamp(min, max)
+    }
+
     pub(crate) fn number(
         &self,
         view: &PlayerView,
@@ -233,6 +255,33 @@ impl HeuristicAgent {
         result
     }
 
+    /// The creatures that crew: the strongest first, until their total
+    /// power reaches `power`. Every creature with a power above zero when
+    /// the board does not reach it, which the engine then refuses as it
+    /// would any short answer.
+    fn crew(view: &PlayerView, options: &[ObjectId], power: u8) -> Vec<ObjectId> {
+        let power_of = |id: &ObjectId| {
+            view.object(*id)
+                .map_or(0, |o| i32::from(o.power.unwrap_or(0)))
+        };
+        let mut ranked: Vec<ObjectId> = options
+            .iter()
+            .copied()
+            .filter(|id| power_of(id) > 0)
+            .collect();
+        ranked.sort_by_key(|id| (std::cmp::Reverse(power_of(id)), *id));
+        let mut total = 0;
+        let mut crew = Vec::new();
+        for id in ranked {
+            if total >= i32::from(power) {
+                break;
+            }
+            total += power_of(&id);
+            crew.push(id);
+        }
+        crew
+    }
+
     pub(crate) fn select_cards(
         &self,
         view: &PlayerView,
@@ -253,13 +302,41 @@ impl HeuristicAgent {
             ranked.truncate(usize::from(max));
             return Some(ranked);
         }
+        // Crew (CR 702.122a), also ahead of the gate: it is a price the
+        // seat already chose to pay, and `min` (one creature) is refused
+        // whenever one is not enough. The strongest first, until the total
+        // is reached, so as few creatures as the board allows are tapped.
+        if let ChoicePrompt::CostCrew { power } = prompt {
+            return Some(Self::crew(view, options, power));
+        }
+        // Ahead of the gate as well: a revealed card put into the hand is a
+        // card, and one left goes to the bottom of the library. The best of
+        // them when this profile reads cards, the first otherwise — never
+        // the `min` of zero.
+        if let ChoicePrompt::OneOfType { .. } = prompt {
+            let mut ranked = options.to_vec();
+            if self.profile.mulligan_skill >= 2 {
+                let value = Self::card_value(view);
+                ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
+            } else {
+                ranked.sort_unstable();
+            }
+            ranked.truncate(usize::from(max));
+            return Some(ranked);
+        }
         if self.profile.mulligan_skill < 2 {
             return None;
         }
         let value = Self::card_value(view);
         let mut ranked = options.to_vec();
         let count = match prompt {
-            ChoicePrompt::SearchLibrary | ChoicePrompt::Wish => {
+            ChoicePrompt::SearchLibrary
+            | ChoicePrompt::Wish
+            | ChoicePrompt::PutIntoHand
+            | ChoicePrompt::PlayFromExile
+            | ChoicePrompt::PutOntoBattlefield
+            | ChoicePrompt::PutIntoGraveyard
+            | ChoicePrompt::FromGraveyard => {
                 ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
                 usize::from(max)
             }
@@ -273,9 +350,23 @@ impl HeuristicAgent {
                 ranked.sort_by_key(|id| (value(id), *id));
                 usize::from(min.max(1).min(max))
             }
+            // A rummage: one card, the least valuable, goes for a fresh one.
+            // Declining is always legal, and an agent that answered `min`
+            // here would never have used the ability at all.
+            ChoicePrompt::Discard => {
+                ranked.sort_by_key(|id| (value(id), *id));
+                usize::from(max.min(1))
+            }
+            // Separating an opponent's revealed cards (Fact or Fiction):
+            // the most valuable card alone. Whichever pile they take, they
+            // give up either it or the rest.
+            ChoicePrompt::FirstPile => {
+                ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
+                usize::from(max.min(1))
+            }
             // Not a price: `Effect::PutFromHandOnTop` asks with
             // `min == max`, so `min` is the whole answer.
-            ChoicePrompt::PutBackOnTop => {
+            ChoicePrompt::PutBackOnTop | ChoicePrompt::PutOnBottom => {
                 ranked.sort_by_key(|id| (value(id), *id));
                 usize::from(min)
             }
@@ -283,6 +374,31 @@ impl HeuristicAgent {
         };
         ranked.truncate(count);
         Some(ranked)
+    }
+
+    /// The pile to take into the hand (Fact or Fiction); the others go to
+    /// the graveyard. By the cards' worth where this profile reads cards,
+    /// and by count where it does not or the worth is even: a card in hand
+    /// is worth more than the same card in a graveyard, so the bigger pile
+    /// is the answer with nothing else to go on. Ties keep the first pile.
+    pub(crate) fn pile(&self, view: &PlayerView, piles: &[Vec<ObjectId>]) -> usize {
+        let value = Self::card_value(view);
+        let reads = self.profile.mulligan_skill >= 2;
+        let worth = |pile: &Vec<ObjectId>| -> (i64, usize) {
+            let sum: i64 = if reads {
+                pile.iter().map(|id| value(id).max(0)).sum()
+            } else {
+                0
+            };
+            (sum, pile.len())
+        };
+        let mut best = 0;
+        for (i, pile) in piles.iter().enumerate().skip(1) {
+            if worth(pile) > worth(&piles[best]) {
+                best = i;
+            }
+        }
+        best
     }
 
     /// The looked-at cards a scry sends to the bottom or a surveil into the
@@ -993,6 +1109,9 @@ fn spell_cost(view: &PlayerView, id: ObjectId, face: &FaceDef) -> baylee_core::m
 /// before the cast. X is the largest the sources can make. A kicker is
 /// aimed for when it fits the budget, and cast only once floating, as with X:
 /// the engine asks the kicker question with no window to tap anything more.
+/// So is replicate, as many payments as the budget and the sources cover:
+/// the engine offers as many as the floating pool pays for (CR 702.56a),
+/// and the answer takes them all.
 fn aim(
     view: &PlayerView,
     card: CardIdentity,
@@ -1017,8 +1136,21 @@ fn aim(
             .unwrap_or_else(|| cost.with_x(0));
         return (x, true);
     }
-    kicked_price(view, face, spell_effects(card), cost, sources)
-        .filter(|net| net.cmc() <= budget && manaplan::plan(net, pool, sources).is_some())
+    let fits = |net: &baylee_core::mana::ManaCost| {
+        net.cmc() <= budget && manaplan::plan(net, pool, sources).is_some()
+    };
+    if let Some(net) = kicked_price(view, face, spell_effects(card), cost, sources).filter(fits) {
+        return (net, true);
+    }
+    // Every printed replicate cost is mana, so no more payments fit than
+    // the budget has mana.
+    face.replicate
+        .and_then(|each| {
+            (1..=budget.min(50))
+                .rev()
+                .map(|n| (0..n).fold(cost, |total, _| total.combine(&each)))
+                .find(fits)
+        })
         .map_or((cost, false), |net| (net, true))
 }
 

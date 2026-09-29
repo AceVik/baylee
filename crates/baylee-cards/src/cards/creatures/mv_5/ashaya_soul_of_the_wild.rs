@@ -2,14 +2,13 @@
 //! Oracle: Ashaya's power and toughness are each equal to the number of lands you control.
 //! Oracle: Nontoken creatures you control are Forest lands in addition to their other types. (They're still affected by summoning sickness.)
 //! Set: DSC #170 — Duskmourn: House of Horror Commander | Scryfall ID: 0a74b4e6-f6c9-4fef-a83c-a285a541e720 | Oracle ID: 162572f2-1757-42e9-bd97-e6bd9a762c0e
-// PARTIAL — on the battlefield both abilities are the card: power and
-// toughness are defined by the count at layer 7a (CR 613.4a), and every
-// nontoken creature you control is a Forest land in addition to its other
-// types. The change is a layer-4 type change, so the Forest type supplies
-// "{T}: Add {G}" by CR 305.6 — the type does the work, no ability is
-// granted — and the reminder text holds: they are still creatures, so
-// summoning sickness still applies to them. What is missing is the
-// characteristic-defining ability in every other zone (CR 604.3).
+// IMPLEMENTED — power and toughness are defined by the count at layer 7a
+// (CR 613.4a), in every zone (CR 604.3): in a library Recruiter of the
+// Guard reads the real toughness. Every nontoken creature you control is a
+// Forest land in addition to its other types. The change is a layer-4 type
+// change, so the Forest type supplies "{T}: Add {G}" by CR 305.6 — the type
+// does the work, no ability is granted — and the reminder text holds: they
+// are still creatures, so summoning sickness still applies to them.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -34,19 +33,12 @@ card!(
         power = Some(0),
         toughness = Some(0),
     ),],
-    coverage = Coverage::Partial(
-        "\"Ashaya's power and toughness are each equal to the number of lands you control\" is a \
-         characteristic-defining ability, which works in every zone (CR 604.3); \
-         `Modifier::CharacteristicPT` is registered only while Ashaya is on the battlefield, so in \
-         a library or a graveyard it is its 0/0 base, which Recruiter of the Guard's toughness \
-         and Reveillark's power read"
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
         // "…are each equal to the number of lands you control": layer 7a,
         // after the type change below, so the creatures it makes into lands
-        // count too — Ashaya itself included.
-        // NOT SUPPORTED: the same ability off the battlefield (CR 604.3) —
-        // statics are registered while their source is on the battlefield.
+        // count too — Ashaya itself included. Off the battlefield the card
+        // applies it itself (`GameState::printed_pt_cda`, CR 604.3).
         static_ability!(
             Filter::This,
             Modifier::CharacteristicPT {

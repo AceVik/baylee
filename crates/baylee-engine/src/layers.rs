@@ -164,6 +164,19 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
                 apply(&mut c, &mut controller, fx, state, obj);
             }
         }
+        // CR 604.3: a characteristic-defining P/T works in every zone. On
+        // the battlefield it is a registered static and applied above; off
+        // it, nothing is registered, so the card applies its own here.
+        if layer == Layer::PtCda
+            && let Some(Modifier::CharacteristicPT {
+                count,
+                toughness_plus,
+            }) = state.off_battlefield_pt_cda(obj)
+        {
+            let n = pt_count(state, obj, &c, controller, count);
+            c.power = Some(n);
+            c.toughness = Some(n.saturating_add(i16::from(toughness_plus)));
+        }
         if layer == Layer::PtCounters {
             apply_pt_counters(&mut c, obj);
         }
@@ -258,7 +271,16 @@ const MAX_COPY_DEPTH: u8 = 8;
 /// and would want this function the day one does.
 #[must_use]
 pub fn copiable_values(state: &GameState, id: ObjectId) -> Option<Arc<Characteristics>> {
-    copiable_values_at(state, id, 0)
+    let values = copiable_values_at(state, id, 0)?;
+    // CR 202.3b and 712.8e: a copy of a nonmodal double-faced card's back
+    // face has mana value 0. The face's own mana value is its front face's,
+    // and that is the one thing about the face a copy does not take.
+    if values.front_mana_value.is_some_and(|value| value != 0) {
+        let mut copied = (*values).clone();
+        copied.front_mana_value = Some(0);
+        return Some(Arc::new(copied));
+    }
+    Some(values)
 }
 
 fn copiable_values_at(state: &GameState, id: ObjectId, depth: u8) -> Option<Arc<Characteristics>> {
@@ -441,6 +463,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::SwitchPT
                 | Modifier::CharacteristicPT { .. }
                 | Modifier::ModifyPTPerCount { .. }
+                | Modifier::ModifyPTPerGraveyardCard { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
         // Layer 2 moves a permanent from one side of the table to the
@@ -475,9 +498,12 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::Untapped
         | Filter::Attacking
         | Filter::EnteredThisTurn
+        | Filter::PutIntoGraveyardThisTurn
+        | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::CmcAtMost(_)
         | Filter::CmcAtMostX
+        | Filter::CmcAtMostColorsSpent
         | Filter::CmcAtLeast(_)
         | Filter::InZone(_) => false,
     }
@@ -532,6 +558,7 @@ fn pt_count(
             count_controlled(state, obj, c, you, filter)
         }
         baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => card_types_in_all_graveyards(state),
+        baylee_cards_dsl::PtCount::ExiledWithThis => cards_exiled_with(state, obj),
     };
     i16::try_from(n).unwrap_or(i16::MAX)
 }
@@ -564,6 +591,21 @@ fn card_types_in_all_graveyards(state: &GameState) -> usize {
         }
     }
     CARD_TYPES.iter().filter(|t| seen.contains(**t)).count()
+}
+
+/// The cards in exile that were exiled with `host` as it is now (CR 406.6):
+/// a [`crate::object::Rider::ExiledWith`] naming its id and its version, so
+/// a host that left and came back counts none of them (CR 400.7).
+fn cards_exiled_with(state: &GameState, host: &GameObject) -> usize {
+    let mark = crate::object::Rider::ExiledWith {
+        host: host.id,
+        version: crate::object::Rider::version_of(host),
+    };
+    (0..state.players.len())
+        .map(|seat| PlayerId::new(u8::try_from(seat).unwrap_or(u8::MAX)))
+        .flat_map(|seat| state.zones.list(crate::zone::ZoneLocation::Exile(seat)))
+        .filter(|id| state.object(**id).is_some_and(|o| o.riders.contains(&mark)))
+        .count()
 }
 
 #[allow(clippy::too_many_lines)] // the modifier vocabulary is one flat table
@@ -615,6 +657,22 @@ fn apply(
                 *tou = tou.saturating_add(count.saturating_mul(*t));
             }
         }
+        Modifier::ModifyPTPerGraveyardCard { filter, p, t } => {
+            let count = state
+                .zones
+                .list(crate::zone::ZoneLocation::Graveyard(fx.controller))
+                .iter()
+                .filter_map(|id| state.object(*id))
+                .filter(|o| crate::eval::matches(filter, state, o, fx.controller, obj.id))
+                .count();
+            let count = i16::try_from(count).unwrap_or(i16::MAX);
+            if let Some(pow) = &mut c.power {
+                *pow = pow.saturating_add(count.saturating_mul(*p));
+            }
+            if let Some(tou) = &mut c.toughness {
+                *tou = tou.saturating_add(count.saturating_mul(*t));
+            }
+        }
         Modifier::AddTypeIfCountersAtLeast {
             kind,
             at_least,
@@ -656,10 +714,14 @@ fn apply(
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::LegendRuleOff
         | Modifier::PlayLandsFromGraveyard
+        | Modifier::CastPermanentSpellsFromGraveyard
+        | Modifier::CastSpellsFromGraveyard
+        | Modifier::PermanentOfEachTypeFromGraveyard
         | Modifier::PlayLandsFromLibraryTop
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
+        | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
         | Modifier::CantBeTargetedBy(_)
@@ -683,7 +745,10 @@ fn apply(
         // CR 613.11: a rule, so there is no characteristic to write. The
         // untap step reads it (`progress::untap_step`).
         | Modifier::DoesNotUntap
-        | Modifier::MayChooseNotToUntap => {}
+        | Modifier::MayChooseNotToUntap
+        // A replacement, read where a card would reach a graveyard
+        // (`replacement::graveyard_destination`).
+        | Modifier::ExileInsteadOfYourGraveyard => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power = power.saturating_add(*p);

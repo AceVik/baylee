@@ -54,6 +54,7 @@ static BOUNCE_SELF: &[AbilityDef] = &[AbilityDef::Activated {
     mana_ability: false,
     zone: ActivationZone::Battlefield,
     limit: ActivationLimit::Unlimited,
+    cost_reduction: None,
 }];
 
 fn lookup() -> SyntheticLookup {
@@ -321,6 +322,7 @@ static GAIN_THE_TRIGGER: &[AbilityDef] = &[AbilityDef::Activated {
     mana_ability: false,
     zone: ActivationZone::Battlefield,
     limit: ActivationLimit::Unlimited,
+    cost_reduction: None,
 }];
 
 /// The rule for a granted trigger: its "this" is the object that has it.

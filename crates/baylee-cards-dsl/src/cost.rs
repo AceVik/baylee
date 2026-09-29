@@ -40,6 +40,25 @@ pub enum CostPart {
     /// you tap …", which is a replacement on a trigger and not an activation
     /// cost at all.
     TapOther(&'static Filter),
+    /// Crew N (CR 702.122a): "Tap any number of other untapped creatures you
+    /// control with total power N or greater." Written by [`crate::crew!`]
+    /// and by nothing else.
+    ///
+    /// **One question whose answer is a set**, where every other asking
+    /// part is one question per object: `cost_wizard` offers the other
+    /// untapped creatures the payer controls, the player names any number of
+    /// them, and the answer is refused when their total power is short of N.
+    /// A negative power counts as negative (CR 107.1b: "if a calculation or
+    /// comparison needs to use a negative value, it does so").
+    ///
+    /// **Alone in its cost**, which is how every Vehicle prints it: the
+    /// payment takes every object the question named, so an asking part
+    /// printed after it would find no answer left.
+    ///
+    /// Not [`CostPart::TapOther`] N times: a creature with power 3 pays
+    /// Crew 3 alone, and two with power 1 pay Crew 2 together, so the
+    /// number of creatures is the player's to choose and not the card's.
+    Crew(u8),
     /// Discard the source card itself (cycling).
     DiscardSelf,
     /// Exile the source.
@@ -200,11 +219,25 @@ pub enum CostPart {
     },
 }
 
-/// A conditional cost reduction printed on a card (Surgical Metamorph).
+/// A cost reduction printed on a card (Surgical Metamorph) or on one of its
+/// activated abilities (Boseiju's channel). It takes generic mana only
+/// (CR 118.7a), never below {0}, and is read once, as the total cost is
+/// determined (CR 601.2f; CR 602.2b for an ability).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum CostReduction {
     /// Costs {N} less if you weren't the starting player.
     NotStartingPlayer(u32),
+    /// "Costs {`each`} less … for each …": `each` generic mana per unit of
+    /// `amount`, read for the player paying with the card or ability as its
+    /// source. "For each legendary creature you control" is an
+    /// `Amount::CountOf` over the battlefield whose filter says
+    /// `ControlledByYou`.
+    PerCount {
+        /// What is counted.
+        amount: crate::effect::Amount,
+        /// Generic mana taken off per unit.
+        each: u32,
+    },
 }
 
 /// When an alternative cost may be used.

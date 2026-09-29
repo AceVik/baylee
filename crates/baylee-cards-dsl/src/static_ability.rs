@@ -117,6 +117,23 @@ pub enum Modifier {
     /// left may play nothing, from their graveyard or anywhere else
     /// (CR 305.2b).
     PlayLandsFromGraveyard,
+    /// The effect's controller may cast permanent spells from their
+    /// graveyard (Wrenn and Realmbreaker's emblem: "You may play lands and
+    /// cast permanent spells from your graveyard."). A permission like
+    /// [`Self::PlayLandsFromGraveyard`], and its casting half: the spell
+    /// is cast at its usual timing and for its usual costs, and nothing
+    /// exiles it afterwards — it is not flashback. How many is not limited.
+    CastPermanentSpellsFromGraveyard,
+    /// Muldrotha, the Gravetide: "During each of your turns, you may play a
+    /// land and cast a permanent spell of each permanent type from your
+    /// graveyard." Each such permission is its own allowance, counted per
+    /// source object and turn in the engine's per-turn record: one land,
+    /// and one spell for each of artifact, creature, enchantment,
+    /// planeswalker and battle. A card of two permanent types uses one of
+    /// them ("choose one as you play it"); the engine keeps the choice open
+    /// until a later card needs it, which lets through exactly the casts
+    /// some sequence of choices would have.
+    PermanentOfEachTypeFromGraveyard,
     /// The controller may play a land from the top of their library.
     PlayLandsFromLibraryTop,
     /// All players can see the top card of the controller's library.
@@ -132,6 +149,17 @@ pub enum Modifier {
     /// Activated abilities of artifacts the effect's opponents control
     /// can't be activated (Karn).
     CantActivateArtifacts,
+    /// "Activated abilities of sources with the chosen name can't be
+    /// activated unless they're mana abilities" (Pithing Needle, CR 602.5).
+    ///
+    /// The name is the one chosen as the effect's source entered
+    /// ([`crate::EnterModifier::ChooseCardName`]), and "sources" is every
+    /// object that could have an ability to activate, wherever it is: a
+    /// permanent, and a card in a hand or a graveyard whose ability works
+    /// there (cycling, channel). Every player's, the effect's controller's
+    /// too. A mana ability (CR 605.1a) is spared, and so is what is not an
+    /// activated ability at all: a special action, a cast.
+    ChosenNameCantActivate,
     /// The effect's opponents can cast spells only as though they were
     /// sorceries (Teferi).
     OpponentsCastAsSorcery,
@@ -306,6 +334,14 @@ pub enum Modifier {
     /// answer does the same thing is the offer/apply contradiction this
     /// engine treats as its worst kind.
     MayChooseNotToUntap,
+    /// "If a card would be put into your graveyard from anywhere, exile it
+    /// instead", for the effect's controller: Forgotten Cellar's, for a
+    /// turn. A replacement effect (CR 614.1a) that a resolving ability made
+    /// (CR 611.2a), so it lasts as long as its duration and not as long as a
+    /// source: `replacement::graveyard_destination` reads it beside the
+    /// rules a permanent registers. Cards only, as the sentence says: a
+    /// token is not one (CR 111.1), nor is a copy of a spell.
+    ExileInsteadOfYourGraveyard,
     /// The affected object gains types while it has at least N counters
     /// of a kind (station's "artifact creature at 8+").
     AddTypeIfCountersAtLeast {
@@ -371,6 +407,18 @@ pub enum Modifier {
         /// Toughness per match.
         t: i16,
     },
+    /// The affected object gets +P/+T for each card in its controller's
+    /// graveyard that matches the filter (Fiend Artisan: "+1/+1 for each
+    /// creature card in your graveyard"). Layer 7c like
+    /// [`Self::ModifyPTPerCount`], which counts permanents instead.
+    ModifyPTPerGraveyardCard {
+        /// What to count.
+        filter: &'static crate::Filter,
+        /// Power per match.
+        p: i16,
+        /// Toughness per match.
+        t: i16,
+    },
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.
@@ -387,6 +435,17 @@ pub enum Modifier {
     SetPTToCount(PtCount),
     /// Switches power and toughness.
     SwitchPT,
+    /// The effect's controller may cast spells from their graveyard:
+    /// Forgotten Cellar's "you may cast spells from your graveyard this
+    /// turn", for a turn by its `Duration::UntilEndOfTurn`.
+    /// [`Self::CastPermanentSpellsFromGraveyard`] without the word
+    /// "permanent", and read by the same one reader
+    /// (`casting::graveyard_cast_permission`): any spell, at its usual
+    /// timing and for its usual costs. It is not flashback (CR 702.34a), so
+    /// nothing exiles an instant cast this way; Forgotten Cellar's own
+    /// replacement, beside it, is what does. A land card is played and not
+    /// cast (CR 305.9), so it gets nothing from this.
+    CastSpellsFromGraveyard,
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -399,6 +458,10 @@ pub enum PtCount {
     /// nine card types of CR 205.2a, each counted once however many cards
     /// share it.
     CardTypesInAllGraveyards,
+    /// Cards exiled with the object (CR 406.6): "the number of cards exiled
+    /// with it" (Unlicensed Hearse), the cards in exile that
+    /// `Effect::ExileTargetsWithSource` put there for this object.
+    ExiledWithThis,
 }
 
 impl Modifier {
@@ -488,15 +551,20 @@ impl Modifier {
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } => Layer::PtCda,
             Self::SetPT(..) | Self::SetPTToCount(_) => Layer::PtSet,
-            Self::ModifyPT(..) | Self::ModifyPTPerCount { .. } => Layer::PtModify,
+            Self::ModifyPT(..)
+            | Self::ModifyPTPerCount { .. }
+            | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
             Self::LegendRuleOff
             | Self::PlayLandsFromGraveyard
+            | Self::CastPermanentSpellsFromGraveyard
+            | Self::PermanentOfEachTypeFromGraveyard
             | Self::PlayLandsFromLibraryTop
             | Self::RevealLibraryTop
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
+            | Self::ChosenNameCantActivate
             | Self::OpponentsCantCast(_)
             | Self::CantBeTargetedBy(_)
             | Self::DrawLimitPerTurn { .. }
@@ -513,7 +581,9 @@ impl Modifier {
             | Self::ManaIsAnyColor
             | Self::SearchTakeover
             | Self::DoesNotUntap
-            | Self::MayChooseNotToUntap => Layer::Text,
+            | Self::MayChooseNotToUntap
+            | Self::ExileInsteadOfYourGraveyard
+            | Self::CastSpellsFromGraveyard => Layer::Text,
         }
     }
 }
@@ -559,6 +629,12 @@ pub struct StaticAbility {
 pub enum Duration {
     /// While the source permanent is on the battlefield.
     WhileSourceOnBattlefield,
+    /// "For as long as you control this creature" (Extraction Specialist,
+    /// CR 611.2b): over once the source leaves the battlefield or another
+    /// player gains control of it. A duration that is already over as the
+    /// effect would begin never starts, and the effect does nothing — the
+    /// source left while the ability waited, or is somebody else's.
+    WhileYouControlSource,
     /// Until end of turn (cleanup).
     UntilEndOfTurn,
     /// Until end of combat.
@@ -811,10 +887,13 @@ mod tests {
         for modifier in [
             Modifier::LegendRuleOff,
             Modifier::PlayLandsFromGraveyard,
+            Modifier::CastPermanentSpellsFromGraveyard,
+            Modifier::PermanentOfEachTypeFromGraveyard,
             Modifier::PlayLandsFromLibraryTop,
             Modifier::RevealLibraryTop,
             Modifier::ExtraLandDrops(2),
             Modifier::OpponentsCastAsSorcery,
+            Modifier::ChosenNameCantActivate,
             Modifier::PlayersCantLose,
             Modifier::CantLoseLife {
                 who: crate::effect::PlayerRel::EachPlayer,
@@ -831,6 +910,8 @@ mod tests {
             Modifier::SearchTakeover,
             Modifier::DoesNotUntap,
             Modifier::MayChooseNotToUntap,
+            Modifier::ExileInsteadOfYourGraveyard,
+            Modifier::CastSpellsFromGraveyard,
         ] {
             assert_eq!(
                 modifier.layer(),

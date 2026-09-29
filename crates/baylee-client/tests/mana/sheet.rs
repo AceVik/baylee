@@ -1155,14 +1155,18 @@ fn every_written_row_draws_its_printed_cost_or_its_whole_sentence() {
 /// Every one a keyword line whose cost stands after the keyword and whose
 /// only colon is in its reminder: Equip on twenty of them, Level up
 /// (Hexdrinker), Reconfigure (Rabbit Battery), Station (U.S.S. Enterprise-D,
-/// Inspirit). Measured 24.09.2026 over the compiled English Oracle: 1302 rows
+/// Inspirit, Evendo). Measured 24.09.2026 over the compiled English Oracle: 1302 rows
 /// drew a printed head, 19 cards drew whole, none was refused. Five more on
 /// 29.09.2026, when every batch was given a creature to equip: until then an
-/// Equipment's row was read only if its batch happened to hold one.
+/// Equipment's row was read only if its batch happened to hold one. Evendo,
+/// Waking Haven the same day, when its station was written. And Unlicensed
+/// Hearse the same day, whose "Crew 2" is the whole line: its cost is
+/// creatures, not a symbol, and the printing drops the reminder.
 const DRAWN_WHOLE: &[&str] = &[
     "Basilisk Collar",
     "Bonesplitter",
     "Dowsing Dagger",
+    "Evendo, Waking Haven",
     "Fireshrieker",
     "Helm of the Host",
     "Hexdrinker",
@@ -1182,6 +1186,7 @@ const DRAWN_WHOLE: &[&str] = &[
     "Sword of Hearth and Home",
     "Sword of the Meek",
     "U.S.S. Enterprise-D, Galaxy-Class",
+    "Unlicensed Hearse",
     "Vulshok Battlegear",
     "Vulshok Morningstar",
 ];

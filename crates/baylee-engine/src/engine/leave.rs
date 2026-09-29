@@ -136,6 +136,11 @@ impl<L: CardLookup> Engine<L> {
                 options.retain(here);
             }
             Pending::ChoosePlayer { options, .. } => options.retain(playing),
+            Pending::ChoosePile { piles, .. } => {
+                for pile in piles {
+                    pile.retain(here);
+                }
+            }
             Pending::Arrange { cards, .. } => cards.retain(here),
             _ => {}
         }
@@ -243,6 +248,7 @@ impl<L: CardLookup> Engine<L> {
                 finds,
                 reveal,
                 library,
+                split,
             }) = res.awaiting
             && agent == player
             && !self.state.has_left(library)
@@ -253,6 +259,7 @@ impl<L: CardLookup> Engine<L> {
                 reveal,
                 library,
                 receiver: library,
+                split,
             });
             *asked = library;
             return;

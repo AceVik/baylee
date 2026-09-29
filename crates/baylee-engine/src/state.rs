@@ -148,6 +148,13 @@ impl Names {
         &self.list[id.get() as usize]
     }
 
+    /// The interned `name`, without interning it: `None` when no object of
+    /// this game has ever carried it, and so none carries it now.
+    #[must_use]
+    pub fn find(&self, name: &str) -> Option<NameRef> {
+        self.map.get(name).copied()
+    }
+
     /// Number of interned names.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -187,6 +194,31 @@ pub enum DelayedWhen {
     NextEndStep,
     /// At the controller's next cleanup.
     NextCleanup,
+    /// As the resolution that made it finishes — before anything else
+    /// happens, not at a step. Cascade's cast is made "while the ability is
+    /// resolving" (CR 702.85a), which a resolution that cannot start a cast
+    /// of its own hands to the engine this way.
+    AsResolutionEnds,
+    /// "When that land dies or is put into exile" (earthbend, CR 701.66a):
+    /// the next time `card`, as the object it was at `version`, goes from
+    /// the battlefield to a graveyard or into exile. Asked of journal
+    /// entries after `after` only, because a delayed trigger does not
+    /// trigger on an event from before it was created (CR 603.7a); and
+    /// once, on the first time that object leaves the battlefield at all
+    /// (CR 603.7b) — a land bounced to its owner's hand has left, is a new
+    /// object, and never comes back through this.
+    ///
+    /// Never polled at a step: `trigger::collect` reads it off the journal,
+    /// and the scan that follows removes every one whose object is no
+    /// longer on the battlefield at `version`.
+    DiesOrIsExiled {
+        /// The permanent watched.
+        card: ObjectId,
+        /// Its identity when the watch was created.
+        version: u32,
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
 }
 
 /// What a delayed trigger does.
@@ -200,6 +232,26 @@ pub enum DelayedAction {
         /// Its identity on arriving there; leaving exile invalidates this
         /// permission even if the same card returns (CR 400.7).
         version: u32,
+    },
+    /// Cascade's cast (CR 702.85a): cast the exiled card without paying its
+    /// mana cost, or, when it cannot be cast after all, put it on the bottom
+    /// of its owner's library — "all cards exiled this way that weren't
+    /// cast" go there.
+    CastFreeOrBottom {
+        /// The card in exile.
+        card: ObjectId,
+        /// Its identity on arriving there (CR 400.7).
+        version: u32,
+    },
+    /// `Effect::MayCastTarget`'s cast, said yes to: a payment window for
+    /// the card's mana cost, then the cast out of the pool (CR 608.2g).
+    CastPaying {
+        /// The card, where it was targeted.
+        card: ObjectId,
+        /// Its identity when it was targeted (CR 400.7).
+        version: u32,
+        /// "If you do, you can't cast additional spells this turn."
+        then_no_more_spells: bool,
     },
     /// Pay a cost or lose the game (Pact of Negation).
     PayCostOrLose {
@@ -248,6 +300,26 @@ pub enum DelayedAction {
         /// The card in exile.
         card: ObjectId,
     },
+    /// Offer the cast of a discovered card (CR 701.57a) to the player who
+    /// discovered it, without paying its mana cost; a card that cannot be
+    /// cast, or that the player declines, goes to its owner's hand. Nothing
+    /// happens if the card has left exile since (`version`, CR 400.7).
+    CastDiscovered {
+        /// The card in exile.
+        card: ObjectId,
+        /// Its identity on arriving there.
+        version: u32,
+    },
+    /// A delayed triggered ability that goes on the stack (CR 603.7): its
+    /// source and its effects. The source is the source of the ability
+    /// that created it (CR 603.7e), and the object its trigger event was
+    /// about is the event object its effects read ("return **it**").
+    Trigger {
+        /// The source of the ability that created it.
+        source: ObjectId,
+        /// What it does.
+        effects: &'static [baylee_cards_dsl::Effect],
+    },
 }
 
 /// Per-turn counters for conditional triggers (reset at every turn start).
@@ -259,6 +331,11 @@ pub struct PerTurn {
     pub draws: Vec<u32>,
     /// All spells cast this turn, per player (second-spell triggers).
     pub spells_cast: Vec<u32>,
+    /// Players who may cast no further spells this turn (Conduit of
+    /// Worlds: "If you do, you can't cast additional spells this turn").
+    /// Read by `casting::may_begin_casting`, written by the cast that
+    /// set it.
+    pub no_more_spells: Vec<bool>,
     /// Whether each player lost life this turn (Luminarch Ascension).
     /// Written by [`GameState::change_life`] and nothing else.
     pub life_lost: Vec<bool>,
@@ -270,6 +347,89 @@ pub struct PerTurn {
     /// battlefield is journaled: [`GameState::move_object`] and a token's
     /// arrival.
     pub entered_battlefield: Vec<ObjectId>,
+    /// Every card drawn this turn, as the object it became in its drawer's
+    /// hand: the id and the version it arrived with. Sylvan Library's
+    /// "cards in your hand drawn this turn" reads it; an entry whose version
+    /// no longer matches the object's is a card that has left the hand since
+    /// (CR 400.7) and is no longer one of them. Written by
+    /// [`GameState::draw_cards`] and nothing else.
+    pub drawn: Vec<(ObjectId, u32)>,
+    /// Permissions to play a particular card this turn (Dauthi Voidwalker,
+    /// Expressive Iteration). See [`PlayPermission`].
+    pub playable: Vec<PlayPermission>,
+    /// How many times each ability of each object has resolved this turn
+    /// (Nissa, Resurgent Animist's "the second time this ability has
+    /// resolved this turn"). Written by the stack's resolution of an
+    /// ability and nothing else; see [`AbilityResolved`].
+    pub resolved: Vec<AbilityResolved>,
+    /// What each Muldrotha-style allowance has let its controller play from
+    /// the graveyard this turn ([`GraveyardPlay`]).
+    pub graveyard_plays: Vec<GraveyardPlay>,
+    /// What was put into a graveyard this turn, from anywhere, in arrival
+    /// order (`Filter::PutIntoGraveyardThisTurn`). Written by
+    /// [`GameState::move_object`], beside `entered_battlefield`.
+    pub entered_graveyard: Vec<ObjectId>,
+    /// The objects that are exiled if they would die this turn, each with
+    /// its version (`Effect::ExileIfDiesThisTurn`, CR 400.7): read by
+    /// `replacement::graveyard_destination`.
+    pub exile_if_dies: Vec<(ObjectId, u32)>,
+}
+
+/// One card played or cast from a graveyard under a
+/// `Modifier::PermanentOfEachTypeFromGraveyard` allowance.
+///
+/// The allowance is the source's, as the object it is (CR 400.7): a Muldrotha
+/// that left and came back gives a fresh one.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct GraveyardPlay {
+    /// Who played it.
+    pub player: PlayerId,
+    /// The permission's source.
+    pub source: ObjectId,
+    /// The source's version.
+    pub version: u32,
+    /// The card's permanent types: `LAND` for a land played, the rest for a
+    /// spell cast, of which it used one.
+    pub types: baylee_core::types::TypeSet,
+}
+
+/// One ability of one object, and how many times it has resolved this turn.
+///
+/// The object is its id **and** version: an object that changed zones is a
+/// new object (CR 400.7), and its abilities have resolved no times yet.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct AbilityResolved {
+    /// The ability's source.
+    pub source: ObjectId,
+    /// The source's version when the ability resolved.
+    pub version: u32,
+    /// Index into the source's ability list.
+    pub index: u32,
+    /// Resolutions this turn.
+    pub times: u32,
+}
+
+/// "You may play that card this turn" — a permission an effect gives one
+/// player for one card, wherever it lies (CR 305.1 plays a land from the
+/// hand; this widens it for one object).
+///
+/// It lives in [`PerTurn`] rather than on the object as a rider because
+/// "this turn" is exactly the lifetime `PerTurn::reset` gives it, and it
+/// names the object's `version` because the permission is for that object
+/// and no later one: once the card is cast, played or moved it is a new
+/// object (CR 400.7) and the permission is spent, which the version compare
+/// says without anyone having to remove the entry.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct PlayPermission {
+    /// Who may play it.
+    pub player: PlayerId,
+    /// The card.
+    pub card: ObjectId,
+    /// The version of `card` the permission was given for.
+    pub version: u32,
+    /// "Without paying its mana cost" (Dauthi Voidwalker): a spell is cast
+    /// through the free-cast path, and X is 0 (CR 107.3b).
+    pub free: bool,
 }
 
 impl PerTurn {
@@ -279,11 +439,57 @@ impl PerTurn {
         Self {
             noncreature_spells: vec![0; players],
             spells_cast: vec![0; players],
+            no_more_spells: vec![false; players],
             life_lost: vec![false; players],
             creatures_died: 0,
             draws: vec![0; players],
             entered_battlefield: Vec::new(),
+            drawn: Vec::new(),
+            playable: Vec::new(),
+            resolved: Vec::new(),
+            graveyard_plays: Vec::new(),
+            entered_graveyard: Vec::new(),
+            exile_if_dies: Vec::new(),
         }
+    }
+
+    /// Counts one more resolution of ability `index` of `source` as it is
+    /// at `version`, and returns the count with it included.
+    pub fn note_resolution(&mut self, source: ObjectId, version: u32, index: u32) -> u32 {
+        if let Some(entry) = self
+            .resolved
+            .iter_mut()
+            .find(|e| e.source == source && e.version == version && e.index == index)
+        {
+            entry.times += 1;
+            return entry.times;
+        }
+        self.resolved.push(AbilityResolved {
+            source,
+            version,
+            index,
+            times: 1,
+        });
+        1
+    }
+
+    /// How many times ability `index` of `source` at `version` has resolved
+    /// this turn.
+    #[must_use]
+    pub fn resolutions(&self, source: ObjectId, version: u32, index: u32) -> u32 {
+        self.resolved
+            .iter()
+            .find(|e| e.source == source && e.version == version && e.index == index)
+            .map_or(0, |e| e.times)
+    }
+
+    /// Spells `player` has cast this turn.
+    #[must_use]
+    pub fn spells_cast_by(&self, player: PlayerId) -> u32 {
+        self.spells_cast
+            .get(player.get() as usize)
+            .copied()
+            .unwrap_or(0)
     }
 
     /// Resets all counters (called at every turn start).
@@ -291,9 +497,16 @@ impl PerTurn {
         self.noncreature_spells.iter_mut().for_each(|v| *v = 0);
         self.draws.iter_mut().for_each(|v| *v = 0);
         self.spells_cast.iter_mut().for_each(|v| *v = 0);
+        self.no_more_spells.iter_mut().for_each(|v| *v = false);
         self.life_lost.iter_mut().for_each(|v| *v = false);
         self.creatures_died = 0;
         self.entered_battlefield.clear();
+        self.drawn.clear();
+        self.playable.clear();
+        self.resolved.clear();
+        self.graveyard_plays.clear();
+        self.entered_graveyard.clear();
+        self.exile_if_dies.clear();
     }
 }
 
@@ -632,6 +845,40 @@ pub struct GameState {
     /// `snapshot_hash` nor `loop_signature` reads it. It rests on a rule the
     /// build enforces, not on which cards happen to exist.
     pub reflexive: Vec<crate::trigger::PendingTrigger>,
+    /// Cards a resolving discover (CR 701.57a) exiled and stopped at:
+    /// `(the discovering player, the card, its version in exile)`.
+    ///
+    /// Only `Effect::Discover` fills it, during a stack resolution, and
+    /// `Engine::finish_resolution` hands each entry to the delayed queue as
+    /// that resolution ends, where the cast is offered before anybody
+    /// receives priority. Unlike [`Self::reflexive`] nothing keeps a
+    /// discover last in its list, so a resolution can suspend on a later
+    /// question with an entry here: `snapshot_hash` reads it, and
+    /// `loop_signature`, taken only at priority grants, has nothing to read.
+    pub discovered: Vec<(PlayerId, ObjectId, u32)>,
+    /// The announced division of each ability on the stack that deals
+    /// damage "divided as you choose" (CR 601.2d): its targets, each with
+    /// its share. Written as the ability is put on the stack
+    /// (`Engine::ask_trigger_division`) and read as it resolves; an entry
+    /// whose object has left the stack is dropped as the next resolution
+    /// ends. Off the object because no other object has one, and
+    /// `tests/footprint.rs` holds `GameObject` to its size. Nothing copies a
+    /// triggered ability, so no copy has to carry one (CR 115.7f).
+    pub divided: Vec<(ObjectId, Vec<(ObjectId, u32)>)>,
+    /// Copies of synthetic abilities made by the resolution in progress, as
+    /// `(original, copy)` (CR 707.10).
+    ///
+    /// A synthetic ability (prowess, ward, a granted or reflexive trigger)
+    /// keeps its effects beside the engine and not on its object, where the
+    /// resolver cannot reach them, so `Effect::CopyTargetAbility` names the
+    /// pair here and `Engine::finish_resolution` hands the copy the
+    /// original's effects. The original is still on the stack below the
+    /// copy then, so its effects are still there to hand over.
+    ///
+    /// Unlike `reflexive`, this is hashed: the copy's controller is asked
+    /// about new targets (CR 707.10c) before that resolution ends, so the
+    /// list is not empty while a question is out.
+    pub synthetic_copies: Vec<(ObjectId, ObjectId)>,
     /// Each seat's commanders (CR 903.3), by seat index.
     ///
     /// The list is the marker, and it has to be: commander-ness belongs to
@@ -659,11 +906,15 @@ pub struct GameState {
     /// How often an ability of an object has been used this turn, cleared as
     /// a turn begins.
     ///
-    /// Two clauses share it because they are the same count: "this ability
-    /// triggers only once each turn" (Jin-Gitaxias) and "activate only once
-    /// each turn" (Wall of Roots). The key is the object and the ability
-    /// index, so a permanent that leaves the battlefield and comes back
-    /// starts over — CR 400.7 rather than a convenience.
+    /// Four clauses share it because each is one ability's count of one
+    /// thing it does in a turn: "this ability triggers only once each turn"
+    /// (Jin-Gitaxias), "activate only once each turn" (Wall of Roots), "do
+    /// this only once each turn" (The Reaper, King No More: set by the yes)
+    /// and "if this is the first time this ability has resolved this turn"
+    /// (Omnath, Locus of Creation: its resolutions). No ability says two of
+    /// them. The key is the object and the ability index, so a permanent
+    /// that leaves the battlefield and comes back starts over — CR 400.7
+    /// rather than a convenience.
     ///
     /// It is hashed into [`Self::loop_signature`], because what is left of a
     /// limit decides what is offered. `Engine::loyalty_used_this_turn` is
@@ -695,6 +946,22 @@ pub struct GameState {
     /// Whether the preceding refresh touched off-board objects. Cache-only:
     /// the first refresh after a cross-zone effect ends must clear them too.
     projected_cross_zone: bool,
+    /// The cards whose front face prints a characteristic-defining power
+    /// and toughness ("Ashaya's power and toughness are each equal to the
+    /// number of lands you control"), with the modifier that defines them.
+    ///
+    /// CR 604.3 has a characteristic-defining ability function in every
+    /// zone, but a static is registered only while its source is on the
+    /// battlefield, so in a library, a hand, a graveyard, exile or on the
+    /// stack the card had its printed `*` as 0 — the toughness Recruiter of
+    /// the Guard and the power Reveillark read. The projection applies these
+    /// itself wherever the card is **not** on the battlefield
+    /// (`layers::recompute_with`); on the battlefield the registered static
+    /// does it, so an effect that takes the abilities away still takes this
+    /// one. Written once per card in [`Self::create_card`], front face only
+    /// (CR 712.8a), and never changed: a list the size of a handful of
+    /// cards.
+    pub printed_pt_cda: Vec<(ObjectId, baylee_cards_dsl::Modifier)>,
     /// Objects that may have become a token outside the battlefield
     /// (CR 704.5d), queued for the next state-based-action pass.
     ///
@@ -751,6 +1018,9 @@ impl GameState {
             ltb_characteristics,
             ceased,
             reflexive,
+            discovered,
+            divided,
+            synthetic_copies,
             commanders,
             monarch,
             day_night,
@@ -768,6 +1038,7 @@ impl GameState {
             projection_ids,
             projected_cross_zone,
             token_cleanup,
+            printed_pt_cda,
         } = self;
         let mut restrictions: Vec<_> = restriction_info.iter().collect();
         restrictions.sort_by_key(|(id, _)| **id);
@@ -816,6 +1087,9 @@ impl GameState {
             ),
             ("state.ceased", format!("{ceased:?}")),
             ("state.reflexive", format!("{reflexive:?}")),
+            ("state.discovered", format!("{discovered:?}")),
+            ("state.divided", format!("{divided:?}")),
+            ("state.synthetic_copies", format!("{synthetic_copies:?}")),
             ("state.commanders", format!("{commanders:?}")),
             ("state.monarch", format!("{monarch:?}")),
             ("state.day_night", format!("{day_night:?}")),
@@ -842,6 +1116,7 @@ impl GameState {
                 format!("{projected_cross_zone:?}"),
             ),
             ("state.token_cleanup", format!("{token_cleanup:?}")),
+            ("state.printed_pt_cda", format!("{printed_pt_cda:?}")),
         ]);
     }
 }
@@ -1034,6 +1309,9 @@ impl GameState {
             ltb_attachments: Vec::new(),
             ceased: Vec::new(),
             reflexive: Vec::new(),
+            discovered: Vec::new(),
+            divided: Vec::new(),
+            synthetic_copies: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
             day_night: None,
@@ -1050,6 +1328,7 @@ impl GameState {
             characteristics_generation: u64::MAX,
             projection_ids: Vec::new(),
             projected_cross_zone: false,
+            printed_pt_cda: Vec::new(),
             token_cleanup: Vec::new(),
         };
         // Casting probes need the nameless face without mutating this interner.
@@ -1221,6 +1500,7 @@ impl GameState {
             produced_colorless: false,
             produced_chosen: false,
             abilities_lost: None,
+            front_mana_value: None,
         });
         Arc::make_mut(&mut self.bases)
             .bare
@@ -1263,6 +1543,7 @@ impl GameState {
             produced_colorless: false,
             produced_chosen: false,
             abilities_lost: None,
+            front_mana_value: None,
         });
         Arc::make_mut(&mut self.bases)
             .tokens
@@ -1291,6 +1572,9 @@ impl GameState {
             obj.timestamp = ts;
             obj
         });
+        if let Some(modifier) = printed_pt_cda(def) {
+            self.printed_pt_cda.push((id, modifier));
+        }
         Ok(id)
     }
 
@@ -1400,6 +1684,77 @@ impl GameState {
         // The projection is now stale for this object; the next refresh
         // has to rebuild it even if no effect was added or removed.
         self.characteristics_generation = u64::MAX;
+    }
+
+    /// Gives a permanent with a shared type line the unlocked designations
+    /// `unlocked` names (bit 0 the left half, bit 1 the right; CR 709.5c),
+    /// and the characteristics they leave it: the name, mana cost and rules
+    /// text of its unlocked halves only (CR 709.5), and the shared types
+    /// either way (CR 709.5a). The rules text is read off the doors
+    /// (`CardDef::door_abilities`); this writes the rest.
+    ///
+    /// One half unlocked is that half's face ([`Self::switch_face`]). Both
+    /// is the left face with both halves' mana cost, so both colours and
+    /// their sum for a mana value, and both halves' keywords; the name stays
+    /// the left half's, because an object here has one name and such a Room
+    /// has two (CR 709.4a), and nothing in the pool reads a Room's name.
+    /// Neither is the left face with no name, no mana cost, no colour and no
+    /// keyword. Keywords are rules text, so each state sets them from the
+    /// halves it has and never from the card-level fallback a front face
+    /// reads (`CardDef::keywords_for_face`). The printed front is set aside
+    /// in `original_base`, which the move off the battlefield restores: off
+    /// the battlefield the card is the card again (CR 400.7).
+    ///
+    /// What the Room's statics and replacement rules did under the old
+    /// doors ends here, and the next scan (`Engine::sync_static_effects`)
+    /// registers what the new doors print. That scan only ever adds for a
+    /// permanent still on the battlefield, and a Room put there uncast was
+    /// scanned as its left half before it was given no doors: without this,
+    /// Walk-In Closet's static outlived the door that prints it.
+    pub fn set_doors(&mut self, id: ObjectId, def: &CardDef, unlocked: u8) {
+        let unlocked = unlocked & 0b11;
+        self.effects.remove_where(|fx| {
+            fx.source == Some(id) && fx.origin == crate::effects::EffectOrigin::Static
+        });
+        self.replacement_rules.retain(|r| r.source != id);
+        let front = {
+            let name = self.names.intern(def.faces[0].name);
+            Arc::new(crate::object::Characteristics::from_face(def, 0, name))
+        };
+        self.switch_face(id, def, usize::from(unlocked == 0b10));
+        let nameless = self.names.intern("");
+        let Some(obj) = self.object_mut(id) else {
+            return;
+        };
+        obj.doors = crate::object::Doors::room(unlocked);
+        obj.original_base.get_or_insert(front);
+        let keywords = def
+            .faces
+            .iter()
+            .take(2)
+            .enumerate()
+            .filter(|(half, _)| unlocked & (1 << half) != 0)
+            .fold(baylee_cards_dsl::KeywordSet::EMPTY, |all, (_, f)| {
+                all.union(f.keywords)
+            });
+        let c = obj.base_mut();
+        c.keywords = keywords;
+        match unlocked {
+            0b11 => {
+                let cost = def.faces[0].mana_cost.combine(&def.faces[1].mana_cost);
+                c.mana_cost = cost;
+                c.colors = cost
+                    .colors()
+                    .union(def.faces[0].color_indicator)
+                    .union(def.faces[1].color_indicator);
+            }
+            0 => {
+                c.name = nameless;
+                c.mana_cost = baylee_core::mana::ManaCost::ZERO;
+                c.colors = baylee_core::color::ColorSet::EMPTY;
+            }
+            _ => {}
+        }
     }
 
     /// Forces the next [`GameState::refresh_characteristics`] to rebuild
@@ -1620,6 +1975,12 @@ impl GameState {
                     .chain(self.zones.stack_projectable().iter())
                     .copied(),
             );
+            // And the cards that define their own power and toughness,
+            // wherever else they are (CR 604.3).
+            ids.extend(self.printed_pt_cda.iter().map(|(id, _)| *id).filter(|id| {
+                self.object(*id)
+                    .is_some_and(|o| !matches!(o.zone, Zone::Battlefield | Zone::Stack))
+            }));
         }
         // Layer 2 decides the controller every later layer reads, of this
         // object and of every other one (CR 613.1b before 613.1c–f), and a
@@ -1677,7 +2038,7 @@ impl GameState {
             let Some(obj) = self.object(id) else {
                 continue;
             };
-            if crate::layers::needs_projection(plan, obj) {
+            if crate::layers::needs_projection(plan, obj) || self.defines_pt_off_battlefield(obj) {
                 let projection = crate::layers::recompute_with(self, obj, plan);
                 let obj = self.object_mut(id).expect("zone object exists");
                 moved |= settle_controller(obj, projection.controller, was);
@@ -1775,6 +2136,23 @@ impl GameState {
         self.arena
             .get(id)
             .or_else(|| self.ceased.iter().find(|o| o.id == id))
+    }
+
+    /// The characteristic-defining P/T `obj` applies itself, which it does
+    /// wherever it is but on the battlefield ([`Self::printed_pt_cda`]).
+    #[must_use]
+    pub fn off_battlefield_pt_cda(&self, obj: &GameObject) -> Option<baylee_cards_dsl::Modifier> {
+        if obj.zone == Zone::Battlefield {
+            return None;
+        }
+        self.printed_pt_cda
+            .iter()
+            .find(|(card, _)| *card == obj.id)
+            .map(|(_, modifier)| *modifier)
+    }
+
+    fn defines_pt_off_battlefield(&self, obj: &GameObject) -> bool {
+        self.off_battlefield_pt_cda(obj).is_some()
     }
 
     /// What `id` was as it last left the battlefield, if that is the last
@@ -1920,7 +2298,7 @@ impl GameState {
         {
             let controller = object.controller;
             let characteristics = object.characteristics();
-            let (mana_value, power) = (characteristics.mana_cost.cmc(), characteristics.power);
+            let (mana_value, power) = (characteristics.mana_value(), characteristics.power);
             self.ltb_mana_values.push((id, mana_value));
             if let Some(power) = power {
                 self.ltb_powers.push((id, power));
@@ -2047,6 +2425,12 @@ impl GameState {
         self.timestamp += 1;
         let ts = self.timestamp;
         self.record_last_known(id, from_zone);
+        // CR 400.7 for the turn's per-ability tally: what the old object
+        // used this turn is not the new object's. An id is stable for the
+        // whole game and only `version` moves, so the tally keyed by id kept
+        // counting across a blink — Omnath returned by Ephemerate took its
+        // second landfall for the second time this turn, not the first.
+        self.ability_fires.retain(|(object, _), _| *object != id);
         {
             let obj = self.object_mut(id).expect("checked above");
             obj.zone = to.zone();
@@ -2085,6 +2469,18 @@ impl GameState {
                 obj.deathtouched = false;
                 obj.regeneration_shields = 0;
                 obj.attached_to = None;
+                // A name chosen as it entered belongs to that permanent
+                // (CR 400.7): a Pithing Needle bounced and cast again names
+                // again, and nothing in between names anything.
+                obj.chosen_name = None;
+                // A Room's designations are the permanent's (CR 709.5c), and
+                // its face was the half they left showing. The card that
+                // arrives is the card, left half first, and `original_base`
+                // below brings its printed characteristics back.
+                if obj.doors.is_room() {
+                    obj.face_index = 0;
+                }
+                obj.doors = crate::object::Doors::NONE;
             }
             if matches!(from_zone, Zone::Battlefield | Zone::Exile) {
                 obj.counters = crate::object::Counters::default();
@@ -2186,14 +2582,43 @@ impl GameState {
         // zone anyway. And the graveyards, because a permanent's projection
         // may count them: Pyrogoyf is as big as the card types among cards
         // in all graveyards (`PtCount::CardTypesInAllGraveyards`), so a card
-        // milled or discarded grows a permanent that never moved.
-        if matches!(from_zone, Zone::Battlefield | Zone::Stack | Zone::Graveyard)
-            || matches!(to.zone(), Zone::Battlefield | Zone::Stack | Zone::Graveyard)
-        {
+        // milled or discarded grows a permanent that never moved. And exile,
+        // for the same reason one zone over: Unlicensed Hearse is as big as
+        // the cards exiled with it (`PtCount::ExiledWithThis`), and one of
+        // them leaving exile shrinks it.
+        if matches!(
+            from_zone,
+            Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile
+        ) || matches!(
+            to.zone(),
+            Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile
+        ) {
+            self.invalidate_projections();
+        }
+        // A card that defines its own power and toughness is projected in
+        // every zone (CR 604.3), and the move just cleared its cache: a
+        // drawn Ashaya would read its printed 0/0 until something else
+        // moved.
+        if self.printed_pt_cda.iter().any(|(card, _)| *card == id) {
             self.invalidate_projections();
         }
         if to.zone() == Zone::Battlefield {
             self.per_turn.entered_battlefield.push(id);
+        }
+        // "For as long as you control [this]" ends as its source leaves
+        // (CR 611.2b), here rather than at the next pass over the effect
+        // table: a blink is back before any pass runs, and what returns is a
+        // new object (CR 400.7) that the effect never named.
+        if from_zone == Zone::Battlefield {
+            self.effects.remove_where(|fx| {
+                matches!(
+                    fx.duration,
+                    baylee_cards_dsl::Duration::WhileYouControlSource
+                ) && fx.source == Some(id)
+            });
+        }
+        if to.zone() == Zone::Graveyard {
+            self.per_turn.entered_graveyard.push(id);
         }
         // Read off `to` after the redirects above, so a commander that went
         // to the command zone instead names no place in a library.
@@ -2333,6 +2758,9 @@ impl GameState {
                 .is_ok()
             {
                 drawn.push(top);
+                if let Some(version) = self.object(top).map(|o| o.version) {
+                    self.per_turn.drawn.push((top, version));
+                }
             }
         }
         // Miracle (CR 702.94): the first card drawn this turn may be
@@ -2422,6 +2850,9 @@ impl GameState {
             // Empty whenever a question is out, by a rule the build
             // enforces; the field says which.
             reflexive: _,
+            discovered,
+            divided,
+            synthetic_copies,
             commanders,
             monarch,
             day_night,
@@ -2448,6 +2879,9 @@ impl GameState {
             projection_ids: _,
             // A cache flag, derived from the effects hashed below.
             projected_cross_zone: _,
+            // Read off the cards at setup and never written again; each
+            // object's card is hashed with the object.
+            printed_pt_cda: _,
             // Drained by every pass, before anyone can look.
             token_cleanup: _,
         } = self;
@@ -2498,6 +2932,10 @@ impl GameState {
         // this hash is taken at.
         commander_redirect.hash(&mut h);
         pending_copied_faces.hash(&mut h);
+        // A discovered card waiting for the resolution that found it to end.
+        discovered.hash(&mut h);
+        // How an ability on the stack divides its damage.
+        divided.hash(&mut h);
         // The look-back lists are not scan bookkeeping that a priority
         // grant clears: an entry stays until its object moves again, and
         // `eval::matches` consults `ltb_attachments` in general.
@@ -2516,6 +2954,7 @@ impl GameState {
         }
         ltb_controllers.hash(&mut h);
         ltb_powers.hash(&mut h);
+        synthetic_copies.hash(&mut h);
         hash_unordered(
             &mut h,
             restriction_info.iter(),
@@ -2660,8 +3099,8 @@ impl GameState {
                 }
             }
         }
-        h.usize(self.combat.attackers.len());
-        for a in &self.combat.attackers {
+        h.usize(self.combat.attackers().len());
+        for a in self.combat.attackers() {
             h.u32(position(a.creature));
             hash_defender(&mut h, a.defending, position);
             h.boolean(a.blocked);
@@ -2890,6 +3329,7 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     h.u8(obj.zone_owner.map_or(255, PlayerId::get));
     h.u8(obj.kind as u8);
     h.u8(obj.face_index);
+    h.u8(obj.doors.bits());
     h.boolean(obj.prototyped);
     match &obj.card {
         Some(c) => {
@@ -2931,6 +3371,12 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     // two-drop and after a five-drop are two different futures.
     h.option_u32(obj.paid.as_ref().and_then(|p| p.sacrificed_mana_value));
     h.u32(obj.paid.as_ref().map_or(0, |p| p.mana_spent));
+    h.u8(obj.paid.as_ref().map_or(0, |p| p.colors_spent.bits()));
+    // And which creature station tapped: its power is what the counters
+    // will be.
+    let tapped = obj.paid.as_ref().and_then(|p| p.tapped);
+    h.option_u32(tapped.map(|(id, _)| position(id)));
+    h.option_u32(tapped.map(|(_, version)| version));
     h.option_u32(obj.attached_to.map(position));
     h.usize(obj.targets.len());
     for t in &obj.targets {
@@ -3089,6 +3535,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
         produced_colorless,
         produced_chosen,
         abilities_lost,
+        front_mana_value,
     } = characteristics;
     name.hash(h);
     hash_mana_cost(h, mana_cost);
@@ -3105,6 +3552,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     produced_colorless.hash(h);
     produced_chosen.hash(h);
     abilities_lost.hash(h);
+    front_mana_value.hash(h);
 }
 
 #[allow(clippy::too_many_lines)] // one line per field: the list is the guard
@@ -3140,13 +3588,17 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         paid,
         x_value,
         kicked,
+        replicated,
         alt_cast,
         prototyped,
         chosen_player,
         target_players,
         mode_index,
+        modes,
         chosen_subtype,
         chosen_color,
+        chosen_name,
+        doors,
         face_index,
         own_abilities,
         own_abilities_until_eot,
@@ -3154,6 +3606,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         token,
         pending_face_change,
         event_object,
+        event_amount,
         cast_from_hand,
     } = obj;
     id.hash(h);
@@ -3204,6 +3657,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::Prepared => h.u8(10),
             Rider::SpellCopy => h.u8(11),
             Rider::ExileInsteadOfGraveyard => h.u8(12),
+            Rider::ExiledWith { host, version } => {
+                h.u8(13);
+                host.hash(h);
+                version.hash(h);
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -3218,16 +3676,21 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     paid.hash(h);
     x_value.hash(h);
     kicked.hash(h);
+    replicated.hash(h);
     alt_cast.hash(h);
     prototyped.hash(h);
     chosen_player.hash(h);
     target_players.hash(h);
     mode_index.hash(h);
+    modes.hash(h);
     chosen_subtype.hash(h);
     chosen_color.hash(h);
+    chosen_name.hash(h);
+    doors.hash(h);
     face_index.hash(h);
     pending_face_change.hash(h);
     event_object.hash(h);
+    event_amount.hash(h);
     cast_from_hand.hash(h);
     // What the object can do when it is not what its card says: a copy's
     // list, an emblem's, an ability's captured one. `own_face` names it.
@@ -3271,6 +3734,29 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
 
 /// Whether a DSL filter mentions non-battlefield zones (then its effect
 /// needs cross-zone projection).
+/// The characteristic-defining power and toughness a card's front face
+/// prints (CR 604.3a): a static on the card itself, unconditional, that
+/// defines P/T in layer 7a. Front face only, because a card off the
+/// battlefield and the stack has only its front face's characteristics
+/// (CR 712.8a).
+fn printed_pt_cda(def: &CardDef) -> Option<baylee_cards_dsl::Modifier> {
+    def.abilities_for_face(0)
+        .iter()
+        .find_map(|ability| match ability {
+            baylee_cards_dsl::AbilityDef::Static(sa)
+                if sa.filter == baylee_cards_dsl::Filter::This
+                    && sa.condition.is_none()
+                    && matches!(
+                        sa.modifier,
+                        baylee_cards_dsl::Modifier::CharacteristicPT { .. }
+                    ) =>
+            {
+                Some(sa.modifier)
+            }
+            _ => None,
+        })
+}
+
 pub(crate) fn filter_reaches_other_zones(filter: &baylee_cards_dsl::Filter) -> bool {
     use baylee_cards_dsl::{Filter, ZoneRef};
     match filter {
@@ -3360,11 +3846,17 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         // different effects, and a tag table that left it out would make
         // them one.
         F::EnteredThisTurn => h.u8(30),
+        F::PutIntoGraveyardThisTurn => h.u8(35),
+        F::HasCounter(kind) => {
+            h.u8(36);
+            hash_counter(h, *kind);
+        }
         F::WithSingleTarget => h.u8(34),
         // Its own tag rather than a payload on `CmcAtMost`: the bound is
         // read from the source at match time, so two filters that differ
         // only in *where* the number comes from are different filters.
         F::CmcAtMostX => h.u8(28),
+        F::CmcAtMostColorsSpent => h.u8(37),
         F::CmcAtMost(n) | F::CmcAtLeast(n) => {
             h.u8(if matches!(f, F::CmcAtMost(_)) { 22 } else { 23 });
             h.u32(*n);
@@ -4112,8 +4604,37 @@ mod tests {
         let mutations: &[Mutation] = &[
             ("per_turn", |s, _| s.per_turn.creatures_died += 1),
             ("per_turn.life_lost", |s, _| s.per_turn.life_lost[0] = true),
+            ("per_turn.no_more_spells", |s, _| {
+                s.per_turn.no_more_spells[0] = true;
+            }),
+            ("per_turn.entered_graveyard", |s, id| {
+                s.per_turn.entered_graveyard.push(id);
+            }),
+            ("per_turn.exile_if_dies", |s, id| {
+                s.per_turn.exile_if_dies.push((id, 0));
+            }),
             ("per_turn.entered_battlefield", |s, id| {
                 s.per_turn.entered_battlefield.push(id);
+            }),
+            ("per_turn.drawn", |s, id| s.per_turn.drawn.push((id, 0))),
+            ("per_turn.resolved", |s, id| {
+                s.per_turn.note_resolution(id, 0, 0);
+            }),
+            ("per_turn.graveyard_plays", |s, id| {
+                s.per_turn.graveyard_plays.push(GraveyardPlay {
+                    player: PlayerId::new(0),
+                    source: id,
+                    version: 0,
+                    types: baylee_core::types::TypeSet::LAND,
+                });
+            }),
+            ("per_turn.playable", |s, id| {
+                s.per_turn.playable.push(PlayPermission {
+                    player: PlayerId::new(0),
+                    card: id,
+                    version: 0,
+                    free: true,
+                });
             }),
             ("delayed", |s, _| {
                 s.delayed.push(DelayedTrigger {
@@ -4150,6 +4671,9 @@ mod tests {
             }),
             ("ltb_powers", |s, id| {
                 s.ltb_powers.push((id, 4));
+            }),
+            ("synthetic_copies", |s, id| {
+                s.synthetic_copies.push((id, id));
             }),
             ("ltb_counters", |s, id| {
                 s.ltb_counters.push((id, Counters::default()));
@@ -4212,6 +4736,7 @@ mod tests {
             }),
             ("x_value", |s, id| fixture_object(s, id).x_value = 3),
             ("kicked", |s, id| fixture_object(s, id).kicked = true),
+            ("replicated", |s, id| fixture_object(s, id).replicated = 2),
             ("alt_cast", |s, id| fixture_object(s, id).alt_cast = true),
             ("chosen_player", |s, id| {
                 fixture_object(s, id).chosen_player = Some(PlayerId::new(1));
@@ -4224,11 +4749,21 @@ mod tests {
             ("mode_index", |s, id| {
                 fixture_object(s, id).mode_index = Some(1);
             }),
+            ("modes", |s, id| {
+                fixture_object(s, id).modes = 0b101;
+            }),
             ("chosen_subtype", |s, id| {
                 fixture_object(s, id).chosen_subtype = Some(SubtypeId::new(1));
             }),
             ("chosen_color", |s, id| {
                 fixture_object(s, id).chosen_color = Some(ManaColor::Blue);
+            }),
+            ("chosen_name", |s, id| {
+                fixture_object(s, id).chosen_name =
+                    crate::object::PrintedFace::new(CardIndex::new(7), 0);
+            }),
+            ("doors", |s, id| {
+                fixture_object(s, id).doors = crate::object::Doors::room(0b01);
             }),
             ("face_index", |s, id| fixture_object(s, id).face_index = 1),
             ("own_abilities", |s, id| {
@@ -4246,6 +4781,9 @@ mod tests {
             }),
             ("event_object", |s, id| {
                 fixture_object(s, id).event_object = Some(id);
+            }),
+            ("event_amount", |s, id| {
+                fixture_object(s, id).event_amount = core::num::NonZeroU16::new(3);
             }),
             ("cast_from_hand", |s, id| {
                 let object = fixture_object(s, id);

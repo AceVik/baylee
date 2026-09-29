@@ -230,7 +230,10 @@ fn a_search_for_several_cards_may_always_settle_for_fewer() {
                 let Some((finds, after)) = tail.split_once(']') else {
                     continue;
                 };
-                let count = finds.matches("Find {").count();
+                // A fork (`Find::instead_if`) prints one more `Find {` inside
+                // the find it belongs to, and is not a second card.
+                let count =
+                    finds.matches("Find {").count() - finds.matches("instead_if: Some(").count();
                 if count <= 1 {
                     continue;
                 }

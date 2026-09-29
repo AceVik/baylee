@@ -86,10 +86,13 @@ fn windows_through(engine: &mut Engine<RegistryLookup>, through: u32) -> Vec<Win
 /// The two seats are asserted separately and not as a set, because the
 /// interface that reported this stopped in neither step on either turn and a
 /// test that merely found one of them somewhere would have passed.
+///
+/// Through turn 3, because the player on the play has no draw step on
+/// turn 1 at all (CR 103.8a) — see the test below.
 #[test]
 fn the_upkeep_and_the_draw_step_hand_priority_to_the_player_whose_turn_it_is() {
     let mut engine = Duel::new(9_130, forest()).start();
-    let seen = windows_through(&mut engine, 2);
+    let seen = windows_through(&mut engine, 3);
 
     for turn_active in [PlayerId::new(0), PlayerId::new(1)] {
         for step in [Step::Upkeep, Step::Draw] {
@@ -118,6 +121,24 @@ fn the_upkeep_and_the_draw_step_hand_priority_to_the_player_whose_turn_it_is() {
             );
         }
     }
+}
+
+/// CR 103.8a: in a two-player game the player who plays first *skips the
+/// draw step* of their first turn — the step, not only its draw. There is no
+/// window in it, and nothing "at the beginning of your draw step" triggers
+/// (Sylvan Library drew two cards there while only the draw was skipped).
+#[test]
+fn the_player_on_the_play_has_no_draw_step_on_the_first_turn() {
+    let mut engine = Duel::new(9_130, forest()).start();
+    let seen = windows_through(&mut engine, 1);
+    assert!(
+        seen.iter().any(|w| w.step == Step::Upkeep),
+        "the turn was walked: {seen:?}"
+    );
+    assert!(
+        !seen.iter().any(|w| w.step == Step::Draw),
+        "no draw step on the first turn: {seen:?}"
+    );
 }
 
 /// CR 502.4 and CR 514.3: the untap step gives nobody priority, and on a

@@ -7,8 +7,8 @@ struct Cost { mana: ManaCost, parts: &'static [CostPart] }
 enum CostPart { TapSelf, UntapSelf, SacrificeSelf, Sacrifice(&'static Filter),
                 PayLife(u16), PayLifeX, Discard(&'static Filter), DiscardSelf,
                 ExileSelf, ExileFromHand(&'static Filter), ReturnSelfToHand,
-                TapOther(&'static Filter), ReturnToHand(&'static Filter),
-                ExileFromGraveyard(&'static Filter),
+                TapOther(&'static Filter), Crew(u8),
+                ReturnToHand(&'static Filter), ExileFromGraveyard(&'static Filter),
                 RemoveCounterSelf { kind: CounterKind, n: u16 },
                 RemoveCounterSelfX { kind: CounterKind },
                 PutCounterSelf { kind: CounterKind, n: u16 } }
@@ -36,8 +36,9 @@ way round is a transcription error rather than a card — which is why it is a
 pool lint (`baylee-cards::lints::no_cost_asks_for_a_permanent_it_has_already_spent`)
 and not a refusal at the moment of activation.
 
-**A part that names an object never names the source twice.** Five parts
-ask the player for an object (`cost_wizard`), and the menu they are asked
+**A part that names an object never names the source twice.** Six parts
+ask the player for an object (`cost_wizard`; `Crew` for any number of them
+at once), and the menu they are asked
 from is `cost_wizard::menu`, which is the board less the source whenever the
 same cost already spends the source the same way: `TapSelf` beside
 `TapOther`, `SacrificeSelf` beside `Sacrifice`, and the return, discard and

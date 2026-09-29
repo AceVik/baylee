@@ -170,6 +170,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::CreateTokenCopyOfSource { mods } => {
+            // The source card, wherever the cost put it: exile, for
+            // eternalize. Its copiable values there are the card's own.
+            if let Some(base) = crate::layers::copiable_values(state, res.source) {
+                let mut modified = (*base).clone();
+                for m in mods {
+                    apply_copy_mod(&mut modified, m);
+                }
+                create_token_copies(state, you, res.source, &std::sync::Arc::new(modified), 1);
+            }
+            None
+        }
         Effect::CreateTokenCopyOfEquipped { kicked_bonus, mods } => {
             let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
@@ -238,7 +250,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         owner = Some(p);
                         cmc = state
                             .object(card)
-                            .map_or(0, |o| o.characteristics().mana_cost.cmc());
+                            .map_or(0, |o| o.characteristics().mana_value());
                         break 'scan;
                     }
                 }
@@ -270,6 +282,16 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
         baylee_cards_dsl::CopyMod::AddKeyword(k) => {
             base.keywords = base.keywords.union(*k);
         }
+        baylee_cards_dsl::CopyMod::SetPT(p, t) => {
+            base.power = Some(*p);
+            base.toughness = Some(*t);
+        }
+        baylee_cards_dsl::CopyMod::SetColor(c) => {
+            base.colors = *c;
+        }
+        baylee_cards_dsl::CopyMod::NoManaCost => {
+            base.mana_cost = baylee_core::mana::ManaCost::ZERO;
+        }
         // These are about the object rather than about the characteristics
         // this function is handed. A counter is put on the permanent as it
         // enters (CR 614.1c), which `progress::apply_copy_choice` does for
@@ -279,10 +301,9 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
         // not a `Characteristics` field at all — `progress::apply_copy_choice`
         // keeps the copier's statics by registering them as the copy's own
         // continuous effects, and this token door reaches no effect table.
-        // A granted ability
-        // (`CopyMod::Grant`, CR 707.9a) is the same case: a token or spell
-        // copy made "except it has …" would lose it here, and nothing in the
-        // pool is one.
+        // A granted ability (`CopyMod::Grant`, CR 707.9a) is the same case:
+        // a token or spell copy made "except it has …" would lose it here,
+        // and nothing in the pool is one.
         baylee_cards_dsl::CopyMod::AddCounter(_, _)
         | baylee_cards_dsl::CopyMod::AddCounterIf(_, _, _)
         | baylee_cards_dsl::CopyMod::AddCounterX(_)

@@ -178,9 +178,11 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
         // Which piles the spell may look in is what the printed `PlayerRel`
         // says, and two of them cannot be settled here: `ControllerOfTarget`
         // names the controller of a target this spell has not chosen, and
-        // `Chosen` the answer to a `Pending::ChoosePlayer` nobody has been
-        // asked yet. Both refuse to the safe direction, like every other
-        // question this view cannot close.
+        // `ControllerOfEvent` an event that has not happened. Both refuse to
+        // the safe direction, like every other question this view cannot
+        // close. `Chosen` can be: it is "from a single graveyard", whichever
+        // the player names as the targets are chosen, so any graveyard
+        // holding a card is enough.
         //
         // `Opponent` is folded in with `EachOpponent` rather than resolved:
         // heads-up they are the same pile, and in multiplayer the union is
@@ -190,7 +192,9 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
             let mine = usize::from(view.seat.get());
             let piles: Vec<&PublicObject> = match rel {
                 PlayerRel::You => view.graveyards.get(mine).into_iter().flatten().collect(),
-                PlayerRel::EachPlayer => view.graveyards.iter().flatten().collect(),
+                PlayerRel::EachPlayer | PlayerRel::Chosen => {
+                    view.graveyards.iter().flatten().collect()
+                }
                 PlayerRel::Opponent | PlayerRel::EachOpponent => view
                     .graveyards
                     .iter()
@@ -198,9 +202,7 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                     .filter(|(seat, _)| *seat != mine)
                     .flat_map(|(_, pile)| pile)
                     .collect(),
-                PlayerRel::ControllerOfTarget
-                | PlayerRel::ControllerOfEvent
-                | PlayerRel::Chosen => {
+                PlayerRel::ControllerOfTarget | PlayerRel::ControllerOfEvent => {
                     return None;
                 }
             };
@@ -355,9 +357,16 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::AttachedToBySource
         | Filter::HasKeyword(_)
         | Filter::CmcAtMostX
+        // Bounded by what the source's payment spent, which no view carries
+        // either.
+        | Filter::CmcAtMostColorsSpent
         // When a permanent arrived is history, and a view carries no
         // journal — the same refusal as the rest of this list.
         | Filter::EnteredThisTurn
+        | Filter::PutIntoGraveyardThisTurn
+        // The engine's counter kind against the view's wire kind, and the
+        // translation is gamehost's; `baylee-ai` refuses it for that reason.
+        | Filter::HasCounter(_)
         | Filter::InZone(_) => return None,
     })
 }
@@ -615,6 +624,7 @@ mod tests {
                         TargetSpec::Player(_)
                         | TargetSpec::AnyPlayer
                         | TargetSpec::AnyOpponent
+                        | TargetSpec::OpponentOrObject(_)
                         | TargetSpec::AnyTarget
                         | TargetSpec::ThisObject
                         | TargetSpec::EventObject => {
@@ -623,6 +633,9 @@ mod tests {
                         }
                         TargetSpec::Object(f)
                         | TargetSpec::ObjectOfEachOpponent(f)
+                        | TargetSpec::ObjectOfFirstTargetsPlayer(f)
+                        | TargetSpec::ObjectControlledBy(f, _)
+                        | TargetSpec::ObjectOfEventPlayer(f)
                         | TargetSpec::Spell(f)
                         | TargetSpec::StackOrBattlefield(f)
                         | TargetSpec::AbilityOnStack(f)

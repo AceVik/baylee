@@ -632,3 +632,86 @@ fn issue_183_an_entering_creature_that_dies_to_an_sba_still_draws() {
         "one card cast, exactly one card drawn"
     );
 }
+
+fn blaze() -> baylee_core::ids::CardIndex {
+    card_index("0596920f-9946-42f4-a03b-24aab67f9f1b")
+}
+
+/// Storm of Saruman copies a Blaze for X = 2 aimed at a player, and the copy
+/// deals two as well.
+///
+/// A copy copies every decision made for the spell, "including modes,
+/// targets, the value of X, and additional or alternative costs" (CR 707.10).
+/// `Effect::CopyTargetSpell` built its copy field by field and stopped at the
+/// object targets: the X stayed 0 and a player target was left behind, so
+/// the copy of a Blaze at a face dealt nothing to anybody and the player lost
+/// two life where the table saw four. The copy now comes out of the one
+/// constructor the replicate trigger uses too.
+#[test]
+fn a_copied_blaze_keeps_its_x_and_its_player_target() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(112, forest())
+        .battlefield(
+            0,
+            &[
+                storm_of_saruman(),
+                forest(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .hand(0, &[llanowar_elves(), blaze()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The turn's first spell, off {G}; {R}{R}{R} stays floating for Blaze.
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    settle(&mut engine);
+    let spell = in_hand(&engine, p0, blaze()).expect("Blaze in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("a player is a legal target for Blaze");
+
+    advance_until(&mut engine, |e| spells_on_the_stack(e, p0) == 2);
+    let copy = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.riders.contains(&crate::object::Rider::SpellCopy))
+        })
+        .expect("Storm of Saruman copied the second spell");
+    let copied = engine.state().object(copy).expect("the copy exists");
+    assert_eq!(
+        copied.x_value, 2,
+        "the copy's X is the X announced for Blaze"
+    );
+    assert!(
+        copied.target_players.contains(p1),
+        "and it aims at the player Blaze aims at"
+    );
+
+    advance_until(&mut engine, |e| spells_on_the_stack(e, p0) == 0);
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "two from Blaze and two from its copy"
+    );
+}
