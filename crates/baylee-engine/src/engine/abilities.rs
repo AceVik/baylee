@@ -507,9 +507,75 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
+        self.narrow_under_chosen_names(&mut legal);
         self.narrow_under_split_second(&mut legal);
         self.narrow_to_mana_window(player, &mut legal);
         legal
+    }
+
+    /// Pithing Needle: "Activated abilities of sources with the chosen name
+    /// can't be activated unless they're mana abilities" (CR 602.5).
+    ///
+    /// Narrowed here, where the offer is built, because `apply` refuses any
+    /// activation the offer does not hold: one probe read from both sides,
+    /// for the reason [`Engine::ability_has_a_target`] gives. Every door
+    /// onto `legal.abilities` is covered by it, printed, loyalty, granted and
+    /// a card's in hand alike. What stays is what the sentence does not
+    /// reach: a mana ability (CR 605.1a), turning a permanent face up (a
+    /// special action, CR 116.2b), and a prepared cast, which casts a spell.
+    /// The intrinsic CR 305.6 mana of `legal.mana_abilities` is mana too.
+    fn narrow_under_chosen_names(&self, legal: &mut LegalActions) {
+        let locked = self.names_locked_from_activating();
+        if locked.is_empty() {
+            return;
+        }
+        legal.abilities.retain(|&(source, index)| {
+            index == crate::choice::TURN_FACE_UP
+                || index == crate::choice::PREPARED_CAST
+                || self.is_mana_offer(source, index)
+                || !self
+                    .state
+                    .object(source)
+                    .is_some_and(|obj| locked.contains(&obj.characteristics().name))
+        });
+    }
+
+    /// The names every `Modifier::ChosenNameCantActivate` in force has
+    /// locked, each the name chosen as its source entered.
+    ///
+    /// Compared as interned names, so a source's projected name is what is
+    /// read (a copy is named what it copies, CR 707.2) and a chosen name no
+    /// object of the game has carried locks nothing, having never been
+    /// interned. A source that has no chosen name locks nothing either.
+    fn names_locked_from_activating(&self) -> SmallVec<[NameRef; 2]> {
+        let mut locked = SmallVec::new();
+        for fx in self.state.effects.iter() {
+            if !matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::ChosenNameCantActivate
+            ) {
+                continue;
+            }
+            let Some(chosen) = fx
+                .source
+                .and_then(|source| self.state.object(source))
+                .and_then(|source| source.chosen_name)
+            else {
+                continue;
+            };
+            let Some(name) = self
+                .lookup
+                .card(chosen.card())
+                .and_then(|def| def.faces.get(usize::from(chosen.face())))
+                .and_then(|face| self.state.names.find(face.name))
+            else {
+                continue;
+            };
+            if !locked.contains(&name) {
+                locked.push(name);
+            }
+        }
+        locked
     }
 
     /// Split second (CR 702.61a): "As long as this spell is on the stack,

@@ -132,6 +132,17 @@ pub enum Modifier {
     /// Activated abilities of artifacts the effect's opponents control
     /// can't be activated (Karn).
     CantActivateArtifacts,
+    /// "Activated abilities of sources with the chosen name can't be
+    /// activated unless they're mana abilities" (Pithing Needle, CR 602.5).
+    ///
+    /// The name is the one chosen as the effect's source entered
+    /// ([`crate::EnterModifier::ChooseCardName`]), and "sources" is every
+    /// object that could have an ability to activate, wherever it is: a
+    /// permanent, and a card in a hand or a graveyard whose ability works
+    /// there (cycling, channel). Every player's, the effect's controller's
+    /// too. A mana ability (CR 605.1a) is spared, and so is what is not an
+    /// activated ability at all: a special action, a cast.
+    ChosenNameCantActivate,
     /// The effect's opponents can cast spells only as though they were
     /// sorceries (Teferi).
     OpponentsCastAsSorcery,
@@ -497,6 +508,7 @@ impl Modifier {
             | Self::RevealLibraryTop
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
+            | Self::ChosenNameCantActivate
             | Self::OpponentsCantCast(_)
             | Self::CantBeTargetedBy(_)
             | Self::DrawLimitPerTurn { .. }
@@ -815,6 +827,7 @@ mod tests {
             Modifier::RevealLibraryTop,
             Modifier::ExtraLandDrops(2),
             Modifier::OpponentsCastAsSorcery,
+            Modifier::ChosenNameCantActivate,
             Modifier::PlayersCantLose,
             Modifier::CantLoseLife {
                 who: crate::effect::PlayerRel::EachPlayer,

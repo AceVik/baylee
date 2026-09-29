@@ -803,7 +803,10 @@ rule: a teammate is not an opponent and a player who has lost is out),
 on `obj.chosen_subtype`; creatures also gain the subtype in their base),
 `ChooseColor` and `ChooseColorExcept(c)` (Uncharted Haven, the Thriving
 cycle, the Gates — answer stored on `obj.chosen_color` and read back by
-`ManaSource::Chosen`), `Prepared` (Emeritus of Woe),
+`ManaSource::Chosen`), `ChooseCardName` (Pithing Needle — any face of any
+card of the pool, CR 201.4; answer stored on `obj.chosen_name` as the card
+and face it names, and read back by `Modifier::ChosenNameCantActivate`),
+`Prepared` (Emeritus of Woe),
 `TappedUnlessReveal(filter)` and
 `WithCounters { kind, amount }`.
 
@@ -1383,11 +1386,22 @@ Modal/sequence: `Sequence(&[..])`.
 `AddType`, `RemoveType`, `AddSubtype`, `AllCreatureTypes`,
 `AllBasicLandTypes`, `BecomeType { types, subtype }`, `AddColor`, `SetColor`,
 `AddKeyword`, `RemoveKeyword`, `LoseKeywords`, `LoseAllAbilities`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
-`CantActivateArtifacts`, `OpponentsCastAsSorcery`, `PlayersCantLose`,
+`CantActivateArtifacts`, `ChosenNameCantActivate`, `OpponentsCastAsSorcery`,
+`PlayersCantLose`,
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
 `DrawLimitPerTurn`, `CantBeTargetedBy`, `SetPTToCount`.
+
+`ChosenNameCantActivate` is Pithing Needle's "activated abilities of sources
+with the chosen name can't be activated unless they're mana abilities",
+written `static_ability!(Filter::Any, Modifier::ChosenNameCantActivate)`
+beside `EnterModifier::ChooseCardName`, which writes the name it reads. It
+stops every activated ability the name reaches, every player's and in hand
+as well (cycling), a loyalty ability included, and spares a mana ability
+(CR 605.1a), turning a permanent face up and a prepared cast. A name chosen
+by a *trigger* ("when this land enters, choose a land card name", Petrified
+Hamlet) has no DSL yet.
 
 `SetPTToCount(count)` is "this creature's power and toughness are each equal
 to [count]" **granted** by an effect (Druid Class's animated land), with

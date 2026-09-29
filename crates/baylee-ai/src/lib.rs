@@ -422,6 +422,10 @@ impl HeuristicAgent {
             Pending::ChooseSubtype { options, .. } => {
                 PlayerAction::ChooseSubtype(self.subtype(view, &options))
             }
+            Pending::ChooseCardName { .. } => {
+                let (card, face) = self.card_name(view);
+                PlayerAction::ChooseCardName { card, face }
+            }
 
             Pending::ChooseColor { options, .. } => {
                 PlayerAction::ChooseColor(self.color(view, &options, context))
@@ -630,6 +634,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseCards { player, .. }
         | Pending::ChooseTargets { player, .. }
         | Pending::ChooseSubtype { player, .. }
+        | Pending::ChooseCardName { player }
         | Pending::ChooseColor { player, .. }
         | Pending::ChooseNumber { player, .. }
         | Pending::ChoosePlayer { player, .. }
@@ -688,6 +693,61 @@ mod tests {
                 }
             ),
             PlayerAction::ChooseSubtype(BIRD)
+        );
+    }
+
+    /// Pithing Needle names what it stops: the opponent's Karn, whose loyalty
+    /// abilities are locked by it, and not the Llanowar Elves beside him,
+    /// whose only activated ability is a mana ability the Needle spares; nor
+    /// the agent's own Jace, which has the most to lose.
+    #[test]
+    fn a_needle_names_the_opponents_permanent_it_would_stop() {
+        let mut v = view(0, &[20, 20], vec![]);
+        let karn = baylee_cards::decks::by_name("Karn, the Great Creator").unwrap();
+        v.battlefield = vec![
+            carded(
+                permanent(obj(1), PlayerId::new(0), 0),
+                "Jace, the Mind Sculptor",
+                TypeSet::PLANESWALKER,
+            ),
+            carded(
+                permanent(obj(2), PlayerId::new(1), 0),
+                "Karn, the Great Creator",
+                TypeSet::PLANESWALKER,
+            ),
+            carded(
+                permanent(obj(3), PlayerId::new(1), 0),
+                "Llanowar Elves",
+                TypeSet::CREATURE,
+            ),
+        ];
+        let pending = Pending::ChooseCardName { player: v.seat };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending),
+            PlayerAction::ChooseCardName {
+                card: karn,
+                face: 0
+            }
+        );
+        // With only the Elves across the table, nothing of theirs is
+        // stopped, and the name is one of the pool's that is not the
+        // agent's own Jace.
+        v.battlefield.remove(1);
+        let PlayerAction::ChooseCardName { card, .. } =
+            HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending)
+        else {
+            panic!("a card name is answered with one");
+        };
+        assert!(baylee_cards::by_index(card).is_some(), "a card of the pool");
+        assert_ne!(
+            Some(card),
+            baylee_cards::decks::by_name("Jace, the Mind Sculptor"),
+            "and not the agent's own"
+        );
+        assert_ne!(
+            Some(card),
+            baylee_cards::decks::by_name("Llanowar Elves"),
+            "nor the Elves, whose mana ability the Needle would spare"
         );
     }
 
@@ -3747,6 +3807,7 @@ mod tests {
             supertypes: SupertypeSet::EMPTY,
             subtypes: SubtypeSet::EMPTY,
             chosen_subtype: None,
+            chosen_name: None,
             suspended: false,
             token: None,
             colors: ColorSet::EMPTY,

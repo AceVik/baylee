@@ -139,6 +139,20 @@ pub enum Pending {
         /// All creature types (ids 0..=349).
         options: Vec<baylee_core::ids::SubtypeId>,
     },
+    /// Choose a card name ("as this enters, choose a card name" — Pithing
+    /// Needle), answered with [`PlayerAction::ChooseCardName`].
+    ///
+    /// No list rides with the question. Any card's name may be chosen, of
+    /// any of its faces (CR 201.4, 201.4b–f), and the pool is the whole of
+    /// what a game can mean by one (a token's name only counts when a card
+    /// has it too), so the options are the card pool itself: a few thousand
+    /// faces every client and agent already has, which a list here would
+    /// send again with every frame that asks. The engine checks the answer
+    /// against the pool it plays with.
+    ChooseCardName {
+        /// Choosing player.
+        player: PlayerId,
+    },
     /// Choose a mana color (choice-restricted mana abilities).
     ChooseColor {
         /// Choosing player.
@@ -230,6 +244,7 @@ impl Pending {
             | Self::ChooseCards { player, .. }
             | Self::ChooseTargets { player, .. }
             | Self::ChooseSubtype { player, .. }
+            | Self::ChooseCardName { player }
             | Self::ChooseColor { player, .. }
             | Self::YesNo { player, .. }
             | Self::ChooseCastMode { player, .. }
@@ -552,6 +567,7 @@ pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
         | Pending::ChooseCards { .. }
         | Pending::ChooseTargets { .. }
         | Pending::ChooseSubtype { .. }
+        | Pending::ChooseCardName { .. }
         | Pending::ChooseColor { .. }
         | Pending::ChooseCastMode { .. }
         | Pending::ChooseNumber { .. }
@@ -957,6 +973,16 @@ pub enum PlayerAction {
     ChooseColor(baylee_core::mana::ManaColor),
     /// Choose a creature type (Roaming Throne & co.).
     ChooseSubtype(baylee_core::ids::SubtypeId),
+    /// Choose a card name: face `face` of the card `card` (Pithing Needle,
+    /// CR 201.4). Refused for a card the pool does not have and for a face
+    /// it does not print.
+    ChooseCardName {
+        /// The card whose name it is.
+        card: baylee_core::ids::CardIndex,
+        /// Which of its faces, since each face's name may be chosen
+        /// (CR 201.4b, 201.4d, 201.4f).
+        face: u8,
+    },
     /// Choose a cast option (index into `ChooseCastMode::options`).
     ChooseMode(usize),
     /// Choose a number (X values).
@@ -1158,6 +1184,7 @@ mod choice_tests {
                 },
                 None,
             ),
+            (Pending::ChooseCardName { player: p }, None),
             (
                 Pending::ChooseCastMode {
                     player: p,
@@ -1217,7 +1244,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 16 + 10;
+    const KINDS: usize = 17 + 10;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -1240,8 +1267,9 @@ mod choice_tests {
             Pending::ChoosePlayer { .. } => 13,
             Pending::Arrange { .. } => 14,
             Pending::GameOver(_) => 15,
+            Pending::ChooseCardName { .. } => 16,
             Pending::YesNo { prompt, .. } => {
-                16 + match prompt {
+                17 + match prompt {
                     YesNoPrompt::PayLifeOrEnterTapped { .. } => 0,
                     YesNoPrompt::Kicker => 1,
                     YesNoPrompt::PayTax { .. } => 2,

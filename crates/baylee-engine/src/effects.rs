@@ -132,6 +132,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
+        | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
         | Modifier::CantBeTargetedBy(_)
@@ -702,6 +703,7 @@ mod tests {
             Modifier::RevealLibraryTop,
             Modifier::ExtraLandDrops(2),
             Modifier::CantActivateArtifacts,
+            Modifier::ChosenNameCantActivate,
             Modifier::OpponentsCastAsSorcery,
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
             Modifier::CantBeTargetedBy(&Filter::CREATURE),
@@ -763,7 +765,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            50,
+            51,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -815,7 +817,7 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: twenty-six
-    /// modifiers lock the objects they found, twenty-four do not.
+    /// modifiers lock the objects they found, twenty-five do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -823,10 +825,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_six_modifiers_lock_a_set_and_twenty_four_do_not() {
+    fn twenty_six_modifiers_lock_a_set_and_twenty_five_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (26, 24));
+        assert_eq!((locking, all.len() - locking), (26, 25));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

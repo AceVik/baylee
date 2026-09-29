@@ -2629,3 +2629,24 @@ countdown. Every seat receives the same public flag and time counters. The
 client keeps a scrollable list of these cards, with their owners and counters,
 independent of the camera's current seat; a click opens that owner's exile.
 The flag defaults to false when absent. No hidden zone is added to the view.
+
+### Choosing a card name (view 41)
+
+"As this artifact enters, choose a card name" (Pithing Needle) is
+`Pending::ChooseCardName { player }`, and it carries **no options**: any
+card's name may be chosen, of any of its faces (CR 201.4, 201.4b–f), so the
+option set is the card pool, which every client and agent of the same build
+already has. A list here would send a few thousand names with every frame
+that asks. The answer is `PlayerAction::ChooseCardName { card, face }`, a
+`CardIndex` and a face index; the engine refuses a card its pool does not
+have and a face the card does not print, and the question stays open. There
+is no answer that does nothing, so the decision clock leaves it to the house
+(`timeout_answer` is `None`), which names an opponent's permanent it would
+stop. Both ride as JSON inside the envelope like every other question, so
+`PROTOCOL_VERSION` does not move, as it did not for `Arrange`.
+
+`PublicObject.chosen_name` is the name chosen for that permanent, a
+`NamedFace { card, face }`. The choice is public and every seat is told it;
+a missing field decodes as `None`. Two permanents naming different cards do
+not share a board pile, and the client labels the permanent with the face's
+name.

@@ -1776,3 +1776,34 @@ land type"; both are convention tests that fire on a first try.
   stack has a blank face, so `NONCREATURE` alone is true of it. "Noncreature
   spells you control" also asks for a noncreature card type (Benevolent
   Geist).
+
+### 2026-09-29 — friends group, round 2: Weltenbaum's rules pieces
+
+- **Set the harness's counters before walking to a step.** A counter put on
+  a permanent after `reach_main_phase` leaves the projection stale until
+  something else changes; the station test saw a 1/1 where the counters said
+  otherwise. Put them first, then walk.
+- **An ability with a mana cost is offered only once its mana floats.** Ask
+  the offer after tapping, as for `castable`. A test that asked first read
+  "not offered" and blamed the threshold it was written for.
+- **A back face is cast at its own timing** (CR 601.3e, 712.11c, 715.3a).
+  An instant on the back of an enchantment read as a sorcery for as long as
+  the front's timing was the only one asked. A card whose two faces differ
+  in speed is the case to test.
+- **A triggered ability journals `AbilityTriggered`, not `BecameTarget`.**
+  Count a copy's targets off `BecameTarget`, and expect the original's to be
+  missing from it.
+- **An ability on the stack is not projectable.** Insert one with
+  `projectable = false`, or `stack_projectable` panics as it drifts.
+- **A lock by name belongs on the offer, not in each door.** `apply` refuses
+  what `legal.abilities` does not hold, so one narrowing pass over it covers
+  printed, loyalty, granted and in-hand activations at once. Karn's lock
+  sits in every door separately and needed a comment per door.
+- **A board seated by `Duel::battlefield` enters tapped where the card
+  says so** (the Deserts): an older test comment says otherwise. Read the
+  status before tapping it for mana, or take the test to that seat's own
+  turn, after its untap step.
+- **A new field on `GameObject` can cost eight bytes for four.** The
+  footprint test measures alignment, not the field: an `Option<PrintedFace>`
+  grew the object from 296 to 304. Raise the budget deliberately, with a
+  line in `docs/perf-baseline.md`.

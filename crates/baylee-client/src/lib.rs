@@ -997,7 +997,10 @@ impl Duel {
     pub(crate) fn receive_choice(&mut self, pending: Pending) {
         self.target_page = 0;
         let seat = self.seat().unwrap_or(PlayerId::new(0));
-        if !matches!(pending, Pending::ChooseSubtype { .. }) {
+        if !matches!(
+            pending,
+            Pending::ChooseSubtype { .. } | Pending::ChooseCardName { .. }
+        ) {
             self.subtype_filter.clear();
         }
         self.interaction = Some(Interaction::new_keeping(

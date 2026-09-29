@@ -1,4 +1,5 @@
-//! Persistent labels for the creature type a permanent named on entering.
+//! Persistent labels for what a permanent named on entering: a creature type
+//! (Cavern of Souls), or a card name (Pithing Needle).
 use super::{UiFonts, palette, tf};
 use crate::{Duel, settings::ClientSettings, table};
 use baylee_client_core::{Lang, i18n::Phrase, type_names};
@@ -9,6 +10,14 @@ use bevy::prelude::*;
 pub(crate) struct ChosenTypeLabel(ObjectId);
 
 fn words(object: &baylee_view::PublicObject, lang: Lang) -> Option<String> {
+    if let Some(named) = object.chosen_name {
+        // The pool's English: the name is the rules identity, and the card
+        // it names may be one this seat has never been shown a printing of.
+        let face = baylee_cards::by_index(named.card)?
+            .faces
+            .get(usize::from(named.face))?;
+        return Some(Phrase::ChosenName.fill(lang, &[face.name]));
+    }
     let subtype = object.chosen_subtype?;
     let english = subtypes::name(subtype)?;
     let name = type_names::name(english, lang);
@@ -132,6 +141,29 @@ mod tests {
             Some("Gewählt: Verbündeter")
         );
         assert_eq!(words(&object, Lang::En).as_deref(), Some("Chosen: Ally"));
+    }
+
+    #[test]
+    fn a_needle_s_label_names_the_card_it_was_given() {
+        let mut object = crate::registry_printed(1, 0, "Pithing Needle");
+        assert_eq!(
+            words(&object, Lang::En),
+            None,
+            "no name before one is chosen"
+        );
+        object.chosen_name = Some(baylee_view::NamedFace {
+            card: baylee_cards::decks::by_name("Malakir Rebirth").expect("in the pool"),
+            face: 1,
+        });
+        assert_eq!(
+            words(&object, Lang::En).as_deref(),
+            Some("Named: Malakir Mire"),
+            "the face that was named, the back one here"
+        );
+        assert_eq!(
+            words(&object, Lang::De).as_deref(),
+            Some("Genannt: Malakir Mire")
+        );
     }
     #[test]
     fn persistent_label_updates_its_language_and_leaves_with_its_permanent() {

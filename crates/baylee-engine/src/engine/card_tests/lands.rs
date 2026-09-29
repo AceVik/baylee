@@ -45424,10 +45424,6 @@ fn desert_of_the_glorified_enters_tapped_taps_for_black_and_cycles_out_of_hand()
     );
 }
 
-fn desert_of_the_indomitable() -> CardIndex {
-    card_index("852d4dc3-404d-4565-99e9-1eac8f6eca5e")
-}
-
 /// Desert of the Indomitable prints three lines — it enters tapped, it taps
 /// for {G}, and it cycles for {1}{G} out of the hand — and no single copy can
 /// show both of the last two, so the scenario runs two.

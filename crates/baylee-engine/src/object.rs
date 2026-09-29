@@ -857,6 +857,11 @@ pub struct GameObject {
     /// differs: two Thriving Moors on one battlefield are two colours, and
     /// the card they share can say neither.
     pub chosen_color: Option<baylee_core::mana::ManaColor>,
+    /// The card name chosen as this entered (Pithing Needle, CR 201.4): the
+    /// card and face it is the name of, packed as a [`PrintedFace`] so the
+    /// `Option` is four bytes. What `Modifier::ChosenNameCantActivate`
+    /// reads, and what a client shows beside the permanent.
+    pub chosen_name: Option<PrintedFace>,
     /// Which face of the card is active (MDFC/split; 0 = front).
     pub face_index: u8,
     /// Abilities this object carries itself, instead of reading them off a
@@ -991,6 +996,7 @@ impl GameObject {
             mode_index: None,
             chosen_subtype: None,
             chosen_color: None,
+            chosen_name: None,
             face_index: 0,
             own_abilities: None,
             own_abilities_until_eot: false,

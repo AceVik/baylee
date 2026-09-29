@@ -729,6 +729,20 @@ Vantress Visions is an instant on the back of an enchantment; read with the
 front's timing it could only be cast on an empty stack, which for a spell
 that targets an ability on the stack is never.
 
+**A lock by name is a narrowing of the offer** (Pithing Needle, CR 602.5).
+`Engine::compute_legal` builds `LegalActions` from every door an activation
+comes through, printed, loyalty, granted and a card's in hand, and `apply`
+refuses an activation the offer does not hold; so the lock is one pass over
+the finished `legal.abilities` (`narrow_under_chosen_names`), beside split
+second's, and not a guard in each door. The names are read from the
+`Modifier::ChosenNameCantActivate` effects in force, each through its
+source's `chosen_name`, and compared as interned names (`Names::find`): a
+name no object of the game has carried was never interned and locks nothing,
+and a source's projected name is what is compared, so a copy answers to the
+name it copies. A mana ability, `TURN_FACE_UP` and `PREPARED_CAST` stay.
+Nothing projected reads the name, so choosing one invalidates no projection;
+the name is cleared as its permanent leaves the battlefield (CR 400.7).
+
 **A copy of an ability is a clone of it** (CR 707.10,
 `resolve::copy_target_ability`). Every decision made for the original rides
 on its object, so the copy is that object cloned under a new id, newly

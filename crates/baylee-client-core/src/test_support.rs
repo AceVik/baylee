@@ -29,6 +29,7 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         supertypes: SupertypeSet::EMPTY,
         subtypes: SubtypeSet::EMPTY,
         chosen_subtype: None,
+        chosen_name: None,
         suspended: false,
         token: None,
         colors: ColorSet::default(),

@@ -117,7 +117,9 @@ use serde::{Deserialize, Serialize};
 /// 38 adds the public creature type named for a permanent.
 /// 39 adds the public suspend state of exiled cards.
 /// 40 adds explicitly revealed library tops, never library contents.
-pub const VIEW_VERSION: u32 = 40;
+/// 41 adds [`PublicObject::chosen_name`], the card name chosen for a
+/// permanent as it entered (Pithing Needle), as the card and face it names.
+pub const VIEW_VERSION: u32 = 41;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -547,6 +549,18 @@ pub struct RulesFace {
     pub face: u8,
 }
 
+/// A card name chosen for a permanent (CR 201.4): the card and the face whose
+/// name it is. A card name, not a card: a client draws the name, and a copy
+/// of the named card anywhere at the table answers to it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct NamedFace {
+    /// The card the name is printed on.
+    pub card: CardIndex,
+    /// Which of its faces, since a back face's name may be chosen too
+    /// (CR 201.4d).
+    pub face: u8,
+}
+
 impl From<CardIdentity> for RulesFace {
     /// The card itself and the face it shows — which is what a card that is
     /// not a copy has its abilities printed on.
@@ -702,6 +716,10 @@ pub struct PublicObject {
     /// Creature type named for this permanent (Reflections of Littjara, Cavern of Souls).
     #[serde(default)]
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    /// Card name chosen for this permanent as it entered (Pithing Needle).
+    /// Public: the choice is announced as it is made.
+    #[serde(default)]
+    pub chosen_name: Option<NamedFace>,
     /// Whether this face-up exiled card is suspended. Its time counters are public.
     #[serde(default)]
     pub suspended: bool,
@@ -969,6 +987,7 @@ impl PublicObject {
             supertypes: self.supertypes,
             subtypes: self.subtypes,
             chosen_subtype: self.chosen_subtype,
+            chosen_name: self.chosen_name,
             suspended: self.suspended,
             colors: self.colors,
             keywords: self.keywords,
@@ -1013,6 +1032,9 @@ pub struct ObjectSummaryKey {
     supertypes: SupertypeSet,
     subtypes: SubtypeSet,
     chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    /// Two Needles naming different cards are two different cards to look
+    /// at, and a pile shows one label.
+    chosen_name: Option<NamedFace>,
     suspended: bool,
     colors: ColorSet,
     keywords: u128,
@@ -1045,6 +1067,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.status.hash(state);
         self.types.hash(state);
         self.chosen_subtype.hash(state);
+        self.chosen_name.hash(state);
         self.suspended.hash(state);
         self.power.hash(state);
         self.toughness.hash(state);
@@ -2323,6 +2346,7 @@ mod tests {
             supertypes: SupertypeSet::default(),
             subtypes: SubtypeSet::EMPTY,
             chosen_subtype: None,
+            chosen_name: None,
             suspended: false,
             token: None,
             colors: ColorSet::default(),
@@ -2498,6 +2522,37 @@ mod tests {
     }
 
     #[test]
+    fn different_chosen_names_never_share_a_board_pile() {
+        let named = |card: u32, face: u8| {
+            Some(NamedFace {
+                card: CardIndex::new(card),
+                face,
+            })
+        };
+        let mut a = obj(1, 0);
+        let mut b = obj(2, 0);
+        a.chosen_name = named(7, 0);
+        assert_ne!(a.summary_key(), b.summary_key());
+        b.chosen_name = a.chosen_name;
+        assert_eq!(a.summary_key(), b.summary_key());
+        b.chosen_name = named(7, 1);
+        assert_ne!(
+            a.summary_key(),
+            b.summary_key(),
+            "the back face's name is another name"
+        );
+    }
+
+    #[test]
+    fn an_older_public_object_without_a_chosen_name_still_decodes() {
+        let object = obj(1, 0);
+        let mut json = serde_json::to_value(&object).unwrap();
+        json.as_object_mut().unwrap().remove("chosen_name");
+        let decoded: PublicObject = serde_json::from_value(json).unwrap();
+        assert_eq!(decoded, object);
+    }
+
+    #[test]
     fn an_older_public_object_without_a_chosen_type_still_decodes() {
         let object = obj(1, 0);
         let mut json = serde_json::to_value(&object).unwrap();
@@ -2640,6 +2695,7 @@ mod tests {
     /// `Debug` names its fields, so a field added to it without a mutation
     /// here fails rather than passing quietly.
     #[test]
+    #[allow(clippy::too_many_lines)] // one row per field of the key, and the key grows
     fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
         type Change = (&'static str, fn(&mut PublicObject));
         const CHANGES: &[Change] = &[
@@ -2685,6 +2741,12 @@ mod tests {
             ("suspended", |o| o.suspended = true),
             ("chosen_subtype", |o| {
                 o.chosen_subtype = Some(baylee_core::generated::subtypes::creature::ALLY);
+            }),
+            ("chosen_name", |o| {
+                o.chosen_name = Some(NamedFace {
+                    card: CardIndex::new(7),
+                    face: 0,
+                });
             }),
             ("colors", |o| o.colors = ColorSet::ALL),
             ("keywords", |o| o.keywords = 1),
@@ -3083,7 +3145,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (40, 0x3178_cd1b_09a6_6612);
+        const RECORDED: (u32, u64) = (41, 0x1578_7cb1_e201_5ec3);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

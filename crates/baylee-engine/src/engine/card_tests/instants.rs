@@ -10153,10 +10153,6 @@ fn aura_blast_destroys_an_enchantment_across_the_table_and_draws_a_card() {
     );
 }
 
-fn boomerang() -> CardIndex {
-    card_index("dc4a4996-108a-4aac-850f-2d9f76403446")
-}
-
 /// Boomerang — {U}{U} instant: "Return target permanent to its owner's hand."
 ///
 /// The two words that carry the card are "permanent" and "owner's", so both

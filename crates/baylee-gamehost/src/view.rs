@@ -205,6 +205,10 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         supertypes: chars.supertypes,
         subtypes: chars.subtypes,
         chosen_subtype: obj.chosen_subtype,
+        chosen_name: obj.chosen_name.map(|named| baylee_view::NamedFace {
+            card: named.card(),
+            face: named.face(),
+        }),
         suspended: known
             && obj.zone == Zone::Exile
             && obj.riders.contains(&baylee_engine::object::Rider::Suspend)
@@ -1400,6 +1404,75 @@ mod tests {
                     .iter()
                     .filter(|o| o.id != card)
                     .all(|o| o.chosen_subtype.is_none())
+            );
+        }
+    }
+
+    /// The card name chosen for a Pithing Needle is announced as it is chosen
+    /// (CR 201.4), so every seat is told it, on that permanent and no other.
+    #[test]
+    fn a_needle_s_chosen_name_reaches_every_seat() {
+        let needle = baylee_cards::decks::by_name("Pithing Needle").unwrap();
+        let named = baylee_cards::decks::by_name("Karn, the Great Creator").unwrap();
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_hand = Some(vec![DeckEntry {
+            card: needle,
+            print: PrintRef::new(0),
+        }]);
+        preset.seats[0].starting_battlefield = vec![DeckEntry {
+            card: island(),
+            print: PrintRef::new(0),
+        }];
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        let view = settle(&mut engine, None);
+        let me = PlayerId::new(0);
+        engine
+            .apply(
+                me,
+                PlayerAction::ActivateManaAbility {
+                    source: view.battlefield[0].id,
+                },
+            )
+            .unwrap();
+        let card = view
+            .hand
+            .iter()
+            .find(|o| o.card.index == needle)
+            .unwrap()
+            .id;
+        engine.apply(me, PlayerAction::CastSpell { card }).unwrap();
+        for _ in 0..5 {
+            if let Pending::Priority { player, .. } = engine.pending() {
+                engine.apply(*player, PlayerAction::PassPriority).unwrap();
+            } else {
+                break;
+            }
+        }
+        assert!(matches!(engine.pending(), Pending::ChooseCardName { .. }));
+        engine
+            .apply(
+                me,
+                PlayerAction::ChooseCardName {
+                    card: named,
+                    face: 0,
+                },
+            )
+            .unwrap();
+        for seat in [me, PlayerId::new(1)] {
+            let view = seen_by(&engine, seat);
+            assert_eq!(
+                view.object(card).unwrap().chosen_name,
+                Some(baylee_view::NamedFace {
+                    card: named,
+                    face: 0
+                }),
+                "seat {seat:?} is told the name"
+            );
+            assert!(
+                view.battlefield
+                    .iter()
+                    .filter(|o| o.id != card)
+                    .all(|o| o.chosen_name.is_none())
             );
         }
     }

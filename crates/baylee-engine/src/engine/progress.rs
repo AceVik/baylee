@@ -990,6 +990,7 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                     EnterModifier::ChooseSubtype
+                    | EnterModifier::ChooseCardName
                     | EnterModifier::ChooseColor
                     | EnterModifier::ChooseColorExcept(_)
                     | EnterModifier::TappedOrPayLife(_)
@@ -1006,6 +1007,12 @@ impl<L: CardLookup> Engine<L> {
                         player: controller,
                         options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
                     };
+                    self.awaiting_answer = true;
+                    return true; // one choice at a time
+                }
+                Some(EnterModifier::ChooseCardName) => {
+                    self.pending_plan = Some(PlanKind::ChooseCardName { object: id });
+                    self.pending = Pending::ChooseCardName { player: controller };
                     self.awaiting_answer = true;
                     return true; // one choice at a time
                 }

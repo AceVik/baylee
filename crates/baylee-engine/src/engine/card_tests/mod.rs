@@ -412,6 +412,14 @@ fn pinnacle_monk() -> CardIndex {
     card_index("f3d48efa-910a-4872-a5b1-a353c5dbce99")
 }
 
+fn desert_of_the_indomitable() -> CardIndex {
+    card_index("852d4dc3-404d-4565-99e9-1eac8f6eca5e")
+}
+
+fn boomerang() -> CardIndex {
+    card_index("dc4a4996-108a-4aac-850f-2d9f76403446")
+}
+
 fn erode() -> CardIndex {
     card_index("2e467fab-e808-44d3-99bf-e3621baeb7cb")
 }

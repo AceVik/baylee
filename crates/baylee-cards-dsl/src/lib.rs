@@ -451,6 +451,14 @@ pub enum EnterModifier {
     /// "As this enters, choose a creature type" (Roaming Throne,
     /// Reflections of Littjara, Cavern of Souls).
     ChooseSubtype,
+    /// "As this enters, choose a card name" (Pithing Needle).
+    ///
+    /// Any card's name, and of any of its faces (CR 201.4, 201.4b–f); the
+    /// name of a token only when a card has it too, so the pool's cards are
+    /// the whole list a game can mean. The answer is kept on the permanent
+    /// as the card and face it was read off, and
+    /// [`crate::Modifier::ChosenNameCantActivate`] reads it back.
+    ChooseCardName,
     /// "As this enters, choose a color" (Uncharted Haven, Shimmerdrift Vale,
     /// the Gates).
     ///

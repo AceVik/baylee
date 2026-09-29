@@ -148,6 +148,13 @@ impl Names {
         &self.list[id.get() as usize]
     }
 
+    /// The interned `name`, without interning it: `None` when no object of
+    /// this game has ever carried it, and so none carries it now.
+    #[must_use]
+    pub fn find(&self, name: &str) -> Option<NameRef> {
+        self.map.get(name).copied()
+    }
+
     /// Number of interned names.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -2001,6 +2008,10 @@ impl GameState {
                 obj.deathtouched = false;
                 obj.regeneration_shields = 0;
                 obj.attached_to = None;
+                // A name chosen as it entered belongs to that permanent
+                // (CR 400.7): a Pithing Needle bounced and cast again names
+                // again, and nothing in between names anything.
+                obj.chosen_name = None;
             }
             if matches!(from_zone, Zone::Battlefield | Zone::Exile) {
                 obj.counters = crate::object::Counters::default();
@@ -3082,6 +3093,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         mode_index,
         chosen_subtype,
         chosen_color,
+        chosen_name,
         face_index,
         own_abilities,
         own_abilities_until_eot,
@@ -3160,6 +3172,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     mode_index.hash(h);
     chosen_subtype.hash(h);
     chosen_color.hash(h);
+    chosen_name.hash(h);
     face_index.hash(h);
     pending_face_change.hash(h);
     event_object.hash(h);
@@ -4190,6 +4203,10 @@ mod tests {
             }),
             ("chosen_color", |s, id| {
                 fixture_object(s, id).chosen_color = Some(ManaColor::Blue);
+            }),
+            ("chosen_name", |s, id| {
+                fixture_object(s, id).chosen_name =
+                    crate::object::PrintedFace::new(CardIndex::new(7), 0);
             }),
             ("face_index", |s, id| fixture_object(s, id).face_index = 1),
             ("own_abilities", |s, id| {

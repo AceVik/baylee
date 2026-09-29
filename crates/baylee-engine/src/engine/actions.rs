@@ -688,6 +688,9 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::ChooseSubtype { .. } => {
                         unreachable!("subtype plans are answered via ChooseSubtype")
                     }
+                    PlanKind::ChooseCardName { .. } => {
+                        unreachable!("card-name plans are answered via ChooseCardName")
+                    }
                     PlanKind::ChooseColor { .. } | PlanKind::IntrinsicMana { .. } => {
                         unreachable!("color plans are answered via ChooseColor")
                     }
@@ -737,6 +740,27 @@ impl<L: CardLookup> Engine<L> {
                 // creature on the board keeps the projection it had before
                 // anybody chose, and the card does nothing at all.
                 self.state.invalidate_projections();
+                Ok(())
+            }
+            (
+                Pending::ChooseCardName { player: p },
+                PlayerAction::ChooseCardName { card, face },
+            ) if *p == player => {
+                // Any face of any card the pool has (CR 201.4, 201.4b–f).
+                let printed = self
+                    .lookup
+                    .card(card)
+                    .is_some_and(|def| usize::from(face) < def.faces.len());
+                let Some(named) = crate::object::PrintedFace::new(card, face).filter(|_| printed)
+                else {
+                    return Err(EngineError::IllegalAction("not a card name"));
+                };
+                let Some(PlanKind::ChooseCardName { object }) = self.pending_plan.take() else {
+                    return Err(EngineError::IllegalAction("no card-name choice pending"));
+                };
+                if let Some(obj) = self.state.object_mut(object) {
+                    obj.chosen_name = Some(named);
+                }
                 Ok(())
             }
             // Two questions wear one `Pending`. This arm is the entering

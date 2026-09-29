@@ -252,6 +252,17 @@ mana); the budget was raised to 296 deliberately.
 `state/clone` was not re-benched, on the argument the two entries above make
 for the same eight bytes.
 
+## A chosen card name (29.09.2026)
+
+`GameObject` **296 → 304 B**. "As this artifact enters, choose a card name"
+(Pithing Needle) is kept on the permanent as the card and face it names
+(`GameObject::chosen_name`), beside the chosen subtype and colour, because the
+lock reads it on every offer and the view shows it. It is a `PrintedFace`, so
+the `Option` is four bytes; the object had no four-byte hole left and grows by
+the eight its alignment rounds them to. The budget was raised to 304
+deliberately, and `state/clone` was not re-benched, on the argument the
+entries above make for the same eight bytes.
+
 ## The snapshot hash names every field (24.09.2026, #122)
 
 `GameState::snapshot_hash` now takes every struct it walks apart by name, so

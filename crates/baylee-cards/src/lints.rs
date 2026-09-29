@@ -2760,6 +2760,7 @@ mod tests {
         // entered the pool carrying a question this sweep could not see.
         let asks = |m: &EnterModifier| match m {
             EnterModifier::ChooseSubtype
+            | EnterModifier::ChooseCardName
             | EnterModifier::ChooseColor
             | EnterModifier::ChooseColorExcept(_)
             | EnterModifier::TappedOrPayLife(_)

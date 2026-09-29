@@ -2296,7 +2296,8 @@ fn check_player_targets_match_the_printing(
 ///   `AlternativeCost`; a kicker is an additional cost.
 /// - "you may have this enter as a copy" — `CopyOnEnter`.
 /// - "you may choose new targets for the copy" — the copy effects, which ask
-///   on their own (`AwaitingOp::CopyNewTargets`).
+///   on their own (`AwaitingOp::CopyNewTargets`; a copied ability through
+///   `retarget::start_copy`, Vantress Visions).
 /// - "you may choose a nonland card from it" — `BottomCardFromHand`, which
 ///   offers a choice of none (Vendilion Clique).
 /// - "you may search your library" — an optional search.
@@ -2341,6 +2342,7 @@ fn check_optional_clauses_are_offered(
         "PlayerMayPayOr",
         "CopyOnEnter",
         "CopyTargetSpell",
+        "CopyTargetAbility",
         "CopySpell",
         "BottomCardFromHand",
         "OptionalBasicLandSearchFor",
