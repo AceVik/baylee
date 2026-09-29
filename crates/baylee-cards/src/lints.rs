@@ -3615,4 +3615,76 @@ mod tests {
              reader is not reading the pool's cards"
         );
     }
+
+    /// Where `Effect::ExileSelfReturnAsFace` puts the card back is its
+    /// printed sentence's answer: `owner_control` exactly where the sentence
+    /// says "under its owner's control" (Sheoldred's `{4}{B}`, the Ojers'
+    /// dies triggers). "…under your control" says the other thing; a
+    /// sentence that names nobody (The True Scriptures III) puts the card
+    /// under the player the effect instructs (CR 110.2a); a "transform this"
+    /// stand-in (#206) keeps its controller (CR 712.18). The effect returned
+    /// every card under its owner's control until observed fault 62, and no
+    /// card said which it meant.
+    ///
+    /// A printed ability with no known sentence is a finding, not a skip,
+    /// and the count has a floor and a ceiling: fifteen, over thirteen
+    /// cards, counted 2026-09-29.
+    #[test]
+    fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
+        let mut wrong = Vec::new();
+        let mut checked = 0_usize;
+        for def in crate::all() {
+            for face in 0..def.faces.len() {
+                for (index, ability) in def.abilities_for_face(face).iter().enumerate() {
+                    for (effects, _, door) in resolving_lists(ability) {
+                        let mut seen = 0_usize;
+                        Effect::walk(effects, &mut seen, &mut |effect| {
+                            let Effect::ExileSelfReturnAsFace { owner_control, .. } = effect else {
+                                return;
+                            };
+                            checked += 1;
+                            let who = format!("{} face {face} ability {index}", def.name());
+                            let sentence = u32::try_from(index)
+                                .ok()
+                                .filter(|_| matches!(door, Door::Printed))
+                                .and_then(|index| {
+                                    crate::lines::ability_line(def.index, face, index)
+                                })
+                                .and_then(|at| crate::oracle::sentence(def.index, face, at.line));
+                            match sentence {
+                                None => {
+                                    wrong.push(format!("{who}: no printed sentence ({door:?})"));
+                                }
+                                Some(text) => {
+                                    let printed = text.contains("under its owner's control");
+                                    if printed != *owner_control {
+                                        wrong.push(format!(
+                                            "{who}: owner_control {owner_control}, prints {text:?}"
+                                        ));
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        }
+        for token in crate::tokens::ALL {
+            for ability in token.abilities {
+                for (effects, ..) in resolving_lists(ability) {
+                    let mut seen = 0_usize;
+                    Effect::walk(effects, &mut seen, &mut |effect| {
+                        if matches!(effect, Effect::ExileSelfReturnAsFace { .. }) {
+                            wrong.push(format!("token {}: has no face to return as", token.name));
+                        }
+                    });
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{wrong:#?}");
+        assert!(
+            (15..=22).contains(&checked),
+            "read {checked} self-returns out of the pool, and fifteen were written"
+        );
+    }
 }

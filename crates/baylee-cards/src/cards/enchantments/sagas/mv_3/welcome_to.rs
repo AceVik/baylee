@@ -85,7 +85,11 @@ card!(
             3,
             &[
                 Effect::destroy_all(&Filter::HasSubtype(creature::WALL)),
-                Effect::ExileSelfReturnAsFace { face: 1 },
+                // "…transformed under your control."
+                Effect::ExileSelfReturnAsFace {
+                    face: 1,
+                    owner_control: false,
+                },
             ]
         ),
     ],

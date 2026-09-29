@@ -55,7 +55,12 @@ card!(
         triggered!(
             Trigger::DealsCombatDamageToPlayer(&Filter::AttachedToBySource),
             &[Effect::MayDo {
-                effects: &[Effect::ExileSelfReturnAsFace { face: 1 }],
+                // Under the trigger's controller, the Equipment's (CR
+                // 603.3a): a transform keeps its controller (CR 712.18).
+                effects: &[Effect::ExileSelfReturnAsFace {
+                    face: 1,
+                    owner_control: false,
+                }],
             }]
         ),
         equip!("{2}"),

@@ -513,22 +513,24 @@ fn float(engine: &mut Engine<RegistryLookup>, sources: &[ObjectId]) {
 /// used. The view names the copied card in `rules` since `VIEW_VERSION` 28,
 /// and this board is the one `combo_tests/printed_faces.rs` plays.
 ///
-/// Two things are arranged by hand so the question is the only one on the
-/// table. The original Fox is sacrificed first, because `activate::useful`
-/// takes the first offer it recognises and the original, recognised either
-/// way, comes first. And the `{1}{W}` is floated before the agent is asked,
-/// because the engine offers an activation only against mana already in the
-/// pool — without it the Mimic's ability is not on offer at all, and a pass
-/// would say nothing about the agent.
+/// Three things are arranged by hand so the question is the only one on the
+/// table. The original Fox is sacrificed first, so that the copy's is the
+/// one offer. The `{1}{W}` is floated before the agent is asked, because the
+/// engine offers an activation only against mana already in the pool —
+/// without it the Mimic's ability is not on offer at all, and a pass would
+/// say nothing about the agent. And the sacrifice is made worth making: at
+/// five life, with the opponent's Path to Exile aimed at the copy, the copy
+/// is gone anyway, so two life for `{1}{W}` is a gain `worth` takes. On an
+/// empty stack it is not, a 2/2 being worth more than two life, which is
+/// what the whitelist this test was written against used to get wrong.
 ///
-/// Sacrificing a 2/2 for 2 life is the whitelist's answer, not a judgement
-/// this test defends. If `activate::useful` stops taking it, this goes red
-/// for a reason that is not #214; the two `a_copy_*` tests in `baylee-ai`
-/// are the ones that carry the lookup.
+/// If `worth` stops taking the sacrifice here, this goes red for a reason
+/// that is not #214; the two `a_copy_*` tests in `baylee-ai` are the ones
+/// that carry the lookup.
 #[test]
 fn a_copy_uses_the_ability_of_the_card_it_copied() {
-    let me = PlayerId::new(0);
-    let preset = position(
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let mut preset = position(
         &["Glasspool Mimic"],
         &[
             "Werefox Bodyguard",
@@ -541,6 +543,9 @@ fn a_copy_uses_the_ability_of_the_card_it_copied() {
             "Plains",
         ],
     );
+    preset.seats[0].starting_life = Some(5);
+    preset.seats[1].starting_hand = Some(vec![entry("Path to Exile")]);
+    preset.seats[1].starting_battlefield = vec![entry("Plains")];
     let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
 
     settle(&mut engine, &[]);
@@ -580,9 +585,35 @@ fn a_copy_uses_the_ability_of_the_card_it_copied() {
         .expect("the original Fox sacrifices itself");
     settle(&mut engine, &[]);
 
-    let view = asked_view(engine.state(), me, 3, engine.pending());
-    float(&mut engine, &untapped(&view, "Plains")[..2]);
+    // The opponent's Path to Exile, aimed at the copy, and back to this seat.
+    engine.apply(me, PlayerAction::PassPriority).unwrap();
+    let view = asked_view(engine.state(), them, 3, engine.pending());
+    let plains = view
+        .battlefield_of(them)
+        .find(|o| o.name == "Plains")
+        .expect("their Plains")
+        .id;
+    let path = view.hand[0].id;
+    engine
+        .apply(them, PlayerAction::ActivateManaAbility { source: plains })
+        .unwrap();
+    engine
+        .apply(them, PlayerAction::CastSpell { card: path })
+        .expect("their Plains pays for Path to Exile");
+    engine
+        .apply(
+            them,
+            PlayerAction::ChooseObjects {
+                objects: vec![copy],
+            },
+        )
+        .expect("pointed at the copy");
+    engine.apply(them, PlayerAction::PassPriority).unwrap();
+
     let view = asked_view(engine.state(), me, 4, engine.pending());
+    assert_eq!(view.stack.len(), 1, "the Path is on the stack");
+    float(&mut engine, &untapped(&view, "Plains")[..2]);
+    let view = asked_view(engine.state(), me, 5, engine.pending());
     let Pending::Priority { legal, .. } = engine.pending() else {
         panic!("expected priority, got {:?}", engine.pending());
     };
@@ -687,6 +718,80 @@ fn an_x_draw_spell_pays_for_x_and_draws_for_its_caster() {
             .expect("X mana and target are legal");
     }
     panic!("the two-card draw must resolve");
+}
+
+/// The fuzzer's panic (2026-09-29): a house seat with twenty mana, Lose
+/// Focus in hand and a hostile spell on the stack.
+///
+/// Lose Focus is `{1}{U}` with replicate `{U}`, payable "any number of
+/// times" (CR 702.56a). The agent priced its replicate payments from the
+/// most its budget allows down, building each price before asking whether
+/// it fit, and a cost held sixteen symbols: at a budget of fifteen or more
+/// the first price, `{1}{U}` and fifteen `{U}`, asserted inside
+/// `HeuristicAgent::act`, and the hosted game went down with it. Priced as
+/// one counted cost, twenty mana is eighteen payments: the agent floats all
+/// twenty, casts, and takes every payment the engine offers.
+///
+/// Seat 1 casts a Dark Ritual in seat 0's upkeep, and seat 0 passes by hand
+/// until then, so the agent is first asked with the Ritual on the stack, as
+/// the fuzzer's house was.
+#[test]
+fn a_house_seat_with_twenty_mana_replicates_lose_focus_eighteen_times() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let mut preset = position(&["Lose Focus"], &["Island"; 20]);
+    preset.seats[1].starting_hand = Some(vec![entry("Dark Ritual")]);
+    preset.seats[1].starting_battlefield = vec![entry("Swamp")];
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    let mut replicated = None;
+    for seq in 0..200 {
+        let pending = engine.pending().clone();
+        let seat = pending_player(&pending).expect("nobody has lost");
+        if replicated.is_some() && matches!(pending, Pending::Priority { .. }) {
+            break;
+        }
+        let view = asked_view(engine.state(), seat, seq, &pending);
+        let action = match &pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { legal, .. } if seat == them => {
+                let ritual = entry("Dark Ritual").card;
+                if let Some(&card) = legal.castable.first() {
+                    PlayerAction::CastSpell { card }
+                } else if view.hand.iter().any(|c| c.card.index == ritual)
+                    && let Some(&source) = legal.mana_abilities.first()
+                {
+                    PlayerAction::ActivateManaAbility { source }
+                } else {
+                    PlayerAction::PassPriority
+                }
+            }
+            _ if seat == them => panic!("unexpected opposing question: {pending:?}"),
+            Pending::Priority { .. } if view.stack.is_empty() => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, &pending, &engine.decision_context()),
+        };
+        if let Pending::ChooseNumber {
+            max,
+            reason: baylee_engine::choice::NumberPrompt::Replicate { .. },
+            ..
+        } = &pending
+        {
+            assert_eq!(*max, 18, "twenty mana pays {{1}}{{U}} and eighteen {{U}}");
+            replicated = Some(action.clone());
+        }
+        engine.apply(seat, action).expect("a legal answer");
+    }
+    assert_eq!(
+        replicated,
+        Some(PlayerAction::ChooseNumber(18)),
+        "the house takes every payment the engine offers"
+    );
+    assert_eq!(
+        engine.state().players[usize::from(me.get())]
+            .mana_pool
+            .total(),
+        0,
+        "and pays all twenty"
+    );
 }
 
 /// Plays seat 0's first main phase out with the agent, the other seat
@@ -943,8 +1048,10 @@ fn board_after_turn_one(board: &[&str]) -> Vec<String> {
 /// changes the board. Measured through the engine before the fix, with
 /// nothing to cast on turn 1: Zuran Orb was fed all four Forests for 8 life,
 /// and Viscera Seer sacrificed itself to scry 1. Every gain the whitelist
-/// knows — a card, a scry, a few life, a counter, a token — is worth no more
-/// than the permanent or the card it would cost.
+/// knew — a card, a scry, a few life, a counter, a token — was worth no more
+/// than the permanent or the card it would cost. Since `worth` the refusal
+/// is a price rather than a list: a land on turn 1 and a creature are each
+/// worth more than what they buy here.
 #[test]
 fn a_card_is_not_given_up_for_a_small_gain() {
     let forests = ["Zuran Orb", "Forest", "Forest", "Forest", "Forest"];

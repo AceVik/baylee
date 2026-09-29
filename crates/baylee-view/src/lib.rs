@@ -121,7 +121,10 @@ use serde::{Deserialize, Serialize};
 /// permanent as it entered (Pithing Needle), as the card and face it names.
 /// 42 adds [`PublicObject::unlocked_doors`], which halves of a Room are
 /// unlocked (CR 709.5c).
-pub const VIEW_VERSION: u32 = 42;
+/// 43 writes every mana cost in a view ([`PublicObject::flashback`],
+/// [`PlayerView::owed`]) as its notation, `"{2}{U}{U}"`, and no longer as
+/// the sixteen-slot list a replicated cost overflowed.
+pub const VIEW_VERSION: u32 = 43;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -3185,7 +3188,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (42, 0xf052_c750_50e0_1f68);
+        const RECORDED: (u32, u64) = (43, 0xf052_c750_50e0_1f68);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

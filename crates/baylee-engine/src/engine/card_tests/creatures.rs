@@ -13416,6 +13416,109 @@ fn ojer_pakpatiq_dies_and_comes_back_as_the_land_on_its_other_face() {
     );
 }
 
+/// Temple of Cyclical Time's "{2}{U}, {T}: Transform this land" is the
+/// activator's ability (CR 602.2a), and a transform keeps its controller
+/// (CR 712.18), so the stand-in that exiles the land and returns the god
+/// (#206) returns it under the activator. Seat 1's god dies and comes back
+/// as its Temple under seat 1, its owner; seat 0 steals the Temple and turns
+/// it over. The god is seat 0's by default and still seat 1's card
+/// (CR 108.3). The stand-in returned every card under its owner's control,
+/// which gave seat 1 its god back off seat 0's activation.
+#[test]
+fn a_stolen_temple_of_cyclical_time_turns_back_into_the_god_under_the_thief() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(
+            0,
+            &[swamp(), swamp(), swamp(), island(), island(), island()],
+        )
+        .hand(0, &[heroes_downfall()])
+        .battlefield(1, &[ojer_pakpatiq_deepest_epoch()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let god = on_battlefield(&engine, p1, ojer_pakpatiq_deepest_epoch()).expect("the god is out");
+    let lands = |engine: &Engine<RegistryLookup>, card: CardIndex| -> Vec<ObjectId> {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|id| {
+                engine
+                    .state()
+                    .object(*id)
+                    .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+            })
+            .collect()
+    };
+    let swamps = lands(&engine, swamp());
+    tap_mana_where(&mut engine, p0, |id| swamps.contains(&id));
+    cast_with_floating(&mut engine, p0, heroes_downfall());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![god],
+                players: vec![],
+            },
+        )
+        .expect("a target the spell offered");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let temple =
+        on_battlefield(&engine, p1, ojer_pakpatiq_deepest_epoch()).expect("it came back at once");
+    assert_eq!(
+        engine
+            .state()
+            .object(temple)
+            .map(|o| (o.face_index, o.owner, o.controller)),
+        Some((1, p1, p1)),
+        "\"…under its owner's control\": the Temple, seat 1's"
+    );
+
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        let filter = crate::effects::EffectFilter::object(state, temple);
+        let timestamp = state.next_timestamp();
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: p0,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Control,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::GainControl,
+        });
+        state.refresh_characteristics();
+    }
+    engine.refresh_offer();
+    let islands = lands(&engine, island());
+    tap_mana_where(&mut engine, p0, |id| islands.contains(&id));
+    activate(&mut engine, p0, ojer_pakpatiq_deepest_epoch(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    let back = engine
+        .state()
+        .object(temple)
+        .expect("the same arena handle");
+    assert_eq!(
+        (back.zone, back.face_index),
+        (crate::zone::Zone::Battlefield, 0),
+        "turned over into the god"
+    );
+    assert_eq!(
+        (back.owner, back.controller, back.base_controller),
+        (p1, p0, p0),
+        "under the activator, by default, and still seat 1's card"
+    );
+}
+
 /// Fatehold Chronologist "enters prepared", and the printed reminder says
 /// what that buys: "While it's prepared, you may cast a copy of its spell."
 /// Its spell is Peer Review on the back face, so the assertion is that the

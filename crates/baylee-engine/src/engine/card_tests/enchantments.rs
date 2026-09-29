@@ -4926,6 +4926,84 @@ fn fable_transforms_and_its_reflection_copies_another_creature_until_the_end_ste
     );
 }
 
+/// "III — Exile this Saga, then return it to the battlefield transformed
+/// under your control." Seat 1 steals seat 0's Fable after chapter I, the
+/// Saga goes on under seat 1 (CR 714.3b puts lore counters on the Sagas a
+/// player controls), and chapter III is seat 1's ability. Reflection of
+/// Kiki-Jiki enters under seat 1 as its own default, with no control effect
+/// holding it (the one on the Saga named an object that is gone, CR 400.7),
+/// and it is still seat 0's card (CR 108.3). The effect used to return
+/// every card under its owner's control, which handed it back to seat 0.
+#[test]
+fn a_stolen_fable_returns_under_the_thiefs_control() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = cast_fable(&[]);
+    let saga = on_battlefield(&engine, p0, fable_of_the_mirror_breaker()).expect("the Saga");
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        // A lasting layer-2 steal, written by the harness.
+        let filter = crate::effects::EffectFilter::object(state, saga);
+        let timestamp = state.next_timestamp();
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: p1,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Control,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::GainControl,
+        });
+        state.refresh_characteristics();
+    }
+    engine.refresh_offer();
+    assert_eq!(
+        engine.state().object(saga).map(|o| (o.owner, o.controller)),
+        Some((p0, p1)),
+        "stolen"
+    );
+    for _ in 0..600 {
+        let back = engine
+            .state()
+            .object(saga)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield && o.face_index == 1);
+        if back && stack_is_empty(&engine) {
+            break;
+        }
+        if let Pending::ChooseCards {
+            player,
+            prompt: ChoicePrompt::Discard,
+            ..
+        } = engine.pending().clone()
+        {
+            assert_eq!(player, p1, "chapter II is the thief's");
+            engine
+                .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
+                .unwrap();
+            continue;
+        }
+        let (player, action) = answer_one(&engine).expect("a question to answer");
+        engine.apply(player, action).unwrap();
+    }
+    let kiki = engine
+        .state()
+        .object(saga)
+        .expect("Reflection of Kiki-Jiki");
+    assert_eq!(
+        (kiki.zone, kiki.face_index),
+        (crate::zone::Zone::Battlefield, 1),
+        "chapter III turned it over"
+    );
+    assert_eq!(
+        (kiki.owner, kiki.controller, kiki.base_controller),
+        (p0, p1, p1),
+        "under your control: the thief's, by default, and still seat 0's card"
+    );
+}
+
 /// `Welcome to . . .` // `Jurassic Park` (`Coverage::Partial`):
 /// "I — For each opponent, up to one target noncreature artifact they control becomes a 0/4
 /// Wall artifact creature with defender for as long as you control this Saga.

@@ -290,6 +290,23 @@ impl HeuristicAgent {
             ranked.truncate(usize::from(max));
             return Some(ranked);
         }
+        // A price paid with permanents is paid with the ones worth least on
+        // this board, by the measure that priced the activation
+        // (`worth::given_up`): Recurring Nightmare is taken for
+        // "my weakest creature", and a payment that sacrificed by card worth
+        // — flat for every creature once the lands are there — gave up
+        // whichever the handles put first. Ahead of the gate, as crew is:
+        // it is a price the seat already chose to pay.
+        if prompt == ChoicePrompt::CostSacrifice
+            && options
+                .iter()
+                .all(|id| view.battlefield.iter().any(|o| o.id == *id))
+        {
+            let mut ranked = options.to_vec();
+            ranked.sort_by_key(|id| (view.object(*id).map_or(0, |o| self.given_up(view, o)), *id));
+            ranked.truncate(usize::from(min.max(1).min(max)));
+            return Some(ranked);
+        }
         if self.profile.mulligan_skill < 2 {
             return None;
         }
@@ -386,7 +403,7 @@ impl HeuristicAgent {
     /// What a card is worth to this seat right now: a land by how many it
     /// already has, a spell by how far its mana value is out of reach. Zero
     /// for a card whose identity this seat cannot see.
-    fn card_value(view: &PlayerView) -> impl Fn(&ObjectId) -> i64 + '_ {
+    pub(crate) fn card_value(view: &PlayerView) -> impl Fn(&ObjectId) -> i64 + '_ {
         let lands = view
             .battlefield_of(view.seat)
             .filter(|o| o.types.contains(TypeSet::LAND))
@@ -427,6 +444,11 @@ impl HeuristicAgent {
         context: &DecisionContext<'_>,
     ) -> ManaColor {
         let only_for = crate::restricted::only_for(context.effects);
+        if only_for.is_none()
+            && let Some(color) = owed_color(view, options)
+        {
+            return color;
+        }
         let may_pay = |id: ObjectId| {
             only_for.is_none_or(|filter| self.admits(view, filter, context.source, id))
         };
@@ -472,17 +494,9 @@ impl HeuristicAgent {
         let seat = view.seat(view.seat)?;
         let mut best = None;
         for &color in options {
-            let mut pool = seat.mana_pool;
             // The prompt does not carry an amount. One unit is a conservative
             // estimate; variable or multi-mana production may do better.
-            match color {
-                ManaColor::White => pool.white += 1,
-                ManaColor::Blue => pool.blue += 1,
-                ManaColor::Black => pool.black += 1,
-                ManaColor::Red => pool.red += 1,
-                ManaColor::Green => pool.green += 1,
-                ManaColor::Colorless => pool.colorless += 1,
-            }
+            let pool = one_more(seat.mana_pool, color);
             for id in own_casts(view) {
                 if !may_pay(id) {
                     continue;
@@ -719,12 +733,19 @@ impl HeuristicAgent {
                 value -= 900;
             }
         }
+        // What a pact's price takes from the next turn: the mana it asks for,
+        // at a turn's worth of development per mana.
+        let mut owed_later = 0;
         for effect in effects.flatten() {
-            // A deferred loss is not a free counter. The current view has no
-            // future payment window to plan against; decline an obligation
-            // this stateless policy cannot discharge.
-            if matches!(effect, Effect::PayCostOrLoseLater { .. }) {
-                return -10_000;
+            // A deferred price is paid in the next upkeep, from lands that
+            // are untapped again by then, and not paying it loses the game.
+            // So it is a free spell exactly when every source this seat has
+            // makes the price, and even then it is next turn's mana spent.
+            if let Effect::PayCostOrLoseLater { cost } = effect {
+                if !pays_next_turn(view, cost) {
+                    return -10_000;
+                }
+                owed_later += i64::from(cost.cmc()) * 150;
             }
             // A spell that can't be countered is still a target (#243), and
             // a counter pointed at it resolves and counters nothing. Only a
@@ -779,6 +800,26 @@ impl HeuristicAgent {
         }
         if f.types.contains(TypeSet::ARTIFACT) {
             value += self.strategy.artifact_bonus;
+        }
+        if owed_later > 0 {
+            // Worth that turn only against something worth more than it: the
+            // best opponent's spell this could answer, as the counter's own
+            // target question weighs it.
+            let answered = view
+                .stack
+                .iter()
+                .filter(|o| {
+                    self.hostile(o.controller, view.seat)
+                        && crate::tactics::counterable(o)
+                        && !crate::tactics::only_replaces_itself(o)
+                })
+                .map(|o| crate::tactics::material(o) + self.aimed_at_this_seat(view, o))
+                .max()
+                .unwrap_or(0);
+            if answered < owed_later {
+                return -10_000;
+            }
+            value -= owed_later;
         }
         value
     }
@@ -860,6 +901,59 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
             ability_index,
         },
     })
+}
+
+/// The colour that keeps a price this seat owes payable, inside its payment
+/// window.
+///
+/// [`pay_owed`] taps toward the price, but a land that makes one of two
+/// colours asks again which, and that question used to be answered for the
+/// spells in hand. With a pact's `{3}{U}{U}` owed and a Hallowed Fountain
+/// tapped, white was named for nothing in hand, the two Islands left could
+/// no longer make both blue, the plan came back `None` and the seat passed
+/// into the loss it had agreed to pay against. Every profile answers this
+/// one: naming a colour the price cannot use is not a judgement a weaker
+/// seat is allowed to get wrong once it said yes.
+///
+/// Each option is tried in the pool; of those that still leave a plan over
+/// the untapped sources, the price's own colours come first. `None` when
+/// nothing is owed, or when the price does not care (every option keeps it
+/// reachable, as for ward's generic tax, or none does): the hand decides
+/// those as before.
+fn owed_color(view: &PlayerView, options: &[ManaColor]) -> Option<ManaColor> {
+    let owed = view.owed.filter(|_| view.awaiting == Some(view.seat))?;
+    let seat = view.seat(view.seat)?;
+    let sources = remaining_sources(view);
+    let keeps: Vec<ManaColor> = options
+        .iter()
+        .copied()
+        .filter(|&color| {
+            manaplan::plan(&owed, &one_more(seat.mana_pool, color), &sources).is_some()
+        })
+        .collect();
+    if keeps.len() == options.len() {
+        return None;
+    }
+    keeps.into_iter().max_by_key(|&color| {
+        let named = owed
+            .symbols()
+            .filter(|s| s.colors().intersects(color_set(color)))
+            .count();
+        (named, std::cmp::Reverse(color.index()))
+    })
+}
+
+/// `pool` with one more mana of `color` floating in it.
+fn one_more(mut pool: baylee_view::ManaPoolView, color: ManaColor) -> baylee_view::ManaPoolView {
+    match color {
+        ManaColor::White => pool.white += 1,
+        ManaColor::Blue => pool.blue += 1,
+        ManaColor::Black => pool.black += 1,
+        ManaColor::Red => pool.red += 1,
+        ManaColor::Green => pool.green += 1,
+        ManaColor::Colorless => pool.colorless += 1,
+    }
+    pool
 }
 
 /// Whether an ability charges anything beyond tapping the permanent.
@@ -1114,7 +1208,7 @@ fn aim(
         .and_then(|each| {
             (1..=budget.min(50))
                 .rev()
-                .map(|n| (0..n).fold(cost, |total, _| total.combine(&each)))
+                .map(|n| cost.combine_n(&each, n))
                 .find(fits)
         })
         .map_or((cost, false), |net| (net, true))
@@ -1340,15 +1434,34 @@ pub(crate) fn can_pay(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> 
 /// Only for evaluating a colour response. Actual taps always come from the
 /// engine's offer in `sources`, including its timing and conditional checks.
 fn remaining_sources(view: &PlayerView) -> Vec<Source> {
+    own_sources(view, true)
+}
+
+/// Whether this seat's mana sources, all untapped again, make `cost`: what
+/// it can pay in its next upkeep (CR 502.3), with nothing floating.
+pub(crate) fn pays_next_turn(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> bool {
+    manaplan::plan(
+        cost,
+        &baylee_view::ManaPoolView::default(),
+        &own_sources(view, false),
+    )
+    .is_some()
+}
+
+/// The seat's mana sources: those it can tap `now`, or every one it has,
+/// as they stand once its untap step has untapped them and its creatures
+/// have been under its control since the turn began.
+fn own_sources(view: &PlayerView, now: bool) -> Vec<Source> {
     let mut estimate = LegalActions::default();
     for object in view.battlefield_of(view.seat) {
-        if object.status.contains(baylee_view::ObjectStatus::TAPPED)
-            || object
-                .status
-                .contains(baylee_view::ObjectStatus::PHASED_OUT)
-            || (object.summoning_sick
-                && object.types.contains(TypeSet::CREATURE)
-                && object.keywords & KeywordSet::HASTE.bits() == 0)
+        if object
+            .status
+            .contains(baylee_view::ObjectStatus::PHASED_OUT)
+            || now
+                && (object.status.contains(baylee_view::ObjectStatus::TAPPED)
+                    || (object.summoning_sick
+                        && object.types.contains(TypeSet::CREATURE)
+                        && object.keywords & KeywordSet::HASTE.bits() == 0))
         {
             continue;
         }

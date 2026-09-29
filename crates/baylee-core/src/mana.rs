@@ -8,9 +8,6 @@ use crate::color::{Color, ColorPair, ColorSet};
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
 
-/// Maximum number of symbols in one mana cost (Progenitus has 10).
-pub const MAX_SYMBOLS: usize = 16;
-
 /// Variable mana symbols `{X}`, `{Y}`, `{Z}`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum Variable {
@@ -107,37 +104,152 @@ impl ManaSymbol {
     }
 }
 
-const fn sym_sort_key(s: ManaSymbol) -> u32 {
-    // Category order: variables/generic/silver first, then WUBRG-colored,
-    // then colorless/snow. Within a category, order by color bits then value.
-    let (cat, colors, value) = match s {
-        ManaSymbol::Variable(v) => (0u32, 0u32, v as u32),
-        ManaSymbol::Generic(n) => (1, 0, n),
-        ManaSymbol::HalfGeneric => (2, 0, 0),
-        ManaSymbol::Infinite => (2, 0, 1),
-        ManaSymbol::White => (3, Color::White.bit() as u32, 0),
-        ManaSymbol::Blue => (3, Color::Blue.bit() as u32, 0),
-        ManaSymbol::Black => (3, Color::Black.bit() as u32, 0),
-        ManaSymbol::Red => (3, Color::Red.bit() as u32, 0),
-        ManaSymbol::Green => (3, Color::Green.bit() as u32, 0),
-        ManaSymbol::Hybrid(p) => (4, p.bits() as u32, 0),
-        ManaSymbol::TwoOrColor(c) => (5, c.bit() as u32, 0),
-        ManaSymbol::Phyrexian(c) => (6, c.bit() as u32, 0),
-        ManaSymbol::HybridPhyrexian(p) => (7, p.bits() as u32, 0),
-        ManaSymbol::Snow => (8, 0, 0),
-        ManaSymbol::Colorless => (9, 0, 0),
-    };
-    (cat << 16) | (colors << 8) | if value > 255 { 255 } else { value }
+/// How many symbols a cost counts apart from generic mana: every
+/// [`ManaSymbol`] but [`ManaSymbol::Generic`], which a cost holds as one
+/// amount ([`ManaCost`]).
+const KINDS: usize = 42;
+// One bit per kind in `ManaCost::present`.
+const _: () = assert!(KINDS <= 64);
+
+/// Where each kind starts in [`KIND_SYMBOLS`], which is the canonical order a
+/// cost is written in (`docs/mana-notation.md`): the variables, then generic
+/// mana (not a kind, written at [`GENERIC_AT`]), the silver-bordered two,
+/// WUBRG, hybrid, `{2/C}`, Phyrexian, hybrid Phyrexian, snow and colourless.
+/// A colour's symbol sits at its `Color` discriminant past its start, a
+/// hybrid pair's at its place in [`PAIRS`].
+const VARIABLES: usize = 0;
+const HALF: usize = 3;
+const INFINITE: usize = 4;
+const COLORED: usize = 5;
+const HYBRID: usize = 10;
+const TWO_OR_COLOR: usize = 20;
+const PHYREXIAN: usize = 25;
+const HYBRID_PHYREXIAN: usize = 30;
+const SNOW: usize = 40;
+const COLORLESS: usize = 41;
+/// Generic mana is written after the variables and before everything else.
+const GENERIC_AT: usize = HALF;
+/// The variables' bits in [`ManaCost`]'s `present`: every kind before
+/// generic mana.
+const VARIABLE_BITS: u64 = (1 << GENERIC_AT) - 1;
+
+/// The ten hybrid pairs (CR 107.4), in the order a cost writes them: by
+/// their two colour bits, so `{W/U}` (3) comes before `{W/B}` (5).
+const PAIRS: [ColorPair; 10] = [
+    ColorPair::new(Color::White, Color::Blue),
+    ColorPair::new(Color::White, Color::Black),
+    ColorPair::new(Color::Blue, Color::Black),
+    ColorPair::new(Color::Red, Color::White),
+    ColorPair::new(Color::Blue, Color::Red),
+    ColorPair::new(Color::Black, Color::Red),
+    ColorPair::new(Color::Green, Color::White),
+    ColorPair::new(Color::Green, Color::Blue),
+    ColorPair::new(Color::Black, Color::Green),
+    ColorPair::new(Color::Red, Color::Green),
+];
+
+/// `pair`'s place in [`PAIRS`]. [`ColorPair::new`] makes every pair one of
+/// the ten, in one order, so the last place is the one left when the other
+/// nine do not match.
+const fn pair_rank(pair: ColorPair) -> usize {
+    let mut i = 0;
+    while i + 1 < PAIRS.len() {
+        if PAIRS[i].bits() == pair.bits() {
+            return i;
+        }
+        i += 1;
+    }
+    i
 }
 
-/// An immutable mana cost in canonical order.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+/// Every symbol a cost counts, at the index [`slot`] gives it.
+const KIND_SYMBOLS: [ManaSymbol; KINDS] = kind_symbols();
+
+const fn kind_symbols() -> [ManaSymbol; KINDS] {
+    let mut out = [ManaSymbol::Colorless; KINDS];
+    out[VARIABLES] = ManaSymbol::Variable(Variable::X);
+    out[VARIABLES + 1] = ManaSymbol::Variable(Variable::Y);
+    out[VARIABLES + 2] = ManaSymbol::Variable(Variable::Z);
+    out[HALF] = ManaSymbol::HalfGeneric;
+    out[INFINITE] = ManaSymbol::Infinite;
+    let mut c = 0;
+    while c < Color::ALL.len() {
+        let color = Color::ALL[c];
+        out[COLORED + color as usize] = ManaSymbol::of_color(color);
+        out[TWO_OR_COLOR + color as usize] = ManaSymbol::TwoOrColor(color);
+        out[PHYREXIAN + color as usize] = ManaSymbol::Phyrexian(color);
+        c += 1;
+    }
+    let mut p = 0;
+    while p < PAIRS.len() {
+        out[HYBRID + p] = ManaSymbol::Hybrid(PAIRS[p]);
+        out[HYBRID_PHYREXIAN + p] = ManaSymbol::HybridPhyrexian(PAIRS[p]);
+        p += 1;
+    }
+    out[SNOW] = ManaSymbol::Snow;
+    out[COLORLESS] = ManaSymbol::Colorless;
+    out
+}
+
+/// Where a cost keeps a symbol.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Slot {
+    /// Generic mana, of this amount, joins the cost's one generic amount.
+    Generic(u32),
+    /// Any other symbol is counted at this index of [`KIND_SYMBOLS`].
+    Kind(usize),
+}
+
+const fn slot(symbol: ManaSymbol) -> Slot {
+    Slot::Kind(match symbol {
+        ManaSymbol::Generic(n) => return Slot::Generic(n),
+        ManaSymbol::Variable(v) => VARIABLES + v as usize,
+        ManaSymbol::HalfGeneric => HALF,
+        ManaSymbol::Infinite => INFINITE,
+        ManaSymbol::White => COLORED + Color::White as usize,
+        ManaSymbol::Blue => COLORED + Color::Blue as usize,
+        ManaSymbol::Black => COLORED + Color::Black as usize,
+        ManaSymbol::Red => COLORED + Color::Red as usize,
+        ManaSymbol::Green => COLORED + Color::Green as usize,
+        ManaSymbol::Hybrid(p) => HYBRID + pair_rank(p),
+        ManaSymbol::TwoOrColor(c) => TWO_OR_COLOR + c as usize,
+        ManaSymbol::Phyrexian(c) => PHYREXIAN + c as usize,
+        ManaSymbol::HybridPhyrexian(p) => HYBRID_PHYREXIAN + pair_rank(p),
+        ManaSymbol::Snow => SNOW,
+        ManaSymbol::Colorless => COLORLESS,
+    })
+}
+
+/// A mana cost: the symbols it holds, written in canonical order.
+///
+/// Counted, not listed. Every symbol but generic mana has a count, and
+/// generic mana is one amount, as a printed cost writes it (`{2}`, never
+/// `{1}{1}`: numerical symbols are all generic mana, CR 107.4b). So every
+/// cost the rules can build fits, however it was built: a replicate cost
+/// paid fifty times (CR 702.56a) is fifty more `{U}` and not fifty more
+/// slots, and there is no length for cost arithmetic to run out of. A cost
+/// held sixteen symbols in a list until a house seat with fifteen mana
+/// priced Lose Focus replicated fifteen times, and the list's assert took
+/// the hosted game down.
+///
+/// A count stops at `u16::MAX`, 65 535 of one symbol, and generic mana and
+/// the mana value at `u32::MAX`. No game comes near either: the engine asks
+/// for a replicate count or an X of at most fifty, and no card prints more
+/// than a handful of one symbol.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ManaCost {
-    symbols: [Option<ManaSymbol>; MAX_SYMBOLS],
-    len: u8,
-    generic_total: u32,
+    /// How many of each symbol but generic mana, by [`slot`].
+    counts: [u16; KINDS],
+    /// Which counts are not zero, bit `k` for count `k`: what a reader
+    /// walks, so a cost of three kinds is three steps and not forty-two.
+    present: u64,
+    /// The generic mana, one symbol however many were added; `None` for a
+    /// cost that writes none, which `{0}` does.
+    generic: Option<u32>,
+    /// How many symbols the cost writes, its generic mana as one.
+    len: u32,
+    /// Mana value (CR 202.3).
     cmc: u32,
-    has_variable: bool,
 }
 
 impl Default for ManaCost {
@@ -149,11 +261,11 @@ impl Default for ManaCost {
 impl ManaCost {
     /// The empty cost (lands, tokens, suspend-only cards).
     pub const ZERO: Self = Self {
-        symbols: [None; MAX_SYMBOLS],
+        counts: [0; KINDS],
+        present: 0,
+        generic: None,
         len: 0,
-        generic_total: 0,
         cmc: 0,
-        has_variable: false,
     };
 
     /// Parses a cost literal, panicking on invalid input.
@@ -170,6 +282,9 @@ impl ManaCost {
     }
 
     /// Parses a cost literal (`"{2}{W/U}{W/P}"`, `""` for zero cost).
+    ///
+    /// Total: whatever the text, a cost or an error, never a panic, so a
+    /// runtime reader may hand it anything.
     ///
     /// # Errors
     /// A static description of the first syntax violation.
@@ -192,38 +307,55 @@ impl ManaCost {
                 Ok(s) => s,
                 Err(e) => return Err(e),
             };
-            cost.push_sorted(sym);
+            cost.add(sym, 1);
             i = j + 1;
         }
         Ok(cost)
     }
 
-    const fn push_sorted(&mut self, sym: ManaSymbol) {
-        let mut idx = self.len as usize;
-        assert!(idx < MAX_SYMBOLS, "mana cost has too many symbols");
-        let key = sym_sort_key(sym);
-        while idx > 0 {
-            let prev = self.symbols[idx - 1];
-            match prev {
-                Some(p) if sym_sort_key(p) > key => {
-                    self.symbols[idx] = prev;
-                    idx -= 1;
-                }
-                _ => break,
-            }
+    /// `n` more of `symbol`: generic mana joins the one generic amount, any
+    /// other symbol its count. Saturating at the bounds the type names, and
+    /// the length and mana value grow by what was actually added.
+    #[allow(clippy::cast_possible_truncation)] // clamped to `u16::MAX` first
+    const fn add(&mut self, symbol: ManaSymbol, n: u32) {
+        if n == 0 {
+            return;
         }
-        self.symbols[idx] = Some(sym);
-        self.len += 1;
-        self.cmc += sym.cmc_contribution();
-        self.generic_total += sym.generic_contribution();
-        if matches!(sym, ManaSymbol::Variable(_)) {
-            self.has_variable = true;
+        match slot(symbol) {
+            Slot::Generic(amount) => {
+                // A cost with no generic symbol grows one.
+                let before = if let Some(before) = self.generic {
+                    before
+                } else {
+                    self.len = self.len.saturating_add(1);
+                    0
+                };
+                let after = before.saturating_add(amount.saturating_mul(n));
+                self.generic = Some(after);
+                self.cmc = self.cmc.saturating_add(after - before);
+            }
+            Slot::Kind(k) => {
+                let before = self.counts[k] as u32;
+                let after = before.saturating_add(n);
+                let after = if after > u16::MAX as u32 {
+                    u16::MAX as u32
+                } else {
+                    after
+                };
+                self.counts[k] = after as u16;
+                self.present |= 1 << k;
+                let added = after - before;
+                self.len = self.len.saturating_add(added);
+                self.cmc = self
+                    .cmc
+                    .saturating_add(symbol.cmc_contribution().saturating_mul(added));
+            }
         }
     }
 
-    /// Number of symbols.
+    /// Number of symbols, the generic mana written as one.
     #[must_use]
-    pub const fn len(&self) -> u8 {
+    pub const fn len(&self) -> u32 {
         self.len
     }
 
@@ -231,6 +363,14 @@ impl ManaCost {
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.len == 0
+    }
+
+    /// Number of different symbols the cost holds: how many items
+    /// [`Self::runs`] yields, at most one per kind plus the generic mana.
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation)] // at most `KINDS + 1`, below 64
+    pub const fn kinds(&self) -> u8 {
+        self.present.count_ones() as u8 + self.generic.is_some() as u8
     }
 
     /// Converted/mana value (CR 202.3).
@@ -242,66 +382,86 @@ impl ManaCost {
     /// Total generic (any-mana) requirement.
     #[must_use]
     pub const fn generic_total(&self) -> u32 {
-        self.generic_total
+        match self.generic {
+            Some(n) => n,
+            None => 0,
+        }
     }
 
     /// Whether the cost contains `{X}`/`{Y}`/`{Z}`.
     #[must_use]
     pub const fn has_variable(&self) -> bool {
-        self.has_variable
+        self.present & VARIABLE_BITS != 0
     }
 
     /// All colors referenced by the cost (hybrid counts both).
     #[must_use]
     pub const fn colors(&self) -> ColorSet {
         let mut set = ColorSet::EMPTY;
-        let mut i = 0usize;
-        while i < self.len as usize {
-            if let Some(s) = self.symbols[i] {
-                set = set.union(s.colors());
-            }
-            i += 1;
+        let mut bits = self.present;
+        while bits != 0 {
+            set = set.union(KIND_SYMBOLS[bits.trailing_zeros() as usize].colors());
+            bits &= bits - 1;
         }
         set
     }
 
-    /// Iterates the symbols in canonical order.
-    pub fn symbols(&self) -> impl Iterator<Item = ManaSymbol> + '_ {
-        self.symbols
-            .iter()
-            .take(self.len as usize)
-            .filter_map(|s| *s)
+    /// Each symbol the cost holds with how many times it holds it, in
+    /// canonical order; the generic mana once, as its amount. What
+    /// [`Self::symbols`] repeats, and the cheaper walk for a reader that
+    /// counts rather than lists (a hash).
+    pub fn runs(&self) -> impl Iterator<Item = (ManaSymbol, u16)> + '_ {
+        let kinds = move |mut bits: u64| {
+            core::iter::from_fn(move || {
+                if bits == 0 {
+                    return None;
+                }
+                let k = bits.trailing_zeros() as usize;
+                bits &= bits - 1;
+                Some((KIND_SYMBOLS[k], self.counts[k]))
+            })
+        };
+        kinds(self.present & VARIABLE_BITS)
+            .chain(self.generic.map(|n| (ManaSymbol::Generic(n), 1)))
+            .chain(kinds(self.present & !VARIABLE_BITS))
     }
 
-    /// The cost with `{X}`/`{Y}`/`{Z}` replaced by `Generic(x)` (CR 601.2b).
+    /// Iterates the symbols in canonical order.
+    pub fn symbols(&self) -> impl Iterator<Item = ManaSymbol> + '_ {
+        self.runs()
+            .flat_map(|(symbol, n)| core::iter::repeat_n(symbol, usize::from(n)))
+    }
+
+    /// The cost with `{X}`/`{Y}`/`{Z}` replaced by `Generic(x)` (CR 601.2b),
+    /// each of them: `{X}{X}{B}` for 2 is `{4}{B}`.
     #[must_use]
     pub fn with_x(&self, x: u32) -> Self {
         let mut out = Self::ZERO;
-        for s in self.symbols() {
-            let s = match s {
+        for (symbol, n) in self.runs() {
+            let symbol = match symbol {
                 ManaSymbol::Variable(_) => ManaSymbol::Generic(x),
                 other => other,
             };
-            out.push_sorted(s);
+            out.add(symbol, u32::from(n));
         }
         out
     }
 
-    /// The cost with up to `n` generic mana removed (delve/convoke).
+    /// The cost with up to `n` generic mana removed (delve/convoke). A
+    /// generic part left at nothing is dropped, `{0}` included: `{0}`
+    /// reduced by nothing comes out blank.
     #[must_use]
     pub fn with_less_generic(&self, n: u32) -> Self {
         let mut out = Self::ZERO;
-        let mut remaining = n;
-        for s in self.symbols() {
-            match s {
+        for (symbol, count) in self.runs() {
+            match symbol {
                 ManaSymbol::Generic(amount) => {
-                    let cut = amount.min(remaining);
-                    remaining -= cut;
-                    if amount - cut > 0 {
-                        out.push_sorted(ManaSymbol::Generic(amount - cut));
+                    let left = amount.saturating_sub(n);
+                    if left > 0 {
+                        out.add(ManaSymbol::Generic(left), 1);
                     }
                 }
-                other => out.push_sorted(other),
+                other => out.add(other, u32::from(count)),
             }
         }
         out
@@ -343,7 +503,7 @@ impl ManaCost {
                 other => Some(other),
             };
             if let Some(s) = settled {
-                out.push_sorted(s);
+                out.add(s, 1);
             }
         }
         out
@@ -356,33 +516,28 @@ impl ManaCost {
     /// grow one rather than stay unchanged.
     #[must_use]
     pub fn with_more_generic(&self, n: u32) -> Self {
-        if n == 0 {
-            return *self;
-        }
-        let mut out = Self::ZERO;
-        let mut grown = false;
-        for s in self.symbols() {
-            match s {
-                ManaSymbol::Generic(amount) if !grown => {
-                    grown = true;
-                    out.push_sorted(ManaSymbol::Generic(amount + n));
-                }
-                other => out.push_sorted(other),
-            }
-        }
-        if !grown {
-            out.push_sorted(ManaSymbol::Generic(n));
+        let mut out = *self;
+        if n > 0 {
+            out.add(ManaSymbol::Generic(n), 1);
         }
         out
     }
 
     /// Two costs combined (additional costs like kicker stack onto the
-    /// base cost, CR 601.2f).
+    /// base cost, CR 601.2f). The generic mana of both is one symbol.
     #[must_use]
     pub fn combine(&self, other: &ManaCost) -> Self {
+        self.combine_n(other, 1)
+    }
+
+    /// The cost with `other` added `n` times: a replicate cost paid `n`
+    /// times, which CR 702.56a allows "any number of times", on top of the
+    /// rest of the total cost (CR 601.2f). Any `n` fits ([`ManaCost`]).
+    #[must_use]
+    pub fn combine_n(&self, other: &ManaCost, n: u32) -> Self {
         let mut out = *self;
-        for s in other.symbols() {
-            out.push_sorted(s);
+        for (symbol, count) in other.runs() {
+            out.add(symbol, u32::from(count).saturating_mul(n));
         }
         out
     }
@@ -410,7 +565,15 @@ const fn parse_number(bytes: &[u8], start: usize, end: usize) -> Result<u32, &'s
         if !b.is_ascii_digit() {
             return Err("invalid number in symbol");
         }
-        n = n * 10 + (b - b'0') as u32;
+        // Checked: the digits come from whatever text a runtime reader was
+        // handed, and `{99999999999}` is an error, not a wrap or a panic.
+        n = match n.checked_mul(10) {
+            Some(tens) => match tens.checked_add((b - b'0') as u32) {
+                Some(next) => next,
+                None => return Err("number too large in symbol"),
+            },
+            None => return Err("number too large in symbol"),
+        };
         i += 1;
     }
     Ok(n)
@@ -452,7 +615,10 @@ const fn parse_symbol(bytes: &[u8], start: usize, end: usize) -> Result<ManaSymb
             if p0_len == 1 && (s2 - s1 - 1) == 1 && p2_len == 1 && bytes[s2 + 1] == b'P' {
                 let a = parse_color_byte(bytes[start]);
                 let b = parse_color_byte(bytes[s1 + 1]);
-                if let (Some(a), Some(b)) = (a, b) {
+                // Two different colours: `ColorPair::new` asserts it.
+                if let (Some(a), Some(b)) = (a, b)
+                    && a as u8 != b as u8
+                {
                     return Ok(ManaSymbol::HybridPhyrexian(ColorPair::new(a, b)));
                 }
             }
@@ -477,7 +643,10 @@ const fn parse_symbol(bytes: &[u8], start: usize, end: usize) -> Result<ManaSymb
         if p0_len == 1 && p1_len == 1 {
             let a = parse_color_byte(bytes[start]);
             let b = parse_color_byte(bytes[s1 + 1]);
-            if let (Some(a), Some(b)) = (a, b) {
+            // Two different colours: `ColorPair::new` asserts it.
+            if let (Some(a), Some(b)) = (a, b)
+                && a as u8 != b as u8
+            {
                 return Ok(ManaSymbol::Hybrid(ColorPair::new(a, b)));
             }
         }
@@ -547,6 +716,30 @@ impl core::fmt::Display for ManaCost {
             write!(f, "{{{s}}}")?;
         }
         Ok(())
+    }
+}
+
+/// A cost reads as its notation, which says what the counts mean.
+impl core::fmt::Debug for ManaCost {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "ManaCost(\"{self}\")")
+    }
+}
+
+/// On the wire a cost is its notation (`"{2}{U}{U}"`, `""` for none): as
+/// long as the cost is, and independent of how [`ManaCost`] counts it.
+impl Serialize for ManaCost {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+/// Read back through [`ManaCost::try_parse`], which refuses what is not a
+/// cost rather than panicking on it.
+impl<'de> Deserialize<'de> for ManaCost {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        Self::try_parse(&text).map_err(serde::de::Error::custom)
     }
 }
 
@@ -923,7 +1116,7 @@ impl ManaCost {
     #[must_use]
     pub fn from_symbol(symbol: ManaSymbol) -> Self {
         let mut out = Self::ZERO;
-        out.push_sorted(symbol);
+        out.add(symbol, 1);
         out
     }
 
@@ -932,7 +1125,7 @@ impl ManaCost {
     pub fn from_symbol_generic(n: u32) -> Self {
         let mut out = Self::ZERO;
         if n > 0 {
-            out.push_sorted(ManaSymbol::Generic(n));
+            out.add(ManaSymbol::Generic(n), 1);
         }
         out
     }
@@ -1334,6 +1527,129 @@ mod tests {
             base.combine(&ManaCost::parse("{X}")).has_variable(),
             "and a variable carried in is still variable"
         );
+    }
+
+    /// CR 702.56a: a replicate cost is paid "any number of times", and every
+    /// payment is part of the total cost (CR 601.2f). Lose Focus is `{1}{U}`
+    /// with replicate `{U}`. A house seat with fifteen mana priced it
+    /// replicated fifteen times, seventeen symbols, and the cost that held
+    /// sixteen in a list asserted and took the hosted game down (the fuzzer,
+    /// 2026-09-29). Counted, fifty payments are fifty more `{U}` in one cost.
+    #[test]
+    fn a_replicate_cost_paid_any_number_of_times_is_one_cost() {
+        let lose_focus = ManaCost::parse("{1}{U}");
+        let replicate = ManaCost::parse("{U}");
+        // Payment by payment, as the house priced it: the loop that asserted
+        // at its fifteenth turn.
+        let mut paid = lose_focus;
+        for _ in 0..50 {
+            paid = paid.combine(&replicate);
+        }
+        assert_eq!(
+            paid,
+            lose_focus.combine_n(&replicate, 50),
+            "fifty payments at once are the same fifty payments"
+        );
+        assert_eq!(paid.cmc(), 52);
+        assert_eq!(paid.len(), 52, "one {{1}} and fifty-one {{U}}");
+        assert_eq!(paid.generic_total(), 1);
+        assert_eq!(
+            paid.symbols().filter(|s| *s == ManaSymbol::Blue).count(),
+            51
+        );
+        let written = paid.to_string();
+        assert_eq!(written, format!("{{1}}{}", "{U}".repeat(51)));
+        assert_eq!(ManaCost::try_parse(&written), Ok(paid), "and it reads back");
+        assert_eq!(
+            lose_focus.combine_n(&replicate, 0),
+            lose_focus,
+            "paid no times, it is the spell's own cost"
+        );
+    }
+
+    /// Numerical symbols are all generic mana (CR 107.4b), and a cost holds
+    /// its generic mana as one symbol however it was built, as a printed
+    /// cost writes it: two `{1}` on `{W}` are `{2}{W}`, and `{X}{X}` for two
+    /// is `{4}`.
+    #[test]
+    fn generic_mana_is_one_symbol_however_it_was_added() {
+        assert_eq!(ManaCost::parse("{1}{1}"), ManaCost::parse("{2}"));
+        let one = ManaCost::parse("{1}");
+        let twice = ManaCost::parse("{W}").combine(&one).combine(&one);
+        assert_eq!(twice.to_string(), "{2}{W}");
+        assert_eq!(twice.len(), 2);
+        assert_eq!(ManaCost::parse("{X}{X}{B}").with_x(2).to_string(), "{4}{B}");
+        assert_eq!(
+            ManaCost::parse("{0}")
+                .combine(&ManaCost::parse("{2}"))
+                .to_string(),
+            "{2}",
+            "a {{0}} joins the generic mana rather than standing beside it"
+        );
+    }
+
+    /// `try_parse` is total: a runtime reader hands it text it did not
+    /// write, and what no cost can hold is an error, never a panic. `{W/W}`
+    /// asserted in `ColorPair::new`, and a number past `u32::MAX` wrapped in
+    /// a release build and panicked in a debug one.
+    #[test]
+    fn reading_a_cost_refuses_what_no_cost_holds_without_panicking() {
+        for text in ["{W/W}", "{U/U/P}", "{4294967296}", "{99999999999999999999}"] {
+            assert!(ManaCost::try_parse(text).is_err(), "{text}");
+        }
+        assert_eq!(
+            ManaCost::try_parse("{4294967295}").map(|c| c.cmc()),
+            Ok(u32::MAX)
+        );
+    }
+
+    /// The canonical order, pinned symbol by symbol: every symbol a cost
+    /// counts, once, in the order a cost is written in, and each at the one
+    /// index its slot names.
+    #[test]
+    fn every_symbol_has_one_place_in_the_written_order() {
+        for (k, symbol) in KIND_SYMBOLS.iter().enumerate() {
+            assert_eq!(slot(*symbol), Slot::Kind(k), "{symbol:?}");
+        }
+        let every = KIND_SYMBOLS
+            .iter()
+            .rev()
+            .fold(ManaCost::parse("{3}"), |cost, s| {
+                cost.combine(&ManaCost::from_symbol(*s))
+            });
+        assert_eq!(
+            every.to_string(),
+            "{X}{Y}{Z}{3}{½}{∞}{W}{U}{B}{R}{G}\
+             {W/U}{W/B}{U/B}{R/W}{U/R}{B/R}{G/W}{G/U}{B/G}{R/G}\
+             {2/W}{2/U}{2/B}{2/R}{2/G}{W/P}{U/P}{B/P}{R/P}{G/P}\
+             {W/U/P}{W/B/P}{U/B/P}{R/W/P}{U/R/P}{B/R/P}{G/W/P}{G/U/P}{B/G/P}{R/G/P}\
+             {S}{C}"
+        );
+        assert_eq!(ManaCost::try_parse(&every.to_string()), Ok(every));
+        // The most kinds a cost holds, each walked once.
+        assert_eq!(every.kinds(), 43);
+        assert_eq!(every.runs().count(), 43);
+        assert_eq!(ManaCost::ZERO.kinds(), 0);
+        assert_eq!(ManaCost::parse("{0}").kinds(), 1, "{{0}} is a symbol");
+        assert_eq!(ManaCost::parse("{2}{U}{U}").kinds(), 2);
+    }
+
+    /// On the wire a cost is its notation, of any length, and text that is
+    /// no cost is refused as an error.
+    #[test]
+    fn a_cost_travels_as_its_notation() {
+        let cost = ManaCost::parse("{1}{U}").combine_n(&ManaCost::parse("{U}"), 20);
+        let json = serde_json::to_string(&cost).expect("a cost writes");
+        assert_eq!(json, format!("\"{cost}\""));
+        assert_eq!(
+            serde_json::from_str::<ManaCost>(&json).expect("and reads"),
+            cost
+        );
+        assert_eq!(
+            serde_json::to_string(&ManaCost::ZERO).expect("writes"),
+            "\"\""
+        );
+        assert!(serde_json::from_str::<ManaCost>("\"{W/W}\"").is_err());
     }
 
     /// What a cost *is* made of, read four ways: the total, the generic

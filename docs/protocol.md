@@ -3,6 +3,17 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## Mana costs as notation (protocol 8, view 43)
+
+Every `ManaCost` on the wire, in a `Pending` (a cast option's price, the
+replicate question) and in a view (`PublicObject.flashback`,
+`PlayerView.owed`), is its notation: `"{2}{U}{U}"`, `""` for no cost. It was
+the engine's own sixteen-slot list, which a replicated cost overflowed; a
+cost now holds any number of symbols, so the list could not carry it.
+Reading refuses text that is no cost (`ManaCost::try_parse`). Protocol 8 and
+view 43 refuse the older shape; deploy the engine, gateway, agent and
+clients together.
+
 ## Ward life payments (protocol 7)
 
 `Pending::YesNo` can carry `PayLife { amount }`. The client displays the
@@ -2716,8 +2727,9 @@ engine used to hold without saying are fields:
   with `NoFurtherMulligan`.
 
 Each field decodes as `None`, empty and `true` when missing, which is every
-question sent before it, so neither `PROTOCOL_VERSION` nor `VIEW_VERSION`
-moves; the fields join the unreleased protocol-7 batch. What `apply` still
+question sent before it, and a reader that does not know a field skips it,
+so neither `PROTOCOL_VERSION` nor `VIEW_VERSION` moves; the fields
+ship with the unreleased protocol 8. What `apply` still
 refuses, and why no field states it (a card not in the seat's own hand, a
 name the pool does not print, another seat's answer), is surveyed in
 `docs/pending-constraints.md`.

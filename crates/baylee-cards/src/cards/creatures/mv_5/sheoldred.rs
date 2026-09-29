@@ -50,7 +50,13 @@ static BACK_ABILITIES: &[AbilityDef] = &[
         3,
         &[
             Effect::AllGraveyardCreaturesToBattlefield,
-            Effect::ExileSelfReturnAsFace { face: 0 },
+            // "Return it to the battlefield" names nobody, so it enters
+            // under the player the effect instructs (CR 110.2a): the
+            // chapter ability's controller, the Saga's (CR 603.3a).
+            Effect::ExileSelfReturnAsFace {
+                face: 0,
+                owner_control: false,
+            },
         ]
     ),
 ];
@@ -98,7 +104,11 @@ card!(
         ),
         activated!(
             cost!("{4}{B}"),
-            &[Effect::ExileSelfReturnAsFace { face: 1 }],
+            // "…transformed under its owner's control."
+            &[Effect::ExileSelfReturnAsFace {
+                face: 1,
+                owner_control: true,
+            }],
             timing = ActivationTiming::SorcerySpeed,
             condition = Some(Condition::OpponentGraveyardCountAtLeast(8))
         ),
