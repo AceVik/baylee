@@ -48,33 +48,32 @@ def load(path: str | Path) -> Dataset:
     n_ent = len(meta["ent_cols"])
     n_glob = meta["glob_width"]
     n_meta = len(meta["meta_cols"])
-    cards, feats, offs, globs, infos = [], [], [], [], []
-    base = 0
+    # Preallocated and filled shard by shard: concatenating would hold every
+    # column twice at its peak, and a large dataset is most of the machine.
+    samples = sum(s["samples"] for s in meta["shards"])
+    entities = sum(s["entities"] for s in meta["shards"])
+    ent_card = np.empty(entities, dtype=np.int32)
+    ent_feat = np.empty((entities, n_ent), dtype=np.int16)
+    ent_off = np.empty(samples + 1, dtype=np.int64)
+    glob = np.empty((samples, n_glob), dtype=np.int16)
+    info = np.empty((samples, n_meta), dtype=np.int32)
+    e0, s0 = 0, 0
     for shard in meta["shards"]:
         d = path / shard["dir"]
-        if shard["samples"] == 0:
+        ns, ne = shard["samples"], shard["entities"]
+        if ns == 0:
             continue
-        cards.append(np.fromfile(d / "ent_card.i32", dtype="<i4"))
-        feats.append(np.fromfile(d / "ent_feat.i16", dtype="<i2").reshape(-1, n_ent))
-        off = np.fromfile(d / "ent_off.i64", dtype="<i8")
-        offs.append(off[:-1] + base)
-        base += int(off[-1])
-        globs.append(np.fromfile(d / "glob.i16", dtype="<i2").reshape(-1, n_glob))
-        infos.append(np.fromfile(d / "meta.i32", dtype="<i4").reshape(-1, n_meta))
-    ent_off = np.concatenate(offs + [np.array([base], dtype=np.int64)])
+        ent_card[e0 : e0 + ne] = np.memmap(d / "ent_card.i32", dtype="<i4", mode="r")
+        ent_feat[e0 : e0 + ne] = np.memmap(d / "ent_feat.i16", dtype="<i2", mode="r").reshape(-1, n_ent)
+        ent_off[s0 : s0 + ns] = np.memmap(d / "ent_off.i64", dtype="<i8", mode="r")[:-1] + e0
+        glob[s0 : s0 + ns] = np.memmap(d / "glob.i16", dtype="<i2", mode="r").reshape(-1, n_glob)
+        info[s0 : s0 + ns] = np.memmap(d / "meta.i32", dtype="<i4", mode="r").reshape(-1, n_meta)
+        e0 += ne
+        s0 += ns
+    ent_off[s0] = e0
+    assert e0 == entities and s0 == samples
     games = [json.loads(l) for l in (path / "games.jsonl").read_text().splitlines()]
-    ds = Dataset(
-        meta=meta,
-        ent_card=np.concatenate(cards),
-        ent_feat=np.concatenate(feats),
-        ent_off=ent_off,
-        glob=np.concatenate(globs),
-        info=np.concatenate(infos),
-        games=games,
-    )
-    assert len(ds.ent_card) == base == len(ds.ent_feat)
-    assert len(ds.ent_off) == ds.n + 1
-    return ds
+    return Dataset(meta=meta, ent_card=ent_card, ent_feat=ent_feat, ent_off=ent_off, glob=glob, info=info, games=games)
 
 
 def split_by_game(ds: Dataset, held_out_every: int = 10) -> tuple[np.ndarray, np.ndarray]:

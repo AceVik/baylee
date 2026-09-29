@@ -158,6 +158,10 @@ def main() -> None:
     ap.add_argument("--layers", type=int, default=4)
     ap.add_argument("--heads", type=int, default=8)
     ap.add_argument("--ff", type=int, default=1024)
+    ap.add_argument("--dropout", type=float, default=0.1)
+    ap.add_argument("--wd", type=float, default=0.05)
+    ap.add_argument("--eval-every", type=int, default=1000, help="steps between looks at a held-out slice")
+    ap.add_argument("--eval-slice", type=int, default=30_000, help="held-out decisions in that slice")
     ap.add_argument("--eval-max", type=int, default=400_000, help="held-out decisions scored in the report")
     ap.add_argument("--compile", action="store_true")
     ap.add_argument("--seed", type=int, default=0)
@@ -174,12 +178,17 @@ def main() -> None:
         f"train {len(train_idx):,}, held out {len(held_idx):,}")
     target = ds.col("result").astype(np.float32) / 2
 
-    net = M.build(ds.meta, d=args.d, layers=args.layers, heads=args.heads, ff=args.ff).cuda()
+    net = M.build(ds.meta, d=args.d, layers=args.layers, heads=args.heads, ff=args.ff, dropout=args.dropout).cuda()
     params = sum(p.numel() for p in net.parameters())
     trunk = sum(p.numel() for n, p in net.named_parameters() if not n.startswith("trunk.card."))
     log(f"{params / 1e6:.2f}M parameters ({trunk / 1e6:.2f}M besides the card embedding)")
     step_fn = torch.compile(net) if args.compile else net
-    opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=0.01, fused=True)
+    opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.wd, fused=True)
+    # A fixed slice of held-out games, looked at during training: the model
+    # the report scores is the one that did best there, not the last one.
+    watch = np.sort(np.random.default_rng(2).choice(held_idx, size=min(args.eval_slice, len(held_idx)), replace=False))
+    best = {"logloss": float("inf"), "step": 0}
+    curve = []
     loader = D.Loader(ds, train_idx, args.batch, args.entities, shuffle=True, seed=args.seed)
     total = int(len(loader) * args.epochs)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=args.lr, total_steps=total, pct_start=0.03)
@@ -204,12 +213,24 @@ def main() -> None:
                 el = time.time() - t_start
                 log(f"step {step:,}/{total:,} · epoch {epoch} · loss {run_loss:.4f} · {seen / el:,.0f} decisions/s · "
                     f"eta {(total - step) * el / step / 60:.0f} min")
+            if step % args.eval_every == 0 or step == total:
+                m = metrics(predict(net, ds, watch, 1024, args.entities), target[watch])
+                curve.append({"step": step, "train_loss": run_loss} | {k: m[k] for k in ("logloss", "brier", "ece", "accuracy")})
+                mark = ""
+                if m["logloss"] < best["logloss"]:
+                    best = {"logloss": m["logloss"], "step": step}
+                    torch.save(net.state_dict(), out / "value_best.state")
+                    mark = " · best"
+                log(f"held out @ {step:,}: log loss {m['logloss']:.4f} · Brier {m['brier']:.4f} · ECE {m['ece']:.4f} · "
+                    f"accuracy {m['accuracy']:.3f}{mark}")
             if step >= total:
                 break
         epoch += 1
 
+    net.load_state_dict(torch.load(out / "value_best.state"))
+    log(f"reporting the model of step {best['step']:,} (best held-out log loss {best['logloss']:.4f})")
     torch.save({"state": net.state_dict(), "config": net.trunk.cfg.to_dict(), "dataset": ds.meta["sources"],
-                "encoder_version": ds.meta["encoder_version"]}, out / "value.pt")
+                "encoder_version": ds.meta["encoder_version"], "step": best["step"]}, out / "value.pt")
 
     # --- the report ---------------------------------------------------------------
     rng = np.random.default_rng(1)
@@ -241,6 +262,8 @@ def main() -> None:
         "held_out_samples": int(len(held_idx)),
         "held_out_games": int(len(set(ds.col("game")[held_idx].tolist()))),
         "steps": total,
+        "best_step": best["step"],
+        "curve": curve,
         "batch": args.batch,
         "train_seconds": time.time() - t_start,
         "overall": {
