@@ -739,6 +739,21 @@ and on a triggered ability it decides whether the ability triggers and is
 **not** asked again on resolution, because the ability on the stack no
 longer depends on its source (CR 113.7a).
 
+**Station itself is a cost, not a target.** "Station" is "Tap another
+untapped creature you control: Put a number of charge counters on this
+permanent equal to the tapped creature's power. Activate only as a sorcery"
+(CR 702.184a), and it is spelled that way:
+`activated!(cost!(TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)),
+&[Effect::AddCounter { kind: CounterKind::Charge, amount:
+Amount::TappedPower }], timing = ActivationTiming::SorcerySpeed)` (Evendo,
+Waking Haven). The cost wizard asks which creature with
+`ChoicePrompt::CostTap`, `pay_cost` writes it on the ability
+(`PaidRecord::tapped`), and `Amount::TappedPower` reads its power as the
+effect applies, or as it last existed on the battlefield when it has left by
+then (CR 608.2h). A station written with a `targets` requirement is wrong
+twice: hexproof would stop it, and a creature killed in response would
+fizzle the ability instead of counting.
+
 **A level symbol** is the same shape with a range. `{LEVEL N1-N2}` is
 `CountersOnSelfBetween(CounterKind::Level, n1, n2)` (CR 711.2a) and
 `{LEVEL N3+}` is `CountersOnSelf(CounterKind::Level, n3)` (CR 711.2b); each

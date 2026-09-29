@@ -2842,6 +2842,11 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     // two-drop and after a five-drop are two different futures.
     h.option_u32(obj.paid.as_ref().and_then(|p| p.sacrificed_mana_value));
     h.u32(obj.paid.as_ref().map_or(0, |p| p.mana_spent));
+    // And which creature station tapped: its power is what the counters
+    // will be.
+    let tapped = obj.paid.as_ref().and_then(|p| p.tapped);
+    h.option_u32(tapped.map(|(id, _)| position(id)));
+    h.option_u32(tapped.map(|(_, version)| version));
     h.option_u32(obj.attached_to.map(position));
     h.usize(obj.targets.len());
     for t in &obj.targets {

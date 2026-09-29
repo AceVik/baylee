@@ -1492,7 +1492,7 @@ impl<L: CardLookup> Engine<L> {
         // line up: the number belongs to this activation and to no other.
         let x = self.activation_x.take().unwrap_or(0);
         self.activation_targets_answered = false;
-        let sacrificed_mana_value = self.pay_cost(player, source, &cost, &answers, x)?;
+        let paid = self.pay_cost(player, source, &cost, &answers, x)?;
         // "Activate only once each turn" is spent *here* and not at the
         // offer, because this is the line the rules count: CR 602.2 makes
         // activating an ability putting it on the stack and paying its
@@ -1567,16 +1567,14 @@ impl<L: CardLookup> Engine<L> {
             {
                 obj.x_value = x;
             }
-            // What the cost sacrificed, carried on the ability for the
-            // effect that asks (Birthing Pod's "1 plus the sacrificed
-            // creature's mana value"), the way a spell carries its own.
-            if sacrificed_mana_value.is_some()
+            // What the cost sacrificed or tapped, carried on the ability for
+            // the effect that asks (Birthing Pod's "1 plus the sacrificed
+            // creature's mana value", station's "the tapped creature's
+            // power"), the way a spell carries its own.
+            if paid != crate::object::PaidRecord::default()
                 && let Some(obj) = self.state.object_mut(ability)
             {
-                obj.paid = Some(Box::new(crate::object::PaidRecord {
-                    sacrificed_mana_value,
-                    mana_spent: 0,
-                }));
+                obj.paid = Some(Box::new(paid));
             }
             // The seats that were targeted, written onto the ability now
             // that there is one — the same two fields the trigger path
@@ -1846,10 +1844,10 @@ impl<L: CardLookup> Engine<L> {
     /// beside this one, and a cost paid in two places is a cost that can be
     /// paid twice.
     ///
-    /// Answers with the mana value of the permanent a `Sacrifice` part
-    /// sacrificed, as it last existed (CR 608.2h), for the ability to carry
-    /// ([`crate::object::PaidRecord`]); `None` when nothing chosen was
-    /// sacrificed.
+    /// Answers with what an effect of the ability may ask about the payment,
+    /// for the ability to carry ([`crate::object::PaidRecord`]): the mana
+    /// value of the permanent a `Sacrifice` part sacrificed, as it last
+    /// existed (CR 608.2h), and the permanent a `TapOther` part tapped.
     ///
     /// # Errors
     /// [`EngineError::IllegalAction`] when the mana is not there, when a
@@ -1866,9 +1864,9 @@ impl<L: CardLookup> Engine<L> {
         cost: &Cost,
         chosen: &[ObjectId],
         x: u32,
-    ) -> Result<Option<u32>, EngineError> {
+    ) -> Result<crate::object::PaidRecord, EngineError> {
         let mut answers = chosen.iter().copied();
-        let mut sacrificed_mana_value = None;
+        let mut paid = crate::object::PaidRecord::default();
         if !cost.mana.is_empty() {
             // CR 107.3a, second half: while an activated ability is on the
             // stack, any X in its activation cost equals the announced
@@ -2025,16 +2023,22 @@ impl<L: CardLookup> Engine<L> {
                     // is read off the permanent as it last existed on the
                     // battlefield (CR 608.2h), so before it goes.
                     if matches!(part, CostPart::Sacrifice(_)) {
-                        sacrificed_mana_value = self
+                        paid.sacrificed_mana_value = self
                             .state
                             .object(card)
                             .map(|o| o.characteristics().mana_value());
+                    }
+                    // "The tapped creature" (station, CR 702.184a): which
+                    // object, so its power can be read as the effect applies
+                    // (CR 608.2h).
+                    if matches!(part, CostPart::TapOther(_)) {
+                        paid.tapped = self.state.object(card).map(|o| (card, o.version));
                     }
                     cost_wizard::pay(&mut self.state, player, part, card)?;
                 }
             }
         }
-        Ok(sacrificed_mana_value)
+        Ok(paid)
     }
 
     /// Puts one of `source`'s abilities on the stack (CR 603.3 for a

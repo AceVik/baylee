@@ -1332,6 +1332,7 @@ impl<L: CardLookup> Engine<L> {
             obj.paid = Some(Box::new(crate::object::PaidRecord {
                 sacrificed_mana_value,
                 mana_spent,
+                tapped: None,
             }));
         }
         if matches!(wizard.option, Some(CastModeKind::Prototype))

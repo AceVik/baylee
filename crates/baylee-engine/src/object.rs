@@ -665,6 +665,10 @@ pub struct PaidRecord {
     /// How much mana was spent on the cost (CR 601.2h) — "the amount of mana
     /// spent to cast this spell" (Memory Deluge).
     pub mana_spent: u32,
+    /// The permanent a `CostPart::TapOther` tapped, as the object it was
+    /// then (id and version) — "the tapped creature" station counts the
+    /// power of (CR 702.184a). `None` when the cost tapped nothing else.
+    pub tapped: Option<(ObjectId, u32)>,
 }
 
 /// A game object.

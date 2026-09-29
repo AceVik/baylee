@@ -268,6 +268,17 @@ pub enum Amount {
     /// a spell's `Sacrifice` additional cost in the cast wizard, an
     /// activation's in `pay_cost`. Nothing sacrificed reads 0.
     SacrificedManaValue,
+    /// "The tapped creature's power": the power of the permanent a
+    /// `CostPart::TapOther` tapped to pay the cost of the ability that is
+    /// resolving — station's "put a number of charge counters on this
+    /// permanent equal to the tapped creature's power" (CR 702.184a). Its
+    /// power as the effect applies while it is still on the battlefield as
+    /// the same object, and as it last existed there otherwise (CR 608.2h).
+    ///
+    /// The creature is not a target (station targets nothing), so hexproof
+    /// does not stop it. Read off the stack object, where `pay_cost` wrote
+    /// which creature it tapped; nothing tapped reads 0.
+    TappedPower,
     /// Number of objects matching a filter in a zone.
     CountOf {
         /// What to count.

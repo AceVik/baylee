@@ -667,6 +667,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .and_then(|o| o.paid.as_ref())
             .and_then(|p| p.sacrificed_mana_value)
             .unwrap_or(0),
+        Amount::TappedPower => eval::tapped_power(state, res.on_stack),
         // A wrapper around one of the above has to reach it through this
         // reader and not through `eval::amount`, which has no stack object.
         Amount::Plus { base, offset } => amount2(base, state, you, res).saturating_add(*offset),

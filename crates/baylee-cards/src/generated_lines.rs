@@ -48212,8 +48212,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Evendo, Waking Haven
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(1), Some(3)],
+        stackable: 1,
+        lines: &[Some(1), Some(2), Some(3)],
         modes: &[],
         alternatives: &[],
     }],
