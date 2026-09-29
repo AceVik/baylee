@@ -1965,6 +1965,57 @@ pub(crate) mod tests {
         assert_eq!(replayed.engine.snapshot_hash(), session.snapshot_hash());
     }
 
+    /// A refused house proposal is followed by the standing question's answer
+    /// that does nothing, not by the house asked again. A refusal leaves the
+    /// engine as it was, so the house asked again at its own refused proposal
+    /// would propose it once more, and the fallback's `expect` would end the
+    /// game (not shown here: no house proposal is known to be refused).
+    ///
+    /// The seat here would play a land, and is handed a refused proposal at
+    /// that priority: the answer that stands is a pass, and the land stays in
+    /// hand. Asked again, the house played it.
+    #[test]
+    fn a_refused_house_proposal_is_followed_by_the_answer_that_does_nothing() {
+        let mut preset = test_preset();
+        preset.seats[0].controller = SeatController::Open;
+        preset.seats[1].controller = SeatController::Open;
+        let mut session = Session::new_recorded(&preset, "test").expect("the table builds");
+        session.tell_time(1_000);
+        session.pump();
+        for step in 0..300_u64 {
+            let Some(seat) = session.awaiting_seat() else {
+                break;
+            };
+            session.tell_time(1_000 + step);
+            let action = session
+                .house_action(seat)
+                .expect("a question has an answer");
+            if matches!(action, PlayerAction::PlayLand { .. }) {
+                let hand =
+                    |session: &Session| session.state().zones.list(ZoneLocation::Hand(seat)).len();
+                let before = hand(&session);
+                session.apply_house_action(seat, PlayerAction::ChooseMode(0));
+                assert_eq!(hand(&session), before, "the land stays in hand");
+                let record = session.take_record();
+                let last = record
+                    .split(|&b| b == b'\n')
+                    .filter(|l| !l.is_empty())
+                    .filter_map(|l| serde_json::from_slice::<crate::record::Line>(l).ok())
+                    .filter_map(|line| match line {
+                        crate::record::Line::Input { action, .. } => Some(action),
+                        _ => None,
+                    })
+                    .next_back();
+                assert_eq!(last, Some(PlayerAction::PassPriority));
+                return;
+            }
+            session
+                .act(seat, action)
+                .expect("the house's answer stands");
+        }
+        panic!("the house never played a land");
+    }
+
     pub(crate) fn teamed_preset(teams: [Option<u8>; 4]) -> GamePreset {
         let mut preset = test_preset();
         let seat = preset.seats[0].clone();
