@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Training for Baylee's own Magic AI: value, policy and deckbuilding nets over game records"
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "torch>=2.8",
+    "torch>=2.14",
     "numpy>=2.0",
 ]
 
@@ -12,9 +12,9 @@ dependencies = [
 package = false
 
 [tool.uv.sources]
-torch = [{ index = "pytorch-cu128" }]
+torch = [{ index = "pytorch-cu132" }]
 
 [[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
+name = "pytorch-cu132"
+url = "https://download.pytorch.org/whl/cu132"
 explicit = true
