@@ -33,13 +33,17 @@ picks it up. Keep reading `docs/trained-ai.md` (the design) and the repo's
 ## The machine
 
 - Both disks are 2 TB NVMe, GPT, UEFI. Secure Boot and BitLocker are off.
-- Disk 0 (Sabrent Rocket Q4) holds Windows' C:. Ubuntu goes on space shrunk
-  from C:.
-- Disk 1 (Samsung 990 PRO) holds the EFI system partition, shared with
-  Windows and never formatted, and D:, the NTFS data disk the switch copies
-  through.
-- Windows' Fast Startup and hibernation are off, so Linux can mount C: and D:
+- Disk 0 (Sabrent Rocket Q4) holds Windows' C:, and `C:\baylee-data`, the
+  data carried over.
+- Disk 1 (Samsung 990 PRO, the faster one) held D:. The owner moved D:'s
+  contents to C: and puts Ubuntu there.
+- **Windows' EFI system partition (0.2 GB) is on disk 1 too.** Only D:'s data
+  partition goes; the EFI partition stays, unformatted, and Ubuntu shares it.
+  Wiping the whole disk would leave Windows unbootable.
+- Windows' Fast Startup and hibernation must be off, so Linux can mount C:
   read-write.
+- On the night of 29–30 September, sleep and hibernate on AC were already
+  "never". No setting was changed.
 - The WSL setup (Ubuntu 26.04 in a 193 GB image on C:, `.wslconfig` 48 GB +
   16 GB swap) still works when Windows is booted.
 
@@ -70,11 +74,12 @@ picks it up. Keep reading `docs/trained-ai.md` (the design) and the repo's
 ## Where the data lives
 
 On Windows it was `~/baylee-data` inside WSL. For the switch it is copied to
-`D:\baylee-data` (NTFS, which Linux reads), and on Linux it belongs at
-**`/home/ace/baylee-data`** on ext4:
+`C:\baylee-data` (NTFS, which Linux reads; `tools/trainer/switch_stop.sh`
+adds the night's runs). On Linux it belongs at **`/home/ace/baylee-data`** on
+ext4:
 
 ```
-rsync -a /mnt/d/baylee-data/ /home/ace/baylee-data/
+rsync -a /mnt/c/baylee-data/ /home/ace/baylee-data/   # C: mounted at /mnt/c
 ```
 
 Manifests and dataset stamps name `/home/ace/baylee-data/…`, so a user `ace`
@@ -99,6 +104,9 @@ goes. The WSL disk image stays on C: and still works from Windows.
 | `fuzz/f001`, `f002-karn`, `f003-karn-all` | fuzzer runs on main and on the Karn fixes |
 | `verify/` | the ability log, L5 mutant outputs and coverage exports from d7's hooks branch |
 | `reports/house-usage-d003` | house-AI batch 1: cards offered and never used |
+| `models/v3-a-dyn` | v3-a exported in row buckets (32–192): the RL loop's first learner |
+| `runs/rl-lNN`, `models/rl-NN`, `arena/rl-NN` | the RL loop of the night of 29–30 September (on main f7390913): league games, each learner, and its arena against expert |
+| `fuzz/f004-main` | fuzzing main f7390913: 4 panics ("mana cost has too many symbols"), 38 crew refusals, 11 menace |
 
 A dataset can always be made again from its run: the converters are
 deterministic, and a record that no longer replays is refused whole.
@@ -188,6 +196,27 @@ deterministic, and a record that no longer replays is refused whole.
   state the purpose, with an opt-out; the export strips the seat-to-account
   link; the extraction is done by them.
 
+## The night of 29–30 September, and resuming it
+
+- The branch merged main f7390913, which carries night-decks. Everything
+  since trains on the newest engine, as the owner asked.
+- `rl_loop.sh` runs from v3-a-dyn (`TAG=rl`, 2000 league games an iteration,
+  300 arena games against expert).
+- To stop it: `tools/trainer/switch_stop.sh`. It stops every job, copies to
+  `C:\baylee-data` and pushes, in under 15 minutes.
+- To go on after the switch:
+  - rsync the data back into `/home/ace/baylee-data`;
+  - build;
+  - run `BASE=$HOME/baylee-data/models/v3-a-dyn TAG=rl tools/trainer/rl_loop.sh`.
+
+  Finished stages are skipped, a stage in progress restarts (training resumes
+  from `last.pt`), and a dataset missing from the copy is made again from its
+  run.
+- A record replays only on the engine that wrote it (its run's `build`
+  stamp). d7 warned that a stale-projection fix changes `snapshot_hash` after
+  `Engine::new`. From then on, older records report `Diverged`: regenerate
+  games instead.
+
 ## Open threads with d7
 
 - **Engine branches to reach main**, then regenerate data and re-measure:
@@ -205,6 +234,13 @@ deterministic, and a record that no longer replays is refused whole.
      `projection_is_fresh` after every apply.
   4. Generate broad-pool v3 data from the L4 pool (duels and 3–8 seats).
   5. Re-run `house_usage.py` on it (batch 2).
+- **Crew**: `ChooseCards` with `CostCrew { power }` asks min 1, but the
+  chosen creatures' power must reach `power`. The policy should respect it,
+  as it will menace's minimum. It's mine to do. The fuzzer on main counted
+  38 such refusals.
+- **The 35,707 offered objects v3 dropped** were all combat with a swarm
+  (18 games). Combat piles fix them; re-measure `offered_objects_dropped` on
+  the next converted run: it must be 0.
 - **`ChooseBlockers` will state `min_blockers`/`max_blockers`** (a branch
   after pay-scaling). Until then the net falls back to the house on a menace
   attacker blocked alone.
