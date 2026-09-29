@@ -1265,7 +1265,14 @@ Modal/sequence: `Sequence(&[..])`.
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
-`DrawLimitPerTurn`.
+`DrawLimitPerTurn`, `CantBeTargetedBy`.
+
+`CantBeTargetedBy(&filter)` is "[this] can't be the target of [spells] or
+abilities from [sources]" — protection's targeting half alone (CR 702.16b),
+read at `eval::target_options` beside it. The filter is asked of the spell
+or of the ability's source, with the static's controller as "you", so
+Thrun, Breaker of Silence's "nongreen spells your opponents control or
+abilities from nongreen sources your opponents control" is one filter.
 
 `DrawLimitPerTurn { who, limit }` is "each player can't draw more than one
 card each turn" (Spirit of the Labyrinth) and its opponents-only twin

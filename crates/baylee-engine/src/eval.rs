@@ -487,6 +487,26 @@ pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> 
     })
 }
 
+/// Does a static ability on `object` say it can't be the target of `source`
+/// ([`baylee_cards_dsl::Modifier::CantBeTargetedBy`], Thrun, Breaker of
+/// Silence)? `source` is the spell, or the source of the ability, doing the
+/// targeting, and the filter is asked of it with the effect's controller as
+/// "you" — the same reading [`protected_from`] gives protection, whose
+/// targeting half this is.
+#[must_use]
+pub fn untargetable_by_source(state: &GameState, object: ObjectId, source: ObjectId) -> bool {
+    let (Some(obj), Some(src)) = (state.object(object), state.object(source)) else {
+        return false;
+    };
+    state.effects.iter().any(|fx| {
+        let baylee_cards_dsl::Modifier::CantBeTargetedBy(f) = fx.modifier else {
+            return false;
+        };
+        crate::effects::applies_to(state, fx, obj)
+            && matches(f, state, src, fx.controller, fx.source.unwrap_or(source))
+    })
+}
+
 /// Hexproof (CR 702.11b) and shroud (CR 702.18a): does `object` refuse to
 /// be targeted by a spell or ability `you` control?
 ///
@@ -677,11 +697,16 @@ pub fn target_options(
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent => vec![],
     };
-    // Protection (CR 702.16b) keeps out matching sources; hexproof and
-    // shroud (CR 702.11b/702.18b) keep out whole classes of chooser.
+    // Protection (CR 702.16b) keeps out matching sources, and so does a
+    // printed "can't be the target of" sentence; hexproof and shroud
+    // (CR 702.11b/702.18b) keep out whole classes of chooser.
     options
         .into_iter()
-        .filter(|id| !protected_from(state, *id, this) && !untargetable_by(state, *id, you))
+        .filter(|id| {
+            !protected_from(state, *id, this)
+                && !untargetable_by_source(state, *id, this)
+                && !untargetable_by(state, *id, you)
+        })
         .collect()
 }
 

@@ -180,6 +180,18 @@ pub enum Modifier {
     /// Protection from sources matching the filter: can't be damaged,
     /// targeted, or blocked by them (CR 702.16).
     ProtectionFrom(&'static crate::Filter),
+    /// The affected permanent can't be the target of spells, or of abilities
+    /// from sources, that match the filter — "Thrun can't be the target of
+    /// nongreen spells your opponents control or abilities from nongreen
+    /// sources your opponents control" (Thrun, Breaker of Silence).
+    ///
+    /// Protection's targeting half and nothing else (CR 702.16b): no damage
+    /// is prevented and no block is stopped. The filter is asked of the
+    /// spell or of the ability's source, with the effect's controller as
+    /// "you", so "your opponents control" is `ControlledByOpponent`. A rule
+    /// about the permanent and not a characteristic of it, so it has no
+    /// layer.
+    CantBeTargetedBy(&'static crate::Filter),
     /// The affected object becomes a copy of the given object (layer 1
     /// copiable values; Cursed Mirror's until-EOT copy).
     BecomeCopyOf(baylee_core::ids::ObjectId),
@@ -417,6 +429,7 @@ impl Modifier {
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
             | Self::OpponentsCantCast(_)
+            | Self::CantBeTargetedBy(_)
             | Self::DrawLimitPerTurn { .. }
             | Self::PlayersCantLose
             | Self::CantLoseLife { .. }

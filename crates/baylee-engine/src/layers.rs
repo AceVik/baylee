@@ -586,6 +586,7 @@ fn apply(
         | Modifier::CantActivateArtifacts
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::CantBeTargetedBy(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
         | Modifier::CantLoseLife { .. }
