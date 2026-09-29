@@ -253,6 +253,21 @@ impl HeuristicAgent {
             ranked.truncate(usize::from(max));
             return Some(ranked);
         }
+        // Ahead of the gate as well: a revealed card put into the hand is a
+        // card, and one left goes to the bottom of the library. The best of
+        // them when this profile reads cards, the first otherwise — never
+        // the `min` of zero.
+        if let ChoicePrompt::OneOfType { .. } = prompt {
+            let mut ranked = options.to_vec();
+            if self.profile.mulligan_skill >= 2 {
+                let value = Self::card_value(view);
+                ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
+            } else {
+                ranked.sort_unstable();
+            }
+            ranked.truncate(usize::from(max));
+            return Some(ranked);
+        }
         if self.profile.mulligan_skill < 2 {
             return None;
         }

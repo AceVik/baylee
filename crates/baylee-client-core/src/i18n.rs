@@ -1809,6 +1809,11 @@ messages! {
         en: "Your card goes into your library. On top? (No puts it on the bottom.)",
         de: "Deine Karte kommt in deine Bibliothek. Oben drauf? (Nein legt sie unter.)",
     },
+    /// One card of a named card type into the hand, or none (Atraxa).
+    TakeOneOfType {
+        en: "Put up to one {0} card into your hand",
+        de: "Nimm bis zu eine Karte vom Typ {0} auf deine Hand",
+    },
     /// Cast the discovered card for free, or take it into the hand?
     CastDiscovered {
         en: "You discovered this card. Cast it without paying its mana cost? (No puts it into your hand.)",

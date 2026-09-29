@@ -358,6 +358,13 @@ impl Prompt {
                 reason: ChoicePrompt::Delve,
                 ..
             } => Phrase::DelveToHelpPay.text(lang).to_string(),
+            // One card type at a time, and the type is the whole question:
+            // the menu is that type's cards, and the next question is the
+            // next type's.
+            Self::ChooseCards {
+                reason: ChoicePrompt::OneOfType { card_type },
+                ..
+            } => Phrase::TakeOneOfType.fill(lang, &[card_type_name(*card_type).text(lang)]),
             // Every other reason is said by the noun that is counted, which is
             // the one place in this sentence where it fits: "Wähle bis zu 2
             // Karten, die nach unten gehen". Without it a tutor, a scry, a
@@ -652,8 +659,28 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounPermanentsToLeaveTapped,
         ),
         ChoicePrompt::RevealOrEnterTapped => (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
-        ChoicePrompt::Delve | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
+        ChoicePrompt::Delve | ChoicePrompt::OneOfType { .. } | ChoicePrompt::Generic => {
+            (Phrase::NounCard, Phrase::NounCards)
+        }
     }
+}
+
+/// The name of one card type, for a question asked about it.
+fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
+    use baylee_core::types::TypeSet;
+    [
+        (TypeSet::ARTIFACT, Phrase::KindArtifact),
+        (TypeSet::BATTLE, Phrase::KindBattle),
+        (TypeSet::CREATURE, Phrase::KindCreature),
+        (TypeSet::ENCHANTMENT, Phrase::KindEnchantment),
+        (TypeSet::INSTANT, Phrase::KindInstant),
+        (TypeSet::LAND, Phrase::KindLand),
+        (TypeSet::PLANESWALKER, Phrase::KindPlaneswalker),
+        (TypeSet::SORCERY, Phrase::KindSorcery),
+    ]
+    .into_iter()
+    .find_map(|(t, name)| card_type.contains(t).then_some(name))
+    .unwrap_or(Phrase::KindOther)
 }
 
 /// "Choose two cards", with the noun as an argument rather than glued on.

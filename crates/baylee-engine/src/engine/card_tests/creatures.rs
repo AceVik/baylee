@@ -92762,3 +92762,243 @@ fn trumpeting_carnosaur_discarded_deals_three_damage() {
     pass_until(&mut engine, stack_is_empty);
     assert!(in_graveyard(&engine, p1, thundering_giant()).is_some());
 }
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Atraxa, Grand Unifier.
+// ---------------------------------------------------------------------------
+
+fn atraxa_grand_unifier() -> CardIndex {
+    card_index("abbcb153-0763-44c6-964f-b4ff0eb64257")
+}
+
+/// Seat 0 casts Atraxa with `stack` on top of its library (the last card
+/// named on top) and lets it enter; its trigger resolves up to the first
+/// question. Returns the engine and the stacked cards' ids, in `stack`'s
+/// order.
+fn atraxa_reveals(stack: &[CardIndex]) -> (Engine<RegistryLookup>, Vec<ObjectId>) {
+    let p0 = PlayerId::new(0);
+    let mut hand = vec![atraxa_grand_unifier()];
+    hand.extend_from_slice(stack);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                plains(),
+                island(),
+                swamp(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .hand(0, &hand)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let mut ids = Vec::new();
+    for &card in stack {
+        let id = engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .iter()
+            .copied()
+            .rev()
+            .find(|&id| {
+                !ids.contains(&id)
+                    && engine
+                        .state()
+                        .object(id)
+                        .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+            })
+            .unwrap();
+        engine
+            .dev_state_mut(p0)
+            .unwrap()
+            .move_object(
+                id,
+                ZoneLocation::Library(p0),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .unwrap();
+        ids.push(id);
+    }
+    engine.refresh_offer();
+    tap_all_mana_but(&mut engine, p0, None);
+    cast_with_floating(&mut engine, p0, atraxa_grand_unifier());
+    pass_until(&mut engine, |e| {
+        !matches!(e.pending(), Pending::Priority { .. })
+    });
+    (engine, ids)
+}
+
+/// The open question, as (card type, options): it must be Atraxa's, asked of
+/// seat 0, and "may" — zero or one card.
+fn atraxa_question(engine: &Engine<RegistryLookup>) -> Option<(TypeSet, Vec<ObjectId>)> {
+    match engine.pending().clone() {
+        Pending::ChooseCards {
+            player,
+            options,
+            min: 0,
+            max: 1,
+            prompt: ChoicePrompt::OneOfType { card_type },
+        } if player == PlayerId::new(0) => Some((card_type, options)),
+        _ => None,
+    }
+}
+
+fn sorted(mut ids: Vec<ObjectId>) -> Vec<ObjectId> {
+    ids.sort_unstable();
+    ids
+}
+
+/// "For each card type, you may put a card of that type from among the
+/// revealed cards into your hand. Put the rest on the bottom of your
+/// library in a random order." Ten revealed: an artifact creature, an
+/// artifact, two creatures, an enchantment, two instants, a land, a
+/// planeswalker and a sorcery. One question per type a revealed card has,
+/// in CR 205.2a's order, and none for the three types nothing has (battle,
+/// kindred and, after the answers, nothing left); the artifact creature,
+/// taken as the artifact, is not offered again as a creature; the
+/// planeswalker is declined; the four cards not taken go to the bottom.
+#[test]
+fn atraxa_grand_unifier_asks_once_per_card_type_in_the_rules_order() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, ids) = atraxa_reveals(&[
+        copper_myr(),
+        sol_ring(),
+        llanowar_elves(),
+        thundering_giant(),
+        counterspell(),
+        mountain(),
+        damn(),
+        underworld_breach(),
+        karn_the_great_creator(),
+        swords_to_plowshares(),
+    ]);
+    let [
+        myr,
+        ring,
+        elves,
+        giant,
+        counter,
+        land,
+        damn_id,
+        breach,
+        karn,
+        swords,
+    ] = ids[..]
+    else {
+        panic!("ten stacked")
+    };
+    let answers: [(TypeSet, Vec<ObjectId>, Option<ObjectId>); 7] = [
+        (TypeSet::ARTIFACT, vec![myr, ring], Some(myr)),
+        (TypeSet::CREATURE, vec![elves, giant], Some(elves)),
+        (TypeSet::ENCHANTMENT, vec![breach], Some(breach)),
+        (TypeSet::INSTANT, vec![counter, swords], Some(counter)),
+        (TypeSet::LAND, vec![land], Some(land)),
+        (TypeSet::PLANESWALKER, vec![karn], None),
+        (TypeSet::SORCERY, vec![damn_id], Some(damn_id)),
+    ];
+    for (card_type, options, take) in answers {
+        let (asked, offered) = atraxa_question(&engine)
+            .unwrap_or_else(|| panic!("asked about {card_type:?}, got {:?}", engine.pending()));
+        assert_eq!(asked, card_type);
+        assert_eq!(sorted(offered), sorted(options), "{card_type:?}'s menu");
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: take.into_iter().collect(),
+                },
+            )
+            .unwrap();
+    }
+    assert!(atraxa_question(&engine).is_none(), "no eighth question");
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).clone();
+    for taken in [myr, elves, breach, counter, land, damn_id] {
+        assert!(hand.contains(&taken));
+    }
+    let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    assert_eq!(
+        sorted(library[..4].to_vec()),
+        sorted(vec![ring, giant, karn, swords]),
+        "the rest at the bottom"
+    );
+    assert!(!library[4..].iter().any(|id| ids.contains(id)));
+    assert!(on_battlefield(&engine, p0, atraxa_grand_unifier()).is_some());
+}
+
+/// Declining is naming nothing, every time: a card left for one of its types
+/// is still offered for the next (the artifact creature, left as an artifact,
+/// is on the creature menu), and all ten go to the bottom.
+#[test]
+fn atraxa_grand_unifier_declined_puts_all_ten_at_the_bottom() {
+    let p0 = PlayerId::new(0);
+    let stack = [
+        copper_myr(),
+        sol_ring(),
+        llanowar_elves(),
+        thundering_giant(),
+        counterspell(),
+        mountain(),
+        damn(),
+        underworld_breach(),
+        karn_the_great_creator(),
+        swords_to_plowshares(),
+    ];
+    let (mut engine, ids) = atraxa_reveals(&stack);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let mut asked = Vec::new();
+    while let Some((card_type, options)) = atraxa_question(&engine) {
+        if card_type == TypeSet::CREATURE {
+            assert!(
+                options.contains(&ids[0]),
+                "the Myr is still a creature on offer"
+            );
+        }
+        asked.push(card_type);
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+            .unwrap();
+    }
+    assert_eq!(asked.len(), 7);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before
+    );
+    let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    assert_eq!(sorted(library[..10].to_vec()), sorted(ids.clone()));
+}
+
+/// Ten lands revealed (two Mountains on the Plains the deck is made of) are
+/// one question, about lands, and nothing is asked about a type no revealed
+/// card has.
+#[test]
+fn atraxa_grand_unifier_asks_only_about_types_revealed() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, ids) = atraxa_reveals(&[mountain(), mountain()]);
+    let (asked, offered) = atraxa_question(&engine).expect("the land question");
+    assert_eq!(asked, TypeSet::LAND);
+    // Two Mountains and eight of the Plains the deck is made of.
+    assert_eq!(offered.len(), 10);
+    assert!(ids.iter().all(|id| offered.contains(id)));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ids[1]],
+            },
+        )
+        .unwrap();
+    assert!(atraxa_question(&engine).is_none());
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&ids[1])
+    );
+}

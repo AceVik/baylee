@@ -272,6 +272,14 @@ pub enum AwaitingOp {
         /// Its owner, whose library it is.
         owner: PlayerId,
     },
+    /// After one of `RevealTopOnePerType`'s questions: the chosen card goes
+    /// into the hand, and the next card type is asked.
+    OnePerType {
+        /// The revealed cards, in the order they were on top.
+        revealed: Vec<ObjectId>,
+        /// The position in [`CARD_TYPES`] to ask from next.
+        next: usize,
+    },
     /// A player decides whether to pay for a tax effect.
     PlayerMayPay {
         /// The player deciding.
@@ -977,6 +985,77 @@ fn next_commander_ask(
     Some((card, pending))
 }
 
+/// The card types a "for each card type" asks about, in CR 205.2a's order:
+/// the ones a card in a library can have.
+const CARD_TYPES: [baylee_core::types::TypeSet; 9] = [
+    baylee_core::types::TypeSet::ARTIFACT,
+    baylee_core::types::TypeSet::BATTLE,
+    baylee_core::types::TypeSet::CREATURE,
+    baylee_core::types::TypeSet::ENCHANTMENT,
+    baylee_core::types::TypeSet::INSTANT,
+    baylee_core::types::TypeSet::KINDRED,
+    baylee_core::types::TypeSet::LAND,
+    baylee_core::types::TypeSet::PLANESWALKER,
+    baylee_core::types::TypeSet::SORCERY,
+];
+
+/// Asks the next of `RevealTopOnePerType`'s questions, from the card type at
+/// `from` on: the first type one of the `revealed` cards still in the
+/// library has. When no type is left to ask about, the cards still there go
+/// to the bottom of the library in a random order and nothing is asked.
+fn one_per_type(
+    state: &mut GameState,
+    res: &mut Resolution,
+    revealed: Vec<ObjectId>,
+    from: usize,
+) -> Option<Pending> {
+    let still_there = |state: &GameState, card: ObjectId| {
+        state
+            .object(card)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Library)
+    };
+    for (i, &card_type) in CARD_TYPES.iter().enumerate().skip(from) {
+        let options: Vec<ObjectId> = revealed
+            .iter()
+            .copied()
+            .filter(|&card| {
+                still_there(state, card)
+                    && state
+                        .object(card)
+                        .is_some_and(|o| o.characteristics().types.contains(card_type))
+            })
+            .collect();
+        if options.is_empty() {
+            continue;
+        }
+        res.awaiting = Some(AwaitingOp::OnePerType {
+            revealed,
+            next: i + 1,
+        });
+        return Some(Pending::ChooseCards {
+            player: res.controller,
+            options,
+            min: 0,
+            max: 1,
+            prompt: ChoicePrompt::OneOfType { card_type },
+        });
+    }
+    let mut rest: Vec<ObjectId> = revealed
+        .into_iter()
+        .filter(|&card| still_there(state, card))
+        .collect();
+    state.rng.shuffle(&mut rest);
+    for card in rest {
+        let _ = state.move_object(
+            card,
+            ZoneLocation::Library(res.controller),
+            ZonePosition::Bottom,
+            Cause::Effect,
+        );
+    }
+    None
+}
+
 /// Resumes a yes/no choice (shockland payment and friends).
 ///
 /// # Panics
@@ -1421,6 +1500,19 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+            }
+        }
+        AwaitingOp::OnePerType { revealed, next } => {
+            if let Some(&card) = chosen.first() {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Hand(res.controller),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            if let Some(pending) = one_per_type(state, res, revealed, next) {
+                return Flow::Wait(pending);
             }
         }
         AwaitingOp::CopyNewTargets { copy } => {
@@ -2672,6 +2764,26 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
             put_found(state, you, top, if fits { matched } else { otherwise });
             None
+        }
+        Effect::RevealTopOnePerType { count } => {
+            let top: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .iter()
+                .rev()
+                .take(usize::from(count))
+                .copied()
+                .collect();
+            if top.is_empty() {
+                return None;
+            }
+            // Shown to every player where they are (CR 701.20a), before any
+            // of them moves.
+            state.journal.record(GameEvent::Revealed {
+                player: you,
+                cards: top.clone(),
+            });
+            one_per_type(state, res, top, 0)
         }
         Effect::LookAtTopPick { count, pick } => {
             let top: Vec<ObjectId> = state

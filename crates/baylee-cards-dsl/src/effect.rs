@@ -1035,6 +1035,21 @@ pub enum Effect {
         /// N: the highest mana value that stops the exiling.
         mana_value: u8,
     },
+    /// "Reveal the top `count` cards of your library. For each card type,
+    /// you may put a card of that type from among the revealed cards into
+    /// your hand. Put the rest on the bottom of your library in a random
+    /// order." (Atraxa, Grand Unifier.)
+    ///
+    /// One question per card type (CR 205.2a) that a revealed card still in
+    /// the library has, in that rule's order: up to one card of that type.
+    /// A card taken for one type is out of the later questions, which is
+    /// what "a card of that type" for each type means for a card with two:
+    /// it is put into the hand once, for one of them, and every set of
+    /// cards the sentence allows is some sequence of answers.
+    RevealTopOnePerType {
+        /// How many cards are revealed.
+        count: u8,
+    },
     /// Counter a spell on the stack; it goes to exile instead of the
     /// graveyard (Force of Negation).
     CounterTargetSpellToExile,
@@ -2462,6 +2477,7 @@ impl Effect {
             | Effect::OwnerPutsOnTopOrBottom { .. }
             | Effect::ExileIfDiesThisTurn { .. }
             | Effect::Discover { .. }
+            | Effect::RevealTopOnePerType { .. }
             | Effect::CounterTargetSpellToExile
             | Effect::CounterTargetSpell
             | Effect::CounterTargetAbility

@@ -872,6 +872,41 @@ mod tests {
         }
     }
 
+    /// Atraxa's "for each card type, you may put a card of that type … into
+    /// your hand": one of the type's cards is taken, and the best of them.
+    /// The Wurm is listed first on purpose, because the fallback answers
+    /// `options[..max]`; with no lands on the table the Elves are worth
+    /// 800 - 150 and the Wurm 800 - 750.
+    #[test]
+    fn a_card_of_a_revealed_type_is_taken_and_the_best_one() {
+        use baylee_engine::choice::ChoicePrompt;
+        let me = PlayerId::new(0);
+        let (elves, wurm) = (obj(1), obj(2));
+        let mut v = view(0, &[20, 20], vec![]);
+        v.graveyards[0] = vec![
+            carded(permanent(elves, me, 1), "Llanowar Elves", TypeSet::CREATURE),
+            carded(permanent(wurm, me, 6), "Endless Wurm", TypeSet::CREATURE),
+        ];
+        let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+            &v,
+            &Pending::ChooseCards {
+                player: v.seat,
+                options: vec![wurm, elves],
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::OneOfType {
+                    card_type: TypeSet::CREATURE,
+                },
+            },
+        );
+        assert_eq!(
+            action,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves]
+            }
+        );
+    }
+
     #[test]
     fn third_iteration_counter_sign_decides_which_team_to_target() {
         use baylee_cards_dsl::{Amount, CounterKind as Counter, Effect};

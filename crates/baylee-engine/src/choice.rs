@@ -359,6 +359,16 @@ pub enum ChoicePrompt {
     /// listing everything the player controls would ask them to re-confirm
     /// the whole board every turn.
     LeaveTapped,
+    /// Revealed cards of one card type, one of which may be put into the
+    /// hand (Atraxa, Grand Unifier: "for each card type, you may put a card
+    /// of that type … into your hand"). Asked once per type, and the type
+    /// is the question: the menu holds only that type's cards. Taking one is
+    /// never worse than leaving it, since the rest go to the bottom, so the
+    /// house AI takes the best.
+    OneOfType {
+        /// The card type asked about.
+        card_type: baylee_core::types::TypeSet,
+    },
     /// "You may reveal a matching card from your hand; if you don't, this
     /// land enters tapped."
     ///

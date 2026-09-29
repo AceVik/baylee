@@ -335,6 +335,19 @@ fn four_card_choices_read_as_four_different_decisions() {
         "Wähle 1 Karte aus deinem Friedhof, die ins Exil geschickt wird"
     );
 
+    // Atraxa asks once per card type, and the type is the question.
+    let creature = ChoicePrompt::OneOfType {
+        card_type: baylee_core::types::TypeSet::CREATURE,
+    };
+    assert_eq!(
+        line(creature, 0, 1, Lang::En),
+        "Put up to one Creature card into your hand"
+    );
+    assert_eq!(
+        line(creature, 0, 1, Lang::De),
+        "Nimm bis zu eine Karte vom Typ Kreatur auf deine Hand"
+    );
+
     // And the whole of AS's second half: one card is never "card(s)".
     for lang in Lang::ALL {
         let one = line(ChoicePrompt::Generic, 1, 1, lang);
