@@ -1491,11 +1491,6 @@ fn counters_on(
         .get(kind)
 }
 
-/// Whether a permanent still on the battlefield is tapped.
-///
-/// Panics when the object is gone, deliberately: every caller is asking
-/// about a permanent it has just put on the table, so a missing object is a
-/// broken assumption and not the answer `false`.
 /// `id` with the version every zone change bumps (CR 400.7): an object that
 /// left a zone and came back keeps its handle and is a new object all the
 /// same, so comparing handles alone cannot tell a transform from an exile
@@ -1505,6 +1500,11 @@ fn identity(engine: &Engine<RegistryLookup>, id: ObjectId) -> (ObjectId, u32) {
     (id, engine.state().object(id).expect("an object").version)
 }
 
+/// Whether a permanent still on the battlefield is tapped.
+///
+/// Panics when the object is gone, deliberately: every caller is asking
+/// about a permanent it has just put on the table, so a missing object is a
+/// broken assumption and not the answer `false`.
 fn is_tapped(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
     engine
         .state()
