@@ -363,7 +363,9 @@ variable it still probes and prints, and writes nothing. With it, the
 directory is created if missing and `leave.jsonl` in it is overwritten. It
 prints one totals line and one `walk:` line per thin trigger walk (see
 [The trigger walk](#the-trigger-walk)). A full sweep runs one thread per core
-and took 8 to 22 s here (2026-09-29, 2013 cards).
+and took 8 to 22 s here (2026-09-29, 2013 cards). It silences the panic hook
+while it runs, since a panic is a `skipped` line: run it with `--exact`, as
+above, so that no other test shares the process.
 
 The gate runs `leave_probe_tests::representative_cards_leave_cleanly_by_every_route`
 instead: five cards, every route `ok`, every walk full. They are Glorious
@@ -393,7 +395,7 @@ route in the order of the table below; fields in this order:
 | `ok`      | every check below passed |
 | `lingers` | some part of the card was still in force, offered or triggering where it must not be; wins over `stale` |
 | `stale`   | only `Engine::projection_is_fresh` failed, after settling or at the end ("already stale before the route" when the board was stale before anything left) |
-| `skipped` | the card could not be set up, or the route did not happen to it: `setup: …` (it was not on the battlefield under seat 0 when the walk reached seat 0's main phase, an Aura with nothing to enchant), `did not leave the battlefield` (indestructible), `came back to the battlefield` (persist, undying), `did not phase out`, `control did not change`, `the card's object is gone`, `route: …` (the effect asked a question), or `panic: …`; never a panic of the sweep |
+| `skipped` | the card could not be set up, or the route did not happen to it: `setup: …` (it was not on the battlefield under seat 0 when the walk reached seat 0's main phase, an Aura with nothing to enchant), `did not leave the battlefield` (indestructible), `came back to the battlefield` (persist, undying), `did not phase out`, `control did not change`, `the card's object is gone`, `route: …` (the route could not be run: its effect asked a question, or seat 1 had nothing left to be its source), or `panic: …`; never a panic of the sweep |
 
 ### The cards and the board
 
@@ -486,22 +488,25 @@ floating does: the offer is gone and priority is back).
 
 ### A run
 
-2026-09-29, 2013 cards × 7 routes = 14091 lines.
+2026-09-29, 2013 cards × 7 routes = 14091 lines, this probe both times;
+"before" is the engine at `9133d843`, before the phasing fixes.
 
 | | ok | lingers | stale | skipped |
 |---|---|---|---|---|
-| before the phasing fixes | 12617 | 1243 | 0 | 231 |
+| before the phasing fixes | 12618 | 1242 | 0 | 231 |
 | after | 13860 | 0 | 0 | 231 |
 
-Every `lingers` line was `phase_out`: a phased-out permanent's abilities
-were offered (1190 cards, 26 of them a land's intrinsic mana), its statics
-and replacement rules kept applying (202 and 8), and its triggered abilities
-triggered (43). The fixes are in `docs/engine-internals.md` §"Phasing".
-The 231 skipped lines are 28 cards not on the battlefield once set up (×7:
-copies that copied nothing, Walking Ballista with no counters, Auras that
-kill their 1/1 host, upkeep costs the kit declines), one Aura with nothing
-to enchant (Inertia Bubble, ×7), 18 indestructible cards (`destroy`) and 5
-with persist or undying (`destroy`, `sacrifice`). 31 walks were thin, none stopped short.
+Every `lingers` line was `phase_out`; the other six routes were clean on
+the old engine too. A phased-out permanent's abilities were offered (1054
+cards, 26 of them only a land's intrinsic mana), its statics kept applying
+(167) and so did its replacement rules (8), and its triggered abilities
+triggered (43); two of the lines also found the projection stale. The
+fixes are in `docs/engine-internals.md` §"Phasing". The 231 skipped lines
+are 28 cards not on the battlefield once set up (×7: copies that copied
+nothing, Walking Ballista with no counters, Auras that kill their 1/1 host,
+upkeep costs the kit declines), one Aura with nothing to enchant (Inertia
+Bubble, ×7), 18 indestructible cards (`destroy`) and 5 with persist or
+undying (`destroy`, `sacrifice`). 31 walks were thin, none stopped short.
 
 ### Proving it can fail
 
