@@ -2917,8 +2917,8 @@ impl GameState {
                 }
             }
         }
-        h.usize(self.combat.attackers.len());
-        for a in &self.combat.attackers {
+        h.usize(self.combat.attackers().len());
+        for a in self.combat.attackers() {
             h.u32(position(a.creature));
             hash_defender(&mut h, a.defending, position);
             h.boolean(a.blocked);

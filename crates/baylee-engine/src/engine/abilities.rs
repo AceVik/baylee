@@ -246,6 +246,12 @@ impl<L: CardLookup> Engine<L> {
                 legal.castable.push(card);
             }
         }
+        // The grants are collected once rather than asked of the whole
+        // effect table per permanent (`effects::grants`): an Ally board
+        // carries thousands of "until end of turn" effects and grants
+        // through one or two of them.
+        let grants: smallvec::SmallVec<[&crate::effects::ContinuousEffect; 4]> =
+            crate::effects::grants(&self.state).collect();
         for &id in self.state.zones.list(ZoneLocation::Battlefield) {
             // Karn's lock, asked on the offering side too. It stops every
             // activated ability of the permanent, a mana ability included —
@@ -420,9 +426,10 @@ impl<L: CardLookup> Engine<L> {
             // is the *position among the grants that apply*, affordable or
             // not — an index that shifted when a cost became payable would
             // name a different ability from one priority window to the next.
-            for (n, granted) in crate::effects::granted_activated(&self.state, id)
-                .take(crate::choice::GRANTED_SLOTS as usize)
-                .enumerate()
+            for (n, granted) in
+                crate::effects::granted_activated_among(&self.state, grants.iter().copied(), id)
+                    .take(crate::choice::GRANTED_SLOTS as usize)
+                    .enumerate()
             {
                 if !self.can_afford(player, id, &granted.cost, casting::SpendFor::Ability(id)) {
                     continue;
@@ -442,7 +449,13 @@ impl<L: CardLookup> Engine<L> {
                 // `apply`: intrinsic first, and the granted ability is
                 // reached by naming `GRANTED_ABILITY` in `legal.abilities`,
                 // where it also appears.
-                if granted.mana_ability && !legal.mana_abilities.contains(&id) {
+                //
+                // `last` and not `contains`: both pushes onto this list are
+                // made in this permanent's own turn of the loop, so an entry
+                // for it can only be the latest one, and searching the whole
+                // list made a board of granted mana abilities (a Great Divide
+                // Guide over a few thousand Allies) quadratic.
+                if granted.mana_ability && legal.mana_abilities.last() != Some(&id) {
                     legal.mana_abilities.push(id);
                 }
             }
@@ -917,6 +930,16 @@ impl<L: CardLookup> Engine<L> {
         what: casting::SpendFor,
         cost: &baylee_core::mana::ManaCost,
     ) -> bool {
+        // No mana symbol at all — `{T}`, a sacrifice, a granted "{T}: Add
+        // one mana of any color" — is paid by every pool, the Lattice's
+        // included (`mana_pay::payment_preferring` over no symbols pays
+        // nothing and succeeds). Answered here because the offer asks it
+        // once per permanent: the pool merge and the effect-table walk that
+        // reads the Lattice below were most of what a board of granted mana
+        // abilities cost.
+        if cost.symbols().next().is_none() {
+            return true;
+        }
         let with_restricted = casting::spendable_pool(&self.state, player, what);
         let pool = with_restricted
             .as_ref()

@@ -217,8 +217,10 @@ Maze of Ith, Urza's Saga (partial), Venser the Sojourner (partial) plus the
   "handled elsewhere" match arm of `layers.rs` + `state.rs` modifier hash).
   Every new `Modifier` variant MUST be added to BOTH match statements or
   the build breaks with non-exhaustive errors.
-- `Filter::Attacking` (Maze of Ith): evaluated against
-  `state.combat.attackers` in `eval.rs`.
+- `Filter::Attacking` (Maze of Ith): evaluated by
+  `state.combat.is_attacking` in `eval.rs`, a lookup in a sorted index kept
+  beside the attacker list. The list is private: declare and remove through
+  `CombatState`'s methods, which keep the two in step.
 - No-lose suppression: `Modifier::PlayersCantLose` is read by one predicate,
   `sba::players_cant_lose`, which both the SBA loss check and
   `sba::lose_by_effect` (an effect saying a player loses, e.g. an unpaid

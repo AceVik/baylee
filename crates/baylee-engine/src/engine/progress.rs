@@ -526,14 +526,14 @@ impl<L: CardLookup> Engine<L> {
                 let defending = self
                     .state
                     .combat
-                    .attackers
+                    .attackers()
                     .first()
                     .and_then(|a| combat::defending_player(&self.state, a.defending))
                     .unwrap_or_else(|| self.next_alive_after(active));
                 let attacking: Vec<ObjectId> = self
                     .state
                     .combat
-                    .attackers
+                    .attackers()
                     .iter()
                     .map(|a| a.creature)
                     .collect();
@@ -544,15 +544,19 @@ impl<L: CardLookup> Engine<L> {
                 // would name a block `declare_blockers` has to refuse (#156).
                 // Asked once per attacker rather than once per pair, because
                 // the answer is the same for every blocker.
+                //
+                // Both walks go over the defender's ready creatures, not the
+                // battlefield: the pairs they skip are ones `can_block`
+                // refuses on the blocker's half alone, and walking the
+                // battlefield per attacker made this step cost permanents ×
+                // attackers (`combat::ready_blockers`).
+                let candidates = combat::ready_blockers(&self.state, defending);
                 let blockable: Vec<ObjectId> = attacking
                     .iter()
                     .copied()
-                    .filter(|a| combat::menace_satisfiable(&self.state, defending, *a))
+                    .filter(|a| combat::menace_satisfiable(&self.state, defending, *a, &candidates))
                     .collect();
-                let blockers: Vec<crate::choice::BlockOption> = self
-                    .state
-                    .zones
-                    .list(crate::zone::ZoneLocation::Battlefield)
+                let blockers: Vec<crate::choice::BlockOption> = candidates
                     .iter()
                     .copied()
                     .filter_map(|blocker| {
@@ -4621,7 +4625,7 @@ impl<L: CardLookup> Engine<L> {
                 // rules never asked. Nothing is lost by leaving them out —
                 // there is no damage to deal and no trigger can be waiting
                 // on a step that is skipped.
-                if self.state.combat.attackers.is_empty() {
+                if self.state.combat.attackers().is_empty() {
                     (Phase::Combat, Step::CombatEnd)
                 } else {
                     (Phase::Combat, Step::DeclareBlockers)
@@ -4677,7 +4681,7 @@ impl<L: CardLookup> Engine<L> {
         use baylee_cards_dsl::KeywordSet as K;
         self.state
             .combat
-            .attackers
+            .attackers()
             .iter()
             .map(|a| a.creature)
             .chain(self.state.combat.blockers.iter().map(|b| b.blocker))

@@ -305,7 +305,7 @@ fn a_menace_attacker_takes_two_blockers_or_none() {
     assert_eq!(guards.len(), 2, "two creatures are there to block with");
 
     let blockers = attack_and_reach_blockers(&mut engine, p0, p1);
-    let runner = engine.state().combat.attackers[0].creature;
+    let runner = engine.state().combat.attackers()[0].creature;
     assert_eq!(
         blockers.len(),
         2,
@@ -433,7 +433,7 @@ fn a_creature_that_cannot_block_is_absent_beside_a_twin_that_can() {
     );
 
     let blockers = attack_and_reach_blockers(&mut engine, p0, p1);
-    let attacker = engine.state().combat.attackers[0].creature;
+    let attacker = engine.state().combat.attackers()[0].creature;
     assert_eq!(
         blockers.iter().map(|o| o.blocker).collect::<Vec<_>>(),
         guards,
@@ -483,7 +483,7 @@ fn dauthi_shadow_is_enforced_in_the_offer_and_the_declaration_in_both_directions
             .start();
         keep_mulligans(&mut engine);
         let offered = attack_and_reach_blockers(&mut engine, p0, p1);
-        let attacker = engine.state.combat.attackers[0].creature;
+        let attacker = engine.state.combat.attackers()[0].creature;
         let legal = creatures_of(&engine, p1, attack_card)[0];
         let illegal_card = if attack_card == dauthi {
             thopter

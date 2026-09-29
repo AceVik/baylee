@@ -10,6 +10,7 @@
 #![warn(missing_docs)]
 
 mod activate;
+mod board;
 pub mod combat;
 mod copying;
 mod fight;
@@ -250,27 +251,46 @@ impl HeuristicAgent {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
                 }
                 let victim = self.pick_defender(view, &opponents);
-                let report = search::attackers(view, &squad, victim, self.profile);
+                // Indexed once for the whole decision: every step below
+                // looks creatures up by handle, one per creature.
+                let board = board::Board::new(view);
+                let report = search::attackers_on(&board, &squad, victim, self.profile);
+                // An attack that wins goes at the player, whatever walker is
+                // standing there. The search's proof is one way to know, but
+                // it gives up above sixteen creatures a side and never runs
+                // for the shallow profiles, so every profile also asks the
+                // estimate. Before it did, a squad only the estimate saw as
+                // lethal went at the cheapest walker whenever its power
+                // reached the loyalty, and a board that doubled every turn
+                // killed a recast commander walker every turn and never its
+                // controller (self-play r001 #431).
+                let lethal =
+                    report.lethal || combat::breaks_through(&board, &report.attackers, victim);
+                let searched = report.attackers.len();
                 let going = combat::hold_back_for_the_crack_back(
-                    view,
+                    &board,
                     report.attackers,
                     victim,
-                    report.lethal,
+                    lethal,
                     |seat| self.hostile(seat, view.seat),
                 );
                 if going.is_empty() {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
                 }
                 // What they aim at is decided by the squad that is actually
-                // going, not by the whole board: a walker is only worth
-                // attacking when the attack kills it, and the creatures
-                // staying home add nothing to that sum.
-                let defender = if report.lethal && defenders.contains(&Defender::Player(victim)) {
-                    Defender::Player(victim)
+                // going, not by the whole board: the creatures staying home
+                // add nothing to either sum. Where the crack-back pass kept
+                // some home, the verdict is the estimate's on what is left.
+                let wins = lethal
+                    && (going.len() == searched || combat::breaks_through(&board, &going, victim));
+                let attackers = if wins && defenders.contains(&Defender::Player(victim)) {
+                    going
+                        .into_iter()
+                        .map(|id| (id, Defender::Player(victim)))
+                        .collect()
                 } else {
-                    aim_at(view, victim, &going, &defenders)
+                    combat::aim(&board, victim, &going, &defenders)
                 };
-                let attackers = going.into_iter().map(|id| (id, defender)).collect();
                 PlayerAction::DeclareAttackers { attackers }
             }
             Pending::ChooseBlockers { blockers, .. } => PlayerAction::DeclareBlockers {
@@ -557,47 +577,6 @@ fn costliest(view: &PlayerView, n: usize) -> Vec<ObjectId> {
         .collect();
     hand.sort_by_key(|(mv, id)| (u32::MAX - mv, *id));
     hand.iter().take(n).map(|(_, id)| *id).collect()
-}
-
-/// Chooses what the squad actually swings at once politics has picked the
-/// victim: one of their planeswalkers if this attack can finish it off,
-/// otherwise the player.
-///
-/// Killing a walker is worth more than a few points of life, but only if
-/// it actually dies — chipping a loyalty counter off a big planeswalker
-/// while the controller's life total goes untouched is the worst of both.
-/// So the bar is "total attacking power is at least its loyalty", and
-/// among the walkers that clear it the cheapest one to kill wins.
-///
-/// The blockers the defender has not declared yet are not modelled; this
-/// is the same one-ply optimism the rest of the heuristic runs on.
-fn aim_at(
-    view: &PlayerView,
-    victim: PlayerId,
-    squad: &[ObjectId],
-    defenders: &[Defender],
-) -> Defender {
-    let power: i32 = squad
-        .iter()
-        .filter_map(|id| view.object(*id))
-        .map(|o| i32::from(o.power.unwrap_or(0)))
-        .sum();
-    defenders
-        .iter()
-        .copied()
-        .filter_map(|d| {
-            let Defender::Planeswalker(id) = d else {
-                return None;
-            };
-            let walker = view.object(id)?;
-            if walker.controller != victim {
-                return None;
-            }
-            let loyalty = i32::from(walker.counter_count(baylee_view::CounterKind::Loyalty));
-            (loyalty > 0 && loyalty <= power).then_some((loyalty, d))
-        })
-        .min_by_key(|(loyalty, _)| *loyalty)
-        .map_or(Defender::Player(victim), |(_, d)| d)
 }
 
 /// How much a player's board threatens: a point per permanent plus its
@@ -2263,12 +2242,15 @@ mod tests {
                 Defender::Planeswalker(obj(2)),
             ],
         };
-        for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
+        // Every profile, since the shallow ones ask the estimate too: until
+        // they did, only the two that search took the kill.
+        for (name, profile) in EVERY_PROFILE {
             assert_eq!(
                 HeuristicAgent::new(profile).act(&v, &pending),
                 PlayerAction::DeclareAttackers {
                     attackers: vec![(obj(1), Defender::Player(PlayerId::new(1)))]
-                }
+                },
+                "{name}"
             );
         }
     }
@@ -4297,6 +4279,17 @@ mod tests {
         assert!(defenders.contains(&first));
     }
 
+    /// Where `squad` is aimed by the walker rule, on a board that has
+    /// already been judged not to win.
+    fn aimed_at(
+        v: &PlayerView,
+        victim: PlayerId,
+        squad: &[ObjectId],
+        defenders: &[Defender],
+    ) -> Vec<(ObjectId, Defender)> {
+        combat::aim(&board::Board::new(v), victim, squad, defenders)
+    }
+
     /// A planeswalker is worth attacking only when the attack kills it:
     /// three 1/1s finish a 3-loyalty walker, so they go for the walker.
     #[test]
@@ -4312,8 +4305,11 @@ mod tests {
         let defenders = [Defender::Player(victim), Defender::Planeswalker(obj(20))];
 
         assert_eq!(
-            aim_at(&v, victim, &squad, &defenders),
-            Defender::Planeswalker(obj(20)),
+            aimed_at(&v, victim, &squad, &defenders),
+            squad
+                .iter()
+                .map(|id| (*id, Defender::Planeswalker(obj(20))))
+                .collect::<Vec<_>>(),
             "three power went to the player instead of killing the walker"
         );
     }
@@ -4333,9 +4329,136 @@ mod tests {
         let defenders = [Defender::Player(victim), Defender::Planeswalker(obj(20))];
 
         assert_eq!(
-            aim_at(&v, victim, &squad, &defenders),
-            Defender::Player(victim),
+            aimed_at(&v, victim, &squad, &defenders),
+            squad
+                .iter()
+                .map(|id| (*id, Defender::Player(victim)))
+                .collect::<Vec<_>>(),
             "the squad chipped a walker it could not kill"
+        );
+    }
+
+    /// How many attackers `profile` sends at each defender, in the order the
+    /// answer first names them.
+    fn attacks(profile: AIProfile, v: &PlayerView, pending: &Pending) -> Vec<(Defender, usize)> {
+        let PlayerAction::DeclareAttackers { attackers } =
+            HeuristicAgent::new(profile).act(v, pending)
+        else {
+            panic!("not an attack answer")
+        };
+        let mut split: Vec<(Defender, usize)> = Vec::new();
+        for (_, at) in attackers {
+            match split.iter_mut().find(|(d, _)| *d == at) {
+                Some((_, n)) => *n += 1,
+                None => split.push((at, 1)),
+            }
+        }
+        split
+    }
+
+    /// `count` creatures of `power` on seat 0; on seat 1 a player on `life`
+    /// with `blockers` untapped 1/1s and a 3-loyalty walker.
+    fn walker_board(count: u32, power: i16, life: i32, blockers: u32) -> (PlayerView, Pending) {
+        let victim = PlayerId::new(1);
+        let mut board: Vec<PublicObject> = (1..=count)
+            .map(|i| permanent(obj(i), PlayerId::new(0), power))
+            .collect();
+        board.extend((0..blockers).map(|i| permanent(obj(100 + i), victim, 1)));
+        board.push(walker(obj(200), victim, 3));
+        let v = view(0, &[20, life], board);
+        let pending = Pending::ChooseAttackers {
+            player: v.seat,
+            attackers: (1..=count).map(obj).collect(),
+            defenders: vec![Defender::Player(victim), Defender::Planeswalker(obj(200))],
+        };
+        (v, pending)
+    }
+
+    /// Self-play r001 #431: a token board that doubled every turn attacked
+    /// the walker its opponent recast from the command zone, every turn,
+    /// and the opponent's life never moved. An attack that wins goes at the
+    /// player, for every profile.
+    ///
+    /// Two boards, because two things were blind to the kill. Twenty-four
+    /// 1/1s past two chump blockers are twenty-two into twenty: more than
+    /// the sixteen creatures the search takes, so no profile had a proof,
+    /// and every one of them sent all twenty-four at a 3-loyalty walker.
+    /// Three 5/5s into ten life with nothing to block is a board the search
+    /// does prove, which is why SHARP and EXPERT already took it and the
+    /// three shallow profiles, which never search, did not.
+    #[test]
+    fn an_attack_that_wins_goes_at_the_player_and_not_at_a_walker() {
+        let player = Defender::Player(PlayerId::new(1));
+        for (count, power, life, blockers) in [(24, 1, 20, 2), (3, 5, 10, 0)] {
+            let (v, pending) = walker_board(count, power, life, blockers);
+            for (name, profile) in EVERY_PROFILE {
+                assert_eq!(
+                    attacks(profile, &v, &pending),
+                    vec![(player, count as usize)],
+                    "{name}: {count} {power}/{power}s past {blockers} blockers into {life} life"
+                );
+            }
+        }
+    }
+
+    /// An attack that does not win still kills the walker it can, with what
+    /// it takes and not with everything: past one untapped 1/1, four 1/1s
+    /// are what kill a 3-loyalty walker, and the other four hit the player.
+    /// It used to send all eight at the walker.
+    #[test]
+    fn a_walker_is_sent_what_kills_it_and_the_rest_hits_the_player() {
+        let victim = PlayerId::new(1);
+        let at_walker = Defender::Planeswalker(obj(200));
+        let (v, pending) = walker_board(8, 1, 20, 1);
+        let squad: Vec<ObjectId> = (1..=8).map(obj).collect();
+        let defenders = [Defender::Player(victim), at_walker];
+        let aimed = aimed_at(&v, victim, &squad, &defenders);
+        assert_eq!(
+            aimed.iter().map(|(id, _)| *id).collect::<Vec<_>>(),
+            squad,
+            "the attack lost a creature or its order"
+        );
+        assert_eq!(
+            aimed.iter().filter(|(_, d)| *d == at_walker).count(),
+            4,
+            "one blocker stops one attacker, so the walker needs four: {aimed:?}"
+        );
+        // Every profile that attacks at all splits it the same way: which
+        // creatures go is the profile's, where they go is not.
+        for (name, profile) in EVERY_PROFILE {
+            let split = attacks(profile, &v, &pending);
+            let sent: usize = split.iter().map(|(_, n)| n).sum();
+            let walker = split
+                .iter()
+                .find(|(d, _)| *d == at_walker)
+                .map_or(0, |(_, n)| *n);
+            assert_eq!(
+                walker,
+                if sent > 4 { 4 } else { sent },
+                "{name} sent {walker} of {sent} at the walker"
+            );
+        }
+    }
+
+    /// A walker every blocker could save is still sent the whole squad, as
+    /// it was before: nothing here is spare, and the defender has to block
+    /// to keep it.
+    #[test]
+    fn a_walker_the_blockers_could_save_is_still_sent_everything() {
+        let victim = PlayerId::new(1);
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), PlayerId::new(0), 5),
+                permanent(obj(100), victim, 1),
+                walker(obj(200), victim, 3),
+            ],
+        );
+        let defenders = [Defender::Player(victim), Defender::Planeswalker(obj(200))];
+        assert_eq!(
+            aimed_at(&v, victim, &[obj(1)], &defenders),
+            vec![(obj(1), Defender::Planeswalker(obj(200)))]
         );
     }
 
