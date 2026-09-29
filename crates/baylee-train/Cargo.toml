@@ -72,6 +72,11 @@ path = "src/bin/convert.rs"
 required-features = ["play"]
 
 [[bin]]
+name = "convert3"
+path = "src/bin/convert3.rs"
+required-features = ["play"]
+
+[[bin]]
 name = "fuzz"
 path = "src/bin/fuzz.rs"
 required-features = ["play"]

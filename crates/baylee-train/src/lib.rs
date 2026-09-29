@@ -13,6 +13,8 @@
 pub mod cardwalk;
 #[cfg(feature = "play")]
 pub mod convert;
+#[cfg(feature = "play")]
+pub mod convert3;
 pub mod deckgen;
 #[cfg(feature = "play")]
 pub mod features;
