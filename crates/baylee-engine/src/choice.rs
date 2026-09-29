@@ -1261,8 +1261,10 @@ fn block_fault(
 ///
 /// The answer is what the question offers, not what the rules will accept:
 /// a creature that attacks each combat if able (CR 508.1d) or a lure that
-/// must be blocked (CR 509.1c) can make the empty declaration illegal, and
-/// the clock then falls back to the house.
+/// must be blocked (CR 509.1c) would make the empty declaration illegal,
+/// and the clock would then fall back to the house. The engine implements
+/// no such requirement yet, so the empty declaration is always taken
+/// (`docs/pending-constraints.md` §"Requirements").
 #[must_use]
 pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
     match pending {
