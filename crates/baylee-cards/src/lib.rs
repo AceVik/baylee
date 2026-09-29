@@ -18,6 +18,8 @@ pub mod decks;
 pub mod digest;
 /// Filters shared by more than one card file.
 pub mod filters;
+/// Deck shapes: size, copy limits, leaders and colour identity.
+pub mod formats;
 /// Generated: registry tables.
 pub mod generated;
 /// Generated: which printed sentence each ability came from.
