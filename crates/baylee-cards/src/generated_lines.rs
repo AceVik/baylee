@@ -29992,8 +29992,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // World Shaper
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(0)],
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

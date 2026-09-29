@@ -15515,8 +15515,8 @@ fn drowned_jungle_enters_tapped_and_taps_for_either_colour() {
     );
 }
 
-/// World Shaper: the attack trigger, which is the half of the card that is
-/// not refused by name.
+/// World Shaper: the attack trigger. The dies trigger is the test after
+/// this one.
 ///
 /// "…you may mill three cards" is a `MayDo`, so the question is asked and
 /// answering it is the test: three cards leave the library for the graveyard
@@ -15559,6 +15559,80 @@ fn world_shaper_mills_three_when_it_attacks() {
         library_size(&engine, p0),
         before - 3,
         "three cards milled off the attack trigger"
+    );
+}
+
+/// World Shaper: "When this creature dies, return all land cards from your
+/// graveyard to the battlefield tapped."
+///
+/// Two Forests and an Elf lie in its controller's graveyard and a Plains in
+/// the opponent's. The opponent's Vindicate kills the Shaper: both Forests
+/// come back tapped under the Shaper's controller, and the Elf, the Shaper
+/// itself and the other graveyard's Plains stay where they are.
+#[test]
+fn world_shaper_dying_returns_every_land_card_from_its_graveyard_tapped() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(390, forest())
+        .battlefield(0, &[world_shaper()])
+        .hand(0, &[forest(), forest(), llanowar_elves()])
+        .battlefield(1, &[plains(), swamp(), plains()])
+        .hand(1, &[vindicate(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    let forests = [
+        hand_to_graveyard(&mut engine, p0, forest()),
+        hand_to_graveyard(&mut engine, p0, forest()),
+    ];
+    let elf = hand_to_graveyard(&mut engine, p0, llanowar_elves());
+    let their_plains = hand_to_graveyard(&mut engine, p1, plains());
+
+    reach_their_main_phase(&mut engine, p1);
+    let shaper = on_battlefield(&engine, p0, world_shaper()).expect("the Shaper is seated");
+    cast_from_hand(&mut engine, p1, vindicate());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![shaper],
+            },
+        )
+        .expect("Vindicate targets the Shaper");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, world_shaper()).is_some(),
+        "it died"
+    );
+    let lands: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.controller == p0 && o.card.is_some_and(|c| c.index == forest()))
+        })
+        .collect();
+    assert_eq!(lands.len(), 2, "both Forests came back: {forests:?}");
+    assert!(
+        lands.iter().all(|land| is_tapped(&engine, *land)),
+        "\"to the battlefield tapped\""
+    );
+    assert_eq!(
+        engine.state().object(elf).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "only land cards return"
+    );
+    assert_eq!(
+        engine.state().object(their_plains).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "\"your graveyard\": the opponent's Plains stays"
     );
 }
 
