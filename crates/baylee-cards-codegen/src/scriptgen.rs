@@ -923,6 +923,16 @@ impl Tx<'_> {
         Some(match api {
             "DealDamage" => {
                 let n = amount(&p.take("NumDmg")?, self.svars, self.has_x)?;
+                // "Deals 4 damage to any target and 2 damage to you"
+                // (Psionic Blast): the reference gathers both into one
+                // simultaneous event and deals it at `DamageResolve`. The
+                // engine journals one `DamageDealt` per recipient either
+                // way, as it does for `DealDamageEach`, and nothing checks
+                // state-based actions between two effects of one
+                // resolution, so the two in sequence are the same event.
+                if p.take("DamageMap").is_some_and(|v| v != "True") {
+                    return None;
+                }
                 let to = match p.take("Defined").as_deref() {
                     None => aimed.to_string(),
                     // "Deals 1 damage to that player" and every other
@@ -975,6 +985,22 @@ impl Tx<'_> {
                         "Effect::DrawCardsFor {{ amount: {n}, who: {who} }}"
                     )],
                 }
+            }
+            // "Target player discards a card": the discarding player
+            // chooses, which is what discarding means unless the effect
+            // says otherwise (CR 701.9b).
+            "Discard" if p.peek("Mode") == Some("TgtChoose") => {
+                p.take("Mode");
+                let n = p
+                    .take("NumCards")
+                    .as_deref()
+                    .unwrap_or("1")
+                    .parse::<u8>()
+                    .ok()?;
+                let who = self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
+                vec![format!(
+                    "Effect::DiscardForPlayers {{ who: {who}, count: {n} }}"
+                )]
             }
             "Discard" => {
                 // Refuse other modes instead of turning a chosen discard
@@ -1098,6 +1124,9 @@ impl Tx<'_> {
             // `DealDamage` for the players, which is the one spelling
             // `DealDamageEach` names for the second half. Nothing is
             // targeted, so an ability that also targets is refused.
+            // Where the reference deals the damage `DamageMap$` gathered:
+            // the `DealDamage` lines before it already did.
+            "DamageResolve" => Vec::new(),
             "DamageAll" => {
                 if target.is_some() {
                     return None;
@@ -3238,6 +3267,9 @@ impl Tx<'_> {
 
     fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
         let is_activated = spec.starts_with("AB$");
+        if !is_activated && Params::parse(spec).is_some_and(|(api, _)| api == "Charm") {
+            return self.charm(spec);
+        }
         let Some((_, mut probe)) = Params::parse(spec) else {
             return self.deny("an `A:` line with no `$` in it".to_string());
         };
@@ -3252,7 +3284,20 @@ impl Tx<'_> {
         // spells a resolution-time condition `ConditionPresent$`, a
         // different key on a different line (1521 of them, all on `SVar:`),
         // and this reader claims neither it nor its family.
-        let condition = self.condition(&mut probe)?;
+        let mut condition = self.condition(&mut probe)?;
+        // "Activate only during your turn" (Disrupting Scepter), a
+        // restriction on activating (CR 602.5) the same `condition` field
+        // says, and so only where no other clause already fills it.
+        let your_turn = probe.take("PlayerTurn");
+        match your_turn.as_deref() {
+            None => {}
+            Some("True") if is_activated && condition.is_empty() => {
+                condition = ", condition = Some(Condition::YourTurn)".to_string();
+            }
+            Some(other) => {
+                return self.deny(format!("`PlayerTurn$ {other}` beside another clause"));
+            }
+        }
         let mut chain = Chain::default();
         // The cost belongs to the ability, not to the effect chain, so it is
         // removed from the spec before the chain reads it. The clause's keys
@@ -3272,6 +3317,7 @@ impl Tx<'_> {
         let stripped: Vec<&str> = spec
             .split(" | ")
             .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
+            .filter(|part| your_turn.is_none() || !part.starts_with("PlayerTurn$"))
             .filter(|part| !claimed.iter().any(|key| part.starts_with(key)))
             .collect();
         self.chain(&stripped.join(" | "), &mut chain)?;
@@ -3403,6 +3449,58 @@ impl Tx<'_> {
                 .abilities
                 .push(format!("spell!({effects}{targets})"));
         }
+        Some(())
+    }
+
+    /// "Choose one —" (CR 700.2): `SP$ Charm | Choices$ A,B` is a modal
+    /// spell whose modes are the named `SVar`s, each read as the chain it
+    /// is and each targeting for itself, since a target a mode names is
+    /// chosen only when that mode is (CR 700.2c).
+    ///
+    /// Only a spell, and only "choose one" or "choose two": a modal
+    /// activated ability is a different `AbilityDef`, and the other counts
+    /// the reference spells (`MinCharmNum$`, a count the board works out)
+    /// are rules this reader has not met yet.
+    fn charm(&mut self, spec: &str) -> Option<()> {
+        let Some((_, mut p)) = Params::parse(spec) else {
+            return self.deny("an `A:` line with no `$` in it".to_string());
+        };
+        p.drop_prose();
+        let Some(choices) = p.take("Choices") else {
+            return self.deny("a charm with no `Choices$`".to_string());
+        };
+        let choose = match p.take("CharmNum").as_deref() {
+            None | Some("1") => "ModeCount::ONE",
+            Some("2") => "ModeCount::TWO",
+            Some(n) => return self.deny(format!("a charm choosing `{n}`")),
+        };
+        if let Some(key) = p.first_key() {
+            self.note(format!("unclaimed parameter `Charm.{key}`"));
+            return None;
+        }
+        let mut modes = Vec::new();
+        for name in choices.split(',').map(str::trim) {
+            let Some(line) = self.svars.get(name).cloned() else {
+                return self.deny(format!("charm choice `{name}` with no `SVar`"));
+            };
+            let mut chain = Chain::default();
+            self.chain(&line, &mut chain)?;
+            if chain.effects.is_empty() {
+                return self.deny("a charm mode that reads as no effect at all".to_string());
+            }
+            let targets = chain
+                .target
+                .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
+                .unwrap_or_default();
+            modes.push(format!("mode!(&[{}]{targets})", chain.effects.join(", ")));
+        }
+        if modes.len() < 2 {
+            return self.deny("a charm with fewer than two modes".to_string());
+        }
+        self.body.abilities.push(format!(
+            "AbilityDef::ModalSpell {{ choose: {choose}, modes: &[{}] }}",
+            modes.join(", ")
+        ));
         Some(())
     }
 
@@ -4075,6 +4173,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Destroy",
     "DestroyAll",
     "DamageAll",
+    "DamageResolve",
     "Regenerate",
     "Tap",
     "Untap",
@@ -4377,7 +4476,7 @@ mod tests {
     }
 
     #[test]
-    fn random_discard_reads_x_and_refuses_a_chosen_discard() {
+    fn random_discard_reads_x_and_refuses_a_discard_it_cannot_name() {
         let generated = read(
             "Name:Test
 ManaCost:X B
@@ -4394,11 +4493,9 @@ SVar:X:Count$xPaid",
                     && a.contains("PlayerRel::Chosen")),
             "{generated:?}"
         );
-        for extra in [
-            "",
-            " | Mode$ TgtChoose",
-            " | Mode$ Random | RevealNumber$ 2",
-        ] {
+        // `Mode$ TgtChoose` is read since the discarding player's own choice
+        // has a rule (`a_chosen_discard_on_your_turn_only`).
+        for extra in ["", " | Mode$ Random | RevealNumber$ 2"] {
             assert!(refused(&format!(
                 "Name:Test\nManaCost:B\nTypes:Sorcery\nA:SP$ Discard | ValidTgts$ Player | NumCards$ 1{extra}"
             )));
@@ -5749,6 +5846,76 @@ SVar:X:Count$xPaid",
              S:Mode$ Continuous | Affected$ Card.EnchantedBy | GainControl$ Opponent\n",
         );
         assert!(transcode(&script, &cats(), None).is_none());
+    }
+
+    /// Disrupting Scepter: the target player chooses the card, and the
+    /// ability is activated only during its controller's turn.
+    #[test]
+    fn a_chosen_discard_on_your_turn_only() {
+        let body = read(
+            "Name:X\nManaCost:3\nTypes:Artifact\n\
+             A:AB$ Discard | Cost$ 3 T | ValidTgts$ Player | NumCards$ 1 | Mode$ TgtChoose | \
+             PlayerTurn$ True | SpellDescription$ Target player discards a card.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("Effect::DiscardForPlayers { who: PlayerRel::Chosen, count: 1 }"),
+            "{text}"
+        );
+        assert!(
+            text.contains("condition = Some(Condition::YourTurn)"),
+            "{text}"
+        );
+    }
+
+    /// Psionic Blast: `DamageMap$` gathers, `DamageResolve` deals.
+    #[test]
+    fn gathered_damage_is_dealt_in_one_resolution() {
+        let body = read(
+            "Name:X\nManaCost:2 U\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 4 | DamageMap$ True | \
+             SubAbility$ DBDealDamage | SpellDescription$ 4 to any target and 2 to you.\n\
+             SVar:DBDealDamage:DB$ DealDamage | Defined$ You | NumDmg$ 2 | \
+             SubAbility$ DBDamageResolve\n\
+             SVar:DBDamageResolve:DB$ DamageResolve\n",
+        );
+        let text = body.abilities.join("\n");
+        assert_eq!(text.matches("Effect::DealDamage").count(), 2, "{text}");
+        assert!(
+            text.contains("TargetSpec::Player(PlayerRel::You)"),
+            "{text}"
+        );
+    }
+
+    /// A charm is a modal spell, each mode targeting for itself.
+    #[test]
+    fn a_charm_is_a_modal_spell_whose_modes_target_for_themselves() {
+        let body = read(
+            "Name:X\nManaCost:U\nTypes:Instant\n\
+             A:SP$ Charm | Choices$ DBCounter,DBDestroy\n\
+             SVar:DBCounter:DB$ Counter | TargetType$ Spell | ValidTgts$ Card.Red | \
+             SpellDescription$ Counter target red spell.\n\
+             SVar:DBDestroy:DB$ Destroy | ValidTgts$ Permanent.Red | \
+             SpellDescription$ Destroy target red permanent.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("AbilityDef::ModalSpell"), "{text}");
+        assert!(text.contains("choose: ModeCount::ONE"), "{text}");
+        assert_eq!(text.matches("mode!(").count(), 2, "{text}");
+        assert!(text.contains("TargetSpec::Spell("), "{text}");
+        assert!(text.contains("TargetSpec::Object("), "{text}");
+
+        // A mode the reader cannot say takes the whole card with it.
+        assert!(refused(
+            "Name:X\nTypes:Instant\nA:SP$ Charm | Choices$ DBGain,DBPrevent\n\
+             SVar:DBGain:DB$ GainLife | ValidTgts$ Player | LifeAmount$ 3\n\
+             SVar:DBPrevent:DB$ PreventDamage | ValidTgts$ Any | Amount$ 3\n"
+        ));
+        // A count it has not met.
+        assert!(refused(
+            "Name:X\nTypes:Instant\nA:SP$ Charm | Choices$ A,B | MinCharmNum$ 0\n\
+             SVar:A:DB$ Draw | NumCards$ 1\nSVar:B:DB$ Draw | NumCards$ 2\n"
+        ));
     }
 
     /// `CantBlockBy` from either side of the pairing.
