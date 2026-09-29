@@ -1378,7 +1378,9 @@ pub(crate) fn can_cast_form(
         // giving `CastError` a variant that does not call a target problem
         // "not enough mana".
         let any_face = a_back_face_castable();
-        if !any_alt && !any_mode && !any_face {
+        // Dash (CR 702.109a), the offer's `CastModeKind::Dash`.
+        let any_dash = face.dash.is_some_and(|dash| probe(&dash));
+        if !any_alt && !any_mode && !any_face && !any_dash {
             // Which of the two refused matters to whoever reads it. A mode
             // that was affordable and had nothing to point at is not a
             // player one land short, and telling them it is sends them
@@ -1651,10 +1653,17 @@ pub fn play_permission(
 /// The zone permission plus the particular card restriction. A library
 /// permission never grants access to a card below the top. A permission for
 /// the card itself ([`play_permission`]) opens it wherever it lies, an
-/// opponent's exile included.
+/// opponent's exile included — unless it lets the card be cast and nothing
+/// else (Ragavan, Nimble Pilferer), which plays no land (CR 601.1a).
 #[must_use]
 pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
-    if play_permission(state, player, card).is_some() {
+    let version = state.object(card).map(|o| o.version);
+    if state
+        .per_turn
+        .playable
+        .iter()
+        .any(|p| p.player == player && p.card == card && Some(p.version) == version && !p.cast_only)
+    {
         return true;
     }
     state.object(card).is_some_and(|obj| {

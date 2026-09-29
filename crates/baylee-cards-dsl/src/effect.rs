@@ -474,6 +474,13 @@ pub enum PlayerRel {
     /// (Unlicensed Hearse): the activation asks which graveyard before it
     /// asks for the targets, and offers only that one's cards.
     Chosen,
+    /// "That player" of a trigger on damage dealt to a player — Ragavan,
+    /// Nimble Pilferer's "whenever Ragavan deals combat damage to a player,
+    /// … exile the top card of **that player's** library". Nothing is
+    /// targeted (CR 115.1): the seat is read off the event the ability
+    /// triggered on, and a player who has since left the game is nobody's
+    /// "that player" (CR 800.4a).
+    DamagedPlayer,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).
@@ -2373,6 +2380,17 @@ pub enum Effect {
         /// What.
         filter: &'static Filter,
     },
+    /// "Exile the top card of that player's library. Until end of turn, you
+    /// may cast that card." (Ragavan, Nimble Pilferer): the top card of each
+    /// library `who` names goes to its owner's exile face up, and the
+    /// controller may cast it this turn, paying its costs (a
+    /// `PlayPermission` in the engine, cast only: a land exiled this way is
+    /// not played). Nothing is targeted, and an empty library exiles
+    /// nothing.
+    ExileTopMayCast {
+        /// Whose library: the owner's relation to you.
+        who: PlayerRel,
+    },
 }
 
 impl Effect {
@@ -2885,6 +2903,7 @@ impl Effect {
             | Effect::ExileSource
             | Effect::TapTarget
             | Effect::TapAll { .. }
+            | Effect::ExileTopMayCast { .. }
             | Effect::UntapTarget
             | Effect::UntapSelf
             | Effect::ExileAndReturnAtEndStep

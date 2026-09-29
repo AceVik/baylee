@@ -245,6 +245,11 @@ pub enum Condition {
     /// Wayward Swordtooth "can't attack or block unless you have the city's
     /// blessing" is a static that holds while `Not(&CitysBlessing)` does.
     Not(&'static Condition),
+    /// "If this spell's dash cost was paid" (CR 702.109a), asked of the
+    /// source: it is on the battlefield as the permanent a spell cast for
+    /// its dash cost became, and has not left it since. The engine writes
+    /// dash's return itself; no card prints this.
+    DashCostPaid,
 }
 
 /// Trigger conditions for triggered abilities.

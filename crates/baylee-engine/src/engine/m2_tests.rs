@@ -57,6 +57,7 @@ fn face(name: &'static str, cost: &'static str, types: TypeSet, pt: Option<(i16,
         cost_reduction: None,
         disturb: false,
         adventure: false,
+        dash: None,
     }
 }
 

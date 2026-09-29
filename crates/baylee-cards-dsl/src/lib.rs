@@ -363,6 +363,11 @@ pub struct FaceDef {
     /// resolves, exile the card; the front face may then be cast from
     /// exile.
     pub adventure: bool,
+    /// Dash (CR 702.109a): the card may be cast for this cost rather than
+    /// its mana cost; if it was, the permanent it becomes has haste and
+    /// returns to its owner's hand at the beginning of the next end step.
+    /// Mana only, as every printed dash cost is.
+    pub dash: Option<ManaCost>,
 }
 
 impl FaceDef {
@@ -404,6 +409,7 @@ impl FaceDef {
         cost_reduction: None,
         disturb: false,
         adventure: false,
+        dash: None,
     };
 }
 

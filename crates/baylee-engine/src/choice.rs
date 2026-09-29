@@ -319,6 +319,10 @@ pub enum CastModeKind {
     /// (CR 702.34a). A *granted* flashback is paid with the mana cost and is
     /// offered as [`Self::Normal`].
     Flashback,
+    /// Cast for the card's dash cost rather than its mana cost
+    /// (CR 702.109a): the permanent it becomes has haste and returns to its
+    /// owner's hand at the beginning of the next end step.
+    Dash,
 }
 
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).

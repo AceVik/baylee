@@ -717,6 +717,17 @@ pub enum Rider {
     /// it was copied from — and a token is the opposite thing, card-less
     /// and swept up by CR 704.5d.
     SpellCopy,
+    /// Cast for its dash cost (CR 702.109a): the spell, and the permanent
+    /// it becomes, which has haste while this is on it. Written by every
+    /// cast, set or cleared, and given up by every zone change but the one
+    /// from the stack to the battlefield (`GameState::move_object`).
+    Dashed,
+    /// "That player": the player the triggering event dealt damage to, on
+    /// a triggered ability put on the stack for one (Ragavan, Nimble
+    /// Pilferer), read by `PlayerRel::DamagedPlayer`. A rider and not a
+    /// field because `GameObject` had no byte to spare for it
+    /// (`tests/footprint.rs`), and a triggered ability carries no other.
+    EventPlayer(PlayerId),
 }
 
 impl Rider {

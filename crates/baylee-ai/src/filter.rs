@@ -428,7 +428,10 @@ impl HeuristicAgent {
             PlayerRel::Opponent | PlayerRel::EachOpponent => {
                 every().filter(|p| self.hostile(*p, view.seat)).collect()
             }
-            PlayerRel::Chosen | PlayerRel::ControllerOfTarget | PlayerRel::ControllerOfEvent => {
+            PlayerRel::Chosen
+            | PlayerRel::ControllerOfTarget
+            | PlayerRel::ControllerOfEvent
+            | PlayerRel::DamagedPlayer => {
                 return None;
             }
         })

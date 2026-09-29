@@ -1017,8 +1017,21 @@ pub(super) fn players_of(
             .filter(|seat| !state.has_left(*seat))
             .into_iter()
             .collect(),
+        // Off the triggered ability, where stacking it wrote the player the
+        // event dealt damage to, as `Amount::EventAmount` reads the amount.
+        PlayerRel::DamagedPlayer => state
+            .object(res.on_stack)
+            .and_then(|o| {
+                o.riders.iter().find_map(|r| match r {
+                    crate::object::Rider::EventPlayer(seat) => Some(*seat),
+                    _ => None,
+                })
+            })
+            .filter(|seat| !state.has_left(*seat))
+            .into_iter()
+            .collect(),
         other => eval::players(other, state, you)
-            .expect("the two context relations are matched above this arm"),
+            .expect("the context relations are matched above this arm"),
     }
 }
 
@@ -2552,12 +2565,25 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
 /// Gives `player` permission to play `card` this turn, for the object it
 /// is now (`PlayPermission`).
 fn grant_play(state: &mut GameState, player: PlayerId, card: ObjectId, free: bool) {
+    grant_permission(state, player, card, free, false);
+}
+
+/// [`grant_play`], or with `cast_only` the permission to cast `card` and
+/// not to play it as a land (Ragavan, Nimble Pilferer, CR 601.1a).
+fn grant_permission(
+    state: &mut GameState,
+    player: PlayerId,
+    card: ObjectId,
+    free: bool,
+    cast_only: bool,
+) {
     if let Some(version) = state.object(card).map(|o| o.version) {
         state.per_turn.playable.push(crate::state::PlayPermission {
             player,
             card,
             version,
             free,
+            cast_only,
         });
     }
 }
@@ -4327,6 +4353,35 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         // Cryptic Command's third mode. Nothing is targeted, and a
         // phased-out permanent is treated as though it doesn't exist (CR
         // 702.26b), which `battlefield_seen` is.
+        // Ragavan's impulse: the top card of each named library goes to its
+        // owner's exile face up, and the controller may cast it this turn.
+        // A permission for that object and no later one (`PlayPermission`),
+        // so a card that moves again is not cast under it (CR 400.7).
+        Effect::ExileTopMayCast { who } => {
+            let you = res.controller;
+            for player in players_of(who, state, you, res) {
+                let Some(top) = state
+                    .zones
+                    .list(ZoneLocation::Library(player))
+                    .last()
+                    .copied()
+                else {
+                    continue;
+                };
+                if state
+                    .move_object(
+                        top,
+                        ZoneLocation::Exile(player),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    )
+                    .is_ok()
+                {
+                    grant_permission(state, you, top, false, true);
+                }
+            }
+            None
+        }
         Effect::TapAll { filter } => {
             let you = res.controller;
             let all: Vec<ObjectId> = state

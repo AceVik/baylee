@@ -5435,3 +5435,16 @@ fn choose_modes(
 fn cryptic_command() -> CardIndex {
     card_index("a3e51a35-09df-4189-b131-08a21e6a557d")
 }
+
+/// The slot of the cast option of `kind` in the cast-mode question that is
+/// out, for a test that picks one way of casting among several.
+#[track_caller]
+fn choose_cast_kind(engine: &Engine<RegistryLookup>, kind: CastModeKind) -> usize {
+    let Pending::ChooseCastMode { options, .. } = engine.pending() else {
+        panic!("expected the cast options, got {:?}", engine.pending())
+    };
+    options
+        .iter()
+        .position(|o| o.kind == kind)
+        .unwrap_or_else(|| panic!("{kind:?} is not offered: {options:?}"))
+}

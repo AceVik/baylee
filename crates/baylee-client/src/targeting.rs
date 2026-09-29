@@ -202,7 +202,9 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                     .filter(|(seat, _)| *seat != mine)
                     .flat_map(|(_, pile)| pile)
                     .collect(),
-                PlayerRel::ControllerOfTarget | PlayerRel::ControllerOfEvent => {
+                PlayerRel::ControllerOfTarget
+                | PlayerRel::ControllerOfEvent
+                | PlayerRel::DamagedPlayer => {
                     return None;
                 }
             };

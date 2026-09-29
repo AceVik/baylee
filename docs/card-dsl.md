@@ -1914,6 +1914,24 @@ Filters, conditions, modifiers and durations:
   stop it; a permanent already tapped stays as it is (CR 701.26a). Cryptic
   Command is `ModeCount::TWO`: a pair of its four modes, each pair at the
   card's own cost.
+- **`Effect::ExileTopMayCast { who }`** is "exile the top card of [who]'s
+  library. Until end of turn, you may cast that card" (Ragavan, Nimble
+  Pilferer). The card goes to its owner's exile face up, and the controller
+  holds a cast-only `PlayPermission` for it: a spell is cast at its own
+  price and timing, and a land is neither played nor cast (CR 601.1a,
+  305.9). Nothing is targeted.
+- **`PlayerRel::DamagedPlayer`** is "that player" of a trigger on damage
+  dealt to a player (`Trigger::DealsCombatDamageToPlayer` and its
+  siblings): the seat the damage went to, read off the triggered ability.
+  At a table of three it is the one Ragavan hit, not "an opponent".
+- **`FaceDef.dash: Option<ManaCost>`** is "Dash [cost]" (CR 702.109a). The
+  cast offers `CastModeKind::Dash` beside the mana cost, from wherever the
+  card may be cast. The engine writes the rest: the permanent the spell
+  becomes has haste, and a delayed trigger returns it to its owner's hand at
+  the beginning of the next end step, if it is still that permanent (a
+  blinked or bounced one is a new object, CR 400.7). No card writes the
+  haste or the return. `Condition::DashCostPaid` is what that trigger asks;
+  no card prints it.
 
 ## Worked examples
 

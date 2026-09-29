@@ -430,6 +430,11 @@ pub struct PlayPermission {
     /// "Without paying its mana cost" (Dauthi Voidwalker): a spell is cast
     /// through the free-cast path, and X is 0 (CR 107.3b).
     pub free: bool,
+    /// "You may **cast** that card" (Ragavan, Nimble Pilferer) rather than
+    /// "play": to play a card is to play it as a land or cast it as a spell
+    /// (CR 601.1a), and this permission is the second half only, so a land
+    /// exiled under it stays where it is (a land is never cast, CR 305.9).
+    pub cast_only: bool,
 }
 
 impl PerTurn {
@@ -2303,6 +2308,16 @@ impl GameState {
             if matches!(from_zone, Zone::Battlefield | Zone::Exile) {
                 obj.counters = crate::object::Counters::default();
             }
+            // How a spell was cast belongs to the spell and to the permanent
+            // it becomes, and to no later object (CR 400.7): a dashed
+            // creature blinked or bounced and put back has had no dash cost
+            // paid for it. The cast writes the rider before the card moves
+            // to the stack, so that move keeps it too.
+            if to.zone() != Zone::Stack
+                && !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield)
+            {
+                obj.riders.retain(|r| *r != crate::object::Rider::Dashed);
+            }
             // What was paid is the spell's and no later object's (a flashback
             // is a new payment); nothing on the battlefield reads it yet, so
             // a resolved permanent spell gives it up too (`PaidRecord`).
@@ -3480,6 +3495,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 host.hash(h);
                 version.hash(h);
             }
+            Rider::Dashed => h.u8(14),
+            Rider::EventPlayer(p) => {
+                h.u8(15);
+                h.u8(p.get());
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -4452,6 +4472,7 @@ mod tests {
                     card: id,
                     version: 0,
                     free: true,
+                    cast_only: false,
                 });
             }),
             ("delayed", |s, _| {

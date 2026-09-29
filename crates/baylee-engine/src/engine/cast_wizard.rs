@@ -806,6 +806,22 @@ impl<L: CardLookup> Engine<L> {
                 cost: alt.cost.mana.with_more_generic(tax),
             });
         }
+        // Dash (CR 702.109a): its cost "rather than its mana cost", which is
+        // an alternative cost (CR 118.9) paid by the rules for one (601.2b,
+        // 601.2f–h) — asked of the pool the way the alternatives above are.
+        if let Some(dash) = face.dash {
+            let taxed = baylee_cards_dsl::Cost {
+                mana: dash.with_more_generic(tax),
+                parts: &[],
+            };
+            if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card)) {
+                options.push(CastModeDesc {
+                    index: (options.len()) as u8,
+                    kind: CastModeKind::Dash,
+                    cost: taxed.mana,
+                });
+            }
+        }
         // MDFC backs (CR 712.11b) and adventures (CR 715), through the reader
         // `can_cast` uses — land faces are played and disturb backs came out
         // above. This loop asked the faces and nothing else, so the adventure
@@ -1745,6 +1761,13 @@ impl<L: CardLookup> Engine<L> {
             // hand, front face up, is not exiled for what it once was.
             obj.riders
                 .retain(|r| *r != crate::object::Rider::ExileInsteadOfGraveyard);
+            // Dash (CR 702.109a): the spell was cast for its dash cost, and
+            // the permanent it becomes has haste and goes back at the next
+            // end step (`Engine::finalize_spell` writes that trigger).
+            obj.riders.retain(|r| *r != crate::object::Rider::Dashed);
+            if wizard.option == Some(CastModeKind::Dash) {
+                obj.riders.push(crate::object::Rider::Dashed);
+            }
             if exiles_itself {
                 obj.riders
                     .push(crate::object::Rider::ExileInsteadOfGraveyard);

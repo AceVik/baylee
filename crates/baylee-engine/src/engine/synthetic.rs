@@ -59,6 +59,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         cost_reduction: None,
         disturb: false,
         adventure: false,
+        dash: None,
     }
 }
 
