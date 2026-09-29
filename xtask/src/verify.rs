@@ -8,18 +8,19 @@
 //! | L4 | and every ability of it fired in a test, every mechanic it uses is tested, and it leaves the battlefield clean |
 //! | L5 | and removing any one of its abilities makes one of its tests fail |
 //!
-//! Each level needs the one below. L4 and L5 read files the engine's test
-//! hooks write (`docs/verification-hooks.md`) and stay empty until they
-//! exist; L4's mechanics part is read now, from a coverage export of the
-//! engine's rule tests (`--coverage`, [`crate::mechanics`]), and names what
-//! each L3 card waits on. A card named in `--demote` (an open bug report) stops at L1
-//! whatever its evidence. The trained AI trains on L4 cards once L4 exists;
-//! until then the population per level says which tests the pool is
+//! Each level needs the one below. L4 reads a coverage export of the
+//! engine's rule tests (`--coverage`, [`crate::mechanics`]) and the firing
+//! recorder's directory (`--ability-log`, [`crate::hooks`]); L5 runs one
+//! mutant per ability (`--mutate`). Both follow `docs/verification-hooks.md`.
+//! L4's third part, leaving the battlefield clean, has no hook yet: the
+//! report says so and grants L4 without it. A card named in `--demote` (an
+//! open bug report) stops at L1 whatever its evidence. The trained AI trains
+//! on L4 cards; the population per level says which tests the pool is
 //! missing.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::Context as _;
@@ -28,6 +29,33 @@ use baylee_train::working::Working;
 
 /// A card's level: 0 when not even implemented.
 type Level = u8;
+
+/// What `verify` reads besides the pool, and where it writes.
+#[derive(clap::Args, Debug)]
+pub struct Args {
+    /// Where the per-card report is written.
+    #[arg(long, default_value = "target/verify.json")]
+    out: PathBuf,
+    /// Cards an open bug report names, one name or index per line; each
+    /// stops at L1.
+    #[arg(long)]
+    demote: Option<PathBuf>,
+    /// An llvm-cov JSON export of the engine's rule tests, for L4's
+    /// mechanics part (`xtask/src/mechanics.rs` says how to make one).
+    #[arg(long)]
+    coverage: Option<PathBuf>,
+    /// The directory a run of the engine's tests with `BAYLEE_ABILITY_LOG`
+    /// wrote, for L4's firing part (`docs/verification-hooks.md`).
+    #[arg(long)]
+    ability_log: Option<PathBuf>,
+    /// Run L5: one mutant per ability of every L4 card, against the tests
+    /// that fired the card.
+    #[arg(long)]
+    mutate: bool,
+    /// Threads for the mutants; 0 = one per core.
+    #[arg(long, default_value_t = 0)]
+    threads: usize,
+}
 
 /// What `validate` reported: per card file slug, and about no one card.
 type Findings = (BTreeMap<String, Vec<String>>, Vec<String>);
@@ -93,12 +121,8 @@ fn demoted(path: &Path) -> anyhow::Result<BTreeSet<CardIndex>> {
 /// # Errors
 /// When the tests or a deck cannot be read, or `validate` cannot run.
 #[allow(clippy::too_many_lines)] // one ladder, then its three reports
-pub fn verify(
-    root: &Path,
-    out: &Path,
-    demote: Option<&Path>,
-    coverage: Option<&Path>,
-) -> anyhow::Result<()> {
+pub fn verify(root: &Path, inputs: &Args) -> anyhow::Result<()> {
+    let out = &root.join(&inputs.out);
     let working = Working::scan(root).context("reading the engine's test code")?;
     let cache = root.join("data/scryfall-cache");
     let l2_checked = cache.is_dir();
@@ -110,7 +134,12 @@ pub fn verify(
         );
         (BTreeMap::new(), Vec::new())
     };
-    let demoted = demote.map(demoted).transpose()?.unwrap_or_default();
+    let demoted = inputs
+        .demote
+        .as_deref()
+        .map(demoted)
+        .transpose()?
+        .unwrap_or_default();
 
     // A card's level, and the evidence it stops at.
     let level_of = |def: &baylee_cards::dsl::CardDef| -> (Level, String) {
@@ -139,18 +168,77 @@ pub fn verify(
         why.insert(def.index, stop);
     }
 
-    let analysis = coverage
+    let analysis = inputs
+        .coverage
+        .as_deref()
         .map(|c| crate::mechanics::analyse(root, c))
         .transpose()
         .context("reading the engine's mechanics coverage")?;
-    if let Some(a) = &analysis {
-        for (card, level) in &levels {
-            if *level == 3 {
+    let firing = inputs
+        .ability_log
+        .as_deref()
+        .map(crate::hooks::Firing::read)
+        .transpose()
+        .context("reading the firing recorder's directory")?;
+    // L4: no untested mechanic and every ability fired. The leave part has
+    // no hook yet.
+    for (card, level) in &mut levels {
+        if *level != 3 {
+            continue;
+        }
+        let mechanics = analysis.as_ref().map(|a| a.stop(*card));
+        let fired = firing.as_ref().map(|f| f.gap(*card, analysis.as_ref()));
+        let stop = match (mechanics, fired) {
+            (Some(Some(stop)), _) | (_, Some(Some(stop))) => stop,
+            (Some(None), Some(None)) => {
+                *level = 4;
+                "L4 without its leave part (no hook yet)".into()
+            }
+            (None, _) => "L4 needs --coverage".into(),
+            (_, None) => "L4 needs --ability-log".into(),
+        };
+        why.insert(*card, stop);
+    }
+    // L5: every mutant of an L4 card killed by the card's tests.
+    let mut mutants_json = Vec::new();
+    if inputs.mutate {
+        let Some(firing) = &firing else {
+            anyhow::bail!(
+                "--mutate needs --ability-log: the tests to run are the ones that fired the card"
+            );
+        };
+        let l4: BTreeSet<CardIndex> = levels
+            .iter()
+            .filter(|(_, l)| **l == 4)
+            .map(|(c, _)| *c)
+            .collect();
+        let work = out.with_file_name("mutants");
+        let verdicts = crate::hooks::mutate(root, firing, &l4, inputs.threads, &work)?;
+        let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+        for ((card, index), verdict) in &verdicts {
+            *counts.entry(verdict.name()).or_default() += 1;
+            let reason = match verdict {
+                crate::hooks::Verdict::Invalid(why) => Some(why.clone()),
+                _ => None,
+            };
+            mutants_json.push(serde_json::json!({
+                "card": card.get(), "index": index, "verdict": verdict.name(), "why": reason,
+            }));
+        }
+        println!("L5 mutants: {counts:?}");
+        for card in &l4 {
+            let survivors: Vec<String> = verdicts
+                .iter()
+                .filter(|((c, _), v)| c == card && !v.killed())
+                .map(|((_, i), v)| format!("{i} {}", v.name()))
+                .collect();
+            if survivors.is_empty() {
+                levels.insert(*card, 5);
+                why.insert(*card, "L5".into());
+            } else {
                 why.insert(
                     *card,
-                    a.stop(*card).unwrap_or_else(|| {
-                        "mechanics tested; L4 waits for the ability and leave hooks".into()
-                    }),
+                    format!("mutants not killed: {}", survivors.join(", ")),
                 );
             }
         }
@@ -245,6 +333,16 @@ pub fn verify(
         "decks": decks_json,
         "validate_global": global,
         "mechanics_checked": mechanics_json.is_some(),
+        "firing_checked": firing.is_some(),
+        "leave_checked": false,
+        "l5_checked": inputs.mutate,
+        "firing": firing.as_ref().map(|f| serde_json::json!({
+            "test_files": f.files,
+            "inventory_cards": f.inventory.len(),
+            "fired_entries": f.fired.len(),
+            "outside_inventory": f.outside.iter().map(|(c, i, k)| serde_json::json!([c.get(), i, k])).collect::<Vec<_>>(),
+        })),
+        "mutants": mutants_json,
         "cards": cards_json,
     });
     if let Some(dir) = out.parent() {

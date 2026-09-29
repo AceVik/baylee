@@ -1199,6 +1199,13 @@ impl Analysis {
             .collect()
     }
 
+    /// The status of `ty::variant`, where a pool card uses it.
+    pub fn status_of(&self, ty: &str, variant: &str) -> Option<Status> {
+        self.mechanics
+            .get(&(ty.to_owned(), variant.to_owned()))
+            .map(|e| e.status)
+    }
+
     /// Why an L3 card stops short of L4's mechanics part (a mechanic it uses
     /// is untested), if it does.
     pub fn stop(&self, card: CardIndex) -> Option<String> {

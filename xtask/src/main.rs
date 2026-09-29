@@ -1,6 +1,7 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
 mod cr_check;
+mod hooks;
 mod mechanics;
 mod update_key;
 mod verify;
@@ -128,19 +129,7 @@ enum Cmd {
     },
     /// How far each card is verified, L1 (implemented) to L5 (mutation-
     /// killed), for the pool and every house deck (`xtask/src/verify.rs`).
-    Verify {
-        /// Where the per-card report is written.
-        #[arg(long, default_value = "target/verify.json")]
-        out: PathBuf,
-        /// Cards an open bug report names, one name or index per line; each
-        /// stops at L1.
-        #[arg(long)]
-        demote: Option<PathBuf>,
-        /// An llvm-cov JSON export of the engine's rule tests, for L4's
-        /// mechanics part (`xtask/src/mechanics.rs` says how to make one).
-        #[arg(long)]
-        coverage: Option<PathBuf>,
-    },
+    Verify(verify::Args),
     PoolDump {
         /// Where to write the dump.
         #[arg(long)]
@@ -538,16 +527,7 @@ fn main() -> anyhow::Result<()> {
             verbose,
             tested,
         } => deck_check(&root, &file, verbose, tested),
-        Cmd::Verify {
-            out,
-            demote,
-            coverage,
-        } => verify::verify(
-            &root,
-            &root.join(out),
-            demote.as_deref(),
-            coverage.as_deref(),
-        ),
+        Cmd::Verify(args) => verify::verify(&root, &args),
         Cmd::PoolDump { out } => pool_dump(&out),
         Cmd::TranscodeReport {
             scripts,
