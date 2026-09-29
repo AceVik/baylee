@@ -681,9 +681,12 @@ pub fn encode(view: &PlayerView, pending: &Pending, picked: &Picked, table: &Tab
 /// name: of several members of one pile, the lowest unpicked one stands for
 /// the pile. Each with the (head, a, b) triple the policy scores.
 ///
-/// A blocker assigned to a pile of identical attackers blocks the one with
-/// the fewest blockers so far, so blocks spread over the pile. The price: of
-/// identical attackers, the net cannot double-block one and leave another.
+/// A blocker assigned to a pile of identical attackers blocks one that still
+/// needs blockers to reach its least (menace), else the one with the fewest
+/// blockers so far, so blocks spread over the pile. The price: of identical
+/// attackers without menace, the net cannot double-block one and leave
+/// another. "Done" is offered only where the question's own check
+/// (`Pending::answer_fault`) passes the answer so far.
 #[must_use]
 pub fn options(
     encoded: &Encoded,
@@ -696,23 +699,24 @@ pub fn options(
     let row_of = |id| encoded.slots.get(&id).copied();
     let rel_of = |p| rel(view.seat, p, seats);
     let mut choices = policy::options(pending, &hand, picked).unwrap_or_default();
-    // A crew is done only once its power reaches the prompt's.
-    if let Some(need) = policy::crew_power(pending) {
-        let have: i64 = picked
-            .objects
-            .iter()
-            .filter_map(|id| view.object(*id))
-            .map(|o| i64::from(o.power.unwrap_or(0)))
-            .sum();
-        if have < need {
-            choices.retain(|c| *c != Choice::Fixed(policy::fixed::DONE));
-        }
+    // "Done" only where the question's own check passes the answer so far,
+    // unless nothing else is left: then the answer is refused as stated.
+    if choices.len() > 1
+        && choices.contains(&Choice::Fixed(policy::fixed::DONE))
+        && !policy::done_allowed(pending, picked)
+    {
+        choices.retain(|c| *c != Choice::Fixed(policy::fixed::DONE));
     }
-    // Lowest member first, so the first choice kept for a triple is it; for
-    // a block, the attacker with the fewest blockers first.
+    // An attacker blocked by fewer than its least (menace) comes first, so a
+    // group is completed before another is started.
+    let bounds = policy::blocker_bounds(pending);
     choices.sort();
     choices.sort_by_key(|c| match c {
-        Choice::Block(_, attacker) => picked.blocked.get(attacker).copied().unwrap_or(0),
+        Choice::Block(_, attacker) => {
+            let has = u32::from(picked.blocked.get(attacker).copied().unwrap_or(0));
+            let least = bounds.get(attacker).map_or(1, |b| b.0);
+            if has > 0 && has < least { 0 } else { 1 + has }
+        }
         _ => 0,
     });
     let mut seen: BTreeSet<(i16, i16, i16)> = BTreeSet::new();

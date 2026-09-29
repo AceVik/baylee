@@ -142,17 +142,27 @@ pub enum Choice {
     Mode(usize),
 }
 
-/// The total power a crew answer must reach, where `pending` asks for one:
-/// `ChooseCards` states only how many cards, its prompt the power (the
-/// engine refuses a crew short of it).
+/// Whether the answer made of `picked` so far may be finished now: the
+/// question's own check (`Pending::answer_fault`, which `apply` runs first)
+/// passes it. A crew short of its power, a menace attacker with one blocker,
+/// a total out of its bounds are answers the question states it refuses.
 #[must_use]
-pub fn crew_power(pending: &Pending) -> Option<i64> {
+pub fn done_allowed(pending: &Pending, picked: &Picked) -> bool {
+    assemble(pending, &picked.picks)
+        .ok()
+        .is_none_or(|action| pending.answer_fault(&action).is_none())
+}
+
+/// Per attacker, the fewest and most blockers `ChooseBlockers` states it
+/// may have (when blocked at all).
+#[must_use]
+pub fn blocker_bounds(pending: &Pending) -> std::collections::BTreeMap<ObjectId, (u32, u32)> {
     match pending {
-        Pending::ChooseCards {
-            prompt: baylee_engine::choice::ChoicePrompt::CostCrew { power },
-            ..
-        } => Some(i64::from(*power)),
-        _ => None,
+        Pending::ChooseBlockers { bounds, .. } => bounds
+            .iter()
+            .map(|b| (b.attacker, (b.min_blockers, b.max_blockers)))
+            .collect(),
+        _ => std::collections::BTreeMap::new(),
     }
 }
 
@@ -167,12 +177,15 @@ pub struct Picked {
     pub count: usize,
     /// Per attacker, how many blockers the answer so far assigned to it.
     pub blocked: std::collections::BTreeMap<ObjectId, u16>,
+    /// The picks so far, in order.
+    pub picks: Vec<Choice>,
 }
 
 impl Picked {
     /// Records `choice` as the answer's next pick.
     pub fn add(&mut self, choice: Choice) {
         self.count += 1;
+        self.picks.push(choice);
         match choice {
             Choice::Entity(o, _) | Choice::Attack(o, _) => {
                 self.objects.insert(o);

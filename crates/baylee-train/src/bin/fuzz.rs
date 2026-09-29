@@ -17,11 +17,8 @@
 //! - `panic`: the engine panicked.
 //! - `refused`: the engine refused an answer made only of offered options
 //!   (the question offered what it does not take).
-//! - `refused-crew-short`: a refused crew whose creatures' power falls short
-//!   of the prompt's (`CostCrew`); counted apart, as menace is.
-//! - `refused-menace-alone`: a refused declaration of blockers with a menace
-//!   attacker blocked by one creature: a constraint `ChooseBlockers` does not
-//!   state, kept apart so it buries nothing.
+//! - `stated-<fault>`: a refused random answer the question's own check
+//!   (`Pending::answer_fault`) faults: refused as stated, counted apart.
 //! - `refusal-changed-state`: a refused answer changed the game anyway
 //!   (`Session::snapshot_hash` before and after).
 //! - `house-refused`: the house's own answer was refused, or it had none.
@@ -179,49 +176,10 @@ fn named(view: &baylee_view::PlayerView, text: &str) -> Vec<String> {
     out
 }
 
-/// Whether a declaration of blockers has an attacker with menace blocked by
-/// one creature alone (CR 702.111b). `ChooseBlockers` offers each pairing on
-/// its own, so a pick-by-pick answer can make that declaration, and the
-/// engine rightly refuses it: a constraint the question does not state, not
-/// an offer it breaks.
-fn menace_alone(view: &baylee_view::PlayerView, action: &PlayerAction) -> bool {
-    let PlayerAction::DeclareBlockers { blockers } = action else {
-        return false;
-    };
-    let mut per_attacker: BTreeMap<ObjectId, usize> = BTreeMap::new();
-    for (_, attacker) in blockers {
-        *per_attacker.entry(*attacker).or_default() += 1;
-    }
-    let menace = baylee_cards::dsl::KeywordSet::MENACE.bits();
-    per_attacker.iter().any(|(attacker, n)| {
-        *n == 1
-            && view
-                .object(*attacker)
-                .is_some_and(|o| o.keywords & menace != 0)
-    })
-}
-
-/// Whether a crew answer's creatures fall short of the prompt's power: the
-/// question asks for a count, the prompt states the power.
-fn crew_short(view: &baylee_view::PlayerView, pending: &Pending, action: &PlayerAction) -> bool {
-    let (Some(need), PlayerAction::ChooseObjects { objects }) =
-        (policy::crew_power(pending), action)
-    else {
-        return false;
-    };
-    let have: i64 = objects
-        .iter()
-        .filter_map(|id| view.object(*id))
-        .map(|o| i64::from(o.power.unwrap_or(0)))
-        .sum();
-    have < need
-}
-
 /// A random answer to `pending`: uniform picks among the offered options
 /// until the answer is finished. `Ok(None)` where this crate does not answer
 /// the question kind (the house does).
 fn random_answer(
-    view: &baylee_view::PlayerView,
     pending: &Pending,
     hand: &[ObjectId],
     rng: &mut Rng,
@@ -233,17 +191,10 @@ fn random_answer(
             Ok(o) => o,
             Err(Unscored::Unsupported | Unscored::Over) => return Ok(None),
         };
-        // A crew is done only once its power reaches the prompt's.
-        if let Some(need) = policy::crew_power(pending) {
-            let have: i64 = picked
-                .objects
-                .iter()
-                .filter_map(|id| view.object(*id))
-                .map(|o| i64::from(o.power.unwrap_or(0)))
-                .sum();
-            if have < need {
-                options.retain(|c| *c != policy::Choice::Fixed(policy::fixed::DONE));
-            }
+        // "Done" only where the question's own check passes the answer,
+        // unless nothing else is left: then it is refused as stated.
+        if options.len() > 1 && !policy::done_allowed(pending, &picked) {
+            options.retain(|c| *c != policy::Choice::Fixed(policy::fixed::DONE));
         }
         if options.is_empty() {
             return Err("no-options");
@@ -332,7 +283,7 @@ fn play(
                 let kind =
                     PENDING_KINDS[usize::try_from(question(&pending, hand.len()).0).unwrap_or(0)];
                 if rng.unit() < args.chaos && !args.house_kinds.iter().any(|k| k == kind) {
-                    match random_answer(&view, &pending, &hand, &mut rng) {
+                    match random_answer(&pending, &hand, &mut rng) {
                         Ok(a) => action = a,
                         Err(kind) => finding(kind, at_question(&session, &pending, hand.len())),
                     }
@@ -360,14 +311,13 @@ fn play(
                         finding("refusal-changed-state", what.clone());
                     }
                     if random_pick {
-                        let kind = if menace_alone(&view, &action) {
-                            "refused-menace-alone"
-                        } else if crew_short(&view, &pending, &action) {
-                            "refused-crew-short"
-                        } else {
-                            "refused"
-                        };
-                        finding(kind, what);
+                        // An answer the question's own check faults is one
+                        // the question said it refuses: counted apart. Only
+                        // a refusal it passed is an engine defect.
+                        let kind = pending
+                            .answer_fault(&action)
+                            .map_or_else(|| "refused".to_owned(), |f| format!("stated-{f:?}"));
+                        finding(&kind, what);
                         let fallback = session.house_action(*me);
                         match fallback.map(|a| session.act(*me, a)) {
                             Some(Ok(_)) => {}
