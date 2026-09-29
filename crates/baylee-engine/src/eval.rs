@@ -379,6 +379,9 @@ pub fn condition_holds(
 ) -> bool {
     match condition {
         Condition::YourTurn => state.turn.active == you,
+        // The announced X on the source, where `cast_wizard` writes it and
+        // where `Filter::CmcAtMostX` reads it.
+        Condition::XAtLeast(n) => state.object(source).map_or(0, |o| o.x_value) >= n,
         // No last turn at the first upkeep of the game, so nothing was cast
         // in it and nothing wasn't: both sentences are false there.
         Condition::NoSpellsCastLastTurn => {
@@ -482,9 +485,6 @@ pub fn condition_holds(
             .players
             .get(usize::from(you.get()))
             .is_some_and(|p| p.enduring_story),
-        Condition::XAtLeast(n) => state
-            .object(source)
-            .is_some_and(|o| o.x_value >= u32::from(n)),
         Condition::CitysBlessing => state
             .players
             .get(usize::from(you.get()))

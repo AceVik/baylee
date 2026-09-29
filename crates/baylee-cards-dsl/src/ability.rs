@@ -192,11 +192,6 @@ pub enum Condition {
     EnduringStory,
     /// The controller has the city's blessing (CR 702.131c).
     CitysBlessing,
-    /// "If X is N or more" (ravenous, CR 702.156a: "when this permanent
-    /// enters, if X is 5 or more, draw a card"). X is the one announced for
-    /// the spell that became the source (CR 107.3m), which the engine keeps
-    /// on the source; a permanent that was not cast from the stack has 0.
-    XAtLeast(u8),
     /// The source itself matches the filter — "if this land is tapped".
     ///
     /// The other four sentences here count something the source is not;
@@ -226,6 +221,11 @@ pub enum Condition {
     /// condition is all there is room for (an activation restriction, an
     /// intervening `if`), and not before.
     Any(&'static [Condition]),
+    /// "If X is N or more" — the X announced for the spell that is the
+    /// source (Finale of Devastation). Read off the source's announced X,
+    /// as `Filter::CmcAtMostX` reads it; a source that is gone or announced
+    /// none has X = 0.
+    XAtLeast(u32),
     /// Holds while the condition it names does not — the printed "unless":
     /// Wayward Swordtooth "can't attack or block unless you have the city's
     /// blessing" is a static that holds while `Not(&CitysBlessing)` does.
