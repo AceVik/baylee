@@ -1738,3 +1738,62 @@ land type"; both are convention tests that fire on a first try.
 - **A hand-written token cannot be added by a card agent alone.** The
   token ledger (`generated_tokens.rs`) is written only by full codegen.
   Voice of Resurgence's */* Elemental is blocked on that.
+
+## 29.09.2026 — library group, round two: piles, a cast out of a graveyard, a single graveyard, crew
+
+- **After a hand edit to a card, run `xtask codegen --tables`, never full
+  codegen.** It rewrites the four compiled-pool tables (`generated_lines.rs`
+  above all) and needs no corpus. `gate-rules.sh` stops early without
+  `DATABASE_URL`, so give it one while working.
+- **Clippy on client tests runs only in the full gate.** `gate-rules` leaves
+  `baylee-client` out, and `duel_flow.rs` crossed `too_many_lines` there
+  first. Run `gate.sh` before a push, not after.
+- **A new `Pending`, `YesNoPrompt` or `ChoicePrompt` variant moves pinned
+  tables in `choice.rs`.** `kind_of` must number every kind without a gap or a
+  collision, and the timeout table needs one row per kind. `ChoosePile` and
+  `PayPact` once shared a number, and `PayPact` had no row: adding
+  `CastPaying` exposed both.
+- **A reveal to be sorted is shown in the client's Looking tab.** The browser
+  hid rows a `ForChoice` sheet could not select and closed the sheet when the
+  question was not about it. A pile question selects nothing, so the pile was
+  invisible until `rows` exempted the Looking tab.
+- **A Partial's reason can go stale without anyone noticing.** World Shaper
+  named a missing effect that another card had already added
+  (`ReturnAllFromGraveyard`, Lumra's sweep). Grep for the machinery before
+  believing a reason.
+- **"You may cast that card" during a resolution is a delayed cast plus a
+  payment window.** `Effect::MayCastTarget` asks `CastPaying`. A yes opens a
+  CR 605.3a window for the card's mana cost as the resolution ends, and
+  passing it starts `start_paid_cast`, paid out of the pool. A lock such as
+  "you can't cast additional spells this turn" lives in `PerTurn` and is read
+  by `casting::may_begin_casting`, at every door a cast comes through: the
+  offer, free casts, miracle, and a prepared copy.
+- **`castable` in a test needs the mana already floating.** Tap a land first
+  when a test wants to show that a spell *is* offered.
+- **A new `bool` on `CastWizard` is refused by clippy after three.** Use one
+  small enum field for a cast's origin (`EffectCast`).
+- **`Rider::Linked` is released by more than its host leaving.**
+  `GameState::set_monarch` returns every `Linked` card whose host's
+  controller is not the new monarch, not only Palace Jailer's. A card that
+  exiles "with" itself for good (Unlicensed Hearse) takes `Rider::ExiledWith`,
+  which carries the host's version so a host that returned counts nothing
+  (CR 400.7).
+- **"From a single graveyard" is `CardInGraveyard(filter, PlayerRel::Chosen)`.**
+  The activation asks `ChoosePlayer` over the graveyards holding a match
+  (skipped for one), and the targets are that graveyard's. The enumeration
+  (offer and CR 608.2b re-check) reads every graveyard.
+- **Crew is one question answered with a set.** `CostPart::Crew(n)` asks a
+  `ChooseCards` whose `max` is every creature offered, and `apply` refuses an
+  answer short of the total power. Both hosts answer a refusal by asking the
+  question again, so a short answer costs a click and not the game. Crew is
+  alone in its cost (`lints::crew_is_alone_in_its_cost`), because the payment
+  taps every answer left.
+- **A bare keyword line can lose its ability's sentence.** Unlicensed Hearse
+  prints "Crew 2" with no reminder and no `{`, so the lines reader saw
+  `LineShape::Other` and the crew ability's line was `None`. Read the
+  `generated_lines.rs` diff after `--tables`: a `None` for a new ability is a
+  reader gap.
+- **The house AI answers crew but does not choose to crew.** `policy::crew`
+  taps the strongest creatures until the total is reached. `activate::gains`
+  does not count `CreateContinuousEffect` as a gain, and Conduit of Worlds'
+  `MayCastTarget` is not on that list either.

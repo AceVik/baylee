@@ -1276,8 +1276,12 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             // for the rest of the game and bank it a counter every upkeep.
             // Every other card question here is "choose one", where
             // choosing nothing exercises nothing.
+            // Crew is the other: one creature may be short of the total, and
+            // every creature offered is the answer most likely to reach it.
             let want = if prompt == crate::choice::ChoicePrompt::LeaveTapped {
                 0
+            } else if matches!(prompt, crate::choice::ChoicePrompt::CostCrew { .. }) {
+                usize::from(max)
             } else {
                 usize::from(min).max(1).min(usize::from(max))
             };

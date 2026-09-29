@@ -418,6 +418,13 @@ pub enum ChoicePrompt {
     /// second, and either may be empty. The other player then takes one
     /// pile into their hand, so the house AI puts the best card alone.
     FirstPile,
+    /// Creatures to tap to crew a Vehicle (CR 702.122a): any number of
+    /// them, with total power `power` or greater. The engine refuses an
+    /// answer whose total is short.
+    CostCrew {
+        /// The N of "Crew N".
+        power: u8,
+    },
     /// Generic selection.
     Generic,
 }

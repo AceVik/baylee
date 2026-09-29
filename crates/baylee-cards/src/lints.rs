@@ -881,6 +881,7 @@ const fn needs_the_source(part: &CostPart) -> bool {
         CostPart::Sacrifice(_)
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
+        | CostPart::Crew(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::PayLife(_)
@@ -905,6 +906,7 @@ const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
+        | CostPart::Crew(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::PayLife(_)
@@ -2373,6 +2375,47 @@ mod tests {
              that has left the battlefield.\n{}",
             wrong.len(),
             wrong.join("\n")
+        );
+    }
+
+    /// Crew is alone in its cost (`CostPart::Crew`). Its one question is
+    /// answered with any number of creatures and `pay_cost` taps every
+    /// answer left, so a part printed beside it would be paid with a
+    /// creature named for the crew, or never asked at all. `crew!` writes it
+    /// alone; this holds a cost written by hand to the same.
+    #[test]
+    fn crew_is_alone_in_its_cost() {
+        let mut wrong = Vec::new();
+        let mut crews = 0usize;
+        let mut check = |who: &str, ability: &AbilityDef| {
+            for cost in costs(ability) {
+                if cost.parts.iter().any(|p| matches!(p, CostPart::Crew(_))) {
+                    crews += 1;
+                    if cost.parts.len() != 1 || cost.mana != baylee_cards_dsl::ManaCost::ZERO {
+                        wrong.push(format!("{who} — {cost:?}"));
+                    }
+                }
+            }
+        };
+        for def in crate::all() {
+            for face in 0..def.faces.len() {
+                for ability in def.abilities_for_face(face) {
+                    check(def.name(), ability);
+                }
+            }
+        }
+        for token in crate::tokens::ALL {
+            for ability in token.abilities {
+                check(token.name, ability);
+            }
+        }
+        assert!(
+            crews >= 1,
+            "read {crews} crew costs out of the pool; Unlicensed Hearse alone has one"
+        );
+        assert!(
+            wrong.is_empty(),
+            "a crew cost shares its cost with another part: {wrong:?}"
         );
     }
 

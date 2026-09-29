@@ -401,6 +401,9 @@ express at all yet.
   `Discard(filter)`, `DiscardSelf` (cycling), `PayLife(n)`, `PayLifeX`,
   `ExileSelf`, `ExileFromHand(filter)`, `ReturnSelfToHand`,
   `TapOther(filter)` (the convoke lands, Earthcraft),
+  `Crew(n)` (written only by `crew!(n)`: one question answered with any
+  number of other untapped creatures the payer controls, refused when their
+  total power is short of `n`),
   `ReturnToHand(filter)` (Quirion Ranger's Forest — one permanent, and
   nothing in it says "untapped": tapping the land for mana and *then*
   returning it is the play, and the mana stays in the pool),
@@ -588,6 +591,7 @@ loyalty!(-3, EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::
 static_ability!(Filter::YOUR_CREATURE, Modifier::ModifyPT(1, 1))  // an anthem
 chapter!(1, EFFECTS)                                  // one chapter of a saga
 equip!("{2}")                                         // Equip {2}
+crew!(2)                                              // Crew 2
 modal_triggered!(TRIGGER, &[mode!(SCRY), mode!(LIFE)])  // "choose one" ETB
 mode!(DRAW_EFFECTS)                                   // one arm of a modal
 ```
@@ -642,6 +646,14 @@ that target named twice over a local `static` that was the same filter each
 time.
 Equip {0} is `equip!(Cost::FREE)` and not `equip!("{0}")` — a cost with no
 mana cost is not the same data as a mana cost of zero generic.
+
+`crew!(2)` takes **only the number**, for the same reason (CR 702.122a):
+the cost is `CostPart::Crew(2)` alone, and the effect makes the source an
+artifact creature until end of turn. The crew question is a
+`Pending::ChooseCards` with `ChoicePrompt::CostCrew { power }`, `min: 1` and
+`max` every creature offered; `apply` refuses an answer whose total power is
+short, and `can_afford` offers the ability only when the creatures with a
+power above zero reach the number (Unlicensed Hearse).
 
 **An Aura's "enchant …" clause is one `spell!` and has to be**, because the
 engine reads the card's continuing legality out of it and out of nowhere

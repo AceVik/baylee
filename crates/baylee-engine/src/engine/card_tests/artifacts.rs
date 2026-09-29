@@ -3133,6 +3133,158 @@ fn unlicensed_hearse_asks_no_graveyard_when_only_one_holds_cards() {
     assert_eq!(options, vec![plains_card]);
 }
 
+/// Whether `seat` is offered ability `index` of `object` right now.
+fn hearse_offers(engine: &Engine<RegistryLookup>, object: ObjectId, index: u32) -> bool {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        return false;
+    };
+    legal.abilities.contains(&(object, index))
+}
+
+/// Every Llanowar Elves `seat` controls.
+fn elves_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+    engine
+        .state()
+        .battlefield_view()
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == seat && o.card.is_some_and(|c| c.index == llanowar_elves())
+            })
+        })
+        .collect()
+}
+
+/// Unlicensed Hearse's Crew 2 (CR 702.122a): with two cards exiled with it
+/// and two Llanowar Elves beside it, crew asks for creatures and offers both
+/// Elves and never the Hearse ("other"). One Elf, power 1, is refused and
+/// the question stands; both are taken, both are tapped, and once the
+/// ability resolves the Hearse is a 2/2 artifact creature.
+#[test]
+fn unlicensed_hearse_is_crewed_by_two_elves_and_not_by_one() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[unlicensed_hearse(), llanowar_elves(), llanowar_elves()],
+        )
+        .hand(1, &[plains(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let their_cards = [
+        hand_to_graveyard(&mut engine, p1, plains()),
+        hand_to_graveyard(&mut engine, p1, swamp()),
+    ];
+    let hearse = on_battlefield(&engine, p0, unlicensed_hearse()).expect("the Hearse is out");
+    let elves = elves_of(&engine, p0);
+    assert_eq!(elves.len(), 2);
+
+    activate(&mut engine, p0, unlicensed_hearse(), 0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: their_cards.to_vec(),
+            },
+        )
+        .expect("both of p1's cards are targeted");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, hearse), (2, 2), "two cards exiled with it");
+    let creature = |engine: &Engine<RegistryLookup>| {
+        engine.state().object(hearse).is_some_and(|o| {
+            o.characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::CREATURE)
+        })
+    };
+    assert!(!creature(&engine), "a Vehicle is not a creature uncrewed");
+
+    // Ability 2 is Crew 2 (0 is the exile, 1 the power-and-toughness static).
+    activate(&mut engine, p0, unlicensed_hearse(), 2);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected the crew question, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert_eq!(prompt, ChoicePrompt::CostCrew { power: 2 });
+    assert_eq!((min, max), (1, 2), "any number of the two Elves");
+    assert_eq!(options.len(), 2);
+    assert!(elves.iter().all(|elf| options.contains(elf)));
+    assert!(!options.contains(&hearse), "\"other untapped creatures\"");
+
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![elves[0]],
+                },
+            )
+            .is_err(),
+        "one Elf is power 1, short of Crew 2"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::ChooseCards { .. }),
+        "the question stands after a short answer"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: elves.clone(),
+            },
+        )
+        .expect("two Elves are power 2");
+    for elf in &elves {
+        assert!(
+            engine
+                .state()
+                .object(*elf)
+                .is_some_and(|o| o.status.contains(Status::TAPPED)),
+            "a creature that crews is tapped to pay"
+        );
+    }
+    pass_until(&mut engine, stack_is_empty);
+    assert!(creature(&engine), "\"becomes an artifact creature\"");
+    assert!(
+        engine.state().object(hearse).is_some_and(|o| o
+            .characteristics()
+            .types
+            .contains(baylee_core::types::TypeSet::ARTIFACT)),
+        "and stays an artifact"
+    );
+    assert_eq!(pt(&engine, hearse), (2, 2), "the exiled cards still count");
+}
+
+/// Unlicensed Hearse beside one Llanowar Elves: power 1 cannot reach Crew 2,
+/// so crew is not offered at all, while the Hearse's own {T} is.
+#[test]
+fn unlicensed_hearse_is_not_offered_crew_below_its_number() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[unlicensed_hearse(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let hearse = on_battlefield(&engine, p0, unlicensed_hearse()).expect("the Hearse is out");
+    assert!(
+        hearse_offers(&engine, hearse, 0),
+        "the {{T}} ability is offered"
+    );
+    assert!(
+        !hearse_offers(&engine, hearse, 2),
+        "one power-1 creature cannot crew 2"
+    );
+}
+
 /// Conduit of Worlds: "You may play lands from your graveyard."
 ///
 /// A Forest in the graveyard is offered as a land play and played from

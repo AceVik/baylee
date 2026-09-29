@@ -1356,6 +1356,7 @@ impl<L: CardLookup> Engine<L> {
                     | CostPart::ExileSelf
                     | CostPart::ReturnSelfToHand
                     | CostPart::TapOther(_)
+                    | CostPart::Crew(_)
                     | CostPart::ReturnToHand(_)
                     | CostPart::ExileFromGraveyard(_)
                     | CostPart::RemoveCounterSelf { .. }
@@ -1410,6 +1411,7 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::SacrificeSelf
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
+                | CostPart::Crew(_)
                 | CostPart::ReturnToHand(_)
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::DiscardSelf

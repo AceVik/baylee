@@ -364,6 +364,13 @@ impl Prompt {
                 reason: ChoicePrompt::Delve,
                 ..
             } => Phrase::DelveToHelpPay.text(lang).to_string(),
+            // Crew is not "choose between one and three": the number that
+            // decides is the creatures' total power, and the engine refuses
+            // an answer short of it, so the line says the total.
+            Self::ChooseCards {
+                reason: ChoicePrompt::CostCrew { power },
+                ..
+            } => Phrase::CrewWithPower.fill(lang, &[&power.to_string()]),
             // Every other reason is said by the noun that is counted, which is
             // the one place in this sentence where it fits: "Wähle bis zu 2
             // Karten, die nach unten gehen". Without it a tutor, a scry, a
@@ -650,7 +657,9 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::CostDiscard | ChoicePrompt::Discard => {
             (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard)
         }
-        ChoicePrompt::CostTap => (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap),
+        ChoicePrompt::CostTap | ChoicePrompt::CostCrew { .. } => {
+            (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap)
+        }
         ChoicePrompt::CostReturn => (
             Phrase::NounPermanentToReturn,
             Phrase::NounPermanentsToReturn,

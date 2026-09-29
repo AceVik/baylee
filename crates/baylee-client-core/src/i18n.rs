@@ -1759,6 +1759,8 @@ messages! {
     TapToHelpPay { en: "Tap permanents to help pay — each pays for one", de: "Tappe bleibende Karten, um mitzubezahlen — jede zahlt eins" },
     /// Delve: exile cards from your graveyard to help pay
     DelveToHelpPay { en: "Exile cards from your graveyard to help pay — each pays for one", de: "Schicke Karten aus deinem Friedhof ins Exil, um mitzubezahlen — jede zahlt eine" },
+    /// Crew N: tap creatures with total power {0} or more
+    CrewWithPower { en: "Crew {0}: tap any number of your other untapped creatures with total power {0} or more", de: "Besatzung {0}: Tappe beliebig viele deiner anderen ungetappten Kreaturen mit einer Gesamtstärke von {0} oder mehr" },
     /// Choose up to {0} {1}
     ChooseUpTo { en: "Choose up to {0} {1}", de: "Wähle bis zu {0} {1}" },
     /// Choose {0} {1}

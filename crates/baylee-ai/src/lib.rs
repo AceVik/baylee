@@ -3717,6 +3717,44 @@ mod tests {
         );
     }
 
+    /// Crew (CR 702.122a) is answered by total power: the strongest
+    /// creatures first, until the number is reached, a creature with a
+    /// negative power never. A default profile answers it too, because the
+    /// seat is already paying the price.
+    #[test]
+    fn crew_taps_the_strongest_until_the_total_is_reached() {
+        let me = PlayerId::new(0);
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), me, 1),
+                permanent(obj(2), me, 3),
+                permanent(obj(3), me, 1),
+                permanent(obj(4), me, -1),
+            ],
+        );
+        let ask = |power| Pending::ChooseCards {
+            player: me,
+            options: vec![obj(1), obj(2), obj(3), obj(4)],
+            min: 1,
+            max: 4,
+            prompt: ChoicePrompt::CostCrew { power },
+        };
+        assert_eq!(
+            agent().act(&v, &ask(3)),
+            PlayerAction::ChooseObjects {
+                objects: vec![obj(2)]
+            }
+        );
+        assert_eq!(
+            agent().act(&v, &ask(5)),
+            PlayerAction::ChooseObjects {
+                objects: vec![obj(2), obj(1), obj(3)]
+            }
+        );
+    }
+
     /// A default-profile agent at a table with no teams.
     fn agent() -> HeuristicAgent {
         HeuristicAgent::new(AIProfile::default())

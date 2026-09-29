@@ -1156,7 +1156,7 @@ impl<L: CardLookup> Engine<L> {
                     options,
                     min,
                     max,
-                    ..
+                    prompt,
                 },
                 PlayerAction::ChooseObjects { objects },
             ) if *p == player => {
@@ -1171,6 +1171,15 @@ impl<L: CardLookup> Engine<L> {
                     || !objects.iter().all(|o| options.contains(o))
                 {
                     return Err(EngineError::IllegalAction("invalid card selection"));
+                }
+                // Crew's total (CR 702.122a), which no count of objects can
+                // say: two creatures with power 1 pay Crew 2 and one does
+                // not. Refused before anything moves, so the question
+                // stands and is asked again.
+                if let crate::choice::ChoicePrompt::CostCrew { power } = *prompt
+                    && super::cost_wizard::crew_power(&self.state, &objects) < i32::from(power)
+                {
+                    return Err(EngineError::IllegalAction("not enough power to crew"));
                 }
                 // Wizard path: pitch cards (exile-from-hand costs).
                 if self

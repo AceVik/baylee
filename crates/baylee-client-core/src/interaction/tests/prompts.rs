@@ -709,6 +709,27 @@ fn pact_question_names_the_colored_cost_and_warns_about_losing() {
 /// Conduit of Worlds' offer: the line says the card is cast paying its mana
 /// cost and that the mana is made first, because a yes opens a payment
 /// window rather than casting at once.
+/// Crew (CR 702.122a) is answered with any number of creatures, and what
+/// decides is their total power — so the line names the total, not a count.
+#[test]
+fn crew_question_names_the_total_power() {
+    let i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(1), obj(2), obj(3)],
+        min: 1,
+        max: 3,
+        prompt: ChoicePrompt::CostCrew { power: 2 },
+    });
+    for (lang, crew, total) in [
+        (Lang::En, "Crew 2", "total power 2 or more"),
+        (Lang::De, "Besatzung 2", "Gesamtstärke von 2 oder mehr"),
+    ] {
+        let text = i.prompt().headline(lang, Turn::Mine, None, false);
+        assert!(text.contains(crew), "{text}");
+        assert!(text.contains(total), "{text}");
+    }
+}
+
 #[test]
 fn cast_paying_question_says_the_mana_is_made_first() {
     let i = interaction(Pending::YesNo {

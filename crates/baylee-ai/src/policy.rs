@@ -233,6 +233,33 @@ impl HeuristicAgent {
         result
     }
 
+    /// The creatures that crew: the strongest first, until their total
+    /// power reaches `power`. Every creature with a power above zero when
+    /// the board does not reach it, which the engine then refuses as it
+    /// would any short answer.
+    fn crew(view: &PlayerView, options: &[ObjectId], power: u8) -> Vec<ObjectId> {
+        let power_of = |id: &ObjectId| {
+            view.object(*id)
+                .map_or(0, |o| i32::from(o.power.unwrap_or(0)))
+        };
+        let mut ranked: Vec<ObjectId> = options
+            .iter()
+            .copied()
+            .filter(|id| power_of(id) > 0)
+            .collect();
+        ranked.sort_by_key(|id| (std::cmp::Reverse(power_of(id)), *id));
+        let mut total = 0;
+        let mut crew = Vec::new();
+        for id in ranked {
+            if total >= i32::from(power) {
+                break;
+            }
+            total += power_of(&id);
+            crew.push(id);
+        }
+        crew
+    }
+
     pub(crate) fn select_cards(
         &self,
         view: &PlayerView,
@@ -252,6 +279,13 @@ impl HeuristicAgent {
             ranked.sort_unstable();
             ranked.truncate(usize::from(max));
             return Some(ranked);
+        }
+        // Crew (CR 702.122a), also ahead of the gate: it is a price the
+        // seat already chose to pay, and `min` (one creature) is refused
+        // whenever one is not enough. The strongest first, until the total
+        // is reached, so as few creatures as the board allows are tapped.
+        if let ChoicePrompt::CostCrew { power } = prompt {
+            return Some(Self::crew(view, options, power));
         }
         if self.profile.mulligan_skill < 2 {
             return None;

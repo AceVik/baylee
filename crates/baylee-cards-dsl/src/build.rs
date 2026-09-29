@@ -872,6 +872,39 @@ macro_rules! equip {
     };
 }
 
+/// Crew N (CR 702.122a): `crew!(2)`.
+///
+/// "Tap any number of other untapped creatures you control with total power
+/// N or greater: This permanent becomes an artifact creature until end of
+/// turn." The number is the only thing a Vehicle prints; the cost is
+/// [`CostPart::Crew`](crate::CostPart::Crew) alone, and the effect makes the
+/// source an artifact creature until end of turn (layer 4). A crew ability
+/// may be activated whenever its controller has priority, so there is no
+/// timing to write.
+///
+/// ```ignore
+/// crew!(2)   // Crew 2
+/// ```
+#[macro_export]
+macro_rules! crew {
+    ($power:literal) => {
+        $crate::ActivatedParts::new(
+            $crate::Cost {
+                mana: $crate::ManaCost::ZERO,
+                parts: &[$crate::CostPart::Crew($power)],
+            },
+            &[$crate::Effect::continuous(
+                &$crate::Filter::This,
+                $crate::Modifier::AddType(
+                    $crate::TypeSet::ARTIFACT.union($crate::TypeSet::CREATURE),
+                ),
+                $crate::Duration::UntilEndOfTurn,
+            )],
+        )
+        .build()
+    };
+}
+
 /// Everything a card file needs, in one import.
 ///
 /// A card file used to open with eight `use` lines and
@@ -911,8 +944,8 @@ pub mod prelude {
         KeywordSet, PartnerKind,
     };
     pub use crate::{
-        activated, card, chapter, cost, equip, f, face, loyalty, mana_ability, modal_triggered,
-        mode, spell, static_ability, triggered,
+        activated, card, chapter, cost, crew, equip, f, face, loyalty, mana_ability,
+        modal_triggered, mode, spell, static_ability, triggered,
     };
     pub use baylee_core::color::{Color, ColorSet};
     /// Every card's `CardIndex` under the name the ledger froze for it.

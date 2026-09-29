@@ -40,6 +40,25 @@ pub enum CostPart {
     /// you tap …", which is a replacement on a trigger and not an activation
     /// cost at all.
     TapOther(&'static Filter),
+    /// Crew N (CR 702.122a): "Tap any number of other untapped creatures you
+    /// control with total power N or greater." Written by [`crate::crew!`]
+    /// and by nothing else.
+    ///
+    /// **One question whose answer is a set**, where every other asking
+    /// part is one question per object: `cost_wizard` offers the other
+    /// untapped creatures the payer controls, the player names any number of
+    /// them, and the answer is refused when their total power is short of N.
+    /// A negative power counts as negative (CR 107.1b: "if a calculation or
+    /// comparison needs to use a negative value, it does so").
+    ///
+    /// **Alone in its cost**, which is how every Vehicle prints it: the
+    /// payment takes every object the question named, so an asking part
+    /// printed after it would find no answer left.
+    ///
+    /// Not [`CostPart::TapOther`] N times: a creature with power 3 pays
+    /// Crew 3 alone, and two with power 1 pay Crew 2 together, so the
+    /// number of creatures is the player's to choose and not the card's.
+    Crew(u8),
     /// Discard the source card itself (cycling).
     DiscardSelf,
     /// Exile the source.

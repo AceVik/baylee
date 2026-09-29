@@ -189,7 +189,9 @@ pub fn line_shape(line: &str) -> LineShape {
         // instead of side by side.
         return if line.len() <= 40
             && !line.ends_with('.')
-            && (line.contains('{') || reminder_spells_out_an_ability(printed))
+            && (line.contains('{')
+                || reminder_spells_out_an_ability(printed)
+                || a_numbered_tapping_keyword(line))
         {
             LineShape::Activated
         } else {
@@ -272,6 +274,21 @@ fn ability_colon(line: &str) -> Option<usize> {
         }
     }
     None
+}
+
+/// Whether the line is "Crew N" (CR 702.122a) or "Saddle N" (CR 702.171a)
+/// and nothing else.
+///
+/// Both are activated abilities whose cost is tapping creatures, so the line
+/// carries no `{`, and a printing that drops the reminder leaves no colon for
+/// [`reminder_spells_out_an_ability`] to find either: Unlicensed Hearse
+/// prints "Crew 2" and not a word more, and its crew ability had no
+/// sentence.
+fn a_numbered_tapping_keyword(line: &str) -> bool {
+    ["Crew ", "Saddle "].iter().any(|keyword| {
+        line.strip_prefix(keyword)
+            .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
+    })
 }
 
 /// Whether a keyword line's own reminder text writes out an activated
@@ -1316,6 +1333,21 @@ mod tests {
     /// The colon is read from the **printed** line and not from the line with
     /// its reminder stripped, which is the whole trick: strip the reminder
     /// first and both of these are one bare word.
+    /// "Crew 2" with no reminder is still an activated ability (CR
+    /// 702.122a): Unlicensed Hearse prints it bare. A word that merely
+    /// starts the same way is not one.
+    #[test]
+    fn a_bare_crew_line_is_an_activated_one() {
+        assert_eq!(line_shape("Crew 2"), LineShape::Activated);
+        assert_eq!(line_shape("Saddle 1"), LineShape::Activated);
+        assert_eq!(line_shape("Crew"), LineShape::Other, "no number, no cost");
+        assert_eq!(
+            line_shape("Crew Captain"),
+            LineShape::Other,
+            "a name is not a keyword"
+        );
+    }
+
     #[test]
     fn a_keyword_whose_reminder_spells_out_an_ability_is_an_activated_one() {
         let station = "Station (Tap another creature you control: Put charge \

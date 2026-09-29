@@ -51,6 +51,7 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::PayLife(_)
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
+        | CostPart::Crew(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::DiscardSelf
@@ -860,6 +861,17 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
+                // Crew (CR 702.122a): one question, so one total. The
+                // creatures on the menu with a power above zero are the most
+                // any answer can reach; a creature with a negative power
+                // only lowers a total (CR 107.1b), so nobody would name it.
+                CostPart::Crew(power) => {
+                    let mut menu = cost_wizard::menu(&self.state, player, source, cost, part);
+                    menu.retain(|id| cost_wizard::crew_power(&self.state, &[*id]) > 0);
+                    if cost_wizard::crew_power(&self.state, &menu) < i32::from(*power) {
+                        return false;
+                    }
+                }
                 // A cost that has to ask a question, asked of the board
                 // instead of refused outright. `cost_wizard::options` is the
                 // one reader of "what may pay this", and it is the same list
@@ -1659,11 +1671,19 @@ impl<L: CardLookup> Engine<L> {
                 targets,
                 target_players: chosen_players,
             });
+            // One object per question, except crew's, whose one question
+            // is answered with any number of creatures (CR 702.122a) and
+            // refused by `apply` when their total power is short.
+            let max = if matches!(part, CostPart::Crew(_)) {
+                u8::try_from(options.len()).unwrap_or(u8::MAX)
+            } else {
+                1
+            };
             self.pending = Pending::ChooseCards {
                 player,
                 options,
                 min: 1,
-                max: 1,
+                max,
                 prompt,
             };
             self.awaiting_answer = true;
@@ -2192,6 +2212,22 @@ impl<L: CardLookup> Engine<L> {
                         return Err(EngineError::IllegalAction(
                             "not enough counters to pay the cost",
                         ));
+                    }
+                }
+                // Crew's one question named every creature that pays it,
+                // and crew is alone in its cost (`CostPart::Crew`), so every
+                // answer left is tapped — through the `TapOther` door, so a
+                // creature that crews becomes tapped the way any other
+                // tapped-for-a-cost creature does (CR 702.122b).
+                CostPart::Crew(_) => {
+                    let crew: Vec<ObjectId> = answers.by_ref().collect();
+                    if crew.is_empty() {
+                        return Err(EngineError::IllegalAction(
+                            "a cost that has to ask reached the payer unanswered",
+                        ));
+                    }
+                    for creature in crew {
+                        cost_wizard::pay(&mut self.state, player, part, creature)?;
                     }
                 }
                 // The parts that had to ask, paid with the answers in the
