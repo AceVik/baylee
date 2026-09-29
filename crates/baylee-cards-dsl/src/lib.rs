@@ -274,8 +274,12 @@ pub struct FaceDef {
     /// nothing but this says so, so without it every werewolf stopped being
     /// green the moment it turned over.
     pub color_indicator: ColorSet,
-    /// Whether this face can be cast from the hand (false for disturb
-    /// backs — they are cast from the graveyard instead).
+    /// Whether this face can be cast from the hand. False exactly on a
+    /// nonmodal double-faced card's back face — a transforming back, which
+    /// is reached by turning over, and a disturb back, which is cast from
+    /// the graveyard (`xtask validate` holds it against Scryfall's
+    /// `layout`). The engine reads it as that: such a face's mana value is
+    /// its front face's (CR 202.3b, `Characteristics::front_mana_value`).
     pub castable_from_hand: bool,
     /// Miracle cost: when revealed as the first card drawn this turn, the
     /// card may be cast for this cost (CR 702.94).
@@ -317,7 +321,7 @@ impl FaceDef {
     /// file, and a card that does not care about the new rule keeps compiling.
     ///
     /// `castable_from_hand` defaults to `true` because that is what a printed
-    /// face normally is; only disturb/adventure backs opt out.
+    /// face normally is; only a nonmodal double-faced card's back opts out.
     pub const DEFAULT: Self = Self {
         prototype: None,
         disguise: None,
