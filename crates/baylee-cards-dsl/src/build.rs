@@ -99,6 +99,10 @@ pub struct ActivatedParts {
     /// activation but the cost (CR 602.2), and a card that caps it prints
     /// the sentence.
     pub limit: ActivationLimit,
+    /// "This ability costs {1} less to activate for each …".
+    ///
+    /// `None` is the rules default: an ability costs what it prints.
+    pub cost_reduction: Option<crate::cost::CostReduction>,
 }
 
 impl ActivatedParts {
@@ -118,6 +122,7 @@ impl ActivatedParts {
             zone: ActivationZone::Battlefield,
             condition: None,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         }
     }
 
@@ -156,6 +161,7 @@ impl ActivatedParts {
                 mana_ability: self.mana_ability,
                 zone: self.zone,
                 limit: self.limit,
+                cost_reduction: self.cost_reduction,
             },
             Some(condition) => AbilityDef::ActivatedConditional {
                 cost: self.cost,
@@ -167,6 +173,7 @@ impl ActivatedParts {
                 zone: self.zone,
                 condition,
                 limit: self.limit,
+                cost_reduction: self.cost_reduction,
             },
         }
     }
@@ -983,6 +990,7 @@ mod tests {
                 mana_ability: false,
                 zone: ActivationZone::Battlefield,
                 limit: ActivationLimit::Unlimited,
+                cost_reduction: None,
             },
             "no condition is the plain ability, at the rules defaults"
         );
@@ -998,6 +1006,7 @@ mod tests {
                 zone: ActivationZone::Battlefield,
                 condition: METALCRAFT,
                 limit: ActivationLimit::Unlimited,
+                cost_reduction: None,
             },
             "the condition moves it to the twin and changes nothing else"
         );
@@ -1098,6 +1107,7 @@ mod tests {
             mana_ability: false,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         };
 
         assert_eq!(equip!("{2}"), BY_HAND);

@@ -167,12 +167,31 @@ pub fn printed_reduction(
     state: &GameState,
     face: &baylee_cards_dsl::FaceDef,
     player: PlayerId,
+    source: ObjectId,
 ) -> u32 {
-    match face.cost_reduction {
+    reduction_amount(state, face.cost_reduction, player, source)
+}
+
+/// The generic mana `reduction` takes off a cost `player` is paying with
+/// `source` — a card being cast or the object whose ability is activated —
+/// read now, as the total cost is determined (CR 601.2f, and CR 602.2b for
+/// an ability). The taking-off is `ManaCost::with_less_generic`, which
+/// touches only the generic component and stops at {0} (CR 118.7a).
+#[must_use]
+pub fn reduction_amount(
+    state: &GameState,
+    reduction: Option<baylee_cards_dsl::CostReduction>,
+    player: PlayerId,
+    source: ObjectId,
+) -> u32 {
+    match reduction {
         Some(baylee_cards_dsl::CostReduction::NotStartingPlayer(n))
             if player != state.starting_player =>
         {
             n
+        }
+        Some(baylee_cards_dsl::CostReduction::PerCount { amount, each }) => {
+            crate::eval::amount(&amount, state, player, source, None).saturating_mul(each)
         }
         _ => 0,
     }
@@ -1058,13 +1077,14 @@ pub(crate) fn can_cast_form(
         let ordinary = ordinary_targets_reachable(state, def, player, card)
             && probe(
                 &c.mana_cost
-                    .with_less_generic(printed_reduction(state, &def.faces[0], player))
+                    .with_less_generic(printed_reduction(state, &def.faces[0], player, card))
                     .with_x(0),
             );
         let kicked_cost = kicked_mana_cost(&def.faces[0]).with_less_generic(printed_reduction(
             state,
             &def.faces[0],
             player,
+            card,
         ));
         let kicked = requirement_is_reachable(Some(req), state, player, card)
             && probe(&kicked_cost.with_x(0));
@@ -1100,9 +1120,9 @@ pub(crate) fn can_cast_form(
     // card itself; the full payment is validated when the wizard finishes.
     // A face with no printed cost has no normal way to be cast at all
     // (CR 202.1b) and falls straight through to the alternatives.
-    let normal_cost = c
-        .mana_cost
-        .with_less_generic(printed_face.map_or(0, |face| printed_reduction(state, face, player)));
+    let normal_cost = c.mana_cost.with_less_generic(
+        printed_face.map_or(0, |face| printed_reduction(state, face, player, card)),
+    );
     // `c.mana_cost` and not `normal_cost`: the question is what the card
     // *prints*, and cost arithmetic does not preserve the answer —
     // `with_less_generic` rebuilds a cost symbol by symbol and drops a
@@ -2210,7 +2230,8 @@ mod tests {
     /// out for.
     #[test]
     fn a_printed_reduction_reaches_the_seat_it_was_printed_for() {
-        let state = state();
+        let mut state = state();
+        let card = permanent(&mut state, me(), "Probe");
         let face = probe_face(
             false,
             false,
@@ -2219,12 +2240,46 @@ mod tests {
         let starter = state.starting_player;
         let other = if starter == me() { them() } else { me() };
 
-        assert_eq!(printed_reduction(&state, &face, starter), 0);
-        assert_eq!(printed_reduction(&state, &face, other), 1);
+        assert_eq!(printed_reduction(&state, &face, starter, card), 0);
+        assert_eq!(printed_reduction(&state, &face, other, card), 1);
         assert_eq!(
-            printed_reduction(&state, &probe_face(false, false, None), other),
+            printed_reduction(&state, &probe_face(false, false, None), other, card),
             0,
             "and a card that prints no reduction gets none"
+        );
+    }
+
+    /// "Costs {1} less … for each creature you control" counts for the seat
+    /// paying: two creatures of mine take two off my price, and my
+    /// opponent's one creature takes one off theirs. `each` multiplies.
+    #[test]
+    fn a_counted_reduction_takes_generic_mana_per_thing_counted() {
+        let mut state = state();
+        let card = permanent(&mut state, me(), "Probe");
+        creature(&mut state, me(), "Mine");
+        creature(&mut state, me(), "Also mine");
+        creature(&mut state, them(), "Theirs");
+        let per = |each| {
+            probe_face(
+                false,
+                false,
+                Some(baylee_cards_dsl::CostReduction::PerCount {
+                    amount: baylee_cards_dsl::Amount::CountOf {
+                        filter: &Filter::YOUR_CREATURE,
+                        zone: baylee_cards_dsl::ZoneSel::Battlefield,
+                    },
+                    each,
+                }),
+            )
+        };
+        assert_eq!(printed_reduction(&state, &per(1), me(), card), 2);
+        assert_eq!(printed_reduction(&state, &per(1), them(), card), 1);
+        assert_eq!(printed_reduction(&state, &per(2), me(), card), 4);
+        let cost = ManaCost::parse("{1}{G}");
+        assert_eq!(
+            cost.with_less_generic(printed_reduction(&state, &per(1), me(), card)),
+            ManaCost::parse("{G}"),
+            "generic only, and never below nothing (CR 118.7a)"
         );
     }
 

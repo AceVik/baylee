@@ -1938,6 +1938,7 @@ mod tests {
             mana_ability: false,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         };
         assert!(
             mana_ability_fault(&unmarked).is_some(),
@@ -1955,6 +1956,7 @@ mod tests {
             mana_ability: false,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         };
         assert!(
             mana_ability_fault(&with_a_rider).is_some(),
@@ -1970,6 +1972,7 @@ mod tests {
             mana_ability: true,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         };
         assert!(
             mana_ability_fault(&lying).is_some(),
@@ -1988,6 +1991,7 @@ mod tests {
             mana_ability: true,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         };
         assert_eq!(
             mana_ability_fault(&second_only),
@@ -2016,6 +2020,7 @@ mod tests {
             mana_ability: true,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         }];
         static FACES: [FaceDef; 1] = [FaceDef {
             name: "Machine God's Effigy",
@@ -2070,6 +2075,7 @@ mod tests {
             mana_ability: true,
             zone: crate::dsl::ability::ActivationZone::Battlefield,
             limit: crate::dsl::ability::ActivationLimit::Unlimited,
+            cost_reduction: None,
         }];
         static ON_THE_FACE: [FaceDef; 1] = [FaceDef {
             name: "a land that taps for green",
@@ -2092,6 +2098,7 @@ mod tests {
             mana_ability: false,
             zone: crate::dsl::ability::ActivationZone::Battlefield,
             limit: crate::dsl::ability::ActivationLimit::Unlimited,
+            cost_reduction: None,
         }];
         assert_eq!(
             identity_gap(&CardDef {
@@ -2401,6 +2408,7 @@ mod tests {
                 mana_ability: false,
                 zone: ActivationZone::Battlefield,
                 limit: ActivationLimit::Unlimited,
+                cost_reduction: None,
             };
 
         assert_eq!(

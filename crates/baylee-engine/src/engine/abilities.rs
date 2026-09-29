@@ -290,6 +290,7 @@ impl<L: CardLookup> Engine<L> {
                         targets,
                         second_targets,
                         limit,
+                        cost_reduction,
                         ..
                     } => {
                         if *zone != ActivationZone::Battlefield {
@@ -306,7 +307,8 @@ impl<L: CardLookup> Engine<L> {
                         {
                             continue;
                         }
-                        if self.can_afford(player, id, cost, casting::SpendFor::Ability(id)) {
+                        let cost = self.activation_price(player, id, cost, *cost_reduction);
+                        if self.can_afford(player, id, &cost, casting::SpendFor::Ability(id)) {
                             legal.abilities.push((id, i as u32));
                         }
                     }
@@ -318,6 +320,7 @@ impl<L: CardLookup> Engine<L> {
                         targets,
                         second_targets,
                         limit,
+                        cost_reduction,
                         ..
                     } => {
                         if *zone != ActivationZone::Battlefield {
@@ -337,7 +340,8 @@ impl<L: CardLookup> Engine<L> {
                         {
                             continue;
                         }
-                        if self.can_afford(player, id, cost, casting::SpendFor::Ability(id)) {
+                        let cost = self.activation_price(player, id, cost, *cost_reduction);
+                        if self.can_afford(player, id, &cost, casting::SpendFor::Ability(id)) {
                             legal.abilities.push((id, i as u32));
                         }
                     }
@@ -458,6 +462,7 @@ impl<L: CardLookup> Engine<L> {
                         targets,
                         second_targets,
                         limit,
+                        cost_reduction,
                         ..
                     } => {
                         if *zone != ActivationZone::Hand {
@@ -481,7 +486,8 @@ impl<L: CardLookup> Engine<L> {
                         {
                             continue;
                         }
-                        if self.can_afford(player, card, cost, casting::SpendFor::Ability(card)) {
+                        let cost = self.activation_price(player, card, cost, *cost_reduction);
+                        if self.can_afford(player, card, &cost, casting::SpendFor::Ability(card)) {
                             legal.abilities.push((card, i as u32));
                         }
                     }
@@ -493,6 +499,7 @@ impl<L: CardLookup> Engine<L> {
                         targets,
                         second_targets,
                         limit,
+                        cost_reduction,
                         ..
                     } => {
                         // The same ability with a precondition on it — the
@@ -519,7 +526,8 @@ impl<L: CardLookup> Engine<L> {
                         {
                             continue;
                         }
-                        if self.can_afford(player, card, cost, casting::SpendFor::Ability(card)) {
+                        let cost = self.activation_price(player, card, cost, *cost_reduction);
+                        if self.can_afford(player, card, &cost, casting::SpendFor::Ability(card)) {
                             legal.abilities.push((card, i as u32));
                         }
                     }
@@ -705,6 +713,28 @@ impl<L: CardLookup> Engine<L> {
                     .unwrap_or(0)
                     >= u32::from(n)
             }
+        }
+    }
+
+    /// What an activated ability costs `player` right now: its printed cost
+    /// less the generic mana its own printed reduction takes off ("This
+    /// ability costs {1} less to activate for each legendary creature you
+    /// control"). The offer and the activation both ask this, so an ability
+    /// is never offered at one price and charged another.
+    pub(crate) fn activation_price(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        cost: &Cost,
+        reduction: Option<baylee_cards_dsl::CostReduction>,
+    ) -> Cost {
+        let off = casting::reduction_amount(&self.state, reduction, player, source);
+        if off == 0 {
+            return *cost;
+        }
+        Cost {
+            mana: cost.mana.with_less_generic(off),
+            parts: cost.parts,
         }
     }
 
@@ -1167,7 +1197,7 @@ impl<L: CardLookup> Engine<L> {
         {
             return self.start_loyalty_activation(player, source, ability_index, targets, *cost);
         }
-        let (cost, effects, (first, second), mana_ability, zone, limit) = {
+        let (cost, effects, (first, second), mana_ability, zone, limit, cost_reduction) = {
             let obj = self
                 .state
                 .object(source)
@@ -1200,6 +1230,7 @@ impl<L: CardLookup> Engine<L> {
                     mana_ability,
                     zone,
                     limit,
+                    cost_reduction,
                     ..
                 } => (
                     *cost,
@@ -1208,6 +1239,7 @@ impl<L: CardLookup> Engine<L> {
                     *mana_ability,
                     *zone,
                     *limit,
+                    *cost_reduction,
                 ),
                 AbilityDef::ActivatedConditional {
                     cost,
@@ -1218,6 +1250,7 @@ impl<L: CardLookup> Engine<L> {
                     zone,
                     condition,
                     limit,
+                    cost_reduction,
                     ..
                 } => {
                     if !crate::eval::condition_holds(&self.state, player, source, *condition) {
@@ -1230,11 +1263,18 @@ impl<L: CardLookup> Engine<L> {
                         *mana_ability,
                         *zone,
                         *limit,
+                        *cost_reduction,
                     )
                 }
                 _ => return Err(EngineError::IllegalAction("not an activated ability")),
             }
         };
+        // The price, determined once and before anything is paid (CR 601.2f
+        // through CR 602.2b): Boseiju's channel discards the very card whose
+        // count of legendary creatures lowers it, and a total cost is locked
+        // in once determined. The offer asked the same helper, so the ability
+        // is charged what it was offered at.
+        let cost = self.activation_price(player, source, &cost, cost_reduction);
         // Read before any cost is paid, because a cost may move the source
         // and a moved copy is no longer one — see `Engine::activating_abilities`.
         self.activating_abilities = self

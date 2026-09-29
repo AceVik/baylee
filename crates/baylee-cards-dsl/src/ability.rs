@@ -340,6 +340,9 @@ pub enum AbilityDef {
         zone: ActivationZone,
         /// "Activate only once each turn", if the card prints one.
         limit: ActivationLimit,
+        /// "This ability costs {1} less to activate for each …", if the
+        /// ability prints one.
+        cost_reduction: Option<crate::cost::CostReduction>,
     },
     /// Triggered ability (`when/whenever/at …, effect`).
     Triggered {
@@ -392,6 +395,8 @@ pub enum AbilityDef {
         condition: Condition,
         /// "Activate only once each turn", if the card prints one.
         limit: ActivationLimit,
+        /// As on the unconditional twin.
+        cost_reduction: Option<crate::cost::CostReduction>,
     },
     /// One chapter of a saga (CR 714): triggers when the corresponding
     /// lore counter is added.
@@ -641,6 +646,7 @@ mod tests {
             mana_ability,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         }
     }
 
@@ -655,6 +661,7 @@ mod tests {
             zone: ActivationZone::Battlefield,
             condition: Condition::ControlCount(&crate::Filter::ARTIFACT, 3),
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         }
     }
 

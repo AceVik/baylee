@@ -200,11 +200,25 @@ pub enum CostPart {
     },
 }
 
-/// A conditional cost reduction printed on a card (Surgical Metamorph).
+/// A cost reduction printed on a card (Surgical Metamorph) or on one of its
+/// activated abilities (Boseiju's channel). It takes generic mana only
+/// (CR 118.7a), never below {0}, and is read once, as the total cost is
+/// determined (CR 601.2f; CR 602.2b for an ability).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum CostReduction {
     /// Costs {N} less if you weren't the starting player.
     NotStartingPlayer(u32),
+    /// "Costs {`each`} less … for each …": `each` generic mana per unit of
+    /// `amount`, read for the player paying with the card or ability as its
+    /// source. "For each legendary creature you control" is an
+    /// `Amount::CountOf` over the battlefield whose filter says
+    /// `ControlledByYou`.
+    PerCount {
+        /// What is counted.
+        amount: crate::effect::Amount,
+        /// Generic mana taken off per unit.
+        each: u32,
+    },
 }
 
 /// When an alternative cost may be used.

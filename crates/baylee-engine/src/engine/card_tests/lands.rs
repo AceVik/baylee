@@ -4452,8 +4452,9 @@ fn boseiju_who_endures() -> CardIndex {
 /// Then the victim's half: "That player may search their library for a land
 /// card with a basic land type, put it onto the battlefield, then shuffle."
 /// The question goes to the Sol Ring's controller, over their own library,
-/// and the Forest they take enters untapped. The per-legend cost reduction
-/// is the `Coverage::Partial` gap and is left unasserted.
+/// and the Forest they take enters untapped. With no legendary creature on
+/// this seat's side the channel costs its whole printed `{1}{G}`; the
+/// reduction is the two tests after this one.
 #[test]
 #[allow(clippy::too_many_lines)] // both printed lines, and the second one's menu
 fn boseiju_taps_for_green_and_channels_itself_away_for_an_artifact_or_a_nonbasic_land() {
@@ -4630,6 +4631,99 @@ fn boseiju_taps_for_green_and_channels_itself_away_for_an_artifact_or_a_nonbasic
         engine.state().players[0].mana_pool.total(),
         pool_before - 2,
         "{{1}}{{G}} left the pool, so the ability was paid for and not free"
+    );
+}
+
+/// Whether the Boseiju in `seat`'s hand offers its channel (ability 1).
+fn boseiju_channel_offered(engine: &Engine<RegistryLookup>, seat: PlayerId) -> bool {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let hand = engine.state().zones.list(ZoneLocation::Hand(seat));
+    legal.abilities.iter().any(|(source, index)| {
+        *index == 1
+            && hand.contains(source)
+            && engine
+                .state()
+                .object(*source)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == boseiju_who_endures()))
+    })
+}
+
+/// "This ability costs {1} less to activate for each legendary creature you
+/// control." One Forest and one legend of this seat's: the `{1}{G}` channel
+/// costs `{G}`, so it is offered off a single green in the pool, activates,
+/// spends exactly that green, and destroys the opponent's artifact. Before
+/// the reduction was read the channel cost its printed `{1}{G}` and was never
+/// offered on this board.
+#[test]
+fn boseiju_channel_costs_one_less_for_each_legendary_creature_you_control() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(29, forest())
+        .battlefield(0, &[forest(), thrun_the_last_troll()])
+        .hand(0, &[boseiju_who_endures()])
+        .battlefield(1, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1, "one green");
+    assert!(
+        boseiju_channel_offered(&engine, p0),
+        "{{1}}{{G}} less {{1}} for Thrun is {{G}}, which the pool holds"
+    );
+    let rock = on_battlefield(&engine, p1, quiet_artifact()).unwrap();
+    activate(&mut engine, p0, boseiju_who_endures(), 1);
+    aim_at(&mut engine, p0, rock);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the green paid the whole reduced cost"
+    );
+    let Pending::ChooseCards { player, .. } = pass_to_card_choice(&mut engine) else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, p1, "that player may search");
+    engine
+        .apply(p1, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p1, quiet_artifact()).is_some());
+    assert!(in_graveyard(&engine, p0, boseiju_who_endures()).is_some());
+}
+
+/// The reduction counts only this seat's legends and takes only generic
+/// mana (CR 118.7a): an opponent's legendary creature leaves the channel at
+/// `{1}{G}`, so one green does not reach it; and two legends of this seat's
+/// take off the `{1}` but never the `{G}`, so with an empty pool it is still
+/// not offered.
+#[test]
+fn boseiju_channel_counts_only_your_legends_and_never_its_green() {
+    let p0 = PlayerId::new(0);
+    let mut theirs = Duel::new(29, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[boseiju_who_endures()])
+        .battlefield(1, &[quiet_artifact(), thrun_the_last_troll()])
+        .start();
+    keep_mulligans(&mut theirs);
+    assert!(walk_to_own_main(&mut theirs, p0));
+    tap_all_mana(&mut theirs, p0);
+    assert!(
+        !boseiju_channel_offered(&theirs, p0),
+        "\"you control\": the opponent's Thrun takes nothing off"
+    );
+
+    let mut mine = Duel::new(29, forest())
+        .battlefield(0, &[thrun_the_last_troll(), vendilion_clique()])
+        .hand(0, &[boseiju_who_endures()])
+        .battlefield(1, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut mine);
+    assert!(walk_to_own_main(&mut mine, p0));
+    assert_eq!(mine.state().players[0].mana_pool.total(), 0);
+    assert!(
+        !boseiju_channel_offered(&mine, p0),
+        "two legends take the {{1}} off and leave the {{G}}"
     );
 }
 

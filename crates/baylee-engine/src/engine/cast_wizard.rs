@@ -475,9 +475,12 @@ impl<L: CardLookup> Engine<L> {
         // was the second place the two probes disagreed, and in the other
         // direction from convoke: the wizard knew the discount and the offer
         // did not, so the seat entitled to it was never shown the card.
-        let normal_cost =
-            face.mana_cost
-                .with_less_generic(casting::printed_reduction(&self.state, face, player));
+        let normal_cost = face.mana_cost.with_less_generic(casting::printed_reduction(
+            &self.state,
+            face,
+            player,
+            card,
+        ));
         // A modal spell (CR 700.2) has no "no mode" way to be cast: every one
         // of its effects sits under a mode, so a `Normal` option resolves to
         // nothing at all. `progress` looks for an `AbilityDef::Spell` first
@@ -522,7 +525,7 @@ impl<L: CardLookup> Engine<L> {
         }
         if let Some(req) = face.kicked_targets {
             let cost = casting::kicked_mana_cost(face)
-                .with_less_generic(casting::printed_reduction(&self.state, face, player));
+                .with_less_generic(casting::printed_reduction(&self.state, face, player, card));
             if afford(&cost.with_x(0))
                 && casting::requirement_is_reachable(Some(req), &self.state, player, card)
             {

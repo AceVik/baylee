@@ -742,6 +742,15 @@ There is no per-*game* variant; the cards that want one print the exhaust
 keyword, which other cards look for ("whenever you activate an exhaust
 ability") and which is therefore a keyword bit rather than a number.
 
+`cost_reduction = Some(CostReduction::PerCount { amount, each })` is "This
+ability costs {`each`} less to activate for each …" (Boseiju, Who Endures:
+`amount` is an `Amount::CountOf` over the battlefield whose filter says
+`ControlledByYou`). The default is `None`. The engine reads it once, as the
+total cost is determined (CR 601.2f through CR 602.2b), for the offer and
+the activation alike, and it takes generic mana only, never below {0}
+(CR 118.7a). `FaceDef::cost_reduction` is the same enum for a spell, so
+"this spell costs {1} less to cast for each …" is the same variant there.
+
 A raw literal is still legal everywhere, and
 `lints::every_layer_in_the_pool_is_the_one_its_modifier_derives` is what
 stops one disagreeing with the macro beside it.

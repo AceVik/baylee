@@ -65,6 +65,7 @@ const TAP_FOR_MANA: AbilityDef = AbilityDef::Activated {
     mana_ability: true,
     zone: ActivationZone::Battlefield,
     limit: ActivationLimit::Unlimited,
+    cost_reduction: None,
 };
 
 static WAKING_ABILITIES: &[AbilityDef] = &[

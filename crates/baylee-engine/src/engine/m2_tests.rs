@@ -183,6 +183,7 @@ static CYCLER_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
     zone: baylee_cards_dsl::ActivationZone::Hand,
     condition: baylee_cards_dsl::Condition::ControlCount(&LAND_F, 1),
     limit: baylee_cards_dsl::ActivationLimit::Unlimited,
+    cost_reduction: None,
 }];
 
 /// A limit on the *conditional* twin, which no card in the pool prints
@@ -204,6 +205,7 @@ static FONT_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
     zone: baylee_cards_dsl::ActivationZone::Battlefield,
     condition: baylee_cards_dsl::Condition::ControlCount(&LAND_F, 1),
     limit: baylee_cards_dsl::ActivationLimit::PerTurn(1),
+    cost_reduction: None,
 }];
 
 impl TestLookup {
