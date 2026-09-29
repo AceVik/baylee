@@ -316,7 +316,7 @@ more and its bounce less than before (221 and 12 uses against 132 and 88 over
 the scoreboard below): a card is worth more than a creature's tempo unless the
 creature is what kills. NOVICE, CASUAL and STEADY keep the old rule (the
 ultimate when affordable, else the largest plus), and a scry, surveil or
-reorder is valued only at `mulligan_skill >= 2`; both are designed
+reorder is valued only at `mulligan_skill >= 2` (STEADY and up); both are designed
 differences, not gaps.
 
 **Open: an ability with a mana cost is taken only when the mana already
@@ -325,7 +325,7 @@ floats.** The engine offers such an ability only once the pool covers it
 the way `policy::aim` floats it for a spell. So these rows stay at or near
 nought whatever `worth` makes of them: Riptide Laboratory (worth using only
 to save a doomed Wizard, which is at instant speed in answer to removal),
-Sensei's Divining Top (a reorder, worth something to SHARP and EXPERT only),
+Sensei's Divining Top (a reorder, worth something from STEADY up),
 General Tazri's five-colour pump, and the equip costs of Sword of Hearth and
 Home and Helm of the Host (taken the few times the mana floated). Two rows
 have no reader either: nothing in the agent answers the engine's suspend
