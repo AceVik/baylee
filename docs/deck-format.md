@@ -131,9 +131,9 @@ cards:
   finish: foil
 ```
 
-The YAML parser is `serde-saphyr` (maintained, pure Rust, no `unsafe`
-dependency tree; `serde_yaml` is archived and `serde_yml` carries
-RUSTSEC-2025-0068). Its default budget refuses alias bombs.
+The YAML parser is `serde-saphyr` (maintained, pure Rust; `serde_yaml` is
+archived and `serde_yml` carries RUSTSEC-2025-0068). Its default budget
+refuses alias bombs.
 
 ### Finishes in JSON and YAML
 
