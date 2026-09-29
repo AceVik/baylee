@@ -1058,7 +1058,7 @@ impl<L: CardLookup> Engine<L> {
                 self.can_pay_mana(
                     player,
                     spend_for(wizard, face),
-                    &times(before, cost, *n).with_less_generic(help),
+                    &before.combine_n(cost, *n).with_less_generic(help),
                 )
             })
             .last()
@@ -2187,7 +2187,7 @@ fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> M
         }
     }
     if let Some(replicate) = face.replicate {
-        total = times(total, &replicate, u32::from(wizard.replicated));
+        total = total.combine_n(&replicate, u32::from(wizard.replicated));
     }
     total
 }
@@ -2219,12 +2219,6 @@ fn targeted_mode(abilities: &'static [AbilityDef], set: u8, nth: usize) -> Optio
             .nth(nth),
         _ => None,
     })
-}
-
-/// `total` with `cost` added `n` times: the replicate cost paid `n` times
-/// (CR 702.56a, 601.2f).
-fn times(total: ManaCost, cost: &ManaCost, n: u32) -> ManaCost {
-    (0..n).fold(total, |total, _| total.combine(cost))
 }
 
 /// Whether this cast pays mana at all. A free cast pays none of its mana

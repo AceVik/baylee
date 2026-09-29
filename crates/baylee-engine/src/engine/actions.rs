@@ -1643,7 +1643,7 @@ impl<L: CardLookup> Engine<L> {
         let mut pool = self.state.players[player.get() as usize].mana_pool.clone();
         mana_pay::pay(
             &mut pool,
-            &baylee_core::mana::ManaCost::parse(&format!("{{{mana}}}")),
+            &baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
         )
     }
 

@@ -14,8 +14,8 @@
 use baylee_engine::object::{CachedChar, Characteristics, GameObject};
 use baylee_engine::state::GameState;
 
-/// Every characteristic set carries a 1024-bit subtype bitmap and a 16-slot
-/// mana cost; those two dominate it and are what makes storing a second
+/// Every characteristic set carries a 1024-bit subtype bitmap and a mana
+/// cost (a count per symbol); those two dominate it and are what makes storing a second
 /// copy per object expensive. Objects hold it behind an `Arc`, so this
 /// number is paid once per *distinct* base, not once per object.
 ///

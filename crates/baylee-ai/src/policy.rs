@@ -1148,7 +1148,7 @@ fn aim(
         .and_then(|each| {
             (1..=budget.min(50))
                 .rev()
-                .map(|n| (0..n).fold(cost, |total, _| total.combine(&each)))
+                .map(|n| cost.combine_n(&each, n))
                 .find(fits)
         })
         .map_or((cost, false), |net| (net, true))

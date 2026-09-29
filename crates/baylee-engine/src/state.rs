@@ -4184,7 +4184,7 @@ pub(crate) fn mana_cost_fingerprint(cost: &baylee_core::mana::ManaCost) -> u64 {
 }
 
 fn hash_mana_cost(h: &mut Hasher, cost: &baylee_core::mana::ManaCost) {
-    h.u8(cost.len());
+    h.u32(cost.len());
     for s in cost.symbols() {
         match s {
             ManaSymbol::Generic(n) => {

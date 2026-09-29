@@ -1593,7 +1593,7 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
     let actually_paid = paid
         && mana_pay::pay(
             &mut state.players[player.get() as usize].mana_pool,
-            &baylee_core::mana::ManaCost::parse(&format!("{{{mana}}}")),
+            &baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
         );
     debug_assert!(!paid || actually_paid, "tax was offered as payable");
     if actually_paid {

@@ -5600,6 +5600,85 @@ fn a_countered_lose_focus_still_copies_itself() {
     );
 }
 
+/// Lose Focus replicated eighteen times off twenty Islands: "you may pay
+/// [cost] any number of times" (CR 702.56a), and every payment is part of
+/// the total cost (CR 601.2f).
+///
+/// The fuzzer's panic (2026-09-29), on the engine's own path. A cost was a
+/// list of sixteen symbols, and the replicate question's bound priced one
+/// payment more at a time before it asked whether the pool paid: once
+/// fourteen payments were payable (sixteen mana), pricing the fifteenth made
+/// `{1}{U}` and fifteen `{U}`, seventeen symbols, and the list asserted and
+/// took the game down. The payment and the trigger's copies are counted the
+/// same way, so all eighteen are paid and all eighteen copies are made.
+#[test]
+fn lose_focus_replicated_eighteen_times_is_paid_and_copied_eighteen_times() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(41, forest())
+        .battlefield(0, &[island(); 20])
+        .hand(0, &[lose_focus()])
+        .battlefield(1, &[swamp()])
+        .hand(1, &[dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let ritual = in_hand(&engine, p1, dark_ritual()).expect("the Ritual in hand");
+    cast_from_hand(&mut engine, p1, dark_ritual());
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+
+    let spell = in_hand(&engine, p0, lose_focus()).expect("Lose Focus in hand");
+    cast_lose_focus_replicated(&mut engine, p0, 18, 18, ritual);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{1}}{{U}} and eighteen {{U}}: all twenty Islands paid"
+    );
+    assert_eq!(
+        engine.state().object(spell).map(|o| o.replicated),
+        Some(18),
+        "the spell remembers every payment"
+    );
+    assert!(
+        replicate_trigger(&engine, spell).is_some(),
+        "paid, so it triggers"
+    );
+
+    // Both pass: the trigger resolves into eighteen copies, and each may take
+    // a new target (CR 707.10c). Each keeps the Ritual.
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    for copy in 1..=18 {
+        let Pending::ChooseTargets { player, .. } = engine.pending().clone() else {
+            panic!(
+                "copy {copy} may take a new target, got {:?}",
+                engine.pending()
+            )
+        };
+        assert_eq!(player, p0, "the trigger's controller controls the copies");
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+            .expect("keeping the target is an answer");
+    }
+    let stack = engine.state().zones.list(ZoneLocation::Stack).clone();
+    assert_eq!(
+        stack.len(),
+        20,
+        "the Ritual, Lose Focus and eighteen copies: {stack:?}"
+    );
+    assert_eq!(
+        stack
+            .iter()
+            .filter(|id| engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.riders.contains(&crate::object::Rider::SpellCopy)))
+            .count(),
+        18,
+        "every payment made its copy"
+    );
+}
+
 /// Lose Focus with mana for a replicate payment and none made: "if a
 /// replicate cost was paid for it" is an intervening "if" (CR 603.4), so
 /// nothing triggers, and the {U} not spent stays in the pool.
