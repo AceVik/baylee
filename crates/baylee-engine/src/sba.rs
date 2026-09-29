@@ -256,6 +256,16 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
         if let Some(gone) = state.arena.remove(id) {
             state.ceased.push(gone);
         }
+        // Leaving the zone is a change to it as much as a move out of it
+        // is, and `GameState::move_object` invalidates for a move out of a
+        // graveyard or exile because a permanent's projection may count
+        // what is there (Pyrogoyf, Unlicensed Hearse). This removal does
+        // not pass through it, so it says the same itself. The engine's
+        // loop refreshes before it checks state-based actions, so a token
+        // sacrificed or destroyed by an effect is projected over while it
+        // lies in the graveyard, and without this that projection outlived
+        // the token: nothing in the effect table moved.
+        state.invalidate_projections();
         outcome.changed = true;
     }
     state.return_token_cleanup(candidates);
