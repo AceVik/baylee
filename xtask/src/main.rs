@@ -481,6 +481,11 @@ enum Cmd {
         /// Launch the client on the seat instead of printing its ticket.
         #[arg(long)]
         play: bool,
+        /// Seat a bridge in chair 1 instead of the AI: `baylee-seat join`
+        /// against the same gateway, playing this mind (`house` or
+        /// `scripted`) under its `LLM-` name, with the other acceptance deck.
+        #[arg(long, value_name = "MIND")]
+        bridge: Option<String>,
     },
     /// Make the key release archives are signed with, or show its public half.
     ///
@@ -572,7 +577,19 @@ fn main() -> anyhow::Result<()> {
             deck,
             teams,
             play,
-        } => dev_table(&root, &gateway, seats, &ai, &deck, &teams, play),
+            bridge,
+        } => dev_table(
+            &root,
+            &gateway,
+            &TableSpec {
+                seats,
+                ai: &ai,
+                deck: &deck,
+                teams: &teams,
+                bridge: bridge.as_deref(),
+            },
+            play,
+        ),
         Cmd::UpdateKey { out } => update_key::run(&out.map_or_else(update_key::default_path, Ok)?),
     }
 }
@@ -5020,6 +5037,14 @@ fn acceptance_deck(root: &Path, name: &str) -> anyhow::Result<serde_json::Value>
 ///
 /// Split out of [`dev_table`] because it is the half that talks to the lobby
 /// as a *host*: the AI chairs, the sides and the two statements a start takes.
+///
+/// A bridge's chair (`bridge_chair`) is left open for the bridge to take,
+/// and `before_start` runs between arranging the table and saying ready: a
+/// room whose chairs are not all ready cannot start.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the room's arrangement, spelt out at its one call site and its test"
+)]
 fn arrange_room(
     agent: &ureq::Agent,
     gateway: &str,
@@ -5028,10 +5053,12 @@ fn arrange_room(
     seats: usize,
     ai: &str,
     teams: &[u8],
+    bridge_chair: Option<usize>,
+    before_start: impl FnOnce() -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
     // Use the room path for duels too: the one-tap "ai" mode starts
     // immediately with the default profile, before --ai can be applied.
-    for seat in 1..seats {
+    for seat in (1..seats).filter(|seat| Some(*seat) != bridge_chair) {
         let url = format!("{gateway}/lobby/games/{game_id}/seats/{seat}");
         let (status, body) = post(
             agent,
@@ -5061,6 +5088,8 @@ fn arrange_room(
         );
     }
 
+    before_start()?;
+
     // A room does not start itself — that takes two statements by two people
     // (`ready` is the player's, `start` is the host's), and here the dev
     // account is both. An AI chair is ready as soon as it is configured.
@@ -5085,32 +5114,54 @@ fn arrange_room(
 ///
 /// Every step is a real request to a real gateway: the only thing skipped is
 /// having to type them into the lobby.
-fn dev_table(
-    root: &Path,
-    gateway: &str,
+/// What a dev table is to be.
+struct TableSpec<'a> {
+    /// How many chairs.
     seats: usize,
-    ai: &str,
-    deck_name: &str,
-    teams: &[u8],
-    play: bool,
-) -> anyhow::Result<()> {
-    anyhow::ensure!(
-        (2..=8).contains(&seats),
-        "a table seats between two and eight"
-    );
-    anyhow::ensure!(
-        teams.is_empty() || seats > 2,
-        "--teams needs three chairs or more; a duel is already two sides"
-    );
-    anyhow::ensure!(
-        teams.is_empty() || teams.len() == seats,
-        "--teams needs one side per chair ({seats} of them)"
-    );
-    anyhow::ensure!(
-        teams.is_empty() || teams.iter().any(|t| *t != teams[0]),
-        "a table needs two sides; every chair is on team {}",
-        teams.first().copied().unwrap_or(0)
-    );
+    /// The AI chairs' level.
+    ai: &'a str,
+    /// The dev account's acceptance deck.
+    deck: &'a str,
+    /// Sides, in seat order; empty for none.
+    teams: &'a [u8],
+    /// The mind a bridge in chair 1 plays, if one sits there.
+    bridge: Option<&'a str>,
+}
+
+impl TableSpec<'_> {
+    /// Whether the table can be set at all.
+    fn check(&self) -> anyhow::Result<()> {
+        let (seats, teams) = (self.seats, self.teams);
+        anyhow::ensure!(
+            (2..=8).contains(&seats),
+            "a table seats between two and eight"
+        );
+        anyhow::ensure!(
+            teams.is_empty() || seats > 2,
+            "--teams needs three chairs or more; a duel is already two sides"
+        );
+        anyhow::ensure!(
+            teams.is_empty() || teams.len() == seats,
+            "--teams needs one side per chair ({seats} of them)"
+        );
+        anyhow::ensure!(
+            teams.is_empty() || teams.iter().any(|t| *t != teams[0]),
+            "a table needs two sides; every chair is on team {}",
+            teams.first().copied().unwrap_or(0)
+        );
+        Ok(())
+    }
+}
+
+fn dev_table(root: &Path, gateway: &str, spec: &TableSpec<'_>, play: bool) -> anyhow::Result<()> {
+    spec.check()?;
+    let TableSpec {
+        seats,
+        ai,
+        deck: deck_name,
+        teams,
+        bridge,
+    } = *spec;
     let agent = ureq::Agent::new_with_defaults();
 
     // An account. A second run finds it already there, which is not an error.
@@ -5171,29 +5222,142 @@ fn dev_table(
     let game_id = field(&body, "game_id")?;
     let seat_token = field(&body, "seat_token")?;
 
-    arrange_room(&agent, gateway, &token, &game_id, seats, ai, teams)?;
+    // The bridge is its own process, as it would be on anybody's machine:
+    // it signs in as a guest, takes chair 1 and says ready, and the table
+    // starts once it has.
+    let mut bridge_process = None;
+    arrange_room(
+        &agent,
+        gateway,
+        &token,
+        &game_id,
+        seats,
+        ai,
+        teams,
+        bridge.map(|_| BRIDGE_CHAIR),
+        || {
+            let Some(mind) = bridge else {
+                return Ok(());
+            };
+            let child =
+                bridge_process.insert(seat_bridge(root, gateway, &game_id, mind, deck_name)?);
+            wait_for_bridge(&agent, gateway, &token, &game_id, child)
+        },
+    )?;
 
-    let opponents = seats - 1;
+    let opponents = seats - 1 - usize::from(bridge.is_some());
     println!("table ready: {seats} chairs, {opponents} × {ai} AI, playing {deck_name}");
+    if let Some(mind) = bridge {
+        println!("chair {BRIDGE_CHAIR}: a bridge playing the {mind} mind");
+    }
     if !teams.is_empty() {
         let sides: Vec<String> = teams.iter().map(ToString::to_string).collect();
         println!("sides, in seat order: {}", sides.join(", "));
     }
+    seat_the_player(root, gateway, &game_id, &seat_token, play, bridge_process)
+}
+
+/// Prints the dev seat's ticket, or launches the client on it; a bridge at
+/// the table plays on in this terminal meanwhile.
+fn seat_the_player(
+    root: &Path,
+    gateway: &str,
+    game_id: &str,
+    seat_token: &str,
+    play: bool,
+    bridge_process: Option<std::process::Child>,
+) -> anyhow::Result<()> {
     if !play {
         println!(
             "\nBAYLEE_GATEWAY={gateway} \\\n  BAYLEE_GAME={game_id} \\\n  BAYLEE_SEAT_TOKEN={seat_token} \\\n  cargo run -p baylee-client"
         );
+        // The bridge plays on in this terminal until the game is over.
+        if let Some(mut child) = bridge_process {
+            let status = child.wait()?;
+            anyhow::ensure!(status.success(), "the bridge exited with {status}");
+        }
         return Ok(());
     }
     let status = std::process::Command::new("cargo")
         .args(["run", "-p", "baylee-client"])
         .current_dir(root)
         .env("BAYLEE_GATEWAY", gateway)
-        .env("BAYLEE_GAME", &game_id)
-        .env("BAYLEE_SEAT_TOKEN", &seat_token)
-        .status()?;
+        .env("BAYLEE_GAME", game_id)
+        .env("BAYLEE_SEAT_TOKEN", seat_token)
+        .status();
+    // A client that closed leaves nobody for the bridge to play but the
+    // house standing in: it goes too.
+    if let Some(mut child) = bridge_process {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+    let status = status?;
     anyhow::ensure!(status.success(), "the client exited with {status}");
     Ok(())
+}
+
+/// The chair a dev table's bridge takes.
+const BRIDGE_CHAIR: usize = 1;
+
+/// Starts `baylee-seat join` on the room, playing `mind` with the acceptance
+/// deck the dev account did not bring.
+fn seat_bridge(
+    root: &Path,
+    gateway: &str,
+    game_id: &str,
+    mind: &str,
+    dev_deck: &str,
+) -> std::io::Result<std::process::Child> {
+    let theirs = if dev_deck == "Victory" {
+        "Allytifact"
+    } else {
+        "Victory"
+    };
+    std::process::Command::new("cargo")
+        .args(["run", "-q", "-p", "baylee-seat", "--", "join", game_id])
+        .args(["--mind", mind, "--gateway", gateway, "--acceptance", theirs])
+        .current_dir(root)
+        .spawn()
+}
+
+/// How long a bridge may take to sit down: long enough for `cargo run` to
+/// build it on a cold target.
+const BRIDGE_PATIENCE: std::time::Duration = std::time::Duration::from_mins(15);
+
+/// Waits until the bridge has taken its chair and said ready, as the room's
+/// listing shows it to the host.
+fn wait_for_bridge(
+    agent: &ureq::Agent,
+    gateway: &str,
+    token: &str,
+    game_id: &str,
+    child: &mut std::process::Child,
+) -> anyhow::Result<()> {
+    let deadline = std::time::Instant::now() + BRIDGE_PATIENCE;
+    loop {
+        if let Some(status) = child.try_wait()? {
+            anyhow::bail!("the bridge exited with {status} before it sat down");
+        }
+        let body = get(agent, &format!("{gateway}/lobby/games?q={game_id}"), token)?;
+        let listing: serde_json::Value = serde_json::from_str(&body)?;
+        let seated = listing["games"].as_array().is_some_and(|games| {
+            games.iter().filter(|g| g["id"] == game_id).any(|g| {
+                g["seats"].as_array().is_some_and(|seats| {
+                    seats.iter().any(|s| {
+                        s["seat"] == BRIDGE_CHAIR && s["taken"] == true && s["ready"] == true
+                    })
+                })
+            })
+        });
+        if seated {
+            return Ok(());
+        }
+        anyhow::ensure!(
+            std::time::Instant::now() < deadline,
+            "the bridge did not sit down within {BRIDGE_PATIENCE:?}"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
 }
 
 /// Counts how many reference scripts the transcoder reads in full.
@@ -6816,8 +6980,14 @@ mod tests {
         assert!(!message.contains("Island"), "and nothing else: {message}");
     }
 
-    #[test]
-    fn a_two_seat_dev_table_configures_the_requested_ai_before_starting() {
+    /// A lobby that answers `expected` requests with `200 {}` and hands back
+    /// what it was asked: the request line and the JSON body of each.
+    fn fake_lobby(
+        expected: usize,
+    ) -> (
+        std::net::SocketAddr,
+        std::thread::JoinHandle<Vec<(String, serde_json::Value)>>,
+    ) {
         use std::io::{BufRead, Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
@@ -6837,7 +7007,7 @@ mod tests {
             // loaded machine can miss is a test that fails for a reason that
             // is not about the code.
             let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
-            while requests.len() < 3 && std::time::Instant::now() < deadline {
+            while requests.len() < expected && std::time::Instant::now() < deadline {
                 let Ok((mut stream, _)) = listener.accept() else {
                     std::thread::sleep(std::time::Duration::from_millis(5));
                     continue;
@@ -6890,6 +7060,12 @@ mod tests {
             }
             requests
         });
+        (address, server)
+    }
+
+    #[test]
+    fn a_two_seat_dev_table_configures_the_requested_ai_before_starting() {
+        let (address, server) = fake_lobby(3);
         super::arrange_room(
             &ureq::Agent::new_with_defaults(),
             &format!("http://{address}"),
@@ -6898,6 +7074,8 @@ mod tests {
             2,
             "expert",
             &[],
+            None,
+            || Ok(()),
         )
         .unwrap();
         let requests = server.join().unwrap();
@@ -6910,6 +7088,75 @@ mod tests {
         assert_eq!(requests[0].1["ai"], "expert");
         assert!(requests[1].0.starts_with("POST /lobby/games/game/ready "));
         assert!(requests[2].0.starts_with("POST /lobby/games/game/start "));
+    }
+
+    /// A bridge's chair is left to the bridge, and the table is not said
+    /// ready before the bridge has sat down.
+    #[test]
+    fn a_dev_table_with_a_bridge_leaves_its_chair_open_and_starts_after_it() {
+        let (address, server) = fake_lobby(3);
+        let requests_before_start = std::cell::Cell::new(None);
+        super::arrange_room(
+            &ureq::Agent::new_with_defaults(),
+            &format!("http://{address}"),
+            "test",
+            "game",
+            3,
+            "expert",
+            &[],
+            Some(1),
+            || {
+                requests_before_start.set(Some(()));
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert!(
+            requests_before_start.get().is_some(),
+            "the bridge was waited for"
+        );
+        let requests = server.join().unwrap();
+        let lines: Vec<&str> = requests.iter().map(|(line, _)| line.as_str()).collect();
+        assert_eq!(requests.len(), 3, "{lines:?}");
+        assert!(
+            lines[0].starts_with("POST /lobby/games/game/seats/2 "),
+            "{lines:?}"
+        );
+        assert!(
+            lines[1].starts_with("POST /lobby/games/game/ready "),
+            "{lines:?}"
+        );
+        assert!(
+            lines[2].starts_with("POST /lobby/games/game/start "),
+            "{lines:?}"
+        );
+    }
+
+    /// A bridge that never sits down leaves the room arranged and unstarted:
+    /// nothing is said ready before it has.
+    #[test]
+    fn a_dev_table_whose_bridge_never_sits_down_is_not_started() {
+        let (address, server) = fake_lobby(1);
+        let error = super::arrange_room(
+            &ureq::Agent::new_with_defaults(),
+            &format!("http://{address}"),
+            "test",
+            "game",
+            3,
+            "expert",
+            &[],
+            Some(1),
+            || Err(anyhow::anyhow!("the bridge did not sit down")),
+        )
+        .expect_err("no start without the bridge");
+        assert!(error.to_string().contains("did not sit down"), "{error}");
+        let requests = server.join().unwrap();
+        let lines: Vec<&str> = requests.iter().map(|(line, _)| line.as_str()).collect();
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert!(
+            lines[0].starts_with("POST /lobby/games/game/seats/2 "),
+            "{lines:?}"
+        );
     }
 
     /// The branch the pool does not reach, and the reason it is written.
