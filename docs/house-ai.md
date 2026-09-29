@@ -279,6 +279,51 @@ its loyalty, including damage from attackers nothing can block. The shallow
 path saves a walker with one block at a time and sends the whole attack at
 one defender; the search sees multi-blocker rescues.
 
+**An attack that wins goes at the player, and a walker gets what kills it.**
+Self-play game r001 #431 never ended: Allytifact's Ally tokens doubled every
+turn to tens of thousands, and every turn they all went at the walker Victory
+recast from the command zone, so Victory's life never moved. Two readings
+made that. Only the search's proof (`AttackSearch::lethal`) sent an attack at
+the player past a walker, and the search never runs for the three shallow
+profiles and gives up above sixteen creatures a side; and whenever the squad's
+power reached a walker's loyalty, the whole squad went at that walker, however
+much of it the walker needed. Now every profile also asks
+`combat::breaks_through`, the estimate of what gets past the victim's untapped
+creatures that the crack-back pass has always used to tell a winning attack
+(`through`: greedy blocks, evasion, menace, trample), asked once per decision
+and handed to that pass; where it reaches the victim's life the whole attack
+goes at the player (CR 704.5a). The search's proof still counts, but only for
+the squad it searched, not one the crack-back pass has since thinned. An
+attack that does not win keeps the walker rule — the cheapest walker whose
+loyalty the squad's power reaches, never one it could only chip — and
+`combat::aim` sends it the weakest attackers, fewest first, until what gets
+past every untapped blocker reaches its loyalty (CR 120.3c, CR 704.5i); the rest
+go at the player. The walker dies as surely as before, and what it did not
+need is pressure on the player at no cost to the walker plan; a walker the
+blockers could save whatever is sent still gets the whole squad, as before.
+That is all the weighing there is: no walker is valued against life points,
+and an attack is never split between two walkers or two players.
+
+This is not a skill level, for the reason the crack-back pass is not: a game
+that never ends costs every table, and the profiles differ in *which*
+creatures attack (the search or the greedy pick), not in noticing that the
+ones attacking win. NOVICE's misses are its ±800 spell-score noise and its
+individual trades, and it keeps both.
+
+What it did to the teacher, measured on 29.09.2026 with `ai_match` over seeds
+1–50 (200 games per pairing, both deck orders and both seats): the profiles'
+shares of decided games did not move (expert over sharp 49.5 %, novice over
+casual 39.5 %, sharp over steady 58.5 %, steady over steady 50 %), 8–29 % of
+the games played differently at all, 2–12 per pairing changed winner, 20 of
+the 24 to Allytifact, whose share rose by up to four points, and finished
+games got 0.1–1.0 turns shorter on average. No game in that set was capped
+before or after. The games that never ended are elsewhere: at steady against
+steady, seed 1042 took 19 minutes and seed 222 hit the 20,000-action cap in two
+of its four games, and now all eight finish in 0.2 s and 0.1 s; self-play
+r001 games 431, 1055 and 2091 hit the trainer's 60-second cap and 685 was
+still running when the run gave up on it after ten minutes, and all four end
+in turns 29 to 58 now.
+
 **One illegal pair costs the whole declaration, so legality is checked
 against the finished answer.** Menace is two blockers or none (CR 702.111b),
 and the shallow path pairs one blocker with one attacker by construction — so
@@ -480,7 +525,8 @@ at a planeswalker is separate from damage to its controller. Commander damage
 is evaluated per source, independently for every commander, and can require a
 block even at forty life. Expert also preserves a blocker against lethal
 commander retaliation. A proven lethal player attack takes precedence over
-attacking a planeswalker. Node visits allocate no vectors; position vectors
+attacking a planeswalker, and so, for every profile, does one the
+`breaks_through` estimate calls lethal. Node visits allocate no vectors; position vectors
 are built once per decision and groups/results are fixed arrays on the stack. Counterattack
 exchanges are also cached and stably ranked once; a leaf filters out dead or
 unavailable blockers. Priority offers are borrowed instead of cloned.
@@ -574,3 +620,27 @@ expert remains near its previous 1.05/11.13 ms. Quick Criterion runs are
 estimates under shared-machine load, not controlled latency guarantees.
 Raw runs, exact test scope and mixed match results are recorded in
 [iteration-3](ai-results/iteration-3/README.md).
+
+**Token boards** (`combat/army-1000/*`): an army of 1/1 tokens attacks four
+3/3s and a walker, four 3/3s attack into it, it blocks four 3/3s, and four
+3/3s block it. Every combat decision used to find each creature with
+`PlayerView::object`, a walk over every zone, once per creature and in one
+`sort_by_key` once per comparison, which made the decision quadratic in the
+board; on self-play r001 #431, grown to tens of thousands of tokens, about
+90 % of the main thread was in that walk. `board::Board` indexes the view's
+objects and declared attackers by handle once per decision, answers every
+handle as the walk does, and leaves the view's wire shape alone. Measured on
+29.09.2026 under heavy background load, so the orders of magnitude are the
+claim, with the army at 10,000 (`ARMY` in the bench):
+
+| 10,000 tokens, all three profiles benched | before | after |
+| --- | ---: | ---: |
+| the army attacks | 183–188 ms | 1.5–2.9 ms |
+| the army blocks | 373–382 ms | 3–10 ms |
+| four block the army | 404–528 ms | 7–16 ms |
+| four attack into the army, novice | 1.8 ms | 3.8 ms |
+| same, sharp and expert | 34 ms | 1.6–2.0 ms |
+
+The one row that got slower pays for the index: NOVICE never searches, so it
+looked up only its own four creatures and now indexes all ten thousand. On
+the 6v6 board the index costs about half a microsecond.
