@@ -212,6 +212,11 @@ impl<L: CardLookup> Engine<L> {
     /// A concession can leave a side alone at the table, and then the game
     /// is over before it began.
     fn settle_mulligans(&mut self) {
+        // A mulligan draws a new hand and a concession takes a player's
+        // objects out of the game (CR 800.4a), while the loop that refreshes
+        // the projection is not running yet: whoever is asked next, or told
+        // the game is over, is shown the board as it now is.
+        self.state.refresh_characteristics();
         if let Some(result) = self.game_result() {
             self.mulligans = None;
             self.end_game(result);

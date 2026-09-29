@@ -102,7 +102,10 @@ wherever the card is *not* on the battlefield; there the registered static
 does, so an effect that removes abilities still removes it. Those cards
 join the ids of every refresh, and any move of one invalidates the
 projection, since the move cleared its cache (a drawn Ashaya read 0/0 until
-something else moved). Only a printed `Filter::This` P/T with no condition
+something else moved). While a cross-zone effect is registered (Maskwood
+Nexus reaches creature cards in every zone) that is every object: the
+refresh projects them all, and every move invalidates (a creature card drawn
+under a Nexus kept its printed subtypes). Only a printed `Filter::This` P/T with no condition
 qualifies; `Modifier::SetPTToCount` is granted, and CR 604.3a counts only
 printed, token-made, copied or text-changed characteristic-defining abilities.
 
@@ -939,7 +942,10 @@ that original calculation restored.
 
 `sba::eliminate_player` follows CR 800.4a in order:
 
-1. Everything the leaver owns leaves the game.
+1. Everything the leaver owns leaves the game. It leaves without
+   `move_object`, so `eliminate_player` invalidates the projection itself:
+   what stays may have counted it, as Pyrogoyf counts the card types among
+   cards in all graveyards.
 2. Every `GainControl` effect for them ends, so what they took goes back to
    whoever controls it without them. A Gilded Drake'd creature goes back to
    its owner. Under a later thief it goes back to the earlier one. Their

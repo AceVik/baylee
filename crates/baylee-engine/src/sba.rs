@@ -639,6 +639,13 @@ pub fn eliminate_player(
         state.zones.remove(id, loc);
         let _ = state.arena.remove(id);
     }
+    // They left without passing through `move_object`, which is what
+    // invalidates the projection for everybody else, and what stayed may
+    // have counted them: Pyrogoyf counts the card types among cards in all
+    // graveyards, theirs until now. The generation compare counts effects,
+    // so without this the refresh `exile_what_the_departed_control` runs
+    // changed nothing, and a Pyrogoyf kept the size their graveyard gave it.
+    state.invalidate_projections();
     state.effects.remove_where(|fx| {
         matches!(
             fx.modifier,

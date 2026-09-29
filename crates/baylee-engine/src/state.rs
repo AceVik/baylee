@@ -2767,22 +2767,32 @@ impl GameState {
         // changes what a permanent that stayed projects to.
         //
         // The battlefield and the stack, which is exactly what the refresh
-        // pass revisits — a card drawn changes no projection unless a
-        // cross-zone effect is registered, and that pass projects every
-        // zone anyway. And the graveyards, because a permanent's projection
-        // may count them: Pyrogoyf is as big as the card types among cards
-        // in all graveyards (`PtCount::CardTypesInAllGraveyards`), so a card
-        // milled or discarded grows a permanent that never moved. And exile,
-        // for the same reason one zone over: Unlicensed Hearse is as big as
-        // the cards exiled with it (`PtCount::ExiledWithThis`), and one of
-        // them leaving exile shrinks it.
+        // pass revisits. And the graveyards, because a permanent's
+        // projection may count them: Pyrogoyf is as big as the card types
+        // among cards in all graveyards (`PtCount::CardTypesInAllGraveyards`),
+        // so a card milled or discarded grows a permanent that never moved.
+        // And exile, for the same reason one zone over: Unlicensed Hearse is
+        // as big as the cards exiled with it (`PtCount::ExiledWithThis`), and
+        // one of them leaving exile shrinks it.
+        //
+        // And every zone at all while a cross-zone effect is registered
+        // (Maskwood Nexus: "Creatures you control are every creature type.
+        // The same is true for creature spells you control and creature
+        // cards you own that aren't on the battlefield."). The pass that
+        // honours one projects every object, but it runs only when the
+        // generation moved, and a card drawn, tutored, wished for or put
+        // back moves none: the move above cleared its cache, so a creature
+        // card drawn under a Nexus read as its printed self in hand until
+        // something else moved. `projected_cross_zone` says whether the last
+        // pass was such a pass.
         if matches!(
             from_zone,
             Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile
         ) || matches!(
             to.zone(),
             Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile
-        ) {
+        ) || self.projected_cross_zone
+        {
             self.invalidate_projections();
         }
         // A card that defines its own power and toughness is projected in
