@@ -13,7 +13,9 @@
 //! and an answer the engine refuses are handed to the house and counted.
 //!
 //! Writes `arena.json` (win rates with 95 % Wilson intervals, per opponent
-//! profile) and the games' records, like a self-play run.
+//! profile) and the games' records, like a self-play run. A v2 export
+//! (`policy.onnx`) and a v3 one (`net.onnx`) both play; the export's JSON says
+//! which encoder it reads.
 
 use std::collections::BTreeMap;
 use std::fs::{self, File};
@@ -28,8 +30,10 @@ use baylee_core::ids::PlayerId;
 use baylee_core::preset::AIProfile;
 use baylee_engine::choice::Pending;
 use baylee_gamehost::Session;
+use baylee_train::features3::{Table, deck_list};
 use baylee_train::housedeck::HouseDeck;
-use baylee_train::netplay::NetPlayer;
+use baylee_train::netplay::{Answer, NetPlayer};
+use baylee_train::netplay3::NetPlayer3;
 use baylee_train::selfplay::table;
 use baylee_train::working::{Working, repo_root};
 use clap::Parser;
@@ -80,6 +84,26 @@ struct Args {
 }
 
 const PROFILES: [&str; 5] = ["novice", "casual", "steady", "sharp", "expert"];
+
+/// A net of either encoding.
+enum Net {
+    V2(NetPlayer),
+    V3(NetPlayer3),
+}
+
+impl Net {
+    fn answer(
+        &mut self,
+        view: &baylee_view::PlayerView,
+        pending: &Pending,
+        table: &Table<'_>,
+    ) -> anyhow::Result<Option<Answer>> {
+        match self {
+            Self::V2(net) => net.answer(view, pending),
+            Self::V3(net) => net.answer(view, pending, table),
+        }
+    }
+}
 
 fn profile(name: &str) -> anyhow::Result<AIProfile> {
     AIProfile::named(name).with_context(|| format!("unknown profile {name}"))
@@ -147,18 +171,19 @@ fn main() -> anyhow::Result<()> {
         .context("--as-profile names a house profile")? as i64;
     let meta: serde_json::Value =
         serde_json::from_slice(&fs::read(args.model.with_extension("onnx.json"))?)
-            .context("the export's policy.onnx.json")?;
+            .context("the export's .onnx.json")?;
     let glob_width = meta["inputs"]["glob"][1].as_u64().context("glob width")? as usize;
     // The interface a model is exported against: a net of any size drops
     // in, a net of another encoding or table layout is refused.
     let encoder = meta["encoder_version"]
         .as_u64()
         .context("encoder version")?;
-    if encoder != u64::from(baylee_train::features::ENCODER_VERSION) {
-        bail!(
-            "the model reads encoder v{encoder}; this build writes v{}",
-            baylee_train::features::ENCODER_VERSION
-        );
+    let known = [
+        u64::from(baylee_train::features::ENCODER_VERSION),
+        u64::from(baylee_train::features3::VERSION),
+    ];
+    if !known.contains(&encoder) {
+        bail!("the model reads encoder v{encoder}; this build writes {known:?}");
     }
     let outputs: Vec<&str> = meta["outputs"]
         .as_array()
@@ -217,7 +242,12 @@ fn main() -> anyhow::Result<()> {
             Duration::from_secs(args.max_secs),
         );
         std::thread::spawn(move || {
-            let mut net = match NetPlayer::load(&model, entities, glob_width, as_profile) {
+            let loaded = if encoder == u64::from(baylee_train::features3::VERSION) {
+                NetPlayer3::load(&model, entities, as_profile).map(Net::V3)
+            } else {
+                NetPlayer::load(&model, entities, glob_width, as_profile).map(Net::V2)
+            };
+            let mut net = match loaded {
                 Ok(net) => net,
                 Err(e) => {
                     let _ = tx.send(Err(e));
@@ -251,6 +281,14 @@ fn main() -> anyhow::Result<()> {
                             .context("the preset builds")?;
                         session.describe(format!("{run}-{i:07}"), vec!["0".into(), "1".into()]);
                         let me = PlayerId::new(net_seat);
+                        // What a v3 net reads beyond the view: the sides and
+                        // its own deck list.
+                        let teams: Vec<Option<u8>> = preset.seats.iter().map(|s| s.team).collect();
+                        let deck = deck_list(&preset.seats[usize::from(net_seat)]);
+                        let seat_table = Table {
+                            teams: &teams,
+                            deck: &deck,
+                        };
                         session.take_over(me);
                         let started = Instant::now();
                         let (mut net_answers, mut fallbacks, mut refused, mut net_time) =
@@ -271,7 +309,7 @@ fn main() -> anyhow::Result<()> {
                             session.pump_at_most(32);
                             if let Some((pending, view)) = session.view_for(me) {
                                 let t = Instant::now();
-                                let answer = net.answer(&view, &pending)?;
+                                let answer = net.answer(&view, &pending, &seat_table)?;
                                 net_time += t.elapsed();
                                 let action = if let Some(a) = answer {
                                     net_answers += 1;

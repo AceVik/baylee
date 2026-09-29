@@ -23,6 +23,8 @@ pub mod features3;
 pub mod housedeck;
 #[cfg(feature = "onnx")]
 pub mod netplay;
+#[cfg(feature = "onnx")]
+pub mod netplay3;
 #[cfg(feature = "play")]
 pub mod policy;
 #[cfg(feature = "play")]
