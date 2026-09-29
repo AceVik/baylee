@@ -278,6 +278,13 @@ impl HeuristicAgent {
                 ranked.sort_by_key(|id| (value(id), *id));
                 usize::from(min.max(1).min(max))
             }
+            // A rummage: one card, the least valuable, goes for a fresh one.
+            // Declining is always legal, and an agent that answered `min`
+            // here would never have used the ability at all.
+            ChoicePrompt::Discard => {
+                ranked.sort_by_key(|id| (value(id), *id));
+                usize::from(max.min(1))
+            }
             // Not a price: `Effect::PutFromHandOnTop` asks with
             // `min == max`, so `min` is the whole answer.
             ChoicePrompt::PutBackOnTop | ChoicePrompt::PutOnBottom => {

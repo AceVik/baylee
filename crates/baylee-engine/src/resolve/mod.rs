@@ -222,6 +222,9 @@ pub enum AwaitingOp {
     /// After `PutFromHandOntoBattlefield`: the chosen card goes onto the
     /// battlefield under the resolving controller's control.
     PutOntoBattlefield,
+    /// After `DiscardUpToThenDraw`: the chosen cards are discarded and as
+    /// many are drawn.
+    DiscardThenDraw,
     /// After `LookAtTopMayPut` asked about a matching top card: named, it
     /// goes where `matched` says; not named, `otherwise`.
     MayPutTop {
@@ -1536,6 +1539,31 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             library,
             receiver,
         } => finish_split(state, &found, chosen, library, receiver),
+        AwaitingOp::DiscardThenDraw => {
+            // "If you do, draw that many": what was discarded, counted as it
+            // happens — a card that is no longer in the hand is not.
+            let you = res.controller;
+            let mut discarded = 0;
+            for &card in chosen {
+                if !state.zones.list(ZoneLocation::Hand(you)).contains(&card) {
+                    continue;
+                }
+                state.journal.record(GameEvent::Discarded {
+                    object: card,
+                    player: you,
+                });
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Graveyard(you),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                discarded += 1;
+            }
+            if discarded > 0 {
+                state.draw_cards(you, discarded);
+            }
+        }
         AwaitingOp::PickSplitter { .. } => {
             unreachable!("the splitter is a player, answered via resume_pick_splitter")
         }
@@ -2899,6 +2927,21 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
             put_found(state, you, top, if fits { matched } else { otherwise });
             None
+        }
+        Effect::DiscardUpToThenDraw { count } => {
+            let hand: Vec<ObjectId> = state.zones.list(ZoneLocation::Hand(you)).clone();
+            let most = u8::try_from(hand.len()).unwrap_or(u8::MAX).min(count);
+            if most == 0 {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::DiscardThenDraw);
+            Some(Pending::ChooseCards {
+                player: you,
+                options: hand,
+                min: 0,
+                max: most,
+                prompt: ChoicePrompt::Discard,
+            })
         }
         Effect::LookAtTopMayPut {
             filter,

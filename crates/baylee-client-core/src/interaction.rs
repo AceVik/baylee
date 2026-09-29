@@ -640,7 +640,9 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounPermanentToSacrifice,
             Phrase::NounPermanentsToSacrifice,
         ),
-        ChoicePrompt::CostDiscard => (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard),
+        ChoicePrompt::CostDiscard | ChoicePrompt::Discard => {
+            (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard)
+        }
         ChoicePrompt::CostTap => (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap),
         ChoicePrompt::CostReturn => (
             Phrase::NounPermanentToReturn,

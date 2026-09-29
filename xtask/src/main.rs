@@ -44,6 +44,11 @@ enum Cmd {
         /// what `baylee_cards_codegen::lines` reads, to bring the two
         /// tables back in step with the pool. A machine that has the corpus
         /// runs the whole thing and never needs it.
+        ///
+        /// It also files a token newly written by hand in `tokens.rs` in
+        /// `generated_tokens.rs`: that half of the ledger reads only
+        /// `tokens.rs` and the ledger itself, and may only append, so a card
+        /// finished by hand can name a token of its own without the corpus.
         #[arg(long)]
         tables: bool,
         /// Path to the card-script reference cardsfolder.
@@ -1091,7 +1096,20 @@ fn codegen(
     // on a machine with none checked out it rewrites every machine-owned
     // card as an honest stub. `--tables` is the way past it: the two tables
     // below are built from the compiled pool alone.
-    if !tables_only {
+    if tables_only {
+        // 3, the hand-written half. A token written into `tokens.rs` for a
+        // card finished by hand needs its id before a card may name it, and
+        // that half reads nothing from the corpus: the ledger keeps every
+        // row it already has (generated ones included, bodies and all) and
+        // appends what `tokens.rs` declares that it lacks. With nothing new
+        // the file comes out byte for byte as it went in.
+        write_or_check(
+            check,
+            &root.join("crates/baylee-cards/src/generated_tokens.rs"),
+            &render_token_ledger(root, &[])?,
+            &mut changed,
+        )?;
+    } else {
         // 1. Subtype catalogs → generated subtypes.rs.
         //
         // The table is its own ledger (#43): what this binary compiled against
@@ -2319,7 +2337,9 @@ fn check_player_targets_match_the_printing(
 ///   the player plays it or does not, and nothing is asked.
 /// - "you may put it onto the battlefield tapped" (Risen Reef) —
 ///   `LookAtTopMayPut`, which asks about the looked-at card with `min: 0`
-///   in the engine, not in the definition.
+///   in the engine, not in the definition; and "you may discard up to two
+///   cards" (Fable of the Mirror-Breaker) — `DiscardUpToThenDraw`, the
+///   same `min: 0` question over the hand.
 ///
 /// A stub claims nothing and a `Partial` card has said in writing that it
 /// diverges, so both are skipped — the same two exemptions the checks above
@@ -2362,6 +2382,7 @@ fn check_optional_clauses_are_offered(
         "ChooseExiledToPlay",
         "LookAtTopKeepBottomPlay",
         "LookAtTopMayPut",
+        "DiscardUpToThenDraw",
     ];
     if !def.is_implemented() {
         return;

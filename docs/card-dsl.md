@@ -42,6 +42,13 @@ re-exported from there. Either spelling reaches the same `TokenDef`, and a
 hand-written card keeps naming `crate::tokens` because that is where it can
 read the comment saying which printing lent the token its art.
 
+A token the pool lacks is written into `crate::tokens` (with the Scryfall id
+of a printed token card for its art) and filed in the ledger by `cargo run -p
+xtask -- codegen --tables`: that half of the ledger reads only `tokens.rs`
+and appends, so it needs no corpus. Never add the row to
+`generated_tokens.rs` by hand (Fable of the Mirror-Breaker's Goblin Shaman
+was the first filed this way).
+
 Do **not** add `#![allow(unused_imports, missing_docs)]`. It used to be on
 every card file because the generated import list was identical for every
 card whether the card used it or not; it is gone, and with it the two dozen
@@ -1424,6 +1431,11 @@ hashes, layers and does nothing. This paragraph said THREE until
   `PutOntoBattlefield` for a battlefield `matched`), so only the asked
   player sees it. Named, it goes where the `Find` says (tapped if the find
   is); not named, or not matching, it goes `otherwise`.
+- **`Effect::DiscardUpToThenDraw { count }`** (Fable of the Mirror-Breaker's
+  chapter II): "You may discard up to `count` cards. If you do, draw that
+  many cards." One `ChooseCards` over the hand, `min: 0`, prompt `Discard`;
+  each named card still in hand is discarded (`GameEvent::Discarded`), and
+  the draw is the number actually discarded. An empty hand asks nothing.
 - **`Modifier::CharacteristicPT { count, toughness_plus }`** is a
   characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
   - `YouControl(filter)`

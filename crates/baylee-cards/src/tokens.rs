@@ -22,7 +22,8 @@
 //! token on the battlefield was inert whatever its name said.
 
 use baylee_cards_dsl::{
-    AbilityDef, Effect, Filter, KeywordSet, TokenDef, activated, cost, mana_ability,
+    AbilityDef, Effect, Filter, KeywordSet, TokenDef, Trigger, activated, cost, mana_ability,
+    triggered,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{artifact, creature};
@@ -182,6 +183,28 @@ pub static FOOD: TokenDef = TokenDef {
     abilities: SACRIFICE_TO_GAIN_LIFE,
     // ELD #15, the set that introduced Food.
     scryfall_id: "bf36408d-ed85-497f-8e68-d3a922c388a0",
+    ..TokenDef::DEFAULT
+};
+
+/// `Whenever this creature attacks, create a Treasure token.` (the Goblin
+/// Shaman below)
+static ATTACKS_FOR_TREASURE: &[AbilityDef] = &[triggered!(
+    Trigger::Attacks(&Filter::This),
+    &[Effect::CreateToken { token: &TREASURE }]
+)];
+
+/// 2/2 red Goblin Shaman with "Whenever this creature attacks, create a
+/// Treasure token." (Fable of the Mirror-Breaker's chapter I)
+pub static GOBLIN_SHAMAN_2_2_RED: TokenDef = TokenDef {
+    name: "Goblin Shaman",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GOBLIN, creature::SHAMAN],
+    power: Some(2),
+    toughness: Some(2),
+    abilities: ATTACKS_FOR_TREASURE,
+    // TNEO #8, the token Fable of the Mirror-Breaker's own printing names.
+    scryfall_id: "0d9461c3-f545-4efb-926e-759961db0495",
     ..TokenDef::DEFAULT
 };
 

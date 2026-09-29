@@ -388,6 +388,11 @@ pub enum ChoicePrompt {
     /// goes elsewhere if they name nothing (Risen Reef's land). The answer
     /// is what the player puts down, so the house AI puts it down.
     PutOntoBattlefield,
+    /// Cards in the hand, the chosen ones of which are discarded — not as a
+    /// price but as the effect itself ("you may discard up to two cards; if
+    /// you do, draw that many"). The house AI lets its least valuable card
+    /// go.
+    Discard,
     /// Another player's found cards, the chosen ones of which go to their
     /// owner's graveyard and the rest to that player's hand (Realms
     /// Uncharted's opponent). The chooser is denying the other player, so

@@ -3734,77 +3734,268 @@ fn vance_s_blasting_cannons_transforms_on_third_spell_and_taps_for_red() {
     );
 }
 
-/// `Fable of the Mirror-Breaker` // `Reflection of Kiki-Jiki` (`Coverage::Partial`):
-/// "I — Create a 2/2 red Goblin Shaman creature token with 'Whenever this token attacks,
-/// create a Treasure token.'
-/// II — You may discard up to two cards. If you do, draw that many cards.
-/// III — Exile this Saga, then return it to the battlefield transformed under your control. //
-/// `{{1}}`, `{{T}}`: Create a token that's a copy of another target nonlegendary creature you
-/// control, except it has haste. Sacrifice it at the beginning of the next end step."
-///
-/// Under `Coverage::Partial`, chapters I and II and the back face's copy ability are omitted.
-/// Chapter III (`Effect::ExileSelfReturnAsFace { face: 1 }`) is implemented.
-/// The test casts `Fable of the Mirror-Breaker`, tracks lore counters advancing across turns,
-/// and verifies that chapter III exiles the Saga and returns it transformed as
-/// `Reflection of Kiki-Jiki` on face 1 as a 2/2 creature.
-#[test]
-fn fable_of_the_mirror_breaker_advances_to_chapter_three_and_transforms() {
+/// The Goblin Shaman tokens `seat` controls.
+fn goblin_shamans(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+    tokens_of(engine, seat)
+        .into_iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.token)
+                .is_some_and(|t| t.name == "Goblin Shaman")
+        })
+        .collect()
+}
+
+/// The Treasure tokens `seat` controls.
+fn treasures(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+    tokens_of(engine, seat)
+        .into_iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.token)
+                .is_some_and(|t| t.name == "Treasure")
+        })
+        .collect()
+}
+
+/// Casts Fable of the Mirror-Breaker off three Mountains and resolves it and
+/// its chapter I.
+fn cast_fable(hand: &[CardIndex]) -> Engine<RegistryLookup> {
     let p0 = PlayerId::new(0);
-    let p1 = PlayerId::new(1);
+    let mut cards = vec![fable_of_the_mirror_breaker()];
+    cards.extend_from_slice(hand);
     let mut engine = Duel::new(101, mountain())
         .battlefield(0, &[mountain(), mountain(), mountain()])
-        .hand(0, &[fable_of_the_mirror_breaker()])
+        .hand(0, &cards)
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
-
     cast_from_hand(&mut engine, p0, fable_of_the_mirror_breaker());
     pass_until(&mut engine, stack_is_empty);
+    engine
+}
 
-    let saga = on_battlefield(&engine, p0, fable_of_the_mirror_breaker())
-        .expect("Fable of the Mirror-Breaker on battlefield");
+/// Walks from the turn Fable was cast to its controller's next main phase,
+/// where chapter II triggers, and stops on the question it asks.
+fn to_fable_chapter_two(engine: &mut Engine<RegistryLookup>) -> (Vec<ObjectId>, u8, u8) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    reach_their_main_phase(engine, p1);
+    pass_until(engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::Discard,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0, "the Saga's controller discards");
     assert_eq!(
-        counters_on(&engine, saga, CounterKind::Lore),
-        1,
-        "enters with one lore counter"
+        options,
+        engine.state().zones.list(ZoneLocation::Hand(p0)).clone(),
+        "any card in hand"
     );
+    (options, min, max)
+}
 
-    reach_their_main_phase(&mut engine, p1);
-    reach_their_main_phase(&mut engine, p0);
-
-    let saga = on_battlefield(&engine, p0, fable_of_the_mirror_breaker())
-        .expect("Fable on battlefield in turn 2");
+/// Fable of the Mirror-Breaker, chapter I: "Create a 2/2 red Goblin Shaman
+/// creature token with 'Whenever this token attacks, create a Treasure
+/// token.'" The token arrives as the Saga's first chapter resolves, and when
+/// it attacks two turns later its own trigger makes a Treasure. Chapter II
+/// is declined on the way, and declining moves nothing: no card is
+/// discarded, none drawn.
+#[test]
+fn fable_chapter_one_makes_a_goblin_shaman_whose_attack_makes_a_treasure() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = cast_fable(&[]);
+    let goblins = goblin_shamans(&engine, p0);
+    assert_eq!(goblins.len(), 1, "chapter I made one Goblin Shaman");
+    let goblin = goblins[0];
+    assert_eq!(pt(&engine, goblin), (2, 2));
+    let face = engine.state().object(goblin).unwrap().characteristics();
+    assert!(face.types.contains(TypeSet::CREATURE));
     assert_eq!(
-        counters_on(&engine, saga, CounterKind::Lore),
-        2,
-        "second lore counter added in precombat main phase"
+        face.colors,
+        baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Red])
     );
+    assert!(
+        face.subtypes
+            .contains(baylee_core::generated::subtypes::creature::GOBLIN)
+            && face
+                .subtypes
+                .contains(baylee_core::generated::subtypes::creature::SHAMAN),
+        "a Goblin Shaman"
+    );
+    assert!(treasures(&engine, p0).is_empty());
 
-    reach_their_main_phase(&mut engine, p1);
-    reach_their_main_phase(&mut engine, p0);
-
-    // Chapter III triggered at the start of turn 3's precombat main phase; resolve it.
+    let (_, min, max) = to_fable_chapter_two(&mut engine);
+    assert_eq!((min, max), (0, 1), "up to two, of the one card in hand");
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).clone();
+    let library = library_size(&engine, p0);
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)),
+        &hand,
+        "nothing discarded"
+    );
+    assert_eq!(library_size(&engine, p0), library, "nothing drawn");
     pass_until(&mut engine, stack_is_empty);
 
+    attack_and_collect_blocks(&mut engine, goblin, p1);
+    assert_eq!(
+        treasures(&engine, p0).len(),
+        1,
+        "the token's own attack trigger made a Treasure"
+    );
+}
+
+/// Chapter II: "You may discard up to two cards. If you do, draw that many
+/// cards." Two named, two discarded, two drawn: the hand keeps its size, the
+/// library is two shorter, and the journal says both were discarded.
+#[test]
+fn fable_chapter_two_discards_up_to_two_and_draws_that_many() {
+    let p0 = PlayerId::new(0);
+    let mut engine = cast_fable(&[quiet_creature(), lightning_elemental()]);
+    let (options, min, max) = to_fable_chapter_two(&mut engine);
+    assert_eq!((min, max), (0, 2), "up to two");
+    let creature = in_hand(&engine, p0, quiet_creature()).unwrap();
+    let elemental = in_hand(&engine, p0, lightning_elemental()).unwrap();
+    assert!(options.contains(&creature) && options.contains(&elemental));
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let library = library_size(&engine, p0);
+    let journal_from = engine.state().journal.len();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![creature, elemental],
+            },
+        )
+        .unwrap();
+    for card in [quiet_creature(), lightning_elemental()] {
+        assert!(in_graveyard(&engine, p0, card).is_some(), "discarded");
+    }
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand,
+        "two out, two in"
+    );
+    assert_eq!(library_size(&engine, p0), library - 2, "that many drawn");
+    let discarded = engine.state().journal.entries()[journal_from..]
+        .iter()
+        .filter(|e| matches!(e.event, GameEvent::Discarded { player, .. } if player == p0))
+        .count();
+    assert_eq!(discarded, 2, "each one a discard, for what cares about one");
+}
+
+/// Chapter II with one card named: one discarded, one drawn — "that many"
+/// is what was discarded, not the two the chapter allows.
+#[test]
+fn fable_chapter_two_draws_one_for_one_discard() {
+    let p0 = PlayerId::new(0);
+    let mut engine = cast_fable(&[quiet_creature(), lightning_elemental()]);
+    to_fable_chapter_two(&mut engine);
+    let creature = in_hand(&engine, p0, quiet_creature()).unwrap();
+    let library = library_size(&engine, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![creature],
+            },
+        )
+        .unwrap();
+    assert!(in_graveyard(&engine, p0, quiet_creature()).is_some());
+    assert!(in_hand(&engine, p0, lightning_elemental()).is_some());
+    assert_eq!(library_size(&engine, p0), library - 1, "one drawn");
+}
+
+/// Chapter III exiles the Saga and returns it transformed as Reflection of
+/// Kiki-Jiki, a 2/2 Goblin Shaman creature; a turn later its "{1}, {T}:
+/// Create a token that's a copy of another target nonlegendary creature you
+/// control, except it has haste. Sacrifice it at the beginning of the next
+/// end step." copies the chapter I Goblin Shaman — the Reflection itself is
+/// not on the menu — and the copy is gone at the end step.
+#[test]
+fn fable_transforms_and_its_reflection_copies_another_creature_until_the_end_step() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = cast_fable(&[]);
+    let saga = on_battlefield(&engine, p0, fable_of_the_mirror_breaker())
+        .expect("Fable of the Mirror-Breaker on battlefield");
+    assert_eq!(counters_on(&engine, saga, CounterKind::Lore), 1);
+    let goblin = goblin_shamans(&engine, p0)[0];
+
+    to_fable_chapter_two(&mut engine);
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let saga = on_battlefield(&engine, p0, fable_of_the_mirror_breaker()).unwrap();
+    assert_eq!(counters_on(&engine, saga, CounterKind::Lore), 2);
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    pass_until(&mut engine, stack_is_empty);
     let kiki = on_battlefield(&engine, p0, fable_of_the_mirror_breaker())
         .expect("Reflection of Kiki-Jiki on battlefield");
-    assert_eq!(
-        engine
-            .state()
-            .object(kiki)
-            .expect("object exists")
-            .face_index,
-        1,
-        "transformed to face 1"
-    );
+    assert_eq!(engine.state().object(kiki).unwrap().face_index, 1);
     assert_eq!(
         pt(&engine, kiki),
         (2, 2),
         "Reflection of Kiki-Jiki is a 2/2"
     );
+    assert!(types(&engine, kiki).contains(TypeSet::CREATURE));
+
+    // It came back this turn, so its {T} waits a turn.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, fable_of_the_mirror_breaker(), 0);
+    let menu = aim_at(&mut engine, p0, goblin);
+    assert_eq!(menu, vec![goblin], "another creature: not the Reflection");
+    pass_until(&mut engine, stack_is_empty);
+    let copies: Vec<ObjectId> = goblin_shamans(&engine, p0)
+        .into_iter()
+        .filter(|id| *id != goblin)
+        .collect();
+    assert_eq!(copies.len(), 1, "a copy of the Goblin Shaman");
+    let copy = copies[0];
+    assert_eq!(pt(&engine, copy), (2, 2));
     assert!(
-        types(&engine, kiki).contains(TypeSet::CREATURE),
-        "Reflection of Kiki-Jiki is a creature"
+        keywords(&engine, copy).contains(KeywordSet::HASTE),
+        "except it has haste"
+    );
+    assert!(!keywords(&engine, goblin).contains(KeywordSet::HASTE));
+    assert!(is_tapped(&engine, kiki), "the {{T}} of the cost");
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    assert!(
+        engine
+            .state()
+            .object(copy)
+            .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield),
+        "sacrificed at the beginning of the next end step"
+    );
+    assert_eq!(
+        goblin_shamans(&engine, p0),
+        vec![goblin],
+        "the original stays"
     );
 }
 

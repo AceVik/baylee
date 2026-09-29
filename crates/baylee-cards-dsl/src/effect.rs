@@ -820,6 +820,14 @@ pub enum Effect {
         /// Where the card goes otherwise.
         otherwise: SearchDest,
     },
+    /// "You may discard up to `count` cards. If you do, draw that many
+    /// cards." (Fable of the Mirror-Breaker's chapter II.) One question —
+    /// which cards, naming none to decline — and the draw is the number of
+    /// cards actually discarded, read off the answer rather than printed.
+    DiscardUpToThenDraw {
+        /// The most that may be discarded.
+        count: u8,
+    },
     /// Put cards from your hand on top of your library, in the order they
     /// were chosen (Brainstorm-style).
     PutFromHandOnTop {
@@ -2393,6 +2401,7 @@ impl Effect {
             | Effect::PayLifeOrPutBackDrawn { .. }
             | Effect::RevealTopAndSort { .. }
             | Effect::LookAtTopMayPut { .. }
+            | Effect::DiscardUpToThenDraw { .. }
             | Effect::PutFromHandOnTop { .. }
             | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }
