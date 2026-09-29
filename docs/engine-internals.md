@@ -484,13 +484,13 @@ Three more things the rule needs, each of which was wrong first:
 
 The fifth store is what the permanent **was**. `GameState::ltb_characteristics`
 holds its projected characteristics as it left the battlefield, written and
-cleared where `ltb_abilities` is, and the three leaves-the-battlefield trigger
-arms (`Trigger::LeavesBattlefield`, `ExiledFromBattlefield`, `Dies`) ask their
-filter of it (`trigger::departed_matches`, CR 603.10a). Before it, they asked
-the card in the graveyard: a Forest that Living Lands had made a creature
-died as a land and "whenever a creature dies" never saw it, and an Enduring
-Vitality that had come back as a non-creature enchantment died as an
-enchantment creature card and came back again. Nothing else reads it; every
+cleared where `ltb_abilities` is, and the three leaves-the-battlefield
+triggers (`Trigger::LeavesBattlefield`, `ExiledFromBattlefield`, `Dies`, one
+match arm) ask their filter of it (`trigger::departed_matches`, CR 603.10a).
+Before it, they asked the card in the graveyard: a Forest that Living Lands
+had made a creature died as a land and "whenever a creature dies" never saw
+it, and an Enduring Vitality that had come back as a non-creature
+enchantment died as an enchantment creature card and came back again. Nothing else reads it; every
 other question about a card off the battlefield is about the card as it is
 now. The undying scan above still reads the printed keyword bits and could
 read this store instead.
