@@ -34,6 +34,11 @@ const SPELL: u32 = u32::MAX;
 /// mutant changed what the tests see) and said so.
 const MUTANT_WALL: Duration = Duration::from_secs(300);
 
+/// A test that fires more cards than this is a sweep over the pool (every
+/// offered ability, every land's mana): it runs for tens of seconds, so a
+/// mutant meets the sweeps only once the card's own tests let it survive.
+const SWEEP: usize = 50;
+
 /// One ability entry of a card, as the inventory lists it.
 #[derive(Clone, Debug)]
 pub struct Entry {
@@ -81,6 +86,8 @@ pub struct Firing {
     pub fired: BTreeMap<(CardIndex, u32, String), BTreeSet<String>>,
     /// Per card, every test that fired one of its abilities.
     pub tests_of: BTreeMap<CardIndex, BTreeSet<String>>,
+    /// Per test, the cards it fired.
+    pub cards_of: BTreeMap<String, BTreeSet<CardIndex>>,
     /// Lines naming no inventory entry, even after a Room's mapping.
     pub outside: BTreeSet<(CardIndex, u32, String)>,
     /// Test files read.
@@ -141,6 +148,7 @@ impl Firing {
             inventory,
             fired: BTreeMap::new(),
             tests_of: BTreeMap::new(),
+            cards_of: BTreeMap::new(),
             outside: BTreeSet::new(),
             files: 0,
         };
@@ -191,6 +199,10 @@ impl Firing {
             .entry(card)
             .or_default()
             .insert(test.to_owned());
+        self.cards_of
+            .entry(test.to_owned())
+            .or_default()
+            .insert(card);
         match entry {
             Some(i) => {
                 self.fired
@@ -374,6 +386,46 @@ fn run_mutant(
     })
 }
 
+/// A mutant: the card, the ability, the card's own tests and the sweeps
+/// that fired it.
+type Job = (CardIndex, u32, BTreeSet<String>, BTreeSet<String>);
+
+/// A mutant judged by the card's own tests first and by the sweeps (see
+/// [`SWEEP`]) only where those let it survive.
+fn judge(
+    exe: &Path,
+    engine_dir: &Path,
+    (card, index): (CardIndex, u32),
+    own: &BTreeSet<String>,
+    sweeps: &BTreeSet<String>,
+    out: &Path,
+) -> anyhow::Result<Verdict> {
+    let first = if own.is_empty() {
+        Verdict::NoTests
+    } else {
+        run_mutant(exe, engine_dir, card, index, own, out)?
+    };
+    if first.killed() || sweeps.is_empty() || matches!(first, Verdict::Invalid(_)) {
+        return Ok(first);
+    }
+    let swept = run_mutant(
+        exe,
+        engine_dir,
+        card,
+        index,
+        sweeps,
+        &out.with_file_name(format!(
+            "{}-sweeps",
+            out.file_name().and_then(|n| n.to_str()).unwrap_or("mutant")
+        )),
+    )?;
+    Ok(match (first, swept) {
+        (_, v) if v.killed() => v,
+        (Verdict::Survived, _) | (_, Verdict::Survived) => Verdict::Survived,
+        (_, v) => v,
+    })
+}
+
 /// Every mutant of every card in `cards`: each distinct index of an entry
 /// but the intrinsic land mana, run against the tests that fired the card,
 /// on `threads` threads (0 = one per core).
@@ -395,21 +447,29 @@ pub fn mutate(
     let exe = engine_test_binary(root)?;
     let engine_dir = root.join("crates/baylee-engine");
     fs::create_dir_all(work)?;
-    let mut jobs: Vec<(CardIndex, u32, &BTreeSet<String>)> = Vec::new();
+    let mut jobs: Vec<Job> = Vec::new();
     for card in cards {
         let (Some(c), Some(tests)) = (firing.inventory.get(card), firing.tests_of.get(card)) else {
             continue;
         };
+        let (sweeps, own): (BTreeSet<String>, BTreeSet<String>) = tests
+            .iter()
+            .cloned()
+            .partition(|t| firing.cards_of.get(t).is_some_and(|c| c.len() > SWEEP));
         let indices: BTreeSet<u32> = c
             .entries
             .iter()
             .filter(|e| !e.intrinsic)
             .map(|e| e.index)
             .collect();
-        jobs.extend(indices.into_iter().map(|i| (*card, i, tests)));
+        jobs.extend(
+            indices
+                .into_iter()
+                .map(|i| (*card, i, own.clone(), sweeps.clone())),
+        );
     }
     // The slowest first: a card named by many tests.
-    jobs.sort_by_key(|(_, _, tests)| std::cmp::Reverse(tests.len()));
+    jobs.sort_by_key(|(_, _, own, _)| std::cmp::Reverse(own.len()));
     println!(
         "L5: {} mutants of {} cards on {threads} threads",
         jobs.len(),
@@ -425,11 +485,11 @@ pub fn mutate(
             scope.spawn(|| {
                 loop {
                     let n = next.fetch_add(1, Ordering::Relaxed);
-                    let Some((card, index, tests)) = jobs.get(n) else {
+                    let Some((card, index, own, sweeps)) = jobs.get(n) else {
                         break;
                     };
                     let out = work.join(format!("{}-{index}", card.get()));
-                    match run_mutant(&exe, &engine_dir, *card, *index, tests, &out) {
+                    match judge(&exe, &engine_dir, (*card, *index), own, sweeps, &out) {
                         Ok(v) => {
                             verdicts
                                 .lock()
@@ -479,6 +539,7 @@ mod tests {
             inventory,
             fired: BTreeMap::new(),
             tests_of: BTreeMap::new(),
+            cards_of: BTreeMap::new(),
             outside: BTreeSet::new(),
             files: 0,
         }
