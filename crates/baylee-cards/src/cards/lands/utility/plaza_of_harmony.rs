@@ -24,9 +24,9 @@ card!(
         ),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         // NOT SUPPORTED: {T}: Add one mana of any type that a Gate you control
-        // could produce — the nearest variant, Effect::mana_land_color(true),
+        // could produce — the nearest variant, Effect::mana_land_type(true),
         // reads "a land you control" and carries no filter, so it would hand
-        // out a colour from any land. The ability comes off rather than
+        // out a type from any land. The ability comes off rather than
         // shipping mana the card does not print.
     ],
 );

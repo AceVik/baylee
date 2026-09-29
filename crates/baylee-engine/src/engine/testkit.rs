@@ -842,8 +842,23 @@ pub fn play_land_face(
     card: CardIndex,
     face: usize,
 ) -> Result<(Engine<RegistryLookup>, baylee_core::ids::ObjectId), String> {
+    play_land_face_facing(card, face, &[])
+}
+
+/// [`play_land_face`] across a table where the opponent controls `facing`.
+///
+/// # Errors
+/// As [`play_land_face`].
+pub fn play_land_face_facing(
+    card: CardIndex,
+    face: usize,
+    facing: &[CardIndex],
+) -> Result<(Engine<RegistryLookup>, baylee_core::ids::ObjectId), String> {
     let seat = PlayerId::new(0);
-    let mut engine = Duel::new(7, basic_forest()).hand(0, &[card]).start();
+    let mut engine = Duel::new(7, basic_forest())
+        .hand(0, &[card])
+        .battlefield(1, facing)
+        .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, seat);
 
@@ -886,47 +901,66 @@ pub fn play_land_face(
     Ok((engine, object))
 }
 
-/// Puts `card` on the battlefield on turn one and turns it over to face
-/// `face`, for the land faces [`play_land_face`] cannot reach.
+/// Puts `card` on the battlefield before the first turn begins, turned over
+/// to face `face`, across a table where the opponent controls `facing`, and
+/// hands back the game at its controller's first main phase.
 ///
-/// A transforming card's land back is not a land drop (CR 712.8a, CR 712.12;
+/// Two boards [`play_land_face`] cannot build. A transforming card's land
+/// back is not a land drop (CR 712.8a, CR 712.12;
 /// `CardDef::land_faces_from_hand`): it is reached only by turning over on
-/// the battlefield, so that is how this board reaches it. It is a
-/// placement, not an entry, so it says nothing about how the face *enters*
-/// and is only the board for what the face then does.
+/// the battlefield. And a creature — Dryad Arbor, a mana elf, an artifact
+/// creature — has to have been under its controller's control continuously
+/// since their most recent turn began before its `{T}` can be activated
+/// (CR 302.6). A permanent placed before the first turn was, so this is the
+/// board on which that rule lets the ability be offered, reached the way a
+/// game reaches it rather than by skipping the creature.
+///
+/// It is a placement, not an entry: no replacement effect looks at it and
+/// nothing is asked as it arrives, so it says nothing about how the face
+/// *enters* and is only the board for what the face then does. Turned over
+/// while the opening hands are still being kept, so the front face never
+/// gets a step to act in.
 ///
 /// # Errors
-/// As [`play_land_face`], in the same prose.
-pub fn turned_land_face(
+/// As [`play_land_face`], in the same prose, and when a question on the way
+/// to the main phase is one [`walk_to_own_main`] does not answer.
+pub fn placed_face(
     card: CardIndex,
     face: usize,
+    facing: &[CardIndex],
 ) -> Result<(Engine<RegistryLookup>, baylee_core::ids::ObjectId), String> {
     let seat = PlayerId::new(0);
     let def = baylee_cards::by_index(card).ok_or("is not in the pool")?;
-    let mut engine = Duel::new(7, basic_forest()).battlefield(0, &[card]).start();
+    let mut engine = Duel::new(7, basic_forest())
+        .battlefield(0, &[card])
+        .battlefield(1, facing)
+        .start();
     let object = on_battlefield(&engine, seat, card).ok_or("never reached the battlefield")?;
-    // Turned over before the first turn begins, while the opening hands are
-    // still being kept: the front face never gets a step to act in, so its
-    // upkeep triggers cannot stand between this board and the main phase.
-    let state = engine
-        .dev_state_mut(seat)
-        .ok_or("the harness was refused the board")?;
-    if !state.transform(object, def, face) {
-        return Err(format!("refused to turn over to face {face}"));
+    if face != 0 {
+        let state = engine
+            .dev_state_mut(seat)
+            .ok_or("the harness was refused the board")?;
+        if !state.transform(object, def, face) {
+            return Err(format!("refused to turn over to face {face}"));
+        }
     }
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, seat);
-    let turned = engine
+    if !walk_to_own_main(&mut engine, seat) {
+        return Err(format!(
+            "never reached its controller's main phase: {:?}",
+            engine.pending()
+        ));
+    }
+    let placed = engine
         .state()
         .object(object)
-        .ok_or("was turned over and then vanished")?;
-    if turned.zone != crate::zone::Zone::Battlefield {
-        return Err(format!("was turned over and is in {:?}", turned.zone));
+        .ok_or("was placed and then vanished")?;
+    if placed.zone != crate::zone::Zone::Battlefield {
+        return Err(format!("was placed and is in {:?}", placed.zone));
     }
-    if usize::from(turned.face_index) != face {
+    if usize::from(placed.face_index) != face {
         return Err(format!(
-            "was turned over to face {} when face {face} was asked for",
-            turned.face_index
+            "is showing face {} when face {face} was asked for",
+            placed.face_index
         ));
     }
     Ok((engine, object))
@@ -1299,8 +1333,12 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             // for the rest of the game and bank it a counter every upkeep.
             // Every other card question here is "choose one", where
             // choosing nothing exercises nothing.
+            // Crew is the other: one creature may be short of the total, and
+            // every creature offered is the answer most likely to reach it.
             let want = if prompt == crate::choice::ChoicePrompt::LeaveTapped {
                 0
+            } else if matches!(prompt, crate::choice::ChoicePrompt::CostCrew { .. }) {
+                usize::from(max)
             } else {
                 usize::from(min).max(1).min(usize::from(max))
             };
@@ -1377,6 +1415,9 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             (player, PlayerAction::ChooseMode(first.index as usize))
         }
         Pending::ChooseNumber { player, min, .. } => (player, PlayerAction::ChooseNumber(min)),
+        // The first pile: the opponent's answer made it, so it is a real
+        // pile, and it may be empty, which is still a legal answer.
+        Pending::ChoosePile { player, .. } => (player, PlayerAction::ChooseMode(0)),
         Pending::YesNo { player, .. } => (player, PlayerAction::YesNo(true)),
         Pending::Arrange {
             player,

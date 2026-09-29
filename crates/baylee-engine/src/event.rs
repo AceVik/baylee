@@ -253,12 +253,28 @@ pub enum GameEvent {
         /// The player.
         player: PlayerId,
     },
+    /// A card was cycled: discarded to pay the cost of its own cycling
+    /// ability (CR 702.29c). Recorded after that discard's own
+    /// [`Self::Discarded`], which is the event every other reader of a
+    /// discard hears; this one exists for "when you cycle this card".
+    Cycled {
+        /// The card, wherever the discard put it.
+        object: ObjectId,
+        /// The player who cycled it.
+        player: PlayerId,
+    },
     /// Cards were drawn (drives "whenever you draw" triggers).
     CardsDrawn {
         /// The drawing player.
         player: PlayerId,
         /// How many.
         count: u16,
+        /// Whether the first of these cards is the first card `player`
+        /// drew in their own draw step (CR 504.1). At most one card of an
+        /// entry is. Read at the draw, not later: by the time triggers are
+        /// collected, other draws may have followed it in the same batch.
+        #[serde(default)]
+        first_in_draw_step: bool,
     },
     /// A creature was declared as attacker.
     BecameAttacker {
@@ -478,6 +494,13 @@ impl Journal {
     #[must_use]
     pub fn last_seq(&self) -> u64 {
         self.entries.len() as u64
+    }
+
+    /// Drops every entry after the first `len`: the one exception to "only
+    /// grows", for a payment that was canceled (CR 732.1) and so never
+    /// happened ([`crate::state::GameState::roll_back`]).
+    pub(crate) fn cancel_from(&mut self, len: usize) {
+        self.entries.truncate(len);
     }
 }
 

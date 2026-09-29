@@ -214,3 +214,38 @@ fn graveyard_target_chooser_hides_ineligible_cards_but_manual_browsing_keeps_the
     browser.open_at(BrowseZone::Graveyard(me()));
     assert_eq!(browser.rows(&view, None, Names::projected()).len(), 3);
 }
+
+/// A pile choice names no object: it is answered by position, so none of the
+/// revealed cards is selectable. They are still what the player chooses
+/// between, and the sheet the reveal opened draws all of them; the rule that
+/// a chooser lists only its answers had left it empty.
+#[test]
+fn a_pile_choice_draws_the_cards_in_its_piles() {
+    let shown: Vec<_> = (20..23).map(|s| printed(s, 0, "Forest", 1)).collect();
+    let view = ViewBuilder::new(2).with_looking_at(shown).build();
+    let it = Interaction::new(
+        Pending::ChoosePile {
+            player: me(),
+            piles: vec![vec![obj(21)], vec![obj(20), obj(22)]],
+        },
+        me(),
+    );
+    let mut b = Browser::new();
+    b.saw_reveal(&view);
+    b.follow(&view, Some(&it));
+    assert!(
+        b.is_open(),
+        "the question arriving took away the sheet the reveal opened"
+    );
+    assert_eq!(ticks(&b), vec![BrowseZone::Looking]);
+    let rows = b.rows(&view, Some(&it), Names::projected());
+    assert_eq!(
+        rows.iter().map(|r| r.id).collect::<Vec<_>>(),
+        vec![obj(20), obj(21), obj(22)],
+        "every card of every pile is on the sheet"
+    );
+    assert!(
+        rows.iter().all(|r| !r.standing.selectable),
+        "a pile is taken by its row in the prompt, not by clicking a card"
+    );
+}

@@ -137,6 +137,7 @@ mod tests {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
+                retarget_left: None,
             };
             let Flow::Wait(Pending::ChoosePlayer { options, .. }) = run(&mut state, &mut res)
             else {

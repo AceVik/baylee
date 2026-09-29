@@ -38,7 +38,7 @@ card!(
         triggered!(
             Trigger::DealsCombatDamageToPlayer(&Filter::AttachedToBySource),
             &[
-                Effect::blink(TargetSpec::Object(&CREATURE_YOU_OWN)),
+                Effect::blink_to_you(TargetSpec::Object(&CREATURE_YOU_OWN)),
                 Effect::SearchLibrary {
                     filter: &Filter::BASIC_LAND,
                     finds: &[Find::BATTLEFIELD],

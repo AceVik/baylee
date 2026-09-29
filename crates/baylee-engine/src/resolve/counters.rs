@@ -317,6 +317,7 @@ mod pump_tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            retarget_left: None,
         }
     }
 

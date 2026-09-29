@@ -312,7 +312,7 @@ A `false` has two readings, and the public state tells them apart:
 | `state().characteristics_generation == state().effects.generation` | reading |
 |------|---------|
 | yes  | nothing told the cache it is old: a skipped invalidation, or a refresh whose single walk is not yet a fixpoint. The engine will not correct it by itself |
-| no   | the engine knows and refreshes at the top of its driving loop; `apply` returned before that (a question asked in the middle of a resolution, or the mulligan window). A reader of the state in between still reads the old value |
+| no   | the engine knows and refreshes at the top of its driving loop; `apply` returned before that (a question asked in the middle of a resolution; the mulligan window refreshes as it opens and after every answer). A reader of the state in between still reads the old value |
 
 Measured on 2026-09-29 with a probe (not committed) calling it after every
 `apply` of the full engine suite. The first run gave `false` 96 times in 8
@@ -333,19 +333,53 @@ tests and found two defects in the engine, both fixed since:
   once the board is done (test
   `card_tests::creatures::ashaya_counts_a_creature_the_moment_it_enters`).
 
-The second run, after both fixes: `false` 18 times in 7 tests.
+The second run, after both fixes: `false` 18 times in 7 tests. Seven were
+the harness, in
+`combo_tests::doubling::bristly_bills_doubling_is_doubled_again_by_a_doubling_season`,
+which set Bill's counters through `Engine::dev_state_mut` with nothing
+invalidated, so Bill answered 2/2 until the next change moved the
+generation; that door now invalidates as it opens.
 
-- Generation equal, 7 times in one test, and it is the harness:
-  `combo_tests::doubling::bristly_bills_doubling_is_doubled_again_by_a_doubling_season`
-  sets Bill's counters through `Engine::dev_state_mut` and invalidates
-  nothing, so Bill answers 2/2 until the next change moves the generation.
-- Generation moved, refresh due, 11 times in 6 tests, every one of them in
-  the mulligan window, before the driving loop has refreshed once: cards
-  defining their own power and toughness in hand (Ashaya, Pyrogoyf) and the
-  counters the harness plants on Walking Ballista and Arcbound Ravager.
-  Each of them counts or wears something only a seeded board has; a game
-  dealt from its decks has nothing on the battlefield and in the graveyards
-  yet, and so nothing to be behind on.
+The third run, after that: `false` 11 times in 6 tests, every one with the
+generation moved and a refresh due, and every one in the mulligan window,
+before the driving loop has refreshed once: cards defining their own power
+and toughness in hand (Ashaya, Pyrogoyf) and the counters the harness plants
+on Walking Ballista and Arcbound Ravager. Each of them counts or wears
+something only a seeded board has.
+
+The fourth run, over the tree merged with `c42/night-decks`: `false` 118
+times in 10 tests, in three classes, each a defect in the engine and each
+fixed since:
+
+- 100 in `refusal_tests::a_dual_land_listed_for_the_lanterns_grant_is_taken_when_pressed`,
+  with the generation current: under Maskwood Nexus, creature cards drawn
+  into a hand kept the printed subtypes a move clears a cache to. A move
+  invalidated only when it touched the battlefield, the stack, a graveyard
+  or exile, and a draw touches none. While a cross-zone effect is registered
+  every move now invalidates (`GameState::move_object`; test
+  `combo_tests::filters::the_nexus_makes_a_drawn_creature_card_every_type`).
+  The other moves between hidden zones go through `move_object` as well: a
+  tutor, a wish, a card put back on a library, a mulligan's hand, a
+  commander put in the command zone.
+- 2 in `refusal_tests::a_refused_answer_changes_nothing_and_every_question_has_an_answer`,
+  with the generation current: a Pyrogoyf kept the size a departed player's
+  graveyard gave it. `sba::eliminate_player` takes the leaver's objects out
+  without `move_object`, and now invalidates the projection itself (test
+  `leave_tests::a_pyrogoyf_shrinks_as_the_graveyard_it_counted_leaves_the_game`).
+- 16 in 8 tests, each with a refresh due and in the mulligan window: the
+  third run's class. Not the harness's alone. A starting battlefield is
+  dealt outside the tests too, by a `dev-table` gateway's
+  `BAYLEE_DEV_SEAT_BOARD` and the client's `dev-control` board (both
+  `baylee_cards::decks::deal_named`), and a hosted engine gets it in its
+  game setup; every seat is shown its hand and the board with its mulligan
+  question. `Engine::new` now ends with a refresh, and so does every answer
+  in the window (`settle_mulligans`; test
+  `house_rules_tests::a_hand_is_shown_as_it_projects_while_the_mulligans_are_open`).
+
+The fifth run, after those three: no `false` at all. Putting the departed
+graveyard's defect back made the probe report the one `false` its test
+names, so the probe was running.
+
 ## L4: the leave probe
 
 Does every ability of a permanent stop when the permanent is no longer in

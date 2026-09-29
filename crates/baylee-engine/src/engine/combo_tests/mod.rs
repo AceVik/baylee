@@ -1133,28 +1133,33 @@ fn a_clones_choice_is_explained_as_one() {
     assert_eq!(context.copying, Some(printed), "with what its copy changes");
 }
 
-/// A Spark Double copying seat 0's Llanowar Elves, with a Doubling Season on
-/// the board only when `season` says so.
+/// A Spark Double copying seat 0's `original`, with a Doubling Season on the
+/// board only when `season` says so. Answers the copy's +1/+1 counters and
+/// its loyalty counters.
 ///
-/// Their Elf is the bystander, and it is the same card as mine on purpose:
-/// "a creature or planeswalker **you control**" read off the wrong seat
-/// would offer a permanent that looks identical in every other way.
-fn a_spark_double_copying_an_elf(seed: u64, season: bool) -> ((i16, i16), u16) {
+/// Their `original` is the bystander, and it is the same card as mine on
+/// purpose: "a creature or planeswalker **you control**" read off the wrong
+/// seat would offer a permanent that looks identical in every other way.
+fn a_spark_double_copying_mine(
+    seed: u64,
+    season: bool,
+    original: baylee_core::ids::CardIndex,
+) -> (u16, u16) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut mine = vec![island(), island(), island(), island(), llanowar_elves()];
+    let mut mine = vec![island(), island(), island(), island(), original];
     if season {
         mine.push(doubling_season());
     }
     let mut engine = Duel::new(seed, island())
         .battlefield(0, &mine)
         .hand(0, &[spark_double()])
-        .battlefield(1, &[llanowar_elves()])
+        .battlefield(1, &[original])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let my_elf = on_battlefield(&engine, p0, llanowar_elves()).expect("my elf");
-    let their_elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their elf");
+    let my_one = on_battlefield(&engine, p0, original).expect("mine");
+    let their_one = on_battlefield(&engine, p1, original).expect("theirs");
 
     cast_from_hand(&mut engine, p0, spark_double());
     pass_until(&mut engine, |e| {
@@ -1162,14 +1167,14 @@ fn a_spark_double_copying_an_elf(seed: u64, season: bool) -> ((i16, i16), u16) {
     });
     let options = target_options(&engine);
     assert!(
-        options.contains(&my_elf) && !options.contains(&their_elf),
+        options.contains(&my_one) && !options.contains(&their_one),
         "\"a creature or planeswalker you control\" is the whole scope: {options:?}"
     );
     engine
         .apply(
             p0,
             PlayerAction::ChooseObjects {
-                objects: vec![my_elf],
+                objects: vec![my_one],
             },
         )
         .unwrap();
@@ -1177,13 +1182,11 @@ fn a_spark_double_copying_an_elf(seed: u64, season: bool) -> ((i16, i16), u16) {
         on_battlefield(e, p0, spark_double()).is_some() && stack_is_empty(e)
     });
     let copy = on_battlefield(&engine, p0, spark_double()).expect("the copy arrived");
-    let loyalty = engine
-        .state()
-        .object(copy)
-        .expect("the copy")
-        .counters
-        .get(baylee_cards_dsl::CounterKind::Loyalty);
-    (pt(&engine, copy), loyalty)
+    let counters = &engine.state().object(copy).expect("the copy").counters;
+    (
+        counters.get(baylee_cards_dsl::CounterKind::P1P1),
+        counters.get(baylee_cards_dsl::CounterKind::Loyalty),
+    )
 }
 
 /// The cards that reach that path, and why each is not a live defect.

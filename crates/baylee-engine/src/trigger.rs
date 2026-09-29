@@ -33,6 +33,9 @@ pub struct PendingTrigger {
     pub event_object: Option<ObjectId>,
     /// The event permanent's mana value before leaving the battlefield.
     pub event_mana_value: Option<u32>,
+    /// The player a damage event dealt damage to, and how much: "that
+    /// player" and "that much" of a combat-damage trigger (Questing Beast).
+    pub event_damage: Option<(PlayerId, u16)>,
     /// What an untargeted synthetic trigger puts first among its targets,
     /// which is what its `Filter::This` and its "target" words then name
     /// (`resolve::this_object`).
@@ -155,13 +158,13 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                 for entry in events {
                     let hit = hits(trigger, &entry.event, events, state, emblem, obj.controller);
                     if hit > 0 {
-                        let times = trigger_count(state, trigger, emblem, obj.controller)
-                            * repeats(&entry.event)
-                            * hit;
+                        let times = trigger_count(state, trigger, emblem, obj.controller) * hit;
                         let event_object = event_object_of(&entry.event);
+                        let event_damage = event_damage_of(&entry.event);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
                                 event_mana_value: None,
+                                event_damage,
                                 source: emblem,
                                 ability_index: index as u32,
                                 abilities: Some(crate::object::AbilityList {
@@ -185,6 +188,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
         }
     }
     monarch_triggers(state, events, &mut triggers);
+    cast_this_spell_triggers(state, lookup, events, &mut triggers);
     watch_triggers(state, events, &mut triggers);
     replicate_triggers(state, events, &mut triggers);
     // LTB/Dies triggers look back in time (CR 603.10): the source is no
@@ -270,6 +274,7 @@ fn replicate_triggers(
         };
         let copies = usize::from(spell.replicated).min(REPLICATE_COPIES.len());
         triggers.push(PendingTrigger {
+            event_damage: None,
             event_mana_value: None,
             source: object,
             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -346,6 +351,7 @@ fn watch_triggers(
             continue;
         }
         triggers.push(PendingTrigger {
+            event_damage: None,
             event_mana_value: None,
             source,
             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -422,6 +428,7 @@ fn monarch_triggers(
     };
     let inherent = |effects, event_object| PendingTrigger {
         event_mana_value: None,
+        event_damage: None,
         source: ObjectId::NO_SOURCE,
         ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
         abilities: None,
@@ -537,6 +544,19 @@ static WARD_PAY_OR_COUNTER: [[baylee_cards_dsl::Effect; 1]; 11] = [
 #[cfg(test)]
 pub(crate) const WARD_CEILING: usize = WARD_PAY_OR_COUNTER.len() - 1;
 
+/// The player a damage event dealt damage to and the amount, if it is one
+/// dealt to a player.
+fn event_damage_of(event: &GameEvent) -> Option<(PlayerId, u16)> {
+    match event {
+        GameEvent::DamageDealt {
+            target: crate::event::DamageTarget::Player(player),
+            amount,
+            ..
+        } => Some((*player, *amount)),
+        _ => None,
+    }
+}
+
 /// The object an event is about, if any.
 fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
     match event {
@@ -578,13 +598,69 @@ fn targeting(
     }
 }
 
-/// How many times one event fires `trigger` for this source.
+/// "When you cast this spell" (cascade, CR 702.85a): a trigger condition
+/// that cannot trigger from the battlefield functions where it can, which is
+/// the stack (CR 113.6k). Each spell cast in this batch is asked for its own
+/// `Trigger::SpellCast(&Filter::This)` abilities, and only for those — its
+/// other abilities do not function there.
+fn cast_this_spell_triggers(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    for entry in events {
+        let GameEvent::SpellCast { object, player } = entry.event else {
+            continue;
+        };
+        let Some(spell) = state.object(object).filter(|o| o.zone == Zone::Stack) else {
+            continue;
+        };
+        let list = spell.ability_list(lookup);
+        for (index, ability) in list.abilities.iter().enumerate() {
+            let Some(firing) = triggered_parts(ability) else {
+                continue;
+            };
+            if !matches!(
+                firing.trigger,
+                baylee_cards_dsl::Trigger::SpellCast(baylee_cards_dsl::Filter::This)
+            ) {
+                continue;
+            }
+            if !eval::intervening_if(state, firing.condition, player, object) {
+                continue;
+            }
+            triggers.push(PendingTrigger {
+                event_mana_value: None,
+                source: object,
+                ability_index: index as u32,
+                abilities: Some(list),
+                controller: player,
+                timestamp: spell.timestamp,
+                event_object: Some(object),
+                implicit_target: None,
+                synthetic_effects: None,
+                once_per_turn: firing.once_per_turn,
+                synthetic_target: None,
+                chosen_mode: None,
+                event_damage: None,
+            });
+        }
+    }
+}
+
+/// How many times one journal entry fires `trigger` for this source.
 ///
-/// Once when [`matches`] says so, for every trigger but the one that counts
-/// what an event targeted: "whenever you or a permanent you control becomes
-/// the target of a spell or ability an opponent controls" fires once for each
-/// of them, so one spell aimed at you and at a creature of yours fires it
-/// twice.
+/// Once for each happening the entry records ([`repeats`]) when [`matches`]
+/// says so, for every trigger but two. The one that counts what an event
+/// targeted: "whenever you or a permanent you control becomes the target of a
+/// spell or ability an opponent controls" fires once for each of them, so one
+/// spell aimed at you and at a creature of yours fires it twice. And the one
+/// that watches all of an entry's draws but one: "whenever an opponent draws
+/// a card except the first one they draw in each of their draw steps" skips
+/// the step's first card and no other, so "draw three" that opens the step
+/// fires it twice. That is a subtraction, which is why the count of
+/// happenings is taken here rather than multiplied in by the callers.
 fn hits(
     trigger: &Trigger,
     event: &GameEvent,
@@ -597,15 +673,46 @@ fn hits(
         Trigger::TargetedByOpponent {
             filter,
             you: counts_you,
-        } => targeted_by_opponent(event, state, filter, *counts_you, source, you),
-        _ => u32::from(matches(trigger, event, batch, state, source, you)),
+        } => targeted_by_opponent(event, state, filter, *counts_you, source, you) * repeats(event),
+        Trigger::DrawsExceptFirst(rel) => match event {
+            GameEvent::CardsDrawn {
+                player,
+                first_in_draw_step,
+                ..
+            } if match rel {
+                PlayerRel::You => *player == you,
+                PlayerRel::Opponent => state.is_opponent(*player, you),
+                _ => true,
+            } =>
+            {
+                // A card drawn on somebody else's turn, or in their own
+                // upkeep, is in none of their draw steps and always fires:
+                // that is what the card is played for (Brainstorm, Rhystic
+                // Study, a Howling Mine on my turn). Which entry holds the
+                // step's one excepted card is written at the draw, because
+                // a count of the turn's cards read here, at collection,
+                // could not tell it apart.
+                repeats(event).saturating_sub(u32::from(*first_in_draw_step))
+            }
+            _ => 0,
+        },
+        _ => u32::from(matches(trigger, event, batch, state, source, you)) * repeats(event),
     }
 }
 
 /// A leaves-the-battlefield trigger's filter, asked of the object as it
 /// last existed on the battlefield (CR 603.10a): its projected
-/// characteristics as it left, where the state still has them, and the
-/// object as it is otherwise.
+/// characteristics and its counters as it left, where the state still has
+/// them, and the object as it is otherwise.
+///
+/// The counters are written onto a copy because `move_object` empties them
+/// on the way out, so "with a -1/-1 counter on it" (The Reaper, King No
+/// More) was never true of the card in the graveyard. A copy per departed
+/// object and trigger source, which only a departure from the battlefield
+/// pays for. The controller needs no such help here: the field still holds
+/// the controller the permanent left with while triggers are collected, and
+/// only a later refresh settles it back to the owner, which is why
+/// `ltb_controllers` exists for what reads it at resolution.
 fn departed_matches(
     filter: &baylee_cards_dsl::Filter,
     state: &GameState,
@@ -613,12 +720,20 @@ fn departed_matches(
     you: PlayerId,
     source: ObjectId,
 ) -> bool {
-    state.object_or_departed(object).is_some_and(|o| {
-        match state.last_known_characteristics(object) {
-            Some(was) => eval::matches_projected(filter, state, o, was, you, source),
-            None => eval::matches(filter, state, o, you, source),
-        }
-    })
+    let Some(o) = state.object_or_departed(object) else {
+        return false;
+    };
+    let Some(was) = state.last_known_characteristics(object) else {
+        return eval::matches(filter, state, o, you, source);
+    };
+    let mut as_it_was = o.clone();
+    as_it_was.counters = state
+        .ltb_counters
+        .iter()
+        .find(|(id, _)| *id == object)
+        .map(|(_, counters)| counters.clone())
+        .unwrap_or_default();
+    eval::matches_projected(filter, state, &as_it_was, was, you, source)
 }
 
 /// [`Trigger::TargetedByOpponent`]'s count: the fitting targets an
@@ -695,14 +810,19 @@ fn collect_for_objects(
         // The look-back applies only to sources that left during this
         // event batch. A card already in a graveyard has no battlefield
         // ability to observe a later death. Keep the whole batch so a
-        // dying source still observes creatures dying alongside it.
+        // dying source still observes creatures dying alongside it. The one
+        // other card that triggers from here is one cycled in this batch:
+        // "when you cycle this card" triggers from wherever the card winds
+        // up (CR 702.29c), and it left a hand, not the battlefield.
         if !all_kinds
-            && !events.iter().any(|entry| {
-                matches!(
-                    entry.event,
-                    GameEvent::ZoneChanged { object, from: Zone::Battlefield, .. }
-                        if object == permanent
-                )
+            && !events.iter().any(|entry| match entry.event {
+                GameEvent::ZoneChanged {
+                    object,
+                    from: Zone::Battlefield,
+                    ..
+                }
+                | GameEvent::Cycled { object, .. } => object == permanent,
+                _ => false,
             })
         {
             continue;
@@ -759,6 +879,7 @@ fn collect_for_objects(
                     ) {
                         triggers.push(PendingTrigger {
                             event_mana_value: None,
+                            event_damage: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: obj.controller,
@@ -858,6 +979,7 @@ fn collect_for_objects(
                         ) {
                             triggers.push(PendingTrigger {
                                 event_mana_value: None,
+                                event_damage: None,
                                 source: permanent,
                                 ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                                 controller: obj.controller,
@@ -900,12 +1022,11 @@ fn collect_for_objects(
                 );
                 if hit > 0 {
                     let event_object = event_object_of(&entry.event);
-                    let times = trigger_count(state, trigger, permanent, obj.controller)
-                        * repeats(&entry.event)
-                        * hit;
+                    let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             event_mana_value: None,
+                            event_damage: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: obj.controller,
@@ -949,6 +1070,7 @@ fn collect_for_objects(
                     ) {
                         triggers.push(PendingTrigger {
                             event_mana_value: None,
+                            event_damage: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                             controller: obj.controller,
@@ -970,7 +1092,15 @@ fn collect_for_objects(
                 continue;
             };
             let trigger = firing.trigger;
-            if !all_kinds && !matches!(trigger, Trigger::LeavesBattlefield(_) | Trigger::Dies(_)) {
+            // Off the battlefield, the triggers that look back (CR 603.10a)
+            // and "when you cycle this card", which triggers from wherever
+            // the card winds up (CR 702.29c).
+            if !all_kinds
+                && !matches!(
+                    trigger,
+                    Trigger::LeavesBattlefield(_) | Trigger::Dies(_) | Trigger::CycledThis
+                )
+            {
                 continue;
             }
             // CR 603.4, the first of its two checks: an ability whose
@@ -991,13 +1121,13 @@ fn collect_for_objects(
                     obj.controller,
                 );
                 if hit > 0 {
-                    let times = trigger_count(state, trigger, permanent, obj.controller)
-                        * repeats(&entry.event)
-                        * hit;
+                    let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     let event_object = event_object_of(&entry.event);
+                    let event_damage = event_damage_of(&entry.event);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             event_mana_value: None,
+                            event_damage,
                             source: permanent,
                             ability_index: index as u32,
                             abilities: Some(list),
@@ -1054,7 +1184,9 @@ fn collect_for_objects(
 /// loops so that the next event to carry a count adds an arm to one `match`
 /// instead of a multiplication to each of them.
 ///
-/// The number is multiplied with [`trigger_count`], not confused with it:
+/// [`hits`] asks it, so a trigger that watches all of an entry's happenings
+/// but some can take them away. The number is multiplied with
+/// [`trigger_count`], not confused with it:
 /// that one is Panharmonicon asking how many times an ability triggers for
 /// one happening, this one is how many happenings there were.
 fn repeats(event: &GameEvent) -> u32 {
@@ -1156,9 +1288,11 @@ fn matches(
     match (trigger, event) {
         // CR 701.27e for the second: the ability is read off the face the
         // permanent shows right after it turned over, which is the face that
-        // prints it.
+        // prints it. CR 702.29c for the third: the card cycled is the
+        // source, wherever it wound up.
         (Trigger::TurnedFaceUp, GameEvent::TurnedFaceUp { object })
-        | (Trigger::TransformsIntoThis, GameEvent::Transformed { object, .. }) => *object == source,
+        | (Trigger::TransformsIntoThis, GameEvent::Transformed { object, .. })
+        | (Trigger::CycledThis, GameEvent::Cycled { object, .. }) => *object == source,
         // CR 709.5h: the designation, however it was given.
         (Trigger::UnlockThisDoor(door), GameEvent::DoorUnlocked { object, half }) => {
             *object == source && door == half
@@ -1211,6 +1345,20 @@ fn matches(
         ) => state
             .object(*damage_source)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        (
+            Trigger::DealsCombatDamageToOpponent(filter),
+            GameEvent::DamageDealt {
+                source: Some(damage_source),
+                target: crate::event::DamageTarget::Player(player),
+                is_combat: true,
+                ..
+            },
+        ) => {
+            state.is_opponent(*player, you)
+                && state
+                    .object(*damage_source)
+                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
         // CR 714.2b's window, "was less than N and became at least N",
         // asked of the source's own counters.
         (
@@ -1292,34 +1440,6 @@ fn matches(
                     .object(*object)
                     .is_some_and(|o| eval::matches(filter, state, o, you, source))
         }
-        (Trigger::DrawsExceptFirst(rel), GameEvent::CardsDrawn { player, .. }) => {
-            let count = state
-                .per_turn
-                .draws
-                .get(player.get() as usize)
-                .copied()
-                .unwrap_or(0);
-            let player_matches = match rel {
-                PlayerRel::You => *player == you,
-                PlayerRel::Opponent => state.is_opponent(*player, you),
-                _ => true,
-            };
-            // "except the first one they draw in each of their draw steps"
-            // is about a draw *step*, not about a turn. A draw on somebody
-            // else's turn is never in this player's draw step, so it always
-            // fires — which is the case Orcish Bowmasters is played for
-            // (Brainstorm, Rhystic Study, a Howling Mine on my turn), and
-            // the old `count > 1` read it as the opponent's excepted first
-            // draw and fired nothing at all.
-            //
-            // The exception left: a draw during their own upkeep makes the
-            // draw-step draw the second of the turn, and that one fires
-            // although it is the step's first. Closing it wants a per-step
-            // counter beside `per_turn.draws`.
-            let their_draw_step =
-                state.turn.active == *player && state.turn.step == crate::turn::Step::Draw;
-            player_matches && !(their_draw_step && count <= 1)
-        }
         (Trigger::FirstNoncreatureSpellCast(rel), GameEvent::SpellCast { object, player }) => {
             let player_matches = match rel {
                 PlayerRel::You => *player == you,
@@ -1397,6 +1517,14 @@ impl PendingTrigger {
                     self.event_mana_value.unwrap_or(0),
                 )
             }
+            // "That player": the one the event dealt damage to. With no such
+            // event it stays unbound and offers nothing.
+            baylee_cards_dsl::TargetSpec::ObjectOfEventPlayer(filter) => match self.event_damage {
+                Some((player, _)) => {
+                    baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player)
+                }
+                None => spec,
+            },
             other => other,
         }
     }
@@ -1488,6 +1616,38 @@ mod tests {
         });
     }
 
+    /// "Except the first one they draw in each of their draw steps" skips
+    /// one card of an entry and no more: each card is its own draw
+    /// (CR 121.2), so "draw three" that opens an opponent's draw step fires
+    /// twice. The exception is this trigger's alone, and "an opponent" still
+    /// leaves its controller's own draws out.
+    #[test]
+    fn the_draw_step_exception_skips_one_card_of_an_entry_and_no_more() {
+        let mut state = state();
+        let source = permanent(&mut state, me(), "Bowmasters");
+        let drew = |player, count, first_in_draw_step| GameEvent::CardsDrawn {
+            player,
+            count,
+            first_in_draw_step,
+        };
+        let fired =
+            |trigger: &Trigger, event: &GameEvent| hits(trigger, event, &[], &state, source, me());
+        let bowmasters = Trigger::DrawsExceptFirst(PlayerRel::Opponent);
+        assert_eq!(fired(&bowmasters, &drew(them(), 1, true)), 0, "the one");
+        assert_eq!(
+            fired(&bowmasters, &drew(them(), 3, true)),
+            2,
+            "the other two"
+        );
+        assert_eq!(fired(&bowmasters, &drew(them(), 3, false)), 3);
+        assert_eq!(fired(&bowmasters, &drew(me(), 3, false)), 0, "my own draws");
+        assert_eq!(
+            fired(&Trigger::Draws(PlayerRel::Opponent), &drew(them(), 3, true)),
+            3,
+            "a plain draw trigger has no exception"
+        );
+    }
+
     /// How many *happenings* an event is, which is not how many times an
     /// ability triggers for one of them. "Draw two cards" is one journal
     /// entry carrying a count, and an ability watching a card being drawn
@@ -1499,14 +1659,16 @@ mod tests {
         assert_eq!(
             repeats(&GameEvent::CardsDrawn {
                 player: me(),
-                count: 3
+                count: 3,
+                first_in_draw_step: false,
             }),
             3
         );
         assert_eq!(
             repeats(&GameEvent::CardsDrawn {
                 player: me(),
-                count: 0
+                count: 0,
+                first_in_draw_step: false,
             }),
             1,
             "a zero would suppress a trigger that matched rather than \

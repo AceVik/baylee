@@ -10,6 +10,7 @@
 #![warn(missing_docs)]
 
 mod activate;
+mod board;
 pub mod combat;
 mod copying;
 mod fight;
@@ -250,27 +251,46 @@ impl HeuristicAgent {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
                 }
                 let victim = self.pick_defender(view, &opponents);
-                let report = search::attackers(view, &squad, victim, self.profile);
+                // Indexed once for the whole decision: every step below
+                // looks creatures up by handle, one per creature.
+                let board = board::Board::new(view);
+                let report = search::attackers_on(&board, &squad, victim, self.profile);
+                // An attack that wins goes at the player, whatever walker is
+                // standing there. The search's proof is one way to know, but
+                // it gives up above sixteen creatures a side and never runs
+                // for the shallow profiles, so every profile also asks the
+                // estimate. Before it did, a squad only the estimate saw as
+                // lethal went at the cheapest walker whenever its power
+                // reached the loyalty, and a board that doubled every turn
+                // killed a recast commander walker every turn and never its
+                // controller (self-play r001 #431).
+                let lethal =
+                    report.lethal || combat::breaks_through(&board, &report.attackers, victim);
+                let searched = report.attackers.len();
                 let going = combat::hold_back_for_the_crack_back(
-                    view,
+                    &board,
                     report.attackers,
                     victim,
-                    report.lethal,
+                    lethal,
                     |seat| self.hostile(seat, view.seat),
                 );
                 if going.is_empty() {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
                 }
                 // What they aim at is decided by the squad that is actually
-                // going, not by the whole board: a walker is only worth
-                // attacking when the attack kills it, and the creatures
-                // staying home add nothing to that sum.
-                let defender = if report.lethal && defenders.contains(&Defender::Player(victim)) {
-                    Defender::Player(victim)
+                // going, not by the whole board: the creatures staying home
+                // add nothing to either sum. Where the crack-back pass kept
+                // some home, the verdict is the estimate's on what is left.
+                let wins = lethal
+                    && (going.len() == searched || combat::breaks_through(&board, &going, victim));
+                let attackers = if wins && defenders.contains(&Defender::Player(victim)) {
+                    going
+                        .into_iter()
+                        .map(|id| (id, Defender::Player(victim)))
+                        .collect()
                 } else {
-                    aim_at(view, victim, &going, &defenders)
+                    combat::aim(&board, victim, &going, &defenders)
                 };
-                let attackers = going.into_iter().map(|id| (id, defender)).collect();
                 PlayerAction::DeclareAttackers { attackers }
             }
             Pending::ChooseBlockers { blockers, .. } => PlayerAction::DeclareBlockers {
@@ -321,9 +341,13 @@ impl HeuristicAgent {
                 // `min` says. Whether a storage land is worth leaving
                 // tapped is a real judgement and not one this heuristic
                 // makes.
+                // Separating piles for an opponent (Fact or Fiction): one
+                // card alone, so whichever pile they take, they do not take
+                // all of them, which is what naming none would hand over.
                 let n = match prompt {
                     ChoicePrompt::Delve => max,
                     ChoicePrompt::LeaveTapped => min,
+                    ChoicePrompt::FirstPile => max.min(1),
                     _ if max <= 2 => max,
                     _ => min,
                 };
@@ -438,6 +462,12 @@ impl HeuristicAgent {
                 // what the floating pool pays beside the rest of the cast,
                 // and each payment is the spell once more (CR 702.56a).
                 baylee_engine::choice::NumberPrompt::Replicate { .. } => max,
+                // A share of a division: what the target needs to die, if it
+                // is an opponent's, within what the question allows; the
+                // least for anything else.
+                baylee_engine::choice::NumberPrompt::DivideDamage { target, .. } => {
+                    self.damage_share(view, target, min, max)
+                }
             }),
             Pending::ChoosePlayer { options, .. } => {
                 PlayerAction::ChoosePlayer(self.player_target(view, &options, context))
@@ -445,6 +475,7 @@ impl HeuristicAgent {
             Pending::ChooseCastMode {
                 object, options, ..
             } => PlayerAction::ChooseMode(self.cast_mode(view, object, &options)),
+            Pending::ChoosePile { piles, .. } => PlayerAction::ChooseMode(self.pile(view, &piles)),
             // An order the AI has no opinion on yet: the cards as they were
             // offered, every pile filled to its minimum first. It is always
             // an answer, because the engine never asks an arrangement whose
@@ -488,8 +519,6 @@ impl HeuristicAgent {
                 YesNoPrompt::PayTax { mana } => {
                     PlayerAction::YesNo(policy::pays_tax(view, mana, context))
                 }
-                // Attempt payment; the owed-mana planner handles the window.
-                YesNoPrompt::PayPact { .. } => PlayerAction::YesNo(true),
                 // Kicker and "you may waterbend" alike: paid when the pool
                 // already covers it, because the engine pays from the pool
                 // alone and a short one loses the whole cast.
@@ -505,10 +534,26 @@ impl HeuristicAgent {
                 // nobody can reach into, and the {2} on the next cast is
                 // cheaper than the deck's whole plan being milled or
                 // exiled — a seat that would rather reanimate it needs the
-                // evaluator this agent does not have yet.
-                YesNoPrompt::MayDo | YesNoPrompt::CommanderZone { .. } | YesNoPrompt::Generic => {
-                    PlayerAction::YesNo(true)
-                }
+                // evaluator this agent does not have yet. And the top of the
+                // library for a card of this seat's that somebody else's
+                // ability is sending away: on top it is the next draw, on
+                // the bottom it is gone for the game. And a discovered card
+                // (CR 701.57a): it is only offered when it can be cast, and a
+                // spell for nothing is worth more than the card in hand.
+                // A spell for nothing (cascade) is taken too. So is a card
+                // this seat's own ability offered to cast (Conduit of
+                // Worlds): the activation was the choice, and a window it
+                // cannot fill casts nothing and costs nothing.
+                YesNoPrompt::MayDo
+                | YesNoPrompt::CommanderZone { .. }
+                | YesNoPrompt::TopOfLibrary { .. }
+                | YesNoPrompt::Discover { .. }
+                | YesNoPrompt::CastWithoutPaying { .. }
+                | YesNoPrompt::CastPaying { .. }
+                | YesNoPrompt::Generic
+                // A pact: attempt payment; the owed-mana planner handles the
+                // window.
+                | YesNoPrompt::PayPact { .. } => PlayerAction::YesNo(true),
                 // CR 903.9b answers itself from the destination, which is
                 // why the prompt carries it. A library is the same loss the
                 // graveyard would have been, so it goes home. A *hand* is
@@ -532,47 +577,6 @@ fn costliest(view: &PlayerView, n: usize) -> Vec<ObjectId> {
         .collect();
     hand.sort_by_key(|(mv, id)| (u32::MAX - mv, *id));
     hand.iter().take(n).map(|(_, id)| *id).collect()
-}
-
-/// Chooses what the squad actually swings at once politics has picked the
-/// victim: one of their planeswalkers if this attack can finish it off,
-/// otherwise the player.
-///
-/// Killing a walker is worth more than a few points of life, but only if
-/// it actually dies — chipping a loyalty counter off a big planeswalker
-/// while the controller's life total goes untouched is the worst of both.
-/// So the bar is "total attacking power is at least its loyalty", and
-/// among the walkers that clear it the cheapest one to kill wins.
-///
-/// The blockers the defender has not declared yet are not modelled; this
-/// is the same one-ply optimism the rest of the heuristic runs on.
-fn aim_at(
-    view: &PlayerView,
-    victim: PlayerId,
-    squad: &[ObjectId],
-    defenders: &[Defender],
-) -> Defender {
-    let power: i32 = squad
-        .iter()
-        .filter_map(|id| view.object(*id))
-        .map(|o| i32::from(o.power.unwrap_or(0)))
-        .sum();
-    defenders
-        .iter()
-        .copied()
-        .filter_map(|d| {
-            let Defender::Planeswalker(id) = d else {
-                return None;
-            };
-            let walker = view.object(id)?;
-            if walker.controller != victim {
-                return None;
-            }
-            let loyalty = i32::from(walker.counter_count(baylee_view::CounterKind::Loyalty));
-            (loyalty > 0 && loyalty <= power).then_some((loyalty, d))
-        })
-        .min_by_key(|(loyalty, _)| *loyalty)
-        .map_or(Defender::Player(victim), |(_, d)| d)
 }
 
 /// How much a player's board threatens: a point per permanent plus its
@@ -645,6 +649,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseNumber { player, .. }
         | Pending::ChoosePlayer { player, .. }
         | Pending::ChooseCastMode { player, .. }
+        | Pending::ChoosePile { player, .. }
         | Pending::Arrange { player, .. }
         | Pending::YesNo { player, .. } => Some(*player),
         Pending::GameOver(_) => None,
@@ -928,6 +933,169 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Escape's "exile five other cards from your graveyard" (CR 702.138a)
+    /// is the same price asked with `min == max`: exactly that many go, and
+    /// they are the least valuable, so the Elves listed first stay.
+    #[test]
+    fn an_escape_exiles_exactly_its_count_and_the_least_valuable() {
+        use baylee_engine::choice::ChoicePrompt;
+        let me = PlayerId::new(0);
+        let (elves, wurm, other_wurm) = (obj(1), obj(2), obj(3));
+        let mut v = view(0, &[20, 20], vec![]);
+        v.graveyards[0] = vec![
+            carded(permanent(elves, me, 1), "Llanowar Elves", TypeSet::CREATURE),
+            carded(permanent(wurm, me, 6), "Endless Wurm", TypeSet::CREATURE),
+            carded(
+                permanent(other_wurm, me, 6),
+                "Endless Wurm",
+                TypeSet::CREATURE,
+            ),
+        ];
+        let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+            &v,
+            &Pending::ChooseCards {
+                player: v.seat,
+                options: vec![elves, wurm, other_wurm],
+                min: 2,
+                max: 2,
+                prompt: ChoicePrompt::CostExile,
+            },
+        );
+        let PlayerAction::ChooseObjects { mut objects } = action else {
+            panic!("expected cards, got {action:?}")
+        };
+        objects.sort();
+        assert_eq!(objects, vec![wurm, other_wurm], "two, and not the Elves");
+    }
+
+    /// Atraxa's "for each card type, you may put a card of that type … into
+    /// your hand": one of the type's cards is taken, and the best of them.
+    /// The Wurm is listed first on purpose, because the fallback answers
+    /// `options[..max]`; with no lands on the table the Elves are worth
+    /// 800 - 150 and the Wurm 800 - 750.
+    #[test]
+    fn a_card_of_a_revealed_type_is_taken_and_the_best_one() {
+        use baylee_engine::choice::ChoicePrompt;
+        let me = PlayerId::new(0);
+        let (elves, wurm) = (obj(1), obj(2));
+        let mut v = view(0, &[20, 20], vec![]);
+        v.graveyards[0] = vec![
+            carded(permanent(elves, me, 1), "Llanowar Elves", TypeSet::CREATURE),
+            carded(permanent(wurm, me, 6), "Endless Wurm", TypeSet::CREATURE),
+        ];
+        let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+            &v,
+            &Pending::ChooseCards {
+                player: v.seat,
+                options: vec![wurm, elves],
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::OneOfType {
+                    card_type: TypeSet::CREATURE,
+                },
+            },
+        );
+        assert_eq!(
+            action,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves]
+            }
+        );
+    }
+
+    /// A share of damage this seat divides (CR 601.2d): what finishes an
+    /// opponent's creature, its toughness less the damage already marked,
+    /// or a planeswalker's loyalty, within the question's bounds; the least
+    /// to one of its own, which leaves the most for the targets to come.
+    #[test]
+    fn a_divided_share_is_what_finishes_the_target() {
+        use baylee_engine::choice::NumberPrompt;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut hurt = permanent(obj(1), them, 3);
+        hurt.damage = 1;
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                hurt,
+                permanent(obj(2), them, 5),
+                walker(obj(3), them, 2),
+                permanent(obj(4), me, 1),
+            ],
+        );
+        for (target, expected, why) in [
+            (obj(1), 2, "a 3/3 with 1 marked"),
+            (obj(2), 3, "a 5/5 takes all the question allows"),
+            (obj(3), 2, "a planeswalker with 2 loyalty"),
+            (obj(4), 1, "the seat's own creature"),
+        ] {
+            let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+                &v,
+                &Pending::ChooseNumber {
+                    player: v.seat,
+                    min: 1,
+                    max: 3,
+                    reason: NumberPrompt::DivideDamage {
+                        target,
+                        index: 0,
+                        of: 2,
+                        left: 4,
+                    },
+                },
+            );
+            assert_eq!(action, PlayerAction::ChooseNumber(expected), "{why}");
+        }
+    }
+
+    /// Fury's targets: the opponent's creatures its 4 damage can finish,
+    /// the most valuable first, and not the 5/5 it cannot, which would
+    /// only take damage from one it can. With nothing it can finish, the
+    /// best of the opponent's takes it all; its own are never named.
+    #[test]
+    fn divided_damage_is_aimed_at_what_it_can_finish() {
+        use baylee_cards_dsl::Effect;
+        use baylee_engine::engine::DecisionContext;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let effects = [Effect::DealDamageDivided { amount: 4 }];
+        let context = DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        };
+        let aim = |battlefield: Vec<PublicObject>| {
+            let v = view(0, &[20, 20], battlefield);
+            let options = v.battlefield.iter().map(|o| o.id).collect();
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(
+                &v,
+                &Pending::ChooseTargets {
+                    player: v.seat,
+                    options,
+                    player_options: vec![],
+                    min: 0,
+                    max: 4,
+                    reason: baylee_engine::choice::TargetPrompt::Targets,
+                },
+                &context,
+            )
+        };
+        let chosen = |objects| PlayerAction::ChooseTargets {
+            objects,
+            players: vec![],
+        };
+        assert_eq!(
+            aim(vec![
+                permanent(obj(4), me, 1),
+                permanent(obj(1), them, 5),
+                permanent(obj(2), them, 3),
+                permanent(obj(3), them, 1),
+            ]),
+            chosen(vec![obj(2), obj(3)])
+        );
+        assert_eq!(
+            aim(vec![permanent(obj(4), me, 1), permanent(obj(1), them, 5)]),
+            chosen(vec![obj(1)])
+        );
     }
 
     #[test]
@@ -2109,12 +2277,15 @@ mod tests {
                 Defender::Planeswalker(obj(2)),
             ],
         };
-        for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
+        // Every profile, since the shallow ones ask the estimate too: until
+        // they did, only the two that search took the kill.
+        for (name, profile) in EVERY_PROFILE {
             assert_eq!(
                 HeuristicAgent::new(profile).act(&v, &pending),
                 PlayerAction::DeclareAttackers {
                     attackers: vec![(obj(1), Defender::Player(PlayerId::new(1)))]
-                }
+                },
+                "{name}"
             );
         }
     }
@@ -3878,6 +4049,44 @@ mod tests {
         );
     }
 
+    /// Crew (CR 702.122a) is answered by total power: the strongest
+    /// creatures first, until the number is reached, a creature with a
+    /// negative power never. A default profile answers it too, because the
+    /// seat is already paying the price.
+    #[test]
+    fn crew_taps_the_strongest_until_the_total_is_reached() {
+        let me = PlayerId::new(0);
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), me, 1),
+                permanent(obj(2), me, 3),
+                permanent(obj(3), me, 1),
+                permanent(obj(4), me, -1),
+            ],
+        );
+        let ask = |power| Pending::ChooseCards {
+            player: me,
+            options: vec![obj(1), obj(2), obj(3), obj(4)],
+            min: 1,
+            max: 4,
+            prompt: ChoicePrompt::CostCrew { power },
+        };
+        assert_eq!(
+            agent().act(&v, &ask(3)),
+            PlayerAction::ChooseObjects {
+                objects: vec![obj(2)]
+            }
+        );
+        assert_eq!(
+            agent().act(&v, &ask(5)),
+            PlayerAction::ChooseObjects {
+                objects: vec![obj(2), obj(1), obj(3)]
+            }
+        );
+    }
+
     /// A default-profile agent at a table with no teams.
     fn agent() -> HeuristicAgent {
         HeuristicAgent::new(AIProfile::default())
@@ -4105,6 +4314,17 @@ mod tests {
         assert!(defenders.contains(&first));
     }
 
+    /// Where `squad` is aimed by the walker rule, on a board that has
+    /// already been judged not to win.
+    fn aimed_at(
+        v: &PlayerView,
+        victim: PlayerId,
+        squad: &[ObjectId],
+        defenders: &[Defender],
+    ) -> Vec<(ObjectId, Defender)> {
+        combat::aim(&board::Board::new(v), victim, squad, defenders)
+    }
+
     /// A planeswalker is worth attacking only when the attack kills it:
     /// three 1/1s finish a 3-loyalty walker, so they go for the walker.
     #[test]
@@ -4120,8 +4340,11 @@ mod tests {
         let defenders = [Defender::Player(victim), Defender::Planeswalker(obj(20))];
 
         assert_eq!(
-            aim_at(&v, victim, &squad, &defenders),
-            Defender::Planeswalker(obj(20)),
+            aimed_at(&v, victim, &squad, &defenders),
+            squad
+                .iter()
+                .map(|id| (*id, Defender::Planeswalker(obj(20))))
+                .collect::<Vec<_>>(),
             "three power went to the player instead of killing the walker"
         );
     }
@@ -4141,9 +4364,136 @@ mod tests {
         let defenders = [Defender::Player(victim), Defender::Planeswalker(obj(20))];
 
         assert_eq!(
-            aim_at(&v, victim, &squad, &defenders),
-            Defender::Player(victim),
+            aimed_at(&v, victim, &squad, &defenders),
+            squad
+                .iter()
+                .map(|id| (*id, Defender::Player(victim)))
+                .collect::<Vec<_>>(),
             "the squad chipped a walker it could not kill"
+        );
+    }
+
+    /// How many attackers `profile` sends at each defender, in the order the
+    /// answer first names them.
+    fn attacks(profile: AIProfile, v: &PlayerView, pending: &Pending) -> Vec<(Defender, usize)> {
+        let PlayerAction::DeclareAttackers { attackers } =
+            HeuristicAgent::new(profile).act(v, pending)
+        else {
+            panic!("not an attack answer")
+        };
+        let mut split: Vec<(Defender, usize)> = Vec::new();
+        for (_, at) in attackers {
+            match split.iter_mut().find(|(d, _)| *d == at) {
+                Some((_, n)) => *n += 1,
+                None => split.push((at, 1)),
+            }
+        }
+        split
+    }
+
+    /// `count` creatures of `power` on seat 0; on seat 1 a player on `life`
+    /// with `blockers` untapped 1/1s and a 3-loyalty walker.
+    fn walker_board(count: u32, power: i16, life: i32, blockers: u32) -> (PlayerView, Pending) {
+        let victim = PlayerId::new(1);
+        let mut board: Vec<PublicObject> = (1..=count)
+            .map(|i| permanent(obj(i), PlayerId::new(0), power))
+            .collect();
+        board.extend((0..blockers).map(|i| permanent(obj(100 + i), victim, 1)));
+        board.push(walker(obj(200), victim, 3));
+        let v = view(0, &[20, life], board);
+        let pending = Pending::ChooseAttackers {
+            player: v.seat,
+            attackers: (1..=count).map(obj).collect(),
+            defenders: vec![Defender::Player(victim), Defender::Planeswalker(obj(200))],
+        };
+        (v, pending)
+    }
+
+    /// Self-play r001 #431: a token board that doubled every turn attacked
+    /// the walker its opponent recast from the command zone, every turn,
+    /// and the opponent's life never moved. An attack that wins goes at the
+    /// player, for every profile.
+    ///
+    /// Two boards, because two things were blind to the kill. Twenty-four
+    /// 1/1s past two chump blockers are twenty-two into twenty: more than
+    /// the sixteen creatures the search takes, so no profile had a proof,
+    /// and every one of them sent all twenty-four at a 3-loyalty walker.
+    /// Three 5/5s into ten life with nothing to block is a board the search
+    /// does prove, which is why SHARP and EXPERT already took it and the
+    /// three shallow profiles, which never search, did not.
+    #[test]
+    fn an_attack_that_wins_goes_at_the_player_and_not_at_a_walker() {
+        let player = Defender::Player(PlayerId::new(1));
+        for (count, power, life, blockers) in [(24, 1, 20, 2), (3, 5, 10, 0)] {
+            let (v, pending) = walker_board(count, power, life, blockers);
+            for (name, profile) in EVERY_PROFILE {
+                assert_eq!(
+                    attacks(profile, &v, &pending),
+                    vec![(player, count as usize)],
+                    "{name}: {count} {power}/{power}s past {blockers} blockers into {life} life"
+                );
+            }
+        }
+    }
+
+    /// An attack that does not win still kills the walker it can, with what
+    /// it takes and not with everything: past one untapped 1/1, four 1/1s
+    /// are what kill a 3-loyalty walker, and the other four hit the player.
+    /// It used to send all eight at the walker.
+    #[test]
+    fn a_walker_is_sent_what_kills_it_and_the_rest_hits_the_player() {
+        let victim = PlayerId::new(1);
+        let at_walker = Defender::Planeswalker(obj(200));
+        let (v, pending) = walker_board(8, 1, 20, 1);
+        let squad: Vec<ObjectId> = (1..=8).map(obj).collect();
+        let defenders = [Defender::Player(victim), at_walker];
+        let aimed = aimed_at(&v, victim, &squad, &defenders);
+        assert_eq!(
+            aimed.iter().map(|(id, _)| *id).collect::<Vec<_>>(),
+            squad,
+            "the attack lost a creature or its order"
+        );
+        assert_eq!(
+            aimed.iter().filter(|(_, d)| *d == at_walker).count(),
+            4,
+            "one blocker stops one attacker, so the walker needs four: {aimed:?}"
+        );
+        // Every profile that attacks at all splits it the same way: which
+        // creatures go is the profile's, where they go is not.
+        for (name, profile) in EVERY_PROFILE {
+            let split = attacks(profile, &v, &pending);
+            let sent: usize = split.iter().map(|(_, n)| n).sum();
+            let walker = split
+                .iter()
+                .find(|(d, _)| *d == at_walker)
+                .map_or(0, |(_, n)| *n);
+            assert_eq!(
+                walker,
+                if sent > 4 { 4 } else { sent },
+                "{name} sent {walker} of {sent} at the walker"
+            );
+        }
+    }
+
+    /// A walker every blocker could save is still sent the whole squad, as
+    /// it was before: nothing here is spare, and the defender has to block
+    /// to keep it.
+    #[test]
+    fn a_walker_the_blockers_could_save_is_still_sent_everything() {
+        let victim = PlayerId::new(1);
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), PlayerId::new(0), 5),
+                permanent(obj(100), victim, 1),
+                walker(obj(200), victim, 3),
+            ],
+        );
+        let defenders = [Defender::Player(victim), Defender::Planeswalker(obj(200))];
+        assert_eq!(
+            aimed_at(&v, victim, &[obj(1)], &defenders),
+            vec![(obj(1), Defender::Planeswalker(obj(200)))]
         );
     }
 
@@ -5128,6 +5478,180 @@ mod tests {
                 ),
                 PlayerAction::ChooseMode(expected),
                 "against {what}, only mode {expected} of Sheoldred's Edict does anything"
+            );
+        }
+    }
+
+    /// "Choose one or more —" is chosen by what each chosen mode reaches.
+    ///
+    /// Farewell's fifteen sets, as the engine offers them: bit `i` is mode
+    /// `i`, in increasing order. A set holding a mode that exiles nothing is
+    /// paid for and partly idle, so it loses to every set without one; of
+    /// the rest, the one reaching the most wins; and "exile all graveyards",
+    /// which this agent cannot read, is not bought for its own sake, because
+    /// the earlier (smaller) set breaks the tie. Against a lone creature that
+    /// is the creatures alone. Against an artifact creature it is artifacts
+    /// and creatures both, which is the half the first answer cannot pass
+    /// by accident. Against nothing at all it is the graveyards: the one
+    /// mode that may do something beats the first printed, which does
+    /// nothing.
+    #[test]
+    fn a_spell_of_several_modes_takes_the_set_that_reaches_the_most() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        let them = PlayerId::new(1);
+        let options: Vec<CastModeDesc> = (1..16_u8)
+            .map(|set| CastModeDesc {
+                index: set - 1,
+                kind: CastModeKind::Modes(set),
+                cost: baylee_core::mana::ManaCost::parse("{4}{W}{W}"),
+            })
+            .collect();
+        let strix = |types| vec![carded(permanent(obj(1), them, 2), "Baleful Strix", types)];
+        for (what, board, expected) in [
+            ("a creature", strix(TypeSet::CREATURE), 0b0010),
+            (
+                "an artifact creature",
+                strix(TypeSet::ARTIFACT.union(TypeSet::CREATURE)),
+                0b0011,
+            ),
+            ("nothing at all", vec![], 0b1000),
+        ] {
+            let mut v = view(0, &[20, 20], board);
+            v.stack = vec![carded(
+                permanent(obj(9), PlayerId::new(0), 0),
+                "Farewell",
+                TypeSet::SORCERY,
+            )];
+            let answer = agent().act(
+                &v,
+                &Pending::ChooseCastMode {
+                    player: v.seat,
+                    object: obj(9),
+                    options: options.clone(),
+                },
+            );
+            let PlayerAction::ChooseMode(slot) = answer else {
+                panic!("expected a set of modes, got {answer:?}")
+            };
+            assert_eq!(
+                options[slot].kind,
+                CastModeKind::Modes(expected),
+                "against {what}"
+            );
+        }
+    }
+
+    /// "Choose a creature you control" reaches something when there is one
+    /// of the agent's own to choose. Final Showdown against a board with a
+    /// creature on each side: the destruction reaches, and so does keeping
+    /// the agent's own creature out of it, so both are bought. With nothing
+    /// of its own the choice would find nothing, and the destruction is
+    /// cast alone.
+    #[test]
+    fn a_spree_spell_buys_the_mode_that_saves_its_own_creature() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let options: Vec<CastModeDesc> = (1..8_u8)
+            .map(|set| CastModeDesc {
+                index: set - 1,
+                kind: CastModeKind::Modes(set),
+                cost: baylee_core::mana::ManaCost::ZERO,
+            })
+            .collect();
+        let creature = |id, seat| {
+            carded(
+                permanent(obj(id), seat, 2),
+                "Baleful Strix",
+                TypeSet::CREATURE,
+            )
+        };
+        for (what, board, expected) in [
+            (
+                "a creature each",
+                vec![creature(1, me), creature(2, them)],
+                0b110,
+            ),
+            ("only theirs", vec![creature(2, them)], 0b100),
+        ] {
+            let mut v = view(0, &[20, 20], board);
+            v.stack = vec![carded(
+                permanent(obj(9), me, 0),
+                "Final Showdown",
+                TypeSet::INSTANT,
+            )];
+            let answer = agent().act(
+                &v,
+                &Pending::ChooseCastMode {
+                    player: v.seat,
+                    object: obj(9),
+                    options: options.clone(),
+                },
+            );
+            let PlayerAction::ChooseMode(slot) = answer else {
+                panic!("expected a set of modes, got {answer:?}")
+            };
+            assert_eq!(
+                options[slot].kind,
+                CastModeKind::Modes(expected),
+                "against {what}"
+            );
+        }
+    }
+
+    /// "Choose two" with nothing on the stack to counter: the engine offers
+    /// the three pairs of bounce, tap and draw. "Tap all creatures your
+    /// opponents control" is read off the board: against an opposing
+    /// creature it reaches and bounce plus tap is taken; against no creature
+    /// at all it would be paid for and idle, so bounce plus draw is. Before
+    /// the agent read the tap, both boards answered bounce plus tap.
+    #[test]
+    fn choose_two_leaves_out_a_tap_with_nothing_to_tap() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let options: Vec<CastModeDesc> = [0b0110_u8, 0b1010, 0b1100]
+            .into_iter()
+            .enumerate()
+            .map(|(index, set)| CastModeDesc {
+                index: u8::try_from(index).unwrap(),
+                kind: CastModeKind::Modes(set),
+                cost: baylee_core::mana::ManaCost::parse("{1}{U}{U}{U}"),
+            })
+            .collect();
+        let land = |id, seat| carded(permanent(obj(id), seat, 0), "Island", TypeSet::LAND);
+        let creature = carded(
+            permanent(obj(2), them, 2),
+            "Baleful Strix",
+            TypeSet::CREATURE,
+        );
+        for (what, board, expected) in [
+            (
+                "a creature of theirs",
+                vec![land(1, them), creature],
+                0b0110,
+            ),
+            ("only lands", vec![land(1, them), land(3, me)], 0b1010),
+        ] {
+            let mut v = view(0, &[20, 20], board);
+            v.stack = vec![carded(
+                permanent(obj(9), me, 0),
+                "Cryptic Command",
+                TypeSet::INSTANT,
+            )];
+            let answer = agent().act(
+                &v,
+                &Pending::ChooseCastMode {
+                    player: v.seat,
+                    object: obj(9),
+                    options: options.clone(),
+                },
+            );
+            let PlayerAction::ChooseMode(slot) = answer else {
+                panic!("expected a set of modes, got {answer:?}")
+            };
+            assert_eq!(
+                options[slot].kind,
+                CastModeKind::Modes(expected),
+                "against {what}"
             );
         }
     }

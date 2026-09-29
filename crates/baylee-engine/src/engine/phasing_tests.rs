@@ -152,6 +152,7 @@ fn resolve_now(
         mana_ability: false,
         countered_source: None,
         target_lki: None,
+        retarget_left: None,
     };
     assert!(
         matches!(
@@ -829,11 +830,16 @@ fn a_phased_out_permanent_is_not_offered_as_a_target() {
 /// new walk without one comes back here as a row.
 const UNAUDITED: &[(&str, usize)] = &[];
 
-/// Where the lint looks: the engine's own source, tests excluded.
+/// Where the lint looks: the engine's own source, tests excluded. Any
+/// directory named `*_tests` is test code, not the two there were: a list of
+/// them read `mechanics_tests/` as engine source when it arrived.
 fn is_test_source(rel: &str) -> bool {
     rel.ends_with("_tests.rs")
-        || rel.starts_with("engine/card_tests/")
-        || rel.starts_with("engine/combo_tests/")
+        || rel
+            .split('/')
+            .rev()
+            .skip(1)
+            .any(|dir| dir.ends_with("_tests"))
         || matches!(
             rel,
             "engine/testkit.rs" | "engine/synthetic.rs" | "engine/tests.rs"

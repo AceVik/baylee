@@ -30,8 +30,8 @@ pub const ALL_MANA_COLORS: &[baylee_core::mana::ManaColor] = &[
 pub static ANY_COLOR_MANA: &[crate::effect::Effect] = &[crate::effect::Effect::mana_of_any_color()];
 
 pub use ability::{
-    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod, SpellMode,
-    StepKind, Trigger, TriggerEventKind,
+    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod, ModeCount,
+    SpellMode, StepKind, Trigger, TriggerEventKind,
 };
 pub use build::prelude;
 pub use build::{
@@ -40,9 +40,9 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, ManaValueBound, ManaValueCmp,
-    PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef,
-    ZoneSel,
+    Amount, CounterKind, Effect, ExileUntil, Find, ManaRestriction, ManaSource, ManaValueBound,
+    ManaValueCmp, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot,
+    TargetSpec, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use manaread::{
@@ -253,6 +253,16 @@ pub struct Prototype {
     pub toughness: i16,
 }
 
+/// Escape's cost (CR 702.138a): "Escape—[mana], Exile [N] other cards from
+/// your graveyard." Every printed escape cost is that shape.
+#[derive(Clone, Copy, Debug)]
+pub struct Escape {
+    /// The mana part, paid rather than the mana cost.
+    pub cost: ManaCost,
+    /// How many *other* cards in the caster's graveyard are exiled with it.
+    pub exile: u8,
+}
+
 /// One face of a card.
 #[derive(Debug)]
 #[allow(clippy::struct_excessive_bools)] // card faces accumulate boolean rule markers
@@ -332,6 +342,11 @@ pub struct FaceDef {
     /// Miracle cost: when revealed as the first card drawn this turn, the
     /// card may be cast for this cost (CR 702.94).
     pub miracle: Option<ManaCost>,
+    /// Flashback (CR 702.34a): this card may be cast from its owner's
+    /// graveyard for this cost rather than its mana cost, and is exiled
+    /// instead of going anywhere else afterwards. Mana only: a flashback
+    /// that costs something other than mana is not written here.
+    pub flashback: Option<ManaCost>,
     /// Delve (CR 702.66): each card exiled from your graveyard while
     /// casting pays for {1} — as many cards as the spell's total cost has
     /// generic mana, and no more (CR 702.66a).
@@ -358,6 +373,16 @@ pub struct FaceDef {
     /// resolves, exile the card; the front face may then be cast from
     /// exile.
     pub adventure: bool,
+    /// Dash (CR 702.109a): the card may be cast for this cost rather than
+    /// its mana cost; if it was, the permanent it becomes has haste and
+    /// returns to its owner's hand at the beginning of the next end step.
+    /// Mana only, as every printed dash cost is.
+    pub dash: Option<ManaCost>,
+    /// Escape (CR 702.138a): the card may be cast from its owner's
+    /// graveyard for this cost rather than its mana cost. A spell cast so,
+    /// and the permanent it becomes, "escaped" (CR 702.138b), which
+    /// `Condition::Escaped` asks.
+    pub escape: Option<Escape>,
 }
 
 impl FaceDef {
@@ -392,12 +417,15 @@ impl FaceDef {
         color_indicator: ColorSet::EMPTY,
         castable_from_hand: true,
         miracle: None,
+        flashback: None,
         delve: false,
         convoke: false,
         waterbend: false,
         cost_reduction: None,
         disturb: false,
         adventure: false,
+        dash: None,
+        escape: None,
     };
 }
 

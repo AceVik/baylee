@@ -166,11 +166,57 @@ impl<L: CardLookup> Engine<L> {
                 if !legal.castable.contains(&card) {
                     return Err(EngineError::IllegalAction("spell not castable now"));
                 }
+                // A permission that waives the mana cost is the only way this
+                // card is cast from where it lies (Dauthi Voidwalker).
+                let in_hand = self
+                    .state
+                    .object(card)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Hand);
+                if !in_hand
+                    && casting::play_permission(&self.state, player, card).is_some_and(|p| p.free)
+                {
+                    return self.start_permitted_free_cast(player, card);
+                }
                 self.start_cast_wizard(player, card)
+            }
+            (Pending::ChoosePile { player: p, piles }, PlayerAction::ChooseMode(index))
+                if *p == player =>
+            {
+                if index >= piles.len() {
+                    return Err(EngineError::IllegalAction("no such pile"));
+                }
+                let mut res = self.resolution.take().expect("pile choice suspended");
+                match resolve::resume_pile(&mut self.state, &mut res, index) {
+                    resolve::Flow::Wait(pending) => {
+                        self.resolution = Some(res);
+                        self.pending = pending;
+                        self.awaiting_answer = true;
+                    }
+                    resolve::Flow::Complete => self.finish_resolution(&res),
+                }
+                Ok(())
             }
             (Pending::ChooseCastMode { player: p, .. }, PlayerAction::ChooseMode(index))
                 if *p == player =>
             {
+                // What the option at this position actually names. A modal
+                // trigger drops the modes it cannot legally choose
+                // (CR 603.3c), so the position answered is not the mode
+                // number — and the answer has to be inside the list that was
+                // offered, which no arm here used to check.
+                //
+                // Checked before anything is taken. A position past the end
+                // used to be refused after the plan or the cast wizard had
+                // been taken out of its slot, and a refusal does not put
+                // either back: the question stayed on the table with nothing
+                // behind it, and the next answer to it, however legal,
+                // panicked on the missing wizard.
+                let Some(kind) = (match &self.pending {
+                    Pending::ChooseCastMode { options, .. } => options.get(index).map(|o| o.kind),
+                    _ => None,
+                }) else {
+                    return Err(EngineError::IllegalAction("no such cast mode"));
+                };
                 // `take` once. Two `if let Some(…) = self.pending_plan.take()`
                 // in a row is one condition and two takes: the first arm
                 // *consumes* the plan whatever it holds, so the second could
@@ -178,15 +224,6 @@ impl<L: CardLookup> Engine<L> {
                 // unreachable for that reason as well as for the one entry 34
                 // names, and one fault was hiding the other.
                 let plan = self.pending_plan.take();
-                // What the option at this position actually names. A modal
-                // trigger drops the modes it cannot legally choose
-                // (CR 603.3c), so the position answered is not the mode
-                // number — and the answer has to be inside the list that was
-                // offered, which no arm here used to check.
-                let kind = match &self.pending {
-                    Pending::ChooseCastMode { options, .. } => options.get(index).map(|o| o.kind),
-                    _ => None,
-                };
                 match plan {
                     // MDFC land-face choice (pathways).
                     Some(PlanKind::PlayLandFace { card }) => {
@@ -212,11 +249,18 @@ impl<L: CardLookup> Engine<L> {
                         source,
                         ability_index,
                     }) => {
-                        let Some(CastModeKind::Mode(mode)) = kind else {
-                            return Err(EngineError::IllegalAction("no such cast mode"));
-                        };
-                        let Some(front) = self.trigger_queue.front_mut() else {
-                            return Err(EngineError::IllegalAction("no trigger awaiting a mode"));
+                        // Refused with the plan back in its slot, for the
+                        // reason the position is checked above.
+                        let (CastModeKind::Mode(mode), Some(front)) =
+                            (kind, self.trigger_queue.front_mut())
+                        else {
+                            self.pending_plan = Some(PlanKind::ModalTrigger {
+                                source,
+                                ability_index,
+                            });
+                            return Err(EngineError::IllegalAction(
+                                "no trigger awaiting this mode",
+                            ));
                         };
                         debug_assert!(
                             front.source == source && front.ability_index == ability_index,
@@ -225,10 +269,18 @@ impl<L: CardLookup> Engine<L> {
                         front.chosen_mode = Some(mode as u8);
                         return Ok(());
                     }
-                    _ => {}
+                    other => self.pending_plan = other,
                 }
-                let mut wizard = self.cast_wizard.take().expect("wizard active");
-                let Some(option) = wizard.options.get(index).map(|o| o.kind) else {
+                // The wizard's own list is the one the position indexes, and
+                // it is read before the wizard leaves its slot.
+                let Some(option) = self
+                    .cast_wizard
+                    .as_ref()
+                    .and_then(|w| w.options.get(index).map(|o| o.kind))
+                else {
+                    return Err(EngineError::IllegalAction("no such cast mode"));
+                };
+                let Some(mut wizard) = self.cast_wizard.take() else {
                     return Err(EngineError::IllegalAction("no such cast mode"));
                 };
                 wizard.option = Some(option);
@@ -243,7 +295,8 @@ impl<L: CardLookup> Engine<L> {
                 // chosen cost has no X.
                 wizard.stage = cast_wizard::WizardStage::XValue;
                 self.cast_wizard = Some(wizard);
-                self.advance_cast_wizard()
+                self.continue_cast_wizard();
+                Ok(())
             }
             (
                 Pending::ChooseNumber {
@@ -268,13 +321,33 @@ impl<L: CardLookup> Engine<L> {
                 // tells them apart and it has to be read *before* the
                 // `expect` below — which is the whole reason the branch is
                 // here rather than after it.
-                if let Some(PlanKind::ChooseActivationX {
-                    source,
-                    ability_index,
-                }) = self.pending_plan.take()
-                {
-                    self.activation_x = Some(n);
-                    return self.start_activation(player, source, ability_index, SmallVec::new());
+                match self.pending_plan.take() {
+                    Some(PlanKind::ChooseActivationX {
+                        source,
+                        ability_index,
+                    }) => {
+                        self.activation_x = Some(n);
+                        if self
+                            .start_activation(player, source, ability_index, SmallVec::new())
+                            .is_err()
+                        {
+                            self.reverse_activation(player);
+                        }
+                        return Ok(());
+                    }
+                    // One target's share of a division; the next is asked,
+                    // or the last takes the rest.
+                    Some(PlanKind::DivideDamage {
+                        on_stack,
+                        targets,
+                        mut shares,
+                        total,
+                    }) => {
+                        shares.push(n);
+                        self.ask_division(player, on_stack, targets, shares, total);
+                        return Ok(());
+                    }
+                    _ => {}
                 }
                 // And the wizard asks two numbers, told apart by where it
                 // stands: X (CR 107.3) before the kicker, and how many times
@@ -288,13 +361,25 @@ impl<L: CardLookup> Engine<L> {
                     wizard.stage = cast_wizard::WizardStage::Kicker;
                 }
                 self.cast_wizard = Some(wizard);
-                self.advance_cast_wizard()
+                self.continue_cast_wizard();
+                Ok(())
             }
             (Pending::ChoosePlayer { player: p, options }, PlayerAction::ChoosePlayer(chosen))
                 if *p == player =>
             {
                 if !options.contains(&chosen) {
                     return Err(EngineError::IllegalAction("player not among the options"));
+                }
+                // The graveyard an activation's targets come from; the
+                // target question follows, narrowed to it.
+                if let Some(PlanKind::ChooseActivationGraveyard {
+                    source,
+                    ability_index,
+                }) = self.pending_plan
+                {
+                    self.pending_plan = None;
+                    self.activation_graveyard = Some(chosen);
+                    return self.start_activation(player, source, ability_index, SmallVec::new());
                 }
                 if self.resolution.as_ref().is_some_and(|r| {
                     matches!(
@@ -304,6 +389,28 @@ impl<L: CardLookup> Engine<L> {
                 }) {
                     let mut res = self.resolution.take().expect("rotation suspended");
                     match resolve::resume_control_rotation(&mut self.state, &mut res, chosen) {
+                        resolve::Flow::Wait(pending) => {
+                            self.resolution = Some(res);
+                            self.pending = pending;
+                            self.awaiting_answer = true;
+                        }
+                        resolve::Flow::Complete => self.finish_resolution(&res),
+                    }
+                    return Ok(());
+                }
+                // The opponent who chooses a split search's graveyard cards,
+                // or who separates Fact or Fiction's piles.
+                if self.resolution.as_ref().is_some_and(|r| {
+                    matches!(
+                        r.awaiting,
+                        Some(
+                            resolve::AwaitingOp::PickSplitter { .. }
+                                | resolve::AwaitingOp::PickSeparator { .. }
+                        )
+                    )
+                }) {
+                    let mut res = self.resolution.take().expect("splitter suspended");
+                    match resolve::resume_pick_splitter(&mut res, chosen) {
                         resolve::Flow::Wait(pending) => {
                             self.resolution = Some(res);
                             self.pending = pending;
@@ -332,7 +439,8 @@ impl<L: CardLookup> Engine<L> {
                 wizard.chosen_player = Some(chosen);
                 wizard.stage = cast_wizard::WizardStage::SecondTargets;
                 self.cast_wizard = Some(wizard);
-                self.advance_cast_wizard()
+                self.continue_cast_wizard();
+                Ok(())
             }
             (
                 Pending::Priority { player: p, legal },
@@ -352,6 +460,7 @@ impl<L: CardLookup> Engine<L> {
                 // collected to the next one.
                 self.activation_cost_choices.clear();
                 self.activation_x = None;
+                self.activation_phyrexian.clear();
                 self.activation_second_targets = None;
                 self.activation_targets_answered = false;
                 self.start_activation(player, source, ability_index, SmallVec::new())
@@ -466,7 +575,8 @@ impl<L: CardLookup> Engine<L> {
                         wizard.stage = cast_wizard::WizardStage::SecondTargets;
                     }
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 // Resolution path: a resolving effect asked for targets rather
                 // than a cast or an activation — redirecting a spell, or
@@ -488,7 +598,15 @@ impl<L: CardLookup> Engine<L> {
                     }
                     return Ok(());
                 }
-                let plan = self.pending_plan.take().expect("target plan set");
+                // Every target question is published beside what answers
+                // it: a cast in progress, a suspended resolution, or a plan.
+                // With none of the three there is nothing for the answer to
+                // continue, and refusing it changes nothing.
+                let Some(plan) = self.pending_plan.take() else {
+                    return Err(EngineError::IllegalAction(
+                        "no target choice is waiting for an answer",
+                    ));
+                };
                 let targets: SmallVec<[ObjectId; 2]> = objects.into_iter().collect();
                 match plan {
                     // Answered with a number and taken off the plan there, so
@@ -497,6 +615,12 @@ impl<L: CardLookup> Engine<L> {
                     // answered somewhere else should have to say so here.
                     PlanKind::ChooseActivationX { .. } => {
                         unreachable!("activation-number plans are answered via ChooseNumber")
+                    }
+                    PlanKind::ChooseActivationGraveyard { .. } => {
+                        unreachable!("a graveyard is answered via ChoosePlayer")
+                    }
+                    PlanKind::ChoosePhyrexianLife { .. } => {
+                        unreachable!("a Phyrexian symbol is answered via YesNo")
                     }
                     PlanKind::ActivateAbilitySecondTargets {
                         source,
@@ -516,7 +640,12 @@ impl<L: CardLookup> Engine<L> {
                         } else {
                             self.activation_second_targets = Some(second);
                             self.activation_target_players = target_players;
-                            self.start_activation(player, source, ability_index, first)?;
+                            if self
+                                .start_activation(player, source, ability_index, first)
+                                .is_err()
+                            {
+                                self.reverse_activation(player);
+                            }
                         }
                     }
                     PlanKind::ActivateAbility {
@@ -524,19 +653,10 @@ impl<L: CardLookup> Engine<L> {
                         ability_index,
                     } => {
                         // Loyalty abilities complete via their own finish path
-                        // (no guard, no re-payment).
-                        if matches!(
-                            self.state
-                                .object(source)
-                                .and_then(|o| {
-                                    let face = o.face_index as usize;
-                                    o.card
-                                        .and_then(|c| self.lookup.card(c.index))
-                                        .map(|def| def.abilities_for_face(face))
-                                })
-                                .and_then(|abilities| abilities.get(ability_index as usize)),
-                            Some(AbilityDef::Loyalty { .. })
-                        ) {
+                        // (no guard, no re-payment). Asked of the same list
+                        // `start_activation` asked when it chose that path,
+                        // which for a copied walker is not its card's.
+                        if self.loyalty_cost(source, ability_index).is_some() {
                             self.continue_loyalty_activation(
                                 player,
                                 source,
@@ -550,14 +670,22 @@ impl<L: CardLookup> Engine<L> {
                             // whichever activation came next.
                             self.activation_target_players.clone_from(&players);
                             self.activation_targets_answered = true;
-                            self.start_activation(player, source, ability_index, targets)?;
+                            if self
+                                .start_activation(player, source, ability_index, targets)
+                                .is_err()
+                            {
+                                self.reverse_activation(player);
+                            }
                         }
                     }
                     // Set only beside a `Pending::ChooseCards`, and answered
                     // in that arm. Named rather than swept into a `_` so a
                     // new `PlanKind` is still a compile error here, which is
-                    // how this arm came to be written at all.
+                    // how this arm came to be written at all. Refused with
+                    // the plan put back, so a refusal leaves the engine as
+                    // it found it.
                     PlanKind::PayActivationCost { .. } => {
+                        self.pending_plan = Some(plan);
                         return Err(EngineError::IllegalAction(
                             "an activation cost is not a target choice",
                         ));
@@ -567,6 +695,7 @@ impl<L: CardLookup> Engine<L> {
                     // the step it belongs to grants nobody priority to cast
                     // anything that could be.
                     PlanKind::UntapChoice => {
+                        self.pending_plan = Some(plan);
                         return Err(EngineError::IllegalAction(
                             "the untap determination is not a target choice",
                         ));
@@ -588,9 +717,13 @@ impl<L: CardLookup> Engine<L> {
                                 match self.ask_next_opponent(
                                     controller,
                                     source,
-                                    ability_index,
-                                    mode,
                                     *asking,
+                                    |asking| PlanKind::Trigger {
+                                        source,
+                                        ability_index,
+                                        mode,
+                                        per_opponent: Some(asking),
+                                    },
                                 ) {
                                     None => return Ok(()),
                                     Some(all) => all,
@@ -644,6 +777,18 @@ impl<L: CardLookup> Engine<L> {
                                 obj.chosen_player = Some(only);
                             }
                         }
+                        // A second instance of "target" is asked now that the
+                        // first is on the stack object it binds against, and
+                        // a division once the targets are known.
+                        if !self.ask_trigger_second_target() {
+                            self.ask_trigger_division();
+                        }
+                    }
+                    PlanKind::TriggerSecondTarget { on_stack } => {
+                        if let Some(obj) = self.state.object_mut(on_stack) {
+                            let req = obj.second_target_req();
+                            obj.set_second(targets.into_iter().collect(), req);
+                        }
                     }
                     PlanKind::EntryTap { .. } => {
                         unreachable!("entry-tap plans are answered via YesNo")
@@ -679,12 +824,46 @@ impl<L: CardLookup> Engine<L> {
                         }
                         if let Some(&target) = targets.first() {
                             self.apply_copy_choice(object, target);
+                            // A permanent spell's arrival is scanned after
+                            // this answer, and the scan puts the copy's
+                            // starting loyalty on it. Any other door asked
+                            // from inside that scan, after its loyalty step
+                            // had read the copier's own values, so the
+                            // copied walker's loyalty is put here (CR 306.5b,
+                            // CR 614.12).
+                            if !before_entry {
+                                self.put_starting_loyalty(object);
+                            }
                         }
                     }
                     PlanKind::EntryReveal { .. } => {
                         unreachable!("entry-reveal plans are answered beside Pending::ChooseCards")
                     }
-                    PlanKind::SyntheticTriggerTarget { trigger } => {
+                    PlanKind::SyntheticTriggerTarget {
+                        trigger,
+                        per_opponent,
+                    } => {
+                        // One opponent answered; the next is asked, as on the
+                        // printed path above.
+                        let targets = match per_opponent {
+                            Some(mut asking) => {
+                                asking.gathered.extend(targets);
+                                let plan_t = trigger.clone();
+                                match self.ask_next_opponent(
+                                    trigger.controller,
+                                    trigger.source,
+                                    *asking,
+                                    |asking| PlanKind::SyntheticTriggerTarget {
+                                        trigger: plan_t,
+                                        per_opponent: Some(asking),
+                                    },
+                                ) {
+                                    None => return Ok(()),
+                                    Some(all) => all,
+                                }
+                            }
+                            None => targets,
+                        };
                         // No pop, unlike `PlanKind::Trigger` above. The
                         // ordinary targeted path publishes its question and
                         // returns *before* `collect_triggers` reaches the pop
@@ -709,8 +888,11 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::CommanderZone { .. } => {
                         unreachable!("command-zone plans are answered via YesNo")
                     }
-                    PlanKind::Miracle { .. } => {
-                        unreachable!("miracle plans are answered via YesNo")
+                    PlanKind::Miracle { .. } | PlanKind::Discovered { .. } => {
+                        unreachable!("miracle and discover plans are answered via YesNo")
+                    }
+                    PlanKind::DivideDamage { .. } => {
+                        unreachable!("division plans are answered via ChooseNumber")
                     }
                 }
                 Ok(())
@@ -858,6 +1040,18 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
+                // An activation's Phyrexian symbol: yes is 2 life, no is its
+                // mana (CR 107.4f). Nothing is paid yet; the answer is kept
+                // and the activation goes on to its next question.
+                if let Some(PlanKind::ChoosePhyrexianLife {
+                    source,
+                    ability_index,
+                }) = self.pending_plan
+                {
+                    self.pending_plan = None;
+                    self.activation_phyrexian.push(answer);
+                    return self.start_activation(player, source, ability_index, SmallVec::new());
+                }
                 // A draw offer: unanimous or nothing (CR 104.4i).
                 if matches!(self.pending_plan, Some(PlanKind::DrawOffer { .. })) {
                     let Some(PlanKind::DrawOffer {
@@ -987,35 +1181,33 @@ impl<L: CardLookup> Engine<L> {
                     if let Some((payer, mana)) = asked
                         && answer
                         && payer == player
+                        && !self.pool_pays_tax(player, mana)
                     {
-                        let pool = self.state.players[player.get() as usize].mana_pool.total();
-                        if pool < u32::from(mana) {
-                            // Narrowed before any window exists, so the
-                            // resolution is never lifted out of its slot for a
-                            // window that then turns out not to be worth
-                            // opening — a state that cannot be entered needs
-                            // no way back out of it.
-                            let mut legal = self.compute_legal(player);
-                            self.narrow_to_mana(&mut legal);
-                            if legal.has_mana_source() {
-                                let suspended = self
-                                    .resolution
-                                    .take()
-                                    .expect("the arm above matched on it being suspended");
-                                self.mana_window = Some(PaymentWindow {
-                                    player,
-                                    suspended: PaymentContinuation::Tax(Box::new(suspended)),
-                                });
-                                self.pending = Pending::Priority {
-                                    player,
-                                    legal: Box::new(legal),
-                                };
-                                self.awaiting_answer = true;
-                                return Ok(());
-                            }
-                            // Nothing to press: no window is opened at all, and
-                            // the payment fails the way it always has.
+                        // Narrowed before any window exists, so the
+                        // resolution is never lifted out of its slot for a
+                        // window that then turns out not to be worth
+                        // opening — a state that cannot be entered needs
+                        // no way back out of it.
+                        let mut legal = self.compute_legal(player);
+                        self.narrow_to_mana(&mut legal);
+                        if legal.has_mana_source() {
+                            let suspended = self
+                                .resolution
+                                .take()
+                                .expect("the arm above matched on it being suspended");
+                            self.mana_window = Some(PaymentWindow {
+                                player,
+                                suspended: PaymentContinuation::Tax(Box::new(suspended)),
+                            });
+                            self.pending = Pending::Priority {
+                                player,
+                                legal: Box::new(legal),
+                            };
+                            self.awaiting_answer = true;
+                            return Ok(());
                         }
+                        // Nothing to press: no window is opened at all, and
+                        // the payment fails the way it always has.
                     }
                     let mut res = self.resolution.take().expect("resolution suspended");
                     let answer = answer && self.can_settle_tax(&res);
@@ -1061,9 +1253,34 @@ impl<L: CardLookup> Engine<L> {
                     let Some(PlanKind::Miracle { card }) = self.pending_plan.take() else {
                         unreachable!()
                     };
+                    // "Yes" is taken like every answer a question offers.
+                    // A cast it cannot follow through is reversed (CR 601.2,
+                    // 732.1) and the card stays in hand: the offer was the
+                    // miracle's one chance (CR 702.94a), so that is a "no".
+                    // It used to be refused, which a driver that proposes
+                    // yes again reads as a question with no answer (the
+                    // arena, Metamorphosis Fanatic), and before that it spent
+                    // the offer and then refused, which no record could
+                    // replay (r001 games 1581, 3288, 3554).
                     if answer {
-                        return self.start_miracle_cast(player, card);
+                        // `start_miracle_cast` touches nothing on its way
+                        // to an error, so what is left is the declined offer.
+                        let _ = self.start_miracle_cast(player, card);
                     }
+                    return Ok(());
+                }
+                // A discovered card (CR 701.57a): yes casts it without paying
+                // its mana cost, and "if you don't cast it, put that card
+                // into your hand" — a no, or a cast the wizard refuses after
+                // all.
+                if matches!(self.pending_plan, Some(PlanKind::Discovered { .. })) {
+                    let Some(PlanKind::Discovered { card }) = self.pending_plan.take() else {
+                        unreachable!()
+                    };
+                    if answer && self.start_free_cast(player, card).is_ok() {
+                        return Ok(());
+                    }
+                    self.discovered_to_hand(card);
                     return Ok(());
                 }
                 // Shockland entry choice: pay life or enter tapped.
@@ -1090,7 +1307,8 @@ impl<L: CardLookup> Engine<L> {
                     wizard.kicked = answer;
                     wizard.stage = cast_wizard::WizardStage::Replicate;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume_yes_no(&mut self.state, &mut res, answer) {
@@ -1111,7 +1329,7 @@ impl<L: CardLookup> Engine<L> {
                     options,
                     min,
                     max,
-                    ..
+                    prompt,
                 },
                 PlayerAction::ChooseObjects { objects },
             ) if *p == player => {
@@ -1127,6 +1345,15 @@ impl<L: CardLookup> Engine<L> {
                 {
                     return Err(EngineError::IllegalAction("invalid card selection"));
                 }
+                // Crew's total (CR 702.122a), which no count of objects can
+                // say: two creatures with power 1 pay Crew 2 and one does
+                // not. Refused before anything moves, so the question
+                // stands and is asked again.
+                if let crate::choice::ChoicePrompt::CostCrew { power } = *prompt
+                    && super::cost_wizard::crew_power(&self.state, &objects) < i32::from(power)
+                {
+                    return Err(EngineError::IllegalAction("not enough power to crew"));
+                }
                 // Wizard path: pitch cards (exile-from-hand costs).
                 if self
                     .cast_wizard
@@ -1135,9 +1362,22 @@ impl<L: CardLookup> Engine<L> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.pitch = objects.into_iter().collect();
-                    wizard.stage = cast_wizard::WizardStage::Delve;
+                    wizard.stage = cast_wizard::WizardStage::Escape;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
+                }
+                // Wizard path: escape's other cards (CR 702.138a).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Escape)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.escape_exiles = objects.into_iter().collect();
+                    wizard.stage = cast_wizard::WizardStage::Delve;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 // Wizard path: delve cards (exile-from-graveyard, {1} each).
                 if self
@@ -1149,7 +1389,8 @@ impl<L: CardLookup> Engine<L> {
                     wizard.delve_exiles = objects.into_iter().collect();
                     wizard.stage = cast_wizard::WizardStage::Convoke;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 // Wizard path: what pays the additional cost's sacrifice. The
                 // stage stays where it is and asks about the next part, if
@@ -1162,7 +1403,8 @@ impl<L: CardLookup> Engine<L> {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.sacrifices.extend(objects);
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 // Activation-cost path: the answer to "sacrifice a creature"
                 // or "discard a card". It goes back into the same
@@ -1178,7 +1420,13 @@ impl<L: CardLookup> Engine<L> {
                     }) => {
                         self.activation_cost_choices.extend(objects);
                         self.activation_target_players = target_players;
-                        return self.start_activation(player, source, ability_index, targets);
+                        if self
+                            .start_activation(player, source, ability_index, targets)
+                            .is_err()
+                        {
+                            self.reverse_activation(player);
+                        }
+                        return Ok(());
                     }
                     // The untap step's determination (CR 502.3). The answer
                     // names what stays tapped, and the step carries on from
@@ -1248,8 +1496,15 @@ impl<L: CardLookup> Engine<L> {
                 //
                 // Intrinsic first, because a land with a granted ability on
                 // top of its own basic type still taps for its own colour
-                // unless the player names the other ability by index.
-                if casting::can_activate_mana(&self.state, player, source) {
+                // unless the player names the other ability by index. Asked
+                // of the offer's own predicate: a dual land under Chromatic
+                // Lantern is listed for the grant alone, its shortcut empty
+                // because its card prints both colours, and asking only
+                // whether the land could be tapped sent it down this branch
+                // to be refused.
+                let colors =
+                    casting::intrinsic_mana_choices(&self.state, &self.lookup, player, source);
+                if !colors.is_empty() {
                     // CR 305.6 gives the land one mana ability per basic
                     // type, so a land with several is a question. It is
                     // asked *here* and not inside `activate_mana`, which is
@@ -1258,7 +1513,6 @@ impl<L: CardLookup> Engine<L> {
                     // cost and the colour is the effect, exactly as a
                     // printed "add one mana of any color" pays first and
                     // asks second.
-                    let colors = casting::intrinsic_mana_offer(&self.state, &self.lookup, source);
                     if colors.len() > 1 {
                         self.state.set_tapped(source, true);
                         self.state.journal.record(GameEvent::ObjectTapped {
@@ -1273,12 +1527,15 @@ impl<L: CardLookup> Engine<L> {
                         self.awaiting_answer = true;
                         return Ok(());
                     }
-                    let [only] = colors.as_slice() else {
-                        return Err(EngineError::IllegalAction("mana ability not activatable"));
-                    };
-                    casting::add_intrinsic_mana(&mut self.state, player, source, *only);
+                    // Exactly one colour: nothing to ask.
+                    casting::add_intrinsic_mana(&mut self.state, player, source, colors[0]);
                     #[cfg(test)]
-                    crate::ability_log::intrinsic_mana(&self.state, &self.lookup, source, *only);
+                    crate::ability_log::intrinsic_mana(
+                        &self.state,
+                        &self.lookup,
+                        source,
+                        colors[0],
+                    );
                     self.after_action(player);
                     return Ok(());
                 }
@@ -1367,10 +1624,27 @@ impl<L: CardLookup> Engine<L> {
     fn can_settle_tax(&self, res: &crate::resolve::Resolution) -> bool {
         match res.awaiting {
             Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. }) => {
-                self.state.players[player.get() as usize].mana_pool.total() >= u32::from(mana)
+                self.pool_pays_tax(player, mana)
             }
             _ => false,
         }
+    }
+
+    /// Whether `player`'s pool pays a tax of `mana` the way
+    /// `resume_tax_choice` will pay it.
+    ///
+    /// Asked of the payment and not of the pool's total, because the total
+    /// counts mana that says "spend this only on…" (CR 106.6), and a tax is
+    /// none of the things it may be spent on. A pool of restricted mana
+    /// passed the total, was told it had paid, and tripped the assertion in
+    /// `resume_tax_choice` (the refusal sweep, 2026-09-29) — and a seat
+    /// holding it was never offered the window to make the mana it lacked.
+    fn pool_pays_tax(&self, player: PlayerId, mana: u16) -> bool {
+        let mut pool = self.state.players[player.get() as usize].mana_pool.clone();
+        mana_pay::pay(
+            &mut pool,
+            &baylee_core::mana::ManaCost::parse(&format!("{{{mana}}}")),
+        )
     }
 
     /// Ends a payment window and settles the payment it was opened for.
@@ -1400,6 +1674,18 @@ impl<L: CardLookup> Engine<L> {
                 }
                 return;
             }
+            // The cast pays out of the pool as any cast does; one it cannot
+            // pay is not made, and the card stays where it is (CR 601.2h
+            // reverses a casting that cannot be paid).
+            PaymentContinuation::Cast {
+                card,
+                version,
+                cost: _,
+                then_no_more_spells,
+            } => {
+                let _ = self.start_paid_cast(window.player, card, version, then_no_more_spells);
+                return;
+            }
         };
         let paid = self.can_settle_tax(&res);
         match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {
@@ -1412,6 +1698,35 @@ impl<L: CardLookup> Engine<L> {
                 self.finish_resolution(&res);
             }
         }
+    }
+
+    /// Where an activation goes when the step its answer re-entered
+    /// (`start_activation`) refuses to go on.
+    ///
+    /// The answer was one of the options its question enumerated, and by the
+    /// time `start_activation` refuses, the question's plan has been taken:
+    /// handing the refusal back to the caller left the question on the table
+    /// with nothing behind it, and the next answer to it panicked the engine
+    /// ("target plan set"), or reached for a resolution that was never there.
+    /// An activation that can't legally be completed is reversed and the
+    /// player who had priority keeps it (CR 732.1, CR 732.2), so that is what
+    /// happens: the activation's answers so far are dropped, nothing reaches
+    /// the stack, and its activator is asked for priority again. The answer
+    /// itself is accepted, because it was a legal one and it did end the
+    /// activation, and so a record replays it.
+    ///
+    /// Nothing known reaches this with a legal board. It is the net under
+    /// every refusal `start_activation` has left on its way to the stack.
+    fn reverse_activation(&mut self, player: PlayerId) {
+        self.activation_cost_choices.clear();
+        self.activation_x = None;
+        self.activation_graveyard = None;
+        self.activation_phyrexian.clear();
+        self.activation_second_targets = None;
+        self.activation_targets_answered = false;
+        self.activation_target_players.clear();
+        self.pending_plan = None;
+        self.regrant_priority = Some(player);
     }
 
     pub(crate) fn after_action(&mut self, player: PlayerId) {
@@ -1450,7 +1765,10 @@ impl<L: CardLookup> Engine<L> {
         // an opponent's planeswalker that has since left, a player who has
         // lost, or the attacking player themself.
         let legal = combat::defender_options(&self.state, player);
-        let mut seen = Vec::with_capacity(attackers.len());
+        // A set and not a list: a declaration can name tens of thousands of
+        // tokens, and a `contains` per attacker made it quadratic (33,600
+        // attackers cost 190 ms in self-play, r001 game 431).
+        let mut seen = std::collections::BTreeSet::new();
         for (creature, defending) in &attackers {
             if !combat::can_attack(&self.state, player, *creature) {
                 return Err(EngineError::IllegalAction("creature cannot attack"));
@@ -1458,12 +1776,11 @@ impl<L: CardLookup> Engine<L> {
             if !legal.contains(defending) {
                 return Err(EngineError::IllegalAction("invalid defender"));
             }
-            if seen.contains(creature) {
+            if !seen.insert(*creature) {
                 return Err(EngineError::IllegalAction("duplicate attacker"));
             }
-            seen.push(*creature);
         }
-        for (creature, defending) in attackers {
+        for &(creature, defending) in &attackers {
             let vigilance = self.state.object(creature).is_some_and(|o| {
                 o.characteristics()
                     .keywords
@@ -1476,16 +1793,22 @@ impl<L: CardLookup> Engine<L> {
                     cause: Cause::TurnBased,
                 });
             }
-            self.state.combat.attackers.push(AttackerInfo {
-                creature,
-                defending,
-                blocked: false,
-            });
             self.state.journal.record(GameEvent::BecameAttacker {
                 object: creature,
                 defending,
             });
         }
+        self.state
+            .combat
+            .declare_attackers(
+                attackers
+                    .into_iter()
+                    .map(|(creature, defending)| AttackerInfo {
+                        creature,
+                        defending,
+                        blocked: false,
+                    }),
+            );
         // `Filter::Attacking` is read by the layer system (Orcish Oriflamme's
         // "attacking creatures you control get +1/+0"), and which permanents
         // match it just changed without the effect table moving — the same
@@ -1502,24 +1825,18 @@ impl<L: CardLookup> Engine<L> {
         defending: PlayerId,
         blockers: Vec<(ObjectId, ObjectId)>,
     ) -> Result<(), EngineError> {
-        let mut seen = Vec::with_capacity(blockers.len());
+        // A set for the reason `declare_attackers` keeps one.
+        let mut seen = std::collections::BTreeSet::new();
         for (blocker, attacker) in &blockers {
-            if !self
-                .state
-                .combat
-                .attackers
-                .iter()
-                .any(|a| a.creature == *attacker)
-            {
+            if !self.state.combat.is_attacking(*attacker) {
                 return Err(EngineError::IllegalAction("no such attacker"));
             }
             if !combat::can_block(&self.state, defending, *blocker, *attacker) {
                 return Err(EngineError::IllegalAction("creature cannot block"));
             }
-            if seen.contains(blocker) {
+            if !seen.insert(*blocker) {
                 return Err(EngineError::IllegalAction("duplicate blocker"));
             }
-            seen.push(*blocker);
         }
         // Menace: needs two blockers per attacker (CR 702.111b), checked
         // against the whole declaration because that is where CR 509.1b puts
@@ -1533,7 +1850,7 @@ impl<L: CardLookup> Engine<L> {
         //
         // Zero is legal and one is not: "can't be blocked except by two or
         // more creatures" says nothing about a creature nobody blocks.
-        for attacker in &self.state.combat.attackers {
+        for attacker in self.state.combat.attackers() {
             let has_menace = self.state.object(attacker.creature).is_some_and(|o| {
                 o.characteristics()
                     .keywords

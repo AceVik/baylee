@@ -654,6 +654,7 @@ fn resolve(
         mana_ability: false,
         countered_source: None,
         target_lki: None,
+        retarget_left: None,
     };
     if let crate::resolve::Flow::Wait(pending) = crate::resolve::run(state, &mut res) {
         return Err(format!(

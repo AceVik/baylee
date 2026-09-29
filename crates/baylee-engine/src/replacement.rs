@@ -44,6 +44,14 @@ pub(crate) fn graveyard_destination(
     let Some(card) = state.object(id) else {
         return (to, None);
     };
+    // "If that creature would die this turn, exile it instead" (Mawloc),
+    // for that object only. Before the token test below: a token is exiled
+    // instead as well, and so does not die.
+    if card.zone == crate::zone::Zone::Battlefield
+        && state.per_turn.exile_if_dies.contains(&(id, card.version))
+    {
+        return (ZoneLocation::Exile(card.owner), None);
+    }
     if card.card.is_none() || card.riders.contains(&Rider::SpellCopy) {
         return (to, None);
     }

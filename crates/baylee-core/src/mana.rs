@@ -58,6 +58,18 @@ pub enum ManaSymbol {
 }
 
 impl ManaSymbol {
+    /// The one-mana symbol of `c`: `{G}` for green.
+    #[must_use]
+    pub const fn of_color(c: Color) -> Self {
+        match c {
+            Color::White => Self::White,
+            Color::Blue => Self::Blue,
+            Color::Black => Self::Black,
+            Color::Red => Self::Red,
+            Color::Green => Self::Green,
+        }
+    }
+
     /// Converted-mana-cost contribution (CR 202.3; variables and
     /// silver-bordered symbols contribute 0).
     #[must_use]
@@ -290,6 +302,48 @@ impl ManaCost {
                     }
                 }
                 other => out.push_sorted(other),
+            }
+        }
+        out
+    }
+
+    /// How many Phyrexian symbols, plain or hybrid, the cost holds — each
+    /// one payable with its mana or with 2 life (CR 107.4f).
+    #[must_use]
+    pub fn phyrexian_count(&self) -> u32 {
+        let n = self
+            .symbols()
+            .filter(|s| matches!(s, ManaSymbol::Phyrexian(_) | ManaSymbol::HybridPhyrexian(_)))
+            .count();
+        u32::try_from(n).unwrap_or(u32::MAX)
+    }
+
+    /// The cost with its Phyrexian symbols settled, as CR 601.2b has the
+    /// player announce and CR 118.13a times it: the `n`-th Phyrexian symbol
+    /// (counted from 0 in the cost's own order) is paid with 2 life when bit
+    /// `n` of `life` is set, and so leaves the mana; otherwise it becomes
+    /// the mana it is paid with — its colour, or its hybrid pair. The life
+    /// is the caller's to charge.
+    #[must_use]
+    pub fn with_phyrexian_settled(&self, life: u32) -> Self {
+        let mut out = Self::ZERO;
+        let mut n = 0u32;
+        for s in self.symbols() {
+            let settled = match s {
+                ManaSymbol::Phyrexian(c) => {
+                    let by_life = n < 32 && life & (1 << n) != 0;
+                    n += 1;
+                    (!by_life).then(|| ManaSymbol::of_color(c))
+                }
+                ManaSymbol::HybridPhyrexian(p) => {
+                    let by_life = n < 32 && life & (1 << n) != 0;
+                    n += 1;
+                    (!by_life).then_some(ManaSymbol::Hybrid(p))
+                }
+                other => Some(other),
+            };
+            if let Some(s) = settled {
+                out.push_sorted(s);
             }
         }
         out
@@ -895,6 +949,46 @@ mod tests {
             flags: ManaFlags::default(),
             restriction: RestrictionId(id),
         }
+    }
+
+    /// Each Phyrexian symbol is settled on its own bit: paid with life it
+    /// leaves the mana, paid with mana it becomes its colour (or its hybrid
+    /// pair), and everything else in the cost stays as printed.
+    #[test]
+    fn a_phyrexian_symbol_is_settled_as_its_mana_or_as_nothing() {
+        let pod = ManaCost::parse("{1}{G/P}");
+        assert_eq!(pod.phyrexian_count(), 1);
+        assert_eq!(pod.with_phyrexian_settled(0), ManaCost::parse("{1}{G}"));
+        assert_eq!(pod.with_phyrexian_settled(1), ManaCost::parse("{1}"));
+        assert_eq!(ManaCost::parse("{2}{G}").phyrexian_count(), 0);
+
+        let two = ManaCost::parse("{W/P}{U/P}");
+        assert_eq!(two.phyrexian_count(), 2);
+        let first = two.symbols().next().expect("two symbols");
+        let settled_second = two.with_phyrexian_settled(0b01);
+        assert_eq!(settled_second.len(), 1, "one paid with life");
+        assert_ne!(
+            settled_second.symbols().next(),
+            Some(match first {
+                ManaSymbol::Phyrexian(c) => ManaSymbol::of_color(c),
+                other => other,
+            }),
+            "bit 0 is the first symbol in the cost's order"
+        );
+        assert!(two.with_phyrexian_settled(0b11).is_empty());
+
+        let hybrid = ManaCost::parse("{G/U/P}");
+        assert_eq!(hybrid.phyrexian_count(), 1);
+        assert_eq!(
+            hybrid
+                .with_phyrexian_settled(0)
+                .symbols()
+                .collect::<Vec<_>>(),
+            vec![ManaSymbol::Hybrid(ColorPair::new(
+                Color::Green,
+                Color::Blue
+            ))]
+        );
     }
 
     /// Mana with a rider alone is ordinary mana (CR 106.6, #232): counted in

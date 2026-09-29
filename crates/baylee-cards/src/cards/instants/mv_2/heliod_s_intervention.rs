@@ -19,6 +19,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Implemented,
     abilities = &[AbilityDef::ModalSpell {
+        choose: ModeCount::ONE,
         modes: &[
             mode!(
                 &[Effect::destroy(TargetSpec::Object(

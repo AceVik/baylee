@@ -227,6 +227,7 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
+        | CostPart::Crew(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::DiscardSelf

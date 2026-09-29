@@ -50,12 +50,15 @@ fn face(name: &'static str, cost: &'static str, types: TypeSet, pt: Option<(i16,
         color_indicator: baylee_core::color::ColorSet::EMPTY,
         castable_from_hand: true,
         miracle: None,
+        flashback: None,
         delve: false,
         convoke: false,
         waterbend: false,
         cost_reduction: None,
         disturb: false,
         adventure: false,
+        dash: None,
+        escape: None,
     }
 }
 
@@ -183,6 +186,7 @@ static CYCLER_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
     zone: baylee_cards_dsl::ActivationZone::Hand,
     condition: baylee_cards_dsl::Condition::ControlCount(&LAND_F, 1),
     limit: baylee_cards_dsl::ActivationLimit::Unlimited,
+    cost_reduction: None,
 }];
 
 /// A limit on the *conditional* twin, which no card in the pool prints
@@ -204,6 +208,7 @@ static FONT_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
     zone: baylee_cards_dsl::ActivationZone::Battlefield,
     condition: baylee_cards_dsl::Condition::ControlCount(&LAND_F, 1),
     limit: baylee_cards_dsl::ActivationLimit::PerTurn(1),
+    cost_reduction: None,
 }];
 
 impl TestLookup {

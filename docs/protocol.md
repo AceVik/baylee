@@ -505,8 +505,10 @@ kernel's encoding. That is **`VIEW_VERSION` 9 → 11**, two bumps in one night:
 10 added the field and 11 added the slot to it.
 
 Two functions rather than a third copy of the rule. `effects::granted_activated`
-is the engine's own lookup: `legal_actions` offers the ability through it,
-`start_granted` runs it, and `crates/baylee-gamehost/src/view.rs` projects it.
+is the engine's own lookup: `legal_actions` offers the ability through it
+(as `granted_activated_among` over `effects::grants`, the same walk over the
+table's granting effects collected once per offer), `start_granted` runs it,
+and `crates/baylee-gamehost/src/view.rs` projects it.
 `baylee_cards_dsl::simple_mana` is the reading — free cost, a single `AddMana`,
 a fixed amount, no restriction — and the client's `manasources` asks it of a
 *printed* mana ability. An offer and a projection that disagreed would be a
@@ -2681,3 +2683,26 @@ neither `PROTOCOL_VERSION` nor `VIEW_VERSION` moves. A replicate question
 offers `0..=max`, where `max` is the most payments the caster's mana can
 cover; the copies then ask their new targets as the trigger resolves, with
 the question every copy asks.
+
+### Dash (`CastModeKind::Dash`)
+
+A card with dash (CR 702.109a) is offered `CastModeKind::Dash` in
+`Pending::ChooseCastMode`, with the dash cost as the option's cost, beside
+`Normal`. It rides as JSON inside the envelope like every other cast
+option and is part of the unreleased protocol-7 batch, so
+`PROTOCOL_VERSION` does not move. The client labels the row with the
+keyword in the player's language. The haste and the return at the next end
+step are the engine's; the return is an ordinary triggered ability on the
+stack, with no question of its own.
+
+### Escape (`CastModeKind::Escape`)
+
+A card with escape (CR 702.138a) in its owner's graveyard is offered
+`CastModeKind::Escape` in `Pending::ChooseCastMode`, with the escape mana
+as the option's cost, once the graveyard holds enough other cards to exile.
+The exile is asked next, as `Pending::ChooseCards` with
+`ChoicePrompt::CostExile` and `min == max`, over the other cards in that
+graveyard. Like dash it is part of the unreleased protocol-7 batch, so
+`PROTOCOL_VERSION` does not move. `PublicObject::flashback` carries the
+escape mana to the owner while the cast can be paid, so a planner taps for
+it. The client labels the row with the keyword in the player's language.

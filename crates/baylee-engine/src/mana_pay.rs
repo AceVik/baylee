@@ -1,8 +1,12 @@
 //! Mana payment: legality probe + auto-payment.
 //!
 //! Exact deterministic assignment reserves constrained symbols and backtracks
-//! over hybrid, two-or-color and snow choices. Payment is transactional;
-//! Phyrexian life is handled by the casting wizard rather than this module.
+//! over hybrid, two-or-color and snow choices. Payment is transactional.
+//! Phyrexian life is decided above this module and never here: an
+//! activation settles each symbol first (`ManaCost::with_phyrexian_settled`,
+//! asked by `Engine::start_activation`), so what reaches this module is mana;
+//! a spell's cast wizard does not offer the life yet, so a spell's Phyrexian
+//! symbol is paid with its colour.
 
 use baylee_core::mana::{ManaColor, ManaCost, ManaPool, ManaSymbol};
 use smallvec::SmallVec;

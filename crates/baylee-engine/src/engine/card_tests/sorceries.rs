@@ -1747,10 +1747,9 @@ fn reshape_finds_an_artifact_within_the_x_it_announced_and_nothing_above_it() {
 /// charging the announced number would leave one floating where this reads
 /// zero.
 ///
-/// The file is `Coverage::Partial` for two things this scenario cannot
-/// reach: the search is library-only, the printed "and/or graveyard" having
-/// no zone to name, and the "if X is 10 or more" rider needs a branch on the
-/// announced number. Nothing is in the graveyard here and X is 1.
+/// Nothing is in the graveyard here, so the search goes straight to the
+/// library, and X is 1; the graveyard and the X-is-10 rider are the three
+/// tests after this one.
 #[test]
 fn finale_of_devastation_fetches_a_creature_within_the_announced_x() {
     let p0 = PlayerId::new(0);
@@ -1804,6 +1803,218 @@ fn finale_of_devastation_fetches_a_creature_within_the_announced_x() {
         on_battlefield(&engine, p0, llanowar_elves()).is_some(),
         "\"and put it onto the battlefield\""
     );
+}
+
+/// Moves the named cards from the seat's hand into its graveyard, the
+/// harness way.
+#[track_caller]
+fn discard_by_hand(engine: &mut Engine<RegistryLookup>, seat: PlayerId, cards: &[CardIndex]) {
+    for &card in cards {
+        let id = in_hand(engine, seat, card).expect("the card starts in hand");
+        engine
+            .dev_state_mut(seat)
+            .expect("the harness may set boards up")
+            .move_object(
+                id,
+                ZoneLocation::Graveyard(seat),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("into the graveyard");
+    }
+}
+
+/// Casts Finale of Devastation for `x` off the Forests on the board and
+/// passes until its first question.
+fn cast_finale(engine: &mut Engine<RegistryLookup>, seat: PlayerId, x: u32) -> Pending {
+    tap_all_mana(engine, seat);
+    cast_with_floating(engine, seat, finale_of_devastation());
+    engine
+        .apply(seat, PlayerAction::ChooseNumber(x))
+        .expect("the announced X");
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    engine.pending().clone()
+}
+
+/// "Search your library and/or graveyard": the graveyard is offered first,
+/// only the creature cards in it within X — the Llanowar Elves at X = 1 and
+/// not the Air Elemental — and a card taken from there is the whole search,
+/// so the library is not shuffled.
+#[test]
+fn finale_of_devastation_takes_a_creature_from_the_graveyard_without_a_shuffle() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, llanowar_elves())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(
+            0,
+            &[finale_of_devastation(), llanowar_elves(), air_elemental()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0));
+    let buried = in_hand(&engine, p0, llanowar_elves()).unwrap();
+    discard_by_hand(&mut engine, p0, &[llanowar_elves(), air_elemental()]);
+    let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    let journal_from = engine.state().journal.len();
+
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = cast_finale(&mut engine, p0, 1)
+    else {
+        unreachable!("cast_finale stops on a card choice")
+    };
+    assert_eq!(prompt, crate::choice::ChoicePrompt::FromGraveyard);
+    assert_eq!(options, vec![buried], "within X = 1, and a creature");
+    assert_eq!((min, max), (0, 1));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![buried],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&buried),
+        "the buried Elves are on the battlefield"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Library(p0)),
+        &library,
+        "the library was not searched, so it keeps its order"
+    );
+    assert!(
+        !engine.state().journal.entries()[journal_from..]
+            .iter()
+            .any(|e| matches!(e.event, GameEvent::Shuffled { player, .. } if player == p0)),
+        "no shuffle"
+    );
+}
+
+/// Naming nothing from the graveyard searches the library instead, and
+/// that search shuffles.
+#[test]
+fn finale_of_devastation_searches_the_library_when_the_graveyard_is_passed_over() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, llanowar_elves())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[finale_of_devastation(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0));
+    let buried = in_hand(&engine, p0, llanowar_elves()).unwrap();
+    discard_by_hand(&mut engine, p0, &[llanowar_elves()]);
+    let Pending::ChooseCards { prompt, .. } = cast_finale(&mut engine, p0, 1) else {
+        unreachable!("cast_finale stops on a card choice")
+    };
+    assert_eq!(prompt, crate::choice::ChoicePrompt::FromGraveyard);
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!("the library search, got {:?}", engine.pending())
+    };
+    assert_eq!(prompt, crate::choice::ChoicePrompt::SearchLibrary);
+    let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    assert!(options.iter().all(|id| library.contains(id)));
+    let journal_from = engine.state().journal.len();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&options[0])
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .contains(&buried),
+        "one card, from one zone"
+    );
+    assert!(
+        engine.state().journal.entries()[journal_from..]
+            .iter()
+            .any(|e| matches!(e.event, GameEvent::Shuffled { player, .. } if player == p0)),
+        "if you search your library this way, shuffle"
+    );
+}
+
+/// "If X is 10 or more, creatures you control get +X/+X and gain haste until
+/// end of turn." At X = 10 the fetched Elves and the Elves already there are
+/// 11/11 with haste, and the opponent's creature is not; at X = 9 nothing is
+/// pumped.
+#[test]
+fn finale_of_devastation_at_ten_or_more_pumps_and_hastes_your_creatures() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let finale_at = |x: u32| {
+        let forests = vec![forest(); x as usize + 2];
+        let mut board = forests.clone();
+        board.push(llanowar_elves());
+        let mut engine = Duel::new(41, llanowar_elves())
+            .battlefield(0, &board)
+            .hand(0, &[finale_of_devastation()])
+            .battlefield(1, &[llanowar_elves()])
+            .start();
+        keep_mulligans(&mut engine);
+        assert!(walk_to_own_main(&mut engine, p0));
+        let Pending::ChooseCards {
+            options, prompt, ..
+        } = cast_finale(&mut engine, p0, x)
+        else {
+            unreachable!("cast_finale stops on a card choice")
+        };
+        assert_eq!(prompt, crate::choice::ChoicePrompt::SearchLibrary);
+        let fetched = options[0];
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![fetched],
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, stack_is_empty);
+        (engine, fetched)
+    };
+
+    let (engine, fetched) = finale_at(10);
+    let standing = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
+    for mine in [fetched, standing] {
+        assert_eq!(pt(&engine, mine), (11, 11), "+10/+10");
+        assert!(keywords(&engine, mine).contains(KeywordSet::HASTE));
+    }
+    assert_eq!(pt(&engine, theirs), (1, 1), "creatures *you* control");
+    assert!(!keywords(&engine, theirs).contains(KeywordSet::HASTE));
+
+    let (engine, fetched) = finale_at(9);
+    assert_eq!(pt(&engine, fetched), (1, 1), "X = 9 is not 10 or more");
+    assert!(!keywords(&engine, fetched).contains(KeywordSet::HASTE));
 }
 
 /// Mizzix's Mastery exiles a card out of its controller's own graveyard and
@@ -11620,4 +11831,581 @@ fn bribery_puts_a_creature_from_the_opponents_library_under_your_control() {
     );
     assert_eq!(library_size(&engine, p1), theirs_before - 1);
     assert_eq!(library_size(&engine, p0), mine_before);
+}
+
+fn expressive_iteration() -> CardIndex {
+    card_index("c7aecca5-2f67-4245-ab2d-e723d8b23a67")
+}
+
+/// Casts Expressive Iteration off the Island and the Mountain, keeps the
+/// first card looked at, bottoms the second, and returns the three in that
+/// order — the third is the one exiled.
+fn iterate(engine: &mut Engine<RegistryLookup>, p0: PlayerId) -> [ObjectId; 3] {
+    let island = on_battlefield(engine, p0, island()).unwrap();
+    let mountain = on_battlefield(engine, p0, mountain()).unwrap();
+    tap_mana_where(engine, p0, |id| id == island || id == mountain);
+    cast_with_floating(engine, p0, expressive_iteration());
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = pass_to_card_choice(engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(prompt, ChoicePrompt::PutIntoHand);
+    assert_eq!((min, max), (1, 1));
+    assert_eq!(options.len(), 3, "the top three");
+    let (keep, bottom, exiled) = (options[0], options[1], options[2]);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![keep],
+            },
+        )
+        .unwrap();
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the bottom question, got {:?}", engine.pending())
+    };
+    assert_eq!(prompt, ChoicePrompt::PutOnBottom);
+    assert_eq!(options.len(), 2, "the two not kept");
+    assert!(!options.contains(&keep));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bottom],
+            },
+        )
+        .unwrap();
+    pass_until(engine, stack_is_empty);
+    [keep, bottom, exiled]
+}
+
+/// "Look at the top three cards of your library. Put one of them into your
+/// hand, put one of them on the bottom of your library, and exile one of
+/// them. You may play the exiled card this turn." — the exiled Elf is cast
+/// from exile, paid for like any spell.
+#[test]
+fn expressive_iteration_keeps_one_bottoms_one_and_lets_the_third_be_cast() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, llanowar_elves())
+        .battlefield(0, &[island(), mountain(), forest()])
+        .hand(0, &[expressive_iteration()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let [keep, bottom, exiled] = iterate(&mut engine, p0);
+    let state = engine.state();
+    assert!(state.zones.list(ZoneLocation::Hand(p0)).contains(&keep));
+    assert_eq!(
+        state.zones.list(ZoneLocation::Library(p0)).first(),
+        Some(&bottom),
+        "on the bottom"
+    );
+    assert!(state.zones.list(ZoneLocation::Exile(p0)).contains(&exiled));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&exiled),
+        "a permission to play it, not a free cast: nothing is floating yet"
+    );
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(legal.castable.contains(&exiled), "with {{G}} floating");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: exiled })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+}
+
+/// A spell cast from exile under the permission was not cast from a hand,
+/// so an exiled Ephemerate has no rebound (CR 702.88a) and goes to the
+/// graveyard. `finish_cast` stamped every paid cast "from hand", so this
+/// Ephemerate was exiled again to be cast a second time for free.
+#[test]
+fn a_rebound_spell_cast_from_expressive_iterations_exile_does_not_rebound() {
+    let p0 = PlayerId::new(0);
+    let ephemerate = card_index("0fd57894-b917-41c8-a394-360d1d31b236");
+    let mut engine = Duel::new(SEED, ephemerate)
+        .battlefield(0, &[island(), mountain(), plains(), llanowar_elves()])
+        .hand(0, &[expressive_iteration()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let [_, _, exiled] = iterate(&mut engine, p0);
+    let plains = on_battlefield(&engine, p0, plains()).unwrap();
+    tap_mana_where(&mut engine, p0, |id| id == plains);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: exiled })
+        .unwrap();
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    aim_at(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .contains(&exiled),
+        "into the graveyard, not back into exile on a rebound"
+    );
+}
+
+fn nyleas_intervention() -> CardIndex {
+    card_index("acf388b2-c4e3-4f1b-a16c-88f991d5c17b")
+}
+
+/// Casts Nylea's Intervention with the mana already floating, choosing `mode`
+/// and `x` in whichever order the cast asks for them.
+#[track_caller]
+fn cast_nyleas(engine: &mut Engine<RegistryLookup>, seat: PlayerId, mode: usize, x: u32) {
+    tap_all_mana(engine, seat);
+    cast_with_floating(engine, seat, nyleas_intervention());
+    let (mut chose_mode, mut chose_x) = (false, false);
+    for _ in 0..8 {
+        match engine.pending().clone() {
+            Pending::ChooseCastMode { options, .. } => {
+                let slot = options
+                    .iter()
+                    .position(|o| o.kind == crate::choice::CastModeKind::Mode(mode))
+                    .expect("the mode is offered");
+                engine.apply(seat, PlayerAction::ChooseMode(slot)).unwrap();
+                chose_mode = true;
+            }
+            Pending::ChooseNumber { min, max, .. } => {
+                assert!((min..=max).contains(&x), "X = {x} in {min}..={max}");
+                engine.apply(seat, PlayerAction::ChooseNumber(x)).unwrap();
+                chose_x = true;
+            }
+            _ => break,
+        }
+    }
+    assert!(chose_mode && chose_x, "the cast asked for a mode and an X");
+}
+
+/// Nylea's Intervention, first mode: "Search your library for up to X land
+/// cards, reveal them, put them into your hand, then shuffle." X = 2 is a
+/// search for at most two, which may settle for fewer; the two found are
+/// shown to the table and go to the hand.
+#[test]
+fn nyleas_intervention_fetches_up_to_x_lands_into_the_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .hand(0, &[nyleas_intervention()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_nyleas(&mut engine, p0, 0, 2);
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = pass_to_card_choice(&mut engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert_eq!((min, max), (0, 2), "\"up to X\" with X = 2");
+    let found = options[..2].to_vec();
+    let journal_from = engine.state().journal.len();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: found.clone(),
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    for card in &found {
+        assert!(
+            engine
+                .state()
+                .zones
+                .list(ZoneLocation::Hand(p0))
+                .contains(card),
+            "a found land is in the hand"
+        );
+    }
+    assert!(
+        engine.state().journal.entries()[journal_from..]
+            .iter()
+            .any(|e| matches!(
+                &e.event,
+                GameEvent::Revealed { cards, .. } if cards == &found
+            )),
+        "\"reveal them\""
+    );
+}
+
+/// With X = 0 the search finds nothing and asks nobody.
+#[test]
+fn nyleas_intervention_for_x_zero_asks_nothing() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[nyleas_intervention()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    cast_nyleas(&mut engine, p0, 0, 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(!matches!(engine.pending(), Pending::ChooseCards { .. }));
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand - 1,
+        "nothing came to the hand"
+    );
+}
+
+/// Second mode: "Nylea's Intervention deals twice X damage to each creature
+/// with flying." X = 2 is four damage: the Air Elemental (4/4, flying) dies
+/// and the Llanowar Elves, which does not fly, is not dealt any.
+#[test]
+fn nyleas_intervention_deals_twice_x_to_each_flier() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
+        .battlefield(1, &[air_elemental(), llanowar_elves()])
+        .hand(0, &[nyleas_intervention()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
+    cast_nyleas(&mut engine, p0, 1, 2);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p1, air_elemental()).is_some(),
+        "four damage kills the 4/4 flier"
+    );
+    assert_eq!(
+        engine.state().object(elves).map(|o| o.damage),
+        Some(0),
+        "a creature without flying is dealt nothing"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Prismatic Ending.
+// ---------------------------------------------------------------------------
+
+fn prismatic_ending() -> CardIndex {
+    card_index("2cb98ca9-d7bb-416b-a17e-ee5f8e4d78f2")
+}
+
+/// Eternal Witness, mana value 3.
+fn prismatic_three_drop() -> CardIndex {
+    card_index("30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c")
+}
+
+/// Charming Prince, mana value 2.
+fn prismatic_two_drop() -> CardIndex {
+    card_index("c48d844c-3976-4fa5-8e0d-3f0e535e7619")
+}
+
+/// Seat 0 floats everything `sources` make, casts Prismatic Ending for X =
+/// `x` at `victim` (seat 1's only permanent) and lets it resolve.
+fn prismatic_ending_at(sources: &[CardIndex], x: u32, victim: CardIndex) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, sources)
+        .battlefield(1, &[victim])
+        .hand(0, &[prismatic_ending()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let target = on_battlefield(&engine, p1, victim).unwrap();
+    tap_all_mana_but(&mut engine, p0, None);
+    cast_with_floating(&mut engine, p0, prismatic_ending());
+    let Pending::ChooseNumber { .. } = engine.pending().clone() else {
+        panic!("X is announced, got {:?}", engine.pending())
+    };
+    engine.apply(p0, PlayerAction::ChooseNumber(x)).unwrap();
+    let _ = aim_at(&mut engine, p0, target);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the whole pool paid {{{x}}}{{W}}"
+    );
+    engine
+}
+
+/// "Converge — Exile target nonland permanent if its mana value is less
+/// than or equal to the number of colors of mana spent to cast this
+/// spell." {2}{W} paid with white, blue and black: three colors, and a
+/// three-drop is exiled.
+#[test]
+fn prismatic_ending_exiles_what_its_three_colors_reach() {
+    let p1 = PlayerId::new(1);
+    let engine = prismatic_ending_at(&[plains(), island(), swamp()], 2, prismatic_three_drop());
+    assert!(on_battlefield(&engine, p1, prismatic_three_drop()).is_none());
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p1))
+            .iter()
+            .any(|&id| engine
+                .state()
+                .object(id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == prismatic_three_drop())))
+    );
+}
+
+/// The same {2}{W} paid with three Plains is one color. The target was
+/// legal — the condition is not part of the targeting — so the spell
+/// resolves and the three-drop stays.
+#[test]
+fn prismatic_ending_of_one_color_leaves_a_three_drop() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let engine = prismatic_ending_at(&[plains(), plains(), plains()], 2, prismatic_three_drop());
+    assert!(on_battlefield(&engine, p1, prismatic_three_drop()).is_some());
+    assert!(in_graveyard(&engine, p0, prismatic_ending()).is_some());
+}
+
+/// Colorless mana is no color (CR 106.1a): {2}{W} paid with a Plains and
+/// Sol Ring's {C}{C} is one color, and a two-drop stays.
+#[test]
+fn prismatic_ending_counts_no_colorless_mana() {
+    let p1 = PlayerId::new(1);
+    let engine = prismatic_ending_at(&[plains(), sol_ring()], 2, prismatic_two_drop());
+    assert!(on_battlefield(&engine, p1, prismatic_two_drop()).is_some());
+}
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Farewell.
+// ---------------------------------------------------------------------------
+
+/// Seat 0 casts Farewell off six Plains with the modes `set` names, at seat
+/// 1's Llanowar Elves, Sol Ring, Sterling Grove and Darksteel Gargoyle and
+/// three cards in seat 1's graveyard, and lets it resolve. Every one of the
+/// fifteen sets is offered, each at the printed cost.
+fn farewell_with(set: u8) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(); 6])
+        .battlefield(
+            1,
+            &[
+                llanowar_elves(),
+                sol_ring(),
+                sterling_grove(),
+                darksteel_gargoyle(),
+            ],
+        )
+        .hand(0, &[farewell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p1, 3);
+    cast_from_hand(&mut engine, p0, farewell());
+    let offered = choose_modes(&mut engine, p0, set);
+    assert_eq!(
+        offered.iter().map(|o| o.kind).collect::<Vec<_>>(),
+        (1..16).map(CastModeKind::Modes).collect::<Vec<_>>(),
+        "one or more of four modes is fifteen sets, and each is one row"
+    );
+    assert!(
+        offered
+            .iter()
+            .all(|o| o.cost == baylee_core::mana::ManaCost::parse("{4}{W}{W}")),
+        "no mode of Farewell costs anything of its own: {offered:?}"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    engine
+}
+
+/// "Choose one or more — • Exile all artifacts. […] • Exile all
+/// graveyards." Artifacts and graveyards: the Sol Ring and the Gargoyle go
+/// (indestructible stops no exile), and so does the graveyard. The Elves and
+/// the Sterling Grove were not chosen, and stay. Farewell was on the stack
+/// while the graveyards went, so it is the one card in a graveyard after.
+#[test]
+fn farewell_exiles_what_its_chosen_modes_name_and_nothing_else() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let engine = farewell_with(0b1001);
+    for gone in [sol_ring(), darksteel_gargoyle()] {
+        assert!(on_battlefield(&engine, p1, gone).is_none());
+    }
+    for kept in [llanowar_elves(), sterling_grove()] {
+        assert!(on_battlefield(&engine, p1, kept).is_some());
+    }
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p1))
+            .is_empty()
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Exile(p1)).len(),
+        5,
+        "two artifacts and three graveyard cards"
+    );
+    assert!(in_graveyard(&engine, p0, farewell()).is_some());
+}
+
+/// All four: the board is empty of all three types, and every graveyard.
+#[test]
+fn farewell_in_full_leaves_only_the_lands() {
+    let p1 = PlayerId::new(1);
+    let engine = farewell_with(0b1111);
+    for gone in [
+        llanowar_elves(),
+        sol_ring(),
+        sterling_grove(),
+        darksteel_gargoyle(),
+    ] {
+        assert!(on_battlefield(&engine, p1, gone).is_none());
+    }
+    assert_eq!(engine.state().zones.list(ZoneLocation::Exile(p1)).len(), 7);
+    assert_eq!(lands_of(&engine, PlayerId::new(0)).len(), 6);
+}
+
+/// Profane Tutor: "Suspend 2—{1}{B}. Search your library for a card, put
+/// that card into your hand, then shuffle."
+fn profane_tutor() -> CardIndex {
+    card_index("27a1f42c-0b86-4609-9609-1fa9cab7e7c9")
+}
+
+/// Suspend is a card in exile with time counters on it (CR 702.62a,
+/// 702.62b), and what the countdown casts is that card. Profane Tutor is
+/// suspended, cast as its last counter comes off, and resolves into the
+/// graveyard. Bojuka Bog then exiles that graveyard. The Tutor in exile now
+/// was exiled by the Bog and is not suspended, so no upkeep casts it.
+///
+/// The suspend mark rode along with the card through the stack and the
+/// graveyard, and the countdown asks only for the mark: with no time counter
+/// left it counted the Tutor down from nothing and cast it for free again
+/// at the next upkeep (CR 400.7).
+#[test]
+#[allow(clippy::too_many_lines)] // a suspend, its countdown, a Bog and one more upkeep, told in order
+fn a_suspended_card_that_resolved_and_was_exiled_again_is_not_cast_again() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(71, island())
+        .hand(0, &[profane_tutor(), bojuka_bog()])
+        .battlefield(0, &[swamp(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let tutor = in_hand(&engine, p0, profane_tutor()).expect("in hand");
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.suspendable.contains(&tutor),
+        "{:?}",
+        legal.suspendable
+    );
+    engine
+        .apply(p0, PlayerAction::Suspend { card: tutor })
+        .expect("the suspend cost is paid");
+    assert_eq!(
+        engine.state().object(tutor).map(|o| o.zone),
+        Some(Zone::Exile)
+    );
+
+    // Two of p0's upkeeps take the two counters off, and the last one casts
+    // it: the search is the Tutor resolving.
+    let searching = |e: &Engine<RegistryLookup>| {
+        matches!(e.pending(), Pending::ChooseCards { player, prompt, .. }
+            if *player == p0 && *prompt != ChoicePrompt::LeaveTapped)
+    };
+    for _ in 0..6 {
+        if searching(&engine) {
+            break;
+        }
+        pass_until(&mut engine, |e| {
+            searching(e) || e.state().turn.step == Step::Cleanup
+        });
+        pass_until(&mut engine, |e| {
+            searching(e) || e.state().turn.step != Step::Cleanup
+        });
+    }
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("the Tutor was never cast: {:?}", engine.pending())
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(tutor).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "cast from suspend and resolved"
+    );
+
+    // Bojuka Bog, at p0's own graveyard.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == p0
+    });
+    let bog = in_hand(&engine, p0, bojuka_bog()).expect("the Bog is in hand");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: bog })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let exiled = engine.state().object(tutor).expect("the Tutor");
+    assert_eq!(exiled.zone, Zone::Exile, "exiled by the Bog");
+    assert_eq!(
+        exiled.counters.get(CounterKind::Time),
+        0,
+        "with no time counter on it"
+    );
+
+    // p0's next turn begins, upkeep and all, and nothing is cast.
+    let turn = engine.state().turn.number;
+    pass_until(&mut engine, |e| {
+        searching(e)
+            || (matches!(e.state().turn.phase, Phase::FirstMain)
+                && e.state().turn.active == p0
+                && e.state().turn.number > turn)
+    });
+    assert!(
+        !searching(&engine),
+        "the Tutor the Bog exiled was cast for free at the next upkeep"
+    );
+    assert_eq!(
+        engine.state().object(tutor).map(|o| o.zone),
+        Some(Zone::Exile)
+    );
 }

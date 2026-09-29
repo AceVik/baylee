@@ -478,7 +478,7 @@ fn a_regenerated_attacker_leaves_combat() {
         !engine
             .state()
             .combat
-            .attackers
+            .attackers()
             .iter()
             .any(|a| a.creature == thrun),
         "and it is out of combat while the combat is still going on"

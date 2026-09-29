@@ -509,14 +509,24 @@ mod tests {
     #[test]
     fn the_shape_names_the_source_it_cannot_answer_for() {
         let effects = [Effect::AddMana {
-            source: ManaSource::LandColor { mine: false },
+            source: ManaSource::LandColor {
+                mine: false,
+                any_type: false,
+            },
             amount: Amount::Fixed(1),
             combination: false,
             restriction: None,
         }];
         assert_eq!(
             mana_shape(&tap(), &effects),
-            Some((ManaSource::LandColor { mine: false }, Some(1), false))
+            Some((
+                ManaSource::LandColor {
+                    mine: false,
+                    any_type: false
+                },
+                Some(1),
+                false
+            ))
         );
     }
 }

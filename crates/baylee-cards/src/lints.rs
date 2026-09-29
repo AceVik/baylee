@@ -161,7 +161,9 @@ fn printed_branches(ability: &AbilityDef) -> Vec<Branch> {
             target: targets.map(|req| req.spec),
             effects,
         }],
-        AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => modal(modes),
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
+            modal(modes)
+        }
         // Nothing that resolves through an effect list of its own: a
         // keyword the engine synthesises, a cost, a continuous rule, or a
         // choice made as the permanent enters.
@@ -238,6 +240,10 @@ fn target_filter(spec: TargetSpec) -> Option<&'static Filter> {
     match spec {
         TargetSpec::Object(f)
         | TargetSpec::ObjectOfEachOpponent(f)
+        | TargetSpec::OpponentOrObject(f)
+        | TargetSpec::ObjectOfFirstTargetsPlayer(f)
+        | TargetSpec::ObjectControlledBy(f, _)
+        | TargetSpec::ObjectOfEventPlayer(f)
         | TargetSpec::Spell(f)
         | TargetSpec::StackOrBattlefield(f)
         | TargetSpec::CardInGraveyard(f, _)
@@ -287,6 +293,10 @@ fn can_target_an_object(spec: TargetSpec) -> bool {
     match spec {
         TargetSpec::Object(_)
         | TargetSpec::ObjectOfEachOpponent(_)
+        | TargetSpec::OpponentOrObject(_)
+        | TargetSpec::ObjectOfFirstTargetsPlayer(_)
+        | TargetSpec::ObjectControlledBy(..)
+        | TargetSpec::ObjectOfEventPlayer(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)
@@ -461,7 +471,7 @@ fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], bool, Door)>
             mana_ability,
             ..
         } => lists.push((effects, !*mana_ability, Door::Printed)),
-        AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => {
             lists.extend(modes.iter().map(|m| (m.effects, true, Door::Printed)));
         }
         AbilityDef::Static(rule) => {
@@ -502,6 +512,166 @@ fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], bool, Door)>
         i += 1;
     }
     lists
+}
+
+/// How many damage divisions (`Effect::DealDamageDivided`) a list holds,
+/// nested ones included.
+fn divisions_in(effects: &'static [Effect]) -> usize {
+    let (mut found, mut seen) = (0_usize, 0_usize);
+    Effect::walk(effects, &mut seen, &mut |effect| {
+        if matches!(effect, Effect::DealDamageDivided { .. }) {
+            found += 1;
+        }
+    });
+    found
+}
+
+/// Whether an ability that divides damage sits where the engine asks the
+/// division, and how not.
+///
+/// `Engine::ask_trigger_division` asks it only as a triggered ability is put
+/// on the stack, reads it off the ability's own top-level list, and asks one
+/// share per target with each at least 1 (CR 601.2d). So the effect is a
+/// top-level op of a `Triggered` ability that targets, once, and the ability
+/// asks for no more targets than there is damage to give each of them one.
+fn division_fault(ability: &AbilityDef) -> Option<&'static str> {
+    let found: usize = resolving_lists(ability)
+        .iter()
+        .map(|(effects, _, _)| divisions_in(effects))
+        .sum();
+    if found == 0 {
+        return None;
+    }
+    let AbilityDef::Triggered {
+        effects, targets, ..
+    } = ability
+    else {
+        return Some("divides damage outside a triggered ability, where nothing asks the division");
+    };
+    let amounts: Vec<u32> = effects
+        .iter()
+        .filter_map(|effect| match effect {
+            Effect::DealDamageDivided { amount } => Some(*amount),
+            _ => None,
+        })
+        .collect();
+    if amounts.len() != found {
+        return Some("divides damage inside a carrier, where the division is not read");
+    }
+    if amounts.len() > 1 {
+        return Some("divides damage twice in one ability");
+    }
+    let Some(req) = targets else {
+        return Some("divides damage among no targets");
+    };
+    if req.max == 0 || u32::from(req.max) > amounts[0] {
+        return Some("asks for more targets than there is damage to give each one");
+    }
+    None
+}
+
+/// Whether a second instance of the word "target" may ask for this: objects
+/// only, because the players a spell targets ride with its first instance
+/// alone (`Engine::instance_legality`). Fail-closed: a spec is here once
+/// someone has read that it names no player.
+const fn objects_only(spec: TargetSpec) -> bool {
+    matches!(
+        spec,
+        TargetSpec::Object(_)
+            | TargetSpec::Spell(_)
+            | TargetSpec::StackOrBattlefield(_)
+            | TargetSpec::SpellOrAbility(_)
+            | TargetSpec::AbilityOnStack(_)
+            | TargetSpec::CardInGraveyard(..)
+    )
+}
+
+/// Why a modal spell could not be cast the way its card prints it, or
+/// [`None`] when it can, or when the ability is no modal spell.
+///
+/// Choosing one mode is the shape every modal spell had before Farewell: a
+/// mode may replace the card's cost (overload), and has no cost of its own
+/// to add, because the one-mode path never adds one. Choosing several
+/// (CR 700.2d) is `CastModeKind::Modes`, a set of at most eight bits. There
+/// a mode's own cost is added to the card's (CR 700.2h) and never put in
+/// its place. The engine holds two instances of the word "target" for a
+/// spell, and each chosen mode that targets takes the next one
+/// (`cast_wizard::targeted_mode`), so at most two modes may target, and the
+/// second of them objects only ([`objects_only`]). A mode that says
+/// "target" twice itself (`SpellMode::second_targets`, Archdruid's Charm)
+/// takes both instances, so only a choose-one spell may print one.
+fn modes_fault(ability: &AbilityDef) -> Option<&'static str> {
+    let AbilityDef::ModalSpell { modes, choose } = ability else {
+        return None;
+    };
+    if choose.min == 0 || choose.min > choose.max {
+        return Some("chooses a count of modes that no cast can meet");
+    }
+    if usize::from(choose.min) > modes.len() {
+        return Some("chooses more modes than it prints");
+    }
+    if choose.is_one() {
+        if modes.iter().any(|m| m.additional_cost.is_some()) {
+            return Some(
+                "gives a mode of a choose-one spell a cost of its own, which nothing adds",
+            );
+        }
+        return None;
+    }
+    if modes.len() > 8 {
+        return Some("prints more modes than a set of them can hold");
+    }
+    if modes.iter().any(|m| m.cost_override.is_some()) {
+        return Some("replaces the card's cost in one of several modes");
+    }
+    if modes.iter().any(|m| m.second_targets.is_some()) {
+        return Some(
+            "says \"target\" twice in one of several modes, and each chosen mode takes one instance of the word",
+        );
+    }
+    let targeting: Vec<TargetSpec> = modes
+        .iter()
+        .filter_map(|m| m.targets.map(|req| req.spec))
+        .collect();
+    if targeting.len() > 2 {
+        return Some(
+            "targets in more than two of its modes, and a spell holds two instances of the word",
+        );
+    }
+    if targeting.get(1).is_some_and(|spec| !objects_only(*spec)) {
+        return Some("may name a player in its second targeting mode, which holds objects only");
+    }
+    None
+}
+
+/// Whether an effect can happen to a chosen permanent without stopping to
+/// ask anything. Fail-closed, like [`cannot_move_the_source`]: an effect
+/// is here once someone has read that it resolves without a question.
+const fn asks_nothing(effect: &Effect) -> bool {
+    matches!(effect, Effect::CreateContinuousEffect { .. })
+}
+
+/// Why an effect list's "choose a permanent you control, then …" could lose
+/// its choice, or [`None`] when it cannot.
+///
+/// `Effect::ChooseYoursThen` runs `then` as a nested list with the chosen
+/// permanent as its object. A nested list that stops for a question hands
+/// the rest of itself back to the list around it, which never knew what
+/// was chosen, so `then` holds only effects that ask nothing
+/// ([`asks_nothing`]) — and at least one, or nothing happens to what was
+/// chosen.
+fn chosen_then_fault(effects: &'static [Effect]) -> Option<&'static str> {
+    let (mut fault, mut seen) = (None, 0_usize);
+    Effect::walk(effects, &mut seen, &mut |effect| {
+        if let Effect::ChooseYoursThen { then, .. } = effect {
+            if then.is_empty() {
+                fault = Some("chooses a permanent and does nothing to it");
+            } else if !then.iter().all(asks_nothing) {
+                fault = Some("does something to the chosen permanent that could stop to ask");
+            }
+        }
+    });
+    fault
 }
 
 /// How many reflexive triggers an effect list writes, at any depth.
@@ -572,6 +742,17 @@ fn reflexive_fault_in(effects: &'static [Effect], on_the_stack: bool) -> Option<
                     }
             ) {
                 return Some("waits for a sacrifice that is not the op directly before it");
+            }
+        }
+        ReflexiveEvent::ExiledThis => {
+            if !matches!(
+                action,
+                Effect::ExileSource
+                    | Effect::MayDo {
+                        effects: [Effect::ExileSource]
+                    }
+            ) {
+                return Some("waits for an exile that is not the op directly before it");
             }
         }
     }
@@ -753,6 +934,7 @@ fn mana_symbol_colors(effect: &Effect) -> ColorSet {
         Effect::MayDo { effects: then }
         | Effect::IfCreaturesDiedAtLeast { then, .. }
         | Effect::IfNotLostLifeThisTurn { then, .. }
+        | Effect::IfResolvedTimesThisTurn { then, .. }
         | Effect::IfControlGreatestCmc { then, .. }
         | Effect::IfNoCountersOnSelf { then, .. } => then.iter().fold(ColorSet::EMPTY, union),
         _ => ColorSet::EMPTY,
@@ -771,7 +953,7 @@ fn ability_colors(ability: &AbilityDef) -> ColorSet {
             cost.mana
         }
         AbilityDef::Echo { cost } | AbilityDef::Suspend { cost, .. } => *cost,
-        AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => modes
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => modes
             .iter()
             .filter_map(|mode| mode.cost_override)
             .fold(ManaCost::ZERO, |all, mode| all.combine(&mode)),
@@ -884,6 +1066,7 @@ const fn needs_the_source(part: &CostPart) -> bool {
         CostPart::Sacrifice(_)
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
+        | CostPart::Crew(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::PayLife(_)
@@ -908,6 +1091,7 @@ const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
+        | CostPart::Crew(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::PayLife(_)
@@ -1519,7 +1703,8 @@ mod tests {
                         | PlayerRel::EachPlayer => true,
                         PlayerRel::Chosen
                         | PlayerRel::ControllerOfTarget
-                        | PlayerRel::ControllerOfEvent => false,
+                        | PlayerRel::ControllerOfEvent
+                        | PlayerRel::DamagedPlayer => false,
                     };
                     if !answerable {
                         wrong.push(format!("{}: {modifier:?}", def.name()));
@@ -1592,6 +1777,262 @@ mod tests {
             seen > 300,
             "only {seen} activated abilities were looked at; the sweep is not reaching the pool"
         );
+    }
+
+    /// Every damage division in the pool sits where the engine asks it: a
+    /// top-level op of a targeting triggered ability, with no more targets
+    /// than damage (CR 601.2d). Fury is why the sweep exists; a walk that
+    /// found no division has stopped reaching it.
+    #[test]
+    fn every_divided_damage_is_a_trigger_that_can_divide() {
+        let (mut wrong, mut found) = (Vec::new(), 0_usize);
+        for def in crate::all() {
+            let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
+            for ability in def.abilities.iter().chain(faces) {
+                found += resolving_lists(ability)
+                    .iter()
+                    .map(|(effects, _, _)| divisions_in(effects))
+                    .sum::<usize>();
+                if let Some(fault) = division_fault(ability) {
+                    wrong.push(format!("{} {fault}", def.name()));
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+        assert!(found >= 1, "no division found, and Fury prints one");
+    }
+
+    /// The sweep above passes, and this shows passing means something: each
+    /// shape the rule refuses is reported, and Fury's is not.
+    #[test]
+    fn a_division_fault_fires_on_each_bad_shape() {
+        use crate::dsl::ability::Trigger;
+        const DIVIDE: &[Effect] = &[Effect::DealDamageDivided { amount: 4 }];
+        const IN_A_MAY: &[Effect] = &[Effect::MayDo { effects: DIVIDE }];
+        const TWICE: &[Effect] = &[
+            Effect::DealDamageDivided { amount: 2 },
+            Effect::DealDamageDivided { amount: 2 },
+        ];
+        let targets = |max| {
+            Some(TargetReq::up_to(
+                TargetSpec::Object(&Filter::CREATURE_OR_PLANESWALKER),
+                max,
+            ))
+        };
+        let trigger = |effects, targets| AbilityDef::Triggered {
+            trigger: Trigger::ETB,
+            effects,
+            targets,
+            second_targets: None,
+            once_per_turn: false,
+            condition: None,
+        };
+        assert_eq!(division_fault(&trigger(DIVIDE, targets(4))), None);
+        for (shape, ability) in [
+            ("no targets", trigger(DIVIDE, None)),
+            ("more targets than damage", trigger(DIVIDE, targets(5))),
+            ("inside a may", trigger(IN_A_MAY, targets(4))),
+            ("twice", trigger(TWICE, targets(2))),
+            (
+                "on a spell",
+                AbilityDef::Spell {
+                    effects: DIVIDE,
+                    targets: targets(4),
+                    second_targets: None,
+                },
+            ),
+        ] {
+            assert!(
+                division_fault(&ability).is_some(),
+                "a division {shape} was not reported"
+            );
+        }
+    }
+
+    /// Every modal spell in the pool can be cast the way it prints: one
+    /// mode with at most its own replacement cost, or several (CR 700.2d)
+    /// with costs added to the card's and at most two instances of the
+    /// word "target" between them. The three cards that choose several
+    /// (Farewell, Final Showdown, Three Steps Ahead) are why the sweep
+    /// exists; a walk that found fewer has stopped reaching them.
+    #[test]
+    fn every_modal_spell_chooses_its_modes_the_way_the_engine_casts_them() {
+        let (mut wrong, mut several) = (Vec::new(), 0_usize);
+        for def in crate::all() {
+            let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
+            for ability in def.abilities.iter().chain(faces) {
+                if let AbilityDef::ModalSpell { choose, .. } = ability
+                    && !choose.is_one()
+                {
+                    several += 1;
+                }
+                if let Some(fault) = modes_fault(ability) {
+                    wrong.push(format!("{} {fault}", def.name()));
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+        assert!(several >= 3, "only {several} spells choose several modes");
+    }
+
+    /// The sweep above passes, and this shows passing means something: each
+    /// shape the rule refuses is reported, and Three Steps Ahead's is not.
+    #[test]
+    fn a_modes_fault_fires_on_each_bad_shape() {
+        use crate::dsl::ModeCount;
+        use baylee_core::mana::ManaCost;
+        const CREATURE: Option<TargetReq> =
+            Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)));
+        const PLAYER: Option<TargetReq> = Some(TargetReq::one(TargetSpec::AnyPlayer));
+        const DRAW: &[Effect] = &[Effect::draw(1)];
+        let mode = |targets, cost_override, additional_cost| SpellMode {
+            effects: DRAW,
+            targets,
+            second_targets: None,
+            cost_override,
+            additional_cost,
+        };
+        let one = Some(const { ManaCost::parse("{1}") });
+        let spell = |choose, modes: &'static [SpellMode]| AbilityDef::ModalSpell { modes, choose };
+        let leak = |modes: Vec<SpellMode>| -> &'static [SpellMode] { Vec::leak(modes) };
+        assert_eq!(
+            modes_fault(&spell(
+                ModeCount::ONE_OR_MORE,
+                leak(vec![
+                    mode(PLAYER, None, one),
+                    mode(CREATURE, None, one),
+                    mode(None, None, one),
+                ])
+            )),
+            None
+        );
+        for (shape, ability) in [
+            (
+                "choosing none",
+                spell(
+                    ModeCount { min: 0, max: 2 },
+                    leak(vec![mode(None, None, None)]),
+                ),
+            ),
+            (
+                "choosing more than it prints",
+                spell(ModeCount::TWO, leak(vec![mode(None, None, None)])),
+            ),
+            (
+                "a mode cost on a choose-one",
+                spell(ModeCount::ONE, leak(vec![mode(None, None, one)])),
+            ),
+            (
+                "an overload among several",
+                spell(
+                    ModeCount::ONE_OR_MORE,
+                    leak(vec![mode(None, one, None), mode(None, None, None)]),
+                ),
+            ),
+            (
+                "three targeting modes",
+                spell(
+                    ModeCount::ONE_OR_MORE,
+                    leak(vec![mode(CREATURE, None, None); 3]),
+                ),
+            ),
+            (
+                "a player in the second instance",
+                spell(
+                    ModeCount::ONE_OR_MORE,
+                    leak(vec![mode(CREATURE, None, None), mode(PLAYER, None, None)]),
+                ),
+            ),
+            (
+                "nine modes",
+                spell(
+                    ModeCount::ONE_OR_MORE,
+                    leak(vec![mode(None, None, None); 9]),
+                ),
+            ),
+            (
+                "a mode that says \"target\" twice among several",
+                spell(
+                    ModeCount::ONE_OR_MORE,
+                    leak(vec![
+                        SpellMode {
+                            second_targets: CREATURE,
+                            ..mode(CREATURE, None, None)
+                        },
+                        mode(None, None, None),
+                    ]),
+                ),
+            ),
+        ] {
+            assert!(
+                modes_fault(&ability).is_some(),
+                "a modal spell with {shape} was not reported"
+            );
+        }
+    }
+
+    /// Every "choose a permanent you control, then …" in the pool does
+    /// something to it without stopping to ask, which is what keeps the
+    /// choice in hand while it happens. Final Showdown is why the sweep
+    /// exists.
+    #[test]
+    fn every_chosen_permanent_keeps_its_choice() {
+        let (mut wrong, mut found) = (Vec::new(), 0_usize);
+        for def in crate::all() {
+            let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
+            for ability in def.abilities.iter().chain(faces) {
+                for (effects, _, _) in resolving_lists(ability) {
+                    let mut seen = 0_usize;
+                    Effect::walk(effects, &mut seen, &mut |effect| {
+                        if matches!(effect, Effect::ChooseYoursThen { .. }) {
+                            found += 1;
+                        }
+                    });
+                    if let Some(fault) = chosen_then_fault(effects) {
+                        wrong.push(format!("{} {fault}", def.name()));
+                    }
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+        assert!(
+            found >= 1,
+            "no chosen permanent found, and Final Showdown prints one"
+        );
+    }
+
+    /// And the rule refuses what it says it refuses.
+    #[test]
+    fn a_chosen_then_fault_fires_on_each_bad_shape() {
+        const GAINS: &[Effect] = &[Effect::CreateContinuousEffect {
+            layer: Layer::Ability,
+            filter: &Filter::This,
+            modifier: Modifier::LoseAllAbilities,
+            duration: Duration::UntilEndOfTurn,
+        }];
+        const FINE: &[Effect] = &[Effect::ChooseYoursThen {
+            filter: &Filter::CREATURE,
+            then: GAINS,
+        }];
+        const EMPTY: &[Effect] = &[Effect::ChooseYoursThen {
+            filter: &Filter::CREATURE,
+            then: &[],
+        }];
+        const ASKS: &[Effect] = &[Effect::ChooseYoursThen {
+            filter: &Filter::CREATURE,
+            then: &[Effect::MayDo { effects: GAINS }],
+        }];
+        const NESTED: &[Effect] = &[Effect::IfKicked {
+            then: ASKS,
+            otherwise: &[],
+        }];
+        assert_eq!(chosen_then_fault(FINE), None);
+        for (shape, effects) in [("empty", EMPTY), ("asking", ASKS), ("nested", NESTED)] {
+            assert!(
+                chosen_then_fault(effects).is_some(),
+                "a chosen permanent's {shape} list was not reported"
+            );
+        }
     }
 
     /// Every reflexive trigger in the pool sits where the engine can read its
@@ -1692,6 +2133,18 @@ mod tests {
             },
         ];
         static PREFIX: [Effect; 3] = [DRAW, Effect::SacrificeSelf, REFLEX];
+        const EXILED: Effect = Effect::Reflexive {
+            when: ReflexiveEvent::ExiledThis,
+            effects: BODY,
+            target: None,
+        };
+        static BALROG: [Effect; 2] = [
+            Effect::MayDo {
+                effects: &[Effect::ExileSource],
+            },
+            EXILED,
+        ];
+        static EXILED_AFTER_A_SACRIFICE: [Effect; 2] = [Effect::SacrificeSelf, EXILED];
         static ALONE: [Effect; 1] = [REFLEX];
         static GRANT: [Effect; 1] = [Effect::CreateContinuousEffect {
             layer: Layer::Ability,
@@ -1706,6 +2159,7 @@ mod tests {
 
         assert_eq!(reflexive_fault_in(&FETCH, true), None);
         assert_eq!(reflexive_fault_in(&EDEN, true), None);
+        assert_eq!(reflexive_fault_in(&BALROG, true), None);
 
         for (shape, list) in [
             ("not last", &NOT_LAST[..]),
@@ -1714,6 +2168,10 @@ mod tests {
             ("inside another reflexive", &IN_A_REFLEX[..]),
             ("an unlisted op before the action", &PREFIX[..]),
             ("no action at all", &ALONE[..]),
+            (
+                "waiting for an exile after a sacrifice",
+                &EXILED_AFTER_A_SACRIFICE[..],
+            ),
         ] {
             assert!(
                 reflexive_fault_in(list, true).is_some(),
@@ -1731,6 +2189,7 @@ mod tests {
             trigger: crate::dsl::ability::Trigger::ETB,
             effects: &GRANT,
             targets: None,
+            second_targets: None,
             once_per_turn: false,
             condition: None,
         };
@@ -1770,6 +2229,7 @@ mod tests {
             trigger: crate::dsl::ability::Trigger::ETB,
             effects: &LIST,
             targets: None,
+            second_targets: None,
             once_per_turn: false,
             condition: None,
         };
@@ -1942,6 +2402,7 @@ mod tests {
             mana_ability: false,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         };
         assert!(
             mana_ability_fault(&unmarked).is_some(),
@@ -1959,6 +2420,7 @@ mod tests {
             mana_ability: false,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         };
         assert!(
             mana_ability_fault(&with_a_rider).is_some(),
@@ -1974,6 +2436,7 @@ mod tests {
             mana_ability: true,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         };
         assert!(
             mana_ability_fault(&lying).is_some(),
@@ -1992,6 +2455,7 @@ mod tests {
             mana_ability: true,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         };
         assert_eq!(
             mana_ability_fault(&second_only),
@@ -2020,6 +2484,7 @@ mod tests {
             mana_ability: true,
             zone: ActivationZone::Battlefield,
             limit: ActivationLimit::Unlimited,
+            cost_reduction: None,
         }];
         static FACES: [FaceDef; 1] = [FaceDef {
             name: "Machine God's Effigy",
@@ -2074,6 +2539,7 @@ mod tests {
             mana_ability: true,
             zone: crate::dsl::ability::ActivationZone::Battlefield,
             limit: crate::dsl::ability::ActivationLimit::Unlimited,
+            cost_reduction: None,
         }];
         static ON_THE_FACE: [FaceDef; 1] = [FaceDef {
             name: "a land that taps for green",
@@ -2096,6 +2562,7 @@ mod tests {
             mana_ability: false,
             zone: crate::dsl::ability::ActivationZone::Battlefield,
             limit: crate::dsl::ability::ActivationLimit::Unlimited,
+            cost_reduction: None,
         }];
         assert_eq!(
             identity_gap(&CardDef {
@@ -2411,6 +2878,47 @@ mod tests {
         );
     }
 
+    /// Crew is alone in its cost (`CostPart::Crew`). Its one question is
+    /// answered with any number of creatures and `pay_cost` taps every
+    /// answer left, so a part printed beside it would be paid with a
+    /// creature named for the crew, or never asked at all. `crew!` writes it
+    /// alone; this holds a cost written by hand to the same.
+    #[test]
+    fn crew_is_alone_in_its_cost() {
+        let mut wrong = Vec::new();
+        let mut crews = 0usize;
+        let mut check = |who: &str, ability: &AbilityDef| {
+            for cost in costs(ability) {
+                if cost.parts.iter().any(|p| matches!(p, CostPart::Crew(_))) {
+                    crews += 1;
+                    if cost.parts.len() != 1 || cost.mana != baylee_cards_dsl::ManaCost::ZERO {
+                        wrong.push(format!("{who} — {cost:?}"));
+                    }
+                }
+            }
+        };
+        for def in crate::all() {
+            for face in 0..def.faces.len() {
+                for ability in def.abilities_for_face(face) {
+                    check(def.name(), ability);
+                }
+            }
+        }
+        for token in crate::tokens::ALL {
+            for ability in token.abilities {
+                check(token.name, ability);
+            }
+        }
+        assert!(
+            crews >= 1,
+            "read {crews} crew costs out of the pool; Unlicensed Hearse alone has one"
+        );
+        assert!(
+            wrong.is_empty(),
+            "a crew cost shares its cost with another part: {wrong:?}"
+        );
+    }
+
     /// The lint catches the pair it exists for, and nothing that merely
     /// looks like it.
     #[test]
@@ -2444,6 +2952,7 @@ mod tests {
                 mana_ability: false,
                 zone: ActivationZone::Battlefield,
                 limit: ActivationLimit::Unlimited,
+                cost_reduction: None,
             };
 
         assert_eq!(

@@ -452,24 +452,51 @@ fn a_thief_of_blood_takes_twice_what_it_drained_under_your_own_season() {
     );
 }
 
-/// "…except it enters with an additional +1/+1 counter on it" is a
-/// replacement effect (CR 614.1c), and a counter-doubling replacement
-/// applies to what another replacement effect places even when the event it
-/// modified was not itself an effect (CR 614.16).
+/// Spark Double: "…except it enters with an additional +1/+1 counter on it
+/// if it's a creature, it enters with an additional loyalty counter on it if
+/// it's a planeswalker". Each clause is a replacement effect (CR 614.1c), and
+/// a counter-doubling replacement applies to what another replacement effect
+/// places even when the event it modified was not itself an effect
+/// (CR 614.16).
 ///
-/// What it copies is a 1/1, so every point above that is a counter this test
-/// is about. The loyalty counter is asserted beside the P/T because the card
-/// puts one on whatever it copied, and a door that doubled one kind and not
-/// the other would read as working from the creature alone.
+/// A copy of an Elf is a creature and no planeswalker, so it takes the +1/+1
+/// counter, two under the Season, and no loyalty counter at all. The card
+/// put both on every copy, and a loyalty counter on an Elf is one a
+/// proliferate can grow.
 #[test]
-fn a_spark_double_under_a_doubling_season_enters_with_two_of_each_counter() {
-    let (bare, bare_loyalty) = a_spark_double_copying_an_elf(90, false);
-    assert_eq!(bare, (2, 2), "one +1/+1 counter on a copied 1/1");
-    assert_eq!(bare_loyalty, 1, "and one loyalty counter beside it");
+fn a_spark_double_copy_of_an_elf_takes_only_the_p1p1_counter_doubled_by_a_season() {
+    assert_eq!(
+        a_spark_double_copying_mine(90, false, llanowar_elves()),
+        (1, 0),
+        "one +1/+1 counter, and no loyalty counter"
+    );
+    assert_eq!(
+        a_spark_double_copying_mine(91, true, llanowar_elves()),
+        (2, 0),
+        "two +1/+1 counters under the Season, and still no loyalty counter"
+    );
+}
 
-    let (doubled, doubled_loyalty) = a_spark_double_copying_an_elf(91, true);
-    assert_eq!(doubled, (3, 3), "two +1/+1 counters under the Season");
-    assert_eq!(doubled_loyalty, 2, "and two loyalty counters");
+/// The other side: a copy of Karn, the Great Creator is a planeswalker and
+/// no creature, so it takes the loyalty counter and no +1/+1 counter. Its
+/// printed loyalty is counters placed as it enters too (CR 306.5b), so the
+/// Season doubles both: five and one alone, ten and two under it.
+///
+/// The card put a +1/+1 counter on the walker as well, which does nothing
+/// until something makes it a creature, and then makes it one bigger than
+/// it is.
+#[test]
+fn a_spark_double_copy_of_karn_takes_only_the_loyalty_counter_doubled_by_a_season() {
+    assert_eq!(
+        a_spark_double_copying_mine(93, false, karn_the_great_creator()),
+        (0, 5 + 1),
+        "Karn's printed five and the Double's one, and no +1/+1 counter"
+    );
+    assert_eq!(
+        a_spark_double_copying_mine(94, true, karn_the_great_creator()),
+        (0, 2 * (5 + 1)),
+        "both doubled under the Season, and still no +1/+1 counter"
+    );
 }
 
 /// Bristly Bill's "double the number of +1/+1 counters" is **putting**

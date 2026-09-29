@@ -91,6 +91,21 @@ pub enum Filter {
     /// engine's enumerated options instead, which is what they already do
     /// for every filter they cannot read.
     EnteredThisTurn,
+    /// Was put into a graveyard, from anywhere, during the current turn
+    /// (Garna, the Bloodflame: "all creature cards in your graveyard that
+    /// were put there from anywhere this turn").
+    ///
+    /// History like [`Self::EnteredThisTurn`], kept in the same per-turn
+    /// record and refused by a view for the same reason.
+    PutIntoGraveyardThisTurn,
+    /// Has at least one counter of this kind on it (The Reaper, King No
+    /// More: "a creature an opponent controls with a -1/-1 counter on it").
+    ///
+    /// Asked of a permanent that has just left the battlefield, it answers
+    /// with the counters the permanent had as it left (CR 603.10a): the move
+    /// clears them, so the card in the graveyard has none by the time a dies
+    /// trigger asks.
+    HasCounter(crate::CounterKind),
     /// Has the subtype the SOURCE object chose as it entered ("the chosen
     /// type" — Roaming Throne, Reflections of Littjara, Cavern of Souls).
     MatchesChosenTypeOfSource,
@@ -119,6 +134,13 @@ pub enum Filter {
     /// [`crate::Amount::X`] does in the same position: a triggered ability
     /// has no announcement to read.
     CmcAtMostX,
+    /// Mana value at most the number of colors of mana spent to cast the
+    /// source (the number converge counts, an ability word — CR 207.2c —
+    /// with no rules of its own: Prismatic Ending). Read off
+    /// the source as it is on the stack, where the payment wrote what it
+    /// spent; a source that is gone, was cast for free or is no spell
+    /// bounds at 0, as [`Self::CmcAtMostX`] does.
+    CmcAtMostColorsSpent,
     /// Converted mana cost at least N.
     CmcAtLeast(u32),
     /// Toughness at most N (Recruiter of the Guard).

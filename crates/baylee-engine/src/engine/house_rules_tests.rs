@@ -517,6 +517,53 @@ fn no_mulligan_is_taken_past_a_hand_of_zero() {
     assert!(engine.pending_for(seat(0)).is_none());
 }
 
+/// "Ashaya's power and toughness are each equal to the number of lands you
+/// control."
+fn ashaya_soul_of_the_wild() -> CardIndex {
+    card_index("162572f2-1757-42e9-bd97-e6bd9a762c0e")
+}
+
+/// A seat is shown its hand and the board with its mulligan question, and
+/// the engine's loop, whose first step refreshes the projection, does not
+/// run before turn 1. So a hand of Ashayas dealt beside two Forests on a
+/// starting battlefield was asked about as the 0/0s the card prints, and so
+/// was the hand a mulligan drew in its place: each draw had cleared the
+/// card's cache, and nothing projected it again until the window closed.
+#[test]
+fn a_hand_is_shown_as_it_projects_while_the_mulligans_are_open() {
+    // Ashayas in the library too, so the mulligan draws nothing else.
+    let mut engine = Duel::new(257, ashaya_soul_of_the_wild())
+        .hand(0, &[ashaya_soul_of_the_wild(); 7])
+        .battlefield(0, &[forest(), forest()])
+        .start();
+    let sizes = |engine: &Engine<RegistryLookup>| -> Vec<(i16, i16)> {
+        hand(engine, 0)
+            .into_iter()
+            .map(|id| super::testkit::pt(engine, id))
+            .collect()
+    };
+    assert_eq!(
+        sizes(&engine),
+        vec![(2, 2); 7],
+        "dealt: each Ashaya counts the two Forests"
+    );
+
+    engine.apply(seat(0), PlayerAction::MulliganTake).unwrap();
+    assert!(
+        matches!(
+            engine.pending_for(seat(0)),
+            Some(Pending::Mulligan { taken: 1, .. })
+        ),
+        "seat 0 is asked again: {:?}",
+        engine.pending_for(seat(0))
+    );
+    assert_eq!(
+        sizes(&engine),
+        vec![(2, 2); 7],
+        "the hand the mulligan drew counts them too"
+    );
+}
+
 fn seat(p: u8) -> PlayerId {
     PlayerId::new(p)
 }
