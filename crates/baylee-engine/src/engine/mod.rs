@@ -439,6 +439,11 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// Choosing a card name as a permanent enters (Pithing Needle).
+    ChooseCardName {
+        /// The entering permanent.
+        object: ObjectId,
+    },
     /// Choosing a color as a permanent enters (Uncharted Haven).
     ///
     /// `Pending::ChooseColor` is asked for two different reasons — this, and
@@ -991,6 +996,7 @@ impl<L: CardLookup> Engine<L> {
                         | PlanKind::EntryReveal { .. }
                         | PlanKind::CopyOnEnter { .. }
                         | PlanKind::ChooseSubtype { .. }
+                        | PlanKind::ChooseCardName { .. }
                         | PlanKind::ChooseColor { .. }
                         | PlanKind::IntrinsicMana { .. }
                         | PlanKind::PlayLandFace { .. }
@@ -1028,6 +1034,7 @@ mod abilities;
 mod ascend;
 mod decision;
 pub(crate) mod disguise;
+mod room;
 mod storied;
 mod targeting;
 pub use decision::DecisionContext;

@@ -597,7 +597,9 @@ const fn objects_only(spec: TargetSpec) -> bool {
 /// its place. The engine holds two instances of the word "target" for a
 /// spell, and each chosen mode that targets takes the next one
 /// (`cast_wizard::targeted_mode`), so at most two modes may target, and the
-/// second of them objects only ([`objects_only`]).
+/// second of them objects only ([`objects_only`]). A mode that says
+/// "target" twice itself (`SpellMode::second_targets`, Archdruid's Charm)
+/// takes both instances, so only a choose-one spell may print one.
 fn modes_fault(ability: &AbilityDef) -> Option<&'static str> {
     let AbilityDef::ModalSpell { modes, choose } = ability else {
         return None;
@@ -621,6 +623,11 @@ fn modes_fault(ability: &AbilityDef) -> Option<&'static str> {
     }
     if modes.iter().any(|m| m.cost_override.is_some()) {
         return Some("replaces the card's cost in one of several modes");
+    }
+    if modes.iter().any(|m| m.second_targets.is_some()) {
+        return Some(
+            "says \"target\" twice in one of several modes, and each chosen mode takes one instance of the word",
+        );
     }
     let targeting: Vec<TargetSpec> = modes
         .iter()
@@ -1877,6 +1884,7 @@ mod tests {
         let mode = |targets, cost_override, additional_cost| SpellMode {
             effects: DRAW,
             targets,
+            second_targets: None,
             cost_override,
             additional_cost,
         };
@@ -1936,6 +1944,19 @@ mod tests {
                 spell(
                     ModeCount::ONE_OR_MORE,
                     leak(vec![mode(None, None, None); 9]),
+                ),
+            ),
+            (
+                "a mode that says \"target\" twice among several",
+                spell(
+                    ModeCount::ONE_OR_MORE,
+                    leak(vec![
+                        SpellMode {
+                            second_targets: CREATURE,
+                            ..mode(CREATURE, None, None)
+                        },
+                        mode(None, None, None),
+                    ]),
                 ),
             ),
         ] {
@@ -2613,6 +2634,45 @@ mod tests {
         );
     }
 
+    /// A Room with both doors unlocked has both halves' rules text
+    /// (CR 709.5), and the engine reads that off the card-level list
+    /// (`CardDef::door_abilities`), so the card-level list must be exactly
+    /// the halves' lists end to end, the left first. Written by hand, it can
+    /// drift: a sentence added to one half and not to the union would be in
+    /// play with one door open and gone with both. Equality, not "contains",
+    /// because an ability's index in the list is its identity on the stack.
+    #[test]
+    fn a_rooms_card_list_is_its_doors_lists_end_to_end() {
+        let mut rooms = 0_usize;
+        let mut wrong = Vec::new();
+        for def in crate::all() {
+            if !def.has_shared_type_line() {
+                continue;
+            }
+            rooms += 1;
+            let halves: Vec<AbilityDef> = def
+                .faces
+                .iter()
+                .flat_map(|face| face.abilities.iter().copied())
+                .collect();
+            if def.abilities != halves.as_slice() {
+                wrong.push(def.name());
+            }
+        }
+        assert!(
+            wrong.is_empty(),
+            "these Rooms' card-level `abilities` are not their halves' lists \
+             end to end: {wrong:?}"
+        );
+        // Measured 29.09.2026: one Room in the pool, Walk-In Closet. A
+        // reader of the shared type line that found none would pass the
+        // sweep above with nothing in it.
+        assert!(
+            (1..=8).contains(&rooms),
+            "{rooms} Rooms; `has_shared_type_line` is not reading the pool"
+        );
+    }
+
     #[test]
     fn the_pt_lint_catches_both_halves_of_cr_208_1() {
         static VEHICLE: [baylee_core::ids::SubtypeId; 1] =
@@ -3195,6 +3255,7 @@ mod tests {
         // entered the pool carrying a question this sweep could not see.
         let asks = |m: &EnterModifier| match m {
             EnterModifier::ChooseSubtype
+            | EnterModifier::ChooseCardName
             | EnterModifier::ChooseColor
             | EnterModifier::ChooseColorExcept(_)
             | EnterModifier::TappedOrPayLife(_)

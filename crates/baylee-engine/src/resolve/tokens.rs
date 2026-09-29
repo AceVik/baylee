@@ -238,7 +238,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         owner = Some(p);
                         cmc = state
                             .object(card)
-                            .map_or(0, |o| o.characteristics().mana_cost.cmc());
+                            .map_or(0, |o| o.characteristics().mana_value());
                         break 'scan;
                     }
                 }

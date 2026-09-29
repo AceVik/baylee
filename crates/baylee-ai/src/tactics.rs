@@ -2,11 +2,11 @@
 //! Unknown effects retain the general policy; new cards need no name table.
 
 use baylee_cards_dsl::{AbilityDef, Amount, CounterKind, Effect, Modifier};
-use baylee_core::ids::{ObjectId, PlayerId, SubtypeId};
+use baylee_core::ids::{CardIndex, ObjectId, PlayerId, SubtypeId};
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::PlayerAction;
 use baylee_engine::engine::DecisionContext;
-use baylee_view::{CounterKind as ViewCounter, PlayerView, PublicObject};
+use baylee_view::{CounterKind as ViewCounter, PlayerView, PublicObject, RulesFace};
 
 use crate::HeuristicAgent;
 
@@ -347,6 +347,63 @@ pub(crate) fn material(o: &PublicObject) -> i64 {
 }
 
 impl HeuristicAgent {
+    /// The card name a Pithing Needle of the agent's names: the opponents'
+    /// permanent it would stop that is worth the most.
+    ///
+    /// The lock spares a mana ability and not a loyalty ability (CR 605.1a),
+    /// so a permanent counts when its printed list has a non-mana
+    /// `Activated` or `ActivatedConditional`, or a `Loyalty`. The name is read
+    /// off the face its abilities are printed on (`rules`), which for a copy
+    /// is the copied card's, and that is the name the copy answers to.
+    ///
+    /// With nothing to stop, the first card of the pool that is none of the
+    /// agent's own visible cards: the engine takes any name its pool has,
+    /// and this one locks nothing of the agent's.
+    pub(crate) fn card_name(&self, view: &PlayerView) -> (CardIndex, u8) {
+        let stops = |face: RulesFace| {
+            baylee_cards::by_index(face.card).is_some_and(|def| {
+                def.abilities_for_face(usize::from(face.face))
+                    .iter()
+                    .any(|ability| match ability {
+                        AbilityDef::Activated { .. } | AbilityDef::ActivatedConditional { .. } => {
+                            !ability.is_mana_ability()
+                        }
+                        AbilityDef::Loyalty { .. } => true,
+                        _ => false,
+                    })
+            })
+        };
+        let named = |o: &PublicObject| o.rules.or_else(|| o.card.map(RulesFace::from));
+        if let Some(face) = view
+            .battlefield
+            .iter()
+            .filter(|o| self.hostile(o.controller, view.seat))
+            .filter_map(|o| {
+                named(o)
+                    .filter(|face| stops(*face))
+                    .map(|face| (material(o), face))
+            })
+            .max_by_key(|(worth, _)| *worth)
+            .map(|(_, face)| face)
+        {
+            return (face.card, face.face);
+        }
+        let own: Vec<CardIndex> = view
+            .hand
+            .iter()
+            .map(|c| c.card.index)
+            .chain(
+                view.battlefield_of(view.seat)
+                    .filter_map(named)
+                    .map(|face| face.card),
+            )
+            .collect();
+        baylee_cards::all()
+            .map(|def| def.index)
+            .find(|card| !own.contains(card))
+            .map_or((CardIndex::new(0), 0), |card| (card, 0))
+    }
+
     pub(crate) fn subtype(&self, view: &PlayerView, options: &[SubtypeId]) -> SubtypeId {
         options
             .iter()

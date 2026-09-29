@@ -10,7 +10,9 @@ use super::{
     PlayerId, SmallVec, ZoneLocation, ZonePosition, eval,
 };
 use crate::casting;
-use crate::choice::{CastModeDesc, CastModeKind, ChoicePrompt, TargetPrompt, YesNoPrompt};
+use crate::choice::{
+    CastModeDesc, CastModeKind, ChoicePrompt, NumberPrompt, TargetPrompt, YesNoPrompt,
+};
 use crate::object::GameObject;
 use baylee_cards_dsl::{AltCondition, CostPart, SpellMode, TargetReq, TargetSpec};
 use baylee_core::ids::NameRef;
@@ -42,6 +44,10 @@ pub(crate) enum WizardStage {
     ChoosePlayer,
     /// Kicker yes/no.
     Kicker,
+    /// How many times to pay the replicate cost (CR 702.56a), announced
+    /// with the other additional costs (CR 601.2b) and so before targets.
+    /// Skipped when the face has none or the pool pays for none.
+    Replicate,
     /// Pitch choice (exile-from-hand).
     PitchChoice,
     /// Delve choice (exile-from-graveyard, {1} each).
@@ -79,6 +85,8 @@ pub(crate) struct CastWizard {
     pub x: u32,
     /// Whether the kicker was taken.
     pub kicked: bool,
+    /// How many times the replicate cost is paid.
+    pub replicated: u8,
     /// Cards chosen for pitch (exile-from-hand).
     pub pitch: SmallVec<[ObjectId; 2]>,
     /// Cards chosen to delve (exile-from-graveyard, {1} each).
@@ -179,6 +187,7 @@ impl<L: CardLookup> Engine<L> {
             chosen_player: None,
             x: 0,
             kicked: false,
+            replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -225,6 +234,7 @@ impl<L: CardLookup> Engine<L> {
             chosen_player: None,
             x: 0,
             kicked: false,
+            replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -287,6 +297,7 @@ impl<L: CardLookup> Engine<L> {
             chosen_player: None,
             x: 0,
             kicked: false,
+            replicated: 0,
             pitch: SmallVec::new(),
             delve_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -674,6 +685,21 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
+        // Timing, per way of casting (CR 601.3): the front's for every option
+        // that casts the front, and a back face's own for that face
+        // (`casting::face_timing_allows`, CR 712.11c, 715.3a). An enchantment
+        // with an instant Adventure, cast while the stack is not empty, is
+        // offered as the Adventure alone. Renumbered, because an option's
+        // index is its place in this list.
+        let front = obj.characteristics();
+        let front_now = casting::timing_allows(&self.state, player, front.types, front.keywords);
+        options.retain(|o| match o.kind {
+            CastModeKind::Face(i) => casting::face_timing_allows(&self.state, player, def, i),
+            _ => front_now,
+        });
+        for (i, option) in options.iter_mut().enumerate() {
+            option.index = u8::try_from(i).unwrap_or(u8::MAX);
+        }
         if options.is_empty() {
             return Err(EngineError::IllegalAction("no way to cast this spell"));
         }
@@ -691,6 +717,55 @@ impl<L: CardLookup> Engine<L> {
     /// legality probe asks the same question.
     fn has_commander_on_battlefield(&self, player: PlayerId) -> bool {
         casting::controls_a_commander(&self.state, player)
+    }
+
+    /// The most times the caster may announce paying `cost`, a replicate
+    /// cost, on top of the rest of this cast; `0` when not once.
+    ///
+    /// CR 702.56a allows any number, so what bounds the question is what can
+    /// be paid: a cast is paid out of the floating pool (`finish_cast`), so
+    /// the count is the largest the pool covers beside everything the cast
+    /// already costs, asked through the reader the payment spends by. The
+    /// generic mana delve, convoke or a paid waterbend could still take off
+    /// in the stages after this one is counted as paid, which makes it an
+    /// upper bound: the question never offers less than the caster could
+    /// pay, and a count the payment then cannot cover unwinds the whole
+    /// cast (CR 601.2h), as a printed X too large does. Capped at
+    /// [`X_CEILING`], which is also how many copies the trigger can list.
+    fn replicate_bound(
+        &self,
+        wizard: &CastWizard,
+        face: &baylee_cards_dsl::FaceDef,
+        cost: &ManaCost,
+    ) -> u32 {
+        let player = wizard.player;
+        let graveyard = self.state.zones.list(ZoneLocation::Graveyard(player)).len();
+        let help = [
+            (face.delve, graveyard),
+            (
+                face.convoke,
+                casting::convoke_sources(&self.state, player).len(),
+            ),
+            (
+                face.waterbend && wizard.kicked,
+                casting::waterbend_sources(&self.state, player).len(),
+            ),
+        ]
+        .iter()
+        .filter(|(applies, _)| *applies)
+        .map(|(_, n)| u32::try_from(*n).unwrap_or(u32::MAX))
+        .fold(0_u32, u32::saturating_add);
+        let before = wizard_total_cost(face, wizard);
+        (1..=X_CEILING)
+            .take_while(|n| {
+                self.can_pay_mana(
+                    player,
+                    spend_for(wizard, face),
+                    &times(before, cost, *n).with_less_generic(help),
+                )
+            })
+            .last()
+            .unwrap_or(0)
     }
 
     /// Drives the wizard forward until it needs an answer or finishes.
@@ -789,7 +864,7 @@ impl<L: CardLookup> Engine<L> {
                         player: wizard.player,
                         min: 0,
                         max,
-                        reason: crate::choice::NumberPrompt::Announce,
+                        reason: NumberPrompt::X,
                     };
                     self.awaiting_answer = true;
                     return Ok(());
@@ -927,7 +1002,7 @@ impl<L: CardLookup> Engine<L> {
                     || (face.kicked_targets.is_some() && !wizard.free)
                 {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Targets;
+                    wizard.stage = WizardStage::Replicate;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
@@ -942,6 +1017,28 @@ impl<L: CardLookup> Engine<L> {
                             )
                         })
                     }),
+                };
+                self.awaiting_answer = true;
+                Ok(())
+            }
+            WizardStage::Replicate => {
+                let face = self.wizard_face(&wizard);
+                let (cost, max) = face.replicate.map_or((ManaCost::ZERO, 0), |cost| {
+                    (cost, self.replicate_bound(&wizard, face, &cost))
+                });
+                if max == 0 {
+                    // Nothing to ask: no replicate, or not one payment the
+                    // pool covers, and zero is then the only answer.
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Targets;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
+                self.pending = Pending::ChooseNumber {
+                    player: wizard.player,
+                    min: 0,
+                    max,
+                    reason: NumberPrompt::Replicate { cost },
                 };
                 self.awaiting_answer = true;
                 Ok(())
@@ -1161,24 +1258,11 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// The spell's requirement for a second instance of the word "target",
-    /// if it prints one.
-    ///
-    /// Only [`AbilityDef::Spell`] can: a mode of a modal spell carries one
-    /// requirement, so a charm whose mode says "target" twice (Archdruid's
-    /// Charm) is not expressible yet and answers `None` here by construction.
+    /// if it prints one: [`AbilityDef::Spell`]'s, the chosen mode's
+    /// (Archdruid's Charm's second mode says "target" twice), or, for a set
+    /// of chosen modes, the second of them that says "target" (Three Steps
+    /// Ahead, CR 700.2c).
     pub(super) fn wizard_second_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
-        if matches!(wizard.option, Some(CastModeKind::Mode(_))) {
-            return None;
-        }
-        if let Some(CastModeKind::Modes(set)) = wizard.option {
-            let def = self
-                .state
-                .object(wizard.card)
-                .and_then(|o| o.card)
-                .and_then(|c| self.lookup.card(c.index))
-                .expect("wizard card known");
-            return targeted_mode(def.abilities_for_face(0), set, 1);
-        }
         let def = self
             .state
             .object(wizard.card)
@@ -1189,12 +1273,20 @@ impl<L: CardLookup> Engine<L> {
             Some(CastModeKind::Face(i)) => i.min(def.faces.len() - 1),
             _ => 0,
         };
-        def.abilities_for_face(face_index)
-            .iter()
-            .find_map(|a| match a {
+        let abilities = def.abilities_for_face(face_index);
+        match wizard.option {
+            Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
+                AbilityDef::ModalSpell { modes, .. } => {
+                    modes.get(i).and_then(|m: &SpellMode| m.second_targets)
+                }
+                _ => None,
+            }),
+            Some(CastModeKind::Modes(set)) => targeted_mode(abilities, set, 1),
+            _ => abilities.iter().find_map(|a| match a {
                 AbilityDef::Spell { second_targets, .. } => *second_targets,
                 _ => None,
-            })
+            }),
+        }
     }
 
     fn wizard_pitch_filter(
@@ -1237,28 +1329,16 @@ impl<L: CardLookup> Engine<L> {
         // units included: the colors it holds less of afterwards are the
         // colors spent (converge).
         let held_before = units_by_color(&self.state.players[player.get() as usize].mana_pool);
-        // A free cast pays nothing but what is added to it: a kicker, or
-        // the costs of the modes it chose (CR 118.9d).
-        let owed = !wizard.free || wizard.kicked || total != ManaCost::ZERO;
+        // A free cast pays nothing but what is added to it: a kicker, the
+        // replicate cost, or the costs of the modes it chose (CR 118.9d).
+        let owed = pays_mana(wizard) || total != ManaCost::ZERO;
         if owed {
             // Restricted mana (Cavern of Souls & co.) is spent where the
             // spell may spend it, and a rider applies for each entry that
             // actually paid. A failed payment has touched nothing.
-            let Some(spent) = casting::pay_mana_for(
-                &mut self.state,
-                player,
-                match wizard.option {
-                    Some(CastModeKind::Prototype) => casting::SpendFor::SpellAs(
-                        wizard.card,
-                        casting::SpellForm::Prototype(face.prototype.expect("prototype option")),
-                    ),
-                    Some(CastModeKind::Disguise) => {
-                        casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Disguise)
-                    }
-                    _ => casting::SpendFor::Spell(wizard.card),
-                },
-                &total,
-            ) else {
+            let Some(spent) =
+                casting::pay_mana_for(&mut self.state, player, spend_for(wizard, face), &total)
+            else {
                 self.cast_wizard = None;
                 return Err(EngineError::IllegalAction("cannot pay the total cost"));
             };
@@ -1353,7 +1433,7 @@ impl<L: CardLookup> Engine<L> {
                     sacrificed_mana_value = self
                         .state
                         .object(chosen)
-                        .map(|o| o.characteristics().mana_cost.cmc());
+                        .map(|o| o.characteristics().mana_value());
                     super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
                 }
                 // Already skipped, by [`paid_as_a_mandatory_additional_cost`]
@@ -1419,6 +1499,7 @@ impl<L: CardLookup> Engine<L> {
             obj.set_second(wizard.second_targets.clone(), second_target_req);
             obj.x_value = wizard.x;
             obj.kicked = wizard.kicked;
+            obj.replicated = wizard.replicated;
             obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)));
             obj.chosen_player = wizard.chosen_player;
             obj.cast_from_hand = !wizard.free;
@@ -1503,6 +1584,7 @@ impl<L: CardLookup> Engine<L> {
                 sacrificed_mana_value,
                 mana_spent,
                 colors_spent,
+                tapped: None,
             }));
         }
         if matches!(wizard.option, Some(CastModeKind::Prototype))
@@ -1653,6 +1735,9 @@ fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> M
             total = total.combine(&add.mana);
         }
     }
+    if let Some(replicate) = face.replicate {
+        total = times(total, &replicate, u32::from(wizard.replicated));
+    }
     total
 }
 
@@ -1683,6 +1768,37 @@ fn targeted_mode(abilities: &'static [AbilityDef], set: u8, nth: usize) -> Optio
             .nth(nth),
         _ => None,
     })
+}
+
+/// `total` with `cost` added `n` times: the replicate cost paid `n` times
+/// (CR 702.56a, 601.2f).
+fn times(total: ManaCost, cost: &ManaCost, n: u32) -> ManaCost {
+    (0..n).fold(total, |total, _| total.combine(cost))
+}
+
+/// Whether this cast pays mana at all. A free cast pays none of its mana
+/// cost (CR 601.2h pays nothing it was not asked for), but an additional
+/// cost it chose is still paid (CR 118.9d, 601.2f): a kicker, and the
+/// replicate cost however many times it was announced.
+const fn pays_mana(wizard: &CastWizard) -> bool {
+    !wizard.free || wizard.kicked || wizard.replicated > 0
+}
+
+/// What the cast's mana pays for, which restricted mana asks (CR 106.6):
+/// the one reader of the payment in `finish_cast` and of the replicate
+/// question's bound, so the question never offers a count the payment
+/// would refuse over a Cavern of Souls' mana.
+fn spend_for(wizard: &CastWizard, face: &baylee_cards_dsl::FaceDef) -> casting::SpendFor {
+    match wizard.option {
+        Some(CastModeKind::Prototype) => casting::SpendFor::SpellAs(
+            wizard.card,
+            casting::SpellForm::Prototype(face.prototype.expect("prototype option")),
+        ),
+        Some(CastModeKind::Disguise) => {
+            casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Disguise)
+        }
+        _ => casting::SpendFor::Spell(wizard.card),
+    }
 }
 
 /// The chosen cast option's cost as printed, X still in it.

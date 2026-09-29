@@ -272,6 +272,17 @@ pub enum Amount {
     /// a spell's `Sacrifice` additional cost in the cast wizard, an
     /// activation's in `pay_cost`. Nothing sacrificed reads 0.
     SacrificedManaValue,
+    /// "The tapped creature's power": the power of the permanent a
+    /// `CostPart::TapOther` tapped to pay the cost of the ability that is
+    /// resolving — station's "put a number of charge counters on this
+    /// permanent equal to the tapped creature's power" (CR 702.184a). Its
+    /// power as the effect applies while it is still on the battlefield as
+    /// the same object, and as it last existed there otherwise (CR 608.2h).
+    ///
+    /// The creature is not a target (station targets nothing), so hexproof
+    /// does not stop it. Read off the stack object, where `pay_cost` wrote
+    /// which creature it tapped; nothing tapped reads 0.
+    TappedPower,
     /// Number of objects matching a filter in a zone.
     CountOf {
         /// What to count.
@@ -713,6 +724,19 @@ pub struct Find {
     /// the door `GraveyardToBattlefield`'s counter takes, so a doubler has
     /// its say (CR 614.16). Written with [`Find::with_counter`].
     pub counter: Option<(CounterKind, u16)>,
+    /// A fork on the card found: one that matches the filter goes where the
+    /// inner find says instead. Archdruid's Charm, "Put it onto the
+    /// battlefield tapped if it's a land card. Otherwise, put it into your
+    /// hand", is `Find::HAND.when_matching(&Filter::LAND,
+    /// &Find::BATTLEFIELD_TAPPED)`. Asked of the card once it is chosen, as
+    /// it is in the library. Written with [`Find::when_matching`].
+    pub instead_if: Option<(&'static Filter, &'static Find)>,
+    /// This find takes every further card the search finds as well, so the
+    /// search may find as many cards as match: The World Tree's "search
+    /// your library for any number of God cards, put them onto the
+    /// battlefield" is one repeating find in an optional search. Only the
+    /// last find of a search repeats. Written with [`Find::any_number`].
+    pub repeats: bool,
 }
 
 impl Find {
@@ -721,24 +745,32 @@ impl Find {
         dest: SearchDest::Hand,
         tapped: false,
         counter: None,
+        instead_if: None,
+        repeats: false,
     };
     /// Onto the battlefield, untapped (Nature's Lore, a fetchland).
     pub const BATTLEFIELD: Self = Self {
         dest: SearchDest::Battlefield,
         tapped: false,
         counter: None,
+        instead_if: None,
+        repeats: false,
     };
     /// Onto the battlefield tapped (Rampant Growth, Evolving Wilds).
     pub const BATTLEFIELD_TAPPED: Self = Self {
         dest: SearchDest::Battlefield,
         tapped: true,
         counter: None,
+        instead_if: None,
+        repeats: false,
     };
     /// On top of your library (a tutor that does not draw).
     pub const TOP_OF_LIBRARY: Self = Self {
         dest: SearchDest::TopOfLibrary,
         tapped: false,
         counter: None,
+        instead_if: None,
+        repeats: false,
     };
 
     /// The same find, entering with `n` counters of `kind` on it — "with an
@@ -747,6 +779,25 @@ impl Find {
     pub const fn with_counter(self, kind: CounterKind, n: u16) -> Self {
         Self {
             counter: Some((kind, n)),
+            ..self
+        }
+    }
+
+    /// The same find, except that a found card matching `filter` goes
+    /// where `then` says ([`Find::instead_if`]).
+    #[must_use]
+    pub const fn when_matching(self, filter: &'static Filter, then: &'static Self) -> Self {
+        Self {
+            instead_if: Some((filter, then)),
+            ..self
+        }
+    }
+
+    /// The same find, for "any number of" cards ([`Find::repeats`]).
+    #[must_use]
+    pub const fn any_number(self) -> Self {
+        Self {
+            repeats: true,
             ..self
         }
     }
@@ -1163,6 +1214,39 @@ pub enum Effect {
     /// Put all creature cards from all graveyards onto the battlefield
     /// under your control (The True Scriptures III).
     AllGraveyardCreaturesToBattlefield,
+    /// Put every card matching `filter` in your graveyard onto the
+    /// battlefield, tapped when `tapped`: World Shaper's "return all land
+    /// cards from your graveyard to the battlefield tapped", which Lumra,
+    /// Bellow of the Woods prints too. Nothing is targeted or chosen; the
+    /// cards are the ones there as the effect resolves.
+    YourGraveyardToBattlefield {
+        /// Which cards.
+        filter: &'static Filter,
+        /// Whether they enter tapped.
+        tapped: bool,
+    },
+    /// "Earthbend N" (CR 701.66a): "Target land you control becomes a 0/0
+    /// land creature with haste in addition to its other types. Put N +1/+1
+    /// counters on it. When that land dies or is put into exile, return it
+    /// to the battlefield tapped under your control."
+    ///
+    /// The land is the ability's first target, which the card states as
+    /// `TargetReq::one(TargetSpec::Object(&Filter::YOUR_LAND))` beside it.
+    /// The animation lasts indefinitely and binds that object, so the land
+    /// that comes back is a new object and a plain land again (CR 400.7).
+    /// The last sentence is a delayed triggered ability (CR 603.7) whose
+    /// controller and source are this ability's (CR 603.7d, 603.7e); it
+    /// triggers once (CR 603.7b) and uses the stack.
+    Earthbend(u16),
+    /// "Return it to the battlefield tapped under your control", where "it"
+    /// is a card that has just gone to a graveyard or into exile: the
+    /// delayed trigger [`Effect::Earthbend`] leaves behind. `target` is
+    /// [`TargetSpec::EventObject`]; nothing is targeted. A card that is no
+    /// longer in a graveyard or in exile stays where it is (CR 603.7c).
+    ReturnToBattlefieldTapped {
+        /// The card (`EventObject`).
+        target: TargetSpec,
+    },
     /// "Transform this creature" (CR 701.27a): the source turns over to its
     /// other face where it stands. Only a permanent represented by a
     /// transforming double-faced card does (CR 701.27c) — a token copy or a
@@ -1791,6 +1875,33 @@ pub enum Effect {
         /// Copy modifications.
         mods: &'static [crate::ability::CopyMod],
     },
+    /// "Copy target activated or triggered ability you control. You may
+    /// choose new targets for the copy." (Vantress Visions.) The first
+    /// target is an ability on the stack (`TargetSpec::AbilityOnStack`).
+    ///
+    /// The copy is put on the stack under your control with every decision
+    /// made for the original: its mode, targets, X and what paid its costs
+    /// (CR 707.10), and the same source (CR 707.10b). It is neither
+    /// activated nor triggered (CR 707.10), so nothing that watches for
+    /// either sees it. Its controller may then leave any number of its
+    /// targets unchanged and change the rest to legal ones (CR 707.10c),
+    /// one target at a time as `ChooseNewTargets` asks.
+    CopyTargetAbility,
+    /// One copy of the spell a keyword's cast trigger is about: "copy it",
+    /// for replicate's "copy it for each time its replicate cost was paid.
+    /// If the spell has any targets, you may choose new targets for any of
+    /// the copies" (CR 702.56a).
+    ///
+    /// Written by the engine and never by a card: a card prints
+    /// `replicate = Some(…)` on its face, and the trigger the engine puts on
+    /// the stack for it lists this once for each payment, so the count is
+    /// fixed as the spell is cast. The spell is the trigger's first target
+    /// (its implicit one), copied as it last existed if it has left the
+    /// stack by then (CR 608.2h). The copy is put on the stack with every
+    /// decision made for the original (CR 707.10), and its controller may
+    /// then keep or change each of its targets, one at a time
+    /// (CR 707.10c), as `ChooseNewTargets` asks.
+    CopyThisSpell,
     /// Attach the source (equipment/aura) to a target permanent.
     AttachSelf {
         /// To what.
@@ -2549,6 +2660,9 @@ impl Effect {
             | Effect::RevealHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
             | Effect::GraveyardAllToHand { .. }
+            | Effect::YourGraveyardToBattlefield { .. }
+            | Effect::Earthbend(_)
+            | Effect::ReturnToBattlefieldTapped { .. }
             | Effect::TransformSource
             | Effect::TransformSourceAtNextUpkeep
             | Effect::ExileSelfReturnAsFace { .. }
@@ -2593,6 +2707,8 @@ impl Effect {
             | Effect::CreateTokenCopyOfFirstToken
             | Effect::BottomCardFromHand { .. }
             | Effect::CopyTargetSpell { .. }
+            | Effect::CopyTargetAbility
+            | Effect::CopyThisSpell
             | Effect::AttachSelf { .. }
             | Effect::ReorderTopLibrary { .. }
             | Effect::PayLifeOrEnterTapped { .. }

@@ -133,6 +133,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
+        | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
         | Modifier::CantBeTargetedBy(_)
@@ -153,7 +154,10 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // characteristics or control; this changes a rule, so a permanent
         // that arrives later and matches the filter is kept tapped too.
         | Modifier::DoesNotUntap
-        | Modifier::MayChooseNotToUntap => false,
+        | Modifier::MayChooseNotToUntap
+        // A replacement for a player's graveyard: the cards it catches are
+        // whichever arrive, not a set fixed as it began.
+        | Modifier::ExileInsteadOfYourGraveyard => false,
     }
 }
 
@@ -708,6 +712,7 @@ mod tests {
             Modifier::RevealLibraryTop,
             Modifier::ExtraLandDrops(2),
             Modifier::CantActivateArtifacts,
+            Modifier::ChosenNameCantActivate,
             Modifier::OpponentsCastAsSorcery,
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
             Modifier::CantBeTargetedBy(&Filter::CREATURE),
@@ -731,6 +736,7 @@ mod tests {
             Modifier::SearchTakeover,
             Modifier::DoesNotUntap,
             Modifier::MayChooseNotToUntap,
+            Modifier::ExileInsteadOfYourGraveyard,
         ]
     }
 
@@ -769,7 +775,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            51,
+            53,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -821,7 +827,7 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: twenty-seven
-    /// modifiers lock the objects they found, twenty-four do not.
+    /// modifiers lock the objects they found, twenty-six do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -829,10 +835,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_seven_modifiers_lock_a_set_and_twenty_four_do_not() {
+    fn twenty_seven_modifiers_lock_a_set_and_twenty_six_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (27, 24));
+        assert_eq!((locking, all.len() - locking), (27, 26));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

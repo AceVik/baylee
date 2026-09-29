@@ -380,6 +380,9 @@ impl GameLog {
             // or, kept to one, stop an automated loop from folding for all
             // of them.
             | GameEvent::AutoAnswered { .. }
+            // The permanent's own label says which doors are open, and a
+            // trigger the unlock set off has its own line.
+            | GameEvent::DoorUnlocked { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.
             | GameEvent::ZoneChanged {

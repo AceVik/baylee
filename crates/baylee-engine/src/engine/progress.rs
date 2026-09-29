@@ -778,6 +778,29 @@ impl<L: CardLookup> Engine<L> {
                 self.state.transform(id, def, 1);
                 changed = true;
             }
+            // A Room is given the unlocked designation of the half it was
+            // cast as as it enters, and neither when it was not cast
+            // (CR 709.5d). Here, like "enters transformed", so what the
+            // trigger scan later in this pass finds is the half that entered.
+            // The unlock is journalled because CR 709.5h triggers on the
+            // designation however it was given.
+            if let Some((def, half)) = self
+                .state
+                .object(id)
+                .filter(|o| o.zone == Zone::Battlefield && !o.doors.is_room())
+                .and_then(|o| Some((self.lookup.card(o.card?.index)?, o.face_index)))
+                .filter(|(def, _)| def.has_shared_type_line())
+            {
+                let cast = from_zone == Zone::Stack && half < 2;
+                self.state
+                    .set_doors(id, def, if cast { 1 << half } else { 0 });
+                if cast {
+                    self.state
+                        .journal
+                        .record(GameEvent::DoorUnlocked { object: id, half });
+                }
+                changed = true;
+            }
             // Echo (CR 702.30): register the pay-or-sacrifice choice at
             // the controller's next upkeep.
             if let Some(cost) = self.state.object(id).and_then(|o| {
@@ -990,6 +1013,7 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                     EnterModifier::ChooseSubtype
+                    | EnterModifier::ChooseCardName
                     | EnterModifier::ChooseColor
                     | EnterModifier::ChooseColorExcept(_)
                     | EnterModifier::TappedOrPayLife(_)
@@ -1006,6 +1030,12 @@ impl<L: CardLookup> Engine<L> {
                         player: controller,
                         options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
                     };
+                    self.awaiting_answer = true;
+                    return true; // one choice at a time
+                }
+                Some(EnterModifier::ChooseCardName) => {
+                    self.pending_plan = Some(PlanKind::ChooseCardName { object: id });
+                    self.pending = Pending::ChooseCardName { player: controller };
                     self.awaiting_answer = true;
                     return true; // one choice at a time
                 }
@@ -2044,6 +2074,73 @@ impl<L: CardLookup> Engine<L> {
         objects + players >= req.min as usize
     }
 
+    /// Resolves every queued triggered mana ability at once, off the stack
+    /// (CR 605.4a): Badgermole Cub's "whenever you tap a creature for mana,
+    /// add an additional {G}" puts its {G} in the pool before the player who
+    /// tapped acts again, and before any ordinary trigger of the same batch
+    /// is asked about. Returns `true` when one suspended on a choice.
+    ///
+    /// Which triggers are mana abilities is `AbilityDef::is_triggered_mana_ability`'s
+    /// answer (CR 605.1b); every other trigger stays in the queue, in its order.
+    fn resolve_triggered_mana_abilities(&mut self) -> bool {
+        let mut i = 0;
+        while i < self.trigger_queue.len() {
+            let t = &self.trigger_queue[i];
+            let effects = if t.ability_index == baylee_core::ids::AbilityRef::SYNTHETIC {
+                None
+            } else {
+                match self.trigger_abilities(t).get(t.ability_index as usize) {
+                    Some(ability @ AbilityDef::Triggered { effects, .. })
+                        if ability.is_triggered_mana_ability() =>
+                    {
+                        Some(*effects)
+                    }
+                    _ => None,
+                }
+            };
+            let Some(effects) = effects else {
+                i += 1;
+                continue;
+            };
+            let Some(t) = self.trigger_queue.remove(i) else {
+                break;
+            };
+            // CR 800.4d, as for every trigger.
+            if self.state.has_left(t.controller) {
+                continue;
+            }
+            let mut res = crate::resolve::Resolution {
+                retarget_left: None,
+                source: t.source,
+                on_stack: t.source,
+                controller: t.controller,
+                effects: crate::resolve::flatten(effects),
+                pc: 0,
+                targets: SmallVec::new(),
+                second_targets: SmallVec::new(),
+                x: None,
+                chosen_player: None,
+                target_players: baylee_core::ids::SeatSet::new(),
+                event_object: t.event_object,
+                targeted: false,
+                awaiting: None,
+                mana_ability: true,
+                countered_source: None,
+                target_lki: None,
+            };
+            match crate::resolve::run(&mut self.state, &mut res) {
+                crate::resolve::Flow::Complete => {}
+                crate::resolve::Flow::Wait(pending) => {
+                    self.resolution = Some(res);
+                    self.pending = pending;
+                    self.awaiting_answer = true;
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// Remember event-time abilities before a state-based action removes them.
     fn queue_new_triggers(&mut self) {
         if self.breaking_loop {
@@ -2081,6 +2178,22 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state.ceased.clear();
         self.state.ltb_mana_values.clear();
+        // A watch whose object has left the battlefield is spent, whether
+        // the scan just fired it or the object left some other way: the
+        // object it watched no longer exists (CR 400.7, 603.7b). Here and
+        // not in the scan, which reads the state and writes nothing.
+        let delayed = std::mem::take(&mut self.state.delayed);
+        self.state.delayed = delayed
+            .into_iter()
+            .filter(|d| match d.when {
+                crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. } => {
+                    self.state.object(card).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield && o.version == version
+                    })
+                }
+                _ => true,
+            })
+            .collect();
         self.trigger_queue.extend(found);
         let active = self.state.turn.active.get();
         let seats = self.state.players.len() as u8;
@@ -2103,6 +2216,9 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         self.queue_new_triggers();
+        if self.resolve_triggered_mana_abilities() {
+            return;
+        }
         while let Some(t) = self.trigger_queue.front().cloned() {
             // A triggered ability controlled by a player who has left the
             // game isn't put on the stack (CR 800.4d). Every queued trigger
@@ -2532,27 +2648,7 @@ impl<L: CardLookup> Engine<L> {
                 .object(loc.source)
                 .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
         });
-        match abilities.get(loc.index as usize)? {
-            AbilityDef::Activated { targets, .. }
-            | AbilityDef::ActivatedConditional { targets, .. }
-            | AbilityDef::Loyalty { targets, .. }
-            | AbilityDef::Triggered { targets, .. }
-            | AbilityDef::SagaChapter { targets, .. } => *targets,
-            AbilityDef::ModalTriggered { modes, .. } => {
-                // The same `expect` the resolution path below makes, and for
-                // the reason written there: the mode is announced as the
-                // ability goes on the stack (CR 603.3c), so one that reached
-                // resolution without it came off a push site that forgot to
-                // carry it. Falling back to the first mode is how a card
-                // resolves the wrong half of itself in silence.
-                let idx = obj
-                    .mode_index
-                    .expect("a modal trigger on the stack has its mode")
-                    as usize;
-                modes.get(idx).and_then(|m| m.targets)
-            }
-            _ => None,
-        }
+        crate::object::ability_target_req(abilities, loc.index, obj.mode_index)
     }
 
     /// The damage a triggered ability on the stack divides as its controller
@@ -3257,6 +3353,13 @@ impl<L: CardLookup> Engine<L> {
                 player,
                 crate::state::DelayedAction::CastDiscovered { card, version },
             ));
+        }
+        // A copy of a synthetic ability (CR 707.10) takes the original's
+        // effects, which live here and not on the object the resolver made.
+        for (original, copy) in std::mem::take(&mut self.state.synthetic_copies) {
+            if let Some(&effects) = self.synthetic_fx.get(&original) {
+                self.synthetic_fx.insert(copy, effects);
+            }
         }
         // A mana ability never went on the stack (CR 605.3b), and its
         // `on_stack` is the source permanent itself. Falling through here
@@ -4024,6 +4127,25 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// A delayed "transform it": only the permanent it was made for, on the
+    /// battlefield as the same object and still showing the same face
+    /// (CR 400.7), turns over.
+    fn transform_if_unchanged(&mut self, card: ObjectId, version: u32, face: u8) {
+        let still_there = self.state.object(card).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Battlefield && o.version == version && o.face_index == face
+        });
+        if still_there
+            && let Some(def) = self
+                .state
+                .object(card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+        {
+            self.state
+                .transform(card, def, 1 - usize::from(face.min(1)));
+        }
+    }
+
     /// Processes one queued delayed action; returns `true` when a pending
     /// choice was produced.
     pub(crate) fn process_delayed(&mut self) -> bool {
@@ -4056,21 +4178,7 @@ impl<L: CardLookup> Engine<L> {
                 version,
                 face,
             } => {
-                let still_there = self.state.object(card).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield
-                        && o.version == version
-                        && o.face_index == face
-                });
-                if still_there
-                    && let Some(def) = self
-                        .state
-                        .object(card)
-                        .and_then(|o| o.card)
-                        .and_then(|c| self.lookup.card(c.index))
-                {
-                    self.state
-                        .transform(card, def, 1 - usize::from(face.min(1)));
-                }
+                self.transform_if_unchanged(card, version, face);
                 false
             }
             crate::state::DelayedAction::Sacrifice { card, version } => {
@@ -4134,7 +4242,42 @@ impl<L: CardLookup> Engine<L> {
                 self.demand_echo(cost, card)
             }
             crate::state::DelayedAction::PayCostOrLose { cost } => self.demand_pact(cost),
+            // A delayed triggered ability that uses the stack, come due at a
+            // step: it joins the trigger queue and is put on the stack from
+            // there, as any trigger is. Earthbend's watch is read off the
+            // journal (`trigger::watch_triggers`) and never reaches this
+            // queue; no step-timed one exists yet.
+            crate::state::DelayedAction::Trigger { source, effects } => {
+                self.queue_delayed_trigger(controller, source, effects);
+                false
+            }
         }
+    }
+
+    /// A delayed triggered ability come due at a step joins the trigger
+    /// queue, and is put on the stack from there (CR 603.7).
+    fn queue_delayed_trigger(
+        &mut self,
+        controller: PlayerId,
+        source: ObjectId,
+        effects: &'static [baylee_cards_dsl::Effect],
+    ) {
+        self.trigger_queue
+            .push_back(crate::trigger::PendingTrigger {
+                event_damage: None,
+                event_mana_value: None,
+                source,
+                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                abilities: None,
+                controller,
+                timestamp: self.state.object(source).map_or(0, |o| o.timestamp),
+                event_object: None,
+                implicit_target: None,
+                synthetic_effects: Some(effects),
+                once_per_turn: false,
+                synthetic_target: None,
+                chosen_mode: None,
+            });
     }
 
     /// Echo come due (CR 702.30a): "sacrifice it unless you pay [cost]",

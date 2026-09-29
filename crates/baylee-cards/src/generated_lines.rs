@@ -181,8 +181,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Fastbond
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -16264,7 +16264,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Pithing Needle
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -29992,8 +29999,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // World Shaper
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(0)],
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -35227,8 +35234,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // The World Tree
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(1)],
+        stackable: 1,
+        lines: &[Some(1), Some(2), Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -42172,7 +42179,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 1,
             stackable: 0,
-            lines: &[],
+            lines: &[None],
             modes: &[],
             alternatives: &[],
         },
@@ -43318,7 +43325,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         sentences: 4,
         stackable: 0,
         lines: &[None],
-        modes: &[],
+        modes: &[Some(1), Some(2), Some(3)],
         alternatives: &[],
     }],
     &[],
@@ -46511,8 +46518,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         },
         FaceLines {
             sentences: 2,
-            stackable: 0,
-            lines: &[],
+            stackable: 1,
+            lines: &[Some(0)],
             modes: &[],
             alternatives: &[],
         },
@@ -48317,8 +48324,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Evendo, Waking Haven
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[Some(1), Some(3)],
+        stackable: 1,
+        lines: &[Some(1), Some(2), Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -48996,7 +49003,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[Some(0)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],

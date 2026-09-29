@@ -6196,11 +6196,6 @@ fn an_opponents_land_leaves_kazandu_mammoth_the_three_three_it_prints() {
     );
 }
 
-// oracle_id = "f3d48efa-910a-4872-a5b1-a353c5dbce99"
-fn pinnacle_monk() -> CardIndex {
-    card_index("f3d48efa-910a-4872-a5b1-a353c5dbce99")
-}
-
 /// Pinnacle Monk ({3}{R}{R}, 2/2): "When this creature enters, return target
 /// instant or sorcery card from your graveyard to your hand."
 ///
@@ -10352,6 +10347,55 @@ fn benevolent_geist_is_disturbed_shields_noncreature_spells_and_is_exiled() {
     );
 }
 
+/// Benevolent Geist's mana value is Malevolent Hermit's {1}{U}, 2, not its
+/// disturb cost's 3: on the stack, because it was cast transformed (CR
+/// 712.8c), and on the battlefield with its back face up (CR 712.8e).
+#[test]
+fn a_disturbed_geist_has_the_hermits_mana_value() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(98, island())
+        .battlefield(0, &[island(), island(), island()])
+        .hand(0, &[malevolent_hermit()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let card = in_hand(&engine, p0, malevolent_hermit()).expect("the Hermit is in hand");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            card,
+            ZoneLocation::Graveyard(p0),
+            ZonePosition::Top,
+            crate::event::Cause::DevCommand,
+        )
+        .expect("into the graveyard");
+    tap_all_mana(&mut engine, p0);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("disturb is offered from the graveyard");
+    let mana_value = |engine: &Engine<RegistryLookup>, id: ObjectId| {
+        engine
+            .state()
+            .object(id)
+            .map(|o| o.characteristics().mana_value())
+    };
+    let spell = on_stack(&engine, malevolent_hermit()).expect("the Geist is cast");
+    assert_eq!(
+        mana_value(&engine, spell),
+        Some(2),
+        "the Hermit's {{1}}{{U}}"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    let geist = on_battlefield(&engine, p0, malevolent_hermit()).expect("the Geist is out");
+    assert_eq!(face_shown(&engine, geist), 1, "Benevolent Geist");
+    assert_eq!(
+        mana_value(&engine, geist),
+        Some(2),
+        "and on the battlefield"
+    );
+}
+
 // oracle_id = "5d27c63e-d1ef-48af-b51d-01ebc6daeac9"
 fn mikaeus_the_unhallowed() -> CardIndex {
     card_index("5d27c63e-d1ef-48af-b51d-01ebc6daeac9")
@@ -14470,93 +14514,337 @@ fn altered_ego_that_copies_nothing_gets_no_counters_and_dies() {
     assert!(in_graveyard(&engine, p0, altered_ego()).is_some());
 }
 
-fn badgermole_cub() -> CardIndex {
-    card_index("2b0afb89-0944-4861-b9c3-e909e2ac215e")
+/// Casts Badgermole Cub off two of p0's Forests and earthbends `land`,
+/// answering the enters trigger's target question as a player would.
+#[track_caller]
+fn earthbend_with_the_cub(engine: &mut Engine<RegistryLookup>, pay: [ObjectId; 2], land: ObjectId) {
+    let p0 = PlayerId::new(0);
+    for forest in pay {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: forest })
+            .expect("a Forest taps for {G}");
+    }
+    cast_with_floating(engine, p0, badgermole_cub());
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched");
+    };
+    assert!(options.contains(&land), "\"target land you control\"");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![land],
+                players: vec![],
+            },
+        )
+        .expect("the land");
+    pass_until(engine, stack_is_empty);
 }
 
-/// `Badgermole Cub` prints `When this creature enters, earthbend 1. (Target land you control becomes a 0/0 creature with haste that's still a land. Put a +1/+1 counter on it. When it dies or is exiled, return it to the battlefield tapped.)` and `Whenever you tap a creature for mana, add an additional {{G}}.`
+/// How many `ZoneChanged` entries moved `object` from `from` to `to`.
+fn moves_of(engine: &Engine<RegistryLookup>, object: ObjectId, from: Zone, to: Zone) -> usize {
+    engine
+        .journal()
+        .entries()
+        .iter()
+        .filter(|e| {
+            matches!(e.event, crate::event::GameEvent::ZoneChanged { object: o, from: f, to: t, .. }
+                if o == object && f == from && t == to)
+        })
+        .count()
+}
+
+/// Whether an earthbend watch is still registered.
+fn earthbend_watches(engine: &Engine<RegistryLookup>) -> usize {
+    engine
+        .state()
+        .delayed
+        .iter()
+        .filter(|d| matches!(d.when, crate::state::DelayedWhen::DiesOrIsExiled { .. }))
+        .count()
+}
+
+/// Badgermole Cub: "When this creature enters, earthbend 1." and "Whenever
+/// you tap a creature for mana, add an additional {G}."
 ///
-/// Marked `Coverage::Partial`, its arrival trigger targets a controlled land via `Pending::ChooseTargets` under `Filter::YOUR_LAND`, adding `TypeSet::CREATURE`, `KeywordSet::HASTE`, base P/T 0/0, and one `CounterKind::P1P1`.
-/// The tapped animated land produces only its printed mana, omitting the unsupported additional `{{G}}` trigger.
+/// The Forest it earthbends is a 1/1 land creature with haste (CR 701.66a),
+/// so it taps for mana the turn it was animated, and tapping it is tapping
+/// a creature for mana: {G}{G}. The second {G} comes from a triggered mana
+/// ability (CR 605.1b), which resolves the moment it triggers (CR 605.4a):
+/// both are in the pool when the player next has priority, the stack is
+/// empty, and no ability was put on it. A Forest that is only a land adds
+/// its one.
 #[test]
-fn badgermole_cub_animates_land_and_omits_additional_mana() {
-    let p0 = PlayerId::new(0);
-    let p1 = PlayerId::new(1);
+fn badgermole_cub_earthbends_a_forest_that_then_taps_for_two() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest(), forest()])
+        .battlefield(0, &[forest(), forest(), forest(), forest()])
         .hand(0, &[badgermole_cub()])
         .battlefield(1, &[forest()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    let forests = all_on_battlefield(&engine, p0, forest());
+    let their_land = on_battlefield(&engine, p1, forest()).expect("their Forest");
+    let (land, plain) = (forests[2], forests[3]);
 
-    let my_forests = all_on_battlefield(&engine, p0, forest());
-    let target_land = my_forests[0];
-    let their_land = on_battlefield(&engine, p1, forest()).expect("opponent forest");
+    earthbend_with_the_cub(&mut engine, [forests[0], forests[1]], land);
+    assert!(
+        !engine
+            .state()
+            .object(their_land)
+            .is_some_and(|o| o.characteristics().types.contains(TypeSet::CREATURE)),
+        "their land was never a choice"
+    );
+    let t = types(&engine, land);
+    assert!(t.contains(TypeSet::LAND) && t.contains(TypeSet::CREATURE));
+    assert!(keywords(&engine, land).contains(KeywordSet::HASTE));
+    assert_eq!(counters_on(&engine, land, CounterKind::P1P1), 1);
+    assert_eq!(pt(&engine, land), (1, 1), "0/0 and one counter");
+    assert_eq!(earthbend_watches(&engine), 1, "the delayed trigger waits");
 
-    tap_mana_except(&mut engine, p0, target_land);
-    cast_with_floating(&mut engine, p0, badgermole_cub());
-
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseTargets { .. })
-    });
-    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
-        panic!("expected ChooseTargets prompt, got {:?}", engine.pending());
+    let green = |engine: &Engine<RegistryLookup>| {
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green)
     };
-    assert!(options.contains(&target_land), "controlled land is legal");
-    assert!(
-        !options.contains(&their_land),
-        "opponent land is not offered by `Filter::YOUR_LAND`"
-    );
-
+    assert_eq!(green(&engine), 0, "the Cub took both");
     engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![target_land],
-                players: vec![],
-            },
-        )
-        .unwrap();
+        .apply(p0, PlayerAction::ActivateManaAbility { source: plain })
+        .expect("a Forest taps for {G}");
+    assert_eq!(green(&engine), 1, "a land that is no creature adds its one");
 
-    pass_until(&mut engine, stack_is_empty);
-
-    let t = types(&engine, target_land);
-    assert!(
-        t.contains(TypeSet::LAND) && t.contains(TypeSet::CREATURE),
-        "target becomes creature land"
-    );
-    assert!(
-        keywords(&engine, target_land).contains(KeywordSet::HASTE),
-        "target gains haste"
-    );
-    assert_eq!(
-        counters_on(&engine, target_land, CounterKind::P1P1),
-        1,
-        "target receives one +1/+1 counter"
-    );
-    assert_eq!(
-        pt(&engine, target_land),
-        (1, 1),
-        "0/0 base plus one counter is a 1/1"
-    );
-
+    let before = engine.journal().entries().len();
     engine
-        .apply(
-            p0,
-            PlayerAction::ActivateManaAbility {
-                source: target_land,
-            },
-        )
-        .unwrap();
+        .apply(p0, PlayerAction::ActivateManaAbility { source: land })
+        .expect("the earthbent Forest has haste and taps for {G}");
+    assert_eq!(
+        green(&engine),
+        3,
+        "its {{G}} and the Cub's additional {{G}}"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "straight back to the player who tapped, got {:?}",
+        engine.pending()
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "a mana ability never uses the stack"
+    );
+    assert!(
+        !engine.journal().entries()[before..]
+            .iter()
+            .any(|e| matches!(e.event, crate::event::GameEvent::AbilityTriggered { .. })),
+        "nothing was put on the stack to resolve later"
+    );
+}
 
+/// Badgermole Cub's mana ability answers a creature tapped **for mana**
+/// (CR 106.12) and nothing else: Llanowar Elves tapped for {G} makes {G}{G},
+/// and the Cub and the Elves tapped to attack make nothing.
+#[test]
+fn badgermole_cub_adds_for_a_creature_tapped_for_mana_and_not_for_an_attack() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[badgermole_cub(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let cub = on_battlefield(&engine, p0, badgermole_cub()).expect("the Cub");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves");
+
+    // Its printed "{T}: Add {G}.", activated as the player presses it.
+    activate(&mut engine, p0, llanowar_elves(), 0);
     assert_eq!(
         engine.state().players[0]
             .mana_pool
             .available(ManaColor::Green),
-        1,
-        "under `Coverage::Partial` the additional {{G}} trigger is omitted"
+        2,
+        "the Elves' {{G}} and the Cub's"
     );
+
+    // Untapped again for the attack, which is the harness setting a board
+    // up, not a rule.
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .set_tapped(elves, false);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let before = engine.journal().entries().len();
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![
+                    (cub, baylee_core::ids::Defender::Player(p1)),
+                    (elves, baylee_core::ids::Defender::Player(p1)),
+                ],
+            },
+        )
+        .expect("both attack");
+    assert!(is_tapped(&engine, cub) && is_tapped(&engine, elves));
+    assert!(
+        !engine.journal().entries()[before..]
+            .iter()
+            .any(|e| matches!(e.event, crate::event::GameEvent::ManaProduced { .. })),
+        "tapped to attack is not tapped for mana"
+    );
+}
+
+/// Earthbend's last sentence (CR 701.66a): "When that land dies or is put
+/// into exile, return it to the battlefield tapped under your control."
+///
+/// A Lightning Bolt kills the 1/1 Forest. The delayed trigger goes on the
+/// stack and returns it once, tapped, and as the new object it now is
+/// (CR 400.7): a land and no creature, without the counter or haste, so it
+/// does not die again.
+#[test]
+fn badgermole_cub_s_land_comes_back_tapped_when_it_dies() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[badgermole_cub()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let forests = all_on_battlefield(&engine, p0, forest());
+    let land = forests[2];
+    earthbend_with_the_cub(&mut engine, [forests[0], forests[1]], land);
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    tap_all_mana(&mut engine, p1);
+    let bolt = in_hand(&engine, p1, lightning_bolt()).expect("the Bolt");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: bolt })
+        .expect("a Mountain pays for the Bolt");
+    aim_at(&mut engine, p1, land);
+    let before = engine.journal().entries().len();
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e) && moves_of(e, land, Zone::Graveyard, Zone::Battlefield) > 0
+    });
+
+    assert!(
+        engine.journal().entries()[before..]
+            .iter()
+            .any(|e| matches!(
+                e.event,
+                crate::event::GameEvent::AbilityTriggered { ability_index, .. }
+                    if ability_index == baylee_core::ids::AbilityRef::SYNTHETIC
+            )),
+        "a delayed triggered ability, on the stack"
+    );
+    assert_eq!(
+        moves_of(&engine, land, Zone::Battlefield, Zone::Graveyard),
+        1
+    );
+    assert_eq!(
+        moves_of(&engine, land, Zone::Graveyard, Zone::Battlefield),
+        1
+    );
+    let back = engine.state().object(land).expect("the Forest");
+    assert_eq!(back.zone, Zone::Battlefield);
+    assert_eq!(back.controller, p0, "under your control");
+    assert!(is_tapped(&engine, land), "tapped");
+    let t = types(&engine, land);
+    assert!(
+        t.contains(TypeSet::LAND) && !t.contains(TypeSet::CREATURE),
+        "a land again"
+    );
+    assert!(!keywords(&engine, land).contains(KeywordSet::HASTE));
+    assert_eq!(counters_on(&engine, land, CounterKind::P1P1), 0);
+    assert_eq!(earthbend_watches(&engine), 0, "the watch triggered once");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "the game goes on, got {:?}",
+        engine.pending()
+    );
+}
+
+/// Earthbend's "or is put into exile": Swords to Plowshares exiles the 1/1
+/// Forest, and it comes back tapped from exile.
+#[test]
+fn badgermole_cub_s_land_comes_back_tapped_when_it_is_exiled() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[badgermole_cub()])
+        .battlefield(1, &[plains()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let forests = all_on_battlefield(&engine, p0, forest());
+    let land = forests[2];
+    earthbend_with_the_cub(&mut engine, [forests[0], forests[1]], land);
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    tap_all_mana(&mut engine, p1);
+    let swords = in_hand(&engine, p1, swords_to_plowshares()).expect("the Swords");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: swords })
+        .expect("a Plains pays for the Swords");
+    aim_at(&mut engine, p1, land);
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e) && moves_of(e, land, Zone::Exile, Zone::Battlefield) > 0
+    });
+
+    assert_eq!(moves_of(&engine, land, Zone::Battlefield, Zone::Exile), 1);
+    assert_eq!(moves_of(&engine, land, Zone::Exile, Zone::Battlefield), 1);
+    assert!(is_tapped(&engine, land), "tapped");
+    assert!(!types(&engine, land).contains(TypeSet::CREATURE));
+    assert_eq!(earthbend_watches(&engine), 0);
+}
+
+/// A land that leaves the battlefield any other way has left for good as
+/// far as earthbend knows: Unsummon returns the 1/1 Forest to its owner's
+/// hand, it stays there, and the watch is spent (CR 400.7, 603.7b).
+#[test]
+fn badgermole_cub_s_land_bounced_to_hand_stays_there() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[badgermole_cub()])
+        .battlefield(1, &[island()])
+        .hand(1, &[unsummon()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let forests = all_on_battlefield(&engine, p0, forest());
+    let land = forests[2];
+    earthbend_with_the_cub(&mut engine, [forests[0], forests[1]], land);
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    tap_all_mana(&mut engine, p1);
+    let bounce = in_hand(&engine, p1, unsummon()).expect("the Unsummon");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: bounce })
+        .expect("an Island pays for the Unsummon");
+    aim_at(&mut engine, p1, land);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(land).map(|o| o.zone),
+        Some(Zone::Hand),
+        "returned to its owner's hand, and nothing brought it back"
+    );
+    assert_eq!(earthbend_watches(&engine), 0, "the watch is spent");
 }
 
 fn birgi_god_of_storytelling() -> CardIndex {
@@ -16354,8 +16642,7 @@ fn drowned_jungle_enters_tapped_and_taps_for_either_colour() {
     );
 }
 
-/// World Shaper: the attack trigger, which is the half of the card that is
-/// not refused by name.
+/// World Shaper: the attack trigger.
 ///
 /// "…you may mill three cards" is a `MayDo`, so the question is asked and
 /// answering it is the test: three cards leave the library for the graveyard
@@ -16398,6 +16685,91 @@ fn world_shaper_mills_three_when_it_attacks() {
         library_size(&engine, p0),
         before - 3,
         "three cards milled off the attack trigger"
+    );
+}
+
+/// World Shaper: "When this creature dies, return all land cards from your
+/// graveyard to the battlefield tapped."
+///
+/// A Lightning Bolt kills it. The two Forests in its controller's graveyard
+/// come back tapped and under their control; the Llanowar Elves there is no
+/// land card and stays, and the Forest in the opponent's graveyard is not
+/// "your graveyard" and stays too.
+#[test]
+fn world_shaper_brings_back_every_land_in_your_graveyard_tapped_when_it_dies() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(390, forest())
+        .battlefield(0, &[world_shaper(), forest()])
+        .hand(0, &[llanowar_elves()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let shaper = on_battlefield(&engine, p0, world_shaper()).expect("the Shaper is seated");
+    let elves = in_hand(&engine, p0, llanowar_elves()).expect("the Elves are in hand");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            elves,
+            ZoneLocation::Graveyard(p0),
+            ZonePosition::Top,
+            crate::event::Cause::DevCommand,
+        )
+        .expect("into the graveyard");
+    seed_graveyard(&mut engine, p0, 2);
+    seed_graveyard(&mut engine, p1, 1);
+    let buried: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Graveyard(p0))
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == forest()))
+        })
+        .collect();
+    assert_eq!(buried.len(), 2, "two Forests milled into p0's graveyard");
+    let theirs = in_graveyard(&engine, p1, forest()).expect("a Forest in p1's graveyard");
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    tap_all_mana(&mut engine, p1);
+    let bolt = in_hand(&engine, p1, lightning_bolt()).expect("the Bolt is in hand");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: bolt })
+        .expect("a Mountain pays for the Bolt");
+    aim_at(&mut engine, p1, shaper);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, world_shaper()).is_some(),
+        "the Shaper died"
+    );
+    for land in buried {
+        let object = engine
+            .state()
+            .object(land)
+            .expect("the Forest still exists");
+        assert_eq!(object.zone, Zone::Battlefield, "a land card came back");
+        assert_eq!(object.controller, p0, "under its owner's control");
+        assert!(is_tapped(&engine, land), "tapped");
+    }
+    assert_eq!(
+        engine.state().object(elves).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "the Elves are no land card"
+    );
+    assert_eq!(
+        engine.state().object(theirs).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "the opponent's graveyard is not yours"
     );
 }
 
@@ -88894,6 +89266,157 @@ fn recruiter_of_the_guard_finds_the_cheap_creature_and_leaves_the_expensive_one(
     );
 }
 
+/// Recruiter of the Guard's search menu over a library holding a Llanowar
+/// Elves, an Ashaya and a Pyrogoyf, with three Plains on p0's side. With
+/// `two_types`, the graveyards hold a land card and a creature card first.
+/// Returns what the menu offered, as cards.
+fn recruiter_menu_over_defined_bodies(two_types: bool) -> Vec<CardIndex> {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains(), plains()])
+        .hand(
+            0,
+            &[
+                recruiter_of_the_guard(),
+                llanowar_elves(),
+                ashaya_soul_of_the_wild(),
+                pyrogoyf(),
+                juzam_djinn(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // In hand already: "equal to the number of lands you control" counts
+    // the three Plains wherever the card is (CR 604.3).
+    let ashaya = in_hand(&engine, p0, ashaya_soul_of_the_wild()).expect("Ashaya starts in hand");
+    assert_eq!(
+        pt(&engine, ashaya),
+        (3, 3),
+        "Ashaya in hand is as big as p0's lands"
+    );
+
+    let moves: Vec<(ObjectId, ZoneLocation)> =
+        [llanowar_elves(), ashaya_soul_of_the_wild(), pyrogoyf()]
+            .into_iter()
+            .map(|card| {
+                (
+                    in_hand(&engine, p0, card).expect("dealt into the hand"),
+                    ZoneLocation::Library(p0),
+                )
+            })
+            .chain(two_types.then(|| {
+                (
+                    in_hand(&engine, p0, juzam_djinn()).expect("dealt into the hand"),
+                    ZoneLocation::Graveyard(p0),
+                )
+            }))
+            .collect();
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        for (card, to) in moves {
+            state
+                .move_object(
+                    card,
+                    to,
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                )
+                .expect("the harness moves a card");
+        }
+    }
+    if two_types {
+        // A Forest off the top of p1's library: the land type beside the
+        // Djinn's creature type.
+        seed_graveyard(&mut engine, p1, 1);
+    }
+    engine.refresh_offer();
+
+    cast_from_hand(&mut engine, p0, recruiter_of_the_guard());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched");
+    };
+    options
+        .iter()
+        .filter_map(|id| engine.state().object(*id).and_then(|o| o.card))
+        .map(|card| card.index)
+        .collect()
+}
+
+/// CR 604.3: a characteristic-defining ability works in every zone, so
+/// "toughness 2 or less" reads the number the card defines, not its printed
+/// `*` as 0. In the library Ashaya is a 3/3 beside three Plains and is never
+/// offered; Pyrogoyf is a 0/1 over empty graveyards and is, and a 2/3 once
+/// the graveyards hold a land card and a creature card, and is not. The
+/// Elves are on every menu, so an empty one proves nothing.
+///
+/// Before, a static defining P/T was registered only on the battlefield,
+/// and both cards were offered at toughness 0 every time.
+#[test]
+fn recruiter_of_the_guard_reads_a_toughness_its_card_defines_in_the_library() {
+    let empty = recruiter_menu_over_defined_bodies(false);
+    assert!(empty.contains(&llanowar_elves()), "{empty:?}");
+    assert!(
+        !empty.contains(&ashaya_soul_of_the_wild()),
+        "Ashaya is a 3/3 in the library: {empty:?}"
+    );
+    assert!(
+        empty.contains(&pyrogoyf()),
+        "Pyrogoyf over empty graveyards is a 0/1: {empty:?}"
+    );
+
+    let two = recruiter_menu_over_defined_bodies(true);
+    assert!(two.contains(&llanowar_elves()), "{two:?}");
+    assert!(!two.contains(&ashaya_soul_of_the_wild()), "{two:?}");
+    assert!(
+        !two.contains(&pyrogoyf()),
+        "a land card and a creature card in the graveyards make Pyrogoyf a \
+         2/3: {two:?}"
+    );
+}
+
+/// A card that defines its own size is that size the moment it is drawn.
+/// The draw clears the card's projection, and nothing else on this board
+/// moves to start another refresh, so without the draw asking for one the
+/// Ashaya in hand read its printed 0/0 until a land was played.
+#[test]
+fn a_drawn_ashaya_is_its_size_in_hand_at_once() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains()])
+        .hand(0, &[ashaya_soul_of_the_wild()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let card = in_hand(&engine, p0, ashaya_soul_of_the_wild()).expect("Ashaya starts in hand");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            card,
+            ZoneLocation::Library(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("onto the top of the library");
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert!(walk_to_own_main(&mut engine, p0), "p0's next main phase");
+    let drawn = in_hand(&engine, p0, ashaya_soul_of_the_wild()).expect("drawn again");
+    assert_eq!(pt(&engine, drawn), (2, 2), "as big as the two Plains");
+}
+
 /// Roaming Throne — {4} — Artifact Creature — Golem — 4/4, ward {2}, "As this
 /// creature enters, choose a creature type", "This creature is the chosen type
 /// in addition to its other types", and "If a triggered ability of another
@@ -89837,6 +90360,141 @@ fn a_countered_ghastly_mimicry_is_exiled_too() {
         card_in(&engine, ZoneLocation::Exile(p0), mirrorhall_mimic()).is_some(),
         "it was exiled instead"
     );
+}
+
+fn abrupt_decay() -> CardIndex {
+    card_index("1c747fe2-289e-492a-a846-aa77707e2dc3")
+}
+
+/// The mana value of a back face (CR 202.3b). Ravager of the Fells, up on
+/// the battlefield, has Huntmaster of the Fells's mana value, 4 (CR 712.8e);
+/// Ghastly Mimicry, cast with disturb for {3}{U}{U}, has Mirrorhall Mimic's
+/// 4 on the stack (CR 712.8c) and on the battlefield; and the token Ghastly
+/// Mimicry makes at the upkeep is a copy of the Ravager's back face, whose
+/// mana value is 0. Abrupt Decay ("nonland permanent with mana value 3 or
+/// less") then offers the copy and neither card.
+///
+/// Before, a back face's mana value was its own mana cost's: the Ravager
+/// was a 0 and on the Decay's menu, and Ghastly Mimicry a 5.
+#[test]
+#[allow(clippy::too_many_lines)] // one game, from the disturb to the Decay's menu
+fn a_back_face_has_its_front_faces_mana_value_and_a_copy_of_one_has_none() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(112, island())
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                huntmaster_of_the_fells(),
+            ],
+        )
+        .hand(0, &[mirrorhall_mimic()])
+        .battlefield(1, &[swamp(), forest()])
+        .hand(1, &[abrupt_decay()])
+        .start();
+    let ravager =
+        on_battlefield(&engine, p0, huntmaster_of_the_fells()).expect("Huntmaster is out");
+    // Turned over by the harness before the first turn: what it did as it
+    // turned is not what this test reads, so the face is switched without
+    // the transform that would trigger it.
+    let def = baylee_cards::by_index(huntmaster_of_the_fells()).expect("Huntmaster is in the pool");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .switch_face(ravager, def, 1);
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(face_shown(&engine, ravager), 1, "Ravager of the Fells");
+    let mana_value = |engine: &Engine<RegistryLookup>, id: ObjectId| {
+        engine
+            .state()
+            .object(id)
+            .map(|o| o.characteristics().mana_value())
+    };
+    assert_eq!(
+        mana_value(&engine, ravager),
+        Some(4),
+        "Ravager of the Fells has Huntmaster's {{2}}{{R}}{{G}}"
+    );
+
+    disturb_the_mimic(&mut engine, p0, ravager);
+    let spell = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .expect("Ghastly Mimicry is on the stack");
+    assert_eq!(
+        mana_value(&engine, spell),
+        Some(4),
+        "cast transformed, it has Mirrorhall Mimic's mana value, not the disturb cost's 5"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    let aura = on_battlefield(&engine, p0, mirrorhall_mimic()).expect("Ghastly Mimicry is out");
+    assert_eq!(
+        mana_value(&engine, aura),
+        Some(4),
+        "and so it has on the battlefield"
+    );
+
+    // To p0's next main phase: at its upkeep Ghastly Mimicry copies the
+    // Ravager. Nobody cast two spells in a turn, so the Ravager stays.
+    pass_until(&mut engine, |e| e.state().turn.active != p0);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
+    });
+    assert_eq!(face_shown(&engine, ravager), 1, "still the Ravager");
+    let copies: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| engine.state().object(*id).is_some_and(|o| o.card.is_none()))
+        .collect();
+    assert_eq!(copies.len(), 1, "one token at the upkeep");
+    let copy = copies[0];
+    assert_eq!(
+        pt(&engine, copy),
+        (4, 4),
+        "a copy of the face that is up (CR 707.8)"
+    );
+    assert_eq!(
+        mana_value(&engine, copy),
+        Some(0),
+        "a copy of a back face has mana value 0"
+    );
+
+    // p1 answers with Abrupt Decay in p0's main phase.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    tap_all_mana(&mut engine, p1);
+    let decay = in_hand(&engine, p1, abrupt_decay()).expect("the Decay is in hand");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: decay })
+        .expect("a Swamp and a Forest pay {B}{G}");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the Decay asks for a target, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&copy),
+        "the copy is a nonland permanent with mana value 0: {options:?}"
+    );
+    assert!(
+        !options.contains(&ravager),
+        "the Ravager is a four: {options:?}"
+    );
+    assert!(
+        !options.contains(&aura),
+        "Ghastly Mimicry is a four: {options:?}"
+    );
+    assert_eq!(options.len(), 1, "{options:?}");
 }
 
 /// Imperial Recruiter — {2}{R} creature: "When this creature enters, search

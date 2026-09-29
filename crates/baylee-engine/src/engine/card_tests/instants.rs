@@ -3708,37 +3708,266 @@ fn whir_of_invention_is_an_instant_and_finds_an_artifact_within_its_x() {
     );
 }
 
-/// Archdruid's Charm prints three modes and the file builds **one** — "Exile
-/// target artifact or enchantment" — because the other two need a search
-/// that forks on the found card's type and a mode that targets one creature
-/// you control and one you don't. So there is no mode question at all, and
-/// that is asserted rather than assumed: a spell offering a choice of one
-/// and a spell offering none are different objects, and only one of them is
-/// what this file wrote.
+/// Casts Archdruid's Charm off floating mana and answers its mode question
+/// with mode `mode`, the way a player presses one of the offered buttons.
+/// Returns the modes that were offered; none when only one mode could be
+/// chosen, which the engine takes without asking.
+#[track_caller]
+fn cast_archdruids_charm(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    mode: usize,
+) -> Vec<CastModeKind> {
+    cast_with_floating(engine, seat, archdruid_s_charm());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        return Vec::new();
+    };
+    let offered: Vec<CastModeKind> = options.iter().map(|o| o.kind).collect();
+    let slot = offered
+        .iter()
+        .position(|kind| *kind == CastModeKind::Mode(mode))
+        .unwrap_or_else(|| panic!("mode {mode} was not offered: {offered:?}"));
+    engine
+        .apply(seat, PlayerAction::ChooseMode(slot))
+        .expect("an offered mode");
+    offered
+}
+
+/// Archdruid's Charm, first mode: "Search your library for a creature or
+/// land card and reveal it. Put it onto the battlefield tapped if it's a
+/// land card. Otherwise, put it into your hand."
 ///
-/// The target is an artifact an **opponent** controls, because
-/// `Filter::ARTIFACT_OR_ENCHANTMENT` carries no controller clause and the
-/// printing carries none either.
+/// Two charms, one search each: the Forest goes onto the battlefield tapped
+/// and the Llanowar Elves into the hand, and each was revealed on its way.
+/// One search whose destination forks on the card found.
 #[test]
-fn archdruids_charm_builds_one_of_its_three_modes_and_asks_no_mode_question() {
+#[allow(clippy::too_many_lines)] // two casts, each asked and answered in full
+fn archdruids_charm_puts_a_found_land_onto_the_battlefield_tapped_and_a_creature_into_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), forest(), forest()],
+        )
+        .hand(
+            0,
+            &[archdruid_s_charm(), archdruid_s_charm(), llanowar_elves()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let elves = in_hand(&engine, p0, llanowar_elves()).expect("the Elves are dealt");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            elves,
+            ZoneLocation::Library(p0),
+            ZonePosition::Top,
+            crate::event::Cause::DevCommand,
+        )
+        .expect("into the library");
+    engine.refresh_offer();
+    let search = |engine: &mut Engine<RegistryLookup>| {
+        pass_until(engine, |e| {
+            matches!(
+                e.pending(),
+                Pending::ChooseCards {
+                    prompt: ChoicePrompt::SearchLibrary,
+                    ..
+                }
+            )
+        });
+        let Pending::ChooseCards { options, min, .. } = engine.pending().clone() else {
+            unreachable!("the predicate just matched");
+        };
+        assert_eq!(min, 1, "no \"up to\": the charm finds a card if it can");
+        options
+    };
+    let revealed = |engine: &Engine<RegistryLookup>| -> Vec<Vec<ObjectId>> {
+        engine
+            .journal()
+            .entries()
+            .iter()
+            .filter_map(|e| match &e.event {
+                crate::event::GameEvent::Revealed { cards, .. } => Some(cards.clone()),
+                _ => None,
+            })
+            .collect()
+    };
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        cast_archdruids_charm(&mut engine, p0, 0),
+        Vec::new(),
+        "no creature and no artifact or enchantment anywhere: the search \
+         is the one mode that can be chosen, and it is taken unasked"
+    );
+    let options = search(&mut engine);
+    assert!(options.contains(&elves), "a creature card is found");
+    let land = *options
+        .iter()
+        .find(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == forest()))
+        })
+        .expect("and so is a land card");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![land],
+            },
+        )
+        .expect("the Forest");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(land).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "a land card goes onto the battlefield"
+    );
+    assert!(is_tapped(&engine, land), "tapped");
+    assert_eq!(revealed(&engine), vec![vec![land]], "and it was revealed");
+
+    // Six Forests paid for the first charm; the one it found and three of
+    // the six are not enough for a second {G}{G}{G} — the found one is
+    // tapped — so the second is paid off a pool the harness fills.
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .players[0]
+        .mana_pool
+        .add(ManaColor::Green, 3);
+    engine.refresh_offer();
+    cast_archdruids_charm(&mut engine, p0, 0);
+    let options = search(&mut engine);
+    assert!(options.contains(&elves));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .expect("the Elves");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(elves).map(|o| o.zone),
+        Some(Zone::Hand),
+        "a creature card goes into the hand"
+    );
+    assert_eq!(
+        revealed(&engine),
+        vec![vec![land], vec![elves]],
+        "revealed too, on its way somewhere hidden"
+    );
+}
+
+/// Archdruid's Charm, second mode: "Put a +1/+1 counter on target creature
+/// you control. It deals damage equal to its power to target creature you
+/// don't control."
+///
+/// Two instances of the word "target" in one mode, each its own question:
+/// the first offers the caster's Llanowar Elves and not the Striped Bears,
+/// the second the Bears and not the Elves. The counter comes first — a 1/1
+/// Elves deals the 2 its counter gives it, and that is what kills a 2/2.
+#[test]
+fn archdruids_charm_counters_a_creature_you_control_and_bites_one_you_dont() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest(), forest()])
+        .battlefield(0, &[forest(), forest(), forest(), llanowar_elves()])
+        .battlefield(1, &[striped_bears(), quiet_artifact()])
+        .hand(0, &[archdruid_s_charm()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves");
+    let bears = on_battlefield(&engine, p1, striped_bears()).expect("the Bears");
+
+    tap_mana_except(&mut engine, p0, elves);
+    let offered = cast_archdruids_charm(&mut engine, p0, 1);
+    assert_eq!(
+        offered,
+        vec![
+            CastModeKind::Mode(0),
+            CastModeKind::Mode(1),
+            CastModeKind::Mode(2)
+        ],
+        "each mode has what it needs"
+    );
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the first target, got {:?}", engine.pending())
+    };
+    assert_eq!(options, vec![elves], "\"target creature you control\"");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .expect("the Elves");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the second target, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![bears],
+        "\"target creature you don't control\""
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![bears],
+                players: vec![],
+            },
+        )
+        .expect("the Bears");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, elves, baylee_cards_dsl::CounterKind::P1P1),
+        1,
+        "the counter"
+    );
+    assert!(
+        in_graveyard(&engine, p1, striped_bears()).is_some(),
+        "two damage, the Elves' power once the counter is on, kills a 2/2"
+    );
+}
+
+/// Archdruid's Charm with no creature on the other side of the table: the
+/// second mode's second target cannot be chosen, so the mode is not offered
+/// (CR 700.2a), though its first target — the caster's Elves — is there.
+/// The third mode, "exile target artifact or enchantment", is, and it
+/// exiles.
+#[test]
+fn archdruids_charm_offers_no_mode_whose_second_target_is_missing() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), llanowar_elves()])
         .battlefield(1, &[quiet_artifact()])
         .hand(0, &[archdruid_s_charm()])
         .start();
     keep_mulligans(&mut engine);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
-
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves");
     let theirs = on_battlefield(&engine, p1, quiet_artifact()).expect("their artifact");
-    tap_all_mana(&mut engine, p0);
-    cast_with_floating(&mut engine, p0, archdruid_s_charm());
 
+    tap_mana_except(&mut engine, p0, elves);
+    let offered = cast_archdruids_charm(&mut engine, p0, 2);
+    assert_eq!(
+        offered,
+        vec![CastModeKind::Mode(0), CastModeKind::Mode(2)],
+        "no creature you don't control, no second mode"
+    );
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
-        panic!(
-            "one built mode means the spell goes straight to its target, got {:?}",
-            engine.pending()
-        )
+        panic!("the third mode's target, got {:?}", engine.pending())
     };
     assert!(
         options.contains(&theirs),
@@ -3753,15 +3982,11 @@ fn archdruids_charm_builds_one_of_its_three_modes_and_asks_no_mode_question() {
             },
         )
         .expect("a target the spell offered");
-    pass_until(&mut engine, |e| at_rest(e, p0));
-
-    assert!(
-        on_battlefield(&engine, p1, quiet_artifact()).is_none(),
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(theirs).map(|o| o.zone),
+        Some(Zone::Exile),
         "\"Exile target artifact or enchantment\""
-    );
-    assert!(
-        in_graveyard(&engine, p1, quiet_artifact()).is_none(),
-        "exiled and not destroyed: a graveyard is the wrong zone"
     );
 }
 
@@ -3946,7 +4171,7 @@ fn muscle_burst_counts_the_copies_in_an_opponents_graveyard_too() {
 /// `ReplacementRule::TriggerMultiplier` is the whole front face, and the only
 /// way to see a replacement that multiplies a trigger is to count what the
 /// trigger did: Lumra mills four on arrival, so it mills eight here. The
-/// Adventure half is refused by name and is not on this board.
+/// Adventure half, Vantress Visions, is played by the tests below.
 #[test]
 fn virtue_of_knowledge_makes_an_enter_trigger_happen_twice() {
     let p0 = PlayerId::new(0);
@@ -3979,6 +4204,311 @@ fn virtue_of_knowledge_makes_an_enter_trigger_happen_twice() {
         library_size(&engine, p0),
         before - 8,
         "\"that ability triggers an additional time\": mill four, twice"
+    );
+}
+
+/// Casts Vantress Visions, the Virtue's adventure, off mana already floating
+/// and aims it at `ability`, answering as a player would: the face, if the
+/// engine asks which (it does not when only the adventure is affordable),
+/// then the target, out of a list that must hold it.
+#[track_caller]
+fn cast_vantress_visions(engine: &mut Engine<RegistryLookup>, seat: PlayerId, ability: ObjectId) {
+    cast_with_floating(engine, seat, virtue_of_knowledge());
+    if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
+        let adventure = options
+            .iter()
+            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Face(1)))
+            .expect("Vantress Visions is a way to cast the card");
+        engine
+            .apply(seat, PlayerAction::ChooseMode(adventure))
+            .expect("the face came out of the list");
+    }
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Visions asks for its target, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&ability),
+        "an ability you control on the stack: {options:?}"
+    );
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: vec![ability],
+                players: vec![],
+            },
+        )
+        .expect("the ability");
+}
+
+/// The object on top of the stack.
+fn top_of_stack(engine: &Engine<RegistryLookup>) -> ObjectId {
+    *engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .last()
+        .expect("something is on the stack")
+}
+
+/// How many times the journal says an ability of `source` was put on the
+/// stack by being activated or triggered.
+fn put_on_stack_from(engine: &Engine<RegistryLookup>, source: ObjectId) -> usize {
+    engine
+        .journal()
+        .entries()
+        .iter()
+        .filter(|e| {
+            matches!(e.event, crate::event::GameEvent::AbilityTriggered { source: s, .. } if s == source)
+        })
+        .count()
+}
+
+/// Vantress Visions copies an **activated** ability and its controller
+/// chooses a new target for the copy (CR 707.10c). Ba Sing Se's earthbend 2
+/// aims at one Forest; the copy is turned onto another, and both come out of
+/// it 2/2 land creatures with haste. The question is CR 115.7d's, one target
+/// at a time: the copy's current Forest is not offered (keeping it is naming
+/// nothing, `min` 0), the other lands are. The copy was not activated
+/// (CR 707.10), so the journal says Ba Sing Se's ability went on the stack
+/// once. The card then goes on an adventure in exile (CR 715.3d).
+#[test]
+fn vantress_visions_copies_an_activated_ability_onto_a_new_target() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                ba_sing_se(),
+                forest(),
+                forest(),
+                forest(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[virtue_of_knowledge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let city = on_battlefield(&engine, p0, ba_sing_se()).expect("Ba Sing Se");
+    let forests = all_on_battlefield(&engine, p0, forest());
+    let islands = all_on_battlefield(&engine, p0, island());
+    let (first, second) = (forests[0], forests[1]);
+
+    for &land in &forests {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: land })
+            .expect("a Forest taps for {G}");
+    }
+    activate(&mut engine, p0, ba_sing_se(), 1);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![first],
+                players: vec![],
+            },
+        )
+        .expect("target land you control");
+    let earthbend = top_of_stack(&engine);
+
+    for &land in &islands {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: land })
+            .expect("an Island taps for {U}");
+    }
+    cast_vantress_visions(&mut engine, p0, earthbend);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0, "the copy's controller chooses");
+    assert_eq!((min, max), (0, 1), "keep it, or name one new land");
+    assert!(options.contains(&second), "another land you control");
+    assert!(!options.contains(&first), "not the one it already targets");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![second],
+                players: vec![],
+            },
+        )
+        .expect("the other Forest");
+    pass_until(&mut engine, stack_is_empty);
+
+    for land in [first, second] {
+        assert!(types(&engine, land).contains(TypeSet::CREATURE));
+        assert_eq!(counters_on(&engine, land, CounterKind::P1P1), 2);
+        assert_eq!(pt(&engine, land), (2, 2));
+        assert!(keywords(&engine, land).contains(KeywordSet::HASTE));
+    }
+    assert!(
+        !types(&engine, forests[2]).contains(TypeSet::CREATURE),
+        "two earthbends, two lands"
+    );
+    assert_eq!(
+        put_on_stack_from(&engine, city),
+        1,
+        "the copy was not activated"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Exile(p0))
+            .iter()
+            .any(|id| engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == virtue_of_knowledge()))),
+        "the card is on an adventure in exile"
+    );
+}
+
+/// Vantress Visions copies a **triggered** ability, and its controller keeps
+/// the copy's target (CR 707.10c: "may leave any number of the targets
+/// unchanged"). Badgermole Cub's enters trigger earthbends one Forest; the
+/// copy earthbends the same one again, so it ends a 2/2 with two counters.
+/// The copy is a new object that targets the Forest, so the Forest becomes
+/// its target, journalled once as the copy's own (`BecameTarget`); the copy
+/// was not triggered, so no second `AbilityTriggered` announces it.
+#[test]
+fn vantress_visions_copies_a_triggered_ability_that_keeps_its_target() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), island(), island()])
+        .hand(0, &[badgermole_cub(), virtue_of_knowledge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let forests = all_on_battlefield(&engine, p0, forest());
+    let islands = all_on_battlefield(&engine, p0, island());
+    let land = forests[2];
+
+    for &forest in &forests[..2] {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: forest })
+            .expect("a Forest taps for {G}");
+    }
+    cast_with_floating(&mut engine, p0, badgermole_cub());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![land],
+                players: vec![],
+            },
+        )
+        .expect("target land you control");
+    let trigger = top_of_stack(&engine);
+    let cub = on_battlefield(&engine, p0, badgermole_cub()).expect("the Cub");
+
+    for &island in &islands {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: island })
+            .expect("an Island taps for {U}");
+    }
+    cast_vantress_visions(&mut engine, p0, trigger);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .expect("naming nothing keeps the target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, land, CounterKind::P1P1),
+        2,
+        "earthbend 1, twice"
+    );
+    assert_eq!(pt(&engine, land), (2, 2));
+    let became_target: Vec<ObjectId> = engine
+        .journal()
+        .entries()
+        .iter()
+        .filter_map(|e| match e.event {
+            crate::event::GameEvent::BecameTarget { object, target, .. } if target == land => {
+                Some(object)
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        became_target.len(),
+        1,
+        "the copy targets it once: {became_target:?}"
+    );
+    assert_ne!(became_target[0], trigger, "and it is the copy that does");
+    assert_eq!(
+        put_on_stack_from(&engine, cub),
+        1,
+        "the copy did not trigger"
+    );
+}
+
+/// A copy of a **synthetic** triggered ability (CR 707.10). Prowess keeps
+/// its effect beside the engine and not on the ability's object, so the
+/// copy has to be handed it (`GameState::synthetic_copies`). Dark Ritual
+/// makes Pinnacle Monk's prowess trigger; Vantress Visions copies it, and is
+/// itself a noncreature spell, so prowess triggers again: three resolutions,
+/// and the 2/2 is a 5/5.
+#[test]
+fn vantress_visions_copies_a_prowess_trigger() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[pinnacle_monk(), swamp(), island(), island()])
+        .hand(0, &[dark_ritual(), virtue_of_knowledge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let monk = on_battlefield(&engine, p0, pinnacle_monk()).expect("the Monk");
+    let swamp = on_battlefield(&engine, p0, swamp()).expect("the Swamp");
+    let islands = all_on_battlefield(&engine, p0, island());
+    assert_eq!(pt(&engine, monk), (2, 2));
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: swamp })
+        .expect("the Swamp taps for {B}");
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    let prowess = top_of_stack(&engine);
+    assert_eq!(
+        engine.state().object(prowess).map(|o| o.kind),
+        Some(crate::object::ObjectKind::AbilityOnStack),
+        "prowess triggered over the Ritual"
+    );
+    for &island in &islands {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: island })
+            .expect("an Island taps for {U}");
+    }
+    cast_vantress_visions(&mut engine, p0, prowess);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, monk),
+        (5, 5),
+        "prowess for the Ritual, its copy, and prowess for Visions"
     );
 }
 
@@ -4658,16 +5188,16 @@ fn legion_leadership_doubles_power_and_grants_first_strike() {
     );
 }
 
-/// Lose Focus (`Coverage::Partial`): "Counter target spell unless its
-/// controller pays {2}." (Replicate {U} is the `Coverage::Partial` gap —
-/// the card cannot copy itself.)
+/// Lose Focus: "Counter target spell unless its controller pays {2}", cast
+/// off exactly its own cost.
 ///
-/// The counter clause is fully implemented. p1 casts a Dark Ritual; p0
-/// answers with Lose Focus. The tax question goes to the targeted spell's
-/// controller (p1). When p1 declines, the Ritual is countered. The mana pool
-/// after resolution proves the Ritual never added its {B}{B}{B}.
-/// A single copy of Lose Focus sits on the stack before resolution —
-/// confirming the replicate gap is real and not just an unfired trigger.
+/// p1 casts a Dark Ritual; p0 answers with Lose Focus. The tax question goes
+/// to the targeted spell's controller (p1). When p1 declines, the Ritual is
+/// countered. The mana pool after resolution proves the Ritual never added
+/// its {B}{B}{B}. Two Islands pay {1}{U} and not one {U} more, so replicate
+/// (CR 702.56a) is never asked about — the question after the cast is the
+/// target — and a cost paid no times triggers nothing (CR 603.4): two spells
+/// on the stack and no copy.
 #[test]
 fn lose_focus_counters_the_targeted_spell_when_the_controller_declines_to_pay_two() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -4709,13 +5239,14 @@ fn lose_focus_counters_the_targeted_spell_when_the_controller_declines_to_pay_tw
         )
         .expect("the Ritual is a legal target");
 
-    // Replicate gap: one spell on the stack, not two.
+    // No replicate paid, so no trigger: two spells and nothing above them.
     let stack = engine.state().zones.list(ZoneLocation::Stack).clone();
     assert_eq!(
         stack.len(),
         2,
-        "the Ritual and Lose Focus are on the stack — and no replicate copy, \
-         which is the Coverage::Partial gap: {stack:?}"
+        "the Ritual and Lose Focus are on the stack and nothing else: the \
+         replicate cost was paid no times, so its trigger does not trigger: \
+         {stack:?}"
     );
 
     // Both pass; Lose Focus resolves and the tax is offered to p1.
@@ -4756,6 +5287,350 @@ fn lose_focus_counters_the_targeted_spell_when_the_controller_declines_to_pay_tw
         engine.state().players[1].mana_pool.total(),
         0,
         "the tax went unpaid and the Ritual was countered — no mana floats"
+    );
+}
+
+/// Casts Lose Focus off `seat`'s floating mana and answers its replicate
+/// question with `times` and its target with `target`, checking the question
+/// says what it counts.
+#[track_caller]
+fn cast_lose_focus_replicated(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    most: u32,
+    times: u32,
+    target: ObjectId,
+) {
+    cast_from_hand(engine, seat, lose_focus());
+    let Pending::ChooseNumber {
+        player,
+        min,
+        max,
+        reason,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "replicate is announced with the additional costs, before the \
+             target (CR 601.2b), got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, seat);
+    assert_eq!(
+        (min, max),
+        (0, most),
+        "any number of times, as many as the floating mana pays for"
+    );
+    assert_eq!(
+        reason,
+        crate::choice::NumberPrompt::Replicate {
+            cost: baylee_core::mana::ManaCost::parse("{U}")
+        },
+        "the question says it counts replicate payments of {{U}}, not X"
+    );
+    assert!(
+        engine
+            .apply(seat, PlayerAction::ChooseNumber(most + 1))
+            .is_err(),
+        "a count the pool cannot pay is refused"
+    );
+    engine
+        .apply(seat, PlayerAction::ChooseNumber(times))
+        .expect("a count inside the offer");
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: vec![target],
+            },
+        )
+        .expect("the spell is a legal target");
+}
+
+/// The replicate trigger on the stack, if there is one: a synthetic ability
+/// whose source is `spell`.
+fn replicate_trigger(engine: &Engine<RegistryLookup>, spell: ObjectId) -> Option<ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .iter()
+        .copied()
+        .find(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.ability.is_some_and(|loc| {
+                    loc.source == spell && loc.index == baylee_core::ids::AbilityRef::SYNTHETIC
+                })
+            })
+        })
+}
+
+/// Lose Focus with its replicate cost paid once (CR 702.56a): "When you cast
+/// this spell, if a replicate cost was paid for it, copy it for each time
+/// its replicate cost was paid. If the spell has any targets, you may choose
+/// new targets for any of the copies."
+///
+/// p1 has two Dark Rituals on the stack and p0 four Islands floating. The
+/// question after the cast counts replicate payments and offers two, which
+/// is what {U}{U}{U}{U} pays beside {1}{U}; p0 pays once and aims at the
+/// second Ritual. The trigger goes on the stack above the spell, and as it
+/// resolves the copy is put there aimed at that Ritual too; p0 turns it onto
+/// the first (CR 707.10c). Each asks p1 for {2}, p1 has nothing floating,
+/// and both Rituals are countered. The copy was never cast — three casts in
+/// the journal, not four — and ceases to exist as it leaves the stack
+/// (CR 704.5e), so one Lose Focus lies in the graveyard. The {U} left
+/// floating is the fourth Island: the payment took {1}{U} and one {U}.
+#[test]
+#[allow(clippy::too_many_lines)] // one game: two casts, the copy, and both taxes
+fn lose_focus_replicated_once_counters_a_second_spell_with_its_copy() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(29, forest())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .hand(0, &[lose_focus()])
+        .battlefield(1, &[swamp(), swamp()])
+        .hand(1, &[dark_ritual(), dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    // p1 casts both Rituals, the second while holding priority.
+    let first = in_hand(&engine, p1, dark_ritual()).expect("a Ritual in hand");
+    cast_from_hand(&mut engine, p1, dark_ritual());
+    let second = in_hand(&engine, p1, dark_ritual()).expect("the other Ritual");
+    cast_with_floating(&mut engine, p1, dark_ritual());
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+
+    let spell = in_hand(&engine, p0, lose_focus()).expect("Lose Focus in hand");
+    cast_lose_focus_replicated(&mut engine, p0, 2, 1, second);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "{{1}}{{U}} and one {{U}} paid out of four: the replicate cost is \
+         part of the total cost (CR 601.2f)"
+    );
+    let trigger = replicate_trigger(&engine, spell).expect("paid once, so it triggers");
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).last(),
+        Some(&trigger),
+        "the trigger goes on the stack above the spell it copies"
+    );
+
+    // Both pass: the trigger resolves and puts the copy on the stack, whose
+    // controller may change its target (CR 707.10c).
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("the copy may take new targets, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player, p0,
+        "the copy is controlled by the trigger's controller"
+    );
+    assert_eq!((min, max), (0, 1), "keeping the target is an answer");
+    assert!(
+        options.contains(&first) && !options.contains(&second),
+        "the first Ritual is another target; the second is the one it has: \
+         {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![first],
+            },
+        )
+        .expect("the first Ritual is a legal new target");
+
+    let stack = engine.state().zones.list(ZoneLocation::Stack).clone();
+    assert_eq!(
+        stack.len(),
+        4,
+        "two Rituals, Lose Focus and its copy: {stack:?}"
+    );
+    let copy = *stack.last().expect("the copy is on top");
+    let copied = engine.state().object(copy).expect("the copy exists");
+    assert_eq!(copied.controller, p0);
+    assert_eq!(
+        copied.targets.as_slice(),
+        &[first],
+        "aimed where p0 turned it"
+    );
+    assert!(copied.riders.contains(&crate::object::Rider::SpellCopy));
+    assert!(
+        !copied.cast_from_hand,
+        "a copy is put on the stack, not cast"
+    );
+    let casts = engine
+        .state()
+        .journal
+        .entries()
+        .iter()
+        .filter(|e| matches!(e.event, crate::event::GameEvent::SpellCast { .. }))
+        .count();
+    assert_eq!(
+        casts, 3,
+        "two Rituals and Lose Focus were cast; the copy was not"
+    );
+
+    // The copy resolves first and taxes p1 for the first Ritual, then the
+    // spell does for the second. p1 has nothing floating and declines both.
+    for _ in 0..2 {
+        pass_until(&mut engine, |e| {
+            matches!(
+                e.pending(),
+                Pending::YesNo {
+                    prompt: YesNoPrompt::PayTax { .. },
+                    ..
+                }
+            )
+        });
+        let Pending::YesNo { player, .. } = engine.pending().clone() else {
+            unreachable!("pass_until stopped on the tax")
+        };
+        assert_eq!(player, p1, "each asks the targeted spell's controller");
+        engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
+    }
+    pass_until(&mut engine, stack_is_empty);
+
+    let graveyard = |seat| {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(seat))
+            .clone()
+    };
+    assert!(
+        graveyard(p1).contains(&first) && graveyard(p1).contains(&second),
+        "both Rituals were countered: {:?}",
+        graveyard(p1)
+    );
+    assert_eq!(engine.state().players[1].mana_pool.total(), 0);
+    assert_eq!(
+        graveyard(p0),
+        vec![spell],
+        "one Lose Focus in the graveyard: the copy ceased to exist"
+    );
+}
+
+/// A replicated Lose Focus countered in response to its own trigger still
+/// makes its copy.
+///
+/// "Once triggered, an ability exists on the stack independently of its
+/// source" (CR 113.7a), and "copy it" asks about a spell no longer where the
+/// effect expected it, so the copy is made from the spell as it last
+/// existed (CR 608.2h). p0 replicates once at the Ritual; p1 answers the
+/// trigger with a Lose Focus of their own aimed at p0's, and p0 cannot pay.
+/// The trigger then resolves over a countered spell, and its copy still
+/// counters the Ritual.
+#[test]
+fn a_countered_lose_focus_still_copies_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(31, forest())
+        .battlefield(0, &[island(), island(), island()])
+        .hand(0, &[lose_focus()])
+        .battlefield(1, &[swamp(), island(), island()])
+        .hand(1, &[dark_ritual(), lose_focus()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    let ritual = in_hand(&engine, p1, dark_ritual()).expect("the Ritual in hand");
+    cast_from_hand(&mut engine, p1, dark_ritual());
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+
+    let spell = in_hand(&engine, p0, lose_focus()).expect("Lose Focus in hand");
+    cast_lose_focus_replicated(&mut engine, p0, 1, 1, ritual);
+    assert!(replicate_trigger(&engine, spell).is_some());
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    // p1 answers the trigger: {U}{U} floating pays {1}{U} and no replicate,
+    // so the next question is the target.
+    cast_with_floating(&mut engine, p1, lose_focus());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![spell],
+            },
+        )
+        .expect("p0's Lose Focus is a legal target");
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    assert!(
+        in_graveyard(&engine, p0, lose_focus()).is_some(),
+        "p0's Lose Focus was countered under its own trigger"
+    );
+
+    // The trigger resolves anyway: the copy is made and taxes p1.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo { player, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on the tax")
+    };
+    assert_eq!(player, p1, "the copy counters the Ritual unless p1 pays");
+    engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p1, dark_ritual()).is_some(),
+        "the copy of the countered spell countered the Ritual"
+    );
+}
+
+/// Lose Focus with mana for a replicate payment and none made: "if a
+/// replicate cost was paid for it" is an intervening "if" (CR 603.4), so
+/// nothing triggers, and the {U} not spent stays in the pool.
+#[test]
+fn lose_focus_replicated_no_times_triggers_nothing() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(37, forest())
+        .battlefield(0, &[island(), island(), island()])
+        .hand(0, &[lose_focus()])
+        .battlefield(1, &[swamp()])
+        .hand(1, &[dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let ritual = in_hand(&engine, p1, dark_ritual()).expect("the Ritual in hand");
+    cast_from_hand(&mut engine, p1, dark_ritual());
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+
+    let spell = in_hand(&engine, p0, lose_focus()).expect("Lose Focus in hand");
+    cast_lose_focus_replicated(&mut engine, p0, 1, 0, ritual);
+    assert_eq!(
+        replicate_trigger(&engine, spell),
+        None,
+        "paid no times, nothing triggers"
+    );
+    assert_eq!(engine.state().zones.list(ZoneLocation::Stack).len(), 2);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the {{U}} not paid for replicate is still floating"
     );
 }
 
@@ -9633,10 +10508,6 @@ fn aura_blast_destroys_an_enchantment_across_the_table_and_draws_a_card() {
     );
 }
 
-fn boomerang() -> CardIndex {
-    card_index("dc4a4996-108a-4aac-850f-2d9f76403446")
-}
-
 /// Boomerang — {U}{U} instant: "Return target permanent to its owner's hand."
 ///
 /// The two words that carry the card are "permanent" and "owner's", so both
@@ -12476,10 +13347,6 @@ fn unnatural_speed_lets_a_creature_that_arrived_this_turn_attack() {
         "while the Elf that arrived on the same turn and was not aimed at is \
          still sick (CR 302.6): {attackers:?}"
     );
-}
-
-fn unsummon() -> CardIndex {
-    card_index("837182db-1bf3-4a2c-bd01-1af9d9873561")
 }
 
 /// Unsummon — {U} instant: "Return target creature to its owner's hand."

@@ -9,7 +9,7 @@ fn x_is_clamped_to_the_range_the_engine_offered() {
         player: me(),
         min: 0,
         max: 50,
-        reason: baylee_engine::choice::NumberPrompt::Announce,
+        reason: baylee_engine::choice::NumberPrompt::X,
     });
     assert_eq!(i.set_number(7), 7);
     // The client cannot express a value outside the offered range, so the
@@ -25,7 +25,7 @@ fn x_starts_at_the_minimum() {
         player: me(),
         min: 3,
         max: 9,
-        reason: baylee_engine::choice::NumberPrompt::Announce,
+        reason: baylee_engine::choice::NumberPrompt::X,
     });
     assert_eq!(i.number(), 3);
 }

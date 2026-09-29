@@ -421,6 +421,7 @@ impl SpellMode {
         Self {
             effects,
             targets: None,
+            second_targets: None,
             cost_override: None,
             additional_cost: None,
         }

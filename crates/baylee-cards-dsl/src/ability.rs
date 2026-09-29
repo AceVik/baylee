@@ -134,6 +134,14 @@ pub enum Condition {
     /// threshold below, so the count is a parameter rather than a fixed
     /// nought and nothing here may read the word.
     HandSizeAtMost(u8),
+    /// The controller has played at least N lands this turn (CR 305.2).
+    /// Fastbond's "if it wasn't the first land you played this turn" is 2:
+    /// a trigger on the play is collected after the land it is about was
+    /// counted, and the count only grows within a turn, so the second ask
+    /// at resolution (CR 603.4) answers as the first did. The count is
+    /// reset as its player's own turn begins, which is the only turn this
+    /// engine lets a player play lands on.
+    LandsPlayedThisTurnAtLeast(u8),
     /// You have **exactly** N cards in hand (Library of Alexandria).
     ///
     /// The sibling of the line above for the same reason
@@ -243,6 +251,12 @@ pub enum Trigger {
     /// Fells' front and Ravager of the Fells' back each hear only their own
     /// half of the flip.
     TransformsIntoThis,
+    /// "When you unlock this door" (CR 709.5h), printed on half `n` of a
+    /// Room: 0 the left, 1 the right. It hears the permanent being given
+    /// that half's unlocked designation, however it was given: as the Room
+    /// enters cast as that half (CR 709.5d), or later, when its controller
+    /// pays the half's mana cost (CR 709.5e).
+    UnlockThisDoor(u8),
     /// An object matching the filter enters the battlefield.
     EntersBattlefield(&'static Filter),
     /// An object matching the filter leaves the battlefield.
@@ -311,6 +325,21 @@ pub enum Trigger {
     },
     /// A player draws a card.
     Draws(crate::effect::PlayerRel),
+    /// "Whenever [a player] plays a land" (Fastbond): the special action of
+    /// playing a land (CR 116.2a, 305.1), from whatever zone a permission
+    /// allows, and never a land an effect puts onto the battlefield, which
+    /// is not played. The relation names whose play: `You` for "you".
+    PlaysLand(crate::effect::PlayerRel),
+    /// "Whenever you tap [a permanent matching the filter] for mana"
+    /// (Badgermole Cub): its controller activates a mana ability of it with
+    /// {T} in the cost (CR 106.12), and that ability resolves and produces
+    /// mana (CR 106.12a). Once per activation, however many colours it made.
+    ///
+    /// Without a target and with effects that add mana, the ability is
+    /// itself a mana ability (CR 605.1b) and resolves at once, off the
+    /// stack (CR 605.4a): "add an additional {G}" is in the pool before the
+    /// player acts again.
+    TappedForMana(&'static Filter),
     /// A player draws a card except the first one they draw each turn
     /// (Orcish Bowmasters).
     DrawsExceptFirst(crate::effect::PlayerRel),
@@ -630,6 +659,31 @@ impl AbilityDef {
             }
         )
     }
+
+    /// Whether this is a **triggered** mana ability (CR 605.1b): it has no
+    /// target, it triggers from a mana ability — [`Trigger::TappedForMana`]
+    /// is the one trigger in the vocabulary that does — and it could add
+    /// mana. Such an ability resolves the moment it triggers, off the stack
+    /// (CR 605.4a).
+    ///
+    /// Derived, as [`Self::is_mana_ability`]'s flag is checked against the
+    /// same three questions by `lints::mana_ability_fault`: a "whenever you
+    /// tap this land for mana" that targets (Forbidden Orchard's) is an
+    /// ordinary trigger and goes on the stack.
+    #[must_use]
+    pub fn is_triggered_mana_ability(&self) -> bool {
+        matches!(
+            self,
+            Self::Triggered {
+                trigger: Trigger::TappedForMana(_),
+                targets: None,
+                effects,
+                ..
+            } if effects
+                .iter()
+                .any(|effect| matches!(effect, crate::effect::Effect::AddMana { .. }))
+        )
+    }
 }
 
 /// A modification applied after a clone copies its target.
@@ -767,6 +821,15 @@ pub struct SpellMode {
     /// target artifact", and read as exactly one that trigger vanishes off
     /// the stack on a board with no other artifact on it.
     pub targets: Option<crate::effect::TargetReq>,
+    /// A second instance of the word "target" in this mode, as on
+    /// [`crate::AbilityDef::Spell::second_targets`]: Archdruid's Charm's
+    /// "Put a +1/+1 counter on target creature you control. It deals damage
+    /// equal to its power to target creature you don't control."
+    ///
+    /// A modal **spell**'s only: the cast wizard asks it once the mode is
+    /// chosen. A modal trigger's mode never carries one, which
+    /// `no_modal_trigger_mode_prints_a_second_target` holds.
+    pub second_targets: Option<crate::effect::TargetReq>,
     /// Cost override for this mode (overload); `None` = the printed cost.
     pub cost_override: Option<baylee_core::mana::ManaCost>,
     /// The cost printed before this mode's effect, paid on top of the

@@ -148,6 +148,13 @@ impl Names {
         &self.list[id.get() as usize]
     }
 
+    /// The interned `name`, without interning it: `None` when no object of
+    /// this game has ever carried it, and so none carries it now.
+    #[must_use]
+    pub fn find(&self, name: &str) -> Option<NameRef> {
+        self.map.get(name).copied()
+    }
+
     /// Number of interned names.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -187,6 +194,26 @@ pub enum DelayedWhen {
     NextEndStep,
     /// At the controller's next cleanup.
     NextCleanup,
+    /// "When that land dies or is put into exile" (earthbend, CR 701.66a):
+    /// the next time `card`, as the object it was at `version`, goes from
+    /// the battlefield to a graveyard or into exile. Asked of journal
+    /// entries after `after` only, because a delayed trigger does not
+    /// trigger on an event from before it was created (CR 603.7a); and
+    /// once, on the first time that object leaves the battlefield at all
+    /// (CR 603.7b) — a land bounced to its owner's hand has left, is a new
+    /// object, and never comes back through this.
+    ///
+    /// Never polled at a step: `trigger::collect` reads it off the journal,
+    /// and the scan that follows removes every one whose object is no
+    /// longer on the battlefield at `version`.
+    DiesOrIsExiled {
+        /// The permanent watched.
+        card: ObjectId,
+        /// Its identity when the watch was created.
+        version: u32,
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
 }
 
 /// What a delayed trigger does.
@@ -257,6 +284,16 @@ pub enum DelayedAction {
         card: ObjectId,
         /// Its identity on arriving there.
         version: u32,
+    },
+    /// A delayed triggered ability that goes on the stack (CR 603.7): its
+    /// source and its effects. The source is the source of the ability
+    /// that created it (CR 603.7e), and the object its trigger event was
+    /// about is the event object its effects read ("return **it**").
+    Trigger {
+        /// The source of the ability that created it.
+        source: ObjectId,
+        /// What it does.
+        effects: &'static [baylee_cards_dsl::Effect],
     },
 }
 
@@ -674,6 +711,20 @@ pub struct GameState {
     /// `tests/footprint.rs` holds `GameObject` to its size. Nothing copies a
     /// triggered ability, so no copy has to carry one (CR 115.7f).
     pub divided: Vec<(ObjectId, Vec<(ObjectId, u32)>)>,
+    /// Copies of synthetic abilities made by the resolution in progress, as
+    /// `(original, copy)` (CR 707.10).
+    ///
+    /// A synthetic ability (prowess, ward, a granted or reflexive trigger)
+    /// keeps its effects beside the engine and not on its object, where the
+    /// resolver cannot reach them, so `Effect::CopyTargetAbility` names the
+    /// pair here and `Engine::finish_resolution` hands the copy the
+    /// original's effects. The original is still on the stack below the
+    /// copy then, so its effects are still there to hand over.
+    ///
+    /// Unlike `reflexive`, this is hashed: the copy's controller is asked
+    /// about new targets (CR 707.10c) before that resolution ends, so the
+    /// list is not empty while a question is out.
+    pub synthetic_copies: Vec<(ObjectId, ObjectId)>,
     /// Each seat's commanders (CR 903.3), by seat index.
     ///
     /// The list is the marker, and it has to be: commander-ness belongs to
@@ -741,6 +792,22 @@ pub struct GameState {
     /// Whether the preceding refresh touched off-board objects. Cache-only:
     /// the first refresh after a cross-zone effect ends must clear them too.
     projected_cross_zone: bool,
+    /// The cards whose front face prints a characteristic-defining power
+    /// and toughness ("Ashaya's power and toughness are each equal to the
+    /// number of lands you control"), with the modifier that defines them.
+    ///
+    /// CR 604.3 has a characteristic-defining ability function in every
+    /// zone, but a static is registered only while its source is on the
+    /// battlefield, so in a library, a hand, a graveyard, exile or on the
+    /// stack the card had its printed `*` as 0 — the toughness Recruiter of
+    /// the Guard and the power Reveillark read. The projection applies these
+    /// itself wherever the card is **not** on the battlefield
+    /// (`layers::recompute_with`); on the battlefield the registered static
+    /// does it, so an effect that takes the abilities away still takes this
+    /// one. Written once per card in [`Self::create_card`], front face only
+    /// (CR 712.8a), and never changed: a list the size of a handful of
+    /// cards.
+    pub printed_pt_cda: Vec<(ObjectId, baylee_cards_dsl::Modifier)>,
     /// Objects that may have become a token outside the battlefield
     /// (CR 704.5d), queued for the next state-based-action pass.
     ///
@@ -908,6 +975,7 @@ impl GameState {
             reflexive: Vec::new(),
             discovered: Vec::new(),
             divided: Vec::new(),
+            synthetic_copies: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
             day_night: None,
@@ -924,6 +992,7 @@ impl GameState {
             characteristics_generation: u64::MAX,
             projection_ids: Vec::new(),
             projected_cross_zone: false,
+            printed_pt_cda: Vec::new(),
             token_cleanup: Vec::new(),
         };
         // Casting probes need the nameless face without mutating this interner.
@@ -1095,6 +1164,7 @@ impl GameState {
             produced_colorless: false,
             produced_chosen: false,
             abilities_lost: None,
+            front_mana_value: None,
         });
         Arc::make_mut(&mut self.bases)
             .bare
@@ -1137,6 +1207,7 @@ impl GameState {
             produced_colorless: false,
             produced_chosen: false,
             abilities_lost: None,
+            front_mana_value: None,
         });
         Arc::make_mut(&mut self.bases)
             .tokens
@@ -1165,6 +1236,9 @@ impl GameState {
             obj.timestamp = ts;
             obj
         });
+        if let Some(modifier) = printed_pt_cda(def) {
+            self.printed_pt_cda.push((id, modifier));
+        }
         Ok(id)
     }
 
@@ -1274,6 +1348,77 @@ impl GameState {
         // The projection is now stale for this object; the next refresh
         // has to rebuild it even if no effect was added or removed.
         self.characteristics_generation = u64::MAX;
+    }
+
+    /// Gives a permanent with a shared type line the unlocked designations
+    /// `unlocked` names (bit 0 the left half, bit 1 the right; CR 709.5c),
+    /// and the characteristics they leave it: the name, mana cost and rules
+    /// text of its unlocked halves only (CR 709.5), and the shared types
+    /// either way (CR 709.5a). The rules text is read off the doors
+    /// (`CardDef::door_abilities`); this writes the rest.
+    ///
+    /// One half unlocked is that half's face ([`Self::switch_face`]). Both
+    /// is the left face with both halves' mana cost, so both colours and
+    /// their sum for a mana value, and both halves' keywords; the name stays
+    /// the left half's, because an object here has one name and such a Room
+    /// has two (CR 709.4a), and nothing in the pool reads a Room's name.
+    /// Neither is the left face with no name, no mana cost, no colour and no
+    /// keyword. Keywords are rules text, so each state sets them from the
+    /// halves it has and never from the card-level fallback a front face
+    /// reads (`CardDef::keywords_for_face`). The printed front is set aside
+    /// in `original_base`, which the move off the battlefield restores: off
+    /// the battlefield the card is the card again (CR 400.7).
+    ///
+    /// What the Room's statics and replacement rules did under the old
+    /// doors ends here, and the next scan (`Engine::sync_static_effects`)
+    /// registers what the new doors print. That scan only ever adds for a
+    /// permanent still on the battlefield, and a Room put there uncast was
+    /// scanned as its left half before it was given no doors: without this,
+    /// Walk-In Closet's static outlived the door that prints it.
+    pub fn set_doors(&mut self, id: ObjectId, def: &CardDef, unlocked: u8) {
+        let unlocked = unlocked & 0b11;
+        self.effects.remove_where(|fx| {
+            fx.source == Some(id) && fx.origin == crate::effects::EffectOrigin::Static
+        });
+        self.replacement_rules.retain(|r| r.source != id);
+        let front = {
+            let name = self.names.intern(def.faces[0].name);
+            Arc::new(crate::object::Characteristics::from_face(def, 0, name))
+        };
+        self.switch_face(id, def, usize::from(unlocked == 0b10));
+        let nameless = self.names.intern("");
+        let Some(obj) = self.object_mut(id) else {
+            return;
+        };
+        obj.doors = crate::object::Doors::room(unlocked);
+        obj.original_base.get_or_insert(front);
+        let keywords = def
+            .faces
+            .iter()
+            .take(2)
+            .enumerate()
+            .filter(|(half, _)| unlocked & (1 << half) != 0)
+            .fold(baylee_cards_dsl::KeywordSet::EMPTY, |all, (_, f)| {
+                all.union(f.keywords)
+            });
+        let c = obj.base_mut();
+        c.keywords = keywords;
+        match unlocked {
+            0b11 => {
+                let cost = def.faces[0].mana_cost.combine(&def.faces[1].mana_cost);
+                c.mana_cost = cost;
+                c.colors = cost
+                    .colors()
+                    .union(def.faces[0].color_indicator)
+                    .union(def.faces[1].color_indicator);
+            }
+            0 => {
+                c.name = nameless;
+                c.mana_cost = baylee_core::mana::ManaCost::ZERO;
+                c.colors = baylee_core::color::ColorSet::EMPTY;
+            }
+            _ => {}
+        }
     }
 
     /// Forces the next [`GameState::refresh_characteristics`] to rebuild
@@ -1494,6 +1639,12 @@ impl GameState {
                     .chain(self.zones.stack_projectable().iter())
                     .copied(),
             );
+            // And the cards that define their own power and toughness,
+            // wherever else they are (CR 604.3).
+            ids.extend(self.printed_pt_cda.iter().map(|(id, _)| *id).filter(|id| {
+                self.object(*id)
+                    .is_some_and(|o| !matches!(o.zone, Zone::Battlefield | Zone::Stack))
+            }));
         }
         // Layer 2 decides the controller every later layer reads, of this
         // object and of every other one (CR 613.1b before 613.1c–f), and a
@@ -1551,7 +1702,7 @@ impl GameState {
             let Some(obj) = self.object(id) else {
                 continue;
             };
-            if crate::layers::needs_projection(plan, obj) {
+            if crate::layers::needs_projection(plan, obj) || self.defines_pt_off_battlefield(obj) {
                 let projection = crate::layers::recompute_with(self, obj, plan);
                 let obj = self.object_mut(id).expect("zone object exists");
                 moved |= settle_controller(obj, projection.controller, was);
@@ -1649,6 +1800,23 @@ impl GameState {
         self.arena
             .get(id)
             .or_else(|| self.ceased.iter().find(|o| o.id == id))
+    }
+
+    /// The characteristic-defining P/T `obj` applies itself, which it does
+    /// wherever it is but on the battlefield ([`Self::printed_pt_cda`]).
+    #[must_use]
+    pub fn off_battlefield_pt_cda(&self, obj: &GameObject) -> Option<baylee_cards_dsl::Modifier> {
+        if obj.zone == Zone::Battlefield {
+            return None;
+        }
+        self.printed_pt_cda
+            .iter()
+            .find(|(card, _)| *card == obj.id)
+            .map(|(_, modifier)| *modifier)
+    }
+
+    fn defines_pt_off_battlefield(&self, obj: &GameObject) -> bool {
+        self.off_battlefield_pt_cda(obj).is_some()
     }
 
     /// What `id` was as it last left the battlefield, if that is the last
@@ -1794,7 +1962,7 @@ impl GameState {
         {
             let controller = object.controller;
             let characteristics = object.characteristics();
-            let (mana_value, power) = (characteristics.mana_cost.cmc(), characteristics.power);
+            let (mana_value, power) = (characteristics.mana_value(), characteristics.power);
             self.ltb_mana_values.push((id, mana_value));
             if let Some(power) = power {
                 self.ltb_powers.push((id, power));
@@ -1965,6 +2133,18 @@ impl GameState {
                 obj.deathtouched = false;
                 obj.regeneration_shields = 0;
                 obj.attached_to = None;
+                // A name chosen as it entered belongs to that permanent
+                // (CR 400.7): a Pithing Needle bounced and cast again names
+                // again, and nothing in between names anything.
+                obj.chosen_name = None;
+                // A Room's designations are the permanent's (CR 709.5c), and
+                // its face was the half they left showing. The card that
+                // arrives is the card, left half first, and `original_base`
+                // below brings its printed characteristics back.
+                if obj.doors.is_room() {
+                    obj.face_index = 0;
+                }
+                obj.doors = crate::object::Doors::NONE;
             }
             if matches!(from_zone, Zone::Battlefield | Zone::Exile) {
                 obj.counters = crate::object::Counters::default();
@@ -2070,6 +2250,13 @@ impl GameState {
         if matches!(from_zone, Zone::Battlefield | Zone::Stack | Zone::Graveyard)
             || matches!(to.zone(), Zone::Battlefield | Zone::Stack | Zone::Graveyard)
         {
+            self.invalidate_projections();
+        }
+        // A card that defines its own power and toughness is projected in
+        // every zone (CR 604.3), and the move just cleared its cache: a
+        // drawn Ashaya would read its printed 0/0 until something else
+        // moved.
+        if self.printed_pt_cda.iter().any(|(card, _)| *card == id) {
             self.invalidate_projections();
         }
         if to.zone() == Zone::Battlefield {
@@ -2319,6 +2506,7 @@ impl GameState {
             reflexive: _,
             discovered,
             divided,
+            synthetic_copies,
             commanders,
             monarch,
             day_night,
@@ -2345,6 +2533,9 @@ impl GameState {
             projection_ids: _,
             // A cache flag, derived from the effects hashed below.
             projected_cross_zone: _,
+            // Read off the cards at setup and never written again; each
+            // object's card is hashed with the object.
+            printed_pt_cda: _,
             // Drained by every pass, before anyone can look.
             token_cleanup: _,
         } = self;
@@ -2417,6 +2608,7 @@ impl GameState {
         }
         ltb_controllers.hash(&mut h);
         ltb_powers.hash(&mut h);
+        synthetic_copies.hash(&mut h);
         hash_unordered(
             &mut h,
             restriction_info.iter(),
@@ -2791,6 +2983,7 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     h.u8(obj.zone_owner.map_or(255, PlayerId::get));
     h.u8(obj.kind as u8);
     h.u8(obj.face_index);
+    h.u8(obj.doors.bits());
     h.boolean(obj.prototyped);
     match &obj.card {
         Some(c) => {
@@ -2833,6 +3026,11 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     h.option_u32(obj.paid.as_ref().and_then(|p| p.sacrificed_mana_value));
     h.u32(obj.paid.as_ref().map_or(0, |p| p.mana_spent));
     h.u8(obj.paid.as_ref().map_or(0, |p| p.colors_spent.bits()));
+    // And which creature station tapped: its power is what the counters
+    // will be.
+    let tapped = obj.paid.as_ref().and_then(|p| p.tapped);
+    h.option_u32(tapped.map(|(id, _)| position(id)));
+    h.option_u32(tapped.map(|(_, version)| version));
     h.option_u32(obj.attached_to.map(position));
     h.usize(obj.targets.len());
     for t in &obj.targets {
@@ -2991,6 +3189,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
         produced_colorless,
         produced_chosen,
         abilities_lost,
+        front_mana_value,
     } = characteristics;
     name.hash(h);
     hash_mana_cost(h, mana_cost);
@@ -3007,6 +3206,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     produced_colorless.hash(h);
     produced_chosen.hash(h);
     abilities_lost.hash(h);
+    front_mana_value.hash(h);
 }
 
 #[allow(clippy::too_many_lines)] // one line per field: the list is the guard
@@ -3042,6 +3242,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         paid,
         x_value,
         kicked,
+        replicated,
         alt_cast,
         prototyped,
         chosen_player,
@@ -3050,6 +3251,8 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         modes,
         chosen_subtype,
         chosen_color,
+        chosen_name,
+        doors,
         face_index,
         own_abilities,
         own_abilities_until_eot,
@@ -3122,6 +3325,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     paid.hash(h);
     x_value.hash(h);
     kicked.hash(h);
+    replicated.hash(h);
     alt_cast.hash(h);
     prototyped.hash(h);
     chosen_player.hash(h);
@@ -3130,6 +3334,8 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     modes.hash(h);
     chosen_subtype.hash(h);
     chosen_color.hash(h);
+    chosen_name.hash(h);
+    doors.hash(h);
     face_index.hash(h);
     pending_face_change.hash(h);
     event_object.hash(h);
@@ -3177,6 +3383,29 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
 
 /// Whether a DSL filter mentions non-battlefield zones (then its effect
 /// needs cross-zone projection).
+/// The characteristic-defining power and toughness a card's front face
+/// prints (CR 604.3a): a static on the card itself, unconditional, that
+/// defines P/T in layer 7a. Front face only, because a card off the
+/// battlefield and the stack has only its front face's characteristics
+/// (CR 712.8a).
+fn printed_pt_cda(def: &CardDef) -> Option<baylee_cards_dsl::Modifier> {
+    def.abilities_for_face(0)
+        .iter()
+        .find_map(|ability| match ability {
+            baylee_cards_dsl::AbilityDef::Static(sa)
+                if sa.filter == baylee_cards_dsl::Filter::This
+                    && sa.condition.is_none()
+                    && matches!(
+                        sa.modifier,
+                        baylee_cards_dsl::Modifier::CharacteristicPT { .. }
+                    ) =>
+            {
+                Some(sa.modifier)
+            }
+            _ => None,
+        })
+}
+
 pub(crate) fn filter_reaches_other_zones(filter: &baylee_cards_dsl::Filter) -> bool {
     use baylee_cards_dsl::{Filter, ZoneRef};
     match filter {
@@ -4069,6 +4298,9 @@ mod tests {
             ("ltb_powers", |s, id| {
                 s.ltb_powers.push((id, 4));
             }),
+            ("synthetic_copies", |s, id| {
+                s.synthetic_copies.push((id, id));
+            }),
             ("ltb_counters", |s, id| {
                 s.ltb_counters.push((id, Counters::default()));
             }),
@@ -4130,6 +4362,7 @@ mod tests {
             }),
             ("x_value", |s, id| fixture_object(s, id).x_value = 3),
             ("kicked", |s, id| fixture_object(s, id).kicked = true),
+            ("replicated", |s, id| fixture_object(s, id).replicated = 2),
             ("alt_cast", |s, id| fixture_object(s, id).alt_cast = true),
             ("chosen_player", |s, id| {
                 fixture_object(s, id).chosen_player = Some(PlayerId::new(1));
@@ -4150,6 +4383,13 @@ mod tests {
             }),
             ("chosen_color", |s, id| {
                 fixture_object(s, id).chosen_color = Some(ManaColor::Blue);
+            }),
+            ("chosen_name", |s, id| {
+                fixture_object(s, id).chosen_name =
+                    crate::object::PrintedFace::new(CardIndex::new(7), 0);
+            }),
+            ("doors", |s, id| {
+                fixture_object(s, id).doors = crate::object::Doors::room(0b01);
             }),
             ("face_index", |s, id| fixture_object(s, id).face_index = 1),
             ("own_abilities", |s, id| {

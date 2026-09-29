@@ -250,8 +250,9 @@ pub fn face_has_a_legal_target(
     let abilities = def.abilities_for_face(face);
     // A modal spell is answered mode by mode (CR 700.2): the card is castable
     // when as many of its modes as it must choose can each be pointed at
-    // something — one for "choose one", two for "choose two" — and which
-    // ones is `cast_options`' question, not this one's.
+    // something, through every instance of the word each prints — one for
+    // "choose one", two for "choose two" — and which ones is
+    // `cast_options`' question, not this one's.
     let mut modal = abilities.iter().filter_map(|a| match a {
         baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } => Some((modes, choose)),
         _ => None,
@@ -259,7 +260,10 @@ pub fn face_has_a_legal_target(
     if let Some((modes, choose)) = modal.next() {
         let takeable = modes
             .iter()
-            .filter(|mode| requirement_is_reachable(mode.targets, state, player, card))
+            .filter(|mode| {
+                requirement_is_reachable(mode.targets, state, player, card)
+                    && requirement_is_reachable(mode.second_targets, state, player, card)
+            })
             .count();
         return takeable >= usize::from(choose.min.max(1));
     }
@@ -342,14 +346,20 @@ pub fn mode_has_a_legal_target(
     else {
         return true;
     };
-    let req = def.abilities.iter().find_map(|a| match a {
+    let reqs = def.abilities.iter().find_map(|a| match a {
         baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
-            modes.get(mode).map(|m| m.targets)
+            modes.get(mode).map(|m| (m.targets, m.second_targets))
         }
         _ => None,
     });
-    match req {
-        Some(req) => requirement_is_reachable(req, state, player, card),
+    // Both instances of the word, as `face_has_a_legal_target` asks them
+    // (CR 601.2c): Archdruid's Charm's second mode with no creature on the
+    // other side of the table is not a mode that can be chosen (CR 700.2a).
+    match reqs {
+        Some((first, second)) => {
+            requirement_is_reachable(first, state, player, card)
+                && requirement_is_reachable(second, state, player, card)
+        }
         None => true,
     }
 }
@@ -883,6 +893,28 @@ pub(crate) fn timing_allows(
     true
 }
 
+/// Whether `player` may cast back face `face` of `def` now, as far as timing
+/// goes (CR 601.3).
+///
+/// A face that is cast in place of the front is judged by its own
+/// characteristics (CR 601.3e): only the face that will be up on the stack
+/// is evaluated for an MDFC (CR 712.11c), and only the alternative
+/// characteristics for an Adventure (CR 715.3a). So an instant printed on
+/// the back of a creature or an enchantment is cast whenever an instant
+/// could be, and the front is not. Read off the printed face: nothing can
+/// have granted a face that is not up anything, and the two player-scoped
+/// effects `timing_allows` reads still apply.
+pub(crate) fn face_timing_allows(
+    state: &GameState,
+    player: PlayerId,
+    def: &baylee_cards_dsl::CardDef,
+    face: usize,
+) -> bool {
+    def.faces
+        .get(face)
+        .is_some_and(|f| timing_allows(state, player, f.types, def.keywords_for_face(face)))
+}
+
 /// Whether a continuous effect forbids `player` casting `obj` at all
 /// (CR 601.3a).
 ///
@@ -1039,8 +1071,19 @@ pub(crate) fn can_cast_form(
         return Err(CastError::Forbidden);
     }
     // Timing (CR 601.3). Read off the projected characteristics, so a
-    // granted flash counts.
-    if !timing_allows(state, player, c.types, c.keywords) {
+    // granted flash counts. That is the front face's timing, and when it
+    // says no, a back face cast in its place may still say yes by its own
+    // (`face_timing_allows`): Vantress Visions is an instant on the back of
+    // an enchantment, and it is cast in answer to an ability on the stack
+    // or not at all. A prototype or a disguise is the front, cast another
+    // way.
+    let front_now = timing_allows(state, player, c.types, c.keywords);
+    let printed = obj.card.and_then(|c| lookup.card(c.index));
+    let a_back_face_now = printed.is_some_and(|def| {
+        castable_back_faces(def, on_adventure)
+            .any(|(i, _)| face_timing_allows(state, player, def, i))
+    });
+    if !front_now && (form.is_some() || !a_back_face_now) {
         return Err(CastError::BadTiming);
     }
     // "As an additional cost to cast this spell, sacrifice a creature": a
@@ -1079,7 +1122,6 @@ pub(crate) fn can_cast_form(
     // Convoke and delve are *reductions* of the generic part, so they go on
     // the same probes the tax does and in the other direction. Read off the
     // printed face: a granted convoke does not exist.
-    let printed = obj.card.and_then(|c| lookup.card(c.index));
     let printed_face = printed.map(|def| &def.faces[0]);
     let reduction = printed_face.map_or(0, |face| keyword_reduction(state, face, player));
     let probe = |cost: &ManaCost| {
@@ -1089,6 +1131,26 @@ pub(crate) fn can_cast_form(
             &cost.with_more_generic(tax).with_less_generic(reduction),
         )
     };
+    // A back face that may be cast now, affordable and with something to
+    // point at: the same three questions the wizard asks of it.
+    let a_back_face_castable = || {
+        printed.is_some_and(|def| {
+            castable_back_faces(def, on_adventure).any(|(i, f)| {
+                face_timing_allows(state, player, def, i)
+                    && probe(&f.mana_cost.with_x(0))
+                    && face_has_a_legal_target(state, lookup, player, card, i)
+            })
+        })
+    };
+    // The front may not be cast now, so no front-face price is an answer:
+    // only a back face can make the card castable.
+    if !front_now {
+        return if a_back_face_castable() {
+            Ok(())
+        } else {
+            Err(CastError::NotEnoughMana)
+        };
+    }
     if let Some(def) = printed
         && let Some(req) = def.faces[0].kicked_targets
     {
@@ -1218,10 +1280,10 @@ pub(crate) fn can_cast_form(
         // a `{1}{W}` instant, so the adventure was unreachable on exactly the
         // boards it is for: the ones where the creature cannot be paid for.
         //
-        // Timing is still the front face's alone, here and in the wizard, so
-        // a `{1}{W}` instant on the back of a creature is a sorcery-speed
-        // instant. The two agree about that, which is what this probe is for;
-        // that they agree on something wrong is a separate fault.
+        // Each face at its own timing (`face_timing_allows`), here and in
+        // the wizard: a `{1}{W}` instant on the back of a creature is cast
+        // whenever an instant could be, and a sorcery on the back of a
+        // creature with flash is not.
         //
         // The target line is asked per face and beside the price, because
         // both have to hold of the *same* face for it to be a way of casting
@@ -1232,9 +1294,7 @@ pub(crate) fn can_cast_form(
         // it means folding the face-0 question into the probes below and
         // giving `CastError` a variant that does not call a target problem
         // "not enough mana".
-        let any_face = castable_back_faces(def, on_adventure).any(|(i, f)| {
-            probe(&f.mana_cost.with_x(0)) && face_has_a_legal_target(state, lookup, player, card, i)
-        });
+        let any_face = a_back_face_castable();
         if !any_alt && !any_mode && !any_face {
             // Which of the two refused matters to whoever reads it. A mode
             // that was affordable and had nothing to point at is not a

@@ -124,7 +124,7 @@ pub fn matches_projected(
                 .any(|commander| obj_subs.intersects(commander.characteristics().subtypes))
         }
         Filter::HasKeyword(k) => chars.keywords.contains(*k),
-        Filter::CmcAtMost(n) => chars.mana_cost.cmc() <= *n,
+        Filter::CmcAtMost(n) => chars.mana_value() <= *n,
         // The bound is the announced X on the ability's own source, which is
         // where `cast_wizard` writes it and what `res.x` is read from one
         // layer up. A source that is gone, or that announced nothing, bounds
@@ -132,7 +132,7 @@ pub fn matches_projected(
         // whole library would be a tutor with no price.
         Filter::CmcAtMostX => {
             let x = state.object(this).map_or(0, |o| o.x_value);
-            chars.mana_cost.cmc() <= x
+            chars.mana_value() <= x
         }
         // Converge's number, off the source where the payment wrote it; no
         // record is no mana spent, and so no colors.
@@ -141,9 +141,9 @@ pub fn matches_projected(
                 .object(this)
                 .and_then(|o| o.paid.as_ref())
                 .map_or(0, |p| p.colors_spent.len());
-            chars.mana_cost.cmc() <= u32::from(colors)
+            chars.mana_value() <= u32::from(colors)
         }
-        Filter::CmcAtLeast(n) => chars.mana_cost.cmc() >= *n,
+        Filter::CmcAtLeast(n) => chars.mana_value() >= *n,
         Filter::ToughnessAtMost(n) => chars.toughness.is_some_and(|t| t <= *n),
         Filter::ToughnessAtLeast(n) => chars.toughness.is_some_and(|t| t >= *n),
         // `is_some_and`, so an object with no power at all — a land, an
@@ -243,6 +243,35 @@ fn graveyard_options(
     out
 }
 
+/// "The tapped creature's power" (station, CR 702.184a): the permanent the
+/// payment of `paid_on`'s cost tapped, at its power now if it is still on
+/// the battlefield as that object, and as it last existed there otherwise
+/// (CR 608.2h). Negative power puts no counters (CR 107.1b); nothing
+/// tapped, 0.
+#[must_use]
+pub fn tapped_power(state: &GameState, paid_on: ObjectId) -> u32 {
+    let Some((tapped, version)) = state
+        .object(paid_on)
+        .and_then(|o| o.paid.as_ref())
+        .and_then(|p| p.tapped)
+    else {
+        return 0;
+    };
+    let power = state
+        .object(tapped)
+        .filter(|o| o.zone == crate::zone::Zone::Battlefield && o.version == version)
+        .map(|o| o.characteristics().power.unwrap_or(0))
+        .or_else(|| {
+            state
+                .ltb_powers
+                .iter()
+                .find(|(id, _)| *id == tapped)
+                .map(|(_, power)| *power)
+        })
+        .unwrap_or(0);
+    u32::try_from(power.max(0)).unwrap_or(0)
+}
+
 /// Evaluates an [`Amount`].
 #[must_use]
 pub fn amount(
@@ -319,6 +348,7 @@ pub fn amount(
             .and_then(|o| o.paid.as_ref())
             .and_then(|p| p.sacrificed_mana_value)
             .unwrap_or(0),
+        Amount::TappedPower => tapped_power(state, this),
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
                 ZoneSel::Battlefield => state.zones.list(ZoneLocation::Battlefield).clone(),
@@ -463,6 +493,10 @@ pub fn condition_holds(
                     .count()
                     >= min as usize
             }),
+        Condition::LandsPlayedThisTurnAtLeast(n) => state
+            .players
+            .get(you.get() as usize)
+            .is_some_and(|p| p.lands_played_this_turn >= n),
         Condition::HandSizeAtMost(max) => {
             state.zones.list(ZoneLocation::Hand(you)).len() <= max as usize
         }
@@ -675,7 +709,7 @@ fn graveyard_options_below(
         .filter(|id| {
             state
                 .object(*id)
-                .is_some_and(|o| o.characteristics().mana_cost.cmc() < limit)
+                .is_some_and(|o| o.characteristics().mana_value() < limit)
         })
         .collect()
 }

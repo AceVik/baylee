@@ -1706,6 +1706,8 @@ messages! {
     ChooseBetween { en: "Choose {0}–{1} {2}", de: "Wähle {0}–{1} {2}" },
     /// Choose a creature type
     ChooseCreatureType { en: "Choose a creature type", de: "Wähle einen Kreaturtyp" },
+    /// Choose a card name (Pithing Needle)
+    ChooseCardName { en: "Choose a card name", de: "Wähle einen Kartennamen" },
     /// Choose a colour
     ChooseColour { en: "Choose a colour", de: "Wähle eine Farbe" },
     /// Choose a number ({0}–{1})
@@ -1714,6 +1716,11 @@ messages! {
     DamageShare {
         en: "Damage to target {0} of {1}, {2} left to divide ({3}–{4})",
         de: "Schaden an Ziel {0} von {1}, noch {2} zu verteilen ({3}–{4})",
+    },
+    /// Replicate {0}: pay it how many times? ({1}–{2})
+    ReplicateHowOften {
+        en: "Replicate {0}: pay it how many times? ({1}–{2})",
+        de: "Replikation {0}: wie oft zahlen? ({1}–{2})",
     },
     /// Choose a player
     ChoosePlayer { en: "Choose a player", de: "Wähle einen Spieler" },
@@ -1907,6 +1914,8 @@ messages! {
     CastDisguise { en: "Disguise — 2/2, ward {2}", de: "Verkleidung — 2/2, Abwehr {2}" },
     /// Face-up special action.
     TurnFaceUp { en: "Turn face up", de: "Aufdecken" },
+    /// Unlock {0}: a Room's special action, naming the door it opens.
+    UnlockDoor { en: "Unlock {0}", de: "{0} aufschließen" },
     /// Cast using prototype characteristics.
     CastPrototype { en: "Prototype", de: "Prototyp" },
     /// Confirm the current selection.
@@ -2173,6 +2182,10 @@ messages! {
     ActiveTurn { en: "Turn", de: "Am Zug" },
     /// The creature type publicly named for this permanent.
     ChosenType { en: "Chosen: {0}", de: "Gewählt: {0}" },
+    /// The card name publicly chosen for this permanent (Pithing Needle).
+    ChosenName { en: "Named: {0}", de: "Genannt: {0}" },
+    /// A Room's doors still locked, by name.
+    LockedDoors { en: "Locked: {0}", de: "Verschlossen: {0}" },
     /// Tap for {0}, spendable only on some spells
     ///
     /// Cavern of Souls and its kin. The label has to say *both* halves: a

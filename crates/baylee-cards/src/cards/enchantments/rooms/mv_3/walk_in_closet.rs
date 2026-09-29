@@ -6,10 +6,14 @@
 //! Set: DSK #205 — Duskmourn: House of Horror | Scryfall ID: 0adcd4e5-d542-4293-8774-ace2305ef820 | Oracle ID: 52e77cc3-f8e9-4a20-811b-fe1e46a96ad7
 //! Face: Walk-In Closet — {2}{G} — Enchantment — Room
 //! Face: Forgotten Cellar — {3}{G}{G} — Enchantment — Room
-// PARTIAL — Walk-In Closet's "you may play lands from your graveyard" is the
-// one clause the vocabulary can say, and it is built as a static ability
-// (Modifier::PlayLandsFromGraveyard, as on Crucible of Worlds). The Room
-// door mechanic and Forgotten Cellar's door trigger are not expressible.
+// PARTIAL — the Room is whole: cast either half and that door enters
+// unlocked; the other is unlocked as a sorcery for its mana cost; a locked
+// door has no rules text. Walk-In Closet plays lands from the graveyard, and
+// Forgotten Cellar's unlock trigger exiles what would reach the graveyard
+// this turn. Its permission to cast spells from the graveyard this turn is
+// the one clause missing: that is the library group's graveyard-cast
+// machinery (`casting::graveyard_cast_permission` on c42/cards-library),
+// which casts permanent spells only, and is not on this branch.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -25,21 +29,41 @@ card!(
             mana_cost = mana!("{2}{G}"),
             types = TypeSet::ENCHANTMENT,
             subtypes = &[subtypes::enchantment::ROOM],
+            abilities = &[static_ability!(
+                Filter::Any,
+                Modifier::PlayLandsFromGraveyard
+            )],
         ),
         face!(
             name = "Forgotten Cellar",
             mana_cost = mana!("{3}{G}{G}"),
             types = TypeSet::ENCHANTMENT,
             subtypes = &[subtypes::enchantment::ROOM],
+            // NOT SUPPORTED: "you may cast spells from your graveyard this turn" — no permission casts every spell from a graveyard for a turn; the library group's `CastPermanentSpellsFromGraveyard` casts permanent spells only.
+            abilities = &[triggered!(
+                Trigger::UnlockThisDoor(1),
+                &[Effect::continuous(
+                    &Filter::Any,
+                    Modifier::ExileInsteadOfYourGraveyard,
+                    Duration::UntilEndOfTurn
+                )]
+            )],
         ),
     ],
-    // NOT SUPPORTED: "(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)" — no DSL variant unlocks a door or pays a locked door's mana cost.
-    // NOT SUPPORTED: "When you unlock this door, you may cast spells from your graveyard this turn, and if a card would be put into your graveyard from anywhere this turn, exile it instead." — no unlock Trigger, no permission to cast spells from a graveyard, and no replacement that exiles a card instead of putting it into a graveyard.
     coverage = Coverage::Partial(
-        "the Room door mechanic (no EnterModifier or Trigger reads an unlock, and nothing charges a locked door's mana cost as a sorcery) and Forgotten Cellar's whole unlock trigger: there is no Trigger for unlocking a door, no modifier granting a controller permission to cast spells from their graveyard, and no replacement effect that exiles a card rather than putting it into a graveyard"
+        "Forgotten Cellar's \"you may cast spells from your graveyard this turn\": nothing grants casting every spell from a graveyard for a turn (the library group's graveyard-cast permission casts permanent spells only)"
     ),
-    abilities = &[static_ability!(
-        Filter::Any,
-        Modifier::PlayLandsFromGraveyard
-    )],
+    // Both doors unlocked (CR 709.5): both halves' rules text, the left
+    // half's first.
+    abilities = &[
+        static_ability!(Filter::Any, Modifier::PlayLandsFromGraveyard),
+        triggered!(
+            Trigger::UnlockThisDoor(1),
+            &[Effect::continuous(
+                &Filter::Any,
+                Modifier::ExileInsteadOfYourGraveyard,
+                Duration::UntilEndOfTurn
+            )]
+        ),
+    ],
 );

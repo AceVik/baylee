@@ -132,6 +132,17 @@ pub enum Modifier {
     /// Activated abilities of artifacts the effect's opponents control
     /// can't be activated (Karn).
     CantActivateArtifacts,
+    /// "Activated abilities of sources with the chosen name can't be
+    /// activated unless they're mana abilities" (Pithing Needle, CR 602.5).
+    ///
+    /// The name is the one chosen as the effect's source entered
+    /// ([`crate::EnterModifier::ChooseCardName`]), and "sources" is every
+    /// object that could have an ability to activate, wherever it is: a
+    /// permanent, and a card in a hand or a graveyard whose ability works
+    /// there (cycling, channel). Every player's, the effect's controller's
+    /// too. A mana ability (CR 605.1a) is spared, and so is what is not an
+    /// activated ability at all: a special action, a cast.
+    ChosenNameCantActivate,
     /// The effect's opponents can cast spells only as though they were
     /// sorceries (Teferi).
     OpponentsCastAsSorcery,
@@ -306,6 +317,14 @@ pub enum Modifier {
     /// answer does the same thing is the offer/apply contradiction this
     /// engine treats as its worst kind.
     MayChooseNotToUntap,
+    /// "If a card would be put into your graveyard from anywhere, exile it
+    /// instead", for the effect's controller: Forgotten Cellar's, for a
+    /// turn. A replacement effect (CR 614.1a) that a resolving ability made
+    /// (CR 611.2a), so it lasts as long as its duration and not as long as a
+    /// source: `replacement::graveyard_destination` reads it beside the
+    /// rules a permanent registers. Cards only, as the sentence says: a
+    /// token is not one (CR 111.1), nor is a copy of a spell.
+    ExileInsteadOfYourGraveyard,
     /// The affected object gains types while it has at least N counters
     /// of a kind (station's "artifact creature at 8+").
     AddTypeIfCountersAtLeast {
@@ -511,6 +530,7 @@ impl Modifier {
             | Self::RevealLibraryTop
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
+            | Self::ChosenNameCantActivate
             | Self::OpponentsCantCast(_)
             | Self::CantBeTargetedBy(_)
             | Self::DrawLimitPerTurn { .. }
@@ -527,7 +547,8 @@ impl Modifier {
             | Self::ManaIsAnyColor
             | Self::SearchTakeover
             | Self::DoesNotUntap
-            | Self::MayChooseNotToUntap => Layer::Text,
+            | Self::MayChooseNotToUntap
+            | Self::ExileInsteadOfYourGraveyard => Layer::Text,
         }
     }
 }
@@ -835,6 +856,7 @@ mod tests {
             Modifier::RevealLibraryTop,
             Modifier::ExtraLandDrops(2),
             Modifier::OpponentsCastAsSorcery,
+            Modifier::ChosenNameCantActivate,
             Modifier::PlayersCantLose,
             Modifier::CantLoseLife {
                 who: crate::effect::PlayerRel::EachPlayer,
@@ -851,6 +873,7 @@ mod tests {
             Modifier::SearchTakeover,
             Modifier::DoesNotUntap,
             Modifier::MayChooseNotToUntap,
+            Modifier::ExileInsteadOfYourGraveyard,
         ] {
             assert_eq!(
                 modifier.layer(),

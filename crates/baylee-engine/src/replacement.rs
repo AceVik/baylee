@@ -66,6 +66,16 @@ pub(crate) fn graveyard_destination(
     {
         return (ZoneLocation::Exile(card.owner), None);
     }
+    // "If a card would be put into your graveyard from anywhere this turn,
+    // exile it instead" (Forgotten Cellar): a replacement a resolving ability
+    // made, so an effect with a duration rather than a rule a permanent
+    // registered (CR 614.1a, 611.2a), and the graveyard's owner's.
+    if state.effects.iter().any(|fx| {
+        fx.controller == player
+            && fx.modifier == baylee_cards_dsl::Modifier::ExileInsteadOfYourGraveyard
+    }) {
+        return (ZoneLocation::Exile(card.owner), None);
+    }
     for entry in &state.replacement_rules {
         if let baylee_cards_dsl::ReplacementRule::ExileOpponentsGraveyard { counter } = entry.rule
             && state.is_opponent(player, entry.controller)

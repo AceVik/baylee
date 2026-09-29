@@ -142,6 +142,8 @@ fn named(action: &PlayerAction) -> Vec<ObjectId> {
         | PlayerAction::PassPriority
         | PlayerAction::ChooseColor(_)
         | PlayerAction::ChooseSubtype(_)
+        // A card name is a card of the pool, not an object of the game.
+        | PlayerAction::ChooseCardName { .. }
         | PlayerAction::ChooseMode(_)
         | PlayerAction::ChooseNumber(_)
         | PlayerAction::ChoosePlayer(_)

@@ -929,6 +929,77 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::YourGraveyardToBattlefield { filter, tapped } => {
+            // Your cards, under your control: nowhere once you have left
+            // the game, and your cards left with you (CR 800.4a).
+            if state.has_left(you) {
+                return None;
+            }
+            let cards: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Graveyard(you))
+                .iter()
+                .copied()
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                })
+                .collect();
+            for card in cards {
+                if let Some(obj) = state.object_mut(card) {
+                    obj.kind = ObjectKind::Permanent;
+                    obj.set_controller(you);
+                }
+                // Before the move, as a search's tapped find does it.
+                if tapped {
+                    state.set_tapped(card, true);
+                }
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
+        Effect::ReturnToBattlefieldTapped { target } => {
+            // "Under your control": nowhere once you have left the game
+            // (CR 800.4b).
+            if state.has_left(you) {
+                return None;
+            }
+            for card in spec_objects(res, target) {
+                // Where the trigger event put it, or nowhere (CR 603.7c).
+                // The zone is asked and not the object's version, which a
+                // synthetic trigger does not carry: a card moved from the
+                // graveyard into exile in response would come back from
+                // exile. No card in the pool does that to its own lands.
+                if !state.object(card).is_some_and(|o| {
+                    matches!(
+                        o.zone,
+                        crate::zone::Zone::Graveyard | crate::zone::Zone::Exile
+                    )
+                }) {
+                    continue;
+                }
+                if let Some(obj) = state.object_mut(card) {
+                    obj.kind = ObjectKind::Permanent;
+                    obj.set_controller(you);
+                }
+                // Before the move, as World Shaper's lands and a search's
+                // tapped find do it.
+                state.set_tapped(card, true);
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
         // CR 701.27a: turned over where it stands, queued for the engine,
         // which holds the card registry `state.transform` needs and applies
         // it as this resolution completes. A source that has left the

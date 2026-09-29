@@ -1777,6 +1777,80 @@ land type"; both are convention tests that fire on a first try.
   spells you control" also asks for a noncreature card type (Benevolent
   Geist).
 
+### 2026-09-29 — friends group, round 2: Weltenbaum's rules pieces
+
+- **Set the harness's counters before walking to a step.** A counter put on
+  a permanent after `reach_main_phase` leaves the projection stale until
+  something else changes; the station test saw a 1/1 where the counters said
+  otherwise. Put them first, then walk.
+- **An ability with a mana cost is offered only once its mana floats.** Ask
+  the offer after tapping, as for `castable`. A test that asked first read
+  "not offered" and blamed the threshold it was written for.
+- **A back face is cast at its own timing** (CR 601.3e, 712.11c, 715.3a).
+  An instant on the back of an enchantment read as a sorcery for as long as
+  the front's timing was the only one asked. A card whose two faces differ
+  in speed is the case to test.
+- **A triggered ability journals `AbilityTriggered`, not `BecameTarget`.**
+  Count a copy's targets off `BecameTarget`, and expect the original's to be
+  missing from it.
+- **An ability on the stack is not projectable.** Insert one with
+  `projectable = false`, or `stack_projectable` panics as it drifts.
+- **A lock by name belongs on the offer, not in each door.** `apply` refuses
+  what `legal.abilities` does not hold, so one narrowing pass over it covers
+  printed, loyalty, granted and in-hand activations at once. Karn's lock
+  sits in every door separately and needed a comment per door.
+- **A board seated by `Duel::battlefield` enters tapped where the card
+  says so** (the Deserts): an older test comment says otherwise. Read the
+  status before tapping it for mana, or take the test to that seat's own
+  turn, after its untap step.
+- **A new field on `GameObject` can cost eight bytes for four.** The
+  footprint test measures alignment, not the field: an `Option<PrintedFace>`
+  grew the object from 296 to 304. Raise the budget deliberately, with a
+  line in `docs/perf-baseline.md`.
+
+### 2026-09-29 — friends group, round 2: Lose Focus and replicate
+
+- **One constructor for a spell copy.** `CopyTargetSpell` copied the object
+  and its object targets but not X, the mode, the face, a kicker or a player
+  target; a copied Blaze dealt 0 to nobody. Replicate needed the same copy,
+  so both go through `resolve::copy_spell` now, and a new copy effect should
+  too.
+- **A count fixed at cast time is a slice of a static table.** The
+  replicate trigger's effects are `&REPLICATE_COPIES[..n]`, one
+  `CopyThisSpell` each, so nothing has to allocate or read the count back
+  at resolution. Storm could take the same shape.
+- **A question that shares an answer with another says which it is.**
+  `ChooseNumber` answers X and replicate alike; the `reason` field is what
+  lets the client's headline and the AI tell them apart. The engine itself
+  tells them apart by the wizard stage.
+- **A trigger's source can be a spell on the stack below it.** An AI reader
+  that looked up "what is resolving" by the source id found the spell before
+  its trigger, and aimed the copy at the spell it was copying. Look for the
+  ability of the source first.
+- **Bound an optional count by what the payment reads.** The replicate
+  bound asks the same `can_pay_mana` with the same `spend_for` as
+  `finish_cast`, so restricted mana (Cavern of Souls) cannot make the offer
+  and the payment disagree.
+
+### 2026-09-29 — friends group, round 2: Walk-In Closet and Rooms
+
+- **A designation that changes the rules text must end what the old text
+  started.** `sync_static_effects` registers statics and drops them only
+  when their source leaves or a condition fails, so a Room placed uncast
+  kept the left door's static it was scanned with before its doors were
+  set. `set_doors` drops the Room's statics and lets the next scan
+  re-register them.
+- **"Enters with" belongs where enter modifiers are.** Giving the door in
+  `apply_enter_modifiers`, before the trigger scan of the same pass, is what
+  lets the Room's own "when you unlock this door" hear its entry.
+- **A reserved index needs one predicate.** Pithing Needle and split second
+  each kept `TURN_FACE_UP` by name; a second special action would have been
+  stopped by both. `choice::is_special_action` is the one question.
+- **A test's second turn must leave the first.** `reach_their_main_phase`
+  returns at once when the seat is already in its main phase; "next turn"
+  needs a pass into the other seat's turn first, or "this turn" is never
+  over.
+
 ### 2026-09-29 — Maik's European Highlander, second round
 
 - **An item inserted "before `fn x`" lands between `x`'s doc and `x`.** A

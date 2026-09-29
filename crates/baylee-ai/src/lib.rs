@@ -422,22 +422,29 @@ impl HeuristicAgent {
             Pending::ChooseSubtype { options, .. } => {
                 PlayerAction::ChooseSubtype(self.subtype(view, &options))
             }
+            Pending::ChooseCardName { .. } => {
+                let (card, face) = self.card_name(view);
+                PlayerAction::ChooseCardName { card, face }
+            }
 
             Pending::ChooseColor { options, .. } => {
                 PlayerAction::ChooseColor(self.color(view, &options, context))
             }
-            // A share of a division: what the target needs to die, if it is
-            // an opponent's, within what the question allows; the least for
-            // anything else.
             Pending::ChooseNumber {
-                min,
-                max,
-                reason: baylee_engine::choice::NumberPrompt::DivideDamage { target, .. },
-                ..
-            } => PlayerAction::ChooseNumber(self.damage_share(view, target, min, max)),
-            Pending::ChooseNumber { min, max, .. } => {
-                PlayerAction::ChooseNumber(self.number(view, min, max, context))
-            }
+                min, max, reason, ..
+            } => PlayerAction::ChooseNumber(match reason {
+                baylee_engine::choice::NumberPrompt::X => self.number(view, min, max, context),
+                // Every payment the engine offers: it bounded the count by
+                // what the floating pool pays beside the rest of the cast,
+                // and each payment is the spell once more (CR 702.56a).
+                baylee_engine::choice::NumberPrompt::Replicate { .. } => max,
+                // A share of a division: what the target needs to die, if it
+                // is an opponent's, within what the question allows; the
+                // least for anything else.
+                baylee_engine::choice::NumberPrompt::DivideDamage { target, .. } => {
+                    self.damage_share(view, target, min, max)
+                }
+            }),
             Pending::ChoosePlayer { options, .. } => {
                 PlayerAction::ChoosePlayer(self.player_target(view, &options, context))
             }
@@ -647,6 +654,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseCards { player, .. }
         | Pending::ChooseTargets { player, .. }
         | Pending::ChooseSubtype { player, .. }
+        | Pending::ChooseCardName { player }
         | Pending::ChooseColor { player, .. }
         | Pending::ChooseNumber { player, .. }
         | Pending::ChoosePlayer { player, .. }
@@ -705,6 +713,61 @@ mod tests {
                 }
             ),
             PlayerAction::ChooseSubtype(BIRD)
+        );
+    }
+
+    /// Pithing Needle names what it stops: the opponent's Karn, whose loyalty
+    /// abilities are locked by it, and not the Llanowar Elves beside him,
+    /// whose only activated ability is a mana ability the Needle spares; nor
+    /// the agent's own Jace, which has the most to lose.
+    #[test]
+    fn a_needle_names_the_opponents_permanent_it_would_stop() {
+        let mut v = view(0, &[20, 20], vec![]);
+        let karn = baylee_cards::decks::by_name("Karn, the Great Creator").unwrap();
+        v.battlefield = vec![
+            carded(
+                permanent(obj(1), PlayerId::new(0), 0),
+                "Jace, the Mind Sculptor",
+                TypeSet::PLANESWALKER,
+            ),
+            carded(
+                permanent(obj(2), PlayerId::new(1), 0),
+                "Karn, the Great Creator",
+                TypeSet::PLANESWALKER,
+            ),
+            carded(
+                permanent(obj(3), PlayerId::new(1), 0),
+                "Llanowar Elves",
+                TypeSet::CREATURE,
+            ),
+        ];
+        let pending = Pending::ChooseCardName { player: v.seat };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending),
+            PlayerAction::ChooseCardName {
+                card: karn,
+                face: 0
+            }
+        );
+        // With only the Elves across the table, nothing of theirs is
+        // stopped, and the name is one of the pool's that is not the
+        // agent's own Jace.
+        v.battlefield.remove(1);
+        let PlayerAction::ChooseCardName { card, .. } =
+            HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending)
+        else {
+            panic!("a card name is answered with one");
+        };
+        assert!(baylee_cards::by_index(card).is_some(), "a card of the pool");
+        assert_ne!(
+            Some(card),
+            baylee_cards::decks::by_name("Jace, the Mind Sculptor"),
+            "and not the agent's own"
+        );
+        assert_ne!(
+            Some(card),
+            baylee_cards::decks::by_name("Llanowar Elves"),
+            "nor the Elves, whose mana ability the Needle would spare"
         );
     }
 
@@ -1843,7 +1906,33 @@ mod tests {
             player: v.seat,
             min: 0,
             max: 50,
-            reason: baylee_engine::choice::NumberPrompt::Announce,
+            reason: baylee_engine::choice::NumberPrompt::X,
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseNumber(2)
+        );
+    }
+
+    /// Replicate's count (CR 702.56a) is every payment offered: the engine
+    /// bounds it by the floating pool, so the house pays for each copy it
+    /// can. Read as X it was `min`, because Lose Focus's cost has no X, and
+    /// the house never replicated anything.
+    #[test]
+    fn replicate_pays_for_every_copy_the_pool_covers() {
+        let mut v = view(0, &[20, 20], vec![]);
+        v.seats[0].mana_pool.blue = 4;
+        let context = baylee_engine::engine::DecisionContext {
+            cost: Some("{1}{U}".parse().unwrap()),
+            ..Default::default()
+        };
+        let pending = Pending::ChooseNumber {
+            player: v.seat,
+            min: 0,
+            max: 2,
+            reason: baylee_engine::choice::NumberPrompt::Replicate {
+                cost: "{U}".parse().unwrap(),
+            },
         };
         assert_eq!(
             HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
@@ -3007,6 +3096,64 @@ mod tests {
         );
     }
 
+    /// A replicate copy's new target (CR 707.10c). The trigger's source is
+    /// this seat's Lose Focus, still on the stack below it and aimed at the
+    /// opponent's second Ritual; the copy starts there too. It is offered
+    /// the first Ritual and this seat's own Lose Focus, and turns onto the
+    /// Ritual, as a counterspell should. With only its own Lose Focus to
+    /// turn onto it keeps its target: "you may choose new targets" is
+    /// answered by naming nothing (min 0), and a copy aimed at its own
+    /// original would counter it.
+    #[test]
+    fn a_replicate_copy_counters_their_other_spell_and_never_its_own() {
+        use baylee_engine::engine::DecisionContext;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let effects = [baylee_cards_dsl::Effect::CopyThisSpell];
+        let replicate = DecisionContext {
+            source: Some(obj(6)),
+            effects: &effects,
+            ..Default::default()
+        };
+        let ask = |options: Vec<ObjectId>| Pending::ChooseTargets {
+            player: me,
+            options,
+            player_options: vec![],
+            min: 0,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let mut v = view(0, &[20, 20], vec![]);
+        let mut first = stack_spell(1, "Dark Ritual", them, obj(1));
+        first.targets.clear();
+        let mut second = stack_spell(2, "Dark Ritual", them, obj(2));
+        second.targets.clear();
+        let focus = stack_spell(6, "Lose Focus", me, obj(2));
+        let mut trigger = permanent(obj(7), me, 0);
+        trigger.types = TypeSet::EMPTY;
+        trigger.stack_item = Some(baylee_view::StackItem::Ability {
+            source: obj(6),
+            ability: None,
+            text: None,
+            rules: None,
+        });
+        trigger.targets = vec![baylee_view::TargetRef::Object(obj(6))];
+        let copy = stack_spell(8, "Lose Focus", me, obj(2));
+        v.stack = vec![first, second, focus, trigger, copy];
+        assert_eq!(
+            agent().act_with_context(&v, &ask(vec![obj(6), obj(1)]), &replicate),
+            named(obj(1)),
+            "the copy counters the Ritual the original does not"
+        );
+        assert_eq!(
+            agent().act_with_context(&v, &ask(vec![obj(6)]), &replicate),
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+            "never its own Lose Focus: the copy keeps its target"
+        );
+    }
+
     #[test]
     fn score_noise_changes_choices_without_changing_replays() {
         let mut v = view(0, &[20, 20], vec![]);
@@ -3893,6 +4040,8 @@ mod tests {
             supertypes: SupertypeSet::EMPTY,
             subtypes: SubtypeSet::EMPTY,
             chosen_subtype: None,
+            chosen_name: None,
+            unlocked_doors: None,
             suspended: false,
             token: None,
             colors: ColorSet::EMPTY,
@@ -4902,6 +5051,57 @@ mod tests {
                 "{name} waited on a kicker it cannot reach",
             );
         }
+    }
+
+    /// The planner's half of replicate: the engine offers as many payments
+    /// as the floating pool covers, so the copies are floated before the
+    /// cast. Lose Focus is castable with {1}{U} floating and an opponent's
+    /// Path aimed at this seat's creature, and two Islands still untapped pay
+    /// for two copies, so the agent taps one first. With none untapped it
+    /// casts what it has.
+    #[test]
+    fn replicate_is_floated_before_the_cast() {
+        let island = |slot: u32| {
+            let mut o = permanent(obj(slot), PlayerId::new(0), 0);
+            o.types = TypeSet::LAND;
+            o.subtypes = {
+                let mut set = SubtypeSet::EMPTY;
+                set.insert(baylee_core::generated::subtypes::land::ISLAND);
+                set
+            };
+            o.power = None;
+            o.toughness = None;
+            o
+        };
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut v = view(
+            0,
+            &[20, 20],
+            vec![island(20), island(21), permanent(obj(9), me, 5)],
+        );
+        v.stack = vec![stack_spell(2, "Path to Exile", them, obj(9))];
+        v.hand = vec![hand_card(1, "Lose Focus")];
+        v.seats[0].mana_pool.blue = 2;
+        let pending = |lands: Vec<ObjectId>| Pending::Priority {
+            player: me,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                castable: vec![obj(1)],
+                mana_abilities: lands,
+                ..Default::default()
+            }),
+        };
+        let action = agent().act(&v, &pending(vec![obj(20), obj(21)]));
+        assert!(
+            matches!(action, PlayerAction::ActivateManaAbility { .. }),
+            "cast with two copies' mana still in the lands: {action:?}",
+        );
+        v.battlefield.retain(|o| o.id == obj(9));
+        assert_eq!(
+            agent().act(&v, &pending(vec![])),
+            PlayerAction::CastSpell { card: obj(1) },
+            "waited on copies it cannot pay for"
+        );
     }
 
     #[test]
