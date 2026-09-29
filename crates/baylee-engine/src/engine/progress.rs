@@ -503,10 +503,7 @@ impl<L: CardLookup> Engine<L> {
                 }
                 let attackers: Vec<ObjectId> = self
                     .state
-                    .zones
-                    .list(crate::zone::ZoneLocation::Battlefield)
-                    .iter()
-                    .copied()
+                    .battlefield_seen()
                     .filter(|id| combat::can_attack(&self.state, attacker, *id))
                     .collect();
                 self.pending = Pending::ChooseAttackers {
@@ -551,10 +548,7 @@ impl<L: CardLookup> Engine<L> {
                     .collect();
                 let blockers: Vec<crate::choice::BlockOption> = self
                     .state
-                    .zones
-                    .list(crate::zone::ZoneLocation::Battlefield)
-                    .iter()
-                    .copied()
+                    .battlefield_seen()
                     .filter_map(|blocker| {
                         let attackers: Vec<ObjectId> = blockable
                             .iter()
@@ -3198,12 +3192,12 @@ impl<L: CardLookup> Engine<L> {
     /// day it is about to cause.
     fn day_night_statics(&mut self) -> bool {
         use baylee_cards_dsl::KeywordSet as K;
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield);
         // The common case by a wide margin: no daybound card at the table,
-        // so the whole step is one scan of the battlefield and out.
+        // so the whole step is one scan of the battlefield and out. A
+        // phased-out permanent is not at the table (CR 702.26b).
         let mut any_daybound = false;
         let mut any_nightbound = false;
-        for &id in battlefield {
+        for id in self.state.battlefield_seen() {
             let Some(kw) = self.state.object(id).map(|o| o.characteristics().keywords) else {
                 continue;
             };
@@ -3232,10 +3226,7 @@ impl<L: CardLookup> Engine<L> {
         let night = self.state.day_night == Some(DayNight::Night);
         let turning: Vec<ObjectId> = self
             .state
-            .zones
-            .list(ZoneLocation::Battlefield)
-            .iter()
-            .copied()
+            .battlefield_seen()
             .filter(|&id| {
                 let Some(obj) = self.state.object(id) else {
                     return false;
@@ -3833,9 +3824,9 @@ impl<L: CardLookup> Engine<L> {
     ///
     /// [`Object::abilities`]: crate::object::GameObject::abilities
     fn finished_sagas(&mut self) -> bool {
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
         let mut changed = false;
-        for id in battlefield {
+        // A phased-out Saga is not sacrificed (CR 702.26b).
+        for id in self.state.battlefield_view() {
             let finished = self.state.object(id).is_some_and(|o| {
                 // Every Saga on the battlefield has at least one lore
                 // counter (CR 714.3a), so this is the whole step for a
@@ -3959,7 +3950,7 @@ impl<L: CardLookup> Engine<L> {
     /// sides of the same rule.
     pub(crate) fn saga_precombat_main_counters(&mut self) {
         let active = self.state.turn.active;
-        for id in self.state.zones.list(ZoneLocation::Battlefield).clone() {
+        for id in self.state.battlefield_view() {
             let Some(old) = self
                 .state
                 .object(id)
@@ -4477,11 +4468,10 @@ impl<L: CardLookup> Engine<L> {
     /// the offer that contradicts its own apply.
     fn untap_optional(&self) -> Vec<ObjectId> {
         let active = self.state.turn.active;
+        // What phased in a moment ago untaps with the rest (CR 502.1 before
+        // 502.3); what is still phased out does not.
         self.state
-            .zones
-            .list(ZoneLocation::Battlefield)
-            .iter()
-            .copied()
+            .battlefield_seen()
             .filter(|id| {
                 let Some(obj) = self.state.object(*id) else {
                     return false;
@@ -4517,23 +4507,28 @@ impl<L: CardLookup> Engine<L> {
     /// action may not take the answer its own rule asks a player for.
     pub(crate) fn untap_step(&mut self) -> bool {
         let active = self.state.turn.active;
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
-        // Phasing: phased-out permanents the active player controls phase
-        // back in at the untap step (CR 702.26a).
-        for id in &battlefield {
-            let phased = self
-                .state
-                .object(*id)
-                .is_some_and(|o| o.controller == active && o.status.contains(Status::PHASED_OUT));
-            if phased {
-                if let Some(obj) = self.state.object_mut(*id) {
-                    obj.status.remove(Status::PHASED_OUT);
-                }
-                self.state.journal.record(GameEvent::PhaseChanged {
-                    object: *id,
-                    phased_out: false,
-                });
-            }
+        // "All phased-out permanents that the active player controlled when
+        // they phased out phase in" (CR 502.1): a phased-out permanent is
+        // not projected, so its controller is still that one. One that
+        // phased out indirectly phases in with its host and never by itself
+        // (CR 702.26g).
+        let coming: Vec<ObjectId> = self
+            .state
+            .zones
+            // phasing: the walk is for the permanents that are phased out.
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|&id| {
+                self.state.object(id).is_some_and(|o| {
+                    o.controller == active
+                        && o.status.contains(Status::PHASED_OUT)
+                        && !o.status.contains(Status::PHASED_OUT_INDIRECTLY)
+                })
+            })
+            .collect();
+        for id in coming {
+            self.state.phase_in(id);
         }
         self.check_day_night();
         // CR 502.3, the third turn-based action: "the active player
@@ -4574,8 +4569,7 @@ impl<L: CardLookup> Engine<L> {
     /// permanent to look at.
     pub(crate) fn finish_untap_step(&mut self, kept: &[ObjectId]) {
         let active = self.state.turn.active;
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
-        for id in battlefield {
+        for id in self.state.battlefield_view() {
             let tapped = self
                 .state
                 .object(id)

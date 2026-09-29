@@ -4,7 +4,6 @@
 
 use super::{AwaitingOp, Flow, Pending, PlayerId, Resolution, gain_control, run};
 use crate::state::GameState;
-use crate::zone::ZoneLocation;
 use baylee_core::types::TypeSet;
 
 pub(super) fn ask(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
@@ -65,11 +64,11 @@ pub fn resume_control_rotation(
 fn rotate(state: &mut GameState, res: &Resolution, seats: &[PlayerId], distance: usize) {
     // Read every old controller before changing any: a rotation is
     // simultaneous, and a seat must never give away something it just got.
+    // Not a phased-out permanent: a change of control from a resolution
+    // leaves one out (CR 702.26e).
     let changes: Vec<_> = state
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
-        .filter_map(|&id| {
+        .battlefield_seen()
+        .filter_map(|id| {
             let object = state.object(id)?;
             if id == res.source || object.characteristics().types.contains(TypeSet::LAND) {
                 return None;
@@ -84,6 +83,7 @@ fn rotate(state: &mut GameState, res: &Resolution, seats: &[PlayerId], distance:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::zone::ZoneLocation;
     use baylee_core::ids::{CardIndex, SeatSet};
     struct Lookup;
     impl crate::state::CardLookup for Lookup {

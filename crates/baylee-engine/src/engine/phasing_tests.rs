@@ -126,16 +126,20 @@ fn seat_zero(
     engine
 }
 
-/// "~ phases out", resolved with `id` as its own source: the resolver
-/// `Effect::PhaseOut` runs, not a status written by hand.
-fn phase_out(engine: &mut Engine<RegistryLookup>, id: ObjectId) {
+/// Resolves `effects` as seat 0's, `source` their source: the resolver runs,
+/// as it does for every spell and ability, and asks nothing.
+fn resolve_now(
+    engine: &mut Engine<RegistryLookup>,
+    source: ObjectId,
+    effects: Vec<baylee_cards_dsl::Effect>,
+) {
     let p0 = PlayerId::new(0);
     let state = engine.dev_state_mut(p0).expect("the harness trusts itself");
     let mut res = crate::resolve::Resolution {
-        source: id,
-        on_stack: id,
+        source,
+        on_stack: source,
         controller: p0,
-        effects: vec![baylee_cards_dsl::Effect::PhaseOut { target: None }],
+        effects,
         pc: 0,
         targets: smallvec::SmallVec::new(),
         second_targets: smallvec::SmallVec::new(),
@@ -154,16 +158,28 @@ fn phase_out(engine: &mut Engine<RegistryLookup>, id: ObjectId) {
             crate::resolve::run(state, &mut res),
             crate::resolve::Flow::Complete
         ),
-        "phasing out asks nothing"
+        "the resolution asks nothing"
     );
-    assert!(
-        engine
-            .state()
-            .object(id)
-            .is_some_and(|o| o.status.contains(Status::PHASED_OUT)),
-        "the resolver phased it out"
-    );
+    state.refresh_characteristics();
     engine.refresh_offer();
+}
+
+/// "~ phases out", resolved with `id` as its own source: the resolver
+/// `Effect::PhaseOut` runs, not a status written by hand.
+fn phase_out(engine: &mut Engine<RegistryLookup>, id: ObjectId) {
+    resolve_now(
+        engine,
+        id,
+        vec![baylee_cards_dsl::Effect::PhaseOut { target: None }],
+    );
+    assert!(is_phased_out(engine, id), "the resolver phased it out");
+}
+
+fn is_phased_out(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
+    engine
+        .state()
+        .object(id)
+        .is_some_and(|o| o.status.contains(Status::PHASED_OUT))
 }
 
 /// Everything registered from `source`'s static abilities, as (effect id,
@@ -349,25 +365,394 @@ fn a_phased_out_permanents_triggers_do_not_trigger() {
     );
 }
 
+fn holy_strength() -> baylee_core::ids::CardIndex {
+    card_index("9357de36-f8be-4f49-b2c8-9fe9eaf82b07")
+}
+
+fn bonesplitter() -> baylee_core::ids::CardIndex {
+    card_index("452e3f5f-ce17-4682-966b-5cc100210aee")
+}
+
+fn plains() -> baylee_core::ids::CardIndex {
+    card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
+}
+
+/// Seat 0's Elf wearing seat 0's Bonesplitter and seat 1's Holy Strength,
+/// in seat 0's first main phase: `(engine, elf, bonesplitter, aura)`.
+fn dressed_elf() -> (Engine<RegistryLookup>, ObjectId, ObjectId, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(209, basic_forest())
+        .battlefield(0, &[quiet_creature(), bonesplitter()])
+        .battlefield(1, &[holy_strength()])
+        .start();
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
+    let splitter = on_battlefield(&engine, p0, bonesplitter()).expect("seated");
+    let aura = on_battlefield(&engine, p1, holy_strength()).expect("seated");
+    {
+        // What a starting battlefield cannot say, set before the first
+        // state-based check would put the Aura into a graveyard.
+        let state = engine.dev_state_mut(p0).expect("the harness trusts itself");
+        for id in [splitter, aura] {
+            state.object_mut(id).expect("seated").attached_to = Some(elf);
+        }
+        state.invalidate_projections();
+    }
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    (engine, elf, splitter, aura)
+}
+
+/// "When a permanent phases out, any Auras, Equipment, or Fortifications
+/// attached to that permanent phase out at the same time", and one that
+/// phased out that way "won't phase in by itself, but instead phases in
+/// along with the permanent it's attached to" (CR 702.26g). Nothing is
+/// unattached on the way (CR 702.26d, 702.26j).
+///
+/// Seat 1's Holy Strength on seat 0's Elf is the half that tells "along
+/// with" from "at its controller's untap step": seat 1's untap step comes
+/// first and must leave it where it is.
+#[test]
+fn what_is_attached_to_a_permanent_phases_out_and_in_with_it() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let (mut engine, elf, splitter, aura) = dressed_elf();
+    assert_eq!(
+        pt(&engine, elf),
+        (4, 3),
+        "the control: the Elf is a 1/1 with +2/+0 and +1/+2"
+    );
+
+    phase_out(&mut engine, elf);
+    assert!(
+        is_phased_out(&engine, splitter),
+        "the Bonesplitter stayed phased in when the Elf it equips phased out"
+    );
+    assert!(
+        is_phased_out(&engine, aura),
+        "the Holy Strength stayed phased in when the Elf it enchants phased out"
+    );
+    let attached = |engine: &Engine<RegistryLookup>, id| {
+        engine
+            .state()
+            .object(id)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+            .and_then(|o| o.attached_to)
+    };
+    for id in [splitter, aura] {
+        assert_eq!(
+            attached(&engine, id),
+            Some(elf),
+            "phasing out unattached it"
+        );
+    }
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        is_phased_out(&engine, aura),
+        "seat 1's Aura phased in by itself at seat 1's untap step"
+    );
+    assert!(
+        is_phased_out(&engine, elf) && is_phased_out(&engine, splitter),
+        "the Elf and its Equipment phased in at seat 1's untap step"
+    );
+
+    reach_their_main_phase(&mut engine, p0);
+    for (id, what) in [
+        (elf, "Elf"),
+        (splitter, "Bonesplitter"),
+        (aura, "Holy Strength"),
+    ] {
+        assert!(
+            !is_phased_out(&engine, id),
+            "the {what} did not phase in at seat 0's untap step"
+        );
+    }
+    for id in [splitter, aura] {
+        assert_eq!(
+            attached(&engine, id),
+            Some(elf),
+            "it phased in on the battlefield, attached to the Elf"
+        );
+    }
+    assert_eq!(pt(&engine, elf), (4, 3), "both apply again");
+}
+
+/// Indirect phasing is transitive: an Aura on an Equipment on a creature
+/// phases out with the creature, since it is attached to a permanent that
+/// phases out (CR 702.26g), and phases in with it. The attachments are
+/// written by hand; whether an Aura may enchant an Equipment is the
+/// state-based actions' question, asked after this one.
+#[test]
+fn what_is_attached_to_an_attachment_phases_out_and_in_with_it_too() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, elf, splitter, aura) = dressed_elf();
+    let state = engine.dev_state_mut(p0).expect("the harness trusts itself");
+    state.object_mut(aura).expect("seated").attached_to = Some(splitter);
+    state.phase_out(&[elf]);
+    let status = |state: &crate::state::GameState, id| {
+        state.object(id).map(|o| {
+            (
+                o.status.contains(Status::PHASED_OUT),
+                o.status.contains(Status::PHASED_OUT_INDIRECTLY),
+            )
+        })
+    };
+    assert_eq!(status(state, elf), Some((true, false)), "the Elf, directly");
+    assert_eq!(
+        status(state, splitter),
+        Some((true, true)),
+        "the Bonesplitter, with the Elf"
+    );
+    assert_eq!(
+        status(state, aura),
+        Some((true, true)),
+        "the Aura on the Bonesplitter, with the Bonesplitter"
+    );
+    state.phase_in(elf);
+    for id in [elf, splitter, aura] {
+        assert_eq!(
+            status(state, id),
+            Some((false, false)),
+            "all three are back"
+        );
+    }
+}
+
+/// "You control a phased-out creature. You cast a spell that says 'Destroy
+/// all creatures.' The phased-out creature is not destroyed." (CR 702.26b's
+/// own example.)
+#[test]
+fn destroy_all_creatures_passes_over_a_phased_out_one() {
+    let p0 = PlayerId::new(0);
+    let forest = basic_forest();
+    let elf = quiet_creature();
+    let engine = &mut seat_zero(&[forest, elf, elf], &[]);
+    let elves = mine(engine, p0, elf, crate::zone::Zone::Battlefield);
+    let land = on_battlefield(engine, p0, forest).expect("seated");
+    phase_out(engine, elves[0]);
+
+    resolve_now(
+        engine,
+        land,
+        vec![baylee_cards_dsl::Effect::DestroyAll {
+            filter: &baylee_cards_dsl::Filter::CREATURE,
+            no_regen: false,
+        }],
+    );
+    let zone = |engine: &Engine<RegistryLookup>, id| engine.state().object(id).map(|o| o.zone);
+    assert_ne!(
+        zone(engine, elves[1]),
+        Some(crate::zone::Zone::Battlefield),
+        "the control: the Elf phased in is destroyed"
+    );
+    assert_eq!(
+        zone(engine, elves[0]),
+        Some(crate::zone::Zone::Battlefield),
+        "the phased-out Elf was destroyed"
+    );
+    assert!(
+        is_phased_out(engine, elves[0]),
+        "and it is still phased out"
+    );
+}
+
+/// A continuous effect from a resolution that changes characteristics
+/// leaves a phased-out permanent out of the set it affects (CR 702.26e), and
+/// the set is fixed as the effect begins (CR 611.2c): a creature that phases
+/// in later is not in it. The effect here lasts indefinitely, so the Elf is
+/// read after it has phased in.
+#[test]
+fn an_effect_that_began_while_it_was_phased_out_never_reaches_it() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let forest = basic_forest();
+    let elf = quiet_creature();
+    let engine = &mut seat_zero(&[forest, elf, elf], &[]);
+    let elves = mine(engine, p0, elf, crate::zone::Zone::Battlefield);
+    let land = on_battlefield(engine, p0, forest).expect("seated");
+    phase_out(engine, elves[0]);
+
+    resolve_now(
+        engine,
+        land,
+        vec![baylee_cards_dsl::Effect::CreateContinuousEffect {
+            layer: baylee_cards_dsl::Layer::PtModify,
+            filter: &baylee_cards_dsl::Filter::CREATURE,
+            modifier: baylee_cards_dsl::Modifier::ModifyPT(1, 1),
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+        }],
+    );
+    assert_eq!(
+        pt(engine, elves[1]),
+        (2, 2),
+        "the control: the Elf phased in gets +1/+1"
+    );
+    reach_their_main_phase(engine, p1);
+    reach_their_main_phase(engine, p0);
+    assert!(
+        !is_phased_out(engine, elves[0]),
+        "the Elf phased in at seat 0's untap step"
+    );
+    assert_eq!(
+        pt(engine, elves[0]),
+        (1, 1),
+        "an effect that fixed its set while the Elf was phased out pumps it"
+    );
+    assert_eq!(pt(engine, elves[1]), (2, 2), "and the other Elf keeps it");
+}
+
+/// A phased-out permanent "can't affect or be affected by anything else in
+/// the game" (CR 702.26b): Glorious Anthem arriving while the Elf is phased
+/// out pumps the Elf beside it and not the Elf that is not there, until that
+/// one phases in (CR 702.26c).
+#[test]
+fn an_anthem_that_arrives_while_it_is_phased_out_waits_for_it_to_phase_in() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let forest = basic_forest();
+    let elf = quiet_creature();
+    let engine = &mut seat_zero(
+        &[plains(), plains(), forest, elf, elf],
+        &[glorious_anthem()],
+    );
+    let elves = mine(engine, p0, elf, crate::zone::Zone::Battlefield);
+    phase_out(engine, elves[0]);
+    tap_mana_where(engine, p0, |id| !elves.contains(&id));
+    cast_with_floating(engine, p0, glorious_anthem());
+    pass_until(engine, stack_is_empty);
+    assert!(
+        on_battlefield(engine, p0, glorious_anthem()).is_some(),
+        "the control: the anthem resolved"
+    );
+    assert_eq!(
+        pt(engine, elves[1]),
+        (2, 2),
+        "the control: it pumps the Elf phased in"
+    );
+    assert_eq!(
+        pt(engine, elves[0]),
+        (1, 1),
+        "an anthem that arrived while the Elf was phased out pumps it"
+    );
+
+    reach_their_main_phase(engine, p1);
+    reach_their_main_phase(engine, p0);
+    assert!(!is_phased_out(engine, elves[0]), "the Elf phased in");
+    assert_eq!(
+        pt(engine, elves[0]),
+        (2, 2),
+        "and the anthem applies to it now"
+    );
+}
+
+/// "All phased-out permanents that the active player controlled when they
+/// phased out phase in" (CR 502.1). Seat 1 takes seat 0's Elf until end of
+/// turn and phases it out; the theft ends at seat 1's cleanup, while the
+/// Elf is phased out (CR 702.26f), but the Elf phased out under seat 1's
+/// control, so it phases in at seat 1's untap step and not at seat 0's. It
+/// is seat 0's again once it is back.
+#[test]
+fn a_permanent_phases_in_under_the_player_it_phased_out_under() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let engine = &mut seat_zero(&[quiet_creature()], &[]);
+    let elf = on_battlefield(engine, p0, quiet_creature()).expect("seated");
+    reach_their_main_phase(engine, p1);
+    {
+        let state = engine.dev_state_mut(p1).expect("the harness trusts itself");
+        let filter = crate::effects::EffectFilter::object(state, elf);
+        let timestamp = state.next_timestamp();
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: p1,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Control,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter,
+            modifier: baylee_cards_dsl::Modifier::GainControl,
+        });
+        state.refresh_characteristics();
+    }
+    engine.refresh_offer();
+    let controller =
+        |engine: &Engine<RegistryLookup>| engine.state().object(elf).map(|o| o.controller);
+    assert_eq!(
+        controller(engine),
+        Some(p1),
+        "the control: seat 1 took the Elf"
+    );
+
+    phase_out(engine, elf);
+    reach_their_main_phase(engine, p0);
+    assert!(
+        is_phased_out(engine, elf),
+        "the Elf phased in at seat 0's untap step, but it phased out under seat 1's control"
+    );
+
+    reach_their_main_phase(engine, p1);
+    assert!(
+        !is_phased_out(engine, elf),
+        "the Elf did not phase in at seat 1's untap step"
+    );
+    assert_eq!(
+        controller(engine),
+        Some(p0),
+        "the theft ended while the Elf was phased out; it is seat 0's again"
+    );
+}
+
+/// A phased-out permanent is not offered as a target (CR 702.26b; the
+/// target menu reads `battlefield_view`). This held before indirect phasing
+/// and the walk audit and is pinned here beside them: Icy Manipulator may
+/// tap the Elf phased in and not the one phased out.
+#[test]
+fn a_phased_out_permanent_is_not_offered_as_a_target() {
+    let p0 = PlayerId::new(0);
+    let forest = basic_forest();
+    let elf = quiet_creature();
+    let engine = &mut seat_zero(&[icy_manipulator(), forest, elf, elf], &[]);
+    let icy = on_battlefield(engine, p0, icy_manipulator()).expect("seated");
+    let elves = mine(engine, p0, elf, crate::zone::Zone::Battlefield);
+    phase_out(engine, elves[0]);
+    let land = on_battlefield(engine, p0, forest).expect("seated");
+    tap_mana_where(engine, p0, |id| id == land);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: icy,
+                ability_index: 0,
+            },
+        )
+        .expect("Icy Manipulator is offered");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Icy asks for its target, got {:?}", engine.pending());
+    };
+    assert!(
+        options.contains(&elves[1]),
+        "the control: the Elf phased in is a target"
+    );
+    assert!(
+        !options.contains(&elves[0]),
+        "the phased-out Elf was offered as a target"
+    );
+}
+
 /// Raw battlefield walks with no `// phasing:` reason yet, per file, relative
-/// to `crates/baylee-engine/src`. Measured 2026-09-24. Equality, not a
-/// ceiling: auditing a walk (switching it to `battlefield_seen`, or giving
-/// it a reason) makes this test fail until the row is lowered, so the table
-/// cannot go stale in the direction that hides work.
-const UNAUDITED: &[(&str, usize)] = &[
-    ("combat.rs", 2),
-    ("engine/progress.rs", 9),
-    ("eval.rs", 6),
-    ("resolve/chosen.rs", 1),
-    ("resolve/control.rs", 1),
-    ("resolve/counters.rs", 2),
-    ("resolve/mana.rs", 1),
-    ("resolve/mod.rs", 3),
-    ("resolve/tokens.rs", 2),
-    ("resolve/zones.rs", 2),
-    ("sba.rs", 3),
-    ("state.rs", 2),
-];
+/// to `crates/baylee-engine/src`. Equality, not a ceiling: auditing a walk
+/// (switching it to `battlefield_seen`, or giving it a reason) makes this
+/// test fail until the row is lowered, so the table cannot go stale in the
+/// direction that hides work.
+///
+/// Empty since 2026-09-29: of the 34 walks it listed on 2026-09-24, 33 now
+/// call `battlefield_seen` or `battlefield_view` and the untap step's
+/// phase-in gives its reason; two walks new that day (the deathtouch reset
+/// after the lethal-damage check, and `GameState::phase_in`) give theirs. A
+/// new walk without one comes back here as a row.
+const UNAUDITED: &[(&str, usize)] = &[];
 
 /// Where the lint looks: the engine's own source, tests excluded.
 fn is_test_source(rel: &str) -> bool {
@@ -455,8 +840,8 @@ fn every_raw_battlefield_walk_gives_its_phasing_reason() {
         files.len()
     );
     assert!(
-        (30..=200).contains(&total),
-        "found {total} raw battlefield walks, measured 43 on 2026-09-24"
+        (5..=200).contains(&total),
+        "found {total} raw battlefield walks, measured 7 on 2026-09-29"
     );
     let want: Vec<(String, usize)> = UNAUDITED
         .iter()

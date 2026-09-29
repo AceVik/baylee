@@ -1592,8 +1592,19 @@ impl GameState {
         ids.clear();
         // Cached off-board projections must be revisited after the last
         // cross-zone effect disappears (#120).
+        //
+        // A phased-out permanent is not projected at all: it can't be
+        // affected by anything (CR 702.26b), so what it was as it phased out
+        // is what it stays, and so is its controller, the player it phases
+        // in under (CR 502.1). `phase_in` invalidates, and the next refresh
+        // takes it back in.
         if cross_zone || self.projected_cross_zone {
-            ids.extend(self.arena.iter().map(|(id, _)| id));
+            ids.extend(
+                self.arena
+                    .iter()
+                    .filter(|(_, o)| !o.status.contains(crate::object::Status::PHASED_OUT))
+                    .map(|(id, _)| id),
+            );
         } else {
             // The stack contributes only its *spells*. An ability on the
             // stack has no characteristic a layer can touch, and this pass
@@ -1601,11 +1612,8 @@ impl GameState {
             // triggers to establish that, every time a counter moves, is
             // the difference between a long game and no game at all.
             ids.extend(
-                self.zones
-                    .list(ZoneLocation::Battlefield)
-                    .iter()
-                    .chain(self.zones.stack_projectable().iter())
-                    .copied(),
+                self.battlefield_seen()
+                    .chain(self.zones.stack_projectable().iter().copied()),
             );
             // And the cards that define their own power and toughness,
             // wherever else they are (CR 604.3).
@@ -2033,15 +2041,14 @@ impl GameState {
         // What was attached to it.
         self.ltb_attachments.retain(|(other, _)| *other != id);
         if from_zone == Zone::Battlefield {
+            // A phased-out Aura was attached to nothing the rules can
+            // see (CR 702.26b), so nothing looks back at it.
             let worn: Vec<ObjectId> = self
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
+                .battlefield_seen()
                 .filter(|other| {
-                    self.object(**other)
+                    self.object(*other)
                         .is_some_and(|o| o.attached_to == Some(id))
                 })
-                .copied()
                 .collect();
             if !worn.is_empty() {
                 self.ltb_attachments.push((id, worn));

@@ -3,7 +3,7 @@
 //! no action fires, then offers priority.
 
 use crate::event::{Cause, GameEvent, LossReason};
-use crate::object::{CounterKind, ObjectKind, Status};
+use crate::object::{CounterKind, ObjectKind};
 use crate::state::GameState;
 use crate::zone::{ZoneLocation, ZonePosition};
 use baylee_core::ids::PlayerId;
@@ -80,15 +80,10 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
     }
 
     // --- Lethal damage / zero toughness (CR 704.5f-h) -------------------
-    let battlefield = state.zones.list(ZoneLocation::Battlefield).clone();
-    for id in &battlefield {
-        let id = *id;
+    for id in state.battlefield_view() {
         let Some(obj) = state.object(id) else {
             continue;
         };
-        if obj.status.contains(Status::PHASED_OUT) {
-            continue;
-        }
         // CR 704.5i also applies to animated planeswalkers; being a
         // creature (even an indestructible one) does not replace this SBA.
         if obj.characteristics().types.contains(TypeSet::PLANESWALKER)
@@ -129,8 +124,10 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
     // The deathtouch window is "since the last time state-based actions
     // were checked" (CR 704.5h), so this pass — which has now judged every
     // marked creature — closes it.
-    for id in &battlefield {
-        if let Some(obj) = state.object_mut(*id) {
+    // phasing: for a phased-out one too, which was not judged and must not
+    // be when it phases in.
+    for id in state.zones.list(ZoneLocation::Battlefield).clone() {
+        if let Some(obj) = state.object_mut(id) {
             obj.deathtouched = false;
         }
     }
@@ -180,12 +177,11 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
         // coexist, so it is part of the determinism contract.
         let mut names: Vec<u32> = Vec::new();
         let mut groups: Vec<Vec<baylee_core::ids::ObjectId>> = Vec::new();
-        for &id in state.zones.list(ZoneLocation::Battlefield) {
+        for id in state.battlefield_seen() {
             let Some(obj) = state.object(id) else {
                 continue;
             };
-            if !obj.status.contains(Status::PHASED_OUT)
-                && obj.controller == player
+            if obj.controller == player
                 && obj
                     .characteristics()
                     .supertypes
@@ -366,11 +362,11 @@ fn run_attachment_sbas(state: &mut GameState, lookup: &impl crate::state::CardLo
     let mut changed = false;
     let mut falling_off = Vec::new();
     let mut unattaching = Vec::new();
-    for &id in state.zones.list(ZoneLocation::Battlefield) {
+    for id in state.battlefield_seen() {
         let Some(obj) = state.object(id) else {
             continue;
         };
-        if obj.kind != ObjectKind::Permanent || obj.status.contains(Status::PHASED_OUT) {
+        if obj.kind != ObjectKind::Permanent {
             continue;
         }
         let types = obj.characteristics().types;
@@ -737,6 +733,7 @@ pub fn exile_what_the_departed_control(state: &mut GameState) -> Vec<baylee_core
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::object::Status;
     use crate::state::CardLookup;
     use baylee_core::ids::{CardIndex, PrintRef};
     use baylee_core::preset::{

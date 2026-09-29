@@ -190,8 +190,8 @@ pub fn colors_of(
             // Union of what the lands of the chosen side could produce.
             let mut colors = ColorSet::EMPTY;
             let mut colorless = false;
-            for id in state.zones.list(ZoneLocation::Battlefield) {
-                let Some(obj) = state.object(*id) else {
+            for id in state.battlefield_seen() {
+                let Some(obj) = state.object(id) else {
                     continue;
                 };
                 let c = obj.characteristics();

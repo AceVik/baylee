@@ -13,7 +13,7 @@ use crate::engine::cost_wizard;
 use crate::eval;
 use crate::event::{Cause, DamageTarget, GameEvent};
 use crate::mana_pay;
-use crate::object::{Characteristics, GameObject, ObjectKind, Status};
+use crate::object::{Characteristics, GameObject, ObjectKind};
 use crate::sba;
 use crate::state::GameState;
 use crate::zone::{ZoneLocation, ZonePosition};
@@ -171,8 +171,17 @@ pub(crate) fn this_object(res: &Resolution) -> Option<ObjectId> {
 /// (CR 704.5d), and an effect that modifies characteristics fixes the
 /// objects it affects as it begins (CR 611.2c): none. So it registers
 /// nothing, as an ability that said "target" and got none does (#236).
+///
+/// Nor does it register against a phased-out permanent: a continuous effect
+/// from a resolution leaves one out of its set, and "this includes
+/// continuous effects that reference the permanent specifically"
+/// (CR 702.26e).
 pub(crate) fn this_to_affect(state: &GameState, res: &Resolution) -> Option<ObjectId> {
-    this_object(res).filter(|&id| state.object(id).is_some())
+    this_object(res).filter(|&id| {
+        state
+            .object(id)
+            .is_some_and(|o| !o.status.contains(crate::object::Status::PHASED_OUT))
+    })
 }
 
 /// What earthbend makes of its land (CR 701.66a): "a 0/0 land creature
@@ -719,17 +728,17 @@ pub(super) fn bound_now(
         );
         return smallvec::smallvec![crate::effects::EffectFilter::Dsl(filter)];
     }
+    // Not a phased-out permanent (CR 702.26e): the set is fixed now, so
+    // one that phases in later stays out of it.
     state
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
+        .battlefield_seen()
         .filter(|id| {
-            state.object(**id).is_some_and(|o| {
+            state.object(*id).is_some_and(|o| {
                 only.is_none_or(|seats| seats.contains(&o.controller))
                     && eval::matches(filter, state, o, you, this)
             })
         })
-        .map(|id| crate::effects::EffectFilter::object(state, *id))
+        .map(|id| crate::effects::EffectFilter::object(state, id))
         .collect()
 }
 
@@ -2380,17 +2389,14 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::ControlRotation => control::ask(state, res),
         Effect::AllCreaturesToOwner => {
             let creatures: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
+                .battlefield_seen()
                 .filter(|id| {
-                    state.object(**id).is_some_and(|o| {
+                    state.object(*id).is_some_and(|o| {
                         o.characteristics()
                             .types
                             .contains(baylee_core::types::TypeSet::CREATURE)
                     })
                 })
-                .copied()
                 .collect();
             let changes: Vec<(ObjectId, PlayerId)> = creatures
                 .into_iter()
@@ -2438,8 +2444,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             // holds when you control one of them (Padeem).
             let mut greatest = 0u32;
             let mut holds = false;
-            for id in state.zones.list(ZoneLocation::Battlefield) {
-                let Some(obj) = state.object(*id) else {
+            for id in state.battlefield_seen() {
+                let Some(obj) = state.object(id) else {
                     continue;
                 };
                 if !eval::matches(filter, state, obj, you, res.source) {

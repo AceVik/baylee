@@ -199,16 +199,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             opponents_only,
         } => {
             let all: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
+                .battlefield_seen()
                 .filter(|id| {
-                    state.object(**id).is_some_and(|o| {
+                    state.object(*id).is_some_and(|o| {
                         (!opponents_only || state.is_opponent(o.controller, you))
                             && eval::matches(filter, state, o, you, res.source)
                     })
                 })
-                .copied()
                 .collect();
             let moves: Vec<(ObjectId, ZoneLocation)> = all
                 .iter()
@@ -236,16 +233,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::DestroyAll { filter, no_regen } => {
+            // Not a phased-out creature: "Destroy all creatures" passes over
+            // one (CR 702.26b's example).
             let all: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
+                .battlefield_seen()
                 .filter(|id| {
                     state
-                        .object(**id)
+                        .object(*id)
                         .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
                 })
-                .copied()
                 .collect();
             for id in all {
                 if no_regen {
@@ -468,21 +464,16 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::PhaseOut { target } => {
-            let target_id = match target {
-                Some(_) => res.targets.first().copied(),
-                None => Some(res.source),
-            };
-            if let Some(id) = target_id {
-                if let Some(obj) = state.object_mut(id) {
-                    obj.status.insert(Status::PHASED_OUT);
+            // Every target: Clever Concealment's "any number of target
+            // nonland permanents" phases out as many as it named, and a
+            // target that became illegal already left the list (CR 608.2b).
+            // What is attached to each goes with it (CR 702.26g).
+            match target {
+                Some(_) => {
+                    let targets = res.targets.clone();
+                    state.phase_out(&targets);
                 }
-                // CR 702.26b: phasing removes a permanent from combat
-                // without changing zones. Blocked attackers stay blocked.
-                state.combat.remove_from_combat(id);
-                state.journal.record(GameEvent::PhaseChanged {
-                    object: id,
-                    phased_out: true,
-                });
+                None => state.phase_out(&[res.source]),
             }
             None
         }

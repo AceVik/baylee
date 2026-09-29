@@ -36,20 +36,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .first()
                 .copied()
                 .unwrap_or(baylee_core::ids::SubtypeId::new(0));
-            let army = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
-                .copied()
-                .find(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        o.controller == you
-                            && o.characteristics()
-                                .types
-                                .contains(baylee_core::types::TypeSet::CREATURE)
-                            && o.characteristics().subtypes.contains(army_type)
-                    })
-                });
+            let army = state.battlefield_seen().find(|id| {
+                state.object(*id).is_some_and(|o| {
+                    o.controller == you
+                        && o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                        && o.characteristics().subtypes.contains(army_type)
+                })
+            });
             // The one token creation that deliberately does *not* go through
             // [`create_tokens`]. Doubling Season would make two Armies and
             // the counters then go on one Army you control, which is a
@@ -120,20 +115,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             })
         }
         Effect::CreateTokenCopyOfFirstToken => {
-            let token = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
-                .copied()
-                .find(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        o.card.is_none()
-                            && o.controller == you
-                            && o.characteristics()
-                                .types
-                                .contains(baylee_core::types::TypeSet::CREATURE)
-                    })
-                });
+            let token = state.battlefield_seen().find(|id| {
+                state.object(*id).is_some_and(|o| {
+                    o.card.is_none()
+                        && o.controller == you
+                        && o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                })
+            });
             if let Some(id) = token
                 && let Some(base) = crate::layers::copiable_values(state, id)
             {
