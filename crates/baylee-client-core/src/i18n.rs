@@ -1647,6 +1647,16 @@ messages! {
         en: "cards you may play this turn",
         de: "Karten, die du in diesem Zug spielen darfst",
     },
+    /// card to put onto the battlefield
+    NounCardToBattlefield {
+        en: "card to put onto the battlefield",
+        de: "Karte, die aufs Spielfeld kommt",
+    },
+    /// cards to put onto the battlefield
+    NounCardsToBattlefield {
+        en: "cards to put onto the battlefield",
+        de: "Karten, die aufs Spielfeld kommen",
+    },
     /// card from outside the game
     NounCardOutside { en: "card from outside the game", de: "Karte von außerhalb der Partie" },
     /// cards from outside the game
@@ -3487,6 +3497,10 @@ mod tests {
             (Phrase::NounCardToHand, Phrase::NounCardsToHand),
             (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
             (Phrase::NounCardToPlay, Phrase::NounCardsToPlay),
+            (
+                Phrase::NounCardToBattlefield,
+                Phrase::NounCardsToBattlefield,
+            ),
             (Phrase::LogKeptCardYou, Phrase::LogKeptCardsYou),
             (Phrase::LogKeptCard, Phrase::LogKeptCards),
             (Phrase::LogDrewCardYou, Phrase::LogDrewCardsYou),

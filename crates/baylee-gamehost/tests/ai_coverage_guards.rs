@@ -347,7 +347,9 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
             count_reaching(|effect| {
                 matches!(
                     effect,
-                    Effect::SearchLibrary { .. } | Effect::OptionalBasicLandSearchFor { .. }
+                    Effect::SearchLibrary { .. }
+                        | Effect::SearchLibraryUpTo { .. }
+                        | Effect::OptionalBasicLandSearchFor { .. }
                 )
             }),
         ),

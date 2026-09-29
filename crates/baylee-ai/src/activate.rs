@@ -228,6 +228,7 @@ fn gains(effect: &Effect) -> bool {
     matches!(
         effect,
         Effect::SearchLibrary { .. }
+            | Effect::SearchLibraryUpTo { .. }
             | Effect::DrawCards { .. }
             | Effect::Scry { .. }
             | Effect::CreateToken { .. }

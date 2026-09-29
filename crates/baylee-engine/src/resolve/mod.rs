@@ -218,6 +218,16 @@ pub enum AwaitingOp {
     /// After `PutFromHandOntoBattlefield`: the chosen card goes onto the
     /// battlefield under the resolving controller's control.
     PutOntoBattlefield,
+    /// After `LookAtTopMayPut` asked about a matching top card: named, it
+    /// goes where `matched` says; not named, `otherwise`.
+    MayPutTop {
+        /// The card that was looked at.
+        card: ObjectId,
+        /// Where it goes when the player puts it there.
+        matched: baylee_cards_dsl::effect::Find,
+        /// Where it goes when they don't.
+        otherwise: SearchDest,
+    },
     /// Scry: chosen cards go to the bottom, the rest stays on top.
     Scry {
         /// **Whose library the cards came out of**, which is not always the
@@ -437,7 +447,7 @@ pub enum AwaitingOp {
     },
 }
 
-/// One library search, as the two search effects describe it.
+/// One library search, as the three search effects describe it.
 #[derive(Clone, Copy)]
 struct Search {
     /// Whose library.
@@ -448,9 +458,13 @@ struct Search {
     filter: &'static baylee_cards_dsl::Filter,
     /// A mana-value bound the resolution computed, on top of `filter`.
     bound: Option<(baylee_cards_dsl::ManaValueCmp, u32)>,
-    /// Where each find goes.
+    /// Where each find goes. A search that may find more cards than the
+    /// list is long sends every card past its end where the last one goes.
     finds: &'static [baylee_cards_dsl::effect::Find],
-    /// Whether fewer than `finds.len()` may be found.
+    /// How many cards may be found, when that is a number the resolution
+    /// read rather than `finds.len()` (Nylea's Intervention's "up to X").
+    count: Option<u8>,
+    /// Whether fewer than the most may be found.
     optional: bool,
 }
 
@@ -478,6 +492,7 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
         filter,
         bound,
         finds,
+        count,
         optional,
     } = search;
     // Ashiok, Dream Render: "spells and abilities your opponents control
@@ -536,7 +551,13 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
     // How many cards this search may produce, and how few it may settle
     // for: "up to two" is optional with two finds, "search for a basic land
     // card" is one find and mandatory.
-    let want = u8::try_from(finds.len()).unwrap_or(u8::MAX);
+    let want = count.unwrap_or_else(|| u8::try_from(finds.len()).unwrap_or(u8::MAX));
+    if want == 0 {
+        // "Up to X" with X = 0: the library is searched and nothing can be
+        // found, which is a search that ends in a shuffle and asks nobody.
+        state.shuffle_library(library);
+        return None;
+    }
     let least = if optional { 0 } else { want };
     let reveal = reveals(filter, finds);
     if let Some(agent) = takeover {
@@ -1268,8 +1289,10 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             // Positional: the first card found takes the first destination.
             // Cultivate names the battlefield first and the hand second, and
             // finding only one card then puts that one onto the battlefield —
-            // the same order the printed text reads in.
-            for (&card, find) in chosen.iter().zip(finds) {
+            // the same order the printed text reads in. A search whose count
+            // the resolution read (`SearchLibraryUpTo`) lists one find, and
+            // every card it produces goes there.
+            for (&card, find) in chosen.iter().zip(finds.iter().cycle()) {
                 let (dest, tapped) = (find.dest, find.tapped);
                 match dest {
                     SearchDest::Hand => {
@@ -1317,6 +1340,31 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                             crate::replacement::put_counters(state, card, kind, n);
                         }
                     }
+                }
+            }
+        }
+        AwaitingOp::MayPutTop {
+            card,
+            matched,
+            otherwise,
+        } => {
+            // Still the card that was looked at, still on top: nothing can
+            // have moved it between the question and the answer, but the
+            // library is asked rather than trusted.
+            let you = res.controller;
+            if state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .last()
+                .is_some_and(|&top| top == card)
+            {
+                if chosen.contains(&card) {
+                    if matched.tapped && matched.dest == SearchDest::Battlefield {
+                        state.set_tapped(card, true);
+                    }
+                    put_found(state, you, card, matched.dest);
+                } else {
+                    put_found(state, you, card, otherwise);
                 }
             }
         }
@@ -1766,6 +1814,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PutFromHandOntoBattlefield { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::SearchLibraryOf { .. }
+        | Effect::SearchLibraryUpTo { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
@@ -1795,9 +1844,33 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 filter,
                 bound: None,
                 finds,
+                count: None,
                 optional,
             },
         ),
+        Effect::SearchLibraryUpTo {
+            filter,
+            count,
+            find,
+        } => {
+            // Read once as the search begins, as `SearchLibraryOf`'s bound
+            // is; an X of nought finds nothing and still searches, so the
+            // library is shuffled all the same.
+            let count = u8::try_from(amount2(&count, state, you, res)).unwrap_or(u8::MAX);
+            begin_search(
+                state,
+                res,
+                Search {
+                    library: you,
+                    searcher: you,
+                    filter,
+                    bound: None,
+                    finds: core::slice::from_ref(find),
+                    count: Some(count),
+                    optional: true,
+                },
+            )
+        }
         Effect::SearchLibraryOf {
             library,
             owner_searches,
@@ -1824,6 +1897,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                     filter,
                     bound,
                     finds,
+                    count: None,
                     optional,
                 },
             )
@@ -2264,6 +2338,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ReturnChosenToHand { .. }
         | Effect::UntapChosen { .. }
         | Effect::AllGraveyardCreaturesToBattlefield
+        | Effect::ReturnAllFromGraveyard { .. }
         | Effect::TransformSource
         | Effect::TransformSourceAtNextUpkeep
         | Effect::ExileSelfReturnAsFace { .. }
@@ -2600,6 +2675,43 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             put_found(state, you, top, if fits { matched } else { otherwise });
             None
         }
+        Effect::LookAtTopMayPut {
+            filter,
+            matched,
+            otherwise,
+        } => {
+            let top = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .last()
+                .copied()?;
+            let fits = state
+                .object(top)
+                .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
+            if !fits {
+                put_found(state, you, top, otherwise);
+                return None;
+            }
+            // "You may": the card itself is the question, so the one asked
+            // is shown it (an object the engine asks about is one the seat
+            // may see) and nobody else is. Naming nothing declines.
+            res.awaiting = Some(AwaitingOp::MayPutTop {
+                card: top,
+                matched,
+                otherwise,
+            });
+            Some(Pending::ChooseCards {
+                player: you,
+                options: vec![top],
+                min: 0,
+                max: 1,
+                prompt: match matched.dest {
+                    SearchDest::Battlefield => ChoicePrompt::PutOntoBattlefield,
+                    SearchDest::Hand => ChoicePrompt::PutIntoHand,
+                    SearchDest::TopOfLibrary => ChoicePrompt::PutBackOnTop,
+                },
+            })
+        }
         Effect::LookAtTopPick {
             count,
             pick,
@@ -2933,6 +3045,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::PutFromHandOntoBattlefield { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::SearchLibraryOf { .. }
+        | Effect::SearchLibraryUpTo { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }

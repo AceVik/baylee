@@ -655,6 +655,10 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::PutIntoHand => (Phrase::NounCardToHand, Phrase::NounCardsToHand),
         ChoicePrompt::PutOnBottom => (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
         ChoicePrompt::PlayFromExile => (Phrase::NounCardToPlay, Phrase::NounCardsToPlay),
+        ChoicePrompt::PutOntoBattlefield => (
+            Phrase::NounCardToBattlefield,
+            Phrase::NounCardsToBattlefield,
+        ),
         ChoicePrompt::Delve | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
     }
 }

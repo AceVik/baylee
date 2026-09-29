@@ -1163,12 +1163,18 @@ Chosen` with `owner_searches: false` is Bribery's "search target opponent's
 library … under your control" — or a `mana_value: Some(ManaValueBound { cmp,
 amount })` the resolution computes, such as `Amount::Plus { base:
 &Amount::SacrificedManaValue, offset: 2 }` for Eldritch Evolution; the
-library searched is the one shuffled), `Find::…with_counter(kind, n)` for a
+library searched is the one shuffled), `SearchLibraryUpTo { filter, count,
+find }` ("search your library for up to X … cards": the count an `Amount`
+read as the search begins, every card found going where `&Find` says; X = 0
+shuffles and asks nobody — Nylea's Intervention), `Find::…with_counter(kind, n)` for a
 find that enters with counters (Neoform), `PutFromHandOntoBattlefield {
 filter, mana_value, optional }` (Aether Vial, with `Amount::CountersOnSource`
 as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
 `GraveyardToTop`,
-`GraveyardToHand`, `GraveyardToBattlefield`, `ExileGraveyard`, `Blink`,
+`GraveyardToHand`, `GraveyardToBattlefield`, `ReturnAllFromGraveyard {
+filter, tapped }` ("return all land cards from your graveyard to the
+battlefield tapped", Lumra: every match read before any moves, tapped as it
+arrives), `ExileGraveyard`, `Blink`,
 `ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
 `PutSourceOnTopOfLibrary`, `ExileAndReturnAtEndStep` (Venser +2, Eerie
 Interlude), `BottomCardFromHand`, `WishToHand` (Karn's −2: a card you own
@@ -1407,6 +1413,12 @@ hashes, layers and does nothing. This paragraph said THREE until
   Oracle, CR 701.20a) reveals the top card of your library. It puts the card
   where `matched` says if it matches `filter`, and where `otherwise` says if
   it doesn't. The `SearchDest` values are the ones a library search uses.
+- **`Effect::LookAtTopMayPut { filter, matched, otherwise }`** (Risen Reef)
+  is its "look" and "you may" sibling: nothing is revealed, and a matching
+  top card is a `ChooseCards` of that one card with `min: 0` (prompt
+  `PutOntoBattlefield` for a battlefield `matched`), so only the asked
+  player sees it. Named, it goes where the `Find` says (tapped if the find
+  is); not named, or not matching, it goes `otherwise`.
 - **`Modifier::CharacteristicPT { count, toughness_plus }`** is a
   characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
   - `YouControl(filter)`

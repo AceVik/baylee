@@ -2317,6 +2317,9 @@ fn check_player_targets_match_the_printing(
 ///   — `ChooseExiledToPlay` and `LookAtTopKeepBottomPlay`, which leave a
 ///   permission to play one card, and the `SearchTakeover` argument again:
 ///   the player plays it or does not, and nothing is asked.
+/// - "you may put it onto the battlefield tapped" (Risen Reef) —
+///   `LookAtTopMayPut`, which asks about the looked-at card with `min: 0`
+///   in the engine, not in the definition.
 ///
 /// A stub claims nothing and a `Partial` card has said in writing that it
 /// diverges, so both are skipped — the same two exemptions the checks above
@@ -2358,6 +2361,7 @@ fn check_optional_clauses_are_offered(
         "ExtraLandDrops",
         "ChooseExiledToPlay",
         "LookAtTopKeepBottomPlay",
+        "LookAtTopMayPut",
     ];
     if !def.is_implemented() {
         return;

@@ -384,6 +384,10 @@ pub enum ChoicePrompt {
     /// Exiled cards, the chosen one of which the player may play this turn
     /// (Dauthi Voidwalker).
     PlayFromExile,
+    /// A looked-at card the player may put onto the battlefield, and which
+    /// goes elsewhere if they name nothing (Risen Reef's land). The answer
+    /// is what the player puts down, so the house AI puts it down.
+    PutOntoBattlefield,
     /// Generic selection.
     Generic,
 }

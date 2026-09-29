@@ -262,7 +262,8 @@ impl HeuristicAgent {
             ChoicePrompt::SearchLibrary
             | ChoicePrompt::Wish
             | ChoicePrompt::PutIntoHand
-            | ChoicePrompt::PlayFromExile => {
+            | ChoicePrompt::PlayFromExile
+            | ChoicePrompt::PutOntoBattlefield => {
                 ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
                 usize::from(max)
             }

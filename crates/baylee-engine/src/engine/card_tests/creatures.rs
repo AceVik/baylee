@@ -15182,27 +15182,43 @@ fn aesi_plays_a_second_land_and_draws_off_each_one() {
     );
 }
 
-/// Lumra, Bellow of the Woods: the enter trigger mills four, and the body is
-/// the lands you control.
+/// Lumra, Bellow of the Woods: "When Lumra enters, mill four cards. Then
+/// return all land cards from your graveyard to the battlefield tapped." — and
+/// the body is the lands you control.
 ///
-/// The mill is the expressible half of a trigger whose second sentence the
-/// card refuses by name, and the P/T is the count — four Forests, so a 4/4 on
-/// a 0/0 printed body.
+/// Four Forests milled come straight back, tapped, beside the six already
+/// there, so the 0/0 is a 10/10 once the trigger is done. A creature card
+/// that was in the graveyard before is not a land card and stays.
 #[test]
-fn lumra_mills_four_on_arrival_and_is_as_big_as_your_lands() {
+fn lumra_mills_four_and_returns_every_land_card_tapped() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(386, forest())
         .battlefield(
             0,
-            &[forest(), forest(), forest(), forest(), forest(), forest()],
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                quiet_creature(),
+            ],
         )
         .hand(0, &[lumra_bellow_of_the_woods()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    let bystander = on_battlefield(&engine, p0, quiet_creature()).expect("on the battlefield");
+    bury(&mut engine, &[bystander]);
+    engine.refresh_offer();
+    let bystander = in_graveyard(&engine, p0, quiet_creature()).expect("in the graveyard");
 
     let before = library_size(&engine, p0);
+    // The six Forests are tapped paying for Lumra, so "tapped" alone says
+    // nothing about the returned ones; they are the lands not among these.
     cast_from_hand(&mut engine, p0, lumra_bellow_of_the_woods());
+    let paid: Vec<ObjectId> = lands_of(&engine, p0);
     pass_until(&mut engine, stack_is_empty);
 
     let lumra = on_battlefield(&engine, p0, lumra_bellow_of_the_woods()).expect("Lumra arrived");
@@ -15212,9 +15228,26 @@ fn lumra_mills_four_on_arrival_and_is_as_big_as_your_lands() {
         "four cards milled off the top"
     );
     assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .as_slice(),
+        &[bystander],
+        "every land card came back and the creature card did not"
+    );
+    let lands: Vec<ObjectId> = lands_of(&engine, p0);
+    assert_eq!(lands.len(), 10, "six Forests and the four milled ones");
+    let returned: Vec<ObjectId> = lands.into_iter().filter(|id| !paid.contains(id)).collect();
+    assert_eq!(returned.len(), 4);
+    assert!(
+        returned.iter().all(|&id| is_tapped(&engine, id)),
+        "the four returned Forests entered tapped"
+    );
+    assert_eq!(
         pt(&engine, lumra),
-        (6, 6),
-        "six Forests on a 0/0 printed body"
+        (10, 10),
+        "ten lands on a 0/0 printed body"
     );
 }
 
@@ -89041,6 +89074,127 @@ fn dauthi_voidwalkers_permission_ends_with_the_turn() {
             .zones
             .list(ZoneLocation::Exile(p1))
             .contains(&elf)
+    );
+}
+
+fn risen_reef() -> CardIndex {
+    card_index("2ae71e86-4400-4a30-9077-4d57a43e7395")
+}
+
+/// Answers Risen Reef's question about the top card, after checking it is
+/// the one-card, may-decline question about that card, and returns the card.
+#[track_caller]
+fn reef_question(engine: &mut Engine<RegistryLookup>, seat: PlayerId, put: bool) -> ObjectId {
+    let top = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(seat))
+        .last()
+        .expect("a card on top");
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = pass_to_card_choice(engine)
+    else {
+        unreachable!("the helper returns only a card choice")
+    };
+    assert_eq!(player, seat);
+    assert_eq!(options, vec![top], "the looked-at card is the question");
+    assert_eq!((min, max), (0, 1), "\"you may\": naming nothing declines");
+    assert_eq!(prompt, ChoicePrompt::PutOntoBattlefield);
+    let objects = if put { vec![top] } else { vec![] };
+    engine
+        .apply(seat, PlayerAction::ChooseObjects { objects })
+        .unwrap();
+    pass_until(engine, stack_is_empty);
+    top
+}
+
+/// Risen Reef: "Whenever this creature … enters, look at the top card of your
+/// library. If it's a land card, you may put it onto the battlefield tapped."
+#[test]
+fn risen_reef_puts_a_land_off_the_top_onto_the_battlefield_tapped() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), island()])
+        .hand(0, &[risen_reef()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    cast_from_hand(&mut engine, p0, risen_reef());
+    let land = reef_question(&mut engine, p0, true);
+    assert_eq!(
+        engine.state().object(land).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield)
+    );
+    assert!(is_tapped(&engine, land), "onto the battlefield tapped");
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand - 1,
+        "only the Reef left the hand, and nothing came to it"
+    );
+}
+
+/// "If you don't put the card onto the battlefield, put it into your hand."
+#[test]
+fn risen_reef_puts_a_declined_land_into_the_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), island()])
+        .hand(0, &[risen_reef()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, risen_reef());
+    let land = reef_question(&mut engine, p0, false);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&land),
+        "the declined land went to the hand"
+    );
+}
+
+/// A top card that is not a land asks nothing and goes to the hand; and the
+/// trigger is "this creature **or another Elemental** you control": a
+/// Lightning Elemental entering under a Reef looks as well.
+#[test]
+fn risen_reef_sends_a_nonland_to_the_hand_when_another_elemental_enters() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, quiet_creature())
+        .battlefield(
+            0,
+            &[risen_reef(), mountain(), mountain(), mountain(), mountain()],
+        )
+        .hand(0, &[lightning_elemental()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let top = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(p0))
+        .last()
+        .unwrap();
+    cast_from_hand(&mut engine, p0, lightning_elemental());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseCards { .. }),
+        "a nonland top card is nothing to decide"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&top),
+        "the Elemental's arrival put the top card into the hand"
     );
 }
 

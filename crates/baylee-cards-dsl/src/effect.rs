@@ -800,6 +800,26 @@ pub enum Effect {
         /// Where it goes if it does not.
         otherwise: SearchDest,
     },
+    /// Look at the top card of your library; if it is a `filter` card you
+    /// may put it where `matched` says, and if you don't — or it is not —
+    /// put it `otherwise` (Risen Reef: "If it's a land card, you may put it
+    /// onto the battlefield tapped. If you don't put the card onto the
+    /// battlefield, put it into your hand.").
+    ///
+    /// [`Self::RevealTopAndSort`]'s sibling with the two words that make it
+    /// a different sentence: "look", so nothing is shown to the table, and
+    /// "you may", so a matching card is a question — asked as a choice of
+    /// that one card, which is what lets the asked player see it. An empty
+    /// library does nothing.
+    LookAtTopMayPut {
+        /// What the card has to be for the question to be asked.
+        filter: &'static Filter,
+        /// Where a matching card goes if the player puts it there, and
+        /// whether it enters tapped.
+        matched: Find,
+        /// Where the card goes otherwise.
+        otherwise: SearchDest,
+    },
     /// Put cards from your hand on top of your library, in the order they
     /// were chosen (Brainstorm-style).
     PutFromHandOnTop {
@@ -1088,6 +1108,17 @@ pub enum Effect {
     /// Put all creature cards from all graveyards onto the battlefield
     /// under your control (The True Scriptures III).
     AllGraveyardCreaturesToBattlefield,
+    /// "Return all `filter` cards from your graveyard to the battlefield
+    /// (tapped)" (Lumra, Bellow of the Woods: land cards, tapped). One
+    /// event: every card that matches as the effect begins moves at once,
+    /// under your control, and a card that enters tapped is tapped as it
+    /// arrives rather than afterwards.
+    ReturnAllFromGraveyard {
+        /// Which cards.
+        filter: &'static Filter,
+        /// Whether they enter tapped.
+        tapped: bool,
+    },
     /// "Transform this creature" (CR 701.27a): the source turns over to its
     /// other face where it stands. Only a permanent represented by a
     /// transforming double-faced card does (CR 701.27c) — a token copy or a
@@ -1782,6 +1813,26 @@ pub enum Effect {
         /// Whether fewer than `finds.len()` may be found ("up to", "may").
         optional: bool,
     },
+    /// "Search your library for up to `count` `filter` cards", where the
+    /// count is a number only the resolution knows (Nylea's Intervention:
+    /// "up to X land cards, reveal them, put them into your hand, then
+    /// shuffle"). Every card found goes where `find` says.
+    ///
+    /// A sibling for the reason [`Self::SearchLibraryOf`] is one:
+    /// `SearchLibrary`'s `finds` is a count written into the card, one
+    /// [`Find`] per card, and no slice can be X long. Always "up to": a
+    /// search for a number of cards the searcher did not choose is not a
+    /// sentence any printing uses. A reveal follows the rule every search
+    /// follows (narrower than "a card", ending in a hidden zone).
+    SearchLibraryUpTo {
+        /// What to find.
+        filter: &'static Filter,
+        /// How many at most, read as the search begins.
+        count: Amount,
+        /// Where each card found goes (a reference, so the engine can hand
+        /// it to the search as the one-element list every search reads).
+        find: &'static Find,
+    },
     /// All objects matching a filter get computed P/T modifiers, and
     /// optionally keywords, until a duration ends (Toxic Deluge: `-X/-X`
     /// on all creatures; Overrun: `+3/+3` and trample on your team).
@@ -2321,6 +2372,7 @@ impl Effect {
             | Effect::ChooseExiledToPlay { .. }
             | Effect::PayLifeOrPutBackDrawn { .. }
             | Effect::RevealTopAndSort { .. }
+            | Effect::LookAtTopMayPut { .. }
             | Effect::PutFromHandOnTop { .. }
             | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }
@@ -2358,6 +2410,7 @@ impl Effect {
             | Effect::DiscardRandom { .. }
             | Effect::RevealHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
+            | Effect::ReturnAllFromGraveyard { .. }
             | Effect::TransformSource
             | Effect::TransformSourceAtNextUpkeep
             | Effect::ExileSelfReturnAsFace { .. }
@@ -2416,6 +2469,7 @@ impl Effect {
             | Effect::BecomeMonarch(_)
             | Effect::OptionalBasicLandSearchFor { .. }
             | Effect::SearchLibraryOf { .. }
+            | Effect::SearchLibraryUpTo { .. }
             | Effect::PumpFilter { .. }
             | Effect::ProtectionFromChosenColor { .. }
             | Effect::Regenerate { .. }
