@@ -202,8 +202,18 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                     .filter(|(seat, _)| *seat != mine)
                     .flat_map(|(_, pile)| pile)
                     .collect(),
+                PlayerRel::ActivePlayer => view
+                    .graveyards
+                    .get(usize::from(view.active.get()))
+                    .into_iter()
+                    .flatten()
+                    .collect(),
+                // Whose the enchanted permanent is, the view could say only
+                // for a spell already attached to something, and a spell
+                // choosing targets is not.
                 PlayerRel::ControllerOfTarget
                 | PlayerRel::ControllerOfEvent
+                | PlayerRel::ControllerOfAttached
                 | PlayerRel::DamagedPlayer => {
                     return None;
                 }
