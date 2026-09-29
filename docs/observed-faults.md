@@ -3424,10 +3424,42 @@ stolen from. Both now read `GameState::last_known_controller`, the
 controller the object had as it last existed on the battlefield (CR 608.2h),
 which `PlayerRel::ControllerOfEvent` already read inline.
 
+**The link outlived the exile.** A card keeps its riders through every
+move, and the link was one of them. A card cast out of Safe Haven's exile
+and later exiled by Swords to Plowshares was still "exiled with" Safe Haven,
+and came back when Safe Haven was sacrificed. A card that leaves exile is a
+new object with no relation to the exile it left (CR 400.7).
+`GameState::move_object` now drops `Rider::Linked` as a card leaves exile
+(not on a move from exile to exile).
+
+**The crown stayed with a player who had left.** Nothing implemented
+CR 724.4, so the monarch kept the designation after leaving the game. No
+creature could take it with combat damage (CR 724.2) from a player who was no
+longer there, and Palace Jailer's prisoner stayed exiled until some other
+card made an opponent the monarch.
+`sba::eliminate_player` now passes the crown as the monarch leaves
+(`GameState::monarch_leaves`): to the active player, or, when the leaver is
+the active player, to the next player in turn order still in the game, and
+to nobody when nobody is left. It goes through `set_monarch`, so the
+Jailer's exile ends if the heir is an opponent of the player who exiled.
+
 Not done: CR 610.3b for Palace Jailer. If an opponent becomes the monarch
 between the trigger and its resolution, the creature is still exiled. Nothing
-records that the crown moved in between. CR 724.4 (the monarch leaving the
-game) is not implemented either.
+records that the crown moved in between. And players who lose in the same
+state-based check leave one after the other (`sba::run` walks the seats), so
+the crown can pass through a player who is about to leave on its way to the
+heir. At a table with teams, a Jailer's exile can end on that passage when it
+would not have at the heir.
+
+Also not done, found by reading and not run: the other riders that give a
+card a permission in exile (`Rider::Adventure`, `Rider::PlayableFromExileFor`)
+are not dropped as the card leaves exile either. Their readers check that the
+card is in exile now, which a card exiled again by something else passes.
+Twining Twins cast as Swift Spiral, cast from exile, and later exiled by
+Swords to Plowshares would be castable from exile again (CR 715.3d gives the
+permission "for as long as that card remains exiled"). Suspend, Rebound and
+Foretold riders may be read after the card leaves exile, so they need a look
+each before a general rule.
 
 Tests, each failing on the old behaviour: `card_tests::creatures::`
 `werefox_bodyguard_holds_a_creature_until_it_leaves_the_battlefield`,
@@ -3438,3 +3470,10 @@ is blinked or leaves the game; the host has left, or was blinked, before the
 exile; only the monarch's exile ends; a stolen Jailer still waits. Two more:
 `resolve::tokens::tests::its_controller_is_the_one_the_creature_had_on_the_battlefield`
 and `resolve::controller_of_target_tests::its_controller_is_the_one_it_had_on_the_battlefield`.
+The follow-ups, each failing on the old behaviour:
+`card_tests::lands::a_card_cast_out_of_safe_havens_exile_and_exiled_again_stays_exiled`,
+`resolve::zones::arrival_control_tests::a_card_that_left_exile_is_no_longer_exiled_with_its_old_host`
+and `a_card_that_left_exile_does_not_come_back_as_its_old_host_leaves`;
+`card_tests::creatures::a_monarch_who_leaves_crowns_the_active_player_and_frees_the_jailers_prisoner`
+(three seats) and `sba::tests::the_crown_passes_as_the_monarch_leaves_the_game`
+(four seats).

@@ -1665,6 +1665,34 @@ impl GameState {
         });
     }
 
+    /// `player` has left the game (CR 800.4a) and, if they were the monarch,
+    /// the designation passes on at the same time (CR 724.4): to the active
+    /// player, or, when the active player is the one leaving, to the next
+    /// player in turn order still in the game. With nobody left the game goes
+    /// on with no monarch.
+    ///
+    /// `sba::eliminate_player` calls this once `player` is marked as having
+    /// left, so the leaver is never the heir. Through [`Self::set_monarch`],
+    /// so an exile that waited for an opponent to become the monarch (Palace
+    /// Jailer) ends if the heir is such an opponent. The rule's "if there is
+    /// no active player" never arises here, because the engine always has one
+    /// (`TurnInfo::active`), and nothing in the engine keeps a player still
+    /// in the game from becoming the monarch.
+    pub(crate) fn monarch_leaves(&mut self, player: PlayerId) {
+        if self.monarch != Some(player) {
+            return;
+        }
+        let seats = self.players.len();
+        let active = usize::from(self.turn.active.get());
+        let heir = (0..seats)
+            .map(|offset| PlayerId::new(((active + offset) % seats) as u8))
+            .find(|&p| !self.has_left(p));
+        match heir {
+            Some(heir) => self.set_monarch(heir),
+            None => self.monarch = None,
+        }
+    }
+
     /// Returns every exiled card whose link `ends` says has ended to the
     /// battlefield, under its owner's control, and forgets the link.
     ///
@@ -1985,9 +2013,10 @@ impl GameState {
             //
             // What stays: `riders` (a card exiled from the battlefield is
             // linked to whatever exiled it, which is the exception this
-            // rule is written around), and the spell-shaped fields
-            // (`x_value`, `kicked`, `targets`), which a permanent resolving
-            // off the stack still needs and which no permanent writes.
+            // rule is written around, until it leaves exile: below), and the
+            // spell-shaped fields (`x_value`, `kicked`, `targets`), which a
+            // permanent resolving off the stack still needs and which no
+            // permanent writes.
             if from_zone == Zone::Battlefield {
                 obj.status = crate::object::Status::NONE;
                 obj.damage = 0;
@@ -1997,6 +2026,19 @@ impl GameState {
             }
             if matches!(from_zone, Zone::Battlefield | Zone::Exile) {
                 obj.counters = crate::object::Counters::default();
+            }
+            // The link lasts only as long as the exile it describes. A card
+            // that leaves exile any other way than the return its host makes
+            // (cast, put into a hand, shuffled away) is a new object with no
+            // relation to the exile it left, and "exiled with" its host no
+            // more. The link was kept, so a card cast out of Safe Haven's
+            // exile and later hit by Swords to Plowshares came back when
+            // Safe Haven was sacrificed. Not on a move from exile to exile,
+            // which is the one move that is no leaving; `ExileLinked` writes
+            // the link before it moves the card.
+            if from_zone == Zone::Exile && to.zone() != Zone::Exile {
+                obj.riders
+                    .retain(|r| !matches!(r, crate::object::Rider::Linked { .. }));
             }
             // What was paid is the spell's and no later object's (a flashback
             // is a new payment); nothing on the battlefield reads it yet, so

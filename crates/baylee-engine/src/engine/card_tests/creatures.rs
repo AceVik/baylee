@@ -91388,3 +91388,64 @@ fn palace_jailer_frees_its_prisoner_when_an_opponent_is_crowned_and_skyclave_kee
         "and both hosts are still standing: only the crown moved"
     );
 }
+
+/// Palace Jailer at a table of three, and the monarch leaves the game
+/// (CR 724.4). Seat 0 is the monarch, with seat 1's Elves in the Jailer's
+/// exile, and concedes during seat 2's turn. The crown passes to the active
+/// player, seat 2, as seat 0 leaves: not to seat 1, the next seat after the
+/// leaver. Seat 2 is an opponent of the player who exiled the Elves, so the
+/// Jailer's exile ends and they come back to seat 1 (CR 610.3c).
+///
+/// The crown stayed with the seat that had left, and the Elves stayed in
+/// exile for the rest of the game.
+#[test]
+fn a_monarch_who_leaves_crowns_the_active_player_and_frees_the_jailers_prisoner() {
+    let (p0, p1, p2) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
+    let mut engine = Duel::table(619, plains(), 3)
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[palace_jailer()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("p1's Elves");
+    let plains = plains_of(&engine, p0);
+    tap_mana_where(&mut engine, p0, |id| plains.contains(&id));
+    cast_with_floating(&mut engine, p0, palace_jailer());
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(options.contains(&elves), "{options:?}");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .expect("the Elves are targeted");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().monarch,
+        Some(p0),
+        "the Jailer crowned seat 0"
+    );
+    assert_eq!(
+        engine.state().object(elves).map(|o| o.zone),
+        Some(Zone::Exile)
+    );
+
+    reach_their_main_phase(&mut engine, p2);
+    assert_eq!(engine.state().turn.active, p2);
+    engine
+        .apply(p0, PlayerAction::Concede)
+        .expect("a concession is legal at any time");
+    assert!(engine.state().has_left(p0));
+    assert_eq!(
+        engine.state().monarch,
+        Some(p2),
+        "the active player, and not seat 1, who sits next to the leaver"
+    );
+    let freed = engine.state().object(elves).expect("seat 1's Elves");
+    assert_eq!(freed.zone, Zone::Battlefield, "an opponent was crowned");
+    assert_eq!((freed.owner, freed.controller), (p1, p1));
+}

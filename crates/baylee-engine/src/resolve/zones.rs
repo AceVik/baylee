@@ -1519,6 +1519,60 @@ mod arrival_control_tests {
         assert_eq!(zone(&state, jailed), Some(crate::zone::Zone::Battlefield));
     }
 
+    /// Takes `it` out of exile the way a cast does (onto the stack, then the
+    /// battlefield as it resolves) and exiles it again with no link, the way
+    /// Swords to Plowshares does.
+    fn cast_and_exiled_again(state: &mut GameState, it: ObjectId) {
+        for to in [
+            ZoneLocation::Stack,
+            ZoneLocation::Battlefield,
+            ZoneLocation::Exile(them()),
+        ] {
+            state
+                .move_object(it, to, ZonePosition::Top, Cause::Effect)
+                .expect("the card is there");
+        }
+    }
+
+    /// A card that leaves exile is a new object with no relation to the exile
+    /// it left (CR 400.7), so once it is back in exile some other way it is
+    /// not "exiled with" the host that exiled it first, and Safe Haven's
+    /// return leaves it where it is.
+    ///
+    /// The link rode along with every move, so the card that was cast out of
+    /// Safe Haven's exile and later hit by Swords to Plowshares came back when
+    /// Safe Haven was sacrificed.
+    #[test]
+    fn a_card_that_left_exile_is_no_longer_exiled_with_its_old_host() {
+        let (mut state, it) = theirs(619);
+        let haven = host(&mut state);
+        resolve(
+            &mut state,
+            haven,
+            &[it],
+            Effect::exile_linked(TargetSpec::Object(&Filter::CREATURE)),
+        );
+        assert!(linked(&state, it), "exiled with Safe Haven");
+        cast_and_exiled_again(&mut state, it);
+        resolve(&mut state, haven, &[], Effect::ReturnLinkedToBattlefield);
+        assert_eq!(zone(&state, it), Some(crate::zone::Zone::Exile));
+        assert!(!linked(&state, it), "a new object, exiled by nothing");
+    }
+
+    /// The same for an exile that lasted until its host leaves the
+    /// battlefield: the Bodyguard leaving lets go of the card it exiled, and
+    /// the card in exile now is not that card.
+    #[test]
+    fn a_card_that_left_exile_does_not_come_back_as_its_old_host_leaves() {
+        let (mut state, it) = theirs(620);
+        let bodyguard = host(&mut state);
+        resolve(&mut state, bodyguard, &[it], until_it_leaves());
+        cast_and_exiled_again(&mut state, it);
+        sba::destroy(&mut state, bodyguard);
+        assert_eq!(zone(&state, it), Some(crate::zone::Zone::Exile));
+        assert!(!linked(&state, it));
+    }
+
     /// Coiling Oracle: "Reveal the top card of your library. If it's a land
     /// card, put it onto the battlefield." No control is named, so the land
     /// enters under the player the effect told to put it there (CR 110.2a)

@@ -1139,7 +1139,9 @@ Bodyguard sacrificed in response to its own trigger holds nothing. Write
 `exile_until` wherever the card prints "until"; an `exile_linked` that stands
 for one is a card that never gives its prisoner back. Every way back, a
 host's effect, a new monarch or a host leaving, goes through
-`GameState::return_linked`.
+`GameState::return_linked`. The link ends as well when the card leaves exile
+any other way (cast, returned to a hand): exiled again later, it is a new
+object and not "exiled with" the old host (CR 400.7).
 
 A card that says nothing about a graveyard cannot use either reanimation
 verb: the effect checks that its object is still in one (CR 400.7). A
