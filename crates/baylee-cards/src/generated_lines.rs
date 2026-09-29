@@ -1242,7 +1242,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Zombie Master
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Volcanic Island
     &[FaceLines {

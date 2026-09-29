@@ -3037,6 +3037,7 @@ impl Tx<'_> {
         self.keyword_modifiers(&mut p, &filter, &mut out)?;
         self.type_modifiers(&mut p, &filter, &mut out)?;
         self.color_modifiers(&mut p, &filter, &mut out)?;
+        self.grant_modifiers(&mut p, &filter, &mut out)?;
         // "You control enchanted creature" (Control Magic): layer 2
         // (CR 613.1b), and the static's controller is who gains control —
         // `You` is the only player the modifier can name.
@@ -3226,6 +3227,63 @@ impl Tx<'_> {
     }
 
     /// `AddColor`/`SetColor` (layer 5) as static abilities.
+    /// `AddAbility$ <SVar>[ & <SVar>]`: "Other Zombies have '{B}:
+    /// Regenerate this permanent.'" (Zombie Master). Each named `SVar` is an
+    /// `AB$` line, read as an activated ability of the object that gains it:
+    /// `Modifier::GrantActivated` activates from that object, so "this
+    /// permanent" in it is the one that has it.
+    ///
+    /// Without a target, because the modifier carries none — a granted
+    /// ability that targets would lose its target here and act on nothing
+    /// — and without anything else an activated line may say beside its
+    /// cost and effect: the chain refuses a key it does not claim.
+    fn grant_modifiers(
+        &mut self,
+        p: &mut Params,
+        filter: &str,
+        out: &mut Vec<String>,
+    ) -> Option<()> {
+        let Some(raw) = p.take("AddAbility") else {
+            return Some(());
+        };
+        for name in raw.split(" & ").map(str::trim) {
+            let Some(line) = self.svars.get(name).cloned() else {
+                return self.deny(format!("`AddAbility$ {name}` naming no `SVar`"));
+            };
+            if !line.trim_start().starts_with("AB$") {
+                return self.deny("a granted ability that is not an activated one".to_string());
+            }
+            let Some((_, mut probe)) = Params::parse(&line) else {
+                return self.deny("a granted ability with no `$` in it".to_string());
+            };
+            let Some(cost) = probe.take("Cost") else {
+                return self.deny("a granted ability with no `Cost$`".to_string());
+            };
+            let cost = self.cost_expr(&cost)?;
+            let stripped: Vec<&str> = line
+                .split(" | ")
+                .filter(|part| !part.starts_with("Cost$"))
+                .collect();
+            let mut chain = Chain::default();
+            self.chain(&stripped.join(" | "), &mut chain)?;
+            if chain.target.is_some() {
+                return self.deny("a granted ability with a target".to_string());
+            }
+            if chain.effects.is_empty() {
+                return self.deny("a granted ability that reads as no effect at all".to_string());
+            }
+            let mana = chain.effects.iter().any(|e| e.contains("Effect::mana"));
+            out.push(Self::static_expr(
+                filter,
+                &format!(
+                    "Modifier::GrantActivated {{ cost: {cost}, effects: &[{}], mana_ability: {mana} }}",
+                    chain.effects.join(", ")
+                ),
+            ));
+        }
+        Some(())
+    }
+
     fn color_modifiers(&self, p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
         for (key, modifier) in [("AddColor", "AddColor"), ("SetColor", "SetColor")] {
             let Some(raw) = p.take(key) else { continue };
@@ -5891,6 +5949,29 @@ SVar:X:Count$xPaid",
             text.contains("TargetSpec::Player(PlayerRel::You)"),
             "{text}"
         );
+    }
+
+    /// Zombie Master: a granted activated ability, "this permanent" being
+    /// the one that has it; a granted ability that targets is refused.
+    #[test]
+    fn a_granted_ability_is_the_holders_own() {
+        let body = read(
+            "Name:X\nManaCost:1 B B\nTypes:Creature Goblin\nPT:2/3\n\
+             S:Mode$ Continuous | Affected$ Card.Goblin+Other | AddAbility$ Regenerate | \
+             Description$ Other Goblins have regenerate.\n\
+             SVar:Regenerate:AB$ Regenerate | Cost$ B | SpellDescription$ Regenerate this permanent.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("Modifier::GrantActivated {"), "{text}");
+        assert!(text.contains("cost: cost!(\"{B}\")"), "{text}");
+        assert!(text.contains("TargetSpec::ThisObject"), "{text}");
+        assert!(text.contains("mana_ability: false"), "{text}");
+
+        assert!(refused(
+            "Name:X\nTypes:Creature Goblin\nPT:2/3\n\
+             S:Mode$ Continuous | Affected$ Creature.Goblin | AddAbility$ Ping\n\
+             SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1\n"
+        ));
     }
 
     /// A charm is a modal spell, each mode targeting for itself.
