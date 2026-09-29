@@ -891,7 +891,7 @@ pub mod prelude {
     };
     pub use crate::filter::{Filter, ZoneRef};
     pub use crate::static_ability::{
-        Duration, LAYERS, Layer, Modifier, ReplacementRule, StaticAbility,
+        Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule, StaticAbility,
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, CardDef, CommanderRule, Coverage, EnterModifier, FaceDef,

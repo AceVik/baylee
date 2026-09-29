@@ -305,6 +305,22 @@ pub enum Modifier {
         /// Target requirement of the ability.
         target: Option<crate::effect::TargetSpec>,
     },
+    /// A characteristic-defining ability (CR 604.3) that sets power to a
+    /// count and toughness to that count plus `toughness_plus`: "power and
+    /// toughness are each equal to the number of creatures you control"
+    /// (Voice of Resurgence's Elemental), "power is equal to the number of
+    /// card types among cards in all graveyards and its toughness is equal
+    /// to that number plus 1" (Pyrogoyf).
+    ///
+    /// Layer 7a (CR 613.4a), so a later "base power and toughness N/N"
+    /// (7b) overrides it and a pump (7c) adds to it — the two orders a
+    /// `ModifyPTPerCount` on a 0/0, which is 7c, gets wrong.
+    CharacteristicPT {
+        /// What the number is.
+        count: PtCount,
+        /// What toughness adds to it (Lhurgoyf's "plus 1").
+        toughness_plus: i8,
+    },
     /// The affected object gets +P/+T for each filter-matching permanent
     /// its controller controls (Construct tokens, "for each artifact").
     ModifyPTPerCount {
@@ -321,6 +337,18 @@ pub enum Modifier {
     SetPT(i16, i16),
     /// Switches power and toughness.
     SwitchPT,
+}
+
+/// What a [`Modifier::CharacteristicPT`] counts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PtCount {
+    /// Permanents the ability's controller controls that match the filter
+    /// ("the number of creatures you control").
+    YouControl(&'static crate::Filter),
+    /// Card types among cards in all graveyards (Tarmogoyf's number): the
+    /// nine card types of CR 205.2a, each counted once however many cards
+    /// share it.
+    CardTypesInAllGraveyards,
 }
 
 impl Modifier {
@@ -405,7 +433,8 @@ impl Modifier {
             // ability-adding effect, and so is granting a trigger.
             | Self::ProtectionFrom(_)
             | Self::GrantTriggered { .. } => Layer::Ability,
-            // Layer 7b/7c/7e: power and toughness.
+            // Layer 7a/7b/7c/7e: power and toughness.
+            Self::CharacteristicPT { .. } => Layer::PtCda,
             Self::SetPT(..) => Layer::PtSet,
             Self::ModifyPT(..) | Self::ModifyPTPerCount { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
@@ -672,6 +701,13 @@ mod tests {
                     target: None,
                 },
                 Layer::Ability,
+            ),
+            (
+                Modifier::CharacteristicPT {
+                    count: PtCount::CardTypesInAllGraveyards,
+                    toughness_plus: 1,
+                },
+                Layer::PtCda,
             ),
             (Modifier::SetPT(2, 2), Layer::PtSet),
             (Modifier::ModifyPT(1, 1), Layer::PtModify),

@@ -767,6 +767,20 @@ pub enum Effect {
         /// What is dealt to — a creature, or a planeswalker (CR 306.8).
         to: TargetSlot,
     },
+    /// "that creature deals damage equal to its power to `target`", where
+    /// "that creature" is the object the trigger's event named (Pyrogoyf:
+    /// "Whenever this creature or another Lhurgoyf creature you control
+    /// enters, that creature deals damage equal to its power to any
+    /// target").
+    ///
+    /// The creature is the damage's source (CR 120.3 reads the source's
+    /// deathtouch and lifelink), and if it has left the battlefield by the
+    /// time the ability resolves, its power and its characteristics are as
+    /// it last existed there (CR 608.2h).
+    EventObjectDealsDamageEqualToPower {
+        /// What is dealt to.
+        target: TargetSpec,
+    },
     /// Deal damage to the first target's controller (Tuktuk Scrapper).
     DealDamageToTargetController {
         /// How much.
@@ -2120,6 +2134,7 @@ impl Effect {
             | Effect::DealDamage { .. }
             | Effect::Fight { .. }
             | Effect::DamageEqualToPower { .. }
+            | Effect::EventObjectDealsDamageEqualToPower { .. }
             | Effect::DealDamageToTargetController { .. }
             | Effect::DealDamageEach { .. }
             | Effect::WishToHand { .. }

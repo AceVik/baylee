@@ -108,6 +108,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AddKeywordIfCountersAtLeast { .. }
         | Modifier::GrantActivated { .. }
         | Modifier::GrantTriggered { .. }
+        | Modifier::CharacteristicPT { .. }
         | Modifier::ModifyPTPerCount { .. }
         | Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
@@ -659,6 +660,10 @@ mod tests {
             },
             Modifier::GrantsFlashback,
             Modifier::ProtectionFrom(&Filter::CREATURE),
+            Modifier::CharacteristicPT {
+                count: baylee_cards_dsl::PtCount::YouControl(&Filter::CREATURE),
+                toughness_plus: 0,
+            },
             Modifier::SetPT(2, 2),
             Modifier::ModifyPT(1, 1),
             Modifier::ModifyPTPerCount {

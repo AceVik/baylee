@@ -1746,6 +1746,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::DealDamage { .. }
         | Effect::Fight { .. }
         | Effect::DamageEqualToPower { .. }
+        | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::DealDamageToTargetController { .. }
         | Effect::DealDamageEach { .. } => life::exec(state, res, op),
         Effect::Exile { .. }

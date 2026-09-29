@@ -523,6 +523,13 @@ pub struct GameState {
     /// cleared for an object on every move and written again only on a
     /// departure from the battlefield.
     pub ltb_controllers: Vec<(ObjectId, PlayerId)>,
+    /// The power each object had the moment it last left the battlefield
+    /// (CR 608.2h: an effect that needs a value from an object that has
+    /// left uses its last known information) — what
+    /// `Effect::EventObjectDealsDamageEqualToPower` reads when "that
+    /// creature" is gone by the time Pyrogoyf's trigger resolves. Same
+    /// lifecycle as [`Self::ltb_controllers`].
+    pub ltb_powers: Vec<(ObjectId, i16)>,
     /// What was attached to a permanent the moment it left the battlefield.
     ///
     /// The other half of CR 603.10a, and it is needed for the same reason and
@@ -827,6 +834,7 @@ impl GameState {
             pending_copied_faces: Vec::new(),
             ltb_mana_values: Vec::new(),
             ltb_controllers: Vec::new(),
+            ltb_powers: Vec::new(),
             ltb_abilities: Vec::new(),
             ltb_counters: Vec::new(),
             ltb_attachments: Vec::new(),
@@ -1697,12 +1705,17 @@ impl GameState {
     fn record_last_known(&mut self, id: ObjectId, from_zone: Zone) {
         self.ltb_mana_values.retain(|(other, _)| *other != id);
         self.ltb_controllers.retain(|(other, _)| *other != id);
+        self.ltb_powers.retain(|(other, _)| *other != id);
         if from_zone == Zone::Battlefield
             && let Some(object) = self.object(id)
         {
             let controller = object.controller;
-            self.ltb_mana_values
-                .push((id, object.characteristics().mana_cost.cmc()));
+            let characteristics = object.characteristics();
+            let (mana_value, power) = (characteristics.mana_cost.cmc(), characteristics.power);
+            self.ltb_mana_values.push((id, mana_value));
+            if let Some(power) = power {
+                self.ltb_powers.push((id, power));
+            }
             self.ltb_controllers.push((id, controller));
         }
         if from_zone == Zone::Battlefield {
@@ -1946,12 +1959,15 @@ impl GameState {
         // "+1/+1 for each artifact you control", so a permanent leaving
         // changes what a permanent that stayed projects to.
         //
-        // Only the battlefield and the stack, which is exactly what the
-        // refresh pass revisits — a card drawn changes no projection unless
-        // a cross-zone effect is registered, and that pass projects every
-        // zone anyway.
-        if matches!(from_zone, Zone::Battlefield | Zone::Stack)
-            || matches!(to.zone(), Zone::Battlefield | Zone::Stack)
+        // The battlefield and the stack, which is exactly what the refresh
+        // pass revisits — a card drawn changes no projection unless a
+        // cross-zone effect is registered, and that pass projects every
+        // zone anyway. And the graveyards, because a permanent's projection
+        // may count them: Pyrogoyf is as big as the card types among cards
+        // in all graveyards (`PtCount::CardTypesInAllGraveyards`), so a card
+        // milled or discarded grows a permanent that never moved.
+        if matches!(from_zone, Zone::Battlefield | Zone::Stack | Zone::Graveyard)
+            || matches!(to.zone(), Zone::Battlefield | Zone::Stack | Zone::Graveyard)
         {
             self.invalidate_projections();
         }
@@ -2175,6 +2191,7 @@ impl GameState {
             pending_copied_faces,
             ltb_mana_values,
             ltb_controllers,
+            ltb_powers,
             ltb_abilities,
             ltb_attachments,
             ltb_counters,
@@ -2271,6 +2288,7 @@ impl GameState {
         ltb_counters.hash(&mut h);
         ltb_mana_values.hash(&mut h);
         ltb_controllers.hash(&mut h);
+        ltb_powers.hash(&mut h);
         hash_unordered(
             &mut h,
             restriction_info.iter(),
@@ -3889,6 +3907,9 @@ mod tests {
             }),
             ("ltb_controllers", |s, id| {
                 s.ltb_controllers.push((id, PlayerId::new(1)));
+            }),
+            ("ltb_powers", |s, id| {
+                s.ltb_powers.push((id, 4));
             }),
             ("ltb_counters", |s, id| {
                 s.ltb_counters.push((id, Counters::default()));

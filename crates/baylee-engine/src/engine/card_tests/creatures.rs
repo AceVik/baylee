@@ -89336,3 +89336,116 @@ fn karmic_guide_reanimates_and_its_echo_takes_it_when_unpaid() {
         "what it returned stays"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Pyrogoyf.
+// ---------------------------------------------------------------------------
+
+fn pyrogoyf() -> CardIndex {
+    card_index("7fd7457a-388d-4cca-a7cf-86b4ea922037")
+}
+
+/// "Pyrogoyf's power is equal to the number of card types among cards in
+/// all graveyards and its toughness is equal to that number plus 1." Empty
+/// graveyards: 0/1. A creature card milled into the opponent's: 1/2 — a
+/// card that went from a library to a graveyard, with no permanent moving,
+/// still grows it. A second creature card adds no type. A land card joins:
+/// 2/3.
+#[test]
+fn pyrogoyf_counts_the_card_types_in_every_graveyard() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, steadfast_guard())
+        .battlefield(0, &[pyrogoyf(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let goyf = on_battlefield(&engine, p0, pyrogoyf()).unwrap();
+    assert_eq!(pt(&engine, goyf), (0, 1), "no card in any graveyard");
+
+    // The harness mills outside the engine's loop, so the refresh the
+    // engine runs before its next priority grant is run by hand; what it
+    // proves is that a mill made the projection stale at all.
+    let refresh = |engine: &mut Engine<RegistryLookup>| {
+        engine
+            .dev_state_mut(p0)
+            .expect("the harness may look")
+            .refresh_characteristics();
+    };
+    seed_graveyard(&mut engine, p1, 1);
+    refresh(&mut engine);
+    assert_eq!(
+        pt(&engine, goyf),
+        (1, 2),
+        "a creature card, in the opponent's graveyard"
+    );
+    seed_graveyard(&mut engine, p0, 1);
+    refresh(&mut engine);
+    assert_eq!(
+        pt(&engine, goyf),
+        (1, 2),
+        "a second creature card is no second type"
+    );
+
+    let land = on_battlefield(&engine, p0, mountain()).unwrap();
+    bury(&mut engine, &[land]);
+    refresh(&mut engine);
+    assert_eq!(pt(&engine, goyf), (2, 3), "creature and land");
+}
+
+/// Casts Pyrogoyf with a creature card and a land card in the graveyards,
+/// so it enters a 2/3, and aims its own enter trigger at the opponent.
+fn a_pyrogoyf_aimed_at_the_opponent() -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, steadfast_guard())
+        .battlefield(
+            0,
+            &[mountain(), mountain(), mountain(), mountain(), forest()],
+        )
+        .hand(0, &[pyrogoyf()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p1, 1);
+    let spare = on_battlefield(&engine, p0, forest()).unwrap();
+    bury(&mut engine, &[spare]);
+    cast_from_hand(&mut engine, p0, pyrogoyf());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("any target takes a player");
+    let goyf = on_battlefield(&engine, p0, pyrogoyf()).unwrap();
+    (engine, goyf)
+}
+
+/// "…that creature deals damage equal to its power to any target." It
+/// enters a 2/3 and deals 2 to the opponent.
+#[test]
+fn pyrogoyf_deals_its_power_to_any_target_as_it_enters() {
+    let (mut engine, goyf) = a_pyrogoyf_aimed_at_the_opponent();
+    assert_eq!(pt(&engine, goyf), (2, 3));
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[1].life, 18);
+}
+
+/// The Pyrogoyf leaves before its trigger resolves: it deals damage equal to
+/// its power as it last existed on the battlefield (CR 608.2h) — 2, not the
+/// 0 a card in a graveyard prints, and not the new count its own arrival in
+/// the graveyard would make.
+#[test]
+fn pyrogoyf_that_has_left_deals_its_last_known_power() {
+    let (mut engine, goyf) = a_pyrogoyf_aimed_at_the_opponent();
+    bury(&mut engine, &[goyf]);
+    assert!(on_battlefield(&engine, PlayerId::new(0), pyrogoyf()).is_none());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[1].life, 18, "2, as it last existed");
+}
