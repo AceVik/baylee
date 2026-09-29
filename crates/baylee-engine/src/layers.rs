@@ -529,8 +529,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
     }
 }
 
-/// The permanents `controller` controls that match `filter`, as a count for
-/// a P/T that grows with the board.
+/// The permanents `controller` controls that match `filter` — every
+/// permanent that does, with no controller — as a count for a P/T that grows
+/// with the board. `you` is who "you" is to the filter.
 ///
 /// CR 613.1: every earlier layer is already applied, and for the object
 /// being projected that result lives in `c` and not yet in its cache —
@@ -554,7 +555,8 @@ fn count_controlled(
     state: &GameState,
     obj: &GameObject,
     c: &Characteristics,
-    controller: PlayerId,
+    controller: Option<PlayerId>,
+    you: PlayerId,
     filter: &baylee_cards_dsl::Filter,
     read_board: &mut bool,
 ) -> usize {
@@ -563,11 +565,11 @@ fn count_controlled(
         .battlefield_seen()
         .filter_map(|id| state.object(id))
         .filter(|o| {
-            o.controller == controller
+            controller.is_none_or(|p| o.controller == p)
                 && if o.id == obj.id {
-                    crate::eval::matches_projected(filter, state, o, c, controller, o.id)
+                    crate::eval::matches_projected(filter, state, o, c, you, o.id)
                 } else {
-                    crate::eval::matches(filter, state, o, controller, o.id)
+                    crate::eval::matches(filter, state, o, you, o.id)
                 }
         })
         .count()
@@ -588,7 +590,10 @@ fn pt_count(
     *read_board = true;
     let n = match count {
         baylee_cards_dsl::PtCount::YouControl(filter) => {
-            count_controlled(state, obj, c, you, filter, read_board)
+            count_controlled(state, obj, c, Some(you), you, filter, read_board)
+        }
+        baylee_cards_dsl::PtCount::OnBattlefield(filter) => {
+            count_controlled(state, obj, c, None, you, filter, read_board)
         }
         baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => card_types_in_all_graveyards(state),
         baylee_cards_dsl::PtCount::ExiledWithThis => cards_exiled_with(state, obj),
@@ -682,7 +687,7 @@ fn apply(
             c.toughness = Some(n.saturating_add(i16::from(*toughness_plus)));
         }
         Modifier::ModifyPTPerCount { filter, p, t } => {
-            let count = count_controlled(state, obj, c, fx.controller, filter, read_board);
+            let count = count_controlled(state, obj, c, Some(fx.controller), fx.controller, filter, read_board);
             let count = i16::try_from(count).unwrap_or(i16::MAX);
             if let Some(pow) = &mut c.power {
                 *pow = pow.saturating_add(count.saturating_mul(*p));
@@ -1108,6 +1113,38 @@ mod tests {
             (Some(2), Some(6)),
             "the switch reads what every earlier sublayer left (CR 613.4d)"
         );
+    }
+
+    /// "The number of creatures named Plague Rats on the battlefield": every
+    /// controller's, where "you control" counts one side of the table.
+    #[test]
+    fn a_count_on_the_battlefield_is_everybodys() {
+        static RATS: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::Named("Plague Rats");
+        let mut state = fresh();
+        let mine = permanent(&mut state, "Plague Rats", TypeSet::CREATURE, Some((0, 0)));
+        let _second = permanent(&mut state, "Plague Rats", TypeSet::CREATURE, Some((0, 0)));
+        let theirs = permanent(&mut state, "Plague Rats", TypeSet::CREATURE, Some((0, 0)));
+        state.object_mut(theirs).expect("in play").controller = PlayerId::new(1);
+        let _bear = permanent(&mut state, "Bear", TypeSet::CREATURE, Some((2, 2)));
+
+        register(
+            &mut state,
+            1,
+            Modifier::SetPTToCount(baylee_cards_dsl::PtCount::OnBattlefield(&RATS)),
+        );
+        assert_eq!(body(&state, mine), (Some(3), Some(3)));
+        assert_eq!(body(&state, theirs), (Some(3), Some(3)));
+
+        let mut state = fresh();
+        let mine = permanent(&mut state, "Plague Rats", TypeSet::CREATURE, Some((0, 0)));
+        let theirs = permanent(&mut state, "Plague Rats", TypeSet::CREATURE, Some((0, 0)));
+        state.object_mut(theirs).expect("in play").controller = PlayerId::new(1);
+        register(
+            &mut state,
+            1,
+            Modifier::SetPTToCount(baylee_cards_dsl::PtCount::YouControl(&RATS)),
+        );
+        assert_eq!(body(&state, mine), (Some(1), Some(1)), "the control");
     }
 
     /// A setting effect asks whether the permanent is a creature **now**,

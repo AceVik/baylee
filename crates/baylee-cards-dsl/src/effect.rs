@@ -1997,6 +1997,14 @@ pub enum Effect {
         /// Which permanent gets the shield.
         target: TargetSpec,
     },
+    /// "Regenerate enchanted creature" (Regeneration): a regeneration shield
+    /// (CR 701.19a) on every permanent `filter` matches as this resolves,
+    /// targeting nothing — the Aura's own ability names its host through
+    /// `Filter::AttachedToBySource`.
+    RegenerateAll {
+        /// What.
+        filter: &'static Filter,
+    },
     /// Exile all cards from a player's graveyard (Bojuka Bog).
     ExileGraveyard {
         /// Whose graveyard.
@@ -2502,6 +2510,13 @@ pub enum Effect {
     /// word), so hexproof and protection do not stop it, and a permanent
     /// already tapped stays as it is.
     TapAll {
+        /// What.
+        filter: &'static Filter,
+    },
+    /// "Untap enchanted creature" (Instill Energy): every permanent `filter`
+    /// matches as this resolves becomes untapped, [`Self::TapAll`]'s mirror,
+    /// targeting nothing.
+    UntapAll {
         /// What.
         filter: &'static Filter,
     },
@@ -3097,6 +3112,8 @@ impl Effect {
             | Effect::ExileSource
             | Effect::TapTarget
             | Effect::TapAll { .. }
+            | Effect::UntapAll { .. }
+            | Effect::RegenerateAll { .. }
             | Effect::ExileTopMayCast { .. }
             | Effect::UntapTarget
             | Effect::UntapSelf

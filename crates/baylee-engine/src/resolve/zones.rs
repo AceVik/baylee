@@ -788,6 +788,22 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::RegenerateAll { filter } => {
+            let shielded: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| crate::eval::matches(filter, state, o, you, res.source))
+                })
+                .collect();
+            for id in shielded {
+                if let Some(obj) = state.object_mut(id) {
+                    obj.regeneration_shields = obj.regeneration_shields.saturating_add(1);
+                }
+            }
+            None
+        }
         Effect::DestroyChosenForPlayers { who, filter } => {
             let mut players = players_of(who, state, you, res);
             let (player, options) =

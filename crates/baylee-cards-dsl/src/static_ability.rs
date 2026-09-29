@@ -454,6 +454,10 @@ pub enum PtCount {
     /// Permanents the ability's controller controls that match the filter
     /// ("the number of creatures you control").
     YouControl(&'static crate::Filter),
+    /// Permanents on the battlefield that match the filter, whoever controls
+    /// them ("the number of creatures named Plague Rats on the
+    /// battlefield").
+    OnBattlefield(&'static crate::Filter),
     /// Card types among cards in all graveyards (Tarmogoyf's number): the
     /// nine card types of CR 205.2a, each counted once however many cards
     /// share it.

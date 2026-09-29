@@ -398,6 +398,19 @@ fn keyword_atom(atom: &str) -> Option<String> {
     })
 }
 
+/// "Creatures named Plague Rats": the name in a `named…` atom. A name is a
+/// characteristic (CR 201.2), compared as the object carries it now. Only a
+/// plain name: the reference also writes counts and limits after one
+/// (`namedHedron Alignment/LimitMax`).
+fn named_atom(atom: &str) -> Option<&str> {
+    atom.strip_prefix("named").filter(|name| {
+        !name.is_empty()
+            && name
+                .chars()
+                .all(|c| c.is_alphanumeric() || " '-".contains(c))
+    })
+}
+
 /// A colour word in a valid-string, and whether it is negated: `Black` is
 /// `(false, "Black")` and `nonBlack` is `(true, "Black")`, the second half
 /// being the `Color` variant's name.
@@ -676,7 +689,9 @@ impl Tx<'_> {
                     // when the answer is nothing (CR 704.5m against
                     // 704.5n–p), which is the state-based actions' business
                     // and not this clause's.
-                    "EnchantedBy" | "EquippedBy" => "Filter::AttachedToBySource".to_string(),
+                    "EnchantedBy" | "EquippedBy" | "AttachedBy" => {
+                        "Filter::AttachedToBySource".to_string()
+                    }
                     "YouCtrl" => "Filter::ControlledByYou".to_string(),
                     "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
                     "YouOwn" => "Filter::OwnedByYou".to_string(),
@@ -714,6 +729,9 @@ impl Tx<'_> {
                     "nonEnchantment" => "Filter::LacksType(TypeSet::ENCHANTMENT)".to_string(),
                     "Colorless" => "Filter::IsColorless".to_string(),
                     "" => continue,
+                    other if named_atom(other).is_some() => {
+                        format!("Filter::Named({:?})", named_atom(other)?)
+                    }
                     // A colour word (CR 105.2): "black creatures", "target
                     // green spell", "nonblack creature". A colour is not a
                     // subtype, so it is asked before the subtype arm below,
@@ -1343,8 +1361,17 @@ impl Tx<'_> {
                 // enchanted creature, a remembered object; 33 lines) and is
                 // refused rather than guessed at, which leaves the 62 that
                 // carry a `ValidTgts$` as the targeted half.
-                if p.take("Defined").is_some() {
-                    return None;
+                match p.take("Defined").as_deref() {
+                    None => {}
+                    // "Regenerate enchanted creature" (Regeneration): the
+                    // Aura's host, which the filter binds to the source.
+                    Some("Enchanted" | "Equipped") if target.is_none() => {
+                        return Some(vec![
+                            "Effect::RegenerateAll { filter: &Filter::AttachedToBySource }"
+                                .to_string(),
+                        ]);
+                    }
+                    Some(_) => return None,
                 }
                 match target {
                     Some(t) => vec![format!("Effect::regenerate({t})")],
@@ -1357,7 +1384,15 @@ impl Tx<'_> {
             "Pump" => self.pump_effect(p, aimed)?,
             "ChangeZone" => self.change_zone(p, target)?,
             "Sacrifice" => self.sacrifice_effect(p)?,
-            "Tap" => vec!["Effect::TapTarget".to_string()],
+            // "Tap enchanted creature" (Paralyze): the host, and not a
+            // target.
+            "Tap" => match p.take("Defined").as_deref() {
+                None => vec!["Effect::TapTarget".to_string()],
+                Some("Enchanted" | "Equipped") if target.is_none() => {
+                    vec!["Effect::TapAll { filter: &Filter::AttachedToBySource }".to_string()]
+                }
+                Some(_) => return None,
+            },
             // `AB$ Untap` with no `ValidTgts$` is the source, not a target
             // — Basalt Monolith's "{3}: Untap this artifact". Read as
             // `UntapTarget` it would walk an empty `res.targets` and untap
@@ -1365,10 +1400,26 @@ impl Tx<'_> {
             // `Implemented` and does nothing. Nothing in the pool was
             // written that way (asserted in `untap_tests`); it was one
             // reference script away from being.
-            "Untap" => match target {
-                Some(_) => vec!["Effect::UntapTarget".to_string()],
-                None => vec!["Effect::UntapSelf".to_string()],
+            "Untap" => match (p.take("Defined").as_deref(), target) {
+                (None, Some(_)) => vec!["Effect::UntapTarget".to_string()],
+                (None, None) => vec!["Effect::UntapSelf".to_string()],
+                // "Untap enchanted creature" (Instill Energy).
+                (Some("Enchanted" | "Equipped"), None) => {
+                    vec!["Effect::UntapAll { filter: &Filter::AttachedToBySource }".to_string()]
+                }
+                _ => return None,
             },
+            // "Take an extra turn after this one" (Time Walk; CR 500.7).
+            // One turn, and yours: another count or another player is a
+            // different sentence.
+            "AddTurn" => {
+                if p.take("NumTurns").as_deref() != Some("1")
+                    || !matches!(p.take("Defined").as_deref(), None | Some("You"))
+                {
+                    return None;
+                }
+                vec!["Effect::TakeExtraTurn".to_string()]
+            }
             "Counter" => {
                 if p.take("TargetType").as_deref() != Some("Spell") {
                     return None;
@@ -3206,6 +3257,15 @@ impl Tx<'_> {
             self.note(format!("static ability reaching `AffectedZone$ {zone}`"));
             return None;
         }
+        // "This creature's power and toughness are each equal to the number
+        // of Swamps you control" (Nightmare): a characteristic-defining
+        // ability (CR 604.3), about the card itself and so with no
+        // `Affected$`.
+        if p.peek("Affected").is_none()
+            && p.take("CharacteristicDefining").as_deref() == Some("True")
+        {
+            return self.characteristic_pt(p);
+        }
         let Some(affected) = p.take("Affected") else {
             return self.deny("a continuous static with no `Affected$`".to_string());
         };
@@ -3250,6 +3310,46 @@ impl Tx<'_> {
             return None;
         }
         self.body.abilities.extend(out);
+        Some(())
+    }
+
+    /// A characteristic-defining power and toughness (CR 604.3): both equal
+    /// to one count of permanents, the ones you control
+    /// (`PtCount::YouControl`) or all of them (`PtCount::OnBattlefield`).
+    /// Layer 7a on the battlefield, and the card's own number everywhere
+    /// else (CR 604.3), both of which `Modifier::CharacteristicPT` is. A
+    /// count of somebody else's permanents, a toughness apart from the power
+    /// or a clause beside it (Gaea's Liege's "as long as it isn't
+    /// attacking") is another sentence, and refused.
+    fn characteristic_pt(&mut self, mut p: Params) -> Option<()> {
+        let (Some(power), Some(toughness)) = (p.take("SetPower"), p.take("SetToughness")) else {
+            return self.deny("a characteristic-defining ability with no P/T".to_string());
+        };
+        if power != toughness {
+            return self.deny(format!(
+                "a defined toughness `{toughness}` apart from power"
+            ));
+        }
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Continuous.{key}`"));
+        }
+        let Some(count) = self.svars.get(&power).cloned() else {
+            return self.deny(format!("`{power}` names no SVar"));
+        };
+        let Some(valid) = count.strip_prefix("Count$Valid ") else {
+            return self.deny(format!("count `{count}`"));
+        };
+        let yours = valid.split(['.', '+']).any(|atom| atom == "YouCtrl");
+        if !yours && (valid.contains("Ctrl") || valid.contains("Own")) {
+            return self.deny(format!("count `{count}`"));
+        }
+        let filter = self.filter_expr(valid)?;
+        let name = self.body.filter_static("COUNTED", &filter);
+        let count = if yours { "YouControl" } else { "OnBattlefield" };
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
+             count: PtCount::{count}(&{name}), toughness_plus: 0 }})"
+        ));
         Some(())
     }
 
@@ -4422,6 +4522,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "DamageAll",
     "DamageResolve",
     "PreventDamage",
+    "AddTurn",
     "ChooseSource",
     "Fog",
     "Regenerate",
@@ -6158,6 +6259,63 @@ SVar:X:Count$xPaid",
              S:Mode$ Continuous | Affected$ Creature.Goblin | AddAbility$ Ping\n\
              SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1\n"
         ));
+    }
+
+    /// Keldon Warlord, Plague Rats, Time Walk, Regeneration: the sentences
+    /// the DSL already had words for.
+    #[test]
+    fn characteristic_counts_extra_turns_and_the_enchanted_host() {
+        let body = read(
+            "Name:X\nManaCost:2 R R\nTypes:Creature Goblin\nPT:*/*\n\
+             S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X | \
+             Description$ Its power.\n\
+             SVar:X:Count$Valid Creature.nonWizard+YouCtrl\n",
+        );
+        let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+        assert!(
+            text.contains("count: PtCount::YouControl(&COUNTED1)"),
+            "{text}"
+        );
+        assert!(text.contains("Filter::ControlledByYou"), "{text}");
+
+        let body = read(
+            "Name:X\nManaCost:2 B\nTypes:Creature Rat\nPT:*/*\n\
+             S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n\
+             SVar:X:Count$Valid Creature.namedPlague Rats\n",
+        );
+        let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+        assert!(text.contains("PtCount::OnBattlefield(&COUNTED1)"), "{text}");
+        assert!(text.contains("Filter::Named(\"Plague Rats\")"), "{text}");
+
+        // Somebody else's permanents, and a clause beside the count.
+        assert!(refused(
+            "Name:X\nTypes:Creature\nS:Mode$ Continuous | CharacteristicDefining$ True | \
+             SetPower$ X | SetToughness$ X\nSVar:X:Count$Valid Forest.DefenderCtrl\n"
+        ));
+        assert!(refused(
+            "Name:X\nTypes:Creature\nS:Mode$ Continuous | CharacteristicDefining$ True | \
+             IsPresent$ Card.Self+attacking | SetPower$ X | SetToughness$ X\n\
+             SVar:X:Count$Valid Forest.YouCtrl\n"
+        ));
+
+        let body = read("Name:X\nManaCost:U\nTypes:Sorcery\nA:SP$ AddTurn | NumTurns$ 1\n");
+        assert_eq!(body.abilities.len(), 1);
+        assert!(body.abilities[0].contains("Effect::TakeExtraTurn"));
+        assert!(refused(
+            "Name:X\nTypes:Sorcery\nA:SP$ AddTurn | NumTurns$ 2\n"
+        ));
+
+        let body = read(
+            "Name:X\nManaCost:1 G\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             A:AB$ Regenerate | Cost$ G | Defined$ Enchanted | SpellDescription$ Regenerate.\n",
+        );
+        assert!(
+            body.abilities
+                .join("")
+                .contains("Effect::RegenerateAll { filter: &Filter::AttachedToBySource }"),
+            "{:?}",
+            body.abilities
+        );
     }
 
     /// The Circles of Protection and Reverse Damage: a source chosen as the
