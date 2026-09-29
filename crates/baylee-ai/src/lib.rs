@@ -440,14 +440,17 @@ impl HeuristicAgent {
                 // turn 34: the engine put the cast back, the board was
                 // unchanged, so the agent cast the same spell again and the
                 // harness's loop detector ended the game. A spell was cast to
-                // do something, so an unbounded choice takes every enemy it
-                // was offered, and never fewer than one.
+                // do something, so an open choice takes every enemy it was
+                // offered, never fewer than one and never more than `max`:
+                // "up to four" over eleven enemy Illusions named all eleven,
+                // and the engine refused the answer as too many (the
+                // trained AI's fuzzer, main 50050ff3, seeds 486 and 1931).
                 let n = if max <= 2 {
-                    max as usize
+                    usize::from(max)
                 } else if min == 0 {
-                    enemies.max(1)
+                    enemies.clamp(1, usize::from(max))
                 } else {
-                    min as usize
+                    usize::from(min)
                 };
                 let objects = ordered[..n.min(ordered.len())].to_vec();
                 // "Any target" with nothing on the battlefield worth hitting
@@ -1151,6 +1154,38 @@ mod tests {
             aim(vec![permanent(obj(4), me, 1), permanent(obj(1), them, 5)]),
             chosen(vec![obj(1)])
         );
+    }
+
+    /// "Up to four targets" with nothing in the context to rank them by,
+    /// over eleven enemy creatures and one of this seat's. The fallback
+    /// takes every enemy it was offered, and it named all eleven where the
+    /// question allows four: the engine refused the answer as too many
+    /// (the trained AI's fuzzer on main 50050ff3, seeds 486 and 1931, with
+    /// Flying Men, Meloku and its Illusions across the table). Four
+    /// enemies, and never the seat's own creature.
+    #[test]
+    fn an_open_count_of_targets_is_held_to_its_maximum() {
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut battlefield: Vec<PublicObject> =
+            (1..=11).map(|slot| permanent(obj(slot), them, 1)).collect();
+        battlefield.push(permanent(obj(12), me, 2));
+        let v = view(0, &[20, 20], battlefield);
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: v.battlefield.iter().map(|o| o.id).collect(),
+            player_options: vec![],
+            min: 0,
+            max: 4,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let action = HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending);
+        assert_eq!(pending.answer_fault(&action), None, "{action:?}");
+        let PlayerAction::ChooseTargets { objects, players } = action else {
+            panic!("a target question answered with targets")
+        };
+        assert_eq!(objects.len(), 4, "as many as the question allows");
+        assert!(players.is_empty(), "no player was offered");
+        assert!(!objects.contains(&obj(12)), "and none of the seat's own");
     }
 
     #[test]
