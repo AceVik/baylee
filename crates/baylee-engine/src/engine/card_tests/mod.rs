@@ -168,6 +168,10 @@ fn spark_double() -> CardIndex {
     card_index("8dcb35e5-ae44-455f-86e3-4a77d496ff34")
 }
 
+fn dig_through_time() -> CardIndex {
+    card_index("f8b17b89-26ce-4208-874a-9e1d66514640")
+}
+
 /// Casts the Spark Double in `seat`'s hand off everything that seat can tap
 /// and has it enter as a copy of `original`, a permanent that seat controls.
 /// Answers the copy, which is still Spark Double's card.

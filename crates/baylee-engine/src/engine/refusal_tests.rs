@@ -13,7 +13,8 @@
 //!
 //! **Every question the engine asks has at least one answer it accepts.**
 //! A question with none stops the table: a house seat's proposal and its
-//! fallback are both refused, and a player can only concede.
+//! fallback are both refused, and a player can only concede. Dig Through
+//! Time asked for two cards from a library of one (r002 games 368, 2675).
 //!
 //! The sweep plays house decks against each other with a seeded driver that
 //! answers from what the question enumerates. At every decision it first
@@ -389,6 +390,8 @@ struct Findings {
     changed: Vec<String>,
     /// A question none of whose sampled answers was accepted.
     unanswerable: Vec<String>,
+    /// A question whose own numbers say it has no answer.
+    malformed: Vec<String>,
     /// An answer the question did not offer, taken anyway.
     accepted: Vec<String>,
     /// Decisions made, so the sweep cannot pass by reaching nothing.
@@ -399,6 +402,7 @@ impl Findings {
     fn absorb(&mut self, other: Findings) {
         self.changed.extend(other.changed);
         self.unanswerable.extend(other.unanswerable);
+        self.malformed.extend(other.malformed);
         self.accepted.extend(other.accepted);
         self.decisions += other.decisions;
     }
@@ -414,6 +418,51 @@ fn differing(
         .filter(|(a, b)| a.1 != b.1)
         .map(|(a, _)| a.0)
         .collect()
+}
+
+/// The question's own arithmetic, where it can say there is no answer
+/// without trying one.
+fn malformed(pending: &Pending) -> Option<String> {
+    match pending {
+        Pending::ChooseCards {
+            options, min, max, ..
+        } if usize::from(*min) > options.len() || min > max => Some(format!(
+            "ChooseCards min {min} max {max} over {} options",
+            options.len()
+        )),
+        Pending::ChooseTargets {
+            options,
+            player_options,
+            min,
+            max,
+            ..
+        } if usize::from(*min) > options.len() + player_options.len() || min > max => {
+            Some(format!(
+                "ChooseTargets min {min} max {max} over {} + {} options",
+                options.len(),
+                player_options.len()
+            ))
+        }
+        Pending::ChooseNumber { min, max, .. } if min > max => {
+            Some(format!("ChooseNumber min {min} > max {max}"))
+        }
+        Pending::LegendChoice { options, .. } if options.is_empty() => {
+            Some("LegendChoice with no options".into())
+        }
+        Pending::ChooseSubtype { options, .. } if options.is_empty() => {
+            Some("ChooseSubtype with no options".into())
+        }
+        Pending::ChooseColor { options, .. } if options.is_empty() => {
+            Some("ChooseColor with no options".into())
+        }
+        Pending::ChooseCastMode { options, .. } if options.is_empty() => {
+            Some("ChooseCastMode with no options".into())
+        }
+        Pending::ChoosePlayer { options, .. } if options.is_empty() => {
+            Some("ChoosePlayer with no options".into())
+        }
+        _ => None,
+    }
 }
 
 /// Plays one game to its end or `cap` decisions.
@@ -441,6 +490,11 @@ fn play(
             break; // game over
         };
         found.decisions += 1;
+        if let Some(what) = malformed(&pending) {
+            found
+                .malformed
+                .push(format!("{}: {what}", tag(&engine, decision)));
+        }
         // The light print at every refusal, the whole one at a sample of
         // decisions: the whole print is half a megabyte of text in a long
         // game, and the fields it adds (the arena, the base cache, the
@@ -536,7 +590,12 @@ fn sweep(games: &[(usize, usize, u64)], cap: usize) -> Findings {
     for f in results {
         all.absorb(f);
     }
-    for list in [&mut all.changed, &mut all.unanswerable, &mut all.accepted] {
+    for list in [
+        &mut all.changed,
+        &mut all.unanswerable,
+        &mut all.malformed,
+        &mut all.accepted,
+    ] {
         list.sort();
     }
     all
@@ -575,10 +634,14 @@ fn rings() -> Vec<(usize, usize, u64)> {
 
 fn assert_clean(found: &Findings, floor: usize) {
     assert!(
-        found.changed.is_empty() && found.unanswerable.is_empty() && found.accepted.is_empty(),
-        "refusals that changed the engine: {:#?}\nquestions nothing answered: {:#?}\nanswers taken that no question offered: {:#?}",
+        found.changed.is_empty()
+            && found.unanswerable.is_empty()
+            && found.malformed.is_empty()
+            && found.accepted.is_empty(),
+        "refusals that changed the engine: {:#?}\nquestions nothing answered: {:#?}\nquestions with no answer by their own numbers: {:#?}\nanswers taken that no question offered: {:#?}",
         found.changed,
         found.unanswerable,
+        found.malformed,
         found.accepted
     );
     // A sweep that reaches nothing passes exactly as loudly as one that

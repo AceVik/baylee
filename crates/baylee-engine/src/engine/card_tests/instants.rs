@@ -19215,3 +19215,71 @@ fn banishing_stroke_offers_its_miracle_only_over_a_target() {
         }
     }
 }
+
+/// Dig Through Time over a library of one puts that one into your hand.
+///
+/// "Look at the top seven cards of your library. Put two of them into your
+/// hand and the rest on the bottom of your library in any order." With one
+/// card left the effect does only as much as possible (CR 609.3): it puts the
+/// one. It asked for two out of one instead, a question no answer could
+/// satisfy, and the table stopped — the house's proposal and its fallback
+/// both refused (r002 games 368 and 2675).
+#[test]
+fn dig_through_time_over_a_library_of_one_puts_that_one_into_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(17, island())
+        .battlefield(0, &[island(); 8])
+        .hand(0, &[dig_through_time()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let left = library_size(&engine, p0);
+    seed_graveyard(&mut engine, p0, left - 1);
+    let last = engine.state().zones.list(ZoneLocation::Library(p0))[0];
+    cast_from_hand(&mut engine, p0, dig_through_time());
+    // Delve offers the graveyard just filled; eight Islands pay without it.
+    if let Pending::ChooseCards {
+        prompt: ChoicePrompt::Delve,
+        ..
+    } = engine.pending()
+    {
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+            .expect("delving nothing is an answer");
+    }
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::Generic,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(options, vec![last], "the one card there is");
+    assert_eq!((min, max), (1, 1), "asked for as many as there are");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![last],
+            },
+        )
+        .expect("the one card is the answer");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&last),
+        "the card went to hand"
+    );
+    assert_eq!(library_size(&engine, p0), 0);
+}

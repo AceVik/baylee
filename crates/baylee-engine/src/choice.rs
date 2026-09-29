@@ -512,6 +512,79 @@ impl YesNoPrompt {
     }
 }
 
+impl Pending {
+    /// Brings a counted choice within what its options can give, and says
+    /// whether the question then has an answer at all.
+    ///
+    /// A choice of cards asks for no more cards than it offers: an effect
+    /// that attempts the impossible does only as much as possible (CR
+    /// 609.3), a player can't choose what is impossible (CR 608.2d), and a
+    /// search that is short finds as many as it can (CR 701.23d). The piles
+    /// of an arrangement are held to the cards left the same way. That is
+    /// the whole of what fitting does; `Engine::apply` runs it over every
+    /// question it hands out, so a builder that forgets the bound asks a
+    /// question that still has an answer.
+    ///
+    /// Every other question has an answer by its shape or has none, and
+    /// fitting cannot give it one. A target choice with fewer options than
+    /// it must name is a spell or ability that cannot be put on the stack
+    /// (CR 601.2c, CR 603.3d), which its builder refuses; shrinking its `min`
+    /// here would cast a spell with fewer targets than it requires. A menu
+    /// with nothing on it has no answer at all.
+    ///
+    /// An exhaustive match on purpose, for [`timeout_answer`]'s reason: a new
+    /// question is classified here before it compiles.
+    pub fn fit_to_options(&mut self) -> bool {
+        match self {
+            Self::ChooseCards {
+                options, min, max, ..
+            } => {
+                let n = u8::try_from(options.len()).unwrap_or(u8::MAX);
+                *max = (*max).min(n);
+                *min = (*min).min(*max);
+                true
+            }
+            Self::Arrange { cards, piles, .. } => {
+                // Every card still goes somewhere, and no pile asks for more
+                // than is left once the piles before it have their least.
+                let total = u32::try_from(cards.len()).unwrap_or(u32::MAX);
+                let mut left = total;
+                let mut room = 0_u32;
+                for pile in piles.iter_mut() {
+                    pile.min = pile.min.min(left);
+                    pile.max = pile.max.min(total);
+                    left -= pile.min;
+                    room = room.saturating_add(pile.max);
+                }
+                room >= total
+            }
+            Self::ChooseTargets {
+                options,
+                player_options,
+                min,
+                max,
+                ..
+            } => usize::from(*min) <= options.len() + player_options.len() && min <= max,
+            Self::ChooseNumber { min, max, .. } => min <= max,
+            Self::LegendChoice { options, .. } => !options.is_empty(),
+            Self::ChooseSubtype { options, .. } => !options.is_empty(),
+            Self::ChooseColor { options, .. } => !options.is_empty(),
+            Self::ChooseCastMode { options, .. } => !options.is_empty(),
+            Self::ChoosePlayer { options, .. } => !options.is_empty(),
+            // Answered by passing, keeping, declining or declaring nothing,
+            // or by a count of cards the engine checks against the hand.
+            Self::Mulligan { .. }
+            | Self::MulliganBottom { .. }
+            | Self::Priority { .. }
+            | Self::ChooseAttackers { .. }
+            | Self::ChooseBlockers { .. }
+            | Self::DiscardChoice { .. }
+            | Self::YesNo { .. }
+            | Self::GameOver(_) => true,
+        }
+    }
+}
+
 /// The answer that does nothing, where the question has one (#258).
 ///
 /// What the decision clock answers for a seat that did not answer in time
@@ -1473,5 +1546,57 @@ mod choice_tests {
         let nothing = LegalActions::default();
         assert!(nothing.nothing_but_passing());
         assert!(!nothing.has_mana_source());
+    }
+}
+
+#[cfg(test)]
+mod fit_to_options_tests {
+    use super::*;
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+
+    fn card(n: u32) -> ObjectId {
+        ObjectId::new(n, 0)
+    }
+
+    /// A choice of cards is held to the cards it offers (CR 609.3), and a
+    /// target choice is not: shrinking it would cast a spell with fewer
+    /// targets than it requires (CR 601.2c).
+    #[test]
+    fn a_choice_of_cards_is_fitted_and_a_short_target_choice_is_not() {
+        let mut cards = Pending::ChooseCards {
+            player: me(),
+            options: vec![card(1)],
+            min: 2,
+            max: 2,
+            prompt: ChoicePrompt::Generic,
+        };
+        assert!(cards.fit_to_options());
+        let Pending::ChooseCards { min, max, .. } = cards else {
+            unreachable!()
+        };
+        assert_eq!((min, max), (1, 1));
+
+        let mut targets = Pending::ChooseTargets {
+            player: me(),
+            options: vec![card(1)],
+            player_options: vec![],
+            min: 2,
+            max: 2,
+            reason: TargetPrompt::Targets,
+        };
+        assert!(!targets.fit_to_options());
+        let Pending::ChooseTargets { min, .. } = targets else {
+            unreachable!()
+        };
+        assert_eq!(min, 2, "a target choice keeps what it requires");
+
+        let mut nobody = Pending::ChoosePlayer {
+            player: me(),
+            options: vec![],
+        };
+        assert!(!nobody.fit_to_options(), "an empty menu has no answer");
     }
 }

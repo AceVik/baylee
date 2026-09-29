@@ -992,6 +992,8 @@ impl<L: CardLookup> Engine<L> {
         let result = self.take_answer(player, action);
         if result.is_err() {
             self.put_back(held);
+        } else {
+            self.settle_question();
         }
         result
     }
@@ -1034,6 +1036,33 @@ impl<L: CardLookup> Engine<L> {
         self.activation_x = activation_x;
         self.activating_abilities = activating_abilities;
         self.loyalty_player_choice = loyalty_player_choice;
+    }
+
+    /// Holds the question about to be handed out to the promise that it has
+    /// an answer.
+    ///
+    /// Every question after the first leaves the engine through here, as
+    /// what an accepted answer left standing (the first is the opening
+    /// mulligan, which `Engine::new` asks and which always has one). So
+    /// this is where a question is *built*, as far as anybody outside can
+    /// tell, and the one place a check sees every builder at once. A counted
+    /// choice is fitted to its options (CR 609.3,
+    /// [`Pending::fit_to_options`]); one that fitting cannot give an answer
+    /// stops the game here, naming the question, instead of stopping the
+    /// table: no seat's answer is taken, and the house's proposal and its
+    /// fallback are both refused (r002 games 368, 2675).
+    fn settle_question(&mut self) {
+        let hand = |player: PlayerId| self.state.zones.list(ZoneLocation::Hand(player)).len();
+        let discardable = match &self.pending {
+            Pending::DiscardChoice { player, count } => usize::from(*count) <= hand(*player),
+            _ => true,
+        };
+        let answerable = self.pending.fit_to_options();
+        assert!(
+            discardable && answerable,
+            "the engine asked a question nothing can answer: {:?}",
+            self.pending
+        );
     }
 
     /// [`Self::apply`], less the restoring of what an answer's arrival moved.

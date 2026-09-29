@@ -503,7 +503,12 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
     // How many cards this search may produce, and how few it may settle
     // for: "up to two" is optional with two finds, "search for a basic land
     // card" is one find and mandatory.
-    let want = u8::try_from(finds.len()).unwrap_or(u8::MAX);
+    //
+    // Neither is more than the library holds: a player told to find two
+    // cards finds as many as possible when the zone doesn't contain enough
+    // (CR 701.23d), and a menu of one that demands two has no answer.
+    let found = u8::try_from(options.len()).unwrap_or(u8::MAX);
+    let want = u8::try_from(finds.len()).unwrap_or(u8::MAX).min(found);
     let least = if optional { 0 } else { want };
     let reveal = reveals(filter, finds);
     if let Some(agent) = takeover {
@@ -2433,6 +2438,14 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             if top.is_empty() {
                 return None;
             }
+            // "Put two of them into your hand" over a library of one puts
+            // the one: an effect that attempts the impossible does only as
+            // much as possible (CR 609.3), and a player can't choose what is
+            // impossible (CR 608.2d). Asking for `pick` regardless was a
+            // question with no answer — Dig Through Time late in a game
+            // asked for two cards out of one, and the table stopped (r002
+            // games 368 and 2675).
+            let pick = pick.min(u8::try_from(top.len()).unwrap_or(u8::MAX));
             res.awaiting = Some(AwaitingOp::DigRest { rest: top.clone() });
             Some(Pending::ChooseCards {
                 player: you,
@@ -3238,5 +3251,96 @@ mod created_for_the_departed_tests {
                 (crate::zone::Zone::Exile, ObjectKind::Card)
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod counted_choice_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+
+    /// A two-seat game whose seat 0 has `cards` cards in its library.
+    fn library_of(cards: usize) -> (GameState, Vec<ObjectId>) {
+        let mut state = GameState::from_preset(&preset(311, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let library = state.zones.list(ZoneLocation::Library(me())).clone();
+        for card in library {
+            let _ = state.move_object(
+                card,
+                ZoneLocation::Exile(me()),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+        }
+        let name = state.names.intern("Card");
+        let made = (0..cards)
+            .map(|_| state.create_bare(me(), ObjectKind::Card, name, ZoneLocation::Library(me())))
+            .collect();
+        (state, made)
+    }
+
+    fn mine(effect: Effect) -> Resolution {
+        Resolution {
+            source: ObjectId::NO_SOURCE,
+            on_stack: ObjectId::NO_SOURCE,
+            controller: me(),
+            effects: vec![effect],
+            pc: 0,
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_lki: None,
+            target_players: baylee_core::ids::SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: false,
+            mana_ability: false,
+            countered_source: None,
+        }
+    }
+
+    /// "Put two of them into your hand" over a library of one asks for the
+    /// one (CR 609.3). It asked for two, and nothing could answer.
+    #[test]
+    fn a_look_that_picks_more_than_the_library_holds_asks_for_what_is_there() {
+        let (mut state, cards) = library_of(1);
+        let mut res = mine(Effect::LookAtTopPick { count: 7, pick: 2 });
+        let Flow::Wait(Pending::ChooseCards {
+            options, min, max, ..
+        }) = run(&mut state, &mut res)
+        else {
+            panic!("the look asks");
+        };
+        assert_eq!(options, cards);
+        assert_eq!((min, max), (1, 1));
+    }
+
+    /// A search told to find two cards over a library holding one finds as
+    /// many as possible (CR 701.23d): one.
+    #[test]
+    fn a_search_for_more_than_the_library_holds_finds_what_is_there() {
+        const TWO: &[baylee_cards_dsl::effect::Find] = &[
+            baylee_cards_dsl::effect::Find::HAND,
+            baylee_cards_dsl::effect::Find::HAND,
+        ];
+        let (mut state, cards) = library_of(1);
+        let mut res = mine(Effect::SearchLibrary {
+            filter: &baylee_cards_dsl::Filter::Any,
+            finds: TWO,
+            optional: false,
+        });
+        let Flow::Wait(Pending::ChooseCards {
+            options, min, max, ..
+        }) = run(&mut state, &mut res)
+        else {
+            panic!("the search asks");
+        };
+        assert_eq!(options, cards);
+        assert_eq!((min, max), (1, 1));
     }
 }
