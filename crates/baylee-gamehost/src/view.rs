@@ -234,7 +234,7 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         base_power: obj.base.power,
         base_toughness: obj.base.toughness,
         loyalty: loyalty_now(obj, chars.loyalty),
-        mana_value: chars.mana_cost.cmc(),
+        mana_value: chars.mana_value(),
         damage: obj.damage,
         counters: obj
             .counters
@@ -817,7 +817,7 @@ pub(crate) fn own_hand(state: &GameState, seat: PlayerId) -> Vec<HandObject> {
                     face: obj.face_index,
                 },
                 name: state.names.get(chars.name).to_string(),
-                mana_value: chars.mana_cost.cmc(),
+                mana_value: chars.mana_value(),
                 colors: chars.colors,
                 types: chars.types,
                 commander: is_commander(state, *id),

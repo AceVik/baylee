@@ -271,7 +271,16 @@ const MAX_COPY_DEPTH: u8 = 8;
 /// and would want this function the day one does.
 #[must_use]
 pub fn copiable_values(state: &GameState, id: ObjectId) -> Option<Arc<Characteristics>> {
-    copiable_values_at(state, id, 0)
+    let values = copiable_values_at(state, id, 0)?;
+    // CR 202.3b and 712.8e: a copy of a nonmodal double-faced card's back
+    // face has mana value 0. The face's own mana value is its front face's,
+    // and that is the one thing about the face a copy does not take.
+    if values.front_mana_value.is_some_and(|value| value != 0) {
+        let mut copied = (*values).clone();
+        copied.front_mana_value = Some(0);
+        return Some(Arc::new(copied));
+    }
+    Some(values)
 }
 
 fn copiable_values_at(state: &GameState, id: ObjectId, depth: u8) -> Option<Arc<Characteristics>> {

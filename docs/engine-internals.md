@@ -684,6 +684,21 @@ madness, disturb decompose into: `CastPermission` (zone/cost/timing
 override) + `PendingCast` (with expiry) + `DelayedTrigger` + `ExileRider`.
 Keywords exist on stack objects (rebound can be granted).
 
+**A back face's mana value is its front face's** (CR 202.3b). A nonmodal
+double-faced card's back face has no mana cost, and up on the battlefield
+(CR 712.8e) or cast transformed (CR 712.8c) its mana value is computed
+from the front face's: Ravager of the Fells is a four, not a zero, and a
+disturbed Benevolent Geist a two. A disturb face keeps its disturb cost in
+`mana_cost`, since that is what it is cast for, so the cost is not the
+answer either. `Characteristics::from_face` writes the front face's mana
+value into `front_mana_value` on a back face no one may cast from hand
+(the flag `xtask validate` holds against Scryfall's layout), and every
+reader asks `Characteristics::mana_value()`, never `mana_cost.cmc()`. A
+copy of such a face has mana value 0: `layers::copiable_values`, the one
+door every copy takes its values through, writes the 0. Nothing counts
+devotion yet; whatever does must not count a disturb face's `mana_cost`,
+because the back face has no mana cost.
+
 ## Loop detection
 A real endless loop is a *repeat*, not a long run. Every mandatory loop in
 Magic goes through the stack, so the players are asked every time round and

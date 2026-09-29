@@ -1064,6 +1064,7 @@ impl GameState {
             produced_colorless: false,
             produced_chosen: false,
             abilities_lost: None,
+            front_mana_value: None,
         });
         Arc::make_mut(&mut self.bases)
             .bare
@@ -1106,6 +1107,7 @@ impl GameState {
             produced_colorless: false,
             produced_chosen: false,
             abilities_lost: None,
+            front_mana_value: None,
         });
         Arc::make_mut(&mut self.bases)
             .tokens
@@ -1789,7 +1791,7 @@ impl GameState {
         {
             let controller = object.controller;
             let characteristics = object.characteristics();
-            let (mana_value, power) = (characteristics.mana_cost.cmc(), characteristics.power);
+            let (mana_value, power) = (characteristics.mana_value(), characteristics.power);
             self.ltb_mana_values.push((id, mana_value));
             if let Some(power) = power {
                 self.ltb_powers.push((id, power));
@@ -2968,6 +2970,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
         produced_colorless,
         produced_chosen,
         abilities_lost,
+        front_mana_value,
     } = characteristics;
     name.hash(h);
     hash_mana_cost(h, mana_cost);
@@ -2984,6 +2987,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     produced_colorless.hash(h);
     produced_chosen.hash(h);
     abilities_lost.hash(h);
+    front_mana_value.hash(h);
 }
 
 #[allow(clippy::too_many_lines)] // one line per field: the list is the guard

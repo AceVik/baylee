@@ -2028,7 +2028,7 @@ impl<L: CardLookup> Engine<L> {
                         sacrificed_mana_value = self
                             .state
                             .object(card)
-                            .map(|o| o.characteristics().mana_cost.cmc());
+                            .map(|o| o.characteristics().mana_value());
                     }
                     cost_wizard::pay(&mut self.state, player, part, card)?;
                 }

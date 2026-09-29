@@ -428,7 +428,7 @@ fn within(
     bound: Option<(baylee_cards_dsl::ManaValueCmp, u32)>,
 ) -> bool {
     bound.is_none_or(|(cmp, n)| {
-        let mv = o.characteristics().mana_cost.cmc();
+        let mv = o.characteristics().mana_value();
         match cmp {
             baylee_cards_dsl::ManaValueCmp::AtMost => mv <= n,
             baylee_cards_dsl::ManaValueCmp::Exactly => mv == n,
@@ -608,7 +608,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .targets
             .first()
             .and_then(|t| state.object(*t))
-            .map_or(0, |o| o.characteristics().mana_cost.cmc()),
+            .map_or(0, |o| o.characteristics().mana_value()),
         // Off the stack object, which is where the payment wrote it — a
         // spell's own, or the ability's rather than its permanent's.
         Amount::SacrificedManaValue => state
@@ -2253,7 +2253,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 if !eval::matches(filter, state, obj, you, res.source) {
                     continue;
                 }
-                let cmc = obj.characteristics().mana_cost.cmc();
+                let cmc = obj.characteristics().mana_value();
                 if cmc > greatest {
                     greatest = cmc;
                     holds = obj.controller == you;

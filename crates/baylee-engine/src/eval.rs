@@ -119,7 +119,7 @@ pub fn matches_projected(
                 .any(|commander| obj_subs.intersects(commander.characteristics().subtypes))
         }
         Filter::HasKeyword(k) => chars.keywords.contains(*k),
-        Filter::CmcAtMost(n) => chars.mana_cost.cmc() <= *n,
+        Filter::CmcAtMost(n) => chars.mana_value() <= *n,
         // The bound is the announced X on the ability's own source, which is
         // where `cast_wizard` writes it and what `res.x` is read from one
         // layer up. A source that is gone, or that announced nothing, bounds
@@ -127,9 +127,9 @@ pub fn matches_projected(
         // whole library would be a tutor with no price.
         Filter::CmcAtMostX => {
             let x = state.object(this).map_or(0, |o| o.x_value);
-            chars.mana_cost.cmc() <= x
+            chars.mana_value() <= x
         }
-        Filter::CmcAtLeast(n) => chars.mana_cost.cmc() >= *n,
+        Filter::CmcAtLeast(n) => chars.mana_value() >= *n,
         Filter::ToughnessAtMost(n) => chars.toughness.is_some_and(|t| t <= *n),
         Filter::ToughnessAtLeast(n) => chars.toughness.is_some_and(|t| t >= *n),
         // `is_some_and`, so an object with no power at all — a land, an
@@ -698,7 +698,7 @@ pub fn target_options(
                 .filter(|id| {
                     state
                         .object(*id)
-                        .is_some_and(|o| o.characteristics().mana_cost.cmc() < *limit)
+                        .is_some_and(|o| o.characteristics().mana_value() < *limit)
                 })
                 .collect()
         }

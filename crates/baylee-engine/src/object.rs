@@ -217,9 +217,30 @@ pub struct Characteristics {
     /// zero, and a game four billion timestamps long saturates rather than
     /// wraps (`lost_at`).
     pub abilities_lost: Option<std::num::NonZeroU32>,
+    /// The mana value, where it is not the mana cost's (CR 202.3b). A
+    /// nonmodal double-faced card's back face has no mana cost of its own,
+    /// and its mana value is its front face's, whether it is up on the
+    /// battlefield (CR 712.8e) or was cast transformed (CR 712.8c): a
+    /// Ravager of the Fells is a four, Benevolent Geist a two. A copy of such
+    /// a face is 0 (`layers::copiable_values`). `None` on every other face,
+    /// whose mana value is its cost's. Read it through [`Self::mana_value`],
+    /// never `mana_cost.cmc()`: a disturb face keeps its disturb cost in
+    /// `mana_cost`, which is what it is cast for and not its mana value.
+    pub front_mana_value: Option<u8>,
 }
 
 impl Characteristics {
+    /// The mana value (CR 202.3): the front face's for a nonmodal
+    /// double-faced card's back face ([`Self::front_mana_value`]), else the
+    /// mana cost's.
+    #[must_use]
+    pub const fn mana_value(&self) -> u32 {
+        match self.front_mana_value {
+            Some(value) => value as u32,
+            None => self.mana_cost.cmc(),
+        }
+    }
+
     /// The timestamp [`Self::abilities_lost`] stores for an effect's, which
     /// is never zero; past `u32::MAX` it saturates, so a later effect never
     /// sorts before an earlier one.
@@ -233,7 +254,8 @@ impl Characteristics {
     #[must_use]
     #[allow(clippy::too_many_lines)] // the color scan is one flat table
     pub fn from_face(def: &CardDef, face: usize, name: NameRef) -> Self {
-        let f = &def.faces[face.min(def.faces.len() - 1)];
+        let face = face.min(def.faces.len() - 1);
+        let f = &def.faces[face];
         let mut subtypes = SubtypeSet::from_slice(f.subtypes);
         // CR 702.73a: changeling is a **characteristic-defining ability** —
         // "this object is every creature type" — and CR 604.3 makes a CDA
@@ -391,6 +413,13 @@ impl Characteristics {
             produced_chosen,
             produced_colorless,
             abilities_lost: None,
+            // A back face nobody may cast out of hand is a nonmodal one
+            // (`xtask validate` holds the flag against Scryfall's layout):
+            // its mana value is the front face's (CR 202.3b). A modal back,
+            // an adventure and a split half are cast for their own cost and
+            // keep it.
+            front_mana_value: (face > 0 && !f.castable_from_hand)
+                .then(|| u8::try_from(def.faces[0].mana_cost.cmc()).unwrap_or(u8::MAX)),
         }
     }
 }
