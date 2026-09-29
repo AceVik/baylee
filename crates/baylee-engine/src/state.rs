@@ -665,6 +665,15 @@ pub struct GameState {
     /// question with an entry here: `snapshot_hash` reads it, and
     /// `loop_signature`, taken only at priority grants, has nothing to read.
     pub discovered: Vec<(PlayerId, ObjectId, u32)>,
+    /// The announced division of each ability on the stack that deals
+    /// damage "divided as you choose" (CR 601.2d): its targets, each with
+    /// its share. Written as the ability is put on the stack
+    /// (`Engine::ask_trigger_division`) and read as it resolves; an entry
+    /// whose object has left the stack is dropped as the next resolution
+    /// ends. Off the object because no other object has one, and
+    /// `tests/footprint.rs` holds `GameObject` to its size. Nothing copies a
+    /// triggered ability, so no copy has to carry one (CR 115.7f).
+    pub divided: Vec<(ObjectId, Vec<(ObjectId, u32)>)>,
     /// Each seat's commanders (CR 903.3), by seat index.
     ///
     /// The list is the marker, and it has to be: commander-ness belongs to
@@ -898,6 +907,7 @@ impl GameState {
             ceased: Vec::new(),
             reflexive: Vec::new(),
             discovered: Vec::new(),
+            divided: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
             day_night: None,
@@ -2308,6 +2318,7 @@ impl GameState {
             // enforces; the field says which.
             reflexive: _,
             discovered,
+            divided,
             commanders,
             monarch,
             day_night,
@@ -2386,6 +2397,8 @@ impl GameState {
         pending_copied_faces.hash(&mut h);
         // A discovered card waiting for the resolution that found it to end.
         discovered.hash(&mut h);
+        // How an ability on the stack divides its damage.
+        divided.hash(&mut h);
         // The look-back lists are not scan bookkeeping that a priority
         // grant clears: an entry stays until its object moves again, and
         // `eval::matches` consults `ltb_attachments` in general.

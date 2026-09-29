@@ -250,6 +250,7 @@ impl<L: CardLookup> Engine<L> {
                     player: p,
                     min,
                     max,
+                    ..
                 },
                 PlayerAction::ChooseNumber(n),
             ) if *p == player => {
@@ -267,13 +268,32 @@ impl<L: CardLookup> Engine<L> {
                 // tells them apart and it has to be read *before* the
                 // `expect` below — which is the whole reason the branch is
                 // here rather than after it.
-                if let Some(PlanKind::ChooseActivationX {
-                    source,
-                    ability_index,
-                }) = self.pending_plan.take()
-                {
-                    self.activation_x = Some(n);
-                    return self.start_activation(player, source, ability_index, SmallVec::new());
+                match self.pending_plan.take() {
+                    Some(PlanKind::ChooseActivationX {
+                        source,
+                        ability_index,
+                    }) => {
+                        self.activation_x = Some(n);
+                        return self.start_activation(
+                            player,
+                            source,
+                            ability_index,
+                            SmallVec::new(),
+                        );
+                    }
+                    // One target's share of a division; the next is asked,
+                    // or the last takes the rest.
+                    Some(PlanKind::DivideDamage {
+                        on_stack,
+                        targets,
+                        mut shares,
+                        total,
+                    }) => {
+                        shares.push(n);
+                        self.ask_division(player, on_stack, targets, shares, total);
+                        return Ok(());
+                    }
+                    _ => {}
                 }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
                 wizard.x = n;
@@ -640,8 +660,11 @@ impl<L: CardLookup> Engine<L> {
                             }
                         }
                         // A second instance of "target" is asked now that the
-                        // first is on the stack object it binds against.
-                        self.ask_trigger_second_target();
+                        // first is on the stack object it binds against, and
+                        // a division once the targets are known.
+                        if !self.ask_trigger_second_target() {
+                            self.ask_trigger_division();
+                        }
                     }
                     PlanKind::TriggerSecondTarget { on_stack } => {
                         if let Some(obj) = self.state.object_mut(on_stack) {
@@ -736,6 +759,9 @@ impl<L: CardLookup> Engine<L> {
                     }
                     PlanKind::Miracle { .. } | PlanKind::Discovered { .. } => {
                         unreachable!("miracle and discover plans are answered via YesNo")
+                    }
+                    PlanKind::DivideDamage { .. } => {
+                        unreachable!("division plans are answered via ChooseNumber")
                     }
                 }
                 Ok(())

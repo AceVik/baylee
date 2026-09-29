@@ -426,6 +426,15 @@ impl HeuristicAgent {
             Pending::ChooseColor { options, .. } => {
                 PlayerAction::ChooseColor(self.color(view, &options, context))
             }
+            // A share of a division: what the target needs to die, if it is
+            // an opponent's, within what the question allows; the least for
+            // anything else.
+            Pending::ChooseNumber {
+                min,
+                max,
+                reason: baylee_engine::choice::NumberPrompt::DivideDamage { target, .. },
+                ..
+            } => PlayerAction::ChooseNumber(self.damage_share(view, target, min, max)),
             Pending::ChooseNumber { min, max, .. } => {
                 PlayerAction::ChooseNumber(self.number(view, min, max, context))
             }
@@ -904,6 +913,99 @@ mod tests {
             PlayerAction::ChooseObjects {
                 objects: vec![elves]
             }
+        );
+    }
+
+    /// A share of damage this seat divides (CR 601.2d): what finishes an
+    /// opponent's creature, its toughness less the damage already marked,
+    /// or a planeswalker's loyalty, within the question's bounds; the least
+    /// to one of its own, which leaves the most for the targets to come.
+    #[test]
+    fn a_divided_share_is_what_finishes_the_target() {
+        use baylee_engine::choice::NumberPrompt;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut hurt = permanent(obj(1), them, 3);
+        hurt.damage = 1;
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                hurt,
+                permanent(obj(2), them, 5),
+                walker(obj(3), them, 2),
+                permanent(obj(4), me, 1),
+            ],
+        );
+        for (target, expected, why) in [
+            (obj(1), 2, "a 3/3 with 1 marked"),
+            (obj(2), 3, "a 5/5 takes all the question allows"),
+            (obj(3), 2, "a planeswalker with 2 loyalty"),
+            (obj(4), 1, "the seat's own creature"),
+        ] {
+            let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+                &v,
+                &Pending::ChooseNumber {
+                    player: v.seat,
+                    min: 1,
+                    max: 3,
+                    reason: NumberPrompt::DivideDamage {
+                        target,
+                        index: 0,
+                        of: 2,
+                        left: 4,
+                    },
+                },
+            );
+            assert_eq!(action, PlayerAction::ChooseNumber(expected), "{why}");
+        }
+    }
+
+    /// Fury's targets: the opponent's creatures its 4 damage can finish,
+    /// the most valuable first, and not the 5/5 it cannot, which would
+    /// only take damage from one it can. With nothing it can finish, the
+    /// best of the opponent's takes it all; its own are never named.
+    #[test]
+    fn divided_damage_is_aimed_at_what_it_can_finish() {
+        use baylee_cards_dsl::Effect;
+        use baylee_engine::engine::DecisionContext;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let effects = [Effect::DealDamageDivided { amount: 4 }];
+        let context = DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        };
+        let aim = |battlefield: Vec<PublicObject>| {
+            let v = view(0, &[20, 20], battlefield);
+            let options = v.battlefield.iter().map(|o| o.id).collect();
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(
+                &v,
+                &Pending::ChooseTargets {
+                    player: v.seat,
+                    options,
+                    player_options: vec![],
+                    min: 0,
+                    max: 4,
+                    reason: baylee_engine::choice::TargetPrompt::Targets,
+                },
+                &context,
+            )
+        };
+        let chosen = |objects| PlayerAction::ChooseTargets {
+            objects,
+            players: vec![],
+        };
+        assert_eq!(
+            aim(vec![
+                permanent(obj(4), me, 1),
+                permanent(obj(1), them, 5),
+                permanent(obj(2), them, 3),
+                permanent(obj(3), them, 1),
+            ]),
+            chosen(vec![obj(2), obj(3)])
+        );
+        assert_eq!(
+            aim(vec![permanent(obj(4), me, 1), permanent(obj(1), them, 5)]),
+            chosen(vec![obj(1)])
         );
     }
 
@@ -1741,6 +1843,7 @@ mod tests {
             player: v.seat,
             min: 0,
             max: 50,
+            reason: baylee_engine::choice::NumberPrompt::Announce,
         };
         assert_eq!(
             HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),

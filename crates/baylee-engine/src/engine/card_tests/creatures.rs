@@ -93226,3 +93226,278 @@ fn the_balrog_of_moria_discarded_to_hand_size_is_not_cycled() {
     });
     assert!(tokens_of(&engine, p0).is_empty(), "no Treasure");
 }
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Fury.
+// ---------------------------------------------------------------------------
+
+fn fury() -> CardIndex {
+    card_index("fbf9f8c5-849f-45d5-8129-5fc683c21a04")
+}
+
+/// Fury enters on seat 0's main phase against the opponent's `theirs`:
+/// cast off five Mountains, or evoked by exiling a Lightning Bolt with no
+/// land at all. Returns the engine at the enters trigger's target question.
+fn fury_enters(theirs: &[CardIndex], evoke: bool) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let lands = if evoke { vec![] } else { vec![mountain(); 5] };
+    let hand = if evoke {
+        vec![fury(), lightning_bolt()]
+    } else {
+        vec![fury()]
+    };
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &lands)
+        .battlefield(1, theirs)
+        .hand(0, &hand)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    if evoke {
+        let card = in_hand(&engine, p0, fury()).unwrap();
+        engine
+            .apply(p0, PlayerAction::CastSpell { card })
+            .expect("the evoke cost needs no mana");
+        let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+            panic!(
+                "the evoke cost asks for a red card, got {:?}",
+                engine.pending()
+            )
+        };
+        let bolt = in_hand(&engine, p0, lightning_bolt()).unwrap();
+        assert_eq!(options, vec![bolt], "Fury itself is on the stack");
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![bolt],
+                },
+            )
+            .unwrap();
+    } else {
+        cast_from_hand(&mut engine, p0, fury());
+    }
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!()
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        (min, usize::from(max)),
+        (0, options.len().min(4)),
+        "any number, and a fifth target could not be dealt 1"
+    );
+    engine
+}
+
+/// Names `targets` for Fury's trigger.
+fn fury_aims(engine: &mut Engine<RegistryLookup>, targets: Vec<ObjectId>) {
+    engine
+        .apply(
+            PlayerId::new(0),
+            PlayerAction::ChooseTargets {
+                objects: targets,
+                players: vec![],
+            },
+        )
+        .unwrap();
+}
+
+/// The share question for one target, checked against what it must say.
+fn fury_share(
+    engine: &Engine<RegistryLookup>,
+    target: ObjectId,
+    index: u8,
+    of: u8,
+    left: u32,
+) -> (u32, u32) {
+    let Pending::ChooseNumber {
+        player,
+        min,
+        max,
+        reason,
+    } = engine.pending().clone()
+    else {
+        panic!("a share is asked, got {:?}", engine.pending())
+    };
+    assert_eq!(player, PlayerId::new(0));
+    assert_eq!(
+        reason,
+        crate::choice::NumberPrompt::DivideDamage {
+            target,
+            index,
+            of,
+            left
+        }
+    );
+    (min, max)
+}
+
+fn marked(engine: &Engine<RegistryLookup>, id: ObjectId) -> u16 {
+    engine.state().object(id).unwrap().damage
+}
+
+/// "When this creature enters, it deals 4 damage divided as you choose among
+/// any number of target creatures and/or planeswalkers." Three targets: the
+/// division is announced with the targets (CR 601.2d), target by target,
+/// each at least 1 and never so much that a later one is left none; the last
+/// takes what is left without being asked.
+#[test]
+fn fury_divides_four_damage_among_three_targets() {
+    let p1 = PlayerId::new(1);
+    let mut engine = fury_enters(
+        &[thundering_giant(), striped_bears(), llanowar_elves()],
+        false,
+    );
+    let giant = on_battlefield(&engine, p1, thundering_giant()).unwrap();
+    let bears = on_battlefield(&engine, p1, striped_bears()).unwrap();
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
+    fury_aims(&mut engine, vec![giant, bears, elves]);
+
+    assert_eq!(
+        fury_share(&engine, giant, 0, 3, 4),
+        (1, 2),
+        "two more targets still need 1 each"
+    );
+    assert!(
+        engine
+            .apply(PlayerId::new(0), PlayerAction::ChooseNumber(3))
+            .is_err(),
+        "3 would leave one target without damage"
+    );
+    engine
+        .apply(PlayerId::new(0), PlayerAction::ChooseNumber(2))
+        .unwrap();
+    assert_eq!(fury_share(&engine, bears, 1, 3, 2), (1, 1));
+    engine
+        .apply(PlayerId::new(0), PlayerAction::ChooseNumber(1))
+        .unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "the last target takes the rest unasked, got {:?}",
+        engine.pending()
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(marked(&engine, giant), 2, "the Giant's share");
+    assert_eq!(marked(&engine, bears), 1, "the Bears' share");
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "the Elves' 1 was lethal"
+    );
+}
+
+/// Two targets: the first is dealt what its controller names and the
+/// second the whole of the rest — 3 here, which kills the Bears.
+#[test]
+fn fury_gives_the_last_target_the_rest() {
+    let p1 = PlayerId::new(1);
+    let mut engine = fury_enters(&[thundering_giant(), striped_bears()], false);
+    let giant = on_battlefield(&engine, p1, thundering_giant()).unwrap();
+    let bears = on_battlefield(&engine, p1, striped_bears()).unwrap();
+    fury_aims(&mut engine, vec![giant, bears]);
+    assert_eq!(fury_share(&engine, giant, 0, 2, 4), (1, 3));
+    engine
+        .apply(PlayerId::new(0), PlayerAction::ChooseNumber(1))
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(marked(&engine, giant), 1);
+    assert!(
+        in_graveyard(&engine, p1, striped_bears()).is_some(),
+        "the Bears were dealt the other 3"
+    );
+}
+
+/// One target is dealt all 4, and nothing is asked: there is nothing to
+/// divide.
+#[test]
+fn fury_with_one_target_deals_it_all_four() {
+    let p1 = PlayerId::new(1);
+    let mut engine = fury_enters(&[thundering_giant()], false);
+    let giant = on_battlefield(&engine, p1, thundering_giant()).unwrap();
+    fury_aims(&mut engine, vec![giant]);
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "got {:?}",
+        engine.pending()
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p1, thundering_giant()).is_some());
+}
+
+/// "Any number" includes none (CR 115.6): the trigger goes on the stack
+/// untargeted and resolves dealing nothing, and nothing is asked.
+#[test]
+fn fury_with_no_target_deals_nothing() {
+    let p1 = PlayerId::new(1);
+    let mut engine = fury_enters(&[thundering_giant()], false);
+    let giant = on_battlefield(&engine, p1, thundering_giant()).unwrap();
+    fury_aims(&mut engine, vec![]);
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "got {:?}",
+        engine.pending()
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(marked(&engine, giant), 0);
+    assert!(on_battlefield(&engine, PlayerId::new(0), fury()).is_some());
+}
+
+/// A target gone before the trigger resolves is not dealt its share, and
+/// nobody else is either: the division was fixed as the trigger was put on
+/// the stack (CR 601.2d), and an illegal target is simply not affected
+/// (CR 608.2b). The Elves were given 3 and the Giant 1; with the Elves gone
+/// the Giant is dealt its own 1, neither the Elves' 3 nor all 4.
+#[test]
+fn fury_loses_the_share_of_a_target_that_is_gone() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = fury_enters(&[llanowar_elves(), thundering_giant()], false);
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
+    let giant = on_battlefield(&engine, p1, thundering_giant()).unwrap();
+    fury_aims(&mut engine, vec![elves, giant]);
+    assert_eq!(fury_share(&engine, elves, 0, 2, 4), (1, 3));
+    engine.apply(p0, PlayerAction::ChooseNumber(3)).unwrap();
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            elves,
+            ZoneLocation::Graveyard(p1),
+            ZonePosition::Top,
+            crate::event::Cause::DevCommand,
+        )
+        .expect("the Elves leave");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(marked(&engine, giant), 1, "the Giant's own share");
+    assert!(on_battlefield(&engine, p1, thundering_giant()).is_some());
+}
+
+/// "Evoke—Exile a red card from your hand." Evoked, Fury still divides its
+/// damage as it enters, and is sacrificed by the evoke trigger (CR 702.74a).
+#[test]
+fn fury_evoked_divides_its_damage_and_is_sacrificed() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = fury_enters(&[striped_bears(), llanowar_elves()], true);
+    let bears = on_battlefield(&engine, p1, striped_bears()).unwrap();
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
+    fury_aims(&mut engine, vec![bears, elves]);
+    assert_eq!(fury_share(&engine, bears, 0, 2, 4), (1, 3));
+    engine.apply(p0, PlayerAction::ChooseNumber(3)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p1, striped_bears()).is_some());
+    assert!(in_graveyard(&engine, p1, llanowar_elves()).is_some());
+    assert!(in_graveyard(&engine, p0, fury()).is_some(), "sacrificed");
+    assert!(
+        in_hand(&engine, p0, lightning_bolt()).is_none()
+            && in_graveyard(&engine, p0, lightning_bolt()).is_none(),
+        "the Bolt was exiled to pay"
+    );
+}

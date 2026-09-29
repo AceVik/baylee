@@ -513,6 +513,62 @@ fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], bool, Door)>
 }
 
 /// How many reflexive triggers an effect list writes, at any depth.
+/// How many damage divisions (`Effect::DealDamageDivided`) a list holds,
+/// nested ones included.
+fn divisions_in(effects: &'static [Effect]) -> usize {
+    let (mut found, mut seen) = (0_usize, 0_usize);
+    Effect::walk(effects, &mut seen, &mut |effect| {
+        if matches!(effect, Effect::DealDamageDivided { .. }) {
+            found += 1;
+        }
+    });
+    found
+}
+
+/// Whether an ability that divides damage sits where the engine asks the
+/// division, and how not.
+///
+/// `Engine::ask_trigger_division` asks it only as a triggered ability is put
+/// on the stack, reads it off the ability's own top-level list, and asks one
+/// share per target with each at least 1 (CR 601.2d). So the effect is a
+/// top-level op of a `Triggered` ability that targets, once, and the ability
+/// asks for no more targets than there is damage to give each of them one.
+fn division_fault(ability: &AbilityDef) -> Option<&'static str> {
+    let found: usize = resolving_lists(ability)
+        .iter()
+        .map(|(effects, _, _)| divisions_in(effects))
+        .sum();
+    if found == 0 {
+        return None;
+    }
+    let AbilityDef::Triggered {
+        effects, targets, ..
+    } = ability
+    else {
+        return Some("divides damage outside a triggered ability, where nothing asks the division");
+    };
+    let amounts: Vec<u32> = effects
+        .iter()
+        .filter_map(|effect| match effect {
+            Effect::DealDamageDivided { amount } => Some(*amount),
+            _ => None,
+        })
+        .collect();
+    if amounts.len() != found {
+        return Some("divides damage inside a carrier, where the division is not read");
+    }
+    if amounts.len() > 1 {
+        return Some("divides damage twice in one ability");
+    }
+    let Some(req) = targets else {
+        return Some("divides damage among no targets");
+    };
+    if req.max == 0 || u32::from(req.max) > amounts[0] {
+        return Some("asks for more targets than there is damage to give each one");
+    }
+    None
+}
+
 fn reflexives_in(effects: &'static [Effect]) -> usize {
     let (mut found, mut seen) = (0_usize, 0_usize);
     Effect::walk(effects, &mut seen, &mut |effect| {
@@ -1611,6 +1667,76 @@ mod tests {
             seen > 300,
             "only {seen} activated abilities were looked at; the sweep is not reaching the pool"
         );
+    }
+
+    /// Every damage division in the pool sits where the engine asks it: a
+    /// top-level op of a targeting triggered ability, with no more targets
+    /// than damage (CR 601.2d). Fury is why the sweep exists; a walk that
+    /// found no division has stopped reaching it.
+    #[test]
+    fn every_divided_damage_is_a_trigger_that_can_divide() {
+        let (mut wrong, mut found) = (Vec::new(), 0_usize);
+        for def in crate::all() {
+            let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
+            for ability in def.abilities.iter().chain(faces) {
+                found += resolving_lists(ability)
+                    .iter()
+                    .map(|(effects, _, _)| divisions_in(effects))
+                    .sum::<usize>();
+                if let Some(fault) = division_fault(ability) {
+                    wrong.push(format!("{} {fault}", def.name()));
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+        assert!(found >= 1, "no division found, and Fury prints one");
+    }
+
+    /// The sweep above passes, and this shows passing means something: each
+    /// shape the rule refuses is reported, and Fury's is not.
+    #[test]
+    fn a_division_fault_fires_on_each_bad_shape() {
+        use crate::dsl::ability::Trigger;
+        const DIVIDE: &[Effect] = &[Effect::DealDamageDivided { amount: 4 }];
+        const IN_A_MAY: &[Effect] = &[Effect::MayDo { effects: DIVIDE }];
+        const TWICE: &[Effect] = &[
+            Effect::DealDamageDivided { amount: 2 },
+            Effect::DealDamageDivided { amount: 2 },
+        ];
+        let targets = |max| {
+            Some(TargetReq::up_to(
+                TargetSpec::Object(&Filter::CREATURE_OR_PLANESWALKER),
+                max,
+            ))
+        };
+        let trigger = |effects, targets| AbilityDef::Triggered {
+            trigger: Trigger::ETB,
+            effects,
+            targets,
+            second_targets: None,
+            once_per_turn: false,
+            condition: None,
+        };
+        assert_eq!(division_fault(&trigger(DIVIDE, targets(4))), None);
+        for (shape, ability) in [
+            ("no targets", trigger(DIVIDE, None)),
+            ("more targets than damage", trigger(DIVIDE, targets(5))),
+            ("inside a may", trigger(IN_A_MAY, targets(4))),
+            ("twice", trigger(TWICE, targets(2))),
+            (
+                "on a spell",
+                AbilityDef::Spell {
+                    effects: DIVIDE,
+                    targets: targets(4),
+                    second_targets: None,
+                },
+            ),
+        ] {
+            assert!(
+                division_fault(&ability).is_some(),
+                "a division {shape} was not reported"
+            );
+        }
     }
 
     /// Every reflexive trigger in the pool sits where the engine can read its

@@ -2562,6 +2562,29 @@ impl<L: CardLookup> Engine<L> {
     /// Two arms and not the whole list, because only two shapes can say it —
     /// [`AbilityDef::Spell`] through the object and the activated twins here.
     /// Both twins, for the reason `stack_target_req` gives.
+    /// The damage a triggered ability on the stack divides as its controller
+    /// chooses ([`baylee_cards_dsl::Effect::DealDamageDivided`]), read off
+    /// the list it was put on the stack with, as its second target is.
+    pub(super) fn stack_divided_amount(&self, on_stack: ObjectId) -> Option<u32> {
+        let obj = self.state.object(on_stack)?;
+        let loc = obj.ability?;
+        if obj.kind != ObjectKind::AbilityOnStack || loc.index == AbilityRef::SYNTHETIC {
+            return None;
+        }
+        let abilities = obj.own_abilities.unwrap_or_else(|| {
+            self.state
+                .object(loc.source)
+                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
+        });
+        let AbilityDef::Triggered { effects, .. } = abilities.get(loc.index as usize)? else {
+            return None;
+        };
+        effects.iter().find_map(|effect| match effect {
+            baylee_cards_dsl::Effect::DealDamageDivided { amount } => Some(*amount),
+            _ => None,
+        })
+    }
+
     pub(super) fn stack_second_target_req(&self, on_stack: ObjectId) -> Option<TargetReq> {
         let obj = self.state.object(on_stack)?;
         // A requirement written on the object wins: the cast wizard writes a

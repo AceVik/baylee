@@ -1710,6 +1710,11 @@ messages! {
     ChooseColour { en: "Choose a colour", de: "Wähle eine Farbe" },
     /// Choose a number ({0}–{1})
     ChooseNumberIn { en: "Choose a number ({0}–{1})", de: "Wähle eine Zahl ({0}–{1})" },
+    /// One target's share of damage divided as the player chooses (Fury).
+    DamageShare {
+        en: "Damage to target {0} of {1}, {2} left to divide ({3}–{4})",
+        de: "Schaden an Ziel {0} von {1}, noch {2} zu verteilen ({3}–{4})",
+    },
     /// Choose a player
     ChoosePlayer { en: "Choose a player", de: "Wähle einen Spieler" },
     /// Choose how to cast

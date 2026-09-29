@@ -34,8 +34,8 @@ use crate::i18n::{Lang, Phrase, seat_name};
 use baylee_core::ids::{Defender, ObjectId, PlayerId, SeatSet, SubtypeId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
-    ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending,
-    PlayerAction, TargetPrompt, YesNoPrompt,
+    ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt, LegalActions,
+    NumberPrompt, Pending, PlayerAction, TargetPrompt, YesNoPrompt,
 };
 use baylee_engine::win::{EndReason, GameResult, Victor};
 use baylee_view::{GameStatic, HouseAnswer, LossCause, PlayerView, SeatView};
@@ -171,6 +171,8 @@ pub enum Prompt {
         min: u32,
         /// Highest legal value.
         max: u32,
+        /// What the number is for.
+        reason: NumberPrompt,
     },
     /// Choose a player.
     ChoosePlayer {
@@ -383,9 +385,7 @@ impl Prompt {
             }
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
-            Self::ChooseNumber { min, max } => {
-                Phrase::ChooseNumberIn.fill(lang, &[&min.to_string(), &max.to_string()])
-            }
+            Self::ChooseNumber { min, max, reason } => number_line(lang, *min, *max, *reason),
             Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
             Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
             Self::Arrange { reason, onto } => match (reason, onto) {
@@ -662,6 +662,28 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::Delve | ChoicePrompt::OneOfType { .. } | ChoicePrompt::Generic => {
             (Phrase::NounCard, Phrase::NounCards)
         }
+    }
+}
+
+/// The line a number question gets: the range to choose from, or, for one
+/// target's share of a division, that target by its place in the order the
+/// player chose them (the order the stack shows) and what is still to give.
+fn number_line(lang: Lang, min: u32, max: u32, reason: NumberPrompt) -> String {
+    let (min, max) = (min.to_string(), max.to_string());
+    match reason {
+        NumberPrompt::Announce => Phrase::ChooseNumberIn.fill(lang, &[&min, &max]),
+        NumberPrompt::DivideDamage {
+            index, of, left, ..
+        } => Phrase::DamageShare.fill(
+            lang,
+            &[
+                &(u32::from(index) + 1).to_string(),
+                &of.to_string(),
+                &left.to_string(),
+                &min,
+                &max,
+            ],
+        ),
     }
 }
 
@@ -1066,9 +1088,12 @@ impl Interaction {
             Pending::ChooseColor { options, .. } => Prompt::ChooseColor {
                 options: options.clone(),
             },
-            Pending::ChooseNumber { min, max, .. } => Prompt::ChooseNumber {
+            Pending::ChooseNumber {
+                min, max, reason, ..
+            } => Prompt::ChooseNumber {
                 min: *min,
                 max: *max,
+                reason: *reason,
             },
             Pending::ChoosePlayer { options, .. } => Prompt::ChoosePlayer {
                 options: options.clone(),

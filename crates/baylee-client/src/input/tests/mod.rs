@@ -366,6 +366,7 @@ fn number_duel(max: u32) -> crate::Duel {
                 player: PlayerId::new(0),
                 min: 0,
                 max,
+                reason: baylee_engine::choice::NumberPrompt::Announce,
             },
             PlayerId::new(0),
         )),

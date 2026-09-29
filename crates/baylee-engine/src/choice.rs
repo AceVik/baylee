@@ -177,7 +177,8 @@ pub enum Pending {
         /// The legal cast options.
         options: Vec<CastModeDesc>,
     },
-    /// Choose the value of X for a spell.
+    /// Choose a number: the value of X for a spell, or a share of a
+    /// division.
     ChooseNumber {
         /// Choosing player.
         player: PlayerId,
@@ -185,6 +186,9 @@ pub enum Pending {
         min: u32,
         /// Maximum value.
         max: u32,
+        /// What the number is for.
+        #[serde(default)]
+        reason: NumberPrompt,
     },
     /// Choose a target player.
     ChoosePlayer {
@@ -401,6 +405,31 @@ pub enum TargetPrompt {
     /// convoke (CR 702.51a), artifacts and creatures for a paid waterbend
     /// (CR 701.67a). `options` says which.
     Convoke,
+}
+
+/// What a [`Pending::ChooseNumber`] is for.
+#[derive(
+    Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
+)]
+pub enum NumberPrompt {
+    /// A number the spell or ability announces: X (CR 601.2b), or how many
+    /// counters a cost removes.
+    #[default]
+    Announce,
+    /// "Damage divided as you choose" (CR 601.2d): how much of what is left
+    /// goes to one target, asked target by target in the order they were
+    /// chosen. The last target takes the rest and is not asked, and each
+    /// target is given at least 1, which is what `min` and `max` say.
+    DivideDamage {
+        /// The target this share goes to.
+        target: ObjectId,
+        /// Its place among the targets, from 0.
+        index: u8,
+        /// How many targets share the damage.
+        of: u8,
+        /// The damage not yet given to a target.
+        left: u32,
+    },
 }
 
 /// What a [`Pending::YesNo`] asks.
@@ -1213,6 +1242,7 @@ mod choice_tests {
                     player: p,
                     min: 0,
                     max: 3,
+                    reason: NumberPrompt::Announce,
                 },
                 None,
             ),

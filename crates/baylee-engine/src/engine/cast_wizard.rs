@@ -735,6 +735,7 @@ impl<L: CardLookup> Engine<L> {
                         player: wizard.player,
                         min: 0,
                         max,
+                        reason: crate::choice::NumberPrompt::Announce,
                     };
                     self.awaiting_answer = true;
                     return Ok(());

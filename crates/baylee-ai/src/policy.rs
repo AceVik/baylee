@@ -102,6 +102,28 @@ impl HeuristicAgent {
             .is_some_and(|s| manaplan::plan(&cost.with_x(0), &s.mana_pool, &[]).is_some())
     }
 
+    /// One target's share of damage this seat divides (CR 601.2d): what
+    /// finishes an opponent's creature or planeswalker — its toughness less
+    /// the damage already marked on it, or its loyalty — within the
+    /// question's bounds, and the least to anything else, which leaves the
+    /// most for the targets still to come.
+    pub(crate) fn damage_share(
+        &self,
+        view: &PlayerView,
+        target: ObjectId,
+        min: u32,
+        max: u32,
+    ) -> u32 {
+        let Some(o) = view.object(target) else {
+            return min;
+        };
+        if !self.hostile(o.controller, view.seat) {
+            return min;
+        }
+        let need = crate::tactics::damage_to_finish(o);
+        u32::try_from(need).unwrap_or(0).clamp(min, max)
+    }
+
     pub(crate) fn number(
         &self,
         view: &PlayerView,

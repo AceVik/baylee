@@ -67,10 +67,32 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
         player: me(),
         min: 0,
         max: 50,
+        reason: baylee_engine::choice::NumberPrompt::Announce,
     });
     assert_eq!(
         i.prompt().headline(Lang::En, Turn::Mine, None, false),
         "Choose a number (0–50)"
+    );
+
+    // Fury's division: which target, of how many, and what is left.
+    let i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 1,
+        max: 2,
+        reason: baylee_engine::choice::NumberPrompt::DivideDamage {
+            target: obj(1),
+            index: 0,
+            of: 3,
+            left: 4,
+        },
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Damage to target 1 of 3, 4 left to divide (1–2)"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Schaden an Ziel 1 von 3, noch 4 zu verteilen (1–2)"
     );
 
     let i = interaction(Pending::YesNo {
@@ -426,6 +448,7 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
             player: me(),
             min: 0,
             max: 1,
+            reason: baylee_engine::choice::NumberPrompt::Announce,
         },
         Pending::ChoosePlayer {
             player: me(),
@@ -592,6 +615,7 @@ fn owing_changes_the_priority_line_and_no_other() {
             player: me(),
             min: 0,
             max: 3,
+            reason: baylee_engine::choice::NumberPrompt::Announce,
         },
     ] {
         let i = interaction(pending);

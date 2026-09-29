@@ -774,6 +774,27 @@ pub enum Effect {
         /// What.
         target: TargetSpec,
     },
+    /// "It deals `amount` damage divided as you choose among any number of
+    /// target creatures and/or planeswalkers" (Fury): the ability's targets
+    /// share the damage as its controller divided it.
+    ///
+    /// The division is announced as the ability is put on the stack, after
+    /// its targets (CR 601.2d, which CR 603.3d applies to a triggered
+    /// ability), and every target is given at least 1 — so the ability's
+    /// `TargetReq` asks for at most `amount` of them. It is asked target by
+    /// target in the order they were chosen; the last one takes the rest.
+    /// At resolution a target that has become illegal is dealt nothing, and
+    /// its share goes to nobody else (CR 608.2b).
+    ///
+    /// A fixed amount, and only on a triggered ability: nothing in the cast
+    /// wizard asks a division yet, so Fire // Ice's "2 damage divided as you
+    /// choose among one or two targets" and Shatterskull Smashing's X are
+    /// not said by this. `lints::every_divided_damage_is_a_trigger_that_can_divide`
+    /// holds both halves.
+    DealDamageDivided {
+        /// The damage divided.
+        amount: u32,
+    },
     /// Exile a target and return it to the battlefield immediately
     /// (Ephemerate).
     Blink {
@@ -2485,6 +2506,7 @@ impl Effect {
             | Effect::ExileIfDiesThisTurn { .. }
             | Effect::Discover { .. }
             | Effect::RevealTopOnePerType { .. }
+            | Effect::DealDamageDivided { .. }
             | Effect::CounterTargetSpellToExile
             | Effect::CounterTargetSpell
             | Effect::CounterTargetAbility

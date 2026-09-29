@@ -378,6 +378,18 @@ enum PlanKind {
         /// The triggered ability on the stack.
         on_stack: ObjectId,
     },
+    /// A triggered ability's "damage divided as you choose", asked target
+    /// by target once it is on the stack with its targets (CR 601.2d).
+    DivideDamage {
+        /// The triggered ability on the stack.
+        on_stack: ObjectId,
+        /// Its targets, in the order they were chosen.
+        targets: SmallVec<[ObjectId; 2]>,
+        /// The shares given so far, one per target from the first.
+        shares: Vec<u32>,
+        /// The damage divided.
+        total: u32,
+    },
     /// A shockland entry choice (pay life or enter tapped).
     EntryTap {
         /// The entering land.

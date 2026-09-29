@@ -43,6 +43,28 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             deal_to_spec(state, res, you, res.source, n, target);
             None
         }
+        Effect::DealDamageDivided { .. } => {
+            // As divided when the ability went on the stack (CR 601.2d).
+            // `res.targets` holds only the targets still legal, and one that
+            // is not is dealt nothing: its share goes to nobody (CR 608.2b).
+            let shares = state
+                .divided
+                .iter()
+                .find(|(id, _)| *id == res.on_stack)
+                .map(|(_, shares)| shares.clone())
+                .unwrap_or_default();
+            for &target in &res.targets.clone() {
+                if let Some(&(_, n)) = shares.iter().find(|(t, _)| *t == target) {
+                    deal_to_object_with_loyalty(
+                        state,
+                        target,
+                        i16::try_from(n).unwrap_or(i16::MAX),
+                        res.source,
+                    );
+                }
+            }
+            None
+        }
         Effect::Fight { fighter, foe } => {
             fight(state, res, fighter, foe);
             None

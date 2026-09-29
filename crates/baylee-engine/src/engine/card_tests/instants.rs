@@ -3519,6 +3519,7 @@ fn gaeas_might_pumps_by_basic_land_types_among_your_own_lands() {
 /// value X or less" is a bound over real cards rather than an empty offer: the
 /// search shows creature cards and nothing else, and the one chosen leaves the
 /// library and stands on the battlefield.
+#[allow(clippy::too_many_lines)] // X announced, paid, then the search: one scenario
 #[test]
 fn chord_of_calling_announces_x_and_chords_a_creature_of_that_mana_value_onto_the_battlefield() {
     let p0 = PlayerId::new(0);
@@ -3545,7 +3546,10 @@ fn chord_of_calling_announces_x_and_chords_a_creature_of_that_mana_value_onto_th
 
     cast_with_floating(&mut engine, p0, chord_of_calling());
     // CR 601.2b: X is announced before any cost is paid.
-    let Pending::ChooseNumber { player, min, max } = engine.pending().clone() else {
+    let Pending::ChooseNumber {
+        player, min, max, ..
+    } = engine.pending().clone()
+    else {
         panic!("a spell with {{X}} asks for X, got {:?}", engine.pending())
     };
     assert_eq!(player, p0, "the caster announces the value");
@@ -6669,7 +6673,9 @@ fn enrage_pumps_the_target_by_x_until_the_turn_ends() {
             break;
         }
         match engine.pending().clone() {
-            Pending::ChooseNumber { player, min, max } => {
+            Pending::ChooseNumber {
+                player, min, max, ..
+            } => {
                 assert_eq!(player, p0, "the caster names X");
                 // **Not** bounded by the pool: `cast_wizard` offers up to
                 // `X_CEILING` and validates the mana when the wizard
@@ -7116,7 +7122,9 @@ fn heat_ray_deals_the_x_its_controller_names_to_the_creature_it_names() {
             break;
         }
         match engine.pending().clone() {
-            Pending::ChooseNumber { player, min, max } => {
+            Pending::ChooseNumber {
+                player, min, max, ..
+            } => {
                 assert!(
                     min <= 5 && 5 <= max,
                     "X = 5 must be one of the values six Mountains can pay: {min}..={max}"
@@ -7256,7 +7264,9 @@ fn howl_from_beyond_pumps_the_target_it_names_for_the_x_it_was_given() {
                     .unwrap();
                 aimed = true;
             }
-            Pending::ChooseNumber { player, min, max } => {
+            Pending::ChooseNumber {
+                player, min, max, ..
+            } => {
                 assert_eq!(player, p0, "the casting seat names X");
                 assert!(min <= 2 && 2 <= max, "X = 2 is not in {min}..={max}");
                 engine.apply(player, PlayerAction::ChooseNumber(2)).unwrap();
@@ -17694,7 +17704,9 @@ fn heliods_intervention_destroys_exactly_the_x_artifacts_or_enchantments_it_targ
     let mut chose_mode = false;
     for _ in 0..12 {
         match engine.pending().clone() {
-            Pending::ChooseNumber { player, min, max } => {
+            Pending::ChooseNumber {
+                player, min, max, ..
+            } => {
                 assert_eq!(player, p0, "the caster names X");
                 assert!(
                     min <= 1 && 1 <= max,
