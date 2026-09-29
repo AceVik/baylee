@@ -10,6 +10,7 @@
 //! Nothing that ships links this crate; `xtask` does, so the card agents'
 //! `deck-check --tested` asks the same question the trainer does.
 
+pub mod cardwalk;
 #[cfg(feature = "play")]
 pub mod convert;
 #[cfg(feature = "play")]
