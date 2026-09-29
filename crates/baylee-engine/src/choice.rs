@@ -1412,6 +1412,33 @@ mod choice_tests {
         }
     }
 
+    #[test]
+    fn the_unlock_slots_sit_below_turning_face_up_and_decode_to_their_halves() {
+        // A Room's two doors take the next two indices down. Each decodes
+        // to its own half, none of them is another reserved index, and no
+        // other reserved index or printed position decodes as a door: one
+        // that did would unlock a door when a player pressed something else.
+        assert_eq!(door_to_unlock(unlock_door(0)), Some(0));
+        assert_eq!(door_to_unlock(unlock_door(1)), Some(1));
+        assert_eq!(unlock_door(0), TURN_FACE_UP - 1);
+        assert_eq!(unlock_door(1), TURN_FACE_UP - UNLOCK_SLOTS);
+        let others = (0..GRANTED_SLOTS)
+            .map(granted_ability)
+            .chain([PREPARED_CAST, TURN_FACE_UP, TURN_FACE_UP - UNLOCK_SLOTS - 1])
+            .chain([0, 1, 2, 7, 100, 65_535]);
+        for index in others {
+            assert_eq!(
+                door_to_unlock(index),
+                None,
+                "index {index} decoded as a door"
+            );
+        }
+        assert!(is_special_action(TURN_FACE_UP));
+        assert!(is_special_action(unlock_door(1)));
+        assert!(!is_special_action(PREPARED_CAST));
+        assert!(!is_special_action(granted_ability(0)));
+    }
+
     // ---- priority holds ------------------------------------------------
 
     #[test]
