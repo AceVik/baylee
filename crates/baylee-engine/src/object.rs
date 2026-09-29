@@ -663,10 +663,14 @@ impl Status {
 /// Typed payload attached to cards in exile (or similar) by effects.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Rider {
-    /// Exiled by another object ("until ~ leaves the battlefield", imprint).
+    /// Exiled by another object, which finds it again as a card "exiled
+    /// with" it (CR 607.2a): Skyclave Apparition, Safe Haven, and the two
+    /// "until" exiles.
     Linked {
         /// The host object this card is linked to.
         host: ObjectId,
+        /// The event that returns it, when the exile named one (CR 610.3).
+        until: Option<LinkUntil>,
     },
     /// Exiled **with** another object (CR 406.6, 607.2a): what
     /// `Effect::ExileTargetsWithSource` marks and `PtCount::ExiledWithThis`
@@ -719,6 +723,27 @@ pub enum Rider {
     SpellCopy,
 }
 
+/// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
+/// it: `baylee_cards_dsl::ExileUntil` with the player the sentence is about
+/// written down at the moment of the exile.
+///
+/// Two bytes, so that the rider it rides in stays as small as it was: two
+/// riders sit inline in every object (`RiderSet`), and `GameObject` has a
+/// size budget (`tests/footprint.rs`). That is why the host leaving is
+/// caught as it happens ([`crate::state::GameState::move_object`]) rather
+/// than recognised later by a stored version of the host.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum LinkUntil {
+    /// "until this creature leaves the battlefield": the host.
+    HostLeaves,
+    /// "until an opponent becomes the monarch": an opponent of `of`, the
+    /// player who controlled the exiling ability.
+    OpponentBecomesMonarch {
+        /// The exiling ability's controller.
+        of: PlayerId,
+    },
+}
+
 impl Rider {
     /// An object's version as [`Rider::ExiledWith`] keeps it. A version past
     /// `u16::MAX` is a permanent that changed zones sixty-five thousand
@@ -726,6 +751,41 @@ impl Rider {
     #[must_use]
     pub fn version_of(object: &GameObject) -> u16 {
         u16::try_from(object.version).unwrap_or(u16::MAX)
+    }
+
+    /// Whether this says what the card is *in exile*, and so ends as the
+    /// card leaves exile ([`crate::state::GameState::move_object`]).
+    ///
+    /// A card that leaves exile is a new object with no relation to the
+    /// exile it left (CR 400.7). Exiled with a host, on an adventure
+    /// (CR 715.3d: "for as long as that card remains exiled"), castable from
+    /// exile by a player, suspended (CR 702.62b), rebounding, foretold,
+    /// plotted: each is read only while the card is in exile, and a card
+    /// exiled again later by something else is none of them. The readers ask
+    /// "in exile, with this rider", which that card passed: Twining Twins
+    /// cast off its adventure and hit by Swords to Plowshares was castable
+    /// from exile again, and a suspended card that resolved and was exiled
+    /// from the graveyard was cast for free at the next upkeep.
+    ///
+    /// Every variant is named, so a new rider has to answer.
+    #[must_use]
+    pub const fn ends_as_it_leaves_exile(self) -> bool {
+        match self {
+            Self::Linked { .. }
+            | Self::ExiledWith { .. }
+            | Self::Adventure
+            | Self::PlayableFromExileFor(_)
+            | Self::Suspend
+            | Self::Rebound
+            | Self::Foretold
+            | Self::Plotted => true,
+            // About the stack or the battlefield, not exile.
+            Self::Flashback
+            | Self::ExileInsteadOfGraveyard
+            | Self::Uncounterable
+            | Self::Prepared
+            | Self::SpellCopy => false,
+        }
     }
 }
 

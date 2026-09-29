@@ -277,6 +277,53 @@ fn bench_token_board(c: &mut Criterion) {
     });
 }
 
+/// Sixty creatures leave the battlefield one after another (a wrath) while
+/// `exiled` cards sit in exile.
+///
+/// Every departure asks the exile zones whether a card there was held "until
+/// this leaves the battlefield" (CR 610.3,
+/// `GameState::return_what_departed_hosts_held`), so the walk grows with the
+/// exile zone once per permanent that leaves. Nothing else in this file moves
+/// a permanent off the battlefield, which is why this bench exists: the two
+/// sizes side by side are what that question costs.
+///
+/// 800 is every card at a table of eight Commander decks in exile at once,
+/// the most a game can put there: a token that goes to exile ceases to exist
+/// (CR 704.5d), so the exile zone only ever holds cards.
+fn bench_leave_battlefield(c: &mut Criterion) {
+    use baylee_engine::event::Cause;
+    use baylee_engine::object::ObjectKind;
+    use baylee_engine::zone::{ZoneLocation, ZonePosition};
+
+    for exiled in [0usize, 800] {
+        let mut state = token_board(60);
+        let owner = baylee_core::ids::PlayerId::new(0);
+        let name = state.names.intern("Exiled");
+        for _ in 0..exiled {
+            state.create_bare(owner, ObjectKind::Card, name, ZoneLocation::Exile(owner));
+        }
+        let board = state.zones.list(ZoneLocation::Battlefield).clone();
+        c.bench_function(&format!("zones/wrath_60_exile_{exiled}"), |b| {
+            b.iter_batched(
+                || state.clone(),
+                |mut s| {
+                    for &id in &board {
+                        s.move_object(
+                            id,
+                            ZoneLocation::Graveyard(owner),
+                            ZonePosition::Top,
+                            Cause::Effect,
+                        )
+                        .expect("on the battlefield");
+                    }
+                    s
+                },
+                BatchSize::SmallInput,
+            );
+        });
+    }
+}
+
 /// Resolving a trigger storm repeatedly removes the top of an ordered zone.
 fn bench_stack_drain(c: &mut Criterion) {
     use baylee_core::ids::ObjectId;
@@ -402,6 +449,7 @@ criterion_group!(
     bench_layers,
     bench_layers_deep_stack,
     bench_token_board,
+    bench_leave_battlefield,
     bench_stack_drain,
     bench_wide_attack
 );

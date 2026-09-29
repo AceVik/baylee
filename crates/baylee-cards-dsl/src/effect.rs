@@ -812,6 +812,21 @@ impl Find {
     }
 }
 
+/// The event an "exile … until …" sentence waits for (CR 610.3), read by
+/// [`Effect::ExileLinked`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ExileUntil {
+    /// "until this creature leaves the battlefield" (Werefox Bodyguard):
+    /// the source, as the object it was when the ability triggered or was
+    /// activated. A blink ends it too, since the permanent that comes back
+    /// is a new object (CR 400.7).
+    SourceLeavesBattlefield,
+    /// "until an opponent becomes the monarch" (Palace Jailer): an opponent
+    /// of the player who controlled the exiling ability, whoever controls
+    /// the source later.
+    OpponentBecomesMonarch,
+}
+
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
@@ -856,10 +871,34 @@ pub enum Effect {
         amount: u32,
     },
     /// Exile a target and return it to the battlefield immediately
-    /// (Ephemerate).
+    /// (Ephemerate, Restoration Angel). Written with [`Effect::blink_to_owner`]
+    /// or [`Effect::blink_to_you`], the two sentences the pool prints.
     Blink {
         /// What.
         target: TargetSpec,
+        /// Under whose control the card comes back: its owner's (`true`) or
+        /// that of the player who controls the resolving spell or ability
+        /// (`false`).
+        ///
+        /// The same field, and the same question, as
+        /// [`Effect::GraveyardToBattlefield`]'s. The card that returns is a
+        /// new object (CR 400.7), so whatever control effect held the one
+        /// that was exiled is gone with it, and the new one enters under the
+        /// control the sentence names. That is a printed choice, not a rule:
+        /// CR 610.3c's "under its owner's control unless otherwise
+        /// specified" is about a card returned by a *second* one-shot effect
+        /// after an "until" event, which an immediate blink is not. So
+        /// Ephemerate, Soulherder and Emiel the Blessed print "under its
+        /// owner's control" and take `true`, while Restoration Angel,
+        /// Aminatou's −1 and Sword of Hearth and Home print "under your
+        /// control" and take `false` — and a player notices the difference
+        /// the moment the creature they flicker is one they stole.
+        ///
+        /// Only control is chosen here. The owner never changes (CR 108.3),
+        /// so a stolen creature kept this way still dies into its owner's
+        /// graveyard (CR 400.3) and still leaves the game with its owner
+        /// (CR 800.4a).
+        owner_control: bool,
     },
     /// Look at the top `count` cards of your library; put `pick` of them
     /// into your hand and the rest on the bottom — in any order (Dig
@@ -2178,11 +2217,26 @@ pub enum Effect {
         /// What phases out (first target when set, else the source).
         target: Option<TargetSpec>,
     },
-    /// Exile a target with a link to the source ("until ~ leaves the
-    /// battlefield", Skyclave Apparition).
+    /// Exile a target with a link to the source, so that a later ability of
+    /// the source can find it among the cards "exiled with" it (CR 607.2a),
+    /// for as long as `until` says.
+    ///
+    /// `None` is an exile with no end of its own. The card stays until an
+    /// effect of the source brings it back (Safe Haven and Endless Sands,
+    /// [`Effect::ReturnLinkedToBattlefield`]) or for good (Skyclave
+    /// Apparition). `Some` is an "until" sentence (CR 610.3): the return is
+    /// the second half of the same effect and not a triggered ability, so
+    /// it happens the moment the event does, uses no stack, and puts the
+    /// card back under its owner's control (CR 610.3c). If the event has
+    /// already happened when the exile would, the card does not move
+    /// (CR 610.3a, 610.3b).
+    ///
+    /// Spelled [`Effect::exile_linked`] and [`Effect::exile_until`].
     ExileLinked {
         /// What.
         target: TargetSpec,
+        /// The event that ends the exile, when the sentence names one.
+        until: Option<ExileUntil>,
     },
     /// Exile every target, each **exiled with** the source (CR 406.6):
     /// "Exile up to two target cards from a single graveyard" (Unlicensed
@@ -2388,16 +2442,19 @@ impl Effect {
     ///
     /// **The name is the word this pool already says**, which is usually the
     /// printed one. "Draw", "scry", "destroy", "exile" are all oracle text.
-    /// [`Effect::blink`] is what the engine had already named a thing oracle
-    /// spells out in a clause ("exile it, then return it to the
-    /// battlefield"), and [`Effect::bounce`] is the same shape from the other
-    /// direction: the printing says "return … to its owner's hand" and the
-    /// variant says `ReturnToHand`, but the table says bounce, and so did
-    /// this repository before there was a verb — Cyclonic Rift's own comment
-    /// calls both of its modes a bounce and Aether Channeler's effect list is
-    /// named `BOUNCE_EFFECTS`. That is the owner's decision and it is paid
-    /// for: `bounce` is a word no `//! Oracle:` header carries, so a grep
-    /// from the printed sentence to the code stops here and at `blink`.
+    /// "Blink" is what the engine had already named a thing oracle spells
+    /// out in a clause ("exile it, then return it to the battlefield"), and
+    /// it is two verbs, [`Effect::blink_to_owner`] and
+    /// [`Effect::blink_to_you`], because the clause ends in one of two
+    /// controllers and the card names which. [`Effect::bounce`] is the same
+    /// shape from the other direction: the printing says "return … to its
+    /// owner's hand" and the variant says `ReturnToHand`, but the table says
+    /// bounce, and so did this repository before there was a verb —
+    /// Cyclonic Rift's own comment calls both of its modes a bounce and
+    /// Aether Channeler's effect list is named `BOUNCE_EFFECTS`. That is the
+    /// owner's decision and it is paid for: `bounce` is a word no
+    /// `//! Oracle:` header carries, so a grep from the printed sentence to
+    /// the code stops here and at `blink_*`.
     ///
     /// It buys nothing where the variant is not one answer.
     /// [`Effect::ReturnAllToHand`] is the overloaded half of the same card
@@ -2521,11 +2578,48 @@ impl Effect {
         Self::Exile { target }
     }
 
-    /// "Exile target …, then return it to the battlefield under its owner's
-    /// control."
+    /// "Exile target …" by an ability that another ability of the same
+    /// object reads back as the card "exiled with" it (CR 607.2a), with no
+    /// end of its own (Skyclave Apparition, Safe Haven).
     #[must_use]
-    pub const fn blink(target: TargetSpec) -> Self {
-        Self::Blink { target }
+    pub const fn exile_linked(target: TargetSpec) -> Self {
+        Self::ExileLinked {
+            target,
+            until: None,
+        }
+    }
+
+    /// "Exile target … until …" (CR 610.3): Werefox Bodyguard's "until this
+    /// creature leaves the battlefield", Palace Jailer's "until an opponent
+    /// becomes the monarch".
+    #[must_use]
+    pub const fn exile_until(target: TargetSpec, until: ExileUntil) -> Self {
+        Self::ExileLinked {
+            target,
+            until: Some(until),
+        }
+    }
+
+    /// "Exile target …, then return it to the battlefield under its owner's
+    /// control" (Ephemerate).
+    #[must_use]
+    pub const fn blink_to_owner(target: TargetSpec) -> Self {
+        Self::Blink {
+            target,
+            owner_control: true,
+        }
+    }
+
+    /// "Exile target …, then return that card to the battlefield under your
+    /// control" (Restoration Angel): the new object enters under the control
+    /// of whoever controls the resolving spell or ability (CR 110.2a), and
+    /// its owner stays who it was.
+    #[must_use]
+    pub const fn blink_to_you(target: TargetSpec) -> Self {
+        Self::Blink {
+            target,
+            owner_control: false,
+        }
     }
 
     /// "Return target … to its owner's hand."
@@ -3152,7 +3246,20 @@ mod verb_tests {
             }
         );
         assert_eq!(Effect::exile(target), Effect::Exile { target });
-        assert_eq!(Effect::blink(target), Effect::Blink { target });
+        assert_eq!(
+            Effect::blink_to_owner(target),
+            Effect::Blink {
+                target,
+                owner_control: true
+            }
+        );
+        assert_eq!(
+            Effect::blink_to_you(target),
+            Effect::Blink {
+                target,
+                owner_control: false
+            }
+        );
         assert_eq!(Effect::bounce(target), Effect::ReturnToHand { target });
     }
 

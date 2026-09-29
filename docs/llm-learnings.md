@@ -481,7 +481,10 @@ Open milestones discovered tonight:
   were EMPTY); Bojuka Bog targets ANY player (not opponents);
   Heliod's Intervention target player (GainLifeFor Chosen + DoubleX);
   Cyclonic Rift = "you don't control" (not opponents-only); blink family
-  returns under OWNER's control; suspend costs are PAID ({U}/{1}{B} —
+  returns under OWNER's control (**wrong as a rule**, corrected 29.09.2026:
+  only where the card prints "its owner's"; Restoration Angel's "under your
+  control" keeps a stolen creature, so a blink now names its controller,
+  `Effect::blink_to_owner` / `blink_to_you`); suspend costs are PAID ({U}/{1}{B} —
   the action was free before); triomes have mana abilities + cycling as
   hand-zone DiscardSelf→draw; produced_colors includes restricted mana
   (Exotic Orchard sees Cavern's full range).

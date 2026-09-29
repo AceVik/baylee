@@ -3338,6 +3338,63 @@ fn song_mad_treachery() -> CardIndex {
     card_index("81b61770-2ed5-4a50-84d0-97790002fc5a")
 }
 
+fn restoration_angel() -> CardIndex {
+    card_index("dfbd3afc-9905-4cff-a4f4-df08a4d0a7fa")
+}
+
+fn werefox_bodyguard() -> CardIndex {
+    card_index("d5ee2ced-29f4-430f-962e-2f930b92624c")
+}
+
+/// `thief` casts Song-Mad Treachery on `victim` off five Mountains it
+/// controls, and it resolves: a real layer-2 `GainControl` until end of turn
+/// over the owner's own default, which is what a stolen creature is. The
+/// board's other lands stay untapped for whatever the test casts next.
+#[track_caller]
+fn steal_with_song_mad_treachery(
+    engine: &mut Engine<RegistryLookup>,
+    thief: PlayerId,
+    victim: ObjectId,
+) {
+    let mountains: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == thief && o.card.is_some_and(|c| c.index == mountain())
+            })
+        })
+        .collect();
+    assert_eq!(
+        mountains.len(),
+        5,
+        "{{3}}{{R}}{{R}} is paid by five Mountains"
+    );
+    tap_mana_where(engine, thief, |id| mountains.contains(&id));
+    cast_front_face(engine, thief, song_mad_treachery());
+    engine
+        .apply(
+            thief,
+            PlayerAction::ChooseObjects {
+                objects: vec![victim],
+            },
+        )
+        .expect("the victim is a legal target");
+    pass_until(engine, stack_is_empty);
+    let obj = engine
+        .state()
+        .object(victim)
+        .expect("the victim is still there");
+    assert_eq!(
+        (obj.controller, obj.base_controller),
+        (thief, obj.owner),
+        "stolen by a layer-2 effect, over its owner's own default"
+    );
+}
+
 fn suppression_ray() -> CardIndex {
     card_index("b592568b-11b0-4081-90a7-30cfb9c1ba80")
 }

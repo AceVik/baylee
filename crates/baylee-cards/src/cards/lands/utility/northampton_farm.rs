@@ -27,9 +27,7 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
             cost!("{1}", TapSelf),
-            &[Effect::ExileLinked {
-                target: TargetSpec::Object(&OWNED_CREATURE),
-            }],
+            &[Effect::exile_linked(TargetSpec::Object(&OWNED_CREATURE))],
             target = Some(TargetSpec::Object(&OWNED_CREATURE)),
         ),
         // NOT SUPPORTED: "{2}, {T}, Sacrifice this land: Return a creature

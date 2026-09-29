@@ -940,7 +940,16 @@ that original calculation restored.
    they were making for somebody else when they left goes back to that
    player, with the same cards and limits, to finish as their own search
    (CR 722.5).
-3. `sba::exile_what_the_departed_control` removes what they still control:
+3. What a permanent of theirs held "until it leaves the battlefield" comes
+   back (CR 610.3, `GameState::return_what_departed_hosts_held`): their
+   permanents left without a move, so this is the one departure
+   `move_object` does not see. If they were the monarch, the crown passes
+   as they leave (CR 724.4, `GameState::monarch_leaves`): to the active
+   player, or, when the leaver is the active player, to the next player in
+   turn order still in the game, and to nobody when nobody is left. It
+   passes through `set_monarch`, so Palace Jailer's exile ends if the heir
+   is an opponent of the player who exiled.
+4. `sba::exile_what_the_departed_control` removes what they still control:
    an ability or a copy of a spell on the stack ceases to exist, and
    everything else is exiled through `move_object` with
    `Cause::PlayerLeft`. That leaves what they control by default: a creature

@@ -386,3 +386,32 @@ house AI the same games are still slow, and now for another reason: in 431
 the AI's `PlayerView::object`, a linear scan over the view, called per
 attacker and per blocker option, is 90 % of the main thread's samples,
 where `Engine::apply` is 4 % and building the agent's view 2 %.
+
+## What a departing permanent held (29.09.2026)
+
+A permanent leaving the battlefield now asks the exile zones whether a card
+there was held "until it leaves the battlefield" (CR 610.3,
+`GameState::return_what_departed_hosts_held`): a walk over every exiled card,
+once per departure. Nothing in the suite moved a permanent off the
+battlefield, so `zones/wrath_60_exile_{0,800}` is new: sixty creatures moved
+to the graveyard one after another, with no card or 800 cards in exile. 800
+is every card at a table of eight Commander decks; a token in exile ceases to
+exist (CR 704.5d), so the exile zone never holds more than the cards.
+
+Scan off (`move_object` skips the call) and on, the whole suite `--quick`,
+same machine, back to back, two rounds. The machine was not idle: other
+worktrees were compiling, load average 19 to 86 over the four runs.
+
+| Bench | Off | On |
+|---|---|---|
+| `zones/wrath_60_exile_0` | 11.93 / 12.62 µs | 11.79 / 12.77 µs |
+| `zones/wrath_60_exile_800` | 12.33 / 12.85 µs | 106.6 / 83.4 µs |
+
+About 2 ns per exiled card per departure: at the 800-card ceiling a
+departure costs about 1.5 µs and a sixty-permanent wrath about 90 µs, once.
+At a real table, a few dozen cards in exile, it is well under a tenth of a
+microsecond a departure. The other benches move nothing off the battlefield,
+and their spread between runs, up to three times and in both directions
+between off and on, is the load. No early exit was added: a flag, a count
+of live links or a mark on the host is more state to keep in step with the
+riders, for a cost no game can see.

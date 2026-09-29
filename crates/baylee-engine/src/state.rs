@@ -2193,38 +2193,100 @@ impl GameState {
         self.journal.record(GameEvent::DayNightChanged { now });
     }
 
-    /// Sets the monarch and releases monarch-linked exiles: when a player
-    /// becomes monarch, cards exiled "until an opponent becomes monarch"
-    /// (Palace Jailer) return if the new monarch is an opponent of the
-    /// jailer's controller.
+    /// Sets the monarch (CR 724.3), and ends every exile that lasted "until
+    /// an opponent becomes the monarch" (Palace Jailer) for which the new
+    /// monarch is such an opponent.
+    ///
+    /// "An opponent" of the player who controlled the exiling ability, which
+    /// the exile wrote down: not of whoever controls the Jailer now, and not
+    /// of anybody at all when the Jailer is gone. Every other linked exile
+    /// is left alone. Skyclave Apparition's has no end, and Safe Haven's
+    /// ends when Safe Haven says so.
     pub fn set_monarch(&mut self, player: PlayerId) {
         let previous = self.monarch;
         self.monarch = Some(player);
         if previous == Some(player) {
             return;
         }
-        // Monarch-link releases (Palace Jailer): return cards whose host's
-        // controller is not the new monarch.
+        self.return_linked(|state, _, until| {
+            matches!(
+                until,
+                Some(crate::object::LinkUntil::OpponentBecomesMonarch { of })
+                    if state.is_opponent(player, of)
+            )
+        });
+    }
+
+    /// `player` has left the game (CR 800.4a) and, if they were the monarch,
+    /// the designation passes on at the same time (CR 724.4): to the active
+    /// player, or, when the active player is the one leaving, to the next
+    /// player in turn order still in the game. With nobody left the game goes
+    /// on with no monarch.
+    ///
+    /// `sba::eliminate_player` calls this once `player` is marked as having
+    /// left, so the leaver is never the heir. Through [`Self::set_monarch`],
+    /// so an exile that waited for an opponent to become the monarch (Palace
+    /// Jailer) ends if the heir is such an opponent. The rule's "if there is
+    /// no active player" never arises here, because the engine always has one
+    /// (`TurnInfo::active`), and nothing in the engine keeps a player still
+    /// in the game from becoming the monarch.
+    pub(crate) fn monarch_leaves(&mut self, player: PlayerId) {
+        if self.monarch != Some(player) {
+            return;
+        }
+        let seats = self.players.len();
+        let active = usize::from(self.turn.active.get());
+        let heir = (0..seats)
+            .map(|offset| PlayerId::new(((active + offset) % seats) as u8))
+            .find(|&p| !self.has_left(p));
+        match heir {
+            Some(heir) => self.set_monarch(heir),
+            None => self.monarch = None,
+        }
+    }
+
+    /// Returns every exiled card whose link `ends` says has ended to the
+    /// battlefield, under its owner's control, and forgets the link.
+    ///
+    /// The one way back for a card exiled with a link, whatever ended it:
+    /// an effect of the host (`Effect::ReturnLinkedToBattlefield`), a new
+    /// monarch ([`Self::set_monarch`]), or the host leaving the battlefield
+    /// ([`Self::return_what_departed_hosts_held`]). `ends` is asked with the
+    /// host and the link's `until`.
+    ///
+    /// Under its owner's control because every sentence that reaches here
+    /// says so or says nothing (CR 610.3c), and written where it arrives: the
+    /// default the card last had on the battlefield is whoever put it there,
+    /// which after a reanimation or a blink "under your control" may not be
+    /// its owner.
+    pub(crate) fn return_linked(
+        &mut self,
+        ends: impl Fn(&Self, ObjectId, Option<crate::object::LinkUntil>) -> bool,
+    ) {
         let mut returning = Vec::new();
         for seat in 0..self.players.len() {
             let p = PlayerId::new(seat as u8);
             for &card in self.zones.list(ZoneLocation::Exile(p)) {
-                if let Some(host) = self.object(card).and_then(|o| {
-                    o.riders.iter().find_map(|r| match r {
-                        crate::object::Rider::Linked { host } => Some(host),
+                let ended = self.object(card).and_then(|o| {
+                    o.riders.iter().find_map(|r| match *r {
+                        crate::object::Rider::Linked { host, until } if ends(self, host, until) => {
+                            Some(host)
+                        }
                         _ => None,
                     })
-                }) {
-                    let host_controller = self.object(*host).map_or(player, |h| h.controller);
-                    if host_controller != player {
-                        returning.push(card);
-                    }
+                });
+                if let Some(host) = ended {
+                    returning.push((card, host));
                 }
             }
         }
-        for card in returning {
+        for (card, host) in returning {
             if let Some(obj) = self.object_mut(card) {
                 obj.kind = crate::object::ObjectKind::Permanent;
+                obj.riders.retain(
+                    |r| !matches!(r, crate::object::Rider::Linked { host: h, .. } if *h == host),
+                );
+                obj.set_controller(obj.owner);
             }
             let _ = self.move_object(
                 card,
@@ -2233,6 +2295,28 @@ impl GameState {
                 Cause::Effect,
             );
         }
+    }
+
+    /// Returns what was exiled "until this creature leaves the battlefield"
+    /// by a host that is no longer on it (CR 610.3).
+    ///
+    /// The return is the second one-shot effect CR 610.3 creates
+    /// "immediately after the specified event", and not a triggered ability,
+    /// so it is done at the event itself: [`Self::move_object`] calls this
+    /// as a permanent leaves the battlefield, before anything else can
+    /// happen (a state-based action, a trigger, the rest of the resolution
+    /// that moved it), and `sba::eliminate_player` calls it once what the
+    /// departed player owned has left the game with them (CR 800.4a). Those
+    /// are the only two ways off the battlefield, which is what makes asking
+    /// "is the host still there" enough: a host that was blinked is asked
+    /// in the moment it is in exile, before it comes back as a new object.
+    pub(crate) fn return_what_departed_hosts_held(&mut self) {
+        self.return_linked(|state, host, until| {
+            until == Some(crate::object::LinkUntil::HostLeaves)
+                && state
+                    .object(host)
+                    .is_none_or(|h| h.zone != Zone::Battlefield)
+        });
     }
 
     /// The battlefield as rules see it: phased-out permanents are treated
@@ -2369,6 +2453,33 @@ impl GameState {
         }
     }
 
+    /// Who controlled `id`, the way CR 608.2h reads an object an effect
+    /// needs information from: the controller it had as it last existed on
+    /// the battlefield if that is where it last left, and its controller now
+    /// otherwise. `None` for an object that is gone and left no record.
+    ///
+    /// "Exile target creature. Its controller creates …" (Crib Swap) and
+    /// "Exile target creature. Its controller gains life …" (Swords to
+    /// Plowshares) read the second sentence after the first has moved the
+    /// creature, and the field on the exiled card is no answer: nothing
+    /// controls a card in exile, the field holds whatever the last refresh
+    /// left there, and a refresh that reaches every zone (any effect whose
+    /// filter names another zone) settles it to the card's default. After a
+    /// steal that is the player it was stolen from.
+    ///
+    /// [`Self::ltb_controllers`] is cleared at every move and written only
+    /// by a departure from the battlefield, so an entry is always the last
+    /// word: a creature still on the battlefield, or a spell on the stack,
+    /// has none and answers with the controller it has now.
+    #[must_use]
+    pub fn last_known_controller(&self, id: ObjectId) -> Option<PlayerId> {
+        self.ltb_controllers
+            .iter()
+            .find(|(object, _)| *object == id)
+            .map(|(_, seat)| *seat)
+            .or_else(|| self.object(id).map(|o| o.controller))
+    }
+
     /// Whether a static permission makes this player's library top public.
     #[must_use]
     pub fn library_top_revealed(&self, player: PlayerId) -> bool {
@@ -2460,7 +2571,8 @@ impl GameState {
             //
             // What stays: `riders` (a card exiled from the battlefield is
             // linked to whatever exiled it, which is the exception this
-            // rule is written around), and the spell-shaped fields
+            // rule is written around, until it leaves exile: below, with
+            // everything else it was in exile), and the spell-shaped fields
             // (`x_value`, `kicked`, `targets`), which a permanent resolving
             // off the stack still needs and which no permanent writes.
             if from_zone == Zone::Battlefield {
@@ -2484,6 +2596,20 @@ impl GameState {
             }
             if matches!(from_zone, Zone::Battlefield | Zone::Exile) {
                 obj.counters = crate::object::Counters::default();
+            }
+            // What the card was in exile lasts only as long as the exile. A
+            // card that leaves exile any other way than the return its host
+            // makes (cast, put into a hand, shuffled away) is a new object
+            // with no relation to the exile it left: not "exiled with" its
+            // host, not on an adventure, not suspended, not castable from
+            // exile by anybody (`Rider::ends_as_it_leaves_exile`). The link
+            // was kept, so a card cast out of Safe Haven's exile and later
+            // hit by Swords to Plowshares came back when Safe Haven was
+            // sacrificed. Not on a move from exile to exile, which is the one
+            // move that is no leaving; `ExileLinked` and the other writers
+            // put the rider on before they move the card.
+            if from_zone == Zone::Exile && to.zone() != Zone::Exile {
+                obj.riders.retain(|r| !r.ends_as_it_leaves_exile());
             }
             // What was paid is the spell's and no later object's (a flashback
             // is a new payment); nothing on the battlefield reads it yet, so
@@ -2635,6 +2761,12 @@ impl GameState {
         });
         if let Some(kind) = exile_counter {
             crate::replacement::put_counters(self, id, kind, 1);
+        }
+        // What this permanent held "until it leaves the battlefield" comes
+        // back now, immediately after the event and before anything else
+        // (CR 610.3).
+        if from_zone == Zone::Battlefield {
+            self.return_what_departed_hosts_held();
         }
         Ok(id)
     }
@@ -3639,9 +3771,17 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     h.usize(riders.len());
     for rider in riders {
         match rider {
-            Rider::Linked { host } => {
+            Rider::Linked { host, until } => {
                 h.u8(1);
                 host.hash(h);
+                match until {
+                    None => h.u8(0),
+                    Some(crate::object::LinkUntil::HostLeaves) => h.u8(1),
+                    Some(crate::object::LinkUntil::OpponentBecomesMonarch { of }) => {
+                        h.u8(2);
+                        h.u8(of.get());
+                    }
+                }
             }
             Rider::Rebound => h.u8(2),
             Rider::Adventure => h.u8(3),

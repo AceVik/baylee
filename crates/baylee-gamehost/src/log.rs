@@ -1069,6 +1069,7 @@ mod tests {
     static SELF_ONLY: Filter = Filter::This;
     static BLINK_SELF: &[Effect] = &[Effect::Blink {
         target: TargetSpec::ThisObject,
+        owner_control: true,
     }];
     static LOOPING_CARD: CardDef = CardDef {
         index: LOOPING,

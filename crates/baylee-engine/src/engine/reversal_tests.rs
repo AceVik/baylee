@@ -42,6 +42,16 @@ fn natural_order() -> CardIndex {
     card_index("8c1fe337-375a-4add-93b6-0ac39ed72b4f")
 }
 
+fn plains() -> CardIndex {
+    card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
+}
+
+/// "When this creature enters, exile up to one other target non-Fox
+/// creature until this creature leaves the battlefield."
+fn werefox_bodyguard() -> CardIndex {
+    card_index("d5ee2ced-29f4-430f-962e-2f930b92624c")
+}
+
 /// Takes `object` off the battlefield and out of the game altogether, as a
 /// token that left it does (CR 111.7): whatever still names it names nothing.
 #[track_caller]
@@ -211,5 +221,88 @@ fn a_reversed_cast_gives_its_mana_back() {
         pool(&engine, p0),
         5,
         "the {{2}}{{G}}{{G}} is back in the pool"
+    );
+}
+
+/// A reversed sacrifice puts back what its leaving set free.
+///
+/// Werefox Bodyguard holds seat 1's Elves in exile until it leaves the
+/// battlefield, and they return inside the move that takes it away (CR
+/// 610.3, `GameState::move_object`), so a cost that sacrifices it sets them
+/// free while the payment is still running. When a later part of that cost
+/// refuses, the whole action is reversed (CR 732.1): the Bodyguard stands,
+/// the Elves are in exile again as the object they were and held by it, and
+/// the journal has neither move. No card prints a sacrifice followed by a
+/// part that can refuse; this cost is written for the test, and asks for a
+/// counter the Bodyguard does not have.
+#[test]
+fn a_reversed_sacrifice_puts_back_what_its_leaving_set_free() {
+    static SACRIFICE_THEN_A_COUNTER: [CostPart; 2] = [
+        CostPart::SacrificeSelf,
+        CostPart::RemoveCounterSelf {
+            kind: baylee_cards_dsl::CounterKind::P1P1,
+            n: 1,
+        },
+    ];
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(614, plains())
+        .battlefield(0, &[plains(), plains(), plains()])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[werefox_bodyguard()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("seat 1's Elves");
+    cast_from_hand(&mut engine, p0, werefox_bodyguard());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .expect("the Elves are a target");
+    pass_until(&mut engine, stack_is_empty);
+    let bodyguard = on_battlefield(&engine, p0, werefox_bodyguard()).expect("the Bodyguard");
+    let held = |engine: &Engine<RegistryLookup>| {
+        engine.state().object(elves).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Exile
+                && o.riders.iter().any(
+                    |r| matches!(r, crate::object::Rider::Linked { host, .. } if *host == bodyguard),
+                )
+        })
+    };
+    assert!(held(&engine), "the Bodyguard holds the Elves");
+    let version = engine.state().object(elves).map(|o| o.version);
+    let journal = engine.state().journal.len();
+
+    let cost = Cost {
+        mana: baylee_core::mana::ManaCost::ZERO,
+        parts: &SACRIFICE_THEN_A_COUNTER,
+    };
+    assert!(
+        engine.pay_cost(p0, bodyguard, &cost, &[], 0).is_err(),
+        "the Bodyguard has no counter to remove"
+    );
+
+    assert_eq!(
+        engine.state().object(bodyguard).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield),
+        "the sacrifice is reversed"
+    );
+    assert!(held(&engine), "and the Bodyguard holds the Elves again");
+    assert_eq!(
+        engine.state().object(elves).map(|o| o.version),
+        version,
+        "the object they were"
+    );
+    assert_eq!(
+        engine.state().journal.len(),
+        journal,
+        "neither move is in the journal"
     );
 }
