@@ -1674,6 +1674,24 @@ impl<L: CardLookup> Engine<L> {
     /// static abilities of permanents, drops effects whose source left.
     pub(crate) fn sync_static_effects(&mut self) {
         use baylee_cards_dsl::Duration;
+        // A phased-out permanent's statics apply to nothing (CR 702.26b):
+        // set aside while it is phased out, back as they were once it has
+        // phased in (CR 702.26d). First, so the departure sweep below also
+        // drops what a source that left while phased out had set aside.
+        // phasing: this walk is the one looking for phased-out permanents.
+        let battlefield = self.state.zones.list(ZoneLocation::Battlefield);
+        let phased_out: Vec<ObjectId> = battlefield
+            .iter()
+            .copied()
+            .filter(|&id| {
+                self.state
+                    .object(id)
+                    .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT))
+            })
+            .collect();
+        self.state
+            .effects
+            .follow_phasing(|source| phased_out.contains(&source));
         // Drop effects whose source left the battlefield (structural
         // anthem removal).
         let gone: Vec<ObjectId> = self
@@ -1763,7 +1781,9 @@ impl<L: CardLookup> Engine<L> {
         // That reads the projection, so it is made current first: the effect
         // that took the abilities may have been registered a moment ago.
         self.state.refresh_characteristics();
-        let ids: Vec<ObjectId> = self.state.zones.list(ZoneLocation::Battlefield).clone();
+        // Not a phased-out permanent: its statics wait parked for it, and a
+        // condition on it is not asked while it does not exist.
+        let ids: Vec<ObjectId> = self.state.battlefield_view();
         let mut to_register = Vec::new();
         let mut lapsed = Vec::new();
         for id in ids {
@@ -1814,8 +1834,10 @@ impl<L: CardLookup> Engine<L> {
         crate::ability_log::note_sources(&self.state, &self.lookup);
     }
 
-    /// Drops the replacement rules of sources that left the battlefield or
-    /// lost their abilities (CR 613.1f) and registers the new ones.
+    /// Drops the replacement rules of sources that left the battlefield,
+    /// phased out (CR 702.26b) or lost their abilities (CR 613.1f) and
+    /// registers the new ones. A permanent that phases in is scanned again
+    /// like one that arrived, so its rules come back from its abilities.
     fn sync_replacement_rules(&mut self) {
         let gone_rules: Vec<ObjectId> = self
             .state
@@ -1824,7 +1846,9 @@ impl<L: CardLookup> Engine<L> {
             .map(|r| r.source)
             .filter(|s| {
                 self.state.object(*s).is_none_or(|o| {
-                    o.zone != Zone::Battlefield || o.characteristics().abilities_lost.is_some()
+                    o.zone != Zone::Battlefield
+                        || o.status.contains(crate::object::Status::PHASED_OUT)
+                        || o.characteristics().abilities_lost.is_some()
                 })
             })
             .collect();
@@ -1832,7 +1856,7 @@ impl<L: CardLookup> Engine<L> {
             .replacement_rules
             .retain(|r| !gone_rules.contains(&r.source));
         let mut rules_to_add = Vec::new();
-        for id in self.state.zones.list(ZoneLocation::Battlefield).clone() {
+        for id in self.state.battlefield_view() {
             let Some(obj) = self.state.object(id) else {
                 continue;
             };

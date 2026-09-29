@@ -92,8 +92,10 @@ pub(crate) fn graveyard_destination(
 /// previous instruction cannot keep replacing later discards or the resolving
 /// spell's own departure. Other rules keep their existing LKI lifetime.
 pub(crate) fn expire_graveyard_rules(state: &mut GameState) {
-    // phasing: retain phased-out sources so their rules resume when they
-    // phase in; graveyard_destination independently excludes them meanwhile.
+    // The engine's replacement sync drops a phased-out source's rules and
+    // scans them back when it phases in. This sweep runs between two
+    // instructions of one resolution, before that sync:
+    // phasing: it keeps them; graveyard_destination excludes them meanwhile.
     let battlefield = state.zones.list(crate::zone::ZoneLocation::Battlefield);
     state.replacement_rules.retain(|entry| {
         !matches!(

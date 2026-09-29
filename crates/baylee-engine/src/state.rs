@@ -3081,42 +3081,56 @@ fn hash_ability_list(
 }
 
 fn hash_effects(h: &mut Hasher, table: &crate::effects::EffectTable) {
-    let (effects, next_id, generation) = table.hashed_parts();
+    let (effects, parked, next_id, generation) = table.hashed_parts();
     next_id.hash(h);
     generation.hash(h);
     h.usize(effects.len());
     for fx in effects {
-        let crate::effects::ContinuousEffect {
-            id,
-            source,
-            controller,
-            origin,
-            layer,
-            timestamp,
-            duration,
-            filter,
-            modifier,
-        } = fx;
-        id.hash(h);
-        source.hash(h);
-        controller.hash(h);
-        origin.hash(h);
-        layer.hash(h);
-        timestamp.hash(h);
-        duration.hash(h);
-        match filter {
-            crate::effects::EffectFilter::Dsl(filter) => {
-                h.u8(0);
-                filter_hash(h, filter);
-            }
-            crate::effects::EffectFilter::ObjectIs(id, version) => {
-                h.u8(1);
-                id.hash(h);
-                version.hash(h);
-            }
-        }
-        hash_modifier(h, modifier);
+        hash_effect(h, fx);
     }
+    // The statics parked while their sources are phased out. Nothing is
+    // written while nothing is parked, so a game without phasing hashes as
+    // it did before the table could park; the length above already moves
+    // when an effect is parked.
+    if !parked.is_empty() {
+        h.usize(parked.len());
+        for fx in parked {
+            hash_effect(h, fx);
+        }
+    }
+}
+
+fn hash_effect(h: &mut Hasher, fx: &crate::effects::ContinuousEffect) {
+    let crate::effects::ContinuousEffect {
+        id,
+        source,
+        controller,
+        origin,
+        layer,
+        timestamp,
+        duration,
+        filter,
+        modifier,
+    } = fx;
+    id.hash(h);
+    source.hash(h);
+    controller.hash(h);
+    origin.hash(h);
+    layer.hash(h);
+    timestamp.hash(h);
+    duration.hash(h);
+    match filter {
+        crate::effects::EffectFilter::Dsl(filter) => {
+            h.u8(0);
+            filter_hash(h, filter);
+        }
+        crate::effects::EffectFilter::ObjectIs(id, version) => {
+            h.u8(1);
+            id.hash(h);
+            version.hash(h);
+        }
+    }
+    hash_modifier(h, modifier);
 }
 
 fn hash_player(h: &mut Hasher, player: &Player) {

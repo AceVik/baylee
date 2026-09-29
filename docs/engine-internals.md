@@ -718,6 +718,19 @@ battlefield queries and are not counted. The table must
 match exactly: auditing a walk lowers its row, and a new unexplained walk
 fails the test.
 
+What a phased-out permanent has does nothing either. The offer
+(`compute_legal`) and the trigger scan (`trigger::collect`) walk
+`battlefield_seen`, so none of its abilities is offered, a mana ability
+included, and none of its triggered abilities triggers. Its static effects
+are parked: `EffectTable::follow_phasing`, first in `sync_static_effects`,
+moves them out of the table every reader sees and puts them back, same id,
+same timestamp, same place in registration order, once it has phased in.
+Phasing in is not entering (CR 702.26d), and some statics are registered
+only once (a copy's own, a token's), so they are kept rather than rebuilt.
+Its replacement rules are dropped by `sync_replacement_rules` and scanned
+back from its abilities when it phases in. Effects a resolution made are
+not parked.
+
 ## Unusual casting
 Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing

@@ -96,6 +96,259 @@ fn a_phased_out_land_does_not_count_against_a_fastland() {
     );
 }
 
+fn icy_manipulator() -> baylee_core::ids::CardIndex {
+    card_index("3608f1f7-8dc5-4dd1-ae91-c830e1de9529")
+}
+
+fn glorious_anthem() -> baylee_core::ids::CardIndex {
+    card_index("e3886fe8-9b76-4613-8891-4ec74657c087")
+}
+
+fn doubling_season() -> baylee_core::ids::CardIndex {
+    card_index("01546b7d-a233-4176-8843-d732074dc5b6")
+}
+
+fn soul_warden() -> baylee_core::ids::CardIndex {
+    card_index("f3fad295-1af2-4ecc-8546-b121ad6be27b")
+}
+
+/// Seat 0 in its first main phase of turn one over `board`, `hand` in hand.
+fn seat_zero(
+    board: &[baylee_core::ids::CardIndex],
+    hand: &[baylee_core::ids::CardIndex],
+) -> Engine<RegistryLookup> {
+    let mut engine = Duel::new(209, basic_forest())
+        .battlefield(0, board)
+        .hand(0, hand)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    engine
+}
+
+/// "~ phases out", resolved with `id` as its own source: the resolver
+/// `Effect::PhaseOut` runs, not a status written by hand.
+fn phase_out(engine: &mut Engine<RegistryLookup>, id: ObjectId) {
+    let p0 = PlayerId::new(0);
+    let state = engine.dev_state_mut(p0).expect("the harness trusts itself");
+    let mut res = crate::resolve::Resolution {
+        source: id,
+        on_stack: id,
+        controller: p0,
+        effects: vec![baylee_cards_dsl::Effect::PhaseOut { target: None }],
+        pc: 0,
+        targets: smallvec::SmallVec::new(),
+        second_targets: smallvec::SmallVec::new(),
+        x: None,
+        chosen_player: None,
+        target_players: baylee_core::ids::SeatSet::new(),
+        event_object: None,
+        awaiting: None,
+        targeted: false,
+        mana_ability: false,
+        countered_source: None,
+        target_lki: None,
+    };
+    assert!(
+        matches!(
+            crate::resolve::run(state, &mut res),
+            crate::resolve::Flow::Complete
+        ),
+        "phasing out asks nothing"
+    );
+    assert!(
+        engine
+            .state()
+            .object(id)
+            .is_some_and(|o| o.status.contains(Status::PHASED_OUT)),
+        "the resolver phased it out"
+    );
+    engine.refresh_offer();
+}
+
+/// Everything registered from `source`'s static abilities, as (effect id,
+/// timestamp) pairs.
+fn statics_of(engine: &Engine<RegistryLookup>, source: ObjectId) -> Vec<(u32, u64)> {
+    engine
+        .state()
+        .effects
+        .iter()
+        .filter(|fx| fx.source == Some(source) && fx.origin == crate::effects::EffectOrigin::Static)
+        .map(|fx| (fx.id.get(), fx.timestamp))
+        .collect()
+}
+
+/// A phased-out permanent "can't affect or be affected by anything else in
+/// the game" (CR 702.26b), and activating an ability is its controller
+/// using it: Icy Manipulator's ability and a Forest's mana are not offered
+/// while they are phased out, and an activation sent anyway is refused.
+#[test]
+fn a_phased_out_permanent_offers_none_of_its_abilities() {
+    let p0 = PlayerId::new(0);
+    let forest = basic_forest();
+    let mut engine = seat_zero(&[icy_manipulator(), forest, forest, forest], &[]);
+    let icy = on_battlefield(&engine, p0, icy_manipulator()).expect("seated");
+    let lands: Vec<ObjectId> = mine(&engine, p0, forest, crate::zone::Zone::Battlefield);
+    let away = lands[0];
+    // The offer lists an ability whose mana is already floating.
+    tap_mana_where(&mut engine, p0, |id| id == lands[2]);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("seat 0 holds priority in its main phase");
+    };
+    assert!(
+        legal.abilities.contains(&(icy, 0)) && legal.mana_abilities.contains(&away),
+        "the control: phased in, both are offered"
+    );
+
+    phase_out(&mut engine, icy);
+    phase_out(&mut engine, away);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("seat 0 still holds priority");
+    };
+    assert!(
+        !legal.abilities.iter().any(|&(source, _)| source == icy),
+        "a phased-out Icy Manipulator's ability was offered"
+    );
+    assert!(
+        !legal.mana_abilities.contains(&away),
+        "a phased-out Forest's mana was offered"
+    );
+    assert!(
+        legal.mana_abilities.contains(&lands[1]),
+        "the Forest still phased in is offered"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: icy,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "a phased-out Icy Manipulator was activated"
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: away })
+            .is_err(),
+        "a phased-out Forest was tapped for mana"
+    );
+}
+
+/// A static ability of a phased-out permanent does not apply, and neither
+/// does its replacement effect (CR 702.26b). Phasing in is not entering
+/// (CR 702.26d), so the same effect comes back with the timestamp it had.
+#[test]
+fn a_phased_out_permanents_statics_and_replacements_stop_until_it_phases_in() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = seat_zero(
+        &[glorious_anthem(), doubling_season(), quiet_creature()],
+        &[],
+    );
+    let anthem = on_battlefield(&engine, p0, glorious_anthem()).expect("seated");
+    let season = on_battlefield(&engine, p0, doubling_season()).expect("seated");
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
+    let registered = statics_of(&engine, anthem);
+    assert_eq!(pt(&engine, elf), (2, 2), "the control: the anthem applies");
+    assert_eq!(registered.len(), 1, "the anthem registered its static");
+    let seasons = |engine: &Engine<RegistryLookup>| {
+        engine
+            .state()
+            .replacement_rules
+            .iter()
+            .filter(|r| r.source == season)
+            .count()
+    };
+    let doubled = seasons(&engine);
+    assert!(
+        doubled > 0,
+        "the control: Doubling Season registered its rules"
+    );
+
+    phase_out(&mut engine, anthem);
+    phase_out(&mut engine, season);
+    engine
+        .apply(p0, PlayerAction::PassPriority)
+        .expect("seat 0 passes");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p1),
+        "seat 1 holds priority in the same step, got {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        pt(&engine, elf),
+        (1, 1),
+        "a phased-out Glorious Anthem still pumps the Elf"
+    );
+    assert_eq!(
+        statics_of(&engine, anthem),
+        [],
+        "a phased-out anthem's static is among the active effects"
+    );
+    assert_eq!(
+        seasons(&engine),
+        0,
+        "a phased-out Doubling Season's replacement rules are registered"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        engine
+            .state()
+            .object(anthem)
+            .is_some_and(|o| !o.status.contains(Status::PHASED_OUT)),
+        "the anthem phased in at seat 0's untap step"
+    );
+    assert_eq!(pt(&engine, elf), (2, 2), "the anthem applies again");
+    assert_eq!(
+        statics_of(&engine, anthem),
+        registered,
+        "the anthem's effect came back as it was, timestamp and all"
+    );
+    assert_eq!(
+        seasons(&engine),
+        doubled,
+        "Doubling Season's rules are back"
+    );
+}
+
+/// A phased-out Soul Warden sees nothing enter (CR 702.26b): its trigger
+/// is not collected while it is phased out.
+#[test]
+fn a_phased_out_permanents_triggers_do_not_trigger() {
+    let p0 = PlayerId::new(0);
+    let forest = basic_forest();
+    let elf = quiet_creature();
+    let mut engine = seat_zero(&[soul_warden(), forest, forest], &[elf, elf]);
+    let warden = on_battlefield(&engine, p0, soul_warden()).expect("seated");
+    let lands: Vec<ObjectId> = mine(&engine, p0, forest, crate::zone::Zone::Battlefield);
+    let life = |engine: &Engine<RegistryLookup>| engine.state().players[0].life;
+    let before = life(&engine);
+
+    tap_mana_where(&mut engine, p0, |id| id == lands[0]);
+    cast_with_floating(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life(&engine),
+        before + 1,
+        "the control: Soul Warden sees the first Elf enter"
+    );
+
+    phase_out(&mut engine, warden);
+    tap_mana_where(&mut engine, p0, |id| id == lands[1]);
+    cast_with_floating(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life(&engine),
+        before + 1,
+        "a phased-out Soul Warden saw the second Elf enter"
+    );
+}
+
 /// Raw battlefield walks with no `// phasing:` reason yet, per file, relative
 /// to `crates/baylee-engine/src`. Measured 2026-09-24. Equality, not a
 /// ceiling: auditing a walk (switching it to `battlefield_seen`, or giving
@@ -103,8 +356,7 @@ fn a_phased_out_land_does_not_count_against_a_fastland() {
 /// cannot go stale in the direction that hides work.
 const UNAUDITED: &[(&str, usize)] = &[
     ("combat.rs", 2),
-    ("engine/abilities.rs", 1),
-    ("engine/progress.rs", 11),
+    ("engine/progress.rs", 9),
     ("eval.rs", 6),
     ("resolve/chosen.rs", 1),
     ("resolve/control.rs", 1),
@@ -115,7 +367,6 @@ const UNAUDITED: &[(&str, usize)] = &[
     ("resolve/zones.rs", 2),
     ("sba.rs", 3),
     ("state.rs", 2),
-    ("trigger.rs", 1),
 ];
 
 /// Where the lint looks: the engine's own source, tests excluded.

@@ -207,7 +207,9 @@ impl<L: CardLookup> Engine<L> {
                 legal.castable.push(card);
             }
         }
-        for &id in self.state.zones.list(ZoneLocation::Battlefield) {
+        // A phased-out permanent is treated as though it does not exist
+        // (CR 702.26b): nothing it has is offered, a mana ability included.
+        for id in self.state.battlefield_seen() {
             // Karn's lock, asked on the offering side too. It stops every
             // activated ability of the permanent, a mana ability included —
             // CR 605.1 makes a mana ability a kind of activated ability, not

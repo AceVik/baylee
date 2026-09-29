@@ -209,6 +209,14 @@ pub struct ContinuousEffect {
 #[derive(Clone, Debug, Default)]
 pub struct EffectTable {
     effects: Vec<ContinuousEffect>,
+    /// The static effects of permanents that are phased out. Such a
+    /// permanent is treated as though it does not exist (CR 702.26b), so
+    /// its statics apply to nothing, and no reader of the table sees them
+    /// here. They are set aside rather than dropped because phasing in is
+    /// not entering (CR 702.26d): the same effects come back, with their
+    /// ids and timestamps, including the ones registered once and never
+    /// rescanned (a copy's own statics, a token's).
+    parked: Vec<ContinuousEffect>,
     next_id: u32,
     /// Bumped on every add/remove — the projection cache key.
     pub generation: u64,
@@ -225,13 +233,45 @@ impl EffectTable {
         id
     }
 
-    /// Removes effects matching a predicate; bumps the generation if any.
+    /// Removes effects matching a predicate, parked ones included; bumps
+    /// the generation if any.
     pub fn remove_where(&mut self, pred: impl Fn(&ContinuousEffect) -> bool) {
-        let before = self.effects.len();
+        let before = self.effects.len() + self.parked.len();
         self.effects.retain(|fx| !pred(fx));
-        if self.effects.len() != before {
+        self.parked.retain(|fx| !pred(fx));
+        if self.effects.len() + self.parked.len() != before {
             self.generation += 1;
         }
+    }
+
+    /// Sets aside the static effects of every source `phased_out` names, and
+    /// puts back those whose source it no longer names (CR 702.26b, d).
+    ///
+    /// A source that left the battlefield while phased out (its owner left
+    /// the game, CR 702.26k) is no longer named either: its effects come
+    /// back to be dropped by the departure sweep like any other source's.
+    ///
+    /// The table stays in `EffectId` order, which is registration order:
+    /// `granted_activated` numbers its slots by that order, and an effect
+    /// that comes back takes its old place rather than the end. Only
+    /// statics are set aside. An effect a resolution made keeps applying
+    /// to the permanents it affects, and ends by its own duration
+    /// (CR 702.26f).
+    pub(crate) fn follow_phasing(&mut self, phased_out: impl Fn(ObjectId) -> bool) {
+        let named = |fx: &ContinuousEffect| {
+            fx.origin == EffectOrigin::Static && fx.source.is_some_and(&phased_out)
+        };
+        let back: Vec<ContinuousEffect> = self.parked.extract_if(.., |fx| !named(fx)).collect();
+        let away: Vec<ContinuousEffect> = self.effects.extract_if(.., |fx| named(fx)).collect();
+        if back.is_empty() && away.is_empty() {
+            return;
+        }
+        self.parked.extend(away);
+        if !back.is_empty() {
+            self.effects.extend(back);
+            self.effects.sort_by_key(|fx| fx.id);
+        }
+        self.generation += 1;
     }
 
     /// All active effects (registration order).
@@ -256,11 +296,12 @@ impl EffectTable {
     }
 
     /// Whether an effect from `source` with `ability_index` is registered
-    /// (static-ability sync).
+    /// (static-ability sync), parked or not.
     #[must_use]
     pub fn has_source_ability(&self, source: ObjectId, modifier: Modifier) -> bool {
         self.effects
             .iter()
+            .chain(&self.parked)
             .any(|fx| fx.source == Some(source) && fx.modifier == modifier)
     }
 
@@ -304,13 +345,14 @@ impl EffectTable {
     ///
     /// Named rather than matched with `..`, so a field added here does not
     /// compile until the hash has been told about it (#122).
-    pub(crate) fn hashed_parts(&self) -> (&[ContinuousEffect], u32, u64) {
+    pub(crate) fn hashed_parts(&self) -> (&[ContinuousEffect], &[ContinuousEffect], u32, u64) {
         let Self {
             effects,
+            parked,
             next_id,
             generation,
         } = self;
-        (effects, *next_id, *generation)
+        (effects, parked, *next_id, *generation)
     }
 }
 
@@ -325,8 +367,12 @@ impl EffectTable {
 ///
 /// Registration order is slot order, and it has to be: the offer numbers the
 /// grants it finds and the activation decodes that number back, so the two
-/// walks must agree on what "the second one" means. The effect table is
-/// append-only within a game, which is what makes the order stable.
+/// walks must agree on what "the second one" means. The effect table is kept
+/// in registration order within a game, which is what makes the order
+/// stable: a static set aside while its source is phased out
+/// ([`EffectTable::follow_phasing`]) comes back to its old place, and it
+/// moves only in the machine's sweep, never between an offer and its
+/// answer.
 pub fn granted_activated(
     state: &crate::state::GameState,
     source: ObjectId,

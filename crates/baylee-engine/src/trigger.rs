@@ -122,10 +122,12 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
         return Vec::new();
     }
     let mut triggers = Vec::new();
+    // A phased-out permanent sees nothing happen (CR 702.26b), so its
+    // triggered abilities are not asked.
     collect_for_objects(
         state,
         lookup,
-        state.zones.list(ZoneLocation::Battlefield),
+        &state.battlefield_view(),
         events,
         true,
         &mut triggers,
