@@ -435,6 +435,14 @@ express at all yet.
   field — `lints::no_cost_announces_two_different_xs` is the guard, and it
   fails with the card's name the day one prints both.
 
+  A **Phyrexian symbol** in an activation cost needs nothing written beside
+  it either: `cost!("{1}{G/P}", …)` (Birthing Pod) is offered when some way
+  of paying each symbol — its colour or 2 life (CR 107.4f) — covers the
+  cost, and the engine asks `YesNoPrompt::PayLife { amount: 2 }` per symbol
+  only where both ways pay, after the X and before the targets (CR 601.2b
+  through CR 602.2b). A *spell's* Phyrexian symbol is still paid with its
+  colour only: the cast wizard does not offer the life.
+
   **Which counter** is a `CounterKind`, and there are three ways to name one.
   Nine counters have a variant because the rules know them by a word —
   `Loyalty`, `Lore`, `Time`, `Charge`, `Poison`, `Energy`, `Rad`,

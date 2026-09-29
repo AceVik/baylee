@@ -308,7 +308,7 @@ impl<L: CardLookup> Engine<L> {
                             continue;
                         }
                         let cost = self.activation_price(player, id, cost, *cost_reduction);
-                        if self.can_afford(player, id, &cost, casting::SpendFor::Ability(id)) {
+                        if self.activation_affordable(player, id, &cost, &[]) {
                             legal.abilities.push((id, i as u32));
                         }
                     }
@@ -341,7 +341,7 @@ impl<L: CardLookup> Engine<L> {
                             continue;
                         }
                         let cost = self.activation_price(player, id, cost, *cost_reduction);
-                        if self.can_afford(player, id, &cost, casting::SpendFor::Ability(id)) {
+                        if self.activation_affordable(player, id, &cost, &[]) {
                             legal.abilities.push((id, i as u32));
                         }
                     }
@@ -487,7 +487,7 @@ impl<L: CardLookup> Engine<L> {
                             continue;
                         }
                         let cost = self.activation_price(player, card, cost, *cost_reduction);
-                        if self.can_afford(player, card, &cost, casting::SpendFor::Ability(card)) {
+                        if self.activation_affordable(player, card, &cost, &[]) {
                             legal.abilities.push((card, i as u32));
                         }
                     }
@@ -527,7 +527,7 @@ impl<L: CardLookup> Engine<L> {
                             continue;
                         }
                         let cost = self.activation_price(player, card, cost, *cost_reduction);
-                        if self.can_afford(player, card, &cost, casting::SpendFor::Ability(card)) {
+                        if self.activation_affordable(player, card, &cost, &[]) {
                             legal.abilities.push((card, i as u32));
                         }
                     }
@@ -736,6 +736,48 @@ impl<L: CardLookup> Engine<L> {
             mana: cost.mana.with_less_generic(off),
             parts: cost.parts,
         }
+    }
+
+    /// Whether `player` can pay an activation's `cost` some way that begins
+    /// with the Phyrexian answers `settled` already gives: every way of
+    /// paying the remaining Phyrexian symbols is tried, each paid with its
+    /// mana or with 2 life (CR 107.4f), and the way counts when the pool
+    /// covers the mana left and the player can pay the life (CR 119.4).
+    /// A cost with no Phyrexian symbol is [`Self::can_afford`]'s question
+    /// alone. The offer and every Phyrexian question ask this, so an ability
+    /// is offered exactly when some answer to those questions pays for it.
+    pub(crate) fn activation_affordable(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        cost: &Cost,
+        settled: &[bool],
+    ) -> bool {
+        let symbols = cost.mana.phyrexian_count();
+        // Eight symbols is 256 ways; no card prints more than four.
+        let fixed = u32::try_from(settled.len()).unwrap_or(u32::MAX);
+        if symbols > 8 || fixed > symbols {
+            return false;
+        }
+        let base = settled
+            .iter()
+            .enumerate()
+            .fold(0u32, |mask, (i, life)| mask | (u32::from(*life) << i));
+        (0..(1u32 << (symbols - fixed))).any(|rest| {
+            let mask = base | (rest << fixed);
+            let life = 2 * i32::try_from(mask.count_ones()).unwrap_or(i32::MAX);
+            let settled_cost = Cost {
+                mana: cost.mana.with_phyrexian_settled(mask),
+                parts: cost.parts,
+            };
+            self.state.can_pay_life(player, life)
+                && self.can_afford(
+                    player,
+                    source,
+                    &settled_cost,
+                    casting::SpendFor::Ability(source),
+                )
+        })
     }
 
     /// Whether `player`'s pool covers a bare mana cost paid for `what`.
@@ -1377,6 +1419,57 @@ impl<L: CardLookup> Engine<L> {
             self.awaiting_answer = true;
             return Ok(());
         }
+        // Each Phyrexian symbol: 2 life or its mana, announced beside the X
+        // (CR 601.2b through CR 602.2b; CR 118.13a). Asked only where both
+        // answers still leave a way to pay; where one does, it is taken
+        // without asking, and where neither does the activation is refused.
+        let symbols = cost.mana.phyrexian_count();
+        while u32::try_from(self.activation_phyrexian.len()).unwrap_or(u32::MAX) < symbols {
+            let mut with_life = self.activation_phyrexian.clone();
+            with_life.push(true);
+            let mut with_mana = self.activation_phyrexian.clone();
+            with_mana.push(false);
+            let life_ok = self.activation_affordable(player, source, &cost, &with_life);
+            let mana_ok = self.activation_affordable(player, source, &cost, &with_mana);
+            match (life_ok, mana_ok) {
+                (true, true) => {
+                    self.pending_plan = Some(PlanKind::ChoosePhyrexianLife {
+                        source,
+                        ability_index,
+                    });
+                    self.pending = Pending::YesNo {
+                        player,
+                        prompt: crate::choice::YesNoPrompt::PayLife { amount: 2 },
+                        // The ability being activated, which is what the
+                        // question is about.
+                        source: self
+                            .state
+                            .object(source)
+                            .and_then(|o| o.card)
+                            .map(|c| baylee_core::ids::AbilityRef::new(c.index, ability_index)),
+                    };
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
+                (true, false) => self.activation_phyrexian.push(true),
+                (false, true) => self.activation_phyrexian.push(false),
+                (false, false) => {
+                    self.activation_phyrexian.clear();
+                    self.activation_x = None;
+                    return Err(EngineError::IllegalAction("cannot pay the cost"));
+                }
+            }
+        }
+        let by_life = self
+            .activation_phyrexian
+            .iter()
+            .enumerate()
+            .fold(0u32, |mask, (i, life)| mask | (u32::from(*life) << i));
+        let phyrexian_life = 2 * i32::try_from(by_life.count_ones()).unwrap_or(i32::MAX);
+        let cost = Cost {
+            mana: cost.mana.with_phyrexian_settled(by_life),
+            parts: cost.parts,
+        };
         // Targets, unless this activation has already answered them. That is
         // a flag and not a look at the lists, because an empty list is an
         // answer too: "up to one" answered with nothing re-enters here with
@@ -1471,9 +1564,12 @@ impl<L: CardLookup> Engine<L> {
                 return Ok(());
             }
         }
-        if !self.can_afford(player, source, &cost, casting::SpendFor::Ability(source)) {
+        if !self.can_afford(player, source, &cost, casting::SpendFor::Ability(source))
+            || !self.state.can_pay_life(player, phyrexian_life)
+        {
             self.activation_cost_choices.clear();
             self.activation_x = None;
+            self.activation_phyrexian.clear();
             return Err(EngineError::IllegalAction("cannot pay the cost"));
         }
         // CR 601.2h, and the one step of it the player has to take: a cost
@@ -1530,7 +1626,14 @@ impl<L: CardLookup> Engine<L> {
         // line up: the number belongs to this activation and to no other.
         let x = self.activation_x.take().unwrap_or(0);
         self.activation_targets_answered = false;
+        self.activation_phyrexian.clear();
         let sacrificed_mana_value = self.pay_cost(player, source, &cost, &answers, x)?;
+        // The life the Phyrexian symbols were paid with, beside the rest of
+        // the cost (CR 601.2h; CR 119.4 was asked above).
+        if phyrexian_life > 0 {
+            self.state
+                .change_life(player, -phyrexian_life, crate::event::Cause::Cost);
+        }
         // "Activate only once each turn" is spent *here* and not at the
         // offer, because this is the line the rules count: CR 602.2 makes
         // activating an ability putting it on the stack and paying its

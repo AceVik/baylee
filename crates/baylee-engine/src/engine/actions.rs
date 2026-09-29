@@ -369,6 +369,7 @@ impl<L: CardLookup> Engine<L> {
                 // collected to the next one.
                 self.activation_cost_choices.clear();
                 self.activation_x = None;
+                self.activation_phyrexian.clear();
                 self.activation_second_targets = None;
                 self.activation_targets_answered = false;
                 self.start_activation(player, source, ability_index, SmallVec::new())
@@ -514,6 +515,9 @@ impl<L: CardLookup> Engine<L> {
                     // answered somewhere else should have to say so here.
                     PlanKind::ChooseActivationX { .. } => {
                         unreachable!("activation-number plans are answered via ChooseNumber")
+                    }
+                    PlanKind::ChoosePhyrexianLife { .. } => {
+                        unreachable!("a Phyrexian symbol is answered via YesNo")
                     }
                     PlanKind::ActivateAbilitySecondTargets {
                         source,
@@ -849,6 +853,18 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
+                // An activation's Phyrexian symbol: yes is 2 life, no is its
+                // mana (CR 107.4f). Nothing is paid yet; the answer is kept
+                // and the activation goes on to its next question.
+                if let Some(PlanKind::ChoosePhyrexianLife {
+                    source,
+                    ability_index,
+                }) = self.pending_plan
+                {
+                    self.pending_plan = None;
+                    self.activation_phyrexian.push(answer);
+                    return self.start_activation(player, source, ability_index, SmallVec::new());
+                }
                 // A draw offer: unanimous or nothing (CR 104.4i).
                 if matches!(self.pending_plan, Some(PlanKind::DrawOffer { .. })) {
                     let Some(PlanKind::DrawOffer {

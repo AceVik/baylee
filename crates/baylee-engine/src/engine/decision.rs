@@ -110,6 +110,10 @@ impl<L: CardLookup> Engine<L> {
                 | PlanKind::ChooseActivationX {
                     source,
                     ability_index,
+                }
+                | PlanKind::ChoosePhyrexianLife {
+                    source,
+                    ability_index,
                 },
             ) => Some((*source, *ability_index, None)),
             Some(PlanKind::Trigger {

@@ -245,6 +245,13 @@ pub struct Engine<L: CardLookup> {
     /// over: a stale answer here would pay the *next* activation's cost with
     /// the last one's number and never ask again.
     activation_x: Option<u32>,
+    /// How this activation pays its Phyrexian symbols, one answer per
+    /// symbol in the cost's order: `true` is 2 life, `false` its mana
+    /// (CR 107.4f, announced by CR 601.2b through CR 602.2b). Asked after the
+    /// X and before the targets, kept across the re-entries the later
+    /// questions make, and taken when the cost is paid; cleared on a fresh
+    /// press like [`Engine::activation_x`].
+    activation_phyrexian: Vec<bool>,
     /// The ability list the next push to the stack should use instead of
     /// asking the source — read before its cost is paid, or carried on a
     /// trigger that is looking back in time.
@@ -503,6 +510,16 @@ enum PlanKind {
         /// Ability index.
         ability_index: u32,
     },
+    /// An activation asking whether its next Phyrexian symbol is paid with
+    /// 2 life (yes) or with its mana (no) — asked only where both can be
+    /// paid. Carries only the ability, for [`PlanKind::ChooseActivationX`]'s
+    /// reason: it is asked before the targets.
+    ChoosePhyrexianLife {
+        /// The object whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+    },
     /// An activation waiting for the targets of its second instance of the
     /// word "target" (CR 601.2c, CR 115.3).
     ///
@@ -587,6 +604,7 @@ impl<L: CardLookup> Engine<L> {
             activation_targets_answered: false,
             activation_cost_choices: Vec::new(),
             activation_x: None,
+            activation_phyrexian: Vec::new(),
             activating_abilities: None,
             entry_scan_seq: 0,
             delayed_queue: VecDeque::new(),
@@ -957,6 +975,7 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::ActivateAbility { .. }
                         | PlanKind::ActivateAbilitySecondTargets { .. }
                         | PlanKind::ChooseActivationX { .. }
+                        | PlanKind::ChoosePhyrexianLife { .. }
                         | PlanKind::PayActivationCost { .. }
                         | PlanKind::LoyaltyPlayer { .. }
                         | PlanKind::EntryTap { .. }
