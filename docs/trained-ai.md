@@ -64,15 +64,35 @@ training-only critic and auxiliary heads.
   `policy::assemble` puts picks back into one `PlayerAction` (tested as the exact
   inverse of `policy::steps` over whole games). `Arrange` and numbers above 63
   are not answered by the net yet and are counted per kind.
-- **v3 (required, next)**: piles and runs. Battlefield objects that differ in
-  nothing a player reads are one row with a count, by the client's own predicate
-  (`baylee_view::ObjectSummaryKey`, shared rather than copied), kept apart when
-  something individual applies (an aura, a spell pointed at one, face down) and
-  split by whether each member is a legal option of the question. Consecutive
-  identical stack items are one run, the top few kept individual. A pick on a pile
-  unfolds to a concrete legal member. Grouping comes before the entity cap, so a
-  question never loses an offered object: that becomes a test over the swarm
-  games of r001/r002, not a statistic.
+- **v3** (`features3`, `convert3`, `dataset3.py`, `model3.py`, `train3.py`,
+  `export_onnx3.py`, `netplay3`). v2 stays as it is for the nets trained on it,
+  and the arena plays either.
+  - **Piles and runs.** Objects that differ in nothing a player reads are one
+    row with a count and a picked count. The grouping key is the client's own
+    (`PublicObject::summary_key`) together with the zone and what the question
+    offers for the object. Objects keep a row of their own when others point at
+    them or they point at others (combat, attachments, targets), and when they
+    are face down. Consecutive identical stack items are one row. Grouping comes
+    before the entity cap, and offered rows before others. A tested case: 300
+    Forests offered for mana are one row where v2 dropped some. A pile's option
+    stands for its lowest unpicked member, so a label never depends on which of
+    two identical objects the house took.
+  - **Seats** are rows of their own, up to 8, in turn order from the deciding
+    seat. Each has its side, whether it is still in, whether it is active or
+    asked, life, zones, commander damage and mana pool.
+  - **The deck list.** The deciding seat's own list, and per card how many it
+    has not seen yet (hand and owned public cards count as seen), read from the
+    view alone. No other seat's list is an input. The critic's half has every
+    seat's list and what is left of it in each library.
+  - **Cards by structure.** The dataset carries the card table
+    (`cardwalk::features`, one row per pool card and registry token). The net
+    adds the projected structure to the id embedding. It replaces 40 % of ids
+    in training by one "unseen card" vector, so a card it never saw is read
+    from its structure. The export folds both into one table and gives every id
+    that training never met the unseen vector.
+  - **The value is a distribution over the seats.** Labels: the winners share
+    it (a team alike); in a draw, the seats still in do. The deciding seat's
+    win chance is the sum over its side, at any table size.
 
 ## The net
 
