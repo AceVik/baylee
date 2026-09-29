@@ -254,6 +254,9 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         "spec: EventObject",
         "GraveyardToBattlefield { target: EventObject",
         "PutOnBottomOfLibraryFromGraveyard { target: EventObject",
+        // A player and not an object: `resolve::players_of` reads the
+        // event object's controller (Mystic Remora's "that player").
+        "ControllerOfEventObject",
     ];
 
     let mut unread = Vec::new();
