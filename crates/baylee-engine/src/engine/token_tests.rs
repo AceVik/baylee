@@ -1486,3 +1486,93 @@ fn a_token_ceasing_to_exist_in_a_graveyard_is_seen_by_the_projection() {
     );
     assert!(engine.projection_is_fresh(), "nothing is left stale");
 }
+
+fn fiend_artisan() -> CardIndex {
+    card_index("43b8456a-3333-4936-a09c-324327619c36")
+}
+fn unlicensed_hearse() -> CardIndex {
+    card_index("c640654c-487e-4a2c-aced-126ed835b78f")
+}
+
+/// "Card types among cards in all graveyards" (Pyrogoyf), "each creature
+/// card in your graveyard" (Fiend Artisan), "the number of cards exiled
+/// with it" (Unlicensed Hearse): each counts cards, and a token is not one
+/// (CR 108.2b). A token lies in a graveyard or in exile from the moment it
+/// arrives until state-based actions remove it (CR 704.5d), and the
+/// engine's loop projects in between; the three counts read every object
+/// there. The board is what that projection sees: one Soldier token in the
+/// graveyard and one in exile with the Hearse, beside the instant card that
+/// made them.
+#[test]
+fn a_token_in_a_graveyard_or_in_exile_is_no_card_to_a_count() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(11, island())
+        .battlefield(
+            0,
+            &[
+                pyrogoyf(),
+                fiend_artisan(),
+                unlicensed_hearse(),
+                plains(),
+                plains(),
+            ],
+        )
+        .hand(0, &[raise_the_alarm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let goyf = on_battlefield(&engine, p0, pyrogoyf()).expect("Pyrogoyf starts out");
+    let fiend = on_battlefield(&engine, p0, fiend_artisan()).expect("the Fiend starts out");
+    let hearse = on_battlefield(&engine, p0, unlicensed_hearse()).expect("the Hearse stands");
+    cast_from_hand(&mut engine, p0, raise_the_alarm());
+    pass_until(&mut engine, stack_is_empty);
+    let [dead, exiled] = tokens_on_battlefield(&engine)[..] else {
+        panic!("Raise the Alarm made two Soldiers");
+    };
+    let sizes = |engine: &Engine<RegistryLookup>| {
+        [goyf, fiend, hearse].map(|id| power_and_toughness(engine, id))
+    };
+    let before = sizes(&engine);
+    assert_eq!(
+        before,
+        [(1, 2), (1, 1), (0, 0)],
+        "an instant card in the graveyard, no creature card, nothing exiled"
+    );
+
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up");
+    let mark = {
+        let host = state.object(hearse).expect("the Hearse is an object");
+        crate::object::Rider::ExiledWith {
+            host: hearse,
+            version: crate::object::Rider::version_of(host),
+        }
+    };
+    for (token, to) in [
+        (dead, ZoneLocation::Graveyard(p0)),
+        (exiled, ZoneLocation::Exile(p0)),
+    ] {
+        state
+            .move_object(
+                token,
+                to,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("the token moves");
+    }
+    state
+        .object_mut(exiled)
+        .expect("the token lies in exile")
+        .riders
+        .push(mark);
+    state.refresh_characteristics();
+
+    assert_eq!(
+        sizes(&engine),
+        before,
+        "a Soldier token counts as no creature card in a graveyard and as no card exiled \
+         with the Hearse"
+    );
+}

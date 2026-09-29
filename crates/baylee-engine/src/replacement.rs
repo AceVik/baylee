@@ -52,7 +52,7 @@ pub(crate) fn graveyard_destination(
     {
         return (ZoneLocation::Exile(card.owner), None);
     }
-    if card.card.is_none() || card.riders.contains(&Rider::SpellCopy) {
+    if !card.is_card() {
         return (to, None);
     }
     // Its own "exile it instead": on the stack as a rider, on the

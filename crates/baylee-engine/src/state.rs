@@ -2759,9 +2759,7 @@ impl GameState {
         // legitimately lives there and must be allowed to resolve — the bug
         // this rule already caused once, recorded in `sba::run`.
         if !matches!(to.zone(), Zone::Battlefield | Zone::Stack)
-            && self.object(id).is_some_and(|o| {
-                o.card.is_none() || o.riders.contains(&crate::object::Rider::SpellCopy)
-            })
+            && self.object(id).is_some_and(|o| !o.is_card())
         {
             self.watch_token_cleanup(id);
         }
