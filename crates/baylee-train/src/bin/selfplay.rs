@@ -28,8 +28,10 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context as _, bail};
+use baylee_cards::formats::Shape;
 use baylee_core::ids::CardIndex;
 use baylee_core::preset::AIProfile;
+use baylee_train::deckgen::{self, Archetype, shape_name};
 use baylee_train::housedeck::HouseDeck;
 use baylee_train::selfplay::{Caps, Outcome, play, table};
 use baylee_train::working::{Working, repo_root};
@@ -90,6 +92,38 @@ struct Args {
     /// seeded from; defaults to the name of `--out`.
     #[arg(long)]
     name: Option<String>,
+    /// Decks to generate from the working pool (`baylee_train::deckgen`),
+    /// spread over `--shapes` and the four archetypes. With any, a game
+    /// picks a shape, then two decks of it, a house pair `--house-share` of
+    /// the time where the shape has two house decks.
+    #[arg(long, default_value_t = 0)]
+    generated: usize,
+    /// Shapes of the generated decks, and the classes games are drawn from.
+    #[arg(
+        long,
+        value_delimiter = ',',
+        default_value = "constructed,highlander,commander"
+    )]
+    shapes: Vec<String>,
+    /// Seed of the deck generator.
+    #[arg(long, default_value_t = 1)]
+    deck_seed: u64,
+    /// One working card in this many is held out of every generated deck.
+    #[arg(long, default_value_t = 20)]
+    held_out_every: u64,
+    /// Share of games played by two house decks, where the shape has them.
+    #[arg(long, default_value_t = 0.2)]
+    house_share: f64,
+    /// Play only the held-out generated decks (every tenth), which training
+    /// runs leave out: the decks a net was never trained on.
+    #[arg(long)]
+    held_out_decks: bool,
+    /// Mirror matches, a deck against itself: `none`, `also` (among the
+    /// pairings, a tenth of the generated-deck games) or `only`. In a mirror
+    /// the deck says nothing about who wins, which is what makes it the
+    /// cleanest check that a value net reads the game and not the decks.
+    #[arg(long, default_value = "none")]
+    mirrors: String,
     /// Where the run is written; must not exist yet.
     #[arg(long)]
     out: PathBuf,
@@ -100,6 +134,12 @@ struct Schedule {
     first_seed: u64,
     pairs: Vec<(usize, usize)>,
     profiles: Vec<(&'static str, AIProfile)>,
+    /// With generated decks: per shape class, its decks, and which of them
+    /// are house decks. Empty for a run of house decks alone.
+    classes: Vec<(f64, Vec<usize>, Vec<usize>)>,
+    house_share: f64,
+    /// Share of drawn games that are mirrors.
+    mirror_share: f64,
 }
 
 /// One game's assignment.
@@ -122,11 +162,37 @@ impl Schedule {
         let seed = self.first_seed + i;
         let n = self.profiles.len() as u64;
         let pick = mix(seed);
+        let decks = if self.classes.is_empty() {
+            self.pairs[(i % self.pairs.len() as u64) as usize]
+        } else {
+            self.drawn(seed)
+        };
         Assigned {
             seed,
-            decks: self.pairs[(i % self.pairs.len() as u64) as usize],
+            decks,
             profiles: [(pick % n) as usize, ((pick >> 32) % n) as usize],
         }
+    }
+
+    /// Two decks of one shape class, drawn from the game's seed alone.
+    fn drawn(&self, seed: u64) -> (usize, usize) {
+        let mut rng = baylee_train::deckgen::Rng::new(mix(seed ^ 0xdec5_0f9a_3e00));
+        let weights: Vec<f64> = self.classes.iter().map(|c| c.0).collect();
+        let (_, decks, house) = &self.classes[rng.weighted(&weights)];
+        let from = if house.len() >= 2 && rng.unit() < self.house_share {
+            house
+        } else {
+            decks
+        };
+        let a = from[rng.below(from.len())];
+        if rng.unit() < self.mirror_share {
+            return (a, a);
+        }
+        let mut b = from[rng.below(from.len())];
+        while b == a && from.len() > 1 {
+            b = from[rng.below(from.len())];
+        }
+        (a, b)
     }
 }
 
@@ -198,7 +264,7 @@ fn main() -> anyhow::Result<()> {
         .iter()
         .map(|key| HouseDeck::named(key))
         .collect::<anyhow::Result<_>>()?;
-    if decks.len() < 2 {
+    if decks.len() < 2 && args.generated == 0 {
         bail!("a duel needs two decks");
     }
     let mut replaced = Vec::new();
@@ -240,6 +306,101 @@ fn main() -> anyhow::Result<()> {
     if failing_any && !args.allow_failing {
         bail!("a deck holds cards that do not work (above); --allow-failing plays it anyway");
     }
+    // Generated decks, and the shape classes a game draws its two decks from.
+    let mut classes: Vec<(f64, Vec<usize>, Vec<usize>)> = Vec::new();
+    let mut held_cards: Vec<u32> = Vec::new();
+    if args.generated > 0 {
+        let shapes: Vec<Shape> = args
+            .shapes
+            .iter()
+            .map(|s| match s.as_str() {
+                "constructed" => Ok(Shape::Constructed),
+                "highlander" => Ok(Shape::Highlander),
+                "commander" => Ok(Shape::Commander),
+                other => Err(anyhow::anyhow!("unknown shape {other}")),
+            })
+            .collect::<anyhow::Result<_>>()?;
+        let held = deckgen::held_out(&working, args.held_out_every);
+        held_cards = held.iter().map(|c| c.get()).collect();
+        let pool = deckgen::Pool::new(&working, &held);
+        let house_count = decks.len();
+        let mut shape_of: Vec<(Shape, bool)> = decks
+            .iter()
+            .map(|d| {
+                let shape = if !d.deck.commanders.is_empty() {
+                    Shape::Commander
+                } else if d.deck.main.len() >= baylee_cards::formats::SINGLETON_SIZE {
+                    Shape::Highlander
+                } else {
+                    Shape::Constructed
+                };
+                (shape, false)
+            })
+            .collect();
+        let mut attempt = 0_u64;
+        while decks.len() - house_count < args.generated && attempt < args.generated as u64 * 4 {
+            let n = decks.len() - house_count;
+            let shape = shapes[n % shapes.len()];
+            let archetype = Archetype::ALL[(n / shapes.len()) % Archetype::ALL.len()];
+            let seed = args.deck_seed.wrapping_mul(1_000_003).wrapping_add(attempt);
+            attempt += 1;
+            let Ok(g) = deckgen::generate(&pool, shape, archetype, seed) else {
+                continue;
+            };
+            let held_out_deck = n % 10 == 9;
+            let key = format!("g{n:05}");
+            deck_json.push(json!({
+                "key": key,
+                "name": g.name,
+                "source": "generated",
+                "shape": shape_name(shape),
+                "archetype": archetype.name(),
+                "held_out": held_out_deck,
+                "size": g.main.len() + g.leaders.len(),
+                "text": g.text(),
+                "cards": g.main.iter().chain(&g.leaders).map(|c| c.get()).collect::<Vec<_>>(),
+            }));
+            decks.push(HouseDeck {
+                key,
+                deck: g.loaded(),
+            });
+            shape_of.push((shape, held_out_deck));
+        }
+        for shape in &shapes {
+            let (mut members, mut house) = (Vec::new(), Vec::new());
+            for (i, (s, held_out_deck)) in shape_of.iter().enumerate() {
+                let generated = i >= house_count;
+                // A training run plays the house decks and the generated
+                // decks not held out; a held-out run the held-out ones alone.
+                let plays = if args.held_out_decks {
+                    generated && *held_out_deck
+                } else {
+                    !generated || !*held_out_deck
+                };
+                if s == shape && plays {
+                    members.push(i);
+                    if !generated {
+                        house.push(i);
+                    }
+                }
+            }
+            if members.len() >= 2 {
+                let weight = match shape {
+                    Shape::Constructed | Shape::Commander => 0.4,
+                    Shape::Highlander => 0.2,
+                };
+                classes.push((weight, members, house));
+            }
+        }
+        if classes.is_empty() {
+            bail!("no shape has two decks to play");
+        }
+        eprintln!(
+            "[selfplay] {} decks generated; {} working cards held out of them",
+            decks.len() - house_count,
+            held_cards.len()
+        );
+    }
     let profiles: Vec<(&'static str, AIProfile)> = args
         .profiles
         .iter()
@@ -253,7 +414,11 @@ fn main() -> anyhow::Result<()> {
         .collect::<anyhow::Result<_>>()?;
     let pairs: Vec<(usize, usize)> = (0..decks.len())
         .flat_map(|a| (0..decks.len()).map(move |b| (a, b)))
-        .filter(|(a, b)| a != b)
+        .filter(|(a, b)| match args.mirrors.as_str() {
+            "only" => a == b,
+            "also" => true,
+            _ => a != b,
+        })
         .collect();
     let threads = match args.threads {
         0 => std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get),
@@ -299,6 +464,10 @@ fn main() -> anyhow::Result<()> {
         },
         "training_data": !failing_any,
         "decks": deck_json,
+        "held_out_cards": held_cards,
+        "house_share": args.house_share,
+        "held_out_decks": args.held_out_decks,
+        "mirrors": args.mirrors,
         "profiles": profiles.iter().map(|(n, p)| json!({"name": n, "profile": p})).collect::<Vec<_>>(),
         "games": total,
         "only": args.only,
@@ -323,6 +492,13 @@ fn main() -> anyhow::Result<()> {
         first_seed: args.first_seed,
         pairs,
         profiles,
+        classes,
+        house_share: args.house_share,
+        mirror_share: match args.mirrors.as_str() {
+            "only" => 1.0,
+            "also" => 0.1,
+            _ => 0.0,
+        },
     });
     let decks = Arc::new(decks);
     let next = Arc::new(AtomicU64::new(0));
