@@ -245,6 +245,14 @@ pub enum Amount {
     /// ability whose amount comes off a permanent has nothing to read when
     /// the permanent is gone.
     SourcePower,
+    /// The number of counters of a kind on the ability's own source:
+    /// cumulative upkeep's "for each age counter on it" (CR 702.24a).
+    ///
+    /// Read as the ability resolves, after the effect before it put the new
+    /// counter there, and off the source as it is then; a source that is
+    /// gone counts nothing, which the intervening `if` cumulative upkeep
+    /// prints keeps from mattering.
+    CountersOnSource(CounterKind),
     /// The mana value of the first target (Reanimate's life loss).
     TargetCmc,
     /// Number of objects matching a filter in a zone.
@@ -416,6 +424,12 @@ pub enum PlayerRel {
     EachOpponent,
     /// The controller of the first target.
     ControllerOfTarget,
+    /// The controller of the object the trigger's event names — "that
+    /// player" in "whenever an opponent casts a noncreature spell, you may
+    /// draw a card unless that player pays {4}" (Mystic Remora): the one
+    /// who cast it, which in a game of more than two is not simply "an
+    /// opponent".
+    ControllerOfEventObject,
     /// The player chosen via `Pending::ChoosePlayer`.
     Chosen,
 }
@@ -2339,7 +2353,7 @@ mod amount_and_target_tests {
     /// a sign as a bug on its own: the card resolves, the creature changes
     /// size, and only the direction is wrong.
     ///
-    /// All twelve variants are named. That is a population rather than a
+    /// Thirteen variants are named. That is a population rather than a
     /// guard — the exhaustive `match` is what a new variant has to answer —
     /// but the answers themselves are what no compiler can check.
     #[test]
@@ -2355,6 +2369,7 @@ mod amount_and_target_tests {
             Amount::DistinctColorsAmong(&Filter::CREATURE),
             Amount::TargetPower,
             Amount::SourcePower,
+            Amount::CountersOnSource(CounterKind::P1P1),
             Amount::TargetCmc,
             Amount::CountOf {
                 filter: &Filter::CREATURE,
@@ -2367,8 +2382,8 @@ mod amount_and_target_tests {
         ];
         assert_eq!(
             downwards.len() + upwards.len(),
-            13,
-            "thirteen values over twelve variants — `Negated` is in both \
+            14,
+            "fourteen values over thirteen variants — `Negated` is in both \
              lists, which is the parity rule being read from both sides"
         );
         for a in downwards {

@@ -344,11 +344,11 @@ impl HeuristicAgent {
     ///
     /// `eval::players`' reading, including its `has_lost` filter — a seat
     /// that has lost controls nothing, so counting it would find an effect
-    /// somewhere to land that it has nowhere to land. The two relations that
+    /// somewhere to land that it has nowhere to land. The three relations that
     /// resolve against a spell rather than against the table are `None` there
-    /// and are `None` here: only a resolution knows who was chosen or who
-    /// controls the target, and answering "nobody" reads exactly like "no
-    /// seat matched".
+    /// and are `None` here: only a resolution knows who was chosen, who
+    /// controls the target or who controls the event's object, and answering
+    /// "nobody" reads exactly like "no seat matched".
     fn seats(&self, rel: PlayerRel, view: &PlayerView) -> Option<Vec<PlayerId>> {
         let every = || {
             view.seats
@@ -364,7 +364,9 @@ impl HeuristicAgent {
             PlayerRel::Opponent | PlayerRel::EachOpponent => {
                 every().filter(|p| self.hostile(*p, view.seat)).collect()
             }
-            PlayerRel::Chosen | PlayerRel::ControllerOfTarget => return None,
+            PlayerRel::Chosen
+            | PlayerRel::ControllerOfTarget
+            | PlayerRel::ControllerOfEventObject => return None,
         })
     }
 

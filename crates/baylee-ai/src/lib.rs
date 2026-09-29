@@ -1092,6 +1092,29 @@ mod tests {
             "a tax that only draws them a card is not worth mana this policy \
              cannot tell it has to spare"
         );
+
+        // Mystic Remora's cumulative upkeep: unpaid, the seat's own
+        // enchantment is sacrificed, which is ward's trade from the other
+        // side of the table.
+        let upkeep = [Effect::PlayerMayPayOr {
+            player: PlayerRel::You,
+            mana: Amount::Fixed(2),
+            effect: &Effect::SacrificeSelf,
+        }];
+        let upkeep = DecisionContext {
+            effects: &upkeep,
+            ..Default::default()
+        };
+        assert_eq!(
+            agent().act_with_context(&v, &pending, &upkeep),
+            PlayerAction::YesNo(true),
+            "the upkeep is paid while the lands cover it"
+        );
+        assert_eq!(
+            agent().act_with_context(&bare, &pending, &upkeep),
+            PlayerAction::YesNo(false),
+            "and let go when they do not"
+        );
     }
 
     /// Urza's Saga at chapter I, one on each side of the table.

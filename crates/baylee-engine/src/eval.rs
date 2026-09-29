@@ -183,7 +183,9 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
             .filter(|p| !p.has_lost())
             .map(|p| p.id)
             .collect(),
-        PlayerRel::ControllerOfTarget | PlayerRel::Chosen => return None,
+        PlayerRel::ControllerOfTarget | PlayerRel::ControllerOfEventObject | PlayerRel::Chosen => {
+            return None;
+        }
     })
 }
 
@@ -285,6 +287,9 @@ pub fn amount(
             .object(this)
             .and_then(|o| o.characteristics().power)
             .map_or(0, |p| p.max(0) as u32),
+        Amount::CountersOnSource(kind) => state
+            .object(this)
+            .map_or(0, |o| u32::from(o.counters.get(*kind))),
         Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {

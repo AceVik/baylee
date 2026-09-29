@@ -535,6 +535,13 @@ pub(super) fn players_of(
             .first()
             .and_then(|t| state.object(*t))
             .map_or_else(Vec::new, |o| vec![o.controller]),
+        // The spell a cast trigger names is on the stack, or has already
+        // resolved and gone; either way the arena still has the object and
+        // its controller is the one who cast it.
+        PlayerRel::ControllerOfEventObject => res
+            .event_object
+            .and_then(|e| state.object_or_departed(e))
+            .map_or_else(Vec::new, |o| vec![o.controller]),
         other => eval::players(other, state, you)
             .expect("the two context relations are matched above this arm"),
     }

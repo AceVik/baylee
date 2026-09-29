@@ -188,7 +188,9 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                     .filter(|(seat, _)| *seat != mine)
                     .flat_map(|(_, pile)| pile)
                     .collect(),
-                PlayerRel::ControllerOfTarget | PlayerRel::Chosen => return None,
+                PlayerRel::ControllerOfTarget
+                | PlayerRel::ControllerOfEventObject
+                | PlayerRel::Chosen => return None,
             };
             count(view, piles.into_iter(), filter)
         }

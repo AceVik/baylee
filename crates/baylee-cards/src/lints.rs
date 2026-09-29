@@ -1510,7 +1510,9 @@ mod tests {
                         | PlayerRel::Opponent
                         | PlayerRel::EachOpponent
                         | PlayerRel::EachPlayer => true,
-                        PlayerRel::Chosen | PlayerRel::ControllerOfTarget => false,
+                        PlayerRel::Chosen
+                        | PlayerRel::ControllerOfTarget
+                        | PlayerRel::ControllerOfEventObject => false,
                     };
                     if !answerable {
                         wrong.push(format!("{}: {modifier:?}", def.name()));

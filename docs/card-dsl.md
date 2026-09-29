@@ -1189,6 +1189,17 @@ a `PayLife(2)` there
 would put up an empty menu and decline itself on every board, which
 `vocabulary_tests::every_price_paid_by_naming_an_object_puts_a_menu_up`
 refuses over the compiled pool.
+"That player" in a cast trigger's tax is `PlayerRel::ControllerOfEventObject`
+— the one who cast the spell. `PlayerRel::Opponent` is the first living
+opponent, which is the same seat heads-up and the wrong one at a table of
+three (Mystic Remora).
+Cumulative upkeep (CR 702.24a) is no keyword of its own but the triggered
+ability it means: `Trigger::StepBegin { Upkeep, You }` with the printed
+intervening `if` as `Condition::SourceMatches(&Filter::InZone(
+ZoneRef::Battlefield))`, an `AddCounter` of `counters::AGE`, then
+`PlayerMayPayOr { player: You, mana: Amount::CountersOnSource(counters::AGE),
+effect: &Effect::SacrificeSelf }`. `Amount::CountersOnSource(kind)` reads
+the source's counters as it resolves, after the counter above went on.
 Also `AddCounter`, `AddCounterFilter`,
 `DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`,
 `DelayedManaAtNextFirstMain` (Mana Drain), `SacrificeSelf`,
@@ -1271,8 +1282,8 @@ damage itself is still dealt. `GameState::can_pay_life` refuses a payment
 before it is made (CR 119.8), which also caps a pay-X-life cost at X = 0.
 Either `who` may only name a relation the game state can answer on its own
 (`lints::a_continuous_player_relation_is_one_the_state_can_answer`):
-`Chosen` and `ControllerOfTarget` need a resolution, and a continuous
-effect has none.
+`Chosen`, `ControllerOfTarget` and `ControllerOfEventObject` need a
+resolution, and a continuous effect has none.
 
 What makes it a variant rather than a replacement effect is the second
 sentence of CR 121.2b: the limit "applies to individual card draws", so an

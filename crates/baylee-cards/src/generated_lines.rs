@@ -2666,8 +2666,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Mystic Remora
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
