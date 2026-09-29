@@ -75,8 +75,12 @@ card!(
                 // and `ExileSelfReturnAsFace` exiles it from there first, so
                 // a leaves-the-graveyard or put-into-exile trigger sees a
                 // move the card never makes. No effect returns a card from
-                // the graveyard as its back face (#206).
-                Effect::ExileSelfReturnAsFace { face: 1 },
+                // the graveyard as its back face (#206). "…under your
+                // control."
+                Effect::ExileSelfReturnAsFace {
+                    face: 1,
+                    owner_control: false,
+                },
             ]
         ),
     ],

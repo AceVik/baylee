@@ -53,7 +53,12 @@ card!(
                 step: StepKind::End,
                 whose: PlayerRel::You,
             },
-            &[Effect::ExileSelfReturnAsFace { face: 1 }],
+            // Under the trigger's controller, the artifact's (CR 603.3a): a
+            // transform keeps its controller (CR 712.18).
+            &[Effect::ExileSelfReturnAsFace {
+                face: 1,
+                owner_control: false,
+            }],
             condition = Some(Condition::ControlCount(&Filter::LAND, 7)),
         ),
     ],

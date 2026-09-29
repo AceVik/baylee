@@ -72,8 +72,13 @@ card!(
             // stays the same object (CR 712.18). `ExileSelfReturnAsFace`
             // exiles it and returns a new object, so Vault of Catlacan
             // *enters*: landfall and "whenever a land enters" see it, and
-            // anything that applied to the enchantment is gone. #206.
-            &[Effect::ExileSelfReturnAsFace { face: 1 }],
+            // anything that applied to the enchantment is gone. #206. It
+            // comes back under the trigger's controller, the enchantment's
+            // (CR 603.3a), the one a transform would have kept.
+            &[Effect::ExileSelfReturnAsFace {
+                face: 1,
+                owner_control: false,
+            }],
             condition = Some(Condition::ControlCount(&Filter::ARTIFACT, 5)),
         ),
     ],

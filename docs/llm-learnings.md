@@ -326,9 +326,11 @@ Open milestones discovered tonight:
   respects indestructible, unlike the sacrifice path) and
   `DiscardForPlayers` (DiscardChain tracks the CHOOSING player for the
   graveyard, not the controller).
-- `Effect::ExileSelfReturnAsFace { face }` — transform via
+- `Effect::ExileSelfReturnAsFace { face, owner_control }` — transform via
   `obj.pending_face_change` applied in finish_resolution (resolve has no
-  lookup; face switches need the def).
+  lookup; face switches need the def). `owner_control` is the sentence's
+  "under its owner's control"; "your" and a silent sentence are `false`
+  (observed fault 62).
 - **Data catch**: the sheoldred.rs stub header had the WRONG oracle text
   (the Apocalypse's draw triggers). The real MOM Sheoldred: 4/5 menace,
   ETB edict, {4}{B} flip (sorcery, opponent gy >= 8 — new
@@ -1988,3 +1990,13 @@ land type"; both are convention tests that fire on a first try.
   it when its impulse was written: a new permission effect (here
   `ExileTopMayCast`) belongs on `OFFERS_A_CHOICE` in xtask with its
   argument. Run `xtask validate` before the gate after flipping coverage.
+- **An effect that puts a card onto the battlefield names who controls it.**
+  `ExileSelfReturnAsFace` wrote the owner for all 15 uses, and three
+  kinds of sentence were hidden behind that one default: "its owner's",
+  "your", and silence (CR 110.2a). The fix is a field that the card writes
+  from its own printed line, with a lint that holds the field to the line
+  through `lines::ability_line` and `oracle::sentence`. A test where owner
+  and controller are one seat cannot tell the two apart, so steal the
+  permanent first. The harness can register a layer-2 `GainControl` over
+  any permanent, a Saga included (`dev_state_mut`, then
+  `effects.register`).
