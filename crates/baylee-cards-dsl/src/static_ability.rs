@@ -172,6 +172,18 @@ pub enum Modifier {
     /// Prevent all damage that would be dealt BY the affected object
     /// (Maze of Ith).
     PreventDamageFromIt,
+    /// Combat damage the affected object would deal can't be prevented
+    /// (Questing Beast: "Combat damage that would be dealt by creatures you
+    /// control can't be prevented"). CR 615.12: a prevention effect applied
+    /// to that damage does nothing, protection's included (CR 702.16e is a
+    /// prevention effect).
+    CombatDamageCantBePrevented,
+    /// The affected creature can't be blocked by creatures the filter
+    /// matches (Questing Beast: "can't be blocked by creatures with power 2
+    /// or less"; Delney's "power 3 or greater"). A restriction on the
+    /// declaration of blockers, CR 509.1b, read against each blocker as it
+    /// stands; the filter's "you" is the effect's controller.
+    CantBeBlockedBy(&'static crate::Filter),
     /// The effect's opponents can't search libraries (Ashiok, Dream
     /// Render).
     OpponentsCantSearch,
@@ -451,6 +463,8 @@ impl Modifier {
             | Self::CantLoseLife { .. }
             | Self::PreventDamageToIt
             | Self::PreventDamageFromIt
+            | Self::CombatDamageCantBePrevented
+            | Self::CantBeBlockedBy(_)
             | Self::OpponentsCantSearch
             | Self::NoMaxHandSize
             | Self::PlayerHexproof
@@ -749,6 +763,8 @@ mod tests {
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
+            Modifier::CombatDamageCantBePrevented,
+            Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::PlayerHexproof,

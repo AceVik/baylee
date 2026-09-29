@@ -89449,3 +89449,217 @@ fn pyrogoyf_that_has_left_deals_its_last_known_power() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(engine.state().players[1].life, 18, "2, as it last existed");
 }
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Questing Beast.
+// ---------------------------------------------------------------------------
+
+fn questing_beast() -> CardIndex {
+    card_index("b685757b-521e-4353-a233-97052359723d")
+}
+
+/// Sends Questing Beast at seat 1 on seat 0's first turn.
+fn questing_beast_attacks(opponent: &[CardIndex]) -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[questing_beast()])
+        .battlefield(1, opponent)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let beast = on_battlefield(&engine, p0, questing_beast()).unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { attackers, .. } if attackers.contains(&beast)),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(beast, Defender::Player(p1))],
+            },
+        )
+        .expect("haste: it attacks the turn it arrives");
+    (engine, beast)
+}
+
+/// "Questing Beast can't be blocked by creatures with power 2 or less." The
+/// 2/2 is offered no block on it and the 4/3 is; vigilance, deathtouch and
+/// haste are printed.
+#[test]
+fn questing_beast_cannot_be_blocked_by_power_two_or_less() {
+    let p1 = PlayerId::new(1);
+    let (mut engine, beast) = questing_beast_attacks(&[steadfast_guard(), thundering_giant()]);
+    let kw = keywords(&engine, beast);
+    assert!(
+        kw.contains(
+            KeywordSet::VIGILANCE
+                .union(KeywordSet::DEATHTOUCH)
+                .union(KeywordSet::HASTE)
+        )
+    );
+    assert!(
+        !is_tapped(&engine, beast),
+        "vigilance: attacking did not tap it"
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        unreachable!()
+    };
+    let may_block = |card: CardIndex| {
+        let id = on_battlefield(&engine, p1, card).unwrap();
+        blockers
+            .iter()
+            .any(|o| o.blocker == id && o.attackers.contains(&beast))
+    };
+    assert!(!may_block(steadfast_guard()), "a 2/2 has power 2 or less");
+    assert!(may_block(thundering_giant()), "a 4/3 does not");
+}
+
+/// "Combat damage that would be dealt by creatures you control can't be
+/// prevented." Maze of Ith untaps the Beast and prevents the combat damage
+/// it would deal: the prevention does nothing (CR 615.12), and the opponent
+/// takes 4.
+#[test]
+fn questing_beast_s_combat_damage_goes_through_a_maze_of_ith() {
+    let p1 = PlayerId::new(1);
+    let (mut engine, beast) = questing_beast_attacks(&[maze_of_ith()]);
+    let mut mazed = false;
+    for _ in 0..20 {
+        if let Pending::Priority { player, .. } = engine.pending().clone() {
+            if player == p1 {
+                activate(&mut engine, p1, maze_of_ith(), 0);
+                aim_at(&mut engine, p1, beast);
+                mazed = true;
+                break;
+            }
+            engine.apply(player, PlayerAction::PassPriority).unwrap();
+        } else {
+            break;
+        }
+    }
+    assert!(
+        mazed,
+        "the defender gets a window after attackers are declared"
+    );
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "4 from the Beast, unprevented"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander: Delney, Streetwise Lookout.
+// ---------------------------------------------------------------------------
+
+fn delney_streetwise_lookout() -> CardIndex {
+    card_index("245d0ccf-87b6-460a-8b99-9e2079f2d375")
+}
+
+/// "Creatures you control with power 2 or less can't be blocked by
+/// creatures with power 3 or greater." Delney (2/2) and a 4/3 attack: the
+/// defender's 4/3 may block the 4/3 and not Delney; its 2/2 may block
+/// either.
+#[test]
+fn delney_keeps_the_big_blockers_off_her_small_creatures() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[delney_streetwise_lookout(), thundering_giant()])
+        .battlefield(1, &[thundering_giant(), steadfast_guard()])
+        .start();
+    keep_mulligans(&mut engine);
+    let delney = on_battlefield(&engine, p0, delney_streetwise_lookout()).unwrap();
+    let mine = on_battlefield(&engine, p0, thundering_giant()).unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { attackers, .. }
+            if attackers.contains(&delney) && attackers.contains(&mine))
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(delney, Defender::Player(p1)), (mine, Defender::Player(p1))],
+            },
+        )
+        .expect("both may attack");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        unreachable!()
+    };
+    let offered = |card: CardIndex| -> Vec<ObjectId> {
+        let id = on_battlefield(&engine, p1, card).unwrap();
+        blockers
+            .iter()
+            .find(|o| o.blocker == id)
+            .map(|o| o.attackers.clone())
+            .unwrap_or_default()
+    };
+    let giant = offered(thundering_giant());
+    assert!(giant.contains(&mine), "a 4/3 on a 4/3");
+    assert!(
+        !giant.contains(&delney),
+        "power 3 or greater on power 2 or less"
+    );
+    let guard = offered(steadfast_guard());
+    assert!(
+        guard.contains(&delney) && guard.contains(&mine),
+        "a 2/2 may block either"
+    );
+}
+
+/// "If a triggered ability of a creature you control with power 2 or less
+/// triggers, that ability triggers an additional time." Coiling Oracle (1/1)
+/// reveals twice and puts two Forests onto the battlefield; Thragtusk (5/3)
+/// gains its 5 life once.
+#[test]
+fn delney_doubles_the_triggers_of_small_creatures_only() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                delney_streetwise_lookout(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                island(),
+            ],
+        )
+        .hand(0, &[coiling_oracle(), thragtusk()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let lands_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .len();
+    tap_mana_where(&mut engine, p0, |_| true);
+    cast_with_floating(&mut engine, p0, coiling_oracle());
+    pass_until(&mut engine, stack_is_empty);
+    let after_oracle = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .len();
+    assert_eq!(
+        after_oracle,
+        lands_before + 3,
+        "the Oracle and two revealed Forests"
+    );
+
+    cast_with_floating(&mut engine, p0, thragtusk());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 25, "a 5/3 triggers once");
+}

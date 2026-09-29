@@ -645,6 +645,8 @@ fn apply(
         | Modifier::CantLoseLife { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
+        | Modifier::CombatDamageCantBePrevented
+        | Modifier::CantBeBlockedBy(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
         | Modifier::ProtectionFrom(_)
