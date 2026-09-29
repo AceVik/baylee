@@ -15,28 +15,35 @@
 //! priority. Only a cost that is free *and* has no parts leaves the offer
 //! exactly as it was, and that is the one shape refused outright.
 //!
-//! What is *worth* activating is the smaller question, and the one a real
-//! evaluator will answer. Until then the whitelist here is short and
-//! explicit: an effect this module does not recognise leaves the ability
-//! alone, so a new mechanic is inert rather than misplayed.
+//! What is *worth* activating is [`crate::worth`]'s question: the ability's
+//! effects at their best target, less what its cost gives up, on this
+//! board. It replaced a whitelist of effects that are gains wherever they
+//! land — a draw, a token, a search — which could not take anything whose
+//! worth depends on its target or its cost: no Wasteland, Maze of Ith,
+//! Recurring Nightmare or equip was ever activated. What the measure cannot
+//! read it leaves alone, as the whitelist did, so a new mechanic is inert
+//! rather than misplayed.
 
 use baylee_cards_dsl::{AbilityDef, Cost, CostPart, Effect};
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::LegalActions;
-use baylee_view::{Phase, PlayerView, PublicObject};
+use baylee_view::{PlayerView, PublicObject};
+
+use crate::worth::{Origin, THRESHOLD};
 
 /// The ability to activate now, as one of the offered `(source, index)`
 /// handles — or `None`, which is most of the time.
 ///
-/// The order is the only judgement here that is not local: a fetchland is
-/// cracked before anything else because it is the one activation that
-/// changes what the seat can *pay* with, and the caller taps for mana after
-/// this returns. The caller asks [`fetch`] on its own earlier for exactly
-/// that reason, so by the time this runs there is normally none left — it
-/// stays in the order anyway, because this function is the whole policy and
-/// a test of it should not depend on a caller's step numbering.
+/// A fetchland first, because it is the one activation that changes what
+/// the seat can *pay* with; the caller asks [`fetch`] on its own earlier for
+/// that reason, and it stays here so that this function is the whole
+/// policy. Then the shallow profiles' loyalty rule ([`loyalty`]), which is a
+/// designed difference and not a gap. Then the offered activation worth the
+/// most on this board, when it is worth [`THRESHOLD`] net of its cost — a
+/// deep profile's loyalty ability among them, at no threshold, since
+/// loyalty is a price this measure already charges.
 #[must_use]
 pub(crate) fn choose(
     view: &PlayerView,
@@ -46,12 +53,42 @@ pub(crate) fn choose(
     fetch(view, legal)
         .or_else(|| {
             if agent.profile.lookahead > 0 {
-                thoughtful_loyalty(view, legal, agent)
+                None
             } else {
                 loyalty(view, legal)
             }
         })
-        .or_else(|| useful(view, legal))
+        .or_else(|| best(view, legal, agent))
+}
+
+/// The offered activation worth the most, when it is worth taking.
+fn best(
+    view: &PlayerView,
+    legal: &LegalActions,
+    agent: &crate::HeuristicAgent,
+) -> Option<(ObjectId, u32)> {
+    legal
+        .abilities
+        .iter()
+        .copied()
+        .filter_map(|(source, index)| {
+            let def = printed(view, source, index)?;
+            let floor = match def {
+                AbilityDef::Loyalty { .. } if agent.profile.lookahead == 0 => return None,
+                AbilityDef::Loyalty { .. } => 0,
+                _ => {
+                    let (cost, _) = activated(def)?;
+                    if !consumes(cost) {
+                        return None;
+                    }
+                    THRESHOLD
+                }
+            };
+            let worth = agent.activation_worth(view, Origin::of(view, source), def)?;
+            (worth > floor).then_some((worth, (source, index)))
+        })
+        .max_by_key(|(worth, handle)| (*worth, std::cmp::Reverse(*handle)))
+        .map(|(_, handle)| handle)
 }
 
 /// The [`AbilityDef`] an offered handle names, when a card prints one.
@@ -96,24 +133,21 @@ pub(crate) fn printed_list(object: &PublicObject) -> &'static [AbilityDef] {
 
 /// The activation cost and effects of an ability, for the two shapes that
 /// have both. Loyalty is deliberately not one of them — its cost is a
-/// loyalty delta the engine has already checked, and it is chosen by
-/// [`loyalty`] rather than by the whitelist.
-fn activated(def: &'static AbilityDef) -> Option<(&'static Cost, &'static [Effect], bool)> {
+/// loyalty delta the engine has already checked.
+fn activated(def: &'static AbilityDef) -> Option<(&'static Cost, &'static [Effect])> {
     match def {
         AbilityDef::Activated {
             cost,
             effects,
-            targets,
             mana_ability,
             ..
         }
         | AbilityDef::ActivatedConditional {
             cost,
             effects,
-            targets,
             mana_ability,
             ..
-        } => (!*mana_ability).then_some((cost, *effects, targets.is_some())),
+        } => (!*mana_ability).then_some((cost, *effects)),
         _ => None,
     }
 }
@@ -179,101 +213,12 @@ fn consumes(cost: &Cost) -> bool {
         })
 }
 
-/// Whether the cost gives up a card other than the source: a permanent
-/// sacrificed, a card discarded or exiled from hand.
-///
-/// Every gain [`gains`] recognises is small — a card, a scry, a few life, a
-/// counter, a token — and what such a cost takes is at least as much, so it
-/// is a trade this whitelist cannot weigh. Measured through the engine: a
-/// Zuran Orb beside four Forests was fed all four on turn 1 for 8 life, and
-/// a Viscera Seer sacrificed itself to scry 1. The source paying for itself
-/// (a fetchland, cycling) is not this: it is what that ability is for.
-///
-/// Exhaustive with no wildcard, for the reason [`consumes`] gives.
-fn gives_up_a_card(cost: &Cost) -> bool {
-    cost.parts.iter().any(|part| match part {
-        CostPart::Sacrifice(_) | CostPart::Discard(_) | CostPart::ExileFromHand(_) => true,
-        CostPart::TapSelf
-        | CostPart::UntapSelf
-        | CostPart::SacrificeSelf
-        | CostPart::DiscardSelf
-        | CostPart::ExileSelf
-        | CostPart::ReturnSelfToHand
-        | CostPart::PayLife(_)
-        | CostPart::PayLifeX
-        | CostPart::RemoveCounterSelf { .. }
-        | CostPart::RemoveCounterSelfX { .. }
-        | CostPart::PutCounterSelf { .. }
-        // A tapped creature stays where it is.
-        | CostPart::TapOther(_)
-        | CostPart::Crew(_)
-        // A returned permanent comes back to hand, not to the graveyard.
-        | CostPart::ReturnToHand(_)
-        // A card already in the graveyard is the cheapest there is.
-        | CostPart::ExileFromGraveyard(_) => false,
-    })
-}
-
-/// Whether this effect is one the agent recognises as a gain.
-///
-/// An optional clause is a gain the seat can still decline, so what it *may*
-/// do is what it is worth — and which effects have an inside at all is
-/// [`Effect::branches`]' question rather than this one's. It used to name
-/// `Sequence` and `MayDo` and stop there, so a gain printed inside a kicker
-/// clause or behind "unless you pay" was an ability the agent never
-/// activated.
-fn gains(effect: &Effect) -> bool {
-    let (then, otherwise) = effect.branches();
-    if !then.is_empty() || !otherwise.is_empty() {
-        return then.iter().chain(otherwise).any(gains);
-    }
-    matches!(
-        effect,
-        Effect::SearchLibrary { .. }
-            | Effect::SearchLibraryUpTo { .. }
-            | Effect::DrawCards { .. }
-            | Effect::Scry { .. }
-            | Effect::CreateToken { .. }
-            | Effect::CreateTokenN { .. }
-            | Effect::Amass { .. }
-            | Effect::AddCounter { .. }
-            | Effect::GainLife { .. }
-    )
-}
-
-/// Whether this effect is one the agent knows will not hurt it.
-///
-/// Everything it counts as a gain, plus the bookkeeping that rides along
-/// with one: Sensei's Divining Top draws a card *and* puts itself back on
-/// the library, and refusing the second half would refuse the first.
-///
-/// A wrapper is as harmless as everything inside it, which is why this is
-/// `all` where [`gains`] is `any`: one clause the agent cannot vouch for is
-/// enough to leave the ability alone.
-fn harmless(effect: &Effect) -> bool {
-    let (then, otherwise) = effect.branches();
-    if !then.is_empty() || !otherwise.is_empty() {
-        return then.iter().chain(otherwise).all(harmless);
-    }
-    // A surveil is the second of these, and it is the split these two
-    // functions exist for. This agent answers a surveil by keeping
-    // everything — it cannot read a card well enough to decide one is
-    // worth binning — so a surveil never costs it anything and never
-    // wins it anything either. Calling it a gain would have it paying
-    // `{2}{U}` for a no-op; leaving it out of *both* would have it
-    // declining a draw that happened to surveil alongside.
-    matches!(
-        effect,
-        Effect::PutSourceOnTopOfLibrary | Effect::Surveil { .. }
-    ) || gains(effect)
-}
-
 /// Whether the life this cost asks for is life the seat can spare.
 ///
 /// The `+ 5` is the same margin the pay-life-or-enter-tapped answer uses;
 /// a second threshold for the same question would be two numbers to keep
 /// in step.
-fn life_ok(view: &PlayerView, cost: &Cost) -> bool {
+pub(crate) fn life_ok(view: &PlayerView, cost: &Cost) -> bool {
     let need = cost.parts.iter().fold(0u16, |sum, part| match part {
         CostPart::PayLife(n) => sum.saturating_add(*n),
         _ => sum,
@@ -284,46 +229,9 @@ fn life_ok(view: &PlayerView, cost: &Cost) -> bool {
             .is_some_and(|s| s.life > i32::from(need) + 5)
 }
 
-/// Whether drawing from these effects would draw from an empty library.
-///
-/// The one recognised gain that can lose the game on its own (CR 704.5b),
-/// so it is bounded by the count the view already carries. A draw whose
-/// amount is not a plain number is refused rather than guessed at.
-fn draw_is_safe(view: &PlayerView, effects: &[Effect]) -> bool {
-    let Some(want) = draws(effects) else {
-        return false;
-    };
-    want == 0 || view.seat(view.seat).is_some_and(|s| s.library_count > want)
-}
-
-/// How many cards these effects draw, or `None` when one of them draws an
-/// amount that is not a plain number.
-///
-/// The agent answers every optional clause with yes, so a draw inside one is
-/// a draw it will take — counting it as zero would be the deck-out this
-/// whole function exists to refuse. For the same reason both halves of a
-/// two-branch effect are **summed** although only one of them runs: this
-/// function is allowed to be wrong in one direction only, and over-counting
-/// refuses a safe draw where under-counting loses the game (CR 704.5b).
-fn draws(effects: &[Effect]) -> Option<u32> {
-    let mut want = 0u32;
-    for effect in effects {
-        let (then, otherwise) = effect.branches();
-        want = want.saturating_add(draws(then)?);
-        want = want.saturating_add(draws(otherwise)?);
-        if let Effect::DrawCards { amount } = effect {
-            match amount {
-                baylee_cards_dsl::Amount::Fixed(n) => want = want.saturating_add(*n),
-                _ => return None,
-            }
-        }
-    }
-    Some(want)
-}
-
 /// The fetchland to crack, if one is offered.
 ///
-/// It gets its own pass rather than a place in the whitelist because it is
+/// It gets its own pass rather than a place in `best` because it is
 /// not merely good: a land that sacrifices itself to search is a land that
 /// makes no mana until it does, and cracking it is what turns a dead card
 /// into a source. Nothing else the agent can activate changes what it can
@@ -339,7 +247,7 @@ pub(crate) fn fetch(view: &PlayerView, legal: &LegalActions) -> Option<(ObjectId
         let Some(def) = printed(view, source, index) else {
             return false;
         };
-        let Some((cost, effects, _)) = activated(def) else {
+        let Some((cost, effects)) = activated(def) else {
             return false;
         };
         cost.parts.contains(&CostPart::SacrificeSelf)
@@ -391,152 +299,9 @@ fn loyalty(view: &PlayerView, legal: &LegalActions) -> Option<(ObjectId, u32)> {
     best.map(|(handle, _)| handle)
 }
 
-/// Price the actual effect and the loyalty spent. Removal can save a walker
-/// or its controller; a large plus that does nothing cannot compete with it.
-fn thoughtful_loyalty(
-    view: &PlayerView,
-    legal: &LegalActions,
-    agent: &crate::HeuristicAgent,
-) -> Option<(ObjectId, u32)> {
-    legal
-        .abilities
-        .iter()
-        .copied()
-        .filter_map(|(source, index)| {
-            let AbilityDef::Loyalty { cost, effects, .. } = printed(view, source, index)? else {
-                return None;
-            };
-            let mut value = agent.effect_value(view, effects) + i64::from(*cost) * 45;
-            let loyalty = view.object(source).map_or(0, |o| {
-                o.counters
-                    .iter()
-                    .filter(|c| c.kind == baylee_view::CounterKind::Loyalty)
-                    .map(|c| u32::from(c.count))
-                    .sum::<u32>()
-            });
-            if *cost < 0 && loyalty == u32::from(cost.unsigned_abs()) {
-                value -= 300;
-            }
-            (value > 0).then_some((value, (source, index)))
-        })
-        .max_by_key(|(value, handle)| (*value, std::cmp::Reverse(*handle)))
-        .map(|(_, handle)| handle)
-}
-
-/// Anything else the whitelist recognises.
-///
-/// Untargeted only. The agent answers `Pending::ChooseTargets` by taking an
-/// opponent's permanents first, which is right for a removal spell and
-/// exactly wrong for an ability that helps whatever it points at — and
-/// nothing here knows which of the two it is holding.
-fn useful(view: &PlayerView, legal: &LegalActions) -> Option<(ObjectId, u32)> {
-    legal.abilities.iter().copied().find(|&(source, index)| {
-        let Some(def) = printed(view, source, index) else {
-            return false;
-        };
-        let Some((cost, effects, targeted)) = activated(def) else {
-            return false;
-        };
-        !targeted
-            && consumes(cost)
-            && !gives_up_a_card(cost)
-            && life_ok(view, cost)
-            && draw_is_safe(view, effects)
-            && effects.iter().any(gains)
-            && effects.iter().all(harmless)
-            && !tap_costs_an_attack(view, source, cost)
-    })
-}
-
-/// Whether tapping this source now is an attack given up.
-///
-/// A creature tapped in the precombat main is a creature that cannot swing,
-/// and the agent has no way to weigh a card against a hit. So it waits:
-/// lands, artifacts and planeswalkers are untouched by this, and a
-/// creature's tap ability happens after combat instead.
-fn tap_costs_an_attack(view: &PlayerView, source: ObjectId, cost: &Cost) -> bool {
-    cost.parts.contains(&CostPart::TapSelf)
-        && view.active == view.seat
-        && view.phase == Phase::FirstMain
-        && view
-            .object(source)
-            .is_some_and(|o| o.types.contains(TypeSet::CREATURE))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use baylee_cards_dsl::Amount;
-
-    /// Every printed ability [`useful`] would take but for
-    /// [`gives_up_a_card`]: `(what prints it, the ability's index)`.
-    ///
-    /// The half of `useful` a card can answer on its own — untargeted, a
-    /// cost that consumes, a whitelisted gain, nothing harmful. Life, a safe
-    /// draw and a lost attack are the board's, so a card they would stop on
-    /// some board is counted here all the same. Per face, over the cards and
-    /// the tokens both, because `printed_list` reads both.
-    fn refused_for_the_card_they_cost() -> Vec<(String, usize)> {
-        let lists = baylee_cards::all()
-            .flat_map(|def| {
-                (0..def.faces.len()).map(move |face| {
-                    (
-                        def.faces[face].name.to_owned(),
-                        def.abilities_for_face(face),
-                    )
-                })
-            })
-            .chain(
-                baylee_cards::tokens::ALL
-                    .iter()
-                    .map(|token| (token.name.to_owned(), token.abilities)),
-            );
-        let mut refused = Vec::new();
-        for (name, abilities) in lists {
-            for (index, ability) in abilities.iter().enumerate() {
-                let Some((cost, effects, targeted)) = activated(ability) else {
-                    continue;
-                };
-                if !targeted
-                    && consumes(cost)
-                    && effects.iter().any(gains)
-                    && effects.iter().all(harmless)
-                    && gives_up_a_card(cost)
-                {
-                    refused.push((name.clone(), index));
-                }
-            }
-        }
-        refused
-    }
-
-    /// How many abilities the card-for-a-small-gain rule turns down: 38 on
-    /// 24.09.2026, printed by 36 cards and the Blood token (Wand of the
-    /// Elements prints two) — Zuran Orb and Viscera Seer among them,
-    /// Survival of the Fittest and Carrion Feeder too.
-    ///
-    /// Bounds and not the number, so a card batch does not turn this red by
-    /// itself. Each bound refuses a wrong [`gives_up_a_card`], measured by
-    /// injection: one that forgets `Discard(_)` counts 28, under the floor;
-    /// one that also counts the source paying for itself (a fetchland, a
-    /// cycler) counts 223, over the ceiling.
-    #[test]
-    fn the_abilities_refused_for_the_card_they_cost_are_counted() {
-        let refused = refused_for_the_card_they_cost();
-        assert!(
-            (30..=60).contains(&refused.len()),
-            "{} abilities are refused for the card they cost, measured 38 on \
-             24.09.2026: {refused:?}",
-            refused.len()
-        );
-    }
-
-    static TOP: [Effect; 2] = [
-        Effect::DrawCards {
-            amount: Amount::Fixed(1),
-        },
-        Effect::PutSourceOnTopOfLibrary,
-    ];
 
     /// The anti-loop rule, both ways round: a free cost with no parts is the
     /// one shape that leaves the offer exactly as it found it.
@@ -568,91 +333,5 @@ mod tests {
             mana: ManaCost::ZERO,
             parts: &[CostPart::PayLifeX],
         }));
-    }
-
-    /// An effect the whitelist has never heard of leaves the ability alone,
-    /// so a mechanic added tomorrow is inert rather than misplayed.
-    #[test]
-    fn an_unrecognised_effect_is_not_a_gain() {
-        assert!(gains(&Effect::SearchLibrary {
-            filter: &baylee_cards_dsl::Filter::CREATURE,
-            finds: &[],
-            optional: false,
-        }));
-        assert!(!gains(&Effect::LoseLife {
-            amount: Amount::Fixed(1),
-            target: baylee_cards_dsl::PlayerRel::You,
-        }));
-        assert!(!harmless(&Effect::LoseLife {
-            amount: Amount::Fixed(1),
-            target: baylee_cards_dsl::PlayerRel::You,
-        }));
-    }
-
-    /// A surveil is harmless and is not a gain, and the pair is the point.
-    ///
-    /// This agent answers a surveil by keeping everything, so an ability
-    /// whose whole text is a surveil buys it nothing — but one that draws a
-    /// card *and* surveils is still worth the mana. Merging these two lists
-    /// would cost one of the two.
-    #[test]
-    fn a_surveil_is_harmless_and_is_not_a_gain() {
-        assert!(harmless(&Effect::surveil(1)));
-        assert!(!gains(&Effect::surveil(1)));
-    }
-
-    /// Sensei's Divining Top draws *and* puts itself back. Reading only the
-    /// first effect would take abilities whose second half is a cost; reading
-    /// only "all harmless" would take an ability that does nothing at all.
-    #[test]
-    fn a_sequence_is_read_all_the_way_through() {
-        let sequence = Effect::Sequence(&TOP);
-        assert!(gains(&sequence), "the draw inside the sequence was missed");
-        assert!(
-            harmless(&sequence),
-            "putting the source back read as a harm"
-        );
-        assert!(
-            TOP.iter().any(gains) && TOP.iter().all(harmless),
-            "the same two effects fail as a flat list"
-        );
-    }
-
-    /// A clause behind a price is still a clause.
-    ///
-    /// `PlayerMayPayOr` carries a single `&'static Effect` rather than a
-    /// list, and every hand-rolled walker in this workspace descended into
-    /// the lists and stopped there — so "unless you pay {1}, draw a card"
-    /// read as an effect with nothing in it. Both readers are asked, because
-    /// they disagree about wrappers by design: `gains` is `any` and
-    /// `harmless` is `all`, and a conversion that fixed one and not the
-    /// other would leave the ability still unactivated.
-    ///
-    /// Synthetic and not a pool card on purpose: the census behind #109 says
-    /// the pool hides `SacrificeSelf`, `DrawCards`, `CounterTargetSpell` and
-    /// `CreateToken` behind that clause, and *none* of them sits in an
-    /// activated ability — so no card here changes these two answers today
-    /// and a test claiming otherwise would be about a card that does not
-    /// exist. What is being pinned is the descent.
-    #[test]
-    fn a_gain_behind_a_price_is_still_a_gain() {
-        static DRAW: Effect = Effect::DrawCards {
-            amount: Amount::Fixed(1),
-        };
-        let priced = Effect::PlayerMayPayOr {
-            player: baylee_cards_dsl::PlayerRel::Opponent,
-            mana: Amount::Fixed(1),
-            effect: &DRAW,
-        };
-        assert!(gains(&priced), "the draw behind the price was missed");
-        assert!(
-            harmless(&priced),
-            "the draw behind the price read as a harm"
-        );
-        assert_eq!(
-            draws(std::slice::from_ref(&priced)),
-            Some(1),
-            "a draw the agent will take has to count against the library"
-        );
     }
 }

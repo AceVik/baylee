@@ -645,6 +645,12 @@ pub(crate) fn breaks_through(board: &Board, going: &[ObjectId], victim: PlayerId
         .is_some_and(|s| through(&attackers, &creatures(board.view, victim, ready)) >= s.life)
 }
 
+/// How much of `attackers` reaches `victim` past the creatures `victim` has
+/// ready to block, measured as [`breaks_through`] measures it.
+pub(crate) fn through_to(view: &PlayerView, attackers: &[Fighter], victim: PlayerId) -> i32 {
+    through(attackers, &creatures(view, victim, ready))
+}
+
 /// What each creature in `going` attacks when the attack does not win: the
 /// victim, and one of their planeswalkers with as much as it takes to kill
 /// it (CR 120.3c, CR 704.5i).

@@ -1486,6 +1486,8 @@ mod land_mana_tests;
 #[cfg(test)]
 mod land_play_tests;
 #[cfg(test)]
+mod leave_probe_tests;
+#[cfg(test)]
 mod leave_tests;
 #[cfg(test)]
 mod loop_tests;

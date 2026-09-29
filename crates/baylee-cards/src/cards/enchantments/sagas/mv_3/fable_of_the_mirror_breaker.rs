@@ -53,6 +53,13 @@ card!(
             }]
         ),
         chapter!(2, &[Effect::DiscardUpToThenDraw { count: 2 }]),
-        chapter!(3, &[Effect::ExileSelfReturnAsFace { face: 1 }]),
+        // "…transformed under your control."
+        chapter!(
+            3,
+            &[Effect::ExileSelfReturnAsFace {
+                face: 1,
+                owner_control: false,
+            }]
+        ),
     ],
 );

@@ -223,16 +223,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             opponents_only,
         } => {
             let all: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
+                .battlefield_seen()
                 .filter(|id| {
-                    state.object(**id).is_some_and(|o| {
+                    state.object(*id).is_some_and(|o| {
                         (!opponents_only || state.is_opponent(o.controller, you))
                             && eval::matches(filter, state, o, you, res.source)
                     })
                 })
-                .copied()
                 .collect();
             let moves: Vec<(ObjectId, ZoneLocation)> = all
                 .iter()
@@ -260,16 +257,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::DestroyAll { filter, no_regen } => {
+            // Not a phased-out creature: "Destroy all creatures" passes over
+            // one (CR 702.26b's example).
             let all: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
+                .battlefield_seen()
                 .filter(|id| {
                     state
-                        .object(**id)
+                        .object(*id)
                         .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
                 })
-                .copied()
                 .collect();
             for id in all {
                 if no_regen {
@@ -540,21 +536,16 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::PhaseOut { target } => {
-            let target_id = match target {
-                Some(_) => res.targets.first().copied(),
-                None => Some(res.source),
-            };
-            if let Some(id) = target_id {
-                if let Some(obj) = state.object_mut(id) {
-                    obj.status.insert(Status::PHASED_OUT);
+            // Every target: Clever Concealment's "any number of target
+            // nonland permanents" phases out as many as it named, and a
+            // target that became illegal already left the list (CR 608.2b).
+            // What is attached to each goes with it (CR 702.26g).
+            match target {
+                Some(_) => {
+                    let targets = res.targets.clone();
+                    state.phase_out(&targets);
                 }
-                // CR 702.26b: phasing removes a permanent from combat
-                // without changing zones. Blocked attackers stay blocked.
-                state.combat.remove_from_combat(id);
-                state.journal.record(GameEvent::PhaseChanged {
-                    object: id,
-                    phased_out: true,
-                });
+                None => state.phase_out(&[res.source]),
             }
             None
         }
@@ -1098,7 +1089,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::ExileSelfReturnAsFace { face } => {
+        Effect::ExileSelfReturnAsFace {
+            face,
+            owner_control,
+        } => {
             let owner = state.object(res.source).map_or(you, |o| o.owner);
             if let Some(obj) = state.object_mut(res.source) {
                 obj.kind = ObjectKind::Card;
@@ -1109,6 +1103,20 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 ZonePosition::Top,
                 Cause::Effect,
             );
+            // Blink's arrival, for the same reasons: nothing is put onto the
+            // battlefield under a player who has left (CR 800.4b), and the
+            // card that comes back is a new object (CR 400.7) that enters
+            // under the control the sentence names, as its default and
+            // written before it arrives. It always returned under its owner,
+            // so a stolen Fable of the Mirror-Breaker went home at chapter
+            // III where the card says "under your control".
+            if !owner_control && state.has_left(you) {
+                return None;
+            }
+            if let Some(obj) = state.object_mut(res.source) {
+                obj.kind = ObjectKind::Permanent;
+                obj.set_controller(if owner_control { owner } else { you });
+            }
             let _ = state.move_object(
                 res.source,
                 ZoneLocation::Battlefield,
@@ -1116,8 +1124,6 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 Cause::Effect,
             );
             if let Some(obj) = state.object_mut(res.source) {
-                obj.kind = ObjectKind::Permanent;
-                obj.set_controller(owner);
                 // The face switch needs the card definition (lookup);
                 // finish_resolution applies it.
                 obj.pending_face_change = Some(face);
@@ -1433,6 +1439,74 @@ mod arrival_control_tests {
             let (mut state, it) = theirs(611);
             crate::sba::eliminate_player(&mut state, me(), crate::event::LossReason::Conceded);
             blink(&mut state, it, owner_control);
+            let obj = state.object(it).expect("seat 1's own card");
+            let want = if back {
+                crate::zone::Zone::Battlefield
+            } else {
+                crate::zone::Zone::Exile
+            };
+            assert_eq!(obj.zone, want, "owner_control: {owner_control}");
+        }
+    }
+
+    /// Seat 0's ability of `it`'s own exiles `it` and returns it
+    /// (`ExileSelfReturnAsFace`): Fable of the Mirror-Breaker III, Sheoldred's
+    /// `{4}{B}`, a transform's stand-in.
+    fn self_return(state: &mut GameState, it: ObjectId, owner_control: bool) {
+        let effect = Effect::ExileSelfReturnAsFace {
+            face: 0,
+            owner_control,
+        };
+        resolve(state, it, &[], effect);
+    }
+
+    /// "Exile this Saga, then return it to the battlefield transformed under
+    /// your control" on a permanent seat 0 has stolen: the new object enters
+    /// under seat 0's control by default, not an effect's (CR 110.2a,
+    /// CR 400.7), and stays with seat 0 once the steal is gone, while seat 1
+    /// still owns it (CR 108.3). The effect returned every card under its
+    /// owner's control, so the thief's Fable went home at chapter III.
+    #[test]
+    fn a_stolen_permanent_returning_itself_under_your_control_stays_with_the_thief() {
+        let (mut state, it) = stolen();
+        self_return(&mut state, it, false);
+        let obj = state.object(it).expect("the same arena handle");
+        assert_eq!(obj.zone, crate::zone::Zone::Battlefield, "it came back");
+        assert_eq!(
+            (obj.owner, obj.controller, obj.base_controller),
+            (them(), me(), me()),
+            "under the controller of the ability, by default, still seat 1's card"
+        );
+        state
+            .effects
+            .remove_where(|fx| fx.modifier == baylee_cards_dsl::Modifier::GainControl);
+        state.refresh_characteristics();
+        assert_eq!(state.object(it).map(|o| o.controller), Some(me()));
+    }
+
+    /// "…then return it to the battlefield transformed under its owner's
+    /// control" (Sheoldred, the Ojers): the other sentence, on the same
+    /// board, sends the stolen permanent home.
+    #[test]
+    fn a_stolen_permanent_returning_itself_under_its_owners_control_goes_home() {
+        let (mut state, it) = stolen();
+        self_return(&mut state, it, true);
+        let obj = state.object(it).expect("the same arena handle");
+        assert_eq!(obj.zone, crate::zone::Zone::Battlefield, "it came back");
+        assert_eq!(
+            (obj.owner, obj.controller, obj.base_controller),
+            (them(), them(), them())
+        );
+    }
+
+    /// A self-return "under your control" for a player who has left leaves
+    /// the card in exile (CR 800.4b); under its owner's it comes back.
+    #[test]
+    fn a_self_return_under_your_control_returns_nothing_to_a_player_who_has_left() {
+        for (owner_control, back) in [(false, false), (true, true)] {
+            let (mut state, it) = theirs(612);
+            crate::sba::eliminate_player(&mut state, me(), crate::event::LossReason::Conceded);
+            self_return(&mut state, it, owner_control);
             let obj = state.object(it).expect("seat 1's own card");
             let want = if back {
                 crate::zone::Zone::Battlefield

@@ -62,15 +62,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         } => {
             let n = amount2(&amount, state, you, res) as u16;
             let objects: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
+                .battlefield_seen()
                 .filter(|id| {
                     state
-                        .object(**id)
+                        .object(*id)
                         .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
                 })
-                .copied()
                 .collect();
             // Per object, not once for the sweep: "a permanent you control"
             // is asked of each permanent the counters land on, so a board
@@ -101,7 +98,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::DrainAllCountersIntoSelf => {
             let mut drained: u16 = 0;
-            for id in state.zones.list(ZoneLocation::Battlefield).clone() {
+            for id in state.battlefield_view() {
                 if let Some(obj) = state.object_mut(id) {
                     let held: Vec<_> = obj.counters.iter().collect();
                     for (kind, n) in held {

@@ -1,16 +1,17 @@
 # Card-verification hooks
 
-Three test-only hooks let a checker outside the engine grade the pool's
+Four test-only hooks let a checker outside the engine grade the pool's
 cards without reading engine code:
 
 | rung | question                                                         | hook                                    |
 |------|------------------------------------------------------------------|-----------------------------------------|
 | L4   | has every ability a card prints fired in some test?              | `BAYLEE_ABILITY_LOG=<dir>`              |
+| L4   | does a permanent's every ability stop when it leaves play?       | `BAYLEE_LEAVE_LOG=<dir>`                |
 | L5   | does taking any one ability away make some test of the card fail? | `BAYLEE_MUTATE=<card>:<index>`          |
 | —    | is the engine's cached layer projection what the layers say now? | `Engine::projection_is_fresh` (`fuzz`)  |
 
 This document is normative for the environment variables, the file formats,
-the exit statuses and the feature names below. None of the three is in a
+the exit statuses and the feature names below. None of the four is in a
 build that ships (see [Not in a shipped build](#not-in-a-shipped-build)).
 
 | hook | code |
@@ -18,10 +19,12 @@ build that ships (see [Not in a shipped build](#not-in-a-shipped-build)).
 | firing recorder | `crates/baylee-engine/src/ability_log.rs` (`#[cfg(test)]`) and one `#[cfg(test)]` call at each door named below |
 | mutation switch | `crates/baylee-cards/src/mutate.rs`, applied in `baylee_cards::{by_index, by_oracle_id, all}` |
 | projection check | `crates/baylee-engine/src/engine/invariants.rs` |
-| their own tests | `crates/baylee-engine/src/engine/verification_tests.rs`, `invariants::tests`, `baylee_cards::mutate::tests` |
+| leave probe | `crates/baylee-engine/src/engine/leave_probe_tests.rs` (`#[cfg(test)]`) |
+| their own tests | `crates/baylee-engine/src/engine/verification_tests.rs`, `invariants::tests`, `baylee_cards::mutate::tests`, `leave_probe_tests::representative_cards_leave_cleanly_by_every_route` |
 
-Both variables are read once per process, at the first card lookup or the
-first firing; an empty value is the same as unset. Neither is read at
+The first two variables are read once per process, at the first card lookup
+or the first firing; `BAYLEE_LEAVE_LOG` once, by the sweep, when it has
+finished. An empty value is the same as unset. None is read at
 compile time, so changing one never rebuilds anything.
 
 ## L4: the firing recorder
@@ -377,6 +380,219 @@ The fifth run, after those three: no `false` at all. Putting the departed
 graveyard's defect back made the probe report the one `false` its test
 names, so the probe was running.
 
+## L4: the leave probe
+
+Does every ability of a permanent stop when the permanent is no longer in
+play, and follow it when it changes sides? The probe takes each card off
+the battlefield along seven routes, and an Aura, Equipment or Fortification
+along an eighth, and reads what is left of it.
+
+### Running it
+
+```bash
+BAYLEE_LEAVE_LOG=/abs/path/to/dir cargo test -p baylee-engine --lib -- --ignored --exact engine::leave_probe_tests::leave_probe_sweep --nocapture
+```
+
+The sweep is `#[ignore]`d and asserts nothing about the pool. Without the
+variable it still probes and prints, and writes nothing. With it, the
+directory is created if missing and `leave.jsonl` in it is overwritten. It
+prints one totals line and one `walk:` line per thin trigger walk (see
+[The trigger walk](#the-trigger-walk)). A full sweep runs one thread per core
+and took 8 to 22 s here (2026-09-29, 2013 cards). It silences the panic hook
+while it runs, since a panic is a `skipped` line: run it with `--exact`, as
+above, so that no other test shares the process.
+
+The gate runs `leave_probe_tests::representative_cards_leave_cleanly_by_every_route`
+instead: seven cards, every route `ok`, every walk full. They are Glorious
+Anthem (an anthem), Doubling Season (replacement effects), Soul Warden (a
+triggered ability), Exploration (a rules static; the pool has no cost
+reducer, see the test's comment), Kongming, "Sleeping Dragon" (a static
+whose "you" must follow its controller), and Holy Strength and Bonesplitter
+(an Aura and an Equipment, for `phase_host`).
+
+### What it writes
+
+`<dir>/leave.jsonl`, one line per (card, route), sorted by card, then by
+route in the order of the table below; `phase_host` only for a card whose
+front face is an Aura, Equipment or Fortification. Fields in this order:
+
+```json
+{"card": 111, "route": "phase_out", "verdict": "ok", "detail": ""}
+```
+
+| field     | type   | meaning |
+|-----------|--------|---------|
+| `card`    | u32    | the card's `CardIndex` |
+| `route`   | string | one of `destroy`, `exile`, `bounce`, `library`, `sacrifice`, `phase_out`, `phase_host`, `control` |
+| `verdict` | string | one of `ok`, `lingers`, `stale`, `skipped` |
+| `detail`  | string | empty exactly when `ok`; otherwise the findings, joined by `; `, cut at 400 bytes and ended with `…` if longer |
+
+| verdict   | meaning |
+|-----------|---------|
+| `ok`      | every check below passed |
+| `lingers` | some part of the card was still in force, offered or triggering where it must not be; wins over `stale` |
+| `stale`   | only `Engine::projection_is_fresh` failed, after settling or at the end ("already stale before the route" when the board was stale before anything left) |
+| `skipped` | the card could not be set up, or the route did not happen to it: `setup: …` (it was not on the battlefield under seat 0 when the walk reached seat 0's main phase, an Aura with nothing to enchant), `did not leave the battlefield` (indestructible), `came back to the battlefield` (persist, undying), `did not phase out`, `its host did not phase out` (the host was gone before the route: Skullclamp's +1/-1 kills its 1/1), `control did not change`, `the card's object is gone`, `route: …` (the route could not be run: its effect asked a question, seat 1 had nothing left to be its source, or the card is attached to nothing), `unaffected: …` (the check's own control failed), or `panic: …`; never a panic of the sweep |
+
+### The cards and the board
+
+Every card whose coverage is `Implemented` and whose front face is a
+permanent (`testkit::is_permanent`: land, creature, artifact, enchantment,
+planeswalker). Only the front face is probed.
+
+A two-player game at seed 4211, seat 0 going first. Each seat has a
+Llanowar Elves, a Forest and one other basic land on the battlefield, and a
+Llanowar Elves and a Forest in hand; the card is on seat 0's battlefield. An
+Aura enchants the first of seat 0's Elf, seat 1's Elf and the lands that its
+spell's `AttachSelf` target allows; an Equipment is attached to seat 0's
+Elf; a planeswalker gets its printed loyalty (#304). The kit then walks to
+seat 0's first main phase, answering every question with its defaults.
+
+### The routes
+
+Each route is one effect resolved by `resolve::run`, the function every
+resolving spell and ability runs, and the engine then settles by itself (a
+priority pass: statics synced, state-based actions, triggers put on the
+stack and resolved with the kit's answers).
+
+| route       | effect                                              | controlled by |
+|-------------|-----------------------------------------------------|---------------|
+| `destroy`   | `Effect::Destroy`, the card its target              | seat 1        |
+| `exile`     | `Effect::Exile`                                     | seat 1        |
+| `bounce`    | `Effect::ReturnToHand`, to its owner's hand         | seat 1        |
+| `library`   | `Effect::PutSourceOnTopOfLibrary`                   | seat 0        |
+| `sacrifice` | `Effect::SacrificeSelf`                             | seat 0        |
+| `phase_out` | `Effect::PhaseOut` (CR 702.26)                      | seat 0        |
+| `phase_host`| `Effect::PhaseOut` on the permanent the card is attached to (CR 702.26g) | seat 0 |
+| `control`   | `Effect::ChangeController`: the layer-2 effect of `resolve::gain_control` | seat 1 |
+
+### The checks
+
+- **Residue.** No effect from the card with origin `Static` is in force, and
+  no replacement rule from it is registered. After a leaving route (the
+  first five) also no effect of any origin lasting while its source is on
+  the battlefield (CR 611.2b). An effect a resolution made that lasts a turn
+  is left alone (CR 611.2a), as are one-shot results and leave-the-battlefield
+  triggers. For `phase_out` and `phase_host` a resolution's effect is left
+  alone too: CR 702.26f ends only a "for as long as" duration that tracks
+  the permanent, and the table does not tell one from an indefinite effect
+  on the permanent itself (`docs/engine-internals.md` §"Phasing").
+- **Activation.** Seat 0 is offered none of the card's battlefield abilities
+  (`compute_legal`), mana abilities included; an ability that works from
+  where the card now is (cycling from a hand) is not counted.
+- **Triggers.** None of the card's own triggered abilities triggers during
+  the trigger walk. For the two phasing routes the window closes when it
+  phases in; for `control` an ability that triggers under seat 1 is fine,
+  one under seat 0 is not.
+- **Fresh.** `Engine::projection_is_fresh` after settling and after the walk.
+- **Unaffected** (the two phasing routes). While the card is phased out,
+  seat 1 resolves `CreateContinuousEffect`: every permanent gets +0/+0 for
+  the rest of the game. The effect fixes its set as it begins (CR 611.2c),
+  one entry per object, and the card must not be in it (CR 702.26e). A
+  bystander of seat 1's that is phased in must be, or the line is skipped.
+  +0/+0 changes no number the rest of the probe reads.
+- **`phase_out`, after.** At seat 0's next untap step the card phases in,
+  and its unconditional statics and its replacement rules are back. A card
+  that phased in and then left by its own rules (a Saga's last chapter, an
+  upkeep's "sacrifice unless") is checked as a leaving route instead.
+- **`phase_host`.** Right after the route the card is phased out with its
+  host (CR 702.26g). After the walk it phased in no sooner than its host did
+  (it does not phase in by itself), is still attached to it (CR 702.26d),
+  and everything `phase_out` asks after holds. The host is phased in at its
+  controller's untap step: seat 0's for an Equipment, seat 1's for an Aura
+  on seat 1's Elf.
+- **`control`.** Every static and replacement of the card answers to seat 1
+  (CR 109.5). For a card attached to nothing, what its statics do to the two
+  sides' identical bystanders is swapped: what seat 0's got before, seat 1's
+  gets now, and the other way round.
+
+### The trigger walk
+
+From the route to seat 0's first main phase two turns later (seat 1's turn,
+then seat 0's):
+
+- both turns begin every step: upkeep, draw (a card is drawn), beginning of
+  combat, end step;
+- each active player plays a land (a land played, a land entering), taps a
+  Forest for mana and casts Llanowar Elves (a spell cast, a creature
+  entering), once per turn;
+- seat 1 attacks with everything it may, at a player (attackers declared,
+  combat damage to a player);
+- in seat 1's second main phase both original Elves are destroyed (a
+  creature dies on each side), except the card's host for an Aura or an
+  Equipment, which is spared: a host that dies takes a phased-out Aura with
+  it when the Aura phases in (CR 702.26i, 704.5m), and that says nothing
+  about the Aura's statics.
+
+A trigger on anything else (a noncreature spell, a target, counters, a
+discard, a token, life gained as such, a later turn) is not exercised.
+
+A walk is full at 2 lands played, 2 spells cast, 4 permanents entering,
+1 creature dying, 1 attack, 2 upkeeps, 2 draws and 2 end steps. A thinner
+walk (the card's own rules can stop a cast or an attack: The Tabernacle at
+Pendrell Vale, Night of Souls' Betrayal) is still judged on what happened,
+and the sweep prints it. Every question on the way is answered with the
+kit's `answer_one`; an answer the engine refuses stops the walk short.
+Until `28698c03` the engine refused Metamorphosis Fanatic's miracle "yes"
+after spending the offer, and the probe carried on past it; that "yes" is
+now taken and a cast it cannot pay is reversed, and the sweep after the
+merge stopped no walk short on a refused answer.
+
+### A run
+
+2026-09-29, 2013 cards × 7 routes = 14091 lines, this probe both times;
+"before" is the engine at `9133d843`, before the phasing fixes.
+
+| | ok | lingers | stale | skipped |
+|---|---|---|---|---|
+| before the phasing fixes | 12618 | 1242 | 0 | 231 |
+| after | 13860 | 0 | 0 | 231 |
+
+Every `lingers` line was `phase_out`; the other six routes were clean on
+the old engine too. A phased-out permanent's abilities were offered (1054
+cards, 26 of them only a land's intrinsic mana), its statics kept applying
+(167) and so did its replacement rules (8), and its triggered abilities
+triggered (43); two of the lines also found the projection stale. The
+fixes are in `docs/engine-internals.md` §"Phasing". The 231 skipped lines
+are 28 cards not on the battlefield once set up (×7: copies that copied
+nothing, Walking Ballista with no counters, Auras that kill their 1/1 host,
+upkeep costs the kit declines), one Aura with nothing to enchant (Inertia
+Bubble, ×7), 18 indestructible cards (`destroy`) and 5 with persist or
+undying (`destroy`, `sacrifice`). 31 walks were thin, none stopped short.
+
+A second run the same day, with `phase_host`, the unaffected check and the
+engine's indirect phasing (`docs/engine-internals.md` §"Phasing"): 2013
+cards, 14158 lines, 67 of them `phase_host`; 13918 `ok`, 0 `lingers`, 0
+`stale`, 240 skipped. The 9 new skips are `phase_host` lines: 7 of the 28
+cards not on the battlefield once set up, Inertia Bubble, and Skullclamp,
+whose Elf died before the route. 31 walks were thin, none stopped short.
+
+### Proving it can fail
+
+Two faults were put into the engine by hand and taken out again
+(2026-09-29), each with the representative test as the only judge:
+
+- The departure sweep in `sync_static_effects` removed nothing, so a static
+  outlived its source: the test failed with 15 `lingers` lines, the five
+  leaving routes of the three cards with statics (`static ModifyPT still
+  applies after it left; … a turn cycle later`, and `ExtraLandDrops` for
+  Exploration).
+- `EffectTable::follow_phasing` parked nothing: 3 `lingers` lines, the
+  `phase_out` route of the same three cards (`static … still applies while
+  phased out`).
+
+Three more for the phasing checks, the rule tests in `phasing_tests` run
+alongside:
+
+- `GameState::phase_out` took nothing attached along: 2 `lingers` lines,
+  Holy Strength's and Bonesplitter's `phase_host` (`stayed phased in when
+  the permanent it is attached to phased out`).
+- The untap step phased in what had phased out indirectly: the same 2
+  lines, `phased in by itself, before the permanent it phased out with`.
+- `bound_now` walked the raw battlefield again: 9 `lingers` lines, every
+  phasing route of the seven cards (`an effect that began while it was
+  phased out took it into its set`).
+
 ## Not in a shipped build
 
 | hook | compiled when |
@@ -384,6 +600,7 @@ names, so the probe was running.
 | recorder | `#[cfg(test)]` in `baylee-engine`: only its own test binary |
 | mutation switch | `cfg(any(test, feature = "mutate"))` in `baylee-cards`; only `baylee-engine`'s `[dev-dependencies]` turn `mutate` on |
 | projection check | `cfg(any(test, feature = "fuzz"))` in `baylee-engine`; nothing in the workspace turns `fuzz` on |
+| leave probe | `#[cfg(test)]` in `baylee-engine`: only its own test binary |
 
 A build without dev-dependencies (every `cargo build`, every binary, every
 library a dependent links) names neither feature:

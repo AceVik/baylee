@@ -1248,6 +1248,20 @@ not decide an immediate blink. Only control is chosen: the owner never changes
 (CR 108.3), so a creature kept this way still dies into its owner's
 graveyard and leaves the game with its owner (CR 800.4a).
 
+**A permanent that exiles itself and comes back answers the same
+question.** `Effect::ExileSelfReturnAsFace { face, owner_control }` takes
+`owner_control: true` exactly where its sentence says "under its **owner's**
+control" (Sheoldred's `{4}{B}`, the Ojers' dies triggers). "… under **your**
+control" (Fable of the Mirror-Breaker III, Welcome to … III, Journey to
+Eternity) is `false`, and so is a sentence that names nobody (The True
+Scriptures III: the card enters under the player the effect instructs,
+CR 110.2a, the chapter ability's controller, CR 603.3a). The "transform
+this" cards the effect stands in for (#206) are `false` too: a transform
+keeps its controller (CR 712.18), and the ability's controller is that
+player (CR 603.3a for a trigger, CR 602.2a for an activation).
+`lints::every_self_return_comes_back_under_the_control_its_sentence_prints`
+holds every use in the pool to its printed sentence.
+
 **A linked exile is two verbs as well, and the difference is when it ends.**
 `Effect::exile_linked(t)` exiles with a link and no end of its own: the card
 stays until another ability of the same object brings it back (Safe Haven and

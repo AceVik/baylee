@@ -289,7 +289,9 @@ impl<L: CardLookup> Engine<L> {
         // through one or two of them.
         let grants: smallvec::SmallVec<[&crate::effects::ContinuousEffect; 4]> =
             crate::effects::grants(&self.state).collect();
-        for &id in self.state.zones.list(ZoneLocation::Battlefield) {
+        // A phased-out permanent is treated as though it does not exist
+        // (CR 702.26b): nothing it has is offered, a mana ability included.
+        for id in self.state.battlefield_seen() {
             // Karn's lock, asked on the offering side too. It stops every
             // activated ability of the permanent, a mana ability included —
             // CR 605.1 makes a mana ability a kind of activated ability, not

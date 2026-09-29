@@ -225,17 +225,14 @@ pub fn defender_options(state: &GameState, player: PlayerId) -> Vec<Defender> {
     let mut options: Vec<Defender> = opponents.iter().copied().map(Defender::Player).collect();
     options.extend(
         state
-            .zones
-            .list(crate::zone::ZoneLocation::Battlefield)
-            .iter()
+            .battlefield_seen()
             .filter(|id| {
-                state.object(**id).is_some_and(|o| {
+                state.object(*id).is_some_and(|o| {
                     opponents.contains(&o.controller)
-                        && !o.status.contains(Status::PHASED_OUT)
                         && o.characteristics().types.contains(TypeSet::PLANESWALKER)
                 })
             })
-            .map(|id| Defender::Planeswalker(*id)),
+            .map(Defender::Planeswalker),
     );
     options
 }
