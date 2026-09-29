@@ -206,14 +206,14 @@ mod tests {
     #[test]
     fn a_moxfield_deck_link_is_answered_with_the_export_instruction() {
         for text in [
-            "https://moxfield.com/decks/7dKEA5LPD0aX18EZPw_HYg",
-            "  https://www.moxfield.com/decks/7dKEA5LPD0aX18EZPw_HYg/primer?x=1#top \n",
-            "moxfield.com/decks/7dKEA5LPD0aX18EZPw_HYg",
-            "HTTP://MOXFIELD.COM/decks/7dKEA5LPD0aX18EZPw_HYg",
+            "https://moxfield.com/decks/Xq3ExampleDeck0000000a",
+            "  https://www.moxfield.com/decks/Xq3ExampleDeck0000000a/primer?x=1#top \n",
+            "moxfield.com/decks/Xq3ExampleDeck0000000a",
+            "HTTP://MOXFIELD.COM/decks/Xq3ExampleDeck0000000a",
         ] {
             let found = recognise(text).unwrap_or_else(|| panic!("{text}"));
             assert_eq!(found.source, SourceId::Moxfield);
-            assert_eq!(found.deck, "7dKEA5LPD0aX18EZPw_HYg");
+            assert_eq!(found.deck, "Xq3ExampleDeck0000000a");
             assert_eq!(
                 found.answer,
                 Answer::Instruction(Instruction::MoxfieldExport)

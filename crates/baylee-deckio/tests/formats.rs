@@ -331,7 +331,7 @@ fn the_other_sites_x_counts_read() {
 
 #[test]
 fn a_moxfield_link_is_an_instruction_not_a_fetch() {
-    match import("https://moxfield.com/decks/7dKEA5LPD0aX18EZPw_HYg").expect("a link") {
+    match import("https://moxfield.com/decks/Xq3ExampleDeck0000000a").expect("a link") {
         Import::Source(found) => {
             assert_eq!(found.source, SourceId::Moxfield);
             assert_eq!(

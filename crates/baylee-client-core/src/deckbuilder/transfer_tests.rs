@@ -143,7 +143,7 @@ fn an_import_before_the_pool_arrives_resolves_when_it_does() {
 fn a_moxfield_link_is_answered_in_the_players_language_and_takes_nothing() {
     let mut b = builder();
     b.open_import();
-    b.import_paste("https://moxfield.com/decks/7dKEA5LPD0aX18EZPw_HYg");
+    b.import_paste("https://moxfield.com/decks/Xq3ExampleDeck0000000a");
     assert!(matches!(
         b.transfer(),
         Some(Transfer::Import(i)) if matches!(i.stage(), Stage::Instruction(..))
