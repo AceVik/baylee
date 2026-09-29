@@ -574,7 +574,7 @@ fn sweep(games: &[(usize, usize, u64)], cap: usize) -> Findings {
         let (decks, next) = (&decks, &next);
         let handles: Vec<_> = (0..threads.min(games.len()))
             .map(|_| {
-                scope.spawn(move || {
+                crate::engine::testkit::spawn_named(scope, move || {
                     let mut all = Findings::default();
                     loop {
                         let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);

@@ -834,7 +834,7 @@ fn sweep() -> (Vec<String>, Tally) {
         let handles: Vec<_> = pool
             .chunks(chunk)
             .map(|slice| {
-                scope.spawn(move || {
+                crate::engine::testkit::spawn_named(scope, move || {
                     slice.iter().fold(
                         (Vec::new(), Tally::default()),
                         |(mut all, mut total): (Vec<String>, Tally), (card, blob)| {

@@ -973,6 +973,8 @@ impl<L: CardLookup> Engine<L> {
                 // what is left is the mana — through the same door the
                 // one-type land goes through.
                 casting::add_intrinsic_mana(&mut self.state, player, source, color);
+                #[cfg(test)]
+                crate::ability_log::intrinsic_mana(&self.state, &self.lookup, source, color);
                 self.after_action(player);
                 Ok(())
             }
@@ -1527,6 +1529,13 @@ impl<L: CardLookup> Engine<L> {
                     }
                     // Exactly one colour: nothing to ask.
                     casting::add_intrinsic_mana(&mut self.state, player, source, colors[0]);
+                    #[cfg(test)]
+                    crate::ability_log::intrinsic_mana(
+                        &self.state,
+                        &self.lookup,
+                        source,
+                        colors[0],
+                    );
                     self.after_action(player);
                     return Ok(());
                 }

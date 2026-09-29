@@ -26,7 +26,9 @@ rand_chacha.workspace = true
 rand_core.workspace = true
 
 [dev-dependencies]
-baylee-cards.workspace = true
+# `mutate`: `BAYLEE_MUTATE` for this crate's test binary, and for nothing else
+# (`docs/verification-hooks.md`).
+baylee-cards = { workspace = true, features = ["mutate"] }
 uuid.workspace = true
 criterion.workspace = true
 

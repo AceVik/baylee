@@ -194,6 +194,53 @@ fn bench_layers(c: &mut Criterion) {
             );
         });
     }
+    // The eight-anthem board with every creature as big again as the
+    // creatures you control: each creature counts the board, so the
+    // refresh projects every one of them a second time once the board is
+    // done (`GameState::refresh_characteristics`). A real board has one or
+    // two counters (Ashaya); this is the repeat at its widest, every
+    // creature once more, and no count moves another, so once is all.
+    let state = counting_board(8);
+    c.bench_function("layers/refresh_x8_counting", |b| {
+        b.iter_batched(
+            || state.clone(),
+            |mut s| {
+                s.effects.generation += 1;
+                s.refresh_characteristics();
+                s
+            },
+            BatchSize::SmallInput,
+        );
+    });
+}
+
+/// [`wide_board`] with one more effect: every creature gets +1/+0 for each
+/// creature its controller controls.
+fn counting_board(anthems: usize) -> GameState {
+    use baylee_cards_dsl::static_ability::{Duration, Layer, Modifier};
+    use baylee_core::ids::EffectId;
+    use baylee_engine::effects::{ContinuousEffect, EffectFilter};
+
+    static CREATURES: baylee_cards_dsl::Filter =
+        baylee_cards_dsl::Filter::HasType(baylee_core::types::TypeSet::CREATURE);
+
+    let mut state = wide_board(anthems);
+    state.effects.register(ContinuousEffect {
+        id: EffectId::new(0),
+        source: None,
+        controller: baylee_core::ids::PlayerId::new(0),
+        origin: baylee_engine::effects::EffectOrigin::Resolution,
+        layer: Layer::PtModify,
+        timestamp: anthems as u64,
+        duration: Duration::Indefinitely,
+        filter: EffectFilter::Dsl(&CREATURES),
+        modifier: Modifier::ModifyPTPerCount {
+            filter: &CREATURES,
+            p: 1,
+            t: 0,
+        },
+    });
+    state
 }
 
 /// The layer refresh with a deep stack of triggered abilities.

@@ -799,11 +799,17 @@ impl<L: CardLookup> Engine<L> {
     /// capabilities and a `CreateGame` request has no way to ask for one.
     /// The old `state_mut_dev()` took no seat and asked nobody — it was a
     /// public door into the state with a name that only sounded like a lock.
+    ///
+    /// What the caller writes may go past every door that invalidates the
+    /// projection (a counter set straight on an object, say), so this door
+    /// invalidates as it opens: the next refresh projects the rewritten
+    /// board instead of trusting the cache it had.
     pub fn dev_state_mut(&mut self, seat: PlayerId) -> Option<&mut GameState> {
-        self.capabilities
-            .get(seat.get() as usize)?
-            .dev_commands
-            .then_some(&mut self.state)
+        if !self.capabilities.get(seat.get() as usize)?.dev_commands {
+            return None;
+        }
+        self.state.invalidate_projections();
+        Some(&mut self.state)
     }
 
     /// Republish the priority offer after the board was rewritten behind the
@@ -1398,6 +1404,9 @@ pub(crate) mod cost_wizard;
 mod leave;
 mod mulligan;
 mod progress;
+// Fuzzer invariants (`fuzz` feature; `docs/verification-hooks.md`).
+#[cfg(any(test, feature = "fuzz"))]
+mod invariants;
 
 #[cfg(test)]
 mod activation_target_tests;
@@ -1544,6 +1553,8 @@ mod token_tests;
 mod undying_tests;
 #[cfg(test)]
 mod untap_tests;
+#[cfg(test)]
+mod verification_tests;
 #[cfg(test)]
 mod vocabulary_tests;
 #[cfg(test)]

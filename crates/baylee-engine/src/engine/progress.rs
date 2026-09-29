@@ -1382,6 +1382,8 @@ impl<L: CardLookup> Engine<L> {
     /// [`CopyMod::KeepOtherAbilities`]: baylee_cards_dsl::CopyMod::KeepOtherAbilities
     #[allow(clippy::too_many_lines)]
     pub(crate) fn apply_copy_choice(&mut self, id: ObjectId, target: ObjectId) {
+        #[cfg(test)]
+        crate::ability_log::copied_on_entry(&self.state, &self.lookup, id);
         // The copier's own printed list is read *here* and not where it is
         // used, because both branches below overwrite `own_abilities` with
         // the copied one — after which `abilities` answers with the
@@ -1878,6 +1880,8 @@ impl<L: CardLookup> Engine<L> {
             self.state.effects.register(fx);
         }
         self.sync_replacement_rules();
+        #[cfg(test)]
+        crate::ability_log::note_sources(&self.state, &self.lookup);
     }
 
     /// Drops the replacement rules of sources that left the battlefield or
@@ -2202,7 +2206,16 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
             };
-            match crate::resolve::run(&mut self.state, &mut res) {
+            let flow = crate::resolve::run(&mut self.state, &mut res);
+            #[cfg(test)]
+            crate::ability_log::triggered_mana(
+                &self.state,
+                &self.lookup,
+                t.source,
+                t.ability_index,
+                matches!(flow, crate::resolve::Flow::Complete),
+            );
+            match flow {
                 crate::resolve::Flow::Complete => {}
                 crate::resolve::Flow::Wait(pending) => {
                     self.resolution = Some(res);
@@ -3219,6 +3232,8 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         } else {
+            #[cfg(test)]
+            crate::ability_log::resolved(&self.state, &self.lookup, top);
             self.finalize_spell(top);
         }
     }
@@ -3419,6 +3434,12 @@ impl<L: CardLookup> Engine<L> {
     }
 
     pub(crate) fn finish_resolution(&mut self, res: &Resolution) {
+        #[cfg(test)]
+        if res.mana_ability {
+            crate::ability_log::mana_finished(&self.lookup, res.source);
+        } else {
+            crate::ability_log::resolved(&self.state, &self.lookup, res.on_stack);
+        }
         // The reflexive triggers this resolution created (CR 603.12) join
         // the queue as it ends, and from there take the ordinary path.
         // `queue_new_triggers` sorts them with that pass's other triggers

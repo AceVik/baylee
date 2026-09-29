@@ -1255,9 +1255,7 @@ impl<L: CardLookup> Engine<L> {
             obj.riders.push(crate::object::Rider::SpellCopy);
             obj
         });
-        self.state
-            .zones
-            .insert(id, ZoneLocation::Stack, ZonePosition::Top, true);
+        self.state.put_new_spell_on_stack(id);
         // Per-turn tracking, exactly as an ordinary cast keeps it. The card
         // says "you may **cast** a copy of its spell", so this is a cast and
         // the turn has to count it: without these two the prepared spell was
@@ -1936,7 +1934,16 @@ impl<L: CardLookup> Engine<L> {
                 target_lki: None,
                 retarget_left: None,
             };
-            match resolve::run(&mut self.state, &mut res) {
+            let flow = resolve::run(&mut self.state, &mut res);
+            #[cfg(test)]
+            crate::ability_log::mana_activated(
+                &self.state,
+                &self.lookup,
+                source,
+                ability_index,
+                matches!(flow, resolve::Flow::Complete),
+            );
+            match flow {
                 resolve::Flow::Complete => {}
                 resolve::Flow::Wait(pending) => {
                     self.resolution = Some(res);

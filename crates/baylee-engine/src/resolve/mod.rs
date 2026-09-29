@@ -2767,9 +2767,7 @@ fn copy_spell(
         // graveyard and stayed there as a second, real card.
         obj.riders.push(crate::object::Rider::SpellCopy);
     }
-    state
-        .zones
-        .insert(id, ZoneLocation::Stack, ZonePosition::Top, true);
+    state.put_new_spell_on_stack(id);
     Some(id)
 }
 
