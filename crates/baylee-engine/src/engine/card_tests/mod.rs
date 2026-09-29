@@ -3126,6 +3126,10 @@ fn restoration_angel() -> CardIndex {
     card_index("dfbd3afc-9905-4cff-a4f4-df08a4d0a7fa")
 }
 
+fn werefox_bodyguard() -> CardIndex {
+    card_index("d5ee2ced-29f4-430f-962e-2f930b92624c")
+}
+
 /// `thief` casts Song-Mad Treachery on `victim` off five Mountains it
 /// controls, and it resolves: a real layer-2 `GainControl` until end of turn
 /// over the owner's own default, which is what a stolen creature is. The

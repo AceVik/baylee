@@ -642,6 +642,10 @@ pub fn eliminate_player(
             baylee_cards_dsl::Modifier::GainControl | baylee_cards_dsl::Modifier::SearchTakeover
         ) && fx.controller == player
     });
+    // A permanent of theirs that held a card "until it leaves the
+    // battlefield" has just left it without passing through `move_object`,
+    // and the card comes back to its owner (CR 610.3).
+    state.return_what_departed_hosts_held();
     let exiled = exile_what_the_departed_control(state);
     let attackers: Vec<_> = state
         .combat

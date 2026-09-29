@@ -3367,10 +3367,74 @@ commander in exile (`commander_tests::a_blinked_commander_returns_…` pins it).
   Fable, so it waits for its own branch.
 - Werefox Bodyguard (`Implemented`) never returns what it exiles "until this
   creature leaves the battlefield": nothing returns a linked card when its
-  host leaves.
+  host leaves. Fixed in 61.
 - `set_monarch` releases every linked exile, not only Palace Jailer's. That
   includes Skyclave Apparition's permanent one, and it tests "not the host's
-  controller" rather than "an opponent".
+  controller" rather than "an opponent". Fixed in 61.
 - Crib Swap's `CreateTokenForTargetController` reads `controller` off the
   exiled card. The stale value is the right last-known controller until a
-  cross-zone effect re-projects exile.
+  cross-zone effect re-projects exile. Fixed in 61, with its sibling
+  `PlayerRel::ControllerOfTarget`.
+
+### 61. An exile "until" something happens never ended, or ended for the wrong card — FIXED
+
+Three faults from entry 60's sweep, and one cause behind the first two:
+`Effect::ExileLinked` said nothing about how long the card stays exiled.
+
+**Werefox Bodyguard kept its prisoner for good.** "Exile up to one other
+target non-Fox creature until this creature leaves the battlefield" was
+written as a plain linked exile, and nothing returns a linked card when its
+host leaves. The card was green and wrong: the card tests only looked at the
+exile.
+
+**`set_monarch` ended every linked exile.** Palace Jailer's "until an
+opponent becomes the monarch" was read at the crown, but without a way to
+tell the Jailer's exile from any other, it released every card linked to a
+host whose controller was not the new monarch. Skyclave Apparition's
+permanent exile walked out with the Jailer's. It also asked "not the host's
+controller" instead of "an opponent of the player who exiled": a stolen
+Jailer kept its prisoner when the thief was crowned, and a Jailer that had
+left the arena never released anything.
+
+The fix is one field and one way back. `ExileLinked { target, until:
+Option<ExileUntil> }`, spelled `Effect::exile_linked` and
+`Effect::exile_until` (`docs/card-dsl.md`). The rider records the end as
+`LinkUntil` (two bytes, so `GameObject` stays in its footprint budget): the
+host leaving, or an opponent of the exiling ability's controller becoming the
+monarch. Every return goes through `GameState::return_linked`, under the
+card's owner's control (CR 610.3c): `ReturnLinkedToBattlefield`,
+`set_monarch`, and the host leaving. The return is the second one-shot effect
+of CR 610.3, not a trigger, so it is done at the event:
+`GameState::move_object` returns what a departing permanent held before it
+returns, and `sba::eliminate_player` does the same for a host that leaves the
+game without a move (CR 800.4a). At resolution an exile "until the source
+leaves" does nothing when the source has already left, including when it
+left while the ability waited and came back as a new object (CR 610.3a,
+610.3b). The stack object records that departure in `source_power_lki`.
+
+**"Its controller" read a card in exile.** Crib Swap ("Exile target
+creature. Its controller creates …") and every card whose second sentence is
+`PlayerRel::ControllerOfTarget` (Swords to Plowshares, Path to Exile,
+Solitude, Assassin's Trophy and more) read `controller` off the target after
+the first sentence had moved it. Nothing controls a card in exile. The field
+held whatever the last refresh left, and a refresh that reaches every zone
+(any effect whose filter names another zone, such as Past in Flames) settles
+it to the card's default. After a steal, that default is the player it was
+stolen from. Both now read `GameState::last_known_controller`, the
+controller the object had as it last existed on the battlefield (CR 608.2h),
+which `PlayerRel::ControllerOfEvent` already read inline.
+
+Not done: CR 610.3b for Palace Jailer. If an opponent becomes the monarch
+between the trigger and its resolution, the creature is still exiled. Nothing
+records that the crown moved in between. CR 724.4 (the monarch leaving the
+game) is not implemented either.
+
+Tests, each failing on the old behaviour: `card_tests::creatures::`
+`werefox_bodyguard_holds_a_creature_until_it_leaves_the_battlefield`,
+`werefox_bodyguard_gone_before_its_trigger_resolves_exiles_nothing` and
+`palace_jailer_frees_its_prisoner_when_an_opponent_is_crowned_and_skyclave_keeps_its_own`.
+Seven rule tests in `resolve::zones::arrival_control_tests`: the host dies,
+is blinked or leaves the game; the host has left, or was blinked, before the
+exile; only the monarch's exile ends; a stolen Jailer still waits. Two more:
+`resolve::tokens::tests::its_controller_is_the_one_the_creature_had_on_the_battlefield`
+and `resolve::controller_of_target_tests::its_controller_is_the_one_it_had_on_the_battlefield`.

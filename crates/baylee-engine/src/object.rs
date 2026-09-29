@@ -552,10 +552,14 @@ impl Status {
 /// Typed payload attached to cards in exile (or similar) by effects.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Rider {
-    /// Exiled by another object ("until ~ leaves the battlefield", imprint).
+    /// Exiled by another object, which finds it again as a card "exiled
+    /// with" it (CR 607.2a): Skyclave Apparition, Safe Haven, and the two
+    /// "until" exiles.
     Linked {
         /// The host object this card is linked to.
         host: ObjectId,
+        /// The event that returns it, when the exile named one (CR 610.3).
+        until: Option<LinkUntil>,
     },
     /// Rebound: cast from hand, may be cast again at the next upkeep.
     Rebound,
@@ -593,6 +597,27 @@ pub enum Rider {
     /// it was copied from — and a token is the opposite thing, card-less
     /// and swept up by CR 704.5d.
     SpellCopy,
+}
+
+/// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
+/// it: `baylee_cards_dsl::ExileUntil` with the player the sentence is about
+/// written down at the moment of the exile.
+///
+/// Two bytes, so that the rider it rides in stays as small as it was: two
+/// riders sit inline in every object (`RiderSet`), and `GameObject` has a
+/// size budget (`tests/footprint.rs`). That is why the host leaving is
+/// caught as it happens ([`crate::state::GameState::move_object`]) rather
+/// than recognised later by a stored version of the host.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum LinkUntil {
+    /// "until this creature leaves the battlefield": the host.
+    HostLeaves,
+    /// "until an opponent becomes the monarch": an opponent of `of`, the
+    /// player who controlled the exiling ability.
+    OpponentBecomesMonarch {
+        /// The exiling ability's controller.
+        of: PlayerId,
+    },
 }
 
 /// Riders attached to an object.

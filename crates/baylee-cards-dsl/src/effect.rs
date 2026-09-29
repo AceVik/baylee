@@ -719,6 +719,21 @@ impl Find {
     }
 }
 
+/// The event an "exile … until …" sentence waits for (CR 610.3), read by
+/// [`Effect::ExileLinked`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ExileUntil {
+    /// "until this creature leaves the battlefield" (Werefox Bodyguard):
+    /// the source, as the object it was when the ability triggered or was
+    /// activated. A blink ends it too, since the permanent that comes back
+    /// is a new object (CR 400.7).
+    SourceLeavesBattlefield,
+    /// "until an opponent becomes the monarch" (Palace Jailer): an opponent
+    /// of the player who controlled the exiling ability, whoever controls
+    /// the source later.
+    OpponentBecomesMonarch,
+}
+
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
@@ -1730,11 +1745,26 @@ pub enum Effect {
         /// What phases out (first target when set, else the source).
         target: Option<TargetSpec>,
     },
-    /// Exile a target with a link to the source ("until ~ leaves the
-    /// battlefield", Skyclave Apparition).
+    /// Exile a target with a link to the source, so that a later ability of
+    /// the source can find it among the cards "exiled with" it (CR 607.2a),
+    /// for as long as `until` says.
+    ///
+    /// `None` is an exile with no end of its own. The card stays until an
+    /// effect of the source brings it back (Safe Haven and Endless Sands,
+    /// [`Effect::ReturnLinkedToBattlefield`]) or for good (Skyclave
+    /// Apparition). `Some` is an "until" sentence (CR 610.3): the return is
+    /// the second half of the same effect and not a triggered ability, so
+    /// it happens the moment the event does, uses no stack, and puts the
+    /// card back under its owner's control (CR 610.3c). If the event has
+    /// already happened when the exile would, the card does not move
+    /// (CR 610.3a, 610.3b).
+    ///
+    /// Spelled [`Effect::exile_linked`] and [`Effect::exile_until`].
     ExileLinked {
         /// What.
         target: TargetSpec,
+        /// The event that ends the exile, when the sentence names one.
+        until: Option<ExileUntil>,
     },
     /// Return everything exiled with a link to the source to the
     /// battlefield under its owner's control.
@@ -2027,6 +2057,28 @@ impl Effect {
     #[must_use]
     pub const fn exile(target: TargetSpec) -> Self {
         Self::Exile { target }
+    }
+
+    /// "Exile target …" by an ability that another ability of the same
+    /// object reads back as the card "exiled with" it (CR 607.2a), with no
+    /// end of its own (Skyclave Apparition, Safe Haven).
+    #[must_use]
+    pub const fn exile_linked(target: TargetSpec) -> Self {
+        Self::ExileLinked {
+            target,
+            until: None,
+        }
+    }
+
+    /// "Exile target … until …" (CR 610.3): Werefox Bodyguard's "until this
+    /// creature leaves the battlefield", Palace Jailer's "until an opponent
+    /// becomes the monarch".
+    #[must_use]
+    pub const fn exile_until(target: TargetSpec, until: ExileUntil) -> Self {
+        Self::ExileLinked {
+            target,
+            until: Some(until),
+        }
     }
 
     /// "Exile target …, then return it to the battlefield under its owner's

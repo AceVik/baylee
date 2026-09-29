@@ -502,13 +502,38 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::ExileLinked { .. } => {
+        Effect::ExileLinked { until, .. } => {
+            let until = until.map(|until| match until {
+                baylee_cards_dsl::ExileUntil::SourceLeavesBattlefield => {
+                    crate::object::LinkUntil::HostLeaves
+                }
+                baylee_cards_dsl::ExileUntil::OpponentBecomesMonarch => {
+                    crate::object::LinkUntil::OpponentBecomesMonarch { of: you }
+                }
+            });
+            // "Until this creature leaves the battlefield", and it already
+            // has: the card does not move (CR 610.3a, 610.3b). Either it is
+            // not there now, or it left while this waited on the stack and
+            // came back as a new object, which the stack object wrote down
+            // as it went (`source_power_lki`, frozen on the way out).
+            if until == Some(crate::object::LinkUntil::HostLeaves)
+                && (state
+                    .object(res.source)
+                    .is_none_or(|host| host.zone != crate::zone::Zone::Battlefield)
+                    || state
+                        .object(res.on_stack)
+                        .is_some_and(|ability| ability.source_power_lki.is_some()))
+            {
+                return None;
+            }
             if let Some(&target_id) = res.targets.first() {
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Card;
-                    obj.riders
-                        .push(crate::object::Rider::Linked { host: res.source });
+                    obj.riders.push(crate::object::Rider::Linked {
+                        host: res.source,
+                        until,
+                    });
                 }
                 let _ = state.move_object(
                     target_id,
@@ -931,40 +956,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::ReturnLinkedToBattlefield => {
-            // Everything exiled with a link to the source returns under its
-            // owner's control: Endless Sands and Safe Haven print it, and an
-            // "until" return says it when the card is silent (CR 610.3c).
-            let mut returning = Vec::new();
-            for seat in 0..state.players.len() {
-                let p = PlayerId::new(seat as u8);
-                for &card in state.zones.list(ZoneLocation::Exile(p)) {
-                    if state.object(card).is_some_and(|o| {
-                        o.riders
-                            .iter()
-                            .any(|r| matches!(r, crate::object::Rider::Linked { host } if *host == res.source))
-                    }) {
-                        returning.push(card);
-                    }
-                }
-            }
-            for card in returning {
-                if let Some(obj) = state.object_mut(card) {
-                    obj.kind = ObjectKind::Permanent;
-                    obj.riders
-                        .retain(|r| !matches!(r, crate::object::Rider::Linked { host } if *host == res.source));
-                    // Written where it arrives, and not left to the default
-                    // the card last had on the battlefield: that is whoever
-                    // put it there, which after a reanimation or a blink
-                    // "under your control" may not be its owner.
-                    obj.set_controller(obj.owner);
-                }
-                let _ = state.move_object(
-                    card,
-                    ZoneLocation::Battlefield,
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
-            }
+            // Everything exiled with a link to the source, under its owner's
+            // control: Endless Sands and Safe Haven print it. The same way
+            // back as the "until" exiles take (`GameState::return_linked`).
+            let source = res.source;
+            state.return_linked(|_, host, _| host == source);
             None
         }
         Effect::ExileTargetsCreateTokens { token } => {
@@ -1162,9 +1158,20 @@ mod arrival_control_tests {
 
     /// An ability of seat 0's with `source` and `targets`, resolving.
     fn resolve(state: &mut GameState, source: ObjectId, targets: &[ObjectId], effect: Effect) {
+        resolve_from(state, source, ObjectId::NO_SOURCE, targets, effect);
+    }
+
+    /// [`resolve`], for the ability `on_stack` stands for.
+    fn resolve_from(
+        state: &mut GameState,
+        source: ObjectId,
+        on_stack: ObjectId,
+        targets: &[ObjectId],
+        effect: Effect,
+    ) {
         let mut res = Resolution {
             source,
-            on_stack: ObjectId::NO_SOURCE,
+            on_stack,
             controller: me(),
             effects: vec![effect],
             pc: 0,
@@ -1290,9 +1297,7 @@ mod arrival_control_tests {
     fn a_linked_exile_returns_under_its_owners_control() {
         let (mut state, it) = kept();
         let host = host(&mut state);
-        let exile = Effect::ExileLinked {
-            target: TargetSpec::Object(&Filter::CREATURE),
-        };
+        let exile = Effect::exile_linked(TargetSpec::Object(&Filter::CREATURE));
         resolve(&mut state, host, &[it], exile);
         assert_eq!(
             state.object(it).map(|o| o.zone),
@@ -1314,10 +1319,7 @@ mod arrival_control_tests {
     fn a_monarch_linked_exile_returns_under_its_owners_control() {
         let (mut state, it) = kept();
         let host = host(&mut state);
-        let exile = Effect::ExileLinked {
-            target: TargetSpec::Object(&Filter::CREATURE),
-        };
-        resolve(&mut state, host, &[it], exile);
+        resolve(&mut state, host, &[it], until_crowned());
         state.set_monarch(them());
         state.refresh_characteristics();
         let obj = state.object(it).expect("back");
@@ -1326,6 +1328,195 @@ mod arrival_control_tests {
             (obj.owner, obj.controller, obj.base_controller),
             (them(), them(), them())
         );
+    }
+
+    // --- "Exile … until …" (CR 610.3) ---------------------------------
+
+    /// Werefox Bodyguard's exile: "until this creature leaves the
+    /// battlefield".
+    fn until_it_leaves() -> Effect {
+        Effect::exile_until(
+            TargetSpec::Object(&Filter::CREATURE),
+            baylee_cards_dsl::ExileUntil::SourceLeavesBattlefield,
+        )
+    }
+
+    /// Palace Jailer's exile: "until an opponent becomes the monarch".
+    fn until_crowned() -> Effect {
+        Effect::exile_until(
+            TargetSpec::Object(&Filter::CREATURE),
+            baylee_cards_dsl::ExileUntil::OpponentBecomesMonarch,
+        )
+    }
+
+    fn zone(state: &GameState, id: ObjectId) -> Option<crate::zone::Zone> {
+        state.object(id).map(|o| o.zone)
+    }
+
+    /// Whether `id` still carries a link to anything.
+    fn linked(state: &GameState, id: ObjectId) -> bool {
+        state.object(id).is_some_and(|o| {
+            o.riders
+                .iter()
+                .any(|r| matches!(r, crate::object::Rider::Linked { .. }))
+        })
+    }
+
+    /// A second creature seat 1 owns, beside the one `theirs` made.
+    fn another_of_theirs(state: &mut GameState) -> ObjectId {
+        let name = state.names.intern("Other Creature");
+        let it = state.create_bare(
+            them(),
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let obj = state.object_mut(it).expect("fresh");
+        let mut base = (*obj.base).clone();
+        base.types = baylee_core::types::TypeSet::CREATURE;
+        obj.base = std::sync::Arc::new(base);
+        state.invalidate_projections();
+        it
+    }
+
+    /// The card comes back as the host leaves, inside the move that takes
+    /// the host away: nothing is resolved, refreshed or checked in between
+    /// (CR 610.3). It comes back under its owner's control (CR 610.3c),
+    /// here not the default the blink that kept it gave it, and linked to
+    /// nothing.
+    #[test]
+    fn an_exile_until_its_host_leaves_ends_as_the_host_leaves() {
+        let (mut state, it) = kept();
+        let host = host(&mut state);
+        resolve(&mut state, host, &[it], until_it_leaves());
+        assert_eq!(zone(&state, it), Some(crate::zone::Zone::Exile));
+
+        sba::destroy(&mut state, host);
+        assert_eq!(zone(&state, host), Some(crate::zone::Zone::Graveyard));
+        let obj = state.object(it).expect("back");
+        assert_eq!(obj.zone, crate::zone::Zone::Battlefield);
+        assert_eq!(
+            (obj.owner, obj.controller, obj.base_controller),
+            (them(), them(), them())
+        );
+        assert!(!linked(&state, it));
+    }
+
+    /// A host that is blinked leaves the battlefield too, and what comes
+    /// back is a new object that holds nothing (CR 400.7).
+    #[test]
+    fn a_blinked_host_lets_go_of_what_it_held() {
+        let (mut state, it) = theirs(613);
+        let host = host(&mut state);
+        resolve(&mut state, host, &[it], until_it_leaves());
+        let blink = Effect::blink_to_owner(TargetSpec::Object(&Filter::Any));
+        resolve(&mut state, ObjectId::NO_SOURCE, &[host], blink);
+        assert_eq!(zone(&state, host), Some(crate::zone::Zone::Battlefield));
+        assert_eq!(zone(&state, it), Some(crate::zone::Zone::Battlefield));
+        assert!(!linked(&state, it));
+    }
+
+    /// A host that leaves the game with its owner leaves the battlefield
+    /// without a move (CR 800.4a), and lets go all the same.
+    #[test]
+    fn a_host_that_leaves_the_game_lets_go_of_what_it_held() {
+        let (mut state, it) = theirs(614);
+        let host = host(&mut state);
+        resolve(&mut state, host, &[it], until_it_leaves());
+        crate::sba::eliminate_player(&mut state, me(), crate::event::LossReason::Conceded);
+        assert!(state.object(host).is_none(), "gone with seat 0");
+        let obj = state.object(it).expect("seat 1's own creature");
+        assert_eq!(obj.zone, crate::zone::Zone::Battlefield);
+        assert_eq!((obj.owner, obj.controller), (them(), them()));
+    }
+
+    /// If the host has left before the exile would happen, the card does
+    /// not move (CR 610.3a, 610.3b).
+    #[test]
+    fn an_exile_until_the_host_leaves_does_nothing_once_it_has_left() {
+        let (mut state, it) = theirs(615);
+        let version = state.object(it).expect("there").version;
+        let host = host(&mut state);
+        sba::destroy(&mut state, host);
+        resolve(&mut state, host, &[it], until_it_leaves());
+        assert_eq!(zone(&state, it), Some(crate::zone::Zone::Battlefield));
+        assert_eq!(state.object(it).map(|o| o.version), Some(version));
+    }
+
+    /// Nor when the host left while the ability waited and came back as a
+    /// new object (CR 400.7), which the ability on the stack wrote down as
+    /// the host went (`source_power_lki`).
+    #[test]
+    fn an_exile_until_the_host_leaves_does_nothing_once_it_has_been_blinked() {
+        let (mut state, it) = theirs(618);
+        let version = state.object(it).expect("there").version;
+        let host = host(&mut state);
+        let name = state.names.intern("Enters Trigger");
+        let ability =
+            state.create_bare(me(), ObjectKind::AbilityOnStack, name, ZoneLocation::Stack);
+        state.object_mut(ability).expect("fresh").ability = Some(crate::object::AbilityLoc {
+            card: None,
+            index: 0,
+            source: host,
+        });
+        let blink = Effect::blink_to_owner(TargetSpec::Object(&Filter::Any));
+        resolve(&mut state, ObjectId::NO_SOURCE, &[host], blink);
+        assert_eq!(zone(&state, host), Some(crate::zone::Zone::Battlefield));
+        resolve_from(&mut state, host, ability, &[it], until_it_leaves());
+        assert_eq!(
+            zone(&state, it),
+            Some(crate::zone::Zone::Battlefield),
+            "the host on the battlefield is not the object whose ability this is"
+        );
+        assert_eq!(state.object(it).map(|o| o.version), Some(version));
+
+        // And the same ability, whose source never left, does exile.
+        state
+            .object_mut(ability)
+            .expect("still there")
+            .source_power_lki = None;
+        resolve_from(&mut state, host, ability, &[it], until_it_leaves());
+        assert_eq!(zone(&state, it), Some(crate::zone::Zone::Exile));
+    }
+
+    /// The monarch ends the exile that waits for an opponent of the player
+    /// who exiled, and no other: not an exile with no end of its own
+    /// (Skyclave Apparition), and not while the new monarch is that player.
+    #[test]
+    fn the_monarch_ends_only_the_exile_that_waits_for_it() {
+        let (mut state, jailed) = theirs(616);
+        let held = another_of_theirs(&mut state);
+        let jailer = host(&mut state);
+        let apparition = host(&mut state);
+        resolve(&mut state, jailer, &[jailed], until_crowned());
+        let for_good = Effect::exile_linked(TargetSpec::Object(&Filter::CREATURE));
+        resolve(&mut state, apparition, &[held], for_good);
+
+        state.set_monarch(me());
+        assert_eq!(zone(&state, jailed), Some(crate::zone::Zone::Exile));
+        state.set_monarch(them());
+        assert_eq!(zone(&state, jailed), Some(crate::zone::Zone::Battlefield));
+        assert_eq!(
+            zone(&state, held),
+            Some(crate::zone::Zone::Exile),
+            "an exile with no \"until\" is not ended by a crown"
+        );
+    }
+
+    /// "An opponent" is an opponent of the player who controlled the
+    /// exiling ability, whoever controls the Jailer by the time the crown
+    /// moves. Seat 1 takes the Jailer and then the crown: seat 1 is still
+    /// an opponent of seat 0, who exiled, and the card comes back.
+    #[test]
+    fn a_stolen_jailer_still_waits_for_an_opponent_of_the_player_who_exiled() {
+        let (mut state, jailed) = theirs(617);
+        let jailer = host(&mut state);
+        resolve(&mut state, jailer, &[jailed], until_crowned());
+        state.set_monarch(me());
+        crate::resolve::gain_control(&mut state, &[(jailer, them())]);
+        assert_eq!(state.object(jailer).map(|o| o.controller), Some(them()));
+        state.set_monarch(them());
+        assert_eq!(zone(&state, jailed), Some(crate::zone::Zone::Battlefield));
     }
 
     /// Coiling Oracle: "Reveal the top card of your library. If it's a land

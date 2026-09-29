@@ -1122,6 +1122,25 @@ not decide an immediate blink. Only control is chosen: the owner never changes
 (CR 108.3), so a creature kept this way still dies into its owner's
 graveyard and leaves the game with its owner (CR 800.4a).
 
+**A linked exile is two verbs as well, and the difference is when it ends.**
+`Effect::exile_linked(t)` exiles with a link and no end of its own: the card
+stays until another ability of the same object brings it back (Safe Haven and
+Endless Sands, `ReturnLinkedToBattlefield`) or for good (Skyclave Apparition).
+`Effect::exile_until(t, ExileUntil::…)` is an "until" sentence (CR 610.3):
+`SourceLeavesBattlefield` for Werefox Bodyguard's "until this creature leaves
+the battlefield", `OpponentBecomesMonarch` for Palace Jailer's "until an
+opponent becomes the monarch" (an opponent of the player who controlled the
+exiling ability, whoever controls the Jailer by then). Both are
+`Effect::ExileLinked { target, until }`. The return is not a triggered
+ability: it happens the moment the event does, uses no stack, and puts the
+card back under its owner's control (CR 610.3c). If the event has already
+happened when the exile would, nothing is exiled (CR 610.3a, 610.3b): a
+Bodyguard sacrificed in response to its own trigger holds nothing. Write
+`exile_until` wherever the card prints "until"; an `exile_linked` that stands
+for one is a card that never gives its prisoner back. Every way back, a
+host's effect, a new monarch or a host leaving, goes through
+`GameState::return_linked`.
+
 A card that says nothing about a graveyard cannot use either reanimation
 verb: the effect checks that its object is still in one (CR 400.7). A
 reanimation *spell* is already held to that by target legality (CR 608.2b) —
@@ -1228,7 +1247,8 @@ as its bound; not a cast and no land drop), `OptionalBasicLandSearchFor`,
 `GraveyardToTop`,
 `GraveyardToHand`, `GraveyardToBattlefield`, `ExileGraveyard`, `Blink`
 (through its two verbs),
-`ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
+`ExileLinked` (through its two verbs), `ReturnLinkedToBattlefield`,
+`PutFromHandOnTop`,
 `PutSourceOnTopOfLibrary`, `ExileAndReturnAtEndStep` (Venser +2, Eerie
 Interlude), `BottomCardFromHand`, `WishToHand` (Karn's −2: a card you own
 from outside the game or face-up in your exile).
