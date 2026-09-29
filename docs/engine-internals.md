@@ -736,6 +736,14 @@ the open mulligans: who is still deciding, and where each seat's stream
 stands. `house_rules_tests` pins all three, and pins the opening deal of a
 table that only keeps against the engine that asked in seat order.
 
+`Engine::snapshot_hash` is not a complete comparison: it leaves out the
+journal, the open question and its bookkeeping (`pending`, `pending_plan`, the
+cast wizard, `priority_holder`, `awaiting_answer`, `resolve_next`,
+`regrant_priority`, the activation checklist's scratch fields), the loop watch
+and its latches, `delayed_queue` and most of `trigger_queue`, so two engines
+that hash equal can still answer the next question differently; the complete
+comparison is `Engine::fingerprint` (feature `fuzz`), which names every field.
+
 ## Control rotation at a multiplayer table
 
 `Effect::ControlRotation` asks the controller which adjacent living seat to
