@@ -20,7 +20,8 @@
 //!   enum sharing a name is not read as the DSL's.
 //! - An arm that cannot run by design (`unreachable!`, `panic!`, …) is no
 //!   site, and neither is a function that reads a variant without playing it
-//!   ([`BOOKKEEPING`]: hashing, formatting).
+//!   ([`BOOKKEEPING`]: hashing, formatting) nor code that faces the AI rather
+//!   than the rules ([`AGENT_FACING`]).
 //! - Where no arm names a variant, a check does: `matches!`, `==`/`!=`
 //!   against it, and keyword constants (`contains(KeywordSet::FLYING)`),
 //!   which count as run where the check ran, whatever it found.
@@ -69,6 +70,10 @@ const ENGINE_SOURCE: &str = "crates/baylee-engine/src";
 /// Functions (by a part of their name) that read a variant without playing
 /// it; their arms are no evidence either way.
 const BOOKKEEPING: [&str; 2] = ["hash", "fmt"];
+
+/// Engine files that face the AI, not the rules (the context an agent
+/// decides from); their sites are no evidence either way.
+const AGENT_FACING: [&str; 1] = ["engine/decision.rs"];
 
 /// Macros an arm that never runs by design consists of.
 const DEAD: [&str; 4] = ["unreachable", "panic", "unimplemented", "todo"];
@@ -963,7 +968,10 @@ impl Evidence {
 fn evidence(sites: &[&Site], cov: &Coverage) -> Evidence {
     let rules: Vec<&&Site> = sites
         .iter()
-        .filter(|s| !BOOKKEEPING.iter().any(|b| s.func.contains(b)))
+        .filter(|s| {
+            !BOOKKEEPING.iter().any(|b| s.func.contains(b))
+                && !AGENT_FACING.contains(&s.file.as_str())
+        })
         .collect();
     let arms: Vec<&&Site> = rules
         .iter()
