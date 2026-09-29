@@ -729,7 +729,8 @@ Phasing in is not entering (CR 702.26d), and some statics are registered
 only once (a copy's own, a token's), so they are kept rather than rebuilt.
 Its replacement rules are dropped by `sync_replacement_rules` and scanned
 back from its abilities when it phases in. Effects a resolution made are
-not parked.
+not parked. The leave probe (`docs/verification-hooks.md` §"L4: the leave
+probe") checks all of this per card.
 
 ## Unusual casting
 Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
