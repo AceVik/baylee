@@ -290,7 +290,10 @@ instead", made by the trigger as
 `Effect::continuous(&Filter::Any, Modifier::ExileInsteadOfYourGraveyard,
 Duration::UntilEndOfTurn)`. It is its controller's, cards only (a token or a
 spell copy dies as usual), and it lasts its duration, not as long as a
-source.
+source. The same trigger makes the Cellar's first clause, "you may cast
+spells from your graveyard this turn", the same way and before it:
+`Modifier::CastSpellsFromGraveyard`, one of the graveyard permissions
+`casting::graveyard_cast_permission` reads.
 
 ## Generated cards, and why they may say `Implemented`
 
@@ -1505,7 +1508,7 @@ Modal/sequence: `Sequence(&[..])`.
 `MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
 `DrawLimitPerTurn`, `CastPermanentSpellsFromGraveyard`,
 `PermanentOfEachTypeFromGraveyard`, `CantBeTargetedBy`, `SetPTToCount`,
-`ExileInsteadOfYourGraveyard`.
+`ExileInsteadOfYourGraveyard`, `CastSpellsFromGraveyard`.
 
 `ChosenNameCantActivate` is Pithing Needle's "activated abilities of sources
 with the chosen name can't be activated unless they're mana abilities",
@@ -1717,6 +1720,14 @@ hashes, layers and does nothing. This paragraph said THREE until
   spells from your graveyard" (Wrenn and Realmbreaker's emblem), uncounted
   and at the card's own price. `casting::graveyard_cast_permission` is the
   one reader: the offer, `can_cast_form` and the cast wizard all ask it.
+- **`Modifier::CastSpellsFromGraveyard`** is the same permission without the
+  word "permanent": Forgotten Cellar's "you may cast spells from your
+  graveyard this turn", written `Effect::continuous(&Filter::Any,
+  Modifier::CastSpellsFromGraveyard, Duration::UntilEndOfTurn)`. The same
+  reader asks it first, before the permanent-only permissions. It is not
+  flashback (CR 702.34a): an instant cast under it is not exiled by it, and a
+  card with printed flashback is offered at its mana cost beside its
+  flashback cost. A land card is played, never cast (CR 305.9).
 - **`Modifier::PermanentOfEachTypeFromGraveyard`** is Muldrotha's "during
   each of your turns, you may play a land and cast a permanent spell of each
   permanent type from your graveyard". The engine writes each play under it

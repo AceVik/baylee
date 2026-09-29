@@ -695,6 +695,7 @@ fn apply(
         Modifier::LegendRuleOff
         | Modifier::PlayLandsFromGraveyard
         | Modifier::CastPermanentSpellsFromGraveyard
+        | Modifier::CastSpellsFromGraveyard
         | Modifier::PermanentOfEachTypeFromGraveyard
         | Modifier::PlayLandsFromLibraryTop
         | Modifier::RevealLibraryTop

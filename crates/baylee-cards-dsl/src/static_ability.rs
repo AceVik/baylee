@@ -423,6 +423,17 @@ pub enum Modifier {
     SetPTToCount(PtCount),
     /// Switches power and toughness.
     SwitchPT,
+    /// The effect's controller may cast spells from their graveyard:
+    /// Forgotten Cellar's "you may cast spells from your graveyard this
+    /// turn", for a turn by its `Duration::UntilEndOfTurn`.
+    /// [`Self::CastPermanentSpellsFromGraveyard`] without the word
+    /// "permanent", and read by the same one reader
+    /// (`casting::graveyard_cast_permission`): any spell, at its usual
+    /// timing and for its usual costs. It is not flashback (CR 702.34a), so
+    /// nothing exiles an instant cast this way; Forgotten Cellar's own
+    /// replacement, beside it, is what does. A land card is played and not
+    /// cast (CR 305.9), so it gets nothing from this.
+    CastSpellsFromGraveyard,
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -557,7 +568,8 @@ impl Modifier {
             | Self::SearchTakeover
             | Self::DoesNotUntap
             | Self::MayChooseNotToUntap
-            | Self::ExileInsteadOfYourGraveyard => Layer::Text,
+            | Self::ExileInsteadOfYourGraveyard
+            | Self::CastSpellsFromGraveyard => Layer::Text,
         }
     }
 }
@@ -879,6 +891,7 @@ mod tests {
             Modifier::DoesNotUntap,
             Modifier::MayChooseNotToUntap,
             Modifier::ExileInsteadOfYourGraveyard,
+            Modifier::CastSpellsFromGraveyard,
         ] {
             assert_eq!(
                 modifier.layer(),

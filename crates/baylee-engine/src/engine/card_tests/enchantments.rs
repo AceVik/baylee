@@ -2298,7 +2298,7 @@ fn exiled_card(
 /// door's. Only then is the graveyard's Forest a land drop.
 ///
 /// The clause "you may cast spells from your graveyard this turn" is the
-/// card's `Partial`, and nothing here claims it.
+/// next two tests'.
 #[allow(clippy::too_many_lines)] // One Room, played across two turns.
 #[test]
 fn forgotten_cellar_cast_as_its_half_opens_that_door_and_exiles_what_would_reach_the_graveyard_this_turn()
@@ -2437,6 +2437,218 @@ fn forgotten_cellar_cast_as_its_half_opens_that_door_and_exiles_what_would_reach
     assert!(
         legal.lands.contains(&buried),
         "\"You may play lands from your graveyard\", now that its door is open"
+    );
+}
+
+/// Forgotten Cellar's other clause: "When you unlock this door, you may cast
+/// spells from your graveyard this turn".
+///
+/// A Giant Growth in the seat's graveyard is not castable before the door
+/// opens, with its {G} floating, and is once the trigger resolves: an
+/// instant, which the permanent-only permissions beside this one never let
+/// through. Cast on the seat's Elf, it is not a flashback (CR 702.34a), so
+/// it carries no flashback rider on the stack; it resolves (+3/+3) and is
+/// exiled by the Cellar's own replacement as it would reach the graveyard.
+/// The other seat's Giant Growth, in their own graveyard, is not theirs to
+/// cast: the permission is its controller's. Next turn a Giant Growth in
+/// the seat's graveyard is not castable again ("this turn").
+#[allow(clippy::too_many_lines)] // One permission, from both sides and across a turn.
+#[test]
+fn forgotten_cellar_lets_its_controller_cast_spells_from_the_graveyard_this_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[walk_in_closet(), giant_growth(), giant_growth()])
+        .battlefield(1, &[forest(), llanowar_elves()])
+        .hand(1, &[giant_growth()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let growth = hand_to_graveyard(&mut engine, p0, giant_growth());
+    let theirs = hand_to_graveyard(&mut engine, p1, giant_growth());
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is out");
+
+    float_green(&mut engine, p0, 1);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&growth),
+        "before the door opens, an instant in the graveyard is not castable, its {{G}} floating"
+    );
+
+    float_green(&mut engine, p0, 5);
+    cast_forgotten_cellar(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, walk_in_closet()).is_some()
+    });
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&growth),
+        "\"you may cast spells from your graveyard this turn\": an instant too"
+    );
+
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: growth })
+        .expect("the Giant Growth in the graveyard is cast");
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the Elf is a legal target");
+    let spell = on_stack(&engine, giant_growth()).expect("Giant Growth is on the stack");
+    assert!(
+        !engine
+            .state()
+            .object(spell)
+            .expect("the spell exists")
+            .riders
+            .contains(&crate::object::Rider::Flashback),
+        "a permission to cast from the graveyard is not flashback (CR 702.34a)"
+    );
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(power_of(&engine, elf), Some(4), "and it resolved: +3/+3");
+    assert_eq!(
+        in_graveyard(&engine, p0, giant_growth()),
+        None,
+        "it did not go back to the graveyard"
+    );
+    assert!(
+        exiled_card(&engine, p0, giant_growth()).is_some(),
+        "the Cellar's replacement exiled it"
+    );
+
+    // The other seat, holding priority in p0's main phase with {G} floating.
+    engine
+        .apply(p0, PlayerAction::PassPriority)
+        .expect("p0 passes with the stack empty");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p1),
+        "p1 holds priority in p0's main phase, got {:?}",
+        engine.pending()
+    );
+    float_green(&mut engine, p1, 1);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&theirs),
+        "the permission is the Cellar's controller's, and not every player's"
+    );
+
+    // Next turn: the permission lasted this turn only.
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+    let again = hand_to_graveyard(&mut engine, p0, giant_growth());
+    float_green(&mut engine, p0, 1);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&again),
+        "\"this turn\" was last turn"
+    );
+}
+
+/// A card with printed flashback in the graveyard, under Forgotten Cellar's
+/// permission, is offered at its mana cost beside its flashback cost: the
+/// permission casts any spell from there, and a flashback cost is an
+/// alternative cost the caster "may pay rather than paying the spell's mana
+/// cost" (CR 118.9), not the only price. Memory Deluge, with seven
+/// floating: `Normal` for {2}{U}{U} and `Flashback` for {5}{U}{U}. Cast at
+/// its mana cost, the flashback cost was not paid, so the card carries no
+/// flashback rider on the stack.
+#[test]
+fn under_forgotten_cellar_a_flashback_card_is_offered_at_its_mana_cost_too() {
+    let p0 = PlayerId::new(0);
+    // Memory Deluge: {2}{U}{U}, flashback {5}{U}{U}.
+    let deluge = card_index("e6fd55f2-7e26-469c-a44a-ea2eb90e19a9");
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[walk_in_closet(), deluge])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let buried = hand_to_graveyard(&mut engine, p0, deluge);
+    float_green(&mut engine, p0, 5);
+    cast_forgotten_cellar(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, walk_in_closet()).is_some()
+    });
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    tap_all_mana(&mut engine, p0);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: buried })
+        .expect("Memory Deluge is cast from the graveyard");
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!(
+            "two ways to cast it, so the seat is asked, got {:?}",
+            engine.pending()
+        )
+    };
+    let offered: Vec<_> = options.iter().map(|o| (o.kind, o.cost)).collect();
+    assert_eq!(
+        offered,
+        [
+            (
+                CastModeKind::Normal,
+                baylee_core::mana::ManaCost::parse("{2}{U}{U}")
+            ),
+            (
+                CastModeKind::Flashback,
+                baylee_core::mana::ManaCost::parse("{5}{U}{U}")
+            ),
+        ],
+        "its mana cost under the permission, and its flashback cost"
+    );
+    let normal = options
+        .iter()
+        .position(|o| o.kind == CastModeKind::Normal)
+        .expect("the mana cost is offered");
+    engine
+        .apply(p0, PlayerAction::ChooseMode(normal))
+        .expect("cast for its mana cost");
+    let spell = on_stack(&engine, deluge).expect("Memory Deluge is on the stack");
+    assert!(
+        !engine
+            .state()
+            .object(spell)
+            .expect("the spell exists")
+            .riders
+            .contains(&crate::object::Rider::Flashback),
+        "the flashback cost was not paid (CR 702.34a)"
     );
 }
 

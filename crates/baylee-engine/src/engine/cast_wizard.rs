@@ -547,15 +547,20 @@ impl<L: CardLookup> Engine<L> {
         }
         // Printed flashback (CR 702.34a) from the graveyard: its own cost,
         // "rather than paying its mana cost" — and beside it, where a grant
-        // also reaches the card (Past in Flames), the grant's mana cost as
-        // `Normal`. Nothing else is cast from a graveyard: one alternative
-        // cost at a time (CR 118.9a).
+        // also reaches the card (Past in Flames) or a permission casts any
+        // spell from there (Forgotten Cellar), the mana cost as `Normal`.
+        // Nothing else is cast from a graveyard: one alternative cost at a
+        // time (CR 118.9a).
         let in_graveyard = self
             .state
             .object(card)
             .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard);
         if in_graveyard && let Some(flashback) = face.flashback {
-            if casting::flashback_granted(&self.state, card) && afford(&face.mana_cost.with_x(0)) {
+            let at_mana_cost = casting::flashback_granted(&self.state, card)
+                || self.state.object(card).is_some_and(|o| {
+                    casting::graveyard_cast_permission(&self.state, player, o).is_some()
+                });
+            if at_mana_cost && afford(&face.mana_cost.with_x(0)) {
                 options.push(CastModeDesc {
                     index: 0,
                     kind: CastModeKind::Normal,
@@ -1575,15 +1580,26 @@ impl<L: CardLookup> Engine<L> {
                 let types = obj.characteristics().types;
                 casting::note_graveyard_play(&mut self.state, player, permission, types);
             }
+            // Flashback (CR 702.34a): "If the flashback cost was paid, exile
+            // this card". A permission to cast from the graveyard is not
+            // flashback (Wrenn's emblem, Muldrotha, Forgotten Cellar), so a
+            // spell it let through leaves the stack the usual way. An
+            // instant or sorcery cast from there otherwise came by a
+            // flashback, printed or granted, or an effect cast it, and none
+            // of those used the permission.
+            let by_permission = wizard.by_effect.is_none()
+                && !matches!(wizard.option, Some(CastModeKind::Flashback))
+                && self.state.object(card).is_some_and(|o| {
+                    casting::graveyard_cast_permission(&self.state, player, o).is_some()
+                });
             let obj = self.state.object_mut(card).expect("wizard card exists");
-            // Flashback (CR 702.34): a spell cast from the graveyard via a
-            // grant is exiled instead of hitting the graveyard again.
             if obj.zone == crate::zone::Zone::Graveyard {
-                // Permanent permissions (for example Emry) are not flashback.
-                if obj.characteristics().types.intersects(
-                    baylee_core::types::TypeSet::INSTANT
-                        .union(baylee_core::types::TypeSet::SORCERY),
-                ) {
+                if !by_permission
+                    && obj.characteristics().types.intersects(
+                        baylee_core::types::TypeSet::INSTANT
+                            .union(baylee_core::types::TypeSet::SORCERY),
+                    )
+                {
                     obj.riders.push(crate::object::Rider::Flashback);
                 }
                 obj.cast_from_hand = false;

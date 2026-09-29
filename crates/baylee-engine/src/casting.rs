@@ -1429,9 +1429,11 @@ fn each_type_allowances(
         })
 }
 
-/// Which permission, if any, lets `player` cast the permanent card `obj`
-/// from their own graveyard: Wrenn's emblem first, because it costs nothing
-/// to use, then a Muldrotha allowance with a type still open for it.
+/// Which permission, if any, lets `player` cast the card `obj` from their
+/// own graveyard: Forgotten Cellar's first, the one that casts any spell;
+/// then, for a permanent card, Wrenn's emblem, because it costs nothing to
+/// use, and a Muldrotha allowance with a type still open for it. A land card
+/// is played and never cast (CR 305.9), whichever permission is there.
 #[must_use]
 pub fn graveyard_cast_permission(
     state: &GameState,
@@ -1441,9 +1443,22 @@ pub fn graveyard_cast_permission(
     let types = obj.characteristics().types;
     if obj.zone != Zone::Graveyard
         || obj.zone_owner != Some(player)
-        || !types.is_permanent()
         || types.contains(TypeSet::LAND)
     {
+        return None;
+    }
+    // "You may cast spells from your graveyard this turn": every spell, so
+    // it is asked before the word "permanent" is.
+    if state.effects.iter().any(|fx| {
+        fx.controller == player
+            && matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::CastSpellsFromGraveyard
+            )
+    }) {
+        return Some(GraveyardPermission::Unlimited);
+    }
+    if !types.is_permanent() {
         return None;
     }
     if state.effects.iter().any(|fx| {

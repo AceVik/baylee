@@ -1911,3 +1911,11 @@ land type"; both are convention tests that fire on a first try.
   taps the strongest creatures until the total is reached. `activate::gains`
   does not count `CreateContinuousEffect` as a gain, and Conduit of Worlds'
   `MayCastTarget` is not on that list either.
+- **A graveyard cast is not flashback unless flashback paid for it.** The
+  cast wizard used to put `Rider::Flashback` on every instant or sorcery
+  cast from a graveyard, which was true only while the permissions (Wrenn's
+  emblem, Muldrotha) cast permanents alone. Forgotten Cellar's
+  `CastSpellsFromGraveyard` casts instants too, so the rider now asks which
+  door the cast came through (CR 702.34a: "if the flashback cost was paid").
+  Its own replacement exiles the card anyway, so an "it was exiled" check
+  passes either way; assert the rider on the stack.
