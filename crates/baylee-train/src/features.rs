@@ -321,12 +321,12 @@ pub(crate) fn rel(seat: PlayerId, other: PlayerId, seats: usize) -> i16 {
     ((usize::from(other.get()) + n - usize::from(seat.get())) % n) as i16
 }
 
-fn clamp(v: i64) -> i16 {
+pub(crate) fn clamp(v: i64) -> i16 {
     v.clamp(i64::from(i16::MIN), i64::from(i16::MAX)) as i16
 }
 
 /// The table id of a public object.
-fn public_id(o: &PublicObject) -> (i32, bool) {
+pub(crate) fn public_id(o: &PublicObject) -> (i32, bool) {
     match (&o.card, o.token) {
         (Some(card), _) => ((card.index.get() + 1) as i32, true),
         (None, Some(token)) => ((TOKEN_BASE + u32::from(token)) as i32, true),

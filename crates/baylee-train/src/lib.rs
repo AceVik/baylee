@@ -16,6 +16,8 @@ pub mod convert;
 pub mod deckgen;
 #[cfg(feature = "play")]
 pub mod features;
+#[cfg(feature = "play")]
+pub mod features3;
 pub mod housedeck;
 #[cfg(feature = "onnx")]
 pub mod netplay;
