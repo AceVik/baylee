@@ -696,6 +696,18 @@ pub fn options(
     let row_of = |id| encoded.slots.get(&id).copied();
     let rel_of = |p| rel(view.seat, p, seats);
     let mut choices = policy::options(pending, &hand, picked).unwrap_or_default();
+    // A crew is done only once its power reaches the prompt's.
+    if let Some(need) = policy::crew_power(pending) {
+        let have: i64 = picked
+            .objects
+            .iter()
+            .filter_map(|id| view.object(*id))
+            .map(|o| i64::from(o.power.unwrap_or(0)))
+            .sum();
+        if have < need {
+            choices.retain(|c| *c != Choice::Fixed(policy::fixed::DONE));
+        }
+    }
     // Lowest member first, so the first choice kept for a triple is it; for
     // a block, the attacker with the fewest blockers first.
     choices.sort();

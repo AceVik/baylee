@@ -142,6 +142,20 @@ pub enum Choice {
     Mode(usize),
 }
 
+/// The total power a crew answer must reach, where `pending` asks for one:
+/// `ChooseCards` states only how many cards, its prompt the power (the
+/// engine refuses a crew short of it).
+#[must_use]
+pub fn crew_power(pending: &Pending) -> Option<i64> {
+    match pending {
+        Pending::ChooseCards {
+            prompt: baylee_engine::choice::ChoicePrompt::CostCrew { power },
+            ..
+        } => Some(i64::from(*power)),
+        _ => None,
+    }
+}
+
 /// What is picked so far in a multi-pick answer.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Picked {

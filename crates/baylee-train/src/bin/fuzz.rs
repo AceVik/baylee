@@ -17,6 +17,8 @@
 //! - `panic`: the engine panicked.
 //! - `refused`: the engine refused an answer made only of offered options
 //!   (the question offered what it does not take).
+//! - `refused-crew-short`: a refused crew whose creatures' power falls short
+//!   of the prompt's (`CostCrew`); counted apart, as menace is.
 //! - `refused-menace-alone`: a refused declaration of blockers with a menace
 //!   attacker blocked by one creature: a constraint `ChooseBlockers` does not
 //!   state, kept apart so it buries nothing.
@@ -199,10 +201,27 @@ fn menace_alone(view: &baylee_view::PlayerView, action: &PlayerAction) -> bool {
     })
 }
 
+/// Whether a crew answer's creatures fall short of the prompt's power: the
+/// question asks for a count, the prompt states the power.
+fn crew_short(view: &baylee_view::PlayerView, pending: &Pending, action: &PlayerAction) -> bool {
+    let (Some(need), PlayerAction::ChooseObjects { objects }) =
+        (policy::crew_power(pending), action)
+    else {
+        return false;
+    };
+    let have: i64 = objects
+        .iter()
+        .filter_map(|id| view.object(*id))
+        .map(|o| i64::from(o.power.unwrap_or(0)))
+        .sum();
+    have < need
+}
+
 /// A random answer to `pending`: uniform picks among the offered options
 /// until the answer is finished. `Ok(None)` where this crate does not answer
 /// the question kind (the house does).
 fn random_answer(
+    view: &baylee_view::PlayerView,
     pending: &Pending,
     hand: &[ObjectId],
     rng: &mut Rng,
@@ -210,10 +229,22 @@ fn random_answer(
     let mut picked = Picked::default();
     let mut picks = Vec::new();
     loop {
-        let options = match policy::options(pending, hand, &picked) {
+        let mut options = match policy::options(pending, hand, &picked) {
             Ok(o) => o,
             Err(Unscored::Unsupported | Unscored::Over) => return Ok(None),
         };
+        // A crew is done only once its power reaches the prompt's.
+        if let Some(need) = policy::crew_power(pending) {
+            let have: i64 = picked
+                .objects
+                .iter()
+                .filter_map(|id| view.object(*id))
+                .map(|o| i64::from(o.power.unwrap_or(0)))
+                .sum();
+            if have < need {
+                options.retain(|c| *c != policy::Choice::Fixed(policy::fixed::DONE));
+            }
+        }
         if options.is_empty() {
             return Err("no-options");
         }
@@ -301,7 +332,7 @@ fn play(
                 let kind =
                     PENDING_KINDS[usize::try_from(question(&pending, hand.len()).0).unwrap_or(0)];
                 if rng.unit() < args.chaos && !args.house_kinds.iter().any(|k| k == kind) {
-                    match random_answer(&pending, &hand, &mut rng) {
+                    match random_answer(&view, &pending, &hand, &mut rng) {
                         Ok(a) => action = a,
                         Err(kind) => finding(kind, at_question(&session, &pending, hand.len())),
                     }
@@ -331,6 +362,8 @@ fn play(
                     if random_pick {
                         let kind = if menace_alone(&view, &action) {
                             "refused-menace-alone"
+                        } else if crew_short(&view, &pending, &action) {
+                            "refused-crew-short"
                         } else {
                             "refused"
                         };
