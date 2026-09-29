@@ -78,6 +78,13 @@ pub enum Filter {
     Untapped,
     /// Currently attacking (in combat).
     Attacking,
+    /// A blocking creature (CR 509.1g): declared as a blocker this combat
+    /// and not removed from it since.
+    Blocking,
+    /// An unblocked creature (CR 509.1h): attacking, with blockers declared
+    /// and none declared for it. Before blockers are declared an attacking
+    /// creature is neither blocked nor unblocked, and this is false.
+    Unblocked,
     /// Entered the battlefield during the current turn (Oran-Rief, the
     /// Vastwood; Ruins of Oran-Rief; Novijen, Heart of Progress).
     ///

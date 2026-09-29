@@ -66,6 +66,21 @@ pub fn matches_projected(
         // A lookup and not a scan: this arm runs once per object whenever a
         // filter is walked over the battlefield (`CombatState`'s doc).
         Filter::Attacking => state.combat.is_attacking(obj.id),
+        Filter::Blocking => state.combat.blockers.iter().any(|b| b.blocker == obj.id),
+        // Blocked or unblocked is settled as blockers are declared (CR
+        // 509.1h), which is the declare-blockers step's first act; from
+        // there to the end of combat an attacker is one or the other.
+        Filter::Unblocked => {
+            state.combat.is_attacking(obj.id)
+                && !state.combat.is_blocked(obj.id)
+                && matches!(
+                    state.turn.step,
+                    crate::turn::Step::DeclareBlockers
+                        | crate::turn::Step::CombatDamageFirst
+                        | crate::turn::Step::CombatDamage
+                        | crate::turn::Step::CombatEnd
+                )
+        }
         // The turn's record of arrivals. It is written where a `ZoneChanged`
         // into the battlefield is journaled, and it holds the id
         // `move_object` returns, so the handle a permanent has now is the one

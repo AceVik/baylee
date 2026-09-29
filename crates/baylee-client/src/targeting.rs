@@ -346,6 +346,24 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
             .attackers
             .iter()
             .any(|attacker| attacker.creature == object.id),
+        Filter::Blocking => view
+            .combat
+            .blockers
+            .iter()
+            .any(|blocker| blocker.blocker == object.id),
+        Filter::Unblocked => {
+            matches!(
+                view.step,
+                baylee_view::Step::DeclareBlockers
+                    | baylee_view::Step::CombatDamageFirst
+                    | baylee_view::Step::CombatDamage
+                    | baylee_view::Step::CombatEnd
+            ) && view
+                .combat
+                .attackers
+                .iter()
+                .any(|attacker| attacker.creature == object.id && !attacker.blocked)
+        }
         Filter::CmcAtMost(n) => object.mana_value <= *n,
         Filter::CmcAtLeast(n) => object.mana_value >= *n,
         Filter::ToughnessAtMost(n) => object.toughness.is_some_and(|t| t <= *n),

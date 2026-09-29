@@ -512,18 +512,33 @@ dealt at all: no life change, no `DamageDealt`, no deathtouch, no lifelink.
   reduces none of them (CR 615.12).
 - **Every shield ends at the cleanup step** (CR 514.2); they all say "this
   turn". They are in `snapshot_hash`, `loop_signature` and the fingerprint.
+- **A chosen-source shield** ("the next time a red source of your choice
+  would deal damage to you", CR 615.8) is chosen as the ability resolves,
+  from `prevention::source_options` (CR 609.7a: permanents, spells, and the
+  source of an ability on the stack even once it has left), and waits for
+  that source's next instance of damage to its controller. It rechecks the
+  source's properties when the damage comes, against the source's last
+  known characteristics if it has left, and a shield that prevents nothing
+  is not used up (CR 609.7b). A damage source is an id, so which incarnation
+  dealt the damage is read from where the id is now
+  (`ChosenSource::deals` names the two corners that reading gets wrong).
 
 The question the engine does not ask is CR 616.1's: when two shields could
 apply to one event, the affected player (or the controller of the affected
 permanent) chooses which applies first — and CR 615.7's last sentence, which
 of several simultaneous sources one shield prevents. `prevention::rank`
-applies them in the order that player would always pick where there is one:
-a shield that is never used up (Fog) before any that is, then amounts oldest
-first, which spend the same total whichever goes first. A new kind of shield
-is placed in that order with the reason its place is the one the player
-would choose; a pair of kinds for which no order is always best is where
-the missing question starts to matter, and such a pair needs the question
-rather than a rank.
+applies them in a fixed order instead. For most pairs it is the order the
+player would always pick: a shield that prevents nothing is not used up, so
+the fuller shield first leaves the other standing (Fog before a Circle of
+Protection, a Circle before Forcefield), and two "next N" shields spend the
+same total either way. Two pairs are trades, and there the engine decides
+what the player would be asked — **an engine simplification**: Reverse
+Damage goes before Fog (the life now, rather than Reverse Damage kept for
+that source's later damage), and a chosen-source shield before "the next N"
+(the N kept for any source, rather than the chosen-source shield kept for
+its one). A new kind of shield is placed in that order with its reason; a
+pair for which the fixed order would often be the wrong answer needs the
+question rather than a rank.
 
 ### The monarch's abilities have no source (CR 724.2)
 

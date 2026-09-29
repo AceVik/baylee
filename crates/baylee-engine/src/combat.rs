@@ -1236,6 +1236,59 @@ mod tests {
         );
     }
 
+    /// "Blocking creature" and "unblocked creature" (CR 509.1g, 509.1h): an
+    /// attacker is neither blocked nor unblocked before blockers are
+    /// declared, and one that was blocked stays blocked with its blocker
+    /// gone, while the creature that came back is blocking nothing.
+    #[test]
+    fn blocking_and_unblocked_read_the_declarations() {
+        use baylee_cards_dsl::Filter;
+        let is = |state: &GameState, filter: &Filter, id: ObjectId| {
+            crate::eval::matches(filter, state, state.object(id).expect("here"), P1, id)
+        };
+        let mut state = empty_state();
+        let blocked = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let free = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let wall = creature(&mut state, P1, 0, 4, KeywordSet::EMPTY);
+        attack(&mut state, blocked, P1);
+        attack(&mut state, free, P1);
+        state.turn.step = crate::turn::Step::DeclareAttackers;
+        assert!(
+            !is(&state, &Filter::Unblocked, free),
+            "not before blockers are declared"
+        );
+
+        state.turn.step = crate::turn::Step::DeclareBlockers;
+        block(&mut state, wall, blocked);
+        assert!(is(&state, &Filter::Unblocked, free));
+        assert!(!is(&state, &Filter::Unblocked, blocked));
+        assert!(
+            !is(&state, &Filter::Unblocked, wall),
+            "a blocker attacks nothing"
+        );
+        assert!(is(&state, &Filter::Blocking, wall));
+        assert!(!is(&state, &Filter::Blocking, free));
+
+        for to in [ZoneLocation::Exile(P1), ZoneLocation::Battlefield] {
+            state
+                .move_object(
+                    wall,
+                    to,
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                )
+                .expect("blinked");
+        }
+        assert!(
+            !is(&state, &Filter::Blocking, wall),
+            "the creature that came back blocks nothing"
+        );
+        assert!(
+            !is(&state, &Filter::Unblocked, blocked),
+            "and what it blocked stays blocked"
+        );
+    }
+
     /// …unless it tramples, which is the exception the owner asked for by
     /// name: CR 702.19b assigns everything past the (absent) blockers to
     /// what the creature was attacking.

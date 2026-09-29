@@ -3474,6 +3474,18 @@ fn hash_shields(
                 h.u32(n);
             }
             crate::prevention::ShieldKind::AllCombat => h.u8(1),
+            crate::prevention::ShieldKind::NextFrom {
+                source,
+                all_but,
+                gain_life,
+                combat_only,
+            } => {
+                h.u8(2);
+                h.u32(position(source.id));
+                h.u32(all_but);
+                h.boolean(gain_life);
+                h.boolean(combat_only);
+            }
         }
         h.u8(shield.controller.get());
     }
@@ -4027,7 +4039,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
 pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> bool {
     use baylee_cards_dsl::Filter;
     match filter {
-        Filter::Tapped | Filter::Untapped | Filter::Attacking => true,
+        Filter::Tapped
+        | Filter::Untapped
+        | Filter::Attacking
+        | Filter::Blocking
+        | Filter::Unblocked => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) => filter_reads_board_state(f),
         _ => false,
@@ -4115,6 +4131,8 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::Tapped => h.u8(17),
         F::Untapped => h.u8(18),
         F::Attacking => h.u8(19),
+        F::Blocking => h.u8(38),
+        F::Unblocked => h.u8(39),
         F::MatchesChosenTypeOfSource => h.u8(20),
         F::AttachedToBySource => h.u8(25),
         F::SharesSubtypeWithCommander => h.u8(27),

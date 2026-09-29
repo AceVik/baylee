@@ -137,6 +137,33 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             });
             None
         }
+        // The source is chosen as this resolves (CR 609.7a), and the choice
+        // is an instruction, so `min: 1`; with no source to choose there is
+        // no shield and no question (CR 609.3).
+        Effect::PreventNextFromChosenSource {
+            sources,
+            combat_only,
+            all_but,
+            gain_life,
+        } => {
+            let options = crate::prevention::source_options(state, sources, you, res.source);
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::ShieldFromChosenSource {
+                sources,
+                combat_only,
+                all_but,
+                gain_life,
+            });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
         _ => unreachable!("not a life/damage effect"),
     }
 }

@@ -490,6 +490,158 @@ impl Tx<'_> {
         None
     }
 
+    /// "The next time a red source of your choice would deal damage to you
+    /// this turn, prevent that damage" (the Circles of Protection; CR 609.7a,
+    /// 615.8), and Reverse Damage's "you gain life equal to the damage
+    /// prevented this way" after it (CR 615.5).
+    ///
+    /// The reference says it in three lines: `ChooseSource` picks, an
+    /// `Effect` it puts in the command zone carries a replacement waiting for
+    /// the chosen source, and the replacement exiles that effect once it has
+    /// prevented. Every line must be this sentence key for key or the card
+    /// is refused — a pact's delayed trigger, a chosen colour, a replacement
+    /// that does not recheck what was chosen are other sentences.
+    fn prevent_from_chosen_source(
+        &mut self,
+        mut p: Params,
+        sub: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let Some(choices) = p.take("Choices") else {
+            return self.deny("`ChooseSource` with no `Choices$`".to_string());
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ChooseSource.{key}`"));
+        }
+        // What may be chosen, and the same words as the replacement must
+        // recheck them when the damage comes (CR 609.7b). "A source of your
+        // choice" is any card or emblem; the engine does not offer an emblem
+        // (`prevention::source_options`), and no emblem in the pool deals
+        // damage.
+        let (filter, recheck) = if choices == "Card,Emblem" {
+            (
+                "Filter::Any".to_string(),
+                "Card.ChosenCardStrict,Emblem.ChosenCard".to_string(),
+            )
+        } else if choices.contains(',') {
+            return self.deny(format!("chosen source `{choices}`"));
+        } else {
+            let atoms = choices.strip_prefix("Card.").unwrap_or(&choices);
+            // "A red source" is a red object: the reference's `RedSource`.
+            let read = match atoms.strip_suffix("Source") {
+                Some(color) if color_atom(color).is_some() => format!("Card.{color}"),
+                Some(_) => return self.deny(format!("chosen source `{choices}`")),
+                None => choices.clone(),
+            };
+            let filter = self.filter_expr(&read)?;
+            (filter, format!("Card.ChosenCardStrict+{atoms}"))
+        };
+        let Some(effect_name) = sub else {
+            return self.deny("`ChooseSource` with nothing chosen for".to_string());
+        };
+        let Some(body) = self.svars.get(effect_name).cloned() else {
+            return self.deny(format!("`SubAbility$ {effect_name}` names no SVar"));
+        };
+        let Some((api, mut effect)) = Params::parse(&body) else {
+            return self.deny(format!("`SubAbility$ {effect_name}` is no ability"));
+        };
+        if api != "Effect" {
+            return self.deny("`ChooseSource` followed by something other than its shield".into());
+        }
+        effect.drop_prose();
+        let condition_holds = effect.take("ConditionDefined").as_deref() == Some("ChosenCard")
+            && matches!(
+                effect.take("ConditionPresent").as_deref(),
+                Some("Card" | "Card,Emblem")
+            )
+            && matches!(
+                effect.take("ConditionCompare").as_deref(),
+                None | Some("GE1")
+            );
+        if !condition_holds {
+            return self.deny("a chosen-source shield on another condition".to_string());
+        }
+        let cleanup = effect.take("SubAbility");
+        let Some(replacement) = effect.take("ReplacementEffects") else {
+            return self.deny("a chosen-source `Effect` with no replacement".to_string());
+        };
+        if let Some(key) = effect.first_key() {
+            return self.deny(format!("unclaimed parameter `Effect.{key}`"));
+        }
+        if let Some(name) = cleanup {
+            let clears = self
+                .svars
+                .get(&name)
+                .and_then(|body| Params::parse(body))
+                .is_some_and(|(api, mut c)| {
+                    api == "Cleanup"
+                        && c.take("ClearChosenCard").as_deref() == Some("True")
+                        && c.exhausted()
+                });
+            if !clears {
+                return self.deny(format!("`{name}` after a chosen-source shield"));
+            }
+        }
+        let gain_life = self.chosen_source_replacement(&replacement, recheck)?;
+        let sources = self.body.filter_static("SOURCE", &filter);
+        Some(vec![format!(
+            "Effect::PreventNextFromChosenSource {{ sources: &{sources}, combat_only: false, \
+             all_but: 0, gain_life: {gain_life} }}"
+        )])
+    }
+
+    /// The replacement a chosen-source shield waits with: damage from the
+    /// chosen source (`recheck`, its properties spelled as the choice spelled
+    /// them) to you, prevented, and then either nothing more or "you gain
+    /// life equal to the damage prevented this way". The answer is whether
+    /// it gains the life.
+    fn chosen_source_replacement(&self, replacement: &str, recheck: String) -> Option<bool> {
+        let Some((event, mut shield)) = self.svars.get(replacement).and_then(|b| Params::parse(b))
+        else {
+            return self.deny(format!("replacement `{replacement}` names no SVar"));
+        };
+        shield.drop_prose();
+        let waits = event == "DamageDone"
+            && shield.take("ValidSource") == Some(recheck)
+            && shield.take("ValidTarget").as_deref() == Some("You")
+            && shield.take("PreventionEffect").as_deref() == Some("True");
+        let Some(then) = shield.take("ReplaceWith").filter(|_| waits) else {
+            return self.deny("a chosen-source replacement that is not a shield on you".into());
+        };
+        if let Some(key) = shield.first_key() {
+            return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
+        }
+        match self.svars.get(&then).and_then(|b| Params::parse(b)) {
+            Some((api, mut gain)) if api == "GainLife" => {
+                let reads = gain.take("Defined").as_deref() == Some("You")
+                    && gain.take("LifeAmount").is_some_and(|x| {
+                        self.svars.get(&x).map(String::as_str) == Some("ReplaceCount$DamageAmount")
+                    });
+                let exile = gain.take("SubAbility");
+                if !reads || !gain.exhausted() || !exile.is_some_and(|e| self.exiles_itself(&e)) {
+                    return self.deny("a chosen-source shield's life gain".to_string());
+                }
+                Some(true)
+            }
+            _ if self.exiles_itself(&then) => Some(false),
+            _ => self.deny(format!("`ReplaceWith$ {then}` on a chosen-source shield")),
+        }
+    }
+
+    /// Whether `name` is the line a used-up command-zone effect exiles
+    /// itself with, and nothing more.
+    fn exiles_itself(&self, name: &str) -> bool {
+        self.svars
+            .get(name)
+            .and_then(|body| Params::parse(body))
+            .is_some_and(|(api, mut z)| {
+                api == "ChangeZone"
+                    && z.take("Defined").as_deref() == Some("Self")
+                    && z.take("Origin").as_deref() == Some("Command")
+                    && z.take("Destination").as_deref() == Some("Exile")
+                    && z.exhausted()
+            })
+    }
+
     /// A valid-string (`Creature.YouCtrl+nonToken`) as a `Filter`.
     fn filter_expr(&self, valid: &str) -> Option<String> {
         let mut alternatives = Vec::new();
@@ -531,6 +683,8 @@ impl Tx<'_> {
                     "Other" => "Filter::Another".to_string(),
                     "Self" => "Filter::This".to_string(),
                     "attacking" => "Filter::Attacking".to_string(),
+                    "blocking" => "Filter::Blocking".to_string(),
+                    "unblocked" => "Filter::Unblocked".to_string(),
                     "tapped" => "Filter::Tapped".to_string(),
                     "untapped" => "Filter::Untapped".to_string(),
                     "token" => "Filter::IsToken".to_string(),
@@ -852,6 +1006,14 @@ impl Tx<'_> {
             }
         }
         let sub = p.take("SubAbility");
+        // The chosen-source shield is three lines in the reference and one
+        // sentence on the card: its `SubAbility$` is part of the sentence,
+        // not the next one, so this rule reads the rest of the chain itself.
+        if api == "ChooseSource" {
+            let effects = self.prevent_from_chosen_source(p, sub.as_deref())?;
+            chain.effects.extend(effects);
+            return Some(());
+        }
         // The requirement and the effect name the target differently when it
         // is a player: the wizard resolves `AnyPlayer`/`AnyOpponent` into the
         // spell's chosen player, and the effect then reads it back as
@@ -4260,6 +4422,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "DamageAll",
     "DamageResolve",
     "PreventDamage",
+    "ChooseSource",
     "Fog",
     "Regenerate",
     "Tap",
@@ -5994,6 +6157,62 @@ SVar:X:Count$xPaid",
             "Name:X\nTypes:Creature Goblin\nPT:2/3\n\
              S:Mode$ Continuous | Affected$ Creature.Goblin | AddAbility$ Ping\n\
              SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1\n"
+        ));
+    }
+
+    /// The Circles of Protection and Reverse Damage: a source chosen as the
+    /// line resolves, and a shield on you that waits for it.
+    #[test]
+    fn a_chosen_source_shield_is_one_sentence_over_three_lines() {
+        const COP: &str = "Name:X\nManaCost:1 W\nTypes:Enchantment\n\
+             A:AB$ ChooseSource | Cost$ 1 | Choices$ Card.RedSource | AILogic$ NeedsPrevention | \
+             SubAbility$ DBEffect | SpellDescription$ The next time.\n\
+             SVar:DBEffect:DB$ Effect | ReplacementEffects$ RPrevent | SubAbility$ DBCleanup | \
+             ConditionDefined$ ChosenCard | ConditionPresent$ Card | ConditionCompare$ GE1\n\
+             SVar:RPrevent:Event$ DamageDone | ValidSource$ Card.ChosenCardStrict+RedSource | \
+             ValidTarget$ You | ReplaceWith$ ExileEffect | PreventionEffect$ True | \
+             Description$ Prevent it.\n\
+             SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile\n\
+             SVar:DBCleanup:DB$ Cleanup | ClearChosenCard$ True\n";
+        let body = read(COP);
+        let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+        assert!(
+            text.contains("Effect::PreventNextFromChosenSource { sources: &SOURCE1, combat_only: false, all_but: 0, gain_life: false }"),
+            "{text}"
+        );
+        assert!(text.contains("Color::Red"), "{text}");
+
+        let body = read(
+            "Name:X\nManaCost:1 W W\nTypes:Instant\n\
+             A:SP$ ChooseSource | Choices$ Card,Emblem | SubAbility$ DBEffect\n\
+             SVar:DBEffect:DB$ Effect | ReplacementEffects$ RPrevent | ConditionDefined$ ChosenCard | \
+             ConditionPresent$ Card,Emblem\n\
+             SVar:RPrevent:Event$ DamageDone | ValidSource$ Card.ChosenCardStrict,Emblem.ChosenCard | \
+             ValidTarget$ You | ReplaceWith$ GainLifeInstead | PreventionEffect$ True\n\
+             SVar:GainLifeInstead:DB$ GainLife | Defined$ You | LifeAmount$ X | SubAbility$ ExileEffect\n\
+             SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile\n\
+             SVar:X:ReplaceCount$DamageAmount\n",
+        );
+        assert!(
+            body.abilities
+                .join("\n")
+                .contains("sources: &Filter::Any, combat_only: false, all_but: 0, gain_life: true"),
+            "{:?}",
+            body.abilities
+        );
+
+        // A replacement that does not recheck what was chosen, a delayed
+        // trigger in place of the cleanup, and a chosen colour.
+        assert!(refused(&COP.replace(
+            "Card.ChosenCardStrict+RedSource",
+            "Card.ChosenCardStrict"
+        )));
+        assert!(refused(&COP.replace(
+            "SVar:DBCleanup:DB$ Cleanup | ClearChosenCard$ True",
+            "SVar:DBCleanup:DB$ DelayedTrigger | Mode$ Phase"
+        )));
+        assert!(refused(
+            &COP.replace("Card.RedSource", "Card.ChosenColorSource")
         ));
     }
 

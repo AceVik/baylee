@@ -1486,8 +1486,15 @@ Prevention is a shield the effect leaves behind (CR 615.7):
 would be dealt to <target> this turn", its `target` naming recipients as
 `DealDamage`'s does (Samite Healer's any target, Conservator's
 `Player(PlayerRel::You)`), and `PreventAllCombatDamageThisTurn` is Fog.
-Both last until the turn's cleanup; `docs/engine-internals.md` §"Prevention
-shields" says how they are spent.
+`PreventNextFromChosenSource { sources, combat_only, all_but, gain_life }`
+is "the next time a <sources> of your choice would deal damage to you this
+turn, prevent that damage" (the Circles of Protection): the source is chosen
+as it resolves, `combat_only` and `all_but: 1` make Forcefield's "combat
+damage … all but 1 of that damage", and `gain_life` is Reverse Damage's
+"you gain life equal to the damage prevented this way". `sources` is both
+what may be chosen and what the source must still be when it deals the
+damage. All of them last until the turn's cleanup; `docs/engine-internals.md`
+§"Prevention shields" says how they are spent.
 The mirror of the first is `PlayerMayPayThen { player, mana, effects }`:
 "you may pay {1}. If you do, you gain 1 life" (Crystal Rod, Soul Net). The
 same question and payment, with the effects on a yes; the price *is* the

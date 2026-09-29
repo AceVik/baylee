@@ -1242,6 +1242,26 @@ pub enum Effect {
     /// every combat damage event until the turn's cleanup, to anything
     /// and from anything, and never used up.
     PreventAllCombatDamageThisTurn,
+    /// "The next time a red source of your choice would deal damage to you
+    /// this turn, prevent that damage" (Circle of Protection: Red; CR 609.7,
+    /// 615.8): the controller chooses a source as this resolves, and a
+    /// shield on them waits for the next damage that source would deal
+    /// them this turn — one instance of it, however much.
+    ///
+    /// The source must still match `sources` when it would deal the damage,
+    /// or the shield neither prevents it nor is used up (CR 609.7b, 615.9).
+    PreventNextFromChosenSource {
+        /// What may be chosen, and what it must still be.
+        sources: &'static Filter,
+        /// Only combat damage (Forcefield).
+        combat_only: bool,
+        /// How much of that damage is still dealt: 0 is "prevent that
+        /// damage", 1 is Forcefield's "prevent all but 1 of that damage".
+        all_but: u8,
+        /// "You gain life equal to the damage prevented this way" (Reverse
+        /// Damage; CR 615.5).
+        gain_life: bool,
+    },
     /// "You may reveal a card you own from outside the game, or choose a
     /// face-up card you own in exile. Put that card into your hand."
     /// (wishes; Karn, the Great Creator's −2).
@@ -3067,6 +3087,7 @@ impl Effect {
             | Effect::DealDamageEach { .. }
             | Effect::PreventNextDamage { .. }
             | Effect::PreventAllCombatDamageThisTurn
+            | Effect::PreventNextFromChosenSource { .. }
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }
             | Effect::PutTargetOnBottomOfLibrary

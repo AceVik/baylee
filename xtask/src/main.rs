@@ -2413,6 +2413,7 @@ fn check_optional_clauses_are_offered(
         "PayLifeOrEnterTapped",
         "PlayerMayPayOr",
         "PlayerMayPayThen",
+        "PreventNextFromChosenSource",
         "CopyOnEnter",
         "CopyTargetSpell",
         "CopyTargetAbility",
@@ -4202,10 +4203,6 @@ fn with_oracle_header(text: &str, printed: &str) -> Option<String> {
 const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
     ("Bleachbone Verge", "an Condition, not a filter"),
     ("Mox Opal", "metalcraft is an Condition"),
-    (
-        "Treachery",
-        "\"you control enchanted creature\" is Modifier::GainControl, not a filter",
-    ),
     ("Fierce Guardianship", "an AlternativeCost condition"),
     (
         "Deadly Rollick",
@@ -4291,11 +4288,15 @@ fn check_scope_matches_the_text(
     // control", `layers.rs`), and the rendering reaches into a token's
     // abilities, so Voice of Resurgence's Elemental says it there.
     // `Duration::WhileYouControlSource` is "for as long as you control this
-    // creature" (CR 611.2b): a duration, not a set of objects.
+    // creature" (CR 611.2b): a duration, not a set of objects. And
+    // `Modifier::GainControl` is "you control enchanted creature" (Control
+    // Magic, Steal Artifact, Treachery): the sentence is the change of
+    // control itself, whose new controller is the effect's (CR 613.1b).
     let filters_you = built.contains("ControlledByYou")
         || built.contains("ControlCount(")
         || built.contains("YouControl(")
-        || built.contains("WhileYouControlSource");
+        || built.contains("WhileYouControlSource")
+        || built.contains("GainControl");
     let filters_theirs = built.contains("ControlledByOpponent");
 
     if says_you && !filters_you {
@@ -6670,6 +6671,41 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
+    /// "You control enchanted creature" is the change of control, not a
+    /// filter the card forgot: Control Magic passes the scope check with no
+    /// exception written for it, and a card that says "you control" with
+    /// nothing behind it still does not.
+    #[test]
+    fn a_change_of_control_is_the_you_control_the_text_says() {
+        let payload = serde_json::json!({
+            "oracle_text": "Enchant creature\nYou control enchanted creature."
+        });
+        let def = baylee_cards::decks::by_name("Control Magic")
+            .and_then(baylee_cards::by_index)
+            .expect("Control Magic is in the pool");
+        let mut problems = 0;
+        super::check_scope_matches_the_text(
+            "control_magic",
+            "Not An Exception",
+            def,
+            &payload,
+            &mut problems,
+        );
+        assert_eq!(problems, 0);
+
+        let fog = baylee_cards::decks::by_name("Fog")
+            .and_then(baylee_cards::by_index)
+            .expect("Fog is in the pool");
+        super::check_scope_matches_the_text(
+            "fog",
+            "Not An Exception",
+            fog,
+            &payload,
+            &mut problems,
+        );
+        assert_eq!(problems, 1, "no filter and no change of control");
+    }
+
     /// A batch is allowed to write the cards it asked for and nothing else.
     ///
     /// Codegen rewrites every machine-owned card on every run, so a rewrite is

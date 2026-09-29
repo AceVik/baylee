@@ -1873,6 +1873,9 @@ impl<L: CardLookup> Engine<L> {
                 attacker,
             });
         }
+        // `Filter::Blocking` and `Filter::Unblocked` just changed for the
+        // reason `declare_attackers` gives for `Filter::Attacking`.
+        self.state.board_state_changed();
         self.combat_declared = CombatDeclared::Blockers;
         self.passes = 0;
         self.priority_holder = None;

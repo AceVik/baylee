@@ -515,6 +515,18 @@ pub enum AwaitingOp {
         /// What happens to it.
         then: &'static [Effect],
     },
+    /// After `PreventNextFromChosenSource`: the shield waits for the
+    /// chosen source.
+    ShieldFromChosenSource {
+        /// What the source had to be, and must still be.
+        sources: &'static baylee_cards_dsl::Filter,
+        /// Only its combat damage.
+        combat_only: bool,
+        /// How much of the instance is still dealt.
+        all_but: u8,
+        /// The controller gains what it prevents.
+        gain_life: bool,
+    },
     /// After `Populate`: copy the chosen creature token.
     Populate,
     /// After `LookAtTopPick`: chosen go to hand, the rest to the bottom.
@@ -2535,6 +2547,28 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 tokens::populate(state, res.controller, id);
             }
         }
+        AwaitingOp::ShieldFromChosenSource {
+            sources,
+            combat_only,
+            all_but,
+            gain_life,
+        } => {
+            let you = res.controller;
+            if let Some(source) = chosen.first().and_then(|&id| {
+                crate::prevention::ChosenSource::new(state, id, sources, you, res.source)
+            }) {
+                state.shields.push(crate::prevention::Shield {
+                    protects: crate::prevention::Shielded::Player(you),
+                    kind: crate::prevention::ShieldKind::NextFrom {
+                        source,
+                        all_but: u32::from(all_but),
+                        gain_life,
+                        combat_only,
+                    },
+                    controller: you,
+                });
+            }
+        }
         AwaitingOp::ReorderTopLibrary
         | AwaitingOp::DigBottom
         | AwaitingOp::Scry { .. }
@@ -3441,7 +3475,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::DealDamageDivided { .. }
         | Effect::DealDamageEach { .. }
         | Effect::PreventNextDamage { .. }
-        | Effect::PreventAllCombatDamageThisTurn => life::exec(state, res, op),
+        | Effect::PreventAllCombatDamageThisTurn
+        | Effect::PreventNextFromChosenSource { .. } => life::exec(state, res, op),
         Effect::Exile { .. }
         | Effect::Blink { .. }
         | Effect::ReturnToHand { .. }

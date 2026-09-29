@@ -515,6 +515,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::Tapped
         | Filter::Untapped
         | Filter::Attacking
+        | Filter::Blocking
+        | Filter::Unblocked
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
         | Filter::HasCounter(_)

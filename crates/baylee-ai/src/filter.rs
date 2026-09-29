@@ -83,7 +83,7 @@ use baylee_cards_dsl::{AbilityDef, Effect, Filter, PlayerRel, SpellMode, ZoneRef
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaCost;
 use baylee_engine::choice::{CastModeDesc, CastModeKind};
-use baylee_view::{ObjectStatus, PlayerView, PublicObject, RulesFace};
+use baylee_view::{ObjectStatus, PlayerView, PublicObject, RulesFace, Step};
 
 use crate::HeuristicAgent;
 
@@ -165,6 +165,25 @@ impl HeuristicAgent {
                     .attackers
                     .iter()
                     .any(|attacker| attacker.creature == object.id),
+            ),
+            Filter::Blocking => Some(
+                view.combat
+                    .blockers
+                    .iter()
+                    .any(|blocker| blocker.blocker == object.id),
+            ),
+            Filter::Unblocked => Some(
+                matches!(
+                    view.step,
+                    Step::DeclareBlockers
+                        | Step::CombatDamageFirst
+                        | Step::CombatDamage
+                        | Step::CombatEnd
+                ) && view
+                    .combat
+                    .attackers
+                    .iter()
+                    .any(|attacker| attacker.creature == object.id && !attacker.blocked),
             ),
             // `KeywordSet::contains` is an intersection test, so this is
             // has-*any* rather than has-all whatever a filter names.
