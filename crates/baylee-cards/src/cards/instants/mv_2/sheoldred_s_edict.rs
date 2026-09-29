@@ -22,6 +22,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Implemented,
     abilities = &[AbilityDef::ModalSpell {
+        choose: ModeCount::ONE,
         modes: &[
             mode!(&[Effect::SacrificeFilter {
                 who: PlayerRel::EachOpponent,

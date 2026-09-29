@@ -846,10 +846,11 @@ pub struct PublicObject {
     /// card was castable never tapped for it — Snapcaster Mage's Opt ended
     /// the turn in the graveyard beside an untapped Island (#242).
     ///
-    /// Granted only, so far: a grant's cost is the card's own mana cost, and
-    /// the cards in this pool that *print* flashback do not have it written
-    /// (`Coverage::Partial`). The day one does, its printed cost comes here
-    /// too, and the gamehost test that pins that goes red until it does.
+    /// A printed flashback is priced at what the card prints (Memory Deluge's
+    /// `{5}{U}{U}`); a granted one at the card's own mana cost, and so is a
+    /// permanent card a graveyard permission lets the seat cast (Muldrotha,
+    /// Wrenn and Realmbreaker's emblem), which is no flashback but is the
+    /// same question for the planner.
     ///
     /// Graveyard only, and per viewer: `None` unless this seat may cast the
     /// card, which is only ever from its own graveyard.

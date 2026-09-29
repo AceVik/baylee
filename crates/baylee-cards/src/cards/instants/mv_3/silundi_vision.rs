@@ -42,5 +42,9 @@ card!(
          the rest go to the bottom in a random order; Effect::LookAtTopPick \
          has no filter and bottoms the rest by choice"
     ),
-    abilities = &[spell!(&[Effect::LookAtTopPick { count: 6, pick: 1 }])],
+    abilities = &[spell!(&[Effect::LookAtTopPick {
+        count: Amount::Fixed(6),
+        pick: 1,
+        random: false,
+    }])],
 );

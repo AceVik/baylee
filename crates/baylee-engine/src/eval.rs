@@ -63,11 +63,9 @@ pub fn matches_projected(
         Filter::OwnedByYou => obj.owner == you,
         Filter::Tapped => obj.status.contains(Status::TAPPED),
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
-        Filter::Attacking => state
-            .combat
-            .attackers
-            .iter()
-            .any(|info| info.creature == obj.id),
+        // A lookup and not a scan: this arm runs once per object whenever a
+        // filter is walked over the battlefield (`CombatState`'s doc).
+        Filter::Attacking => state.combat.is_attacking(obj.id),
         // The turn's record of arrivals. It is written where a `ZoneChanged`
         // into the battlefield is journaled, and it holds the id
         // `move_object` returns, so the handle a permanent has now is the one
@@ -82,6 +80,11 @@ pub fn matches_projected(
         // `arrival_tests::a_permanent_entered_this_turn_only_on_the_turn_it_was_played`
         // asserts both halves of what makes it unnecessary.
         Filter::EnteredThisTurn => state.per_turn.entered_battlefield.contains(&obj.id),
+        Filter::PutIntoGraveyardThisTurn => state.per_turn.entered_graveyard.contains(&obj.id),
+        // The object's own counters. A leaves-the-battlefield trigger asks
+        // the object as it last existed there, and `trigger::departed_matches`
+        // hands in that object, counters and all.
+        Filter::HasCounter(kind) => obj.counters.get(*kind) > 0,
         Filter::MatchesChosenTypeOfSource => state
             .object(this)
             .and_then(|src| src.chosen_subtype)
@@ -128,6 +131,15 @@ pub fn matches_projected(
         Filter::CmcAtMostX => {
             let x = state.object(this).map_or(0, |o| o.x_value);
             chars.mana_value() <= x
+        }
+        // Converge's number, off the source where the payment wrote it; no
+        // record is no mana spent, and so no colors.
+        Filter::CmcAtMostColorsSpent => {
+            let colors = state
+                .object(this)
+                .and_then(|o| o.paid.as_ref())
+                .map_or(0, |p| p.colors_spent.len());
+            chars.mana_value() <= u32::from(colors)
         }
         Filter::CmcAtLeast(n) => chars.mana_value() >= *n,
         Filter::ToughnessAtMost(n) => chars.toughness.is_some_and(|t| t <= *n),
@@ -199,8 +211,13 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
 /// is the **only** caller allowed to read [`players`]' `None` as "nobody".
 /// [`players`] has four callers in all and the other three
 /// (`resolve::players_of` and two in `team_tests`) `expect` a relation the
-/// state can answer. Every `CardInGraveyard` in the pool names `You` or
-/// `EachPlayer`; one naming `Chosen` would be a bug in the card.
+/// state can answer.
+///
+/// `Chosen` is the exception, and it is not a context relation here: it is
+/// "from a single graveyard" (Unlicensed Hearse), and the graveyard is chosen
+/// as part of choosing the targets. So every graveyard is enumerated — what
+/// the offer counts, and what CR 608.2b re-checks a target against — and
+/// `start_activation` narrows the list to the graveyard its player named.
 fn graveyard_options(
     filter: &Filter,
     rel: PlayerRel,
@@ -208,6 +225,11 @@ fn graveyard_options(
     you: PlayerId,
     this: ObjectId,
 ) -> Vec<ObjectId> {
+    let rel = if rel == PlayerRel::Chosen {
+        PlayerRel::EachPlayer
+    } else {
+        rel
+    };
     let Some(seats) = players(rel, state, you) else {
         return Vec::new();
     };
@@ -322,7 +344,8 @@ pub fn amount(
         Amount::CountersOnSource(kind) => state
             .object(this)
             .map_or(0, |o| u32::from(o.counters.get(*kind))),
-        Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
+        // Resolved in resolve.rs, which has the stack object these read.
+        Amount::TargetPower | Amount::TargetCmc | Amount::EventAmount => 0,
         // The object the payment wrote it on. A resolution asks
         // `resolve::amount2`, which reads the stack object: an activated
         // ability's source is the permanent and its payment is on the
@@ -333,6 +356,10 @@ pub fn amount(
             .and_then(|o| o.paid.as_ref())
             .and_then(|p| p.sacrificed_mana_value)
             .unwrap_or(0),
+        Amount::ManaSpentToCast => state
+            .object(this)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |p| p.mana_spent),
         Amount::TappedPower => tapped_power(state, this),
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
@@ -403,11 +430,15 @@ pub fn condition_holds(
 ) -> bool {
     match condition {
         Condition::YourTurn => state.turn.active == you,
+        // The announced X on the source, where `cast_wizard` writes it and
+        // where `Filter::CmcAtMostX` reads it.
+        Condition::XAtLeast(n) => state.object(source).map_or(0, |o| o.x_value) >= n,
         // No last turn at the first upkeep of the game, so nothing was cast
         // in it and nothing wasn't: both sentences are false there.
         Condition::NoSpellsCastLastTurn => {
             state.previous_turn.is_some_and(|p| p.spells_by_all == 0)
         }
+        Condition::YouCastNoSpellThisTurn => state.per_turn.spells_cast_by(you) == 0,
         Condition::APlayerCastLastTurnAtLeast(n) => state
             .previous_turn
             .is_some_and(|p| p.most_by_one >= u32::from(n)),
@@ -620,11 +651,17 @@ pub fn untargetable_by(state: &GameState, object: ObjectId, you: PlayerId) -> bo
 pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId) -> Vec<PlayerId> {
     if !matches!(
         spec,
-        TargetSpec::AnyTarget | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent
+        TargetSpec::AnyTarget
+            | TargetSpec::AnyPlayer
+            | TargetSpec::AnyOpponent
+            | TargetSpec::OpponentOrObject(_)
     ) {
         return Vec::new();
     }
-    let opponents_only = matches!(spec, TargetSpec::AnyOpponent);
+    let opponents_only = matches!(
+        spec,
+        TargetSpec::AnyOpponent | TargetSpec::OpponentOrObject(_)
+    );
     state
         .players
         .iter()
@@ -670,6 +707,50 @@ fn any_target_objects(state: &GameState) -> Vec<ObjectId> {
         .collect()
 }
 
+/// [`TargetSpec::CardInGraveyardBelowValue`]'s options: the graveyard cards
+/// matching `filter` whose mana value is less than `limit`.
+fn graveyard_options_below(
+    filter: &'static baylee_cards_dsl::Filter,
+    rel: baylee_cards_dsl::PlayerRel,
+    limit: u32,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+) -> Vec<ObjectId> {
+    graveyard_options(filter, rel, state, you, this)
+        .into_iter()
+        .filter(|id| {
+            state
+                .object(*id)
+                .is_some_and(|o| o.characteristics().mana_value() < limit)
+        })
+        .collect()
+}
+
+/// The object options of the specs that are about one player's permanents.
+fn objects_of_a_player(
+    spec: &TargetSpec,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+) -> Vec<ObjectId> {
+    match *spec {
+        // The object half of "target opponent or [filter]"; the opponents
+        // come from `target_player_options`, offered beside it.
+        TargetSpec::OpponentOrObject(filter) => {
+            target_options(&TargetSpec::Object(filter), state, you, this)
+        }
+        TargetSpec::ObjectControlledBy(filter, player) => {
+            let mut all = target_options(&TargetSpec::Object(filter), state, you, this);
+            all.retain(|id| state.object(*id).is_some_and(|o| o.controller == player));
+            all
+        }
+        // Unbound, "that player" is nobody yet: the engine asks these only
+        // after binding them to `ObjectControlledBy`.
+        _ => Vec::new(),
+    }
+}
+
 /// [`TargetSpec::ObjectOfEachOpponent`]'s options: every opponent's at once,
 /// which each question narrows to one (`Engine::ask_next_opponent`).
 fn opponents_objects(
@@ -707,6 +788,10 @@ pub fn target_options(
             .copied()
             .collect(),
         TargetSpec::ObjectOfEachOpponent(filter) => opponents_objects(filter, state, you, this),
+        TargetSpec::OpponentOrObject(_)
+        | TargetSpec::ObjectControlledBy(..)
+        | TargetSpec::ObjectOfFirstTargetsPlayer(_)
+        | TargetSpec::ObjectOfEventPlayer(_) => objects_of_a_player(spec, state, you, this),
         TargetSpec::Spell(filter) => state
             .zones
             .list(ZoneLocation::Stack)
@@ -727,14 +812,7 @@ pub fn target_options(
         }
         TargetSpec::CardInGraveyardBelowEvent(..) => Vec::new(),
         TargetSpec::CardInGraveyardBelowValue(filter, rel, limit) => {
-            graveyard_options(filter, *rel, state, you, this)
-                .into_iter()
-                .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|o| o.characteristics().mana_value() < *limit)
-                })
-                .collect()
+            graveyard_options_below(filter, *rel, *limit, state, you, this)
         }
         TargetSpec::StackOrBattlefield(filter) => {
             let mut out: Vec<ObjectId> = state
@@ -821,7 +899,10 @@ pub fn targeted_players(obj: &GameObject, spec: &TargetSpec) -> baylee_core::ids
     let mut players = baylee_core::ids::SeatSet::new();
     if matches!(
         spec,
-        TargetSpec::AnyTarget | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent
+        TargetSpec::AnyTarget
+            | TargetSpec::AnyPlayer
+            | TargetSpec::AnyOpponent
+            | TargetSpec::OpponentOrObject(_)
     ) {
         players = obj.target_players;
         if let Some(player) = obj.chosen_player {

@@ -9824,7 +9824,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    &[],
+    // Fact or Fiction
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -21341,7 +21348,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Realms Uncharted
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -22909,8 +22923,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         },
         FaceLines {
             sentences: 3,
-            stackable: 1,
-            lines: &[Some(2)],
+            stackable: 2,
+            lines: &[Some(1), Some(2)],
             modes: &[],
             alternatives: &[],
         },
@@ -23317,8 +23331,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Maelstrom Wanderer
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 2,
+        lines: &[None, None, None],
         modes: &[],
         alternatives: &[],
     }],
@@ -24239,7 +24253,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Voice of Resurgence
+    &[FaceLines {
+        sentences: 1,
+        stackable: 2,
+        lines: &[Some(0), Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -30080,7 +30101,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Garna, the Bloodflame
+    &[FaceLines {
+        sentences: 3,
+        stackable: 1,
+        lines: &[Some(1), None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -32066,7 +32094,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Risen Reef
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -32501,8 +32536,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Questing Beast
     &[FaceLines {
         sentences: 4,
-        stackable: 0,
-        lines: &[None, None],
+        stackable: 1,
+        lines: &[None, None, None],
         modes: &[],
         alternatives: &[],
     }],
@@ -32784,7 +32819,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Nylea's Intervention
+    &[FaceLines {
+        sentences: 3,
+        stackable: 0,
+        lines: &[None],
+        modes: &[Some(1), Some(2)],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -33089,7 +33131,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Fiend Artisan
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -34071,7 +34120,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Omnath, Locus of Creation
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Ondu Inversion
     &[
         FaceLines {
@@ -35407,7 +35463,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Expressive Iteration
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -35796,8 +35859,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Dauthi Voidwalker
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -35821,7 +35884,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Fury
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), None],
+        modes: &[],
+        alternatives: &[Some(2)],
+    }],
     &[],
     &[],
     &[],
@@ -35900,7 +35970,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[Some(3)],
     }],
-    &[],
+    // Subtlety
+    &[FaceLines {
+        sentences: 4,
+        stackable: 2,
+        lines: &[Some(2), None],
+        modes: &[],
+        alternatives: &[Some(3)],
+    }],
     &[],
     &[],
     // Sword of Hearth and Home
@@ -36116,7 +36193,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Prismatic Ending
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -36865,7 +36949,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         },
     ],
     &[],
-    &[],
+    // Memory Deluge
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -37570,21 +37661,28 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[
         FaceLines {
             sentences: 4,
-            stackable: 1,
-            lines: &[Some(3)],
+            stackable: 3,
+            lines: &[Some(1), Some(2), Some(3)],
             modes: &[],
             alternatives: &[],
         },
         FaceLines {
             sentences: 1,
-            stackable: 0,
-            lines: &[],
+            stackable: 1,
+            lines: &[Some(0)],
             modes: &[],
             alternatives: &[],
         },
     ],
     &[],
-    &[],
+    // Farewell
+    &[FaceLines {
+        sentences: 5,
+        stackable: 0,
+        lines: &[None],
+        modes: &[Some(1), Some(2), Some(3), Some(4)],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -38093,7 +38191,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Extraction Specialist
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -38368,7 +38473,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Unlicensed Hearse
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(0), None, Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -39709,7 +39821,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Mawloc
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[None, None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -40372,7 +40491,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Atraxa, Grand Unifier
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -40416,8 +40542,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Conduit of Worlds
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -41634,7 +41760,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // The Balrog of Moria
+    &[FaceLines {
+        sentences: 4,
+        stackable: 3,
+        lines: &[Some(1), Some(2), Some(3)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -43089,7 +43222,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Trumpeting Carnosaur
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Twists and Turns
     &[
         FaceLines {
@@ -44177,7 +44317,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Final Showdown
+    &[FaceLines {
+        sentences: 4,
+        stackable: 0,
+        lines: &[None],
+        modes: &[Some(1), Some(2), Some(3)],
+        alternatives: &[],
+    }],
     &[],
     // Fomori Vault
     &[FaceLines {
@@ -44445,7 +44592,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Three Steps Ahead
+    &[FaceLines {
+        sentences: 4,
+        stackable: 0,
+        lines: &[None],
+        modes: &[Some(1), Some(2), Some(3)],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -44719,8 +44873,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Fanatic of Rhonas
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[Some(0), Some(1)],
+        stackable: 1,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -48173,7 +48327,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Consult the Star Charts
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -49714,7 +49875,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // The Reaper, King No More
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],

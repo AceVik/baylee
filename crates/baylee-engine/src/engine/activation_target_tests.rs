@@ -500,3 +500,107 @@ fn up_to_one_answered_with_nothing_counts_nobody_and_still_draws() {
         "the card is drawn: the ability resolved"
     );
 }
+
+/// Takes Yawgmoth off the battlefield behind the question his activation is
+/// asking, the way a dev command rewrites a board (`Engine::dev_state_mut`).
+/// Answering the question then re-enters `start_activation`, which finds the
+/// ability out of its zone and refuses to go on.
+fn yawgmoth_leaves_behind_his_question(engine: &mut Engine<RegistryLookup>, physician: ObjectId) {
+    let p0 = PlayerId::new(0);
+    engine
+        .dev_state_mut(p0)
+        .expect("a test seat has dev commands")
+        .move_object(
+            physician,
+            ZoneLocation::Graveyard(p0),
+            ZonePosition::Top,
+            Cause::DevCommand,
+        )
+        .expect("Yawgmoth moves");
+}
+
+/// Whether the activation was reversed: nothing on the stack, the activator
+/// holding priority, and nothing paid.
+fn reversed(engine: &Engine<RegistryLookup>, elves: ObjectId, life: i32) {
+    let p0 = PlayerId::new(0);
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the activator keeps priority (CR 732.2): {:?}",
+        engine.pending()
+    );
+    assert!(stack_is_empty(engine), "no ability reached the stack");
+    assert_eq!(
+        engine.state().object(elves).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "the Elves were not sacrificed"
+    );
+    assert_eq!(engine.state().players[0].life, life, "no life was paid");
+}
+
+/// A target answer whose activation can no longer be completed reverses the
+/// activation and hands its activator priority (CR 732.1, CR 732.2).
+///
+/// The answer is one the question offered, and by the time `start_activation`
+/// refuses to go on, the question's continuation has already been taken. The
+/// refusal used to be handed back as it was, which left the target question
+/// on the table with nothing behind it: the next answer to it, a player's or
+/// the house's, panicked the engine ("target plan set"). A Spark Double
+/// copying a planeswalker reached that from ordinary play (`walker_tests`),
+/// which is fixed where the two probes disagreed. This is the net under every
+/// other refusal on the same path.
+#[test]
+fn a_target_answer_whose_activation_refuses_hands_priority_back() {
+    let p0 = PlayerId::new(0);
+    let mut engine = board(&[yawgmoth(), llanowar_elves()], &[], &[], None);
+    let physician = on_battlefield(&engine, p0, yawgmoth()).expect("Yawgmoth stands");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves stand");
+    let life = engine.state().players[0].life;
+
+    activate(&mut engine, physician);
+    assert!(matches!(engine.pending(), Pending::ChooseTargets { .. }));
+    yawgmoth_leaves_behind_his_question(&mut engine, physician);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .expect("an answer the question offered is taken, even when it ends the activation");
+    reversed(&engine, elves, life);
+}
+
+/// The same net under the cost question, which re-enters `start_activation`
+/// the same way and consumed its continuation the same way: the next answer
+/// found no plan and reached for a resolution that was never there.
+#[test]
+fn a_cost_answer_whose_activation_refuses_hands_priority_back() {
+    let p0 = PlayerId::new(0);
+    let mut engine = board(&[yawgmoth(), llanowar_elves()], &[], &[], None);
+    let physician = on_battlefield(&engine, p0, yawgmoth()).expect("Yawgmoth stands");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves stand");
+    let life = engine.state().players[0].life;
+
+    activate(&mut engine, physician);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .expect("none is a legal answer");
+    assert!(matches!(engine.pending(), Pending::ChooseCards { .. }));
+    yawgmoth_leaves_behind_his_question(&mut engine, physician);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .expect("an answer the question offered is taken, even when it ends the activation");
+    reversed(&engine, elves, life);
+}

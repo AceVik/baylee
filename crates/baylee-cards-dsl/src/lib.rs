@@ -30,8 +30,8 @@ pub const ALL_MANA_COLORS: &[baylee_core::mana::ManaColor] = &[
 pub static ANY_COLOR_MANA: &[crate::effect::Effect] = &[crate::effect::Effect::mana_of_any_color()];
 
 pub use ability::{
-    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod, SpellMode,
-    StepKind, Trigger, TriggerEventKind,
+    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod, ModeCount,
+    SpellMode, StepKind, Trigger, TriggerEventKind,
 };
 pub use build::prelude;
 pub use build::{
@@ -40,9 +40,9 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, ManaValueBound, ManaValueCmp,
-    PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot, TargetSpec, TokenDef,
-    ZoneSel,
+    Amount, CounterKind, Effect, ExileUntil, Find, ManaRestriction, ManaSource, ManaValueBound,
+    ManaValueCmp, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetReq, TargetSlot,
+    TargetSpec, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use manaread::{
@@ -332,6 +332,11 @@ pub struct FaceDef {
     /// Miracle cost: when revealed as the first card drawn this turn, the
     /// card may be cast for this cost (CR 702.94).
     pub miracle: Option<ManaCost>,
+    /// Flashback (CR 702.34a): this card may be cast from its owner's
+    /// graveyard for this cost rather than its mana cost, and is exiled
+    /// instead of going anywhere else afterwards. Mana only: a flashback
+    /// that costs something other than mana is not written here.
+    pub flashback: Option<ManaCost>,
     /// Delve (CR 702.66): each card exiled from your graveyard while
     /// casting pays for {1} — as many cards as the spell's total cost has
     /// generic mana, and no more (CR 702.66a).
@@ -392,6 +397,7 @@ impl FaceDef {
         color_indicator: ColorSet::EMPTY,
         castable_from_hand: true,
         miracle: None,
+        flashback: None,
         delve: false,
         convoke: false,
         waterbend: false,

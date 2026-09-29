@@ -6,14 +6,13 @@
 //! Set: DSK #205 — Duskmourn: House of Horror | Scryfall ID: 0adcd4e5-d542-4293-8774-ace2305ef820 | Oracle ID: 52e77cc3-f8e9-4a20-811b-fe1e46a96ad7
 //! Face: Walk-In Closet — {2}{G} — Enchantment — Room
 //! Face: Forgotten Cellar — {3}{G}{G} — Enchantment — Room
-// PARTIAL — the Room is whole: cast either half and that door enters
-// unlocked; the other is unlocked as a sorcery for its mana cost; a locked
-// door has no rules text. Walk-In Closet plays lands from the graveyard, and
-// Forgotten Cellar's unlock trigger exiles what would reach the graveyard
-// this turn. Its permission to cast spells from the graveyard this turn is
-// the one clause missing: that is the library group's graveyard-cast
-// machinery (`casting::graveyard_cast_permission` on c42/cards-library),
-// which casts permanent spells only, and is not on this branch.
+// The Room is whole: cast either half and that door enters unlocked; the
+// other is unlocked as a sorcery for its mana cost; a locked door has no
+// rules text. Walk-In Closet plays lands from the graveyard. Forgotten
+// Cellar's unlock trigger makes two effects for the turn, in printed order:
+// the permission to cast spells from the graveyard
+// (`casting::graveyard_cast_permission`, the one reader Wrenn's emblem and
+// Muldrotha use too) and the replacement that exiles what would reach it.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -39,31 +38,42 @@ card!(
             mana_cost = mana!("{3}{G}{G}"),
             types = TypeSet::ENCHANTMENT,
             subtypes = &[subtypes::enchantment::ROOM],
-            // NOT SUPPORTED: "you may cast spells from your graveyard this turn" — no permission casts every spell from a graveyard for a turn; the library group's `CastPermanentSpellsFromGraveyard` casts permanent spells only.
             abilities = &[triggered!(
                 Trigger::UnlockThisDoor(1),
-                &[Effect::continuous(
-                    &Filter::Any,
-                    Modifier::ExileInsteadOfYourGraveyard,
-                    Duration::UntilEndOfTurn
-                )]
+                &[
+                    Effect::continuous(
+                        &Filter::Any,
+                        Modifier::CastSpellsFromGraveyard,
+                        Duration::UntilEndOfTurn
+                    ),
+                    Effect::continuous(
+                        &Filter::Any,
+                        Modifier::ExileInsteadOfYourGraveyard,
+                        Duration::UntilEndOfTurn
+                    ),
+                ]
             )],
         ),
     ],
-    coverage = Coverage::Partial(
-        "Forgotten Cellar's \"you may cast spells from your graveyard this turn\": nothing grants casting every spell from a graveyard for a turn (the library group's graveyard-cast permission casts permanent spells only)"
-    ),
+    coverage = Coverage::Implemented,
     // Both doors unlocked (CR 709.5): both halves' rules text, the left
     // half's first.
     abilities = &[
         static_ability!(Filter::Any, Modifier::PlayLandsFromGraveyard),
         triggered!(
             Trigger::UnlockThisDoor(1),
-            &[Effect::continuous(
-                &Filter::Any,
-                Modifier::ExileInsteadOfYourGraveyard,
-                Duration::UntilEndOfTurn
-            )]
+            &[
+                Effect::continuous(
+                    &Filter::Any,
+                    Modifier::CastSpellsFromGraveyard,
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::Any,
+                    Modifier::ExileInsteadOfYourGraveyard,
+                    Duration::UntilEndOfTurn
+                ),
+            ]
         ),
     ],
 );

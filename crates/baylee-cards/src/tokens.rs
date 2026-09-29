@@ -22,7 +22,8 @@
 //! token on the battlefield was inert whatever its name said.
 
 use baylee_cards_dsl::{
-    AbilityDef, Effect, Filter, KeywordSet, TokenDef, activated, cost, mana_ability,
+    AbilityDef, Effect, Filter, KeywordSet, Modifier, PtCount, TokenDef, Trigger, activated, cost,
+    mana_ability, static_ability, triggered,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{artifact, creature};
@@ -173,6 +174,31 @@ pub static CONSTRUCT_ARTIFACT_0_0: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// "This token's power and toughness are each equal to the number of
+/// creatures you control." A characteristic-defining ability (CR 604.3),
+/// applied in layer 7a; the token counts itself.
+static POWER_IS_CREATURES_YOU_CONTROL: &[AbilityDef] = &[static_ability!(
+    Filter::This,
+    Modifier::CharacteristicPT {
+        count: PtCount::YouControl(&Filter::CREATURE),
+        toughness_plus: 0,
+    }
+)];
+
+/// Green and white Elemental whose power and toughness are each the number
+/// of creatures its controller controls (Voice of Resurgence). It prints
+/// `*/*`, so it has no base size: the ability is the whole of it.
+pub static ELEMENTAL_X_X_GREEN_WHITE: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Green, Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    abilities: POWER_IS_CREATURES_YOU_CONTROL,
+    // 2XM #20, Voice of Resurgence's own set.
+    scryfall_id: "8676704a-419e-4a00-a052-bca2ad34ecae",
+    ..TokenDef::DEFAULT
+};
+
 /// Colorless Food artifact: `{2}, {T}, Sacrifice this artifact: You gain
 /// 3 life.`
 pub static FOOD: TokenDef = TokenDef {
@@ -182,6 +208,28 @@ pub static FOOD: TokenDef = TokenDef {
     abilities: SACRIFICE_TO_GAIN_LIFE,
     // ELD #15, the set that introduced Food.
     scryfall_id: "bf36408d-ed85-497f-8e68-d3a922c388a0",
+    ..TokenDef::DEFAULT
+};
+
+/// `Whenever this creature attacks, create a Treasure token.` (the Goblin
+/// Shaman below)
+static ATTACKS_FOR_TREASURE: &[AbilityDef] = &[triggered!(
+    Trigger::Attacks(&Filter::This),
+    &[Effect::CreateToken { token: &TREASURE }]
+)];
+
+/// 2/2 red Goblin Shaman with "Whenever this creature attacks, create a
+/// Treasure token." (Fable of the Mirror-Breaker's chapter I)
+pub static GOBLIN_SHAMAN_2_2_RED: TokenDef = TokenDef {
+    name: "Goblin Shaman",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GOBLIN, creature::SHAMAN],
+    power: Some(2),
+    toughness: Some(2),
+    abilities: ATTACKS_FOR_TREASURE,
+    // TNEO #8, the token Fable of the Mirror-Breaker's own printing names.
+    scryfall_id: "0d9461c3-f545-4efb-926e-759961db0495",
     ..TokenDef::DEFAULT
 };
 

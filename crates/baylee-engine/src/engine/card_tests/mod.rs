@@ -168,6 +168,41 @@ fn karn_the_great_creator() -> CardIndex {
     card_index("a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1")
 }
 
+fn spark_double() -> CardIndex {
+    card_index("8dcb35e5-ae44-455f-86e3-4a77d496ff34")
+}
+
+fn dig_through_time() -> CardIndex {
+    card_index("f8b17b89-26ce-4208-874a-9e1d66514640")
+}
+
+/// Casts the Spark Double in `seat`'s hand off everything that seat can tap
+/// and has it enter as a copy of `original`, a permanent that seat controls.
+/// Answers the copy, which is still Spark Double's card.
+#[track_caller]
+fn spark_double_copying(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    original: ObjectId,
+) -> ObjectId {
+    cast_from_hand(engine, seat, spark_double());
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: vec![original],
+            },
+        )
+        .expect("the Double may copy it");
+    pass_until(engine, |e| {
+        on_battlefield(e, seat, spark_double()).is_some() && stack_is_empty(e)
+    });
+    on_battlefield(engine, seat, spark_double()).expect("the copy entered")
+}
+
 fn chromatic_lantern() -> CardIndex {
     card_index("539f5396-d99a-417d-a84c-dff7930b5900")
 }
@@ -697,6 +732,70 @@ fn reveal_on_entry(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: Ob
             },
         )
         .expect("a card the entry question put on the menu is a legal answer");
+}
+
+/// What the player holding priority may do now.
+#[track_caller]
+fn priority_offer(engine: &Engine<RegistryLookup>) -> crate::choice::LegalActions {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    *legal
+}
+
+/// Casts the object `card` (wherever it is) off floating mana and lets it
+/// resolve.
+#[track_caller]
+fn cast_object_and_resolve(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: ObjectId) {
+    engine
+        .apply(seat, PlayerAction::CastSpell { card })
+        .expect("the offer listed the card");
+    pass_until(engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(card).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "the permanent spell resolved"
+    );
+}
+
+/// Puts `card` from `seat`'s hand on top of its library, the harness way.
+fn hand_to_library_top(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> ObjectId {
+    hand_to(engine, seat, card, ZoneLocation::Library(seat))
+}
+
+/// Puts `card` from `seat`'s hand into its graveyard, the harness way, and
+/// refreshes the offer the graveyard is now part of.
+fn hand_to_graveyard(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> ObjectId {
+    let id = hand_to(engine, seat, card, ZoneLocation::Graveyard(seat));
+    engine.refresh_offer();
+    id
+}
+
+fn hand_to(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+    to: ZoneLocation,
+) -> ObjectId {
+    let id = in_hand(engine, seat, card).expect("the card starts in hand");
+    engine
+        .state
+        .move_object(
+            id,
+            to,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("the harness moves a card");
+    id
 }
 
 /// Plays `card` out of `seat`'s hand and answers with the object it became.
@@ -3239,6 +3338,63 @@ fn song_mad_treachery() -> CardIndex {
     card_index("81b61770-2ed5-4a50-84d0-97790002fc5a")
 }
 
+fn restoration_angel() -> CardIndex {
+    card_index("dfbd3afc-9905-4cff-a4f4-df08a4d0a7fa")
+}
+
+fn werefox_bodyguard() -> CardIndex {
+    card_index("d5ee2ced-29f4-430f-962e-2f930b92624c")
+}
+
+/// `thief` casts Song-Mad Treachery on `victim` off five Mountains it
+/// controls, and it resolves: a real layer-2 `GainControl` until end of turn
+/// over the owner's own default, which is what a stolen creature is. The
+/// board's other lands stay untapped for whatever the test casts next.
+#[track_caller]
+fn steal_with_song_mad_treachery(
+    engine: &mut Engine<RegistryLookup>,
+    thief: PlayerId,
+    victim: ObjectId,
+) {
+    let mountains: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == thief && o.card.is_some_and(|c| c.index == mountain())
+            })
+        })
+        .collect();
+    assert_eq!(
+        mountains.len(),
+        5,
+        "{{3}}{{R}}{{R}} is paid by five Mountains"
+    );
+    tap_mana_where(engine, thief, |id| mountains.contains(&id));
+    cast_front_face(engine, thief, song_mad_treachery());
+    engine
+        .apply(
+            thief,
+            PlayerAction::ChooseObjects {
+                objects: vec![victim],
+            },
+        )
+        .expect("the victim is a legal target");
+    pass_until(engine, stack_is_empty);
+    let obj = engine
+        .state()
+        .object(victim)
+        .expect("the victim is still there");
+    assert_eq!(
+        (obj.controller, obj.base_controller),
+        (thief, obj.owner),
+        "stolen by a layer-2 effect, over its owner's own default"
+    );
+}
+
 fn suppression_ray() -> CardIndex {
     card_index("b592568b-11b0-4081-90a7-30cfb9c1ba80")
 }
@@ -5325,4 +5481,45 @@ fn rampant_growth() -> CardIndex {
 
 fn despotic_scepter() -> CardIndex {
     card_index("34a85d7f-d4ea-4a0f-aa4c-bf0b0f4987bf")
+}
+
+fn farewell() -> CardIndex {
+    card_index("4eb813fd-2d5a-4b02-8193-662681ef4e7d")
+}
+
+fn final_showdown() -> CardIndex {
+    card_index("7e7ec3d6-a84f-4cc3-93f4-4d181d41e126")
+}
+
+fn three_steps_ahead() -> CardIndex {
+    card_index("282dfeaa-6243-4f92-838a-5cb54fa85184")
+}
+
+/// An artifact creature with flying and indestructible, printed.
+fn darksteel_gargoyle() -> CardIndex {
+    card_index("73010421-374f-458e-aa88-248ef8ae4f8b")
+}
+
+/// Answers the cast-mode question of a spell that chooses several modes
+/// with the set `set` names (bit `i` is mode `i`), as a player presses its
+/// row, and returns every row that was offered.
+#[track_caller]
+fn choose_modes(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    set: u8,
+) -> Vec<crate::choice::CastModeDesc> {
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the modes, got {:?}", engine.pending())
+    };
+    assert_eq!(player, seat, "the caster chooses the modes");
+    let slot = options
+        .iter()
+        .position(|o| o.kind == CastModeKind::Modes(set))
+        .unwrap_or_else(|| panic!("{set:#b} is not offered: {options:?}"));
+    engine.apply(seat, PlayerAction::ChooseMode(slot)).unwrap();
+    options
 }

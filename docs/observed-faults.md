@@ -3284,3 +3284,208 @@ re-check (#116) asks. The header names that half as well — "effects **and
 targets**" — and it wants its own pass: the target list is read at 73 sites
 in the engine and converted once in `baylee-gamehost`'s view, where the
 effect filter was nine sites and two readers.
+
+### 60. Restoration Angel handed a stolen creature back to its owner — FIXED
+
+Reported from play: Restoration Angel ("…then return that card to the
+battlefield under your control") on a creature the owner controlled and an
+opponent owned. The creature came back under the opponent's control.
+
+`Effect::Blink` had no field for who gets the card, and its resolver set every
+returned card's controller to its owner, citing CR 610.3c. That rule is about a
+card returned by a second one-shot effect after an "until" event, and an
+immediate blink is not one. What returns is a new object (CR 400.7), so the
+steal no longer reaches it, and it enters under the player the sentence names
+(CR 110.2a). The first half of the fault is in `docs/llm-learnings.md`: an
+earlier pass recorded "blink family returns under OWNER's control" as a rules
+fix.
+
+**Fixed as the DSL, not as a rule.** `Blink { target, owner_control }` takes
+the field `GraveyardToBattlefield` already had, spelled with two verbs:
+`blink_to_owner` for Ephemerate, Soulherder and Emiel, and `blink_to_you` for
+Restoration Angel, Aminatou's −1 and Sword of Hearth and Home. The last two
+were right only because their targets must be owned by you. Only control
+changes: the Elves Restoration Angel keeps still belong to seat 1, die into
+seat 1's graveyard, are not "a permanent you own" to Aminatou, and leave the
+game with seat 1 (CR 108.3, 400.3, 800.4a). A blink "under your control" for a
+player who has left leaves the card in exile (CR 800.4b), as reanimation does.
+The tests are `resolve::zones::arrival_control_tests` and the card tests for
+Restoration Angel and Ephemerate. The rule tests and the Angel's failed on the
+old resolver.
+
+**Three arrivals wrote no controller at all**, and the blink made that
+reachable. A card that is put onto the battlefield without `set_controller`
+keeps the default it last had there, and `blink_to_you` now leaves that
+default with a player who is not the owner. The three are fixed where the card
+arrives, and each has a test that failed first:
+
+- `ReturnLinkedToBattlefield` (Endless Sands, Safe Haven: "under its owner's
+  control") now uses the owner. Before, a kept creature exiled by Endless
+  Sands came back to the player who had kept it.
+- The monarch release in `GameState::set_monarch` (Palace Jailer, CR 610.3c)
+  now uses the owner.
+- `put_found` (Coiling Oracle: "put it onto the battlefield") now uses the
+  revealing player (CR 110.2a).
+
+**The sweep.** These are every effect that puts an object onto the
+battlefield, checked against the printed text of the pool cards that use
+them:
+
+| Effect | Engine's controller | Verdict |
+|---|---|---|
+| `Blink` | the field | fixed (above) |
+| `GraveyardToBattlefield` (`reanimate`, `return_to_owner_with`) | the field | matches: every reanimation spell ("your" or silent), Kenrith's and Enduring Vitality's "owner's", undying and persist |
+| `AllGraveyardCreaturesToBattlefield` | you | matches (The True Scriptures III) |
+| `ExileAndReturnAtEndStep` (delayed return) | owner | matches Eerie Interlude and Twining Twins. Venser +2 and Charming Prince print "your", and are right only because the target must be owned by you |
+| `ReturnLinkedToBattlefield`, monarch release | owner | fixed (above) |
+| `ExileSelfReturnAsFace` | owner | **not fixed**, see below |
+| `SearchLibrary*` to battlefield, `PutFromHandOntoBattlefield` | the receiver / you | matches, Bribery included |
+| `RevealTopAndSort` (`put_found`) | the revealer | fixed (above) |
+| token creation and token copies | you, or the target's controller / the linked card's owner where printed | matches |
+| earthbend (CR 701.66a "under your control") | nothing to judge | no engine path yet: Badgermole Cub and Ba Sing Se leave the return NOT SUPPORTED |
+
+No reader emits any of these from a card script with a control parameter.
+`scriptgen` has no Graveyard→Battlefield or exile-and-return pair and refuses
+`GainControl$`, so no machine-owned card needed a reader fix.
+
+**Commander (CR 903.9): nothing to fix.** CR 903.9b replaces a move to a hand
+or a library, and exile is neither. CR 903.9a is a state-based action, and a
+blink exiles and returns inside one resolution, so no check sees the
+commander in exile (`commander_tests::a_blinked_commander_returns_…` pins it).
+
+**Found and not fixed:**
+
+- `ExileSelfReturnAsFace` always returns under the owner. That is right for
+  Sheoldred's `{4}{B}` and the three Ojer dies triggers ("its owner's"). It is
+  wrong on a stolen permanent for Golden Guardian, Conqueror's Galleon,
+  Journey to Eternity's self-return, Fable of the Mirror-Breaker III and
+  Welcome to … III ("under your control"), for The True Scriptures III's
+  silent "return it to the battlefield" (CR 110.2a), and for the "transform
+  this" cards it stands in for, since a transform keeps its controller. Golden
+  Guardian stolen with Song-Mad Treachery shows it. The fix is the same field,
+  but it touches 26 hand-owned cards, and `c42/cards-library` is rewriting
+  Fable, so it waits for its own branch.
+- Werefox Bodyguard (`Implemented`) never returns what it exiles "until this
+  creature leaves the battlefield": nothing returns a linked card when its
+  host leaves. Fixed in 61.
+- `set_monarch` releases every linked exile, not only Palace Jailer's. That
+  includes Skyclave Apparition's permanent one, and it tests "not the host's
+  controller" rather than "an opponent". Fixed in 61.
+- Crib Swap's `CreateTokenForTargetController` reads `controller` off the
+  exiled card. The stale value is the right last-known controller until a
+  cross-zone effect re-projects exile. Fixed in 61, with its sibling
+  `PlayerRel::ControllerOfTarget`.
+
+### 61. An exile "until" something happens never ended, or ended for the wrong card — FIXED
+
+Three faults from entry 60's sweep, and one cause behind the first two:
+`Effect::ExileLinked` said nothing about how long the card stays exiled.
+
+**Werefox Bodyguard kept its prisoner for good.** "Exile up to one other
+target non-Fox creature until this creature leaves the battlefield" was
+written as a plain linked exile, and nothing returns a linked card when its
+host leaves. The card was green and wrong: the card tests only looked at the
+exile.
+
+**`set_monarch` ended every linked exile.** Palace Jailer's "until an
+opponent becomes the monarch" was read at the crown, but without a way to
+tell the Jailer's exile from any other, it released every card linked to a
+host whose controller was not the new monarch. Skyclave Apparition's
+permanent exile walked out with the Jailer's. It also asked "not the host's
+controller" instead of "an opponent of the player who exiled": a stolen
+Jailer kept its prisoner when the thief was crowned, and a Jailer that had
+left the arena never released anything.
+
+The fix is one field and one way back. `ExileLinked { target, until:
+Option<ExileUntil> }`, spelled `Effect::exile_linked` and
+`Effect::exile_until` (`docs/card-dsl.md`). The rider records the end as
+`LinkUntil` (two bytes, so `GameObject` stays in its footprint budget): the
+host leaving, or an opponent of the exiling ability's controller becoming the
+monarch. Every return goes through `GameState::return_linked`, under the
+card's owner's control (CR 610.3c): `ReturnLinkedToBattlefield`,
+`set_monarch`, and the host leaving. The return is the second one-shot effect
+of CR 610.3, not a trigger, so it is done at the event:
+`GameState::move_object` returns what a departing permanent held before it
+returns, and `sba::eliminate_player` does the same for a host that leaves the
+game without a move (CR 800.4a). At resolution an exile "until the source
+leaves" does nothing when the source has already left, including when it
+left while the ability waited and came back as a new object (CR 610.3a,
+610.3b). The stack object records that departure in `source_power_lki`.
+
+**"Its controller" read a card in exile.** Crib Swap ("Exile target
+creature. Its controller creates …") and every card whose second sentence is
+`PlayerRel::ControllerOfTarget` (Swords to Plowshares, Path to Exile,
+Solitude, Assassin's Trophy and more) read `controller` off the target after
+the first sentence had moved it. Nothing controls a card in exile. The field
+held whatever the last refresh left, and a refresh that reaches every zone
+(any effect whose filter names another zone, such as Past in Flames) settles
+it to the card's default. After a steal, that default is the player it was
+stolen from. Both now read `GameState::last_known_controller`, the
+controller the object had as it last existed on the battlefield (CR 608.2h),
+which `PlayerRel::ControllerOfEvent` already read inline.
+
+**The link outlived the exile.** A card keeps its riders through every
+move, and the link was one of them. A card cast out of Safe Haven's exile
+and later exiled by Swords to Plowshares was still "exiled with" Safe Haven,
+and came back when Safe Haven was sacrificed. A card that leaves exile is a
+new object with no relation to the exile it left (CR 400.7).
+`GameState::move_object` now drops `Rider::Linked` as a card leaves exile
+(not on a move from exile to exile).
+
+**The crown stayed with a player who had left.** Nothing implemented
+CR 724.4, so the monarch kept the designation after leaving the game. No
+creature could take it with combat damage (CR 724.2) from a player who was no
+longer there, and Palace Jailer's prisoner stayed exiled until some other
+card made an opponent the monarch.
+`sba::eliminate_player` now passes the crown as the monarch leaves
+(`GameState::monarch_leaves`): to the active player, or, when the leaver is
+the active player, to the next player in turn order still in the game, and
+to nobody when nobody is left. It goes through `set_monarch`, so the
+Jailer's exile ends if the heir is an opponent of the player who exiled.
+
+Not done: CR 610.3b for Palace Jailer. If an opponent becomes the monarch
+between the trigger and its resolution, the creature is still exiled. Nothing
+records that the crown moved in between. And players who lose in the same
+state-based check leave one after the other (`sba::run` walks the seats), so
+the crown can pass through a player who is about to leave on its way to the
+heir. At a table with teams, a Jailer's exile can end on that passage when it
+would not have at the heir.
+
+**Everything else a card was in exile outlived the exile too.** The link was
+one of eight riders that say what a card is in exile, and none of them was
+dropped as the card left. Their readers ask "in exile, with this rider", which
+a card exiled again by something else passes. Twining Twins cast as Swift
+Spiral, cast from exile, and later exiled by Swords to Plowshares was castable
+from exile every turn after (CR 715.3d gives the permission "for as long as
+that card remains exiled"). A suspended card that was cast, resolved, and was
+exiled from the graveyard by Bojuka Bog kept its suspend mark and no time
+counter, and the upkeep countdown cast it for free again. Before widening the
+rule, every reader was checked: none of `Suspend`, `Rebound`, `Foretold`,
+`Plotted`, `Adventure`, `PlayableFromExileFor` or `ExiledWith` is read
+anywhere but in exile (`Rebound`, `Foretold` and `Plotted` are read nowhere
+at all; the rebound re-cast is a delayed trigger keyed on the card's version).
+`Rider::ends_as_it_leaves_exile` names all eight, with the five that are about
+the stack or the battlefield on the other side, and `move_object` drops the
+eight as the card leaves exile.
+
+Tests, each failing on the old behaviour: `card_tests::creatures::`
+`werefox_bodyguard_holds_a_creature_until_it_leaves_the_battlefield`,
+`werefox_bodyguard_gone_before_its_trigger_resolves_exiles_nothing` and
+`palace_jailer_frees_its_prisoner_when_an_opponent_is_crowned_and_skyclave_keeps_its_own`.
+Seven rule tests in `resolve::zones::arrival_control_tests`: the host dies,
+is blinked or leaves the game; the host has left, or was blinked, before the
+exile; only the monarch's exile ends; a stolen Jailer still waits. Two more:
+`resolve::tokens::tests::its_controller_is_the_one_the_creature_had_on_the_battlefield`
+and `resolve::controller_of_target_tests::its_controller_is_the_one_it_had_on_the_battlefield`.
+The follow-ups, each failing on the old behaviour:
+`card_tests::lands::a_card_cast_out_of_safe_havens_exile_and_exiled_again_stays_exiled`,
+`resolve::zones::arrival_control_tests::a_card_that_left_exile_is_no_longer_exiled_with_its_old_host`
+and `a_card_that_left_exile_does_not_come_back_as_its_old_host_leaves`;
+`card_tests::creatures::a_monarch_who_leaves_crowns_the_active_player_and_frees_the_jailers_prisoner`
+(three seats) and `sba::tests::the_crown_passes_as_the_monarch_leaves_the_game`
+(four seats). For the other riders:
+`cast_face_tests::a_card_cast_off_its_adventure_and_exiled_again_is_not_castable_from_exile`,
+`card_tests::sorceries::a_suspended_card_that_resolved_and_was_exiled_again_is_not_cast_again`
+and `resolve::zones::arrival_control_tests::what_a_card_was_in_exile_ends_as_it_leaves_exile`.
+`cast_face_tests::the_adventure_is_not_offered_again_from_the_exile_it_was_cast_into`
+held the stale rider as its premise and now holds that it is gone.

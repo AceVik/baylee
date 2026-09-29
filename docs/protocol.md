@@ -505,8 +505,10 @@ kernel's encoding. That is **`VIEW_VERSION` 9 → 11**, two bumps in one night:
 10 added the field and 11 added the slot to it.
 
 Two functions rather than a third copy of the rule. `effects::granted_activated`
-is the engine's own lookup: `legal_actions` offers the ability through it,
-`start_granted` runs it, and `crates/baylee-gamehost/src/view.rs` projects it.
+is the engine's own lookup: `legal_actions` offers the ability through it
+(as `granted_activated_among` over `effects::grants`, the same walk over the
+table's granting effects collected once per offer), `start_granted` runs it,
+and `crates/baylee-gamehost/src/view.rs` projects it.
 `baylee_cards_dsl::simple_mana` is the reading — free cost, a single `AddMana`,
 a fixed amount, no restriction — and the client's `manasources` asks it of a
 *printed* mana ability. An offer and a projection that disagreed would be a

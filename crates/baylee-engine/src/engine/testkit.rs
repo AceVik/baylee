@@ -1299,8 +1299,12 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             // for the rest of the game and bank it a counter every upkeep.
             // Every other card question here is "choose one", where
             // choosing nothing exercises nothing.
+            // Crew is the other: one creature may be short of the total, and
+            // every creature offered is the answer most likely to reach it.
             let want = if prompt == crate::choice::ChoicePrompt::LeaveTapped {
                 0
+            } else if matches!(prompt, crate::choice::ChoicePrompt::CostCrew { .. }) {
+                usize::from(max)
             } else {
                 usize::from(min).max(1).min(usize::from(max))
             };
@@ -1377,6 +1381,9 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             (player, PlayerAction::ChooseMode(first.index as usize))
         }
         Pending::ChooseNumber { player, min, .. } => (player, PlayerAction::ChooseNumber(min)),
+        // The first pile: the opponent's answer made it, so it is a real
+        // pile, and it may be empty, which is still a legal answer.
+        Pending::ChoosePile { player, .. } => (player, PlayerAction::ChooseMode(0)),
         Pending::YesNo { player, .. } => (player, PlayerAction::YesNo(true)),
         Pending::Arrange {
             player,

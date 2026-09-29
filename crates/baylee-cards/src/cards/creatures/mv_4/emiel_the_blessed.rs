@@ -40,7 +40,7 @@ card!(
     coverage = Coverage::Partial("the entering-creature counter trigger is not written"),
     abilities = &[activated!(
         cost!("{3}"),
-        &[Effect::blink(TargetSpec::Object(
+        &[Effect::blink_to_owner(TargetSpec::Object(
             &Filter::ANOTHER_CREATURE_YOU_CONTROL
         ))],
         target = Some(TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL))
@@ -48,7 +48,7 @@ card!(
 );
 
 // Engine-level coverage belongs in `card_tests`: this is the pool's first
-// `Effect::blink` on an *activated* ability — the five that exist hang off a
+// `Effect::Blink` on an *activated* ability — the five that exist hang off a
 // spell, a trigger or a loyalty cost — so the test is `{3}` paid, another
 // creature you control chosen through `AbilityDef::Activated.target`, and
 // that creature leaving and re-entering the battlefield (a fresh object, its

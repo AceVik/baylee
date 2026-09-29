@@ -3,9 +3,9 @@
 //! Oracle: Lumra's power and toughness are each equal to the number of lands you control.
 //! Oracle: When Lumra enters, mill four cards. Then return all land cards from your graveyard to the battlefield tapped.
 //! Set: BLB #183 — Bloomburrow | Scryfall ID: ae4f3aaf-3960-48cd-b34b-32e4ae5ae088 | Oracle ID: 97a84e9d-bfc4-4ca2-b1e8-908dba56ccdb
-// IMPLEMENTED — reach and vigilance; the P/T clause as a per-land +1/+1 modifier
-// over the 0/0 body the stub carries; and the enters trigger's mill four. The
-// trigger's second sentence is dropped, so the card is `Coverage::Partial`.
+// IMPLEMENTED — reach and vigilance; a characteristic-defining P/T over the
+// lands its controller controls (CR 604.3, layer 7a); and the enters trigger:
+// mill four, then every land card in the graveyard returns tapped.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -26,36 +26,31 @@ card!(
         toughness = Some(0),
     ),],
     keywords = KeywordSet::REACH.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Partial(
-        "\"Then return all land cards from your graveyard to the battlefield tapped\" is dropped: the \
-         only graveyard-to-battlefield effects are single-target (`GraveyardToBattlefield`) or \
-         creatures over every graveyard (`AllGraveyardCreaturesToBattlefield`), and nothing the DSL \
-         moves arrives tapped. The P/T clause is a layer-7a characteristic-defining ability, which no \
-         `Modifier` sets; it is spelled as the layer-7c `Modifier::ModifyPTPerCount`, which is the \
-         printed number on the 0/0 body the stub carries and comes out different under a layer-7b \
-         effect that sets power and toughness",
-    ),
+    coverage = Coverage::Implemented,
     abilities = &[
-        // "Lumra's power and toughness are each equal to the number of lands you control" — one
-        // +1/+1 for each land its controller controls, counted off the 0/0 body above.
+        // "Lumra's power and toughness are each equal to the number of lands
+        // you control."
         static_ability!(
             Filter::This,
-            Modifier::ModifyPTPerCount {
-                filter: &Filter::YOUR_LAND,
-                p: 1,
-                t: 1,
+            Modifier::CharacteristicPT {
+                count: PtCount::YouControl(&Filter::YOUR_LAND),
+                toughness_plus: 0,
             }
         ),
-        // "When Lumra enters, mill four cards."
+        // "When Lumra enters, mill four cards. Then return all land cards
+        // from your graveyard to the battlefield tapped."
         triggered!(
             Trigger::ETB,
-            &[Effect::Mill {
-                amount: Amount::Fixed(4),
-                target: PlayerRel::You,
-            }]
+            &[
+                Effect::Mill {
+                    amount: Amount::Fixed(4),
+                    target: PlayerRel::You,
+                },
+                Effect::YourGraveyardToBattlefield {
+                    filter: &Filter::LAND,
+                    tapped: true,
+                },
+            ]
         ),
-        // NOT SUPPORTED: "Then return all land cards from your graveyard to the battlefield tapped."
-        // No `Effect` moves every card matching a filter out of a graveyard, and no destination the
-        // DSL can name enters the battlefield tapped.
     ],
 );

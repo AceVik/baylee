@@ -167,6 +167,7 @@ fn consumes(cost: &Cost) -> bool {
             // it is the *board* that shrinks rather than the source — which
             // is the same limit, read one permanent over.
             | CostPart::TapOther(_)
+            | CostPart::Crew(_)
             // A permanent returned to a hand leaves the battlefield, so the
             // board shrinks the same way — more so than a tap, which leaves
             // the permanent where it was.
@@ -205,6 +206,7 @@ fn gives_up_a_card(cost: &Cost) -> bool {
         | CostPart::PutCounterSelf { .. }
         // A tapped creature stays where it is.
         | CostPart::TapOther(_)
+        | CostPart::Crew(_)
         // A returned permanent comes back to hand, not to the graveyard.
         | CostPart::ReturnToHand(_)
         // A card already in the graveyard is the cheapest there is.
@@ -228,6 +230,7 @@ fn gains(effect: &Effect) -> bool {
     matches!(
         effect,
         Effect::SearchLibrary { .. }
+            | Effect::SearchLibraryUpTo { .. }
             | Effect::DrawCards { .. }
             | Effect::Scry { .. }
             | Effect::CreateToken { .. }

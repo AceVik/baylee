@@ -102,6 +102,70 @@ struct PaymentWindow {
 enum PaymentContinuation {
     Tax(Box<crate::resolve::Resolution>),
     Pact(baylee_core::mana::ManaCost),
+    /// "You may cast that card" said yes to (CR 608.2g): the mana is made
+    /// here, and passing casts the card out of the pool.
+    Cast {
+        /// The card.
+        card: ObjectId,
+        /// Its identity when it was targeted (CR 400.7).
+        version: u32,
+        /// Its mana cost, which is what the window shows as owed.
+        cost: baylee_core::mana::ManaCost,
+        /// "If you do, you can't cast additional spells this turn."
+        then_no_more_spells: bool,
+    },
+}
+
+/// What an answer moves as it *arrives*, and what an activation writes on
+/// its way to a refusal: the fields [`Engine::apply`] puts back when it
+/// refuses.
+///
+/// The watch for endless loops and its two latches move before anything can
+/// tell whether the answer will be taken. The activation family is the
+/// checklist's scratch space (CR 602.2b, 601.2b–h): `start_activation` fills
+/// it a step at a time and checks the next step after filling the last, so a
+/// press refused at its second target has already read its ability list and
+/// marked its first target answered. Put back here rather than cleared at
+/// each of those refusals, because a list of places to clear is one that
+/// misses the next refusal someone adds.
+struct Held {
+    action_loops: crate::loops::LoopWatch,
+    breaking_loop: bool,
+    awaiting_answer: bool,
+    activation_target_players: Vec<PlayerId>,
+    activation_cost_choices: Vec<ObjectId>,
+    activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
+    activation_targets_answered: bool,
+    activation_x: Option<u32>,
+    activation_graveyard: Option<PlayerId>,
+    activation_phyrexian: Vec<bool>,
+    activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
+    loyalty_player_choice: Option<PlayerId>,
+}
+
+/// Every field of an [`Engine`], one entry each, in declaration order
+/// ([`Engine::fingerprint`]). Equal prints are an engine nobody can tell
+/// apart from the other; [`Fingerprint::differing`] names the fields that
+/// are not.
+#[cfg(any(test, feature = "fuzz"))]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Fingerprint(Vec<(&'static str, String)>);
+
+#[cfg(any(test, feature = "fuzz"))]
+impl Fingerprint {
+    /// The names of the fields whose prints differ, in declaration order;
+    /// empty for two equal prints. Both prints must be the same kind (two
+    /// whole or two light ones): a light one reads its left-out fields as
+    /// empty.
+    #[must_use]
+    pub fn differing(&self, other: &Self) -> Vec<&'static str> {
+        self.0
+            .iter()
+            .zip(&other.0)
+            .filter(|(a, b)| a.1 != b.1)
+            .map(|(a, _)| a.0)
+            .collect()
+    }
 }
 
 /// A deterministic, self-contained game of Magic.
@@ -245,6 +309,19 @@ pub struct Engine<L: CardLookup> {
     /// over: a stale answer here would pay the *next* activation's cost with
     /// the last one's number and never ask again.
     activation_x: Option<u32>,
+    /// The graveyard an activation's targets come from, for "target cards
+    /// from a single graveyard" (Unlicensed Hearse): asked as a
+    /// `Pending::ChoosePlayer` before the targets, put here by the answer,
+    /// and taken by the target question it narrows, so it never outlives
+    /// the activation that asked for it.
+    activation_graveyard: Option<PlayerId>,
+    /// How this activation pays its Phyrexian symbols, one answer per
+    /// symbol in the cost's order: `true` is 2 life, `false` its mana
+    /// (CR 107.4f, announced by CR 601.2b through CR 602.2b). Asked after the
+    /// X and before the targets, kept across the re-entries the later
+    /// questions make, and taken when the cost is paid; cleared on a fresh
+    /// press like [`Engine::activation_x`].
+    activation_phyrexian: Vec<bool>,
     /// The ability list the next push to the stack should use instead of
     /// asking the source — read before its cost is paid, or carried on a
     /// trigger that is looking back in time.
@@ -372,6 +449,24 @@ enum PlanKind {
         /// `None` for every other trigger.
         per_opponent: Option<Box<PerOpponent>>,
     },
+    /// A trigger's second instance of "target", asked once the trigger is on
+    /// the stack with its first (Ravager of the Fells).
+    TriggerSecondTarget {
+        /// The triggered ability on the stack.
+        on_stack: ObjectId,
+    },
+    /// A triggered ability's "damage divided as you choose", asked target
+    /// by target once it is on the stack with its targets (CR 601.2d).
+    DivideDamage {
+        /// The triggered ability on the stack.
+        on_stack: ObjectId,
+        /// Its targets, in the order they were chosen.
+        targets: SmallVec<[ObjectId; 2]>,
+        /// The shares given so far, one per target from the first.
+        shares: Vec<u32>,
+        /// The damage divided.
+        total: u32,
+    },
     /// A shockland entry choice (pay life or enter tapped).
     EntryTap {
         /// The entering land.
@@ -457,6 +552,12 @@ enum PlanKind {
         /// The drawn card.
         card: ObjectId,
     },
+    /// A discovered card offered for a cast without paying its mana cost
+    /// (CR 701.57a); no puts it into its owner's hand.
+    Discovered {
+        /// The card, in exile.
+        card: ObjectId,
+    },
     /// A commander offered its way back to the command zone (CR 903.9a).
     CommanderZone {
         /// The commander card, in a graveyard or in exile.
@@ -466,6 +567,10 @@ enum PlanKind {
     SyntheticTriggerTarget {
         /// The queued trigger.
         trigger: crate::trigger::PendingTrigger,
+        /// A reflexive trigger's `TargetSpec::ObjectOfEachOpponent`, asked
+        /// one opponent at a time as the printed path asks it (The Balrog of
+        /// Moria); `None` for the one-object question.
+        per_opponent: Option<Box<PerOpponent>>,
     },
     /// The untap step's own determination (CR 502.3), waiting for the
     /// active player to say which permanents stay tapped.
@@ -504,6 +609,25 @@ enum PlanKind {
     /// re-entry.
     ChooseActivationX {
         /// The permanent whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+    },
+    /// An activation asking which graveyard its targets come from ("target
+    /// cards from a single graveyard"), before it asks for them. Carries
+    /// only the ability, for [`PlanKind::ChooseActivationX`]'s reason.
+    ChooseActivationGraveyard {
+        /// The object whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+    },
+    /// An activation asking whether its next Phyrexian symbol is paid with
+    /// 2 life (yes) or with its mana (no) — asked only where both can be
+    /// paid. Carries only the ability, for [`PlanKind::ChooseActivationX`]'s
+    /// reason: it is asked before the targets.
+    ChoosePhyrexianLife {
+        /// The object whose ability is being activated.
         source: ObjectId,
         /// Ability index.
         ability_index: u32,
@@ -592,6 +716,8 @@ impl<L: CardLookup> Engine<L> {
             activation_targets_answered: false,
             activation_cost_choices: Vec::new(),
             activation_x: None,
+            activation_graveyard: None,
+            activation_phyrexian: Vec::new(),
             activating_abilities: None,
             entry_scan_seq: 0,
             delayed_queue: VecDeque::new(),
@@ -649,7 +775,9 @@ impl<L: CardLookup> Engine<L> {
     pub fn payment_window(&self) -> Option<(PlayerId, baylee_core::mana::ManaCost)> {
         let window = self.mana_window.as_ref()?;
         match &window.suspended {
-            PaymentContinuation::Pact(cost) => Some((window.player, *cost)),
+            PaymentContinuation::Pact(cost) | PaymentContinuation::Cast { cost, .. } => {
+                Some((window.player, *cost))
+            }
             PaymentContinuation::Tax(resolution) => match resolution.awaiting {
                 Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. })
                     if player == window.player =>
@@ -797,6 +925,18 @@ impl<L: CardLookup> Engine<L> {
                     .wrapping_add(u64::from(r.on_stack.slot()))
                     .wrapping_add(u64::from(r.controller.get())),
                 PaymentContinuation::Pact(cost) => crate::state::mana_cost_fingerprint(cost),
+                PaymentContinuation::Cast {
+                    card,
+                    version,
+                    cost,
+                    then_no_more_spells,
+                } => u64::from(card.slot())
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(*version))
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::mana_cost_fingerprint(cost))
+                    .wrapping_mul(2)
+                    .wrapping_add(u64::from(*then_no_more_spells)),
             });
         }
         // A cleanup step's check and its window close differently: nothing
@@ -839,12 +979,252 @@ impl<L: CardLookup> Engine<L> {
         base ^ extra.rotate_left(17)
     }
 
+    /// Every field of the engine but its card lookup, one entry each: what
+    /// to compare before and after an answer the engine refused, which must
+    /// leave nothing behind (`apply`'s promise). Behind the `fuzz` feature
+    /// for a fuzzer that holds the engine to it; the engine's own tests have
+    /// it always.
+    ///
+    /// Not [`Self::snapshot_hash`]: that one is a *replay* comparison, and
+    /// it leaves out on purpose what a replay rebuilds on its own (the
+    /// question being asked, the loop watch, the continuation slots). A
+    /// refused answer is not recorded at all, so the only comparison that
+    /// can say it left nothing is one over everything. The destructuring
+    /// names every field without `..`, so a field added to the engine does
+    /// not compile until it is added here.
+    ///
+    /// Costly: a print of every object, in a long game hundreds of
+    /// kilobytes. [`Self::fingerprint_light`] is the one to take at every
+    /// step.
+    #[cfg(any(test, feature = "fuzz"))]
+    #[must_use]
+    pub fn fingerprint(&self) -> Fingerprint {
+        self.print(true)
+    }
+
+    /// [`Self::fingerprint`] less the three prints that are nearly all of its
+    /// size (the arena, the base-characteristics cache, the names), which
+    /// stand in it as empty entries. Cheap enough for every decision, and
+    /// blind to a refusal that touched only an object.
+    #[cfg(any(test, feature = "fuzz"))]
+    #[must_use]
+    pub fn fingerprint_light(&self) -> Fingerprint {
+        self.print(false)
+    }
+
+    #[cfg(any(test, feature = "fuzz"))]
+    #[allow(clippy::too_many_lines)] // one entry per field, and the list is the point
+    fn print(&self, whole: bool) -> Fingerprint {
+        let Engine {
+            lookup: _,
+            state,
+            pending,
+            house_rules,
+            passes,
+            priority_holder,
+            resolve_next,
+            regrant_priority,
+            mulligans,
+            combat_declared,
+            cleanup,
+            loyalty_used_this_turn,
+            awaiting_answer,
+            resolution,
+            mana_window,
+            trigger_scan_seq,
+            pending_plan,
+            library_action_tops,
+            loyalty_player_choice,
+            activation_target_players,
+            activation_cost_choices,
+            activation_second_targets,
+            activation_targets_answered,
+            activation_x,
+            activation_graveyard,
+            activation_phyrexian,
+            activating_abilities,
+            capabilities,
+            entry_scan_seq,
+            delayed_queue,
+            upkeep_payments,
+            synthetic_fx,
+            cast_wizard,
+            trigger_queue,
+            agreed_draw,
+            automation,
+            breaking_loop,
+            action_loops,
+            loops_broken,
+        } = self;
+        // The fx map in key order: a hash map's own order is not a fact
+        // about the game.
+        let mut fx: Vec<_> = synthetic_fx.iter().collect();
+        fx.sort_by_key(|(id, _)| **id);
+        let mut out = Vec::with_capacity(80);
+        state.fingerprint(whole, &mut out);
+        out.extend([
+            ("pending", format!("{pending:?}")),
+            ("house_rules", format!("{house_rules:?}")),
+            ("passes", format!("{passes:?}")),
+            ("priority_holder", format!("{priority_holder:?}")),
+            ("resolve_next", format!("{resolve_next:?}")),
+            ("regrant_priority", format!("{regrant_priority:?}")),
+            ("mulligans", format!("{mulligans:?}")),
+            ("combat_declared", format!("{combat_declared:?}")),
+            ("cleanup", format!("{cleanup:?}")),
+            (
+                "loyalty_used_this_turn",
+                format!("{loyalty_used_this_turn:?}"),
+            ),
+            ("awaiting_answer", format!("{awaiting_answer:?}")),
+            ("resolution", format!("{resolution:?}")),
+            ("mana_window", format!("{mana_window:?}")),
+            ("trigger_scan_seq", format!("{trigger_scan_seq:?}")),
+            ("pending_plan", format!("{pending_plan:?}")),
+            ("library_action_tops", format!("{library_action_tops:?}")),
+            (
+                "loyalty_player_choice",
+                format!("{loyalty_player_choice:?}"),
+            ),
+            (
+                "activation_target_players",
+                format!("{activation_target_players:?}"),
+            ),
+            (
+                "activation_cost_choices",
+                format!("{activation_cost_choices:?}"),
+            ),
+            (
+                "activation_second_targets",
+                format!("{activation_second_targets:?}"),
+            ),
+            (
+                "activation_targets_answered",
+                format!("{activation_targets_answered:?}"),
+            ),
+            ("activation_x", format!("{activation_x:?}")),
+            ("activation_graveyard", format!("{activation_graveyard:?}")),
+            ("activation_phyrexian", format!("{activation_phyrexian:?}")),
+            ("activating_abilities", format!("{activating_abilities:?}")),
+            ("capabilities", format!("{capabilities:?}")),
+            ("entry_scan_seq", format!("{entry_scan_seq:?}")),
+            ("delayed_queue", format!("{delayed_queue:?}")),
+            ("upkeep_payments", format!("{upkeep_payments:?}")),
+            ("synthetic_fx", format!("{fx:?}")),
+            ("cast_wizard", format!("{cast_wizard:?}")),
+            ("trigger_queue", format!("{trigger_queue:?}")),
+            ("agreed_draw", format!("{agreed_draw:?}")),
+            ("automation", format!("{automation:?}")),
+            ("breaking_loop", format!("{breaking_loop:?}")),
+            ("action_loops", format!("{action_loops:?}")),
+            ("loops_broken", format!("{loops_broken:?}")),
+        ]);
+        Fingerprint(out)
+    }
+
     /// Applies a player's action and advances automatically until the next
     /// decision point.
+    ///
+    /// A refused action leaves the engine exactly as it was. A game record
+    /// keeps only the answers `apply` accepted, so an answer that was refused
+    /// and still moved something is a step no replay can take: the table
+    /// plays on from a state the replay never reaches, and the next recorded
+    /// answer is put to a question it was not given for. That is what a
+    /// refused miracle did to r001's games 1581, 3288 and 3554.
+    ///
+    /// The part of that promise this function keeps itself is [`Held`]: the
+    /// few fields that move before anything can tell whether the answer will
+    /// be taken, put back when it is not. Everything else validates before
+    /// it changes anything (`refusal_tests` holds every field to it).
     ///
     /// # Errors
     /// [`EngineError`] on mismatched/illegal actions.
     pub fn apply(&mut self, player: PlayerId, action: PlayerAction) -> Result<(), EngineError> {
+        let held = self.hold();
+        let result = self.take_answer(player, action);
+        if result.is_err() {
+            self.put_back(held);
+        } else {
+            self.settle_question();
+        }
+        result
+    }
+
+    fn hold(&self) -> Held {
+        Held {
+            action_loops: self.action_loops.clone(),
+            breaking_loop: self.breaking_loop,
+            awaiting_answer: self.awaiting_answer,
+            activation_target_players: self.activation_target_players.clone(),
+            activation_cost_choices: self.activation_cost_choices.clone(),
+            activation_second_targets: self.activation_second_targets.clone(),
+            activation_targets_answered: self.activation_targets_answered,
+            activation_x: self.activation_x,
+            activation_graveyard: self.activation_graveyard,
+            activation_phyrexian: self.activation_phyrexian.clone(),
+            activating_abilities: self.activating_abilities,
+            loyalty_player_choice: self.loyalty_player_choice,
+        }
+    }
+
+    fn put_back(&mut self, held: Held) {
+        let Held {
+            action_loops,
+            breaking_loop,
+            awaiting_answer,
+            activation_target_players,
+            activation_cost_choices,
+            activation_second_targets,
+            activation_targets_answered,
+            activation_x,
+            activation_graveyard,
+            activation_phyrexian,
+            activating_abilities,
+            loyalty_player_choice,
+        } = held;
+        self.action_loops = action_loops;
+        self.breaking_loop = breaking_loop;
+        self.awaiting_answer = awaiting_answer;
+        self.activation_target_players = activation_target_players;
+        self.activation_cost_choices = activation_cost_choices;
+        self.activation_second_targets = activation_second_targets;
+        self.activation_targets_answered = activation_targets_answered;
+        self.activation_x = activation_x;
+        self.activation_graveyard = activation_graveyard;
+        self.activation_phyrexian = activation_phyrexian;
+        self.activating_abilities = activating_abilities;
+        self.loyalty_player_choice = loyalty_player_choice;
+    }
+
+    /// Holds the question about to be handed out to the promise that it has
+    /// an answer.
+    ///
+    /// Every question after the first leaves the engine through here, as
+    /// what an accepted answer left standing (the first is the opening
+    /// mulligan, which `Engine::new` asks and which always has one). So
+    /// this is where a question is *built*, as far as anybody outside can
+    /// tell, and the one place a check sees every builder at once. A counted
+    /// choice is fitted to its options (CR 609.3,
+    /// [`Pending::fit_to_options`]); one that fitting cannot give an answer
+    /// stops the game here, naming the question, instead of stopping the
+    /// table: no seat's answer is taken, and the house's proposal and its
+    /// fallback are both refused (r002 games 368, 2675).
+    fn settle_question(&mut self) {
+        let hand = |player: PlayerId| self.state.zones.list(ZoneLocation::Hand(player)).len();
+        let discardable = match &self.pending {
+            Pending::DiscardChoice { player, count } => usize::from(*count) <= hand(*player),
+            _ => true,
+        };
+        let answerable = self.pending.fit_to_options();
+        assert!(
+            discardable && answerable,
+            "the engine asked a question nothing can answer: {:?}",
+            self.pending
+        );
+    }
+
+    /// [`Self::apply`], less the restoring of what an answer's arrival moved.
+    fn take_answer(&mut self, player: PlayerId, action: PlayerAction) -> Result<(), EngineError> {
         if let PlayerAction::ChooseTargetBatch {
             objects,
             players,
@@ -968,6 +1348,8 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::ActivateAbility { .. }
                         | PlanKind::ActivateAbilitySecondTargets { .. }
                         | PlanKind::ChooseActivationX { .. }
+                        | PlanKind::ChooseActivationGraveyard { .. }
+                        | PlanKind::ChoosePhyrexianLife { .. }
                         | PlanKind::PayActivationCost { .. }
                         | PlanKind::LoyaltyPlayer { .. }
                         | PlanKind::EntryTap { .. }
@@ -1124,9 +1506,13 @@ mod priority_tests;
 #[cfg(test)]
 mod reflexive_tests;
 #[cfg(test)]
+mod refusal_tests;
+#[cfg(test)]
 mod regenerate_tests;
 #[cfg(test)]
 mod resolution_tests;
+#[cfg(test)]
+mod reversal_tests;
 #[cfg(test)]
 mod s3_tests;
 #[cfg(test)]

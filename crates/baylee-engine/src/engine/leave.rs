@@ -127,38 +127,27 @@ impl<L: CardLookup> Engine<L> {
             Pending::ChooseTargets {
                 options,
                 player_options,
-                min,
                 ..
             } => {
                 options.retain(here);
                 player_options.retain(playing);
-                return options.len() + player_options.len() >= usize::from(*min);
             }
-            Pending::ChooseCards {
-                options, min, max, ..
-            } => {
+            Pending::ChooseCards { options, .. } | Pending::LegendChoice { options, .. } => {
                 options.retain(here);
-                let n = u8::try_from(options.len()).unwrap_or(u8::MAX);
-                *min = (*min).min(n);
-                *max = (*max).min(n);
             }
-            Pending::LegendChoice { options, .. } => options.retain(here),
             Pending::ChoosePlayer { options, .. } => options.retain(playing),
-            Pending::Arrange { cards, piles, .. } => {
-                cards.retain(here);
-                // Every card still goes somewhere, and no pile asks for more
-                // than is left once the piles before it have their least.
-                let total = u32::try_from(cards.len()).unwrap_or(u32::MAX);
-                let mut left = total;
+            Pending::ChoosePile { piles, .. } => {
                 for pile in piles {
-                    pile.min = pile.min.min(left);
-                    pile.max = pile.max.min(total);
-                    left -= pile.min;
+                    pile.retain(here);
                 }
             }
+            Pending::Arrange { cards, .. } => cards.retain(here),
             _ => {}
         }
-        true
+        // What is left is asked for no more than it can give: the one clamp
+        // every question is held to (`Pending::fit_to_options`). Only a
+        // target choice left short is this function's caller's to settle.
+        self.pending.fit_to_options() || !matches!(self.pending, Pending::ChooseTargets { .. })
     }
 
     /// A target choice that has lost the options it needed.
@@ -168,7 +157,7 @@ impl<L: CardLookup> Engine<L> {
         // failure path does exactly that when its target stage finds too
         // few, and gives the caster the priority they held.
         if self.cast_wizard.is_some() {
-            let _ = self.advance_cast_wizard();
+            self.continue_cast_wizard();
             return;
         }
         match self.pending_plan.take() {
@@ -259,6 +248,7 @@ impl<L: CardLookup> Engine<L> {
                 finds,
                 reveal,
                 library,
+                split,
             }) = res.awaiting
             && agent == player
             && !self.state.has_left(library)
@@ -269,6 +259,7 @@ impl<L: CardLookup> Engine<L> {
                 reveal,
                 library,
                 receiver: library,
+                split,
             });
             *asked = library;
             return;

@@ -312,6 +312,11 @@ fn answering_the_convoke_question_does_not_ask_it_again() {
 /// test therefore passed, and was wrong to: it asked only for
 /// `Pending::Priority` and never for *whose*, and the answer was the
 /// opponent's. `waterbend_tests` has the reproduction that named the seat.
+///
+/// The answer is no longer refused at all: declining to convoke is what the
+/// question offered, so it is taken, and the reversal is its consequence
+/// (`Engine::continue_cast_wizard`). A refusal that also reversed the cast
+/// was a step no game record could replay.
 #[test]
 fn a_cast_that_cannot_pay_hands_priority_back() {
     let mut engine = Duel::new(4, plains())
@@ -338,32 +343,29 @@ fn a_cast_that_cannot_pay_hands_priority_back() {
         .expect("the spell is castable");
 
     // Answer every question the wizard asks with "nothing", which is legal
-    // for both of them and is what leaves the cost unpayable.
-    let mut refused = None;
+    // for both of them and is what leaves the cost unpayable. The answers
+    // are taken — they are what the questions offered — and the payment
+    // after them is what makes the casting illegal (CR 601.2h), which
+    // returns the game to before the cast (CR 732.1).
     for _ in 0..8 {
         match engine.pending().clone() {
             Pending::ChooseTargets { .. } => {
-                if let Err(err) = engine.apply(
-                    seat,
-                    PlayerAction::ChooseTargets {
-                        objects: vec![],
-                        players: vec![],
-                    },
-                ) {
-                    refused = Some(err);
-                    break;
-                }
+                engine
+                    .apply(
+                        seat,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![],
+                            players: vec![],
+                        },
+                    )
+                    .expect("\"nothing\" is an answer the question offered");
             }
             Pending::Priority { .. } => break,
             other => panic!("unexpected question during the cast: {other:?}"),
         }
     }
-    assert!(
-        refused.is_some(),
-        "the engine paid a cost it had no mana for"
-    );
 
-    // The claim: after the refusal *this* seat is asked something it can
+    // The claim: after the reversal *this* seat is asked something it can
     // answer. Naming the seat is the whole assertion — the first version of
     // this test only asked for `Pending::Priority` and passed while the
     // question went to the opponent, which is the bug it was written to find.
