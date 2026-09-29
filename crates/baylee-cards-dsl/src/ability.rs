@@ -153,6 +153,12 @@ pub enum Condition {
     CountersOnSelf(crate::effect::CounterKind, u8),
     /// The source has EXACTLY N counters of a kind (class level gating).
     CountersOnSelfExactly(crate::effect::CounterKind, u8),
+    /// The source has at least the first number and no more than the second
+    /// of a kind of counter: a leveler's `{LEVEL N1-N2}` band (CR 711.2a,
+    /// "As long as this creature has at least N1 level counters on it, but
+    /// no more than N2 level counters on it"). The open `{LEVEL N3+}` band
+    /// is [`Self::CountersOnSelf`] (CR 711.2b).
+    CountersOnSelfBetween(crate::effect::CounterKind, u8, u8),
     /// A station symbol, `{N+}`: the source has N or more charge counters
     /// on it (CR 721.2a, "As long as this permanent has N or more charge
     /// counters on it, it has [abilities]").

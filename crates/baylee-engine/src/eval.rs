@@ -433,6 +433,9 @@ pub fn condition_holds(
         Condition::CountersOnSelfExactly(kind, n) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) == u16::from(n)),
+        Condition::CountersOnSelfBetween(kind, min, max) => state
+            .object(source)
+            .is_some_and(|o| (u16::from(min)..=u16::from(max)).contains(&o.counters.get(kind))),
         Condition::EnduringStory => state
             .players
             .get(usize::from(you.get()))
@@ -1470,6 +1473,31 @@ mod tests {
             source,
             Condition::CountersOnSelfExactly(kind, 2)
         ));
+    }
+
+    /// A leveler's `{LEVEL N1-N2}` band (CR 711.2a) is closed at both ends:
+    /// Hexdrinker's "LEVEL 3-7" holds at three and at seven and at neither
+    /// two nor eight.
+    #[test]
+    fn a_level_band_holds_at_both_ends_and_not_beyond_them() {
+        let mut state = empty_state();
+        let source = creature(&mut state, P0, KeywordSet::EMPTY);
+        let kind = baylee_cards_dsl::CounterKind::Level;
+        let band = Condition::CountersOnSelfBetween(kind, 3, 7);
+        let mut held = Vec::new();
+        for _ in 0..9 {
+            held.push(condition_holds(&state, P0, source, band));
+            state
+                .object_mut(source)
+                .expect("just made it")
+                .counters
+                .add(kind, 1);
+        }
+        assert_eq!(
+            held,
+            [false, false, false, true, true, true, true, true, false],
+            "levels 0 to 8"
+        );
     }
 
     /// CR 113.7a: an ability is a separate object from its source the

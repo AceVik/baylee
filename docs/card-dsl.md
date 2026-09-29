@@ -668,8 +668,9 @@ ability there was.
 not activation-specific — it was called `ActivationCondition` after its one
 reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
 `OpponentGraveyardCountAtLeast(n)` is Sheoldred's flip,
-`CountersOnSelf(kind, n)` and `CountersOnSelfExactly(kind, n)` read the
-permanent the ability is printed on, `SourceMatches(&filter)` points a
+`CountersOnSelf(kind, n)`, `CountersOnSelfExactly(kind, n)` and
+`CountersOnSelfBetween(kind, lo, hi)` read the permanent the ability is
+printed on, `SourceMatches(&filter)` points a
 filter back at that permanent — "if this land is tapped" — and
 `Any(&[..])` holds while **one** of the conditions it names does. One
 reader answers all of them, `eval::condition_holds`.
@@ -718,6 +719,14 @@ the effect exists only while it holds (the engine registers and removes it),
 and on a triggered ability it decides whether the ability triggers and is
 **not** asked again on resolution, because the ability on the stack no
 longer depends on its source (CR 113.7a).
+
+**A level symbol** is the same shape with a range. `{LEVEL N1-N2}` is
+`CountersOnSelfBetween(CounterKind::Level, n1, n2)` (CR 711.2a) and
+`{LEVEL N3+}` is `CountersOnSelf(CounterKind::Level, n3)` (CR 711.2b); each
+ability and the P/T box in the striation is its own
+`static_ability!(Filter::This, …, condition = Some(…))`, the P/T box as
+`Modifier::SetPT` ("base power and toughness"). Level up itself is the
+activated ability CR 702.87a spells out. Hexdrinker is the model.
 
 The vocabulary is the five sentences listed above and nothing else. A clause
 it cannot say yet is a `Coverage::Partial` with the reason written out, never

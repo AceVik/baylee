@@ -411,6 +411,10 @@ fn run_attachment_sbas(state: &mut GameState, lookup: &impl crate::state::CardLo
                     && restriction.is_none_or(|filter| {
                         crate::eval::matches(filter, state, h, controller, id)
                     })
+                    // CR 702.16c/d: and not one whose protection this
+                    // attachment has the quality of. An Aura falls off, an
+                    // Equipment stays on the battlefield unattached.
+                    && !crate::eval::protected_from(state, host, id)
             })
         });
         if host_ok {
