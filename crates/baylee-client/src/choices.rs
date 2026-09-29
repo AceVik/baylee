@@ -300,6 +300,29 @@ pub fn options(
                 .collect(),
         ),
         Prompt::ChooseSubtype { options } => Some(subtype_rows(options, filter, lang)),
+        // A pile is its cards: the row names them, in the order the
+        // separation gave them, and an empty pile says so rather than
+        // drawing a blank row, because it is a pile that may be taken.
+        Prompt::ChoosePile { piles } => Some(
+            piles
+                .iter()
+                .enumerate()
+                .map(|(i, pile)| {
+                    let cards = if pile.is_empty() {
+                        Phrase::EmptyPile.text(lang).to_string()
+                    } else {
+                        pile.iter()
+                            .map(|id| names.of(*id, 0).unwrap_or_else(|| "?".to_string()))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    };
+                    ChoiceOption::text(
+                        i,
+                        Phrase::PileRow.fill(lang, &[&(i + 1).to_string(), &cards]),
+                    )
+                })
+                .collect(),
+        ),
         _ => None,
     }
 }

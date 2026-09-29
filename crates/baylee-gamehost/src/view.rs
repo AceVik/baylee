@@ -623,14 +623,17 @@ fn mana_pool(pool: &baylee_core::mana::ManaPool) -> baylee_view::ManaPoolView {
 /// creatures, and every creature in a declaration is on the battlefield, which
 /// the view already carries in full. Neither is [`Pending::YesNo`]'s miracle
 /// card — a miracle is revealed from the hand it was drawn into, and that is
-/// the asking seat's own hand.
-const fn offered(pending: &Pending) -> &[ObjectId] {
+/// the asking seat's own hand. A pile choice ([`Pending::ChoosePile`]) names
+/// every card of every pile: all of them were revealed, and the pile taken
+/// is chosen by what is in it.
+fn offered(pending: &Pending) -> Vec<ObjectId> {
     match pending {
         Pending::ChooseCards { options, .. }
         | Pending::ChooseTargets { options, .. }
-        | Pending::LegendChoice { options, .. } => options.as_slice(),
-        Pending::Arrange { cards, .. } => cards.as_slice(),
-        _ => &[],
+        | Pending::LegendChoice { options, .. } => options.clone(),
+        Pending::Arrange { cards, .. } => cards.clone(),
+        Pending::ChoosePile { piles, .. } => piles.concat(),
+        _ => Vec::new(),
     }
 }
 
@@ -671,13 +674,13 @@ fn looking_at(state: &GameState, seat: PlayerId, pending: Option<&Pending>) -> V
         return Vec::new();
     }
     offered(pending)
-        .iter()
+        .into_iter()
         .filter(|id| {
             state
-                .object(**id)
+                .object(*id)
                 .is_some_and(|obj| !shown_elsewhere(obj, seat))
         })
-        .filter_map(|id| public_object(state, *id, seat))
+        .filter_map(|id| public_object(state, id, seat))
         .collect()
 }
 
@@ -2001,6 +2004,57 @@ mod tests {
         assert!(
             theirs.looking_at.is_empty(),
             "an opponent was shown the cards a searching seat is looking through"
+        );
+    }
+
+    /// Fact or Fiction's two questions name cards in the caster's library:
+    /// the opponent who separates them is asked about another seat's
+    /// library, and the caster then about piles. Each is shown the revealed
+    /// cards with their identity while asked, or the piles are blanks.
+    #[test]
+    fn a_separator_and_a_pile_chooser_are_shown_the_revealed_cards() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let caster = PlayerId::new(0);
+        let separator = PlayerId::new(1);
+        let revealed = library(&engine, caster, 3);
+        let shown = |seat: PlayerId, pending: &Pending| {
+            let view = player_view(
+                engine.state(),
+                seat,
+                0,
+                Some(pending),
+                &SeatContext::default(),
+                &[],
+            );
+            assert!(
+                view.looking_at.iter().all(|o| o.card.is_some()),
+                "a revealed card arrived without its identity"
+            );
+            view.looking_at.iter().map(|o| o.id).collect::<Vec<_>>()
+        };
+
+        let separate = Pending::ChooseCards {
+            player: separator,
+            options: revealed.clone(),
+            min: 0,
+            max: 3,
+            prompt: baylee_engine::choice::ChoicePrompt::FirstPile,
+        };
+        assert_eq!(shown(separator, &separate), revealed);
+
+        let choose = Pending::ChoosePile {
+            player: caster,
+            piles: vec![vec![revealed[1]], vec![revealed[0], revealed[2]]],
+        };
+        assert_eq!(
+            shown(caster, &choose),
+            vec![revealed[1], revealed[0], revealed[2]],
+            "every pile's cards, in pile order"
+        );
+        assert!(
+            shown(separator, &choose).is_empty(),
+            "the pile question is the caster's alone"
         );
     }
 

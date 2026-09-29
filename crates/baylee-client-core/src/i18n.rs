@@ -1667,6 +1667,16 @@ messages! {
         en: "cards to put into their owner's graveyard",
         de: "Karten, die in den Friedhof ihres Besitzers kommen",
     },
+    /// card for the first pile — the rest are the second
+    NounCardForFirstPile {
+        en: "card for the first pile (the rest are the second)",
+        de: "Karte für den ersten Stapel (der Rest ist der zweite)",
+    },
+    /// cards for the first pile — the rest are the second
+    NounCardsForFirstPile {
+        en: "cards for the first pile (the rest are the second)",
+        de: "Karten für den ersten Stapel (der Rest ist der zweite)",
+    },
     /// card from your graveyard — none searches the library instead
     NounCardFromGraveyard {
         en: "card from your graveyard, or none to search your library",
@@ -1765,6 +1775,15 @@ messages! {
     ChoosePlayer { en: "Choose a player", de: "Wähle einen Spieler" },
     /// Choose how to cast
     ChooseHowToCast { en: "Choose how to cast", de: "Wähle, wie gewirkt wird" },
+    /// Choose a pile to put into your hand (Fact or Fiction)
+    ChoosePileForHand {
+        en: "Choose a pile for your hand; the other goes to your graveyard",
+        de: "Wähle einen Stapel für deine Hand; der andere kommt in deinen Friedhof",
+    },
+    /// Pile {0}: {1} — one row of a pile choice
+    PileRow { en: "Pile {0}: {1}", de: "Stapel {0}: {1}" },
+    /// no cards — an empty pile's row
+    EmptyPile { en: "no cards", de: "keine Karten" },
     /// Mode {0}
     ///
     /// Only where a mode has no printed sentence: a modal trigger that states
@@ -3527,6 +3546,7 @@ mod tests {
                 Phrase::NounCardsToBattlefield,
             ),
             (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard),
+            (Phrase::NounCardForFirstPile, Phrase::NounCardsForFirstPile),
             (
                 Phrase::NounCardFromGraveyard,
                 Phrase::NounCardsFromGraveyard,

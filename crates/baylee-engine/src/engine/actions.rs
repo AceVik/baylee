@@ -179,6 +179,23 @@ impl<L: CardLookup> Engine<L> {
                 }
                 self.start_cast_wizard(player, card)
             }
+            (Pending::ChoosePile { player: p, piles }, PlayerAction::ChooseMode(index))
+                if *p == player =>
+            {
+                if index >= piles.len() {
+                    return Err(EngineError::IllegalAction("no such pile"));
+                }
+                let mut res = self.resolution.take().expect("pile choice suspended");
+                match resolve::resume_pile(&mut self.state, &mut res, index) {
+                    resolve::Flow::Wait(pending) => {
+                        self.resolution = Some(res);
+                        self.pending = pending;
+                        self.awaiting_answer = true;
+                    }
+                    resolve::Flow::Complete => self.finish_resolution(&res),
+                }
+                Ok(())
+            }
             (Pending::ChooseCastMode { player: p, .. }, PlayerAction::ChooseMode(index))
                 if *p == player =>
             {
@@ -315,9 +332,16 @@ impl<L: CardLookup> Engine<L> {
                     }
                     return Ok(());
                 }
-                // The opponent who chooses a split search's graveyard cards.
+                // The opponent who chooses a split search's graveyard cards,
+                // or who separates Fact or Fiction's piles.
                 if self.resolution.as_ref().is_some_and(|r| {
-                    matches!(r.awaiting, Some(resolve::AwaitingOp::PickSplitter { .. }))
+                    matches!(
+                        r.awaiting,
+                        Some(
+                            resolve::AwaitingOp::PickSplitter { .. }
+                                | resolve::AwaitingOp::PickSeparator { .. }
+                        )
+                    )
                 }) {
                     let mut res = self.resolution.take().expect("splitter suspended");
                     match resolve::resume_pick_splitter(&mut res, chosen) {

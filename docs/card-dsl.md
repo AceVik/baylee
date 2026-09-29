@@ -1523,6 +1523,17 @@ hashes, layers and does nothing. This paragraph said THREE until
   −2). A `ChooseCards` with `min: 0`, `max: 1`, prompt `PutIntoHand`, over the
   milled cards that match and are found in the public zone they moved to
   (CR 701.17c), which is the graveyard unless a replacement said exile.
+- **`Effect::RevealAndSeparate { count }`** is "reveal the top `count` cards
+  of your library. An opponent separates those cards into two piles. Put one
+  pile into your hand and the other into your graveyard" (Fact or Fiction).
+  The opponent answers a `ChooseCards` (prompt `FirstPile`, `min: 0`, any
+  number: the named cards are the first pile, the rest the second), and the
+  controller a `Pending::ChoosePile`, answered with `ChooseMode(position)`.
+  A pile may be empty (CR 700.3d); the cards stay in the library until the
+  choice (CR 700.3c). At a table with several opponents the controller first
+  names the one who separates (`ChoosePlayer`). The client draws the piles
+  as rows naming their cards, and the reveal's sheet stays open under the
+  question.
 - **`Modifier::CharacteristicPT { count, toughness_plus }`** is a
   characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
   - `YouControl(filter)`

@@ -321,9 +321,13 @@ impl HeuristicAgent {
                 // `min` says. Whether a storage land is worth leaving
                 // tapped is a real judgement and not one this heuristic
                 // makes.
+                // Separating piles for an opponent (Fact or Fiction): one
+                // card alone, so whichever pile they take, they do not take
+                // all of them, which is what naming none would hand over.
                 let n = match prompt {
                     ChoicePrompt::Delve => max,
                     ChoicePrompt::LeaveTapped => min,
+                    ChoicePrompt::FirstPile => max.min(1),
                     _ if max <= 2 => max,
                     _ => min,
                 };
@@ -435,6 +439,7 @@ impl HeuristicAgent {
             Pending::ChooseCastMode {
                 object, options, ..
             } => PlayerAction::ChooseMode(self.cast_mode(view, object, &options)),
+            Pending::ChoosePile { piles, .. } => PlayerAction::ChooseMode(self.pile(view, &piles)),
             // An order the AI has no opinion on yet: the cards as they were
             // offered, every pile filled to its minimum first. It is always
             // an answer, because the engine never asks an arrangement whose
@@ -637,6 +642,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseNumber { player, .. }
         | Pending::ChoosePlayer { player, .. }
         | Pending::ChooseCastMode { player, .. }
+        | Pending::ChoosePile { player, .. }
         | Pending::Arrange { player, .. }
         | Pending::YesNo { player, .. } => Some(*player),
         Pending::GameOver(_) => None,

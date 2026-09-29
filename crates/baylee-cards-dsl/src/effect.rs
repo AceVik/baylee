@@ -784,6 +784,17 @@ pub enum Effect {
         /// "Without paying its mana cost".
         free: bool,
     },
+    /// "Reveal the top `count` cards of your library. An opponent separates
+    /// those cards into two piles. Put one pile into your hand and the other
+    /// into your graveyard." (Fact or Fiction.) The opponent answers a
+    /// `ChooseCards` naming the first pile (`ChoicePrompt::FirstPile`, any
+    /// number, the rest are the second), and the controller a
+    /// `Pending::ChoosePile`. At a table with several opponents the
+    /// controller first names the one who separates.
+    RevealAndSeparate {
+        /// Cards revealed.
+        count: u32,
+    },
     /// "Mill `amount` cards. You may put a [filter] card from among the
     /// milled cards into your hand." (Wrenn and Realmbreaker's −2.) The
     /// choice is a `ChooseCards` with `min: 0` over the milled cards that
@@ -2481,6 +2492,7 @@ impl Effect {
             | Effect::RevealUntil { .. }
             | Effect::Cascade
             | Effect::MillMayTakeOne { .. }
+            | Effect::RevealAndSeparate { .. }
             | Effect::LookAtTopMayPut { .. }
             | Effect::DiscardUpToThenDraw { .. }
             | Effect::SearchLibraryOrGraveyard { .. }

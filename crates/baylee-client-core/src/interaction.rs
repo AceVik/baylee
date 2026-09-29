@@ -190,6 +190,12 @@ pub enum Prompt {
         /// The offered options.
         options: Vec<CastModeDesc>,
     },
+    /// Choose one of the piles another player separated (Fact or Fiction).
+    /// Answered by position, as a cast option is.
+    ChoosePile {
+        /// The piles, in the engine's order; one may be empty.
+        piles: Vec<Vec<ObjectId>>,
+    },
     /// Put cards into places, each in an order.
     Arrange {
         /// Why the cards are being arranged.
@@ -381,6 +387,7 @@ impl Prompt {
             }
             Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
             Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
+            Self::ChoosePile { .. } => Phrase::ChoosePileForHand.text(lang).to_string(),
             Self::Arrange { reason, onto } => match (reason, onto) {
                 (ArrangePrompt::Order, Some(ArrangePlace::LibraryTop)) => {
                     Phrase::OrderOnTop.text(lang).to_string()
@@ -664,6 +671,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::PutIntoGraveyard => {
             (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard)
         }
+        ChoicePrompt::FirstPile => (Phrase::NounCardForFirstPile, Phrase::NounCardsForFirstPile),
         ChoicePrompt::FromGraveyard => (
             Phrase::NounCardFromGraveyard,
             Phrase::NounCardsFromGraveyard,
@@ -976,6 +984,9 @@ impl Interaction {
             Pending::ChooseCastMode { options, .. } => Mode::CastOption {
                 count: options.len(),
             },
+            // A pile is answered by its position, with the same action a
+            // cast option is (`PlayerAction::ChooseMode`).
+            Pending::ChoosePile { piles, .. } => Mode::CastOption { count: piles.len() },
             Pending::YesNo { .. } => Mode::YesNo,
             // Answered from a list rather than from the board, because a
             // creature type is not a thing on it. `Mode::Idle` stood here
@@ -1062,6 +1073,9 @@ impl Interaction {
             } => Prompt::CastMode {
                 object: *object,
                 options: options.clone(),
+            },
+            Pending::ChoosePile { piles, .. } => Prompt::ChoosePile {
+                piles: piles.clone(),
             },
             Pending::Arrange { piles, prompt, .. } => Prompt::Arrange {
                 reason: *prompt,
@@ -1999,6 +2013,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseNumber { player, .. }
         | Pending::ChoosePlayer { player, .. }
         | Pending::ChooseCastMode { player, .. }
+        | Pending::ChoosePile { player, .. }
         | Pending::Arrange { player, .. }
         | Pending::YesNo { player, .. } => Some(*player),
         Pending::GameOver(_) => None,

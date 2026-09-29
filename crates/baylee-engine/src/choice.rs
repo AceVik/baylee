@@ -208,6 +208,16 @@ pub enum Pending {
         /// Why the question is asked (UI hint).
         prompt: ArrangePrompt,
     },
+    /// Choose one of the piles another player separated (Fact or Fiction):
+    /// the chosen pile goes into the hand and the others into the
+    /// graveyard. Answered with [`PlayerAction::ChooseMode`], the pile's
+    /// position; a pile may be empty and is still a pile to choose.
+    ChoosePile {
+        /// Choosing player.
+        player: PlayerId,
+        /// The piles, in the order the separation gave them.
+        piles: Vec<Vec<ObjectId>>,
+    },
     /// The game is over.
     GameOver(GameResult),
 }
@@ -235,6 +245,7 @@ impl Pending {
             | Self::ChooseCastMode { player, .. }
             | Self::ChooseNumber { player, .. }
             | Self::ChoosePlayer { player, .. }
+            | Self::ChoosePile { player, .. }
             | Self::Arrange { player, .. } => Some(*player),
             Self::GameOver(_) => None,
         }
@@ -402,6 +413,11 @@ pub enum ChoicePrompt {
     /// Uncharted's opponent). The chooser is denying the other player, so
     /// the house AI sends the best of them away.
     PutIntoGraveyard,
+    /// Revealed cards to separate into two piles (Fact or Fiction's
+    /// opponent): the chosen ones are the first pile and the rest the
+    /// second, and either may be empty. The other player then takes one
+    /// pile into their hand, so the house AI puts the best card alone.
+    FirstPile,
     /// Generic selection.
     Generic,
 }
@@ -596,6 +612,7 @@ pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
         | Pending::ChooseCastMode { .. }
         | Pending::ChooseNumber { .. }
         | Pending::ChoosePlayer { .. }
+        | Pending::ChoosePile { .. }
         | Pending::Arrange { .. }
         | Pending::GameOver(_) => None,
     }
@@ -1235,6 +1252,13 @@ mod choice_tests {
                 None,
             ),
             (
+                Pending::ChoosePile {
+                    player: p,
+                    piles: vec![vec![object()], vec![]],
+                },
+                None,
+            ),
+            (
                 Pending::GameOver(GameResult {
                     winner: None,
                     reason: crate::win::EndReason::Draw,
@@ -1261,7 +1285,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 16 + 11;
+    const KINDS: usize = 17 + 11;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -1300,6 +1324,7 @@ mod choice_tests {
                     YesNoPrompt::CastWithoutPaying { .. } => 10,
                 }
             }
+            Pending::ChoosePile { .. } => 16 + 11,
         }
     }
 

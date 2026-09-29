@@ -62,6 +62,7 @@ question_vocabulary!(
     ChooseCastMode,
     ChooseNumber,
     ChoosePlayer,
+    ChoosePile,
     Arrange,
     GameOver,
 );
@@ -187,6 +188,9 @@ const CYCLONIC_RIFT: &str = "d75b9c82-1b49-4c3e-a1b5-aeef57d6644b";
 /// `{X}{U}{U}{U}` targeting a player: `ChooseNumber` for the X and a target
 /// that is a player rather than an object.
 const COMMANDERS_INSIGHT: &str = "54d7d7f8-22cd-4859-b203-924d248b422b";
+/// `{3}{U}`: the house separates the top five into two piles and the seat
+/// takes one, which is `ChoosePile`, the one question asked about piles.
+const FACT_OR_FICTION: &str = "437b2dab-15e0-4b9a-a204-58622d37a3b3";
 /// `{2}{W}` legendary. Two of them on the table is the whole legend rule.
 const LORAN: &str = "b3d81980-76f2-44e2-b1c9-01e30c726312";
 /// `{2}{U}{U}`, kicker `{5}`, "a copy of target creature" — two questions in
@@ -531,6 +535,48 @@ impl Client {
                 .expect("an indexed choice offers rows");
                 assert!(!rows.is_empty(), "a choice with no rows cannot be answered");
                 let index = rows[0].index;
+                interaction
+                    .choose_index(index)
+                    .then(|| interaction.confirm())?
+            }
+            // A pile is taken by position as well, and a player chooses it
+            // by what is in it: every card of every pile is on the sheet the
+            // reveal opens, and every row names its cards.
+            Pending::ChoosePile { piles, .. } => {
+                let view = self.view.as_ref()?;
+                // In the order the client runs them: the view, then the
+                // question.
+                let mut browser = Browser::new();
+                browser.saw_reveal(view);
+                browser.follow(view, Some(interaction));
+                assert!(browser.is_open(), "the pile choice shut the sheet");
+                let shown = browser.rows(view, Some(interaction), Names::projected());
+                for id in piles.iter().flatten() {
+                    assert!(
+                        shown.iter().any(|r| r.id == *id),
+                        "a pile holds {id:?} and the sheet does not draw it"
+                    );
+                }
+                let rows = baylee_client::choices::options(
+                    &interaction.prompt(),
+                    baylee_client_core::Lang::En,
+                    self.statics.as_ref(),
+                    "",
+                    baylee_client::choices::FaceNames {
+                        view: Some(view),
+                        texts: None,
+                    },
+                )
+                .expect("a pile choice offers rows");
+                assert_eq!(rows.len(), piles.len(), "one row per pile");
+                assert!(
+                    rows.iter().all(|r| !r.label.contains('?')),
+                    "a row names a card it cannot see: {:?}",
+                    rows.iter().map(|r| &r.label).collect::<Vec<_>>()
+                );
+                // The last pile: the house separates by putting its best
+                // card alone in the first, so the last is the bigger one.
+                let index = rows[rows.len() - 1].index;
                 interaction
                     .choose_index(index)
                     .then(|| interaction.confirm())?
@@ -1265,6 +1311,10 @@ fn every_question_this_suite_reaches_gets_an_answer() {
         600,
     ));
     record!(run_greedily(&legend_preset(8), 200));
+    record!(run_greedily(
+        &spellbook_preset(14, &[FACT_OR_FICTION], &[]),
+        600
+    ));
     // And the one question that is only asked of a player who says no twice:
     // the house rules give the first mulligan free, so one puts nothing back.
     record!(

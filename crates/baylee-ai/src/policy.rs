@@ -286,6 +286,13 @@ impl HeuristicAgent {
                 ranked.sort_by_key(|id| (value(id), *id));
                 usize::from(max.min(1))
             }
+            // Separating an opponent's revealed cards (Fact or Fiction):
+            // the most valuable card alone. Whichever pile they take, they
+            // give up either it or the rest.
+            ChoicePrompt::FirstPile => {
+                ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
+                usize::from(max.min(1))
+            }
             // Not a price: `Effect::PutFromHandOnTop` asks with
             // `min == max`, so `min` is the whole answer.
             ChoicePrompt::PutBackOnTop | ChoicePrompt::PutOnBottom => {
@@ -296,6 +303,31 @@ impl HeuristicAgent {
         };
         ranked.truncate(count);
         Some(ranked)
+    }
+
+    /// The pile to take into the hand (Fact or Fiction); the others go to
+    /// the graveyard. By the cards' worth where this profile reads cards,
+    /// and by count where it does not or the worth is even: a card in hand
+    /// is worth more than the same card in a graveyard, so the bigger pile
+    /// is the answer with nothing else to go on. Ties keep the first pile.
+    pub(crate) fn pile(&self, view: &PlayerView, piles: &[Vec<ObjectId>]) -> usize {
+        let value = Self::card_value(view);
+        let reads = self.profile.mulligan_skill >= 2;
+        let worth = |pile: &Vec<ObjectId>| -> (i64, usize) {
+            let sum: i64 = if reads {
+                pile.iter().map(|id| value(id).max(0)).sum()
+            } else {
+                0
+            };
+            (sum, pile.len())
+        };
+        let mut best = 0;
+        for (i, pile) in piles.iter().enumerate().skip(1) {
+            if worth(pile) > worth(&piles[best]) {
+                best = i;
+            }
+        }
+        best
     }
 
     /// The looked-at cards a scry sends to the bottom or a surveil into the

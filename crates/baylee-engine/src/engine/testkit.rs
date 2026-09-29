@@ -1334,6 +1334,9 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             (player, PlayerAction::ChooseMode(first.index as usize))
         }
         Pending::ChooseNumber { player, min, .. } => (player, PlayerAction::ChooseNumber(min)),
+        // The first pile: the opponent's answer made it, so it is a real
+        // pile, and it may be empty, which is still a legal answer.
+        Pending::ChoosePile { player, .. } => (player, PlayerAction::ChooseMode(0)),
         Pending::YesNo { player, .. } => (player, PlayerAction::YesNo(true)),
         Pending::Arrange {
             player,

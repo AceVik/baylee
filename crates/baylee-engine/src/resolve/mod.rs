@@ -227,6 +227,23 @@ pub enum AwaitingOp {
     DiscardThenDraw,
     /// After `MillMayTakeOne`: the card named goes to its owner's hand.
     TakeMilled,
+    /// `RevealAndSeparate` at a table with several opponents: the
+    /// controller names the one who separates.
+    PickSeparator {
+        /// The revealed cards, still in the library.
+        cards: Vec<ObjectId>,
+    },
+    /// After the opponent named the first pile: the controller chooses one.
+    FirstPile {
+        /// The revealed cards, still in the library.
+        cards: Vec<ObjectId>,
+    },
+    /// After the controller chose a pile: it goes into the hand, the other
+    /// into the graveyard.
+    TakePile {
+        /// The two piles, in the order they were offered.
+        piles: Vec<Vec<ObjectId>>,
+    },
     /// After `Cascade` exiled its hit and asked whether to cast it: the
     /// rest of what it exiled goes to the bottom either way, the hit with
     /// them unless the answer was yes.
@@ -1488,6 +1505,54 @@ fn begin_split(
     }
 }
 
+/// Asks `opponent` to separate the revealed cards: the ones named are the
+/// first pile, the rest the second.
+fn ask_separator(res: &mut Resolution, opponent: PlayerId, cards: Vec<ObjectId>) -> Pending {
+    let n = u8::try_from(cards.len()).unwrap_or(u8::MAX);
+    res.awaiting = Some(AwaitingOp::FirstPile {
+        cards: cards.clone(),
+    });
+    Pending::ChooseCards {
+        player: opponent,
+        options: cards,
+        min: 0,
+        max: n,
+        prompt: ChoicePrompt::FirstPile,
+    }
+}
+
+/// Resumes a pile choice: the pile at `index` goes into its cards' owners'
+/// hands (the controller's, whose library they were revealed from), every
+/// other pile into the graveyard. Only cards still in the library move.
+///
+/// # Panics
+/// If no pile choice is suspended.
+#[must_use]
+pub fn resume_pile(state: &mut GameState, res: &mut Resolution, index: usize) -> Flow {
+    let Some(AwaitingOp::TakePile { piles }) = res.awaiting.take() else {
+        panic!("pile choice not suspended");
+    };
+    for (i, pile) in piles.iter().enumerate() {
+        for &card in pile {
+            let Some(owner) = state
+                .object(card)
+                .filter(|o| o.zone == crate::zone::Zone::Library)
+                .map(|o| o.owner)
+            else {
+                continue;
+            };
+            let to = if i == index {
+                ZoneLocation::Hand(owner)
+            } else {
+                ZoneLocation::Graveyard(owner)
+            };
+            let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
+        }
+    }
+    res.pc += 1;
+    run(state, res)
+}
+
 /// Asks `opponent` which `count` of the found cards go to the graveyard.
 fn ask_splitter(
     res: &mut Resolution,
@@ -1546,16 +1611,19 @@ fn finish_split(
 /// If no splitter question is suspended.
 #[must_use]
 pub fn resume_pick_splitter(res: &mut Resolution, opponent: PlayerId) -> Flow {
-    let Some(AwaitingOp::PickSplitter {
-        found,
-        count,
-        library,
-        receiver,
-    }) = res.awaiting.take()
-    else {
-        panic!("splitter not suspended");
-    };
-    Flow::Wait(ask_splitter(res, opponent, found, count, library, receiver))
+    match res.awaiting.take() {
+        Some(AwaitingOp::PickSplitter {
+            found,
+            count,
+            library,
+            receiver,
+        }) => Flow::Wait(ask_splitter(res, opponent, found, count, library, receiver)),
+        // Fact or Fiction's separator, named the same way.
+        Some(AwaitingOp::PickSeparator { cards }) => {
+            Flow::Wait(ask_separator(res, opponent, cards))
+        }
+        _ => panic!("splitter not suspended"),
+    }
 }
 
 /// Resumes a suspended resolution with the chosen cards.
@@ -1666,6 +1734,18 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             library,
             receiver,
         } => finish_split(state, &found, chosen, library, receiver),
+        AwaitingOp::FirstPile { cards } => {
+            let (first, second): (Vec<ObjectId>, Vec<ObjectId>) =
+                cards.into_iter().partition(|card| chosen.contains(card));
+            let piles = vec![first, second];
+            res.awaiting = Some(AwaitingOp::TakePile {
+                piles: piles.clone(),
+            });
+            return Flow::Wait(Pending::ChoosePile {
+                player: res.controller,
+                piles,
+            });
+        }
         AwaitingOp::TakeMilled => {
             for &card in chosen {
                 let owner = state
@@ -1734,6 +1814,12 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             if discarded > 0 {
                 state.draw_cards(you, discarded);
             }
+        }
+        AwaitingOp::PickSeparator { .. } => {
+            unreachable!("the separator is a player, answered via resume_pick_splitter")
+        }
+        AwaitingOp::TakePile { .. } => {
+            unreachable!("a pile is an index, answered via resume_pile")
         }
         AwaitingOp::PickSplitter { .. } => {
             unreachable!("the splitter is a player, answered via resume_pick_splitter")
@@ -3115,6 +3201,39 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
             put_found(state, you, top, if fits { matched } else { otherwise });
             None
+        }
+        Effect::RevealAndSeparate { count } => {
+            let cards: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .iter()
+                .rev()
+                .take(count as usize)
+                .copied()
+                .collect();
+            if cards.is_empty() {
+                return None;
+            }
+            state.journal.record(GameEvent::Revealed {
+                player: you,
+                cards: cards.clone(),
+            });
+            // "An opponent separates": the controller names which at a
+            // table with several, as CR 700.2e has the controller decide
+            // which other player chooses a mode. With none left, nobody
+            // separates and nothing moves.
+            let opponents = eval::players(PlayerRel::Opponent, state, you).unwrap_or_default();
+            match opponents.as_slice() {
+                [] => None,
+                [only] => Some(ask_separator(res, *only, cards)),
+                _ => {
+                    res.awaiting = Some(AwaitingOp::PickSeparator { cards });
+                    Some(Pending::ChoosePlayer {
+                        player: you,
+                        options: opponents,
+                    })
+                }
+            }
         }
         Effect::MillMayTakeOne { amount, filter } => {
             let top: Vec<ObjectId> = state
