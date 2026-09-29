@@ -93771,6 +93771,98 @@ fn extraction_specialist_stolen_lets_the_creature_go() {
     assert!(!held_back(&engine, elves), "you no longer control it");
 }
 
+/// "~ phases out", resolved with the Specialist as its own source: the
+/// resolver's `Effect::PhaseOut`, not a status written by hand.
+fn phase_out_specialist(engine: &mut Engine<RegistryLookup>, specialist: ObjectId) {
+    let p0 = PlayerId::new(0);
+    let state = engine.dev_state_mut(p0).expect("the harness trusts itself");
+    let mut res = crate::resolve::Resolution {
+        source: specialist,
+        on_stack: specialist,
+        controller: p0,
+        effects: vec![baylee_cards_dsl::Effect::PhaseOut { target: None }],
+        pc: 0,
+        targets: smallvec::SmallVec::new(),
+        second_targets: smallvec::SmallVec::new(),
+        x: None,
+        chosen_player: None,
+        target_players: baylee_core::ids::SeatSet::new(),
+        event_object: None,
+        awaiting: None,
+        targeted: false,
+        mana_ability: false,
+        countered_source: None,
+        target_lki: None,
+        retarget_left: None,
+    };
+    assert!(matches!(
+        crate::resolve::run(state, &mut res),
+        crate::resolve::Flow::Complete
+    ));
+    engine.refresh_offer();
+}
+
+/// A third way it ends: the Specialist phases out. A phased-out permanent is
+/// treated as though it does not exist (CR 702.26b), so you no longer
+/// control it, and a "for as long as" duration that tracks it ends as it
+/// phases out (CR 702.26f). The Elves are free while it is away and stay
+/// free once it is back.
+#[test]
+fn extraction_specialist_phased_out_lets_the_creature_go() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let (mut engine, _) = extraction_specialist_asks(&[], &[]);
+    let elves = in_graveyard(&engine, p0, llanowar_elves()).unwrap();
+    let _ = aim_at(&mut engine, p0, elves);
+    pass_until(&mut engine, stack_is_empty);
+    let specialist = on_battlefield(&engine, p0, extraction_specialist()).unwrap();
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    assert!(held_back(&engine, elves));
+
+    phase_out_specialist(&mut engine, specialist);
+    // One pass, so the engine runs the loop that ends durations.
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(
+        engine
+            .state()
+            .object(specialist)
+            .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT)),
+        "the Specialist phased out"
+    );
+    assert!(!held_back(&engine, elves), "it phased out");
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        engine
+            .state()
+            .object(specialist)
+            .is_some_and(|o| !o.status.contains(crate::object::Status::PHASED_OUT)),
+        "the Specialist phased in at seat 0's untap step"
+    );
+    assert!(
+        !held_back(&engine, elves),
+        "an ended duration does not begin again as the Specialist phases in"
+    );
+}
+
+/// CR 611.2b again: the Specialist phases out with its trigger on the
+/// stack, so "for as long as you control this creature" is over before the
+/// effect would begin. The Elves return all the same and are free.
+#[test]
+fn extraction_specialist_phased_out_in_response_holds_nothing() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, _) = extraction_specialist_asks(&[], &[]);
+    let elves = in_graveyard(&engine, p0, llanowar_elves()).unwrap();
+    let _ = aim_at(&mut engine, p0, elves);
+    let specialist = on_battlefield(&engine, p0, extraction_specialist()).unwrap();
+    phase_out_specialist(&mut engine, specialist);
+    pass_until(&mut engine, stack_is_empty);
+
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("returned all the same");
+    assert!(!held_back(&engine, elves), "its Specialist was phased out");
+}
+
 // ---------------------------------------------------------------------------
 // Maik's European Highlander: Fiend Artisan.
 // ---------------------------------------------------------------------------

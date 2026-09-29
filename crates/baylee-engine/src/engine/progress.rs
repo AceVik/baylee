@@ -5153,9 +5153,14 @@ fn end_control_durations(state: &mut crate::state::GameState) {
         .filter(|fx| matches!(fx.duration, Duration::WhileYouControlSource))
         .filter_map(|fx| {
             let source = fx.source?;
-            let held = state
-                .object(source)
-                .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == fx.controller);
+            // A phased-out source is treated as though it does not exist
+            // (CR 702.26b): nobody controls it, and a "for as long as" that
+            // tracks it ends as it phases out (CR 702.26f).
+            let held = state.object(source).is_some_and(|o| {
+                o.zone == Zone::Battlefield
+                    && o.controller == fx.controller
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+            });
             (!held).then_some((source, fx.controller))
         })
         .collect();

@@ -786,10 +786,18 @@ walks `battlefield_seen`, and `this_to_affect` names nothing phased out, so
 a set fixed while the permanent was away (CR 611.2c) stays without it after
 it phases in. Targeting already read `battlefield_view`.
 
-**Not yet: "for as long as" (CR 702.26f).** An effect with a "for as long
-as" duration that tracks a permanent ends when that permanent phases out,
-"because they can no longer see it". The table cannot tell such an effect
-today. On a resolution's effect `Duration::WhileSourceOnBattlefield` means
+**"For as long as" (CR 702.26f), one duration of it.** An effect with a
+"for as long as" duration that tracks a permanent ends when that permanent
+phases out, "because they can no longer see it". One such duration has a
+name: `Duration::WhileYouControlSource` (Extraction Specialist's "for as
+long as you control this creature"). A phased-out source is one nobody
+controls (CR 702.26b), so `end_control_durations` ends the effect at the
+next pass as it would for a stolen source, and it does not begin again as
+the source phases in. An effect that would begin while its source is phased
+out ends at the same pass (CR 611.2b); nothing sees it in between.
+
+**Not yet: the other "for as long as".** The table cannot tell the rest.
+On a resolution's effect `Duration::WhileSourceOnBattlefield` means
 two things. Tishana's Tidebinder's "loses all abilities for as long as this
 creature remains on the battlefield" tracks the Tidebinder and should end
 when it phases out. Urza's Saga "gains '{T}: Add {C}.'" has no duration at
