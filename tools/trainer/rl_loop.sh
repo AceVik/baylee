@@ -7,7 +7,7 @@
 #
 #   BASE=~/baylee-data/models/v3-b ITERS=8 GAMES=10000 tools/trainer/rl_loop.sh
 #
-# Each learner joins the league of the ones after it (older checkpoints),
+# The two latest former learners join the league of the ones after them,
 # beside the house profiles, the frozen yardstick (policy-v1) and itself.
 set -euo pipefail
 BASE=${BASE:?the first learner: a model dir with net.pt, net.onnx and seen_ids.npy}
@@ -24,6 +24,7 @@ cargo build -q --profile selfplay -p baylee-train --bin convert3
 cargo build -q --profile selfplay -p baylee-train --features onnx --bin league --bin arena
 prev=$BASE
 older=""
+formers=()
 for it in $(seq -f %02g 1 "$ITERS"); do
     run=$DATA/runs/$TAG-l$it
     ds=$DATA/datasets/d3-$TAG-l$it
@@ -54,6 +55,9 @@ for it in $(seq -f %02g 1 "$ITERS"); do
     fi
     echo "[rl_loop] iteration $it done: $(python3 -c "import json;a=json.load(open('$arena/arena.json'))['results']['expert'];print('vs expert', round(a['win_rate'],3), a['ci95'])")"
     echo "[rl_loop]   league: $(python3 -c "import json;print([(v['opponent'][-40:], round(v['learner_score'],3)) for v in json.load(open('$run/summary.json'))['vs']])")"
-    older="$older,net:$prev/net.onnx"
+    # The two latest former learners stay in the league: every worker holds
+    # every net it may meet, and each costs it a few hundred megabytes.
+    formers+=("net:$prev/net.onnx")
+    older=$(printf ',%s' "${formers[@]: -2}")
     prev=$model
 done
