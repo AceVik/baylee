@@ -371,6 +371,18 @@ pub enum Modifier {
         /// Toughness per match.
         t: i16,
     },
+    /// The affected object gets +P/+T for each card in its controller's
+    /// graveyard that matches the filter (Fiend Artisan: "+1/+1 for each
+    /// creature card in your graveyard"). Layer 7c like
+    /// [`Self::ModifyPTPerCount`], which counts permanents instead.
+    ModifyPTPerGraveyardCard {
+        /// What to count.
+        filter: &'static crate::Filter,
+        /// Power per match.
+        p: i16,
+        /// Toughness per match.
+        t: i16,
+    },
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.
@@ -488,7 +500,9 @@ impl Modifier {
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } => Layer::PtCda,
             Self::SetPT(..) | Self::SetPTToCount(_) => Layer::PtSet,
-            Self::ModifyPT(..) | Self::ModifyPTPerCount { .. } => Layer::PtModify,
+            Self::ModifyPT(..)
+            | Self::ModifyPTPerCount { .. }
+            | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
             Self::LegendRuleOff

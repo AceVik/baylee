@@ -112,6 +112,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::GrantTriggered { .. }
         | Modifier::CharacteristicPT { .. }
         | Modifier::ModifyPTPerCount { .. }
+        | Modifier::ModifyPTPerGraveyardCard { .. }
         | Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
         | Modifier::SetPTToCount(_)
@@ -695,6 +696,11 @@ mod tests {
                 p: 1,
                 t: 1,
             },
+            Modifier::ModifyPTPerGraveyardCard {
+                filter: &Filter::CREATURE,
+                p: 1,
+                t: 1,
+            },
             Modifier::SwitchPT,
             Modifier::LegendRuleOff,
             Modifier::PlayLandsFromGraveyard,
@@ -763,7 +769,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            50,
+            51,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -814,7 +820,7 @@ mod tests {
     }
 
     /// The counts, so that a change which flips a modifier from one side to
-    /// the other is a failure and not a quiet re-balancing: twenty-six
+    /// the other is a failure and not a quiet re-balancing: twenty-seven
     /// modifiers lock the objects they found, twenty-four do not.
     ///
     /// The second number is counted off the list and not written as
@@ -823,10 +829,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_six_modifiers_lock_a_set_and_twenty_four_do_not() {
+    fn twenty_seven_modifiers_lock_a_set_and_twenty_four_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (26, 24));
+        assert_eq!((locking, all.len() - locking), (27, 24));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole
