@@ -635,6 +635,15 @@ impl<L: CardLookup> Engine<L> {
                                 obj.chosen_player = Some(only);
                             }
                         }
+                        // A second instance of "target" is asked now that the
+                        // first is on the stack object it binds against.
+                        self.ask_trigger_second_target();
+                    }
+                    PlanKind::TriggerSecondTarget { on_stack } => {
+                        if let Some(obj) = self.state.object_mut(on_stack) {
+                            let req = obj.second_target_req();
+                            obj.set_second(targets.into_iter().collect(), req);
+                        }
                     }
                     PlanKind::EntryTap { .. } => {
                         unreachable!("entry-tap plans are answered via YesNo")

@@ -557,11 +557,17 @@ pub fn untargetable_by(state: &GameState, object: ObjectId, you: PlayerId) -> bo
 pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId) -> Vec<PlayerId> {
     if !matches!(
         spec,
-        TargetSpec::AnyTarget | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent
+        TargetSpec::AnyTarget
+            | TargetSpec::AnyPlayer
+            | TargetSpec::AnyOpponent
+            | TargetSpec::OpponentOrObject(_)
     ) {
         return Vec::new();
     }
-    let opponents_only = matches!(spec, TargetSpec::AnyOpponent);
+    let opponents_only = matches!(
+        spec,
+        TargetSpec::AnyOpponent | TargetSpec::OpponentOrObject(_)
+    );
     state
         .players
         .iter()
@@ -644,6 +650,19 @@ pub fn target_options(
             .copied()
             .collect(),
         TargetSpec::ObjectOfEachOpponent(filter) => opponents_objects(filter, state, you, this),
+        // The object half of "target opponent or [filter]"; the opponents
+        // come from `target_player_options`, offered beside it.
+        TargetSpec::OpponentOrObject(filter) => {
+            target_options(&TargetSpec::Object(filter), state, you, this)
+        }
+        TargetSpec::ObjectControlledBy(filter, player) => {
+            let mut mine = target_options(&TargetSpec::Object(filter), state, you, this);
+            mine.retain(|id| state.object(*id).is_some_and(|o| o.controller == *player));
+            mine
+        }
+        // Unbound, "that player" is nobody yet: the engine asks this
+        // instance only after binding it to `ObjectControlledBy`.
+        TargetSpec::ObjectOfFirstTargetsPlayer(_) => Vec::new(),
         TargetSpec::Spell(filter) => state
             .zones
             .list(ZoneLocation::Stack)
@@ -753,7 +772,10 @@ pub fn targeted_players(obj: &GameObject, spec: &TargetSpec) -> baylee_core::ids
     let mut players = baylee_core::ids::SeatSet::new();
     if matches!(
         spec,
-        TargetSpec::AnyTarget | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent
+        TargetSpec::AnyTarget
+            | TargetSpec::AnyPlayer
+            | TargetSpec::AnyOpponent
+            | TargetSpec::OpponentOrObject(_)
     ) {
         players = obj.target_players;
         if let Some(player) = obj.chosen_player {

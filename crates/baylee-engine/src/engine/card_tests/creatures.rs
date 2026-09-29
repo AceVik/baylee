@@ -89018,13 +89018,44 @@ fn face_shown(engine: &Engine<RegistryLookup>, id: ObjectId) -> u8 {
 
 /// Passes until the upkeep of `seat`'s next turn has begun and everything
 /// it put on the stack has resolved.
+///
+/// Ravager of the Fells' transform trigger is answered on the way past, the
+/// plain way: its first target is the first opponent offered, and its "up to
+/// one target creature" is declined. A test about that trigger answers it
+/// itself, after [`upkeep_until_ravager_asks`].
 fn through_upkeep_of(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
-    pass_until(engine, |e| {
+    let arrived = |e: &Engine<RegistryLookup>| {
         e.state().turn.active == seat && matches!(e.state().turn.step, crate::turn::Step::Upkeep)
-    });
-    pass_until(engine, |e| {
+    };
+    let past = |e: &Engine<RegistryLookup>| {
         e.state().turn.active == seat && !matches!(e.state().turn.step, crate::turn::Step::Upkeep)
-    });
+    };
+    let stages: [&dyn Fn(&Engine<RegistryLookup>) -> bool; 2] = [&arrived, &past];
+    for stage in stages {
+        loop {
+            pass_until(engine, |e| {
+                stage(e) || matches!(e.pending(), Pending::ChooseTargets { .. })
+            });
+            let Pending::ChooseTargets {
+                player,
+                player_options,
+                ..
+            } = engine.pending().clone()
+            else {
+                break;
+            };
+            let players = player_options.into_iter().take(1).collect();
+            engine
+                .apply(
+                    player,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![],
+                        players,
+                    },
+                )
+                .expect("the first opponent, or no creature");
+        }
+    }
 }
 
 /// "When Archangel Avacyn enters, creatures you control gain indestructible
@@ -89970,4 +90001,132 @@ fn voice_of_resurgence_answers_a_spell_on_its_turn_and_its_own_death() {
     for token in made {
         assert_eq!(pt(&engine, token), (2, 2), "two creatures now, Voice gone");
     }
+}
+
+// ---------------------------------------------------------------------------
+// Maik's European Highlander, round 2: Ravager of the Fells' damage.
+// ---------------------------------------------------------------------------
+
+/// Passes into `seat`'s upkeep until Ravager of the Fells' transform trigger
+/// asks for its first target, and returns what it offers.
+fn upkeep_until_ravager_asks(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+) -> (Vec<ObjectId>, Vec<PlayerId>) {
+    pass_until(engine, |e| {
+        e.state().turn.active == seat && matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        options,
+        player_options,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!()
+    };
+    (options, player_options)
+}
+
+/// "Whenever this creature transforms into Ravager of the Fells, it deals 2
+/// damage to target opponent or planeswalker and 2 damage to up to one target
+/// creature that player or that planeswalker's controller controls." The
+/// first question offers the opponent and never its controller; once the
+/// opponent is named, the second offers that opponent's creatures and none
+/// of Ravager's controller's. The opponent takes 2 and so does the creature
+/// picked (a 2/2 Steadfast Guard, which dies).
+#[test]
+fn ravager_of_the_fells_burns_an_opponent_and_one_of_that_players_creatures() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[huntmaster_of_the_fells(), llanowar_elves()])
+        .battlefield(1, &[steadfast_guard(), thundering_giant()])
+        .start();
+    keep_mulligans(&mut engine);
+    let hunt = on_battlefield(&engine, p0, huntmaster_of_the_fells()).unwrap();
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    let guard = on_battlefield(&engine, p1, steadfast_guard()).unwrap();
+    let giant = on_battlefield(&engine, p1, thundering_giant()).unwrap();
+
+    // Nothing was cast in turn 1: at the opponent's upkeep it turns over.
+    let (objects, players) = upkeep_until_ravager_asks(&mut engine, p1);
+    assert_eq!(face_shown(&engine, hunt), 1, "Ravager of the Fells");
+    assert_eq!(players, vec![p1], "target opponent: not its controller");
+    assert!(objects.is_empty(), "no planeswalker on the board");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("the opponent");
+
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("the second target is asked: {:?}", engine.pending())
+    };
+    assert_eq!((min, max), (0, 1), "up to one target creature");
+    assert!(
+        options.contains(&guard) && options.contains(&giant),
+        "that player's creatures"
+    );
+    assert!(
+        !options.contains(&elves),
+        "not a creature another player controls"
+    );
+    assert!(!options.contains(&hunt));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![guard],
+            },
+        )
+        .expect("one of theirs");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "2 damage to the opponent"
+    );
+    assert!(
+        on_battlefield(&engine, p1, steadfast_guard()).is_none(),
+        "2 damage to the 2/2"
+    );
+    assert!(on_battlefield(&engine, p1, thundering_giant()).is_some());
+}
+
+/// The second target is "up to one": declined, the opponent still takes 2
+/// and no creature is dealt anything.
+#[test]
+fn ravager_of_the_fells_may_leave_the_creature_out() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[huntmaster_of_the_fells()])
+        .battlefield(1, &[steadfast_guard()])
+        .start();
+    keep_mulligans(&mut engine);
+    let _ = upkeep_until_ravager_asks(&mut engine, p1);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .expect("none is an answer to up to one");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[1].life, 18);
+    let guard = on_battlefield(&engine, p1, steadfast_guard()).expect("untouched");
+    assert_eq!(engine.state().object(guard).unwrap().damage, 0);
 }

@@ -236,6 +236,9 @@ fn target_filter(spec: TargetSpec) -> Option<&'static Filter> {
     match spec {
         TargetSpec::Object(f)
         | TargetSpec::ObjectOfEachOpponent(f)
+        | TargetSpec::OpponentOrObject(f)
+        | TargetSpec::ObjectOfFirstTargetsPlayer(f)
+        | TargetSpec::ObjectControlledBy(f, _)
         | TargetSpec::Spell(f)
         | TargetSpec::StackOrBattlefield(f)
         | TargetSpec::CardInGraveyard(f, _)
@@ -285,6 +288,9 @@ fn can_target_an_object(spec: TargetSpec) -> bool {
     match spec {
         TargetSpec::Object(_)
         | TargetSpec::ObjectOfEachOpponent(_)
+        | TargetSpec::OpponentOrObject(_)
+        | TargetSpec::ObjectOfFirstTargetsPlayer(_)
+        | TargetSpec::ObjectControlledBy(..)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)
@@ -1727,6 +1733,7 @@ mod tests {
             trigger: crate::dsl::ability::Trigger::ETB,
             effects: &GRANT,
             targets: None,
+            second_targets: None,
             once_per_turn: false,
             condition: None,
         };
@@ -1766,6 +1773,7 @@ mod tests {
             trigger: crate::dsl::ability::Trigger::ETB,
             effects: &LIST,
             targets: None,
+            second_targets: None,
             once_per_turn: false,
             condition: None,
         };

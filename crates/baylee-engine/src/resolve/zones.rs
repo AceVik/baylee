@@ -78,8 +78,13 @@ fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
     match target {
         TargetSpec::ThisObject => Some(res.source),
         TargetSpec::EventObject => res.event_object,
+        // The one spec that is only ever a second instance of "target"
+        // names the object that instance chose.
+        TargetSpec::ObjectOfFirstTargetsPlayer(_) => res.second_targets.first().copied(),
         TargetSpec::Object(_)
         | TargetSpec::ObjectOfEachOpponent(_)
+        | TargetSpec::OpponentOrObject(_)
+        | TargetSpec::ObjectControlledBy(..)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)
@@ -110,7 +115,9 @@ fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
 /// its one implicit target, so reading it here would add nothing.
 fn spec_objects(res: &Resolution, target: TargetSpec) -> SmallVec<[ObjectId; 2]> {
     match target {
-        TargetSpec::ThisObject | TargetSpec::EventObject => {
+        TargetSpec::ThisObject
+        | TargetSpec::EventObject
+        | TargetSpec::ObjectOfFirstTargetsPlayer(_) => {
             spec_object(res, target).into_iter().collect()
         }
         _ => res.targets.clone(),

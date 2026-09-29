@@ -118,6 +118,16 @@ impl<L: CardLookup> Engine<L> {
                 mode,
                 ..
             }) => Some((*source, *ability_index, mode.map(usize::from))),
+            // The trigger is on the stack already, its first instance chosen:
+            // the ability it asks for is the one its stack object names, and
+            // the first targets are shown beside the second question as an
+            // activation's are.
+            Some(PlanKind::TriggerSecondTarget { on_stack }) => {
+                self.state.object(*on_stack).and_then(|o| {
+                    first = &o.targets;
+                    o.ability.map(|loc| (loc.source, loc.index, None))
+                })
+            }
             _ => None,
         };
         if let Some((source, index, mode)) = handle {

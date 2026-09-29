@@ -615,6 +615,7 @@ mod tests {
                         TargetSpec::Player(_)
                         | TargetSpec::AnyPlayer
                         | TargetSpec::AnyOpponent
+                        | TargetSpec::OpponentOrObject(_)
                         | TargetSpec::AnyTarget
                         | TargetSpec::ThisObject
                         | TargetSpec::EventObject => {
@@ -623,6 +624,8 @@ mod tests {
                         }
                         TargetSpec::Object(f)
                         | TargetSpec::ObjectOfEachOpponent(f)
+                        | TargetSpec::ObjectOfFirstTargetsPlayer(f)
+                        | TargetSpec::ObjectControlledBy(f, _)
                         | TargetSpec::Spell(f)
                         | TargetSpec::StackOrBattlefield(f)
                         | TargetSpec::AbilityOnStack(f)

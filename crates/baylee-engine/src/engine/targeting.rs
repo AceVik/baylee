@@ -24,6 +24,32 @@ fn same(a: &PendingTrigger, b: &PendingTrigger) -> bool {
         && b.synthetic_effects.is_none()
 }
 
+/// `spec` with "that player" read off the first instance of "target" of the
+/// ability `obj` on the stack: the player it named, or the controller of the
+/// permanent it named (last known, if it has left since). Every other spec
+/// comes back as it was.
+fn bind_to_first_targets_player(
+    state: &crate::state::GameState,
+    obj: &crate::object::GameObject,
+    spec: baylee_cards_dsl::TargetSpec,
+) -> baylee_cards_dsl::TargetSpec {
+    let baylee_cards_dsl::TargetSpec::ObjectOfFirstTargetsPlayer(filter) = spec else {
+        return spec;
+    };
+    let player = obj.target_players.iter().next().or_else(|| {
+        obj.targets
+            .first()
+            .and_then(|id| state.object_or_departed(*id))
+            .map(|o| o.controller)
+    });
+    match player {
+        Some(player) => baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player),
+        // Nobody was named, so there is no "that player" and nothing to
+        // offer; left unbound, it enumerates empty.
+        None => spec,
+    }
+}
+
 impl<L: CardLookup> Engine<L> {
     /// `controller`'s opponents, starting with the next seat in turn order
     /// (CR 101.4's order, the one a table reads round).
@@ -84,6 +110,73 @@ impl<L: CardLookup> Engine<L> {
         Some(asking.gathered)
     }
 
+    /// Asks the second instance of "target" of the triggered ability that was
+    /// just put on the stack, if it prints one.
+    ///
+    /// CR 603.3d makes putting a trigger on the stack the casting process
+    /// from 601.2c on, and 601.2c announces the targets instance by instance,
+    /// so the second is asked after the first is chosen — which is what lets
+    /// "target creature **that player or that planeswalker's controller**
+    /// controls" (Ravager of the Fells) name a player at all. The spec is
+    /// bound to that player here and written onto the stack object, so the
+    /// resolution-time re-check (CR 608.2b) asks the question the offer did.
+    ///
+    /// Returns whether a question is now pending.
+    pub(crate) fn ask_trigger_second_target(&mut self) -> bool {
+        let Some(top) = self
+            .state
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .last()
+            .copied()
+        else {
+            return false;
+        };
+        let Some(obj) = self.state.object(top) else {
+            return false;
+        };
+        if obj.kind != crate::object::ObjectKind::AbilityOnStack
+            || obj.second_target_req().is_some()
+        {
+            return false;
+        }
+        let Some(mut req) = self.stack_second_target_req(top) else {
+            return false;
+        };
+        req.spec = bind_to_first_targets_player(&self.state, obj, req.spec);
+        let controller = obj.controller;
+        let (options, _) = eval::stack_target_options(&self.state, obj, &req.spec);
+        if let Some(obj) = self.state.object_mut(top) {
+            obj.set_second(SmallVec::new(), Some(req));
+        }
+        if options.len() < usize::from(req.min) {
+            // No legal choice for a required target: "the ability is simply
+            // removed from the stack" (CR 603.3d). No card prints a required
+            // second target on a trigger today; Ravager's is "up to one".
+            self.state
+                .zones
+                .remove(top, crate::zone::ZoneLocation::Stack);
+            let _ = self.state.arena.remove(top);
+            return false;
+        }
+        if options.is_empty() {
+            // "Up to one" with nothing to point at: nothing to decide.
+            return false;
+        }
+        let max = req.max.min(u8::try_from(options.len()).unwrap_or(u8::MAX));
+        self.pending_plan = Some(PlanKind::TriggerSecondTarget { on_stack: top });
+        self.pending = Pending::ChooseTargets {
+            player: controller,
+            options,
+            player_options: Vec::new(),
+            min: req.min,
+            max,
+            reason: TargetPrompt::Targets,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
     /// Number of consecutive occurrences of the exact current trigger.
     /// Non-trigger questions (including payments and modal choices) never
     /// qualify. Only the already collected queue is examined.
@@ -105,6 +198,19 @@ impl<L: CardLookup> Engine<L> {
         let Some(first) = self.trigger_queue.front() else {
             return 0;
         };
+        // A trigger that asks a second instance of "target" asks it between
+        // one occurrence and the next, so the series is not one answer
+        // repeated.
+        if matches!(
+            self.trigger_abilities(first)
+                .get(first.ability_index as usize),
+            Some(baylee_cards_dsl::AbilityDef::Triggered {
+                second_targets: Some(_),
+                ..
+            })
+        ) {
+            return 0;
+        }
         u32::try_from(
             self.trigger_queue
                 .iter()

@@ -22902,8 +22902,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         },
         FaceLines {
             sentences: 3,
-            stackable: 1,
-            lines: &[Some(2)],
+            stackable: 2,
+            lines: &[Some(1), Some(2)],
             modes: &[],
             alternatives: &[],
         },

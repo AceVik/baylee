@@ -455,6 +455,25 @@ pub enum TargetSpec {
     /// one list. Written with `TargetReq::up_to(spec, u8::MAX)`; the count
     /// is the opponents' (CR 601.2c, 115.1).
     ObjectOfEachOpponent(&'static Filter),
+    /// "Target opponent or [filter]" (Ravager of the Fells: "target opponent
+    /// or planeswalker"): one choice over the opponents and the permanents
+    /// the filter matches, offered together the way "any target" offers its
+    /// two lists (CR 115.1d).
+    OpponentOrObject(&'static Filter),
+    /// "Target [filter] that player or that planeswalker's controller
+    /// controls" — a **second** instance of "target" whose permanents are
+    /// those of the player the first instance named, or of the controller of
+    /// the permanent it named (Ravager of the Fells). Written only as an
+    /// ability's `second_targets`; the engine binds it to
+    /// [`Self::ObjectControlledBy`] once the first answer is in, since the
+    /// targets of one instance are chosen before the next (CR 601.2c).
+    ObjectOfFirstTargetsPlayer(&'static Filter),
+    /// A permanent matching the filter that one named player controls. Never
+    /// written on a card: it is what a spec that names "that player" becomes
+    /// once the engine knows which player that is, kept on the stack object
+    /// so the resolution-time re-check (CR 608.2b) asks the same question
+    /// the offer did.
+    ObjectControlledBy(&'static Filter, baylee_core::ids::PlayerId),
     /// A spell on the stack matching the filter.
     Spell(&'static Filter),
     /// A spell on the stack OR a permanent on the battlefield (Venser).

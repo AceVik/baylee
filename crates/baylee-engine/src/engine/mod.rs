@@ -372,6 +372,12 @@ enum PlanKind {
         /// `None` for every other trigger.
         per_opponent: Option<Box<PerOpponent>>,
     },
+    /// A trigger's second instance of "target", asked once the trigger is on
+    /// the stack with its first (Ravager of the Fells).
+    TriggerSecondTarget {
+        /// The triggered ability on the stack.
+        on_stack: ObjectId,
+    },
     /// A shockland entry choice (pay life or enter tapped).
     EntryTap {
         /// The entering land.

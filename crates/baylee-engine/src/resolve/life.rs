@@ -120,6 +120,23 @@ fn deal_to_spec(
                 deal_to_player(state, source, player, n);
             }
         }
+        // "Target opponent or planeswalker": one choice over both lists, so
+        // whichever half it landed in is dealt to.
+        TargetSpec::OpponentOrObject(_) => {
+            if let Some(&target_id) = res.targets.first() {
+                deal_to_object_with_loyalty(state, target_id, n, source);
+            }
+            for player in res.target_players.iter() {
+                deal_to_player(state, source, player, n);
+            }
+        }
+        // Only ever a second instance of "target": the damage goes to what
+        // that instance chose, if it chose anything ("up to one").
+        TargetSpec::ObjectOfFirstTargetsPlayer(_) => {
+            if let Some(&target_id) = res.second_targets.first() {
+                deal_to_object_with_loyalty(state, target_id, n, source);
+            }
+        }
         // A chosen player is a player. The choice landed in
         // `target_players`, so reading `targets` here would deal to
         // whatever object the spell also happened to point at — or,
@@ -139,6 +156,7 @@ fn deal_to_spec(
         // in a catch-all silently and be dealt to as an object.
         TargetSpec::Object(_)
         | TargetSpec::ObjectOfEachOpponent(_)
+        | TargetSpec::ObjectControlledBy(..)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
         | TargetSpec::CardInGraveyard(..)

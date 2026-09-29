@@ -1934,7 +1934,7 @@ impl<L: CardLookup> Engine<L> {
     /// target requirement, and two of the three doors to the stack — at four
     /// different moments, and the object underneath is free to change between
     /// them, so all four ask here.
-    fn trigger_abilities(
+    pub(super) fn trigger_abilities(
         &self,
         t: &crate::trigger::PendingTrigger,
     ) -> &'static [baylee_cards_dsl::AbilityDef] {
@@ -2185,6 +2185,9 @@ impl<L: CardLookup> Engine<L> {
                             obj.event_object = Some(event_object);
                         }
                     }
+                    if self.ask_trigger_second_target() {
+                        return;
+                    }
                     continue;
                 }
                 let options = eval::target_options(
@@ -2384,6 +2387,9 @@ impl<L: CardLookup> Engine<L> {
                         obj.targets.extend(t.implicit_target);
                     }
                 }
+                if self.ask_trigger_second_target() {
+                    return;
+                }
             }
         }
     }
@@ -2500,9 +2506,13 @@ impl<L: CardLookup> Engine<L> {
     /// Two arms and not the whole list, because only two shapes can say it —
     /// [`AbilityDef::Spell`] through the object and the activated twins here.
     /// Both twins, for the reason `stack_target_req` gives.
-    fn stack_second_target_req(&self, on_stack: ObjectId) -> Option<TargetReq> {
+    pub(super) fn stack_second_target_req(&self, on_stack: ObjectId) -> Option<TargetReq> {
         let obj = self.state.object(on_stack)?;
-        if obj.kind != ObjectKind::AbilityOnStack {
+        // A requirement written on the object wins: the cast wizard writes a
+        // spell's, and a trigger's is written bound to the player its first
+        // instance named (`Engine::ask_trigger_second_target`), which is the
+        // question its re-check has to ask again.
+        if obj.kind != ObjectKind::AbilityOnStack || obj.second_target_req().is_some() {
             return obj.second_target_req();
         }
         let loc = obj.ability?;
@@ -2517,7 +2527,8 @@ impl<L: CardLookup> Engine<L> {
         match abilities.get(loc.index as usize)? {
             AbilityDef::Activated { second_targets, .. }
             | AbilityDef::ActivatedConditional { second_targets, .. }
-            | AbilityDef::Loyalty { second_targets, .. } => *second_targets,
+            | AbilityDef::Loyalty { second_targets, .. }
+            | AbilityDef::Triggered { second_targets, .. } => *second_targets,
             _ => None,
         }
     }

@@ -349,6 +349,12 @@ pub enum AbilityDef {
         effects: &'static [Effect],
         /// Target requirement.
         targets: Option<crate::effect::TargetReq>,
+        /// A second instance of the word "target", as on
+        /// [`AbilityDef::Spell::second_targets`], chosen after the first as
+        /// the ability goes on the stack (CR 603.3d, 601.2c): Ravager of the
+        /// Fells' "and 2 damage to up to one target creature that player or
+        /// that planeswalker's controller controls".
+        second_targets: Option<crate::effect::TargetReq>,
         /// Fires at most once each turn (Jin-Gitaxias).
         once_per_turn: bool,
         /// The intervening-`if` clause, if the card prints one (CR 603.4).
@@ -697,6 +703,7 @@ mod tests {
                 trigger: Trigger::ETB,
                 effects: NOTHING,
                 targets: None,
+                second_targets: None,
                 once_per_turn: false,
                 condition: None,
             },
