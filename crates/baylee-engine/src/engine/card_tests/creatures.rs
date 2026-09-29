@@ -89024,14 +89024,12 @@ fn face_shown(engine: &Engine<RegistryLookup>, id: ObjectId) -> u8 {
 /// one target creature" is declined. A test about that trigger answers it
 /// itself, after [`upkeep_until_ravager_asks`].
 fn through_upkeep_of(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
-    let arrived = |e: &Engine<RegistryLookup>| {
-        e.state().turn.active == seat && matches!(e.state().turn.step, crate::turn::Step::Upkeep)
-    };
-    let past = |e: &Engine<RegistryLookup>| {
-        e.state().turn.active == seat && !matches!(e.state().turn.step, crate::turn::Step::Upkeep)
-    };
-    let stages: [&dyn Fn(&Engine<RegistryLookup>) -> bool; 2] = [&arrived, &past];
-    for stage in stages {
+    // First into that upkeep, then out of it.
+    for past in [false, true] {
+        let stage = |e: &Engine<RegistryLookup>| {
+            e.state().turn.active == seat
+                && matches!(e.state().turn.step, crate::turn::Step::Upkeep) != past
+        };
         loop {
             pass_until(engine, |e| {
                 stage(e) || matches!(e.pending(), Pending::ChooseTargets { .. })

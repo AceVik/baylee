@@ -614,6 +614,30 @@ fn any_target_objects(state: &GameState) -> Vec<ObjectId> {
         .collect()
 }
 
+/// The object options of the specs that are about one player's permanents.
+fn objects_of_a_player(
+    spec: &TargetSpec,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+) -> Vec<ObjectId> {
+    match *spec {
+        // The object half of "target opponent or [filter]"; the opponents
+        // come from `target_player_options`, offered beside it.
+        TargetSpec::OpponentOrObject(filter) => {
+            target_options(&TargetSpec::Object(filter), state, you, this)
+        }
+        TargetSpec::ObjectControlledBy(filter, player) => {
+            let mut all = target_options(&TargetSpec::Object(filter), state, you, this);
+            all.retain(|id| state.object(*id).is_some_and(|o| o.controller == player));
+            all
+        }
+        // Unbound, "that player" is nobody yet: the engine asks these only
+        // after binding them to `ObjectControlledBy`.
+        _ => Vec::new(),
+    }
+}
+
 /// [`TargetSpec::ObjectOfEachOpponent`]'s options: every opponent's at once,
 /// which each question narrows to one (`Engine::ask_next_opponent`).
 fn opponents_objects(
@@ -651,21 +675,10 @@ pub fn target_options(
             .copied()
             .collect(),
         TargetSpec::ObjectOfEachOpponent(filter) => opponents_objects(filter, state, you, this),
-        // The object half of "target opponent or [filter]"; the opponents
-        // come from `target_player_options`, offered beside it.
-        TargetSpec::OpponentOrObject(filter) => {
-            target_options(&TargetSpec::Object(filter), state, you, this)
-        }
-        TargetSpec::ObjectControlledBy(filter, player) => {
-            let mut mine = target_options(&TargetSpec::Object(filter), state, you, this);
-            mine.retain(|id| state.object(*id).is_some_and(|o| o.controller == *player));
-            mine
-        }
-        // Unbound, "that player" is nobody yet: the engine asks these only
-        // after binding them to `ObjectControlledBy`.
-        TargetSpec::ObjectOfFirstTargetsPlayer(_) | TargetSpec::ObjectOfEventPlayer(_) => {
-            Vec::new()
-        }
+        TargetSpec::OpponentOrObject(_)
+        | TargetSpec::ObjectControlledBy(..)
+        | TargetSpec::ObjectOfFirstTargetsPlayer(_)
+        | TargetSpec::ObjectOfEventPlayer(_) => objects_of_a_player(spec, state, you, this),
         TargetSpec::Spell(filter) => state
             .zones
             .list(ZoneLocation::Stack)
