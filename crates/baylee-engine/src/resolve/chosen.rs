@@ -27,9 +27,10 @@ use baylee_core::ids::{ObjectId, PlayerId};
 
 use crate::eval;
 use crate::state::GameState;
-use crate::zone::ZoneLocation;
 
-/// The permanents `player` controls that `filter` matches.
+/// The permanents `player` controls that `filter` matches
+/// ([`eval::controlled_matching`], which `Condition::CanSacrifice` asks too,
+/// so "if you can't" and the question agree).
 ///
 /// `you` and `source` are the effect's own controller and source, which is
 /// what a filter reads "you" and "this" as — not the player being asked.
@@ -40,17 +41,7 @@ pub(super) fn options(
     you: PlayerId,
     source: ObjectId,
 ) -> Vec<ObjectId> {
-    state
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
-        .filter(|id| {
-            state.object(**id).is_some_and(|o| {
-                o.controller == player && eval::matches(filter, state, o, you, source)
-            })
-        })
-        .copied()
-        .collect()
+    eval::controlled_matching(state, player, filter, you, source)
 }
 
 /// Takes players off the front of `remaining` until one has a legal pick,
@@ -156,6 +147,24 @@ mod tests {
             options(&state, seat(1), &Filter::This, seat(0), theirs),
             vec![theirs],
             "and it names that one object whichever seat is being asked"
+        );
+    }
+
+    /// A phased-out permanent is treated as though it does not exist
+    /// (CR 702.26b): nobody is asked to sacrifice it.
+    #[test]
+    fn a_phased_out_permanent_is_not_offered() {
+        let mut state = state(2);
+        let seen = permanent(&mut state, seat(0), "seen");
+        let phased = permanent(&mut state, seat(0), "phased out");
+        state
+            .object_mut(phased)
+            .expect("seated")
+            .status
+            .insert(crate::object::Status::PHASED_OUT);
+        assert_eq!(
+            options(&state, seat(0), &Filter::ControlledByYou, seat(0), seen),
+            vec![seen]
         );
     }
 

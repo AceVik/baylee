@@ -763,7 +763,12 @@ reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
 `CountersOnSelf(kind, n)`, `CountersOnSelfExactly(kind, n)` and
 `CountersOnSelfBetween(kind, lo, hi)` read the permanent the ability is
 printed on, `SourceMatches(&filter)` points a
-filter back at that permanent — "if this land is tapped" — and
+filter back at that permanent — "if this land is tapped" —
+`CanSacrifice(&filter)` is whether you control a permanent the filter
+matches with the source as its `This` (Lord of the Pit's "sacrifice a
+creature other than this creature. If you can't, …", an `IfCondition`
+around `SacrificeFilter`; `ControlCount` asks each permanent with itself as
+`This`, so `Filter::Another` never matches there), and
 `Any(&[..])` holds while **one** of the conditions it names does, and
 `Not(&c)` while `c` does not — the printed "unless". One reader answers
 all of them, `eval::condition_holds`.

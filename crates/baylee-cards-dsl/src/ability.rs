@@ -228,6 +228,16 @@ pub enum Condition {
     /// so a land that left the battlefield between the trigger and its
     /// resolution leaves "this land is tapped" with nothing to be true of.
     SourceMatches(&'static Filter),
+    /// "If you can't" of "sacrifice a [filter]": you control a permanent
+    /// the filter matches, asked with the ability's source as the filter's
+    /// `This` — the permanents `Effect::SacrificeFilter` would offer you.
+    /// Lord of the Pit's "sacrifice a creature other than this creature. If
+    /// you can't, …" is `IfCondition { condition: CanSacrifice(&f), then:
+    /// &[SacrificeFilter { who: You, filter: &f }], otherwise: … }`.
+    ///
+    /// Not `ControlCount(&f, 1)`: that one asks each permanent with itself
+    /// as `This`, so `Filter::Another` never matches there.
+    CanSacrifice(&'static Filter),
     /// At least one of these holds ("activate only if this land entered
     /// this turn **or** if you control a basic land" — the Gathering Place
     /// cycle).

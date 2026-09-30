@@ -622,7 +622,37 @@ pub fn condition_holds(
         Condition::SourceMatches(filter) => state
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),
+        Condition::CanSacrifice(filter) => {
+            !controlled_matching(state, you, filter, you, source).is_empty()
+        }
     }
+}
+
+/// The permanents `player` controls that `filter` matches: what a player
+/// asked to sacrifice, destroy or return "a [filter]" may pick
+/// (`Effect::SacrificeFilter` and its siblings), and what
+/// [`Condition::CanSacrifice`] asks about.
+///
+/// `you` and `source` are the effect's own controller and source, which is
+/// what a filter reads "you" and "this" as — not the player being asked. A
+/// phased-out permanent is treated as though it does not exist (CR
+/// 702.26b), so it is not one of them.
+#[must_use]
+pub fn controlled_matching(
+    state: &GameState,
+    player: PlayerId,
+    filter: &Filter,
+    you: PlayerId,
+    source: ObjectId,
+) -> Vec<ObjectId> {
+    state
+        .battlefield_seen()
+        .filter(|id| {
+            state
+                .object(*id)
+                .is_some_and(|o| o.controller == player && matches(filter, state, o, you, source))
+        })
+        .collect()
 }
 
 /// The permanents on the battlefield `filter` matches, whoever controls them,
