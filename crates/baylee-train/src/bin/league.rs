@@ -80,8 +80,17 @@ struct Args {
     /// Threads; 0 = one per core.
     #[arg(long, default_value_t = 0)]
     threads: usize,
-    /// Seconds a game may take.
-    #[arg(long, default_value_t = 120)]
+    /// Decisions a game may take, every seat's questions together
+    /// (`Session::decision_seq`), before it is stopped. The cap that shapes
+    /// the data: it ends a game at the same move on every machine. Finished
+    /// games take about 900 (at most ~3,400 in a 1,500-game arena), and a
+    /// game past 6,000 is a stall, not play.
+    #[arg(long, default_value_t = 6000)]
+    max_decisions: u64,
+    /// Seconds a game may take: only a guard against an engine that stops
+    /// deciding. A game it stops ends at a machine-dependent point, so it is
+    /// reported as `time_cap` apart from `decision_cap`.
+    #[arg(long, default_value_t = 600)]
     max_secs: u64,
     /// Games per record shard.
     #[arg(long, default_value_t = 1000)]
@@ -278,7 +287,10 @@ fn play_one(
     let deck_them = deck_list(&preset.seats[usize::from(other)]);
     let started = Instant::now();
     let wall = Duration::from_secs(args.max_secs);
-    let (mut refused, mut fallbacks) = (0_u64, 0_u64);
+    let (mut refused, mut fallbacks, mut stalls) = (0_u64, 0_u64, 0_u64);
+    // Per seat, how often it has been asked in each game state (only looked
+    // up).
+    let mut asked_in: [BTreeMap<u64, u32>; 2] = Default::default();
     let outcome = loop {
         if let Pending::GameOver(result) = session.pending() {
             let reason = format!("{:?}", result.reason);
@@ -290,6 +302,9 @@ fn play_one(
                     json!({"kind": "team_won", "seats": ws.iter().map(|w| w.get()).collect::<Vec<_>>(), "reason": reason})
                 }
             };
+        }
+        if session.decision_seq() >= args.max_decisions {
+            break json!({"kind": "decision_cap"});
         }
         if started.elapsed() > wall {
             break json!({"kind": "time_cap"});
@@ -320,7 +335,21 @@ fn play_one(
                 teams: &teams,
                 deck,
             };
-            let action = if let Some(a) = player.answer(&view, &pending, &seat_table)? {
+            // Asked too often in one game state, a net has gone round a loop
+            // of its own answers: the house answers there
+            // (`netplay3::STALL_VISITS`).
+            let visits = asked_in[usize::from(seat.get())]
+                .entry(session.snapshot_hash())
+                .or_default();
+            *visits += 1;
+            let again = *visits > baylee_train::netplay3::STALL_VISITS;
+            stalls += u64::from(again);
+            let answered = if again {
+                None
+            } else {
+                player.answer(&view, &pending, &seat_table)?
+            };
+            let action = if let Some(a) = answered {
                 a.action
             } else {
                 fallbacks += 1;
@@ -370,6 +399,7 @@ fn play_one(
             "ms": started.elapsed().as_millis() as u64,
             "refused": refused,
             "house_fallbacks": fallbacks,
+            "stalls": stalls,
         }),
         record: session.take_record(),
         learner_won,
@@ -448,6 +478,7 @@ fn main() -> anyhow::Result<()> {
             "decks": decks.iter().map(|d| d.key.clone()).collect::<Vec<_>>(),
             "games": args.games,
             "first_seed": args.first_seed,
+            "caps": {"decisions": args.max_decisions, "secs": args.max_secs},
             "started": stamp,
         }))?,
     )?;

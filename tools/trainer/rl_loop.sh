@@ -18,7 +18,7 @@ set -euo pipefail
 BASE=${BASE:?the first learner: a model dir with net.pt, net.onnx and seen_ids.npy}
 ITERS=${ITERS:-8}
 GAMES=${GAMES:-10000}
-ARENA=${ARENA:-500}
+ARENA=${ARENA:-500}   # duplicate deals: 2 net games and 1 house baseline each
 TAG=${TAG:-rl}
 TEMP=${TEMP:-1.0}
 PRUNE=${PRUNE:-1}
@@ -69,10 +69,10 @@ for it in $(seq -f %02g 1 "$ITERS"); do
     fi
     if [ ! -f "$arena/arena.json" ]; then
         rm -rf "$arena"
-        ./target/selfplay/arena --model "$model/net.onnx" --against expert --games "$ARENA" --out "$arena" \
+        ./target/selfplay/arena --model "$model/net.onnx" --against expert --deals "$ARENA" --out "$arena" \
             > "$arena.log" 2>&1
     fi
-    echo "[rl_loop] iteration $it done: $(python3 -c "import json;a=json.load(open('$arena/arena.json'))['results']['expert'];print('vs expert', round(a['win_rate'],3), a['ci95'])")"
+    echo "[rl_loop] iteration $it done: $(python3 -c "import json;j=json.load(open('$arena/arena.json'));a=j['results']['expert'];d=j['duplicate'];print('vs expert', round(a['win_rate'],3), a['ci95'], '· net - house', round(d['delta'],3), [round(x,3) for x in d['ci95']])")"
     echo "[rl_loop]   league: $(python3 -c "import json;print([(v['opponent'][-40:], round(v['learner_score'],3)) for v in json.load(open('$run/summary.json'))['vs']])")"
     # The two latest former learners stay in the league: every worker holds
     # every net it may meet, and each costs it a few hundred megabytes.

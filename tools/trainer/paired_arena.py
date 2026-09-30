@@ -15,12 +15,17 @@ from math import comb
 from pathlib import Path
 
 
-def outcomes(run: Path) -> dict[int, bool]:
+def outcomes(run: Path) -> dict[tuple, bool]:
+    """The net's games by (deal, seat); an arena from before duplicate deals
+    (no `deal`) by its game number, which pairs only with another such."""
     out = {}
     for line in (run / "games.jsonl").open():
         g = json.loads(line)
+        if g.get("role", "net") != "net":
+            continue
+        key = ("deal", g["deal"], g["net_seat"]) if "deal" in g else ("game", g["i"])
         if g["outcome"] in ("win", "loss"):
-            out[g["i"]] = g["outcome"] == "win"
+            out[key] = g["outcome"] == "win"
     return out
 
 
@@ -40,6 +45,9 @@ def main() -> None:
     for other in others:
         o = outcomes(other)
         both = sorted(b.keys() & o.keys())
+        if not both:
+            print(f"{other.name}: no game in common with {base.name} (an arena from before duplicate deals pairs only with another such)")
+            continue
         bw = sum(b[i] for i in both)
         ow = sum(o[i] for i in both)
         only_o = sum(o[i] and not b[i] for i in both)
