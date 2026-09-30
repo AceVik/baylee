@@ -17821,3 +17821,754 @@ fn time_vault_enters_tapped_and_takes_an_extra_turn() {
     assert_eq!(engine.state().turn.active, p0, "the extra turn is p0's");
     assert!(is_tapped(&engine, vault), "and it did not untap");
 }
+
+// ---------------------------------------------------------------------------
+// Alpha cards, played by their Oracle text.
+// ---------------------------------------------------------------------------
+
+/// A seat's current life total, read the way most of this batch of tests
+/// reads it.
+fn life_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
+    engine.state().players[seat.get() as usize].life
+}
+
+fn ankh_of_mishra() -> CardIndex {
+    card_index("63c1eda1-3e6f-4e9c-adf3-a43164df98bb")
+}
+
+/// Ankh of Mishra: "Whenever a land enters, this artifact deals 2 damage to
+/// that land's controller." The controller of the *land*, not of the Ankh:
+/// p0 owns the Ankh and still takes 2 for their own land drop, and p1 takes
+/// 2 for theirs on the following turn — p0's total does not move again.
+#[test]
+fn ankh_of_mishra_deals_2_to_whichever_player_a_land_enters_for() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[ankh_of_mishra()])
+        .hand(0, &[island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before0 = life_of(&engine, p0);
+    play_land(&mut engine, p0, island());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life_of(&engine, p0),
+        before0 - 2,
+        "the Ankh's own controller takes 2 for their own land"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    let before1 = life_of(&engine, p1);
+    play_land(&mut engine, p1, forest());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life_of(&engine, p1),
+        before1 - 2,
+        "and the opponent takes 2 for theirs — the land's controller, not \
+         the Ankh's"
+    );
+    assert_eq!(
+        life_of(&engine, p0),
+        before0 - 2,
+        "p0's life did not move a second time"
+    );
+}
+
+fn conservator() -> CardIndex {
+    card_index("1940e56d-0972-4ca4-946c-bbd42dde1dcb")
+}
+
+/// Conservator: "{3}, {T}: Prevent the next 2 damage that would be dealt to
+/// you this turn." A shield of exactly 2, read off a burn spell for 3: one
+/// point gets through, proving the shield absorbs its printed amount and
+/// nothing more (`prevention::ShieldKind::Next`).
+#[test]
+fn conservator_prevents_the_next_2_damage_dealt_to_its_controller() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[conservator(), mountain(), forest(), forest(), forest()],
+        )
+        .hand(0, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let red = on_battlefield(&engine, p0, mountain()).expect("the Mountain is out");
+    tap_mana_except(&mut engine, p0, red);
+    activate(&mut engine, p0, conservator(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    let before = life_of(&engine, p0);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("p0 is any target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life_of(&engine, p0),
+        before - 1,
+        "3 dealt, 2 prevented by the shield"
+    );
+}
+
+fn copper_tablet() -> CardIndex {
+    card_index("16d1023b-2162-4010-8bf4-218dbe7c99a0")
+}
+
+/// Copper Tablet: "At the beginning of each player's upkeep, this artifact
+/// deals 1 damage to that player." Each player takes 1 at their own upkeep
+/// and none at the other's — p0's first upkeep is the very first of the
+/// game and still fires.
+#[test]
+fn copper_tablet_deals_1_to_each_player_at_their_own_upkeep() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[copper_tablet()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert_eq!(life_of(&engine, p0), 20, "before p0's first upkeep");
+    assert_eq!(life_of(&engine, p1), 20, "before anyone's upkeep");
+
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(life_of(&engine, p0), 19, "p0 took 1 at their own upkeep");
+    assert_eq!(life_of(&engine, p1), 20, "not yet p1's upkeep");
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(life_of(&engine, p1), 19, "p1 took 1 at their own upkeep");
+    assert_eq!(life_of(&engine, p0), 19, "p0's life did not move again");
+}
+
+/// Answers p0's pending "you may pay {1}" tax question (`YesNoPrompt::PayTax`)
+/// with a yes paid straight out of an already-floating pool, and asserts
+/// p0's life rose by exactly 1 — the shared shape behind Crystal Rod, Iron
+/// Star, Ivory Cup, Throne of Bone, Wooden Sphere and Soul Net.
+///
+/// Not `pass_until`: that walker has no arm for `YesNoPrompt::PayTax` and
+/// panics on it. This stops with a `pass_until` whose predicate is the tax
+/// question itself, then answers directly.
+#[track_caller]
+fn pays_the_tax_and_gains_a_life(engine: &mut Engine<RegistryLookup>, p0: PlayerId) {
+    pass_until(engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { mana: 1 },
+                ..
+            }
+        )
+    });
+    let before = life_of(engine, p0);
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    assert_eq!(
+        life_of(engine, p0),
+        before + 1,
+        "paid {{1}} out of the floating pool and gained 1 life"
+    );
+}
+
+fn crystal_rod() -> CardIndex {
+    card_index("e68bc048-1009-46a5-97d6-ec77a18067da")
+}
+
+/// Crystal Rod: "Whenever a player casts a blue spell, you may pay {1}. If
+/// you do, you gain 1 life." Unsummon bouncing an opponent's creature is the
+/// stimulus; the trigger asks before Unsummon itself resolves.
+#[test]
+fn crystal_rod_offers_to_pay_and_gain_life_off_a_blue_spell() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[crystal_rod(), island(), island()])
+        .hand(0, &[unsummon()])
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p1, quiet_creature()).expect("their Elf is seated");
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, unsummon());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elf is a legal target");
+
+    pays_the_tax_and_gains_a_life(&mut engine, p0);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_hand(&engine, p1, quiet_creature()).is_some(),
+        "Unsummon still resolved and bounced the Elf"
+    );
+}
+
+fn dingus_egg() -> CardIndex {
+    card_index("1973f1e9-aa14-49dc-bafe-be17b30ba288")
+}
+
+/// Dingus Egg: "Whenever a land is put into a graveyard from the
+/// battlefield, this artifact deals 2 damage to that land's controller."
+/// Destroyed the harness way (`bury`), which is the graveyard door this
+/// sentence names — a bounced or exiled land never triggers it.
+#[test]
+fn dingus_egg_deals_2_when_a_land_dies() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[dingus_egg(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = on_battlefield(&engine, p0, mountain()).expect("the Mountain is seated");
+    let before = life_of(&engine, p0);
+    kill(&mut engine, land);
+    assert_eq!(
+        life_of(&engine, p0),
+        before - 2,
+        "its controller took 2 as it hit the graveyard"
+    );
+    assert!(in_graveyard(&engine, p0, mountain()).is_some());
+}
+
+fn disrupting_scepter() -> CardIndex {
+    card_index("cd30a128-4b23-476e-8066-2272fdc395d9")
+}
+
+/// Disrupting Scepter: "{3}, {T}: Target player discards a card. Activate
+/// only during your turn." The discarding player chooses which card
+/// (`Effect::DiscardForPlayers`), and the ability is withheld outside its
+/// controller's own turn.
+#[test]
+fn disrupting_scepter_makes_a_target_player_discard_only_on_its_controllers_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[disrupting_scepter(), forest(), forest(), forest(), forest()],
+        )
+        .hand(1, &[swords_to_plowshares(), giant_growth()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    reach_their_main_phase(&mut engine, p1);
+    let scepter = on_battlefield(&engine, p0, disrupting_scepter()).expect("seated");
+    assert!(
+        !priority_offer(&engine).abilities.contains(&(scepter, 0)),
+        "not p0's turn, so the ability is withheld"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == p0
+    });
+    let before = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, disrupting_scepter(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a player target, got {:?}", engine.pending())
+    };
+    assert!(options.is_empty(), "the target is a player, not an object");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("p1 is a legal target");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+
+    let Pending::ChooseCards { player, .. } = engine.pending().clone() else {
+        panic!(
+            "the targeted player discards and chooses which card, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p1, "p1 discards, not p0");
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p1)).clone();
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![hand[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        before - 1,
+        "one card fewer in p1's hand"
+    );
+}
+
+fn howling_mine() -> CardIndex {
+    card_index("d26b27db-a567-4631-b4b6-7294222fbdd1")
+}
+
+/// Howling Mine: "At the beginning of each player's draw step, if this
+/// artifact is untapped, that player draws an additional card." The player
+/// going first skips their own turn-1 draw step entirely (CR 103.8a), so
+/// the first draw this reaches is p1's. The negative half taps the Mine
+/// during p0's own turn-3 upkeep — strictly after that turn's untap step,
+/// which would otherwise undo a tap set any earlier.
+#[test]
+fn howling_mine_doubles_the_draw_only_while_untapped() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[howling_mine()])
+        .start();
+    keep_mulligans(&mut engine);
+    let baseline0 = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let baseline1 = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        baseline1 + 2,
+        "p1's own first draw, doubled by the untapped Mine"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && stack_is_empty(e)
+    });
+    let mine = on_battlefield(&engine, p0, howling_mine()).expect("seated");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .object_mut(mine)
+        .expect("seated")
+        .status
+        .insert(Status::TAPPED);
+    engine.refresh_offer();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == p0
+    });
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        baseline0 + 1,
+        "p0's own first draw, single — the Mine is tapped"
+    );
+}
+
+fn ivory_cup() -> CardIndex {
+    card_index("8e2017c3-057d-4e30-bd60-f486fddbc6ca")
+}
+
+/// Ivory Cup: "Whenever a player casts a white spell, you may pay {1}. If
+/// you do, you gain 1 life." Swords to Plowshares is the white stimulus, and
+/// its own life gain (to the exiled creature's controller) is a second,
+/// independent number in the same resolution.
+#[test]
+fn ivory_cup_offers_to_pay_and_gain_life_off_a_white_spell() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[ivory_cup(), plains(), plains()])
+        .hand(0, &[swords_to_plowshares()])
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p1, quiet_creature()).expect("their Elf is seated");
+    let their_life = life_of(&engine, p1);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, swords_to_plowshares());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elf is a legal target");
+
+    pays_the_tax_and_gains_a_life(&mut engine, p0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life_of(&engine, p1),
+        their_life + 1,
+        "Swords' own life gain still happened, to the Elf's controller"
+    );
+}
+
+fn jade_statue() -> CardIndex {
+    card_index("96162b22-41e7-4559-aa1b-c18f42abcb52")
+}
+
+/// Jade Statue: "{2}: This artifact becomes a 3/6 Golem artifact creature
+/// until end of combat. Activate only during combat." Withheld outright
+/// during the first main phase; offered once combat begins.
+#[test]
+fn jade_statue_animates_only_during_combat() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[jade_statue(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let statue = on_battlefield(&engine, p0, jade_statue()).expect("seated");
+    assert!(
+        !priority_offer(&engine).abilities.contains(&(statue, 0)),
+        "not combat yet"
+    );
+    let types_before = engine
+        .state()
+        .object(statue)
+        .unwrap()
+        .characteristics()
+        .types;
+    assert!(
+        !types_before.contains(TypeSet::CREATURE),
+        "an inert artifact outside combat"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Combat)
+    });
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, jade_statue(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, statue), (3, 6), "the printed 3/6");
+    let types_after = engine
+        .state()
+        .object(statue)
+        .unwrap()
+        .characteristics()
+        .types;
+    assert!(types_after.contains(TypeSet::CREATURE) && types_after.contains(TypeSet::ARTIFACT));
+}
+
+fn living_wall() -> CardIndex {
+    card_index("4844312c-3c9d-4ca1-986d-4ad35e68454e")
+}
+
+/// Living Wall: "Defender." / "{1}: Regenerate this creature." A shield
+/// bought and then spent on a destruction the harness drives directly
+/// (`kill`): the Wall stays on the battlefield, tapped, instead of dying.
+#[test]
+fn living_wall_has_defender_and_regenerates_through_destruction() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[living_wall(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wall = on_battlefield(&engine, p0, living_wall()).expect("the Wall is seated");
+    assert!(
+        keywords(&engine, wall).contains(KeywordSet::DEFENDER),
+        "\"Defender\""
+    );
+
+    tap_all_mana(&mut engine, p0);
+    raise_a_shield(&mut engine, p0, wall, 0);
+    kill(&mut engine, wall);
+    assert_eq!(
+        engine.state().object(wall).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "the shield saved it"
+    );
+    assert!(is_tapped(&engine, wall), "regeneration taps the permanent");
+}
+
+fn meekstone() -> CardIndex {
+    card_index("5ba73182-30a7-4bad-9cb6-c0feecc2db33")
+}
+
+/// Meekstone: "Creatures with power 3 or greater don't untap during their
+/// controllers' untap steps." A power-4 Golem stays tapped across an untap
+/// step; a power-1 Elf beside it untaps normally.
+#[test]
+fn meekstone_keeps_power_3_or_more_creatures_tapped() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[meekstone(), obsianus_golem(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let golem = on_battlefield(&engine, p0, obsianus_golem()).expect("seated");
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
+    for id in [golem, elf] {
+        engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up")
+            .object_mut(id)
+            .expect("seated")
+            .status
+            .insert(Status::TAPPED);
+    }
+    engine.refresh_offer();
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && e.state().turn.active == p0
+    });
+    assert!(is_tapped(&engine, golem), "power 4: stays tapped");
+    assert!(!is_tapped(&engine, elf), "power 1: untaps normally");
+}
+
+fn nevinyrral_s_disk() -> CardIndex {
+    card_index("96230edf-568a-47dd-b877-9d92aa58fac8")
+}
+
+/// Nevinyrral's Disk: "This artifact enters tapped." / "{1}, {T}: Destroy
+/// all artifacts, creatures, and enchantments." Cast (not seeded) to prove
+/// the tapped entry; the sweep takes itself, both players' creatures and an
+/// enchantment, and leaves every land standing.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played end to end
+fn nevinyrral_s_disk_enters_tapped_and_destroys_artifacts_creatures_and_enchantments() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                quiet_creature(),
+                sterling_grove(),
+            ],
+        )
+        .hand(0, &[nevinyrral_s_disk()])
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, nevinyrral_s_disk());
+    pass_until(&mut engine, stack_is_empty);
+
+    let disk = on_battlefield(&engine, p0, nevinyrral_s_disk()).expect("resolved");
+    assert!(is_tapped(&engine, disk), "\"enters tapped\"");
+
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .object_mut(disk)
+        .expect("seated")
+        .status
+        .remove(Status::TAPPED);
+    engine.refresh_offer();
+    activate(&mut engine, p0, nevinyrral_s_disk(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, nevinyrral_s_disk()).is_some(),
+        "the Disk destroys itself too — it is an artifact"
+    );
+    assert!(on_battlefield(&engine, p0, quiet_creature()).is_none());
+    assert!(on_battlefield(&engine, p1, quiet_creature()).is_none());
+    assert!(on_battlefield(&engine, p0, sterling_grove()).is_none());
+    assert_eq!(
+        all_on_battlefield(&engine, p0, forest()).len(),
+        5,
+        "lands are none of the three named types"
+    );
+}
+
+fn obsianus_golem() -> CardIndex {
+    card_index("ac41171e-c454-49e9-9004-c082ae099630")
+}
+
+/// Obsianus Golem: a vanilla `{6}` 4/6 artifact creature, no printed
+/// keywords or abilities.
+#[test]
+fn obsianus_golem_is_a_vanilla_four_six_artifact_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[obsianus_golem()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let golem = on_battlefield(&engine, p0, obsianus_golem()).expect("seated");
+    assert_eq!(pt(&engine, golem), (4, 6), "the printed 4/6");
+    assert_eq!(
+        keywords(&engine, golem),
+        KeywordSet::EMPTY,
+        "no printed keywords"
+    );
+    let types = engine
+        .state()
+        .object(golem)
+        .unwrap()
+        .characteristics()
+        .types;
+    assert!(types.contains(TypeSet::ARTIFACT) && types.contains(TypeSet::CREATURE));
+}
+
+fn soul_net() -> CardIndex {
+    card_index("6021c2d6-d098-4de2-9c7e-4c571f9238f6")
+}
+
+/// Soul Net: "Whenever a creature dies, you may pay {1}. If you do, you
+/// gain 1 life." Killed the harness way (`bury`, not `kill`: that helper's
+/// own `pass_until(stack_is_empty)` would run straight past the tax
+/// question this test needs to answer).
+#[test]
+fn soul_net_offers_to_pay_and_gain_life_when_a_creature_dies() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[soul_net(), forest(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
+    bury(&mut engine, &[elf]);
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!(
+            "expected priority after the kill, got {:?}",
+            engine.pending()
+        )
+    };
+    engine.apply(player, PlayerAction::PassPriority).unwrap();
+
+    pays_the_tax_and_gains_a_life(&mut engine, p0);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, quiet_creature()).is_some());
+}
+
+fn throne_of_bone() -> CardIndex {
+    card_index("f73c7edf-ed2c-41e8-ac83-c83ddd543f14")
+}
+
+/// Throne of Bone: "Whenever a player casts a black spell, you may pay {1}.
+/// If you do, you gain 1 life." Dark Ritual, untargeted, is the black
+/// stimulus.
+#[test]
+fn throne_of_bone_offers_to_pay_and_gain_life_off_a_black_spell() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[throne_of_bone(), swamp(), swamp()])
+        .hand(0, &[dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    pays_the_tax_and_gains_a_life(&mut engine, p0);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, dark_ritual()).is_some());
+}
+
+fn wooden_sphere() -> CardIndex {
+    card_index("0bd8917c-bec4-4603-bc3f-8e0c2afae56a")
+}
+
+/// Wooden Sphere: "Whenever a player casts a green spell, you may pay {1}.
+/// If you do, you gain 1 life." Any green spell counts, not only an instant
+/// or sorcery: Llanowar Elves, a creature spell, is the stimulus here.
+#[test]
+fn wooden_sphere_offers_to_pay_and_gain_life_off_a_green_spell() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[wooden_sphere(), forest(), forest()])
+        .hand(0, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, quiet_creature());
+    pays_the_tax_and_gains_a_life(&mut engine, p0);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, quiet_creature()).is_some());
+}
+
+fn iron_star() -> CardIndex {
+    card_index("e9ec67e1-7064-44d4-a1ed-04b7893ffb15")
+}
+
+/// Iron Star: "Whenever a player casts a red spell, you may pay {1}. If you
+/// do, you gain 1 life." The flagship of the five color rocks: a blue spell
+/// (Unsummon) first, to show the filter withholds the question on the wrong
+/// color, then a red one (Lightning Bolt) to show it asks on the right one.
+#[test]
+fn iron_star_offers_to_pay_and_gain_life_off_a_red_spell_and_not_a_blue_one() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[iron_star(), mountain(), mountain(), island()])
+        .hand(0, &[unsummon(), lightning_bolt()])
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p1, quiet_creature()).expect("their Elf is seated");
+    let before = life_of(&engine, p0);
+    let blue_land = on_battlefield(&engine, p0, island()).expect("the Island is out");
+    tap_mana_where(&mut engine, p0, |id| id == blue_land);
+    cast_with_floating(&mut engine, p0, unsummon());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elf is a legal target");
+    // A blue spell must not ask Iron Star's question at all: were it to,
+    // `pass_until` has no arm for `YesNoPrompt::PayTax` and panics here,
+    // which is itself a finding.
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life_of(&engine, p0),
+        before,
+        "no tax asked for a blue spell"
+    );
+    assert!(
+        in_hand(&engine, p1, quiet_creature()).is_some(),
+        "Unsummon resolved"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("p0 is any target");
+    pays_the_tax_and_gains_a_life(&mut engine, p0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life_of(&engine, p0),
+        before + 1 - 3,
+        "gained 1 from the tax, then took 3 from its own Bolt"
+    );
+}
