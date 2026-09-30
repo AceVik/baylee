@@ -44,6 +44,9 @@ def main() -> None:
     ap.add_argument("--data", required=True)
     ap.add_argument("--entities", type=int, default=192)
     ap.add_argument("--check", type=int, default=64, help="held-out decisions compared")
+    ap.add_argument("--batch", type=int, default=0,
+                    help="instead: add exports of every bucket at this fixed batch (net-e<rows>-b<B>.onnx) for "
+                         "the GPU batch server, leaving the batch-1 files as they are")
     ap.add_argument("--buckets", default="32,64,96,128",
                     help="smaller row counts exported beside --entities; the player runs a decision on the "
                          "smallest that holds its rows (the tracing exporter fixes the sequence length)")
@@ -83,6 +86,9 @@ def main() -> None:
     path = out / "net.onnx"
     buckets = sorted({int(b) for b in args.buckets.split(",") if b} | {E})
     buckets = [b for b in buckets if b <= E]
+    if args.batch:
+        export_batched(args.batch, out, wrapped, ds, idx, buckets)
+        return
     files = {}
     for rows in buckets:
         name = "net.onnx" if rows == E else f"net-e{rows}.onnx"
@@ -145,6 +151,55 @@ def main() -> None:
         for name in files.values():
             (out / name).unlink()
         raise SystemExit("the export disagrees with torch; removed it")
+
+
+def export_batched(B: int, out: Path, wrapped, ds, idx, buckets) -> None:
+    """Every bucket at a fixed batch of `B`, checked against torch on
+    held-out decisions in batches of `B`, and listed under `batched` in
+    `net.onnx.json`. The server always runs exactly `B` rows, so a
+    decision's result never depends on which others share its batch."""
+    import onnxruntime as ort
+
+    def feeds_many(ids: list[int], rows: int) -> dict[str, np.ndarray]:
+        r = D3.gather(ds, np.asarray(ids), rows, ds.meta["max_deck"])
+        prof = np.array([max(int(ds.col("profile")[i]), 0) for i in ids], dtype=np.int64)
+        return {k: (prof if k == "profile" else r[k]) for k in INPUTS}
+
+    ids = [int(i) for i in idx]
+    chunks = [(ids[j : j + B] + ids[: B])[:B] for j in range(0, len(ids), B)]
+    made, worst = [], 0.0
+    # Traced outside inference mode, as the batch-1 files are: inside it the
+    # encoder takes a fused path that has no ONNX form.
+    for rows in buckets:
+        name = f"net-e{rows}-b{B}.onnx"
+        ex = tuple(torch.from_numpy(v) for v in feeds_many(chunks[0], rows).values())
+        torch.onnx.export(wrapped, ex, str(out / name), input_names=list(INPUTS),
+                          output_names=list(M.Net.TABLES), opset_version=18, dynamo=False)
+        made.append({"entities": rows, "batch": B, "file": name})
+    with torch.inference_mode():
+        for m in made:
+            rows = m["entities"]
+            session = ort.InferenceSession(str(out / m["file"]), providers=["CPUExecutionProvider"])
+            for chunk in chunks:
+                feeds = feeds_many(chunk, rows)
+                got = session.run(None, feeds)
+                want = wrapped(*[torch.from_numpy(feeds[k]) for k in INPUTS])
+                for g, w in zip(got, want):
+                    w = w.numpy()
+                    finite = np.isfinite(w)
+                    assert (np.isfinite(g) == finite).all(), "padding differs"
+                    if finite.any():
+                        worst = max(worst, float(np.abs(g[finite] - w[finite]).max()))
+    if worst > 1e-3:
+        for m in made:
+            (out / m["file"]).unlink()
+        raise SystemExit(f"the batched export disagrees with torch ({worst:.2e}); removed it")
+    meta = json.loads((out / "net.onnx.json").read_text())
+    meta["batched"] = made
+    meta["batched_parity_max_abs_diff"] = worst
+    (out / "net.onnx.json").write_text(json.dumps(meta, indent=1))
+    print(f"[export3] {len(made)} buckets at batch {B}; torch vs onnxruntime on {len(ids)} held-out decisions: "
+          f"max |diff| {worst:.2e}")
 
 
 if __name__ == "__main__":

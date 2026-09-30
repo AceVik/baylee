@@ -24,9 +24,92 @@ use crate::netplay::{Answer, TABLES};
 use crate::policy::{self, Choice, Opt, Picked, head};
 
 /// One decision's score tables, flattened, with their row widths.
-struct Tables {
+pub(crate) struct Tables {
     t: Vec<(Vec<f32>, usize)>,
     d: usize,
+}
+
+/// One decision's inputs to the graph, padded to its bucket's `e` rows:
+/// what [`run`] stacks into a batch.
+pub(crate) struct Feeds {
+    pub(crate) e: usize,
+    cards: Vec<i64>,
+    feats: Vec<i16>,
+    mask: Vec<bool>,
+    seats: Vec<i16>,
+    glob: Vec<i16>,
+    deck_cards: Vec<i64>,
+    deck_feats: Vec<i16>,
+    deck_mask: Vec<bool>,
+    profile: i64,
+}
+
+/// Runs `rows` (all of one bucket) through `session`, an export at a fixed
+/// `batch` of at least `rows.len()`: the batch is filled with copies of the
+/// first, so the graph always runs at the shape it was exported for, and
+/// each decision gets its own tables back.
+pub(crate) fn run(
+    session: &mut Session,
+    rows: &[&Feeds],
+    batch: usize,
+) -> anyhow::Result<Vec<Tables>> {
+    let first = rows.first().context("a batch of no decisions")?;
+    let (e, k) = (first.e, MAX_DECK);
+    let stack = |part: fn(&Feeds) -> &[i64]| -> Vec<i64> {
+        (0..batch)
+            .flat_map(|i| part(rows.get(i).unwrap_or(first)).iter().copied())
+            .collect()
+    };
+    let stack16 = |part: fn(&Feeds) -> &[i16]| -> Vec<i16> {
+        (0..batch)
+            .flat_map(|i| part(rows.get(i).unwrap_or(first)).iter().copied())
+            .collect()
+    };
+    let stackb = |part: fn(&Feeds) -> &[bool]| -> Vec<bool> {
+        (0..batch)
+            .flat_map(|i| part(rows.get(i).unwrap_or(first)).iter().copied())
+            .collect()
+    };
+    let profile: Vec<i64> = (0..batch)
+        .map(|i| rows.get(i).unwrap_or(first).profile)
+        .collect();
+    let inputs = ort::inputs![
+        "cards" => Tensor::from_array(([batch, e], stack(|f| &f.cards))).map_err(ort_error)?,
+        "feats" => Tensor::from_array(([batch, e, ENT_COLS.len()], stack16(|f| &f.feats))).map_err(ort_error)?,
+        "mask" => Tensor::from_array(([batch, e], stackb(|f| &f.mask))).map_err(ort_error)?,
+        "seats" => Tensor::from_array(([batch, MAX_SEATS, SEAT_COLS.len()], stack16(|f| &f.seats))).map_err(ort_error)?,
+        "glob" => Tensor::from_array(([batch, GLOB_COLS.len()], stack16(|f| &f.glob))).map_err(ort_error)?,
+        "deck_cards" => Tensor::from_array(([batch, k], stack(|f| &f.deck_cards))).map_err(ort_error)?,
+        "deck_feats" => Tensor::from_array(([batch, k, DECK_COLS.len()], stack16(|f| &f.deck_feats))).map_err(ort_error)?,
+        "deck_mask" => Tensor::from_array(([batch, k], stackb(|f| &f.deck_mask))).map_err(ort_error)?,
+        "profile" => Tensor::from_array(([batch], profile)).map_err(ort_error)?,
+    ];
+    let outputs = session.run(inputs).map_err(ort_error)?;
+    let mut out: Vec<Tables> = (0..rows.len())
+        .map(|_| Tables {
+            t: Vec::with_capacity(TABLES.len()),
+            d: 0,
+        })
+        .collect();
+    for name in TABLES {
+        let (shape, data) = outputs[name]
+            .try_extract_tensor::<f32>()
+            .map_err(ort_error)?;
+        let width = shape
+            .last()
+            .copied()
+            .map_or(1, |w| usize::try_from(w).unwrap_or(1));
+        let per = data.len() / batch;
+        for (i, tables) in out.iter_mut().enumerate() {
+            if name == "pair_a" {
+                tables.d = width;
+            }
+            tables
+                .t
+                .push((data[i * per..(i + 1) * per].to_vec(), width));
+        }
+    }
+    Ok(out)
 }
 
 impl Tables {
@@ -115,6 +198,8 @@ pub struct NetPlayer3 {
     pub asked: u64,
     /// See [`Self::asked`].
     pub forced: u64,
+    /// The batch server its decisions go to instead of its own sessions.
+    server: Option<crate::batchnet::BatchNet>,
 }
 
 impl NetPlayer3 {
@@ -172,7 +257,17 @@ impl NetPlayer3 {
             rng: crate::deckgen::Rng::new(0x5e1f_91a7),
             asked: 0,
             forced: 0,
+            server: None,
         })
+    }
+
+    /// Sends every decision to `server` (the same net's fixed-batch
+    /// exports, shared by the process's games) instead of this player's own
+    /// batch-1 sessions.
+    #[must_use]
+    pub fn with_server(mut self, server: crate::batchnet::BatchNet) -> Self {
+        self.server = Some(server);
+        self
     }
 
     /// Seeds the sampling (a game's number, so a run replays).
@@ -190,7 +285,9 @@ impl NetPlayer3 {
             .unwrap_or(self.entities)
     }
 
-    fn tables(&mut self, enc: &Encoded) -> anyhow::Result<Tables> {
+    /// The decision's inputs, padded to the smallest bucket that holds its
+    /// rows.
+    fn feeds(&self, enc: &Encoded) -> Feeds {
         let e = self.rows_for(enc);
         let kept = enc.cards.len().min(e);
         let mut cards = vec![0_i64; e];
@@ -222,38 +319,32 @@ impl NetPlayer3 {
             deck_feats[i * DECK_COLS.len()..(i + 1) * DECK_COLS.len()].copy_from_slice(row);
             deck_mask[i] = false;
         }
-        let inputs = ort::inputs![
-            "cards" => Tensor::from_array(([1, e], cards)).map_err(ort_error)?,
-            "feats" => Tensor::from_array(([1, e, ENT_COLS.len()], feats)).map_err(ort_error)?,
-            "mask" => Tensor::from_array(([1, e], mask)).map_err(ort_error)?,
-            "seats" => Tensor::from_array(([1, MAX_SEATS, SEAT_COLS.len()], seats)).map_err(ort_error)?,
-            "glob" => Tensor::from_array(([1, GLOB_COLS.len()], glob)).map_err(ort_error)?,
-            "deck_cards" => Tensor::from_array(([1, k], deck_cards)).map_err(ort_error)?,
-            "deck_feats" => Tensor::from_array(([1, k, DECK_COLS.len()], deck_feats)).map_err(ort_error)?,
-            "deck_mask" => Tensor::from_array(([1, k], deck_mask)).map_err(ort_error)?,
-            "profile" => Tensor::from_array(([1], vec![self.profile])).map_err(ort_error)?,
-        ];
-        let session = match self.buckets.iter_mut().find(|(rows, _)| *rows == e) {
+        Feeds {
+            e,
+            cards,
+            feats,
+            mask,
+            seats,
+            glob,
+            deck_cards,
+            deck_feats,
+            deck_mask,
+            profile: self.profile,
+        }
+    }
+
+    fn tables(&mut self, enc: &Encoded) -> anyhow::Result<Tables> {
+        let feeds = self.feeds(enc);
+        if let Some(server) = &self.server {
+            return server.tables(feeds);
+        }
+        let session = match self.buckets.iter_mut().find(|(rows, _)| *rows == feeds.e) {
             Some((_, s)) => s,
             None => &mut self.session,
         };
-        let outputs = session.run(inputs).map_err(ort_error)?;
-        let mut t = Vec::with_capacity(TABLES.len());
-        let mut d = 0;
-        for name in TABLES {
-            let (shape, data) = outputs[name]
-                .try_extract_tensor::<f32>()
-                .map_err(ort_error)?;
-            let width = shape
-                .last()
-                .copied()
-                .map_or(1, |w| usize::try_from(w).unwrap_or(1));
-            if name == "pair_a" {
-                d = width;
-            }
-            t.push((data.to_vec(), width));
-        }
-        Ok(Tables { t, d })
+        run(session, &[&feeds], 1)?
+            .pop()
+            .context("one decision's tables")
     }
 
     /// The net's answer to `pending`, or `None` when it does not answer

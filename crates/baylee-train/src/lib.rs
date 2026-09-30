@@ -10,6 +10,8 @@
 //! Nothing that ships links this crate; `xtask` does, so `deck-check` and the
 //! precon status (`decks-status`) ask the same question the trainer does.
 
+#[cfg(feature = "onnx")]
+pub mod batchnet;
 pub mod cardwalk;
 #[cfg(feature = "play")]
 pub mod convert;

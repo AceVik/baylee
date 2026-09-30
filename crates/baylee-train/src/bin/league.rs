@@ -34,6 +34,7 @@ use baylee_core::ids::PlayerId;
 use baylee_core::preset::AIProfile;
 use baylee_engine::choice::Pending;
 use baylee_gamehost::Session;
+use baylee_train::batchnet::BatchNet;
 use baylee_train::deckgen::{self, Archetype, Rng};
 use baylee_train::features3::{Table, deck_list};
 use baylee_train::housedeck::HouseDeck;
@@ -98,6 +99,16 @@ struct Args {
     /// The run's name; defaults to the name of `--out`.
     #[arg(long)]
     name: Option<String>,
+    /// Run every v3 net on its fixed-batch exports (`export_onnx3.py
+    /// --batch`) through one batch server per net, shared by every game: on
+    /// the GPU with the `onnx-cuda` feature. v2 nets stay on the CPU. Give
+    /// it more `--threads` than cores, since a game waits while its decision
+    /// is in a batch.
+    #[arg(long)]
+    gpu_batch: bool,
+    /// How long a batch server waits for a batch to fill, in microseconds.
+    #[arg(long, default_value_t = 2000)]
+    batch_wait_us: u64,
     /// Where the run is written; must not exist yet.
     #[arg(long)]
     out: PathBuf,
@@ -158,11 +169,20 @@ enum Player {
 }
 
 impl Player {
-    fn load(model: &Path, entities: usize, temperature: f32, seed: u64) -> anyhow::Result<Self> {
+    fn load(
+        model: &Path,
+        entities: usize,
+        temperature: f32,
+        seed: u64,
+        servers: &BTreeMap<PathBuf, BatchNet>,
+    ) -> anyhow::Result<Self> {
         let meta: Value = serde_json::from_slice(&fs::read(model.with_extension("onnx.json"))?)
             .with_context(|| format!("{}.json", model.display()))?;
         if meta["encoder_version"] == json!(3) {
             let mut net = NetPlayer3::load(model, entities, 4)?;
+            if let Some(server) = servers.get(model) {
+                net = net.with_server(server.clone());
+            }
             net.temperature = temperature;
             net.seed(seed);
             Ok(Self::V3(Box::new(net)))
@@ -494,6 +514,24 @@ fn main() -> anyhow::Result<()> {
         args.temperature,
         league.iter().map(Opponent::name).collect::<Vec<_>>()
     );
+    // One batch server per v3 net, the learner's shared by its self-play.
+    let mut servers: BTreeMap<PathBuf, BatchNet> = BTreeMap::new();
+    if args.gpu_batch {
+        let wait = Duration::from_micros(args.batch_wait_us);
+        let nets = league.iter().filter_map(|o| match o {
+            Opponent::Net(path) => Some(path.clone()),
+            _ => None,
+        });
+        for model in std::iter::once(args.learner.clone()).chain(nets) {
+            let meta: Value =
+                serde_json::from_slice(&fs::read(model.with_extension("onnx.json"))?)?;
+            if meta["encoder_version"] == json!(3) && !servers.contains_key(&model) {
+                let server = BatchNet::spawn(&model, wait)
+                    .with_context(|| format!("the batch server for {}", model.display()))?;
+                servers.insert(model, server);
+            }
+        }
+    }
     let next = AtomicU64::new(0);
     let done = AtomicU64::new(0);
     let index = Mutex::new(BufWriter::new(File::create(args.out.join("games.jsonl"))?));
@@ -502,18 +540,18 @@ fn main() -> anyhow::Result<()> {
     let started = Instant::now();
     std::thread::scope(|scope| {
         for worker in 0..threads {
-            let (args, decks, league, run) = (&args, &decks, &league, &run);
+            let (args, decks, league, run, servers) = (&args, &decks, &league, &run, &servers);
             let (next, done, index, tally, failure) = (&next, &done, &index, &tally, &failure);
             scope.spawn(move || {
                 let work = || -> anyhow::Result<()> {
                     let mut learner =
-                        Player::load(&args.learner, args.entities, args.temperature, 0)?;
+                        Player::load(&args.learner, args.entities, args.temperature, 0, servers)?;
                     let mut selfish =
-                        Player::load(&args.learner, args.entities, args.temperature, 1)?;
+                        Player::load(&args.learner, args.entities, args.temperature, 1, servers)?;
                     let mut nets = BTreeMap::new();
                     for (k, o) in league.iter().enumerate() {
                         if let Opponent::Net(path) = o {
-                            nets.insert(k, Player::load(path, args.entities, 0.0, 0)?);
+                            nets.insert(k, Player::load(path, args.entities, 0.0, 0, servers)?);
                         }
                     }
                     let records = args.out.join("records");
@@ -576,6 +614,15 @@ fn main() -> anyhow::Result<()> {
         }
     });
     index.lock().expect("index").flush()?;
+    let batches: Vec<Value> = servers
+        .iter()
+        .map(|(model, s)| {
+            s.shutdown();
+            let (batches, decisions, size) = s.stats();
+            json!({"model": model, "size": size, "batches": batches, "decisions": decisions,
+                   "fill": decisions as f64 / (batches.max(1) * size as u64) as f64})
+        })
+        .collect();
     if let Some(e) = failure.into_inner().expect("failure") {
         return Err(e);
     }
@@ -588,7 +635,8 @@ fn main() -> anyhow::Result<()> {
     fs::write(
         args.out.join("summary.json"),
         serde_json::to_vec_pretty(
-            &json!({"games": args.games, "seconds": started.elapsed().as_secs_f64(), "vs": summary}),
+            &json!({"games": args.games, "seconds": started.elapsed().as_secs_f64(), "vs": summary,
+                    "batch": batches}),
         )?,
     )?;
     eprintln!(

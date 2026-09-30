@@ -104,6 +104,15 @@ struct Args {
     /// game; a name taken from `--out` would not.
     #[arg(long, default_value = "arena")]
     name: String,
+    /// Run the net on its fixed-batch exports (`export_onnx3.py --batch`)
+    /// through one batch server shared by every game: on the GPU with the
+    /// `onnx-cuda` feature. Give it more `--threads` than cores, since a game
+    /// waits while its decision is in a batch.
+    #[arg(long)]
+    gpu_batch: bool,
+    /// How long the batch server waits for a batch to fill, in microseconds.
+    #[arg(long, default_value_t = 2000)]
+    batch_wait_us: u64,
     /// Where results go; must not exist.
     #[arg(long)]
     out: PathBuf,
@@ -287,11 +296,23 @@ fn main() -> anyhow::Result<()> {
         args.model.display()
     );
 
+    let server = if args.gpu_batch {
+        if encoder != u64::from(baylee_train::features3::VERSION) {
+            bail!("--gpu-batch plays v3 exports only");
+        }
+        Some(baylee_train::batchnet::BatchNet::spawn(
+            &args.model,
+            Duration::from_micros(args.batch_wait_us),
+        )?)
+    } else {
+        None
+    };
     let decks = Arc::new(decks);
     let against = Arc::new(against);
     let next = Arc::new(AtomicU64::new(0));
     let (tx, rx) = mpsc::channel::<anyhow::Result<Played>>();
     for _ in 0..threads {
+        let server = server.clone();
         let (decks, against, next, tx, model, run) = (
             decks.clone(),
             against.clone(),
@@ -310,7 +331,12 @@ fn main() -> anyhow::Result<()> {
         );
         std::thread::spawn(move || {
             let loaded = if encoder == u64::from(baylee_train::features3::VERSION) {
-                NetPlayer3::load(&model, entities, as_profile).map(Net::V3)
+                NetPlayer3::load(&model, entities, as_profile)
+                    .map(|n| match server {
+                        Some(server) => n.with_server(server),
+                        None => n,
+                    })
+                    .map(Net::V3)
             } else {
                 NetPlayer::load(&model, entities, glob_width, as_profile).map(Net::V2)
             };
@@ -554,6 +580,9 @@ fn main() -> anyhow::Result<()> {
         }
     }
     records.finish()?;
+    if let Some(server) = &server {
+        server.shutdown();
+    }
     let results: BTreeMap<String, serde_json::Value> = tally
         .iter()
         .map(|(o, t)| {
@@ -571,6 +600,11 @@ fn main() -> anyhow::Result<()> {
         "model": args.model, "as_profile": args.as_profile, "name": run, "deals": args.deals,
         "games": done, "results": results, "duplicate": duplicate,
         "caps": {"decisions": args.max_decisions, "secs": args.max_secs},
+        "batch": server.as_ref().map(|s| {
+            let (batches, decisions, size) = s.stats();
+            json!({"size": size, "batches": batches, "decisions": decisions,
+                   "fill": decisions as f64 / (batches.max(1) * size as u64) as f64})
+        }),
         "net_answers": answers, "house_fallbacks": fallbacks, "stalls": stalls, "refused": refused,
         "refused_by_kind": refusal_kinds.iter().map(|(k, [not_enumerated, enumerated])| (k.clone(), json!({"enumerated": enumerated, "not_enumerated": not_enumerated}))).collect::<BTreeMap<_, _>>(),
         "ms_per_answer": net_ms / answers.max(1) as f64, "seconds": started.elapsed().as_secs_f64(),

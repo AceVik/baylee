@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# The reinforcement-learning loop: league games -> dataset -> an AWR step ->
-# export -> arena, iteration after iteration. Every stage writes its own
+# The reinforcement-learning loop: league games -> dataset -> a PPO step
+# (train_rl.py) -> export -> arena, iteration after iteration. Every stage writes its own
 # directory and is skipped when its output exists, so the loop resumes where
 # a stop left it (a stage in progress restarts; training resumes from its
 # last.pt).
 #
 #   BASE=~/baylee-data/models/v3-b ITERS=8 GAMES=10000 tools/trainer/rl_loop.sh
+#
+# GPU=1 plays every v3 net on the GPU in batches (league and arena with
+# `--gpu-batch`), which needs a build with `onnx-cuda` and each net's
+# fixed-batch exports; the loop makes both.
 #
 # The two latest former learners join the league of the ones after them,
 # beside the house profiles, the frozen yardstick (policy-v1) and itself.
@@ -25,9 +29,32 @@ PRUNE=${PRUNE:-1}
 DATA=${DATA:-$HOME/baylee-data}
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 YARDSTICK=${YARDSTICK:-$DATA/models/policy-v1/policy.onnx}
+# GPU=1: every v3 net plays on the GPU through a batch server per net
+# (`--gpu-batch`, fixed-batch exports beside each net.onnx); v2 stays on the
+# CPU. The CUDA libraries are the trainer's venv's.
+GPU=${GPU:-0}
+GPU_BATCH=${GPU_BATCH:-64}
 cd "$REPO"
+if [ "$GPU" = 1 ]; then
+    FEATURES=onnx-cuda
+    NV=$REPO/tools/trainer/.venv/lib/python3.13/site-packages/nvidia
+    export LD_LIBRARY_PATH=$NV/cu13/lib:$NV/cudnn/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+    NETFLAGS=(--gpu-batch --threads "${GPU_THREADS:-96}")
+else
+    FEATURES=onnx
+    NETFLAGS=()
+fi
 cargo build -q --profile selfplay -p baylee-train --bin convert3
-cargo build -q --profile selfplay -p baylee-train --features onnx --bin league --bin arena
+cargo build -q --profile selfplay -p baylee-train --features "$FEATURES" --bin league --bin arena
+# A model's fixed-batch exports, made from `$2` when it has none yet.
+batched() {
+    if [ "$GPU" = 1 ] && ! grep -q '"batched"' "$1/net.onnx.json"; then
+        (cd tools/trainer && uv run python export_onnx3.py --model "$1" --data "$2" --batch "$GPU_BATCH") \
+            >> "$1.log" 2>&1
+    fi
+}
+# The newest dataset left, for nets from before the loop ran on the GPU.
+last_ds=$(ls -d "$DATA"/datasets/d3-"$TAG"-l* 2>/dev/null | sort | tail -1 || true)
 prev=$BASE
 older=""
 formers=()
@@ -45,7 +72,11 @@ for it in $(seq -f %02g 1 "$ITERS"); do
     echo "[rl_loop] iteration $it: learner $prev ($(date +%H:%M))"
     if [ ! -f "$run/summary.json" ]; then
         rm -rf "$run"
-        ./target/selfplay/league --learner "$prev/net.onnx" --temperature "$TEMP" \
+        if [ "$GPU" = 1 ]; then
+            batched "$prev" "$last_ds"
+            for f in "${formers[@]: -2}"; do batched "$(dirname "${f#net:}")" "$last_ds"; done
+        fi
+        ./target/selfplay/league "${NETFLAGS[@]}" --learner "$prev/net.onnx" --temperature "$TEMP" \
             --league "house:expert,house:sharp,house:steady,net:$YARDSTICK,self$older" \
             --games "$GAMES" --out "$run" > "$run.log" 2>&1
     fi
@@ -60,6 +91,8 @@ for it in $(seq -f %02g 1 "$ITERS"); do
     if [ ! -f "$model/net.onnx" ]; then
         (cd tools/trainer && uv run python export_onnx3.py --model "$model" --data "$ds") >> "$model.log" 2>&1
     fi
+    batched "$model" "$ds"
+    last_ds=$ds
     if [ "$PRUNE" = 1 ]; then
         for old in "$DATA"/datasets/d3-"$TAG"-l*; do
             if [ "$old" != "$ds" ] && [ -f "$old/dataset.json" ]; then
@@ -69,7 +102,7 @@ for it in $(seq -f %02g 1 "$ITERS"); do
     fi
     if [ ! -f "$arena/arena.json" ]; then
         rm -rf "$arena"
-        ./target/selfplay/arena --model "$model/net.onnx" --against expert --deals "$ARENA" --out "$arena" \
+        ./target/selfplay/arena "${NETFLAGS[@]}" --model "$model/net.onnx" --against expert --deals "$ARENA" --out "$arena" \
             > "$arena.log" 2>&1
     fi
     echo "[rl_loop] iteration $it done: $(python3 -c "import json;j=json.load(open('$arena/arena.json'));a=j['results']['expert'];d=j['duplicate'];print('vs expert', round(a['win_rate'],3), a['ci95'], '· net - house', round(d['delta'],3), [round(x,3) for x in d['ci95']])")"
