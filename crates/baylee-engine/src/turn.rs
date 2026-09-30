@@ -254,4 +254,54 @@ mod tests {
             "and the two agree from the first frame"
         );
     }
+
+    /// The two scales `Condition::BeforeStep` compares are kept by hand
+    /// side by side: where a card's step first comes in a turn has to be
+    /// where `position_of` says it is. Walked in turn order (CR 500.1) over
+    /// every step, so a step added to one table and not the other fails
+    /// here and not in a timing window nobody tested.
+    #[test]
+    fn each_step_a_card_names_is_first_reached_where_position_of_says() {
+        let turn = [
+            (Step::Untap, Phase::Beginning),
+            (Step::Upkeep, Phase::Beginning),
+            (Step::Draw, Phase::Beginning),
+            (Step::Main, Phase::FirstMain),
+            (Step::CombatBegin, Phase::Combat),
+            (Step::DeclareAttackers, Phase::Combat),
+            (Step::DeclareBlockers, Phase::Combat),
+            (Step::CombatDamageFirst, Phase::Combat),
+            (Step::CombatDamage, Phase::Combat),
+            (Step::CombatEnd, Phase::Combat),
+            (Step::Main, Phase::SecondMain),
+            (Step::End, Phase::Ending),
+            (Step::Cleanup, Phase::Ending),
+        ];
+        let at = |(step, phase): (Step, Phase)| TurnInfo {
+            number: 1,
+            active: PlayerId::new(0),
+            phase,
+            step,
+        };
+        let positions: Vec<u8> = turn.iter().map(|s| at(*s).position()).collect();
+        assert!(
+            positions.windows(2).all(|w| w[0] < w[1]),
+            "turn order is strictly increasing: {positions:?}"
+        );
+        for kind in [
+            StepKind::Upkeep,
+            StepKind::Draw,
+            StepKind::CombatBegin,
+            StepKind::DeclareAttackers,
+            StepKind::DeclareBlockers,
+            StepKind::CombatDamage,
+            StepKind::End,
+        ] {
+            let first = turn
+                .iter()
+                .find(|(step, _)| step.kind() == Some(kind))
+                .expect("a step of every kind a card names");
+            assert_eq!(at(*first).position(), position_of(kind), "{kind:?}");
+        }
+    }
 }
