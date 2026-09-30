@@ -595,6 +595,9 @@ fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::PlayerBecameTarget { object, .. }
         | GameEvent::BecameAttacker { object, .. }
         | GameEvent::BecameBlocker { object, .. }
+        // The permanent that became tapped: "that land's controller" of
+        // Psychic Venom.
+        | GameEvent::ObjectTapped { object, .. }
         // The permanent tapped for mana (CR 106.12a): "its controller" and
         // "that player" of Gauntlet of Might and Manabarbs.
         | GameEvent::ManaProduced {
@@ -1452,12 +1455,12 @@ fn matches(
                     .object(*tapped)
                     .is_some_and(|o| eval::matches(filter, state, o, you, source))
         }
-        (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => {
-            *object == source
-                && state
-                    .object(*object)
-                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
-        }
+        // Any permanent the filter matches: City of Brass's `Filter::This`
+        // is its source, Lifetap's is a Forest an opponent controls, and
+        // Psychic Venom's the land it enchants.
+        (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => state
+            .object(*object)
+            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
         (Trigger::SpellCast(filter), GameEvent::SpellCast { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
@@ -1727,6 +1730,41 @@ mod tests {
             0,
             "an Aura attached to nothing has no enchanted land's controller"
         );
+    }
+
+    /// "Whenever a Forest an opponent controls becomes tapped" (Lifetap) is
+    /// about another permanent than the trigger's source, which the tapped
+    /// trigger answered only for its source; and the tapped permanent is the
+    /// event's object, "that land" of Psychic Venom.
+    #[test]
+    fn a_tapped_trigger_answers_for_any_permanent_its_filter_names() {
+        let mut state = state();
+        let lifetap = permanent(&mut state, me(), "Lifetap");
+        let (theirs, mine) = (
+            permanent(&mut state, them(), "Forest"),
+            permanent(&mut state, me(), "Forest"),
+        );
+        let tapped = |object| GameEvent::ObjectTapped {
+            object,
+            cause: crate::event::Cause::Cost,
+        };
+        let theirs_tapped = Trigger::BecomesTapped(&Filter::ControlledByOpponent);
+        assert_eq!(
+            hits(&theirs_tapped, &tapped(theirs), &[], &state, lifetap, me()),
+            1
+        );
+        assert_eq!(
+            hits(&theirs_tapped, &tapped(mine), &[], &state, lifetap, me()),
+            0
+        );
+        let own = Trigger::BecomesTapped(&Filter::This);
+        assert_eq!(
+            hits(&own, &tapped(theirs), &[], &state, lifetap, me()),
+            0,
+            "City of Brass"
+        );
+        assert_eq!(hits(&own, &tapped(lifetap), &[], &state, lifetap, me()), 1);
+        assert_eq!(event_object_of(&tapped(theirs)), Some(theirs), "that land");
     }
 
     /// Hypnotic Specter's "deals damage to an opponent" is any damage, where

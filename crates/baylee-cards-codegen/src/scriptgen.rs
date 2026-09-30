@@ -1014,6 +1014,8 @@ impl Tx<'_> {
             "TriggeredCardController" | "TriggeredActivator" if trigger == Some("TapsForMana") => {
                 "PlayerRel::ControllerOfEvent"
             }
+            // The permanent that became tapped is the event's object.
+            "TriggeredCardController" if trigger == Some("Taps") => "PlayerRel::ControllerOfEvent",
             // The player a damage trigger's damage was dealt to: the
             // `DamageDone` rule reads only triggers whose target is a
             // player, so `TriggeredTarget` is one.
@@ -3099,13 +3101,18 @@ impl Tx<'_> {
             "TapsForMana" => self.taps_for_mana_trigger(p),
             "DamageDone" => self.damage_trigger(p, false),
             "DamageDoneOnce" => self.damage_trigger(p, true),
+            // "Whenever [a permanent] becomes tapped": the source (City of
+            // Brass), or any permanent the filter matches (Lifetap).
             "Taps" => {
-                let valid = p.take("ValidCard").unwrap_or_default();
+                let Some(valid) = p.take("ValidCard") else {
+                    return self.deny("a `Taps` trigger with no `ValidCard$`".to_string());
+                };
                 if valid == "Card.Self" {
-                    Some("Trigger::BecomesTapped(&Filter::This)".to_string())
-                } else {
-                    self.deny(format!("a `Taps` trigger on `{valid}` rather than itself"))
+                    return Some("Trigger::BecomesTapped(&Filter::This)".to_string());
                 }
+                let expr = self.filter_expr(&valid)?;
+                let filter = self.body.filter_static("TRIGGER", &expr);
+                Some(format!("Trigger::BecomesTapped(&{filter})"))
             }
             other => self.deny(format!("trigger mode `{other}`")),
         }
@@ -6948,6 +6955,39 @@ SVar:X:Count$xPaid",
              S:Mode$ Continuous | Affected$ Creature.Goblin | AddAbility$ Ping\n\
              SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1\n"
         ));
+    }
+
+    /// Lifetap and Psychic Venom: a `Taps` trigger on another permanent, and
+    /// "that land's controller" read off it.
+    #[test]
+    fn a_tapped_trigger_reads_any_permanent_and_its_controller() {
+        let venom = read(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Land\n\
+             T:Mode$ Taps | ValidCard$ Card.AttachedBy | TriggerZones$ Battlefield | Execute$ D\n\
+             SVar:D:DB$ DealDamage | Defined$ TriggeredCardController | NumDmg$ 2",
+        );
+        let a = venom.abilities.join("");
+        assert!(
+            a.contains("Trigger::BecomesTapped(&Filter::AttachedToBySource)"),
+            "{a}"
+        );
+        assert!(
+            a.contains("TargetSpec::Player(PlayerRel::ControllerOfEvent)"),
+            "{a}"
+        );
+        let lifetap = read(
+            "Name:X\nTypes:Enchantment\n\
+             T:Mode$ Taps | ValidCard$ Forest.OppCtrl | TriggerZones$ Battlefield | Execute$ G\n\
+             SVar:G:DB$ GainLife | LifeAmount$ 1",
+        );
+        assert!(
+            lifetap
+                .abilities
+                .join("")
+                .contains("Trigger::BecomesTapped(&TRIGGER"),
+            "{:?}",
+            lifetap.abilities
+        );
     }
 
     /// Hypnotic Specter and Fungusaur: damage to an opponent in or out of

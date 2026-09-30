@@ -2080,6 +2080,11 @@ Filters, conditions, modifiers and durations:
   {R}" (`who: PlayerRel::ControllerOfEvent` under `TappedForMana`). It is
   mana like `AddMana`'s otherwise, so a trigger that makes it with no target
   is a mana ability.
+- **`Trigger::BecomesTapped(filter)`** is any permanent the filter matches
+  becoming tapped, for any reason: City of Brass's `Filter::This`, Lifetap's
+  "a Forest an opponent controls", Psychic Venom's enchanted land. The
+  tapped permanent is the event's object: `PlayerRel::ControllerOfEvent` is
+  "that land's controller".
 - **`Effect::ToggleTapTarget`** taps each untapped target and untaps each
   tapped one. "Tap or untap target permanent" is `MayDo { effects:
   &[Effect::ToggleTapTarget] }` (Twiddle), with or without a printed "may":

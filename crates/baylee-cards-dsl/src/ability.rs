@@ -337,7 +337,11 @@ pub enum Trigger {
     /// Damage that was prevented was not dealt, and triggers nothing
     /// (CR 603.2g).
     DealtDamage(&'static Filter),
-    /// The source becomes tapped (City of Brass).
+    /// A permanent matching the filter becomes tapped, for any reason:
+    /// City of Brass's own (`Filter::This`), Lifetap's "a Forest an
+    /// opponent controls", Psychic Venom's enchanted land. The permanent is
+    /// the event's object, so `PlayerRel::ControllerOfEvent` is "that
+    /// land's controller".
     BecomesTapped(&'static Filter),
     /// The count of a kind of counter on the source rises from below `n`
     /// to `n` or more — the window CR 714.2b writes out for a chapter
