@@ -18259,6 +18259,25 @@ fn jade_statue_animates_only_during_combat() {
         .characteristics()
         .types;
     assert!(types_after.contains(TypeSet::CREATURE) && types_after.contains(TypeSet::ARTIFACT));
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    let types_second_main = engine
+        .state()
+        .object(statue)
+        .unwrap()
+        .characteristics()
+        .types;
+    assert!(
+        !types_second_main.contains(TypeSet::CREATURE),
+        "\"until end of combat\" — no longer a creature once combat has ended"
+    );
+    assert_eq!(
+        pt(&engine, statue),
+        (0, 0),
+        "a noncreature artifact carries no power or toughness"
+    );
 }
 
 fn living_wall() -> CardIndex {
