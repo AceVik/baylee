@@ -107,7 +107,7 @@ pub fn matches_projected(
                 && state
                     .players
                     .get(obj.controller.get() as usize)
-                    .is_some_and(|p| obj.timestamp <= p.turn_start_timestamp)
+                    .is_some_and(|p| obj.controlled_since <= p.turn_start_timestamp)
         }
         Filter::PutIntoGraveyardThisTurn => state.per_turn.entered_graveyard.contains(&obj.id),
         // The object's own counters. A leaves-the-battlefield trigger asks
