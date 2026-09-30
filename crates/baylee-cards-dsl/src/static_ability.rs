@@ -245,6 +245,22 @@ pub enum Modifier {
     /// declaration of blockers, CR 509.1b, read against each blocker as it
     /// stands; the filter's "you" is the effect's controller.
     CantBeBlockedBy(&'static crate::Filter),
+    /// The affected creature can't attack unless the defending player
+    /// controls a permanent the filter matches (Sea Serpent: "can't attack
+    /// unless defending player controls an Island"). A restriction on the
+    /// declaration of attackers (CR 508.1c), and one about the pair: it is
+    /// asked of each player or planeswalker the creature could attack, with
+    /// the defending player the one CR 506.2 names for it.
+    CantAttackUnlessDefenderControls(&'static crate::Filter),
+    /// The affected creature attacks each combat if able: a requirement on
+    /// the declaration of attackers (CR 508.1d). The card's own sentence
+    /// (Juggernaut) is a static on `Filter::This`; "that creature attacks
+    /// this turn if able" is the same modifier in an effect that lasts
+    /// until end of turn, which CR 508.1d reads as each combat of that
+    /// turn. A rule and not a keyword: granted by another permanent, it is
+    /// that permanent's ability, and the creature losing its own abilities
+    /// does not end it.
+    AttacksEachCombat,
     /// The effect's opponents can't search libraries (Ashiok, Dream
     /// Render).
     OpponentsCantSearch,
@@ -632,6 +648,8 @@ impl Modifier {
             | Self::PreventDamageFromIt
             | Self::CombatDamageCantBePrevented
             | Self::CantBeBlockedBy(_)
+            | Self::CantAttackUnlessDefenderControls(_)
+            | Self::AttacksEachCombat
             | Self::OpponentsCantSearch
             | Self::NoMaxHandSize
             | Self::SkipUntapStep { .. }
@@ -970,6 +988,8 @@ mod tests {
             Modifier::PreventDamageFromIt,
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
+            Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
+            Modifier::AttacksEachCombat,
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::PlayerHexproof,

@@ -834,6 +834,8 @@ fn apply(
         | Modifier::PreventDamageFromIt
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBeBlockedBy(_)
+        | Modifier::CantAttackUnlessDefenderControls(_)
+        | Modifier::AttacksEachCombat
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
         | Modifier::ProtectionFrom(_)

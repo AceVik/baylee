@@ -153,6 +153,67 @@ impl HeuristicAgent {
         self.choice(view, pending.clone(), context)
     }
 
+    /// The attack this seat would like to make, before the rules have their
+    /// say: [`combat::obey_attack_rules`] adds what must attack and moves
+    /// what may not attack where it was sent.
+    fn attack(
+        &self,
+        view: &PlayerView,
+        squad: &[ObjectId],
+        defenders: &[Defender],
+    ) -> Vec<(ObjectId, Defender)> {
+        let opponents: Vec<PlayerId> = defenders
+            .iter()
+            .filter_map(|d| match d {
+                Defender::Player(p) => Some(*p),
+                Defender::Planeswalker(_) => None,
+            })
+            .collect();
+        if squad.is_empty() || opponents.is_empty() {
+            return Vec::new();
+        }
+        let victim = self.pick_defender(view, &opponents);
+        // Indexed once for the whole decision: every step below
+        // looks creatures up by handle, one per creature.
+        let board = board::Board::new(view);
+        let report = search::attackers_on(&board, squad, victim, self.profile);
+        // An attack that wins goes at the player, whatever walker is
+        // standing there. The search's proof is one way to know, but
+        // it gives up above sixteen creatures a side and never runs
+        // for the shallow profiles, so every profile also asks the
+        // estimate. Before it did, a squad only the estimate saw as
+        // lethal went at the cheapest walker whenever its power
+        // reached the loyalty, and a board that doubled every turn
+        // killed a recast commander walker every turn and never its
+        // controller (self-play r001 #431).
+        let lethal = report.lethal || combat::breaks_through(&board, &report.attackers, victim);
+        let searched = report.attackers.len();
+        let going = combat::hold_back_for_the_crack_back(
+            &board,
+            report.attackers,
+            victim,
+            lethal,
+            |seat| self.hostile(seat, view.seat),
+        );
+        if going.is_empty() {
+            return Vec::new();
+        }
+        // What they aim at is decided by the squad that is actually
+        // going, not by the whole board: the creatures staying home
+        // add nothing to either sum. Where the crack-back pass kept
+        // some home, the verdict is the estimate's on what is left.
+        let wins =
+            lethal && (going.len() == searched || combat::breaks_through(&board, &going, victim));
+        if wins && defenders.contains(&Defender::Player(victim)) {
+            going
+                .into_iter()
+                .map(|id| (id, Defender::Player(victim)))
+                .collect()
+        } else {
+            combat::aim(&board, victim, &going, defenders)
+        }
+    }
+
     fn priority(
         &self,
         view: &PlayerView,
@@ -238,60 +299,14 @@ impl HeuristicAgent {
             Pending::ChooseAttackers {
                 attackers: squad,
                 defenders,
+                required,
+                limits,
                 ..
             } => {
-                let opponents: Vec<PlayerId> = defenders
-                    .iter()
-                    .filter_map(|d| match d {
-                        Defender::Player(p) => Some(*p),
-                        Defender::Planeswalker(_) => None,
-                    })
-                    .collect();
-                if squad.is_empty() || opponents.is_empty() {
-                    return PlayerAction::DeclareAttackers { attackers: vec![] };
+                let chosen = self.attack(view, &squad, &defenders);
+                PlayerAction::DeclareAttackers {
+                    attackers: combat::obey_attack_rules(chosen, &required, &limits, &defenders),
                 }
-                let victim = self.pick_defender(view, &opponents);
-                // Indexed once for the whole decision: every step below
-                // looks creatures up by handle, one per creature.
-                let board = board::Board::new(view);
-                let report = search::attackers_on(&board, &squad, victim, self.profile);
-                // An attack that wins goes at the player, whatever walker is
-                // standing there. The search's proof is one way to know, but
-                // it gives up above sixteen creatures a side and never runs
-                // for the shallow profiles, so every profile also asks the
-                // estimate. Before it did, a squad only the estimate saw as
-                // lethal went at the cheapest walker whenever its power
-                // reached the loyalty, and a board that doubled every turn
-                // killed a recast commander walker every turn and never its
-                // controller (self-play r001 #431).
-                let lethal =
-                    report.lethal || combat::breaks_through(&board, &report.attackers, victim);
-                let searched = report.attackers.len();
-                let going = combat::hold_back_for_the_crack_back(
-                    &board,
-                    report.attackers,
-                    victim,
-                    lethal,
-                    |seat| self.hostile(seat, view.seat),
-                );
-                if going.is_empty() {
-                    return PlayerAction::DeclareAttackers { attackers: vec![] };
-                }
-                // What they aim at is decided by the squad that is actually
-                // going, not by the whole board: the creatures staying home
-                // add nothing to either sum. Where the crack-back pass kept
-                // some home, the verdict is the estimate's on what is left.
-                let wins = lethal
-                    && (going.len() == searched || combat::breaks_through(&board, &going, victim));
-                let attackers = if wins && defenders.contains(&Defender::Player(victim)) {
-                    going
-                        .into_iter()
-                        .map(|id| (id, Defender::Player(victim)))
-                        .collect()
-                } else {
-                    combat::aim(&board, victim, &going, &defenders)
-                };
-                PlayerAction::DeclareAttackers { attackers }
             }
             Pending::ChooseBlockers { blockers, .. } => PlayerAction::DeclareBlockers {
                 blockers: search::blockers(
@@ -2061,6 +2076,8 @@ mod tests {
             player: v.seat,
             attackers: vec![obj(1)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         assert_eq!(
             HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending),
@@ -2149,6 +2166,8 @@ mod tests {
             player: v.seat,
             attackers: vec![obj(1)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         assert_eq!(
             HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
@@ -2247,6 +2266,8 @@ mod tests {
             player: v.seat,
             attackers: vec![obj(1)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         let agent = HeuristicAgent::new(AIProfile::EXPERT);
         let attack = PlayerAction::DeclareAttackers {
@@ -2293,6 +2314,8 @@ mod tests {
                 Defender::Player(PlayerId::new(1)),
                 Defender::Planeswalker(obj(2)),
             ],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         // Every profile, since the shallow ones ask the estimate too: until
         // they did, only the two that search took the kill.
@@ -2532,6 +2555,8 @@ mod tests {
             player: v.seat,
             attackers: vec![obj(1)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         assert_ne!(
             answer(AIProfile::STEADY, &v, &pending),
@@ -2556,6 +2581,8 @@ mod tests {
             player: v.seat,
             attackers: vec![obj(1), obj(3)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         assert_ne!(
             answer(AIProfile::SHARP, &v, &pending),
@@ -3417,6 +3444,8 @@ mod tests {
             player: v.seat,
             attackers: (1..=8).map(obj).collect(),
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         (v, pending)
     }
@@ -4422,6 +4451,8 @@ mod tests {
             player: v.seat,
             attackers: (1..=count).map(obj).collect(),
             defenders: vec![Defender::Player(victim), Defender::Planeswalker(obj(200))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         (v, pending)
     }
@@ -4664,6 +4695,8 @@ mod tests {
             player: PlayerId::new(0),
             attackers: vec![obj(1), obj(2)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
 
         let PlayerAction::DeclareAttackers { attackers } = agent().act(&v, &pending) else {

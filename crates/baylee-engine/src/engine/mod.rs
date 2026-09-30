@@ -1496,6 +1496,8 @@ mod enter_tests;
 mod fight_tests;
 #[cfg(test)]
 mod flashback_tests;
+#[cfg(test)]
+mod requirements_tests;
 
 #[cfg(test)]
 mod end_step_tests;

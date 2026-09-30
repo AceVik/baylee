@@ -9212,6 +9212,7 @@ fn hapatra_marks_the_creature_she_points_at_when_she_connects() {
         player,
         attackers,
         defenders,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
@@ -11607,6 +11608,7 @@ fn strangleroot_geist_attacks_the_turn_it_arrives_and_the_elves_beside_it_cannot
         player,
         attackers,
         defenders,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("pass_until stopped on nothing else")
@@ -58739,6 +58741,7 @@ fn standing_troops_attacks_without_tapping_because_of_vigilance() {
         player,
         attackers,
         defenders,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("pass_until stops on nothing but the attack declaration")
@@ -74762,6 +74765,7 @@ fn serra_angel_has_flying_and_attacks_without_tapping() {
         player,
         attackers,
         defenders,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("pass_until stops on declare-attackers")

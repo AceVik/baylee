@@ -149,6 +149,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::PreventDamageFromIt
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBeBlockedBy(_)
+        | Modifier::CantAttackUnlessDefenderControls(_)
+        | Modifier::AttacksEachCombat
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
         | Modifier::SkipUntapStep { .. }
@@ -803,6 +805,8 @@ mod tests {
             Modifier::PreventDamageFromIt,
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
+            Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
+            Modifier::AttacksEachCombat,
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::SkipUntapStep {
@@ -861,7 +865,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            63,
+            65,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -912,8 +916,8 @@ mod tests {
     }
 
     /// The counts, so that a change which flips a modifier from one side to
-    /// the other is a failure and not a quiet re-balancing: twenty-eight
-    /// modifiers lock the objects they found, thirty-three do not.
+    /// the other is a failure and not a quiet re-balancing: thirty
+    /// modifiers lock the objects they found, thirty-five do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -921,10 +925,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn thirty_modifiers_lock_a_set_and_thirty_three_do_not() {
+    fn thirty_modifiers_lock_a_set_and_thirty_five_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (30, 33));
+        assert_eq!((locking, all.len() - locking), (30, 35));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

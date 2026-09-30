@@ -3210,6 +3210,8 @@ pub(crate) mod tests {
             player: PlayerId::new(0),
             attackers: vec![attacker],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         let nothing = PlayerAction::DeclareAttackers {
             attackers: Vec::new(),
@@ -4040,6 +4042,8 @@ pub(crate) mod tests {
                     player: me,
                     attackers: Vec::new(),
                     defenders: Vec::new(),
+                    required: Vec::new(),
+                    limits: Vec::new(),
                 },
                 ClockAnswer::NoAttackers,
             ),

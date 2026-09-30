@@ -31,6 +31,18 @@ pub struct BlockOption {
     pub attackers: Vec<ObjectId>,
 }
 
+/// A creature that may attack only some of what the attack question
+/// offers, and what those are: a restriction about the pair (CR 508.1c,
+/// "can't attack unless defending player controls an Island").
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct AttackLimit {
+    /// The creature.
+    pub creature: ObjectId,
+    /// What it may attack, a part of the question's `defenders` and never
+    /// empty: a creature that may attack nothing is not offered.
+    pub defenders: Vec<baylee_core::ids::Defender>,
+}
+
 /// What the game is currently waiting for.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Pending {
@@ -74,6 +86,17 @@ pub enum Pending {
         /// client cannot derive "which permanents are planeswalkers I may
         /// attack" from the view without re-implementing CR 506.2.
         defenders: Vec<baylee_core::ids::Defender>,
+        /// The offered creatures that attack if able (CR 508.1d). Every one
+        /// of them is in a legal declaration: the engine knows no
+        /// restriction that makes obeying one requirement cost another (no
+        /// "only one creature can attack", no attack costs), so the most
+        /// requirements that can be obeyed is all of them.
+        #[serde(default)]
+        required: Vec<ObjectId>,
+        /// The offered creatures that may attack only some of `defenders`.
+        /// A creature not named here may attack any of them.
+        #[serde(default)]
+        limits: Vec<AttackLimit>,
     },
     /// Declare blockers (combat).
     ChooseBlockers {
@@ -824,17 +847,35 @@ impl Pending {
 /// to be classified here before it compiles, and a wildcard would file it
 /// under "the house decides" without anyone having decided that.
 ///
+/// Attacking with nothing is attacking with only what must attack: a
+/// creature that attacks each combat if able (CR 508.1d) makes the empty
+/// declaration illegal, so the least the rules accept is those creatures,
+/// each at the first thing it may attack.
+///
 /// The answer is what the question offers, not what the rules will accept:
-/// a creature that attacks each combat if able (CR 508.1d) or a lure that
-/// must be blocked (CR 509.1c) can make the empty declaration illegal, and
-/// the clock then falls back to the house.
+/// a lure that must be blocked (CR 509.1c) can make the empty declaration
+/// of blockers illegal, and the clock then falls back to the house.
 #[must_use]
 pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
     match pending {
         Pending::Priority { .. } => Some(PlayerAction::PassPriority),
         Pending::Mulligan { .. } => Some(PlayerAction::MulliganKeep),
-        Pending::ChooseAttackers { .. } => Some(PlayerAction::DeclareAttackers {
-            attackers: Vec::new(),
+        Pending::ChooseAttackers {
+            required,
+            limits,
+            defenders,
+            ..
+        } => Some(PlayerAction::DeclareAttackers {
+            attackers: required
+                .iter()
+                .filter_map(|creature| {
+                    let allowed = limits
+                        .iter()
+                        .find(|l| l.creature == *creature)
+                        .map_or(defenders.as_slice(), |l| l.defenders.as_slice());
+                    allowed.first().map(|d| (*creature, *d))
+                })
+                .collect(),
         }),
         Pending::ChooseBlockers { .. } => Some(PlayerAction::DeclareBlockers {
             blockers: Vec::new(),
@@ -1410,6 +1451,8 @@ mod choice_tests {
                     player: p,
                     attackers: vec![object()],
                     defenders: vec![baylee_core::ids::Defender::Player(PlayerId::new(1))],
+                    required: Vec::new(),
+                    limits: Vec::new(),
                 },
                 Some(PlayerAction::DeclareAttackers {
                     attackers: Vec::new(),

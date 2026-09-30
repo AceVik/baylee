@@ -29,6 +29,8 @@ fn attackers(candidates: Vec<ObjectId>) -> Pending {
         player: PlayerId::new(0),
         attackers: candidates,
         defenders: vec![Defender::Player(PlayerId::new(1))],
+        required: Vec::new(),
+        limits: Vec::new(),
     }
 }
 

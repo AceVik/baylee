@@ -2009,6 +2009,8 @@ mod tests {
                     player: PlayerId::new(0),
                     attackers: vec![creature],
                     defenders: vec![Defender::Player(PlayerId::new(1))],
+                    required: Vec::new(),
+                    limits: Vec::new(),
                 }
             };
             let mut duel = duel_with(false);

@@ -217,6 +217,8 @@ fn shift_e_takes_the_whole_merged_card_and_gives_it_back() {
         player: PlayerId::new(0),
         attackers: ids.clone(),
         defenders: vec![baylee_core::ids::Defender::Player(PlayerId::new(1))],
+        required: Vec::new(),
+        limits: Vec::new(),
     });
     crate::rebuild_board(&mut duel);
     duel.hovered = Some(ids[0]);

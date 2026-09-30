@@ -336,6 +336,8 @@ mod tests {
                 player: me,
                 attackers: vec![creature],
                 defenders: vec![Defender::Player(PlayerId::new(1))],
+                required: Vec::new(),
+                limits: Vec::new(),
             },
             Pending::ChooseBlockers {
                 player: me,

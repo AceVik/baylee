@@ -711,10 +711,17 @@ pub fn auto_answer(
         // to answer with at all.
         Pending::Priority { .. } if at.step == Step::Cleanup => AutoAnswer::None,
         Pending::Priority { .. } if skipped || quiet_turn || pilot.is_some() => AutoAnswer::Pass,
-        Pending::ChooseAttackers { attackers, .. }
-            if skipped
+        // Declining is an answer only while no creature must attack
+        // (CR 508.1d): with one that must, attacking with nothing is a
+        // declaration the engine refuses, so the seat is asked.
+        Pending::ChooseAttackers {
+            attackers,
+            required,
+            ..
+        } if required.is_empty()
+            && (skipped
                 || matches!(pilot, Some(AutoPilot::ToNextTurn { .. }))
-                || (rules.skip_empty_attacks && attackers.is_empty()) =>
+                || (rules.skip_empty_attacks && attackers.is_empty())) =>
         {
             AutoAnswer::DeclareNoAttackers
         }
@@ -872,6 +879,8 @@ mod tests {
                         player: PlayerId::new(0),
                         attackers: vec![],
                         defenders: Vec::new(),
+                        required: Vec::new(),
+                        limits: Vec::new(),
                     },
                     at(true, true, Phase::Combat, Step::DeclareAttackers),
                     &orders,
@@ -1042,6 +1051,8 @@ mod tests {
                     player: PlayerId::new(0),
                     attackers: vec![],
                     defenders: Vec::new(),
+                    required: Vec::new(),
+                    limits: Vec::new(),
                 },
                 at(true, true, Phase::Combat, Step::DeclareAttackers),
                 &orders,
@@ -1367,6 +1378,8 @@ mod tests {
                     player: PlayerId::new(0),
                     attackers: vec![],
                     defenders: Vec::new(),
+                    required: Vec::new(),
+                    limits: Vec::new(),
                 },
                 at(true, true, Phase::Combat, Step::DeclareAttackers),
                 &orders,
@@ -1387,6 +1400,8 @@ mod tests {
                     player: PlayerId::new(0),
                     attackers: vec![],
                     defenders: Vec::new(),
+                    required: Vec::new(),
+                    limits: Vec::new(),
                 },
                 at(true, true, Phase::Combat, Step::DeclareAttackers),
                 &orders,
@@ -1645,6 +1660,8 @@ mod tests {
             player: PlayerId::new(0),
             attackers: vec![],
             defenders: Vec::new(),
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         assert_eq!(
             auto_answer(
@@ -1661,6 +1678,8 @@ mod tests {
             player: PlayerId::new(0),
             attackers: vec![baylee_core::ids::ObjectId::new(3, 0)],
             defenders: Vec::new(),
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         assert_eq!(
             auto_answer(

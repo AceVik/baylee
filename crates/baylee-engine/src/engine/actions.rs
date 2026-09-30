@@ -1805,6 +1805,7 @@ impl<L: CardLookup> Engine<L> {
         // tokens, and a `contains` per attacker made it quadratic (33,600
         // attackers cost 190 ms in self-play, r001 game 431).
         let mut seen = std::collections::BTreeSet::new();
+        let rules = combat::AttackRules::new(&self.state);
         for (creature, defending) in &attackers {
             if !combat::can_attack(&self.state, player, *creature) {
                 return Err(EngineError::IllegalAction("creature cannot attack"));
@@ -1812,9 +1813,31 @@ impl<L: CardLookup> Engine<L> {
             if !legal.contains(defending) {
                 return Err(EngineError::IllegalAction("invalid defender"));
             }
+            // CR 508.1c, the restrictions about the pair.
+            if !rules.allows(*creature, *defending) {
+                return Err(EngineError::IllegalAction(
+                    "that creature can't attack that player or planeswalker",
+                ));
+            }
             if !seen.insert(*creature) {
                 return Err(EngineError::IllegalAction("duplicate attacker"));
             }
+        }
+        // CR 508.1d: every creature that attacks if able, and can, does.
+        // No restriction the engine knows makes one requirement cost
+        // another, so the most that can be obeyed is all of them.
+        let shirking = self
+            .state
+            .battlefield_seen()
+            .filter(|id| rules.must_attack(*id) && !seen.contains(id))
+            .any(|id| {
+                combat::can_attack(&self.state, player, id)
+                    && legal.iter().any(|d| rules.allows(id, *d))
+            });
+        if shirking {
+            return Err(EngineError::IllegalAction(
+                "a creature that attacks each combat if able must attack",
+            ));
         }
         for &(creature, defending) in &attackers {
             let vigilance = self.state.object(creature).is_some_and(|o| {

@@ -388,6 +388,8 @@ mod tests {
                 player: seat(0),
                 attackers: vec![obj(1)],
                 defenders: vec![Defender::Player(seat(1))],
+                required: Vec::new(),
+                limits: Vec::new(),
             },
             seat(0),
         );
@@ -563,6 +565,8 @@ mod tests {
                 player: seat(0),
                 attackers: vec![obj(1)],
                 defenders: vec![Defender::Player(seat(1))],
+                required: Vec::new(),
+                limits: Vec::new(),
             },
             seat(0),
         );
@@ -738,6 +742,8 @@ mod tests {
                 player: seat(0),
                 attackers: vec![obj(1)],
                 defenders: vec![Defender::Player(seat(1))],
+                required: Vec::new(),
+                limits: Vec::new(),
             },
             seat(0),
         );

@@ -518,19 +518,7 @@ impl<L: CardLookup> Engine<L> {
                         .expect("declaring no attackers is always legal");
                     return false;
                 }
-                let attackers: Vec<ObjectId> = self
-                    .state
-                    .zones
-                    .list(crate::zone::ZoneLocation::Battlefield)
-                    .iter()
-                    .copied()
-                    .filter(|id| combat::can_attack(&self.state, attacker, *id))
-                    .collect();
-                self.pending = Pending::ChooseAttackers {
-                    player: attacker,
-                    attackers,
-                    defenders: combat::defender_options(&self.state, attacker),
-                };
+                self.pending = self.attack_question(attacker);
                 self.awaiting_answer = true;
                 true
             }
@@ -595,6 +583,51 @@ impl<L: CardLookup> Engine<L> {
                 true
             }
             _ => self.priority_round(),
+        }
+    }
+
+    /// The declare-attackers question for `attacker` (CR 508.1): what may
+    /// attack and what it may attack, what must attack (CR 508.1d), and
+    /// which creatures the restrictions on the pair hold to part of the
+    /// defenders (CR 508.1c).
+    fn attack_question(&self, attacker: PlayerId) -> Pending {
+        let defenders = combat::defender_options(&self.state, attacker);
+        let rules = combat::AttackRules::new(&self.state);
+        let mut attackers = Vec::new();
+        let mut required = Vec::new();
+        let mut limits = Vec::new();
+        for &id in self
+            .state
+            .zones
+            .list(crate::zone::ZoneLocation::Battlefield)
+        {
+            if !combat::can_attack(&self.state, attacker, id) {
+                continue;
+            }
+            // A creature every restriction on the pair shuts out
+            // attacks nothing, and a requirement asks nothing of
+            // it (CR 508.1d counts only what can be obeyed).
+            let allowed = rules.defenders_for(id, &defenders);
+            if allowed.is_empty() {
+                continue;
+            }
+            if allowed.len() < defenders.len() {
+                limits.push(crate::choice::AttackLimit {
+                    creature: id,
+                    defenders: allowed,
+                });
+            }
+            if rules.must_attack(id) {
+                required.push(id);
+            }
+            attackers.push(id);
+        }
+        Pending::ChooseAttackers {
+            player: attacker,
+            attackers,
+            defenders,
+            required,
+            limits,
         }
     }
 

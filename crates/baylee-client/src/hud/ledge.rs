@@ -2431,6 +2431,8 @@ mod tests {
             player: baylee_core::ids::PlayerId::new(0),
             attackers: vec![baylee_core::ids::ObjectId::new(3, 0)],
             defenders: vec![Defender::Player(baylee_core::ids::PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         let says = |duel: &Duel| -> Vec<Says> {
             answers_for(duel, Lang::En, false, false, false)
@@ -2521,6 +2523,8 @@ mod tests {
                     player: me,
                     attackers: vec![ObjectId::new(3, 0)],
                     defenders: vec![Defender::Player(PlayerId::new(1))],
+                    required: Vec::new(),
+                    limits: Vec::new(),
                 },
                 PromptAction::DeclareNothing,
             ),

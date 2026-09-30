@@ -837,6 +837,51 @@ fn through(attackers: &[Fighter], blockers: &[Fighter]) -> i32 {
     total
 }
 
+/// The attack `chosen` made legal: every creature the question says must
+/// attack does (CR 508.1d), and a creature sent at something it may not
+/// attack (CR 508.1c) goes at the first thing it may.
+///
+/// What the seat chose stands wherever the rules allow it; a creature that
+/// must attack and was left home goes where the seat sent most of its
+/// attack, or, failing that, at the first thing it may attack. The engine
+/// refuses a declaration that breaks either rule, and a house answer it
+/// refuses leaves a timed-out seat with nothing that plays.
+pub(crate) fn obey_attack_rules(
+    mut chosen: Vec<(ObjectId, Defender)>,
+    required: &[ObjectId],
+    limits: &[baylee_engine::choice::AttackLimit],
+    defenders: &[Defender],
+) -> Vec<(ObjectId, Defender)> {
+    let allowed = |creature: ObjectId| -> &[Defender] {
+        limits
+            .iter()
+            .find(|l| l.creature == creature)
+            .map_or(defenders, |l| l.defenders.as_slice())
+    };
+    for (creature, defender) in &mut chosen {
+        let may = allowed(*creature);
+        if !may.contains(defender)
+            && let Some(first) = may.first()
+        {
+            *defender = *first;
+        }
+    }
+    let aimed = chosen.first().map(|(_, d)| *d);
+    for &creature in required {
+        if chosen.iter().any(|(c, _)| *c == creature) {
+            continue;
+        }
+        let may = allowed(creature);
+        let at = aimed
+            .filter(|d| may.contains(d))
+            .or_else(|| may.first().copied());
+        if let Some(defender) = at {
+            chosen.push((creature, defender));
+        }
+    }
+    chosen
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

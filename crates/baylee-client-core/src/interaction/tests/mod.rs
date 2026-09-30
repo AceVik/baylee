@@ -33,6 +33,8 @@ fn attack_choice(attackers: Vec<ObjectId>, defenders: Vec<Defender>) -> Pending 
         player: me(),
         attackers,
         defenders,
+        required: Vec::new(),
+        limits: Vec::new(),
     }
 }
 

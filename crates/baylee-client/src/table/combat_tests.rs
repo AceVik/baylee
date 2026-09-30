@@ -93,6 +93,8 @@ fn a_declared_attacker_is_marked_chosen_and_an_undeclared_one_is_not() {
             player: PlayerId::new(0),
             attackers: vec![obj(1), obj(2)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         },
         PlayerId::new(0),
     );
@@ -129,6 +131,8 @@ fn a_stack_of_identical_creatures_is_chosen_by_any_of_its_members() {
             player: PlayerId::new(0),
             attackers: vec![obj(1), obj(2), obj(3)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         },
         PlayerId::new(0),
     );
@@ -414,6 +418,8 @@ fn two_clicks_on_a_stack_send_two_and_the_table_splits_them_off() {
         player: PlayerId::new(0),
         attackers: ids,
         defenders: vec![Defender::Player(PlayerId::new(1))],
+        required: Vec::new(),
+        limits: Vec::new(),
     });
     crate::rebuild_board(&mut duel);
     let before = placements(&duel);

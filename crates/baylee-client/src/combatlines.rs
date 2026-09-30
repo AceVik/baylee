@@ -935,6 +935,8 @@ mod running {
                 player: PlayerId::new(0),
                 attackers: vec![obj(2)],
                 defenders: vec![Defender::Player(PlayerId::new(1))],
+                required: Vec::new(),
+                limits: Vec::new(),
             },
             PlayerId::new(0),
         ));
@@ -970,6 +972,8 @@ mod running {
                     player: PlayerId::new(0),
                     attackers: vec![obj(2)],
                     defenders: vec![Defender::Player(PlayerId::new(1))],
+                    required: Vec::new(),
+                    limits: Vec::new(),
                 },
                 PlayerId::new(0),
             ))

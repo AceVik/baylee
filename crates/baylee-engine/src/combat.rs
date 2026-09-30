@@ -399,6 +399,100 @@ pub fn defending_player(state: &GameState, defender: Defender) -> Option<PlayerI
     }
 }
 
+/// The rules about the declaration of attackers that effects add to what
+/// [`can_attack`] asks of a creature alone: the restrictions about the pair,
+/// a creature and what it attacks (CR 508.1c, "can't attack unless defending
+/// player controls an Island"), and the requirements (CR 508.1d, "attacks
+/// each combat if able").
+///
+/// Collected once per declaration: the effects are walked here and not per
+/// creature, because a declaration may name tens of thousands of tokens and
+/// almost never meets one of these.
+pub struct AttackRules<'a> {
+    state: &'a GameState,
+    unless_defender_controls: Vec<&'a crate::effects::ContinuousEffect>,
+    requirements: Vec<&'a crate::effects::ContinuousEffect>,
+}
+
+impl<'a> AttackRules<'a> {
+    /// The rules in force now.
+    #[must_use]
+    pub fn new(state: &'a GameState) -> Self {
+        use baylee_cards_dsl::Modifier;
+        let mut unless_defender_controls = Vec::new();
+        let mut requirements = Vec::new();
+        for fx in state.effects.iter() {
+            match fx.modifier {
+                Modifier::CantAttackUnlessDefenderControls(_) => unless_defender_controls.push(fx),
+                Modifier::AttacksEachCombat => requirements.push(fx),
+                _ => {}
+            }
+        }
+        Self {
+            state,
+            unless_defender_controls,
+            requirements,
+        }
+    }
+
+    /// Whether `creature` attacks each combat if able (CR 508.1d).
+    #[must_use]
+    pub fn must_attack(&self, creature: ObjectId) -> bool {
+        if self.requirements.is_empty() {
+            return false;
+        }
+        self.state.object(creature).is_some_and(|obj| {
+            self.requirements
+                .iter()
+                .any(|fx| crate::effects::applies_to(self.state, fx, obj))
+        })
+    }
+
+    /// Whether `creature` may attack `defender`, past the restrictions on
+    /// the pair. Asked of a creature [`can_attack`] already allows.
+    #[must_use]
+    pub fn allows(&self, creature: ObjectId, defender: Defender) -> bool {
+        if self.unless_defender_controls.is_empty() {
+            return true;
+        }
+        let state = self.state;
+        let Some(obj) = state.object(creature) else {
+            return false;
+        };
+        let Some(defending) = defending_player(state, defender) else {
+            return false;
+        };
+        self.unless_defender_controls.iter().all(|fx| {
+            let baylee_cards_dsl::Modifier::CantAttackUnlessDefenderControls(filter) = fx.modifier
+            else {
+                return true;
+            };
+            !crate::effects::applies_to(state, fx, obj)
+                || state.battlefield_seen().any(|id| {
+                    state.object(id).is_some_and(|p| {
+                        p.controller == defending
+                            && crate::eval::matches(
+                                filter,
+                                state,
+                                p,
+                                fx.controller,
+                                fx.source.unwrap_or(creature),
+                            )
+                    })
+                })
+        })
+    }
+
+    /// Of `defenders`, those `creature` may attack.
+    #[must_use]
+    pub fn defenders_for(&self, creature: ObjectId, defenders: &[Defender]) -> Vec<Defender> {
+        defenders
+            .iter()
+            .copied()
+            .filter(|d| self.allows(creature, *d))
+            .collect()
+    }
+}
 /// Summoning sickness (CR 302.6): a creature must be controlled
 /// continuously since the beginning of its controller's most recent turn
 /// (haste excepted).
