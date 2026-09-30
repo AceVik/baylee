@@ -13114,36 +13114,37 @@ fn drain_life() -> CardIndex {
 }
 
 /// Drain Life — {X}{1}{B} — Sorcery: "Drain Life deals X damage to any
-/// target." Cast twice with two different X: two damage marks a printed
-/// 7/5 without killing it, and five reaches the opponent's life total by
+/// target." Cast twice with two different X: two damage marks a vanilla
+/// 2/3 without killing it, and five reaches the opponent's life total by
 /// exactly five. "Any target" (CR 115.4) is the one menu a creature and
 /// both players share. The life-gain half of the card, and the
 /// black-mana-only rule on X, are not implemented and are not asked here.
 #[allow(clippy::too_many_lines)] // One printed card, played end to end.
 #[test]
 fn drain_life_deals_the_x_its_controller_names_to_a_creature_and_then_to_a_player() {
-    // A 7/5 body with a ward (paid below), so two marked damage neither
-    // kills it nor is lost in the noise of a smaller one.
-    // oracle_id = "d3a5a830-cd14-49da-9412-c50049c74c92"
-    fn fleshgorger() -> CardIndex {
-        card_index("d3a5a830-cd14-49da-9412-c50049c74c92")
+    // A vanilla 2/3 body with no ward or other rider, so two marked
+    // damage neither kills it nor is lost in the noise of a smaller one,
+    // and no unrelated payment is dragged into a test about Drain Life.
+    // oracle_id = "8f1dae40-b307-446e-bbd2-86aa35813871"
+    fn hurloon_minotaur() -> CardIndex {
+        card_index("8f1dae40-b307-446e-bbd2-86aa35813871")
     }
 
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
         .battlefield(0, &[swamp(); 12])
-        .battlefield(1, &[fleshgorger()])
+        .battlefield(1, &[hurloon_minotaur()])
         .hand(0, &[drain_life(), drain_life()])
         .life(1, 20)
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let golem = on_battlefield(&engine, p1, fleshgorger()).expect("the 7/5 is out");
+    let minotaur = on_battlefield(&engine, p1, hurloon_minotaur()).expect("the 2/3 is out");
     assert_eq!(
-        pt(&engine, golem),
-        (7, 5),
-        "printed 7/5, and five survives two"
+        pt(&engine, minotaur),
+        (2, 3),
+        "printed 2/3, and three survives two"
     );
 
     tap_all_mana(&mut engine, p0);
@@ -13179,10 +13180,10 @@ fn drain_life_deals_the_x_its_controller_names_to_a_creature_and_then_to_a_playe
                     .apply(
                         player,
                         PlayerAction::ChooseObjects {
-                            objects: vec![golem],
+                            objects: vec![minotaur],
                         },
                     )
-                    .expect("the 7/5 is a legal target");
+                    .expect("the 2/3 is a legal target");
             }
             other => panic!("unexpected while casting Drain Life: {other:?}"),
         }
@@ -13192,31 +13193,28 @@ fn drain_life_deals_the_x_its_controller_names_to_a_creature_and_then_to_a_playe
         "X is a question the engine asks, not a number the card fixes"
     );
     assert!(
-        menu.contains(&golem),
+        menu.contains(&minotaur),
         "\"any target\" reaches a creature: {menu:?}"
     );
     assert!(
         menu_players.contains(&p0) && menu_players.contains(&p1),
         "any target (CR 115.4) puts both players on the same menu: {menu_players:?}"
     );
-    // Fleshgorger's own ward: paid so the ward does not counter Drain Life
-    // before it ever reaches its own damage.
-    pay_life_ward(&mut engine, p0, 7);
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(
-        engine.state().object(golem).unwrap().damage,
+        engine.state().object(minotaur).unwrap().damage,
         2,
         "exactly the X it was cast for"
     );
     assert_eq!(
-        pt(&engine, golem),
-        (7, 5),
+        pt(&engine, minotaur),
+        (2, 3),
         "marked damage does not change printed power or toughness"
     );
     assert!(
-        on_battlefield(&engine, p1, fleshgorger()).is_some(),
-        "two marked on a 7/5, five short of lethal, is not lethal"
+        on_battlefield(&engine, p1, hurloon_minotaur()).is_some(),
+        "two marked on a 2/3, one short of lethal, is not lethal"
     );
 
     // Second cast: X = 5, at p1 directly.
@@ -13273,7 +13271,7 @@ fn drain_life_deals_the_x_its_controller_names_to_a_creature_and_then_to_a_playe
         "exactly the second X, off the player directly"
     );
     assert_eq!(
-        engine.state().object(golem).unwrap().damage,
+        engine.state().object(minotaur).unwrap().damage,
         2,
         "the second cast's damage went to the player, not back onto the creature"
     );

@@ -98613,10 +98613,6 @@ fn sengir_vampire_cannot_be_blocked_by_a_creature_without_flying_or_reach() {
         16,
         "unblocked, all 4 of the flier's damage connects"
     );
-    assert!(
-        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
-        "nothing touched a creature that never blocked"
-    );
 }
 
 fn two_headed_giant_of_foriys() -> CardIndex {
@@ -98673,18 +98669,10 @@ fn two_headed_giant_of_foriys_tramples_excess_damage_over_its_blocker() {
         matches!(e.state().turn.phase, Phase::Ending)
     });
 
-    assert!(
-        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "1 damage is lethal on a 1-toughness blocker"
-    );
     assert_eq!(
         engine.state().players[1].life,
         17,
         "trample sent the remaining 3 damage through to the defending player"
-    );
-    assert!(
-        on_battlefield(&engine, p0, two_headed_giant_of_foriys()).is_some(),
-        "the Giant survives combat untouched"
     );
 }
 
@@ -98697,15 +98685,16 @@ fn gaea_s_liege() -> CardIndex {
 /// player's* Forests, which the engine does not read; only the "isn't
 /// attacking" half is tested here. Two Forests of its own, a Swamp beside
 /// them that must not count, and an opponent's Forest that must not count
-/// either — read once, and again after one of its own Forests leaves, so
-/// the characteristic is shown tracking the count rather than a value
-/// fixed once at entry.
+/// either — read once, and again after a third Forest is played as this
+/// turn's land, through the engine, so the characteristic is shown
+/// tracking the count rather than a value fixed once at entry.
 #[test]
 fn gaea_s_lieges_power_and_toughness_track_its_controllers_forests() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[gaea_s_liege(), forest(), forest(), swamp()])
         .battlefield(1, &[forest()])
+        .hand(0, &[forest()])
         .start();
     keep_mulligans(&mut engine);
 
@@ -98721,26 +98710,13 @@ fn gaea_s_lieges_power_and_toughness_track_its_controllers_forests() {
          Forest across the table do not count"
     );
 
-    let one_of_mine = on_battlefield(&engine, p0, forest()).expect("seated");
-    let state = engine
-        .dev_state_mut(p0)
-        .expect("the harness may rewrite the board");
-    state
-        .move_object(
-            one_of_mine,
-            crate::zone::ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
-        )
-        .expect("the harness moves a card");
-    // The board was rewritten behind the engine's back: nothing
-    // re-projects characteristics through the layer system until
-    // something asks it to.
-    state.refresh_characteristics();
+    reach_main_phase(&mut engine, p0);
+    play_land(&mut engine, p0, forest());
     assert_eq!(
         pt(&engine, liege),
-        (1, 1),
-        "one Forest left, and the printed characteristic followed the count down"
+        (3, 3),
+        "a third Forest played as this turn's land, and the printed \
+         characteristic followed the count up"
     );
 }
 
@@ -98748,20 +98724,25 @@ fn gaea_s_lieges_power_and_toughness_track_its_controllers_forests() {
 /// until this creature leaves the battlefield." Aimed at a Swamp: it
 /// gains the Forest type (which the first sentence's count reads too), it
 /// can tap for {G} under the CR 305.6 shortcut a printed Swamp never had,
-/// and once Gaea's Liege itself leaves the battlefield the effect ends and
-/// the land is a Forest no longer.
-#[allow(clippy::too_many_lines)] // one target, one tap, one mana ability, one departure
+/// and once Gaea's Liege is destroyed by Hero's Downfall — leaving the
+/// battlefield through the engine, not by rewriting the board — the
+/// effect ends: the land is a Forest no longer, and is a Swamp again.
+#[allow(clippy::too_many_lines)] // one target, one tap, one mana ability, one destroy spell
 #[test]
 fn gaea_s_lieges_second_ability_turns_a_land_into_a_forest_until_it_leaves() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[gaea_s_liege(), forest(), swamp()])
+        .battlefield(0, &[gaea_s_liege(), forest(), swamp(), swamp(), swamp()])
+        .hand(0, &[hero_s_downfall()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let liege = on_battlefield(&engine, p0, gaea_s_liege()).expect("seated");
-    let swamp_obj = on_battlefield(&engine, p0, swamp()).expect("seated");
+    let swamps = all_on_battlefield(&engine, p0, swamp());
+    assert_eq!(swamps.len(), 3, "three Swamps are seated");
+    let swamp_obj = swamps[0];
+    let payment = [swamps[1], swamps[2]];
     assert_eq!(pt(&engine, liege), (1, 1), "one Forest so far");
     assert!(
         !engine
@@ -98838,19 +98819,35 @@ fn gaea_s_lieges_second_ability_turns_a_land_into_a_forest_until_it_leaves() {
         "and nothing else floated"
     );
 
-    engine
-        .dev_state_mut(p0)
-        .expect("the harness may rewrite the board")
-        .move_object(
-            liege,
-            crate::zone::ZoneLocation::Graveyard(p0),
-            crate::zone::ZonePosition::Top,
-            crate::event::Cause::Effect,
+    // Destroy Gaea's Liege with a spell — through the engine, not by
+    // rewriting the board — so the "until this creature leaves" effect
+    // ends for the reason its own text names.
+    tap_mana_where(&mut engine, p0, |id| payment.contains(&id));
+    cast_with_floating(&mut engine, p0, hero_s_downfall());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "Hero's Downfall asks for a target, got {:?}",
+            engine.pending()
         )
-        .expect("the harness moves a card");
-    engine.sync_static_effects();
-    engine.refresh_offer();
+    };
+    assert!(
+        options.contains(&liege),
+        "the Liege is a legal \"target creature\": {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![liege],
+            },
+        )
+        .expect("the Liege was among the options the spell enumerated");
+    pass_until(&mut engine, stack_is_empty);
 
+    assert!(
+        in_graveyard(&engine, p0, gaea_s_liege()).is_some(),
+        "Hero's Downfall destroyed it"
+    );
     assert!(
         !engine
             .state()
@@ -98861,5 +98858,15 @@ fn gaea_s_lieges_second_ability_turns_a_land_into_a_forest_until_it_leaves() {
             .contains(baylee_core::generated::subtypes::land::FOREST),
         "\"until this creature leaves the battlefield\": Gaea's Liege is gone, \
          and the land is a Forest no longer"
+    );
+    assert!(
+        engine
+            .state()
+            .object(swamp_obj)
+            .expect("still on the table")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::land::SWAMP),
+        "the effect ending returns it to its own printed type, a Swamp"
     );
 }

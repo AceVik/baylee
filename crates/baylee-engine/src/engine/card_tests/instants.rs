@@ -22924,12 +22924,14 @@ fn fork() -> CardIndex {
 /// Fork: "Copy target instant or sorcery spell, except that the copy is
 /// red. You may choose new targets for the copy." Only instant and sorcery
 /// spells are legal targets — a creature spell on the stack underneath the
-/// Giant Growth this test points Fork at is never offered. Fork's own
-/// caster then retargets the copy onto a different creature than the
-/// original chose (CR 707.10c), and both effects land independently: the
-/// original's own target gets its own +3/+3 and the copy's new target
-/// gets its own, which is only true if the retargeting actually moved the
-/// copy's aim rather than leaving it on the original's creature.
+/// Giant Growth this test points Fork at is never offered. "May" (CR
+/// 707.10c: "The player may leave any number of the targets unchanged")
+/// means the original target is still on the retarget menu even though
+/// Fork's own caster goes on to choose a different creature (CR 707.10c),
+/// and both effects land independently: the original's own target gets
+/// its own +3/+3 and the copy's new target gets its own, which is only
+/// true if the retargeting actually moved the copy's aim rather than
+/// leaving it on the original's creature.
 #[allow(clippy::too_many_lines)] // One printed card, played end to end.
 #[test]
 fn fork_copies_an_instant_and_its_caster_retargets_the_copy() {
@@ -23028,6 +23030,11 @@ fn fork_copies_an_instant_and_its_caster_retargets_the_copy() {
     assert!(
         options.contains(&qc_b),
         "the other creature is a legal new target: {options:?}"
+    );
+    assert!(
+        options.contains(&qc_a),
+        "CR 707.10c: \"the player may leave any number of the targets \
+         unchanged\" — the original target is still on the menu: {options:?}"
     );
     engine
         .apply(

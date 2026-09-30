@@ -21157,15 +21157,17 @@ fn evil_presence() -> CardIndex {
     card_index("3d8ac41c-0566-48b2-a744-39db2f72272c")
 }
 
-/// Evil Presence: "Enchanted land is a Swamp." The enchanted Forest loses
-/// its own land type, taps for {B} instead of {G}, and keeps being a land
-/// and a basic land by supertype. A second Forest beside it, never
-/// targeted, still taps for {G} — the pool that tells the two apart.
+/// Evil Presence: "Enchant land" restricts the target menu to lands — a
+/// Festering Goblin on the board is never among the options. "Enchanted
+/// land is a Swamp." The enchanted Forest loses its own land type, taps
+/// for {B} instead of {G}, and keeps being a land and a basic land by
+/// supertype. A second Forest beside it, never targeted, still taps for
+/// {G} — the pool that tells the two apart.
 #[test]
 fn evil_presence_turns_a_forest_into_a_swamp_and_nothing_else() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[swamp(), forest(), forest()])
+        .battlefield(0, &[swamp(), forest(), forest(), festering_goblin()])
         .hand(0, &[evil_presence()])
         .start();
     keep_mulligans(&mut engine);
@@ -21173,6 +21175,7 @@ fn evil_presence_turns_a_forest_into_a_swamp_and_nothing_else() {
     let forests = all_on_battlefield(&engine, p0, forest());
     assert_eq!(forests.len(), 2, "two Forests are seated");
     let (target, bystander) = (forests[0], forests[1]);
+    let goblin = on_battlefield(&engine, p0, festering_goblin()).expect("seated");
 
     tap_all_mana_but(&mut engine, p0, Some(forest()));
     cast_with_floating(&mut engine, p0, evil_presence());
@@ -21180,6 +21183,10 @@ fn evil_presence_turns_a_forest_into_a_swamp_and_nothing_else() {
         panic!("Enchant land asks for a target, got {:?}", engine.pending())
     };
     assert!(options.contains(&target));
+    assert!(
+        !options.contains(&goblin),
+        "\"Enchant land\": a creature is never offered: {options:?}"
+    );
     engine
         .apply(
             p0,
@@ -21511,6 +21518,13 @@ fn conversion_upkeep_trigger_pays_ww_or_sacrifices_itself() {
         on_battlefield(&engine, p0, conversion()).is_some(),
         "paying {{W}}{{W}} keeps Conversion on the battlefield"
     );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        4,
+        "six Plains made six white, and two of them paid the {{W}}{{W}}"
+    );
 
     // Declining sacrifices it.
     let mut decline = Duel::new(SEED, forest())
@@ -21547,26 +21561,38 @@ fn phantasmal_terrain() -> CardIndex {
     card_index("7dcbce46-2973-4a9f-93df-95ac41ce668a")
 }
 
-/// Phantasmal Terrain: "As this Aura enters, choose a basic land type."
-/// Offers exactly the five basic land types, and refuses a nonbasic one.
+/// Phantasmal Terrain: "Enchant land" restricts the target menu to lands —
+/// a Llanowar Elves beside the target is never among the options. "As this
+/// Aura enters, choose a basic land type." That choice is asked of the
+/// Aura's own caster, not of the enchanted land's controller — targeting
+/// the *other* player's Forest is what tells the two apart — and the menu
+/// offers exactly the five basic land types and refuses a nonbasic one.
 #[test]
 fn phantasmal_terrain_offers_only_the_five_basic_land_types() {
-    let p0 = PlayerId::new(0);
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[island(), island(), forest(), forest()])
+        .battlefield(0, &[island(), island()])
+        .battlefield(1, &[forest(), llanowar_elves()])
         .hand(0, &[phantasmal_terrain()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
-    let forests = all_on_battlefield(&engine, p0, forest());
-    let target = forests[0];
+    let target = on_battlefield(&engine, p1, forest()).expect("seated");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
 
-    tap_all_mana_but(&mut engine, p0, Some(forest()));
+    tap_all_mana(&mut engine, p0);
     cast_with_floating(&mut engine, p0, phantasmal_terrain());
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
         panic!("Enchant land asks for a target, got {:?}", engine.pending())
     };
-    assert!(options.contains(&target));
+    assert!(
+        options.contains(&target),
+        "the opponent's land is a legal \"Enchant land\" target: {options:?}"
+    );
+    assert!(
+        !options.contains(&elf),
+        "\"Enchant land\": a creature is never offered: {options:?}"
+    );
     engine
         .apply(
             p0,
@@ -21582,17 +21608,23 @@ fn phantasmal_terrain_offers_only_the_five_basic_land_types() {
     let Pending::ChooseSubtype { player, options } = engine.pending().clone() else {
         unreachable!("pass_until stopped on the question")
     };
-    assert_eq!(player, p0, "the enchanted land's controller chooses");
     assert_eq!(
-        options,
-        [
-            baylee_core::generated::subtypes::land::PLAINS,
-            baylee_core::generated::subtypes::land::ISLAND,
-            baylee_core::generated::subtypes::land::SWAMP,
-            baylee_core::generated::subtypes::land::MOUNTAIN,
-            baylee_core::generated::subtypes::land::FOREST,
-        ],
-        "the five basic land types and nothing else"
+        player, p0,
+        "the Aura's own controller chooses, not the enchanted land's controller (p1)"
+    );
+    let mut offered = options.clone();
+    offered.sort();
+    let mut basics = vec![
+        baylee_core::generated::subtypes::land::PLAINS,
+        baylee_core::generated::subtypes::land::ISLAND,
+        baylee_core::generated::subtypes::land::SWAMP,
+        baylee_core::generated::subtypes::land::MOUNTAIN,
+        baylee_core::generated::subtypes::land::FOREST,
+    ];
+    basics.sort();
+    assert_eq!(
+        offered, basics,
+        "the five basic land types and nothing else, as a set"
     );
     assert!(
         engine
@@ -21605,23 +21637,37 @@ fn phantasmal_terrain_offers_only_the_five_basic_land_types() {
     );
 }
 
-/// Phantasmal Terrain: "Enchanted land is the chosen type." Choosing Swamp
-/// turns the enchanted Forest into one, tapping for {B}; a second Forest
-/// beside it, never chosen, still taps for {G}.
+/// Phantasmal Terrain: "Enchant land" restricts the target menu to lands —
+/// a Festering Goblin on the board is never among the options. "Enchanted
+/// land is the chosen type." Choosing Swamp turns the enchanted Forest
+/// into one, tapping for {B}; a second Forest beside it, never chosen,
+/// still taps for {G}.
 #[test]
 fn phantasmal_terrain_makes_the_enchanted_land_the_chosen_type() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[island(), island(), forest(), forest()])
+        .battlefield(
+            0,
+            &[island(), island(), forest(), forest(), festering_goblin()],
+        )
         .hand(0, &[phantasmal_terrain()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let forests = all_on_battlefield(&engine, p0, forest());
     let (target, bystander) = (forests[0], forests[1]);
+    let goblin = on_battlefield(&engine, p0, festering_goblin()).expect("seated");
 
     tap_all_mana_but(&mut engine, p0, Some(forest()));
     cast_with_floating(&mut engine, p0, phantasmal_terrain());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Enchant land asks for a target, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&target));
+    assert!(
+        !options.contains(&goblin),
+        "\"Enchant land\": a creature is never offered: {options:?}"
+    );
     engine
         .apply(
             p0,
