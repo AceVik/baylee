@@ -24149,6 +24149,89 @@ fn siren_s_call_ignores_a_creature_taken_this_turn_but_reaches_one_held_since_an
     );
 }
 
+/// Siren's Call's force-attack sentence reaches a creature the active
+/// player took this turn, as soon as it is able to attack. The Gatherer
+/// ruling (2004-10-04): "It will require creatures with Haste to attack
+/// since they are able, but it won't destroy them if they don't for some
+/// reason." Only the destroy sentence carries "Ignore this effect for each
+/// creature the player didn't control continuously since the beginning of
+/// the turn", so the requirement's filter stays without
+/// `ControlledSinceTurnBegan`: p0 steals p1's Bear with Control Magic,
+/// equips it with Lightning Greaves (haste), and must attack with it.
+#[test]
+fn siren_s_call_requires_a_creature_taken_this_turn_that_has_haste_to_attack() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), island(), island(), lightning_greaves()],
+        )
+        .hand(0, &[control_magic()])
+        .battlefield(1, &[island(), grizzly_bears()])
+        .hand(1, &[siren_s_call()])
+        .start();
+    keep_mulligans(&mut engine);
+    let their_bear = on_battlefield(&engine, p1, grizzly_bears()).expect("p1's Bear is seated");
+    let greaves = on_battlefield(&engine, p0, lightning_greaves()).expect("the Greaves are seated");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    cast_from_hand(&mut engine, p0, control_magic());
+    aim_at(&mut engine, p0, their_bear);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, grizzly_bears()).is_some(),
+        "Control Magic moved the Bear to p0's side this turn"
+    );
+    // Ability 1 is Equip {0}.
+    activate(&mut engine, p0, lightning_greaves(), 1);
+    aim_at(&mut engine, p0, their_bear);
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(greaves)
+            .is_some_and(|o| o.attached_to == Some(their_bear))
+    });
+    assert!(
+        keywords(&engine, their_bear).contains(KeywordSet::HASTE),
+        "equipped, so able to attack this turn"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    cast_from_hand(&mut engine, p1, siren_s_call());
+    pass_until(&mut engine, stack_is_empty);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { required, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        required.contains(&their_bear),
+        "the active player's and able: \"attack this turn if able\" reaches it"
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "a declaration without the hasty Bear obeys nothing"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(their_bear, Defender::Player(p1))],
+            },
+        )
+        .expect("attacking with it obeys the requirement");
+}
+
 // ---------------------------------------------------------- Blaze of Glory
 
 fn blaze_of_glory() -> CardIndex {

@@ -227,11 +227,13 @@ pub enum Modifier {
         /// Who can't lose life, relative to the effect's controller.
         who: crate::effect::PlayerRel,
     },
-    /// Prevent all damage that would be dealt TO the affected object
-    /// (Maze of Ith).
+    /// Prevent all combat damage that would be dealt TO the affected object
+    /// (Maze of Ith). Combat's damage doors ask it and an effect's do not:
+    /// an effect's damage to the object is dealt.
     PreventDamageToIt,
-    /// Prevent all damage that would be dealt BY the affected object
-    /// (Maze of Ith).
+    /// Prevent all combat damage that would be dealt BY the affected object
+    /// (Maze of Ith, Kor Haven). Combat's damage doors ask it and an
+    /// effect's do not.
     PreventDamageFromIt,
     /// Combat damage the affected object would deal can't be prevented
     /// (Questing Beast: "Combat damage that would be dealt by creatures you

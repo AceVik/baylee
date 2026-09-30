@@ -3559,7 +3559,7 @@ impl GameState {
         }
         // Prevention shields are what damage will do next, so two states
         // that differ only in what is shielded are two states.
-        hash_shields(&mut h, &self.shields, &position);
+        hash_shields(&mut h, self, &position);
         h.finish()
     }
 
@@ -3619,22 +3619,25 @@ fn library_place(pos: ZonePosition, len: usize) -> LibraryPlace {
 }
 
 /// The shields as [`GameState::loop_signature`] hashes them: every object
-/// they name by its canonical `position`, like every other reference there.
-fn hash_shields(
-    h: &mut Hasher,
-    shields: &[crate::prevention::Shield],
-    position: &dyn Fn(ObjectId) -> u32,
-) {
-    h.usize(shields.len());
-    for shield in shields {
+/// they name by its canonical `position`, like every other reference there,
+/// and by how far it has moved on since the shield named it
+/// ([`moves_since`]): a shield on a permanent protects only the object it
+/// was made on (CR 400.7), and a chosen source is the source only as that
+/// object or, chosen as a spell, the permanent it became (CR 609.7a). The
+/// version itself is identity, which the signature is blind to; how far the
+/// object has moved on from it is what the shield reads.
+fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -> u32) {
+    h.usize(state.shields.len());
+    for shield in &state.shields {
         match shield.protects {
             crate::prevention::Shielded::Player(p) => {
                 h.u8(0);
                 h.u8(p.get());
             }
-            crate::prevention::Shielded::Object(id, _) => {
+            crate::prevention::Shielded::Object(id, version) => {
                 h.u8(1);
                 h.u32(position(id));
+                h.u8(moves_since(state.object(id), version));
             }
             crate::prevention::Shielded::Everything => h.u8(2),
         }
@@ -3651,18 +3654,50 @@ fn hash_shields(
                 combat_only,
             } => {
                 h.u8(2);
-                h.u32(position(source.id));
+                hash_chosen_source(h, state, &source, position);
                 h.u32(all_but);
                 h.boolean(gain_life);
                 h.boolean(combat_only);
             }
             crate::prevention::ShieldKind::RedirectNextFrom { source, to } => {
                 h.u8(3);
-                h.u32(position(source.id));
+                hash_chosen_source(h, state, &source, position);
                 h.u8(to.get());
             }
         }
         h.u8(shield.controller.get());
+    }
+}
+
+/// A chosen source as [`hash_shields`] hashes it: everything
+/// `ChosenSource::deals` reads when the damage comes.
+fn hash_chosen_source(
+    h: &mut Hasher,
+    state: &GameState,
+    source: &crate::prevention::ChosenSource,
+    position: &dyn Fn(ObjectId) -> u32,
+) {
+    h.u32(position(source.id));
+    h.u8(moves_since(
+        state.object_or_departed(source.id),
+        source.version,
+    ));
+    h.boolean(source.was_spell);
+    filter_hash(h, source.filter);
+    h.u8(source.you.get());
+    h.u32(position(source.this));
+}
+
+/// How far `obj` has moved on from `version`, in the steps a shield tells
+/// apart: 0 is the same object, 1 the next one (the permanent a chosen spell
+/// became), 2 any later one, and 3 none at all. Capped, so an object that
+/// keeps moving settles, and a loop that blinks it is still a repeat.
+fn moves_since(obj: Option<&GameObject>, version: u32) -> u8 {
+    match obj.map(|o| o.version.wrapping_sub(version)) {
+        Some(0) => 0,
+        Some(1) => 1,
+        Some(_) => 2,
+        None => 3,
     }
 }
 
@@ -5161,6 +5196,59 @@ mod tests {
             untouched,
             state.loop_signature(),
             "cleared is back to where it started, which is what a turn boundary does"
+        );
+    }
+
+    /// What a shield names is part of the loop signature. A shield on a
+    /// permanent is on that object (CR 400.7), so the same shield after its
+    /// creature left and came back protects nothing, and a chosen source's
+    /// shield waits only for a source that still is what it had to be to be
+    /// chosen (CR 609.7b). Left out, two boards that differ in what damage
+    /// will do next hash alike and a loop detector could call them one.
+    #[test]
+    fn what_a_shield_names_is_part_of_the_loop_signature() {
+        use crate::prevention::{ChosenSource, Shield, ShieldKind, Shielded};
+        let (mut state, id) = hash_fixture();
+        let version = state.object(id).expect("just made it").version;
+        state.shields.push(Shield {
+            protects: Shielded::Object(id, version),
+            kind: ShieldKind::Next(3),
+            controller: PlayerId::new(0),
+        });
+        let on_it = state.loop_signature();
+        // The permanent became a new object: the shield is still there, and
+        // on nothing.
+        state.object_mut(id).expect("still there").version += 1;
+        assert_ne!(
+            on_it,
+            state.loop_signature(),
+            "a shield on the object that was here is not a shield on the one that is"
+        );
+
+        let chosen = |filter: &'static baylee_cards_dsl::Filter| Shield {
+            protects: Shielded::Player(PlayerId::new(0)),
+            kind: ShieldKind::NextFrom {
+                source: ChosenSource {
+                    id,
+                    version: version + 1,
+                    was_spell: false,
+                    filter,
+                    you: PlayerId::new(0),
+                    this: id,
+                },
+                all_but: 0,
+                gain_life: false,
+                combat_only: false,
+            },
+            controller: PlayerId::new(0),
+        };
+        state.shields = vec![chosen(&baylee_cards_dsl::Filter::Any)];
+        let any_source = state.loop_signature();
+        state.shields = vec![chosen(&baylee_cards_dsl::Filter::CREATURE)];
+        assert_ne!(
+            any_source,
+            state.loop_signature(),
+            "a shield waiting for any source is not one waiting for a creature"
         );
     }
 

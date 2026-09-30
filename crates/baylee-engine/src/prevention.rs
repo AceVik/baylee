@@ -10,10 +10,10 @@
 //! skips this function deals damage no shield can see.
 //!
 //! What is here is the *resolved* kind of prevention — "the next 3 damage",
-//! "all combat damage this turn". The standing kind a permanent's static
-//! ability states (Maze of Ith's `Modifier::PreventDamageToIt`, protection)
-//! is asked by each writer before this, is never used up, and is not a
-//! shield.
+//! "all combat damage this turn". The standing kind is asked before this,
+//! is never used up, and is not a shield: protection by each writer, and
+//! Maze of Ith's `Modifier::PreventDamageToIt` and `PreventDamageFromIt`,
+//! which prevent combat damage only, by combat's two.
 //!
 //! Every shield here lasts for the turn: all of them say "this turn", and
 //! the cleanup step ends them with every other such effect (CR 514.2).
@@ -129,11 +129,13 @@ impl ChosenSource {
     /// the source as it last was — an ability of a pinger killed in response
     /// — and it is checked as it last existed on the battlefield (CR 609.7a
     /// "even if that object is no longer in the zone it used to be in").
-    /// Two corners that reading gets wrong, and that no card in the pool
-    /// reaches today: an ability the chosen card's *new* object activates
-    /// from its graveyard counts as the chosen source's, and an ability of
-    /// the chosen permanent still on the stack after the card came back to
-    /// the battlefield does not.
+    /// Two corners that reading gets wrong: an ability the chosen card's
+    /// *new* object activates from its graveyard counts as the chosen
+    /// source's, and an ability of the chosen permanent still on the stack
+    /// after the card came back to the battlefield does not (Circle of
+    /// Protection: Blue and a Prodigal Sorcerer that Kenrith, the Returned
+    /// King returns, `docs/engine-internals.md` §"The source on the stack
+    /// has no version").
     fn deals(&self, state: &GameState, source: ObjectId) -> bool {
         if source != self.id {
             return false;
