@@ -22704,3 +22704,458 @@ fn natural_selection_reorders_the_top_three_and_may_decline_the_shuffle() {
         "declined the shuffle: the chosen order stands"
     );
 }
+
+fn power_sink() -> CardIndex {
+    card_index("39412e6d-2837-4729-abf9-e64a5ba87e40")
+}
+
+/// Casts Power Sink for `x` at `target` (an object on the stack), answering
+/// the announce-time questions (CR 601.2b, 601.2c) in whichever order the
+/// engine asks them, and returns the target menu it published.
+#[track_caller]
+fn cast_power_sink_at(
+    engine: &mut Engine<RegistryLookup>,
+    caster: PlayerId,
+    x: u32,
+    target: ObjectId,
+) -> Vec<ObjectId> {
+    let sink = in_hand(engine, caster, power_sink()).expect("Power Sink in hand");
+    engine
+        .apply(caster, PlayerAction::CastSpell { card: sink })
+        .expect("Power Sink is castable");
+    let mut asked_x = false;
+    let mut targeted = false;
+    let mut menu = Vec::new();
+    for _ in 0..8 {
+        if asked_x && targeted {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::ChooseNumber {
+                player, min, max, ..
+            } => {
+                assert!(
+                    min <= x && x <= max,
+                    "X = {x} must be one of the values on offer: {min}..={max}"
+                );
+                engine
+                    .apply(player, PlayerAction::ChooseNumber(x))
+                    .expect("the answer came out of the question");
+                asked_x = true;
+            }
+            Pending::ChooseTargets {
+                player, options, ..
+            } => {
+                menu = options;
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![target],
+                        },
+                    )
+                    .expect("the named spell was on the menu");
+                targeted = true;
+            }
+            other => panic!("unexpected while casting Power Sink: {other:?}"),
+        }
+    }
+    assert!(
+        asked_x && targeted,
+        "both questions were asked and answered"
+    );
+    menu
+}
+
+/// Power Sink: "Counter target spell unless its controller pays {X}." X is
+/// the X Power Sink itself was cast with — two, not the one a card that
+/// ignored its own announced X and printed a fixed tax would still show —
+/// and the player asked to pay is the *targeted* spell's controller — p0,
+/// who cast the Elves — and not Power Sink's own caster p1. p0 declines, so
+/// the Elves are countered.
+#[test]
+fn power_sink_counters_the_targeted_spell_when_its_controller_declines_to_pay_x() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[llanowar_elves()])
+        .battlefield(1, &[island(), island(), island()])
+        .hand(1, &[power_sink()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    let elves = in_hand(&engine, p0, llanowar_elves()).expect("Elves in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: elves })
+        .unwrap();
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    tap_all_mana(&mut engine, p1);
+    let menu = cast_power_sink_at(&mut engine, p1, 2, elves);
+    assert!(
+        menu.contains(&elves),
+        "\"counter target spell\" — any spell is a legal target: {menu:?}"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayTax { mana },
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on the tax question")
+    };
+    assert_eq!(mana, 2, "X = 2, the X Power Sink was cast with");
+    assert_eq!(
+        player, p0,
+        "\"its controller\" — the targeted spell's controller, not Power Sink's own caster"
+    );
+
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "countered: the Elf never arrives"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "a countered spell is put into its owner's graveyard (CR 701.6a)"
+    );
+    assert!(
+        in_graveyard(&engine, p1, power_sink()).is_some(),
+        "a resolved instant goes to its owner's graveyard"
+    );
+}
+
+/// The other half: p0 pays the {X} out of mana already floating from
+/// casting their own spell, and the Elf resolves — paying is what Power
+/// Sink's own text says keeps the countered spell alive.
+#[test]
+fn power_sink_lets_the_spell_resolve_when_its_controller_pays_x() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[llanowar_elves()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[power_sink()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    let elves = in_hand(&engine, p0, llanowar_elves()).expect("Elves in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: elves })
+        .unwrap();
+    // Two Forests paid for a one-mana Elf: one green mana is still floating
+    // when Power Sink's tax question comes, which is the whole point of
+    // this board over the counterpart test's single Forest.
+    let floating_before = engine.state().players[0].mana_pool.total();
+    assert_eq!(
+        floating_before, 1,
+        "one Forest spent on the Elf, one left floating"
+    );
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    tap_all_mana(&mut engine, p1);
+    cast_power_sink_at(&mut engine, p1, 1, elves);
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayTax { mana },
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on the tax question")
+    };
+    assert_eq!(mana, 1);
+    assert_eq!(
+        player, p0,
+        "the payer is the targeted spell's controller, not Power Sink's caster"
+    );
+
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "paid: the spell is not countered and resolves"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_none(),
+        "a resolved permanent spell is not in its owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        floating_before - 1,
+        "exactly the X was spent paying the tax"
+    );
+    assert!(
+        in_graveyard(&engine, p1, power_sink()).is_some(),
+        "a resolved instant goes to its owner's graveyard"
+    );
+}
+
+fn fork() -> CardIndex {
+    card_index("50c53ae0-51ba-4046-ac74-87c65e688032")
+}
+
+/// Fork: "Copy target instant or sorcery spell, except that the copy is
+/// red. You may choose new targets for the copy." Only instant and sorcery
+/// spells are legal targets — a creature spell on the stack underneath the
+/// Giant Growth this test points Fork at is never offered. Fork's own
+/// caster then retargets the copy onto a different creature than the
+/// original chose (CR 707.10c), and both effects land independently: the
+/// original's own target gets its own +3/+3 and the copy's new target
+/// gets its own, which is only true if the retargeting actually moved the
+/// copy's aim rather than leaving it on the original's creature.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn fork_copies_an_instant_and_its_caster_retargets_the_copy() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[quiet_creature(), swamp(), forest()])
+        .hand(0, &[festering_goblin(), giant_growth()])
+        .battlefield(1, &[quiet_creature(), mountain(), mountain()])
+        .hand(1, &[fork()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let qc_a = on_battlefield(&engine, p0, quiet_creature()).expect("p0's creature is seated");
+    let qc_b = on_battlefield(&engine, p1, quiet_creature()).expect("p1's creature is seated");
+    let (base_a, base_b) = (pt(&engine, qc_a), pt(&engine, qc_b));
+
+    tap_all_mana(&mut engine, p0);
+    // A creature spell first, so something that is neither instant nor
+    // sorcery sits on the stack beneath the one Fork actually points at.
+    cast_with_floating(&mut engine, p0, festering_goblin());
+    let goblin_spell = top_of_stack(&engine);
+
+    // Still p0's own priority: Giant Growth targets their own creature and
+    // stacks above the Goblin.
+    cast_with_floating(&mut engine, p0, giant_growth());
+    let gg_options = aim_at(&mut engine, p0, qc_a);
+    assert!(
+        gg_options.contains(&qc_a) && gg_options.contains(&qc_b),
+        "\"target creature\" is not \"target creature you control\": {gg_options:?}"
+    );
+    let growth_spell = top_of_stack(&engine);
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, fork());
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("Fork asks for a target spell, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1, "Fork's own caster names its target");
+    assert!(
+        options.contains(&growth_spell),
+        "an instant on the stack is a legal target: {options:?}"
+    );
+    assert!(
+        !options.contains(&goblin_spell),
+        "a creature spell is neither instant nor sorcery: {options:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![growth_spell],
+            },
+        )
+        .expect("the instant was on the menu");
+
+    // Both players still have to pass priority for Fork to resolve.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+
+    // Fork resolves; the copy is already on the stack, above the
+    // original, asking its controller to retarget it (CR 707.10c).
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("the copy asks to be retargeted, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1, "the copy's controller picks its new target");
+    assert_eq!((min, max), (1, 1), "one target, asked once");
+    let copy = top_of_stack(&engine);
+    assert_ne!(
+        copy, growth_spell,
+        "the copy is a new object, not the original"
+    );
+    let copy_colors = engine
+        .state()
+        .object(copy)
+        .expect("the copy is on the stack")
+        .characteristics()
+        .colors;
+    assert_eq!(
+        copy_colors,
+        ColorSet::of(Color::Red),
+        "\"except that the copy is red\" — not Giant Growth's own green"
+    );
+    assert!(
+        options.contains(&qc_b),
+        "the other creature is a legal new target: {options:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![qc_b],
+                players: vec![],
+            },
+        )
+        .expect("the retarget names a legal creature");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, qc_b),
+        (base_b.0 + 3, base_b.1 + 3),
+        "the copy's new target got its own +3/+3"
+    );
+    assert_eq!(
+        pt(&engine, qc_a),
+        (base_a.0 + 3, base_a.1 + 3),
+        "the original spell still resolved on the target it was cast at, \
+         not doubled up by the retargeted copy"
+    );
+    assert!(
+        on_battlefield(&engine, p0, festering_goblin()).is_some(),
+        "the creature spell beneath both was never Fork's target"
+    );
+}
+
+fn berserk() -> CardIndex {
+    card_index("8b67d192-9a05-4a47-82ae-5fc4b7834d88")
+}
+
+/// Berserk: "Target creature gains trample and gets +X/+0 until end of
+/// turn, where X is its power." X is read as Berserk *resolves*, not as it
+/// is cast: Berserk is cast at the Elf while it is still a 1/1, then Giant
+/// Growth is cast on top of it and resolves first (last in, first out), so
+/// by the time Berserk itself resolves the Elf is at 4 power. A cast-time X
+/// would still be 1 and leave the Elf at 5/4; reading X at resolution
+/// leaves it at 8/4 instead. A second Giant Growth cast afterwards adds its
+/// own +3/+3 without inflating Berserk's now-fixed bonus further, and the
+/// "+0" half never touches toughness. The bystander Goblin beside it is
+/// never targeted and never moves. By the next turn every "until end of
+/// turn" grant this test made — trample included — is gone.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn berserk_pumps_by_the_targets_power_at_resolution_and_only_until_end_of_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                llanowar_elves(),
+                festering_goblin(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .hand(0, &[giant_growth(), giant_growth(), berserk()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let goblin = on_battlefield(&engine, p0, festering_goblin()).expect("the Goblin is seated");
+    assert_eq!(pt(&engine, elf), (1, 1), "printed 1/1");
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::TRAMPLE),
+        "nothing has been granted anything yet"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, berserk());
+    let options = aim_at(&mut engine, p0, elf);
+    assert!(
+        options.contains(&goblin),
+        "\"target creature\" is not restricted to a boosted one: {options:?}"
+    );
+
+    // Still p0's own priority: Giant Growth stacks above Berserk and
+    // resolves first, so the Elf is at 4 power — not its printed 1 — when
+    // Berserk's own resolution reads X.
+    cast_with_floating(&mut engine, p0, giant_growth());
+    aim_at(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, elf),
+        (8, 4),
+        "Giant Growth resolves first, to 4 power; Berserk then reads \
+         X = 4 at its own resolution and adds +4/+0 — a cast-time X would \
+         have frozen at 1 and left the Elf at 5/4, not 8/4 — and toughness \
+         is untouched by \"+X/+0\""
+    );
+    assert_eq!(pt(&engine, goblin), (1, 1), "never targeted, never moved");
+    assert!(
+        keywords(&engine, elf).contains(KeywordSet::TRAMPLE),
+        "\"gains trample\""
+    );
+    assert!(
+        !keywords(&engine, goblin).contains(KeywordSet::TRAMPLE),
+        "the Goblin beside it was never Berserk's target"
+    );
+
+    cast_with_floating(&mut engine, p0, giant_growth());
+    aim_at(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, elf),
+        (11, 7),
+        "the second Giant Growth adds its own +3/+3; Berserk's own +4/+0 \
+         does not grow along with the Elf's power after the fact"
+    );
+    assert!(
+        keywords(&engine, elf).contains(KeywordSet::TRAMPLE),
+        "still this same turn"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        pt(&engine, elf),
+        (1, 1),
+        "every \"until end of turn\" bonus is gone, Berserk's included"
+    );
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::TRAMPLE),
+        "the trample granted \"until end of turn\" does not outlast it"
+    );
+}
