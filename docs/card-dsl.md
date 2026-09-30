@@ -2050,6 +2050,15 @@ Filters, conditions, modifiers and durations:
   included; only the pool that can pay differs, since two red do not pay
   `{U}`. Generic prices stay on the `Amount` pair: that price may be known
   only as the ability resolves (Esper Sentinel), a printed colour never is.
+- **`Effect::TapAllOf { who, filter }`** is `TapAll` over the permanents the
+  players in `who` control as it resolves: Mana Short's "tap all lands target
+  player controls" is `TapAllOf { who: PlayerRel::Chosen, filter:
+  &Filter::LAND }` beside `targets = Some(TargetReq::one(TargetSpec::AnyPlayer))`.
+  The player may be targeted; the permanents are not.
+- **`Effect::LoseUnspentMana { who }`** empties each named player's mana pool
+  (CR 106.4: "the player is said to lose this mana"), all of it, including
+  mana an effect lets stay as steps end: the effect empties the pool, not
+  the end of a step.
 
 ## Worked examples
 

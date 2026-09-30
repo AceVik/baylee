@@ -477,7 +477,8 @@ impl HeuristicAgent {
             .collect();
         any(effects.iter().map(|effect| match effect {
             Effect::SacrificeFilter { who, filter }
-            | Effect::DestroyChosenForPlayers { who, filter } => {
+            | Effect::DestroyChosenForPlayers { who, filter }
+            | Effect::TapAllOf { who, filter } => {
                 self.battlefield_has(filter, view, &self.seats(*who, view)?, Some(this))
             }
             Effect::DestroyAll { filter, .. }

@@ -1034,6 +1034,30 @@ impl Tx<'_> {
         self.player_rel(defined)
     }
 
+    /// [`Self::player_rel_of`], and the two `Defined$` words that name the
+    /// chain's target: `Targeted` is the player it targeted (`Chosen`),
+    /// `TargetedController` the controller of the object or spell it
+    /// targeted (`ControllerOfTarget`, last known, CR 608.2h). Each is read
+    /// only against a chain whose target is that kind of thing; a word that
+    /// names a target the chain does not have is refused.
+    fn player_of_line(
+        &self,
+        defined: Option<&str>,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<&'static str> {
+        let player_target = target == Some("TargetSpec::Player(PlayerRel::Chosen)");
+        let object_target = target.is_some_and(|t| {
+            t.starts_with("TargetSpec::Spell(") || t.starts_with("TargetSpec::Object(")
+        });
+        match defined {
+            Some("Targeted" | "TargetedPlayer") if player_target => Some("PlayerRel::Chosen"),
+            Some("TargetedController") if object_target => Some("PlayerRel::ControllerOfTarget"),
+            Some("Targeted" | "TargetedPlayer" | "TargetedController") => None,
+            other => self.player_rel_of(other, targets_a_player),
+        }
+    }
+
     /// One effect and everything its `SubAbility$` chain adds.
     fn chain(&mut self, spec: &str, chain: &mut Chain) -> Option<()> {
         let Some((api, mut p)) = Params::parse(spec) else {
@@ -1313,7 +1337,7 @@ impl Tx<'_> {
             "GainLife" => {
                 let n = self.amount_or_count(&p.take("LifeAmount")?)?;
                 match (
-                    self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?,
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?,
                     n.strip_prefix("Amount::Fixed(")
                         .and_then(|r| r.strip_suffix(')')),
                 ) {
@@ -1324,7 +1348,8 @@ impl Tx<'_> {
             }
             "LoseLife" => {
                 let n = self.amount_or_count(&p.take("LifeAmount")?)?;
-                let who = self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
             // The same two readings as `GainLife`: Braingeyser's "target
@@ -1336,7 +1361,7 @@ impl Tx<'_> {
                     self.has_x,
                 )?;
                 match (
-                    self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?,
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?,
                     n.strip_prefix("Amount::Fixed(")
                         .and_then(|r| r.strip_suffix(')')),
                 ) {
@@ -1360,7 +1385,8 @@ impl Tx<'_> {
                     .unwrap_or("1")
                     .parse::<u8>()
                     .ok()?;
-                let who = self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!(
                     "Effect::DiscardForPlayers {{ who: {who}, count: {n} }}"
                 )]
@@ -1376,14 +1402,16 @@ impl Tx<'_> {
                     self.svars,
                     self.has_x,
                 )?;
-                let who = self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!(
                     "Effect::DiscardRandom {{ who: {who}, count: {n} }}"
                 )]
             }
             "Mill" => {
                 let n = amount(&p.take("NumCards")?, self.svars, self.has_x)?;
-                let who = self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
             }
             "PutCounter" => {
@@ -1573,6 +1601,31 @@ impl Tx<'_> {
             "Sacrifice" => self.sacrifice_effect(p)?,
             // "Tap enchanted creature" (Paralyze): the host, and not a
             // target.
+            // "Tap all lands target player controls" (Mana Short): the
+            // permanents of the players `Defined$` names, or of the line's
+            // own player target. Without either it is every matching
+            // permanent, `TapAll`, and the line must target nothing, for
+            // a target it never uses is not a card.
+            "TapAll" => {
+                let filter = self.filter_expr(&p.take("ValidCards")?)?;
+                let defined = p.take("Defined");
+                if defined.is_none() && !targets_a_player {
+                    if target.is_some() {
+                        return None;
+                    }
+                    return Some(vec![format!("Effect::TapAll {{ filter: &{filter} }}")]);
+                }
+                let who = self.player_of_line(defined.as_deref(), target, targets_a_player)?;
+                vec![format!(
+                    "Effect::TapAllOf {{ who: {who}, filter: &{filter} }}"
+                )]
+            }
+            // "That player loses all unspent mana" (CR 106.4).
+            "DrainMana" => {
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                vec![format!("Effect::LoseUnspentMana {{ who: {who} }}")]
+            }
             "Tap" => match p.take("Defined").as_deref() {
                 None => vec!["Effect::TapTarget".to_string()],
                 Some("Enchanted" | "Equipped") if target.is_none() => {
@@ -4888,6 +4941,8 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Fog",
     "Regenerate",
     "Tap",
+    "TapAll",
+    "DrainMana",
     "Untap",
     "Counter",
     "PutCounter",
@@ -6736,6 +6791,55 @@ SVar:X:Count$xPaid",
              S:Mode$ Continuous | Affected$ Creature.Goblin | AddAbility$ Ping\n\
              SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1\n"
         ));
+    }
+
+    /// Mana Short: the line's player target is whose lands tap, and the
+    /// sub-line's `Defined$ Targeted` is the same player. A `Targeted` on a
+    /// chain that targets no player names nobody and is refused; a `TapAll`
+    /// that names nobody is every matching permanent.
+    #[test]
+    fn tapping_all_of_a_players_lands_and_their_mana_reads_the_chains_player() {
+        let short = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ TapAll | ValidTgts$ Player | ValidCards$ Land | SubAbility$ DrainMana\n\
+             SVar:DrainMana:DB$ DrainMana | Defined$ Targeted",
+        );
+        let a = short.abilities.join("");
+        assert!(
+            a.contains("Effect::TapAllOf { who: PlayerRel::Chosen, filter: &Filter::LAND }"),
+            "{a}"
+        );
+        assert!(
+            a.contains("Effect::LoseUnspentMana { who: PlayerRel::Chosen }"),
+            "{a}"
+        );
+        assert!(a.contains("TargetSpec::AnyPlayer"), "{a}");
+        // `Targeted` where the chain targets no player.
+        assert!(refused(
+            "Name:X\nTypes:Instant\nA:SP$ DrainMana | Defined$ Targeted"
+        ));
+        // `TargetedController` of a spell target is its controller.
+        let spell = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | SubAbility$ Drain\n\
+             SVar:Drain:DB$ DrainMana | Defined$ TargetedController",
+        );
+        assert!(
+            spell
+                .abilities
+                .join("")
+                .contains("Effect::LoseUnspentMana { who: PlayerRel::ControllerOfTarget }"),
+            "{:?}",
+            spell.abilities
+        );
+        let all = read("Name:X\nTypes:Sorcery\nA:SP$ TapAll | ValidCards$ Creature");
+        assert!(
+            all.abilities
+                .join("")
+                .contains("Effect::TapAll { filter: &Filter::CREATURE }"),
+            "{:?}",
+            all.abilities
+        );
     }
 
     /// Pestilence, Karma, Spell Blast, Dwarven Warriors: counts of

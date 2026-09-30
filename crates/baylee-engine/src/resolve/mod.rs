@@ -4527,6 +4527,34 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        // Mana Short's "tap all lands target player controls": the seats
+        // are the resolution's (a targeted player is `Chosen`), and the
+        // permanents are whatever they control as this resolves.
+        Effect::TapAllOf { who, filter } => {
+            let seats = players_of(who, state, you, res);
+            let all: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        seats.contains(&o.controller)
+                            && eval::matches(filter, state, o, you, res.source)
+                    })
+                })
+                .collect();
+            for id in all {
+                state.set_tapped(id, true);
+            }
+            None
+        }
+        // CR 106.4: losing mana is the pool emptying. All of it, because the
+        // effect empties it and not a step ending (`ManaFlags::NO_EMPTY`
+        // answers only CR 500.5).
+        Effect::LoseUnspentMana { who } => {
+            for seat in players_of(who, state, you, res) {
+                state.players[seat.get() as usize].mana_pool = baylee_core::mana::ManaPool::new();
+            }
+            None
+        }
         Effect::UntapAll { filter } => {
             let you = res.controller;
             let all: Vec<ObjectId> = state
@@ -4852,6 +4880,82 @@ mod host_tests {
         let shields = |id| state.object(id).map(|o| o.regeneration_shields);
         assert_eq!(shields(host), Some(1));
         assert_eq!(shields(other), Some(0));
+    }
+}
+
+/// Mana Short: "tap all lands target player controls and that player loses
+/// all unspent mana". The player is the resolution's chosen one, and
+/// nothing of anybody else's is touched.
+#[cfg(test)]
+mod mana_short_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_cards_dsl::{Filter, PlayerRel};
+    use baylee_core::ids::SeatSet;
+    use baylee_core::mana::ManaColor;
+
+    static SHORT: &[Effect] = &[
+        Effect::TapAllOf {
+            who: PlayerRel::Chosen,
+            filter: &Filter::Any,
+        },
+        Effect::LoseUnspentMana {
+            who: PlayerRel::Chosen,
+        },
+    ];
+
+    #[test]
+    fn the_chosen_player_is_tapped_out_and_loses_their_mana_and_nobody_else() {
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut state = GameState::from_preset(&preset(17, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let bare = |state: &mut GameState, owner, label: &str| {
+            let name = state.names.intern(label);
+            state.create_bare(
+                owner,
+                ObjectKind::Permanent,
+                name,
+                ZoneLocation::Battlefield,
+            )
+        };
+        let mine = bare(&mut state, me, "Mine");
+        let theirs = bare(&mut state, them, "Theirs");
+        let spell = bare(&mut state, me, "Mana Short");
+        state.players[0].mana_pool.add(ManaColor::Blue, 1);
+        state.players[1].mana_pool.add(ManaColor::Green, 2);
+        let mut res = Resolution {
+            source: spell,
+            on_stack: spell,
+            controller: me,
+            effects: SHORT.to_vec(),
+            pc: 0,
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: Some(them),
+            target_players: SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: true,
+            mana_ability: false,
+            countered_source: None,
+            target_lki: None,
+            retarget_left: None,
+        };
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        let tapped = |id| {
+            state
+                .object(id)
+                .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED))
+        };
+        assert!(tapped(theirs), "the chosen player's permanent is tapped");
+        assert!(!tapped(mine), "and the caster's is not");
+        assert!(state.players[1].mana_pool.is_empty(), "their mana is lost");
+        assert_eq!(
+            state.players[0].mana_pool.available(ManaColor::Blue),
+            1,
+            "and the caster's stays"
+        );
     }
 }
 

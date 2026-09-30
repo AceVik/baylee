@@ -2542,6 +2542,25 @@ pub enum Effect {
         /// What.
         filter: &'static Filter,
     },
+    /// "Tap all lands target player controls" (Mana Short): [`Self::TapAll`]
+    /// over the permanents a player in `who` controls as this resolves. The
+    /// player may be the target; the permanents are not (CR 115.1a), so
+    /// hexproof and protection on them do not stop it.
+    TapAllOf {
+        /// Whose permanents.
+        who: PlayerRel,
+        /// Which of them.
+        filter: &'static Filter,
+    },
+    /// "That player loses all unspent mana" (Mana Short): each player in
+    /// `who` loses what is in their mana pool (CR 106.4, and CR 106.13 for
+    /// the same words on Drain Power), all of it — mana an effect lets stay
+    /// as steps end included, because it is this effect that empties the
+    /// pool, not the end of a step (CR 500.5).
+    LoseUnspentMana {
+        /// Whose pool.
+        who: PlayerRel,
+    },
     /// "Untap enchanted creature" (Instill Energy): every permanent `filter`
     /// matches as this resolves becomes untapped, [`Self::TapAll`]'s mirror,
     /// targeting nothing.
@@ -3151,6 +3170,8 @@ impl Effect {
             | Effect::ExileSource
             | Effect::TapTarget
             | Effect::TapAll { .. }
+            | Effect::TapAllOf { .. }
+            | Effect::LoseUnspentMana { .. }
             | Effect::UntapAll { .. }
             | Effect::RegenerateAll { .. }
             | Effect::ExileTopMayCast { .. }
