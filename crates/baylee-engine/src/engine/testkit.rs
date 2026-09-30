@@ -407,9 +407,11 @@ pub fn pt(engine: &Engine<RegistryLookup>, object: baylee_core::ids::ObjectId) -
 
 /// Whether `card` sits in `seat`'s hand.
 ///
-/// By index rather than by position: a seat's opening hand is the cards the
-/// test named *plus* seven draws off the filler deck, so `list(Hand)[0]` is
-/// only the seeded card by luck of the ordering.
+/// By index rather than by position: a seat's opening hand is exactly the
+/// cards the test named — `Duel::start` always passes a `starting_hand`, so
+/// no seven are drawn, and a seat the test named nothing for starts with an
+/// empty hand — but every draw step adds a card, so `list(Hand)[0]` is only
+/// the seeded card by luck of the ordering.
 #[must_use]
 pub fn in_hand(
     engine: &Engine<RegistryLookup>,
