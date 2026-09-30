@@ -588,6 +588,20 @@ enum PlanKind {
         /// What earlier answers named to untap.
         chosen: Vec<ObjectId>,
     },
+    /// The attacking player naming the band an attacker with banding
+    /// forms (`ChoicePrompt::Band`, CR 508.1e).
+    Band {
+        /// The attacker with banding asked about.
+        leader: ObjectId,
+    },
+    /// A player dividing one creature's combat damage
+    /// (`NumberPrompt::CombatDamage`), share by share.
+    CombatDamage {
+        /// What is divided, among what, and by whom.
+        owed: crate::combat::OwedDivision,
+        /// The shares given so far, one per recipient from the first.
+        shares: Vec<i16>,
+    },
     /// A loyalty ability waiting for its target player.
     LoyaltyPlayer {
         /// The walker.
@@ -1407,6 +1421,7 @@ impl<L: CardLookup> Engine<L> {
 
 mod abilities;
 mod ascend;
+mod banding;
 mod decision;
 pub(crate) mod disguise;
 mod room;
@@ -1437,6 +1452,8 @@ mod arrange_tests;
 mod arrival_tests;
 #[cfg(test)]
 mod automation_tests;
+#[cfg(test)]
+mod banding_tests;
 #[cfg(test)]
 mod base_sharing_tests;
 #[cfg(test)]

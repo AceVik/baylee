@@ -143,6 +143,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("swampwalk", K::SWAMPWALK),           // combat::can_block
         ("mountainwalk", K::MOUNTAINWALK),     // combat::can_block
         ("forestwalk", K::FORESTWALK),         // combat::can_block
+        ("banding", K::BANDING),               // Engine::ask_band, combat::divisions_owed
     ]
 };
 

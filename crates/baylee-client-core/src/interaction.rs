@@ -667,6 +667,10 @@ pub fn table_losses(
 /// limit (Smoke, Winter Orb), where the menu is what may untap and at least
 /// one must, so its noun says what choosing does.
 ///
+/// `Band` is the attacking player naming the creatures that attack in a
+/// band with one that has banding (CR 702.22c). Its noun says what choosing
+/// does; naming none attacks without a band.
+///
 /// `RevealOrEnterTapped` is a reveal land asking which card from hand to
 /// show. Its noun says what happens to the card and not what declining
 /// costs, which is the opposite of `LeaveTapped`'s reasoning and right for
@@ -699,6 +703,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounPermanentsToLeaveTapped,
         ),
         ChoicePrompt::Untap => (Phrase::NounPermanentToUntap, Phrase::NounPermanentsToUntap),
+        ChoicePrompt::Band { .. } => (Phrase::NounAttackerToBand, Phrase::NounAttackersToBand),
         ChoicePrompt::RevealOrEnterTapped => (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
         ChoicePrompt::PutIntoHand => (Phrase::NounCardToHand, Phrase::NounCardsToHand),
         ChoicePrompt::PutOnBottom => (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
@@ -731,6 +736,18 @@ fn number_line(lang: Lang, min: u32, max: u32, reason: NumberPrompt) -> String {
         NumberPrompt::Replicate { cost } => {
             Phrase::ReplicateHowOften.fill(lang, &[&cost.to_string(), &min, &max])
         }
+        NumberPrompt::CombatDamage {
+            index, of, left, ..
+        } => Phrase::CombatDamageShare.fill(
+            lang,
+            &[
+                &(u32::from(index) + 1).to_string(),
+                &of.to_string(),
+                &left.to_string(),
+                &min,
+                &max,
+            ],
+        ),
         NumberPrompt::DivideDamage {
             index, of, left, ..
         } => Phrase::DamageShare.fill(

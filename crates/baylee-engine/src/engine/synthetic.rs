@@ -189,6 +189,13 @@ fn entry(card: u32) -> DeckEntry {
 /// turn between the test and what it is about.
 #[must_use]
 pub fn preset(seed: u64, battlefield: &[u32]) -> GamePreset {
+    preset_both(seed, battlefield, &[])
+}
+
+/// [`preset`] with cards on seat 1's battlefield too, for a rule that needs
+/// a creature on each side (combat).
+#[must_use]
+pub fn preset_both(seed: u64, battlefield: &[u32], theirs: &[u32]) -> GamePreset {
     let deck: Vec<DeckEntry> = (0..60).map(|_| entry(forest())).collect();
     let seat = |bf: &[u32]| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
@@ -215,7 +222,7 @@ pub fn preset(seed: u64, battlefield: &[u32]) -> GamePreset {
             lang: "EN".into(),
             finish: Finish::Normal,
         }],
-        seats: vec![seat(battlefield), seat(&[])],
+        seats: vec![seat(battlefield), seat(theirs)],
     }
 }
 

@@ -670,6 +670,9 @@ keywords! {
     SWAMPWALK = 41, "Swampwalk (CR 702.14c).";
     MOUNTAINWALK = 42, "Mountainwalk (CR 702.14c).";
     FORESTWALK = 43, "Forestwalk (CR 702.14c).";
+    // Banding and not "bands with other": the second names a quality and
+    // is a family, which a bit cannot carry.
+    BANDING = 44, "Banding (CR 702.22).";
 }
 
 impl KeywordSet {

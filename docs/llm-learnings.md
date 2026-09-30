@@ -2133,3 +2133,17 @@ land type"; both are convention tests that fire on a first try.
   against a printed 0/4. That is layer 7c (CR 613.4c), not a defect, and the
   sweep now shields power and toughness for a face that enters with P/T
   counters, as it does for a static that moves them.
+- **A band is announced, not inferred.** Banding (CR 702.22) is a bit on
+  the creature, but the band is a declaration (508.1e): a player may attack
+  with two creatures with banding and put them in no band. So the engine
+  asks, each attacker with banding in turn, and keeps the answer in combat
+  state, where losing the keyword later does not undo it (702.22e). A
+  keyword read at damage time would have banded creatures nobody banded.
+- **A dead creature reads 0 damage.** A test asserting "the attacker took
+  no damage" passed on the code that dealt it lethal damage, because the
+  creature had died and its object read 0. Assert it is still on the
+  battlefield first; an injection that should fail is how this showed.
+- **A blocker on two creatures deals its power once.** The blocker pass
+  dealt damage per block pair, which was harmless while a creature could
+  block only one; a block spread through a band (702.22h) made a 3/3 deal
+  six. Damage is per creature, divided across what it blocks (510.1d).

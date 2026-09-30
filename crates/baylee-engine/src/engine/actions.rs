@@ -347,6 +347,12 @@ impl<L: CardLookup> Engine<L> {
                         self.ask_division(player, on_stack, targets, shares, total);
                         return Ok(());
                     }
+                    // One creature's share of a combat damage division that
+                    // banding handed to this player (CR 702.22j–k).
+                    Some(PlanKind::CombatDamage { owed, shares }) => {
+                        self.answer_share(owed, shares, n);
+                        return Ok(());
+                    }
                     _ => {}
                 }
                 // And the wizard asks two numbers, told apart by where it
@@ -901,6 +907,16 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::DivideDamage { .. } => {
                         unreachable!("division plans are answered via ChooseNumber")
                     }
+                    // Banding's questions are turn-based actions' own, asked
+                    // where nobody holds priority, and neither is targeting
+                    // (CR 115.1): refused with the plan put back, as the
+                    // untap determination's are.
+                    PlanKind::Band { .. } | PlanKind::CombatDamage { .. } => {
+                        self.pending_plan = Some(plan);
+                        return Err(EngineError::IllegalAction(
+                            "a band or a damage division is not a target choice",
+                        ));
+                    }
                 }
                 Ok(())
             }
@@ -1451,6 +1467,11 @@ impl<L: CardLookup> Engine<L> {
                         self.untap_under_limits(kept, chosen);
                         return Ok(());
                     }
+                    // The attackers in a band with an attacker with banding
+                    // (CR 508.1e, 702.22c).
+                    Some(PlanKind::Band { leader }) => {
+                        return self.answer_band(player, leader, objects);
+                    }
                     // A reveal land's entry clause. CR 701.20a shows the
                     // card to every player and CR 701.20b leaves it in hand,
                     // so nothing moves: the journal entry *is* the reveal,
@@ -1822,6 +1843,7 @@ impl<L: CardLookup> Engine<L> {
                         creature,
                         defending,
                         blocked: false,
+                        band: None,
                     }),
             );
         // `Filter::Attacking` is read by the layer system (Orcish Oriflamme's
@@ -1832,6 +1854,10 @@ impl<L: CardLookup> Engine<L> {
         self.combat_declared = CombatDeclared::Attackers;
         self.passes = 0;
         self.priority_holder = None;
+        // The bands, which the declaration announces (CR 508.1e): asked
+        // here, before the machine runs, so they stand before anything
+        // triggers on the attack.
+        self.ask_band(player, None);
         Ok(())
     }
 
@@ -1881,13 +1907,14 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
-        for (blocker, attacker) in blockers {
+        for &(blocker, attacker) in &blockers {
             self.state.combat.declare_block(blocker, attacker);
             self.state.journal.record(GameEvent::BecameBlocker {
                 object: blocker,
                 attacker,
             });
         }
+        self.spread_blocks_through_bands(&blockers);
         // `Filter::Blocking` and `Filter::Unblocked` just changed for the
         // reason `declare_attackers` gives for `Filter::Attacking`.
         self.state.board_state_changed();

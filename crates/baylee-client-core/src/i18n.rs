@@ -1759,6 +1759,16 @@ messages! {
     NounCardToReveal { en: "card to reveal", de: "Karte, die aufgedeckt wird" },
     /// cards to reveal
     NounCardsToReveal { en: "cards to reveal", de: "Karten, die aufgedeckt werden" },
+    /// attacker to join the band (banding, CR 702.22c)
+    NounAttackerToBand {
+        en: "attacker to join the band",
+        de: "Angreifer, der sich der Gruppe anschließt",
+    },
+    /// attackers to join the band
+    NounAttackersToBand {
+        en: "attackers to join the band",
+        de: "Angreifer, die sich der Gruppe anschließen",
+    },
     /// Convoke or waterbend: tap permanents to help pay.
     ///
     /// Neutral, because the question does not say which keyword asked it:
@@ -1791,6 +1801,12 @@ messages! {
     DamageShare {
         en: "Damage to target {0} of {1}, {2} left to divide ({3}–{4})",
         de: "Schaden an Ziel {0} von {1}, noch {2} zu verteilen ({3}–{4})",
+    },
+    /// One creature's share of combat damage banding lets this player
+    /// divide (CR 702.22j–k).
+    CombatDamageShare {
+        en: "Combat damage to creature {0} of {1}, {2} left to divide ({3}–{4})",
+        de: "Kampfschaden an Kreatur {0} von {1}, noch {2} zu verteilen ({3}–{4})",
     },
     /// Replicate {0}: pay it how many times? ({1}–{2})
     ReplicateHowOften {
@@ -3097,6 +3113,11 @@ messages! {
     LogAttacked { en: "{1} attacked {0}", de: "{1} hat {0} angegriffen" },
     /// A creature blocks. `{1}` is the blocker, `{2}` the attacker.
     LogBlocked { en: "{1} blocked {2}", de: "{1} hat {2} geblockt" },
+    /// An attacker joined a band (banding). `{1}` joined the band of `{2}`.
+    LogBanded {
+        en: "{1} attacks in a band with {2}",
+        de: "{1} greift in einer Gruppe mit {2} an",
+    },
     /// The reading seat gained control of a permanent. `{1}` is it.
     LogControlYou { en: "{7} gained control of {1}", de: "{7} hast die Kontrolle über {1} übernommen" },
     /// Another seat gained control of a permanent.
@@ -3597,6 +3618,7 @@ mod tests {
             ),
             (Phrase::NounPermanentToUntap, Phrase::NounPermanentsToUntap),
             (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
+            (Phrase::NounAttackerToBand, Phrase::NounAttackersToBand),
             (Phrase::NounCardToHand, Phrase::NounCardsToHand),
             (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
             (Phrase::NounCardToPlay, Phrase::NounCardsToPlay),

@@ -2,15 +2,19 @@
 //!
 //! Implemented: attacker/blocker declaration with the keyword restrictions
 //! (flying/reach, menace, unblockable, can't block, protection), first/double strike as
-//! a per-creature property, deathtouch, trample, lifelink, and damage
-//! assignment in declaration order.
+//! a per-creature property, deathtouch, trample, lifelink, and banding
+//! (CR 702.22): bands declared with the attack, a block on one member
+//! blocking the whole band, and the damage divisions banding hands to the
+//! other player, which that player is asked for (`divisions_owed`).
 //!
 //! Attacks are aimed at a [`Defender`], so a planeswalker can be attacked
 //! and its loyalty comes off (CR 306.8). Battles are the remaining case.
 //!
-//! Not yet: the attacking player's *choice* of damage assignment order
-//! among multiple blockers (CR 510.1c) — the declaration order stands in
-//! for it.
+//! Not yet: an attacker blocked by two or more creatures without banding
+//! divides its damage as its controller chooses (CR 510.1c), and nobody is
+//! asked: the engine puts the damage on the blockers in declaration order,
+//! each taking all that is left (or, with trample, lethal damage), which is
+//! one of the divisions that player could have chosen.
 
 use crate::event::{DamageTarget, GameEvent};
 use crate::object::{GameObject, Status};
@@ -37,6 +41,39 @@ pub struct AttackerInfo {
     /// the blocker list for both is what let an attacker whose only blocker
     /// was blinked deal its damage to the player.
     pub blocked: bool,
+    /// The band it attacks in (CR 702.22c), by a number shared with its
+    /// band mates; `None` for a creature in no band.
+    ///
+    /// Written once, as the attack is declared, and never read back off
+    /// the creature's keywords: a band lasts for the rest of combat even if
+    /// something takes banding away (CR 702.22e). A creature removed from
+    /// combat leaves its band with its entry (CR 702.22f).
+    pub band: Option<u8>,
+}
+
+/// How one creature's combat damage is divided among the creatures it
+/// deals it to, as a player chose (CR 510.1c–d, 702.22j–k): each recipient
+/// with its share, in the order they were asked.
+#[derive(Clone, Hash, Debug)]
+pub struct Division {
+    /// The creature dealing the damage.
+    pub source: ObjectId,
+    /// Each recipient and the damage assigned to it.
+    pub shares: Vec<(ObjectId, i16)>,
+}
+
+/// A division of combat damage a player still owes before the damage step
+/// can deal it: who chooses, and among what.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OwedDivision {
+    /// The creature whose damage is divided.
+    pub source: ObjectId,
+    /// The player who divides it.
+    pub chooser: PlayerId,
+    /// What it is divided among, in declaration order.
+    pub recipients: Vec<ObjectId>,
+    /// How much there is to divide: the creature's power (CR 510.1a).
+    pub amount: i16,
 }
 
 /// One declared blocker.
@@ -69,15 +106,19 @@ pub struct CombatState {
     attacking: Vec<ObjectId>,
     /// Declared blockers.
     pub blockers: Vec<BlockerInfo>,
+    /// The divisions players have chosen for the damage step about to be
+    /// dealt, emptied once it is (`deal_combat_damage`).
+    divisions: Vec<Division>,
 }
 
-/// The two declared lists and nothing else: `attacking` is derived from
-/// `attackers`, so the hash is the one the derived impl gave before the
-/// index existed (`GameState::snapshot_hash` hashes this).
+/// The declared lists and the chosen divisions: `attacking` is derived
+/// from `attackers` and is left out (`GameState::snapshot_hash` hashes
+/// this). A division is hashed because it decides where damage lands.
 impl std::hash::Hash for CombatState {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.attackers.hash(state);
         self.blockers.hash(state);
+        self.divisions.hash(state);
     }
 }
 
@@ -121,6 +162,90 @@ impl CombatState {
             .extend(self.attackers.iter().map(|a| a.creature));
         self.attacking.sort_unstable();
         self.attacking.dedup();
+    }
+
+    /// Puts `members` in one band (CR 702.22c), under a number no band has
+    /// yet.
+    pub fn form_band(&mut self, members: &[ObjectId]) {
+        let band = self
+            .attackers
+            .iter()
+            .filter_map(|a| a.band)
+            .max()
+            .map_or(0, |n| n.saturating_add(1));
+        for info in &mut self.attackers {
+            if members.contains(&info.creature) {
+                info.band = Some(band);
+            }
+        }
+    }
+
+    /// The band an attacker is in, if any.
+    #[must_use]
+    pub fn band_of(&self, attacker: ObjectId) -> Option<u8> {
+        self.attackers
+            .iter()
+            .find(|a| a.creature == attacker)
+            .and_then(|a| a.band)
+    }
+
+    /// The other creatures in an attacker's band, in declaration order.
+    #[must_use]
+    pub fn band_mates(&self, attacker: ObjectId) -> Vec<ObjectId> {
+        let Some(band) = self.band_of(attacker) else {
+            return Vec::new();
+        };
+        self.attackers
+            .iter()
+            .filter(|a| a.band == Some(band) && a.creature != attacker)
+            .map(|a| a.creature)
+            .collect()
+    }
+
+    /// Every attacking band, each its members in declaration order, the
+    /// bands in the order their first members were declared.
+    #[must_use]
+    pub fn bands(&self) -> Vec<Vec<ObjectId>> {
+        let mut out: Vec<(u8, Vec<ObjectId>)> = Vec::new();
+        for info in &self.attackers {
+            let Some(band) = info.band else {
+                continue;
+            };
+            match out.iter_mut().find(|(n, _)| *n == band) {
+                Some((_, members)) => members.push(info.creature),
+                None => out.push((band, vec![info.creature])),
+            }
+        }
+        out.into_iter().map(|(_, members)| members).collect()
+    }
+
+    /// The attackers a blocker blocks, in the order the blocks were made.
+    #[must_use]
+    pub fn blocked_by(&self, blocker: ObjectId) -> Vec<ObjectId> {
+        self.blockers
+            .iter()
+            .filter(|b| b.blocker == blocker)
+            .map(|b| b.attacker)
+            .collect()
+    }
+
+    /// Whether `blocker` is blocking `attacker`.
+    #[must_use]
+    pub fn is_blocking(&self, blocker: ObjectId, attacker: ObjectId) -> bool {
+        self.blockers
+            .iter()
+            .any(|b| b.blocker == blocker && b.attacker == attacker)
+    }
+
+    /// The division chosen for a creature's damage in this damage step.
+    #[must_use]
+    pub fn division(&self, source: ObjectId) -> Option<&Division> {
+        self.divisions.iter().find(|d| d.source == source)
+    }
+
+    /// Records a chosen division for the damage step about to be dealt.
+    pub fn record_division(&mut self, division: Division) {
+        self.divisions.push(division);
     }
 
     /// Blockers assigned to an attacker, in declaration order.
@@ -536,6 +661,150 @@ fn power_of(state: &GameState, id: ObjectId) -> i16 {
         .max(0)
 }
 
+/// Whether a creature has banding as damage is assigned, which is when
+/// CR 702.22j–k ask: a band formed while it had banding is still a band
+/// without it (CR 702.22e), but who divides the damage is read now.
+fn has_banding(state: &GameState, id: ObjectId) -> bool {
+    has_keyword(state, id, K::BANDING)
+}
+
+/// The creatures blocking `attacker` that are still there, in declaration
+/// order.
+fn live_blockers(state: &GameState, attacker: ObjectId) -> Vec<ObjectId> {
+    state
+        .combat
+        .blockers_of(attacker)
+        .into_iter()
+        .filter(|b| state.object(*b).is_some())
+        .collect()
+}
+
+/// The attackers `blocker` blocks that are still there, in the order the
+/// blocks were made.
+fn live_blocked(state: &GameState, blocker: ObjectId) -> Vec<ObjectId> {
+    state
+        .combat
+        .blocked_by(blocker)
+        .into_iter()
+        .filter(|a| state.object(*a).is_some())
+        .collect()
+}
+
+/// Every blocking creature once, in the order each first blocked.
+///
+/// A creature blocking a band blocks each of its members (CR 702.22h), so
+/// the declaration holds one pair per member, and it still deals its combat
+/// damage once (CR 510.1d): the damage step walks blockers, not pairs.
+fn blocking_creatures(state: &GameState) -> Vec<ObjectId> {
+    let mut out: Vec<ObjectId> = Vec::new();
+    for info in &state.combat.blockers {
+        if !out.contains(&info.blocker) {
+            out.push(info.blocker);
+        }
+    }
+    out
+}
+
+/// The divisions of combat damage players still owe before this strike
+/// step's damage can be dealt, attackers first and then blockers, which is
+/// the order CR 510.1 has them announced in.
+///
+/// Only the divisions banding hands to a player are asked:
+///
+/// - an attacker blocked by two or more creatures, one of which has
+///   banding, has its damage divided by the defending player among those
+///   blockers (CR 702.22j);
+/// - a blocker blocking two or more creatures, which only a band makes it
+///   do, has its damage divided by the active player if one of them has
+///   banding (CR 702.22k), and by its own controller if none has any more
+///   (CR 510.1d).
+///
+/// An attacker blocked by two or more creatures without banding divides
+/// its damage as the engine chooses for its controller, which is the
+/// standing simplification of CR 510.1c this module's header names.
+#[must_use]
+pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDivision> {
+    let mut owed = Vec::new();
+    for info in state.combat.attackers() {
+        if !info.blocked || !strikes_now(state, info.creature, first_strike_step) {
+            continue;
+        }
+        let amount = power_of(state, info.creature);
+        let blockers = live_blockers(state, info.creature);
+        if amount <= 0 || blockers.len() < 2 || state.combat.division(info.creature).is_some() {
+            continue;
+        }
+        // Every blocker is the defending player's: only they declare blocks.
+        let chooser = blockers
+            .iter()
+            .find(|b| has_banding(state, **b))
+            .and_then(|b| state.object(*b))
+            .map(|o| o.controller);
+        if let Some(chooser) = chooser {
+            owed.push(OwedDivision {
+                source: info.creature,
+                chooser,
+                recipients: blockers,
+                amount,
+            });
+        }
+    }
+    for blocker in blocking_creatures(state) {
+        if !strikes_now(state, blocker, first_strike_step) {
+            continue;
+        }
+        let amount = power_of(state, blocker);
+        let blocked = live_blocked(state, blocker);
+        if amount <= 0 || blocked.len() < 2 || state.combat.division(blocker).is_some() {
+            continue;
+        }
+        let chooser = if blocked.iter().any(|a| has_banding(state, *a)) {
+            state.turn.active
+        } else {
+            let Some(controller) = state.object(blocker).map(|o| o.controller) else {
+                continue;
+            };
+            controller
+        };
+        owed.push(OwedDivision {
+            source: blocker,
+            chooser,
+            recipients: blocked,
+            amount,
+        });
+    }
+    owed
+}
+
+/// How `source`'s `power` goes to `recipients`: all of it to the one there
+/// is, or the division a player chose (CR 510.1c–d, 702.22j–k).
+///
+/// Two or more recipients and no division is a caller that dealt damage
+/// without asking (`divisions_owed`), which the engine never does; the
+/// whole of it then goes to the first, which is one of the divisions the
+/// player could have chosen.
+fn shares(
+    state: &GameState,
+    source: ObjectId,
+    recipients: &[ObjectId],
+    power: i16,
+) -> Vec<(ObjectId, i16)> {
+    match recipients {
+        [] => Vec::new(),
+        [only] => vec![(*only, power)],
+        [first, ..] => state.combat.division(source).map_or_else(
+            || vec![(*first, power)],
+            |d| {
+                d.shares
+                    .iter()
+                    .copied()
+                    .filter(|(r, _)| recipients.contains(r))
+                    .collect()
+            },
+        ),
+    }
+}
+
 /// Deals combat damage for one strike step.
 ///
 /// `first_strike_step`: only first/double strikers deal damage; the regular
@@ -548,6 +817,9 @@ fn power_of(state: &GameState, id: ObjectId) -> i16 {
 /// strike exists to decide — and skipped blockers the attacker had run out
 /// of damage to assign to, though CR 510.1d has every blocking creature
 /// deal its damage regardless.
+///
+/// The divisions players chose for this step (`divisions_owed`) are spent
+/// here and emptied, so a double striker's second step asks again.
 pub fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
     let attackers = state.combat.attackers().to_vec();
     for info in &attackers {
@@ -556,22 +828,28 @@ pub fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
         }
         assign_attacker_damage(state, info.creature, info.defending, info.blocked);
     }
-    let blockers = state.combat.blockers.clone();
-    for info in &blockers {
-        if !strikes_now(state, info.blocker, first_strike_step) {
+    for blocker in blocking_creatures(state) {
+        if !strikes_now(state, blocker, first_strike_step) {
             continue;
         }
-        let power = power_of(state, info.blocker);
+        let power = power_of(state, blocker);
         if power <= 0 {
             continue;
         }
-        let dealt = deal_damage_to_object(state, info.blocker, info.attacker, power, true);
-        if has_keyword(state, info.blocker, K::LIFELINK)
-            && let Some(controller) = state.object(info.blocker).map(|o| o.controller)
+        let blocked = live_blocked(state, blocker);
+        let mut dealt = 0i16;
+        for (attacker, amount) in shares(state, blocker, &blocked, power) {
+            if amount > 0 {
+                dealt += deal_damage_to_object(state, blocker, attacker, amount, true);
+            }
+        }
+        if has_keyword(state, blocker, K::LIFELINK)
+            && let Some(controller) = state.object(blocker).map(|o| o.controller)
         {
             gain_life(state, controller, dealt);
         }
     }
+    state.combat.divisions.clear();
 }
 
 /// One attacker's damage assignment (CR 510.1a–c).
@@ -597,13 +875,20 @@ fn assign_attacker_damage(
     // its entry, so an empty list here means either "never blocked" or
     // "blocked by creatures that are gone", and only `blocked` tells them
     // apart.
-    let live: Vec<ObjectId> = state
-        .combat
-        .blockers_of(attacker)
-        .into_iter()
-        .filter(|b| state.object(*b).is_some())
-        .collect();
-    if blocked {
+    let live = live_blockers(state, attacker);
+    if blocked && live.iter().any(|b| has_banding(state, *b)) {
+        // CR 702.22j: blocked by a creature with banding, the attacker's
+        // damage is divided by the defending player among the creatures
+        // blocking it, and among nothing else — trample assigns nothing
+        // past them, because the player dividing it is not its controller.
+        if power > 0 {
+            for (blocker, amount) in shares(state, attacker, &live, power) {
+                if amount > 0 {
+                    lifelinked += deal_damage_to_object(state, attacker, blocker, amount, true);
+                }
+            }
+        }
+    } else if blocked {
         let mut remaining = power;
         for blocker in &live {
             if remaining <= 0 {
@@ -634,7 +919,6 @@ fn assign_attacker_damage(
         gain_life(state, controller, lifelinked);
     }
 }
-
 /// Combat damage aimed at whatever the attacker declared against, and how
 /// much of it was actually dealt (prevention and a departed planeswalker
 /// both make that zero, and neither links any life).
@@ -919,6 +1203,7 @@ mod tests {
             creature,
             defending: Defender::Player(defending),
             blocked: false,
+            band: None,
         }]);
     }
 
@@ -928,6 +1213,7 @@ mod tests {
             creature,
             defending: Defender::Planeswalker(walker),
             blocked: false,
+            band: None,
         }]);
     }
 
@@ -1335,6 +1621,75 @@ mod tests {
         assert_eq!(
             state.players[1].life, 13,
             "all seven trample through, nothing having to be assigned first"
+        );
+    }
+
+    /// Who divides a creature's damage when it blocks a band: the active
+    /// player while a creature it blocks has banding (CR 702.22k), and the
+    /// blocker's own controller once none has (CR 510.1d) — the band itself
+    /// outlives the keyword (CR 702.22e), so the question is asked of the
+    /// creatures as they are now.
+    #[test]
+    fn a_blocker_on_a_band_that_lost_banding_is_divided_by_its_controller() {
+        let mut state = empty_state();
+        let first = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let second = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let blocker = creature(&mut state, P1, 3, 3, KeywordSet::EMPTY);
+        attack(&mut state, first, P1);
+        attack(&mut state, second, P1);
+        state.combat.form_band(&[first, second]);
+        block(&mut state, blocker, first);
+        block(&mut state, blocker, second);
+
+        let owed = divisions_owed(&state, false);
+        assert_eq!(
+            owed,
+            vec![OwedDivision {
+                source: blocker,
+                chooser: P1,
+                recipients: vec![first, second],
+                amount: 3,
+            }],
+            "no creature it blocks has banding: its controller divides"
+        );
+
+        state.object_mut(first).expect("there").base_mut().keywords = KeywordSet::BANDING;
+        state.refresh_characteristics();
+        let owed = divisions_owed(&state, false);
+        assert_eq!(owed.len(), 1);
+        assert_eq!(
+            owed[0].chooser, state.turn.active,
+            "banding hands it to the active player"
+        );
+        assert_ne!(
+            state.turn.active, P1,
+            "and that is not the blocker's controller"
+        );
+    }
+
+    /// A creature blocking two deals its combat damage once, as divided
+    /// (CR 510.1d): 1 and 2 of its 3, not 3 to each.
+    #[test]
+    fn a_blocker_on_two_creatures_deals_its_power_once() {
+        let mut state = empty_state();
+        let first = creature(&mut state, P0, 0, 4, KeywordSet::EMPTY);
+        let second = creature(&mut state, P0, 0, 4, KeywordSet::EMPTY);
+        let blocker = creature(&mut state, P1, 3, 3, KeywordSet::EMPTY);
+        attack(&mut state, first, P1);
+        attack(&mut state, second, P1);
+        state.combat.form_band(&[first, second]);
+        block(&mut state, blocker, first);
+        block(&mut state, blocker, second);
+        state.combat.record_division(Division {
+            source: blocker,
+            shares: vec![(first, 1), (second, 2)],
+        });
+
+        deal_combat_damage(&mut state, false);
+        assert_eq!((damage(&state, first), damage(&state, second)), (1, 2));
+        assert!(
+            state.combat.division(blocker).is_none(),
+            "a division is spent by the step it was chosen for"
         );
     }
 
@@ -1790,11 +2145,13 @@ mod tests {
                 creature: attacker,
                 defending: Defender::Player(P1),
                 blocked: false,
+                band: None,
             },
             AttackerInfo {
                 creature: blocked,
                 defending: Defender::Player(P1),
                 blocked: false,
+                band: None,
             },
         ]);
         state.combat.declare_block(blocker, blocked);

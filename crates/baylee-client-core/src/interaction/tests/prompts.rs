@@ -130,6 +130,40 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
         "Schaden an Ziel 1 von 3, noch 4 zu verteilen (1–2)"
     );
 
+    // Banding's division of a creature's combat damage says it is combat
+    // damage, and which creature of how many the share is for.
+    let i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 3,
+        reason: baylee_engine::choice::NumberPrompt::CombatDamage {
+            source: obj(1),
+            recipient: obj(2),
+            index: 0,
+            of: 2,
+            left: 3,
+        },
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Combat damage to creature 1 of 2, 3 left to divide (0–3)"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Kampfschaden an Kreatur 1 von 2, noch 3 zu verteilen (0–3)"
+    );
+
+    // The band question counts attackers joining the band, not cards.
+    let i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(2), obj(3)],
+        min: 0,
+        max: 2,
+        prompt: baylee_engine::choice::ChoicePrompt::Band { with: obj(1) },
+    });
+    let line = i.prompt().headline(Lang::En, Turn::Mine, None, false);
+    assert!(line.contains("attackers to join the band"), "{line}");
+
     // The same question counting replicate payments says so, and what each
     // one costs: "choose a number" over a Lose Focus did not.
     let i = interaction(Pending::ChooseNumber {

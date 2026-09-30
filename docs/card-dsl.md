@@ -634,6 +634,13 @@ has built.
   `Engine::compute_legal` offers no spell, no suspend and no activation but
   mana abilities and turning a face-down permanent up (CR 702.61b, 116.2b).
   Triggers still trigger. Krosan Grip
+- `KeywordSet::BANDING` — banding (CR 702.22) is a bit; the engine asks the
+  band as attackers are declared and who divides combat damage where a band
+  is involved (`docs/engine-internals.md` §"Bands, and who divides combat
+  damage"). Benalish Hero; granted like any keyword, Helm of Chatzuk's
+  `PumpTarget { keywords: KeywordSet::BANDING, .. }`. "Bands with other"
+  (702.22b) names a quality a bit cannot carry: the reader refuses
+  `K:Bands with Other`, and such a card stays unread
 - `AbilityDef::Suspend { counters }`
 
 #### Write them through the macros

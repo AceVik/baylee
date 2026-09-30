@@ -348,6 +348,12 @@ impl HeuristicAgent {
                     // Under an untap limit the answer is what untaps.
                     ChoicePrompt::Delve | ChoicePrompt::Untap => max,
                     ChoicePrompt::LeaveTapped => min,
+                    // A band (CR 702.22c) is a judgement this heuristic does
+                    // not make: blocking one member blocks them all, which
+                    // can cost a flier its evasion, and the menu may hold
+                    // two creatures without banding, which one band cannot.
+                    // Attacking unbanded is always legal.
+                    ChoicePrompt::Band { .. } => min,
                     ChoicePrompt::FirstPile => max.min(1),
                     _ if max <= 2 => max,
                     _ => min,
@@ -468,6 +474,12 @@ impl HeuristicAgent {
                 // least for anything else.
                 baylee_engine::choice::NumberPrompt::DivideDamage { target, .. } => {
                     self.damage_share(view, target, min, max)
+                }
+                // A creature's combat damage that banding hands this seat to
+                // divide (CR 702.22j–k): the same judgement, of the creature
+                // the share goes to.
+                baylee_engine::choice::NumberPrompt::CombatDamage { recipient, .. } => {
+                    self.damage_share(view, recipient, min, max)
                 }
             }),
             Pending::ChoosePlayer { options, .. } => {
@@ -4589,6 +4601,7 @@ mod tests {
                 blocked: false,
             }],
             blockers: vec![],
+            bands: vec![],
         };
         let pending = Pending::ChooseBlockers {
             player: PlayerId::new(0),
@@ -4622,6 +4635,7 @@ mod tests {
                 blocked: false,
             }],
             blockers: vec![],
+            bands: vec![],
         };
         let pending = Pending::ChooseBlockers {
             player: PlayerId::new(0),

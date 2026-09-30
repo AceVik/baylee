@@ -173,6 +173,49 @@ whatever the creature is attacking (CR 702.19b), and a planeswalker that
 has left the battlefield absorbs nothing — the attack stands (CR 506.4c)
 but no damage is dealt and no lifelink is paid.
 
+### Bands, and who divides combat damage (CR 702.22)
+Banding is a bit (`KeywordSet::BANDING`) and three questions
+(`engine/banding.rs`); "bands with other" (702.22b) is a family a bit cannot
+carry, so the reader refuses it and those cards stay unread.
+
+- **The band is announced with the attack** (CR 508.1e). `declare_attackers`
+  ends with `ask_band`: each attacker with banding that is in no band yet is
+  asked, in declaration order, which other unbanded attackers of the same
+  defender join it (`Pending::ChooseCards` with `ChoicePrompt::Band`, none
+  allowed). An answer with two creatures without banding is refused and the
+  question stands (702.22c, 702.22d). The question stands before the machine
+  collects attack triggers, which trigger only on the whole declaration
+  (508.1m). Each member is journalled as `GameEvent::Banded`, a log line every
+  seat reads, and the view carries the bands as `CombatView::bands`.
+- **The band is combat state**, `AttackerInfo::band`: it lasts the combat even
+  if banding is lost (702.22e) and a creature removed from combat leaves it
+  (702.22f, the attacker entry goes).
+- **A block on one member blocks the band** (702.22h):
+  `spread_blocks_through_bands` runs after the declared blocks are made and
+  asks no legality of the pairs it adds, since the rule's own example is a
+  flier's mate blocked by what could block only the flier. Each added pair
+  is journalled as `BecameBlocker`, so block triggers fire per pair.
+- **Divisions are asked as the damage step begins** (`ask_combat_division`,
+  from the priority round that would leave declare blockers or the
+  first-strike step). Nobody holds priority between the answer and the
+  damage (510.1, 510.2), so no answer meets a board it was not given. The
+  last share calls `advance_step` directly: the priority round was complete
+  when the first share was asked. `combat::divisions_owed` says who divides:
+  an attacker blocked by two or more with one of them banding is divided by
+  the defending player (702.22j), among the blockers only, so trample puts
+  nothing past them; a blocker on two or more creatures is divided by the
+  active player if one of them has banding (702.22k), and otherwise by its
+  own controller (510.1d). A blocker deals its power once, split across what
+  it blocks, never once per pair. The recorded `Division`s are hashed and
+  cleared once the damage is dealt.
+
+What is still decided for the player: an attacker blocked by two or more
+creatures of which none has banding divides its damage automatically in
+blocking order, where CR 510.1c lets its controller choose
+(`banding_tests::an_attacker_blocked_by_two_without_banding_asks_nobody`
+pins that). No effect in the pool makes a creature become blocked, so
+702.22i has no door yet.
+
 ## Teams: an opponent is a side
 A seat carries a `team` from the preset. `GameState::side_of` answers which
 side it plays for — its team, or itself when it has none — and `Side` is an

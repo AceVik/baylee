@@ -977,6 +977,7 @@ pub fn player_view(
                     attacker: b.attacker,
                 })
                 .collect(),
+            bands: state.combat.bands(),
         },
         looking_at: looking_at(state, seat, pending),
         library_tops: state
@@ -1900,6 +1901,7 @@ mod tests {
         ids.extend(view.library_tops.iter().map(|o| o.id));
         ids.extend(view.combat.attackers.iter().map(|a| a.creature));
         ids.extend(view.combat.blockers.iter().map(|b| b.blocker));
+        ids.extend(view.combat.bands.iter().flatten());
         ids
     }
 

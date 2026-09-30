@@ -121,7 +121,9 @@ use serde::{Deserialize, Serialize};
 /// permanent as it entered (Pithing Needle), as the card and face it names.
 /// 42 adds [`PublicObject::unlocked_doors`], which halves of a Room are
 /// unlocked (CR 709.5c).
-pub const VIEW_VERSION: u32 = 42;
+/// 43 adds the attacking bands (CR 702.22c): [`CombatView::bands`], and
+/// the log line an attacker joining a band writes, [`LogEvent::Banded`].
+pub const VIEW_VERSION: u32 = 43;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1374,6 +1376,11 @@ pub struct CombatView {
     pub attackers: Vec<AttackerView>,
     /// Declared blockers.
     pub blockers: Vec<BlockerView>,
+    /// The attacking bands (CR 702.22c), each its members in declaration
+    /// order. Public: the attacking player announces them (CR 508.1e), and
+    /// blocking one member blocks the band (CR 702.22h).
+    #[serde(default)]
+    pub bands: Vec<Vec<ObjectId>>,
 }
 
 impl CombatView {
@@ -2178,6 +2185,14 @@ pub enum LogEvent {
         /// What it attacks.
         defending: Defender,
     },
+    /// An attacking creature joined the band of one with banding
+    /// (CR 702.22c).
+    Banded {
+        /// The creature that joined.
+        attacker: LogObject,
+        /// The creature with banding whose band it joined.
+        with: LogObject,
+    },
     /// A creature blocked.
     Blocked {
         /// The blocker.
@@ -2293,6 +2308,10 @@ impl LogEvent {
                 out.push(blocker);
                 out.push(attacker);
             }
+            Self::Banded { attacker, with } => {
+                out.push(attacker);
+                out.push(with);
+            }
         }
         out.into_iter()
     }
@@ -2337,6 +2356,10 @@ impl LogEvent {
             Self::Blocked { blocker, attacker } => {
                 out.push(blocker);
                 out.push(attacker);
+            }
+            Self::Banded { attacker, with } => {
+                out.push(attacker);
+                out.push(with);
             }
         }
         out.into_iter()
@@ -3184,7 +3207,7 @@ mod tests {
     /// disagree on what a number in it means.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (42, 0xf052_c750_50e0_1f68);
+        const RECORDED: (u32, u64) = (43, 0x45f5_4b79_b16c_2c08);
 
         let shape = wire_shape();
         let declared = declarations().matches("\npub struct ").count()

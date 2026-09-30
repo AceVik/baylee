@@ -5672,6 +5672,7 @@ fn keyword_const(line: &str) -> Option<&'static str> {
         "Landwalk:Forest" => "KeywordSet::FORESTWALK",
         "Prowess" => "KeywordSet::PROWESS",
         "Changeling" => "KeywordSet::CHANGELING",
+        "Banding" => "KeywordSet::BANDING",
         _ => return None,
     })
 }
@@ -6543,6 +6544,28 @@ SVar:X:Count$xPaid",
         let body = read("Name:Shadow Test\nTypes:Creature Rogue\nPT:1/1\nK:Shadow\nOracle:Shadow");
         assert_eq!(body.keywords, ["KeywordSet::SHADOW"]);
         assert!(body.abilities.is_empty());
+    }
+
+    /// Banding is a keyword the engine reads (CR 702.22), on a body and
+    /// granted by a pump (Helm of Chatzuk); "bands with other" names a
+    /// quality and stays refused.
+    #[test]
+    fn banding_is_read_and_bands_with_other_is_not() {
+        let body = read("Name:X\nTypes:Creature Human\nPT:1/1\nK:Banding\nOracle:Banding");
+        assert_eq!(body.keywords, ["KeywordSet::BANDING"]);
+        let body = read(
+            "Name:X\nTypes:Artifact\n\
+             A:AB$ Pump | Cost$ 1 T | ValidTgts$ Creature | KW$ Banding | SpellDescription$ …",
+        );
+        assert!(
+            body.abilities
+                .iter()
+                .any(|a| a.contains("keywords: KeywordSet::BANDING")),
+            "{:?}",
+            body.abilities
+        );
+        let script = parse("Name:X\nTypes:Creature Human\nPT:1/1\nK:Bands with Other:Legendary");
+        assert!(transcode(&script, &cats(), None).is_none());
     }
 
     #[test]

@@ -695,6 +695,12 @@ impl<L: CardLookup> Engine<L> {
                         .push_back((self.state.turn.active, action));
                     return false;
                 }
+                // A division of combat damage banding hands to a player is
+                // asked before the damage step deals it (CR 702.22j–k);
+                // its last answer ends this step (`answer_share`).
+                if self.ask_combat_division() {
+                    return true;
+                }
                 self.advance_step();
             } else {
                 self.resolve_next = true;

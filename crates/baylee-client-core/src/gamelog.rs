@@ -944,6 +944,10 @@ impl Writer<'_> {
                 Phrase::LogBlocked,
                 vec![self.object(blocker), self.object(attacker)],
             ),
+            LogEvent::Banded { attacker, with } => self.about_nobody(
+                Phrase::LogBanded,
+                vec![self.object(attacker), self.object(with)],
+            ),
             LogEvent::ControlChanged { object, new, .. } => self.about(
                 *new,
                 Phrase::LogControlYou,
@@ -1871,10 +1875,11 @@ mod tests {
             LogEvent::GameOver { .. } => 26,
             LogEvent::LoopDetected { .. } => 27,
             LogEvent::DayNight { .. } => 28,
+            LogEvent::Banded { .. } => 30,
         }
     }
 
-    const VARIANTS: usize = 30;
+    const VARIANTS: usize = 31;
 
     /// Every kind of line, about `player`, with every answer, cause, zone and
     /// counter a line can carry.
@@ -1952,6 +1957,10 @@ mod tests {
             LogEvent::Blocked {
                 blocker: token(4, "Soldier"),
                 attacker: card.clone(),
+            },
+            LogEvent::Banded {
+                attacker: token(4, "Soldier"),
+                with: token(7, "Knight"),
             },
             LogEvent::ControlChanged {
                 object: card.clone(),
@@ -2202,6 +2211,7 @@ mod tests {
                 ..
             }
             | LogEvent::Blocked { .. }
+            | LogEvent::Banded { .. }
             | LogEvent::TurnedFaceUp { .. }
             | LogEvent::Transformed { .. }
             | LogEvent::GameOver { .. }

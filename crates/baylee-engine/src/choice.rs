@@ -415,6 +415,16 @@ pub enum ChoicePrompt {
     /// is the better answer. Only the limit keeps a permanent tapped, so the
     /// question is asked again until no limit has room for anything on it.
     Untap,
+    /// "Which attackers are in a band with this one?" (CR 508.1e,
+    /// 702.22c), asked of each attacking creature with banding once the
+    /// attack is declared and before anything triggers on it. The menu
+    /// holds the other attackers aimed at the same player or planeswalker
+    /// that are in no band yet (CR 702.22d); at most one of the answer may
+    /// lack banding, and naming nothing leaves `with` out of any band.
+    Band {
+        /// The attacker with banding the band forms around.
+        with: ObjectId,
+    },
     /// Revealed cards of one card type, one of which may be put into the
     /// hand (Atraxa, Grand Unifier: "for each card type, you may put a card
     /// of that type … into your hand"). Asked once per type, and the type
@@ -516,6 +526,23 @@ pub enum NumberPrompt {
         /// How many targets share the damage.
         of: u8,
         /// The damage not yet given to a target.
+        left: u32,
+    },
+    /// One creature's share of another creature's combat damage, where
+    /// banding hands the division to a player (CR 702.22j–k, 510.1d): how
+    /// much of what is left goes to `recipient`, asked creature by creature
+    /// in declaration order. The last takes the rest and is not asked, and
+    /// a share may be 0.
+    CombatDamage {
+        /// The creature whose damage is divided.
+        source: ObjectId,
+        /// The creature this share goes to.
+        recipient: ObjectId,
+        /// Its place among the recipients, from 0.
+        index: u8,
+        /// How many creatures share the damage.
+        of: u8,
+        /// The damage not yet given to a creature.
         left: u32,
     },
 }
