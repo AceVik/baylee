@@ -1,8 +1,8 @@
 //! `baylee-seat`: a mind at a table, as an ordinary socket player.
 //!
 //! ```text
-//! baylee-seat join <room> --mind house|scripted|anthropic[:<model>]|openai:<model>
-//!     [--deck <file> | --acceptance <name>]
+//! baylee-seat join <room> [--mind house|scripted|anthropic[:<model>]|openai:<model>]
+//!     [--profile <name>] [--deck <file> | --acceptance <name>]
 //! ```
 //!
 //! Signs in as a guest under the name its mind discloses (`HOUSE-house`,

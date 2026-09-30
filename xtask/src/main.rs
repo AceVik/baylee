@@ -487,9 +487,11 @@ enum Cmd {
         /// the bridge reads from this environment) under the name its mind
         /// discloses (`HOUSE-house`, `TEST-scripted`, `LLM-sonnet-5-5`), with
         /// the other acceptance deck. Its transcripts go to
-        /// `target/seat-transcripts/`. A model the bridge has no price for
-        /// does not sit down here: seat it with `baylee-seat join` and its
-        /// price or a token budget (`baylee-seat join --help`).
+        /// `target/seat-transcripts/`. `profile:<name>` plays that profile
+        /// of the bridge's settings file (`llm-seat.json`, or the one
+        /// `BAYLEE_SEAT_CONFIG` names; `docs/llm-seat.md`) under its daily
+        /// and monthly caps. A model the bridge has no price for sits down
+        /// here only as a profile that states its price or `game_tokens`.
         #[arg(long, value_name = "MIND")]
         bridge: Option<String>,
     },
@@ -5255,7 +5257,7 @@ fn dev_table(root: &Path, gateway: &str, spec: &TableSpec<'_>, play: bool) -> an
     println!("table ready: {seats} chairs, {opponents} × {ai} AI, playing {deck_name}");
     if let Some(mind) = bridge {
         println!(
-            "chair {BRIDGE_CHAIR}: a bridge playing the {mind} mind; transcripts in {BRIDGE_TRANSCRIPTS}/"
+            "chair {BRIDGE_CHAIR}: a bridge playing {mind}; transcripts in {BRIDGE_TRANSCRIPTS}/"
         );
     }
     if !teams.is_empty() {
@@ -5323,11 +5325,22 @@ fn seat_bridge(
     };
     std::process::Command::new("cargo")
         .args(["run", "-q", "-p", "baylee-seat", "--", "join", game_id])
-        .args(["--mind", mind, "--gateway", gateway, "--acceptance", theirs])
+        .args(bridge_mind(mind))
+        .args(["--gateway", gateway, "--acceptance", theirs])
         .arg("--transcripts")
         .arg(root.join(BRIDGE_TRANSCRIPTS))
         .current_dir(root)
         .spawn()
+}
+
+/// What tells a bridge its mind: `--profile <name>` for `profile:<name>`,
+/// `--mind <mind>` for anything else (the bridge refuses what it does not
+/// know, in its own words).
+fn bridge_mind(mind: &str) -> [&str; 2] {
+    match mind.strip_prefix("profile:") {
+        Some(profile) => ["--profile", profile],
+        None => ["--mind", mind],
+    }
 }
 
 /// Where a dev table's bridge writes down what it was asked and answered
@@ -7103,6 +7116,16 @@ mod tests {
         assert_eq!(requests[0].1["ai"], "expert");
         assert!(requests[1].0.starts_with("POST /lobby/games/game/ready "));
         assert!(requests[2].0.starts_with("POST /lobby/games/game/start "));
+    }
+
+    /// `--bridge profile:<name>` plays a profile of the bridge's settings
+    /// file; anything else names its mind.
+    #[test]
+    fn a_bridge_plays_a_profile_or_a_mind() {
+        assert_eq!(super::bridge_mind("profile:opus"), ["--profile", "opus"]);
+        assert_eq!(super::bridge_mind("anthropic"), ["--mind", "anthropic"]);
+        let model = "openai:deepseek-chat";
+        assert_eq!(super::bridge_mind(model), ["--mind", model]);
     }
 
     /// A bridge's chair is left to the bridge, and the table is not said
