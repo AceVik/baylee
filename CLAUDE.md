@@ -52,7 +52,7 @@ transcode-report [--stubs]
 cross-read
 cr-check
 pool-dump --out <path>            # refactor diffs
-dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2] [--bridge house|scripted]
+dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2] [--bridge house|scripted|anthropic[:<model>]|openai:<model>]
 ```
 
 - `dev-table` skips only sign-in and deck-pick (username `dev`, gateway HTTP, sends `ready`/`start`, real sockets). `--teams`: sides in seat order (`0` = alone), three chairs minimum.

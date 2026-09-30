@@ -45,7 +45,7 @@ mod menu;
 mod words;
 
 pub use menu::{Act, Decision, Hint, Menu, Resolved, tap};
-pub use words::KEYWORDS;
+pub use words::{KEYWORDS, color_name};
 
 use crate::mind::{GameContext, Request};
 use baylee_client_core::gamelog::{LogBook, Wording};

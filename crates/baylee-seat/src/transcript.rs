@@ -120,12 +120,22 @@ pub enum Event {
     Closed,
 }
 
+/// Something handed every note as it is written.
+struct Echo(Box<dyn FnMut(&Note) + Send>);
+
+impl std::fmt::Debug for Echo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Echo")
+    }
+}
+
 /// Where the notes go.
 #[derive(Debug)]
 pub struct Transcript {
     out: Option<std::io::BufWriter<std::fs::File>>,
     kept: Option<Vec<String>>,
     started: Instant,
+    echo: Option<Echo>,
 }
 
 impl Transcript {
@@ -136,6 +146,7 @@ impl Transcript {
             out: None,
             kept: None,
             started: Instant::now(),
+            echo: None,
         }
     }
 
@@ -146,6 +157,7 @@ impl Transcript {
             out: None,
             kept: Some(Vec::new()),
             started: Instant::now(),
+            echo: None,
         }
     }
 
@@ -165,12 +177,24 @@ impl Transcript {
             out: Some(std::io::BufWriter::new(file)),
             kept: None,
             started: Instant::now(),
+            echo: None,
         })
+    }
+
+    /// The same transcript, also handing every note to `echo` as it is
+    /// written: the terminal's show ([`crate::show`]).
+    #[must_use]
+    pub fn echo(mut self, echo: impl FnMut(&Note) + Send + 'static) -> Self {
+        self.echo = Some(Echo(Box::new(echo)));
+        self
     }
 
     /// Writes one note, stamped with the milliseconds since the bridge
     /// started.
     pub fn write(&mut self, note: &Note) {
+        if let Some(echo) = self.echo.as_mut() {
+            (echo.0)(note);
+        }
         self.line(&Line {
             at_ms: self.elapsed_ms(),
             note,

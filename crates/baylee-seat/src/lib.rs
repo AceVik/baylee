@@ -37,6 +37,7 @@ pub mod narrator;
 pub mod referee;
 pub mod scripted;
 pub mod seat;
+pub mod show;
 pub mod transcript;
 pub mod wake;
 
