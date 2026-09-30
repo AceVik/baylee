@@ -1254,7 +1254,11 @@ fn wild_mana_pays_a_suspend_cost_the_offer_also_accepts() {
 /// One spare slot is enough only while a *mana* ability cannot open a window
 /// of its own — and inside a window nothing else may be activated
 /// (`narrow_to_mana`), so a mana ability is the only door to a second level.
-/// A window is opened by `Effect::PlayerMayPayOr` and by nothing else.
+/// A window is opened by the four effects that charge mana as they resolve —
+/// `Effect::PlayerMayPayOr`, `PlayerMayPayThen`, `PlayerMayPayManaOr` and
+/// `PlayerMayPayManaThen` — and by nothing else. The scan named only the
+/// first until the coloured pair was added (2026-09-30); `PlayerMayPayThen`
+/// had opened one unscanned since it existed.
 ///
 /// "A mana ability" is **two** populations and the second is easy to miss. A
 /// granted one carries its own `mana_ability` flag on
@@ -1304,7 +1308,15 @@ fn no_mana_ability_in_the_pool_opens_a_payment_window() {
         if rendered.contains("GrantActivated") {
             grants.push(who.to_string());
         }
-        if !rendered.contains("PlayerMayPayOr") {
+        if ![
+            "PlayerMayPayOr",
+            "PlayerMayPayThen",
+            "PlayerMayPayManaOr",
+            "PlayerMayPayManaThen",
+        ]
+        .iter()
+        .any(|name| rendered.contains(name))
+        {
             return;
         }
         carried.push(who.to_string());

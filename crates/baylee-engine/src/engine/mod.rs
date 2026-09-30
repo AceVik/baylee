@@ -787,13 +787,10 @@ impl<L: CardLookup> Engine<L> {
                 Some((window.player, *cost))
             }
             PaymentContinuation::Tax(resolution) => match resolution.awaiting {
-                Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. })
+                Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. })
                     if player == window.player =>
                 {
-                    Some((
-                        player,
-                        baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
-                    ))
+                    Some((player, cost))
                 }
                 _ => None,
             },

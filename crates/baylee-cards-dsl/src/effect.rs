@@ -2273,6 +2273,35 @@ pub enum Effect {
         /// What happens when they pay.
         effects: &'static [Effect],
     },
+    /// "Sacrifice this unless you pay {U}" (Phantasmal Forces), "this deals
+    /// 8 damage to you unless you pay {G}{G}{G}{G}" (Force of Nature): the
+    /// tax of [`Effect::PlayerMayPayOr`] with a price that has colour in it.
+    ///
+    /// A variant of its own and not a second field on that one, because
+    /// the two prices are known at different times. That one's is an
+    /// [`Amount`] of generic mana, evaluated as the ability resolves (Esper
+    /// Sentinel's is its own power); this one's is printed, colour and all,
+    /// and a `ManaCost` holds it exactly. "Unless" is the same question
+    /// the other way round (CR 118.12a), asked and paid as the tax is.
+    PlayerMayPayManaOr {
+        /// Who decides.
+        player: PlayerRel,
+        /// The printed price.
+        cost: ManaCost,
+        /// What happens when they don't pay.
+        effect: &'static Effect,
+    },
+    /// "You may pay {W}{W}. If you do, you gain 1 life" (Farmstead): the
+    /// price of [`Effect::PlayerMayPayThen`] with colour in it, for the
+    /// reason [`Effect::PlayerMayPayManaOr`] is not a field on the tax.
+    PlayerMayPayManaThen {
+        /// Who decides and pays.
+        player: PlayerRel,
+        /// The printed price.
+        cost: ManaCost,
+        /// What happens when they pay.
+        effects: &'static [Effect],
+    },
     /// Create a continuous effect (Giant Growth style): applies `modifier`
     /// on `layer` to `filter` for `duration`. `filter = This` binds to the
     /// first target.
@@ -3038,6 +3067,11 @@ impl Effect {
                 player: _,
                 mana: _,
                 effects,
+            }
+            | Effect::PlayerMayPayManaThen {
+                player: _,
+                cost: _,
+                effects,
             } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::ChooseYoursThen { filter: _, then }
@@ -3063,6 +3097,11 @@ impl Effect {
             Effect::PlayerMayPayOr {
                 player: _,
                 mana: _,
+                effect,
+            }
+            | Effect::PlayerMayPayManaOr {
+                player: _,
+                cost: _,
                 effect,
             }
             | Effect::PlayerMayPayLifeOr { effect, .. }
@@ -3274,6 +3313,34 @@ mod verb_tests {
         });
         assert_eq!(seen, 2);
         assert!(gain_seen);
+    }
+
+    /// Phantasmal Forces' sacrifice and Farmstead's life gain sit behind a
+    /// coloured price, one on each answer, and a pool walk has to find both.
+    #[test]
+    fn a_coloured_price_body_is_visited() {
+        static EFFECTS: &[Effect] = &[
+            Effect::PlayerMayPayManaOr {
+                player: PlayerRel::You,
+                cost: baylee_core::mana!("{U}"),
+                effect: &Effect::SacrificeSelf,
+            },
+            Effect::PlayerMayPayManaThen {
+                player: PlayerRel::You,
+                cost: baylee_core::mana!("{W}{W}"),
+                effects: &[Effect::GainLife {
+                    amount: Amount::Fixed(1),
+                }],
+            },
+        ];
+        let mut seen = 0;
+        let (mut sacrifice_seen, mut gain_seen) = (false, false);
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            sacrifice_seen |= matches!(effect, Effect::SacrificeSelf);
+            gain_seen |= matches!(effect, Effect::GainLife { .. });
+        });
+        assert_eq!(seen, 4);
+        assert!(sacrifice_seen && gain_seen);
     }
 
     /// Nissa, Resurgent Animist's reveal sits inside

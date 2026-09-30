@@ -1539,12 +1539,11 @@ pub struct PlayerView {
     /// tap lands in every other quiet window too. The information was
     /// missing, not merely hard to reach.
     ///
-    /// **A cost and not a number**, although the engine charges generic mana
-    /// and nothing else today (`Effect::PlayerMayPayOr` carries an `Amount`
-    /// because Esper Sentinel's tax is its own power, which is a statement
-    /// about *when* the number is known and not about what it may contain).
-    /// By the time a window is open the amount has been evaluated, so the
-    /// view is under no such constraint, and both readers on the other side
+    /// **A cost and not a number**: `Effect::PlayerMayPayOr` charges generic
+    /// mana (an `Amount`, because Esper Sentinel's tax is its own power), but
+    /// `Effect::PlayerMayPayManaOr` charges a printed price with colour in
+    /// it (Phantasmal Forces' `{U}`). By the time a window is open either
+    /// has been evaluated, and both readers on the other side
     /// already take a `ManaCost`: `manapip::cost` draws one and
     /// `manaplan::plan` solves one. A `u16` would be converted at both call
     /// sites on the way in.

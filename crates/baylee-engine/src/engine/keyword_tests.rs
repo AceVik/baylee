@@ -357,6 +357,60 @@ fn ward_declined_counters_the_spell_that_targeted_it() {
     );
 }
 
+/// "Sacrifice this unless you pay {U}" (Phantasmal Forces, CR 118.12a) is
+/// paid in blue and in nothing else. Both seats say yes against an empty
+/// pool and are handed the CR 605.3a window; the one with an Island makes
+/// `{U}` and keeps the creature, the one with a Mountain makes `{R}`, has
+/// not paid, and loses it with the red still floating. Charged as `{1}` —
+/// what the tax effect could say before it had a colour — the Mountain
+/// would have kept it.
+#[test]
+fn a_coloured_tax_is_paid_in_its_colour_and_not_in_another() {
+    let p0 = PlayerId::new(0);
+    let forces = card_index("06a158c6-7e36-49f8-a8e0-a7b7df5fd7ed");
+    let blue = baylee_core::mana!("{U}");
+    for (land, kept) in [(island(), true), (mountain(), false)] {
+        let mut engine = Duel::new(5, forest())
+            .battlefield(0, &[forces, land])
+            .start();
+        keep_mulligans(&mut engine);
+        pass_until(&mut engine, |e| {
+            matches!(
+                e.pending(),
+                Pending::YesNo {
+                    prompt: crate::choice::YesNoPrompt::PayMana { .. },
+                    ..
+                }
+            )
+        });
+        let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+            unreachable!("pass_until stopped on the question")
+        };
+        assert_eq!(
+            (player, prompt),
+            (p0, crate::choice::YesNoPrompt::PayMana { cost: blue })
+        );
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+        assert_eq!(
+            engine.payment_window(),
+            Some((p0, blue)),
+            "an empty pool and a land: the window, for the printed price"
+        );
+        tap_all_mana(&mut engine, p0);
+        engine.apply(p0, PlayerAction::PassPriority).unwrap();
+        assert_eq!(
+            on_battlefield(&engine, p0, forces).is_some(),
+            kept,
+            "kept with {{U}} and sacrificed with {{R}}"
+        );
+        assert_eq!(
+            engine.state().players[0].mana_pool.total(),
+            u32::from(!kept),
+            "the blue paid; the red paid nothing and stayed"
+        );
+    }
+}
+
 fn swamp() -> baylee_core::ids::CardIndex {
     card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
 }

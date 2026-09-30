@@ -219,6 +219,29 @@ struct Chain {
     target: Option<String>,
 }
 
+/// "… unless <a player> pays <a price>" (CR 118.12a), read off one line.
+struct Unless {
+    /// Who is asked, as a `PlayerRel`.
+    payer: &'static str,
+    price: Price,
+    /// `UnlessSwitched$ True`: the line's effect is what paying *buys*
+    /// ("you may pay {1}. If you do, …"), not what refusing costs.
+    switched: bool,
+}
+
+/// A price a player may pay as an ability resolves, in the shape the effect
+/// that charges it carries.
+enum Price {
+    /// Generic mana, as an `Amount` expression: `PlayerMayPayOr`/`Then`.
+    Generic(String),
+    /// A printed cost with colour in it, spelled `{G}{G}`:
+    /// `PlayerMayPayManaOr`/`Then`.
+    Printed(String),
+    /// One cost part the player pays by naming an object:
+    /// `PlayerMayPayCostOr`.
+    Part(String),
+}
+
 struct Tx<'a> {
     svars: &'a BTreeMap<String, String>,
     cats: &'a SubtypeCatalogs,
@@ -1054,6 +1077,14 @@ impl Tx<'_> {
         // only where this line declared the player target itself.
         let targets_a_player =
             targets_here && target.as_deref() == Some("TargetSpec::Player(PlayerRel::Chosen)");
+        // "Sacrifice it unless you pay {U}", "counter target spell unless
+        // its controller pays {2}": the price is the line's and not its
+        // effect's, so it is read here for every API and wraps whatever the
+        // line turns out to say.
+        let unless = match p.take("UnlessCost") {
+            Some(cost) => Some(self.unless(&cost, &mut p, target.as_deref())?),
+            None => None,
+        };
 
         let Some(effects) = self.effect_of(&api, &mut p, target.as_deref(), targets_a_player)
         else {
@@ -1073,6 +1104,10 @@ impl Tx<'_> {
             }
             return None;
         }
+        let effects = match unless {
+            Some(unless) => vec![self.unless_wrap(unless, &effects)?],
+            None => effects,
+        };
         chain.effects.extend(effects);
         match sub {
             Some(name) => {
@@ -1083,6 +1118,128 @@ impl Tx<'_> {
             }
             None => Some(()),
         }
+    }
+
+    /// The "unless" of a line: `UnlessCost$` with the keys that qualify it.
+    ///
+    /// **The payer.** `UnlessPayer$ You` is the source's controller. Absent,
+    /// the reference asks the controller of the line's target (its default
+    /// is `TargetedController`), which is Mana Leak's "unless its controller
+    /// pays" — so an absent payer is read only on a line that targets a
+    /// spell or a permanent, and refused on one that targets nothing, where
+    /// that default names nobody. Every other payer is refused by name:
+    /// `Player` is every player at once, a price no one question can put.
+    ///
+    /// **The subs.** Without `UnlessResolveSubs$` the rest of the chain runs
+    /// either way, which is what wrapping this line alone gives. With it the
+    /// rest runs on one answer only (Power Sink's "if that player doesn't,
+    /// they tap all lands…"), a shape this does not read yet.
+    fn unless(&mut self, cost: &str, p: &mut Params, target: Option<&str>) -> Option<Unless> {
+        if let Some(subs) = p.take("UnlessResolveSubs") {
+            return self.deny(format!("`UnlessResolveSubs$ {subs}`"));
+        }
+        let switched = match p.take("UnlessSwitched").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`UnlessSwitched$ {other}`")),
+        };
+        let payer = p.take("UnlessPayer");
+        let targets_a_controlled_object = target.is_some_and(|t| {
+            t.starts_with("TargetSpec::Spell(") || t.starts_with("TargetSpec::Object(")
+        });
+        let payer = match payer.as_deref() {
+            Some("You") => "PlayerRel::You",
+            None | Some("TargetedController") if targets_a_controlled_object => {
+                "PlayerRel::ControllerOfTarget"
+            }
+            other => {
+                return self.deny(format!(
+                    "an unless-cost paid by `{}`",
+                    other.unwrap_or("TargetedController")
+                ));
+            }
+        };
+        let price = self.unless_price(cost.trim())?;
+        Some(Unless {
+            payer,
+            price,
+            switched,
+        })
+    }
+
+    /// An `UnlessCost$` value as a [`Price`].
+    ///
+    /// Read by [`Tx::cost_pieces`], the reader an activation cost goes
+    /// through, and then held to what the "unless" effects can carry. Plain
+    /// generic mana stays an [`Amount`] (`PlayerMayPayOr`); anything with a
+    /// colour in it is printed exactly (`PlayerMayPayManaOr`), where it used
+    /// to be refused — a `{U}` charged as `{1}` is a card anyone could keep
+    /// with a Mountain. One part the player pays by naming an object is
+    /// `PlayerMayPayCostOr`. A part that needs no answer (`PayLife<2>`) is
+    /// refused even though `CostPart` can hold it: that effect asks by
+    /// putting up the list of what may pay, and an empty list is how a
+    /// player declines — so a price nobody names an object for would
+    /// decline itself every time.
+    fn unless_price(&mut self, raw: &str) -> Option<Price> {
+        // "Unless its controller pays {X}" (Power Sink): the X announced
+        // for the source, and only where the card says that is what X is.
+        if raw == "X" {
+            let Some(x) = amount(raw, self.svars, self.has_x) else {
+                return self.deny("an unless-cost of `X`".to_string());
+            };
+            return Some(Price::Generic(x));
+        }
+        let (mana, parts) = self.cost_pieces(raw)?;
+        match (mana.as_str(), parts.as_slice()) {
+            (m, []) if !m.is_empty() => Some(match generic_mana(m) {
+                Some(n) => Price::Generic(format!("Amount::Fixed({n})")),
+                None => Price::Printed(m.to_string()),
+            }),
+            ("", [one]) if asks_for_an_object(one) => Some(Price::Part(one.clone())),
+            _ => self.deny(format!("an unless-cost of `{raw}`")),
+        }
+    }
+
+    /// The line's effects behind its price. A tax runs them on a refusal and
+    /// takes them as one effect (a `Sequence` when there are several); a
+    /// switched price runs them on a payment and takes the list.
+    fn unless_wrap(&mut self, unless: Unless, effects: &[String]) -> Option<String> {
+        let Unless {
+            payer,
+            price,
+            switched,
+        } = unless;
+        let one = match effects {
+            [] => return self.deny("an unless-cost on a line with no effect".to_string()),
+            [one] => one.clone(),
+            many => format!("Effect::Sequence(&[{}])", many.join(", ")),
+        };
+        let list = effects.join(", ");
+        Some(match (price, switched) {
+            (Price::Generic(mana), false) => format!(
+                "Effect::PlayerMayPayOr {{ player: {payer}, mana: {mana}, effect: &{one} }}"
+            ),
+            (Price::Generic(mana), true) => format!(
+                "Effect::PlayerMayPayThen {{ player: {payer}, mana: {mana}, effects: &[{list}] }}"
+            ),
+            (Price::Printed(cost), false) => format!(
+                "Effect::PlayerMayPayManaOr {{ player: {payer}, cost: mana!(\"{cost}\"), \
+                 effect: &{one} }}"
+            ),
+            (Price::Printed(cost), true) => format!(
+                "Effect::PlayerMayPayManaThen {{ player: {payer}, cost: mana!(\"{cost}\"), \
+                 effects: &[{list}] }}"
+            ),
+            (Price::Part(part), false) => format!(
+                "Effect::PlayerMayPayCostOr {{ player: {payer}, cost: &CostPart::{part}, \
+                 effect: &{one} }}"
+            ),
+            // "You may <sacrifice a creature>. If you do, …" is a price no
+            // effect here takes on the paying answer.
+            (Price::Part(part), true) => {
+                return self.deny(format!("a switched unless-cost of `{part}`"));
+            }
+        })
     }
 
     /// One effect API as the `Effect` expressions it stands for.
@@ -1439,29 +1596,18 @@ impl Tx<'_> {
         })
     }
 
-    /// `DB$ Sacrifice`: "sacrifice it", with or without a way out.
+    /// `DB$ Sacrifice`: "sacrifice it".
     ///
-    /// Three sentences in one API, and only two of them are this rule.
     /// **Bare** is "sacrifice this" — 111 of the corpus's 895 sacrifice
     /// lines, and [`Effect::SacrificeSelf`] says it exactly. With an
     /// `UnlessCost$` it is the Karoo sentence, "sacrifice it unless you
-    /// <pay>", which is 131 more and the largest single shape the API
-    /// writes. What it is **not** is `Defined$`/`SacValid$`: those name
-    /// somebody else's permanent ("each player sacrifices a creature"), a
-    /// player choice this DSL has no effect for, and reading them as the
-    /// source would be a card that sacrifices the wrong permanent under a
+    /// <pay>", 131 more — read by [`Tx::unless`] for every API, since the
+    /// price belongs to the line and not to the sacrifice. What it is
+    /// **not** is `Defined$`/`SacValid$`: those name somebody else's
+    /// permanent ("each player sacrifices a creature"), a player choice this
+    /// DSL has no effect for, and reading them as the source would be a
+    /// card that sacrifices the wrong permanent under a
     /// `Coverage::Implemented`.
-    ///
-    /// The price is read by [`Tx::cost_pieces`], the same reader an
-    /// activation cost goes through, and then held to what the two "unless"
-    /// effects can carry: `PlayerMayPayOr` charges *generic* mana in an
-    /// [`Amount`], so a colour is refused rather than silently spent as
-    /// colourless, and `PlayerMayPayCostOr` charges exactly one part the
-    /// player answers by naming an object. A part that needs no answer
-    /// (`PayLife<2>`) is refused here even though `CostPart` can hold it:
-    /// the engine asks that question by putting up the list of what may pay,
-    /// and an empty list is how a player declines — so a price nobody names
-    /// an object for would decline itself every time.
     fn sacrifice_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
         for key in [
             "Defined",
@@ -1474,44 +1620,7 @@ impl Tx<'_> {
                 return self.deny(format!("a sacrifice naming `{key}`"));
             }
         }
-        let Some(cost) = p.take("UnlessCost") else {
-            return Some(vec!["Effect::SacrificeSelf".to_string()]);
-        };
-        // 130 of the 131 say `You` and the one that does not says `Player`,
-        // which is every player at once — a price this effect cannot put to
-        // a table.
-        match p.take("UnlessPayer").as_deref() {
-            Some("You") => {}
-            other => {
-                return self.deny(format!(
-                    "a sacrifice charging `{}`",
-                    other.unwrap_or("nobody")
-                ));
-            }
-        }
-        let (mana, parts) = self.cost_pieces(&cost)?;
-        match (mana.as_str(), parts.as_slice()) {
-            (m, []) if !m.is_empty() => {
-                // Generic only. `{U}` and `{W}{W}` are 40 of these lines and
-                // are refused by name: the effect's price is an `Amount` of
-                // generic mana with no colour to put a symbol in.
-                let Some(n) = m.strip_prefix('{').and_then(|m| m.strip_suffix('}')) else {
-                    return self.deny(format!("a sacrifice charging `{m}`"));
-                };
-                let Ok(n) = n.parse::<u16>() else {
-                    return self.deny(format!("a sacrifice charging `{m}`"));
-                };
-                Some(vec![format!(
-                    "Effect::PlayerMayPayOr {{ player: PlayerRel::You, \
-                     mana: Amount::Fixed({n}), effect: &Effect::SacrificeSelf }}"
-                )])
-            }
-            ("", [one]) if asks_for_an_object(one) => Some(vec![format!(
-                "Effect::PlayerMayPayCostOr {{ player: PlayerRel::You, \
-                 cost: &CostPart::{one}, effect: &Effect::SacrificeSelf }}"
-            )]),
-            _ => self.deny(format!("a sacrifice charging `{cost}`")),
-        }
+        Some(vec!["Effect::SacrificeSelf".to_string()])
     }
 
     /// `Token`: "create a 1/1 white Soldier creature token".
@@ -4145,7 +4254,7 @@ impl Tx<'_> {
         // Generic mana only: a coloured price or a non-mana cost is another
         // payment the effect cannot take, and stays unclaimed.
         let (body, price) = match Self::optional_price(&body, may) {
-            Some((stripped, n)) => (stripped, Some(n)),
+            Some((stripped, price)) => (stripped, Some(price)),
             None => (body, None),
         };
         let mut chain = Chain::default();
@@ -4169,10 +4278,16 @@ impl Tx<'_> {
         // decision, not one per operation it expands into.
         let effects = chain.effects.join(", ");
         let effects = match price {
-            Some(n) => format!(
+            Some(Price::Generic(mana)) => format!(
                 "Effect::PlayerMayPayThen {{ player: PlayerRel::You, \
-                 mana: Amount::Fixed({n}), effects: &[{effects}] }}"
+                 mana: {mana}, effects: &[{effects}] }}"
             ),
+            // Farmstead's "you may pay {W}{W}. If you do, you gain 1 life".
+            Some(Price::Printed(cost)) => format!(
+                "Effect::PlayerMayPayManaThen {{ player: PlayerRel::You, \
+                 cost: mana!(\"{cost}\"), effects: &[{effects}] }}"
+            ),
+            Some(Price::Part(_)) => unreachable!("`optional_price` reads mana only"),
             None if may => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
             None => effects,
         };
@@ -4185,9 +4300,9 @@ impl Tx<'_> {
     /// The executed line of a "you may pay {N}. If you do, …" trigger with
     /// its price taken off, and the price: `AB$ GainLife | Cost$ 1 | …`
     /// under `OptionalDecider$ You`. `None` for anything else — no "may",
-    /// no `Cost$`, or a cost that is not a plain number of generic mana —
-    /// which leaves the line as it was for the chain to read or refuse.
-    fn optional_price(body: &str, may: bool) -> Option<(String, u32)> {
+    /// no `Cost$`, or a cost that is not mana alone — which leaves the line
+    /// as it was for the chain to read or refuse.
+    fn optional_price(body: &str, may: bool) -> Option<(String, Price)> {
         if !may || !body.trim_start().starts_with("AB$") {
             return None;
         }
@@ -4196,12 +4311,16 @@ impl Tx<'_> {
             .iter()
             .find_map(|part| part.strip_prefix("Cost$"))?
             .trim();
-        let n = cost.parse::<u32>().ok().filter(|n| *n > 0)?;
+        let price = match cost.parse::<u32>() {
+            Ok(0) => return None,
+            Ok(n) => Price::Generic(format!("Amount::Fixed({n})")),
+            Err(_) => Price::Printed(printed_mana(cost)?),
+        };
         let rest: Vec<&str> = parts
             .into_iter()
             .filter(|part| !part.starts_with("Cost$"))
             .collect();
-        Some((rest.join(" | "), n))
+        Some((rest.join(" | "), price))
     }
 }
 
@@ -4704,6 +4823,28 @@ fn asks_for_an_object(part: &str) -> bool {
     ]
     .iter()
     .any(|kind| part.starts_with(kind))
+}
+
+/// `{N}` alone as its number: a price that is generic mana and nothing else.
+fn generic_mana(mana: &str) -> Option<u16> {
+    mana.strip_prefix('{')?.strip_suffix('}')?.parse().ok()
+}
+
+/// A cost of mana symbols only (`W W`, `1 U`) in its printed spelling
+/// (`{W}{W}`, `{1}{U}`); `None` when any part is something other than mana.
+fn printed_mana(cost: &str) -> Option<String> {
+    let mut out = String::new();
+    for part in cost_parts(cost) {
+        let mana = part.chars().all(|c| c.is_ascii_digit())
+            || matches!(part.as_str(), "W" | "U" | "B" | "R" | "G" | "C");
+        if !mana || part.is_empty() {
+            return None;
+        }
+        out.push('{');
+        out.push_str(&part);
+        out.push('}');
+    }
+    (!out.is_empty()).then_some(out)
 }
 
 /// Whether [`transcode`] has a rule for this effect API.
@@ -5443,8 +5584,9 @@ SVar:X:Count$xPaid",
 
     /// Crystal Rod: "Whenever a player casts a blue spell, you may pay {1}.
     /// If you do, you gain 1 life." The price is the "may", so it replaces
-    /// the `MayDo` rather than sitting inside it. A coloured price is a
-    /// payment `PlayerMayPayThen` cannot take, and stays refused.
+    /// the `MayDo` rather than sitting inside it. A coloured price is
+    /// Farmstead's `{W}{W}`, printed exactly (`PlayerMayPayManaThen`); a
+    /// price that is not mana is a payment neither takes, and stays refused.
     #[test]
     fn a_may_with_a_generic_price_is_a_payment_that_buys_the_clause() {
         let body = read(
@@ -5467,7 +5609,25 @@ SVar:X:Count$xPaid",
             "Name:X\nManaCost:1\nTypes:Artifact\n\
              T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
              | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
-             SVar:TrigGainLife:AB$ GainLife | Cost$ U | Defined$ You | LifeAmount$ 1",
+             SVar:TrigGainLife:AB$ GainLife | Cost$ W W | Defined$ You | LifeAmount$ 1",
+        );
+        let text = transcode(&script, &cats(), None)
+            .expect("a coloured price is read")
+            .abilities
+            .join("\n");
+        assert!(
+            text.contains(
+                "Effect::PlayerMayPayManaThen { player: PlayerRel::You, cost: mana!(\"{W}{W}\"), \
+                 effects: &[Effect::gain_life(1)] }"
+            ),
+            "{text}"
+        );
+
+        let script = parse(
+            "Name:X\nManaCost:1\nTypes:Artifact\n\
+             T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
+             | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
+             SVar:TrigGainLife:AB$ GainLife | Cost$ PayLife<1> | Defined$ You | LifeAmount$ 1",
         );
         assert_eq!(
             refusal_reason(&script, &cats(), None).as_deref(),
@@ -6416,6 +6576,97 @@ SVar:X:Count$xPaid",
     /// Pestilence, Karma, Spell Blast, Dwarven Warriors: counts of
     /// everybody's permanents, the active player's permanents, a mana value
     /// of exactly X, and a creature nobody can block this turn.
+    #[test]
+    fn an_unless_cost_wraps_the_line_whatever_it_says() {
+        // Phantasmal Forces: a colour, printed exactly.
+        let forces = read(
+            "Name:X\nTypes:Creature\nPT:5/1\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+             | Execute$ U | TriggerDescription$ x.\n\
+             SVar:U:DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ U",
+        );
+        assert!(
+            forces.abilities[0].contains(
+                "Effect::PlayerMayPayManaOr { player: PlayerRel::You, \
+                 cost: mana!(\"{U}\"), effect: &Effect::SacrificeSelf }"
+            ),
+            "{:?}",
+            forces.abilities
+        );
+        // Force of Nature: the price is the line's, whatever the line does.
+        let nature = read(
+            "Name:X\nTypes:Creature\nPT:8/8\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+             | Execute$ D | TriggerDescription$ x.\n\
+             SVar:D:DB$ DealDamage | Defined$ You | NumDmg$ 8 | UnlessCost$ G G G G \
+             | UnlessPayer$ You",
+        );
+        assert!(
+            nature.abilities[0]
+                .contains("cost: mana!(\"{G}{G}{G}{G}\"), effect: &Effect::DealDamage"),
+            "{:?}",
+            nature.abilities
+        );
+        // Generic mana stays the `Amount` tax, and Mana Leak's absent payer
+        // is its target's controller.
+        let leak = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | UnlessCost$ 3",
+        );
+        assert!(
+            leak.abilities[0].contains(
+                "Effect::PlayerMayPayOr { player: PlayerRel::ControllerOfTarget, \
+                 mana: Amount::Fixed(3), effect: &Effect::CounterTargetSpell }"
+            ),
+            "{:?}",
+            leak.abilities
+        );
+        // Switched: paying buys the effect.
+        let bought = read(
+            "Name:X\nTypes:Artifact\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+             | Execute$ G | TriggerDescription$ x.\n\
+             SVar:G:DB$ GainLife | LifeAmount$ 1 | UnlessCost$ W | UnlessPayer$ You \
+             | UnlessSwitched$ True",
+        );
+        assert!(
+            bought.abilities[0].contains("Effect::PlayerMayPayManaThen"),
+            "{:?}",
+            bought.abilities
+        );
+        // Refused by name: a payer this cannot ask, subs on one answer, and
+        // an absent payer on a line with no target to take one from.
+        for (line, reason) in [
+            (
+                "DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ 2",
+                "an unless-cost paid by `Player`",
+            ),
+            (
+                "DB$ Sacrifice | UnlessCost$ 2",
+                "an unless-cost paid by `TargetedController`",
+            ),
+            (
+                "DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ 2 | UnlessResolveSubs$ WhenNotPaid",
+                "`UnlessResolveSubs$ WhenNotPaid`",
+            ),
+            (
+                "DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ PayLife<2>",
+                "an unless-cost of `PayLife<2>`",
+            ),
+        ] {
+            let script = parse(&format!(
+                "Name:X\nTypes:Creature\nPT:1/1\n\
+                 T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+                 | Execute$ S | TriggerDescription$ x.\nSVar:S:{line}"
+            ));
+            assert_eq!(
+                refusal_reason(&script, &cats(), None).as_deref(),
+                Some(reason),
+                "{line}"
+            );
+        }
+    }
+
     #[test]
     fn counts_bounds_and_an_unblockable_target() {
         let body = read(
@@ -7890,10 +8141,10 @@ SVar:X:Count$xPaid",
         // The report is only a worklist if it names the thing to build; a
         // second table of each rule's keys would rot, so the transcoder
         // reports what it actually failed to claim.
-        let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | UnlessCost$ 2");
+        let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | Bogus$ 2");
         assert_eq!(
             refusal_reason(&script, &cats(), None).as_deref(),
-            Some("unclaimed parameter `Draw.UnlessCost`")
+            Some("unclaimed parameter `Draw.Bogus`")
         );
 
         let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1");

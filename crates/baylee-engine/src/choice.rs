@@ -548,6 +548,13 @@ pub enum YesNoPrompt {
         /// Generic mana to pay.
         mana: u16,
     },
+    /// "Pay {U}?" for a tax or price with colour in it
+    /// (`Effect::PlayerMayPayManaOr`, `Effect::PlayerMayPayManaThen`):
+    /// Phantasmal Forces' upkeep, Force of Nature's.
+    PayMana {
+        /// The printed price.
+        cost: baylee_core::mana::ManaCost,
+    },
     /// Make mana for a pact's debt. Declining loses the game.
     PayPact {
         /// The full, possibly colored cost.
@@ -670,6 +677,7 @@ impl YesNoPrompt {
             Self::PayLifeOrEnterTapped { .. }
             | Self::Kicker
             | Self::PayTax { .. }
+            | Self::PayMana { .. }
             | Self::PayLife { .. }
             | Self::Miracle { .. }
             | Self::CastWithoutPaying { .. }
@@ -1392,6 +1400,12 @@ mod choice_tests {
             ),
             (yes_no(YesNoPrompt::Kicker), no.clone()),
             (yes_no(YesNoPrompt::PayTax { mana: 1 }), no.clone()),
+            (
+                yes_no(YesNoPrompt::PayMana {
+                    cost: baylee_core::mana!("{U}"),
+                }),
+                no.clone(),
+            ),
             (yes_no(YesNoPrompt::PayLife { amount: 7 }), no.clone()),
             (yes_no(YesNoPrompt::Miracle { card: object() }), no.clone()),
             (
@@ -1555,7 +1569,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 18 + 15;
+    const KINDS: usize = 18 + 16;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -1596,9 +1610,10 @@ mod choice_tests {
                     YesNoPrompt::Discover { .. } => 12,
                     YesNoPrompt::CastWithoutPaying { .. } => 13,
                     YesNoPrompt::CastPaying { .. } => 14,
+                    YesNoPrompt::PayMana { .. } => 15,
                 }
             }
-            Pending::ChoosePile { .. } => 17 + 15,
+            Pending::ChoosePile { .. } => 17 + 16,
         }
     }
 
@@ -1807,6 +1822,7 @@ mod choice_tests {
                 YesNoPrompt::PayLifeOrEnterTapped { .. }
                 | YesNoPrompt::Kicker
                 | YesNoPrompt::PayTax { .. }
+                | YesNoPrompt::PayMana { .. }
                 | YesNoPrompt::PayLife { .. }
                 | YesNoPrompt::PayPact { .. }
                 | YesNoPrompt::Miracle { .. }
@@ -1825,6 +1841,9 @@ mod choice_tests {
             YesNoPrompt::Kicker,
             YesNoPrompt::PayLifeOrEnterTapped { amount: 1 },
             YesNoPrompt::PayTax { mana: 2 },
+            YesNoPrompt::PayMana {
+                cost: baylee_core::mana!("{G}{G}"),
+            },
             YesNoPrompt::PayLife { amount: 7 },
             YesNoPrompt::Miracle { card: object() },
             YesNoPrompt::CastWithoutPaying { card: object() },

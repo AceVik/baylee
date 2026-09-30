@@ -1858,6 +1858,8 @@ messages! {
     PayLife { en: "Pay {0} life?", de: "{0} Lebenspunkte bezahlen?" },
     /// Pay {{0}}?
     PayTax { en: "Pay {{0}}?", de: "{{0}} zahlen?" },
+    /// Pay a price with colour in it; the cost renders its own braces.
+    PayMana { en: "Pay {0}?", de: "{0} zahlen?" },
     /// The player may activate mana abilities before paying a pact.
     PayPact {
         en: "Pact: pay {0}. Make mana now? If you decline or finish without enough mana, you lose the game.",

@@ -1180,15 +1180,15 @@ impl<L: CardLookup> Engine<L> {
                     // otherwise be handed a question whose only answer is
                     // the one they just gave.
                     let asked = self.resolution.as_ref().and_then(|r| match r.awaiting {
-                        Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. }) => {
-                            Some((player, mana))
+                        Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. }) => {
+                            Some((player, cost))
                         }
                         _ => None,
                     });
-                    if let Some((payer, mana)) = asked
+                    if let Some((payer, cost)) = asked
                         && answer
                         && payer == player
-                        && !self.pool_pays_tax(player, mana)
+                        && !self.pool_pays_tax(player, &cost)
                     {
                         // Narrowed before any window exists, so the
                         // resolution is never lifted out of its slot for a
@@ -1630,14 +1630,14 @@ impl<L: CardLookup> Engine<L> {
     /// catch.
     fn can_settle_tax(&self, res: &crate::resolve::Resolution) -> bool {
         match res.awaiting {
-            Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. }) => {
-                self.pool_pays_tax(player, mana)
+            Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. }) => {
+                self.pool_pays_tax(player, &cost)
             }
             _ => false,
         }
     }
 
-    /// Whether `player`'s pool pays a tax of `mana` the way
+    /// Whether `player`'s pool pays a tax of `cost` the way
     /// `resume_tax_choice` will pay it.
     ///
     /// Asked of the payment and not of the pool's total, because the total
@@ -1646,12 +1646,13 @@ impl<L: CardLookup> Engine<L> {
     /// passed the total, was told it had paid, and tripped the assertion in
     /// `resume_tax_choice` (the refusal sweep, 2026-09-29) — and a seat
     /// holding it was never offered the window to make the mana it lacked.
-    fn pool_pays_tax(&self, player: PlayerId, mana: u16) -> bool {
+    ///
+    /// And of the payment rather than of the pool's size for a second
+    /// reason since the price may have colour in it: two floating red do
+    /// not pay Phantasmal Forces' `{U}`.
+    fn pool_pays_tax(&self, player: PlayerId, cost: &baylee_core::mana::ManaCost) -> bool {
         let mut pool = self.state.players[player.get() as usize].mana_pool.clone();
-        mana_pay::pay(
-            &mut pool,
-            &baylee_core::mana::ManaCost::parse(&format!("{{{mana}}}")),
-        )
+        mana_pay::pay(&mut pool, cost)
     }
 
     /// Ends a payment window and settles the payment it was opened for.

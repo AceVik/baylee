@@ -378,14 +378,16 @@ pub enum AwaitingOp {
         /// The position in [`CARD_TYPES`] to ask from next.
         next: usize,
     },
-    /// A player decides whether to pay generic mana: a tax
-    /// (`Effect::PlayerMayPayOr`, whose effect runs on a refusal) or a
-    /// price (`Effect::PlayerMayPayThen`, whose effects run on a payment).
+    /// A player decides whether to pay mana: a tax
+    /// (`Effect::PlayerMayPayOr`, `Effect::PlayerMayPayManaOr`, whose effect
+    /// runs on a refusal) or a price (`Effect::PlayerMayPayThen`,
+    /// `Effect::PlayerMayPayManaThen`, whose effects run on a payment).
     PlayerMayPay {
         /// The player deciding.
         player: PlayerId,
-        /// Generic mana to pay.
-        mana: u16,
+        /// The mana to pay: generic for the first two, as printed for the
+        /// other two.
+        cost: baylee_core::mana::ManaCost,
         /// The effects one of the two answers runs.
         effects: &'static [Effect],
         /// Whether paying is the answer that runs them.
@@ -1603,7 +1605,7 @@ pub fn resume_arranged(
 pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool) -> Flow {
     let AwaitingOp::PlayerMayPay {
         player,
-        mana,
+        cost,
         effects,
         on_payment,
     } = res.awaiting.take().expect("resume without awaiting op")
@@ -1613,11 +1615,8 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
     // `pay` mutates the pool — never hide the call behind `debug_assert!`,
     // which is not evaluated in release. A failed payment takes the
     // not-paid fallback, exactly as if the player had declined.
-    let actually_paid = paid
-        && mana_pay::pay(
-            &mut state.players[player.get() as usize].mana_pool,
-            &baylee_core::mana::ManaCost::parse(&format!("{{{mana}}}")),
-        );
+    let actually_paid =
+        paid && mana_pay::pay(&mut state.players[player.get() as usize].mana_pool, &cost);
     debug_assert!(!paid || actually_paid, "tax was offered as payable");
     // A tax runs its effect on a refusal and a price on a payment; the
     // other answer is the ability doing nothing more.
@@ -2833,6 +2832,8 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayThen { .. }
+        | Effect::PlayerMayPayManaOr { .. }
+        | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::ReorderTopLibrary { .. }
@@ -3084,13 +3085,54 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             // no access to the engine's priority machinery.
             res.awaiting = Some(AwaitingOp::PlayerMayPay {
                 player,
-                mana,
+                cost: baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
                 effects: std::slice::from_ref(effect),
                 on_payment: false,
             });
             Some(Pending::YesNo {
                 player,
                 prompt: YesNoPrompt::PayTax { mana },
+                source: resolving_ability(state, res),
+            })
+        }
+        // The tax above with a printed, coloured price: the same question,
+        // put for the same reason (CR 605.3a) whether or not the mana is
+        // floating, and the same answer checked against the pool in
+        // `Engine::apply`. Only the prompt differs, because "Pay {2}?" is a
+        // number and "Pay {U}?" is not.
+        Effect::PlayerMayPayManaOr {
+            player,
+            cost,
+            effect,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                player,
+                cost,
+                effects: std::slice::from_ref(effect),
+                on_payment: false,
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayMana { cost },
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::PlayerMayPayManaThen {
+            player,
+            cost,
+            effects,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                player,
+                cost,
+                effects,
+                on_payment: true,
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayMana { cost },
                 source: resolving_ability(state, res),
             })
         }
@@ -3108,7 +3150,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             let mana = u16::try_from(amount2(&mana, state, you, res)).unwrap_or(u16::MAX);
             res.awaiting = Some(AwaitingOp::PlayerMayPay {
                 player,
-                mana,
+                cost: baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
                 effects,
                 on_payment: true,
             });
@@ -4621,6 +4663,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayThen { .. }
+        | Effect::PlayerMayPayManaOr { .. }
+        | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::ReorderTopLibrary { .. }
@@ -4835,6 +4879,16 @@ mod price_tests {
         mana: Amount::Fixed(1),
         effect: &GAIN,
     }];
+    static BLUE_PRICE: &[Effect] = &[Effect::PlayerMayPayManaThen {
+        player: PlayerRel::You,
+        cost: baylee_core::mana!("{U}"),
+        effects: std::slice::from_ref(&GAIN),
+    }];
+    static BLUE_TAX: &[Effect] = &[Effect::PlayerMayPayManaOr {
+        player: PlayerRel::You,
+        cost: baylee_core::mana!("{U}"),
+        effect: &GAIN,
+    }];
 
     fn me() -> PlayerId {
         PlayerId::new(0)
@@ -4843,13 +4897,43 @@ mod price_tests {
     /// A game with one mana floating in `me`'s pool and a resolution of
     /// `effects` from a bare permanent of theirs.
     fn asked(effects: &'static [Effect]) -> (GameState, Resolution) {
+        let (mut state, mut res) = resolving(effects, ManaColor::Colorless);
+        let Flow::Wait(Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayTax { mana },
+            ..
+        }) = run(&mut state, &mut res)
+        else {
+            panic!("a payment is a question put as the ability resolves (CR 608.2d)");
+        };
+        assert_eq!((player, mana), (me(), 1));
+        (state, res)
+    }
+
+    /// The same, with the mana floating in `floating` and the question
+    /// asked for a printed price with colour in it.
+    fn asked_for_blue(effects: &'static [Effect], floating: ManaColor) -> (GameState, Resolution) {
+        let (mut state, mut res) = resolving(effects, floating);
+        let Flow::Wait(Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayMana { cost },
+            ..
+        }) = run(&mut state, &mut res)
+        else {
+            panic!("a coloured price is the same question, put with its colour");
+        };
+        assert_eq!((player, cost), (me(), baylee_core::mana!("{U}")));
+        (state, res)
+    }
+
+    fn resolving(effects: &'static [Effect], floating: ManaColor) -> (GameState, Resolution) {
         let mut state = GameState::from_preset(&preset(13, &[]), &SyntheticLookup::new(vec![]))
             .expect("a two-seat game");
         let name = state.names.intern("Crystal Rod");
         let source =
             state.create_bare(me(), ObjectKind::Permanent, name, ZoneLocation::Battlefield);
-        state.players[0].mana_pool.add(ManaColor::Colorless, 1);
-        let mut res = Resolution {
+        state.players[0].mana_pool.add(floating, 1);
+        let res = Resolution {
             source,
             on_stack: source,
             controller: me(),
@@ -4868,15 +4952,6 @@ mod price_tests {
             target_lki: None,
             retarget_left: None,
         };
-        let Flow::Wait(Pending::YesNo {
-            player,
-            prompt: YesNoPrompt::PayTax { mana },
-            ..
-        }) = run(&mut state, &mut res)
-        else {
-            panic!("a payment is a question put as the ability resolves (CR 608.2d)");
-        };
-        assert_eq!((player, mana), (me(), 1));
         (state, res)
     }
 
@@ -4920,6 +4995,38 @@ mod price_tests {
         let before = life(&state);
         let _ = resume_tax_choice(&mut state, &mut res, false);
         assert_eq!(life(&state), before + 1, "refused: the effect runs");
+    }
+
+    /// A price with colour in it is charged as printed (CR 118.12a): the
+    /// blue that pays it leaves the pool, on either answer's side of the
+    /// pair. Which pools *can* pay is the engine's to check before it
+    /// answers yes (`pool_pays_tax`); `keyword_tests` plays that half.
+    #[test]
+    fn a_coloured_price_is_asked_and_paid_as_printed() {
+        let (mut state, mut res) = asked_for_blue(BLUE_PRICE, ManaColor::Blue);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, true);
+        assert_eq!(life(&state), before + 1, "paid: the clause is bought");
+        assert_eq!(
+            state.players[0].mana_pool.total(),
+            0,
+            "and the {{U}} is gone"
+        );
+
+        let (mut state, mut res) = asked_for_blue(BLUE_TAX, ManaColor::Blue);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, true);
+        assert_eq!(life(&state), before, "paid: the tax's effect is avoided");
+
+        let (mut state, mut res) = asked_for_blue(BLUE_TAX, ManaColor::Red);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, false);
+        assert_eq!(life(&state), before + 1, "refused: the effect runs");
+        assert_eq!(
+            state.players[0].mana_pool.available(ManaColor::Red),
+            1,
+            "and nothing was taken"
+        );
     }
 }
 

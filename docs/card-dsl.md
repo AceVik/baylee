@@ -2016,6 +2016,41 @@ Filters, conditions, modifiers and durations:
   on an enters trigger. "Escapes with" counters (CR 702.138c) are not
   written yet.
 
+### Pieces added for Limited Edition Alpha (30.09.2026)
+
+- **`PtCount::OnBattlefield(&filter)`** counts every permanent on the
+  battlefield the filter matches, whoever controls it: Plague Rats' "the
+  number of creatures named Plague Rats on the battlefield", beside
+  `YouControl`'s one side of the table.
+- **`Effect::UntapAll { filter }`** and **`Effect::RegenerateAll { filter }`**
+  are `TapAll`'s mirror and a regeneration shield (CR 701.19a) on every
+  permanent the filter matches as the effect resolves, targeting nothing.
+  An Aura's "untap enchanted creature" (Instill Energy) and "regenerate
+  enchanted creature" (Regeneration) name the host through
+  `Filter::AttachedToBySource`.
+- **`Condition::BattlefieldCount(&filter, n)`** and
+  **`BattlefieldCountAtMost(&filter, n)`** are `ControlCount` and
+  `ControlCountAtMost` over the whole battlefield: Pestilence's "if no
+  creatures are on the battlefield" is `BattlefieldCountAtMost(&CREATURE, 0)`.
+- **`Filter::ControlledByActivePlayer`** matches what the player whose turn
+  it is controls (CR 102.1): Karma's "the number of Swamps they control", at
+  the beginning of each player's upkeep. It is not a relation to "you".
+- **`Filter::CmcExactlyX`** is "mana value X" read off the source's
+  announced X, where `CmcAtMostX` reads "X or less" (Spell Blast). X is
+  announced before targets are chosen (CR 601.2b, 601.2c), so the target
+  menu is the objects of the X just announced; the cast is offered while
+  any X would find one.
+- **`Effect::PlayerMayPayManaOr { player, cost, effect }`** and
+  **`PlayerMayPayManaThen { player, cost, effects }`** are `PlayerMayPayOr`
+  and `PlayerMayPayThen` with a printed price that has colour in it:
+  Phantasmal Forces' "sacrifice it unless you pay {U}" (`cost: mana!("{U}")`),
+  Force of Nature's `{G}{G}{G}{G}`, Farmstead's "you may pay {W}{W}. If you
+  do, …". "Unless" means "may pay; if they don't" (CR 118.12a), and the
+  question is put and paid exactly as the generic tax's, CR 605.3a window
+  included; only the pool that can pay differs, since two red do not pay
+  `{U}`. Generic prices stay on the `Amount` pair: that price may be known
+  only as the ability resolves (Esper Sentinel), a printed colour never is.
+
 ## Worked examples
 
 A land with two basic land types must print its own mana ability. CR 305.6

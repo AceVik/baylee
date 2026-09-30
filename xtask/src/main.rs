@@ -2413,6 +2413,8 @@ fn check_optional_clauses_are_offered(
         "PayLifeOrEnterTapped",
         "PlayerMayPayOr",
         "PlayerMayPayThen",
+        "PlayerMayPayManaOr",
+        "PlayerMayPayManaThen",
         "PreventNextFromChosenSource",
         "CopyOnEnter",
         "CopyTargetSpell",

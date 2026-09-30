@@ -1986,3 +1986,33 @@ land type"; both are convention tests that fire on a first try.
   it when its impulse was written: a new permission effect (here
   `ExileTopMayCast`) belongs on `OFFERS_A_CHOICE` in xtask with its
   argument. Run `xtask validate` before the gate after flipping coverage.
+
+## 30.09.2026 — Limited Edition Alpha, reader first
+
+- **An absent `ValidPlayer$` on a `Phase` trigger is every player's step.**
+  The reference writes `ValidPlayer$ You` for "your upkeep" and nothing for
+  "each upkeep"; reading the absence as "your" generated Verdant Force as a
+  card that made a Saproling on one upkeep in two, under `Implemented`.
+  Pestilence's "the end step" is the same reading.
+- **X is announced before targets are chosen (CR 601.2b, 601.2c).** A
+  target filter that reads X (`CmcExactlyX`, `CmcAtMostX`) read the card's
+  X as it lay in hand, 0, both in the offer and at the target menu: Spell
+  Blast was never offered against a spell of mana value 2. The card carries
+  the announced X from the X answer on; the offer asks "a target for some
+  X".
+- **A count with no controller named is the whole battlefield, not a
+  refusal.** `IsPresent$ Creature` with no `YouCtrl` was refused as "a
+  count with no player"; it is `Condition::BattlefieldCount`. A filter that
+  names somebody else's (`OppCtrl`) is the third question, refused by name.
+  `PresentCompare$ EQ0` is "none", `BattlefieldCountAtMost(…, 0)`.
+- **The price of "unless" belongs to the line, not to its effect.**
+  `UnlessCost$` was read inside the `Sacrifice` rule only, so Force of
+  Nature's "8 damage to you unless you pay {G}{G}{G}{G}" had no reader. It
+  is lifted in `chain()` for every API and wraps whatever the line says. A
+  colour in the price is printed exactly (`PlayerMayPayManaOr`): charged as
+  generic, a Mountain would keep Phantasmal Forces.
+- **Spell additional costs are refused by the reader.** "As an additional
+  cost to cast this spell, sacrifice a creature" (Sacrifice) is a hand-owned
+  card with `mandatory_additional_costs`; a reader rule for `Sacrificed$`
+  was written and removed again, because it read the effect and not the
+  cost.

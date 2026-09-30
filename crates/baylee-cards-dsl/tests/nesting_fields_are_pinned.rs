@@ -46,7 +46,10 @@
 /// `verb_tests::the_nth_resolution_branch_is_visited`.
 /// Raised 21 → 22 for `PlayerMayPayThen` (Crystal Rod: "you may pay {1}. If
 /// you do, …"); `verb_tests::a_price_paid_body_is_visited`.
-const NESTING_FIELDS: usize = 22;
+/// Raised 22 → 24 for `PlayerMayPayManaOr` and `PlayerMayPayManaThen`
+/// (Phantasmal Forces, Farmstead: a price with colour in it);
+/// `verb_tests::a_coloured_price_body_is_visited`.
+const NESTING_FIELDS: usize = 24;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -71,7 +74,9 @@ const NESTING_FIELDS: usize = 22;
 /// did `IfResolvedTimesThisTurn` the same day.
 ///
 /// `PlayerMayPayThen` moved both on 2026-09-29: one new carrier, one branch.
-const CARRYING_VARIANTS: usize = 19;
+/// `PlayerMayPayManaOr` and `PlayerMayPayManaThen` moved both on 2026-09-30:
+/// two new carriers, one branch each.
+const CARRYING_VARIANTS: usize = 21;
 
 /// The floor under the reader itself.
 ///

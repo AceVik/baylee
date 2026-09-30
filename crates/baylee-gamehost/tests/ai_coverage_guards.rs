@@ -776,9 +776,9 @@ fn the_pool_hides_effects_behind_a_price() {
     let behind: Vec<&'static Effect> = all
         .iter()
         .flat_map(|effect| match effect {
-            Effect::PlayerMayPayOr { .. } | Effect::PlayerMayPayCostOr { .. } => {
-                effect.branches().0
-            }
+            Effect::PlayerMayPayOr { .. }
+            | Effect::PlayerMayPayManaOr { .. }
+            | Effect::PlayerMayPayCostOr { .. } => effect.branches().0,
             _ => &[][..],
         })
         .collect();
