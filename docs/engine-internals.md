@@ -305,6 +305,20 @@ its event amount is the step's total to that player (`trigger::event_damage_of`
 takes the trigger for that reason). A source's trigger in the same batch
 (`DealsCombatDamageToOpponent`) keeps its own share.
 
+At a table of several defending players (CR 802.2, the attack multiple
+players option Free-for-All and Team vs. Team use), "each defending player
+in APNAP order declares blockers", each all their blocks before the next
+(802.4), and "those creatures can block only creatures attacking that
+player, a planeswalker that player controls" (802.4a). `can_block` asks
+`combat::blocking_player` of the attacker's `Defender` (a departed
+planeswalker's last known controller, CR 506.4c, 802.2a), so the offer,
+`declare_blockers` and `answer_fault` agree on it.
+`Engine::next_defending_player` walks turn order from the active player
+(CR 101.4) over the seats something attacks; `declare_blockers` asks the
+next one itself (`CombatDeclared::BlockersBy`) rather than returning to the
+machine, so no block trigger reaches the stack before the last declaration
+(509.2a).
+
 ## What must block, and how many (CR 509.1a, 509.1c)
 Four rules modifiers change a declaration of blockers, statics or
 until-end-of-turn effects on `Layer::Text` like the attack ones:

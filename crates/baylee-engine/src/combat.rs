@@ -108,8 +108,9 @@ pub struct BlockerInfo {
 pub struct CombatState {
     /// Declared attackers, in declaration order.
     attackers: Vec<AttackerInfo>,
-    /// The same creatures as `attackers`, sorted, for [`Self::is_attacking`].
-    attacking: Vec<ObjectId>,
+    /// The same creatures as `attackers`, sorted, each with what it
+    /// attacks, for [`Self::is_attacking`] and [`Self::defender_of`].
+    attacking: Vec<(ObjectId, Defender)>,
     /// Declared blockers.
     pub blockers: Vec<BlockerInfo>,
     /// The divisions players have chosen for the damage step about to be
@@ -144,7 +145,19 @@ impl CombatState {
     /// Whether `id` is an attacking creature (CR 506.3), in `O(log n)`.
     #[must_use]
     pub fn is_attacking(&self, id: ObjectId) -> bool {
-        self.attacking.binary_search(&id).is_ok()
+        self.attacking
+            .binary_search_by_key(&id, |(c, _)| *c)
+            .is_ok()
+    }
+
+    /// What `id` attacks, if it is attacking, in `O(log n)`: the
+    /// declare-blockers offer asks it of every pairing (CR 802.4a).
+    #[must_use]
+    pub fn defender_of(&self, id: ObjectId) -> Option<Defender> {
+        self.attacking
+            .binary_search_by_key(&id, |(c, _)| *c)
+            .ok()
+            .map(|at| self.attacking[at].1)
     }
 
     /// Declares attackers after the ones already declared, in the order
@@ -165,9 +178,9 @@ impl CombatState {
     fn reindex(&mut self) {
         self.attacking.clear();
         self.attacking
-            .extend(self.attackers.iter().map(|a| a.creature));
-        self.attacking.sort_unstable();
-        self.attacking.dedup();
+            .extend(self.attackers.iter().map(|a| (a.creature, a.defending)));
+        self.attacking.sort_unstable_by_key(|(c, _)| *c);
+        self.attacking.dedup_by_key(|(c, _)| *c);
     }
 
     /// Puts `members` in one band (CR 702.22c), under a number no band has
@@ -307,7 +320,7 @@ impl CombatState {
     /// other attacker — that is a fact about the attacker, not about the
     /// blocker that has left.
     pub fn remove_from_combat(&mut self, id: ObjectId) {
-        if let Ok(at) = self.attacking.binary_search(&id) {
+        if let Ok(at) = self.attacking.binary_search_by_key(&id, |(c, _)| *c) {
             self.attacking.remove(at);
             self.attackers.retain(|a| a.creature != id);
         }
@@ -399,6 +412,23 @@ pub fn defending_player(state: &GameState, defender: Defender) -> Option<PlayerI
                 o.zone == crate::zone::Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
             })
             .map(|o| o.controller),
+    }
+}
+
+/// The defending player whose creatures may block a creature attacking
+/// `defender` (CR 802.4a: "those creatures can block only creatures
+/// attacking that player, a planeswalker that player controls").
+///
+/// Unlike [`defending_player`], a planeswalker that has left the battlefield
+/// still names somebody: its attacker "may be blocked" (CR 506.4c), and the
+/// defending player an attacker refers to is then "the controller of the
+/// planeswalker that creature was attacking before it was removed from
+/// combat" (CR 802.2a), which is the walker's last known controller.
+#[must_use]
+pub fn blocking_player(state: &GameState, defender: Defender) -> Option<PlayerId> {
+    match defender {
+        Defender::Player(p) => Some(p),
+        Defender::Planeswalker(id) => state.last_known_controller(id),
     }
 }
 
@@ -591,7 +621,9 @@ pub fn controls_land_of_type(state: &GameState, player: PlayerId, subtype: Subty
     })
 }
 
-/// Whether `blocker` may block `attacker` (keyword restrictions included).
+/// Whether `defending` may block `attacker` with `blocker` (keyword
+/// restrictions included): only a creature attacking that player or one of
+/// their planeswalkers (CR 509.1a, 802.4a).
 #[must_use]
 pub fn can_block(
     state: &GameState,
@@ -602,6 +634,17 @@ pub fn can_block(
     let (Some(b), Some(a)) = (state.object(blocker), state.object(attacker)) else {
         return false;
     };
+    // CR 509.1a, and at a table of several defending players 802.4a: a
+    // defending player blocks only "creatures attacking that player, a
+    // planeswalker that player controls". A creature not declared as an
+    // attacker is asked only about its keywords (the pair's own half).
+    if state
+        .combat
+        .defender_of(attacker)
+        .is_some_and(|d| blocking_player(state, d) != Some(defending))
+    {
+        return false;
+    }
     if !ready_to_block(b, defending)
         || a.zone != crate::zone::Zone::Battlefield
         || a.status.contains(Status::PHASED_OUT)

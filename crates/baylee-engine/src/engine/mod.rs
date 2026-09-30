@@ -64,6 +64,10 @@ impl From<crate::choice::AnswerFault> for EngineError {
 enum CombatDeclared {
     None,
     Attackers,
+    /// The blocks of every defending player up to and including this one,
+    /// in APNAP order, are declared, and more defending players are still
+    /// to declare (CR 802.4).
+    BlockersBy(PlayerId),
     Blockers,
 }
 

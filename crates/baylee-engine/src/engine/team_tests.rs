@@ -394,3 +394,128 @@ fn the_harness_can_seat_a_table_and_put_it_on_sides() {
         "two other players, one opponent"
     );
 }
+
+/// Passes priority until `seat` is asked to declare attackers.
+fn until_attack(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
+    for _ in 0..40 {
+        match engine.pending().clone() {
+            Pending::ChooseAttackers {
+                player, attackers, ..
+            } if player == seat => return attackers,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected on the way to combat: {other:?}"),
+        }
+    }
+    panic!("seat {seat:?} was never asked to attack");
+}
+
+/// Passes priority until somebody is asked to declare blockers.
+fn until_blocks(engine: &mut Engine<RegistryLookup>) -> Pending {
+    for _ in 0..40 {
+        match engine.pending().clone() {
+            question @ Pending::ChooseBlockers { .. } => return question,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected before blocks: {other:?}"),
+        }
+    }
+    panic!("nobody was asked to block");
+}
+
+/// A split attack at a table of four (CR 802.4, attack multiple players,
+/// the Free-for-All and Team vs. Team default): "each defending player in
+/// APNAP order declares blockers", and "those creatures can block only
+/// creatures attacking that player" (802.4a). Seat 1 was once asked for
+/// every block and offered the creature attacking seat 2, and seat 2 was
+/// never asked at all.
+#[test]
+fn each_defending_player_blocks_only_what_attacks_them_in_apnap_order() {
+    let c = creature();
+    let mut engine = table_with(&[None, None, None, None], &[&[c, c], &[c], &[c], &[c]], 13);
+    let seat = PlayerId::new;
+    let attackers = until_attack(&mut engine, seat(0));
+    let [at_one, at_two] = attackers[..] else {
+        panic!("both creatures may attack: {attackers:?}")
+    };
+    engine
+        .apply(
+            seat(0),
+            PlayerAction::DeclareAttackers {
+                attackers: vec![
+                    (at_one, baylee_core::ids::Defender::Player(seat(1))),
+                    (at_two, baylee_core::ids::Defender::Player(seat(2))),
+                ],
+            },
+        )
+        .expect("the split attack is legal");
+    let blocker = |engine: &Engine<RegistryLookup>, s: u8| theirs(engine, seat(s), c);
+    let (b1, b2) = (blocker(&engine, 1), blocker(&engine, 2));
+
+    // Seat 1 first (the next in turn order after the active player), and
+    // only for the creature attacking it.
+    let first = until_blocks(&mut engine);
+    let Pending::ChooseBlockers {
+        player, blockers, ..
+    } = &first
+    else {
+        unreachable!()
+    };
+    assert_eq!(*player, seat(1), "{first:?}");
+    assert!(
+        blockers.iter().all(|o| o.attackers == [at_one]),
+        "seat 1 is offered only the creature attacking it: {blockers:?}"
+    );
+    let poach = PlayerAction::DeclareBlockers {
+        blockers: vec![(b1, at_two)],
+    };
+    assert_eq!(
+        first.answer_fault(&poach),
+        Some(crate::choice::AnswerFault::NotOffered)
+    );
+    assert!(
+        engine.apply(seat(1), poach).is_err(),
+        "seat 1 may not block the creature attacking seat 2"
+    );
+    engine
+        .apply(
+            seat(1),
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(b1, at_one)],
+            },
+        )
+        .expect("seat 1 blocks what attacks it");
+
+    // Then seat 2, before anybody holds priority, for its own attacker.
+    let Pending::ChooseBlockers {
+        player, blockers, ..
+    } = engine.pending().clone()
+    else {
+        panic!("seat 2 is asked next: {:?}", engine.pending())
+    };
+    assert_eq!(player, seat(2));
+    assert!(
+        blockers.iter().all(|o| o.attackers == [at_two]),
+        "seat 2 is offered only the creature attacking it: {blockers:?}"
+    );
+    engine
+        .apply(
+            seat(2),
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(b2, at_two)],
+            },
+        )
+        .expect("seat 2 blocks what attacks it");
+
+    // Seat 3 is attacked by nothing and is not asked.
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseBlockers { .. }),
+        "{:?}",
+        engine.pending()
+    );
+    let combat = &engine.state().combat;
+    assert_eq!(combat.blockers_of(at_one), [b1]);
+    assert_eq!(combat.blockers_of(at_two), [b2]);
+}

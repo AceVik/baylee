@@ -550,55 +550,104 @@ impl<L: CardLookup> Engine<L> {
                 true
             }
             Step::DeclareBlockers if self.combat_declared != CombatDeclared::Blockers => {
-                let active = self.state.turn.active;
-                // Whoever is actually being attacked declares the blocks —
-                // which, once planeswalkers can be attacked, is the walker's
-                // controller and not merely the next seat along. With no
-                // attackers there is nobody to ask, so the seat order stands.
-                let defending = self
-                    .state
-                    .combat
-                    .attackers()
-                    .first()
-                    .and_then(|a| combat::defending_player(&self.state, a.defending))
-                    .unwrap_or_else(|| self.next_alive_after(active));
-                let blockers = combat::block_options(&self.state, defending);
-                let rules = combat::BlockRules::new(&self.state);
-                let capacity = blockers
-                    .iter()
-                    .filter_map(|o| {
-                        let most = rules.capacity(o.blocker);
-                        (most != Some(1)).then(|| crate::choice::BlockCapacity {
-                            blocker: o.blocker,
-                            most: most.map(|n| u8::try_from(n).unwrap_or(u8::MAX)),
-                        })
-                    })
-                    .collect();
-                let obeying = rules.obeying(&blockers);
-                // The counts the declaration as a whole is held to
-                // (CR 509.1b), for the attackers somebody may block.
-                let bounds = self
-                    .state
-                    .combat
-                    .attackers()
-                    .iter()
-                    .map(|a| a.creature)
-                    .filter(|a| blockers.iter().any(|o| o.attackers.contains(a)))
-                    .filter_map(|a| combat::block_bound(&self.state, a))
-                    .collect();
-                self.pending = Pending::ChooseBlockers {
-                    player: defending,
-                    attacker: active,
-                    blockers,
-                    capacity,
-                    obeying,
-                    bounds,
+                let after = match self.combat_declared {
+                    CombatDeclared::BlockersBy(seat) => Some(seat),
+                    _ => None,
                 };
-                self.awaiting_answer = true;
+                let defending = match (self.next_defending_player(after), after) {
+                    (Some(seat), _) => seat,
+                    // With no attackers there is nobody to ask, so the seat
+                    // order stands and the declaration is an empty one.
+                    (None, None) => self.next_alive_after(self.state.turn.active),
+                    // `declare_blockers` asks the next one itself, so this
+                    // is a table whose last defending player left between.
+                    (None, Some(_)) => {
+                        self.combat_declared = CombatDeclared::Blockers;
+                        return false;
+                    }
+                };
+                self.ask_blockers(defending);
                 true
             }
             _ => self.priority_round(),
         }
+    }
+
+    /// The next defending player to declare blockers after `after` (from
+    /// the first when `None`), or `None` when every one has.
+    ///
+    /// "If more than one player is being attacked, controls a planeswalker
+    /// that's being attacked, or protects a battle that's being attacked,
+    /// each defending player in APNAP order declares blockers as the
+    /// declare blockers step begins. … The first defending player declares
+    /// all their blocks, then the second defending player, and so on"
+    /// (CR 802.4); APNAP order is the active player, then "the remaining
+    /// nonactive players in turn order" (CR 101.4). A player nothing
+    /// attacks has no creature it could block with (802.4a) and is not
+    /// asked.
+    pub(crate) fn next_defending_player(&self, after: Option<PlayerId>) -> Option<PlayerId> {
+        let n = u8::try_from(self.state.players.len()).unwrap_or(u8::MAX);
+        let active = self.state.turn.active.get();
+        let attacked = |seat: PlayerId| {
+            self.state
+                .combat
+                .attackers()
+                .iter()
+                .any(|a| combat::blocking_player(&self.state, a.defending) == Some(seat))
+        };
+        let order: Vec<PlayerId> = (1..n)
+            .map(|offset| PlayerId::new((active + offset) % n))
+            .filter(|seat| !self.state.players[usize::from(seat.get())].has_lost())
+            .filter(|seat| attacked(*seat))
+            .collect();
+        let start = after.map_or(0, |seat| {
+            order
+                .iter()
+                .position(|s| *s == seat)
+                .map_or(order.len(), |at| at + 1)
+        });
+        order.get(start).copied()
+    }
+
+    /// Asks `defending` for its blocks (CR 509.1): each creature it may
+    /// block with and what it may block, how many attackers each may block
+    /// (509.1a), one declaration obeying the requirements (509.1c) and the
+    /// counts the declaration as a whole is held to (509.1b).
+    pub(crate) fn ask_blockers(&mut self, defending: PlayerId) {
+        let active = self.state.turn.active;
+        let blockers = combat::block_options(&self.state, defending);
+        let rules = combat::BlockRules::new(&self.state);
+        let capacity = blockers
+            .iter()
+            .filter_map(|o| {
+                let most = rules.capacity(o.blocker);
+                (most != Some(1)).then(|| crate::choice::BlockCapacity {
+                    blocker: o.blocker,
+                    most: most.map(|n| u8::try_from(n).unwrap_or(u8::MAX)),
+                })
+            })
+            .collect();
+        let obeying = rules.obeying(&blockers);
+        // The counts the declaration as a whole is held to (CR 509.1b),
+        // for the attackers somebody may block.
+        let bounds = self
+            .state
+            .combat
+            .attackers()
+            .iter()
+            .map(|a| a.creature)
+            .filter(|a| blockers.iter().any(|o| o.attackers.contains(a)))
+            .filter_map(|a| combat::block_bound(&self.state, a))
+            .collect();
+        self.pending = Pending::ChooseBlockers {
+            player: defending,
+            attacker: active,
+            blockers,
+            capacity,
+            obeying,
+            bounds,
+        };
+        self.awaiting_answer = true;
     }
 
     /// The declare-attackers question for `attacker` (CR 508.1): what may

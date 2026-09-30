@@ -1910,9 +1910,19 @@ impl<L: CardLookup> Engine<L> {
         // `Filter::Blocking` and `Filter::Unblocked` just changed for the
         // reason `declare_attackers` gives for `Filter::Attacking`.
         self.state.board_state_changed();
-        self.combat_declared = CombatDeclared::Blockers;
         self.passes = 0;
         self.priority_holder = None;
+        // CR 802.4: the next defending player in APNAP order declares all
+        // their blocks. Asked here and not by the machine, so no ability
+        // that triggered on a block reaches the stack before the last
+        // defending player has declared (CR 509.2a: they are put onto the
+        // stack "before the active player gets priority").
+        if let Some(next) = self.next_defending_player(Some(defending)) {
+            self.combat_declared = CombatDeclared::BlockersBy(defending);
+            self.ask_blockers(next);
+            return Ok(());
+        }
+        self.combat_declared = CombatDeclared::Blockers;
         Ok(())
     }
 
