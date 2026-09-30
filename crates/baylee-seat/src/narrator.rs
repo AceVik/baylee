@@ -44,7 +44,7 @@ mod board;
 mod menu;
 mod words;
 
-pub use menu::{Act, Decision, Hint, Menu, Resolved};
+pub use menu::{Act, Decision, Hint, Menu, Resolved, tap};
 pub use words::KEYWORDS;
 
 use crate::mind::{GameContext, Request};
@@ -567,4 +567,4 @@ fn object_name(object: &PublicObject) -> String {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

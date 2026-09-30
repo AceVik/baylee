@@ -29,6 +29,7 @@ pub mod bridge;
 pub mod deck;
 pub mod house;
 pub mod link;
+pub mod llm;
 pub mod lobby;
 pub mod memory;
 pub mod mind;

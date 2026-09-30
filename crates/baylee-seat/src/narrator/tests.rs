@@ -17,10 +17,10 @@ use baylee_view::{
 use std::sync::Arc;
 use std::time::Duration;
 
-const ME: PlayerId = PlayerId::new(0);
-const THEM: PlayerId = PlayerId::new(1);
+pub(crate) const ME: PlayerId = PlayerId::new(0);
+pub(crate) const THEM: PlayerId = PlayerId::new(1);
 
-fn identity(name: &str) -> CardIdentity {
+pub(crate) fn identity(name: &str) -> CardIdentity {
     let index = baylee_cards::decks::by_name(name).unwrap_or_else(|| panic!("{name}"));
     CardIdentity {
         index,
@@ -29,12 +29,12 @@ fn identity(name: &str) -> CardIdentity {
     }
 }
 
-fn id(slot: u32) -> ObjectId {
+pub(crate) fn id(slot: u32) -> ObjectId {
     ObjectId::new(slot, 0)
 }
 
 /// A permanent as the view would project a real card with nothing on it.
-fn card(slot: u32, name: &str) -> PublicObject {
+pub(crate) fn card(slot: u32, name: &str) -> PublicObject {
     let identity = identity(name);
     let def = baylee_cards::by_index(identity.index).expect("a pool card");
     let face = &def.faces[0];
@@ -55,7 +55,7 @@ fn tapped(mut object: PublicObject) -> PublicObject {
     object
 }
 
-fn in_hand(slot: u32, name: &str) -> HandObject {
+pub(crate) fn in_hand(slot: u32, name: &str) -> HandObject {
     let identity = identity(name);
     let def = baylee_cards::by_index(identity.index).expect("a pool card");
     HandObject {
@@ -98,7 +98,7 @@ const DECK: [&str; 8] = [
     "Shock",
 ];
 
-fn context() -> GameContext {
+pub(crate) fn context() -> GameContext {
     GameContext {
         game_id: "golden".into(),
         seat: ME,
@@ -127,7 +127,7 @@ fn context() -> GameContext {
 }
 
 /// Turn 7, the seat's precombat main phase, after the opponent's turn.
-fn board() -> (PlayerView, LogTail) {
+pub(crate) fn board() -> (PlayerView, LogTail) {
     let serra = card(45, "Serra Angel");
     let mut morph = token(46, 1, "", 2, 2);
     morph.status = ObjectStatus::FACE_DOWN;
@@ -245,7 +245,7 @@ fn since_last(
     }
 }
 
-fn priority(view: &PlayerView) -> Pending {
+pub(crate) fn priority(view: &PlayerView) -> Pending {
     let _ = view;
     Pending::Priority {
         player: ME,
@@ -260,7 +260,7 @@ fn priority(view: &PlayerView) -> Pending {
     }
 }
 
-fn request(view: PlayerView, pending: Pending, log: LogTail) -> Request {
+pub(crate) fn request(view: PlayerView, pending: Pending, log: LogTail) -> Request {
     Request {
         context: Arc::new(context()),
         question: 12,
