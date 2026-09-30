@@ -20661,3 +20661,494 @@ fn wild_growth_adds_an_additional_green_when_the_enchanted_land_taps_for_mana() 
         "Wild Growth's additional {{G}}"
     );
 }
+
+fn stasis() -> CardIndex {
+    card_index("a8cf1379-0195-4e11-b994-481ef1284245")
+}
+
+/// Stasis: "Players skip their untap steps." A permanent tapped during the
+/// turn Stasis is cast is still tapped on its controller's next turn; the
+/// counter-check is the identical board without Stasis, where the same land
+/// untaps on schedule.
+#[test]
+fn stasis_skips_every_players_untap_step() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), forest()])
+        .hand(0, &[stasis()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let island_id = on_battlefield(&engine, p0, island()).expect("the Island is seated");
+    cast_from_hand(&mut engine, p0, stasis());
+    pass_until(&mut engine, |e| on_battlefield(e, p0, stasis()).is_some());
+    assert!(
+        is_tapped(&engine, island_id),
+        "the Island paid Stasis's {{1}}{{U}}"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Upkeep
+    });
+    // The untap step always comes before the upkeep step, so reaching p0's
+    // upkeep is itself proof their untap step already came and went.
+    assert!(
+        is_tapped(&engine, island_id),
+        "Stasis skips every player's untap step: the Island that paid for \
+         it is still tapped on p0's own next turn"
+    );
+
+    // Counter-check: the identical board, minus Stasis, untaps on schedule.
+    let mut bare = Duel::new(SEED, forest())
+        .battlefield(0, &[island()])
+        .start();
+    keep_mulligans(&mut bare);
+    reach_main_phase(&mut bare, p0);
+    let bare_island = on_battlefield(&bare, p0, island()).expect("the Island is seated");
+    bare.apply(
+        p0,
+        PlayerAction::ActivateManaAbility {
+            source: bare_island,
+        },
+    )
+    .unwrap();
+    assert!(is_tapped(&bare, bare_island), "tapped for its own mana");
+
+    reach_their_main_phase(&mut bare, p1);
+    pass_until(&mut bare, |e| {
+        e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Upkeep
+    });
+    assert!(
+        !is_tapped(&bare, bare_island),
+        "without Stasis the same land untaps on the controller's next turn"
+    );
+}
+
+/// Stasis: "At the beginning of your upkeep, sacrifice this enchantment
+/// unless you pay {U}." Paying keeps it on the battlefield; declining sends
+/// it to the graveyard.
+#[test]
+fn stasis_upkeep_trigger_pays_u_or_sacrifices_itself() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+
+    // Paying {U} keeps Stasis.
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), forest(), island()])
+        .hand(0, &[stasis()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let islands = all_on_battlefield(&engine, p0, island());
+    assert_eq!(islands.len(), 2, "two Islands are seated");
+    let reserved = islands[0];
+    tap_mana_except(&mut engine, p0, reserved);
+    cast_with_floating(&mut engine, p0, stasis());
+    pass_until(&mut engine, |e| on_battlefield(e, p0, stasis()).is_some());
+
+    reach_their_main_phase(&mut engine, p1);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayMana { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on the question")
+    };
+    assert_eq!(player, p0, "\"your upkeep\" asks Stasis's own controller");
+    assert_eq!(
+        prompt,
+        YesNoPrompt::PayMana {
+            cost: baylee_core::mana!("{U}")
+        }
+    );
+
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    tap_all_mana(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(
+        on_battlefield(&engine, p0, stasis()).is_some(),
+        "paying {{U}} keeps Stasis on the battlefield"
+    );
+
+    // Declining sacrifices it.
+    let mut decline = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), forest()])
+        .hand(0, &[stasis()])
+        .start();
+    keep_mulligans(&mut decline);
+    reach_main_phase(&mut decline, p0);
+    cast_from_hand(&mut decline, p0, stasis());
+    pass_until(&mut decline, |e| on_battlefield(e, p0, stasis()).is_some());
+
+    reach_their_main_phase(&mut decline, p1);
+    pass_until(&mut decline, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayMana { .. },
+                ..
+            }
+        )
+    });
+    decline.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    assert!(
+        on_battlefield(&decline, p0, stasis()).is_none(),
+        "declining sacrifices Stasis"
+    );
+    assert!(
+        in_graveyard(&decline, p0, stasis()).is_some(),
+        "sacrificed means the graveyard, not gone from the game"
+    );
+}
+
+fn smoke() -> CardIndex {
+    card_index("8aa97d25-cd51-4ceb-b7eb-af64f0914a8c")
+}
+
+/// Smoke: "Players can't untap more than one creature during their untap
+/// steps." Three tapped creatures offer exactly one to untap; the other two
+/// stay tapped, and a tapped land beside them — not a creature — untaps on
+/// its own.
+#[test]
+fn smoke_limits_untapping_to_one_creature_and_never_touches_lands() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                smoke(),
+                quiet_creature(),
+                quiet_creature(),
+                quiet_creature(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    let creatures = all_on_battlefield(&engine, p0, quiet_creature());
+    assert_eq!(creatures.len(), 3, "three creatures are seated");
+    let land = on_battlefield(&engine, p0, forest()).expect("the Forest is seated");
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        for &c in &creatures {
+            state
+                .object_mut(c)
+                .expect("seated")
+                .status
+                .insert(Status::TAPPED);
+        }
+        state
+            .object_mut(land)
+            .expect("seated")
+            .status
+            .insert(Status::TAPPED);
+    }
+    engine.refresh_offer();
+    assert!(creatures.iter().all(|&c| is_tapped(&engine, c)));
+    assert!(is_tapped(&engine, land));
+
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: crate::choice::ChoicePrompt::Untap,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on the question")
+    };
+    assert_eq!(player, p0, "the active player determines untapping");
+    assert_eq!(options.len(), 3, "the three tapped creatures are the menu");
+    for c in &creatures {
+        assert!(options.contains(c), "every tapped creature is on offer");
+    }
+    assert!(!options.contains(&land), "the land is not a creature");
+    assert_eq!((min, max), (1, 1), "exactly one creature may untap");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![creatures[0]],
+            },
+        )
+        .unwrap();
+    assert!(
+        !is_tapped(&engine, creatures[0]),
+        "the named creature untapped"
+    );
+    assert!(
+        is_tapped(&engine, creatures[1]) && is_tapped(&engine, creatures[2]),
+        "Smoke's limit kept the other two tapped"
+    );
+    assert!(
+        !is_tapped(&engine, land),
+        "Smoke counts only creatures: the land untapped on its own"
+    );
+}
+
+fn wall_of_spears() -> CardIndex {
+    card_index("ed836d84-ff1e-4af8-b4b8-314569b3faec")
+}
+
+fn animate_wall() -> CardIndex {
+    card_index("c7a6a165-b709-46e0-ae42-6f69a17c0621")
+}
+
+/// Animate Wall: "Enchant Wall" / "Enchanted Wall can attack as though it
+/// didn't have defender." The Wall it enchants is offered as an attacker; a
+/// second, unenchanted Wall beside it — just as much a Wall — is not.
+#[test]
+fn animate_wall_lets_only_the_enchanted_wall_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[wall_of_spears(), wall_of_roots(), plains()])
+        .hand(0, &[animate_wall()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let enchanted_wall = on_battlefield(&engine, p0, wall_of_spears()).expect("seated");
+    let bare_wall = on_battlefield(&engine, p0, wall_of_roots()).expect("seated");
+
+    cast_from_hand(&mut engine, p0, animate_wall());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Enchant Wall asks for a target, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&enchanted_wall) && options.contains(&bare_wall),
+        "either Wall may be enchanted: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![enchanted_wall],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, animate_wall()).is_some()
+    });
+    let aura = on_battlefield(&engine, p0, animate_wall()).expect("resolved");
+    assert_eq!(
+        engine.state().object(aura).and_then(|o| o.attached_to),
+        Some(enchanted_wall),
+        "the Aura attached to the Wall it targeted"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseAttackers")
+    };
+    assert!(
+        attackers.contains(&enchanted_wall),
+        "Animate Wall lets its enchanted Wall attack despite defender"
+    );
+    assert!(
+        !attackers.contains(&bare_wall),
+        "the unenchanted Wall still can't attack"
+    );
+}
+
+fn instill_energy() -> CardIndex {
+    card_index("8695c3c1-fb4b-4429-ae33-ec186f68796b")
+}
+
+/// Instill Energy: "Enchanted creature can attack as though it had haste."
+/// A freshly cast creature it enchants may attack the same turn; a second,
+/// identical creature beside it — just as freshly cast, but unenchanted —
+/// may not. The grant is narrow: it does not also let the enchanted
+/// creature use its own {{T}} ability, which summoning sickness still
+/// refuses that same turn — unlike a third, non-sick Elves beside them both
+/// (seated since before the game began), whose identical ability is still
+/// offered.
+#[test]
+fn instill_energy_lets_a_freshly_cast_creature_attack_but_not_tap_for_itself() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), llanowar_elves()])
+        .hand(0, &[llanowar_elves(), llanowar_elves(), instill_energy()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf_c =
+        on_battlefield(&engine, p0, llanowar_elves()).expect("seated before the game began");
+
+    tap_mana_except(&mut engine, p0, elf_c);
+    cast_with_floating(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+    let elf_a = all_on_battlefield(&engine, p0, llanowar_elves())
+        .into_iter()
+        .find(|&id| id != elf_c)
+        .expect("the first freshly cast Elves resolved");
+
+    cast_with_floating(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+    let elf_b = all_on_battlefield(&engine, p0, llanowar_elves())
+        .into_iter()
+        .find(|&id| id != elf_c && id != elf_a)
+        .expect("the second freshly cast Elves resolved");
+
+    cast_with_floating(&mut engine, p0, instill_energy());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "Enchant creature asks for a target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(options.contains(&elf_a));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elf_a],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, instill_energy()).is_some()
+    });
+    let aura = on_battlefield(&engine, p0, instill_energy()).expect("resolved");
+    assert_eq!(
+        engine.state().object(aura).and_then(|o| o.attached_to),
+        Some(elf_a),
+        "the Aura attached to the Elves it targeted"
+    );
+
+    let Pending::Priority { legal, player } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert!(
+        legal.abilities.iter().any(|(src, _)| *src == elf_c),
+        "positive control: an Elves that didn't just enter offers its own \
+         {{T}}: Add {{G}}: {:?}",
+        legal.abilities
+    );
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == elf_a),
+        "the enchanted, freshly cast Elves' own tap ability is still \
+         refused this turn: {:?}",
+        legal.abilities
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on ChooseAttackers")
+    };
+    assert!(
+        attackers.contains(&elf_a),
+        "Instill Energy lets its enchanted, freshly cast Elves attack"
+    );
+    assert!(
+        !attackers.contains(&elf_b),
+        "a second, unenchanted Elves that also entered this turn may not"
+    );
+}
+
+/// Instill Energy: "{{0}}: Untap enchanted creature. Activate only during
+/// your turn and only once each turn." Untaps its creature during your
+/// turn; a second activation that same turn is refused, and on the
+/// opponent's turn it is not offered at all.
+#[test]
+fn instill_energy_s_untap_ability_is_once_per_turn_and_only_on_your_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[llanowar_elves(), forest()])
+        .hand(0, &[instill_energy()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("seated");
+
+    tap_mana_except(&mut engine, p0, elf);
+    cast_with_floating(&mut engine, p0, instill_energy());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "Enchant creature asks for a target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(options.contains(&elf));
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, instill_energy()).is_some()
+    });
+    let aura = on_battlefield(&engine, p0, instill_energy()).expect("resolved");
+
+    activate(&mut engine, p0, llanowar_elves(), 0);
+    assert!(is_tapped(&engine, elf), "tapped for its own mana ability");
+
+    activate(&mut engine, p0, instill_energy(), 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !is_tapped(&engine, elf),
+        "the {{0}} ability untapped the enchanted creature"
+    );
+
+    let Pending::Priority { legal, player } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player, p0,
+        "the active player holds priority once the stack empties"
+    );
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == aura),
+        "already activated once this turn: not offered again: {:?}",
+        legal.abilities
+    );
+
+    // Not on the opponent's turn — read *p0's* offer there, which needs p0
+    // to hold priority. A positive control sits beside it: the Elves is
+    // untapped and no longer summoning sick, so its own {T} ability stays
+    // offered to p0 throughout; only the Aura's {0} disappears.
+    reach_their_main_phase(&mut engine, p1);
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    let Pending::Priority { legal, player } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player, p0,
+        "p0 holds priority once the active player (p1) passes with an empty stack"
+    );
+    assert!(
+        legal.abilities.iter().any(|(src, _)| *src == elf),
+        "positive control: p0's untapped Elves still offers its own {{T}} \
+         on the opponent's turn: {:?}",
+        legal.abilities
+    );
+    assert!(
+        !legal.abilities.iter().any(|(src, _)| *src == aura),
+        "\"only during your turn\": the {{0}} is not offered on the \
+         opponent's turn: {:?}",
+        legal.abilities
+    );
+}
