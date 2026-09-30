@@ -16,7 +16,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
-    AttackerBound, BlockOption, CastModeKind, GRANTED_SLOTS, Pending, PlayerAction, granted_ability,
+    AttackerBound, BlockOption, CastModeKind, GRANTED_SLOTS, NumberPrompt, Pending, PlayerAction,
+    granted_ability,
 };
 
 /// Which part of the net scores an option, and what `a` and `b` mean.
@@ -455,8 +456,12 @@ pub fn options(
         Pending::ChooseCastMode { options, .. } => {
             out.extend((0..options.len()).map(Choice::Mode));
         }
-        Pending::ChooseNumber { min, max, .. } => {
-            if *max > MAX_NUMBER {
+        Pending::ChooseNumber {
+            min, max, reason, ..
+        } => {
+            // A share of combat damage (CR 510.1c) reads as an X to an
+            // encoder that does not see `reason`; the house answers it.
+            if *max > MAX_NUMBER || matches!(reason, NumberPrompt::CombatDamage { .. }) {
                 return Err(Unscored::Unsupported);
             }
             out.extend((*min..=*max).map(Choice::Number));
@@ -608,6 +613,13 @@ pub fn steps(
             single(Choice::Fixed(if *yes { fixed::YES } else { fixed::NO }))
         }
         (Pending::ChooseCastMode { .. }, PlayerAction::ChooseMode(i)) => single(Choice::Mode(*i)),
+        (
+            Pending::ChooseNumber {
+                reason: NumberPrompt::CombatDamage { .. },
+                ..
+            },
+            _,
+        ) => return Err(Unmatched::Unscored(Unscored::Unsupported)),
         (Pending::ChooseNumber { .. }, PlayerAction::ChooseNumber(n)) => single(Choice::Number(*n)),
         (Pending::ChoosePlayer { .. }, PlayerAction::ChoosePlayer(p)) => single(Choice::Player(*p)),
         (
@@ -952,6 +964,41 @@ mod tests {
             blocks(&p, &[Choice::Block(o(251), o(264))]),
             vec![Choice::Block(o(252), o(249))]
         );
+    }
+
+    /// A share of combat damage divided among blockers (CR 510.1c) is a
+    /// `ChooseNumber` the encoder cannot tell from an X: the net is not
+    /// offered it, and the house's answer to it is no training data.
+    #[test]
+    fn a_combat_damage_share_is_left_to_the_house() {
+        let o = |n| ObjectId::new(n, 0);
+        let share = Pending::ChooseNumber {
+            player: PlayerId::new(0),
+            min: 0,
+            max: 4,
+            reason: NumberPrompt::CombatDamage {
+                source: o(40),
+                recipient: o(41),
+                index: 0,
+                of: 2,
+                left: 4,
+            },
+        };
+        assert!(matches!(
+            options(&share, &[], &Picked::default()),
+            Err(Unscored::Unsupported)
+        ));
+        assert!(matches!(
+            steps(&share, &[], &PlayerAction::ChooseNumber(2)),
+            Err(Unmatched::Unscored(Unscored::Unsupported))
+        ));
+        let x = Pending::ChooseNumber {
+            player: PlayerId::new(0),
+            min: 0,
+            max: 4,
+            reason: NumberPrompt::X,
+        };
+        assert_eq!(options(&x, &[], &Picked::default()).map(|c| c.len()), Ok(5));
     }
 
     /// Every answer the house gave, taken apart into steps and put together

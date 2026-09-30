@@ -320,11 +320,18 @@ impl NetPlayer3 {
             }
         }
         let n = picks.len();
-        Ok(policy::assemble(pending, &picks).ok().map(|action| Answer {
-            action,
-            picks: n,
-            value,
-        }))
+        // The question's own check sees what the picks cannot: a creature
+        // that must attack, a limit on how many may, a block a Lure
+        // demands. An answer it refuses goes to the house instead of being
+        // refused.
+        Ok(policy::assemble(pending, &picks)
+            .ok()
+            .filter(|action| pending.answer_fault(action).is_none())
+            .map(|action| Answer {
+                action,
+                picks: n,
+                value,
+            }))
     }
 }
 
