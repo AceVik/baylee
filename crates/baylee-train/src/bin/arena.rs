@@ -78,6 +78,12 @@ struct Args {
     /// Seconds a game may take.
     #[arg(long, default_value_t = 60)]
     max_secs: u64,
+    /// The name each game's id is made of (`<name>-<i>`), from which
+    /// `Session::describe` seeds the house's play. The same name plays the
+    /// same house on the same seeds, so two nets' arenas pair game for
+    /// game; a name taken from `--out` would not.
+    #[arg(long, default_value = "arena")]
+    name: String,
     /// Where results go; must not exist.
     #[arg(long)]
     out: PathBuf,
@@ -208,12 +214,7 @@ fn main() -> anyhow::Result<()> {
         0 => std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get),
         n => n,
     };
-    let run = args
-        .out
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("arena")
-        .to_owned();
+    let run = args.name.clone();
     eprintln!(
         "[arena] {} games on {threads} threads · net as {} vs {:?} · model {}",
         args.games,

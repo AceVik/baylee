@@ -104,13 +104,17 @@ On the merge with main 7160e89b (8,002 tests), both gates cold: gate.sh
 - **A league replays across machines.** 1,927 of iteration 19's 2,000 games
   played out move for move the same on both systems: outcome, turn,
   answers and record length. The other 73 are all capped games.
-- **An arena does not.**
-  - Of the 870 games both arenas finished, 557 are identical.
-  - 53 changed winner, and the rate against expert moved from 48.6 % to
-    47.5 %. The arena's own interval is ±3.3 points.
-  - The net answers at temperature 0, on one intra-op thread, on the same
-    build and working set.
-  - The first difference in a game is almost always the number of net
-    answers, even where outcome and turn agree.
-  - Until the cause is known, `paired_arena.py` pairs are weaker than "the
-    same game twice". A Linux-against-Linux repeat is next.
+- **An arena replayed only under the same `--out` name.**
+  - Two arenas of one build on one machine, written to different
+    directories, finished 920 games in common; 575 of them were identical
+    and 57 changed winner.
+  - Each game's first difference is a house answer given in an identical
+    state, mostly `ChooseColor`, never a net answer.
+  - The cause: `Session::describe` seeds the house's play (its `noise`) from
+    the game id, and the arena made that id of `--out`'s directory name.
+    The league reproduced because its replay passed `--name rl-l19`.
+  - The fix: the arena takes `--name` (default `arena`). Arenas on the same
+    seeds now meet the same house, whatever their directories.
+  - So every earlier `paired_arena.py` comparison paired games that differed
+    in the house's noise as well as in the net. Its sign test stays valid,
+    but it had less power than intended.
