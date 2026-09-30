@@ -107,6 +107,7 @@ pub fn matches_projected(
                     .iter()
                     .any(|(host, worn)| *host == obj.id && worn.contains(&this))
         }
+        Filter::IsAttached => obj.attached_to.is_some(),
         Filter::SharesSubtypeWithCommander => {
             // Eight `AND`s per commander, not one probe per subtype id.
             // The marker list rather than the command zone, for the reason

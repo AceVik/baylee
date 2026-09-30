@@ -257,3 +257,168 @@ fn teferis_minus_three_draws_with_nothing_to_bounce() {
         "the card is drawn whether or not anything was returned"
     );
 }
+
+/// Karn, the Great Creator's `+1` on a Lightning Greaves that equips an Elf.
+///
+/// The Greaves "becomes an artifact creature with power and toughness each
+/// equal to its mana value", a 2/2, and a creature attached to anything
+/// becomes unattached and remains on the battlefield (CR 704.5p, first
+/// sentence). Its host is still a creature, which is all CR 704.5n asks of an
+/// Equipment's host, so only that first sentence takes it off; the
+/// state-based action read the second alone, and the animated Greaves went
+/// on handing the Elf haste and shroud.
+///
+/// The bystander is the second Greaves on the second Elf, which Karn did not
+/// point at: still only an Equipment, still attached, still granting.
+#[test]
+#[allow(clippy::too_many_lines)] // two equips, the +1 and both Greaves read after it
+fn karns_plus_one_takes_an_animated_equipment_off_its_creature() {
+    use baylee_cards_dsl::KeywordSet;
+    use baylee_core::types::TypeSet;
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(97, forest())
+        .battlefield(
+            0,
+            &[
+                karn_the_great_creator(),
+                lightning_greaves(),
+                lightning_greaves(),
+                llanowar_elves(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let all = |engine: &Engine<RegistryLookup>, card| -> Vec<baylee_core::ids::ObjectId> {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|id| {
+                engine
+                    .state()
+                    .object(*id)
+                    .and_then(|o| o.card)
+                    .is_some_and(|c| c.index == card)
+            })
+            .collect()
+    };
+    let (greaves, elves) = (
+        all(&engine, lightning_greaves()),
+        all(&engine, llanowar_elves()),
+    );
+    let (&[animated, bystander], &[elf, other_elf]) = (greaves.as_slice(), elves.as_slice()) else {
+        panic!("two Greaves and two Elves are out: {greaves:?}, {elves:?}")
+    };
+    // Equip {0} is ability 1; ability 0 is the static that grants.
+    for (gear, host) in [(animated, elf), (bystander, other_elf)] {
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: gear,
+                    ability_index: 1,
+                },
+            )
+            .expect("equip {0} is offered at sorcery speed");
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![host],
+                },
+            )
+            .expect("an Elf nothing equips yet is a creature you control");
+        pass_until(&mut engine, |e| {
+            e.state()
+                .object(gear)
+                .is_some_and(|o| o.attached_to == Some(host))
+        });
+    }
+    let keywords = |engine: &Engine<RegistryLookup>, id| {
+        engine
+            .state()
+            .object(id)
+            .expect("on the battlefield")
+            .characteristics()
+            .keywords
+    };
+    // `KeywordSet::contains` is has-any, so each keyword is asked alone.
+    let granted = |engine: &Engine<RegistryLookup>, id| {
+        let kw = keywords(engine, id);
+        (
+            kw.contains(KeywordSet::HASTE),
+            kw.contains(KeywordSet::SHROUD),
+        )
+    };
+    assert_eq!(
+        granted(&engine, elf),
+        (true, true),
+        "the Greaves equips the Elf before Karn says anything"
+    );
+
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("karn deployed");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: karn,
+                ability_index: 1,
+            },
+        )
+        .expect("the +1 is offered");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![animated],
+            },
+        )
+        .expect("an attached Greaves is a noncreature artifact");
+    pass_until(&mut engine, stack_is_clear);
+
+    let gear = engine
+        .state()
+        .object(animated)
+        .expect("the Greaves is never destroyed by this");
+    assert!(
+        gear.characteristics().types.contains(TypeSet::CREATURE),
+        "Karn made it an artifact creature"
+    );
+    assert_eq!(
+        gear.attached_to, None,
+        "and a creature attached to anything becomes unattached (CR 704.5p)"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&animated),
+        "and remains on the battlefield"
+    );
+    assert_eq!(
+        granted(&engine, elf),
+        (false, false),
+        "so the Elf it equipped has neither haste nor shroud any more"
+    );
+
+    let kept = engine
+        .state()
+        .object(bystander)
+        .expect("the bystander is on the battlefield");
+    assert!(
+        !kept.characteristics().types.contains(TypeSet::CREATURE),
+        "the Greaves Karn did not point at is still only an Equipment"
+    );
+    assert_eq!(kept.attached_to, Some(other_elf), "and still attached");
+    assert_eq!(
+        granted(&engine, other_elf),
+        (true, true),
+        "and still granting"
+    );
+}

@@ -1197,6 +1197,95 @@ mod tests {
         }
     }
 
+    /// A daybound card that enters at night enters with its back face up
+    /// (CR 702.145b, CR 712.14a), and nothing was turned over, so the log
+    /// does not tell the table that it transformed. The "transformed" line
+    /// is read off the engine's `Transformed` entry, which the entry scan
+    /// used to journal for it.
+    ///
+    /// The board is set directly: it is night, and the card is moved from
+    /// the hand onto the battlefield, which journals the arrival the scan
+    /// reads. Passing priority is only the nudge that runs the machine.
+    #[test]
+    fn a_werewolf_entering_at_night_is_not_logged_as_transformed() {
+        let tavern_ruffian = baylee_cards::by_oracle_id("73a3b9a1-37a0-469a-9557-8c118a1ee78f")
+            .expect("Tavern Ruffian is in the pool")
+            .index;
+        let entry = |card| DeckEntry {
+            card,
+            print: PrintRef::new(0),
+        };
+        let seat = |hand: Vec<DeckEntry>| SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            capabilities: baylee_core::preset::SeatCapabilities {
+                dev_commands: true,
+                see_hidden: false,
+            },
+            deck: (0..60).map(|_| entry(FILLER)).collect(),
+            sideboard: vec![],
+            commanders: vec![],
+            starting_life: None,
+            starting_hand: Some(hand),
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        };
+        let preset = GamePreset {
+            format: FormatId::Freeform,
+            seed: 8,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: Finish::Normal,
+            }],
+            seats: vec![seat(vec![entry(tavern_ruffian)]), seat(vec![])],
+        };
+        let mut engine = Engine::new(&preset, TestPool).expect("duel starts");
+        while let Pending::Mulligan { player, .. } = engine.pending().clone() {
+            engine
+                .apply(player, PlayerAction::MulliganKeep)
+                .expect("a seat may keep");
+        }
+        let mut log = GameLog::new(engine.state());
+        let from = log.len();
+        let me = PlayerId::new(0);
+        let card = engine.state().zones.list(ZoneLocation::Hand(me))[0];
+        let state = engine
+            .dev_state_mut(me)
+            .expect("the harness may set boards up");
+        state.day_night = Some(baylee_engine::turn::DayNight::Night);
+        state
+            .move_object(
+                card,
+                ZoneLocation::Battlefield,
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
+            )
+            .expect("the harness moves a card");
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("priority after the mulligans: {:?}", engine.pending())
+        };
+        engine
+            .apply(player, PlayerAction::PassPriority)
+            .expect("a seat may always pass");
+        log.consume(engine.state());
+
+        assert_eq!(
+            engine.state().object(card).map(|o| o.face_index),
+            Some(1),
+            "it entered with its back face up"
+        );
+        let lines = log.told(me, from, log.len());
+        assert!(
+            lines
+                .iter()
+                .all(|line| !matches!(line.event, LogEvent::Transformed { .. })),
+            "no line says it transformed: {lines:?}"
+        );
+    }
+
     /// A real endless loop runs thousands of times before the engine calls it
     /// one, and the log keeps it to a few lines that say how many times.
     #[test]
