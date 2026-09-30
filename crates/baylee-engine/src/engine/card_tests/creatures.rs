@@ -96426,11 +96426,11 @@ fn partial_creatures_are_their_printed_bodies() {
     }
 }
 
-/// Rock Hydra, its written half: it enters with X +1/+1 counters, and
-/// "{R}: Prevent the next 1 damage that would be dealt to this creature this
-/// turn." X = 3, the shield bought, then a Lightning Bolt at it: 1 of the 3
-/// is prevented. The counter it would remove instead of taking damage is
-/// not written, so the other 2 are marked — the line to move when it is.
+/// Rock Hydra: it enters with X +1/+1 counters, and "{R}: Prevent the next
+/// 1 damage that would be dealt to this creature this turn." X = 3, the
+/// shield bought, then a Lightning Bolt at it: the shield prevents 1 of the
+/// 3, and each of the other 2 takes a +1/+1 counter instead of being dealt
+/// (the shield goes first: `prevention::absorb`).
 #[test]
 fn rock_hydra_enters_with_x_counters_and_buys_a_shield() {
     let p0 = PlayerId::new(0);
@@ -96463,9 +96463,10 @@ fn rock_hydra_enters_with_x_counters_and_buys_a_shield() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
         engine.state().object(hydra).map(|o| (o.zone, o.damage)),
-        Some((Zone::Battlefield, 2)),
-        "1 of the Bolt's 3 prevented"
+        Some((Zone::Battlefield, 0)),
+        "1 of the Bolt's 3 prevented by the shield, 2 by counters"
     );
+    assert_eq!(pt(&engine, hydra), (1, 1), "one counter left");
 }
 
 /// Vesuvan Doppelganger, its written half: it enters as a copy of a

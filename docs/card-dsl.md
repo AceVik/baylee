@@ -1558,6 +1558,9 @@ as this creature is untapped") goes into the affected filter,
 `Filter::And(&[Filter::This, Filter::Untapped])`, so that it is read as the
 damage is dealt. `docs/engine-internals.md` §"Redirection" says how both
 apply.
+`Modifier::CountersPreventDamage(kind)` on `Filter::This` is Rock Hydra's
+"for each 1 damage that would be dealt to this creature, if it has a +1/+1
+counter on it, remove a +1/+1 counter from it and prevent that 1 damage".
 The mirror of the first is `PlayerMayPayThen { player, mana, effects }`:
 "you may pay {1}. If you do, you gain 1 life" (Crystal Rod, Soul Net). The
 same question and payment, with the effects on a yes; the price *is* the
@@ -1647,6 +1650,7 @@ Modal/sequence: `Sequence(&[..])`.
 `CantActivateArtifacts`, `ChosenNameCantActivate`, `OpponentsCastAsSorcery`,
 `PlayersCantLose`,
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`, `RedirectDamageToYou(&from)`,
+`CountersPreventDamage(kind)`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `SkipUntapStep { who }`, `UntapAtMost { who, of, count }`,
 `AttacksDespiteDefender`, `AttacksAsThoughHaste`,

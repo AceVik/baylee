@@ -294,6 +294,14 @@ pub enum Modifier {
     /// (CR 614.5). Read where damage is dealt, as the prevention shields
     /// are (`prevention::redirect`); the source is asked as it is then.
     RedirectDamageToYou(&'static Filter),
+    /// For each 1 damage that would be dealt to the affected permanent, if
+    /// it has a counter of this kind on it, one is removed and that 1
+    /// damage is prevented (Rock Hydra, with +1/+1 counters). A prevention
+    /// effect from a static ability (CR 615): read where damage is dealt,
+    /// after the resolved shields and any redirection
+    /// (`prevention::absorb`). Damage that can't be prevented still takes
+    /// the counters and is dealt in full (CR 615.12).
+    CountersPreventDamage(crate::CounterKind),
     /// The effect's opponents can't search libraries (Ashiok, Dream
     /// Render).
     OpponentsCantSearch,
@@ -688,6 +696,7 @@ impl Modifier {
             | Self::MustBeBlockedByAllAble
             | Self::BlocksEachAttackerIfAble
             | Self::RedirectDamageToYou(_)
+            | Self::CountersPreventDamage(_)
             | Self::OpponentsCantSearch
             | Self::NoMaxHandSize
             | Self::SkipUntapStep { .. }
@@ -1033,6 +1042,7 @@ mod tests {
             Modifier::MustBeBlockedByAllAble,
             Modifier::BlocksEachAttackerIfAble,
             Modifier::RedirectDamageToYou(&Filter::CREATURE),
+            Modifier::CountersPreventDamage(crate::CounterKind::P1P1),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::PlayerHexproof,

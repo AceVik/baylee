@@ -1426,6 +1426,10 @@ fn deal_damage_to_object(
     if let Some(to) = redirect(state, source, DamageTarget::Object(target), done) {
         return deal_redirected(state, source, to, amount, is_combat, done);
     }
+    let amount = absorbed(state, source, target, amount, is_combat);
+    if amount <= 0 {
+        return 0;
+    }
     // Damage to a planeswalker removes loyalty instead of marking damage
     // (CR 306.8), the same way the spell-resolution path does it.
     let is_walker = state
@@ -1460,6 +1464,23 @@ fn deal_damage_to_object(
         is_combat,
     });
     amount
+}
+
+/// What is left of `amount` damage to the permanent `target` once its
+/// counters have prevented what they prevent
+/// ([`crate::prevention::absorb`]), in the writers' signed width.
+pub(crate) fn absorbed(
+    state: &mut GameState,
+    source: ObjectId,
+    target: ObjectId,
+    amount: i16,
+    is_combat: bool,
+) -> i16 {
+    let Ok(wanted) = u32::try_from(amount) else {
+        return amount;
+    };
+    let left = crate::prevention::absorb(state, source, target, wanted, is_combat);
+    i16::try_from(left).unwrap_or(i16::MAX)
 }
 
 /// What is left of `amount` once the prevention shields have had it

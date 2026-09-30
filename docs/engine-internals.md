@@ -727,6 +727,14 @@ dealt at all: no life change, no `DamageDealt`, no deathtouch, no lifelink.
   dealt the damage is read from where the id is now
   (`ChosenSource::deals` names the two corners that reading gets wrong).
 
+- **Counters that prevent** (Rock Hydra, `Modifier::CountersPreventDamage`)
+  are a static prevention effect, asked by both object doors through
+  `prevention::absorb` after the shields and after any redirection: each 1
+  damage takes a counter and is prevented while one is there. Damage that
+  can't be prevented still takes the counters and is dealt in full, the
+  removal being an effect of its own (CR 615.12), once for the event
+  (615.12a).
+
 The question the engine does not ask is CR 616.1's: when two shields could
 apply to one event, the affected player (or the controller of the affected
 permanent) chooses which applies first — and CR 615.7's last sentence, which
@@ -742,7 +750,9 @@ that source's later damage), and a chosen-source shield before "the next N"
 (the N kept for any source, rather than the chosen-source shield kept for
 its one). A new kind of shield is placed in that order with its reason; a
 pair for which the fixed order would often be the wrong answer needs the
-question rather than a rank.
+question rather than a rank. Counters that prevent come after every
+shield: a shield ends with the turn and a counter does not, so spending
+the shield first is the choice a player would always make.
 
 ### Redirection: damage dealt to another instead (CR 614.9)
 
@@ -764,7 +774,10 @@ damage.
 - **The static** is `Modifier::RedirectDamageToYou(&from)`: damage a source
   matching `from` would deal to the effect's controller is dealt to the
   permanent the effect applies to. `from` is read on the source as it is
-  then (CR 609.7c); the affected permanent is read then too
+  then, or as it last was once it has left the battlefield (CR 609.7c): the
+  ability of a red creature killed in response is still a red source's.
+  Combat status is not remembered, so an unblocked creature that has left
+  is no longer one. The affected permanent is read then too
   (`effects::applies_to`), so Veteran Bodyguard's "as long as this creature
   is untapped" is in its affected filter, `And(This, Untapped)`, and a
   Bodyguard tapped earlier in the same resolution is already out of the way.
@@ -784,10 +797,12 @@ damage.
 
 **An engine simplification**, beside the one above: CR 616.1 lets the
 affected player order redirection and prevention too, and the engine always
-prevents first. That is a trade: preventing first spares the creature a
-Bodyguard puts in the way and spends the shield; redirecting first keeps the
-shield and costs the creature. Among several redirections the oldest shield
-goes first, then the oldest static, again without asking.
+applies the shields first. That is a trade: preventing first spares the
+creature a Bodyguard puts in the way and spends the shield; redirecting
+first keeps the shield and costs the creature. Counters that prevent (Rock
+Hydra) come after the redirection, so damage a Jade Monolith moves off the
+Hydra costs it no counter. Among several redirections the oldest shield goes
+first, then the oldest static, again without asking.
 
 ### The monarch's abilities have no source (CR 724.2)
 

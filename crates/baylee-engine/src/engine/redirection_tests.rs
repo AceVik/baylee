@@ -20,9 +20,9 @@ use crate::prevention::{Shield, ShieldKind, Shielded};
 use crate::turn::Step;
 use crate::zone::Zone;
 use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, Cost, Coverage, Effect, FaceDef, Filter,
-    KeywordSet, Modifier, PlayerRel, TargetSpec, Trigger, activated, counters, static_ability,
-    triggered,
+    AbilityDef, Amount, CardDef, CommanderRule, Cost, CounterKind, Coverage, Effect, FaceDef,
+    Filter, KeywordSet, Modifier, PlayerRel, TargetSpec, Trigger, activated, counters,
+    static_ability, triggered,
 };
 use baylee_core::color::ColorSet;
 use baylee_core::ids::{CardIndex, Defender};
@@ -48,6 +48,10 @@ const TRAMPLER: u32 = 1185;
 const WATCH: u32 = 1186;
 /// A 1/1 with vigilance: "{0}: This creature deals 1 damage to any target."
 const PINGER: u32 = 1187;
+/// A 0/1: "For each 1 damage that would be dealt to this creature, if it
+/// has a +1/+1 counter on it, remove a +1/+1 counter from it and prevent
+/// that 1 damage."
+const HYDRA: u32 = 1188;
 
 static UNBLOCKED: Filter = Filter::And(&[Filter::CREATURE, Filter::Unblocked]);
 
@@ -68,6 +72,10 @@ static WATCHING: &[AbilityDef] = &[triggered!(
         kind: counters::VITALITY,
         amount: Amount::EventAmount,
     }],
+)];
+static ABSORBING: &[AbilityDef] = &[static_ability!(
+    Filter::This,
+    Modifier::CountersPreventDamage(CounterKind::P1P1),
 )];
 static PINGING: &[AbilityDef] = &[activated!(
     Cost::FREE,
@@ -114,6 +122,7 @@ fn lookup() -> SyntheticLookup {
         body(TRAMPLER, "Trampler", (4, 4), KeywordSet::TRAMPLE, &[]),
         body(WATCH, "Watch", (0, 4), none, WATCHING),
         body(PINGER, "Pinger", (1, 1), KeywordSet::VIGILANCE, PINGING),
+        body(HYDRA, "Hydra", (0, 1), none, ABSORBING),
     ])
 }
 
@@ -561,4 +570,105 @@ fn the_monolith_sends_a_ping_as_well() {
         dealt(&engine),
         vec![(pinger, DamageTarget::Player(THEM), 1, false)]
     );
+}
+
+// ------------------------------------------------- counters that prevent
+
+/// Puts `n` +1/+1 counters on `id`.
+fn counters(engine: &mut Engine<SyntheticLookup>, seat: PlayerId, id: ObjectId, n: u16) {
+    engine
+        .dev_state_mut(seat)
+        .unwrap()
+        .object_mut(id)
+        .unwrap()
+        .counters
+        .set(CounterKind::P1P1, n);
+    engine.refresh_offer();
+}
+
+fn p1p1(engine: &Engine<SyntheticLookup>, id: ObjectId) -> u16 {
+    engine
+        .state()
+        .object(id)
+        .map_or(0, |o| o.counters.get(CounterKind::P1P1))
+}
+
+/// The engine's fixed order (`prevention::absorb`): a "prevent the next 1"
+/// shield on the Hydra is spent before its counters, which outlast the
+/// turn — the blocked Ogre's 3 cost one shield and two counters.
+#[test]
+fn a_shield_is_spent_before_the_hydra_s_counters() {
+    let mut engine = start(&[OGRE], &[HYDRA]);
+    let ogre = permanents(&engine, OGRE)[0];
+    let hydra = permanents(&engine, HYDRA)[0];
+    counters(&mut engine, THEM, hydra, 3);
+    let version = engine.state().object(hydra).unwrap().version;
+    engine.dev_state_mut(THEM).unwrap().shields.push(Shield {
+        protects: Shielded::Object(hydra, version),
+        kind: ShieldKind::Next(1),
+        controller: THEM,
+    });
+
+    walk(&mut engine, &[ogre], &[(hydra, ogre)], my_end_step);
+
+    assert!(engine.state().shields.is_empty(), "the shield went first");
+    assert_eq!(p1p1(&engine, hydra), 1, "then two counters");
+    assert_eq!(damage(&engine, hydra), 0, "and nothing was dealt");
+}
+
+/// Damage the Monolith moves off the Hydra is never dealt to it, so it
+/// costs no counter: the redirection is asked first.
+#[test]
+fn damage_the_monolith_moves_costs_the_hydra_no_counter() {
+    let mut engine = start(&[OGRE], &[HYDRA, MONOLITH]);
+    let ogre = permanents(&engine, OGRE)[0];
+    let (hydra, monolith) = (
+        permanents(&engine, HYDRA)[0],
+        permanents(&engine, MONOLITH)[0],
+    );
+    counters(&mut engine, THEM, hydra, 3);
+    let before = life(&engine, THEM);
+
+    walk(
+        &mut engine,
+        &[ogre],
+        &[(hydra, ogre)],
+        priority_in(Step::DeclareBlockers, THEM),
+    );
+    send(&mut engine, monolith, hydra, ogre);
+    walk(&mut engine, &[ogre], &[(hydra, ogre)], my_end_step);
+
+    assert_eq!(life(&engine, THEM), before - 3, "moved to its controller");
+    assert_eq!(p1p1(&engine, hydra), 3, "no counter spent");
+}
+
+/// Noncombat damage too, through the effects' door: a ping takes a
+/// counter and marks nothing; with no counter left the next one is dealt.
+#[test]
+fn a_ping_takes_a_counter_and_then_is_dealt() {
+    let mut engine = start(&[PINGER], &[HYDRA]);
+    let pinger = permanents(&engine, PINGER)[0];
+    let hydra = permanents(&engine, HYDRA)[0];
+    counters(&mut engine, THEM, hydra, 1);
+
+    walk(&mut engine, &[], &[], priority_in(Step::Main, ME));
+    activate(&mut engine, ME, pinger, Some(hydra), None);
+    walk(&mut engine, &[], &[], |e| {
+        e.state()
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .is_empty()
+    });
+    assert_eq!(p1p1(&engine, hydra), 0, "the counter paid for it");
+    assert_eq!(damage(&engine, hydra), 0);
+    assert_eq!(zone(&engine, hydra), Some(Zone::Battlefield));
+
+    activate(&mut engine, ME, pinger, Some(hydra), None);
+    walk(&mut engine, &[], &[], |e| {
+        e.state()
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .is_empty()
+    });
+    assert_eq!(zone(&engine, hydra), Some(Zone::Graveyard), "1 on a 0/1");
 }

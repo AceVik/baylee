@@ -467,6 +467,10 @@ fn deal_to_object(
         deal_redirected(state, source, to, n, done);
         return;
     }
+    let n = crate::combat::absorbed(state, source, target, n, false);
+    if n <= 0 {
+        return;
+    }
     let is_walker = state.object(target).is_some_and(|o| {
         o.characteristics()
             .types

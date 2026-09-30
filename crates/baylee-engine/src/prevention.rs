@@ -401,8 +401,9 @@ pub(crate) struct Redirected {
 /// player, the static abilities that player controls saying "damage that
 /// would be dealt to you by … is dealt to this instead", oldest first, each
 /// once (CR 614.5). Such a static reads its source filter on the source as
-/// it is now, wherever it is (CR 609.7c), and does nothing while what it
-/// applies to is not a creature on the battlefield (CR 614.9).
+/// it is on the battlefield or the stack, and on one that has left as it
+/// last was (CR 609.7c); it does nothing while what it applies to is not a
+/// creature on the battlefield (CR 614.9).
 ///
 /// CR 616.1 gives the choice among several to the affected player; the
 /// engine takes them in this fixed order and does not ask.
@@ -433,14 +434,25 @@ pub(crate) fn redirect(
     if state.has_left(player) {
         return None;
     }
-    let from = state.object(source)?;
+    let from = state.object_or_departed(source)?;
+    // A source on the battlefield or the stack as it is; one that has left,
+    // as it last was (CR 609.7c), the way a chosen source is read.
+    let fits = |filter: &'static Filter, this: ObjectId| {
+        if matches!(from.zone, Zone::Battlefield | Zone::Stack) {
+            crate::eval::matches(filter, state, from, player, this)
+        } else {
+            state.last_known_characteristics(source).is_some_and(|was| {
+                crate::eval::matches_projected(filter, state, from, was, player, this)
+            })
+        }
+    };
     let moved = state.effects.iter().find_map(|fx| {
         let baylee_cards_dsl::Modifier::RedirectDamageToYou(filter) = fx.modifier else {
             return None;
         };
         if fx.controller != player
             || done.statics.contains(&fx.id)
-            || !crate::eval::matches(filter, state, from, player, fx.source.unwrap_or(source))
+            || !fits(filter, fx.source.unwrap_or(source))
         {
             return None;
         }
@@ -455,6 +467,66 @@ pub(crate) fn redirect(
     let (id, to) = moved?;
     done.statics.push(id);
     Some(DamageTarget::Object(to))
+}
+
+/// How much of `amount` damage from `source` to the permanent `target` is
+/// still dealt once its counters have prevented what they prevent:
+/// `Modifier::CountersPreventDamage(kind)` (Rock Hydra), "for each 1 damage
+/// that would be dealt to it, if it has a counter on it, remove one and
+/// prevent that 1 damage".
+///
+/// Asked after [`apply`] and [`redirect`], an order the engine fixes where
+/// CR 616.1 would let the permanent's controller choose: a resolved shield
+/// ends with the turn and a counter does not, so spending the shield first
+/// is the choice a player would always make; and damage a redirection has
+/// moved elsewhere costs no counter.
+///
+/// Damage that can't be prevented is still offered to the effect, which
+/// then prevents none of it but removes its counters all the same, since
+/// the removal is an effect of its own (CR 615.12), once for the event
+/// (CR 615.12a).
+pub(crate) fn absorb(
+    state: &mut GameState,
+    source: ObjectId,
+    target: ObjectId,
+    amount: u32,
+    is_combat: bool,
+) -> u32 {
+    if amount == 0 {
+        return 0;
+    }
+    let Some(obj) = state.object(target) else {
+        return amount;
+    };
+    let kinds: Vec<baylee_cards_dsl::CounterKind> = state
+        .effects
+        .iter()
+        .filter_map(|fx| match fx.modifier {
+            baylee_cards_dsl::Modifier::CountersPreventDamage(kind)
+                if crate::effects::applies_to(state, fx, obj) =>
+            {
+                Some(kind)
+            }
+            _ => None,
+        })
+        .collect();
+    if kinds.is_empty() {
+        return amount;
+    }
+    let preventable = !crate::combat::unpreventable(state, source, is_combat);
+    let mut left = amount;
+    for kind in kinds {
+        let wanted = u16::try_from(left).unwrap_or(u16::MAX);
+        let on_it = state.object(target).map_or(0, |o| o.counters.get(kind));
+        if wanted == 0 || on_it == 0 {
+            continue;
+        }
+        let taken = crate::replacement::remove_counters(state, target, kind, wanted);
+        if preventable {
+            left -= u32::from(taken);
+        }
+    }
+    left
 }
 
 /// Whether `recipient` is something a redirection may move damage from or
@@ -978,5 +1050,136 @@ mod tests {
             None,
             "from a player who has left the game (CR 614.9)"
         );
+    }
+
+    /// CR 609.7c: a source that has left the battlefield is asked as it
+    /// last was there — the ability of a red creature killed in response is
+    /// a red source's; one that left white is not.
+    #[test]
+    fn a_redirecting_static_reads_a_departed_source_as_it_last_was() {
+        let to_p0 = DamageTarget::Player(P0);
+
+        let (mut state, guard) = board();
+        let red = another(&mut state);
+        bodyguard(&mut state, guard);
+        moved(&mut state, red, ZoneLocation::Graveyard(P0));
+        // The card it is now is not what it was: only the last known
+        // characteristics say red.
+        painted(&mut state, red, ColorSet::from_slice(&[Color::White]));
+        assert_eq!(
+            redirect(&mut state, red, to_p0, &mut Redirected::default()),
+            Some(DamageTarget::Object(guard)),
+            "it left red"
+        );
+
+        let (mut state, guard) = board();
+        let red = another(&mut state);
+        bodyguard(&mut state, guard);
+        painted(&mut state, red, ColorSet::from_slice(&[Color::White]));
+        moved(&mut state, red, ZoneLocation::Graveyard(P0));
+        painted(&mut state, red, ColorSet::from_slice(&[Color::Red]));
+        assert_eq!(
+            redirect(&mut state, red, to_p0, &mut Redirected::default()),
+            None,
+            "it left white"
+        );
+    }
+
+    /// Rock Hydra's static on `hydra`, with `n` +1/+1 counters on it.
+    fn hydra(state: &mut GameState, hydra: ObjectId, n: u16) {
+        let modifier =
+            baylee_cards_dsl::Modifier::CountersPreventDamage(baylee_cards_dsl::CounterKind::P1P1);
+        state.effects.register(crate::effects::ContinuousEffect {
+            // `register` assigns the real one.
+            id: baylee_core::ids::EffectId::new(0),
+            source: Some(hydra),
+            controller: P0,
+            origin: crate::effects::EffectOrigin::Static,
+            layer: modifier.layer(),
+            timestamp: 1,
+            duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
+            filter: crate::effects::EffectFilter::Dsl(&Filter::This),
+            modifier,
+        });
+        state
+            .object_mut(hydra)
+            .expect("on the board")
+            .counters
+            .set(baylee_cards_dsl::CounterKind::P1P1, n);
+    }
+
+    fn p1p1(state: &GameState, id: ObjectId) -> u16 {
+        state
+            .object(id)
+            .map_or(0, |o| o.counters.get(baylee_cards_dsl::CounterKind::P1P1))
+    }
+
+    /// Rock Hydra: each 1 damage takes a counter and is prevented while a
+    /// counter is there; the rest is dealt. With none left nothing is
+    /// removed, and another permanent is not covered.
+    #[test]
+    fn counters_prevent_damage_one_for_one() {
+        let (mut state, it) = board();
+        let other = another(&mut state);
+        hydra(&mut state, it, 3);
+
+        assert_eq!(absorb(&mut state, other, it, 2, false), 0);
+        assert_eq!(p1p1(&state, it), 1);
+        assert_eq!(
+            absorb(&mut state, other, it, 3, true),
+            2,
+            "one counter, one prevented"
+        );
+        assert_eq!(p1p1(&state, it), 0);
+        let entries = state.journal.len();
+        assert_eq!(absorb(&mut state, other, it, 2, false), 2);
+        assert_eq!(
+            state.journal.len(),
+            entries,
+            "nothing removed, nothing journalled"
+        );
+
+        state
+            .object_mut(other)
+            .expect("on the board")
+            .counters
+            .set(baylee_cards_dsl::CounterKind::P1P1, 2);
+        assert_eq!(absorb(&mut state, it, other, 2, false), 2, "not the Hydra");
+        assert_eq!(p1p1(&state, other), 2);
+    }
+
+    /// CR 615.12: damage that can't be prevented is still offered to the
+    /// effect, which prevents none of it and removes the counters anyway,
+    /// once for the event (615.12a).
+    #[test]
+    fn unpreventable_damage_still_takes_the_counters() {
+        let (mut state, it) = board();
+        let source = another(&mut state);
+        hydra(&mut state, it, 3);
+        let modifier = baylee_cards_dsl::Modifier::CombatDamageCantBePrevented;
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp: 2,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter: crate::effects::EffectFilter::Dsl(&Filter::Any),
+            modifier,
+        });
+
+        assert_eq!(
+            absorb(&mut state, source, it, 2, true),
+            2,
+            "all of it dealt"
+        );
+        assert_eq!(p1p1(&state, it), 1, "and two counters gone");
+        assert_eq!(
+            absorb(&mut state, source, it, 2, false),
+            1,
+            "noncombat damage can still be prevented"
+        );
+        assert_eq!(p1p1(&state, it), 0);
     }
 }

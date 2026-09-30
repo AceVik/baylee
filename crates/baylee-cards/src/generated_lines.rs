@@ -1344,8 +1344,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Rock Hydra
     &[FaceLines {
         sentences: 4,
-        stackable: 1,
-        lines: &[Some(2)],
+        stackable: 2,
+        lines: &[Some(2), None, Some(3)],
         modes: &[],
         alternatives: &[],
     }],

@@ -2217,3 +2217,10 @@ land type"; both are convention tests that fire on a first try.
   static condition is registered and dropped between passes, so a check
   inside one resolution sees the old answer. A filter such as
   `And(This, Untapped)` is read when the damage is dealt.
+- **Unpreventable damage still meets a prevention effect.** CR 615.12
+  applies it and lets its other parts happen: Rock Hydra's counters come
+  off and the damage is dealt anyway. A guard that skips the effect for
+  unpreventable damage keeps counters the rules take.
+- **A new ability on an old card goes after the ones it had.** A seat's
+  standing answers are keyed by ability index, so Rock Hydra's `{R}` shield
+  kept index 0 and the static and the upkeep ability were appended.

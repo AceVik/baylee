@@ -4,8 +4,6 @@
 //! Oracle: {R}: Prevent the next 1 damage that would be dealt to this creature this turn.
 //! Oracle: {R}{R}{R}: Put a +1/+1 counter on this creature. Activate only during your upkeep.
 //! Set: ME4 #133 — Masters Edition IV | Scryfall ID: 28ab1823-e11e-48ae-8406-e025af32f407 | Oracle ID: aff84707-f5f8-4f53-869e-feec78da8d8d
-// PARTIAL — removing a +1/+1 counter to prevent each 1 damage, and an ability
-// activated only during your upkeep, are not in the DSL.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -15,9 +13,7 @@ card!(
     oracle_id = "aff84707-f5f8-4f53-869e-feec78da8d8d",
     scryfall_id = "28ab1823-e11e-48ae-8406-e025af32f407",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Partial(
-        "removing a +1/+1 counter to prevent each 1 damage, and an ability activated only during your upkeep, are not in the DSL"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rock Hydra",
         mana_cost = mana!("{X}{R}{R}"),
@@ -30,6 +26,8 @@ card!(
             amount: Amount::X,
         }],
     ),],
+    // The {R} shield keeps index 0, which it had before the other two were
+    // written: a seat's standing answers are keyed by the index.
     abilities = &[
         activated!(
             cost!("{R}"),
@@ -38,10 +36,20 @@ card!(
                 amount: Amount::Fixed(1)
             }]
         ),
-        // NOT SUPPORTED: For each 1 damage that would be dealt to this creature, if it
-        // has a +1/+1 counter on it, remove a +1/+1 counter from it and prevent that 1
-        // damage.
-        // NOT SUPPORTED: {R}{R}{R}: Put a +1/+1 counter on this creature. Activate only
-        // during your upkeep.
+        static_ability!(
+            Filter::This,
+            Modifier::CountersPreventDamage(CounterKind::P1P1)
+        ),
+        activated!(
+            cost!("{R}{R}{R}"),
+            &[Effect::AddCounter {
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1),
+            }],
+            condition = Some(Condition::All(&[
+                Condition::YourTurn,
+                Condition::DuringStep(StepKind::Upkeep),
+            ])),
+        ),
     ],
 );
