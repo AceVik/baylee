@@ -8,8 +8,8 @@
 //! result for every call, the model's own turns replayed unchanged,
 //! thinking and all), then answers the question the narrator wrote with a
 //! plain policy: play a land, cast what it can, attack with everything,
-//! never block. Once in the game it answers with an id that is on no list,
-//! and the mind has to send that back and take the second answer. No
+//! never block, decline what it may. Its first pick is an id that is on no
+//! list, and the mind has to send that back and take the second answer. No
 //! network and no key: the key is a placeholder shaped like one, so the
 //! scrubber's patterns are held to it too.
 
@@ -42,10 +42,6 @@ const GAME_BUDGET: Duration = Duration::from_secs(600);
 /// Shaped like an Anthropic key so the scrubber would know it; not a key
 /// anywhere.
 const KEY: &str = "sk-ant-TEST-0123456789abcdefghijklmn";
-
-/// From this call on, the stand-in answers the first question it answers
-/// with a pick with an id that is on no list.
-const SPOILED_CALL: u64 = 3;
 
 /// What the stand-in saw and said.
 #[derive(Default)]
@@ -122,9 +118,11 @@ async fn messages(State(books): State<Shared>, headers: HeaderMap, body: Bytes) 
     let (shape, mut input) = decide(&question);
     *books.shapes.entry(shape).or_default() += 1;
     let id = format!("toolu_TEST{call}");
-    // Only where a pick is the answer: beside `attacks` or `number` the
-    // menu reads the field the question asks for and passes over a `pick`.
-    if call >= SPOILED_CALL && books.spoiled.is_none() && matches!(shape, "option" | "pick") {
+    // The first question answered with a pick gets an id on no list (the
+    // first there is: a game may be short). Only a pick: beside `attacks`
+    // or `number` the menu reads the field the question asks for and
+    // passes over a `pick`.
+    if books.spoiled.is_none() && matches!(shape, "option" | "pick") {
         input["pick"] = json!(["zz9"]);
         books.spoiled = Some(id.clone());
     }
@@ -328,13 +326,14 @@ fn item(line: &str) -> Option<(String, String)> {
     Some((id.to_string(), label.trim().to_string()))
 }
 
-/// A land first, then a spell, then keep or pass.
+/// A land first, then a spell; else keep, pass, or decline (never pay what
+/// may be declined).
 fn option(question: &str) -> String {
     let options = last_list(question);
     let first = |f: &dyn Fn(&(String, String)) -> bool| options.iter().find(|o| f(o));
     first(&|(_, label)| label.starts_with("Play land"))
         .or_else(|| first(&|(_, label)| label.starts_with("Cast ")))
-        .or_else(|| first(&|(id, _)| id == "keep" || id == "p"))
+        .or_else(|| first(&|(id, _)| ["keep", "p", "n"].contains(&id.as_str())))
         .or(options.first())
         .map(|(id, _)| id.clone())
         .unwrap_or_default()
@@ -558,6 +557,15 @@ async fn a_language_model_seat_plays_a_game_through_real_sockets() {
         books.shapes
     );
     println!("model seat: {stats:?}");
+    // What went wrong, if anything did, in the seat's own words.
+    let troubles = llm_transcript.lines().iter().filter(|l| {
+        ["\"refused\"", "\"mind_failed\"", "\"mind_down\""]
+            .iter()
+            .any(|e| l.contains(e))
+    });
+    for line in troubles.take(24) {
+        println!("{line}");
+    }
 
     // Every request was one the API would take.
     assert!(books.faults.is_empty(), "{:#?}", books.faults);
@@ -590,7 +598,10 @@ async fn a_language_model_seat_plays_a_game_through_real_sockets() {
     );
     assert_eq!(stats.mind_down, 0, "{stats:?}");
     assert_eq!(tally.failed, 0, "{tally:?}");
-    assert!(tally.calls >= SPOILED_CALL, "{tally:?}");
+    assert!(
+        tally.calls >= 2,
+        "the spoiled answer and the second: {tally:?}"
+    );
     assert!(tally.usd.is_some_and(|usd| usd > 0.0), "{tally:?}");
     // The id on no list went back as an error, and the game went on.
     assert!(
