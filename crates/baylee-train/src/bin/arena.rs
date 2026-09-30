@@ -86,8 +86,17 @@ struct Args {
     /// Threads; 0 = one per core.
     #[arg(long, default_value_t = 0)]
     threads: usize,
-    /// Seconds a game may take.
-    #[arg(long, default_value_t = 60)]
+    /// Decisions a game may take, every seat's questions together
+    /// (`Session::decision_seq`), before it is stopped. The cap that shapes
+    /// the data: it ends a game at the same move on every machine. Finished
+    /// games take about 900 (at most ~3,400 in a 1,500-game arena), and a
+    /// game past 6,000 is a stall, not play.
+    #[arg(long, default_value_t = 6000)]
+    max_decisions: u64,
+    /// Seconds a game may take: only a guard against an engine that stops
+    /// deciding. A game it stops ends at a machine-dependent point, so it is
+    /// reported as `time_cap` apart from `decision_cap`.
+    #[arg(long, default_value_t = 600)]
     max_secs: u64,
     /// The name each game's id is made of (`<name>-<i>`), from which
     /// `Session::describe` seeds the house's play. The same name plays the
@@ -288,11 +297,12 @@ fn main() -> anyhow::Result<()> {
             args.model.clone(),
             run.clone(),
         );
-        let (tasks, as_house, first_seed, entities, wall) = (
+        let (tasks, as_house, first_seed, entities, max_decisions, wall) = (
             tasks.clone(),
             as_house,
             args.first_seed,
             args.entities,
+            args.max_decisions,
             Duration::from_secs(args.max_secs),
         );
         std::thread::spawn(move || {
@@ -354,6 +364,9 @@ fn main() -> anyhow::Result<()> {
                                     [_] => "loss",
                                     _ => "draw",
                                 };
+                            }
+                            if session.decision_seq() >= max_decisions {
+                                break "decision_cap";
                             }
                             if started.elapsed() > wall {
                                 break "time_cap";
@@ -538,6 +551,7 @@ fn main() -> anyhow::Result<()> {
     let report = json!({
         "model": args.model, "as_profile": args.as_profile, "name": run, "deals": args.deals,
         "games": done, "results": results, "duplicate": duplicate,
+        "caps": {"decisions": args.max_decisions, "secs": args.max_secs},
         "net_answers": answers, "house_fallbacks": fallbacks, "refused": refused,
         "refused_by_kind": refusal_kinds.iter().map(|(k, [not_enumerated, enumerated])| (k.clone(), json!({"enumerated": enumerated, "not_enumerated": not_enumerated}))).collect::<BTreeMap<_, _>>(),
         "ms_per_answer": net_ms / answers.max(1) as f64, "seconds": started.elapsed().as_secs_f64(),

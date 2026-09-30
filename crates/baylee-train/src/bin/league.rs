@@ -80,8 +80,17 @@ struct Args {
     /// Threads; 0 = one per core.
     #[arg(long, default_value_t = 0)]
     threads: usize,
-    /// Seconds a game may take.
-    #[arg(long, default_value_t = 120)]
+    /// Decisions a game may take, every seat's questions together
+    /// (`Session::decision_seq`), before it is stopped. The cap that shapes
+    /// the data: it ends a game at the same move on every machine. Finished
+    /// games take about 900 (at most ~3,400 in a 1,500-game arena), and a
+    /// game past 6,000 is a stall, not play.
+    #[arg(long, default_value_t = 6000)]
+    max_decisions: u64,
+    /// Seconds a game may take: only a guard against an engine that stops
+    /// deciding. A game it stops ends at a machine-dependent point, so it is
+    /// reported as `time_cap` apart from `decision_cap`.
+    #[arg(long, default_value_t = 600)]
     max_secs: u64,
     /// Games per record shard.
     #[arg(long, default_value_t = 1000)]
@@ -291,6 +300,9 @@ fn play_one(
                 }
             };
         }
+        if session.decision_seq() >= args.max_decisions {
+            break json!({"kind": "decision_cap"});
+        }
         if started.elapsed() > wall {
             break json!({"kind": "time_cap"});
         }
@@ -448,6 +460,7 @@ fn main() -> anyhow::Result<()> {
             "decks": decks.iter().map(|d| d.key.clone()).collect::<Vec<_>>(),
             "games": args.games,
             "first_seed": args.first_seed,
+            "caps": {"decisions": args.max_decisions, "secs": args.max_secs},
             "started": stamp,
         }))?,
     )?;
