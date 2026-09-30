@@ -12,14 +12,20 @@
 //! No key is ever in it. A profile names the environment variable its key
 //! is read from ([`Profile::key_env`]), and a file with a field named like
 //! a key, or a value shaped like one, is refused with a sentence saying
-//! where keys go ([`SeatSettings::parse`]).
+//! where keys go ([`SeatSettings::parse`]). Every refusal is also a
+//! [`Fault`] with the field it is about ([`SeatSettings::faults`]), which
+//! the settings panel ([`panel`]) shows beside that field.
 //!
 //! Pure data and arithmetic, for every target. Reading and writing the
-//! files is [`store`] and [`ledger::Book`], on native targets only, the one
-//! place in this crate that touches a file. Nothing here reads a clock: the
-//! ledger is handed the moment ([`ledger::Moment`]).
+//! files is [`store`], [`ledger::Book`] and the panel's [`desk`], on native
+//! targets only, the one place in this crate that touches a file. Nothing
+//! here reads a clock: the ledger is handed the moment
+//! ([`ledger::Moment`]).
 
+#[cfg(not(target_arch = "wasm32"))]
+pub mod desk;
 pub mod ledger;
+pub mod panel;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod store;
 #[cfg(test)]
