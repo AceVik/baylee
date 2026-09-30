@@ -3800,6 +3800,9 @@ impl Tx<'_> {
         if event == "Untap" {
             return self.does_not_untap(&mut p);
         }
+        if event == "BeginPhase" {
+            return self.skip_untap_steps(&mut p);
+        }
         if event != "Moved" {
             self.note(format!("replacement `R: Event$ {event}`"));
             return None;
@@ -4038,6 +4041,44 @@ impl Tx<'_> {
             "an enter-tapped condition counting `{defn}` `{cmp}`"
         ));
         None
+    }
+
+    /// `R:Event$ BeginPhase | Phase$ Untap | Skip$ True` — "players skip
+    /// their untap steps" (Stasis) — as `Modifier::SkipUntapStep` for every
+    /// player.
+    ///
+    /// A static ability and not a replacement here, for the reason
+    /// [`Tx::does_not_untap`] gives: the skip is read by the untap step
+    /// itself (CR 614.10), with nothing to put in the step's place. Only the
+    /// untap step, only from the battlefield, and only with no player named:
+    /// the corpus writes this line three times, and the third is a plane's,
+    /// from the command zone, which refuses.
+    fn skip_untap_steps(&mut self, p: &mut Params) -> Option<()> {
+        p.drop_prose();
+        match p.take("ActiveZones").as_deref() {
+            None | Some("Battlefield") => {}
+            Some(zone) => {
+                return self.deny(format!("a skipped step from `ActiveZones$ {zone}`"));
+            }
+        }
+        match (p.take("Phase").as_deref(), p.take("Skip").as_deref()) {
+            (Some("Untap"), Some("True")) => {}
+            (phase, skip) => {
+                return self.deny(format!(
+                    "`BeginPhase` of `{}` with `Skip$ {}`",
+                    phase.unwrap_or("any step"),
+                    skip.unwrap_or("nothing")
+                ));
+            }
+        }
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `BeginPhase.{key}`"));
+        }
+        self.body.abilities.push(
+            "static_ability!(Filter::Any, Modifier::SkipUntapStep { who: PlayerRel::EachPlayer })"
+                .to_string(),
+        );
+        Some(())
     }
 
     /// `R:Event$ Untap | … | Layer$ CantHappen` as
@@ -7731,6 +7772,34 @@ SVar:X:Count$xPaid",
             assert!(
                 refused(&format!("Name:X\nTypes:Creature\nPT:3/4\n{refused_card}")),
                 "{refused_card}"
+            );
+        }
+    }
+
+    /// Stasis: "Players skip their untap steps" is every player's untap step,
+    /// from the battlefield; a plane's skip from the command zone, another
+    /// step, and a skip for one player refuse.
+    #[test]
+    fn a_skipped_untap_step_is_every_players() {
+        let body = read(
+            "Name:X\nTypes:Enchantment\n\
+             R:Event$ BeginPhase | ActiveZones$ Battlefield | Phase$ Untap | Skip$ True | \
+             Description$ Players skip their untap steps.",
+        );
+        assert_eq!(
+            body.abilities,
+            vec![
+                "static_ability!(Filter::Any, Modifier::SkipUntapStep { who: PlayerRel::EachPlayer })"
+            ]
+        );
+        for refused_line in [
+            "R:Event$ BeginPhase | ActiveZones$ Command | Phase$ Untap | Skip$ True",
+            "R:Event$ BeginPhase | Phase$ Draw | Skip$ True",
+            "R:Event$ BeginPhase | Phase$ Untap | Skip$ True | ValidPlayer$ You",
+        ] {
+            assert!(
+                refused(&format!("Name:X\nTypes:Enchantment\n{refused_line}")),
+                "{refused_line}"
             );
         }
     }

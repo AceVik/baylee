@@ -238,6 +238,15 @@ pub enum Modifier {
     OpponentsCantSearch,
     /// The controller has no maximum hand size (Reliquary Tower).
     NoMaxHandSize,
+    /// These players skip their untap steps (Stasis: `EachPlayer`). A skip
+    /// replaces the step with nothing (CR 614.1b, 614.10): none of its
+    /// turn-based actions happen — phasing, the day/night check, the untap
+    /// (CR 502.1–502.3) — and what waits for a player's "next" untap step
+    /// waits for one that is not skipped (CR 614.10a).
+    SkipUntapStep {
+        /// Who skips, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+    },
     /// Protection from sources matching the filter: can't be damaged,
     /// targeted, or blocked by them (CR 702.16).
     ProtectionFrom(&'static crate::Filter),
@@ -586,6 +595,7 @@ impl Modifier {
             | Self::CantBeBlockedBy(_)
             | Self::OpponentsCantSearch
             | Self::NoMaxHandSize
+            | Self::SkipUntapStep { .. }
             | Self::PlayerHexproof
             | Self::SorceriesHaveFlash
             | Self::ManaIsAnyColor

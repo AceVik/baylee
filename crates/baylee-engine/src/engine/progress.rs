@@ -4920,6 +4920,15 @@ impl<L: CardLookup> Engine<L> {
     /// action may not take the answer its own rule asks a player for.
     pub(crate) fn untap_step(&mut self) -> bool {
         let active = self.state.turn.active;
+        // "Players skip their untap steps" (Stasis) replaces the step with
+        // nothing (CR 614.1b, 614.10): no phasing, no day/night check, no
+        // untap, and an effect waiting for the player's *next* untap step
+        // keeps waiting for one that is not skipped (CR 614.10a) — which is
+        // why this goes straight on and not through `finish_untap_step`.
+        if self.state.skips_untap_step(active) {
+            self.advance_step();
+            return false;
+        }
         let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
         // Phasing: phased-out permanents the active player controls phase
         // back in at the untap step (CR 702.26a).

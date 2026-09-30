@@ -1691,8 +1691,9 @@ mod tests {
                     .flat_map(|b| b.effects.iter().flat_map(declared_layers))
                     .map(|(_, modifier)| modifier);
                 for modifier in printed.into_iter().chain(granted) {
-                    let (Modifier::DrawLimitPerTurn { who, .. } | Modifier::CantLoseLife { who }) =
-                        modifier
+                    let (Modifier::DrawLimitPerTurn { who, .. }
+                    | Modifier::CantLoseLife { who }
+                    | Modifier::SkipUntapStep { who }) = modifier
                     else {
                         continue;
                     };

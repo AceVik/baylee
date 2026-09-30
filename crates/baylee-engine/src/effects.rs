@@ -149,6 +149,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBeBlockedBy(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
+        | Modifier::SkipUntapStep { .. }
         | Modifier::PlayerHexproof
         | Modifier::SorceriesHaveFlash
         | Modifier::ManaIsAnyColor
@@ -703,9 +704,10 @@ mod tests {
     /// below, because `locks_its_set` is exhaustive and a new variant is a
     /// compile error *there* — the risk here is a variant quietly missing
     /// from the comparison, which is silent.
+    #[allow(clippy::too_many_lines)] // one row per `Modifier` variant
     fn every_modifier() -> Vec<Modifier> {
         const NOTHING: &[baylee_cards_dsl::Effect] = &[];
-        use baylee_cards_dsl::{CounterKind, KeywordSet};
+        use baylee_cards_dsl::{CounterKind, KeywordSet, PlayerRel};
         use baylee_core::color::{Color, ColorSet};
         use baylee_core::ids::SubtypeId;
         use baylee_core::types::TypeSet;
@@ -781,12 +783,12 @@ mod tests {
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
             Modifier::CantBeTargetedBy(&Filter::CREATURE),
             Modifier::DrawLimitPerTurn {
-                who: baylee_cards_dsl::PlayerRel::EachPlayer,
+                who: PlayerRel::EachPlayer,
                 limit: 1,
             },
             Modifier::PlayersCantLose,
             Modifier::CantLoseLife {
-                who: baylee_cards_dsl::PlayerRel::EachPlayer,
+                who: PlayerRel::EachPlayer,
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
@@ -794,6 +796,9 @@ mod tests {
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
+            Modifier::SkipUntapStep {
+                who: PlayerRel::EachPlayer,
+            },
             Modifier::PlayerHexproof,
             Modifier::SorceriesHaveFlash,
             Modifier::ManaIsAnyColor,
@@ -840,7 +845,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            57,
+            58,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -892,7 +897,7 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: twenty-eight
-    /// modifiers lock the objects they found, twenty-nine do not.
+    /// modifiers lock the objects they found, thirty do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -900,10 +905,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_eight_modifiers_lock_a_set_and_twenty_nine_do_not() {
+    fn twenty_eight_modifiers_lock_a_set_and_thirty_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (28, 29));
+        assert_eq!((locking, all.len() - locking), (28, 30));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

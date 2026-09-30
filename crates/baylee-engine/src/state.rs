@@ -1284,6 +1284,19 @@ impl GameState {
         })
     }
 
+    /// Whether an effect has `player` skip their untap steps
+    /// (`Modifier::SkipUntapStep`, Stasis). Each effect's `who` is read from
+    /// its own controller, as [`Self::cant_lose_life`] reads its own.
+    #[must_use]
+    pub fn skips_untap_step(&self, player: PlayerId) -> bool {
+        self.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::SkipUntapStep { who } = fx.modifier else {
+                return false;
+            };
+            crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+        })
+    }
+
     /// Builds a game from a preset: seats, decks, shuffles, opening hands,
     /// starting battlefield, emblems.
     ///

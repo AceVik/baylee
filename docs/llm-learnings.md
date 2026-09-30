@@ -2094,3 +2094,9 @@ land type"; both are convention tests that fire on a first try.
   card triggers twice per block, or once for a sentence it does not print.
   Pair the halves, write one ability, and refuse a script that ends with a
   half unpaired, in `refusal_reason` as well as in `transcode`.
+- **A skipped step is not a step that ran with nothing to do.** Stasis
+  skips the untap step (CR 614.10). Running the step and keeping every
+  permanent tapped would look the same on the board, but it would spend
+  every "until your next untap step" effect, which CR 614.10a says waits
+  for the first untap step that is not skipped. The skip leaves the step
+  before its turn-based actions, not through the step's own ending.

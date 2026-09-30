@@ -1606,7 +1606,8 @@ Modal/sequence: `Sequence(&[..])`.
 `PlayersCantLose`,
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
-`MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
+`MayChooseNotToUntap`, `SkipUntapStep { who }`, `PlayLandsFromGraveyard`,
+`ExtraLandDrops`,
 `DrawLimitPerTurn`, `CastPermanentSpellsFromGraveyard`,
 `PermanentOfEachTypeFromGraveyard`, `CantBeTargetedBy`, `SetPTToCount`,
 `ExileInsteadOfYourGraveyard`, `CastSpellsFromGraveyard`.
@@ -1701,6 +1702,18 @@ granted, which CR 502.4 forbids and this is not. It takes `Filter::This` and
 no duration like its neighbour, and the two compose: a permanent an effect
 already keeps from untapping is left off the menu, because both answers to
 that question would do the same thing.
+
+`SkipUntapStep { who }` is Stasis's "players skip their untap steps". A
+skip is a replacement effect that replaces the step with nothing (CR 614.1b,
+614.10), but it is written as a static ability because nothing is put in the
+step's place: `progress::untap_step` asks it first and goes straight on to
+the upkeep, so no permanent phases (502.1), the day/night check does not run
+(502.2) and nothing untaps (502.3). `who` is read from the effect's
+controller like `CantLoseLife`'s. An effect lasting "until your next untap
+step" is not spent by a skipped one (CR 614.10a): it waits for the first
+untap step that happens, which is why the skip does not pass through
+`finish_untap_step`. The reader writes it from `R:Event$ BeginPhase |
+Phase$ Untap | Skip$ True` on the battlefield with no player named.
 
 `GainControl` is layer 2 and must be paired with `Layer::Control` — any
 other layer applies it out of order with respect to the effects that read

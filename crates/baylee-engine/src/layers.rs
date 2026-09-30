@@ -791,6 +791,7 @@ fn apply(
         | Modifier::SearchTakeover
         // CR 613.11: a rule, so there is no characteristic to write. The
         // untap step reads it (`progress::untap_step`).
+        | Modifier::SkipUntapStep { .. }
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
         // A replacement, read where a card would reach a graveyard

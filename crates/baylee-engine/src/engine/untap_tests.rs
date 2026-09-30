@@ -370,3 +370,120 @@ fn and_it_ends_at_that_step_rather_than_at_a_turn_boundary() {
          untaps the basin like any other permanent"
     );
 }
+
+// -------------------------------- "Players skip their untap steps" (Stasis)
+//
+// A skip is a replacement effect that puts nothing in the step's place
+// (CR 614.1b, 614.10), so the step's turn-based actions (CR 502.1–502.3)
+// do not happen at all. Two consequences, one test each: nothing untaps, and
+// an effect waiting for "your next untap step" waits for the first one that
+// is not skipped (CR 614.10a) rather than being spent by the skipped one.
+
+/// A land that says "Players skip their untap steps", and taps for mana so
+/// `tap_every_land` has something to do with it.
+const STILL_BASIN: u32 = 1103;
+
+static STILL_ABILITIES: &[AbilityDef] = &[
+    AbilityDef::Static(StaticAbility {
+        layer: Layer::Text,
+        filter: Filter::Any,
+        modifier: Modifier::SkipUntapStep {
+            who: baylee_cards_dsl::PlayerRel::EachPlayer,
+        },
+        condition: None,
+    }),
+    AbilityDef::Activated {
+        cost: Cost::TAP,
+        effects: MANA,
+        targets: None,
+        second_targets: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: true,
+        zone: ActivationZone::Battlefield,
+        limit: ActivationLimit::Unlimited,
+        cost_reduction: None,
+    },
+];
+
+fn still_lookup() -> SyntheticLookup {
+    SyntheticLookup::new(vec![
+        land(SLOW_BASIN, "Slow Basin", SLOW_ABILITIES),
+        land(STILL_BASIN, "Still Basin", STILL_ABILITIES),
+    ])
+}
+
+/// Passes until `seat`'s next turn has reached a priority, which is after its
+/// untap step (CR 502.4 grants none inside it), skipped or not.
+fn walk_to_next_turn_of(engine: &mut Engine<SyntheticLookup>, seat: PlayerId) {
+    let start = engine.state().turn.number;
+    for _ in 0..400 {
+        let turn = engine.state().turn;
+        if turn.number > start
+            && turn.active == seat
+            && matches!(engine.pending(), Pending::Priority { .. })
+        {
+            return;
+        }
+        let pending = engine.pending().clone();
+        assert!(
+            walk_past(engine, &pending),
+            "unexpected question: {pending:?}"
+        );
+    }
+    panic!("the seat's next turn did not come within a bounded walk");
+}
+
+/// The untap step is skipped: the Forest a normal untap step untaps (the
+/// tests above) is still tapped on its controller's next turn.
+#[test]
+fn a_skipped_untap_step_untaps_nothing() {
+    let f = forest();
+    let mut engine = Engine::new(&preset(16, &[STILL_BASIN, f]), still_lookup()).unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    let forest_id = permanents(&engine, f)[0];
+
+    tap_every_land(&mut engine, p0);
+    assert!(tapped(&engine, forest_id), "the Forest is tapped");
+
+    walk_to_next_turn_of(&mut engine, p0);
+    assert!(
+        tapped(&engine, forest_id),
+        "the untap step was skipped, so the Forest did not untap (CR 614.10)"
+    );
+}
+
+/// "…during your next untap step" waits past a skipped one (CR 614.10a):
+/// the effect the slow land made is still there on the turn after.
+#[test]
+fn an_effect_for_the_next_untap_step_waits_past_a_skipped_one() {
+    let f = forest();
+    let mut engine =
+        Engine::new(&preset(17, &[SLOW_BASIN, STILL_BASIN, f]), still_lookup()).unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    let basin = permanents(&engine, SLOW_BASIN)[0];
+
+    tap_every_land(&mut engine, p0);
+    assert!(tapped(&engine, basin), "the slow land tapped for its mana");
+    let waiting = |engine: &Engine<SyntheticLookup>| {
+        engine
+            .state()
+            .effects
+            .iter()
+            .filter(|fx| matches!(fx.duration, Duration::UntilYourNextUntapStep))
+            .count()
+    };
+    assert_eq!(
+        waiting(&engine),
+        1,
+        "its effect waits for the next untap step"
+    );
+
+    walk_to_next_turn_of(&mut engine, p0);
+    assert_eq!(
+        waiting(&engine),
+        1,
+        "the skipped untap step is not the one it was waiting for"
+    );
+}
