@@ -9,4 +9,5 @@ use super::Precon;
 /// The decks the house offers, in key order.
 #[rustfmt::skip]
 pub static PLAYABLE: &[Precon] = &[
+    Precon { key: "PAST/great-druid", text: include_str!("../../../../data/decks/precon/PAST/great-druid.txt") },
 ];
