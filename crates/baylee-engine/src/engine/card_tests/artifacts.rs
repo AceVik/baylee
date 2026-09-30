@@ -19130,6 +19130,15 @@ fn juggernaut_must_attack_each_combat_if_able_and_the_elf_beside_it_never_must()
         vec![jugg],
         "only the Juggernaut must attack; the Elf beside it never does"
     );
+    // The question states the refusal (`answer_fault`) as the engine
+    // makes it, so a client's Confirm stays dark for the same answers.
+    let question = engine.pending().clone();
+    for short in [vec![], vec![(elf, Defender::Player(p1))]] {
+        assert_eq!(
+            question.answer_fault(&PlayerAction::DeclareAttackers { attackers: short }),
+            Some(crate::choice::AnswerFault::MustAttack)
+        );
+    }
 
     assert!(
         engine

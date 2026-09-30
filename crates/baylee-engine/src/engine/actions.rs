@@ -1781,9 +1781,7 @@ impl<L: CardLookup> Engine<L> {
                     && legal.iter().any(|d| rules.allows(id, *d))
             });
         if shirking {
-            return Err(EngineError::IllegalAction(
-                "a creature that attacks each combat if able must attack",
-            ));
+            return Err(crate::choice::AnswerFault::MustAttack.into());
         }
         for &(creature, defending) in &attackers {
             let vigilance = self.state.object(creature).is_some_and(|o| {
@@ -1894,9 +1892,7 @@ impl<L: CardLookup> Engine<L> {
         if rules.has_requirements() {
             let most = rules.obeyed(&rules.obeying(&combat::block_options(&self.state, defending)));
             if rules.obeyed(blockers) < most {
-                return Err(EngineError::IllegalAction(
-                    "a creature that must block if able does not",
-                ));
+                return Err(crate::choice::AnswerFault::MustBlock.into());
             }
         }
         for &(blocker, attacker) in blockers {

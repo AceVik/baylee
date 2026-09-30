@@ -4081,6 +4081,7 @@ pub(crate) mod tests {
             ),
             (
                 Pending::ChooseBlockers {
+                    demands: Vec::new(),
                     player: me,
                     attacker: PlayerId::new(1),
                     blockers: Vec::new(),

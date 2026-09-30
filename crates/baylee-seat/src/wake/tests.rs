@@ -278,6 +278,7 @@ fn a_declaration_is_made_only_when_there_is_nothing_to_declare() {
         Verdict::Wake(Why::Declaration)
     );
     let block = |blockers| Pending::ChooseBlockers {
+        demands: Vec::new(),
         player: ME,
         attacker: THEM,
         blockers,

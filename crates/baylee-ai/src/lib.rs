@@ -2265,6 +2265,7 @@ mod tests {
             blocked: false,
         }];
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: v.seat,
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
@@ -2534,6 +2535,7 @@ mod tests {
             })
             .collect();
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: v.seat,
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
@@ -2573,6 +2575,7 @@ mod tests {
             })
             .collect();
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: v.seat,
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
@@ -2708,6 +2711,7 @@ mod tests {
             d == Defender::Player(PlayerId::new(0)) || d == Defender::Planeswalker(obj(4))
         };
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: v.seat,
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
@@ -2849,6 +2853,7 @@ mod tests {
             },
         ];
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: v.seat,
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
@@ -3713,6 +3718,7 @@ mod tests {
             blocked: false,
         }];
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: defender,
             attacker,
             blockers: (0..blockers)
@@ -3753,6 +3759,7 @@ mod tests {
             blocked: false,
         }];
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: defender,
             attacker: attacking,
             blockers: (0..blockers.len())
@@ -4435,6 +4442,7 @@ mod tests {
             blocked: false,
         });
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: v.seat,
             attacker: PlayerId::new(1),
             blockers: vec![
@@ -4531,6 +4539,7 @@ mod tests {
             v
         };
         let ask = |blockers: &[u32]| Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: me,
             attacker: PlayerId::new(1),
             blockers: blockers
@@ -5069,6 +5078,7 @@ mod tests {
             bands: vec![],
         };
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: PlayerId::new(0),
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
@@ -5106,6 +5116,7 @@ mod tests {
             bands: vec![],
         };
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: PlayerId::new(0),
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {

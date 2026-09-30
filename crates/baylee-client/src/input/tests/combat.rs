@@ -37,6 +37,7 @@ fn attackers(candidates: Vec<ObjectId>) -> Pending {
 /// A declare-blockers question offering `blocker` against one attacker.
 fn blockers(candidates: Vec<BlockOption>) -> Pending {
     Pending::ChooseBlockers {
+        demands: Vec::new(),
         player: PlayerId::new(0),
         attacker: PlayerId::new(1),
         blockers: candidates,

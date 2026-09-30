@@ -56,6 +56,7 @@ fn put_back(cards: Vec<ObjectId>) -> Pending {
 /// A blocking choice with one attacker per listed blocker.
 fn block_choice(options: Vec<BlockOption>) -> Pending {
     Pending::ChooseBlockers {
+        demands: Vec::new(),
         player: me(),
         attacker: PlayerId::new(1),
         blockers: options,

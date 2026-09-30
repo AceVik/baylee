@@ -515,6 +515,7 @@ mod tests {
             .build();
         let mut i = Interaction::new(
             Pending::ChooseBlockers {
+                demands: Vec::new(),
                 player: seat(0),
                 attacker: seat(1),
                 blockers: vec![BlockOption {
@@ -653,6 +654,7 @@ mod tests {
 
         let mut i = Interaction::new(
             Pending::ChooseBlockers {
+                demands: Vec::new(),
                 player: seat(0),
                 attacker: seat(1),
                 blockers: vec![BlockOption {

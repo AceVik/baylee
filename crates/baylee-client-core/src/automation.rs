@@ -902,6 +902,7 @@ mod tests {
             assert_eq!(
                 auto_answer(
                     &Pending::ChooseBlockers {
+                        demands: Vec::new(),
                         player: PlayerId::new(0),
                         blockers: vec![],
                         attacker: PlayerId::new(1),
@@ -1072,6 +1073,7 @@ mod tests {
         assert_eq!(
             auto_answer(
                 &Pending::ChooseBlockers {
+                    demands: Vec::new(),
                     player: PlayerId::new(0),
                     blockers: vec![],
                     attacker: PlayerId::new(1),
@@ -1272,6 +1274,7 @@ mod tests {
         assert_eq!(
             auto_answer(
                 &Pending::ChooseBlockers {
+                    demands: Vec::new(),
                     player: PlayerId::new(0),
                     blockers: vec![],
                     attacker: PlayerId::new(1),
@@ -1294,6 +1297,7 @@ mod tests {
         assert_eq!(
             auto_answer(
                 &Pending::ChooseBlockers {
+                    demands: Vec::new(),
                     player: PlayerId::new(0),
                     blockers: vec![],
                     attacker: PlayerId::new(1),
@@ -1328,6 +1332,7 @@ mod tests {
         assert_eq!(
             auto_answer(
                 &Pending::ChooseBlockers {
+                    demands: Vec::new(),
                     player: PlayerId::new(0),
                     blockers: vec![baylee_engine::choice::BlockOption {
                         blocker,
@@ -1668,6 +1673,7 @@ mod tests {
         // A block on their turn: still mine to make, and the whole point of
         // the rule being priority-only.
         let blocks = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: PlayerId::new(0),
             blockers: vec![baylee_engine::choice::BlockOption {
                 blocker: baylee_core::ids::ObjectId::new(1, 0),

@@ -83,6 +83,21 @@ pub struct AttackerBound {
     pub max_blockers: u32,
 }
 
+/// How many block requirements ask one creature to block one attacker
+/// (CR 509.1c): each lure on the attacker ("all creatures able to block it
+/// do so") and each "blocks each attacking creature if able" on the blocker.
+/// A declaration obeys the sum over its pairs, and the engine refuses one
+/// that obeys fewer than [`Pending::ChooseBlockers::obeying`] does.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub struct BlockDemand {
+    /// The creature asked to block.
+    pub blocker: ObjectId,
+    /// The attacker it is asked to block.
+    pub attacker: ObjectId,
+    /// How many requirements ask it, never 0.
+    pub count: u32,
+}
+
 /// What each option of a [`Pending::ChooseCards`] weighs in a
 /// [`CardTotal`], as a UI hint: the weights themselves ride with the total.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
@@ -206,6 +221,12 @@ pub enum AnswerFault {
     /// An attacker blocked by more creatures than its
     /// [`AttackerBound::max_blockers`].
     TooManyBlockers,
+    /// A declaration of attackers without a creature the question names in
+    /// `required` (CR 508.1d).
+    MustAttack,
+    /// A declaration of blockers obeying fewer requirements than the
+    /// question's `obeying` does, counted by its `demands` (CR 509.1c).
+    MustBlock,
     /// A mulligan the question says cannot be taken
     /// ([`Pending::Mulligan::can_take`]).
     NoFurtherMulligan,
@@ -230,6 +251,8 @@ impl AnswerFault {
             Self::OverCapacity => "creature cannot block that many attackers",
             Self::TooFewBlockers => "too few blockers for that attacker",
             Self::TooManyBlockers => "too many blockers for that attacker",
+            Self::MustAttack => "a creature that attacks each combat if able must attack",
+            Self::MustBlock => "a creature that must block if able does not",
             Self::NoFurtherMulligan => {
                 "a hand that would open with zero cards takes no further mulligan"
             }
@@ -330,6 +353,11 @@ pub enum Pending {
         /// that does not choose gets.
         #[serde(default)]
         obeying: Vec<(ObjectId, ObjectId)>,
+        /// The pairs out of `blockers` a requirement asks for, with how many
+        /// ask, which is how `obeying` and an answer are both counted.
+        /// Empty when no requirement is in force.
+        #[serde(default)]
+        demands: Vec<BlockDemand>,
         /// The attackers whose blockers are counted, and the count each
         /// allows (menace, CR 702.111b). A restriction on the whole
         /// declaration rather than on a pair (CR 509.1b), which is why it is
@@ -1089,9 +1117,12 @@ impl Pending {
     /// its own fields, and a client, the house AI and a trained agent can
     /// hold an answer to them before sending it. The checks are the
     /// question's arithmetic: which answer kind it takes, membership in what
-    /// it offers, counts, no repeats in a list read as a set, and the
-    /// bounds it states ([`CardTotal`], [`AttackerBound`], a mulligan's
-    /// `can_take`).
+    /// it offers, counts, no repeats in a list read as a set, the bounds it
+    /// states ([`CardTotal`], [`AttackerBound`], a mulligan's `can_take`),
+    /// and the rules a combat declaration is held to: an attack's
+    /// `required` creatures and its `limits` (CR 508.1c–d), and a block
+    /// obeying as many requirements as its `obeying` does, counted by its
+    /// `demands` (CR 509.1c).
     ///
     /// Two questions name their options outside their own fields, and this
     /// checks what is left of them: a bottomed or discarded card is one from
@@ -1122,21 +1153,27 @@ impl Pending {
                 Self::ChooseAttackers {
                     attackers,
                     defenders,
+                    required,
+                    limits,
                     ..
                 },
                 A::DeclareAttackers {
                     attackers: declared,
                 },
-            ) => attack_fault(attackers, defenders, declared),
+            ) => attack_fault(attackers, defenders, declared)
+                .or_else(|| attack_rules_fault(required, limits, declared)),
             (
                 Self::ChooseBlockers {
                     blockers,
                     capacity,
                     bounds,
+                    obeying,
+                    demands,
                     ..
                 },
                 A::DeclareBlockers { blockers: declared },
-            ) => block_fault(blockers, capacity, bounds, declared),
+            ) => block_fault(blockers, capacity, bounds, declared)
+                .or_else(|| obeying_fault(obeying, demands, declared)),
             (Self::LegendChoice { options, .. }, A::ChooseObjects { objects }) => {
                 counted(objects.len(), 1, 1).or_else(|| not_offered(options, objects))
             }
@@ -1305,6 +1342,54 @@ fn attack_fault(
             None
         }
     })
+}
+
+/// A declaration of attackers against the rules the question states about
+/// it: each creature named in `limits` attacks one of its defenders
+/// (CR 508.1c), and every creature in `required` attacks (CR 508.1d).
+fn attack_rules_fault(
+    required: &[ObjectId],
+    limits: &[AttackLimit],
+    declared: &[(ObjectId, baylee_core::ids::Defender)],
+) -> Option<AnswerFault> {
+    let limited = declared.iter().any(|(creature, defender)| {
+        limits
+            .iter()
+            .any(|l| l.creature == *creature && !l.defenders.contains(defender))
+    });
+    if limited {
+        return Some(AnswerFault::NotOffered);
+    }
+    let named: std::collections::BTreeSet<ObjectId> = declared.iter().map(|(c, _)| *c).collect();
+    required
+        .iter()
+        .any(|creature| !named.contains(creature))
+        .then_some(AnswerFault::MustAttack)
+}
+
+/// A declaration of blockers held to as many requirements as `obeying`
+/// obeys (CR 509.1c), each pair counted by what `demands` says asks for it.
+/// Pairs named twice were refused before this counts them.
+fn obeying_fault(
+    obeying: &[(ObjectId, ObjectId)],
+    demands: &[BlockDemand],
+    declared: &[(ObjectId, ObjectId)],
+) -> Option<AnswerFault> {
+    if demands.is_empty() {
+        return None;
+    }
+    let score = |pairs: &[(ObjectId, ObjectId)]| -> u64 {
+        pairs
+            .iter()
+            .map(|(b, a)| {
+                demands
+                    .iter()
+                    .find(|d| d.blocker == *b && d.attacker == *a)
+                    .map_or(0, |d| u64::from(d.count))
+            })
+            .sum()
+    };
+    (score(declared) < score(obeying)).then_some(AnswerFault::MustBlock)
 }
 
 /// A declaration of blockers against the pairings and the counts offered:
@@ -1991,6 +2076,7 @@ mod choice_tests {
             ),
             (
                 Pending::ChooseBlockers {
+                    demands: Vec::new(),
                     player: p,
                     attacker: PlayerId::new(1),
                     blockers: vec![BlockOption {
@@ -2632,6 +2718,7 @@ mod fit_to_options_tests {
     fn a_blockers_answer_is_held_to_its_pairings_and_bounds() {
         let (runner, other) = (card(1), card(2));
         let question = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: me(),
             attacker: PlayerId::new(1),
             blockers: vec![
@@ -2679,5 +2766,89 @@ mod fit_to_options_tests {
             Some(AnswerFault::Repeated),
             "one pair named twice"
         );
+    }
+
+    /// An attack is held to what its question says of it: a creature in
+    /// `required` attacks (CR 508.1d), and one in `limits` attacks only
+    /// what its limit lists (CR 508.1c). The engine refused both and this
+    /// passed both, so a client lit Confirm for a declaration the engine
+    /// then refused.
+    #[test]
+    fn an_attack_is_held_to_its_requirements_and_limits() {
+        use baylee_core::ids::Defender;
+        let (jugg, elf) = (card(1), card(2));
+        let them = Defender::Player(PlayerId::new(1));
+        let walker = Defender::Planeswalker(card(9));
+        let question = Pending::ChooseAttackers {
+            player: me(),
+            attackers: vec![jugg, elf],
+            defenders: vec![them, walker],
+            required: vec![jugg],
+            limits: vec![AttackLimit {
+                creature: elf,
+                defenders: vec![them],
+            }],
+        };
+        let declare = |pairs: &[(ObjectId, Defender)]| PlayerAction::DeclareAttackers {
+            attackers: pairs.to_vec(),
+        };
+        assert_eq!(
+            question.answer_fault(&declare(&[])),
+            Some(AnswerFault::MustAttack),
+            "the required attacker is missing"
+        );
+        assert_eq!(
+            question.answer_fault(&declare(&[(elf, them)])),
+            Some(AnswerFault::MustAttack)
+        );
+        assert_eq!(question.answer_fault(&declare(&[(jugg, walker)])), None);
+        assert_eq!(
+            question.answer_fault(&declare(&[(jugg, them), (elf, walker)])),
+            Some(AnswerFault::NotOffered),
+            "the Elf may attack only the player"
+        );
+        assert_eq!(
+            question.answer_fault(&declare(&[(jugg, them), (elf, them)])),
+            None
+        );
+    }
+
+    /// A block is held to as many requirements as `obeying` obeys
+    /// (CR 509.1c), each pair weighed by `demands`: with two lured
+    /// attackers and one blocker, blocking either obeys one, as `obeying`
+    /// does, and blocking the third, or nothing, obeys none.
+    #[test]
+    fn a_block_is_held_to_as_many_requirements_as_obeying() {
+        let (lured, also, plain, blocker) = (card(1), card(2), card(3), card(10));
+        let question = Pending::ChooseBlockers {
+            player: me(),
+            attacker: PlayerId::new(1),
+            blockers: vec![BlockOption {
+                blocker,
+                attackers: vec![lured, also, plain],
+            }],
+            capacity: Vec::new(),
+            obeying: vec![(blocker, lured)],
+            demands: [lured, also]
+                .into_iter()
+                .map(|attacker| BlockDemand {
+                    blocker,
+                    attacker,
+                    count: 1,
+                })
+                .collect(),
+            bounds: Vec::new(),
+        };
+        let declare = |pairs: &[(ObjectId, ObjectId)]| PlayerAction::DeclareBlockers {
+            blockers: pairs.to_vec(),
+        };
+        for (pairs, fault) in [
+            (vec![], Some(AnswerFault::MustBlock)),
+            (vec![(blocker, plain)], Some(AnswerFault::MustBlock)),
+            (vec![(blocker, also)], None),
+            (vec![(blocker, lured)], None),
+        ] {
+            assert_eq!(question.answer_fault(&declare(&pairs)), fault, "{pairs:?}");
+        }
     }
 }

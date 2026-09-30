@@ -126,6 +126,7 @@ fn token_army(c: &mut Criterion) {
         view.active = PlayerId::new(1);
         view.step = baylee_view::Step::DeclareBlockers;
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: view.seat,
             attacker: PlayerId::new(1),
             blockers: blockers

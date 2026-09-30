@@ -22235,9 +22235,27 @@ fn lure_forces_every_able_creature_to_block_it_but_spares_a_second_attacker() {
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseBlockers { .. })
     });
-    let Pending::ChooseBlockers { obeying, .. } = engine.pending().clone() else {
+    let question = engine.pending().clone();
+    let Pending::ChooseBlockers { obeying, .. } = question.clone() else {
         unreachable!("pass_until stopped on exactly this")
     };
+    // The question says so itself (`answer_fault`), so a client can hold
+    // its declaration to it before sending it.
+    for short in [
+        vec![(minotaur, bear)],
+        vec![(minotaur, ogre), (unicorn, bear)],
+    ] {
+        assert_eq!(
+            question.answer_fault(&PlayerAction::DeclareBlockers { blockers: short }),
+            Some(crate::choice::AnswerFault::MustBlock)
+        );
+    }
+    assert_eq!(
+        question.answer_fault(&PlayerAction::DeclareBlockers {
+            blockers: obeying.clone()
+        }),
+        None
+    );
     let mut obeying_sorted = obeying.clone();
     obeying_sorted.sort_unstable();
     let mut expected = vec![(minotaur, bear), (unicorn, bear)];

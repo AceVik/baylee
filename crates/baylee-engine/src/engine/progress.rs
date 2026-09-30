@@ -628,6 +628,24 @@ impl<L: CardLookup> Engine<L> {
             })
             .collect();
         let obeying = rules.obeying(&blockers);
+        // What `obeying` and an answer are counted by (CR 509.1c), so a
+        // client can hold its declaration to it before sending it.
+        let demands = if rules.has_requirements() {
+            blockers
+                .iter()
+                .flat_map(|o| o.attackers.iter().map(move |a| (o.blocker, *a)))
+                .filter_map(|(blocker, attacker)| {
+                    let count = rules.demands(blocker, attacker);
+                    (count > 0).then(|| crate::choice::BlockDemand {
+                        blocker,
+                        attacker,
+                        count: u32::try_from(count).unwrap_or(u32::MAX),
+                    })
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
         // The counts the declaration as a whole is held to (CR 509.1b),
         // for the attackers somebody may block.
         let bounds = self
@@ -645,6 +663,7 @@ impl<L: CardLookup> Engine<L> {
             blockers,
             capacity,
             obeying,
+            demands,
             bounds,
         };
         self.awaiting_answer = true;

@@ -341,6 +341,7 @@ mod tests {
                 limits: Vec::new(),
             },
             Pending::ChooseBlockers {
+                demands: Vec::new(),
                 player: me,
                 attacker: PlayerId::new(1),
                 blockers: vec![BlockOption {

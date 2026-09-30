@@ -45,6 +45,7 @@ fn declaring_no_attackers_is_a_valid_answer() {
 #[test]
 fn blockers_must_block_an_actual_attacker() {
     let mut i = interaction(Pending::ChooseBlockers {
+        demands: Vec::new(),
         player: me(),
         attacker: PlayerId::new(1),
         blockers: vec![BlockOption {
@@ -71,6 +72,7 @@ fn blockers_must_block_an_actual_attacker() {
 fn the_blocks_a_requirement_asks_for_start_chosen() {
     let obeying = vec![(obj(10), obj(1)), (obj(10), obj(2))];
     let i = interaction(Pending::ChooseBlockers {
+        demands: Vec::new(),
         player: me(),
         attacker: PlayerId::new(1),
         blockers: vec![BlockOption {

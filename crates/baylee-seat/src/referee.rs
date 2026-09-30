@@ -194,6 +194,7 @@ mod tests {
             ),
             (
                 Pending::ChooseBlockers {
+                    demands: Vec::new(),
                     player: ME,
                     attacker: THEM,
                     blockers: vec![BlockOption {

@@ -1997,6 +1997,7 @@ mod tests {
             let attacker = ObjectId::new(4, 0);
             let pending = if blocking {
                 Pending::ChooseBlockers {
+                    demands: Vec::new(),
                     player: PlayerId::new(0),
                     attacker: PlayerId::new(1),
                     blockers: vec![baylee_engine::choice::BlockOption {

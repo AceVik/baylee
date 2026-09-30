@@ -500,6 +500,7 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
         },
         attack_choice(vec![obj(1)], vec![seat(1)]),
         Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: me(),
             attacker: PlayerId::new(1),
             blockers: vec![],

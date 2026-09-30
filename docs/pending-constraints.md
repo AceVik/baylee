@@ -88,21 +88,17 @@ that could be obeyed without breaking a restriction. Since the Alpha cards
 the engine implements them, and states them only in part. The attack
 question names the creatures that attack if able (`required`) and the
 defenders a restriction on the pair leaves a creature (`limits`); the block
-question names each blocker's capacity (`capacity`, which `answer_fault`
-holds) and one declaration that obeys as many requirements as the engine
-requires (`obeying`, which `timeout_answer` gives). `declare_attackers` and
+question names each blocker's capacity (`capacity`), one declaration that
+obeys as many requirements as the engine requires (`obeying`, which
+`timeout_answer` gives) and, for each offered pair a requirement asks for,
+how many ask (`demands`, `BlockDemand`). `declare_attackers` and
 `declare_blockers` refuse a declaration that leaves out a required
 attacker, sends a creature past its limits or obeys fewer block
-requirements than `obeying` does; `answer_fault` does not yet state those
-three, so they are refusals the question names but does not check.
-
-To make them checkable from the question alone: the question lists the requirements
-(`requirements: Vec<Requirement { creature, attacker_or_defender }>`) and
-the maximum the engine computed (`most_obeyed: u32`, the search being the
-engine's), and `answer_fault` counts the requirements a declaration obeys
-against that number (`AnswerFault::FewerRequirementsObeyed`). The sweep's
-driver then samples declarations below and at the maximum like any other
-bound.
+requirements than `obeying` does, and `answer_fault` states all three from
+the question alone: `AnswerFault::MustAttack`, `NotOffered`, and
+`AnswerFault::MustBlock`, which sums `demands` over the declared pairs and
+over `obeying` (the search for the maximum stays the engine's). Both ends
+refuse with one string (`AnswerFault::reason`).
 
 ## Where it is held
 
@@ -110,7 +106,9 @@ bound.
   (`card_tests/artifacts.rs`), `menace_states_its_blocker_bound_and_apply_refuses_only_what_it_states`
   (`combat_choice_tests.rs`), `no_mulligan_is_taken_past_a_hand_of_zero`
   (`house_rules_tests.rs`), the `answer_fault` unit tests in
-  `choice.rs` (`fit_to_options_tests`).
+  `choice.rs` (`fit_to_options_tests`, requirements and limits among them),
+  and the Juggernaut and Lure card tests, which hold the question's fault
+  to the engine's refusal.
 - The sweep (`refusal_tests.rs`): every sampled answer is held to the
   question both ways; the bounds deck plays sixteen mirror games where crew
   and menace are asked; the same games with the driver told each question
