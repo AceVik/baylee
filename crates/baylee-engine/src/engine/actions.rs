@@ -909,7 +909,7 @@ impl<L: CardLookup> Engine<L> {
                 PlayerAction::ChooseSubtype(subtype),
             ) if *p == player => {
                 if !options.contains(&subtype) {
-                    return Err(EngineError::IllegalAction("not a creature type"));
+                    return Err(EngineError::IllegalAction("not a type on offer"));
                 }
                 let Some(PlanKind::ChooseSubtype { object }) = self.pending_plan.take() else {
                     return Err(EngineError::IllegalAction("no subtype choice pending"));

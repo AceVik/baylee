@@ -96,6 +96,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AllCreatureTypes
         | Modifier::ReplaceCreatureTypes(_)
         | Modifier::AllBasicLandTypes
+        | Modifier::SetLandType(_)
+        | Modifier::SetLandTypeToChosen
         | Modifier::BecomeType { .. }
         | Modifier::AddColor(_)
         | Modifier::SetColor(_)
@@ -725,6 +727,8 @@ mod tests {
             Modifier::AllCreatureTypes,
             Modifier::ReplaceCreatureTypes(SubtypeId::new(1)),
             Modifier::AllBasicLandTypes,
+            Modifier::SetLandType(SubtypeId::new(1)),
+            Modifier::SetLandTypeToChosen,
             Modifier::BecomeType {
                 types: TypeSet::CREATURE,
                 subtype: SubtypeId::new(1),
@@ -857,7 +861,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            61,
+            63,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -917,10 +921,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_eight_modifiers_lock_a_set_and_thirty_three_do_not() {
+    fn thirty_modifiers_lock_a_set_and_thirty_three_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (28, 33));
+        assert_eq!((locking, all.len() - locking), (30, 33));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

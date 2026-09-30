@@ -1556,6 +1556,7 @@ impl GameState {
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
             produced_chosen: false,
+            rules_text_lost: false,
             abilities_lost: None,
             front_mana_value: None,
         });
@@ -1599,6 +1600,7 @@ impl GameState {
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
             produced_chosen: false,
+            rules_text_lost: false,
             abilities_lost: None,
             front_mana_value: None,
         });
@@ -3888,6 +3890,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
         produced_colors,
         produced_colorless,
         produced_chosen,
+        rules_text_lost,
         abilities_lost,
         front_mana_value,
     } = characteristics;
@@ -3905,6 +3908,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     produced_colors.hash(h);
     produced_colorless.hash(h);
     produced_chosen.hash(h);
+    rules_text_lost.hash(h);
     abilities_lost.hash(h);
     front_mana_value.hash(h);
 }
@@ -5230,6 +5234,9 @@ mod tests {
             }),
             ("produced_chosen", |s, id| {
                 fixture_object(s, id).base_mut().produced_chosen = true;
+            }),
+            ("rules_text_lost", |s, id| {
+                fixture_object(s, id).base_mut().rules_text_lost = true;
             }),
             ("abilities_lost", |s, id| {
                 fixture_object(s, id).base_mut().abilities_lost = std::num::NonZeroU32::new(7);

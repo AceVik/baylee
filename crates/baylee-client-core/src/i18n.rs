@@ -1779,6 +1779,8 @@ messages! {
     ChooseBetween { en: "Choose {0}–{1} {2}", de: "Wähle {0}–{1} {2}" },
     /// Choose a creature type
     ChooseCreatureType { en: "Choose a creature type", de: "Wähle einen Kreaturtyp" },
+    /// Choose a basic land type (Phantasmal Terrain)
+    ChooseBasicLandType { en: "Choose a basic land type", de: "Wähle einen Standardlandtyp" },
     /// Choose a card name (Pithing Needle)
     ChooseCardName { en: "Choose a card name", de: "Wähle einen Kartennamen" },
     /// Choose a colour

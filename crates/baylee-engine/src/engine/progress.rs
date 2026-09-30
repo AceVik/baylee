@@ -1009,6 +1009,7 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                     EnterModifier::ChooseSubtype
+                    | EnterModifier::ChooseBasicLandType
                     | EnterModifier::ChooseCardName
                     | EnterModifier::ChooseColor
                     | EnterModifier::ChooseColorExcept(_)
@@ -1025,6 +1026,24 @@ impl<L: CardLookup> Engine<L> {
                     self.pending = Pending::ChooseSubtype {
                         player: controller,
                         options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
+                    };
+                    self.awaiting_answer = true;
+                    return true; // one choice at a time
+                }
+                Some(EnterModifier::ChooseBasicLandType) => {
+                    // The five basic land types (CR 205.3i), in the order the
+                    // rule names them, and nothing else.
+                    use baylee_core::generated::subtypes::land;
+                    self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
+                    self.pending = Pending::ChooseSubtype {
+                        player: controller,
+                        options: vec![
+                            land::PLAINS,
+                            land::ISLAND,
+                            land::SWAMP,
+                            land::MOUNTAIN,
+                            land::FOREST,
+                        ],
                     };
                     self.awaiting_answer = true;
                     return true; // one choice at a time
@@ -1852,12 +1871,14 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             };
             let lost = obj.characteristics().abilities_lost.is_some();
+            let text_lost = obj.characteristics().rules_text_lost;
             for ability in obj.printed_abilities(&self.lookup) {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
                 };
                 let registered = self.state.effects.has_source_ability(id, sa.modifier);
-                let gone_with_the_ability = lost && !outlives_its_ability(sa.layer);
+                let gone_with_the_ability = (lost && !outlives_its_ability(sa.layer))
+                    || (text_lost && !outlives_its_rules_text(sa.layer));
                 if gone_with_the_ability
                     || sa.condition.is_some_and(|condition| {
                         !crate::eval::condition_holds(&self.state, obj.controller, id, condition)
@@ -1906,7 +1927,9 @@ impl<L: CardLookup> Engine<L> {
             .map(|r| r.source)
             .filter(|s| {
                 self.state.object(*s).is_none_or(|o| {
-                    o.zone != Zone::Battlefield || o.characteristics().abilities_lost.is_some()
+                    o.zone != Zone::Battlefield
+                        || o.characteristics().abilities_lost.is_some()
+                        || o.characteristics().rules_text_lost
                 })
             })
             .collect();
@@ -5414,6 +5437,19 @@ fn outlives_its_ability(layer: baylee_cards_dsl::Layer) -> bool {
         layer,
         Layer::Copy | Layer::Control | Layer::Type | Layer::Color
     )
+}
+
+/// Whether a land's own static ability keeps its effect in `layer` once an
+/// effect has set the land's subtype to a basic land type (CR 305.7).
+///
+/// That effect applies in layer 4, so only the land's effects in the layers
+/// before it were applied first (CR 613.6). One in layer 4 itself goes: the
+/// land-type effect decides whether it exists, so it depends on that effect
+/// and waits for it (CR 613.8a) — Urborg, Tomb of Yawgmoth set to a Swamp
+/// makes no other land a Swamp.
+fn outlives_its_rules_text(layer: baylee_cards_dsl::Layer) -> bool {
+    use baylee_cards_dsl::Layer;
+    matches!(layer, Layer::Copy | Layer::Control)
 }
 
 /// What a synthetic trigger's targets were chosen against, for the

@@ -2114,3 +2114,9 @@ land type"; both are convention tests that fire on a first try.
   would also have let the creature use its {T} abilities the turn it
   arrived. Read an "as though" where its one rule is checked, not as a
   keyword.
+- **"Is a Swamp" is not "loses all abilities".** Evil Presence's land loses
+  what its own text gives it (CR 305.7), and keeps what other effects grant
+  it and gains the Swamp's mana ability; `LoseAllAbilities` would have taken
+  the grants too and, with its layer-6 timestamp rule, let an older grant
+  fall. Read a rule's own list of what goes before borrowing a flag that
+  takes away more.

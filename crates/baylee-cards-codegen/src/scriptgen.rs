@@ -2024,6 +2024,12 @@ impl Tx<'_> {
     /// `RemoveCreatureTypes$ True` is CR 205.1b's "becomes a [creature type]
     /// artifact creature": the first creature type named replaces the ones it
     /// had (`Modifier::ReplaceCreatureTypes`) and every other type is kept.
+    ///
+    /// `RemoveLandTypes$ True` is "target land becomes a Forest" (Gaea's
+    /// Liege): CR 305.7's setting of a land's subtype, `Modifier::SetLandType`,
+    /// for the one basic land type named; a second land type, or none, is
+    /// refused. `Duration$ UntilHostLeavesPlay` is "until [this] leaves the
+    /// battlefield", `Duration::WhileSourceOnBattlefield`.
     fn animate_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
         match (p.take("Defined").as_deref(), target) {
             (Some("Self"), None) | (None, Some(_)) => {}
@@ -2036,6 +2042,7 @@ impl Tx<'_> {
             None => "Duration::UntilEndOfTurn",
             Some("Permanent") => "Duration::Indefinitely",
             Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+            Some("UntilHostLeavesPlay") => "Duration::WhileSourceOnBattlefield",
             Some(other) => {
                 self.note(format!("`Animate` lasting `{other}`"));
                 return None;
@@ -2046,36 +2053,19 @@ impl Tx<'_> {
             Some("True") => true,
             Some(other) => return self.deny(format!("`RemoveCreatureTypes$ {other}`")),
         };
-        let mut replaced = false;
+        let set_land_type = match p.take("RemoveLandTypes").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`RemoveLandTypes$ {other}`")),
+        };
         let mut out = Vec::new();
-        // Layer 4: the types it becomes. A word is either a card type or a
-        // subtype, and the corpus writes both in one list.
         let types = p.take("Types").unwrap_or_default();
-        for word in types.split(',').filter(|w| !w.trim().is_empty()) {
-            let word = word.trim();
-            let modifier = if let Some(types) = card_type_const(word) {
-                format!("Modifier::AddType({types})")
-            } else {
-                let Some(path) = self.cats.const_path(word) else {
-                    self.note(format!("`Animate` into `{word}`"));
-                    return None;
-                };
-                let creature_type = self
-                    .cats
-                    .const_path_of(baylee_core::types::SubtypeKind::Creature, word)
-                    .is_some();
-                if replace_creature_types && creature_type && !replaced {
-                    replaced = true;
-                    format!("Modifier::ReplaceCreatureTypes({path})")
-                } else {
-                    format!("Modifier::AddSubtype({path})")
-                }
-            };
-            out.push(Self::animate_expr(&modifier, duration));
-        }
-        if replace_creature_types && !replaced {
-            return self.deny("`RemoveCreatureTypes$` naming no creature type".to_string());
-        }
+        self.animate_types(
+            &types,
+            (replace_creature_types, set_land_type),
+            duration,
+            &mut out,
+        )?;
         // Layer 5: colour. Without `OverwriteColors$ True` the card keeps
         // the colours it had, which is `AddColor` (CR 105.3).
         if let Some(raw) = p.take("Colors") {
@@ -2130,6 +2120,65 @@ impl Tx<'_> {
             return None;
         }
         Some(out)
+    }
+
+    /// Layer 4 of an [`Self::animate_effect`]: the types it becomes. A word
+    /// is either a card type or a subtype, and the corpus writes both in one
+    /// list. `remove` is (`RemoveCreatureTypes$ True`, `RemoveLandTypes$
+    /// True`), each of which needs the one word it replaces with.
+    fn animate_types(
+        &mut self,
+        types: &str,
+        remove: (bool, bool),
+        duration: &str,
+        out: &mut Vec<String>,
+    ) -> Option<()> {
+        let (replace_creature_types, set_land_type) = remove;
+        let mut set = false;
+        let mut replaced = false;
+        for word in types.split(',').filter(|w| !w.trim().is_empty()) {
+            let word = word.trim();
+            let modifier = if let Some(types) = card_type_const(word) {
+                format!("Modifier::AddType({types})")
+            } else if set_land_type && let Some(path) = self.basic_land_type(word) {
+                if set {
+                    return self.deny("`RemoveLandTypes$` naming two land types".to_string());
+                }
+                set = true;
+                format!("Modifier::SetLandType({path})")
+            } else {
+                if set_land_type
+                    && self
+                        .cats
+                        .const_path_of(baylee_core::types::SubtypeKind::Land, word)
+                        .is_some()
+                {
+                    return self.deny(format!("`RemoveLandTypes$` into `{word}`"));
+                }
+                let Some(path) = self.cats.const_path(word) else {
+                    self.note(format!("`Animate` into `{word}`"));
+                    return None;
+                };
+                let creature_type = self
+                    .cats
+                    .const_path_of(baylee_core::types::SubtypeKind::Creature, word)
+                    .is_some();
+                if replace_creature_types && creature_type && !replaced {
+                    replaced = true;
+                    format!("Modifier::ReplaceCreatureTypes({path})")
+                } else {
+                    format!("Modifier::AddSubtype({path})")
+                }
+            };
+            out.push(Self::animate_expr(&modifier, duration));
+        }
+        if replace_creature_types && !replaced {
+            return self.deny("`RemoveCreatureTypes$` naming no creature type".to_string());
+        }
+        if set_land_type && !set {
+            return self.deny("`RemoveLandTypes$` naming no basic land type".to_string());
+        }
+        Some(())
     }
 
     /// One layer of an [`Self::animate_effect`], as the `Effect` expression.
@@ -3503,6 +3552,9 @@ impl Tx<'_> {
         let Some((api, mut p)) = Params::parse(body) else {
             return self.deny("an `ETBReplacement` ability with no `$` in it".to_string());
         };
+        if api == "ChooseType" {
+            return self.choose_type_on_enter(p);
+        }
         if api != "ChooseColor" {
             return self.deny(format!("as-enters effect `{api}`"));
         }
@@ -3530,6 +3582,36 @@ impl Tx<'_> {
             return self.deny(format!("unclaimed parameter `ChooseColor.{key}`"));
         }
         self.body.enter_modifiers.push(modifier);
+        Some(())
+    }
+
+    /// `DB$ ChooseType | Type$ Basic Land` behind an `ETBReplacement:Other`:
+    /// "as this enters, choose a basic land type" (Phantasmal Terrain),
+    /// `EnterModifier::ChooseBasicLandType`. The choice is its controller's,
+    /// so a `Defined$` other than `You` is refused, and so is every other
+    /// `Type$`: a creature type is a different question with other readers.
+    fn choose_type_on_enter(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        match p.take("Defined").as_deref() {
+            None | Some("You") => {}
+            Some(other) => return self.deny(format!("a type chosen by `{other}`")),
+        }
+        match p.take("Type").as_deref() {
+            Some("Basic Land") => {}
+            other => {
+                return self.deny(format!(
+                    "as-enters choice of a `{}` type",
+                    other.unwrap_or("nameless")
+                ));
+            }
+        }
+        if !p.exhausted() {
+            let key = p.first_key().unwrap_or_default();
+            return self.deny(format!("unclaimed parameter `ChooseType.{key}`"));
+        }
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::ChooseBasicLandType".to_string());
         Some(())
     }
 
@@ -4482,7 +4564,34 @@ impl Tx<'_> {
     /// keeps them apart — a `TypeSet` is a bitmask the rules read, a
     /// subtype is an interned id — so `AddType$ Artifact Goblin` becomes
     /// two modifiers on the same layer.
+    ///
+    /// `RemoveLandTypes$ True` beside an `AddType$` of one basic land type
+    /// is "enchanted land is a Swamp" (Evil Presence, Conversion): CR 305.7's
+    /// setting of a land's subtype, `Modifier::SetLandType`, which also takes
+    /// the abilities the land's rules text gives it. `AddType$ ChosenType` is
+    /// "enchanted land is the chosen type" (Phantasmal Terrain),
+    /// `Modifier::SetLandTypeToChosen`, read only on a card that asks for a
+    /// basic land type as it enters. Any other `AddType$` beside it — two
+    /// types, a nonbasic one, a type chosen some other way — is refused.
     fn type_modifiers(&self, p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
+        match p.take("RemoveLandTypes").as_deref() {
+            None => {}
+            Some("True") => {
+                let raw = p.take("AddType")?;
+                let modifier = if raw.trim() == "ChosenType" {
+                    self.body
+                        .enter_modifiers
+                        .iter()
+                        .any(|m| m == "EnterModifier::ChooseBasicLandType")
+                        .then(|| "Modifier::SetLandTypeToChosen".to_string())?
+                } else {
+                    let path = self.basic_land_type(raw.trim())?;
+                    format!("Modifier::SetLandType({path})")
+                };
+                out.push(Self::static_expr(filter, &modifier));
+            }
+            Some(_) => return None,
+        }
         for (key, modifier) in [("AddType", "AddType"), ("RemoveType", "RemoveType")] {
             let Some(raw) = p.take(key) else { continue };
             let mut types = Vec::new();
@@ -4515,6 +4624,16 @@ impl Tx<'_> {
             }
         }
         Some(())
+    }
+
+    /// The constant of one basic land type (CR 205.3i names the five), or
+    /// `None` for any other word.
+    fn basic_land_type(&self, word: &str) -> Option<String> {
+        if !matches!(word, "Plains" | "Island" | "Swamp" | "Mountain" | "Forest") {
+            return None;
+        }
+        self.cats
+            .const_path_of(baylee_core::types::SubtypeKind::Land, word)
     }
 
     /// `AddColor`/`SetColor` (layer 5) as static abilities.
@@ -7906,6 +8025,73 @@ SVar:X:Count$xPaid",
             "Name:X\nTypes:Creature\nPT:1/1\n\
              S:Mode$ CanAttackIfHaste | ValidTarget$ Opponent | Description$ …"
         ));
+    }
+
+    /// "Enchanted land is a Swamp" and "target land becomes a Forest": CR
+    /// 305.7's setting of a land's subtype, from a static ability and from
+    /// an `Animate`, and nothing but one basic land type is read that way.
+    #[test]
+    fn a_land_set_to_a_basic_land_type_is_read_as_one() {
+        let body = read(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Land\n\
+             S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddType$ Mountain | \
+             RemoveLandTypes$ True | Description$ …",
+        );
+        assert!(
+            body.abilities.iter().any(|a| a
+                == "static_ability!(Filter::AttachedToBySource, \
+                    Modifier::SetLandType(subtypes::land::MOUNTAIN))"),
+            "{:?}",
+            body.abilities
+        );
+        let body = read(
+            "Name:X\nTypes:Creature\nPT:1/1\n\
+             A:AB$ Animate | Cost$ T | ValidTgts$ Land | Types$ Forest | \
+             RemoveLandTypes$ True | Duration$ UntilHostLeavesPlay | SpellDescription$ …",
+        );
+        assert!(
+            body.abilities.iter().any(|a| a.contains(
+                "Effect::continuous(&Filter::This, Modifier::SetLandType(subtypes::land::FOREST), \
+                 Duration::WhileSourceOnBattlefield)"
+            )),
+            "{:?}",
+            body.abilities
+        );
+        let body = read(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Land\n\
+             K:ETBReplacement:Other:DBChooseBasic\n\
+             SVar:DBChooseBasic:DB$ ChooseType | Type$ Basic Land | SpellDescription$ …\n\
+             S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddType$ ChosenType | \
+             RemoveLandTypes$ True | Description$ …",
+        );
+        assert_eq!(body.enter_modifiers, ["EnterModifier::ChooseBasicLandType"]);
+        assert!(
+            body.abilities.iter().any(|a| a
+                == "static_ability!(Filter::AttachedToBySource, Modifier::SetLandTypeToChosen)"),
+            "{:?}",
+            body.abilities
+        );
+        assert!(refused(
+            "Name:X\nTypes:Enchantment\n\
+             K:ETBReplacement:Other:DBChoose\n\
+             SVar:DBChoose:DB$ ChooseType | Type$ Creature | SpellDescription$ …"
+        ));
+        // A chosen type nothing asked for as the card entered.
+        for refused_line in [
+            "S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddType$ ChosenType | \
+             RemoveLandTypes$ True | Description$ …",
+            "S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddType$ Desert | \
+             RemoveLandTypes$ True | Description$ …",
+            "S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddType$ Island Swamp | \
+             RemoveLandTypes$ True | Description$ …",
+        ] {
+            assert!(
+                refused(&format!(
+                    "Name:X\nTypes:Enchantment Aura\nK:Enchant:Land\n{refused_line}"
+                )),
+                "{refused_line}"
+            );
+        }
     }
 
     /// Smoke's and Winter Orb's "players can't untap more than one …

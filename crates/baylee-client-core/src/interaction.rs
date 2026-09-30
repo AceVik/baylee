@@ -152,7 +152,8 @@ pub enum Prompt {
         /// Why.
         reason: TargetPrompt,
     },
-    /// Choose a creature type.
+    /// Choose a creature type, or a basic land type where those are all
+    /// that is offered (Phantasmal Terrain).
     ChooseSubtype {
         /// The types on offer, in the engine's order.
         ///
@@ -403,6 +404,16 @@ impl Prompt {
             } => Phrase::TapToHelpPay.text(lang).to_string(),
             Self::ChooseTargets { min, max, .. } => {
                 choose_line(lang, Phrase::NounTarget, Phrase::NounTargets, *min, *max)
+            }
+            // "Choose a basic land type" offers the five (CR 205.3i) and
+            // nothing else; every other subtype question names creatures.
+            Self::ChooseSubtype { options }
+                if !options.is_empty()
+                    && options
+                        .iter()
+                        .all(|s| baylee_core::types::SubtypeSet::BASIC_LANDS.contains(*s)) =>
+            {
+                Phrase::ChooseBasicLandType.text(lang).to_string()
             }
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
             Self::ChooseCardName => Phrase::ChooseCardName.text(lang).to_string(),

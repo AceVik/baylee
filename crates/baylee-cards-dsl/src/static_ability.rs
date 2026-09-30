@@ -89,6 +89,18 @@ pub enum Modifier {
     },
     /// Affected lands are every basic land type (Great Divide Guide).
     AllBasicLandTypes,
+    /// "Enchanted land is a Swamp" (Evil Presence): an effect that sets a
+    /// land's subtype to a basic land type (CR 305.7). The land's old land
+    /// types go, and so does every ability its rules text gives it; it has
+    /// the new type's mana ability (CR 305.6), and it keeps its card types,
+    /// supertypes and every ability another effect grants it. "In addition
+    /// to its other types" is `AddSubtype`, not this.
+    SetLandType(SubtypeId),
+    /// "Enchanted land is the chosen type" (Phantasmal Terrain):
+    /// [`Self::SetLandType`] for the basic land type the effect's source was
+    /// given as it entered (`EnterModifier::ChooseBasicLandType`). Nothing
+    /// while no type was chosen.
+    SetLandTypeToChosen,
     /// Adds colors.
     AddColor(ColorSet),
     /// Sets colors (Mycosynth Lattice: "…are colorless").
@@ -571,6 +583,8 @@ impl Modifier {
             | Self::AllCreatureTypes
             | Self::ReplaceCreatureTypes(_)
             | Self::AllBasicLandTypes
+            | Self::SetLandType(_)
+            | Self::SetLandTypeToChosen
             | Self::BecomeType { .. }
             | Self::AddTypeIfCountersAtLeast { .. } => Layer::Type,
             // Layer 5: color-changing effects.
@@ -849,6 +863,8 @@ mod tests {
                 Layer::Type,
             ),
             (Modifier::AllBasicLandTypes, Layer::Type),
+            (Modifier::SetLandType(SubtypeId::new(1)), Layer::Type),
+            (Modifier::SetLandTypeToChosen, Layer::Type),
             (
                 Modifier::BecomeType {
                     types: TypeSet::CREATURE,

@@ -454,6 +454,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::AllCreatureTypes
                 | Modifier::ReplaceCreatureTypes(_)
                 | Modifier::AllBasicLandTypes
+                | Modifier::SetLandType(_)
+                | Modifier::SetLandTypeToChosen
                 | Modifier::BecomeType { .. }
                 | Modifier::AddTypeIfCountersAtLeast { .. }
                 | Modifier::BecomeCopyOf(_)
@@ -468,6 +470,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::RemoveKeyword(_)
                 | Modifier::LoseKeywords
                 | Modifier::LoseAllAbilities
+                | Modifier::SetLandType(_)
+                | Modifier::SetLandTypeToChosen
                 | Modifier::AddKeywordIfCountersAtLeast { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
@@ -555,6 +559,41 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
 /// dependency: CR 613.8a asks for two effects in the same layer or
 /// sublayer, and a count in layer 7 and the type change it reads in layer 4
 /// are not. Phased-out permanents are not there to count (CR 702.26b).
+/// CR 305.7: a land's subtype set to the basic land type `subtype`. Its old
+/// land types go and the new one comes, and it loses every ability its rules
+/// text gives it — the keywords here, the rest through `rules_text_lost`,
+/// which `GameObject::abilities` reads. Layer 4 comes before layer 6, so a
+/// keyword another effect grants still lands, whatever its timestamp. What
+/// the land makes is now its new type's mana alone.
+fn set_land_type(c: &mut Characteristics, subtype: baylee_core::ids::SubtypeId) {
+    c.subtypes = c
+        .subtypes
+        .difference(baylee_core::generated::subtypes::ALL_LAND_TYPES);
+    c.subtypes.insert(subtype);
+    c.keywords = KeywordSet::EMPTY;
+    c.rules_text_lost = true;
+    c.produced_colors = basic_land_color(subtype);
+    c.produced_colorless = false;
+    c.produced_chosen = false;
+}
+
+/// The colour of mana a basic land type's ability makes (CR 305.6); none for
+/// any other subtype.
+fn basic_land_color(subtype: baylee_core::ids::SubtypeId) -> baylee_core::color::ColorSet {
+    use baylee_core::color::{Color, ColorSet};
+    use baylee_core::generated::subtypes::land;
+    [
+        (land::PLAINS, Color::White),
+        (land::ISLAND, Color::Blue),
+        (land::SWAMP, Color::Black),
+        (land::MOUNTAIN, Color::Red),
+        (land::FOREST, Color::Green),
+    ]
+    .into_iter()
+    .find(|(basic, _)| *basic == subtype)
+    .map_or(ColorSet::EMPTY, |(_, color)| ColorSet::of(color))
+}
+
 fn count_controlled(
     state: &GameState,
     obj: &GameObject,
@@ -749,6 +788,22 @@ fn apply(
             c.subtypes.insert(*subtype);
         }
         Modifier::AllBasicLandTypes => c.subtypes = c.subtypes.union(SubtypeSet::BASIC_LANDS),
+        // CR 305.7: the old land types go and the new one comes, and the
+        // land loses every ability its rules text gives it — the keywords
+        // here, the rest through `rules_text_lost`, which
+        // `GameObject::abilities` reads. Layer 4 comes before layer 6, so a
+        // keyword another effect grants still lands, whatever its
+        // timestamp. What the land makes is now its new type's mana alone.
+        Modifier::SetLandType(s) => set_land_type(c, *s),
+        Modifier::SetLandTypeToChosen => {
+            if let Some(s) = fx
+                .source
+                .and_then(|source| state.object(source))
+                .and_then(|source| source.chosen_subtype)
+            {
+                set_land_type(c, s);
+            }
+        }
         Modifier::AddColor(col) => c.colors = c.colors.union(*col),
         Modifier::SetColor(col) => c.colors = *col,
         Modifier::AddKeyword(k) => c.keywords = c.keywords.union(*k),

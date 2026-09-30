@@ -907,6 +907,11 @@ rule: a teammate is not an opponent and a player who has lost is out),
 `TappedOrPayLife(n)`, `ChooseSubtype`
 (Roaming Throne, Reflections of Littjara, Cavern of Souls — answer stored
 on `obj.chosen_subtype`; creatures also gain the subtype in their base),
+`ChooseBasicLandType` (Phantasmal Terrain — the same question and the same
+place for the answer, offering the five basic land types of CR 205.3i and
+nothing else; read back by `Modifier::SetLandTypeToChosen`; the reader
+writes it for `DB$ ChooseType | Type$ Basic Land` behind
+`K:ETBReplacement:Other`),
 `ChooseColor` and `ChooseColorExcept(c)` (Uncharted Haven, the Thriving
 cycle, the Gates — answer stored on `obj.chosen_color` and read back by
 `ManaSource::Chosen`), `ChooseCardName` (Pithing Needle — any face of any
@@ -1599,7 +1604,8 @@ Modal/sequence: `Sequence(&[..])`.
 ### Modifiers (layer effects)
 
 `AddType`, `RemoveType`, `AddSubtype`, `AllCreatureTypes`,
-`ReplaceCreatureTypes(subtype)`, `AllBasicLandTypes`,
+`ReplaceCreatureTypes(subtype)`, `AllBasicLandTypes`, `SetLandType(subtype)`,
+`SetLandTypeToChosen`,
 `BecomeType { types, subtype }`, `AddColor`, `SetColor`,
 `AddKeyword`, `RemoveKeyword`, `LoseKeywords`, `LoseAllAbilities`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
 `CantActivateArtifacts`, `ChosenNameCantActivate`, `OpponentsCastAsSorcery`,
@@ -1654,6 +1660,29 @@ which `ReplaceCreatureTypes(subtype)` replaces; the card types it gains are
 keywords and printed abilities alike; a static of the object keeps only its
 parts in layers 1, 2, 4 and 5 (CR 613.6), and a grant with a later
 timestamp still lands (CR 613.7).
+
+`SetLandType(subtype)` is "enchanted land is a Swamp" (Evil Presence), "all
+Mountains are Plains" (Conversion) and "target land becomes a Forest"
+(Gaea's Liege): an effect that sets a land's subtype to one basic land type
+(CR 305.7). In layer 4 the land's other land types go and the new one comes,
+and the land loses every ability its rules text gives it — its printed
+keywords there, the rest through `Characteristics::rules_text_lost`, which
+`GameObject::abilities` answers with nothing and which ends the land's own
+statics except their layer-1 and layer-2 parts (the effect is layer 4, so a
+layer-4 static of the land depends on it and never applies, CR 613.8a). It
+makes the new type's mana through CR 305.6 alone. It is not
+`LoseAllAbilities`: a keyword or ability another effect grants the land
+stays, whatever its timestamp, and its card types and supertypes stay (a
+basic Mountain made a Plains is still basic). "In addition to its other
+types" is `AddSubtype`. The reader writes it for `RemoveLandTypes$ True`
+beside one basic land type, on `S: Mode$ Continuous`'s `AddType$` and on
+`Animate`'s `Types$`, and reads `Animate`'s `Duration$ UntilHostLeavesPlay`
+as `Duration::WhileSourceOnBattlefield`. `SetLandTypeToChosen` is "enchanted
+land is the chosen type" (Phantasmal Terrain): the same, for the basic land
+type the effect's source was given as it entered
+(`EnterModifier::ChooseBasicLandType`), and nothing while none was chosen;
+the reader writes it for `AddType$ ChosenType` only on a card that asks that
+question.
 
 `DrawLimitPerTurn { who, limit }` is "each player can't draw more than one
 card each turn" (Spirit of the Labyrinth) and its opponents-only twin

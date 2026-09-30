@@ -41,6 +41,41 @@ fn the_bar_says_whose_turn_it_is_over_the_same_two_buttons() {
     );
 }
 
+/// "As Phantasmal Terrain enters, choose a basic land type" is not headed
+/// "Choose a creature type": the engine offers the five basic land types
+/// (CR 205.3i) and the sentence names them. A list with a creature type in
+/// it is still the creature question.
+#[test]
+fn a_choice_of_the_five_basic_land_types_is_headed_as_one() {
+    use baylee_core::generated::subtypes::{creature, land};
+    let basics = vec![
+        land::PLAINS,
+        land::ISLAND,
+        land::SWAMP,
+        land::MOUNTAIN,
+        land::FOREST,
+    ];
+    let headline = |options: Vec<baylee_core::ids::SubtypeId>, lang| {
+        interaction(Pending::ChooseSubtype {
+            player: me(),
+            options,
+        })
+        .prompt()
+        .headline(lang, Turn::Mine, None, false)
+    };
+    assert_eq!(
+        headline(basics.clone(), Lang::En),
+        "Choose a basic land type"
+    );
+    assert_eq!(
+        headline(basics.clone(), Lang::De),
+        "Wähle einen Standardlandtyp"
+    );
+    let mut mixed = basics;
+    mixed.push(creature::ELF);
+    assert_eq!(headline(mixed, Lang::En), "Choose a creature type");
+}
+
 /// And `Turn` is read off the seat, not guessed at.
 #[test]
 fn a_turn_belongs_to_the_seat_that_is_active() {
