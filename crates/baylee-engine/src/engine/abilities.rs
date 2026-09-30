@@ -113,6 +113,20 @@ fn counter_x_part(cost: &Cost) -> Option<baylee_cards_dsl::CounterKind> {
     })
 }
 
+/// Whether an ability's effects ask how often it has been activated this
+/// turn (`Effect::IfActivatedThisTurnAtLeast`, Dragon Whelp), anywhere in
+/// the list: then its activations are counted as they happen.
+fn asks_its_activations(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut asks = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut 0, &mut |effect| {
+        asks |= matches!(
+            effect,
+            baylee_cards_dsl::Effect::IfActivatedThisTurnAtLeast { .. }
+        );
+    });
+    asks
+}
+
 impl<L: CardLookup> Engine<L> {
     /// Whether a spell has something it could legally be cast at.
     ///
@@ -1896,8 +1910,11 @@ impl<L: CardLookup> Engine<L> {
         // activating an ability putting it on the stack and paying its
         // costs, and every path above this one still ends in a refusal or a
         // question. An activation abandoned over a target choice has
-        // announced nothing.
-        if let ActivationLimit::PerTurn(_) = limit {
+        // announced nothing. "If this ability has been activated four or
+        // more times this turn" (Dragon Whelp) reads the same count, so an
+        // ability whose effects ask it is counted too; no other is, which
+        // keeps a repeatable activation out of the loop signature.
+        if matches!(limit, ActivationLimit::PerTurn(_)) || asks_its_activations(effects) {
             *self
                 .state
                 .ability_fires

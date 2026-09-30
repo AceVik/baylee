@@ -130,3 +130,153 @@ fn a_creature_that_left_and_came_back_is_not_destroyed() {
         "the Elves that came back are a new object and stay"
     );
 }
+
+// --- An ability with no target: the delayed trigger is about its source --
+
+/// Dragon Whelp: "{R}: This creature gets +1/+0 until end of turn. If this
+/// ability has been activated four or more times this turn, sacrifice this
+/// creature at the beginning of the next end step."
+fn dragon_whelp() -> CardIndex {
+    card_index("705a1985-ed39-4a4b-812e-a677170b596e")
+}
+
+fn mountain() -> CardIndex {
+    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+}
+
+/// The Whelp and four Mountains on p0's side, p0 in its first main phase
+/// with the four red floating, and the Whelp's ability activated `times`
+/// times without anything resolving yet.
+fn whelp_activated(seed: u64, times: usize) -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(seed, mountain())
+        .battlefield(
+            0,
+            &[
+                dragon_whelp(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let whelp = on_battlefield(&engine, p0, dragon_whelp()).expect("the Whelp is seated");
+    assert_eq!(super::testkit::tap_all_mana(&mut engine, p0), 4);
+    for _ in 0..times {
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: whelp,
+                    ability_index: 0,
+                },
+            )
+            .expect("{R} is floating");
+    }
+    (engine, whelp)
+}
+
+fn stack_len(engine: &Engine<RegistryLookup>) -> usize {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .len()
+}
+
+/// "Has been activated four or more times" counts activations, and an
+/// ability is activated once it is on the stack and paid for (CR 602.2):
+/// with four stacked, the first to resolve already sees four and makes the
+/// delayed sacrifice. A count of resolutions would have seen one.
+#[test]
+fn four_stacked_activations_are_counted_before_the_first_resolves() {
+    let (mut engine, whelp) = whelp_activated(95, 4);
+    assert_eq!(stack_len(&engine), 4);
+    pass_until(&mut engine, |e| stack_len(e) == 3);
+    let about_the_whelp = engine.state().delayed.iter().any(|d| {
+        d.when == crate::state::DelayedWhen::NextEndStep
+            && matches!(
+                d.action,
+                crate::state::DelayedAction::TriggerAbout { object, .. } if object == whelp
+            )
+    });
+    assert!(
+        about_the_whelp,
+        "the first resolution made the delayed sacrifice, about the Whelp: {:?}",
+        engine.state().delayed
+    );
+}
+
+/// Four activations: the trigger goes on the stack at the end step, and
+/// the Whelp is sacrificed as it resolves.
+#[test]
+fn four_activations_sacrifice_the_whelp_at_the_next_end_step() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, whelp) = whelp_activated(97, 4);
+    pass_until(&mut engine, stack_is_empty);
+    pass_until(&mut engine, at_end_step);
+    assert!(
+        !stack_is_empty(&engine),
+        "the delayed trigger uses the stack (CR 603.7)"
+    );
+    assert!(on_battlefield(&engine, p0, dragon_whelp()).is_some());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(whelp).map(|o| o.zone),
+        Some(crate::zone::Zone::Graveyard),
+        "this creature is sacrificed"
+    );
+}
+
+/// Three activations are not four: nothing waits for the end step.
+#[test]
+fn three_activations_leave_the_whelp() {
+    let (mut engine, whelp) = whelp_activated(99, 3);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine.state().delayed.is_empty(),
+        "{:?}",
+        engine.state().delayed
+    );
+    pass_until(&mut engine, at_end_step);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(whelp).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield)
+    );
+}
+
+/// A Whelp that left the battlefield and came back is a new object, and
+/// the delayed trigger about the old one sacrifices nothing (CR 603.7c,
+/// 400.7) — which a plain "sacrifice the source" would not know.
+#[test]
+fn a_whelp_that_left_and_came_back_is_not_sacrificed() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, whelp) = whelp_activated(101, 4);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(!engine.state().delayed.is_empty(), "the sacrifice waits");
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up");
+    for to in [
+        crate::zone::ZoneLocation::Hand(p0),
+        crate::zone::ZoneLocation::Battlefield,
+    ] {
+        let _ = state.move_object(
+            whelp,
+            to,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        );
+    }
+    pass_until(&mut engine, at_end_step);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(whelp).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield),
+        "the Whelp that came back is a new object and stays"
+    );
+}

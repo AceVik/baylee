@@ -3567,6 +3567,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ExileLinked { .. }
         | Effect::ExileTargetsWithSource
         | Effect::SacrificeSelf
+        | Effect::SacrificeObject { .. }
         | Effect::PutTargetOnBottomOfLibrary
         | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
         | Effect::ExileSource
@@ -3768,6 +3769,21 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::IfActivatedThisTurnAtLeast { n, then } => {
+            // Counted as the ability was activated (CR 602.2, the
+            // activation in `engine/abilities.rs`), this one included, in
+            // the turn's tally of that ability of that object — which a
+            // source that has left the battlefield no longer has.
+            let activated = state
+                .object(res.on_stack)
+                .and_then(|o| o.ability)
+                .and_then(|loc| state.ability_fires.get(&(loc.source, loc.index)).copied())
+                .unwrap_or(0);
+            if activated >= u32::from(n) {
+                return run_nested(state, res, then);
+            }
+            None
+        }
         Effect::IfNotLostLifeThisTurn { then } => {
             // Set by `GameState::change_life` for every loss, whether it
             // came from damage, an effect or a payment, and cleared at every
@@ -3827,14 +3843,17 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
-        // The delayed trigger is about the first target as it is now; with
-        // none, it is about nothing.
+        // The delayed trigger is about the first target as it is now. An
+        // ability that never said "target" is about its source as it is
+        // now ("sacrifice this creature", Dragon Whelp); one that targeted
+        // and has no object target left is about nothing.
         Effect::AtNextEndStep { effects } => {
-            let action = match res
-                .targets
-                .first()
-                .and_then(|&t| state.object(t).map(|o| (t, o.version)))
-            {
+            let about = if res.targeted {
+                res.targets.first().copied()
+            } else {
+                Some(res.source)
+            };
+            let action = match about.and_then(|t| state.object(t).map(|o| (t, o.version))) {
                 Some((object, version)) => crate::state::DelayedAction::TriggerAbout {
                     source: res.source,
                     effects,

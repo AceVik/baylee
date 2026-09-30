@@ -51,7 +51,10 @@
 /// `verb_tests::a_coloured_price_body_is_visited`.
 /// Raised 24 → 25 for `AtNextEndStep` (Stone Giant's delayed "destroy that
 /// creature"); `verb_tests::at_next_end_step_body_is_visited`.
-const NESTING_FIELDS: usize = 25;
+/// Raised 25 → 26 for `IfActivatedThisTurnAtLeast` (Dragon Whelp: "if this
+/// ability has been activated four or more times this turn");
+/// `verb_tests::activated_at_least_body_is_visited`.
+const NESTING_FIELDS: usize = 26;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -79,7 +82,9 @@ const NESTING_FIELDS: usize = 25;
 /// `PlayerMayPayManaOr` and `PlayerMayPayManaThen` moved both on 2026-09-30:
 /// two new carriers, one branch each. `AtNextEndStep` moved both on
 /// 2026-09-30: one new carrier, one branch.
-const CARRYING_VARIANTS: usize = 22;
+/// `IfActivatedThisTurnAtLeast` moved both on 2026-09-30: one new carrier,
+/// one branch.
+const CARRYING_VARIANTS: usize = 23;
 
 /// The floor under the reader itself.
 ///

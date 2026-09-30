@@ -1910,7 +1910,24 @@ hashes, layers and does nothing. This paragraph said THREE until
   this resolved; one that has left its zone since is a new object and is
   not affected (CR 603.7c, 400.7). Stone Giant: `AtNextEndStep { effects:
   &[Effect::destroy(TargetSpec::EventObject)] }` after its pump. The reader
-  reads `AtEOT$ Destroy` on a targeted `Pump` only.
+  reads `AtEOT$ Destroy` on a targeted `Pump` only. An ability that never
+  said "target" has its **source** there instead, as the object it is as
+  this resolves: Dragon Whelp's "sacrifice this creature at the beginning
+  of the next end step" is `AtNextEndStep { effects:
+  &[Effect::SacrificeObject { target: TargetSpec::EventObject }] }`, and a
+  Whelp that left and came back is not sacrificed.
+- **`Effect::SacrificeObject { target }`** is "sacrifice that creature": the
+  ability's controller sacrifices the object the spec names, only if they
+  control it, it is on the battlefield and phased in (CR 701.21a).
+  `SacrificeSelf` is the source by id and cannot tell a source that came
+  back from the one the delayed trigger was about.
+- **`Effect::IfActivatedThisTurnAtLeast { n, then }`** is "if this ability
+  has been activated `n` or more times this turn" (Dragon Whelp). It counts
+  **activations** (CR 602.2), taken as each is put on the stack and paid
+  for, in `GameState::ability_fires` — only for an ability whose effects
+  carry this branch, the way "activate only once each turn" is counted — so
+  four stacked activations all count before the first resolves. A source
+  that left the battlefield has a fresh count (CR 400.7).
 - **`Modifier::CombatDamageCantBePrevented`** makes combat damage dealt by the
   matching creatures unpreventable. It overrides prevention effects and
   protection's prevention (CR 615.12, 702.16e).

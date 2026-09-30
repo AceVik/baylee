@@ -258,6 +258,8 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         // Stone Giant's delayed "destroy that creature": `Destroy` reads
         // its spec through `spec_objects`, which asks `spec_object`.
         "Destroy { target: EventObject",
+        // Dragon Whelp's delayed "sacrifice this creature": `spec_object`.
+        "SacrificeObject { target: EventObject",
         // Pyrogoyf's "that creature deals damage equal to its power": the
         // variant names the event object itself and `resolve::life` reads
         // `res.event_object`; its `target` is the damage's recipient.

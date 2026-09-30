@@ -937,13 +937,15 @@ pub struct GameState {
     /// How often an ability of an object has been used this turn, cleared as
     /// a turn begins.
     ///
-    /// Four clauses share it because each is one ability's count of one
+    /// Five clauses share it because each is one ability's count of one
     /// thing it does in a turn: "this ability triggers only once each turn"
     /// (Jin-Gitaxias), "activate only once each turn" (Wall of Roots), "do
-    /// this only once each turn" (The Reaper, King No More: set by the yes)
-    /// and "if this is the first time this ability has resolved this turn"
-    /// (Omnath, Locus of Creation: its resolutions). No ability says two of
-    /// them. The key is the object and the ability index, so a permanent
+    /// this only once each turn" (The Reaper, King No More: set by the yes),
+    /// "if this is the first time this ability has resolved this turn"
+    /// (Omnath, Locus of Creation: its resolutions) and "if this ability has
+    /// been activated four or more times this turn" (Dragon Whelp: its
+    /// activations, as "activate only once each turn" counts them). No
+    /// ability says two of them. The key is the object and the ability index, so a permanent
     /// that leaves the battlefield and comes back starts over — CR 400.7
     /// rather than a convenience.
     ///

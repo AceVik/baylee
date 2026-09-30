@@ -2065,3 +2065,14 @@ land type"; both are convention tests that fire on a first try.
   non-empty, and "your turn" filled it too, so a stray `PresentZone$` beside
   `PlayerTurn$` was dropped unread. Record what was read at the moment it is
   read (`present_read`), not afterwards from a shared result.
+- **"Has been activated" is not "has resolved".** Dragon Whelp counts
+  activations, and an ability is activated once it is on the stack and
+  paid for (CR 602.2): four stacked activations have all been activated
+  before the first resolves. A count taken at resolution would read one
+  there and let the Whelp pump four times for free. The count is taken
+  where "activate only once each turn" takes it, opt-in per ability, so
+  unlimited activations stay out of the loop signature.
+- **"This creature" in a delayed trigger is an object, not an id.** A
+  sacrifice of the source by id sacrifices a Whelp that was bounced and
+  recast; the delayed trigger is about the Whelp as it was (CR 603.7c), so
+  it names the event object and checks its version when it comes due.

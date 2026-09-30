@@ -1368,7 +1368,10 @@ pub enum Effect {
     /// then. One that has left its zone since — and so is a new object even
     /// if it came back (CR 400.7) — is not affected (CR 603.7c): Stone
     /// Giant's "destroy that creature at the beginning of the next end
-    /// step".
+    /// step". An ability with no target has the source there instead, as
+    /// the object it is as this resolves: Dragon Whelp's "sacrifice this
+    /// creature at the beginning of the next end step" does not sacrifice
+    /// a Whelp that left the battlefield and came back.
     AtNextEndStep {
         /// What the delayed trigger does.
         effects: &'static [Effect],
@@ -1811,6 +1814,21 @@ pub enum Effect {
     IfResolvedTimesThisTurn {
         /// The count at which the branch runs.
         times: u32,
+        /// Effects when it does.
+        then: &'static [Effect],
+    },
+    /// Branch: "if this ability has been activated `n` or more times this
+    /// turn" (Dragon Whelp). A count of **activations**, not resolutions:
+    /// an ability is activated once it is put on the stack and its costs
+    /// are paid (CR 602.2), so four stacked activations have all been
+    /// activated before the first of them resolves, and that one already
+    /// sees four. The engine counts an ability's activations only when its
+    /// effects carry this branch, in the per-turn tally of that ability of
+    /// that object; a source that left and came back is a new object whose
+    /// count starts again (CR 400.7).
+    IfActivatedThisTurnAtLeast {
+        /// The count from which the branch runs, this activation included.
+        n: u8,
         /// Effects when it does.
         then: &'static [Effect],
     },
@@ -2473,6 +2491,17 @@ pub enum Effect {
     },
     /// Sacrifice the source permanent (evoke).
     SacrificeSelf,
+    /// "Sacrifice that creature": the ability's controller sacrifices the
+    /// object the spec names, and only a permanent they control
+    /// (CR 701.21a) that is still on the battlefield and phased in. Dragon
+    /// Whelp's delayed "sacrifice this creature" names the Whelp as
+    /// [`TargetSpec::EventObject`], so a Whelp that left and came back is
+    /// a new object and is not sacrificed (CR 603.7c, 400.7), which
+    /// [`Effect::SacrificeSelf`] would not know.
+    SacrificeObject {
+        /// Which permanent.
+        target: TargetSpec,
+    },
     /// Register a delayed "pay or lose" trigger at your next upkeep
     /// (Pact of Negation).
     PayCostOrLoseLater {
@@ -3200,6 +3229,7 @@ impl Effect {
             | Effect::IfNoCountersOnSelf { kind: _, then }
             | Effect::IfNotLostLifeThisTurn { then }
             | Effect::IfResolvedTimesThisTurn { times: _, then }
+            | Effect::IfActivatedThisTurnAtLeast { n: _, then }
             | Effect::IfControlGreatestCmc { filter: _, then } => (then, NONE),
             Effect::IfKicked { then, otherwise }
             | Effect::IfCondition {
@@ -3371,6 +3401,7 @@ impl Effect {
             | Effect::ReturnLinkedToBattlefield
             | Effect::CreateTokenFromLinked { .. }
             | Effect::SacrificeSelf
+            | Effect::SacrificeObject { .. }
             | Effect::PayCostOrLoseLater { .. }
             | Effect::CreateEmblem { .. }
             | Effect::BecomeMonarch(_)
@@ -3522,6 +3553,28 @@ mod verb_tests {
             body_seen |= matches!(effect, Effect::Destroy { .. });
         });
         assert_eq!(seen, 2);
+        assert!(body_seen);
+    }
+
+    /// Dragon Whelp's "if this ability has been activated four or more
+    /// times this turn" carries the delayed sacrifice, and the walk reaches
+    /// it through both carriers.
+    #[test]
+    fn activated_at_least_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::IfActivatedThisTurnAtLeast {
+            n: 4,
+            then: &[Effect::AtNextEndStep {
+                effects: &[Effect::SacrificeObject {
+                    target: TargetSpec::EventObject,
+                }],
+            }],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::SacrificeObject { .. });
+        });
+        assert_eq!(seen, 3);
         assert!(body_seen);
     }
 
