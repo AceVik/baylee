@@ -306,7 +306,8 @@ takes the trigger for that reason). A source's trigger in the same batch
 (`DealsCombatDamageToOpponent`) keeps its own share.
 
 At a table of several defending players (CR 802.2, the attack multiple
-players option Free-for-All and Team vs. Team use), "each defending player
+players option: Team vs. Team's default, 808.3a, and one of Free-for-All's
+three options, 806.2b), "each defending player
 in APNAP order declares blockers", each all their blocks before the next
 (802.4), and "those creatures can block only creatures attacking that
 player, a planeswalker that player controls" (802.4a). `can_block` asks

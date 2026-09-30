@@ -425,8 +425,9 @@ fn until_blocks(engine: &mut Engine<RegistryLookup>) -> Pending {
     panic!("nobody was asked to block");
 }
 
-/// A split attack at a table of four (CR 802.4, attack multiple players,
-/// the Free-for-All and Team vs. Team default): "each defending player in
+/// A split attack at a table of four (CR 802.4, attack multiple players:
+/// Team vs. Team's default, 808.3a, and one of Free-for-All's three
+/// options, 806.2b): "each defending player in
 /// APNAP order declares blockers", and "those creatures can block only
 /// creatures attacking that player" (802.4a). Seat 1 was once asked for
 /// every block and offered the creature attacking seat 2, and seat 2 was
