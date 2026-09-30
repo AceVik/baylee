@@ -18819,11 +18819,11 @@ fn juggernaut() -> CardIndex {
     card_index("4ac9116f-36bc-4d71-b696-d6ee064e1d58")
 }
 
-/// Juggernaut — {4} 5/3 artifact creature. `Coverage::Partial`: "attacks
-/// each combat if able" is not in the engine, but "can't be blocked by
-/// Walls" is. A Wall standing beside an ordinary creature is the control:
-/// only the Wall has to be missing from the menu the attack offers, and
-/// the other creature beside it still may block.
+/// Juggernaut — {4} 5/3 artifact creature. "Can't be blocked by Walls": a
+/// Wall standing beside an ordinary creature is the control: only the Wall
+/// has to be missing from the menu the attack offers, and the other
+/// creature beside it still may block. The card's other sentence, "attacks
+/// each combat if able", is played below.
 #[test]
 fn juggernaut_cannot_be_blocked_by_a_wall_but_any_other_creature_may() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -18852,6 +18852,121 @@ fn juggernaut_cannot_be_blocked_by_a_wall_but_any_other_creature_may() {
             .any(|b| b.blocker == elf && b.attackers.contains(&jugg)),
         "an ordinary creature beside it still may: {blocks:?}"
     );
+}
+
+/// Juggernaut, "attacks each combat if able" (CR 508.1d): it is named in
+/// `required`, and a declaration that leaves it out — whether attacking
+/// with nothing or with only the creature beside it — is refused, while one
+/// that includes it is accepted. The Elf beside it prints no such text and
+/// is never named in `required`.
+#[test]
+fn juggernaut_must_attack_each_combat_if_able_and_the_elf_beside_it_never_must() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[juggernaut(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let jugg = on_battlefield(&engine, p0, juggernaut()).expect("seated");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("seated");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        attackers,
+        required,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        attackers.contains(&jugg) && attackers.contains(&elf),
+        "both are able to attack: {attackers:?}"
+    );
+    assert_eq!(
+        required,
+        vec![jugg],
+        "only the Juggernaut must attack; the Elf beside it never does"
+    );
+
+    assert!(
+        engine
+            .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "attacking with nothing leaves an obeyable requirement unobeyed (CR 508.1d)"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::DeclareAttackers {
+                    attackers: vec![(elf, Defender::Player(p1))]
+                }
+            )
+            .is_err(),
+        "attacking with only the Elf leaves the Juggernaut's requirement unobeyed too"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(jugg, Defender::Player(p1))],
+            },
+        )
+        .expect("the Juggernaut alone obeys the requirement");
+    assert!(engine.state().combat.is_attacking(jugg));
+    assert!(
+        !engine.state().combat.is_attacking(elf),
+        "the Elf was never required to join it"
+    );
+}
+
+/// A Juggernaut that cannot attack is not required to: tapped, it is left
+/// out of the offer entirely and asks nothing of the declaration (CR
+/// 508.1a: an attacker "must be untapped"), so attacking with nothing is
+/// legal again.
+#[test]
+fn a_tapped_juggernaut_is_not_required_to_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[juggernaut()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let jugg = on_battlefield(&engine, p0, juggernaut()).expect("seated");
+
+    // A dev move while p0, who acts next, holds priority: the
+    // declare-attackers question is built fresh when that step is reached,
+    // off whatever the board says then.
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .set_tapped(jugg, true);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        attackers,
+        required,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        !attackers.contains(&jugg),
+        "a tapped creature cannot attack: {attackers:?}"
+    );
+    assert!(
+        required.is_empty(),
+        "not able to attack, so it is not required to"
+    );
+    engine
+        .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+        .expect("attacking with nothing is legal again");
 }
 
 // ---------------------------------------------------------------------

@@ -836,7 +836,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[None, None],
         modes: &[],
         alternatives: &[],
     }],
@@ -1176,8 +1176,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Pirate Ship
     &[FaceLines {
         sentences: 3,
-        stackable: 1,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[None, Some(2), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -1387,7 +1387,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Sea Serpent
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Sedge Troll
     &[FaceLines {
         sentences: 2,
