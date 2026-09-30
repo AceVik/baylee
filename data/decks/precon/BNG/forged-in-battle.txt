@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Forged in Battle
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ForgedInBattle_BNG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: BNG
+# released: 2014-02-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Akroan Conscriptor (BNG) 87
+2 Akroan Crusader (THS) 111
+1 Akroan Hoplite (THS) 185
+1 Akroan Phalanx (BNG) 2
+2 Akroan Skyguard (BNG) 3
+2 Arena Athlete (THS) 113
+1 Coordinated Assault (THS) 116
+2 Cyclops of One-Eyed Pass (BNG) 90
+1 Dauntless Onslaught (THS) 6
+2 Elite Skirmisher (BNG) 8
+2 Fall of the Hammer (BNG) 93
+1 Forgestoker Dragon (BNG) 98 *F*
+2 Hold at Bay (BNG) 18
+1 Labyrinth Champion (THS) 126
+1 Loyal Pegasus (BNG) 19
+2 Mortal's Ardor (BNG) 20
+4 Mountain (THS) 242
+4 Mountain (THS) 243
+3 Mountain (THS) 244
+3 Mountain (THS) 245
+2 Ordeal of Purphoros (THS) 131
+1 Phalanx Leader (THS) 26
+1 Pinnacle of Rage (BNG) 105
+3 Plains (THS) 230
+3 Plains (THS) 231
+3 Plains (THS) 232
+2 Plains (THS) 233
+1 Priest of Iroas (THS) 134
+1 Reckless Reveler (BNG) 106
+2 Rise to the Challenge (BNG) 107
+1 Searing Blood (BNG) 111
+1 Two-Headed Cerberus (THS) 146
+1 Wingsteed Rider (THS) 36

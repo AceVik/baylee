@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Allied Fires
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AlliedFires_Q04.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q04
+# released: 2020-03-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Banishing Light (THB) 4
+3 Deafening Clarion (GRN) 165
+2 Drawn from Dreams (M20) 56
+2 Fae of Wishes // Granted (ELD) 44
+4 Fires of Invention (ELD) 125
+4 Interplanar Beacon (WAR) 247
+2 Island (WAR) 253
+2 Island (WAR) 254
+1 Island (WAR) 255
+3 Kasmina, Enigmatic Mentor (WAR) 56
+1 Kenrith, the Returned King (ELD) 303
+1 Mountain (WAR) 259
+1 Mountain (WAR) 260
+4 Narset, Parter of Veils (WAR) 61
+4 Omen of the Sea (THB) 58
+1 Plains (WAR) 250
+1 Plains (WAR) 251
+2 Saheeli, Sublime Artificer (WAR) 234
+3 Sarkhan the Masterless (WAR) 143
+1 Steam Vents (GRN) 257
+3 Swiftwater Cliffs (M20) 252
+1 Temple of Enlightenment (THB) 246
+1 Temple of Epiphany (M20) 253
+1 Temple of Triumph (M20) 257
+2 Time Wipe (WAR) 223
+3 Tranquil Cove (M20) 259
+1 Ugin, the Ineffable (WAR) 2
+4 Wind-Scarred Crag (ELD) 308
+SB: 1 Ashiok, Dream Render (WAR) 228
+SB: 2 Devout Decree (M20) 13
+SB: 1 Dovin's Veto (WAR) 193
+SB: 1 Dovin, Hand of Control (WAR) 229
+SB: 2 Fry (M20) 140
+SB: 1 Mass Manipulation (RNA) 42
+SB: 2 Revoke Existence (THB) 34
+SB: 1 Sarkhan the Masterless (WAR) 143
+SB: 3 Thirst for Meaning (THB) 74
+SB: 1 Time Wipe (WAR) 223

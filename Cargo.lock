@@ -929,11 +929,13 @@ name = "baylee-db"
 version = "0.1.0-beta.3"
 dependencies = [
  "anyhow",
+ "baylee-deckio",
  "baylee-protocol",
  "sea-orm",
  "sea-orm-migration",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "time",
  "tokio",
  "tracing",
@@ -9241,9 +9243,13 @@ dependencies = [
  "baylee-cards-codegen",
  "baylee-cards-index",
  "baylee-core",
+ "baylee-deckio",
  "baylee-update",
  "clap",
+ "flate2",
  "serde_json",
+ "sha2 0.11.0",
+ "tar",
  "ureq",
 ]
 

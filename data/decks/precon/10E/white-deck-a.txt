@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: White Deck A
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteDeckA_10E.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: 10E
+# released: 2008-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angel of Mercy (10E) 2
+1 Angel's Feather (10E) 311
+2 Angelic Blessing (10E) 3
+2 Apothecary Initiate (SHM) 1
+1 Goldenglow Moth (SHM) 6
+1 Heart of Light (10E) 19
+1 Holy Day (10E) 21
+2 Pacifism (10E) 31
+3 Plains (10E) 364
+3 Plains (10E) 365
+3 Plains (10E) 366
+3 Plains (10E) 367
+1 Reviving Dose (10E) 34
+2 Skyhunter Patrol (10E) 41
+2 Venerable Monk (10E) 55
+2 Youthful Knight (10E) 62

@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Song Dance
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SongDance_Q03.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q03
+# released: 2019-11-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Burning Prophet (WAR) 117
+4 Defiant Strike (WAR) 9
+2 Dreadhorde Arcanist (WAR) 125
+4 Feather, the Redeemed (WAR) 197
+2 Gideon Blackblade (WAR) 13
+4 Gods Willing (M20) 19
+2 Legion Warboss (GRN) 109
+2 Mountain (ELD) 262
+2 Mountain (ELD) 263
+1 Mountain (ELD) 264
+1 Mountain (ELD) 265
+2 Plains (ELD) 250
+2 Plains (ELD) 251
+2 Plains (ELD) 252
+2 Plains (ELD) 253
+2 Sacred Foundry (GRN) 254
+4 Samut's Sprint (WAR) 142
+4 Shock (M20) 160
+4 Temple of Triumph (M20) 257
+4 Tenth District Legionnaire (WAR) 222
+2 Tithe Taker (RNA) 27
+4 Wind-Scarred Crag (ELD) 308
+SB: 1 Aurelia, Exemplar of Justice (GRN) 153
+SB: 2 Devout Decree (M20) 13
+SB: 2 Fry (M20) 140
+SB: 4 Lava Coil (GRN) 108
+SB: 2 Prison Realm (WAR) 26
+SB: 2 Tibalt, Rakish Instigator (WAR) 146
+SB: 2 Tomik, Distinguished Advokist (WAR) 34

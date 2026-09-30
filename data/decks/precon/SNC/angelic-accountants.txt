@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Angelic Accountants
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AngelicAccountants_SNC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: SNC
+# released: 2022-09-09
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Angelic Quartermaster (VOW) 2
+3 Borrowed Time (MID) 6
+3 Celestial Regulator (SNC) 174
+1 Deserted Beach (MID) 260
+1 Elspeth Resplendent (SNC) 11
+1 Giada, Font of Hope (SNC) 14
+2 Homestead Courage (MID) 24
+1 Hopeful Initiate (VOW) 20
+3 Inspiring Overseer (SNC) 18
+5 Island (SNC) 264
+4 Island (SNC) 265
+1 Light the Way (NEO) 24
+1 Lion Sash (NEO) 26
+3 Metropolis Angel (SNC) 203
+3 Parish-Blade Trainee (VOW) 29
+5 Plains (SNC) 262
+4 Plains (SNC) 263
+1 Planar Incision (NEO) 72
+3 Raffine's Informant (SNC) 26
+1 Sigarda's Summons (VOW) 36
+2 Skybridge Towers (SNC) 256
+2 Thirst for Discovery (VOW) 85
+4 Tranquil Cove (NEO) 280
+1 Undercover Operative (SNC) 63
+2 Valorous Stance (VOW) 42

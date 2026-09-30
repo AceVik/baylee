@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Assassin - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AssassinEnhancedDeck_UDS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: UDS
+# released: 1999-06-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Bone Shredder (ULG) 49
+2 Claws of Gix (USG) 290
+4 Dark Ritual (USG) 127
+4 Duress (USG) 132
+1 Eradicate (UDS) 60
+2 Mobile Fort (USG) 303
+1 Nightmare (6ED) 146
+4 Order of Yawgmoth (USG) 144
+4 Polluted Mire (USG) 323
+1 Powder Keg (UDS) 136
+4 Ravenous Rats (UDS) 68
+1 Soul Feast (UDS) 72
+3 Stalking Stones (TMP) 327
+4 Stupor (6ED) 158
+4 Swamp (USG) 339
+4 Swamp (USG) 340
+3 Swamp (USG) 341
+3 Swamp (USG) 342
+2 Thrull Surgeon (EXO) 76
+1 Vampiric Tutor (6ED) 161
+1 Volrath's Stronghold (STH) 143
+1 Wheel of Torture (ULG) 138
+2 Yawgmoth's Bargain (UDS) 75
+SB: 3 Bottle Gnomes (TMP) 278
+SB: 4 Dread of Night (6ED) 122
+SB: 2 Engineered Plague (ULG) 51
+SB: 4 Perish (6ED) 148
+SB: 2 Yawgmoth's Bargain (UDS) 75

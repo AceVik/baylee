@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Nissa, Nature's Artisan
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, NissaNatureSArtisan_KLD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: KLD
+# released: 2016-09-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aethersquall Ancient (KLD) 39
+2 Appetite for the Unnatural (KLD) 141
+2 Arborback Stomper (KLD) 142
+3 Attune with Aether (KLD) 145
+1 Bristling Hydra (KLD) 147
+2 Empyreal Voyager (KLD) 180
+4 Forest (KLD) 262
+4 Forest (KLD) 263
+3 Forest (KLD) 264
+3 Guardian of the Great Conduit (KLD) 271
+3 Island (KLD) 253
+3 Island (KLD) 254
+2 Island (KLD) 255
+2 Janjeet Sentry (KLD) 53
+2 Long-Finned Skywhale (KLD) 54
+2 Longtusk Cub (KLD) 161
+2 Malfunction (KLD) 55
+1 Nissa, Nature's Artisan (KLD) 270 *F*
+1 Riparian Tiger (KLD) 167
+1 Sage of Shaila's Claim (KLD) 168
+2 Servant of the Conduit (KLD) 169
+4 Terrain Elemental (KLD) 272
+2 Thriving Rhino (KLD) 171
+2 Thriving Turtle (KLD) 66
+2 Verdant Crescendo (KLD) 273
+4 Woodland Stream (KLD) 274

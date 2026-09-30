@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Fangs of the Predator
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FangsOfThePredator_PS11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PS11
+# released: 2011-01-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Blanchwood Armor (PS11) 124 [es]
+4 Civic Wayfinder (PS11) 126 [es]
+1 Duskdale Wurm (PS11) 129 [es]
+6 Forest (PS11) 221 [es]
+6 Forest (PS11) 222 [es]
+6 Forest (PS11) 223 [es]
+6 Forest (PS11) 224 [es]
+3 Giant Growth (PS11) 138 [es]
+2 Giant Spider (PS11) 139 [es]
+1 Howl of the Night Pack (PS11) 141 [es]
+1 Loxodon Warhammer (PS11) 194 [es]
+1 Molimo, Maro-Sorcerer (PS11) 149 [es]
+1 Natural Spring (PS11) 150 [es]
+2 Overrun (PS11) 154 [es]
+2 Rampant Growth (PS11) 155 [es]
+1 River Boa (PS11) 156 [es]
+1 Roughshod Mentor (PS11) 157 [es]
+3 Runeclaw Bear (PS11) 158 [es]
+2 Spined Wurm (PS11) 159 [es]
+2 Trained Armodon (PS11) 161 [es]
+1 Troll Ascetic (PS11) 162 [es]
+1 Verdant Force (PS11) 163 [es]
+1 Vigor (PS11) 164 [es]
+2 Wall of Wood (PS11) 165 [es]
+2 Wurm's Tooth (PS11) 203 [es]

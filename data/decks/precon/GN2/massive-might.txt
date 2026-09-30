@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Massive Might
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MassiveMight_GN2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Game Night Deck
+# set: GN2
+# released: 2019-11-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Crested Herdcaller (GN2) 46
+1 Earthshaker Giant (GN2) 5 *F*
+2 Ferocious Pup (M20) 171
+13 Forest (GN2) 63
+13 Forest (GN2) 64
+1 Ghalta, Primal Hunger (GN2) 47
+2 Grazing Whiptail (GN2) 48
+3 Growth Cycle (M20) 175
+2 Howling Giant (M20) 177
+1 Howling Golem (GN2) 54
+3 Leafkin Druid (M20) 178
+2 Overcome (M20) 186
+1 Plummet (M20) 188
+2 Ranging Raptors (GN2) 49
+1 Ripjaw Raptor (GN2) 50
+2 Silverback Shaman (M20) 195
+2 Spidery Grasp (GN2) 51
+3 Thunderherd Migration (GN2) 52
+2 Thundering Spineback (GN2) 53
+1 Voracious Hydra (M20) 200
+1 Wakeroot Elemental (M20) 202

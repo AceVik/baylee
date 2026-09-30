@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Stomp, Stomp
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, StompStomp_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M21
+# released: 2021-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Almighty Brushwagg (IKO) 143
+1 Bonecrusher Giant // Stomp (ELD) 115
+2 Dreamstalker Manticore (THB) 131
+4 Forest (M21) 272
+3 Forest (M21) 273
+3 Forest (M21) 274
+2 Hornbash Mentor (IKO) 159
+3 Ilysian Caryatid (THB) 174
+3 Leafkin Avenger (M21) 220
+3 Mountain (M21) 269
+3 Mountain (M21) 270
+3 Mountain (M21) 271
+2 Nessian Hornbeetle (THB) 182
+1 Radha, Heart of Keld (M21) 224
+2 Ram Through (IKO) 170
+3 Rampart Smasher (ELD) 213
+1 Return of the Wildspeaker (ELD) 172
+2 Rimrock Knight // Boulder Rush (ELD) 137
+4 Rugged Highlands (M21) 249
+2 Scorching Dragonfire (M21) 158
+1 Temple of Abandon (THB) 244
+1 Terror of the Peaks (M21) 164
+1 The First Iroan Games (THB) 170
+3 Unleash Fury (M21) 170
+1 Volcanic Salvo (M21) 172
+3 Warden of the Chained (THB) 230

@@ -71,6 +71,7 @@ pub mod import;
 pub mod invites;
 pub mod migration;
 pub mod pictures;
+pub mod precons;
 pub mod records;
 pub mod usernames;
 

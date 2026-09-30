@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Dracur
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Dracur_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Black Lotus (2ED) 233
+2 Blight (LEG) 89
+2 Desert Twister (ARN) 46
+2 Dingus Egg (3ED) 244
+2 Disintegrate (3ED) 142
+2 Disrupting Scepter (3ED) 245
+2 Earthquake (3ED) 148
+2 Fellwar Stone (DRK) 102
+2 Fireball (3ED) 150
+3 Fissure (DRK) 63
+2 Forest (3ED) 304
+2 Forest (3ED) 305
+1 Forest (3ED) 306
+3 Gem Bazaar (PAST) 12
+4 Hypnotic Specter (3ED) 115
+2 Lightning Bolt (3ED) 162
+2 Mana Flare (3ED) 164
+1 Mind Twist (3ED) 117
+5 Mountain (ARN) 77
+1 Mox Emerald (2ED) 262
+1 Mox Jet (2ED) 263
+1 Mox Ruby (2ED) 265
+2 Rag Man (DRK) 51
+4 Stone Rain (3ED) 180
+2 Strip Mine (ATQ) 82a
+2 Swamp (3ED) 298
+2 Swamp (3ED) 299
+1 Swamp (3ED) 300
+1 Tranquility (3ED) 221
+3 Wall of Dust (LEG) 168
+SB: 1 Gloom (3ED) 113
+SB: 2 Stream of Life (3ED) 217
+SB: 1 Tranquility (3ED) 221
+SB: 1 Tsunami (3ED) 222

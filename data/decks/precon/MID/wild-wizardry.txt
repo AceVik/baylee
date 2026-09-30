@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Wild Wizardry
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WildWizardry_MID.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Promotional Deck
+# set: MID
+# released: 2021-09-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Alrund's Epiphany (KHM) 41
+2 Chaos Channeler (AFR) 136
+1 Efreet Flamepainter (STX) 98
+2 Into the Roil (ZNR) 62
+8 Island (MID) 381
+2 Maelstrom Muse (STX) 202
+1 Magic Missile (AFR) 154
+1 Magmatic Channeler (ZNR) 148
+9 Mountain (MID) 383
+2 Pigment Storm (STX) 111
+2 Practical Research (STX) 212
+3 Prismari Apprentice (STX) 213
+4 Prismari Campus (STX) 270
+1 Prismari Command (STX) 214
+3 Roil Eruption (ZNR) 155
+2 Shock (M21) 159
+3 Silundi Vision // Silundi Isle (ZNR) 80
+3 Sleep (ANB) 33
+3 Song-Mad Treachery // Song-Mad Ruins (ZNR) 165
+2 Spectacle Mage (STX) 235
+3 Umara Mystic (ZNR) 238
+1 Wizard Class (AFR) 81
+1 Wizard's Spellbook (AFR) 82

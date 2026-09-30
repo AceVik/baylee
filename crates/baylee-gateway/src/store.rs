@@ -227,6 +227,10 @@ pub struct Deck {
     pub playmat: Option<String>,
     /// Last update (unix seconds).
     pub updated_at: u64,
+    /// Whether the shared listing offers it. A precon that stopped being
+    /// playable is kept but withdrawn, and a copy of it is refused; a
+    /// player's own deck is always `true`.
+    pub offered: bool,
 }
 
 // ---------------------------------------------------------- the two edges
@@ -303,6 +307,7 @@ impl From<deck::Model> for Deck {
             sleeve: row.sleeve,
             playmat: row.playmat,
             updated_at: secs(row.updated_at),
+            offered: row.offered,
         }
     }
 }
@@ -1047,26 +1052,13 @@ pub async fn create_deck(db: &DatabaseConnection, new: NewDeck) -> Result<Option
         sleeve: Set(new.sleeve),
         playmat: Set(new.playmat),
         updated_at: Set(at(new.updated_at)),
+        // A player's deck: no sync wrote it, and nothing withdraws it.
+        source: Set(None),
+        offered: Set(true),
     })
     .exec_with_returning(db)
     .await?;
     Ok(Some(id(made.id)))
-}
-
-/// Whether two deck states are the same cards.
-///
-/// What counts as a *change* for the history, and it is deliberately only
-/// the cards: renaming a deck, giving it a description or picking a new
-/// sleeve is not an edit anybody wants to roll back, and a version row per
-/// rename would bury the ones that matter. The owner asked for the history
-/// of the **cards**.
-fn same_cards(
-    before: &deck::Model,
-    cards: &[String],
-    sideboard: &[String],
-    commanders: &[String],
-) -> bool {
-    before.cards == cards && before.sideboard == sideboard && before.commanders == commanders
 }
 
 /// Write a deck, replacing one of the same id, and leave what it held
@@ -1081,7 +1073,7 @@ fn same_cards(
 /// A save that changes nothing about the cards writes no version. Renaming a
 /// deck, describing it or picking a new sleeve is not an edit anybody wants
 /// to undo, and a row for each of those would bury the ones that are — see
-/// [`same_cards`].
+/// [`deck::Model::same_cards`].
 ///
 /// `summary` is what the change was called, in the words of whoever made it.
 ///
@@ -1101,7 +1093,7 @@ pub async fn put_deck(db: &DatabaseConnection, saved: Deck, summary: Option<Stri
     let tx = db.begin().await?;
     let before = Decks::find_by_id(id).one(&tx).await?;
     let version = match &before {
-        Some(row) if same_cards(row, &saved.cards, &saved.sideboard, &saved.commanders) => {
+        Some(row) if row.same_cards(&saved.cards, &saved.sideboard, &saved.commanders) => {
             row.version
         }
         Some(row) => {
@@ -1140,6 +1132,10 @@ pub async fn put_deck(db: &DatabaseConnection, saved: Deck, summary: Option<Stri
         sleeve: Set(saved.sleeve),
         playmat: Set(saved.playmat),
         updated_at: Set(at(saved.updated_at)),
+        // Left to the database, and left out of the update below: a save is
+        // a player's, and whether a deck is synced or offered is the sync's.
+        source: NotSet,
+        offered: NotSet,
     })
     .on_conflict(
         OnConflict::column(deck::Column::Id)
@@ -1205,21 +1201,20 @@ pub async fn deck_at_version(
         .map(Into::into))
 }
 
-/// The decks that belong to nobody: what the house publishes and what came
-/// in a box.
+/// The decks that belong to nobody and are offered: what the house
+/// publishes and what came in a box, never a precon the build withdrew.
 ///
 /// Its own query rather than a filter on [`decks_of`], because it is a
 /// different question with a different index — `deck_account_recent` is on
-/// `account_id`, which is null for every row this asks about.
+/// `account_id`, which is null for every row this asks about. The query is
+/// [`baylee_db::precons::shared_decks`], where the precon sync's tests read
+/// it too.
 ///
 /// # Errors
 ///
 /// If the database refuses.
 pub async fn shared_decks(db: &DatabaseConnection) -> Result<Vec<Deck>> {
-    Ok(Decks::find()
-        .filter(deck::Column::Kind.ne(deck::KIND_ACCOUNT))
-        .order_by_desc(deck::Column::UpdatedAt)
-        .all(db)
+    Ok(baylee_db::precons::shared_decks(db)
         .await?
         .into_iter()
         .map(Into::into)
@@ -1324,6 +1319,8 @@ mod tests {
             sleeve: None,
             playmat: None,
             updated_at: OffsetDateTime::UNIX_EPOCH,
+            source: None,
+            offered: true,
         }
     }
 
@@ -1385,25 +1382,22 @@ mod tests {
         renamed.description = Some("now with a description".into());
         renamed.sleeve = Some("sleeve.png".into());
 
-        assert!(same_cards(
-            &renamed,
+        assert!(renamed.same_cards(
             &strings(&["4 Lightning Bolt"]),
             &strings(&["1 Pyroblast"]),
             &[]
         ));
-        assert!(!same_cards(
-            &before,
+        assert!(!before.same_cards(
             &strings(&["3 Lightning Bolt"]),
             &strings(&["1 Pyroblast"]),
             &[]
         ));
         assert!(
-            !same_cards(&before, &strings(&["4 Lightning Bolt"]), &[], &[]),
+            !before.same_cards(&strings(&["4 Lightning Bolt"]), &[], &[]),
             "emptying the sideboard is an edit"
         );
         assert!(
-            !same_cards(
-                &before,
+            !before.same_cards(
                 &strings(&["4 Lightning Bolt"]),
                 &strings(&["1 Pyroblast"]),
                 &strings(&["1 Kenrith, the Returned King"])
@@ -1419,12 +1413,7 @@ mod tests {
     #[test]
     fn a_reordered_list_is_a_different_list() {
         let before = deck_row("Deck", &["4 Lightning Bolt", "4 Brainstorm"], &[], &[]);
-        assert!(!same_cards(
-            &before,
-            &strings(&["4 Brainstorm", "4 Lightning Bolt"]),
-            &[],
-            &[]
-        ));
+        assert!(!before.same_cards(&strings(&["4 Brainstorm", "4 Lightning Bolt"]), &[], &[]));
     }
 
     /// **"The address is taken" is a sentence about one error and not about

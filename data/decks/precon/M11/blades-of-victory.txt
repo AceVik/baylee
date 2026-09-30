@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Blades of Victory
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BladesOfVictory_M11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M11
+# released: 2010-07-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ajani's Mantra (M11) 2
+2 Ajani's Pridemate (M11) 3
+1 Angelic Arbiter (M11) 4 *F*
+2 Armored Ascension (M11) 5
+1 Assassinate (M11) 81
+2 Cloud Crusader (M11) 10
+1 Condemn (M11) 11
+1 Doom Blade (M11) 95
+1 Duress (M11) 96
+2 Elite Vanguard (M11) 13
+2 Infantry Veteran (M11) 18
+2 Inspired Charge (M11) 19
+1 Mighty Leap (M11) 22
+1 Mind Rot (M11) 105
+2 Pacifism (M11) 23
+2 Palace Guard (M11) 24
+4 Plains (M11) 230
+4 Plains (M11) 231
+4 Plains (M11) 232
+4 Plains (M11) 233
+1 Safe Passage (M11) 26
+2 Serra Angel (M11) 27
+2 Siege Mastodon (M11) 29
+1 Silvercoat Lion (M11) 31
+1 Stabbing Pain (M11) 118
+3 Swamp (M11) 238
+2 Swamp (M11) 239
+2 Swamp (M11) 240
+2 Swamp (M11) 241
+1 Vengeful Archon (M11) 37
+1 War Priest of Thune (M11) 38
+1 Warlord's Axe (M11) 220
+1 White Knight (M11) 39

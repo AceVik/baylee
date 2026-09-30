@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Surprise Attack
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SurpriseAttack_FRF.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: FRF
+# released: 2015-01-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arashin War Beast (FRF) 123
+1 Awaken the Bear (KTK) 129
+3 Embodiment of Spring (KTK) 39
+2 Ethereal Ambush (FRF) 152
+6 Forest (FRF) 184
+5 Forest (FRF) 185
+2 Formless Nurturing (FRF) 129
+2 Glacial Stalker (KTK) 41
+1 Hunt the Weak (FRF) 133
+2 Icefeather Aven (KTK) 178
+6 Island (FRF) 178
+6 Island (FRF) 179
+1 Monastery Flock (KTK) 47
+1 Nimbus of the Isles (M15) 72
+2 Pine Walker (KTK) 143
+1 Reality Shift (FRF) 46
+1 Roaring Primadox (M15) 196
+1 Scion of Glaciers (KTK) 53
+2 Secret Plans (KTK) 198
+2 Singing Bell Strike (KTK) 55
+1 Temur War Shaman (PFRF) 142 *F*
+3 Thornwood Falls (FRF) 173
+1 Thousand Winds (KTK) 58
+1 Wall of Frost (M15) 83
+1 Waterwhirl (KTK) 60
+2 Whisk Away (FRF) 57
+1 Woolly Loxodon (KTK) 158
+2 Write into Being (FRF) 59

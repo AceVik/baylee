@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Red
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Red_GNT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Game Night Deck
+# set: GNT
+# released: 2018-11-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Act of Treason (M19) 127
+2 Bombard (GNT) 37
+1 Captivating Crew (GNT) 38
+1 Demanding Dragon (M19) 135
+2 Dragon Fodder (GNT) 39
+2 Eager Construct (GNT) 51
+1 Goblin Goliath (GNT) 4
+2 Goblin Instigator (M19) 142
+1 Goblin Motivator (M19) 143
+2 Goblin Trashmaster (M19) 144
+2 Guttersnipe (M19) 145
+1 Havoc Devils (M19) 146
+2 Howling Golem (GNT) 53
+13 Mountain (GNT) 65
+12 Mountain (GNT) 66
+2 Rolling Thunder (GNT) 40
+1 Seismic Elemental (GNT) 41
+1 Shivan Dragon (M19) 300
+3 Shock (M19) 156
+1 Siege-Gang Commander (GNT) 42
+2 Tormenting Voice (GNT) 43
+1 Trumpet Blast (M19) 165
+2 Volley Veteran (M19) 168
+2 Welder Automaton (GNT) 58

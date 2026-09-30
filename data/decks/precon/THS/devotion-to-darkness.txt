@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Devotion to Darkness
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DevotionToDarkness_THS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: THS
+# released: 2013-09-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abhorrent Overlord (THS) 75 *F*
+2 Blood-Toll Harpy (THS) 79
+1 Boon of Erebos (THS) 80
+2 Child of Night (M14) 89
+2 Disciple of Phenax (THS) 84
+2 Glimpse the Future (M14) 58
+2 Gray Merchant of Asphodel (THS) 89
+1 Griptide (THS) 50
+2 Horizon Scholar (THS) 51
+2 Insatiable Harpy (THS) 92
+3 Island (THS) 234
+2 Island (THS) 235
+2 Island (THS) 236
+2 Island (THS) 237
+1 Lash of the Whip (THS) 94
+1 March of the Returned (THS) 96
+1 Minotaur Abomination (M14) 107
+2 Mogis's Marauder (THS) 97
+1 Ordeal of Thassa (THS) 58
+1 Pharika's Cure (THS) 100
+1 Rescue from the Underworld (THS) 102
+2 Returned Phalanx (THS) 104
+1 Sea God's Revenge (THS) 61
+2 Sip of Hemlock (THS) 106
+4 Swamp (THS) 238
+4 Swamp (THS) 239
+4 Swamp (THS) 240
+4 Swamp (THS) 241
+2 Undead Minotaur (M14) 119
+1 Voyage's End (THS) 73
+1 Whip of Erebos (THS) 110
+1 Witches' Eye (THS) 222

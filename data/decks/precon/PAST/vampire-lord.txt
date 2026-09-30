@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Vampire Lord
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, VampireLord_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Animate Dead (3ED) 93
+4 Carrion Ants (LEG) 90
+4 Dark Ritual (3ED) 99
+3 Howling Mine (3ED) 251
+3 Mana Vault (3ED) 263
+4 Sengir Vampire (3ED) 129
+4 Sorceress Queen (ARN) 32
+8 Swamp (3ED) 298
+7 Swamp (3ED) 299
+7 Swamp (3ED) 300
+2 Terror (3ED) 132
+2 Uncle Istvan (DRK) 54
+4 Vampire Bats (LEG) 125
+4 Weakness (3ED) 136
+SB: 3 Black Knight (3ED) 95
+SB: 3 Winter Orb (3ED) 280

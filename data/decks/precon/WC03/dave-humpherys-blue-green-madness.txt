@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Dave Humpherys - Blue-Green Madness
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DaveHumpherysBlueGreenMadness_WC03.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC03
+# released: 2003-08-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Aquamoeba (WC03) dh24
+3 Arrogant Wurm (WC03) dh120
+4 Basking Rootwalla (WC03) dh121
+4 Careful Study (WC03) dh70
+1 Centaur Garden (WC03) dh316
+4 Circular Logic (WC03) dh33
+2 City of Brass (WC03) dh322
+2 Deep Analysis (WC03) dh36
+3 Forest (WC03) dh348
+3 Forest (WC03) dh349
+2 Forest (WC03) dh350
+4 Island (WC03) dh336
+4 Island (WC03) dh337
+3 Island (WC03) dh338
+1 Krosan Reclamation (WC03) dh122
+2 Quiet Speculation (WC03) dh49
+1 Ray of Revelation (WC03) dh20
+3 Roar of the Wurm (WC03) dh266
+3 Unsummon (WC03) dh112
+4 Wild Mongrel (WC03) dh283
+3 Wonder (WC03) dh54
+SB: 1 Deep Analysis (WC03) dh36sb
+SB: 2 Envelop (WC03) dh39sb
+SB: 1 Krosan Reclamation (WC03) dh122sb
+SB: 2 Mana Leak (WC03) dh89sb
+SB: 2 Nantuko Vigilante (WC03) dh132sb
+SB: 2 Phantom Centaur (WC03) dh127sb
+SB: 1 Ray of Revelation (WC03) dh20sb
+SB: 2 Stupefying Touch (WC03) dh48sb
+SB: 1 Unsummon (WC03) dh112sb
+SB: 1 Wonder (WC03) dh54sb

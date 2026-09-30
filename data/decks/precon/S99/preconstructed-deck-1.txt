@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Preconstructed deck 1
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PreconstructedDeck1_S99.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: S99
+# released: 1999-07-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Bog Imp (S99) 65
+1 Coercion (S99) 69
+1 Durkwood Boars (S99) 127
+2 Forest (S99) 170
+2 Forest (S99) 171
+1 Forest (S99) 172
+1 Forest (S99) 173
+2 Goblin Hero (S99) 103
+1 Grizzly Bears (S99) 129
+2 Hand of Death (S99) 80
+2 Lava Axe (S99) 111
+1 Mons's Goblin Raiders (S99) 112
+2 Monstrous Growth (S99) 132
+1 Moon Sprite (S99) 133
+2 Mountain (S99) 166
+2 Mountain (S99) 167
+1 Mountain (S99) 168
+1 Mountain (S99) 169
+1 Muck Rats (S99) 84
+1 Ogre Warrior (S99) 113
+2 Scathe Zombies (S99) 87
+2 Swamp (S99) 162
+2 Swamp (S99) 163
+1 Swamp (S99) 164
+1 Swamp (S99) 165
+1 Trained Orgg (S99) 120
+2 Willow Elf (S99) 152

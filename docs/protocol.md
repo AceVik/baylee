@@ -1952,6 +1952,14 @@ was copied, so it still says what it came from after the original has moved
 on. A copy starts with the generated card back and is dressed like any
 other deck (§"Sleeves and playmats").
 
+**A precon the build no longer plays is withdrawn, not deleted.** The
+`preconstructed` decks are synced from the lists the build plays as the
+gateway starts (`docs/precons.md` §"House decks"). One that leaves those
+lists keeps its row with `offered = false`: `GET /decks/shared` no longer
+lists it, `POST /decks/{id}/copy` answers **410**, and `GET /decks/{id}`
+still reads it, so the copies taken of it still name what they came from.
+It comes back as the same deck when the build plays it again.
+
 **A deck's history is what it no longer holds.** The deck row is the
 present and carries `version`; `deck_version` holds only states that have
 been left behind, so the two can never disagree about what the deck holds

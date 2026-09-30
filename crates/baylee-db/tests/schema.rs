@@ -23,6 +23,7 @@ use baylee_db::entity::{
 };
 use baylee_db::invites;
 use baylee_db::migration::Migrator;
+use baylee_db::precons::{self, Precon};
 use sea_orm::{
     ActiveValue::{NotSet, Set},
     ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbBackend, EntityTrait,
@@ -319,6 +320,8 @@ async fn postgres_mints_the_keys() {
         sleeve: Set(None),
         playmat: Set(None),
         updated_at: Set(OffsetDateTime::now_utc()),
+        source: Set(None),
+        offered: Set(true),
     })
     .exec_with_returning(&sandbox.db)
     .await
@@ -572,6 +575,8 @@ fn a_deck(owner: Option<Uuid>, name: &str) -> deck::ActiveModel {
         sleeve: Set(None),
         playmat: Set(None),
         updated_at: Set(OffsetDateTime::now_utc()),
+        source: Set(None),
+        offered: Set(true),
     }
 }
 
@@ -676,6 +681,8 @@ async fn deleting_an_account_takes_everything_it_owned() {
         sleeve: Set(None),
         playmat: Set(None),
         updated_at: Set(OffsetDateTime::now_utc()),
+        source: Set(None),
+        offered: Set(true),
     })
     .exec(&sandbox.db)
     .await
@@ -886,6 +893,9 @@ async fn a_picture_on_a_deck_belongs_to_the_decks_player() {
         }
         deck.sleeve = Set(on_sleeve.cloned());
         deck.playmat = Set(on_mat.cloned());
+        // Columns from a later migration than this schema has.
+        deck.source = NotSet;
+        deck.offered = NotSet;
         Deck::insert(deck).exec(&sandbox.db).await.unwrap();
     }
     Migrator::up(&sandbox.db, None)
@@ -1947,6 +1957,288 @@ async fn a_key_and_its_accounts_outlive_each_other() {
             .is_err(),
         "a negative count"
     );
+
+    sandbox.close().await;
+}
+
+// ------------------------------------------------------------- precons
+
+/// A precon list as `decks-import` writes one, cut down to what a sync
+/// reads.
+const SUN_EMPIRE: &str = "# baylee deck export v1\n\
+    # name: Sun Empire\n\
+    # format: freeform\n\
+    # source: MTGJSON 1.0.0, https://mtgjson.com, SunEmpire_E02.json\n\
+    # type: Theme Deck\n\
+    # set: E02\n\
+    # released: 2017-11-24\n\
+    1 Sol Ring (C18) 222\n\
+    4 Plains\n\
+    SB: 1 Lightning Bolt\n";
+
+/// The same list as a later build of the source has it: one card fewer.
+const SUN_EMPIRE_LATER: &str = "# baylee deck export v1\n\
+    # name: Sun Empire\n\
+    # format: freeform\n\
+    # source: MTGJSON 2.0.0, https://mtgjson.com, SunEmpire_E02.json\n\
+    # type: Theme Deck\n\
+    # set: E02\n\
+    # released: 2017-11-24\n\
+    1 Sol Ring (C18) 222\n\
+    3 Plains\n\
+    SB: 1 Lightning Bolt\n";
+
+/// A list with a commander.
+const ESTRID: &str = "# baylee deck export v1\n\
+    # name: Adaptive Enchantment\n\
+    # format: commander\n\
+    # source: MTGJSON 1.0.0, https://mtgjson.com, AdaptiveEnchantment_C18.json\n\
+    # type: Commander Deck\n\
+    # set: C18\n\
+    # released: 2018-08-10\n\
+    CMD: 1 Estrid, the Masked (C18) 40\n\
+    99 Forest\n";
+
+const SUN: Precon = Precon {
+    key: "E02/sun-empire",
+    text: SUN_EMPIRE,
+};
+const SUN_LATER: Precon = Precon {
+    key: "E02/sun-empire",
+    text: SUN_EMPIRE_LATER,
+};
+const EST: Precon = Precon {
+    key: "C18/adaptive-enchantment",
+    text: ESTRID,
+};
+
+/// Every deck a sync owns, in key order.
+async fn synced(db: &DatabaseConnection) -> Vec<deck::Model> {
+    let mut rows = Deck::find()
+        .filter(deck::Column::Source.is_not_null())
+        .all(db)
+        .await
+        .expect("reading the synced decks");
+    rows.sort_by(|a, b| a.source.cmp(&b.source));
+    rows
+}
+
+/// The deck a sync wrote from one list.
+async fn synced_from(db: &DatabaseConnection, key: &str) -> deck::Model {
+    Deck::find()
+        .filter(deck::Column::Source.eq(key))
+        .one(db)
+        .await
+        .expect("reading a synced deck")
+        .unwrap_or_else(|| panic!("no deck from {key}"))
+}
+
+/// A sync writes each list once as a deck that belongs to nobody, and the
+/// same lists again write nothing — with the stamp, not even a read of the
+/// decks, and without it the same rows to the byte.
+#[tokio::test]
+async fn a_precon_sync_writes_its_decks_once() {
+    let sandbox = Sandbox::open("precon_once").await;
+    let db = &sandbox.db;
+    let house_before = precons::shared_decks(db).await.unwrap();
+
+    let first = precons::sync(db, &[EST, SUN])
+        .await
+        .expect("the first sync");
+    assert_eq!((first.offered, first.added, first.unchanged), (2, 2, false));
+    let written = synced(db).await;
+    assert_eq!(written.len(), 2);
+    for row in &written {
+        assert_eq!(row.kind, deck::KIND_PRECONSTRUCTED);
+        assert_eq!(row.account_id, None, "{} belongs to somebody", row.name);
+        assert_eq!(row.version, 1);
+        assert!(row.offered);
+    }
+    let estrid = &written[0];
+    assert_eq!(estrid.name, "Adaptive Enchantment");
+    assert_eq!(estrid.format, "commander");
+    assert_eq!(
+        estrid.description.as_deref(),
+        Some("Commander Deck · C18 · 2018-08-10")
+    );
+    // Stored as a player's import of the same file would be: the leader a
+    // row with its printing, and named again bare.
+    assert_eq!(estrid.cards, ["1 Estrid, the Masked (C18) 40", "99 Forest"]);
+    assert_eq!(estrid.commanders, ["Estrid, the Masked"]);
+    assert_eq!(written[1].sideboard, ["1 Lightning Bolt"]);
+
+    // Listed after the house's own decks, which a sync never touches.
+    let listed = precons::shared_decks(db).await.unwrap();
+    assert_eq!(listed.len(), house_before.len() + 2);
+    assert_eq!(&listed[..house_before.len()], &house_before[..]);
+
+    let again = precons::sync(db, &[EST, SUN])
+        .await
+        .expect("the second sync");
+    assert!(again.unchanged, "the same lists are one read: {again:?}");
+    assert_eq!(synced(db).await, written, "and no write");
+
+    // Without the stamp the sync reads every deck, and still writes none.
+    db.execute_unprepared("DELETE FROM deck_sync")
+        .await
+        .unwrap();
+    let blind = precons::sync(db, &[EST, SUN])
+        .await
+        .expect("a sync without a stamp");
+    assert_eq!(
+        (blind.unchanged, blind.added, blind.changed, blind.withdrawn),
+        (false, 0, 0, 0)
+    );
+    assert_eq!(synced(db).await, written, "the same rows to the byte");
+
+    sandbox.close().await;
+}
+
+/// A precon the build no longer plays leaves the offer and nothing else: the
+/// deck stays, so a player's copy still names what it came from, and when
+/// the build plays it again it is the same deck.
+#[tokio::test]
+async fn a_precon_the_build_stops_playing_is_withdrawn_and_its_copy_plays_on() {
+    let sandbox = Sandbox::open("precon_withdrawn").await;
+    let db = &sandbox.db;
+    precons::sync(db, &[EST, SUN])
+        .await
+        .expect("the first sync");
+    let sun = synced_from(db, SUN.key).await;
+
+    let player = an_account("copier@example.com");
+    let Set(player_id) = player.id else {
+        unreachable!()
+    };
+    Account::insert(player).exec(db).await.unwrap();
+    let mut copy = a_deck(Some(player_id), "Sun Empire");
+    copy.copied_from = Set(Some(sun.id));
+    copy.copied_version = Set(Some(sun.version));
+    let copy = Deck::insert(copy).exec_with_returning(db).await.unwrap();
+
+    let without = precons::sync(db, &[EST]).await.expect("a sync without it");
+    assert_eq!(
+        (without.withdrawn, without.added, without.changed),
+        (1, 0, 0)
+    );
+    let withdrawn = synced_from(db, SUN.key).await;
+    assert!(!withdrawn.offered);
+    assert_eq!(
+        (withdrawn.id, withdrawn.version, &withdrawn.cards),
+        (sun.id, sun.version, &sun.cards),
+        "withdrawn is all that happened to it"
+    );
+    let listed = precons::shared_decks(db).await.unwrap();
+    assert!(
+        listed.iter().all(|deck| deck.id != sun.id),
+        "a withdrawn deck is not offered"
+    );
+    assert!(
+        listed
+            .iter()
+            .any(|deck| deck.source.as_deref() == Some(EST.key))
+    );
+    assert_eq!(
+        listed
+            .iter()
+            .filter(|deck| deck.kind == deck::KIND_HOUSE)
+            .count(),
+        9,
+        "the house's own decks are no sync's"
+    );
+    let kept = Deck::find_by_id(copy.id)
+        .one(db)
+        .await
+        .unwrap()
+        .expect("the copy");
+    assert_eq!(
+        kept.copied_from,
+        Some(sun.id),
+        "the copy still names its deck"
+    );
+    assert_eq!(kept.cards, copy.cards);
+
+    let back = precons::sync(db, &[EST, SUN])
+        .await
+        .expect("a sync with it again");
+    assert_eq!((back.returned, back.added, back.withdrawn), (1, 0, 0));
+    let returned = synced_from(db, SUN.key).await;
+    assert!(returned.offered);
+    assert_eq!((returned.id, returned.version), (sun.id, sun.version));
+
+    sandbox.close().await;
+}
+
+/// New cards in a list are a new version of its deck, and the state they
+/// replace is kept as a player's save keeps it: a copy names the version it
+/// came from, and that version stays readable.
+#[tokio::test]
+async fn a_precon_whose_cards_change_keeps_the_state_it_left() {
+    let sandbox = Sandbox::open("precon_version").await;
+    let db = &sandbox.db;
+    precons::sync(db, &[SUN]).await.expect("the first sync");
+    let before = synced_from(db, SUN.key).await;
+
+    let later = precons::sync(db, &[SUN_LATER])
+        .await
+        .expect("the later list");
+    assert_eq!((later.changed, later.added, later.withdrawn), (1, 0, 0));
+    let after = synced_from(db, SUN.key).await;
+    assert_eq!(after.id, before.id, "the same deck");
+    assert_eq!(after.version, 2);
+    assert_eq!(after.cards, ["1 Sol Ring (C18) 222", "3 Plains"]);
+    let past = DeckVersion::find_by_id((before.id, 1))
+        .one(db)
+        .await
+        .unwrap()
+        .expect("version 1 is kept");
+    assert_eq!(past.cards, before.cards);
+    assert_eq!(past.summary.as_deref(), Some("MTGJSON 2.0.0"));
+
+    sandbox.close().await;
+}
+
+/// Two gateways starting at once against one database: one writes, the
+/// other waits for it and finds nothing left to do, and each list is still
+/// one deck.
+#[tokio::test]
+async fn two_syncs_at_once_write_each_deck_once() {
+    let sandbox = Sandbox::open("precon_race").await;
+    let db = &sandbox.db;
+    let (one, two) = tokio::join!(
+        precons::sync(db, &[EST, SUN]),
+        precons::sync(db, &[EST, SUN])
+    );
+    let (one, two) = (one.expect("one sync"), two.expect("the other"));
+    assert_eq!(one.added + two.added, 2, "{one:?} {two:?}");
+    assert_ne!(one.unchanged, two.unchanged, "{one:?} {two:?}");
+    assert_eq!(synced(db).await.len(), 2);
+
+    sandbox.close().await;
+}
+
+/// Only a deck that belongs to nobody is a sync's to own or to withdraw; the
+/// database refuses either on a player's deck.
+#[tokio::test]
+async fn only_a_shared_deck_carries_a_source_or_leaves_the_offer() {
+    let sandbox = Sandbox::open("precon_checks").await;
+    let db = &sandbox.db;
+    let player = an_account("owner@example.com");
+    let Set(player_id) = player.id else {
+        unreachable!()
+    };
+    Account::insert(player).exec(db).await.unwrap();
+
+    let mut sourced = a_deck(Some(player_id), "mine");
+    sourced.source = Set(Some("E02/sun-empire".to_owned()));
+    assert!(Deck::insert(sourced).exec(db).await.is_err());
+    let mut hidden = a_deck(Some(player_id), "mine");
+    hidden.offered = Set(false);
+    assert!(Deck::insert(hidden).exec(db).await.is_err());
+    Deck::insert(a_deck(Some(player_id), "mine"))
+        .exec(db)
+        .await
+        .expect("a player's deck as it always was");
 
     sandbox.close().await;
 }

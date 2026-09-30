@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: The Swarm - Advanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSwarmAdvancedDeck_TMP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Advanced Deck
+# set: TMP
+# released: 1997-10-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aluren (TMP) 213
+2 Arctic Wolves (WTH) 118
+3 Armageddon (5ED) 7
+2 Birds of Paradise (5ED) 280
+4 Brushland (5ED) 412
+1 Force of Nature (5ED) 294
+3 Forest (TMP) 347
+3 Forest (TMP) 348
+3 Forest (TMP) 349
+2 Forest (TMP) 350
+1 Hurricane (5ED) 303
+2 Lhurgoyf (5ED) 309
+4 Llanowar Elves (5ED) 313
+4 Llanowar Sentinel (WTH) 134
+4 Muscle Sliver (TMP) 238
+3 Nature's Resurgence (WTH) 137
+4 Quicksand (VIS) 166
+4 River Boa (VIS) 118
+1 Sacred Guide (TMP) 38
+2 Skyshroud Elf (TMP) 255
+1 Spirit Link (5ED) 64
+1 Trained Armodon (TMP) 260
+3 Uktabi Orangutan (VIS) 123
+2 Vec Townships (TMP) 329
+SB: 1 Armageddon (5ED) 7
+SB: 2 Blossoming Wreath (WTH) 120
+SB: 3 City of Solitude (VIS) 102
+SB: 4 Disenchant (TMP) 16
+SB: 1 Feral Instinct (VIS) 107
+SB: 2 Light of Day (TMP) 27
+SB: 2 Spirit Link (5ED) 64

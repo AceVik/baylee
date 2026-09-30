@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Metalcraft
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Metalcraft_SOM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: SOM
+# released: 2010-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Accorder's Shield (SOM) 136
+1 Argent Sphinx (SOM) 28 *F*
+2 Blade-Tribe Berserkers (SOM) 84
+3 Chrome Steed (SOM) 142
+1 Darksteel Axe (SOM) 149
+1 Disperse (SOM) 31
+1 Echo Circlet (SOM) 153
+2 Embersmith (SOM) 87
+1 Etched Champion (SOM) 154
+3 Galvanic Blast (SOM) 91
+1 Golem Foundry (SOM) 160
+1 Golem's Heart (SOM) 161
+2 Iron Myr (SOM) 168
+3 Island (SOM) 234
+3 Island (SOM) 235
+3 Island (SOM) 236
+3 Island (SOM) 237
+2 Lumengrid Drake (SOM) 36
+2 Memnite (SOM) 174
+3 Mountain (SOM) 242
+3 Mountain (SOM) 243
+3 Mountain (SOM) 244
+3 Mountain (SOM) 245
+2 Riddlesmith (SOM) 40
+2 Rusted Relic (SOM) 199
+2 Silver Myr (SOM) 202
+3 Snapsail Glider (SOM) 203
+1 Sylvok Lifestaff (SOM) 209
+2 Trinket Mage (SOM) 48

@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Battle Surge
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BattleSurge_UDS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: UDS
+# released: 1999-06-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aether Sting (UDS) 76
+3 Arc Lightning (USG) 174
+2 Curfew (USG) 68
+2 Fatigue (UDS) 32
+1 Ghitu War Cry (ULG) 78
+2 Goblin Berserker (UDS) 82
+1 Goblin Marshal (UDS) 85
+2 Goblin War Buggy (USG) 196
+3 Island (USG) 335
+2 Island (USG) 336
+2 Island (USG) 337
+2 Island (USG) 338
+1 Jagged Lightning (USG) 200
+2 Keldon Champion (UDS) 90
+3 Kingfisher (UDS) 36
+1 Mark of Fury (UDS) 93
+4 Mountain (USG) 343
+4 Mountain (USG) 344
+3 Mountain (USG) 345
+3 Mountain (USG) 346
+1 Parch (ULG) 86
+1 Raven Familiar (ULG) 39
+2 Thieving Magpie (UDS) 49
+1 Thundering Giant (USG) 221
+1 Trumpet Blast (UDS) 98
+1 Urza's Incubator (UDS) 142
+2 Viashino Cutthroat (ULG) 94
+3 Viashino Sandscout (ULG) 96
+4 Wild Colos (UDS) 100

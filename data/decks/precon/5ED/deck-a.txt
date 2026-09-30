@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Deck A
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeckA_5ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: 5ED
+# released: 1997-04-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bird Maiden (5ED) 211
+1 Circle of Protection: Black (5ED) 17
+1 City of Brass (5ED) 413
+1 Dancing Scimitar (5ED) 362
+1 Disenchant (5ED) 26
+1 Dwarven Warriors (5ED) 222
+1 Firebreathing (5ED) 228
+1 Forest (5ED) 446
+1 Forest (5ED) 447
+1 Forest (5ED) 448
+1 Giant Growth (5ED) 299
+1 Grizzly Bears (5ED) 301
+1 Hill Giant (5ED) 239
+1 Incinerate (5ED) 242
+1 Ironclaw Orcs (5ED) 245
+1 Llanowar Elves (5ED) 313
+1 Mons's Goblin Raiders (5ED) 251
+2 Mountain (5ED) 442
+1 Mountain (5ED) 443
+1 Mountain (5ED) 444
+1 Mountain (5ED) 445
+1 Pearled Unicorn (5ED) 50
+1 Plains (5ED) 430
+1 Plains (5ED) 431
+1 Plains (5ED) 432
+1 Regeneration (5ED) 321
+1 Righteousness (5ED) 56
+1 Samite Healer (5ED) 58
+1 Tarpan (5ED) 330

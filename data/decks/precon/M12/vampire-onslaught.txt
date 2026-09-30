@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Vampire Onslaught
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, VampireOnslaught_M12.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: M12
+# released: 2011-08-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Blade of the Bloodchief (ZEN) 196
+2 Bloodghast (ZEN) 83
+4 Bloodthrone Vampire (M11) 85
+4 Dismember (NPH) 57
+4 Gatekeeper of Malakir (ZEN) 89
+1 Kalastria Highborn (WWK) 59
+1 Mimic Vat (SOM) 175
+4 Pawn of Ulamog (ROE) 122
+6 Swamp (M12) 238
+6 Swamp (M12) 239
+6 Swamp (M12) 240
+5 Swamp (M12) 241
+1 Vampire Hexmage (ZEN) 114
+4 Vampire Lacerator (ZEN) 115
+2 Vampire Nighthawk (ZEN) 116
+3 Vampire Outcasts (M12) 115
+1 Verdant Catacombs (ZEN) 229
+4 Viscera Seer (M11) 120
+SB: 4 Distress (M12) 94
+SB: 2 Go for the Throat (MBS) 43
+SB: 4 Skinrender (SOM) 78
+SB: 3 Vampire Hexmage (ZEN) 114
+SB: 2 Vampire Nighthawk (ZEN) 116

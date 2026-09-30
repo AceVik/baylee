@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Battle Surge - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BattleSurgeEnhancedDeck_UDS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: UDS
+# released: 1999-06-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Arc Lightning (USG) 174
+3 Catalog (USG) 64
+3 Curfew (USG) 68
+3 Goblin War Buggy (USG) 196
+2 Island (USG) 335
+2 Island (USG) 336
+2 Island (USG) 337
+1 Island (USG) 338
+3 Keldon Champion (UDS) 90
+3 Keldon Vandals (UDS) 91
+2 Lightning Blast (6ED) 193
+3 Mogg Fanatic (TMP) 190
+3 Mountain (USG) 343
+3 Mountain (USG) 344
+3 Mountain (USG) 345
+3 Mountain (USG) 346
+4 Raging Goblin (6ED) 200
+2 Remote Isle (USG) 324
+2 Shock (6ED) 206
+2 Smoldering Crater (USG) 328
+4 Thieving Magpie (UDS) 49
+1 Whispers of the Muse (TMP) 103
+3 Wild Colos (UDS) 100
+SB: 3 Disorder (USG) 181
+SB: 3 Douse (USG) 70
+SB: 2 Earthquake (6ED) 173
+SB: 2 Hibernation (USG) 79
+SB: 3 Mana Leak (STH) 36
+SB: 2 Shattering Pulse (EXO) 102

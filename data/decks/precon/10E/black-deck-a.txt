@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Black Deck A
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlackDeckA_10E.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: 10E
+# released: 2008-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Afflict (10E) 125
+1 Contaminated Bond (10E) 132
+1 Corrupt (SHM) 62
+1 Distress (10E) 136
+2 Essence Drain (10E) 141
+1 Gloomlance (SHM) 67
+2 Highway Robber (10E) 150
+1 Megrim (10E) 157
+2 Mind Rot (10E) 159
+2 Moonglove Winnower (LRW) 126
+2 Ravenous Rats (10E) 171
+2 Smolder Initiate (SHM) 78
+3 Swamp (10E) 372
+3 Swamp (10E) 373
+3 Swamp (10E) 374
+3 Swamp (10E) 375

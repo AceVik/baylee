@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Creep and Conquer
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CreepAndConquer_RTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: RTR
+# released: 2012-10-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Daggerdrome Imp (RTR) 60
+3 Dawntreader Elk (DKA) 111
+1 Deadbridge Goliath (RTR) 120
+1 Disciple of Bolas (M13) 88
+2 Dreg Mangler (RTR) 158
+4 Drudge Beetle (RTR) 122
+1 Druid's Familiar (AVR) 175
+4 Evolving Wilds (M13) 224
+2 Forest (RTR) 270
+2 Forest (RTR) 271
+2 Forest (RTR) 272
+1 Forest (RTR) 273
+1 Forest (RTR) 274
+2 Golgari Charm (RTR) 164
+3 Golgari Guildgate (RTR) 239
+1 Grim Backwoods (DKA) 156
+3 Korozda Guildmage (RTR) 176
+2 Slitherhead (RTR) 222
+2 Swamp (RTR) 260
+2 Swamp (RTR) 261
+1 Swamp (RTR) 262
+1 Swamp (RTR) 263
+1 Swamp (RTR) 264
+4 Tragic Slip (DKA) 76
+2 Trusted Forcemage (AVR) 199
+1 Ultimate Price (RTR) 82
+1 Ulvenwald Tracker (AVR) 200
+4 Vampire Nighthawk (M13) 112
+2 Victim of Night (ISD) 124
+1 Wolfir Silverheart (AVR) 206
+1 Woodland Cemetery (ISD) 249
+SB: 3 Bramblecrush (ISD) 172
+SB: 2 Duress (M13) 90
+SB: 2 Ghost Quarter (ISD) 240
+SB: 4 Strangleroot Geist (DKA) 127
+SB: 1 Thragtusk (M13) 193
+SB: 3 Vile Rebirth (M13) 115

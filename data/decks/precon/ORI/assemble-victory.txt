@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Assemble Victory
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AssembleVictory_ORI.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ORI
+# released: 2015-07-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Alchemist's Vial (ORI) 220
+2 Artificer's Epiphany (ORI) 45
+2 Aspiring Aeronaut (ORI) 46
+1 Bellows Lizard (ORI) 132
+2 Bonded Construct (ORI) 223
+2 Chief of the Foundry (ORI) 225
+1 Disperse (ORI) 54
+1 Evolving Wilds (ORI) 246
+2 Ghirapur Aether Grid (ORI) 148
+2 Ghirapur Gearcrafter (ORI) 149
+2 Guardian Automaton (ORI) 227
+3 Infectious Bloodlust (ORI) 152
+3 Island (ORI) 257
+3 Island (ORI) 258
+2 Island (ORI) 259
+2 Island (ORI) 260
+1 Mage-Ring Responder (ORI) 232
+1 Maritime Guard (ORI) 63
+1 Meteorite (ORI) 233
+4 Mountain (ORI) 265
+3 Mountain (ORI) 266
+3 Mountain (ORI) 267
+3 Mountain (ORI) 268
+1 Pia and Kiran Nalaar (PORI) 157 *F*
+1 Prism Ring (ORI) 235
+1 Ramroller (ORI) 237
+2 Reclusive Artificer (ORI) 216
+1 Runed Servitor (ORI) 238
+1 Separatist Voidmage (ORI) 72
+1 Subterranean Scout (ORI) 164
+1 Thopter Engineer (ORI) 165
+2 Volcanic Rambler (ORI) 167
+1 Whirler Rogue (ORI) 83

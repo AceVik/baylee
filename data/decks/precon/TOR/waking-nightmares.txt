@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Waking Nightmares
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WakingNightmares_TOR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TOR
+# released: 2002-02-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Barbarian Outcast (TOR) 92
+1 Caustic Tar (ODY) 122
+1 Chainer, Dementia Master (TOR) 56
+1 Demolish (ODY) 183
+1 Enslaved Dwarf (TOR) 96
+3 Faceless Butcher (TOR) 60
+2 Firebolt (ODY) 193
+2 Flame Burst (ODY) 194
+1 Flaming Gambit (TOR) 98
+1 Gravegouger (TOR) 62
+1 Malevolent Awakening (ODY) 147
+3 Mesmeric Fiend (TOR) 69
+3 Mountain (ODY) 343
+2 Mountain (ODY) 344
+2 Mountain (ODY) 345
+2 Mountain (ODY) 346
+2 Pardic Collaborator (TOR) 106
+1 Petradon (TOR) 108
+3 Petravark (TOR) 109
+2 Pyromania (TOR) 112
+2 Rancid Earth (TOR) 78
+1 Shade's Form (TOR) 81
+1 Slithery Stalker (TOR) 84
+3 Soul Scourge (TOR) 85
+3 Swamp (ODY) 339
+3 Swamp (ODY) 340
+3 Swamp (ODY) 341
+3 Swamp (ODY) 342
+2 Tainted Peak (TOR) 142
+2 Temporary Insanity (TOR) 116

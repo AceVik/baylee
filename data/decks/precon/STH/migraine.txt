@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Migraine
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Migraine_STH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: STH
+# released: 1998-03-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Bottomless Pit (STH) 51
+3 Coercion (TMP) 113
+1 Dark Banishing (TMP) 117
+1 Dark Ritual (TMP) 118
+4 Dauthi Horror (TMP) 122
+1 Dauthi Mindripper (TMP) 125
+2 Dauthi Slayer (TMP) 126
+4 Death Stroke (STH) 57
+2 Diabolic Edict (TMP) 128
+1 Ensnaring Bridge (STH) 133
+4 Foul Imp (STH) 59
+1 Hornet Cannon (STH) 136
+3 Megrim (STH) 62
+2 Mind Peel (STH) 63
+1 Mindwarper (STH) 64
+2 Pit Imp (TMP) 148
+1 Portcullis (STH) 139
+1 Rabid Rats (STH) 67
+6 Swamp (TMP) 339
+6 Swamp (TMP) 340
+6 Swamp (TMP) 341
+6 Swamp (TMP) 342

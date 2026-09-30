@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Growing Hope
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GrowingHope_LTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: LTR
+# released: 2023-06-20
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Benalish Knight-Counselor (YDMU) 1
+4 Blossoming Sands (MOM) 268
+2 Botanical Brawler (MOM) 220
+2 Bushwhack (BRO) 174
+3 Citizen's Arrest (DMU) 11
+1 Clay Champion (BRO) 230
+1 Dusk Legion Duelist (MOM) 11
+3 Fairgrounds Trumpeter (MOM) 335
+4 Forest (LTR) 270
+4 Forest (LTR) 271
+3 Juniper Order Rootweaver (DMU) 22
+2 Kami of Whispered Hopes (MOM) 196
+1 Ozolith, the Shattered Spire (MOM) 198
+2 Placid Rottentail (MOM) 199
+4 Plains (LTR) 262
+4 Plains (LTR) 263
+1 Quirion Beastcaller (DMU) 175
+4 Radiant Grove (DMU) 253
+1 Razorverge Thicket (ONE) 257
+2 Ruins Recluse (MOM) 336
+1 Serra Redeemer (DMU) 282
+2 Shalai's Acolyte (DMU) 33
+2 Storm the Seedcore (MOM) 206
+2 Strength of the Coalition (DMU) 180
+2 Sylvan Smite (YBRO) 15
+1 Titania's Command (BRO) 194

@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Conjurer
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Conjurer_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aladdin's Ring (ARN) 57
+2 Animate Artifact (3ED) 48
+4 Apprentice Wizard (DRK) 21
+2 Counterspell (3ED) 54
+2 Fellwar Stone (DRK) 102
+3 Giant Tortoise (ARN) 15
+8 Island (3ED) 295
+7 Island (3ED) 296
+7 Island (3ED) 297
+3 Jayemdae Tome (3ED) 258
+4 Pirate Ship (3ED) 72
+4 Prodigal Sorcerer (3ED) 75
+4 Rod of Ruin (3ED) 273
+2 Steal Artifact (3ED) 84
+2 Unsummon (3ED) 87
+2 Wall of Air (3ED) 90
+2 Wall of Water (3ED) 91
+SB: 1 Blue Elemental Blast (3ED) 49
+SB: 1 Island Fish Jasconius (ARN) 16
+SB: 1 Mahamoti Djinn (3ED) 66
+SB: 3 Power Sink (3ED) 74
+SB: 1 Volcanic Eruption (3ED) 89

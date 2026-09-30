@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Azorius Spirits
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AzoriusSpirits_Q06.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Pioneer Challenger Deck
+# set: Q06
+# released: 2021-10-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Brazen Borrower // Petty Theft (ELD) 39
+4 Empyrean Eagle (M20) 208
+2 Glacial Fortress (XLN) 255
+10 Island (MID) 381
+4 Lofty Denial (M21) 56
+2 Mausoleum Wanderer (EMN) 69
+7 Plains (MID) 380
+4 Rattlechains (SOI) 81
+2 Remorseful Cleric (M19) 33
+1 Selfless Spirit (EMN) 40
+3 Shacklegeist (M21) 70
+4 Spectral Sailor (M20) 76
+2 Spell Pierce (XLN) 81
+2 Spell Queller (Q06) 10
+4 Supreme Phantom (M19) 76
+4 Temple of Enlightenment (THB) 246
+4 Watcher of the Spheres (M21) 227
+SB: 3 Aether Gust (M20) 42
+SB: 1 Devout Decree (M20) 13
+SB: 3 Isolate (Q06) 3
+SB: 2 Light of Hope (IKO) 20
+SB: 2 Seal Away (DOM) 31
+SB: 2 Silkwrap (Q06) 4
+SB: 2 Spell Pierce (XLN) 81

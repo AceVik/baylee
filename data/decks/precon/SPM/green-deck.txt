@@ -1,0 +1,24 @@
+# baylee deck export v1
+# name: Green Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GreenDeck_SPM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: SPM
+# released: 2025-09-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Forest (SPM) 193
+11 Forest (SPM) 198
+1 Grow Extra Arms (SPM) 101
+2 Guy in the Chair (SPM) 102
+2 Kapow! (SPM) 103
+2 Kraven's Cats (SPM) 104
+2 Lurking Lizards (SPM) 107
+1 Prowler, Misguided Mentor (SPE) 17
+1 Scout the City (SPM) 113
+1 Spider-Bot (SPM) 173
+1 Spider-Man, Brooklyn Visionary (SPM) 115
+1 Spider-Man, Miles Morales (SPE) 18
+1 Spider-Rex, Daring Dino (SPM) 116
+2 Twisted Spider-Clone (SPE) 19
+1 Venom Blast (SPE) 20

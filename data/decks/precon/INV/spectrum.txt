@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Spectrum
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Spectrum_INV.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: INV
+# released: 2000-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Assault // Battery (INV) 295
+2 Exclude (INV) 56
+3 Fertile Ground (INV) 188
+1 Fires of Yavimaya (INV) 246
+4 Forest (INV) 347
+4 Forest (INV) 348
+3 Forest (INV) 349
+3 Forest (INV) 350
+1 Global Ruin (INV) 18
+1 Halam Djinn (INV) 146
+3 Harrow (INV) 189
+1 Island (INV) 335
+1 Island (INV) 336
+2 Kavu Climber (INV) 192
+1 Mountain (INV) 343
+1 Mountain (INV) 344
+1 Nomadic Elf (INV) 200
+1 Ordered Migration (INV) 258
+1 Plains (INV) 331
+1 Plains (INV) 332
+2 Probe (INV) 66
+2 Quirion Trailblazer (INV) 205
+1 Sabertooth Nishoba (INV) 268
+1 Serpentine Kavu (INV) 211
+1 Spite // Malice (INV) 293
+1 Swamp (INV) 339
+1 Swamp (INV) 340
+3 Thornscape Apprentice (INV) 215
+2 Tribal Flames (INV) 176
+2 Voracious Cobra (INV) 288
+2 Wax // Wane (INV) 296
+1 Wayfaring Giant (INV) 44
+2 Yavimaya Barbarian (INV) 290
+2 Zanam Djinn (INV) 90

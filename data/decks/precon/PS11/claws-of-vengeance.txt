@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Claws of Vengeance
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ClawsOfVengeance_PS11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PS11
+# released: 2011-01-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angel's Feather (PS11) 184 [es]
+2 Blaze (PS11) 93 [es]
+1 Brion Stoutarm (PS11) 167 [es]
+2 Bull Cerodon (PS11) 168 [es]
+1 Cho-Manno, Revolutionary (PS11) 3 [es]
+2 Farhaven Elf (PS11) 136 [es]
+3 Forest (PS11) 221 [es]
+3 Forest (PS11) 222 [es]
+3 Forest (PS11) 223 [es]
+3 Forest (PS11) 224 [es]
+2 Incinerate (PS11) 112 [es]
+1 Kalonian Behemoth (PS11) 146 [es]
+1 Knight of the Skyward Eye (PS11) 12 [es]
+1 Meglonoth (PS11) 173 [es]
+2 Mountain (PS11) 217 [es]
+1 Mountain (PS11) 218 [es]
+1 Mountain (PS11) 219 [es]
+1 Mountain (PS11) 220 [es]
+1 Naturalize (PS11) 151 [es]
+3 Pacifism (PS11) 15 [es]
+1 Pariah (PS11) 16 [es]
+2 Plains (PS11) 205 [es]
+2 Plains (PS11) 206 [es]
+1 Plains (PS11) 207 [es]
+1 Plains (PS11) 208 [es]
+2 Rampant Growth (PS11) 155 [es]
+2 Rip-Clan Crasher (PS11) 174 [es]
+3 Runeclaw Bear (PS11) 158 [es]
+1 Sangrite Surge (PS11) 175 [es]
+2 Terramorphic Expanse (PS11) 204 [es]
+2 Tundra Wolves (PS11) 22 [es]
+2 Venerable Monk (PS11) 23 [es]
+1 Wild Swing (PS11) 123 [es]
+2 Woolly Thoctar (PS11) 182 [es]
+1 Wurm's Tooth (PS11) 203 [es]

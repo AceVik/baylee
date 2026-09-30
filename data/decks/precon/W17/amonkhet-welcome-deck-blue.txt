@@ -1,0 +1,24 @@
+# baylee deck export v1
+# name: Amonkhet Welcome Deck - Blue
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AmonkhetWelcomeDeckBlue_W17.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: W17
+# released: 2017-04-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Air Elemental (W17) 7
+2 Ancient Crab (AKH) 40
+1 Angler Drake (AKH) 41
+2 Coral Merfolk (W17) 8
+2 Drag Under (W17) 9
+1 Inspiration (W17) 10
+5 Island (AKH) 258
+4 Island (AKH) 259
+4 Island (AKH) 260
+1 Nimble Innovator (KLD) 58
+2 Sleep Paralysis (W17) 11
+1 Sphinx of Magosi (W17) 12
+1 Stealer of Secrets (W17) 13
+2 Tricks of the Trade (W17) 14
+1 Wind Drake (KLD) 70†

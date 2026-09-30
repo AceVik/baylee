@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Chandra
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Chandra_JVC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: JVC
+# released: 2014-12-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Chandra Nalaar (JVC) 34 *F*
+1 Chartooth Cougar (JVC) 47
+1 Cone of Flame (JVC) 54
+1 Demonfire (JVC) 57
+2 Fireball (JVC) 56
+2 Fireblast (JVC) 55
+2 Firebolt (JVC) 49
+1 Fireslinger (JVC) 36
+1 Flame Javelin (JVC) 53
+2 Flamekin Brawler (JVC) 35
+1 Flametongue Kavu (JVC) 42
+1 Flamewave Invoker (JVC) 40
+2 Furnace Whelp (JVC) 43
+1 Hostility (JVC) 48
+2 Incinerate (JVC) 51
+1 Ingot Chewer (JVC) 45
+2 Inner-Flame Acolyte (JVC) 41
+1 Keldon Megaliths (JVC) 58
+1 Magma Jet (JVC) 52
+6 Mountain (JVC) 59
+6 Mountain (JVC) 60
+6 Mountain (JVC) 61
+6 Mountain (JVC) 62
+2 Oxidda Golem (JVC) 46
+1 Pyre Charger (JVC) 38
+1 Rakdos Pit Dragon (JVC) 44
+2 Seal of Fire (JVC) 50
+2 Slith Firewalker (JVC) 39
+2 Soulbright Flamekin (JVC) 37

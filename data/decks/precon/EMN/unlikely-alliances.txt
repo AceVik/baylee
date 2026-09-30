@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Unlikely Alliances
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, UnlikelyAlliances_EMN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: EMN
+# released: 2016-07-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Angelic Purge (SOI) 3
+2 Blessed Alliance (EMN) 13
+1 Borrowed Grace (EMN) 14
+1 Borrowed Malevolence (EMN) 82
+1 Bound by Moonsilver (SOI) 7
+2 Campaign of Vengeance (EMN) 182
+3 Desperate Sentry (EMN) 21
+1 Emissary of the Sleepless (SOI) 17
+1 Gavony Unhallowed (EMN) 89
+2 Haunted Dead (EMN) 92
+2 Lunarch Mantle (EMN) 35
+1 Morkrut Necropod (SOI) 125
+1 Nearheath Chaplain (SOI) 29
+5 Plains (SOI) 283
+4 Plains (SOI) 284
+4 Plains (SOI) 285
+1 Providence (EMN) 37
+1 Repel the Abominable (EMN) 38
+2 Ruthless Disposal (EMN) 103
+1 Sanctifier of Souls (PEMN) 39 *F*
+1 Sanitarium Skeleton (SOI) 133
+2 Skirsdag Supplicant (EMN) 104
+2 Spectral Reserves (EMN) 43
+4 Swamp (SOI) 289
+4 Swamp (SOI) 290
+4 Swamp (SOI) 291
+2 Unruly Mob (SOI) 47
+1 Vampire Noble (SOI) 143
+2 Vessel of Ephemera (SOI) 48

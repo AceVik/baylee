@@ -1,0 +1,51 @@
+# baylee deck export v1
+# name: Ingenious Machinists
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, IngeniousMachinists_DDU.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDU
+# released: 2018-04-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Artificer's Epiphany (DDU) 36
+1 Barrage Ogre (DDU) 44
+1 Darksteel Citadel (DDU) 65
+1 Darksteel Plate (DDU) 52
+2 Etherium Sculptor (DDU) 37
+2 Faerie Mechanist (DDU) 38
+2 Filigree Familiar (DDU) 53
+1 Foundry of the Consuls (DDU) 66
+2 Galvanic Blast (DDU) 45
+1 Ghirapur Gearcrafter (DDU) 46
+1 Goblin Welder (DDU) 35 *F*
+1 Great Furnace (DDU) 67
+2 Ichor Wellspring (DDU) 54
+1 Inventor's Goggles (DDU) 55
+4 Island (DDU) 73
+3 Island (DDU) 74
+1 Maverick Thopterist (DDU) 50
+4 Mountain (DDU) 75
+3 Mountain (DDU) 76
+2 Mycosynth Wellspring (DDU) 56
+1 Myr Battlesphere (DDU) 57
+1 Myr Sire (DDU) 58
+1 Neurok Replica (DDU) 59
+1 Phyrexia's Core (DDU) 68
+2 Pia and Kiran Nalaar (DDU) 47
+1 Pyrite Spellbomb (DDU) 60
+1 Reclusive Artificer (DDU) 51
+1 Riddlesmith (DDU) 39
+1 Scuttling Doom Engine (DDU) 61
+1 Seat of the Synod (DDU) 69
+1 Shivan Reef (DDU) 70
+1 Shrapnel Blast (DDU) 48
+1 Solemn Simulacrum (DDU) 62
+2 Swiftwater Cliffs (DDU) 71
+1 Temple of Epiphany (DDU) 72
+1 Thopter Assembly (DDU) 63
+1 Treasure Mage (DDU) 40
+1 Trinket Mage (DDU) 41
+1 Trophy Mage (DDU) 42
+1 Voyager Staff (DDU) 64
+1 Welding Sparks (DDU) 49
+1 Whirler Rogue (DDU) 43

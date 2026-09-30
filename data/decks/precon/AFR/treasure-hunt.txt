@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Treasure Hunt
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TreasureHunt_AFR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: AFR
+# released: 2021-09-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blightstep Pathway // Searstep Pathway (KHM) 252
+2 Deadly Dispute (AFR) 94
+3 Dragon's Fire (AFR) 139
+1 Goldspan Dragon (KHM) 139
+2 Grim Bounty (AFR) 106
+3 Hired Hexblade (AFR) 109
+2 Hoarding Ogre (AFR) 146
+1 Immersturm Predator (KHM) 214
+2 Jaded Sell-Sword (AFR) 152
+3 Kalain, Reclusive Painter (AFR) 225
+2 Magic Missile (AFR) 154
+3 Mountain (AFR) 274
+3 Mountain (AFR) 275
+2 Mountain (AFR) 276
+2 Mountain (AFR) 277
+1 Orcus, Prince of Undeath (AFR) 229
+1 Red Dragon (AFR) 160
+3 Shambling Ghast (AFR) 119
+3 Skullport Merchant (AFR) 120
+1 Soul Shatter (ZNR) 127
+2 Sudden Breakthrough (STX) 116
+4 Sulfurous Mire (KHM) 270
+3 Swamp (AFR) 270
+2 Swamp (AFR) 271
+2 Swamp (AFR) 272
+2 Swamp (AFR) 273
+1 Thieves' Tools (AFR) 122
+1 Unwilling Ingredient (STX) 90
+1 Westgate Regent (AFR) 126
+1 Xorn (AFR) 167

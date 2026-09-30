@@ -1,0 +1,50 @@
+# baylee deck export v1
+# name: Special Delivery - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SpecialDeliveryEnhancedDeck_USG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: USG
+# released: 1998-10-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Citanul Centaurs (USG) 243
+1 City of Brass (5ED) 413
+2 Cradle Guard (USG) 245
+2 Cursed Scroll (TMP) 281
+1 Fireball (5ED) 227
+1 Forest (USG) 347
+1 Forest (USG) 348
+1 Forest (USG) 349
+1 Forest (USG) 350
+2 Hurricane (5ED) 303
+1 Hush (USG) 266
+4 Incinerate (5ED) 242
+3 Karplusan Forest (5ED) 421
+2 Lightning Dragon (USG) 202
+2 Mirri, Cat Warrior (EXO) 114
+4 Mogg Fanatic (TMP) 190
+2 Mountain (USG) 343
+1 Mountain (USG) 344
+1 Mountain (USG) 345
+1 Mountain (USG) 346
+3 Pouncing Jaguar (USG) 269
+2 Reflecting Pool (TMP) 322
+2 Searing Touch (TMP) 201
+1 Shattering Pulse (EXO) 102
+3 Shivan Raptor (USG) 215
+2 Shock (STH) 98
+2 Slippery Karst (USG) 327
+2 Smoldering Crater (USG) 328
+1 Stalking Stones (TMP) 327
+1 Thran Turbine (USG) 311
+2 Wasteland (TMP) 330
+4 Wild Dogs (USG) 284
+SB: 2 Boil (TMP) 165
+SB: 2 Disorder (USG) 181
+SB: 2 Earthquake (5ED) 223
+SB: 1 Hidden Guerrillas (USG) 261
+SB: 2 Hurricane (5ED) 303
+SB: 1 Hush (USG) 266
+SB: 2 Scragnoth (TMP) 253
+SB: 1 Scrap (USG) 213
+SB: 2 Whirling Dervish (5ED) 341

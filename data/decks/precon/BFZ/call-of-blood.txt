@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Call of Blood
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CallOfBlood_BFZ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: BFZ
+# released: 2015-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blighted Steppe (BFZ) 232
+2 Bloodbond Vampire (BFZ) 104
+2 Courier Griffin (BFZ) 21
+1 Defiant Bloodlord (PBFZ) 107 *F*
+2 Demon's Grasp (BFZ) 108
+2 Drana's Emissary (BFZ) 210
+2 Dutiful Return (BFZ) 110
+2 Evolving Wilds (BFZ) 236
+1 Felidar Sovereign (BFZ) 26
+2 Gideon's Reproach (BFZ) 30
+1 Hagra Sharpshooter (BFZ) 113
+2 Kalastria Nightwatch (BFZ) 115
+2 Kitesail Scout (BFZ) 33
+2 Malakir Familiar (BFZ) 116
+2 Mortuary Mire (BFZ) 240
+3 Nirkana Assassin (BFZ) 118
+3 Plains (BFZ) 250a
+2 Plains (BFZ) 251a
+2 Plains (BFZ) 252a
+2 Plains (BFZ) 253a
+2 Plains (BFZ) 254a
+1 Roil's Retribution (BFZ) 45
+2 Serene Steward (BFZ) 46
+1 Shadow Glider (BFZ) 47
+3 Stone Haven Medic (BFZ) 51
+2 Swamp (BFZ) 260a
+2 Swamp (BFZ) 261a
+2 Swamp (BFZ) 262a
+2 Swamp (BFZ) 263a
+2 Swamp (BFZ) 264a
+2 Tandem Tactics (BFZ) 52
+1 Zulaport Cutthroat (BFZ) 126

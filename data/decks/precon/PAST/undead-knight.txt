@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Undead Knight
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, UndeadKnight_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Bad Moon (3ED) 94
+4 Black Knight (3ED) 95
+2 Drudge Skeletons (3ED) 107
+3 El-Hajjâj (ARN) 24
+2 Fear (3ED) 111
+2 Flying Carpet (ARN) 63
+2 Frozen Shade (3ED) 112
+3 Howl from Beyond (3ED) 114
+2 Lost Soul (LEG) 111
+2 Marsh Gas (DRK) 48
+2 Nightmare (3ED) 120
+2 Scathe Zombies (3ED) 127
+2 Spirit Shackle (LEG) 117
+8 Swamp (3ED) 298
+7 Swamp (3ED) 299
+7 Swamp (3ED) 300
+3 Terror (3ED) 132
+3 Unholy Strength (3ED) 133
+SB: 3 Animate Dead (3ED) 93
+SB: 3 Bog Wraith (3ED) 96
+SB: 2 Brass Man (ARN) 59
+SB: 1 Obsianus Golem (3ED) 268
+SB: 3 Simulacrum (3ED) 130

@@ -1,0 +1,100 @@
+# baylee deck export v1
+# name: The Fantastic Four Collector's Edition
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheFantasticFourCollectorSEdition_MSC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Commander Deck
+# set: MSC
+# released: 2026-06-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 Invisible Woman (MSC) 875 *F*
+1 Alicia Masters, Skilled Sculptor (MSC) 48 *F*
+1 Annie Joins Up (MSC) 281 *F*
+1 Arcane Signet (MSC) 192 *F*
+1 Baxter Building (MSH) 453 *F*
+1 Black Bolt, Inhuman King (MSC) 76 *F*
+1 Bovine Intervention (MSC) 123 *F*
+1 Canopy Vista (MSC) 227 *F*
+1 Chromatic Lantern (MSC) 195 *F*
+1 Cinder Glade (MSC) 230 *F*
+1 Cleansing Nova (MSC) 124 *F*
+1 Clever Concealment (MSC) 125 *F*
+1 Clifftop Retreat (MSC) 231 *F*
+1 Collective Effort (MSC) 126 *F*
+1 Command Tower (MSC) 234 *F*
+1 Cosmic Crucible (MSC) 79 *F*
+1 Council of Reeds (MSC) 28 *F*
+1 Crystal, Inhuman Princess (MSC) 80 *F*
+1 Cultivate (MSC) 172 *F*
+1 Cut a Deal (MSC) 127 *F*
+1 Deep Analysis (MSC) 149 *F*
+1 Dragon Man, Reformed Robot (MSC) 82 *F*
+1 Evolving Wilds (MSC) 240 *F*
+1 Exotic Orchard (MSC) 241 *F*
+1 Expressive Iteration (MSC) 183 *F*
+1 Fabled Passage (MSC) 242 *F*
+1 Fantastic Elasticity (MSC) 30 *F*
+1 Farseek (MSC) 173 *F*
+1 First Family (MSC) 83 *F*
+1 Flame On! (MSC) 51 *F*
+3 Forest (MSH) 441 *F*
+2 Forest (MSH) 442 *F*
+1 Franklin Richards, Ascendant (MSC) 52 *F*
+1 Galactus, Devourer of Worlds (MSC) 8 *F*
+1 Galvanic Iteration (MSC) 184 *F*
+1 Genesis Ultimatum (MSC) 283 *F*
+1 Glacial Fortress (MSC) 248 *F*
+1 H.E.R.B.I.E., Lovable Robot (MSC) 106 *F*
+1 Hinterland Harbor (MSC) 250 *F*
+1 Hull Breach (MSC) 185 *F*
+1 Human Torch (MSC) 877 *F*
+1 Into the Time Vortex (MSC) 165 *F*
+1 Invisible Force Field (MSC) 19 *F*
+2 Island (MSH) 435 *F*
+2 Island (MSH) 436 *F*
+1 It's Clobberin' Time! (MSC) 66 *F*
+1 Lightning Greaves (MSC) 202 *F*
+1 Lockjaw, Slobbering Teleporter (MSC) 36 *F*
+1 Medusa, Inhuman Queen (MSC) 68 *F*
+1 Mind's Dilation (MSC) 277 *F*
+1 Mirage Mirror (MSC) 206 *F*
+1 Mister Fantastic (MSC) 876 *F*
+1 Mister Fantastic, Reed Richards (MSH) 445 *F*
+1 Monologue Tax (MSC) 139 *F*
+2 Mountain (MSH) 439 *F*
+1 Mountain (MSH) 440 *F*
+1 Namor, Atlantean King (MSC) 88 *F*
+1 Negative Zone Portal (MSC) 111 *F*
+1 Nova Flame (MSC) 57 *F*
+1 Path of Ancestry (MSC) 254 *F*
+1 Path of Discovery (MSC) 179 *F*
+1 Path to Exile (MSC) 141 *F*
+3 Plains (MSH) 433 *F*
+2 Plains (MSH) 434 *F*
+1 Power Pack (MSC) 90 *F*
+1 Prairie Stream (MSC) 257 *F*
+1 Promise of Loyalty (MSC) 142 *F*
+1 Quantum Misalignment (MSC) 152 *F*
+1 Radiant Summit (MSC) 258 *F*
+1 Recurring Insight (MSC) 154 *F*
+1 Rejuvenating Springs (MSC) 260 *F*
+1 Rootbound Crag (MSC) 261 *F*
+1 Scorched Geyser (MSC) 264 *F*
+1 Seize the Day (MSC) 166 *F*
+1 Silver Surfer, Galactus's Herald (MSC) 10 *F*
+1 Sodden Verdure (MSC) 267 *F*
+1 Sol Ring (MSC) 212 *F*
+1 Sulfur Falls (MSC) 269 *F*
+1 Sunpetal Grove (MSC) 272 *F*
+1 Taunt from the Rampart (MSC) 188 *F*
+1 Terramorph (MSC) 180 *F*
+1 Terramorphic Expanse (MSC) 273 *F*
+1 The Fantasticar (MSC) 104 *F*
+1 The Thing (MSC) 878 *F*
+1 Three Visits (MSC) 181 *F*
+1 Tragic Arrogance (MSC) 144 *F*
+1 Ultimate Nullification (MSC) 26 *F*
+1 Unstable Molecule Suit (MSC) 116 *F*
+1 Valeria Richards, Precocious (MSC) 38 *F*
+1 Whirlwind of Thought (MSC) 190 *F*
+1 Willie Lumpkin, Postman (MSC) 101 *F*

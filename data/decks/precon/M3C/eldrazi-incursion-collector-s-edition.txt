@@ -1,0 +1,109 @@
+# baylee deck export v1
+# name: Eldrazi Incursion Collector's Edition
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EldraziIncursionCollectorSEdition_M3C.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Commander Deck
+# set: M3C
+# released: 2024-06-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 Ulalek, Fused Atrocity (M3C) 143 *F*
+1 Adarkar Wastes (M3C) 316 *F*
+1 All Is Dust (M3C) 152 *F*
+1 Ancient Stirrings (M3C) 219 *F*
+1 Angelic Aberration (M3C) 39 *F*
+1 Arcane Signet (M3C) 283 *F*
+1 Artisan of Kozilek (M3C) 153 *F*
+1 Ash Barrens (M3C) 318 *F*
+1 Awakening Zone (M3C) 222 *F*
+1 Azlask, the Swelling Scourge (M3C) 136 *F*
+1 Battlefield Forge (M3C) 321 *F*
+1 Benthic Anomaly (M3C) 46 *F*
+1 Bismuth Mindrender (M3C) 51 *F*
+1 Bonders' Enclave (M3C) 323 *F*
+1 Brushland (M3C) 324 *F*
+1 Cascading Cataracts (M3C) 326 *F*
+1 Caves of Koilos (M3C) 328 *F*
+1 Chittering Dispatcher (M3C) 63 *F*
+1 Command Tower (M3C) 331 *F*
+1 Corrupted Crossroads (M3C) 332 *F*
+1 Crib Swap (M3C) 168 *F*
+1 Deepfathom Skulker (M3C) 180 *F*
+1 Dreamstone Hedron (M3C) 289 *F*
+1 Drowner of Hope (M3C) 182 *F*
+1 Elder Deep-Fiend (M3C) 154 *F*
+1 Eldrazi Confluence (M3C) 32 *F*
+1 Eldrazi Conscription (M3C) 155 *F*
+1 Eldrazi Displacer (M3C) 169 *F*
+1 Eldrazi Monument (M3C) 290 *F*
+1 Eldrazi Temple (M3C) 339 *F*
+1 Eldritch Immunity (M3C) 33 *F*
+1 Endbringer (M3C) 156 *F*
+1 Everflowing Chalice (M3C) 291 *F*
+1 Exotic Orchard (M3C) 341 *F*
+1 Forest (MH3) 505 *F*
+1 Forsaken Monument (M3C) 293 *F*
+1 Garruk's Uprising (M3C) 229 *F*
+1 Glaring Fleshraker (MH3) 507 *F*
+1 Hedron Archive (M3C) 295 *F*
+1 Herald's Horn (M3C) 296 *F*
+1 Hideous Taskmaster (M3C) 57 *F*
+1 Idol of Oblivion (M3C) 297 *F*
+1 Imprisoned in the Moon (M3C) 188 *F*
+1 Inversion Behemoth (M3C) 34 *F*
+1 Island (MH3) 499 *F*
+1 Karplusan Forest (M3C) 351 *F*
+1 Kozilek's Return (M3C) 214 *F*
+1 Llanowar Wastes (M3C) 354 *F*
+1 Morophon, the Boundless (M3C) 157 *F*
+1 Mountain (MH3) 503 *F*
+1 Mutated Cultist (M3C) 53 *F*
+1 Mystic Forge (M3C) 302 *F*
+1 Oblivion Sower (M3C) 158 *F*
+1 Opal Palace (M3C) 361 *F*
+1 Path of Ancestry (M3C) 363 *F*
+1 Plains (MH3) 497 *F*
+1 Reliquary Tower (M3C) 368 *F*
+1 Return of the Wildspeaker (M3C) 242 *F*
+1 Rishkar's Expertise (M3C) 411 *F*
+1 Ruins of Oran-Rief (M3C) 370 *F*
+1 Secluded Courtyard (M3C) 372 *F*
+1 Selective Obliteration (M3C) 35 *F*
+1 Shivan Reef (M3C) 375 *F*
+1 Shrine of the Forsaken Gods (M3C) 376 *F*
+1 Sifter of Skulls (M3C) 203 *F*
+1 Sire of Stagnation (M3C) 272 *F*
+1 Skittering Invasion (M3C) 159 *F*
+1 Snapping Voidcraw (MH3) 517 *F*
+1 Sol Ring (M3C) 305 *F*
+1 Spawnbed Protector (M3C) 36 *F*
+1 Spawning Bed (M3C) 380 *F*
+1 Suffer the Past (M3C) 205 *F*
+1 Sulfurous Springs (M3C) 381 *F*
+1 Swamp (MH3) 501 *F*
+1 Talisman of Curiosity (M3C) 309 *F*
+1 Talisman of Dominance (M3C) 310 *F*
+1 Talisman of Impulse (M3C) 311 *F*
+1 Talisman of Resilience (M3C) 314 *F*
+1 Tectonic Edge (M3C) 384 *F*
+1 Temple of Malady (M3C) 388 *F*
+1 Temple of Silence (M3C) 391 *F*
+1 Tendo Ice Bridge (M3C) 393 *F*
+1 Titans' Vanguard (MH3) 518 *F*
+1 Tomb of the Spirit Dragon (M3C) 397 *F*
+1 Tranquil Landscape (MH3) 520 *F*
+1 Twins of Discord (M3C) 37 *F*
+1 Twisted Landscape (MH3) 521 *F*
+1 Ugin's Insight (M3C) 196 *F*
+1 Ugin, the Ineffable (M3C) 160 *F*
+1 Ulamog's Crusher (M3C) 161 *F*
+1 Ulamog's Dreadsire (M3C) 38 *F*
+1 Ulamog's Nullifier (M3C) 275 *F*
+1 Unclaimed Territory (M3C) 399 *F*
+1 Underground River (M3C) 400 *F*
+1 Vile Redeemer (M3C) 251 *F*
+1 Warping Wail (M3C) 162 *F*
+1 Wastes (M3C) 408 *F*
+1 Wastescape Battlemage (MH3) 508 *F*
+1 World Breaker (M3C) 253 *F*
+1 Yavimaya Coast (M3C) 410 *F*

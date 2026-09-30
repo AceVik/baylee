@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Red Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeck_W16.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: W16
+# released: 2016-04-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blighted Gorge (BFZ) 231
+2 Borderland Marauder (W16) 11
+2 Brute Strength (OGW) 103
+1 Cinder Hellion (OGW) 105
+1 Cone of Flame (W16) 12
+1 Devour in Flames (OGW) 106
+2 Hulking Devil (SOI) 165
+1 Lavastep Raider (BFZ) 147
+4 Mountain (SOI) 292
+4 Mountain (SOI) 293
+4 Mountain (SOI) 294
+1 Outnumber (BFZ) 150
+1 Pyre Hound (SOI) 174
+1 Rolling Thunder (BFZ) 154
+1 Shivan Dragon (W16) 13
+1 Sparkmage's Gambit (OGW) 117
+1 Stonefury (BFZ) 156
+1 Valakut Invoker (BFZ) 159

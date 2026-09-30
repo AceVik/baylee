@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Band Together
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BandTogether_ME2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: ME2
+# released: 2008-09-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Adarkar Sentinel (ME2) 201
+2 Aeolipile (ME2) 202
+1 Angel of Light (ME2) 3
+2 Aysen Crusader (ME2) 7
+2 Benalish Hero (ME1) 5
+2 Combat Medic (ME2) 9
+2 Disenchant (ME2) 10
+1 Divine Transformation (ME1) 9
+1 Exile (ME1) 12
+2 Icatian Javelineers (ME2) 15
+2 Icatian Lieutenant (ME1) 17
+1 Icatian Phalanx (ME2) 16
+1 Icatian Scout (ME2) 17
+1 Inheritance (ME2) 18
+1 Kjeldoran Elite Guard (ME2) 21
+2 Kjeldoran Home Guard (ME2) 22
+1 Kjeldoran Outpost (ME2) 233
+1 Kjeldoran Skycaptain (ME2) 23
+1 Mishra's Factory (ME1) 178
+1 Order of the White Shield (ME2) 26
+7 Plains (ME1) 181
+7 Plains (ME1) 182
+7 Plains (ME1) 183
+1 Reprisal (ME2) 29
+1 Righteous Fury (ME2) 30
+1 Royal Trooper (ME2) 32
+1 Ruins of Trokair (ME2) 234
+1 Scars of the Veteran (ME2) 34
+2 Shield Bearer (ME2) 35
+2 Soldevi Simulacrum (ME2) 222
+2 Swords to Plowshares (ME2) 37

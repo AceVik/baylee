@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Enlightened Mastery
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EnlightenedMastery_DTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: DTK
+# released: 2015-03-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ancient Carp (DTK) 44
+2 Anticipate (DTK) 45
+2 Artful Maneuver (DTK) 4
+2 Cunning Breezedancer (DTK) 215
+1 Dragon's Eye Sentry (DTK) 11
+3 Elusive Spellfist (DTK) 53
+1 Evolving Wilds (DTK) 248
+1 Great Teacher's Decree (DTK) 21
+5 Island (DTK) 253
+4 Island (DTK) 254
+4 Island (DTK) 255
+1 Mystic Meditation (DTK) 64
+1 Myth Realized (DTK) 26
+1 Ojutai Monument (DTK) 242
+2 Ojutai's Breath (DTK) 67
+2 Ojutai's Summons (DTK) 68
+1 Orator of Ojutai (DTK) 28
+4 Plains (DTK) 250
+4 Plains (DTK) 251
+3 Plains (DTK) 252
+1 Pristine Skywise (PDTK) 228 *F*
+1 Sight Beyond Sight (DTK) 75
+2 Silkwrap (DTK) 38
+1 Skywise Teachings (DTK) 79
+2 Strongarm Monk (DTK) 39
+2 Student of Ojutai (DTK) 40
+1 Taigam's Strike (DTK) 81
+2 Updraft Elemental (DTK) 82
+1 Void Squall (DTK) 83
+2 Zephyr Scribe (DTK) 85

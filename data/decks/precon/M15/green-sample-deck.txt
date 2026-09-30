@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Green Sample Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GreenSampleDeck_M15.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M15
+# released: 2014-07-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Centaur Courser (M15) 282
+1 Charging Rhino (M15) 171
+2 Elvish Mystic (M15) 173
+4 Forest (M15) 266
+3 Forest (M15) 267
+3 Forest (M15) 268
+3 Forest (M15) 269
+1 Garruk's Packleader (M15) 283
+1 Hunt the Weak (M15) 179
+1 Hunter's Ambush (M15) 180
+1 Paragon of Eternal Wilds (M15) 190
+1 Plummet (M15) 192
+1 Roaring Primadox (M15) 196
+2 Runeclaw Bear (M15) 197
+1 Shaman of Spring (M15) 199
+1 Staff of the Wild Magus (M15) 236
+1 Terra Stomper (M15) 284
+2 Titanic Growth (M15) 203

@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: Monsters
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Monsters_DDL.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDL
+# released: 2013-09-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Beast Within (DDL) 69
+2 Blood Ogre (DDL) 49
+1 Conquering Manticore (DDL) 55
+1 Crater Hellion (DDL) 56
+1 Crowned Ceratok (DDL) 51
+2 Deadly Recluse (DDL) 45
+1 Destructive Revelry (DDL) 66
+1 Deus of Calamity (DDL) 54
+1 Dragon Blood (DDL) 67
+1 Fires of Yavimaya (DDL) 70
+3 Forest (DDL) 78
+3 Forest (DDL) 79
+3 Forest (DDL) 80
+2 Forest (DDL) 81
+1 Ghor-Clan Savage (DDL) 53
+2 Gorehorn Minotaurs (DDL) 52
+1 Kavu Predator (DDL) 46
+2 Kazandu Refuge (DDL) 71
+1 Krosan Tusker (DDL) 59
+2 Llanowar Reborn (DDL) 72
+3 Mountain (DDL) 74
+3 Mountain (DDL) 75
+2 Mountain (DDL) 76
+2 Mountain (DDL) 77
+1 Orcish Lumberjack (DDL) 44
+1 Polukranos, World Eater (DDL) 43 *F*
+2 Prey Upon (DDL) 62
+1 Pyroclasm (DDL) 63
+1 Regrowth (DDL) 64
+1 Satyr Hedonist (DDL) 47
+1 Shower of Sparks (DDL) 61
+1 Skarrg, the Rage Pits (DDL) 73
+1 Skarrgan Firebird (DDL) 57
+1 Skarrgan Skybreaker (DDL) 60
+1 Terrifying Presence (DDL) 65
+1 Troll Ascetic (DDL) 50
+2 Valley Rannet (DDL) 58
+2 Volt Charge (DDL) 68
+1 Zhur-Taa Druid (DDL) 48

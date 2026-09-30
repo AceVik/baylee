@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Gideon, Martial Paragon
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GideonMartialParagon_AKH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: AKH
+# released: 2017-04-28
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Ahn-Crop Crasher (AKH) 117
+2 Cartouche of Zeal (AKH) 124
+3 Companion of the Trials (AKH) 271
+1 Devoted Crop-Mate (AKH) 10
+2 Electrify (AKH) 129
+2 Gideon's Resolve (AKH) 272
+1 Gideon, Martial Paragon (AKH) 270 *F*
+1 Glory-Bound Initiate (AKH) 16
+4 Graceful Cat (AKH) 273
+3 Gust Walker (AKH) 17
+1 Hazoret's Favor (AKH) 137
+2 Honored Crop-Captain (AKH) 200
+2 Hyena Pack (AKH) 139
+1 Impeccable Timing (AKH) 18
+4 Mountain (AKH) 264
+3 Mountain (AKH) 265
+3 Mountain (AKH) 266
+1 Nef-Crop Entangler (AKH) 144
+1 Pathmaker Initiate (AKH) 146
+4 Plains (AKH) 255
+3 Plains (AKH) 256
+3 Plains (AKH) 257
+2 Sparring Mummy (AKH) 29
+4 Stone Quarry (AKH) 274
+1 Tah-Crop Elite (AKH) 31
+3 Trial of Zeal (AKH) 152

@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Demonic
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Demonic_DDC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDC
+# released: 2009-04-10
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abyssal Gatekeeper (DDC) 31
+1 Abyssal Specter (DDC) 40
+2 Barren Moor (DDC) 58
+1 Barter in Blood (DDC) 52
+2 Breeding Pit (DDC) 53
+1 Cackling Imp (DDC) 41
+1 Consume Spirit (DDC) 56
+1 Corrupt (DDC) 55
+1 Cruel Edict (DDC) 48
+1 Daggerclaw Imp (DDC) 33
+1 Dark Banishing (DDC) 50
+2 Dark Ritual (DDC) 45
+1 Demon's Horn (DDC) 57
+2 Demon's Jester (DDC) 38
+1 Demonic Tutor (DDC) 49
+1 Duress (DDC) 46
+2 Dusk Imp (DDC) 34
+1 Fallen Angel (DDC) 42
+1 Foul Imp (DDC) 32
+1 Kuro, Pitlord (DDC) 44
+1 Lord of the Pit (DDC) 30 *F*
+1 Oni Possession (DDC) 51
+2 Overeager Apprentice (DDC) 35
+1 Promise of Power (DDC) 54
+1 Reiver Demon (DDC) 43
+1 Soot Imp (DDC) 37
+1 Souldrinker (DDC) 39
+1 Stinkweed Imp (DDC) 36
+6 Swamp (DDC) 59
+6 Swamp (DDC) 60
+6 Swamp (DDC) 61
+6 Swamp (DDC) 62
+2 Unholy Strength (DDC) 47

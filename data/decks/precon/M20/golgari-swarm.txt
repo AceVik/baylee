@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Golgari Swarm
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GolgariSwarm_M20.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M20
+# released: 2019-05-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Assassin's Trophy (GRN) 152
+1 Casualties of War (WAR) 187
+2 Deathsprout (WAR) 189
+2 District Guide (GRN) 128
+1 Find // Finality (GRN) 225
+3 Forest (M20) 277
+3 Forest (M20) 278
+2 Forest (M20) 279
+2 Forest (M20) 280
+3 Gift of Strength (RNA) 127
+4 Glowspore Shaman (GRN) 173
+2 Golgari Findbroker (GRN) 175
+4 Golgari Guildgate (GRN) 248
+1 Izoni, Thousand-Eyed (GRN) 180
+1 Kraul Foragers (GRN) 135
+2 Kraul Harpooner (GRN) 136
+2 Leyline Prowler (WAR) 202
+2 Lotleth Giant (GRN) 74
+1 Midnight Reaper (GRN) 77
+1 Molderhulk (GRN) 190
+1 Overgrown Tomb (GRN) 253
+2 Plaguecrafter (GRN) 82
+2 Rhizome Lurcher (GRN) 196
+2 Status // Statue (GRN) 230
+3 Swamp (M20) 269
+3 Swamp (M20) 270
+2 Swamp (M20) 271
+2 Swamp (M20) 272
+1 Swarm Guildmage (GRN) 201
+1 Undercity Uprising (GRN) 210
+1 Underrealm Lich (GRN) 211

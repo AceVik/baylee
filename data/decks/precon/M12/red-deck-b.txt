@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Red Deck B
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeckB_M12.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M12
+# released: 2011-07-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Blisterstick Shaman (MBS) 58
+2 Goblin Arsonist (M12) 136
+1 Goblin Bangchuckers (M12) 137
+2 Goblin Fireslinger (M12) 139
+1 Goblin Grenade (M12) 140
+2 Goblin Piker (M12) 141
+2 Goblin Tunneler (M12) 142
+1 Goblin War Paint (M12) 143
+1 Goblin Wardriver (MBS) 64
+3 Mountain (M12) 242
+3 Mountain (M12) 243
+3 Mountain (M12) 244
+3 Mountain (M12) 245
+2 Shock (M12) 154
+1 Slaughter Cry (M12) 155
+1 Tectonic Rift (M12) 157

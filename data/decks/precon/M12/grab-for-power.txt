@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Grab for Power
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GrabForPower_M12.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M12
+# released: 2011-07-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Azure Mage (M12) 45
+2 Belltower Sphinx (M12) 46
+1 Brink of Disaster (M12) 84
+1 Buried Ruin (M12) 224
+2 Child of Night (M12) 87
+2 Crown of Empires (M12) 203
+1 Devouring Swarm (M12) 91
+1 Diabolic Tutor (M12) 92
+1 Disentomb (M12) 93
+2 Divination (M12) 50
+3 Doom Blade (M12) 95
+1 Drifting Shade (M12) 96
+1 Frost Breath (M12) 54
+1 Gravedigger (M12) 99
+3 Island (M12) 234
+3 Island (M12) 235
+2 Island (M12) 236
+2 Island (M12) 237
+2 Merfolk Looter (M12) 65
+1 Ponder (M12) 73
+2 Reassembling Skeleton (M12) 104
+1 Rune-Scarred Demon (M12) 106 *F*
+2 Scepter of Empires (M12) 216
+1 Sorin's Thirst (M12) 110
+4 Swamp (M12) 238
+4 Swamp (M12) 239
+3 Swamp (M12) 240
+3 Swamp (M12) 241
+1 Throne of Empires (M12) 221
+3 Warpath Ghoul (M12) 117
+2 Zombie Goliath (M12) 119

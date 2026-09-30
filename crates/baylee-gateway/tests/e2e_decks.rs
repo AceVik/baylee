@@ -689,6 +689,72 @@ fn the_house_decks_belong_to_nobody_and_anybody_may_take_a_copy() {
     );
 }
 
+/// A precon the build stopped playing is withdrawn (`docs/precons.md`): the
+/// listing no longer offers it and a copy of it is refused, while the deck
+/// itself stays readable for the copies already taken of it. One that is
+/// offered is taken like a house deck.
+#[test]
+fn a_withdrawn_precon_is_not_offered_and_not_copied() {
+    let gateway = spawn_gateway("withdrawn");
+    let token = login(gateway.port, "collector", "Collector");
+    for (name, source, offered) in [
+        ("Sun Empire", "E02/sun-empire", true),
+        ("Deep Freeze", "TMP/deep-freeze", false),
+    ] {
+        gateway.sql(&format!(
+            "INSERT INTO deck (account_id, kind, name, format, description, cards, \
+                               version, updated_at, source, offered) \
+             VALUES (NULL, 'preconstructed', '{name}', 'freeform', 'Theme Deck', \
+                     ARRAY['1 Sol Ring', '59 Plains'], 1, now(), '{source}', {offered})"
+        ));
+    }
+    let id_of = |source: &str| {
+        gateway.text(&format!(
+            "SELECT id::text FROM deck WHERE source = '{source}'"
+        ))
+    };
+    let (offered, withdrawn) = (id_of("E02/sun-empire"), id_of("TMP/deep-freeze"));
+
+    let (status, shared) = http(gateway.port, "GET", "/decks/shared", Some(&token), "");
+    assert_eq!(status, 200, "{shared}");
+    assert!(shared.contains("Sun Empire"), "{shared}");
+    assert!(shared.contains("\"kind\":\"preconstructed\""), "{shared}");
+    assert!(
+        !shared.contains("Deep Freeze"),
+        "a withdrawn deck is offered: {shared}"
+    );
+
+    let (status, refused) = http(
+        gateway.port,
+        "POST",
+        &format!("/decks/{withdrawn}/copy"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 410, "{refused}");
+    let (status, deck) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{withdrawn}"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "a withdrawn deck is still read: {deck}");
+
+    let (status, copied) = http(
+        gateway.port,
+        "POST",
+        &format!("/decks/{offered}/copy"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{copied}");
+    let (status, mine) = http(gateway.port, "GET", "/decks", Some(&token), "");
+    assert_eq!(status, 200, "{mine}");
+    assert!(mine.contains("Sun Empire"), "{mine}");
+    assert!(!mine.contains("Deep Freeze"), "{mine}");
+}
+
 /// Two facts stood behind one refusal, and now the player is told which.
 ///
 /// A name that is no card and a real card this build compiles nothing for

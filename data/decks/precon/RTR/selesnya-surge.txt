@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Selesnya Surge
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SelesnyaSurge_RTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: RTR
+# released: 2012-10-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arbor Elf (M13) 160
+1 Axebane Stag (RTR) 116
+2 Bountiful Harvest (M13) 163
+1 Brushstrider (RTR) 117
+2 Call of the Conclave (RTR) 146
+3 Centaur Courser (M13) 164
+1 Centaur Healer (RTR) 148
+2 Centaur's Herald (RTR) 118
+2 Chorus of Might (RTR) 119
+1 Coursers' Accord (RTR) 154
+1 Druid's Deliverance (RTR) 123
+2 Eyes in the Skies (RTR) 10
+3 Forest (RTR) 270
+3 Forest (RTR) 271
+2 Forest (RTR) 272
+2 Forest (RTR) 273
+2 Forest (RTR) 274
+1 Grove of the Guardian (RTR) 240 *F*
+1 Healer of the Pride (M13) 19
+1 Heroes' Reunion (RTR) 168
+1 Phantom General (RTR) 16
+3 Plains (RTR) 250
+2 Plains (RTR) 251
+2 Plains (RTR) 252
+2 Plains (RTR) 253
+2 Plains (RTR) 254
+1 Risen Sanctuary (RTR) 190
+1 Rootborn Defenses (RTR) 19
+2 Savage Surge (RTR) 133
+1 Selesnya Guildgate (RTR) 246
+2 Selesnya Keyrune (RTR) 233
+3 Seller of Songbirds (RTR) 22
+2 Trostani's Judgment (RTR) 28
+1 Vitu-Ghazi Guildmage (RTR) 207
+1 Wayfaring Temple (RTR) 209

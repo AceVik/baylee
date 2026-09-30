@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: Azorius
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Azorius_GK2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Guild Kit
+# set: GK2
+# released: 2019-02-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Archon of the Triumvirate (GK2) 7
+4 Azorius Chancery (GK2) 25
+1 Azorius Charm (GK2) 8
+2 Azorius Guildgate (RNA) 243
+2 Azorius Guildgate (RNA) 244
+1 Azorius Guildmage (GK2) 9
+1 Azorius Herald (GK2) 2
+1 Azorius Justiciar (GK2) 3
+1 Azorius Keyrune (GK2) 23
+2 Azorius Signet (GK2) 24
+1 Court Hussar (GK2) 5
+1 Depose // Deploy (RNA) 225
+1 Detention Sphere (GK2) 10
+1 Dovescape (GK2) 11
+1 Dramatic Rescue (GK2) 12
+1 Hover Barrier (GK2) 6
+8 Island (GK2) 27
+1 Isperia the Inscrutable (GK2) 13
+1 Isperia, Supreme Judge (GK2) 1 *F*
+2 Judge's Familiar (GK2) 14
+1 Lavinia of the Tenth (GK2) 15
+1 Lyev Skyknight (GK2) 16
+8 Plains (GK2) 26
+1 Pride of the Clouds (GK2) 17
+1 Render Silent (GK2) 18
+1 Sky Hussar (GK2) 19
+1 Sky Tether (RNA) 21
+1 Skymark Roc (GK2) 20
+1 Sphinx of Foresight (RNA) 55
+1 Sphinx of New Prahv (RNA) 208
+1 Sphinx's Insight (RNA) 209
+1 Sphinx's Revelation (GK2) 21
+1 Spirit of the Spires (RNA) 23
+1 Stoic Ephemera (GK2) 4
+1 Summary Judgment (RNA) 24
+1 Unbreakable Formation (RNA) 29
+1 Warrant // Warden (RNA) 230
+1 Windreaver (GK2) 22
+1 Windstorm Drake (RNA) 60

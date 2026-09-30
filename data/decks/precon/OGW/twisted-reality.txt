@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Twisted Reality
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TwistedReality_OGW.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: OGW
+# released: 2016-01-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Adverse Conditions (BFZ) 54
+1 Bane of Bala Ged (BFZ) 1
+1 Blighted Cataract (BFZ) 229
+3 Blinding Drone (OGW) 41
+3 Cultivator Drone (OGW) 42
+1 Deepfathom Skulker (POGW) 43 *F*
+2 Eldrazi Skyspawner (BFZ) 58
+1 Endless One (BFZ) 8
+1 Evolving Wilds (BFZ) 236
+2 Gravity Negator (OGW) 45
+3 Island (BFZ) 255a
+3 Island (BFZ) 256a
+3 Island (BFZ) 257a
+3 Island (BFZ) 258a
+2 Island (BFZ) 259a
+2 Kozilek's Channeler (BFZ) 10
+1 Kozilek's Pathfinder (OGW) 5
+3 Mist Intruder (BFZ) 61
+2 Murk Strider (BFZ) 62
+1 Prophet of Distortion (OGW) 46
+1 Ruination Guide (BFZ) 64
+2 Salvage Drone (BFZ) 65
+1 Scour from Existence (BFZ) 13
+2 Spatial Contortion (OGW) 8
+1 Thought Harvester (OGW) 48
+1 Tide Drifter (BFZ) 67
+1 Titan's Presence (BFZ) 14
+2 Walker of the Wastes (OGW) 10
+5 Wastes (OGW) 183a
+5 Wastes (OGW) 184a

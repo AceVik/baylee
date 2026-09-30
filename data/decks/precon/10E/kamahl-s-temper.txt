@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Kamahl's Temper
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, KamahlSTemper_10E.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 10E
+# released: 2007-07-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Beacon of Destruction (10E) 189
+1 Blaze (10E) 190
+2 Bloodrock Cyclops (10E) 192
+2 Bogardan Firefiend (10E) 193
+1 Dragon's Claw (10E) 322
+1 Furnace Whelp (10E) 205
+2 Incinerate (10E) 213
+1 Kamahl, Pit Fighter (10E) 214
+2 Lightning Elemental (10E) 217
+5 Mountain (10E) 376
+4 Mountain (10E) 377
+4 Mountain (10E) 378
+4 Mountain (10E) 379
+1 Phyrexian Vault (10E) 337
+1 Prodigal Pyromancer (10E) 221
+1 Raging Goblin (10E) 224
+1 Shock (10E) 232
+2 Spitting Earth (10E) 238
+1 Threaten (10E) 242
+2 Thundering Giant (10E) 243
+1 Viashino Sandscout (10E) 246

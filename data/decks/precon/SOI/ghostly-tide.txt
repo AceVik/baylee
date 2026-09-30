@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Ghostly Tide
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GhostlyTide_SOI.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: SOI
+# released: 2016-04-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Apothecary Geist (SOI) 4
+2 Bound by Moonsilver (SOI) 7
+1 Catalog (SOI) 51
+1 Chaplain's Blessing (SOI) 10
+2 Dauntless Cathar (SOI) 11
+1 Deny Existence (SOI) 55
+1 Drogskol Cavalry (PSOI) 15 *F*
+2 Emissary of the Sleepless (SOI) 17
+1 Essence Flux (SOI) 61
+4 Island (SOI) 286
+4 Island (SOI) 287
+4 Island (SOI) 288
+2 Nearheath Chaplain (SOI) 29
+2 Niblis of Dusk (SOI) 76
+2 Not Forgotten (SOI) 30
+5 Plains (SOI) 283
+4 Plains (SOI) 284
+4 Plains (SOI) 285
+1 Pore Over the Pages (SOI) 79
+2 Puncturing Light (SOI) 35
+1 Rattlechains (SOI) 81
+1 Reckless Scholar (SOI) 82
+2 Seagraf Skaab (SOI) 84
+1 Silent Observer (SOI) 86
+1 Silverstrike (SOI) 37
+1 Sleep Paralysis (SOI) 87
+2 Spectral Shepherd (SOI) 38
+2 Stormrider Spirit (SOI) 91
+2 Vessel of Ephemera (SOI) 48

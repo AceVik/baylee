@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Azorius Control
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AzoriusControl_Q05.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q05
+# released: 2021-04-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Archon of Sun's Grace (THB) 3
+2 Banishing Light (THB) 4
+2 Behold the Multiverse (KHM) 46
+1 Doomskar (KHM) 9
+2 Dream Trawler (THB) 214
+3 Elspeth Conquers Death (THB) 13
+1 Emeria's Call // Emeria, Shattered Skyclave (ZNR) 12
+2 Glass Casket (ELD) 15
+8 Island (KHM) 395
+1 Negate (ZNR) 71
+3 Neutralize (IKO) 59
+4 Omen of the Sea (THB) 58
+8 Plains (KHM) 394
+1 Saw It Coming (KHM) 76
+1 Shark Typhoon (IKO) 67
+2 Shatter the Sky (THB) 37
+2 Skyclave Cleric // Skyclave Basilica (ZNR) 40
+4 Temple of Enlightenment (THB) 246
+4 The Birth of Meletis (THB) 5
+3 Thirst for Meaning (THB) 74
+4 Tranquil Cove (M21) 258
+SB: 1 Archon of Sun's Grace (THB) 3
+SB: 2 Banishing Light (THB) 4
+SB: 3 Confounding Conundrum (ZNR) 53
+SB: 2 Essence Scatter (IKO) 49
+SB: 2 Glass Casket (ELD) 15
+SB: 3 Mystical Dispute (ELD) 58
+SB: 2 Skyclave Apparition (ZNR) 39

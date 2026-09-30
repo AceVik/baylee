@@ -1,0 +1,52 @@
+# baylee deck export v1
+# name: Night Of The Ninja
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, NightOfTheNinja_PC2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planechase Deck
+# set: PC2
+# released: 2012-06-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Assassinate (PC2) 30
+2 Augury Owl (PC2) 14
+2 Baleful Strix (PC2) 82
+1 Cadaver Imp (PC2) 31
+1 Cancel (PC2) 15
+1 Concentrate (PC2) 16
+1 Dark Hatchling (PC2) 32
+2 Dimir Aqueduct (PC2) 116
+2 Dimir Infiltrator (PC2) 86
+1 Farsight Mask (PC2) 109
+1 Fractured Powerstone (PC2) 111
+1 Glen Elendra Liege (PC2) 94
+1 Higure, the Still Wind (PC2) 18
+1 Ink-Eyes, Servant of Oni (PC2) 33
+1 Inkfathom Witch (PC2) 97
+2 Island (PC2) 137
+2 Island (PC2) 138
+2 Island (PC2) 139
+2 Island (PC2) 140
+1 Island (PC2) 141
+2 Jwar Isle Refuge (PC2) 120
+1 Liliana's Specter (PC2) 34
+1 Mistblade Shinobi (PC2) 20
+2 Ninja of the Deep Hours (PC2) 21
+1 Okiba-Gang Shinobi (PC2) 35
+1 Quietus Spike (PC2) 112
+2 Sai of the Shinobi (PC2) 113
+1 Sakashima's Student (PC2) 24
+1 Silent-Blade Oni (PC2) 105
+1 Skullsnatcher (PC2) 36
+2 Swamp (PC2) 142
+2 Swamp (PC2) 143
+2 Swamp (PC2) 144
+2 Swamp (PC2) 145
+1 Swamp (PC2) 146
+1 Tainted Isle (PC2) 128
+1 Terramorphic Expanse (PC2) 129
+1 Throat Slitter (PC2) 37
+2 Tormented Soul (PC2) 38
+1 Vela the Night-Clad (PC2) 107
+1 Walker of Secret Ways (PC2) 27
+1 Wall of Frost (PC2) 28
+1 Whispersilk Cloak (PC2) 115

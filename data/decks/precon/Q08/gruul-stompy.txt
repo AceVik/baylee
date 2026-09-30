@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Gruul Stompy
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GruulStompy_Q08.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Pioneer Challenger Deck
+# set: Q08
+# released: 2022-11-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Abrade (VOW) 139
+4 Bonecrusher Giant // Stomp (ELD) 115
+2 Chandra, Torch of Defiance (KLD) 110
+4 Elvish Mystic (M15) 173
+3 Forest (DMU) 274
+3 Forest (DMU) 275
+3 Forest (DMU) 276
+4 Glorybringer (AKH) 134
+4 Karplusan Forest (DMU) 250
+4 Llanowar Elves (M19) 314
+4 Lovestruck Beast // Heart's Desire (ELD) 165
+4 Mizzium Mortars (RTR) 101
+3 Mountain (DMU) 271
+2 Mountain (DMU) 272
+2 Mountain (DMU) 273
+2 Questing Beast (ELD) 171
+4 Rockfall Vale (MID) 266
+4 Scavenging Ooze (M21) 204
+1 Stomping Ground (RNA) 259
+SB: 1 Abrade (VOW) 139
+SB: 4 Cindervines (RNA) 161
+SB: 4 Flame-Blessed Bolt (VOW) 158
+SB: 3 Rending Volley (DTK) 150
+SB: 3 Shifting Ceratops (M20) 194

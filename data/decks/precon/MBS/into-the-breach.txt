@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Into the Breach
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, IntoTheBreach_MBS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: MBS
+# released: 2011-02-25
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Contested War Zone (MBS) 144
+2 Darksteel Axe (SOM) 149
+2 Devastating Summons (ROE) 140
+2 Galvanic Blast (SOM) 91
+2 Goblin Bushwhacker (ZEN) 125
+2 Goblin Guide (ZEN) 126
+4 Goblin Wardriver (MBS) 64
+1 Iron Myr (SOM) 168
+4 Kuldotha Rebirth (SOM) 96
+4 Lightning Bolt (M11) 149
+4 Memnite (SOM) 174
+11 Mountain (MBS) 152
+10 Mountain (MBS) 153
+4 Ornithopter (M11) 211
+2 Panic Spellbomb (SOM) 191
+4 Signal Pest (MBS) 131
+1 Spikeshot Elder (SOM) 104
+SB: 2 Act of Treason (M11) 121
+SB: 4 Goblin Ruinblaster (ZEN) 127
+SB: 2 Into the Core (MBS) 67
+SB: 1 Leyline of Punishment (M11) 148
+SB: 4 Searing Blaze (WWK) 90
+SB: 2 Unstable Footing (ZEN) 153

@@ -1,0 +1,103 @@
+# baylee deck export v1
+# name: Graveyard Overdrive Collector's Edition
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GraveyardOverdriveCollectorSEdition_M3C.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Commander Deck
+# set: M3C
+# released: 2024-06-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 Disa the Restless (M3C) 139 *F*
+1 Accursed Marauder (MH3) 512 *F*
+1 Altar of the Goyf (M3C) 282 *F*
+1 Anger (M3C) 208 *F*
+1 Arcane Signet (M3C) 283 *F*
+1 Archon of Cruelty (M3C) 197 *F*
+1 Barrowgoyf (M3C) 50 *F*
+1 Bituminous Blast (M3C) 255 *F*
+1 Bloodbraid Challenger (M3C) 70 *F*
+1 Bloodbraid Elf (M3C) 256 *F*
+1 Brawn (M3C) 224 *F*
+1 Broodmate Tyrant (M3C) 71 *F*
+1 Burnished Hart (M3C) 284 *F*
+1 Canyon Slough (M3C) 325 *F*
+1 Chandra's Ignition (M3C) 209 *F*
+1 Cinder Glade (M3C) 329 *F*
+1 Command Tower (M3C) 331 *F*
+1 Coram, the Undertaker (M3C) 138 *F*
+1 Dakmor Salvage (M3C) 333 *F*
+1 Deadbridge Chant (M3C) 258 *F*
+1 Deathreap Ritual (M3C) 259 *F*
+1 Demolition Field (M3C) 335 *F*
+1 Eternal Witness (M3C) 227 *F*
+1 Evolving Wilds (M3C) 340 *F*
+1 Exotic Orchard (M3C) 341 *F*
+1 Exterminator Magmarch (M3C) 72 *F*
+1 Faithless Looting (M3C) 211 *F*
+1 Final Act (M3C) 52 *F*
+1 Find // Finality (M3C) 261 *F*
+3 Forest (MH3) 505 *F*
+2 Forest (MH3) 506 *F*
+1 Forgotten Cave (M3C) 343 *F*
+1 Garruk, Apex Predator (M3C) 262 *F*
+1 Gluttonous Hellkite (M3C) 73 *F*
+1 Grapple with the Past (M3C) 230 *F*
+1 Graveshifter (M3C) 198 *F*
+1 Grisly Salvage (M3C) 263 *F*
+1 Grist, the Hunger Tide (M3C) 264 *F*
+1 Ignoble Hierarch (M3C) 234 *F*
+1 Infested Thrinax (M3C) 74 *F*
+1 Izoni, Thousand-Eyed (M3C) 267 *F*
+1 Junji, the Midnight Sky (M3C) 199 *F*
+1 Kessig Wolf Run (M3C) 352 *F*
+1 Kolaghan's Command (M3C) 268 *F*
+1 Lhurgoyf (M3C) 235 *F*
+1 Lightning Greaves (M3C) 298 *F*
+1 Liliana, Death's Majesty (M3C) 200 *F*
+1 Maelstrom Pulse (M3C) 269 *F*
+1 Maskwood Nexus (M3C) 299 *F*
+1 Mortivore (M3C) 201 *F*
+1 Mossfire Valley (M3C) 357 *F*
+2 Mountain (MH3) 503 *F*
+1 Mountain (MH3) 504 *F*
+1 Myriad Landscape (M3C) 358 *F*
+1 Necrogoyf (M3C) 202 *F*
+1 Path of Ancestry (M3C) 363 *F*
+1 Polygoyf (M3C) 65 *F*
+1 Pyrogoyf (M3C) 59 *F*
+1 Raging Ravine (M3C) 367 *F*
+1 Rampant Growth (M3C) 240 *F*
+1 Riveteers Charm (M3C) 271 *F*
+1 Riveteers Overlook (M3C) 369 *F*
+1 Sakura-Tribe Elder (M3C) 243 *F*
+1 Savage Lands (M3C) 371 *F*
+1 Sawhorn Nemesis (M3C) 60 *F*
+1 Selvala, Heart of the Wilds (M3C) 246 *F*
+1 Shadowblood Ridge (M3C) 373 *F*
+1 Sheltered Thicket (M3C) 374 *F*
+1 Siege-Gang Lieutenant (M3C) 61 *F*
+1 Smoldering Marsh (M3C) 379 *F*
+1 Sol Ring (M3C) 305 *F*
+1 Stitcher's Supplier (M3C) 204 *F*
+2 Swamp (MH3) 501 *F*
+2 Swamp (MH3) 502 *F*
+1 Syphon Mind (M3C) 206 *F*
+1 Syr Konrad, the Grim (M3C) 207 *F*
+1 Tainted Peak (M3C) 382 *F*
+1 Tainted Wood (M3C) 383 *F*
+1 Talisman of Impulse (M3C) 311 *F*
+1 Talisman of Indulgence (M3C) 312 *F*
+1 Talisman of Resilience (M3C) 314 *F*
+1 Tarmogoyf Nest (M3C) 68 *F*
+1 Temple of Abandon (M3C) 385 *F*
+1 Temple of Malady (M3C) 388 *F*
+1 Temple of Malice (M3C) 389 *F*
+1 Tempt with Mayhem (M3C) 62 *F*
+1 Terminate (M3C) 274 *F*
+1 Terramorphic Expanse (M3C) 394 *F*
+1 The Reaver Cleaver (M3C) 217 *F*
+1 Tranquil Thicket (M3C) 398 *F*
+1 Twisted Landscape (MH3) 521 *F*
+1 Viridescent Bog (M3C) 406 *F*
+1 Yavimaya Elder (M3C) 254 *F*
+1 Ziatora, the Incinerator (M3C) 279 *F*

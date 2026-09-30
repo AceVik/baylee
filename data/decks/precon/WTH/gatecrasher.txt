@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Gatecrasher
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Gatecrasher_WTH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: WTH
+# released: 2007-12-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aboroth (WTH) 117
+3 Arctic Wolves (WTH) 118
+1 Bogardan Firefiend (WTH) 91
+2 Cone of Flame (WTH) 95
+1 Creeping Mold (VIS) 103
+2 Dragon Mask (VIS) 144
+2 Fire Whip (WTH) 100
+4 Forest (MIR) 347
+4 Forest (MIR) 348
+4 Forest (MIR) 349
+3 Forest (MIR) 350
+2 Granger Guildmage (MIR) 220
+2 Incinerate (MIR) 184
+1 Kaervek's Torch (MIR) 185
+1 Llanowar Behemoth (WTH) 132
+3 Llanowar Sentinel (WTH) 134
+1 Maraxus of Keld (WTH) 111
+2 Mountain (MIR) 343
+2 Mountain (MIR) 344
+2 Mountain (MIR) 345
+1 Mountain (MIR) 346
+3 Rampant Growth (MIR) 235
+2 Redwood Treefolk (WTH) 138
+1 Savage Twister (MIR) 280
+2 Stampeding Wildebeests (VIS) 121
+2 Striped Bears (WTH) 140
+2 Uktabi Efreet (WTH) 143
+1 Uktabi Orangutan (VIS) 123
+3 Wall of Roots (MIR) 253

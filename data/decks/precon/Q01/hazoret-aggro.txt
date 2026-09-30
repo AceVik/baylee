@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Hazoret Aggro
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, HazoretAggro_Q01.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q01
+# released: 2018-04-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Abrade (HOU) 83
+4 Ahn-Crop Crasher (AKH) 117
+4 Bomat Courier (KLD) 199
+1 Chandra, Torch of Defiance (KLD) 110
+4 Fanatical Firebrand (RIX) 101
+1 Glorybringer (AKH) 134
+3 Harsh Mentor (AKH) 135
+1 Hazoret the Fervent (AKH) 136
+3 Kari Zev, Skyship Raider (AER) 87
+4 Lightning Strike (XLN) 149
+2 Magma Spray (AKH) 141
+20 Mountain (RIX) 195
+4 Shock (AER) 98
+3 Soul-Scar Mage (AKH) 148
+4 Sunscorched Desert (AKH) 249
+SB: 4 Chandra's Defeat (HOU) 86
+SB: 2 Kari Zev's Expertise (AER) 88
+SB: 2 Key to the City (KLD) 220
+SB: 2 Magma Spray (AKH) 141
+SB: 2 Pia Nalaar (KLD) 124
+SB: 3 Sentinel Totem (XLN) 245

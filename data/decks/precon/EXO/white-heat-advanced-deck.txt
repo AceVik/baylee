@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: White Heat - Advanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteHeatAdvancedDeck_EXO.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Advanced Deck
+# set: EXO
+# released: 1998-06-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Armageddon (5ED) 7
+2 City of Brass (5ED) 413
+2 Disenchant (TMP) 16
+3 Gemstone Mine (WTH) 164
+4 Incinerate (5ED) 242
+2 Infantry Veteran (VIS) 9
+4 Kindle (TMP) 184
+1 Mountain (TMP) 343
+1 Mountain (TMP) 344
+1 Mountain (TMP) 345
+1 Mountain (TMP) 346
+4 Order of the White Shield (5ED) 49
+2 Plains (TMP) 331
+2 Plains (TMP) 332
+2 Plains (TMP) 333
+1 Plains (TMP) 334
+3 Shock (STH) 98
+4 Soltari Foot Soldier (TMP) 43
+2 Soltari Priest (TMP) 46
+2 Soltari Visionary (EXO) 20
+2 Tithe (VIS) 23
+3 Undiscovered Paradise (VIS) 167
+4 Vigilant Martyr (MIR) 45
+4 Welkin Hawk (EXO) 25
+2 White Knight (5ED) 68
+SB: 2 Aura of Silence (WTH) 7
+SB: 1 Circle of Protection: Red (TMP) 11
+SB: 1 City of Solitude (VIS) 102
+SB: 1 Crusade (5ED) 22
+SB: 2 Disenchant (TMP) 16
+SB: 1 Tariff (WTH) 28
+SB: 4 Wasteland (TMP) 330
+SB: 2 Winter Orb (5ED) 408
+SB: 1 Zur's Weirding (5ED) 138

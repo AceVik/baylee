@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Faerie Pranks
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FaeriePranks_OTJ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: OTJ
+# released: 2024-07-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Barrow Naughty (WOE) 81
+2 Deduce (MKM) 52
+1 Drag the Canal (MKM) 199
+1 Faerie Dreamthief (WOE) 89
+2 Faerie Fencing (WOE) 90
+1 Faerie Slumber Party (WOE) 311
+2 Freeze in Place (WOE) 50
+13 Island (OTJ) 280
+3 Mocking Sprite (WOE) 62
+2 Obyra, Dreaming Duelist (WOE) 210
+2 Picklock Prankster // Free the Fae (WOE) 64
+3 Quick Study (WOE) 65
+1 Roaming Throne (LCI) 258
+1 Sleep-Cursed Faerie (WOE) 66
+3 Sleight of Hand (WOE) 67
+2 Snaremaster Sprite (WOE) 68
+4 Soured Springs (OTJ) 264
+2 Spell Stutter (WOE) 69
+2 Spellscorn Coven // Take It Back (WOE) 237
+7 Swamp (OTJ) 282
+1 Talion's Messenger (WOE) 73
+1 Talion, the Kindly Lord (WOE) 215
+1 Three Steps Ahead (OTJ) 75
+1 Undercity Sewers (MKM) 270

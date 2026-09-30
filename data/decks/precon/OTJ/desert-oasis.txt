@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Desert Oasis
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DesertOasis_OTJ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: OTJ
+# released: 2024-07-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Beanstalk Wurm // Plant Beans (WOE) 161
+1 Bonny Pall, Clearcutter (OTJ) 196
+1 Bristly Bill, Spine Sower (OTJ) 157
+2 Cactarantula (OTJ) 158
+1 Case of the Locked Hothouse (MKM) 155
+1 Colossal Rattlewurm (OTJ) 159
+1 Deepfathom Echo (LCI) 228
+2 Failed Fording (OTJ) 47
+13 Forest (LTR) 270
+2 Hardbristle Bandit (OTJ) 168
+1 Hedge Maze (MKM) 262
+3 Huatli's Final Strike (LCI) 190
+7 Island (OTJ) 280
+1 Jadelight Spelunker (LCI) 196
+4 Lush Oasis (OTJ) 261
+2 Map the Frontier (OTJ) 170
+2 Outcaster Greenblade (OTJ) 172
+2 Pathfinding Axejaw (LCI) 206
+2 River Herald Guide (LCI) 209
+2 River Herald Scout (LCI) 72
+3 Rootrider Faun (WOE) 182
+2 Rubblebelt Maverick (MKM) 174
+1 Sentinel of the Nameless City (LCI) 211
+2 Waterwind Scout (LCI) 84

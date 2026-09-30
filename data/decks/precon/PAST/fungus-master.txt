@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Fungus Master
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FungusMaster_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Carnivorous Plant (DRK) 75
+4 Forest (3ED) 304
+4 Forest (3ED) 305
+3 Forest (3ED) 306
+4 Fungusaur (3ED) 197
+3 Ironroot Treefolk (3ED) 204
+4 Island (3ED) 295
+4 Island (3ED) 296
+3 Island (3ED) 297
+2 Oasis (ARN) 78
+3 Power Sink (3ED) 74
+4 Prodigal Sorcerer (3ED) 75
+4 Regeneration (3ED) 213
+4 Rod of Ruin (3ED) 273
+4 Unsummon (3ED) 87
+2 Untamed Wilds (LEG) 210
+2 Wall of Brambles (3ED) 224
+2 Wall of Wood (3ED) 226
+2 Wild Growth (3ED) 230
+SB: 2 Kormus Bell (3ED) 260
+SB: 2 Living Lands (3ED) 210

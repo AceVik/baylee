@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Repel the Dark
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RepelTheDark_ISD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ISD
+# released: 2011-09-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Avacyn's Pilgrim (ISD) 170
+2 Avacynian Priest (ISD) 4
+1 Benalish Veteran (M12) 10
+1 Blazing Torch (ISD) 216
+2 Bonds of Faith (ISD) 5
+1 Bramblecrush (ISD) 172
+1 Butcher's Cleaver (ISD) 217
+2 Elder Cathar (ISD) 12
+1 Elder of Laurels (ISD) 177 *F*
+1 Elite Vanguard (M12) 15
+1 Fiend Hunter (ISD) 15
+4 Forest (ISD) 262
+3 Forest (ISD) 263
+3 Forest (ISD) 264
+2 Hamlet Captain (ISD) 187
+2 Jade Mage (M12) 181
+1 Mentor of the Meek (ISD) 21
+1 Overrun (M12) 186
+5 Plains (ISD) 250
+5 Plains (ISD) 251
+4 Plains (ISD) 252
+2 Selfless Cathar (ISD) 30
+1 Sharpened Pitchfork (ISD) 232
+1 Silver-Inlaid Dagger (ISD) 233
+1 Slayer of the Wicked (ISD) 32
+2 Smite the Monstrous (ISD) 33
+1 Spare from Evil (ISD) 34
+2 Thraben Purebloods (ISD) 37
+2 Titanic Growth (M12) 198
+3 Unruly Mob (ISD) 39

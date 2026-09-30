@@ -1,0 +1,62 @@
+# baylee deck export v1
+# name: Armed and Dangerous
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ArmedAndDangerous_ORI.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Clash Pack
+# set: ORI
+# released: 2015-07-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abzan Ascendancy (KTK) 160
+1 Anafenza, Kin-Tree Spirit (DTK) 2
+1 Avatar of the Resolute (DTK) 175
+4 Blossoming Sands (FRF) 166
+2 Cached Defenses (FRF) 126
+1 Citadel Castellan (ORI) 213
+1 Citadel Siege (FRF) 8
+1 Collected Company (DTK) 177
+1 Consul's Lieutenant (ORI) 11
+1 Dragon Hunter (DTK) 10
+1 Dromoka Warrior (DTK) 14
+1 Dromoka's Command (DTK) 221
+1 Dromoka, the Eternal (CP3) 4 *F*
+2 Evolving Wilds (ORI) 246
+1 Feat of Resistance (KTK) 10
+2 Forest (ORI) 269
+1 Forest (ORI) 270
+1 Forest (ORI) 271
+1 Forest (ORI) 272
+1 Honored Hierarch (CP3) 1 *F*
+2 Incremental Growth (KTK) 138
+2 Jungle Hollow (FRF) 169
+1 Kytheon's Irregulars (ORI) 24
+3 Lightwalker (DTK) 24
+1 Outland Colossus (ORI) 193
+2 Pacifism (DTK) 29
+2 Plains (ORI) 253
+2 Plains (ORI) 254
+1 Plains (ORI) 255
+1 Plains (ORI) 256
+1 Sandsteppe Citadel (CP3) 6 *F*
+2 Scoured Barrens (FRF) 171
+1 Seeker of the Way (CP3) 2 *F*
+1 Siege Rhino (CP3) 5 *F*
+1 Suspension Field (KTK) 25
+1 Swamp (ORI) 261
+1 Swamp (ORI) 262
+1 Swamp (ORI) 263
+2 Topan Freeblade (ORI) 36
+2 Ultimate Price (DTK) 124
+2 Undercity Troll (ORI) 202
+1 Valorous Stance (CP3) 3 *F*
+1 Windswept Heath (KTK) 248
+SB: 1 Abzan Battle Priest (KTK) 1
+SB: 2 Abzan Falconer (KTK) 2
+SB: 1 Anointer of Champions (ORI) 3
+SB: 1 Debilitating Injury (KTK) 68
+SB: 2 Disowned Ancestor (KTK) 70
+SB: 1 Elite Scaleguard (FRF) 12
+SB: 2 Enshrouding Mist (ORI) 13
+SB: 2 Epic Confrontation (DTK) 185
+SB: 2 Mighty Leap (ORI) 26
+SB: 1 Scale Blessing (DTK) 35

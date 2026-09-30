@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Master Blaster
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MasterBlaster_DST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: DST
+# released: 2004-02-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Barbed Lightning (DST) 55
+2 Darksteel Brute (DST) 108
+3 Darksteel Citadel (DST) 164
+1 Detonate (MRD) 88
+2 Duskworker (MRD) 166
+2 Electrostatic Bolt (MRD) 89
+1 Fireball (DST) 60
+1 Gemini Engine (DST) 121
+1 Goblin Replica (MRD) 178
+1 Grab the Reins (MRD) 95
+1 Granite Shard (MRD) 182
+3 Great Furnace (MRD) 282
+2 Hematite Golem (MRD) 185
+2 Iron Myr (MRD) 187
+1 Krark-Clan Grunt (MRD) 97
+3 Krark-Clan Stoker (DST) 65
+1 Molten Rain (MRD) 101
+5 Mountain (MRD) 299
+5 Mountain (MRD) 300
+4 Mountain (MRD) 301
+4 Mountain (MRD) 302
+3 Oxidda Golem (DST) 135
+1 Pulse of the Forge (DST) 66
+2 Pyrite Spellbomb (MRD) 232
+1 Rustmouth Ogre (MRD) 103
+2 Steel Wall (MRD) 248
+2 Talon of Pain (DST) 150
+2 Vulshok War Boar (DST) 72

@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: The Slivers
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSlivers_TMP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TMP
+# released: 1997-10-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Clot Sliver (TMP) 112
+2 Counterspell (TMP) 57
+2 Dark Banishing (TMP) 117
+2 Diabolic Edict (TMP) 128
+1 Dismiss (TMP) 58
+2 Dream Cache (TMP) 59
+1 Ertai's Meddling (TMP) 61
+1 Essence Bottle (TMP) 286
+1 Evincar's Justice (TMP) 134
+1 Extinction (TMP) 135
+1 Fevered Convulsions (TMP) 136
+4 Island (TMP) 335
+3 Island (TMP) 336
+3 Island (TMP) 337
+3 Island (TMP) 338
+1 Lobotomy (TMP) 267
+4 Metallic Sliver (TMP) 297
+1 Mindwhip Sliver (TMP) 145
+3 Mnemonic Sliver (TMP) 77
+2 Power Sink (TMP) 78
+1 Rootwater Depths (TMP) 323
+1 Spell Blast (TMP) 89
+3 Swamp (TMP) 339
+3 Swamp (TMP) 340
+3 Swamp (TMP) 341
+2 Swamp (TMP) 342
+1 Whispers of the Muse (TMP) 103
+4 Winged Sliver (TMP) 106

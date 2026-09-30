@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Dovin, Architect of Law
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DovinArchitectOfLaw_RNA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: RNA
+# released: 2019-01-25
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Arrester's Zeal (RNA) 4
+2 Azorius Guildgate (RNA) 243
+2 Azorius Guildgate (RNA) 244
+1 Azorius Knight-Arbiter (RNA) 154
+1 Chillbringer (RNA) 33
+2 Code of Constraint (RNA) 35
+3 Concordia Pegasus (RNA) 7
+3 Dovin's Automaton (RNA) 268
+2 Dovin's Dismissal (RNA) 267
+1 Dovin, Architect of Law (RNA) 265 *F*
+4 Elite Arrester (RNA) 266
+10 Island (RNA) 261
+12 Plains (RNA) 260
+2 Prowling Caracal (RNA) 17
+2 Senate Courier (RNA) 50
+1 Sphinx's Insight (RNA) 209
+2 Spirit of the Spires (RNA) 23
+2 Summary Judgment (RNA) 24
+1 Tenth District Veteran (RNA) 26
+1 Unbreakable Formation (RNA) 29
+1 Verity Circle (RNA) 58
+2 Windstorm Drake (RNA) 60

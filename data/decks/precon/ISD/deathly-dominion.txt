@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Deathly Dominion
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeathlyDominion_ISD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ISD
+# released: 2011-09-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Altar's Reap (ISD) 86
+1 Ambush Viper (ISD) 169
+1 Brain Weevil (ISD) 91
+2 Caravan Vigil (ISD) 173
+2 Dead Weight (ISD) 96
+1 Demonmail Hauberk (ISD) 221
+2 Devouring Swarm (M12) 91
+2 Disciple of Griselbrand (ISD) 98
+1 Doom Blade (M12) 95
+2 Festerhide Boar (ISD) 179
+5 Forest (ISD) 262
+4 Forest (ISD) 263
+4 Forest (ISD) 264
+2 Hollowhenge Scavenger (ISD) 188
+2 Lumberknot (ISD) 191
+1 Make a Wish (ISD) 192
+1 Moldgraf Monstrosity (ISD) 194
+2 Morkrut Banshee (ISD) 110
+1 Naturalize (ISD) 197
+1 Prey Upon (ISD) 200
+2 Rampant Growth (M12) 190
+2 Reassembling Skeleton (M12) 104
+1 Skirsdag High Priest (ISD) 117 *F*
+1 Somberwald Spider (ISD) 202
+4 Swamp (ISD) 256
+4 Swamp (ISD) 257
+3 Swamp (ISD) 258
+1 Typhoid Rats (ISD) 120
+2 Warpath Ghoul (M12) 117
+2 Woodland Sleuth (ISD) 210

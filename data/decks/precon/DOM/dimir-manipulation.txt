@@ -1,0 +1,49 @@
+# baylee deck export v1
+# name: Dimir Manipulation
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DimirManipulation_DOM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: DOM
+# released: 2018-03-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Air Elemental (XLN) 45
+1 Angler Drake (AKH) 41
+2 Cancel (XLN) 47
+1 Censor (AKH) 46
+1 Champion of Wits (HOU) 31
+1 Doomfall (HOU) 62
+2 Essence Scatter (AKH) 52
+2 Evolving Wilds (RIX) 186
+1 Field of Ruin (XLN) 254
+1 Final Reward (AKH) 92
+1 Glyph Keeper (AKH) 55
+1 Golden Demise (RIX) 73
+2 Hieroglyphic Illumination (AKH) 57
+1 Hornswoggle (RIX) 39
+1 Impale (RIX) 76
+3 Island (DOM) 254
+3 Island (DOM) 255
+2 Island (DOM) 256
+2 Island (DOM) 257
+1 Labyrinth Guardian (AKH) 60
+2 Moment of Craving (RIX) 79
+1 Negate (RIX) 44
+1 Nezahal, Primal Tide (RIX) 45
+2 Opt (DOM) 60
+1 Overflowing Insight (XLN) 66
+1 Ravenous Chupacabra (RIX) 82
+1 Reaver Ambush (RIX) 83
+1 Secrets of the Golden City (RIX) 52
+1 Soul of the Rapids (RIX) 56
+4 Submerged Boneyard (AKH) 284
+1 Supreme Will (HOU) 49
+3 Swamp (DOM) 258
+2 Swamp (DOM) 259
+2 Swamp (DOM) 260
+2 Swamp (DOM) 261
+1 Tetzimoc, Primal Death (RIX) 86
+1 Treasure Map // Treasure Cove (XLN) 250
+1 Unsummon (HOU) 54
+1 Vanquish the Weak (XLN) 127
+1 Walk the Plank (XLN) 130

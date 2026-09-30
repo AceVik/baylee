@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: The Spikes - Advanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSpikesAdvancedDeck_STH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Advanced Deck
+# set: STH
+# released: 1998-03-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Armageddon (5ED) 7
+2 City of Brass (5ED) 413
+1 Forest (TMP) 347
+1 Forest (TMP) 348
+1 Gemstone Mine (WTH) 164
+1 Hammer of Bogardan (MIR) 181
+3 Incinerate (5ED) 242
+2 Jolrael's Centaur (MIR) 222
+4 Karplusan Forest (5ED) 421
+4 Kindle (TMP) 184
+2 Lhurgoyf (5ED) 309
+4 Llanowar Elves (5ED) 313
+4 Mogg Hollows (TMP) 320
+1 Mountain (TMP) 343
+1 Orgg (5ED) 259
+1 Pincher Beetles (TMP) 244
+3 Quicksand (VIS) 166
+2 Reflecting Pool (TMP) 322
+2 River Boa (VIS) 118
+1 Shard Phoenix (STH) 97
+1 Shivan Dragon (5ED) 267
+2 Skyshroud Elf (TMP) 255
+2 Spike Breeder (STH) 116
+3 Spike Drone (TMP) 258
+2 Spike Worker (STH) 120
+3 Suq'Ata Lancer (VIS) 96
+2 Uktabi Orangutan (VIS) 123
+2 Undiscovered Paradise (VIS) 167
+1 Vec Townships (TMP) 329
+1 Wildfire Emissary (MIR) 203
+SB: 2 Armageddon (5ED) 7
+SB: 1 Choke (TMP) 219
+SB: 1 City of Solitude (VIS) 102
+SB: 2 Earthquake (5ED) 223
+SB: 2 Emerald Charm (VIS) 106
+SB: 1 Scragnoth (TMP) 253
+SB: 1 Tranquil Domain (MIR) 245
+SB: 2 Uktabi Orangutan (VIS) 123
+SB: 3 Whirling Dervish (5ED) 341

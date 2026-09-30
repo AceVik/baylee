@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Ape Lord
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ApeLord_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Birds of Paradise (3ED) 187
+2 Craw Wurm (3ED) 190
+1 Detonate (ATQ) 24
+3 Disintegrate (3ED) 142
+2 Dragon Engine (ATQ) 49
+3 Fireball (3ED) 150
+4 Firebreathing (3ED) 151
+4 Forest (3ED) 304
+4 Forest (3ED) 305
+4 Forest (3ED) 306
+4 Killer Bees (LEG) 192
+4 Llanowar Elves (3ED) 211
+2 Mana Vault (3ED) 263
+10 Mountain (ARN) 77
+2 Shivan Dragon (3ED) 177
+3 Stream of Life (3ED) 217
+4 Winter Blast (LEG) 213

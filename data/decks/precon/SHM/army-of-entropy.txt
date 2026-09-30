@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Army of Entropy
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ArmyOfEntropy_SHM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: SHM
+# released: 2008-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ashenmoor Cohort (SHM) 56
+3 Ashenmoor Gouger (SHM) 180
+1 Ashenmoor Liege (SHM) 181
+2 Blistering Dieflyn (SHM) 82
+3 Blowfly Infestation (SHM) 58
+3 Cinderbones (SHM) 59
+1 Din of the Fireherd (SHM) 184
+2 Emberstrike Duo (SHM) 185
+2 Fists of the Demigod (SHM) 187
+2 Kulrath Knight (SHM) 190
+3 Mountain (SHM) 294
+3 Mountain (SHM) 295
+3 Mountain (SHM) 296
+3 Mountain (SHM) 297
+2 Mudbrawler Cohort (SHM) 100
+2 Murderous Redcap (SHM) 192
+2 Puncture Bolt (SHM) 102
+2 Rattleblaze Scarecrow (SHM) 259
+3 Scar (SHM) 194
+1 Smash to Smithereens (SHM) 107
+3 Swamp (SHM) 290
+3 Swamp (SHM) 291
+3 Swamp (SHM) 292
+3 Swamp (SHM) 293
+2 Torrent of Souls (SHM) 199
+1 Wild Swing (SHM) 108

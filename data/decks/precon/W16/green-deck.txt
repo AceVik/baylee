@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Green Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GreenDeck_W16.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: W16
+# released: 2016-04-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aim High (SOI) 193
+1 Blighted Woodland (BFZ) 233
+2 Broodhunter Wurm (BFZ) 171
+4 Forest (SOI) 295
+4 Forest (SOI) 296
+4 Forest (SOI) 297
+1 Giant Mantis (BFZ) 173
+1 Gloomwidow (SOI) 206
+1 Incremental Growth (W16) 14
+1 Lifespring Druid (BFZ) 177
+1 Oakenform (W16) 15
+1 Plummet (BFZ) 184
+1 Pulse of Murasa (OGW) 141
+2 Quilled Wolf (SOI) 222
+1 Rabid Bite (SOI) 223
+1 Rot Shambler (BFZ) 187
+1 Seek the Wilds (BFZ) 189
+1 Soul of the Harvest (W16) 16
+1 Thornhide Wolves (SOI) 232

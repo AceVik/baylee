@@ -1,0 +1,24 @@
+# baylee deck export v1
+# name: Azure Skies 2
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AzureSkies2_ANB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: ANB
+# released: 2020-03-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Air Elemental (ANB) 23
+3 Brineborn Cutthroat (M20) 50
+4 Cloudkin Seer (ANB) 25
+2 Dungeon Geists (M20) 57
+25 Island (ANB) 113
+1 Mass Manipulation (RNA) 42
+2 Negate (M20) 69
+2 Riddlemaster Sphinx (ANB) 31
+2 Spectral Sailor (M20) 76
+1 Stolen by the Fae (ELD) 66
+4 Unsummon (ANB) 36
+3 Wall of Runes (ANB) 37
+3 Warden of Evos Isle (ANB) 38
+3 Windstorm Drake (ANB) 42
+2 Winged Words (ANB) 43

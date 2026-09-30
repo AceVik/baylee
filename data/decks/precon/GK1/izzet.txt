@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Izzet
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Izzet_GK1.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Guild Kit
+# set: GK1
+# released: 2018-11-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Beacon Bolt (GRN) 154
+1 Cerebral Vortex (GK1) 35
+1 Char (GK1) 28
+1 Chemister's Insight (GRN) 32
+1 Crackling Drake (GRN) 163
+1 Direct Current (GRN) 96
+1 Djinn Illuminatus (GK1) 36
+1 Electrickery (GK1) 29
+1 Electrolyze (GK1) 37
+1 Electrostatic Field (GRN) 97
+1 Erratic Cyclops (GRN) 98
+1 Firemind's Research (GRN) 171
+1 Gelectrode (GK1) 38
+1 Goblin Electromancer (GRN) 174
+1 Goblin Rally (GK1) 30
+2 Guttersnipe (GK1) 31
+1 Hypersonic Dragon (GK1) 39
+1 Invoke the Firemind (GK1) 40
+8 Island (GK1) 48
+4 Izzet Boilerworks (GK1) 47
+1 Izzet Charm (GK1) 41
+2 Izzet Guildgate (GRN) 251
+2 Izzet Guildgate (GRN) 252
+2 Izzet Signet (GK1) 46
+1 Mizzium Mortars (GK1) 32
+8 Mountain (GK1) 49
+1 Niv-Mizzet, the Firemind (GK1) 26 *F*
+2 Nivix Guildmage (GK1) 42
+1 Pyromatics (GK1) 33
+1 Quasiduplicate (GRN) 51
+1 Radical Idea (GRN) 52
+1 Shattering Spree (GK1) 34
+1 Stitch in Time (GK1) 43
+1 Thunderheads (GK1) 27
+1 Tibor and Lumia (GK1) 44
+1 Turn // Burn (GK1) 45
+2 Wee Dragonauts (GRN) 214

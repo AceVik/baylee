@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Hands of Flame
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, HandsOfFlame_DPA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Of The Planeswalkers Deck
+# set: DPA
+# released: 2010-06-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Act of Treason (DPA) 37
+1 Banefire (DPA) 38
+1 Blaze (DPA) 39
+1 Bloodmark Mentor (DPA) 40
+2 Cinder Pyromancer (DPA) 41
+2 Dragon's Claw (DPA) 92
+2 Earth Elemental (DPA) 42
+1 Enrage (DPA) 43
+1 Furnace of Rath (DPA) 44
+4 Goblin Piker (DPA) 45
+2 Goblin Sky Raider (DPA) 46
+4 Hill Giant (DPA) 47
+3 Incinerate (DPA) 48
+1 Kamahl, Pit Fighter (DPA) 49 *F*
+4 Lightning Elemental (DPA) 50
+6 Mountain (DPA) 106
+6 Mountain (DPA) 107
+6 Mountain (DPA) 108
+6 Mountain (DPA) 109
+1 Prodigal Pyromancer (DPA) 51
+1 Rage Reflection (DPA) 52
+1 Shivan Dragon (DPA) 53
+2 Shock (DPA) 54

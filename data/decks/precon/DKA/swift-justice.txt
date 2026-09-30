@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Swift Justice
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SwiftJustice_DKA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: DKA
+# released: 2012-02-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ashmouth Hound (ISD) 128
+2 Assault Griffin (M12) 8
+1 Bloodcrazed Neonate (ISD) 131
+2 Burning Oil (DKA) 84
+2 Elite Vanguard (M12) 15
+1 Erdwal Ripper (DKA) 86
+1 Fiend Hunter (ISD) 15
+1 Forge Devil (DKA) 91
+2 Lightning Elemental (M12) 149
+2 Markov Warlord (DKA) 97
+2 Midnight Guard (DKA) 14
+4 Mountain (ISD) 259
+4 Mountain (ISD) 260
+4 Mountain (ISD) 261
+2 Niblis of the Mist (DKA) 15
+2 Niblis of the Urn (DKA) 16
+1 Night Revelers (ISD) 153
+1 Nightbird's Clutches (ISD) 154
+4 Plains (ISD) 250
+4 Plains (ISD) 251
+4 Plains (ISD) 252
+2 Rally the Peasants (ISD) 28
+1 Requiem Angel (DKA) 18 *F*
+1 Serra Angel (M12) 33
+1 Silverchase Fox (ISD) 31
+1 Skillful Lunge (DKA) 22
+1 Stromkirk Noble (ISD) 164
+1 Torch Fiend (DKA) 106
+2 Traveler's Amulet (ISD) 234
+2 Wrack with Madness (DKA) 107

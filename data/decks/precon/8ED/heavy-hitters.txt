@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Heavy Hitters
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, HeavyHitters_8ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 8ED
+# released: 2003-07-28
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Elvish Pioneer (8ED) 243
+5 Forest (8ED) 347
+4 Forest (8ED) 348
+4 Forest (8ED) 349
+4 Forest (8ED) 350
+1 Fyndhorn Elder (8ED) 251
+2 Giant Growth (8ED) 254
+2 Hunted Wumpus (8ED) 258
+1 Llanowar Behemoth (8ED) 261
+2 Lone Wolf (8ED) 262
+1 Lure (8ED) 263
+1 Nantuko Disciple (8ED) 268
+1 Naturalize (8ED) 270
+1 Primeval Force (8ED) 273
+2 Rampant Growth (8ED) 274
+1 Rhox (8ED) 277
+1 Rod of Ruin (8ED) 312
+2 Spined Wurm (8ED) 279
+1 Wing Snare (8ED) 288
+2 Wood Elves (8ED) 289

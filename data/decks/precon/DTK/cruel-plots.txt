@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Cruel Plots
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CruelPlots_DTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: DTK
+# released: 2015-03-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Coat with Venom (DTK) 91
+1 Death Wind (DTK) 95
+2 Dutiful Attendant (DTK) 99
+1 Evolving Wilds (DTK) 248
+1 Gravepurge (DTK) 104
+1 Gurmag Drowner (DTK) 57
+1 Hand of Silumgar (DTK) 105
+4 Island (DTK) 253
+4 Island (DTK) 254
+3 Island (DTK) 255
+1 Mind Rot (DTK) 110
+1 Minister of Pain (DTK) 111
+1 Necromaster Dragon (PDTK) 226 *F*
+1 Negate (DTK) 65
+2 Palace Familiar (DTK) 69
+1 Profaner of the Dead (DTK) 70
+2 Qarsi Sadist (DTK) 113
+2 Rakshasa Gravecaller (DTK) 114
+1 Reduce in Stature (DTK) 72
+2 Ruthless Deathfang (DTK) 229
+2 Shambling Goblin (DTK) 118
+2 Sidisi's Faithful (DTK) 74
+2 Silumgar Butcher (DTK) 122
+1 Silumgar Monument (DTK) 243
+1 Silumgar's Scorn (DTK) 78
+5 Swamp (DTK) 256
+4 Swamp (DTK) 257
+4 Swamp (DTK) 258
+1 Ukud Cobra (DTK) 123
+1 Ultimate Price (DTK) 124
+1 Vulturous Aven (DTK) 126
+1 Wandering Tombshell (DTK) 127
+2 Youthful Scholar (DTK) 84

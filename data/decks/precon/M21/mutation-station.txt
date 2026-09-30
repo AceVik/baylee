@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Mutation Station
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MutationStation_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M21
+# released: 2021-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Archipelagore (IKO) 41
+1 Atris, Oracle of Half-Truths (THB) 209
+2 Boot Nipper (IKO) 76
+2 Chittering Harvester (IKO) 80
+1 Dirge Bat (IKO) 84
+4 Dismal Backwater (M21) 245
+2 Dreamtail Heron (IKO) 47
+2 Eliminate (M21) 97
+3 Insatiable Hemophage (IKO) 93
+4 Island (M21) 263
+3 Island (M21) 264
+3 Island (M21) 265
+1 Lochmere Serpent (ELD) 195
+1 Massacre Wurm (M21) 114
+3 Mysterious Egg (IKO) 3
+3 Pollywog Symbiote (IKO) 63
+2 Pouncing Shoreshark (IKO) 64
+2 Rookie Mistake (M21) 66
+1 Sea-Dasher Octopus (IKO) 66
+2 Stern Dismissal (THB) 68
+4 Swamp (M21) 266
+4 Swamp (M21) 267
+3 Swamp (M21) 268
+1 Temple of Deceit (THB) 245
+2 Tome Raider (ELD) 68
+1 Underworld Sentinel (THB) 293
+2 Unexpected Fangs (IKO) 102

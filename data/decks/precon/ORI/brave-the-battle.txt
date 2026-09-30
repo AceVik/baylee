@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Brave the Battle
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BraveTheBattle_ORI.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ORI
+# released: 2015-07-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Anointer of Champions (ORI) 3
+2 Citadel Castellan (ORI) 213
+3 Cleric of the Forward Order (ORI) 10
+2 Enshrouding Mist (ORI) 13
+1 Evolving Wilds (ORI) 246
+3 Forest (ORI) 269
+3 Forest (ORI) 270
+2 Forest (ORI) 271
+2 Forest (ORI) 272
+2 Grasp of the Hieromancer (ORI) 15
+1 Heavy Infantry (ORI) 18
+1 Hixus, Prison Warden (PORI) 19 *F*
+2 Knight of the Pilgrim's Road (ORI) 20
+2 Knightly Valor (ORI) 22
+2 Mighty Leap (ORI) 26
+1 Outland Colossus (ORI) 193
+1 Patron of the Valiant (ORI) 28
+4 Plains (ORI) 253
+4 Plains (ORI) 254
+3 Plains (ORI) 255
+3 Plains (ORI) 256
+2 Sentinel of the Eternal Watch (ORI) 30
+2 Stalwart Aven (ORI) 32
+1 Titanic Growth (ORI) 201
+2 Topan Freeblade (ORI) 36
+2 Valeron Wardens (ORI) 203
+1 Valor in Akros (ORI) 39
+1 Vastwood Gorger (ORI) 204
+1 Vine Snare (ORI) 205
+2 Wild Instincts (ORI) 206

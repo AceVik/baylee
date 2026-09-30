@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Sole Domination
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SoleDomination_M13.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M13
+# released: 2012-07-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angelic Benediction (M13) 4
+2 Aven Squire (M13) 6
+1 Blood Reckoning (M13) 81
+2 Bloodhunter Bat (M13) 82
+2 Cower in Fear (M13) 84
+2 Duskmantle Prowler (M13) 91
+2 Duty-Bound Dead (M13) 92
+1 Evolving Wilds (M13) 224
+1 Guardians of Akrasa (M13) 18
+1 Knight of Glory (M13) 21
+2 Knight of Infamy (M13) 96
+1 Liliana's Shade (M13) 98
+1 Mark of the Vampire (M13) 99
+2 Murder (M13) 101
+1 Nefarox, Overlord of Grixis (M13) 103 *F*
+2 Pacifism (M13) 24
+2 Plains (M13) 230
+2 Plains (M13) 231
+2 Plains (M13) 232
+2 Plains (M13) 233
+1 Ring of Xathrid (M13) 215
+3 Servant of Nefarox (M13) 108
+4 Swamp (M13) 238
+4 Swamp (M13) 239
+4 Swamp (M13) 240
+3 Swamp (M13) 241
+2 Tormented Soul (M13) 111
+1 Vampire Nighthawk (M13) 112
+1 Veilborn Ghoul (M13) 114
+2 Walking Corpse (M13) 116
+1 Warclamp Mastiff (M13) 40
+1 Xathrid Gorgon (M13) 118
+1 Zombie Goliath (M13) 119

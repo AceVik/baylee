@@ -1,0 +1,50 @@
+# baylee deck export v1
+# name: Boros Assault
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BorosAssault_DOM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: DOM
+# released: 2018-03-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abrade (HOU) 83
+1 Adorned Pouncer (HOU) 2
+1 Ahn-Crop Crasher (AKH) 117
+1 Angel of Condemnation (HOU) 3
+1 Baffling End (RIX) 1
+1 Battlefield Scavenger (AKH) 118
+1 Bloodlust Inciter (AKH) 120
+1 Cartouche of Solidarity (AKH) 7
+1 Cast Out (AKH) 8
+1 Combat Celebrant (AKH) 125
+2 Dauntless Aven (HOU) 7
+1 Desert's Hold (HOU) 8
+1 Devoted Crop-Mate (AKH) 10
+1 Fanatical Firebrand (RIX) 101
+1 Fervent Paincaster (HOU) 91
+1 Glory-Bound Initiate (AKH) 16
+1 Gust Walker (AKH) 17
+1 Harsh Mentor (AKH) 135
+2 Honored Crop-Captain (AKH) 200
+1 Ixalan's Binding (XLN) 17
+1 Lightning Strike (XLN) 149
+2 Magma Spray (AKH) 141
+3 Mountain (DOM) 262
+3 Mountain (DOM) 263
+2 Mountain (DOM) 264
+2 Mountain (DOM) 265
+1 Nef-Crop Entangler (AKH) 144
+1 Oketra's Avenger (HOU) 17
+1 Oketra's Monument (AKH) 233
+3 Plains (DOM) 250
+3 Plains (DOM) 251
+2 Plains (DOM) 252
+2 Plains (DOM) 253
+1 Puncturing Blow (HOU) 106
+2 Rallying Roar (XLN) 30
+2 Resolute Survivors (HOU) 142
+1 Shefet Dunes (HOU) 183
+2 Skymarcher Aspirant (RIX) 21
+1 Steward of Solidarity (HOU) 25
+2 Stone Quarry (RIX) 190
+1 Trial of Solidarity (AKH) 34

@@ -358,6 +358,8 @@ impl<'a> Owners<'a> {
                     sleeve: Set(d.sleeve.clone()),
                     playmat: Set(d.playmat.clone()),
                     updated_at: Set(at(d.updated_at)),
+                    source: Set(None),
+                    offered: Set(true),
                 })
             })
             .collect()

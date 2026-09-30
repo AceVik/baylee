@@ -1,0 +1,50 @@
+# baylee deck export v1
+# name: Domain
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Domain_PLS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PLS
+# released: 2001-02-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Allied Strategies (PLS) 20
+1 Breath of Darigaaz (INV) 138
+1 Confound (PLS) 22
+2 Exotic Curse (INV) 105
+2 Exotic Disease (PLS) 43
+2 Forest (INV) 347
+2 Forest (INV) 348
+2 Forest (INV) 349
+2 Forest (INV) 350
+1 Gaea's Might (PLS) 81
+3 Harrow (INV) 189
+1 Island (INV) 335
+1 Island (INV) 336
+1 Island (INV) 337
+1 Kavu Recluse (PLS) 64
+2 Kavu Scout (INV) 151
+1 Magnigoth Treefolk (PLS) 82
+1 Mountain (INV) 343
+1 Mountain (INV) 344
+1 Mountain (INV) 345
+1 Ordered Migration (INV) 258
+1 Plains (INV) 331
+1 Plains (INV) 332
+1 Plains (INV) 333
+1 Primal Growth (PLS) 87
+1 Quirion Dryad (PLS) 89
+2 Quirion Explorer (PLS) 90
+2 Quirion Trailblazer (INV) 205
+1 Rith's Charm (PLS) 122
+3 Samite Pilgrim (PLS) 15
+2 Stratadon (PLS) 135
+1 Strength of Unity (INV) 40
+1 Swamp (INV) 339
+1 Swamp (INV) 340
+1 Swamp (INV) 341
+2 Terminal Moraine (PLS) 142
+1 Treva's Charm (PLS) 129
+3 Tribal Flames (INV) 176
+1 Wandering Stream (INV) 224
+1 Wayfaring Giant (INV) 44
+2 Worldly Counsel (INV) 89

@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Cho-Manno's Resolve
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ChoMannoSResolve_10E.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 10E
+# released: 2007-07-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ancestor's Chosen (10E) 1
+2 Angel of Mercy (10E) 2
+1 Angel's Feather (10E) 311
+2 Benalish Knight (10E) 11
+1 Cho-Manno, Revolutionary (10E) 12
+1 Condemn (10E) 13
+1 Ghost Warden (10E) 16
+1 Icy Manipulator (10E) 326
+2 Loxodon Mystic (10E) 26
+2 Pacifism (10E) 31
+1 Pariah (10E) 33
+5 Plains (10E) 364
+4 Plains (10E) 365
+4 Plains (10E) 366
+4 Plains (10E) 367
+1 Serra's Embrace (10E) 40
+2 Skyhunter Patrol (10E) 41
+1 Venerable Monk (10E) 55
+2 Wild Griffin (10E) 59
+2 Youthful Knight (10E) 62

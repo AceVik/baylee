@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Grave Advantage
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GraveAdvantage_FRF.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: FRF
+# released: 2015-01-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abzan Beastmaster (FRF) 119
+2 Archers' Parapet (KTK) 128
+1 Archfiend of Depravity (PFRF) 62 *F*
+1 Become Immense (KTK) 130
+1 Carrion Crow (M15) 88
+1 Dark Deal (FRF) 66
+5 Forest (FRF) 184
+5 Forest (FRF) 185
+1 Gravedigger (M15) 99
+2 Grim Contest (FRF) 153
+2 Gurmag Angler (FRF) 72
+1 Highland Game (KTK) 135
+1 Hornet Queen (M15) 178
+1 Hunt the Weak (FRF) 133
+3 Jungle Hollow (FRF) 169
+2 Kheru Bloodsucker (KTK) 75
+1 Kheru Dreadmaw (KTK) 76
+1 Kin-Tree Invocation (KTK) 183
+1 Merciless Executioner (FRF) 76
+1 Rakshasa's Secret (KTK) 84
+1 Rotting Mastodon (KTK) 87
+1 Satyr Wayfinder (M15) 198
+2 Scout the Borders (KTK) 148
+1 Shambling Attendants (KTK) 89
+2 Sibsig Host (FRF) 82
+2 Sudden Reclamation (FRF) 139
+1 Sultai Flayer (KTK) 152
+1 Sultai Scavenger (KTK) 91
+7 Swamp (FRF) 180
+6 Swamp (FRF) 181
+1 Undergrowth Scavenger (M15) 204
+1 Wall of Mulch (M15) 208

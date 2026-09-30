@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Graveyard Bash
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GraveyardBash_M19.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M19
+# released: 2018-09-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Death Baron (M19) 90
+3 Deathbloom Thallid (DOM) 84
+2 Diregraf Ghoul (M19) 92
+3 Doomed Dissenter (M19) 93
+2 Gravedigger (M19) 98
+1 Gravewaker (M19) 293
+2 Hired Blade (M19) 100
+2 Infectious Horror (M19) 101
+1 Meteor Golem (M19) 241
+3 Murder (ANB) 53
+1 Open the Graves (M19) 112
+1 Rise from the Grave (ANA) 38
+2 Skulduggery (XLN) 123
+2 Skymarch Bloodletter (M19) 119
+2 Strangling Spores (M19) 122
+7 Swamp (M19) 269
+6 Swamp (M19) 270
+6 Swamp (M19) 271
+6 Swamp (M19) 272
+2 Vampire Sovereign (M19) 125
+3 Walking Corpse (M19) 126
+1 Yargle, Glutton of Urborg (DOM) 113

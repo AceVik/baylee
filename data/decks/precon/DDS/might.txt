@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Might
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Might_DDS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDS
+# released: 2017-03-31
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ambassador Oak (DDS) 42
+1 Beacon of Destruction (DDS) 35
+1 Beast Attack (DDS) 43
+1 Boldwyr Intimidator (DDS) 36
+2 Burning-Tree Emissary (DDS) 55
+2 Call of the Herd (DDS) 44
+2 Cloudcrown Oak (DDS) 45
+1 Coat of Arms (DDS) 58
+2 Firebolt (DDS) 37
+4 Forest (DDS) 63
+3 Forest (DDS) 64
+3 Forest (DDS) 65
+2 Gorehorn Minotaurs (DDS) 38
+1 Guttural Response (DDS) 56
+1 Harmonize (DDS) 46
+1 Increasing Savagery (DDS) 47
+1 Kamahl, Pit Fighter (DDS) 39
+2 Kruin Striker (DDS) 40
+1 Lovisa Coldeyes (DDS) 34 *F*
+4 Mountain (DDS) 60
+4 Mountain (DDS) 61
+3 Mountain (DDS) 62
+1 Radha, Heir to Keld (DDS) 53
+2 Rampant Growth (DDS) 48
+1 Relentless Hunter (DDS) 54
+1 Roar of the Wurm (DDS) 49
+1 Rubblebelt Raiders (DDS) 57
+4 Rugged Highlands (DDS) 59
+2 Skarrgan Pit-Skulk (DDS) 50
+2 Sylvan Might (DDS) 51
+1 Talara's Battalion (DDS) 52
+1 Zo-Zu the Punisher (DDS) 41

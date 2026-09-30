@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Zakk's Second Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ZakkSSecondDeck_RQS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: RQS
+# released: 1996-06-10
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Circle of Protection: Black (RQS) 2
+1 Circle of Protection: Red (RQS) 3
+1 Dark Ritual (RQS) 18
+1 Elvish Archers (RQS) 40
+2 Forest (RQS) 63
+1 Forest (RQS) 64
+1 Forest (RQS) 65
+1 Glasses of Urza (RQS) 49
+1 Mesa Pegasus (RQS) 5
+2 Plains (RQS) 52
+1 Plains (RQS) 53
+1 Plains (RQS) 54
+1 Reverse Damage (RQS) 7
+1 Rod of Ruin (RQS) 51
+2 Swamp (RQS) 57
+1 Swamp (RQS) 58
+1 Swamp (RQS) 59
+1 Wall of Bone (RQS) 26
+1 War Mammoth (RQS) 44
+1 Warp Artifact (RQS) 27
+1 Weakness (RQS) 28
+1 Whirling Dervish (RQS) 45
+1 Winter Blast (RQS) 46

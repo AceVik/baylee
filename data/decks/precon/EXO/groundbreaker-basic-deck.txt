@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Groundbreaker - Basic Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GroundbreakerBasicDeck_EXO.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: EXO
+# released: 1998-06-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aftershock (TMP) 160
+3 Anarchist (EXO) 79
+2 Dauthi Jackal (EXO) 58
+1 Dauthi Slayer (TMP) 126
+3 Diabolic Edict (TMP) 128
+1 Evincar's Justice (TMP) 134
+3 Flowstone Flood (EXO) 83
+1 Monstrous Hound (EXO) 89
+3 Mountain (TMP) 343
+3 Mountain (TMP) 344
+3 Mountain (TMP) 345
+3 Mountain (TMP) 346
+1 Nausea (EXO) 67
+1 Necrologia (EXO) 68
+3 Rain of Tears (TMP) 149
+1 Scalding Salamander (EXO) 100
+1 Searing Touch (TMP) 201
+3 Shock (STH) 98
+4 Stone Rain (TMP) 206
+3 Swamp (TMP) 339
+3 Swamp (TMP) 340
+3 Swamp (TMP) 341
+3 Swamp (TMP) 342
+1 Thopter Squadron (EXO) 140
+2 Thrull Surgeon (EXO) 76
+2 Vampire Hounds (EXO) 77
+1 Volrath's Dungeon (EXO) 78

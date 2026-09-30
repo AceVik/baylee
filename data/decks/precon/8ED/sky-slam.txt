@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Sky Slam
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SkySlam_8ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 8ED
+# released: 2003-07-28
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Air Elemental (8ED) 59
+1 Aven Fisher (8ED) 61
+1 Coastal Hornclaw (8ED) 66
+1 Dehydration (8ED) 75
+1 Fighting Drake (8ED) 77
+1 Fleeting Image (8ED) 79
+2 Horned Turtle (8ED) 83
+5 Island (8ED) 335
+4 Island (8ED) 336
+4 Island (8ED) 337
+4 Island (8ED) 338
+1 Mana Leak (8ED) 89
+1 Phantom Warrior (8ED) 93
+1 Puppeteer (8ED) 94
+2 Remove Soul (8ED) 95
+1 Sage Owl (8ED) 98
+1 Spiketail Hatchling (8ED) 102
+2 Thieving Magpie (8ED) 107
+3 Unsummon (8ED) 112
+1 Urza's Armor (8ED) 318
+2 Wind Drake (8ED) 114

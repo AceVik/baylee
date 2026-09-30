@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: March of the Multitudes
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MarchOfTheMultitudes_MD1.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Modern Event Deck
+# set: MD1
+# released: 2014-05-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Caves of Koilos (MD1) 14
+2 City of Brass (MD1) 15
+1 Elspeth, Knight-Errant (MD1) 13
+3 Honor of the Pure (MD1) 6
+2 Inquisition of Kozilek (MD1) 4
+4 Intangible Virtue (MD1) 7
+4 Isolated Chapel (MD1) 16
+4 Lingering Souls (MD1) 11
+3 Path to Exile (MD1) 3
+5 Plains (MD1) 19
+4 Raise the Alarm (MD1) 8
+2 Shrine of Loyal Legions (MD1) 5
+2 Soul Warden (MD1) 1
+4 Spectral Procession (MD1) 12
+4 Swamp (MD1) 20
+1 Sword of Feast and Famine (MD1) 10
+3 Tidehollow Sculler (MD1) 2
+1 Vault of the Archangel (MD1) 17
+4 Windbrisk Heights (MD1) 18
+3 Zealous Persecution (MD1) 9
+SB: 2 Burrenton Forge-Tender (MD1) 22
+SB: 2 Dismember (MD1) 25
+SB: 3 Duress (MD1) 23
+SB: 2 Ghost Quarter (MD1) 26
+SB: 3 Kataki, War's Wage (MD1) 24
+SB: 3 Relic of Progenitus (MD1) 21

@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Death March
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeathMarch_EVE.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: EVE
+# released: 2008-07-25
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Cankerous Thirst (EVE) 116
+1 Creakwood Liege (EVE) 117
+2 Desecrator Hag (EVE) 119
+1 Doomgape (EVE) 120
+3 Forest (SHM) 298
+3 Forest (SHM) 299
+3 Forest (SHM) 300
+3 Forest (SHM) 301
+2 Gift of the Deity (EVE) 122
+2 Hag Hedge-Mage (EVE) 123
+2 Merrow Bonegnawer (EVE) 37
+2 Noxious Hatchling (EVE) 124
+3 Odious Trow (EVE) 125
+2 Quillspike (EVE) 126
+3 Rendclaw Trow (EVE) 127
+2 Roughshod Mentor (SHM) 128
+1 Savage Conception (EVE) 75
+2 Soul Reap (EVE) 44
+2 Stalker Hag (EVE) 129
+3 Swamp (SHM) 290
+3 Swamp (SHM) 291
+3 Swamp (SHM) 292
+3 Swamp (SHM) 293
+1 Syphon Life (EVE) 46
+2 Viridescent Wisps (SHM) 132
+2 Wickerbough Elder (EVE) 80
+3 Woodlurker Mimic (EVE) 130

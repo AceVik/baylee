@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Wrack and Rage
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WrackAndRage_RTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: RTR
+# released: 2012-10-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Brimstone Volley (ISD) 132
+1 Devil's Play (ISD) 140
+1 Dragonskull Summit (M13) 222
+2 Hellhole Flailer (RTR) 167
+3 Knight of Infamy (M13) 96
+2 Lightning Mauler (AVR) 144
+1 Mizzium Mortars (RTR) 101
+3 Mountain (RTR) 265
+3 Mountain (RTR) 266
+3 Mountain (RTR) 267
+2 Mountain (RTR) 268
+2 Mountain (RTR) 269
+1 Nightbird's Clutches (ISD) 154
+4 Pillar of Flame (AVR) 149
+4 Rakdos Cackler (RTR) 220
+1 Rakdos Charm (RTR) 184
+2 Rakdos Guildgate (RTR) 244
+4 Rakdos Shred-Freak (RTR) 221
+3 Rix Maadi Guildmage (RTR) 192
+4 Searing Spear (M13) 147
+2 Stonewright (AVR) 157
+2 Stromkirk Noble (ISD) 164
+2 Swamp (RTR) 260
+2 Swamp (RTR) 261
+2 Swamp (RTR) 262
+1 Swamp (RTR) 263
+1 Swamp (RTR) 264
+SB: 2 Brimstone Volley (ISD) 132
+SB: 3 Duress (M13) 90
+SB: 2 Electrickery (RTR) 93
+SB: 2 Faithless Looting (DKA) 87
+SB: 1 Grafdigger's Cage (DKA) 149
+SB: 2 Murder (M13) 101
+SB: 2 Ultimate Price (RTR) 82
+SB: 1 Vexing Devil (AVR) 164

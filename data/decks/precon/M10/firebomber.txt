@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Firebomber
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Firebomber_M10.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M10
+# released: 2009-07-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Berserkers of Blood Ridge (M10) 126
+1 Canyon Minotaur (M10) 130
+1 Divination (M10) 49
+1 Dragon Whelp (M10) 133
+1 Earthquake (M10) 134
+1 Fiery Hellhound (M10) 135
+1 Fireball (M10) 136
+1 Goblin Artillery (M10) 138
+1 Goblin Piker (M10) 140
+2 Island (M10) 234
+1 Island (M10) 235
+1 Island (M10) 236
+1 Island (M10) 237
+1 Lava Axe (M10) 145
+2 Lightning Bolt (M10) 146
+2 Lightning Elemental (M10) 147
+3 Mountain (M10) 242
+3 Mountain (M10) 243
+3 Mountain (M10) 244
+3 Mountain (M10) 245
+1 Negate (M10) 65
+1 Prodigal Pyromancer (M10) 151
+1 Pyroclasm (M10) 152
+1 Raging Goblin (M10) 153
+2 Seismic Strike (M10) 154
+1 Shivan Dragon (M10) 156 *F*
+1 Sleep (M10) 71
+1 Terramorphic Expanse (M10) 229
+1 Wall of Fire (M10) 162

@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Sacrilege
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Sacrilege_TOR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TOR
+# released: 2002-02-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angel of Retribution (TOR) 1
+1 Auramancer (ODY) 5
+1 Aven Cloudchaser (ODY) 7
+3 Buried Alive (ODY) 118
+2 Cabal Surgeon (TOR) 52
+1 Carrion Wurm (TOR) 55
+4 Crippling Fatigue (TOR) 58
+1 Crypt Creeper (ODY) 125
+4 Gravedigger (ODY) 140
+1 Grotesque Hybrid (TOR) 63
+1 Hypochondria (TOR) 7
+1 Ichorid (TOR) 65
+1 Malevolent Awakening (ODY) 147
+3 Mystic Familiar (TOR) 11
+3 Plains (ODY) 331
+3 Plains (ODY) 332
+2 Plains (ODY) 333
+2 Plains (ODY) 334
+3 Putrid Imp (TOR) 77
+1 Stern Judge (TOR) 16
+1 Strength of Isolation (TOR) 17
+3 Swamp (ODY) 339
+3 Swamp (ODY) 340
+3 Swamp (ODY) 341
+3 Swamp (ODY) 342
+2 Tainted Field (TOR) 140
+3 Teroh's Faithful (TOR) 18
+1 Teroh's Vanguard (TOR) 19
+1 Whispering Shade (ODY) 167
+1 Zombify (ODY) 171

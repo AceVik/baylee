@@ -1,0 +1,23 @@
+# baylee deck export v1
+# name: Merfolk Shaman
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MerfolkShaman_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+8 Island (3ED) 295
+7 Island (3ED) 296
+7 Island (3ED) 297
+2 Island Fish Jasconius (ARN) 16
+3 Lifetap (3ED) 63
+4 Lord of Atlantis (3ED) 64
+3 Magical Hack (3ED) 65
+4 Merfolk of the Pearl Trident (3ED) 68
+4 Phantasmal Terrain (3ED) 70
+3 Pirate Ship (3ED) 72
+3 Sea Serpent (3ED) 78
+4 Segovian Leviathan (LEG) 76
+4 Unstable Mutation (ARN) 22
+4 Unsummon (3ED) 87

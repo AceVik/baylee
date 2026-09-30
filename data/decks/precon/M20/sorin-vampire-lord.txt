@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Sorin, Vampire Lord
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SorinVampireLord_M20.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: M20
+# released: 2019-07-29
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Blood Burglar (M20) 88
+4 Bloodthirsty Aerialist (M20) 91
+2 Dark Remedy (M20) 321
+1 Dread Presence (M20) 96
+1 Gravewaker (M20) 323
+3 Murder (M20) 109
+4 Savage Gorger (M20) 291
+2 Sorin's Guide (M20) 292
+4 Sorin's Thirst (M20) 325
+1 Sorin, Vampire Lord (M20) 290 *F*
+7 Swamp (M20) 269
+6 Swamp (M20) 270
+6 Swamp (M20) 271
+6 Swamp (M20) 272
+3 Thirsting Bloodlord (M20) 293
+2 Vampire Opportunist (M20) 326
+4 Vampire of the Dire Moon (M20) 120

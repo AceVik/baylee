@@ -1,0 +1,50 @@
+# baylee deck export v1
+# name: Temur Avalanche
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TemurAvalanche_KTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: KTK
+# released: 2014-09-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Alpine Grizzly (KTK) 127
+1 Avalanche Tusker (PKTK) 166 *F*
+1 Bear's Companion (KTK) 167
+1 Dragon Grip (KTK) 107
+2 Elvish Mystic (M15) 173
+1 Force Away (KTK) 40
+2 Forest (KTK) 266
+2 Forest (KTK) 267
+2 Forest (KTK) 268
+2 Forest (KTK) 269
+2 Frontier Bivouac (KTK) 234
+2 Glacial Stalker (KTK) 41
+2 Heir of the Wilds (KTK) 134
+1 Icefeather Aven (KTK) 178
+1 Icy Blast (KTK) 42
+2 Island (KTK) 254
+1 Island (KTK) 255
+1 Island (KTK) 256
+1 Island (KTK) 257
+1 Lightning Strike (M15) 155
+2 Mountain (KTK) 262
+2 Mountain (KTK) 263
+2 Mountain (KTK) 264
+1 Mountain (KTK) 265
+1 Pine Walker (KTK) 143
+1 Roar of Challenge (KTK) 145
+1 Rugged Highlands (KTK) 240
+2 Runeclaw Bear (M15) 197
+2 Savage Punch (KTK) 147
+2 Snowhorn Rider (KTK) 201
+1 Stubborn Denial (KTK) 56
+2 Summit Prowler (KTK) 121
+1 Swiftwater Cliffs (KTK) 243
+2 Temur Banner (KTK) 226
+1 Temur Charm (KTK) 208
+1 Thornwood Falls (KTK) 244
+1 Thundering Giant (M15) 165
+1 Titanic Growth (M15) 203
+1 Tusked Colossodon (KTK) 155
+1 Windstorm (KTK) 157
+2 Woolly Loxodon (KTK) 158

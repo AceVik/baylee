@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Jund Appetite for War
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, JundAppetiteForWar_CON.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: CON
+# released: 2009-02-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Branching Bolt (ALA) 158
+2 Carrion Thrash (ALA) 162
+1 Charnelhoard Wurm (CON) 100 *F*
+2 Dark Temper (CON) 61
+2 Dragon Fodder (ALA) 97
+1 Ember Weaver (CON) 81
+2 Fiery Fall (CON) 63
+1 Forest (ALA) 246
+1 Forest (ALA) 247
+1 Forest (ALA) 248
+1 Forest (ALA) 249
+1 Gluttonous Slime (CON) 83
+2 Goblin Outlander (CON) 109
+1 Hellkite Hatchling (CON) 111
+2 Incinerate (10E) 213
+2 Mountain (ALA) 242
+1 Mountain (ALA) 243
+1 Mountain (ALA) 244
+1 Mountain (ALA) 245
+2 Savage Lands (ALA) 228
+1 Scarland Thrinax (CON) 123
+1 Sprouting Thrinax (ALA) 197
+1 Swamp (ALA) 238
+1 Swamp (ALA) 239
+1 Swamp (ALA) 240
+1 Swamp (ALA) 241
+2 Terramorphic Expanse (10E) 360
+1 Toxic Iguanar (CON) 72
+2 Tukatongue Thallid (CON) 96
+1 Viashino Slaughtermaster (CON) 73
+1 Voracious Dragon (CON) 75

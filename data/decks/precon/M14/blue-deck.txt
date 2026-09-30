@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Blue Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlueDeck_M14.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M14
+# released: 2014-07-19
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Air Servant (M14) 42
+1 Archaeomancer (M14) 43
+1 Cancel (M14) 45
+1 Claustrophobia (M14) 46
+1 Coral Merfolk (M14) 49
+1 Disperse (M14) 51
+1 Divination (M14) 52
+1 Essence Scatter (M14) 55
+1 Frost Breath (M14) 56
+4 Island (M14) 234
+3 Island (M14) 235
+3 Island (M14) 236
+3 Island (M14) 237
+1 Messenger Drake (M14) 63
+1 Phantom Warrior (M14) 67
+1 Scroll Thief (M14) 69
+1 Seacoast Drake (M14) 70
+1 Skyline Predator (RTR) 50
+1 Time Ebb (M14) 74
+1 Warden of Evos Isle (M14) 79
+1 Wind Drake (DGM) 20

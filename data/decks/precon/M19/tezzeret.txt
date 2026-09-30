@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Tezzeret
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Tezzeret_M19.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: M19
+# released: 2018-07-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Divination (M19) 51
+3 Dwindle (M19) 53
+1 Exclusion Mage (M19) 55
+2 Field Creeper (M19) 234
+2 Gearsmith Guardian (M19) 237
+2 Gearsmith Prodigy (M19) 57
+7 Island (M19) 265
+7 Island (M19) 266
+6 Island (M19) 267
+6 Island (M19) 268
+1 Manalith (M19) 239
+2 Meteor Golem (M19) 241
+1 One with the Machine (M19) 66
+4 Pendulum of Patterns (M19) 288
+1 Riddlemaster Sphinx (M19) 287
+1 Scholar of Stars (M19) 71
+2 Skilled Animator (M19) 73
+2 Skyscanner (M19) 245
+2 Snapping Drake (M19) 75
+2 Tezzeret's Gatebreaker (M19) 289
+3 Tezzeret's Strider (M19) 290
+1 Tezzeret, Cruel Machinist (M19) 286 *F*
+1 Uncomfortable Chill (M19) 82

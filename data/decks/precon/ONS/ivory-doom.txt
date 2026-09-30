@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Ivory Doom
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, IvoryDoom_ONS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ONS
+# released: 2002-10-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Akroma's Blessing (ONS) 1
+1 Astral Slide (ONS) 4
+1 Aven Soulgazer (ONS) 8
+4 Barren Moor (ONS) 312
+2 Battlefield Medic (ONS) 9
+2 Cabal Archon (ONS) 129
+1 Cabal Executioner (ONS) 130
+3 Daru Healer (ONS) 19
+1 Daunting Defender (ONS) 21
+1 Death Pulse (ONS) 137
+2 Disciple of Grace (ONS) 25
+4 Disciple of Malice (ONS) 139
+2 Doubtless One (ONS) 27
+3 Foothill Guide (ONS) 29
+1 Gangrenous Goliath (ONS) 150
+1 Headhunter (ONS) 156
+2 Pacifism (ONS) 47
+2 Plains (ONS) 331
+2 Plains (ONS) 332
+2 Plains (ONS) 333
+2 Plains (ONS) 334
+2 Profane Prayers (ONS) 162
+4 Secluded Steppe (ONS) 324
+1 Sigil of the New Dawn (ONS) 55
+2 Smother (ONS) 170
+1 Starlit Sanctum (ONS) 325
+2 Swamp (ONS) 339
+2 Swamp (ONS) 340
+2 Swamp (ONS) 341
+2 Swamp (ONS) 342
+2 Swat (ONS) 174

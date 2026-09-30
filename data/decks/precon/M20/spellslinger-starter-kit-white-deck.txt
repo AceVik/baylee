@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Spellslinger Starter Kit - White Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SpellslingerStarterKitWhiteDeck_M20.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Spellslinger Starter Kit
+# set: M20
+# released: 2019-07-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angelic Guardian (M20) 302
+3 Bastion Enforcer (M20) 303
+2 Bond of Discipline (WAR) 6
+1 Citywide Bust (GRN) 4
+2 Concordia Pegasus (M20) 304
+2 Dawning Angel (M20) 11
+3 Haazda Officer (M20) 305
+1 Imperial Outrider (M20) 307
+1 Inspired Charge (M20) 24
+2 Inspiring Unicorn (GRN) 16
+1 Intrusive Packbeast (GRN) 17
+1 Loxodon Lifechanter (M20) 27
+7 Plains (M20) 261
+7 Plains (M20) 262
+6 Plains (M20) 263
+6 Plains (M20) 264
+2 Prowling Caracal (M20) 309
+2 Righteous Blow (GRN) 23
+1 Sephara, Sky's Blade (M20) 36
+1 Serra's Guardian (M20) 310
+3 Show of Valor (M20) 311
+3 Take Vengeance (M20) 313
+2 Trusted Pegasus (M20) 314

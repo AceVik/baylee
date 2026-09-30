@@ -1,0 +1,45 @@
+# baylee deck export v1
+# name: Dimir Dementia
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DimirDementia_GTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: GTC
+# released: 2013-02-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Balustrade Spy (GTC) 57
+1 Coerced Confession (GTC) 217
+1 Consuming Aberration (GTC) 152 *F*
+2 Death's Approach (GTC) 62
+2 Deathcult Rogue (GTC) 218
+1 Dimir Guildgate (GTC) 241
+2 Dimir Keyrune (GTC) 228
+2 Dinrova Horror (GTC) 155
+1 Duskmantle Guildmage (GTC) 158
+2 Grisly Spectacle (GTC) 66
+3 Gutter Skulk (GTC) 67
+1 Incursion Specialist (GTC) 38
+3 Island (RTR) 255
+3 Island (RTR) 256
+2 Island (RTR) 257
+2 Island (RTR) 258
+2 Island (RTR) 259
+1 Jace's Phantasm (M13) 57
+1 Last Thoughts (GTC) 40
+1 Midnight Recovery (GTC) 73
+1 Mindeye Drake (GTC) 43
+1 Mortus Strider (GTC) 179
+1 Paranoid Delusions (GTC) 186
+1 Rise from the Grave (M13) 107
+1 Sage's Row Denizen (GTC) 46
+1 Shadow Slice (GTC) 77
+3 Swamp (RTR) 260
+3 Swamp (RTR) 261
+3 Swamp (RTR) 262
+2 Swamp (RTR) 263
+2 Swamp (RTR) 264
+1 Totally Lost (GTC) 54
+1 Vedalken Entrancer (M13) 76
+1 Welkin Tern (M13) 79
+1 Whispering Madness (GTC) 207
+2 Wight of Precinct Six (GTC) 84

@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Scrapyard Sacrifice
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ScrapyardSacrifice_LTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: LTR
+# released: 2023-06-20
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ashnod's Intervention (BRO) 85
+1 Ashnod, Flesh Mechanist (BRO) 84
+4 Bloodfell Caves (MOM) 267
+2 Charforger (ONE) 199
+2 Corrupted Conviction (MOM) 98
+3 Etched Familiar (MOM) 101
+1 Fallaji Antiquarian (YBRO) 8
+3 Final Flourish (MOM) 104
+2 Furnace Gremlin (MOM) 139
+4 Geothermal Bog (DMU) 247
+3 Gixian Infiltrator (BRO) 98
+1 Mishra, Claimed by Gix (BRO) 216
+4 Mountain (LTR) 268
+3 Mountain (LTR) 269
+1 Phyrexian Dragon Engine (BRO) 163
+2 Powerstone Fracture (BRO) 112
+1 Rankle and Torbran (MOM) 252
+3 Sanitarium Skeleton (ANB) 57
+2 Sengir Connoisseur (DMU) 104
+2 Stormclaw Rager (MOM) 254
+1 Sulfurous Springs (DMU) 256
+5 Swamp (LTR) 266
+4 Swamp (LTR) 267
+2 Testament Bearer (ONE) 111
+1 Urabrask's Forge (ONE) 153
+1 Vraan, Executioner Thane (ONE) 114

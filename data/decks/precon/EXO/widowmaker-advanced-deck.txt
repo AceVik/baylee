@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Widowmaker - Advanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WidowmakerAdvancedDeck_EXO.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Advanced Deck
+# set: EXO
+# released: 1998-06-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ancestral Memories (MIR) 52
+2 Blood Pet (TMP) 109
+1 Bottle Gnomes (TMP) 278
+2 Counterspell (TMP) 57
+1 Dark Ritual (TMP) 118
+1 Dissipate (MIR) 61
+2 Fallen Angel (5ED) 161
+1 Haunting Misery (WTH) 71
+2 Impulse (VIS) 34
+2 Island (TMP) 335
+2 Island (TMP) 336
+2 Island (TMP) 337
+2 Island (TMP) 338
+3 Living Death (TMP) 142
+4 Man-o'-War (VIS) 37
+2 Memory Lapse (5ED) 103
+4 Merfolk Looter (EXO) 39
+4 Merfolk Traders (WTH) 43
+1 Necratog (WTH) 76
+1 Phyrexian Furnace (WTH) 155
+4 Rootwater Depths (TMP) 323
+1 Spinning Darkness (WTH) 81
+1 Spirit of the Night (MIR) 146
+2 Swamp (TMP) 339
+2 Swamp (TMP) 340
+2 Swamp (TMP) 341
+1 Swamp (TMP) 342
+4 Underground River (5ED) 426
+2 Undiscovered Paradise (VIS) 167
+1 Vampire Hounds (EXO) 77
+SB: 1 Blood Pet (TMP) 109
+SB: 1 Crypt Rats (VIS) 55
+SB: 3 Dread of Night (TMP) 130
+SB: 2 Hydroblast (5ED) 94
+SB: 2 Ice Floe (5ED) 420
+SB: 1 Living Death (TMP) 142
+SB: 4 Nekrataal (VIS) 66
+SB: 1 Sleight of Mind (5ED) 124

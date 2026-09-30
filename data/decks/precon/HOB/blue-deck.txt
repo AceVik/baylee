@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Blue Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlueDeck_HOB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: HOB
+# released: 2026-08-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Bilbo Baggins, Burglar // Take a Glance (HOB) 34
+1 Bilbo, Luckwearer // Burglar's Plot (HOB) 32
+1 Captain of Umbar (HOC) 173
+1 Colossal Whale (HOC) 174
+1 Confusticate and Bebother (HOB) 35
+1 Grey Havens Navigator (HOC) 175
+1 Hithlain Knots (HOC) 176
+16 Island (HOB) 190
+2 Ithilien Kingfisher (HOC) 177
+1 Knights of Dol Amroth (HOC) 178
+2 Lakeshore Apothecary (HOB) 43
+1 Lórien Revealed (HOC) 179
+1 Minas Tirith Garrison (HOC) 180
+1 Nimrodel Watcher (HOC) 181
+1 Pelargir Survivor (HOC) 182
+1 Ravenhill Flock (HOB) 52
+1 Rogue's Passage (HOC) 212
+1 Stern Scolding (HOC) 183
+1 Thranduil's Decree (HOB) 56
+2 Uneasy Partings (HOB) 58
+1 Willow-Wind (HOC) 184

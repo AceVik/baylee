@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Mind
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Mind_DDS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDS
+# released: 2017-03-31
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Beacon of Tomorrows (DDS) 2
+1 Deep-Sea Kraken (DDS) 3
+1 Desperate Ritual (DDS) 14
+2 Empty the Warrens (DDS) 15
+1 Firemind's Foresight (DDS) 21
+2 Goblin Electromancer (DDS) 22
+1 Grapeshot (DDS) 16
+4 Island (DDS) 28
+3 Island (DDS) 29
+3 Island (DDS) 30
+1 Jhoira of the Ghitu (DDS) 1 *F*
+1 Jori En, Ruin Diver (DDS) 23
+1 Mind's Desire (DDS) 4
+4 Mountain (DDS) 31
+3 Mountain (DDS) 32
+3 Mountain (DDS) 33
+1 Nivix Cyclops (DDS) 24
+1 Nucklavee (DDS) 26
+2 Peer Through Depths (DDS) 5
+1 Quicken (DDS) 6
+3 Reach Through Mists (DDS) 7
+3 Rift Bolt (DDS) 17
+1 Sage-Eye Avengers (DDS) 8
+1 Shivan Meteor (DDS) 18
+2 Sift Through Sands (DDS) 9
+2 Snap (DDS) 10
+1 Spellheart Chimera (DDS) 25
+4 Swiftwater Cliffs (DDS) 27
+1 Talrand, Sky Summoner (DDS) 11
+1 Temporal Fissure (DDS) 12
+1 The Unspeakable (DDS) 13
+1 Volcanic Vision (DDS) 19
+2 Young Pyromancer (DDS) 20

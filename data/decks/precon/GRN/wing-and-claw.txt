@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Wing and Claw
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WingAndClaw_GRN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: GRN
+# released: 2018-11-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Azor, the Lawbringer (RIX) 154
+2 Blade Instructor (GRN) 1
+3 Disperse (M19) 50
+3 Favorable Winds (XLN) 56
+1 Glacial Fortress (XLN) 255
+1 Goring Ceratops (XLN) 13
+2 Healer's Hawk (GRN) 14
+2 Imperial Aerosaur (XLN) 14
+10 Island (GRN) 261
+3 Kitesail Corsair (RIX) 41
+1 Light of the Legion (GRN) 19
+4 Meandering River (M19) 253
+1 Nezahal, Primal Tide (RIX) 45
+2 One With the Wind (XLN) 64
+2 Pegasus Courser (M19) 32
+10 Plains (GRN) 260
+3 Seal Away (DOM) 31
+2 Serra Angel (DOM) 33
+1 Settle the Wreckage (XLN) 34
+3 Sunhome Stalwart (GRN) 26
+2 Territorial Hammerskull (XLN) 41
+1 Warkite Marauder (RIX) 60

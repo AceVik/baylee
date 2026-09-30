@@ -468,6 +468,25 @@ async fn open_database(store_path: &std::path::Path) -> sea_orm::DatabaseConnect
     };
     tracing::info!(url = %baylee_db::redacted(&url), pool, "database ready");
 
+    // The precons this build plays, offered beside the house decks
+    // (`docs/precons.md` §"House decks"). Not fatal, as the import below is
+    // not: a sync that fails leaves the offer as the last one left it, and
+    // every account and deck is still there to serve.
+    match baylee_db::precons::sync(&db, baylee_db::precons::PLAYABLE).await {
+        Ok(done) if done.unchanged => {
+            tracing::info!(offered = done.offered, "precons unchanged");
+        }
+        Ok(done) => tracing::info!(
+            offered = done.offered,
+            added = done.added,
+            changed = done.changed,
+            returned = done.returned,
+            withdrawn = done.withdrawn,
+            "precons synced"
+        ),
+        Err(e) => tracing::error!("precon sync: {e:#}"),
+    }
+
     match baylee_db::import::import_file(&db, store_path).await {
         Ok(Some(done)) => {
             tracing::info!(
@@ -2392,6 +2411,12 @@ async fn copy_deck(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     let source = readable_deck(&state, &id, &account_id).await?;
+    // A withdrawn precon stays readable, so the copies taken of it can still
+    // say what they came from, but it is no longer something to start from:
+    // this build does not play every card in it.
+    if !source.offered {
+        return Err(err(StatusCode::GONE, "that deck is no longer offered"));
+    }
     let copy = store::create_deck(
         &state.db,
         store::NewDeck {

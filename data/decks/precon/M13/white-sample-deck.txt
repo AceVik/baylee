@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: White Sample Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteSampleDeck_M13.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M13
+# released: 2012-07-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abbey Griffin (ISD) 1
+1 Ajani's Sunstriker (M13) 2
+1 Angel's Mercy (M13) 3
+1 Chapel Geist (ISD) 7
+1 Defang (AVR) 15
+1 Divine Favor (M13) 11
+1 Divine Verdict (M13) 12
+1 Elixir of Immortality (M13) 204
+1 Guardian Lions (M13) 17
+1 Healer of the Pride (M13) 19
+1 Pacifism (M13) 24
+4 Plains (M13) 230
+3 Plains (M13) 231
+3 Plains (M13) 232
+3 Plains (M13) 233
+1 Seraph of Dawn (AVR) 35
+1 Serra Angel (M13) 31
+2 Silvercoat Lion (M13) 35
+1 Warclamp Mastiff (M13) 40
+1 Zealous Strike (AVR) 41

@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Kami Reborn
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, KamiReborn_CHK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: CHK
+# released: 2004-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ashen-Skin Zubera (CHK) 101
+2 Burr Grafter (CHK) 203
+1 Dance of Shadows (CHK) 108
+1 Devouring Greed (CHK) 110
+2 Dripping-Tongue Zubera (CHK) 206
+3 Forest (CHK) 303
+3 Forest (CHK) 304
+3 Forest (CHK) 305
+3 Forest (CHK) 306
+2 Gibbering Kami (CHK) 112
+2 Hana Kami (CHK) 211
+1 Honden of Life's Web (CHK) 213
+1 Honden of Night's Reach (CHK) 116
+1 Iname, Death Aspect (CHK) 118
+2 Kami of Lunacy (CHK) 119
+2 Kami of the Hunt (CHK) 219
+2 Kodama's Might (CHK) 224
+2 Kodama's Reach (CHK) 225
+1 Long-Forgotten Gohei (CHK) 261
+2 Pull Under (CHK) 137
+2 Scuttling Death (CHK) 142
+2 Soilshaper (CHK) 243
+2 Swallowing Plague (CHK) 146
+3 Swamp (CHK) 295
+3 Swamp (CHK) 296
+3 Swamp (CHK) 297
+3 Swamp (CHK) 298
+2 Thief of Hope (CHK) 147
+2 Venerable Kumo (CHK) 248

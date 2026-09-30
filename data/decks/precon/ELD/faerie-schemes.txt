@@ -1,0 +1,66 @@
+# baylee deck export v1
+# name: Faerie Schemes
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FaerieSchemes_ELD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Brawl Deck
+# set: ELD
+# released: 2019-10-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 Alela, Artful Provocateur (ELD) 324 *F*
+1 All That Glitters (ELD) 2
+1 Ancestral Blade (M20) 3
+1 Angelic Exaltation (RNA) 2
+1 Animating Faerie // Bring to Life (ELD) 38
+1 Arcane Signet (ELD) 331
+1 Arcanist's Owl (ELD) 206
+1 Azorius Guildgate (RNA) 243
+1 Bag of Holding (M20) 222
+1 Banish into Fable (ELD) 325
+1 Bloodsoaked Altar (M20) 90
+1 Chemister's Insight (GRN) 32
+1 Command Tower (ELD) 333
+1 Conclave Tribunal (GRN) 6
+1 Corridor Monitor (ELD) 41
+1 Dimir Guildgate (GRN) 246
+1 Dismal Backwater (M20) 245
+1 Emergence Zone (WAR) 245
+1 Empyrean Eagle (M20) 208
+1 Evolving Wilds (M20) 246
+1 Frogify (ELD) 47
+1 Golden Egg (ELD) 220
+1 Guild Globe (WAR) 239
+1 Heraldic Banner (ELD) 222
+2 Island (ELD) 254
+1 Island (ELD) 255
+1 Island (ELD) 256
+1 Island (ELD) 257
+1 Kaya's Wrath (RNA) 187
+1 Lawmage's Binding (RNA) 190
+1 Mace of the Valiant (ELD) 314
+1 Mana Geode (WAR) 241
+1 Massacre Girl (WAR) 99
+1 Mortify (RNA) 192
+1 Orzhov Guildgate (WAR) 269
+2 Plains (ELD) 250
+2 Plains (ELD) 251
+1 Plains (ELD) 252
+1 Plains (ELD) 253
+1 Prison Realm (WAR) 26
+1 Scoured Barrens (M20) 251
+1 Scrabbling Claws (RNA) 238
+1 Sephara, Sky's Blade (M20) 36
+1 Shambling Suit (ELD) 230
+1 Shimmer Dragon (ELD) 317
+1 Shinechaser (ELD) 201
+1 Smothering Tithe (RNA) 22
+1 Swamp (ELD) 258
+1 Swamp (ELD) 259
+1 Swamp (ELD) 260
+1 Swamp (ELD) 261
+1 Temple of Silence (M20) 256
+1 Tranquil Cove (M20) 259
+1 Watery Grave (GRN) 259
+1 Winged Words (M20) 80
+1 Witching Well (ELD) 74
+1 Workshop Elders (ELD) 318

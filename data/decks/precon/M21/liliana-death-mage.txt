@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Liliana, Death Mage
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LilianaDeathMage_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: M21
+# released: 2020-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Alchemist's Gift (M21) 87
+2 Bushmeat Poacher (IKO) 77
+1 Demonic Embrace (M21) 95
+3 Durable Coilbug (IKO) 85
+2 Goremand (M21) 101
+3 Grasp of Darkness (M21) 102
+3 Grim Physician (THB) 100
+2 Liliana's Scorn (M21) 329
+3 Liliana's Scrounger (M21) 330
+1 Liliana's Standard Bearer (M21) 110
+1 Liliana, Death Mage (M21) 328 *F*
+2 Lurking Deadeye (IKO) 94
+4 Masked Blackguard (M21) 113
+4 Spirit of Malevolence (M21) 331
+8 Swamp (M21) 266
+8 Swamp (M21) 267
+8 Swamp (M21) 268
+1 Swamp (M21) 311
+2 Unlikely Aid (IKO) 103

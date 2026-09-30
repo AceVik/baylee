@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Company of Knights
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CompanyOfKnights_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M21
+# released: 2021-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Acclaimed Contender (ELD) 1
+2 Ardenvale Tactician // Dizzying Swoop (ELD) 5
+2 Basri's Acolyte (M21) 8
+1 Basri's Lieutenant (M21) 9
+2 Burning-Yard Trainer (ELD) 117
+1 Dub (M21) 16
+1 Embercleave (ELD) 120
+3 Fireborn Knight (ELD) 210
+1 Grasping Giant (THB) 288
+1 Haktos the Unscarred (THB) 218
+2 Infuriate (THB) 141
+3 Inspiring Veteran (ELD) 194
+4 Mountain (M21) 269
+3 Mountain (M21) 270
+3 Mountain (M21) 271
+2 Pacifism (IKO) 25
+3 Plains (M21) 260
+3 Plains (M21) 261
+3 Plains (M21) 262
+2 Rimrock Knight // Boulder Rush (ELD) 137
+2 Scorching Dragonfire (M21) 158
+2 Short Sword (M21) 236
+1 Temple of Triumph (M21) 256
+3 Venerable Knight (ELD) 35
+2 Weaselback Redcap (ELD) 148
+4 Wind-Scarred Crag (M21) 259
+1 Worthy Knight (ELD) 36
+2 Youthful Knight (ELD) 37

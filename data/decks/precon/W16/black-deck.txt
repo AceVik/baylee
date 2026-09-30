@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Black Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlackDeck_W16.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: W16
+# released: 2016-04-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blighted Fen (BFZ) 230
+1 Bone Splinters (BFZ) 105
+1 Dead Weight (SOI) 106
+2 Demon's Grasp (BFZ) 108
+1 Dutiful Return (BFZ) 110
+1 Hagra Sharpshooter (BFZ) 113
+1 Mind Rot (W16) 7
+1 Nightmare (W16) 8
+1 Rottenheart Ghoul (SOI) 132
+1 Sengir Vampire (W16) 9
+4 Swamp (SOI) 289
+4 Swamp (SOI) 290
+4 Swamp (SOI) 291
+1 Tar Snare (OGW) 90
+1 Untamed Hunger (OGW) 91
+1 Vampire Envoy (OGW) 92
+1 Vampire Noble (SOI) 143
+2 Walking Corpse (W16) 10
+1 Zulaport Cutthroat (BFZ) 126

@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Red Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeck_M14.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M14
+# released: 2014-07-19
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Act of Treason (M14) 125
+1 Canyon Minotaur (M14) 131
+2 Chandra's Outrage (M14) 133
+1 Dragon Hatchling (M14) 138
+1 Flames of the Firebrand (M14) 139
+2 Goblin Shortcutter (M14) 142
+1 Guttersnipe (RTR) 98
+1 Lava Axe (M14) 143
+4 Mountain (M14) 242
+3 Mountain (M14) 243
+3 Mountain (M14) 244
+3 Mountain (M14) 245
+1 Pitchburn Devils (M14) 149
+1 Regathan Firecat (M14) 150
+1 Ripscale Predator (GTC) 103
+1 Seismic Stomp (M14) 152
+1 Shock (M14) 155
+1 Thunder Strike (M14) 159
+1 Volcanic Geyser (M14) 160

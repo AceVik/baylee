@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Devastation
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Devastation_ONS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ONS
+# released: 2002-10-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aether Charge (ONS) 184
+2 Barkhide Mauler (ONS) 246
+1 Battering Craghorn (ONS) 188
+2 Chain of Plasma (ONS) 193
+1 Charging Slateback (ONS) 194
+1 Cryptic Gateway (ONS) 306
+3 Elvish Pioneer (ONS) 257
+1 Erratic Explosion (ONS) 201
+3 Explosive Vegetation (ONS) 263
+4 Forest (ONS) 347
+3 Forest (ONS) 348
+3 Forest (ONS) 349
+3 Forest (ONS) 350
+2 Forgotten Cave (ONS) 317
+1 Krosan Groundshaker (ONS) 271
+3 Mountain (ONS) 343
+2 Mountain (ONS) 344
+2 Mountain (ONS) 345
+2 Mountain (ONS) 346
+1 Naturalize (ONS) 275
+1 Primal Boost (ONS) 277
+1 Shaleskin Bruiser (ONS) 226
+1 Snapping Thragg (ONS) 233
+3 Snarling Undorak (ONS) 283
+1 Solar Blast (ONS) 234
+1 Tephraderm (ONS) 239
+1 Thunder of Hooves (ONS) 242
+1 Towering Baloth (ONS) 292
+2 Tranquil Thicket (ONS) 326
+1 Venomspout Brackus (ONS) 295
+3 Wirewood Elf (ONS) 301
+3 Wirewood Savage (ONS) 304

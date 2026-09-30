@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Leonardo
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Leonardo_TMT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TMT
+# released: 2026-03-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Action News Crew (TMT) 1
+1 Definitely Not a Turtle (TMC) 98
+2 EPF Point Squad (TMT) 145
+2 East Wind Avatar (TMT) 5
+2 Featherbrained Filcher (TMT) 6
+2 Grounded for Life (TMT) 7
+1 Hamato Guardian Stance (TMT) 8
+3 Hamato Ninpō (TMC) 100
+2 High-Flying Ace (TMT) 9
+1 Jennika, Bad Apple Big Sister (TMT) 10
+2 Leo's Guidance (TMC) 102
+1 Leonardo, Big Brother (TMT) 14
+1 Leonardo, Worldly Warrior (TMC) 101
+1 Lita, Little Orphan Amphibian (TMT) 19
+1 Make Your Move (TMT) 20
+2 Mechanized Ninja Cavalry (TMT) 156
+1 Mighty Mutanimals (TMT) 21
+24 Plains (TMT) 315
+1 Quintessential Katana (TMT) 23
+1 Splinter & Leo, Father & Son (TMC) 103
+1 Splinter, Aging Champion (TMC) 104
+2 The Last Ronin's Technique (TMT) 12
+3 Triceraton Regenta (TMC) 105
+2 Wooden Cane (TMC) 106

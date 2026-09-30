@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: The Swarm
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSwarm_TMP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TMP
+# released: 1997-10-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aluren (TMP) 213
+1 Anoint (TMP) 3
+1 Disenchant (TMP) 16
+1 Elven Warhounds (TMP) 225
+1 Elvish Fury (TMP) 226
+4 Forest (TMP) 347
+4 Forest (TMP) 348
+3 Forest (TMP) 349
+3 Forest (TMP) 350
+1 Krakilin (TMP) 235
+3 Master Decoy (TMP) 29
+4 Muscle Sliver (TMP) 238
+1 Needle Storm (TMP) 241
+2 Overrun (TMP) 243
+3 Pacifism (TMP) 34
+3 Pincher Beetles (TMP) 244
+2 Plains (TMP) 331
+2 Plains (TMP) 332
+2 Plains (TMP) 333
+1 Plains (TMP) 334
+2 Ranger en-Vec (TMP) 268
+1 Recycle (TMP) 248
+3 Rootwalla (TMP) 252
+3 Skyshroud Elf (TMP) 255
+1 Soltari Crusader (TMP) 41
+2 Soltari Trooper (TMP) 47
+3 Trained Armodon (TMP) 260
+2 Vec Townships (TMP) 329

@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Pumped Up
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PumpedUp_ZEN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ZEN
+# released: 2009-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Act of Treason (M10) 124
+1 Aether Figment (ZEN) 40
+2 Burst Lightning (ZEN) 119
+1 Canyon Minotaur (M10) 130
+1 Dragon Whelp (M10) 133
+1 Fireball (M10) 136
+1 Goblin Piker (M10) 140
+1 Hellkite Charger (ZEN) 131 *F*
+1 Into the Roil (ZEN) 48
+2 Island (ZEN) 234a
+2 Island (ZEN) 235a
+2 Island (ZEN) 236a
+1 Island (ZEN) 237a
+2 Molten Ravager (ZEN) 138
+3 Mountain (ZEN) 242a
+3 Mountain (ZEN) 243a
+2 Mountain (ZEN) 244a
+2 Mountain (ZEN) 245a
+1 Phantom Warrior (M10) 66
+1 Prodigal Pyromancer (M10) 151
+1 Raging Goblin (M10) 153
+1 Rite of Replication (ZEN) 61
+1 Sleep (M10) 71
+2 Spire Barrage (ZEN) 150
+1 Terramorphic Expanse (M10) 229
+2 Torch Slinger (ZEN) 151
+2 Welkin Tern (ZEN) 76

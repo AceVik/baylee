@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: White Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteDeck_SPM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: SPM
+# released: 2025-09-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Amateur Hero (SPE) 1
+1 Amazing Alliance (SPE) 2
+1 Aunt May (SPM) 3
+1 Daily Bugle Reporters (SPM) 6
+1 MJ, Rising Star (SPE) 3
+1 Plains (SPM) 189
+11 Plains (SPM) 194
+1 Selfless Police Captain (SPM) 12
+1 Spectacular Tactics (SPM) 15
+1 Spider-Bot (SPM) 173
+1 Spider-Man, Peter Parker (SPE) 4
+1 Spider-Man, Web-Slinger (SPM) 16
+1 Starling, Aerial Ally (SPM) 18
+2 Thwip! (SPM) 20
+2 Web Up (SPM) 21
+2 Wild Pack Squad (SPM) 23

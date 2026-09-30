@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Rowan, Fearless Sparkmage
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RowanFearlessSparkmage_ELD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: ELD
+# released: 2019-10-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Acclaimed Contender (ELD) 1
+2 Ardenvale Tactician // Dizzying Swoop (ELD) 5
+4 Garrison Griffin (ELD) 305
+1 Giant Killer // Chop Down (ELD) 14
+2 Inspiring Veteran (ELD) 194
+2 Joust (ELD) 129
+2 Knight of the Keep (ELD) 19
+3 Mountain (ELD) 262
+3 Mountain (ELD) 263
+2 Mountain (ELD) 264
+2 Mountain (ELD) 265
+3 Plains (ELD) 250
+3 Plains (ELD) 251
+3 Plains (ELD) 252
+2 Plains (ELD) 253
+2 Prized Griffin (ELD) 24
+3 Rimrock Knight // Boulder Rush (ELD) 137
+3 Rowan's Battleguard (ELD) 306
+2 Rowan's Stalwarts (ELD) 307
+1 Rowan, Fearless Sparkmage (ELD) 304 *F*
+3 Scorching Dragonfire (ELD) 139
+2 Venerable Knight (ELD) 35
+2 Weapon Rack (ELD) 236
+1 Weaselback Redcap (ELD) 148
+4 Wind-Scarred Crag (ELD) 308
+2 Youthful Knight (ELD) 37

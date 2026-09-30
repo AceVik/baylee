@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Red Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeck_M20.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: M20
+# released: 2019-07-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Act of Treason (M20) 124
+1 Chandra's Outrage (M20) 130
+2 Daggersail Aeronaut (M20) 133
+1 Engulfing Eruption (M20) 328
+2 Fearless Halberdier (M20) 329
+1 Fire Elemental (M20) 138
+2 Goblin Assailant (M20) 330
+1 Goblin Smuggler (M20) 144
+1 Infuriate (M20) 145
+1 Maniacal Rage (M20) 149
+4 Mountain (M20) 273
+3 Mountain (M20) 274
+3 Mountain (M20) 275
+3 Mountain (M20) 276
+1 Rubblebelt Recluse (M20) 334
+1 Shivan Dragon (M20) 335
+1 Shock (M20) 160
+1 Volcanic Dragon (M20) 336

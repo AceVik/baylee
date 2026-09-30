@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Elspeth
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Elspeth_THB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: THB
+# released: 2020-01-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Archon of Falling Stars (THB) 2
+1 Daxos, Blessed by the Sun (THB) 9
+4 Daybreak Chimera (THB) 10
+3 Dreadful Apathy (THB) 11
+3 Eidolon of Inspiration (THB) 271
+2 Elspeth's Devotee (THB) 272
+1 Elspeth, Undaunted Hero (THB) 270 *F*
+2 Hero of the Winds (THB) 23
+3 Indomitable Will (THB) 25
+3 Karametra's Blessing (THB) 26
+4 Leonin of the Lost Pride (THB) 28
+2 Phalanx Tactics (THB) 31
+13 Plains (THB) 278
+12 Plains (THB) 279
+4 Sunlit Hoplite (THB) 273
+1 Taranika, Akroan Veteran (THB) 39

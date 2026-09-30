@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Fates Foreseen
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FatesForeseen_JOU.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: JOU
+# released: 2014-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bladetusk Boar (JOU) 90
+1 Cloaked Siren (JOU) 32
+1 Crackling Triton (THS) 45
+1 Cyclops of Eternal Fury (JOU) 92
+2 Divination (BNG) 36
+2 Flamespeaker Adept (THS) 123
+1 Font of Fortunes (JOU) 38
+1 Font of Ire (JOU) 97
+1 Interpret the Signs (JOU) 43
+4 Island (THS) 234
+3 Island (THS) 235
+3 Island (THS) 236
+3 Island (THS) 237
+2 Knowledge and Power (JOU) 101
+1 Lost in a Labyrinth (THS) 52
+1 Magma Spray (JOU) 103
+4 Mountain (THS) 242
+3 Mountain (THS) 243
+3 Mountain (THS) 244
+3 Mountain (THS) 245
+1 Omenspeaker (THS) 57
+2 Pensive Minotaur (JOU) 105
+1 Prescient Chimera (THS) 59
+1 Prognostic Sphinx (THS) 60
+1 Pull from the Deep (JOU) 47
+1 Rage of Purphoros (THS) 137
+2 Riddle of Lightning (JOU) 107
+2 Rise of Eagles (JOU) 49
+1 Scourge of Fleets (JOU) 51 *F*
+2 Sigiled Skink (JOU) 111
+2 Sigiled Starfish (JOU) 52
+1 Spite of Mogis (JOU) 113
+2 Stormcaller of Keranos (BNG) 112

@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: The Deluge
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheDeluge_BRB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: BRB
+# released: 1999-11-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Advance Scout (BRB) 2
+1 Angelic Page (BRB) 4
+1 Argothian Elder (BRB) 6
+1 Armored Pegasus (BRB) 7
+1 Catastrophe (BRB) 12
+1 Dirtcowl Wurm (BRB) 19
+1 Drifting Meadow (BRB) 22
+1 Elvish Lyrist (BRB) 23
+1 Fecundity (BRB) 25
+1 Fertile Ground (BRB) 26
+2 Forest (BRB) 102
+2 Forest (BRB) 103
+2 Forest (BRB) 105
+1 Giant Growth (BRB) 29
+1 Hurricane (BRB) 33
+1 Land Tax (BRB) 35
+1 Master Decoy (BRB) 44
+1 Pacifism (BRB) 48
+1 Plains (BRB) 124
+1 Plains (BRB) 125
+1 Plains (BRB) 126
+1 Plains (BRB) 127
+2 Plains (BRB) 128
+1 Plains (BRB) 129
+2 Plains (BRB) 132
+1 Sanctum Custodian (BRB) 62
+1 Sanctum Guardian (BRB) 63
+1 Sandstorm (BRB) 64
+1 Scaled Wurm (BRB) 65
+1 Seasoned Marshal (BRB) 67
+1 Soltari Foot Soldier (BRB) 74
+1 Spike Colony (BRB) 77
+1 Spike Worker (BRB) 80
+1 Sun Clasp (BRB) 83
+1 Vec Townships (BRB) 93

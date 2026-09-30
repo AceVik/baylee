@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Dominator - Basic Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DominatorBasicDeck_EXO.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: EXO
+# released: 1998-06-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Capsize (TMP) 55
+2 Cloud Spirit (STH) 26
+4 Counterspell (TMP) 57
+1 Dominating Licid (EXO) 30
+1 Equilibrium (EXO) 32
+1 Erratic Portal (EXO) 132
+2 Fade Away (EXO) 34
+2 Forbid (EXO) 35
+7 Island (TMP) 335
+7 Island (TMP) 336
+6 Island (TMP) 337
+6 Island (TMP) 338
+2 Killer Whale (EXO) 37
+1 Legacy's Allure (TMP) 71
+3 Mana Leak (STH) 36
+2 Mind Games (STH) 38
+2 Mirozel (EXO) 41
+1 Propaganda (TMP) 80
+4 Thalakos Scout (EXO) 48
+1 Time Ebb (TMP) 96
+1 Treasure Trove (EXO) 50
+2 Wayward Soul (EXO) 51

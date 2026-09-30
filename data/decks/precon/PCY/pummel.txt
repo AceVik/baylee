@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Pummel
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Pummel_PCY.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PCY
+# released: 2000-06-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Animate Land (NEM) 101
+1 Avatar of Might (PCY) 109
+2 Blastoderm (NEM) 102
+2 Darba (PCY) 111
+2 Deepwood Wolverine (MMQ) 242
+5 Forest (MMQ) 347
+5 Forest (MMQ) 348
+5 Forest (MMQ) 349
+5 Forest (MMQ) 350
+2 Hickory Woodlot (MMQ) 319
+2 Hunted Wumpus (MMQ) 253
+1 Invigorate (MMQ) 254
+1 Jolrael's Favor (PCY) 116
+2 Living Terrain (PCY) 117
+1 Lumbering Satyr (MMQ) 257
+2 Pygmy Razorback (PCY) 120
+1 Seal of Strength (NEM) 115
+1 Silverglade Elemental (MMQ) 269
+1 Skyshroud Claim (NEM) 117
+2 Snag (PCY) 124
+1 Spitting Spider (PCY) 125
+2 Spore Frog (PCY) 126
+1 Stampede Driver (NEM) 122
+3 Thresher Beast (PCY) 128
+1 Tranquility (MMQ) 280
+1 Treetop Bracers (NEM) 123
+2 Vine Trellis (MMQ) 285
+1 Vintara Elephant (PCY) 131
+1 Vitalizing Wind (PCY) 133
+2 Wild Might (PCY) 134

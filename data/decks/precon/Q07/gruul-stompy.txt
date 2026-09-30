@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Gruul Stompy
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GruulStompy_Q07.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q07
+# released: 2022-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Abrade (VOW) 139
+4 Briarbridge Tracker (MID) 172
+10 Forest (MID) 276
+1 Goldspan Dragon (KHM) 139
+2 Halana and Alena, Partners (VOW) 239
+4 Jaspera Sentinel (KHM) 178
+2 Lair of the Hydra (AFR) 259
+1 Light Up the Night (MID) 146
+4 Magda, Brazen Outlaw (KHM) 142
+8 Mountain (MID) 274
+4 Ranger Class (AFR) 202
+4 Rockfall Vale (MID) 266
+4 Snakeskin Veil (KHM) 194
+1 Thundering Rebuke (ZNR) 170
+2 Tovolar's Huntmaster // Tovolar's Packleader (MID) 204
+2 Twinshot Sniper (NEO) 168
+3 Ulvenwald Oddity // Ulvenwald Behemoth (VOW) 225
+SB: 3 Burning Hands (AFR) 135
+SB: 1 Froghemoth (AFR) 184
+SB: 1 Kappa Tech-Wrecker (NEO) 198
+SB: 1 Kappa Tech-Wrecker (NEO) 348
+SB: 2 Lantern of the Lost (VOW) 259
+SB: 3 Thundering Rebuke (ZNR) 170
+SB: 2 Tovolar, Dire Overlord // Tovolar, the Midnight Scourge (MID) 246
+SB: 2 Twinshot Sniper (NEO) 168

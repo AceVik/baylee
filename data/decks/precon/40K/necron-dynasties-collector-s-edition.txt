@@ -1,0 +1,82 @@
+# baylee deck export v1
+# name: Necron Dynasties Collector's Edition
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, NecronDynastiesCollectorSEdition_40K.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Commander Deck
+# set: 40K
+# released: 2022-10-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 Szarekh, the Silent King (40K) 1 *F*
+1 Anrakyr the Traveller (40K) 28★ *F*
+1 Arcane Signet (40K) 228★ *F*
+1 Barren Moor (40K) 266★ *F*
+1 Beacon of Unrest (40K) 194★ *F*
+1 Biotransference (40K) 30★ *F*
+1 Caged Sun (40K) 231★ *F*
+1 Canoptek Scarab Swarm (40K) 150★ *F*
+1 Canoptek Spyder (40K) 151★ *F*
+1 Canoptek Tomb Sentinel (40K) 152★ *F*
+1 Canoptek Wraith (40K) 153★ *F*
+1 Chronomancer (40K) 32★ *F*
+1 Commander's Sphere (40K) 234★ *F*
+1 Convergence of Dominion (40K) 154★ *F*
+1 Cranial Plating (40K) 236★ *F*
+1 Cryptek (40K) 33★ *F*
+1 Cryptothrall (40K) 155★ *F*
+1 Darkness (40K) 197★ *F*
+1 Defile (40K) 199★ *F*
+1 Desert of the Glorified (40K) 275★ *F*
+1 Dread Return (40K) 200★ *F*
+1 Endless Atlas (40K) 237★ *F*
+1 Flayed One (40K) 34★ *F*
+1 Ghost Ark (40K) 156★ *F*
+1 Gilded Lotus (40K) 239★ *F*
+1 Go for the Throat (40K) 201★ *F*
+1 Hedron Archive (40K) 240★ *F*
+1 Hexmark Destroyer (40K) 36★ *F*
+1 Illuminor Szeras (40K) 37★ *F*
+1 Imotekh the Stormlord (40K) 5 *F*
+1 Living Death (40K) 202★ *F*
+1 Lokhust Heavy Destroyer (40K) 38★ *F*
+1 Lychguard (40K) 39★ *F*
+1 Mask of Memory (40K) 243★ *F*
+1 Mind Stone (40K) 245★ *F*
+1 Mutilate (40K) 203★ *F*
+1 Myriad Landscape (40K) 285★ *F*
+1 Mystic Forge (40K) 246★ *F*
+1 Necron Deathmark (40K) 42★ *F*
+1 Necron Monolith (40K) 161★ *F*
+1 Necron Overlord (40K) 43★ *F*
+1 Night Scythe (40K) 162★ *F*
+1 Out of the Tombs (40K) 46★ *F*
+1 Plasmancer (40K) 48★ *F*
+1 Polluted Mire (40K) 288★ *F*
+1 Psychomancer (40K) 51★ *F*
+1 Reliquary Tower (40K) 291★ *F*
+1 Resurrection Orb (40K) 165★ *F*
+1 Royal Warden (40K) 52★ *F*
+1 Sautekh Immortal (40K) 54★ *F*
+1 Sceptre of Eternal Glory (40K) 166★ *F*
+1 Sculpting Steel (40K) 247★ *F*
+1 Shard of the Nightbringer (40K) 55★ *F*
+1 Shard of the Void Dragon (40K) 56★ *F*
+1 Skorpekh Destroyer (40K) 57★ *F*
+1 Skorpekh Lord (40K) 58★ *F*
+1 Sol Ring (40K) 252★ *F*
+10 Swamp (40K) 310★ *F*
+10 Swamp (40K) 312★ *F*
+10 Swamp (40K) 313★ *F*
+1 Technomancer (40K) 61★ *F*
+1 The War in Heaven (40K) 69★ *F*
+1 Their Name Is Death (40K) 62★ *F*
+1 Their Number Is Legion (40K) 63★ *F*
+1 Thought Vessel (40K) 259★ *F*
+1 Tomb Blade (40K) 64★ *F*
+1 Tomb Fortress (40K) 168★ *F*
+1 Trazyn the Infinite (40K) 65★ *F*
+1 Triarch Praetorian (40K) 66★ *F*
+1 Triarch Stalker (40K) 67★ *F*
+1 Unstable Obelisk (40K) 260★ *F*
+1 Vault of Whispers (40K) 305★ *F*
+1 Wayfarer's Bauble (40K) 262★ *F*

@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: High-Flying Valor
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, HighFlyingValor_LTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: LTR
+# released: 2023-06-20
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aeronaut Cavalry (BRO) 1
+3 Ambush Paratrooper (BRO) 3
+1 By Elspeth's Command (YBRO) 1
+2 Elspeth's Smite (MOM) 13
+1 Fortified Beachhead (BRO) 262
+1 Harbin, Vanguard Aviator (BRO) 212
+4 Idyllic Beachfront (DMU) 249
+3 Island (LTR) 264
+3 Island (LTR) 265
+2 Lay Down Arms (BRO) 11
+1 Mass Production (BRO) 15
+1 Myrel, Shield of Argive (BRO) 18
+2 Patchplate Resolute (YBRO) 28
+5 Plains (LTR) 262
+5 Plains (LTR) 263
+3 Prison Sentence (BRO) 21
+2 Recruitment Officer (BRO) 23
+1 Rescue Retriever (BRO) 288
+2 Resolute Reinforcements (DMU) 29
+2 Scrapwork Cohort (BRO) 37
+1 Siege Veteran (BRO) 25
+1 Skystrike Officer (BRO) 62
+3 Survivor of Korlis (BRO) 28
+4 Tranquil Cove (MOM) 275
+1 Valiant Veteran (DMU) 38
+2 Yotian Tactician (BRO) 228
+2 Zephyr Sentinel (BRO) 74

@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Aga Galneer
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AgaGalneer_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ashes to Ashes (DRK) 39
+3 Drain Life (3ED) 106
+2 El-Hajjâj (ARN) 24
+2 Erg Raiders (ARN) 25
+2 Forest (3ED) 304
+2 Forest (3ED) 305
+2 Forest (3ED) 306
+2 Fungusaur (3ED) 197
+2 Gem Bazaar (PAST) 12
+2 Giant Growth (3ED) 199
+2 Giant Spider (3ED) 200
+2 Greed (LEG) 101
+2 Healing Salve (3ED) 22
+2 Hurricane (3ED) 202
+2 Jade Monolith (3ED) 255
+3 Onulet (ATQ) 59
+3 Plains (3ED) 292
+3 Plains (3ED) 293
+2 Plains (3ED) 294
+2 Savannah Lions (3ED) 39
+2 Sengir Vampire (3ED) 129
+2 Serra Angel (3ED) 40
+1 Sol Ring (3ED) 274
+3 Spirit Link (LEG) 37
+2 Stream of Life (3ED) 217
+3 Swamp (3ED) 298
+3 Swamp (3ED) 299
+2 Swamp (3ED) 300
+2 Unholy Strength (3ED) 133
+SB: 2 Deathgrip (3ED) 101
+SB: 3 Disenchant (3ED) 17

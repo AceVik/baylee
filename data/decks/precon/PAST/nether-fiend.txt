@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Nether Fiend
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, NetherFiend_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Animate Dead (3ED) 93
+4 Black Knight (3ED) 95
+3 Erg Raiders (ARN) 25
+2 Frozen Shade (3ED) 112
+2 Junún Efreet (ARN) 28
+2 Kormus Bell (3ED) 260
+4 Lord of the Pit (3ED) 116
+4 Mishra's Factory (ATQ) 80a
+4 Nether Shadow (3ED) 118
+2 Soul Net (3ED) 275
+7 Swamp (3ED) 298
+7 Swamp (3ED) 299
+6 Swamp (3ED) 300
+3 Terror (3ED) 132
+4 The Hive (3ED) 277
+3 Xenic Poltergeist (ATQ) 20
+SB: 3 Bog Imp (DRK) 41

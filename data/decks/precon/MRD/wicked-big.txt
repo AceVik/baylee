@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Wicked Big
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WickedBig_MRD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: MRD
+# released: 2003-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Battlegrowth (MRD) 113
+1 Bloodscent (MRD) 114
+2 Brown Ouphe (MRD) 115
+4 Copper Myr (MRD) 158
+2 Creeping Mold (MRD) 117
+1 Deconstruct (MRD) 118
+4 Fangren Hunter (MRD) 119
+6 Forest (MRD) 303
+6 Forest (MRD) 304
+6 Forest (MRD) 305
+6 Forest (MRD) 306
+2 Journey of Discovery (MRD) 123
+1 Living Hive (MRD) 124
+2 Needlebug (MRD) 217
+1 One Dozen Eyes (MRD) 126
+1 Plated Slagwurm (MRD) 127
+2 Predator's Strike (MRD) 128
+1 Slith Predator (MRD) 129
+2 Tel-Jilad Archers (MRD) 131
+2 Tel-Jilad Chosen (MRD) 132
+2 Tel-Jilad Exile (MRD) 133
+2 Trolls of Tel-Jilad (MRD) 136
+2 Viridian Shaman (MRD) 139

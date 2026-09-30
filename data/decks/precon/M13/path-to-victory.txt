@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Path to Victory
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PathToVictory_M13.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M13
+# released: 2012-07-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Ajani's Sunstriker (M13) 2
+2 Arctic Aven (M13) 42
+3 Attended Knight (M13) 5
+1 Battleflight Eagle (M13) 7
+1 Captain of the Watch (M13) 8
+2 Captain's Call (M13) 9
+2 Chronomaton (M13) 201
+1 Courtly Provocateur (M13) 46
+2 Crusader of Odric (M13) 10
+2 Divine Verdict (M13) 12
+1 Downpour (M13) 48
+1 Evolving Wilds (M13) 224
+1 Faerie Invaders (M13) 51
+1 Glorious Charge (M13) 15
+2 Griffin Protector (M13) 16
+2 Healer of the Pride (M13) 19
+2 Island (M13) 234
+2 Island (M13) 235
+2 Island (M13) 236
+2 Island (M13) 237
+1 Oblivion Ring (M13) 22
+1 Odric, Master Tactician (M13) 23 *F*
+4 Plains (M13) 230
+4 Plains (M13) 231
+4 Plains (M13) 232
+4 Plains (M13) 233
+1 Ring of Thune (M13) 213
+1 Safe Passage (M13) 30
+1 Serra Angel (M13) 31
+3 Silvercoat Lion (M13) 35
+1 Tricks of the Trade (M13) 74

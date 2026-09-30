@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Enchantress
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Enchantress_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Aspect of Wolf (3ED) 186
+3 Cockatrice (3ED) 189
+2 Coral Helm (ATQ) 47
+2 Desert Twister (ARN) 46
+2 Durkwood Boars (LEG) 182
+8 Forest (3ED) 304
+7 Forest (3ED) 305
+7 Forest (3ED) 306
+2 Instill Energy (3ED) 203
+1 Ivory Tower (ATQ) 53
+1 Library of Leng (3ED) 261
+3 Living Artifact (3ED) 209
+4 Llanowar Elves (3ED) 211
+3 Lure (3ED) 212
+3 Regeneration (3ED) 213
+3 Thicket Basilisk (3ED) 218
+3 Verduran Enchantress (3ED) 223
+2 Web (3ED) 229
+2 Wild Growth (3ED) 230
+SB: 2 Kormus Bell (3ED) 260
+SB: 2 Living Lands (3ED) 210
+SB: 2 Primal Clay (ATQ) 61

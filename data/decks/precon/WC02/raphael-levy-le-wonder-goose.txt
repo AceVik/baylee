@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Raphael Levy - Le Wonder Goose
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RaphaelLevyLeWonderGoose_WC02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC02
+# released: 2002-08-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Breakthrough (WC02) rl26
+4 Careful Study (WC02) rl70
+1 Forest (WC02) rl328
+1 Forest (WC02) rl329
+1 Forest (WC02) rl330
+1 Forest (WC02) rl331
+1 Forest (WC02) rl347
+1 Forest (WC02) rl348
+1 Forest (WC02) rl349
+1 Forest (WC02) rl350
+2 Genesis (WC02) rl117
+2 Island (WC02) rl332
+1 Island (WC02) rl333
+1 Island (WC02) rl334
+1 Island (WC02) rl335
+1 Island (WC02) rl336a
+1 Island (WC02) rl336b
+1 Island (WC02) rl337a
+1 Island (WC02) rl337b
+1 Island (WC02) rl338
+4 Mental Note (WC02) rl46
+4 Nimble Mongoose (WC02) rl258
+4 Roar of the Wurm (WC02) rl266
+1 Rushing River (WC02) rl30
+3 Seton's Scout (WC02) rl138
+4 Werebear (WC02) rl282
+4 Wild Mongrel (WC02) rl283
+4 Wonder (WC02) rl54
+4 Yavimaya Coast (WC02) rl143
+SB: 4 Compost (WC02) rl235sb
+SB: 3 Disrupt (WC02) rl51sb
+SB: 3 Phantom Centaur (WC02) rl127sb
+SB: 2 Ray of Revelation (WC02) rl20sb
+SB: 2 Repulse (WC02) rl70sb
+SB: 1 Rushing River (WC02) rl30sb

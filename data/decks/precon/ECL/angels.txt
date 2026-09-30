@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Angels
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Angels_ECL.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ECL
+# released: 2026-01-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Blossoming Sands (TDM) 251
+1 Chomping Changeling (ECL) 172
+3 Exemplar of Light (FDN) 11
+8 Forest (ECL) 273
+1 Get Lost (LCI) 14
+4 Giada, Font of Hope (FDN) 141
+4 Inspiring Overseer (FDN) 496
+2 Lightstall Inquisitor (EOE) 24
+4 Llanowar Elves (FDN) 227
+2 Lyra Dawnbringer (FDN) 707
+1 Pawpatch Recruit (BLB) 187
+2 Personify (ECL) 28
+8 Plains (ECL) 269
+2 Ride's End (DFT) 25
+4 Secluded Courtyard (FDN) 267
+2 Split Up (DSK) 32
+4 Starfield Shepherd (EOE) 37
+4 Youthful Valkyrie (FDN) 149

@@ -10,11 +10,16 @@ workspace = true
 
 [dependencies]
 anyhow.workspace = true
+# Reads the precon lists it syncs (`precons`), with the reader a player's
+# import uses, so a synced deck is stored exactly as an imported one.
+baylee-deckio.workspace = true
 baylee-protocol.workspace = true
 sea-orm.workspace = true
 sea-orm-migration.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# The stamp a precon sync compares before it writes anything.
+sha2.workspace = true
 time.workspace = true
 tracing.workspace = true
 uuid.workspace = true

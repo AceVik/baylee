@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Jace
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Jace_JVC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: JVC
+# released: 2014-12-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aethersnipe (JVC) 17
+1 Air Elemental (JVC) 13
+1 Ancestral Vision (JVC) 21
+1 Bottle Gnomes (JVC) 7
+1 Brine Elemental (JVC) 18
+2 Condescend (JVC) 28
+2 Counterspell (JVC) 24
+1 Daze (JVC) 23
+1 Errant Ephemeron (JVC) 20
+1 Fact or Fiction (JVC) 26
+2 Fathom Seer (JVC) 3
+1 Fledgling Mawcor (JVC) 10
+1 Guile (JVC) 14
+1 Gush (JVC) 27
+6 Island (JVC) 30
+6 Island (JVC) 31
+6 Island (JVC) 32
+5 Island (JVC) 33
+1 Jace Beleren (JVC) 1 *F*
+2 Man-o'-War (JVC) 8
+1 Martyr of Frost (JVC) 2
+1 Mind Stone (JVC) 22
+2 Mulldrifter (JVC) 12
+1 Ophidian (JVC) 9
+1 Quicksilver Dragon (JVC) 19
+2 Repulse (JVC) 25
+1 Riftwing Cloudskate (JVC) 15
+2 Spire Golem (JVC) 16
+1 Terrain Generator (JVC) 29
+1 Voidmage Apprentice (JVC) 4
+2 Wall of Deceit (JVC) 5
+1 Waterspout Djinn (JVC) 11
+1 Willbender (JVC) 6

@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Green Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GreenDeck_HOB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: HOB
+# released: 2026-08-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Attercop (HOB) 116
+1 Beorn's Hospitality (HOB) 120
+1 Beorn, Reluctant Host // Till and Tend (HOB) 118
+1 Celeborn the Wise (HOC) 203
+1 Elvish Archdruid (HOC) 204
+2 Elvish Mystic (HOC) 205
+1 Elvish Visionary (HOC) 206
+16 Forest (HOB) 193
+2 Galadhrim Guide (HOC) 207
+1 Galion, Elvenking's Butler (HOB) 125
+1 Gift of Strands (HOC) 208
+2 Guardian of the Halls (HOB) 127
+1 Lothlórien Lookout (HOC) 209
+1 Mirkwood Elk (HOC) 210
+1 Mirkwood Pathmaker (HOB) 129
+2 Quarrel (HOB) 135
+1 Rogue's Passage (HOC) 212
+1 Warg Tactics (HOB) 139
+2 Wood Elves (HOB) 142
+1 Woodland Weavemaster (HOB) 143

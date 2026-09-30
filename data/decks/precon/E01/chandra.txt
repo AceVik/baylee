@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Chandra
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Chandra_E01.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Archenemy Deck
+# set: E01
+# released: 2017-06-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Avatar of Fury (E01) 39
+1 Battle-Rattle Shaman (E01) 40
+3 Blood Ogre (E01) 41
+1 Brute Strength (AKH) 122
+2 Chandra's Outrage (E01) 43
+1 Chandra's Phoenix (E01) 44
+1 Chandra, Pyromaster (E01) 42
+1 Coordinated Assault (E01) 45
+1 Dualcaster Mage (E01) 46
+2 Fiery Fall (E01) 47
+2 Gorehorn Minotaurs (E01) 49
+1 Grim Lavamancer (E01) 50
+1 Guttersnipe (E01) 51
+2 Hammerhand (E01) 52
+1 Inferno Titan (E01) 53
+1 Limits of Solidarity (AKH) 140
+6 Mountain (AKH) 264
+6 Mountain (AKH) 265
+6 Mountain (AKH) 266
+3 Mountain (E01) 100
+2 Mountain (E01) 105
+1 Obsidian Fireheart (E01) 55
+2 Pathmaker Initiate (AKH) 146
+2 Searing Spear (E01) 56
+1 Skarrgan Firebird (E01) 57
+2 Smoldering Spires (E01) 96
+2 Stormblood Berserker (E01) 58
+1 Torchling (E01) 60
+2 Tormenting Voice (AKH) 151
+2 Volcanic Geyser (E01) 61

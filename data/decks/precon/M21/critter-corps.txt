@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Critter Corps
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CritterCorps_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Promotional Deck
+# set: M21
+# released: 2021-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Alpine Watchdog (M21) 2
+3 Basri's Acolyte (M21) 8
+2 Basri's Solidarity (M21) 10
+4 Blossoming Sands (M21) 244
+3 Colossal Dreadmaw (M21) 176
+1 Colossification (IKO) 148
+3 Conclave Mentor (M21) 216
+1 Fabled Passage (M21) 246
+3 Faith's Fetters (M21) 17
+4 Forest (M21) 272
+3 Forest (M21) 273
+3 Forest (M21) 274
+2 Loyal Pegasus (M20) 28
+1 Mace of the Valiant (ELD) 314
+4 Plains (M21) 260
+3 Plains (M21) 261
+3 Plains (M21) 262
+3 Pridemalkin (M21) 196
+3 Ram Through (IKO) 170
+1 Rambunctious Mutt (M21) 30
+2 Selfless Savior (M21) 36
+1 The Great Henge (ELD) 161
+1 The Ozolith (IKO) 237
+2 Trufflesnout (M21) 212
+1 Wildborn Preserver (ELD) 182

@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Mandurang
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Mandurang_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blood Lust (LEG) 135
+1 Braingeyser (3ED) 50
+2 Carrion Ants (LEG) 90
+2 Celestial Prism (3ED) 239
+3 Cursed Land (3ED) 98
+4 Dancing Scimitar (ARN) 61
+4 Giant Strength (LEG) 149
+2 Island (3ED) 295
+2 Island (3ED) 296
+2 Island (3ED) 297
+2 Jayemdae Tome (3ED) 258
+6 Mountain (ARN) 77
+1 Mox Jet (2ED) 263
+1 Mox Ruby (2ED) 265
+1 Mox Sapphire (2ED) 266
+4 Ornithopter (ATQ) 60
+2 Swamp (3ED) 298
+2 Swamp (3ED) 299
+2 Swamp (3ED) 300
+4 Unholy Strength (3ED) 133
+4 Unstable Mutation (ARN) 22
+4 Will-o'-the-Wisp (3ED) 137
+4 Zephyr Falcon (LEG) 86
+SB: 3 Blue Elemental Blast (3ED) 49
+SB: 3 Bog Wraith (3ED) 96
+SB: 2 Deathgrip (3ED) 101
+SB: 2 Flashfires (3ED) 152
+SB: 1 Gloom (3ED) 113
+SB: 1 Lifetap (3ED) 63
+SB: 3 Red Elemental Blast (3ED) 171

@@ -1,0 +1,49 @@
+# baylee deck export v1
+# name: Michael Loconto, Champion
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MichaelLocontoChampion_PTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Pro Tour Deck
+# set: PTC
+# released: 1996-05-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Adarkar Wastes (PTC) ml351
+1 Balance (PTC) ml6
+2 Blinking Spirit (PTC) ml8
+2 Control Magic (PTC) ml64
+4 Counterspell (PTC) ml65
+1 Deflection (PTC) ml81
+4 Disenchant (PTC) ml22
+1 Feldon's Cane (PTC) ml50
+2 Fountain of Youth (PTC) ml98
+2 Hallowed Ground (PTC) ml29
+2 Icy Manipulator (PTC) ml322
+2 Island (PTC) ml367
+1 Island (PTC) ml368
+1 Island (PTC) ml369
+1 Ivory Tower (PTC) ml328
+1 Jayemdae Tome (PTC) ml331
+2 Land Tax (PTC) ml34
+3 Millstone (PTC) ml336
+4 Mishra's Factory (PTC) ml361
+3 Plains (PTC) ml364
+2 Plains (PTC) ml365
+2 Plains (PTC) ml366
+1 Recall (PTC) ml24
+1 Ruins of Trokair (PTC) ml100
+1 Strip Mine (PTC) ml363
+2 Svyelunite Temple (PTC) ml102
+4 Swords to Plowshares (PTC) ml52
+1 Wizards' School (PTC) ml115
+4 Wrath of God (PTC) ml58
+1 Zuran Orb (PTC) ml350
+SB: 2 Aeolipile (PTC) ml81sb
+SB: 1 Circle of Protection: Red (PTC) ml15sb
+SB: 1 Circle of Protection: Red (PTC) ml17sb
+SB: 1 Control Magic (PTC) ml64sb
+SB: 1 Divine Offering (PTC) ml6sb
+SB: 2 Hydroblast (PTC) ml72sb
+SB: 1 Jester's Cap (PTC) ml324sb
+SB: 2 Sea Sprite (PTC) ml38sb
+SB: 2 Serrated Arrows (PTC) ml110sb
+SB: 2 Steal Artifact (PTC) ml105sb

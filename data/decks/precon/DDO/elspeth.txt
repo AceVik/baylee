@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Elspeth
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Elspeth_DDO.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDO
+# released: 2015-02-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Banisher Priest (DDO) 2
+1 Captain of the Watch (DDO) 3
+1 Celestial Flare (DDO) 4
+1 Court Street Denizen (DDO) 5
+1 Dauntless Onslaught (DDO) 6
+1 Decree of Justice (DDO) 7
+1 Dictate of Heliod (DDO) 8
+1 Elspeth, Sun's Champion (DDO) 1 *F*
+1 Gempalm Avenger (DDO) 9
+2 Gustcloak Harrier (DDO) 10
+1 Gustcloak Savior (DDO) 11
+1 Gustcloak Sentinel (DDO) 12
+1 Gustcloak Skirmisher (DDO) 13
+2 Icatian Javelineers (DDO) 14
+2 Kinsbaile Skirmisher (DDO) 15
+1 Kor Skyfisher (DDO) 16
+2 Loxodon Partisan (DDO) 17
+1 Mighty Leap (DDO) 18
+1 Mortal's Ardor (DDO) 19
+1 Mother of Runes (DDO) 20
+1 Noble Templar (DDO) 21
+6 Plains (DDO) 30
+6 Plains (DDO) 31
+5 Plains (DDO) 32
+5 Plains (DDO) 33
+1 Precinct Captain (DDO) 22
+2 Raise the Alarm (DDO) 23
+2 Secluded Steppe (DDO) 29
+1 Soul Parry (DDO) 24
+1 Standing Troops (DDO) 25
+2 Sunlance (DDO) 26
+2 Veteran Armorsmith (DDO) 27
+2 Veteran Swordsmith (DDO) 28

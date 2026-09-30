@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Golgari
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Golgari_GK1.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Guild Kit
+# set: GK1
+# released: 2018-11-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abrupt Decay (GK1) 57
+1 Charnel Troll (GRN) 160
+2 Darkblast (GK1) 51
+1 Deadbridge Chant (GK1) 58
+1 Deadbridge Goliath (GK1) 55
+1 Deathrite Shaman (GK1) 59
+1 Drown in Filth (GK1) 60
+2 Elves of Deep Shadow (GK1) 56
+8 Forest (GK1) 76
+1 Gaze of Granite (GK1) 61
+1 Glowspore Shaman (GRN) 173
+1 Golgari Charm (GK1) 62
+1 Golgari Findbroker (GRN) 175
+2 Golgari Guildgate (GRN) 248
+2 Golgari Guildgate (GRN) 249
+4 Golgari Rot Farm (GK1) 74
+2 Golgari Signet (GK1) 73
+1 Grave-Shell Scarab (GK1) 63
+1 Grisly Salvage (GK1) 64
+1 Hatchery Spider (GRN) 132
+1 Izoni, Thousand-Eyed (GK1) 50 *F*
+1 Jarad, Golgari Lich Lord (GK1) 65
+2 Korozda Guildmage (GK1) 66
+1 Lotleth Troll (GK1) 67
+1 Necrotic Wound (GRN) 79
+1 Plaguecrafter (GRN) 82
+1 Putrefy (GK1) 68
+1 Rhizome Lurcher (GRN) 196
+1 Savra, Queen of the Golgari (GK1) 69
+1 Shambling Shell (GK1) 70
+1 Sisters of Stone Death (GK1) 71
+1 Slum Reaper (GK1) 52
+1 Status // Statue (GRN) 230
+1 Stinkweed Imp (GK1) 53
+8 Swamp (GK1) 75
+1 Treasured Find (GK1) 72
+1 Vigor Mortis (GK1) 54

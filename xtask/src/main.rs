@@ -1,7 +1,9 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
 mod cr_check;
+mod precons;
 mod update_key;
+mod working;
 
 use baylee_cards_codegen::{
     acceptance, cardindex, catalog, landgen, layout, ledger, lines, names, scriptgen, scripts,
@@ -123,6 +125,30 @@ enum Cmd {
         /// Name every card that is not `Coverage::Implemented`.
         #[arg(long)]
         verbose: bool,
+    },
+    /// Import the retail precons from MTGJSON as Baylee text under
+    /// `data/decks/precon/`, then write their status (`docs/precons.md`).
+    ///
+    /// Cards are matched on oracle id through the ledger and written under
+    /// the ledger's name; a card the ledger does not know is written as the
+    /// source names it and reported. Idempotent: the same archive writes the
+    /// same files, and a list that did not change is not rewritten.
+    DecksImport {
+        /// A local `AllDeckFiles.tar.gz` to read instead of the cached or
+        /// downloaded one.
+        #[arg(long)]
+        archive: Option<PathBuf>,
+        /// Download the archive again even if a cached copy exists.
+        #[arg(long)]
+        refresh: bool,
+    },
+    /// Hold every precon file against the pool: write
+    /// `data/decks/precon/STATUS.tsv` and the gateway's embedded list of the
+    /// playable ones, or with `--check` only compare (`docs/precons.md`).
+    DecksStatus {
+        /// Compare instead of writing; fail if either file is stale.
+        #[arg(long)]
+        check: bool,
     },
     PoolDump {
         /// Where to write the dump.
@@ -530,6 +556,10 @@ fn main() -> anyhow::Result<()> {
         } => ledger_cmd(&root, &corpus, check, reseed),
         Cmd::AbilityLines => ability_lines(&root),
         Cmd::DeckCheck { file, verbose } => deck_check(&root, &file, verbose),
+        Cmd::DecksImport { archive, refresh } => {
+            precons::import(&root, archive.as_deref(), refresh)
+        }
+        Cmd::DecksStatus { check } => precons::status(&root, check),
         Cmd::PoolDump { out } => pool_dump(&out),
         Cmd::TranscodeReport {
             scripts,
@@ -4774,6 +4804,14 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
 /// it, so the two spellings disagreeing is a defect in whichever side wrote
 /// the file — and a report that only counted rows would pass while every
 /// printing quietly sat inside a card name.
+///
+/// Both deck dialects are read: the `[deck:…]` sections of the house decks,
+/// and Baylee text (`docs/deck-format.md`), whose `CMD:`/`SB:`/`MB:` prefix
+/// names a row's zone and whose commander is a row like any other — the form
+/// `data/decks/precon/` is written in. The last line is the verdict the
+/// precon status unlocks a deck by (`precons::verdict`): every card in the
+/// pool, `Implemented`, and named in the engine's test code.
+#[allow(clippy::too_many_lines)] // one pass over the rows owns every tally it reports
 fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
     use anyhow::Context as _;
     use baylee_cards::dsl::Coverage;
@@ -4793,6 +4831,7 @@ fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
     let mut unknown = Vec::new();
     let mut partial = Vec::new();
     let mut stubs = Vec::new();
+    let mut names: Vec<String> = Vec::new();
 
     for line in text.lines() {
         let line = line.trim_end();
@@ -4807,14 +4846,21 @@ fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
             };
             continue;
         }
+        let (section, line, prefixed) = match line.split_once(": ") {
+            Some(("CMD", row)) => ("commander", row, true),
+            Some(("SB", row)) => ("sideboard", row, true),
+            Some(("MB", row)) => ("maybeboard", row, true),
+            _ => (section, line, false),
+        };
         rows += 1;
         // A commander is stored as a **bare card name** and never as a row:
         // the column is read with `decks::by_name`, an exact-spelling lookup,
         // and `from_lines` silently drops a leader it cannot resolve. So a
         // `[commander]` line written the way a deck row is written seats
         // nobody and says nothing about it — which is exactly the shape this
-        // reader has to be able to refuse.
-        let name = if section == "commander" {
+        // reader has to be able to refuse. A `CMD:` row is Baylee text's
+        // commander, a row by design, which the import turns into both.
+        let name = if section == "commander" && !prefixed {
             if let Ok(row) = deckrow::parse(line)
                 && row.to_string() == line
             {
@@ -4838,6 +4884,9 @@ fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
             *counts.entry(section).or_default() += row.count;
             row.name.clone()
         };
+        if !names.contains(&name) {
+            names.push(name.clone());
+        }
         match baylee_cards::decks::by_name(&name).and_then(baylee_cards::by_index) {
             None => unknown.push(name.clone()),
             Some(def) => match def.coverage {
@@ -4874,6 +4923,29 @@ fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
             println!("  STUB        {name}");
         }
     }
+    let working = working::Working::scan(root).context("reading the engine's test code")?;
+    let refused: Vec<(String, precons::Why)> = names
+        .iter()
+        .filter_map(|name| {
+            precons::verdict(name, &working)
+                .err()
+                .map(|why| (name.clone(), why))
+        })
+        .collect();
+    for (name, why) in &refused {
+        if *why == precons::Why::Untested {
+            let tested = working.tested.len();
+            println!("  UNTESTED    {name}  (no engine test names it; {tested} cards are named)");
+        }
+    }
+    println!(
+        "  playable (every card implemented and named in engine test code): {}",
+        if refused.is_empty() {
+            "yes".to_string()
+        } else {
+            format!("no, {} cards", refused.len())
+        }
+    );
     if bad_round_trip.is_empty() {
         Ok(())
     } else {

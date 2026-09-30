@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: White Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteDeck_DSK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: DSK
+# released: 2024-09-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aerial Responder (PLST) KLD-2
+2 Alpine Watchdog (PLST) M21-2
+1 Banishing Light (PLST) KHC-19
+1 Canyon Jerboa (PLST) ZNR-290
+1 Linden, the Steadfast Queen (PLST) ELD-20
+1 Mesa Unicorn (PLST) DOM-27
+1 Mighty Leap (PLST) M19-28
+1 Odric, Lunarch Marshal (PLST) DMC-103
+1 Pacifism (PLST) M20-32
+4 Plains (PLST) LCI-394
+4 Plains (PLST) MKM-278
+5 Plains (PLST) WOE-268
+1 Savannah Lions (PLST) DMR-24
+2 Search Party Captain (PLST) MID-32
+1 Serra Angel (PLST) DMR-271
+1 Silverbeak Griffin (PLST) M19-285
+1 Territorial Hammerskull (PLST) XLN-41
+1 Valorous Stance (PLST) VOW-42

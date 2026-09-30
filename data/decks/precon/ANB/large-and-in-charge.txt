@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Large and in Charge
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LargeAndInCharge_ANB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: ANB
+# released: 2020-08-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Affectionate Indrik (ANB) 89
+4 Baloth Packhunter (ANB) 90
+2 Colossal Majesty (ANB) 92
+1 Epic Proportions (ANB) 93
+25 Forest (ANB) 112
+2 Gigantosaurus (ANB) 96
+4 Ilysian Caryatid (ANB) 98
+3 Jungle Delver (ANB) 99
+1 Prized Unicorn (ANB) 100
+3 Rabid Bite (ANB) 101
+2 Rampaging Brontodon (ANB) 102
+2 Rumbling Baloth (ANB) 103
+2 Sentinel Spider (ANB) 104
+2 Stony Strength (ANB) 105
+2 Wildwood Patrol (ANB) 108
+2 Woodland Mystic (ANB) 109
+1 World Shaper (ANB) 110
+SB: 2 Feral Roar (ANB) 94
+SB: 3 Generous Stray (ANB) 95
+SB: 4 Treetop Warden (ANB) 107

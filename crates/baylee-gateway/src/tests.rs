@@ -30,6 +30,7 @@ fn deck_named(cards: &[&str], commander: Option<&str>) -> store::Deck {
         sleeve: None,
         playmat: None,
         updated_at: 0,
+        offered: true,
     }
 }
 

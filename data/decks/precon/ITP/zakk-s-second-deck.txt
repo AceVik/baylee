@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Zakk's Second Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ZakkSSecondDeck_ITP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ITP
+# released: 1996-12-31
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Circle of Protection: Black (ITP) 2
+1 Circle of Protection: Red (ITP) 3
+1 Dark Ritual (ITP) 19
+1 Elvish Archers (ITP) 41
+2 Forest (ITP) 65
+1 Forest (ITP) 66
+1 Forest (ITP) 67
+1 Glasses of Urza (ITP) 50
+2 Mesa Pegasus (ITP) 5
+2 Plains (ITP) 53
+1 Plains (ITP) 54
+1 Plains (ITP) 55
+1 Reverse Damage (ITP) 7
+1 Rod of Ruin (ITP) 52
+2 Swamp (ITP) 59
+2 Swamp (ITP) 60
+1 Swamp (ITP) 61
+1 Wall of Bone (ITP) 27
+2 War Mammoth (ITP) 45
+1 Warp Artifact (ITP) 28
+2 Weakness (ITP) 29
+1 Whirling Dervish (ITP) 46
+1 Winter Blast (ITP) 47

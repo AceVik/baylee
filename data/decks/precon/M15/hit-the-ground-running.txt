@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Hit The Ground Running
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, HitTheGroundRunning_M15.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M15
+# released: 2014-07-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Carnivorous Moss-Beast (M15) 170
+2 Coral Barrier (M15) 49
+1 Encrust (M15) 53
+3 Forest (M15) 266
+3 Forest (M15) 267
+3 Forest (M15) 268
+3 Forest (M15) 269
+2 Frost Lynx (M15) 55
+1 Fugitive Wizard (M15) 56
+1 Illusory Angel (M15) 59
+2 Into the Void (M15) 60
+2 Invasive Species (M15) 181
+4 Island (M15) 254
+3 Island (M15) 255
+3 Island (M15) 256
+3 Island (M15) 257
+2 Kapsho Kitefins (M15) 66
+1 Mercurial Pretender (M15) 68 *F*
+1 Meteorite (M15) 221
+1 Negate (M15) 71
+2 Peel from Reality (M15) 74
+1 Plummet (M15) 192
+2 Reclamation Sage (M15) 194
+1 Research Assistant (M15) 77
+1 Restock (M15) 195
+2 Roaring Primadox (M15) 196
+2 Runeclaw Bear (M15) 197
+2 Satyr Wayfinder (M15) 198
+3 Shaman of Spring (M15) 199
+1 Stormtide Leviathan (M15) 80
+1 Turn to Frog (M15) 81

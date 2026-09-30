@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Power to the People
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PowerToThePeople_OTJ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: OTJ
+# released: 2024-07-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Assemble the Players (MKM) 3
+2 Auspicious Arrival (MKM) 5
+2 Consuming Ashes (OTJ) 83
+2 Deep-Cavern Bat (LCI) 102
+1 Delney, Streetwise Lookout (MKM) 12
+1 Expel the Interlopers (WOE) 13
+4 Forlorn Flats (OTJ) 258
+2 Ironpaw Aspirant (LCI) 18
+2 Make Your Move (MKM) 22
+2 Makeshift Binding (MKM) 23
+3 Marketwatch Phantom (MKM) 24
+2 Neighborhood Guardian (MKM) 26
+3 Outlaw Medic (OTJ) 23
+10 Plains (OTJ) 277
+1 Rankle's Prank (WOE) 102
+1 Sanguine Evangelist (LCI) 34
+2 Screaming Phantom (LCI) 118
+1 Shadowy Backstreet (MKM) 268
+2 Skullcap Snail (LCI) 119
+1 Slimy Dualleech (MKM) 104
+2 Snarling Gorehound (MKM) 105
+10 Swamp (OTJ) 282
+2 Wispdrinker Vampire (MKM) 243
+1 Wojek Investigator (MKM) 36

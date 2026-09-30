@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Path of Blight
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PathOfBlight_MBS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: MBS
+# released: 2011-02-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Banishment Decree (MBS) 3
+2 Blight Mamba (SOM) 112
+1 Blightwidow (MBS) 77
+2 Choking Fumes (MBS) 4
+1 Core Prowler (MBS) 103
+1 Corpse Cur (SOM) 147
+1 Decimator Web (MBS) 105
+7 Forest (MBS) 154
+7 Forest (MBS) 155
+2 Hunters' Feast (M11) 182
+1 Mighty Leap (M11) 22
+2 Phyrexian Digester (MBS) 120
+1 Phyrexian Hydra (MBS) 85 *F*
+2 Phyrexian Juggernaut (MBS) 121
+1 Pistus Strike (MBS) 86
+2 Plague Myr (MBS) 125
+6 Plains (MBS) 146
+5 Plains (MBS) 147
+2 Priests of Norn (MBS) 16
+2 Rot Wolf (MBS) 90
+1 Safe Passage (M11) 26
+2 Tangle Angler (SOM) 128
+2 Tine Shrike (MBS) 17
+2 Trigon of Infestation (SOM) 214
+2 Unnatural Predation (MBS) 93
+1 Viridian Corrupter (MBS) 94

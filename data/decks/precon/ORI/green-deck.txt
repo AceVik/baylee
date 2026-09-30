@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Green Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GreenDeck_ORI.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: ORI
+# released: 2015-07-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Conclave Naturalists (ORI) 171
+1 Elvish Visionary (ORI) 175
+4 Forest (ORI) 269
+3 Forest (ORI) 270
+3 Forest (ORI) 271
+3 Forest (ORI) 272
+1 Hitchclaw Recluse (ORI) 181
+1 Jayemdae Tome (ORI) 231
+1 Joraga Invocation (ORI) 183
+2 Leaf Gilder (ORI) 184
+1 Mantle of Webs (ORI) 187
+2 Plummet (ORI) 286
+1 Prized Unicorn (ORI) 287
+1 Terra Stomper (ORI) 288
+2 Titanic Growth (ORI) 201
+2 Vastwood Gorger (ORI) 204
+1 Yeva's Forcemage (ORI) 208

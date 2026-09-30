@@ -1,0 +1,45 @@
+# baylee deck export v1
+# name: The Plague - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ThePlagueEnhancedDeck_USG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: USG
+# released: 1998-10-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Dark Ritual (USG) 127
+4 Disciple of Grace (USG) 10
+2 Drain Life (5ED) 156
+3 Drifting Meadow (USG) 320
+2 Expunge (USG) 135
+3 Humble (USG) 18
+1 Marble Titan (TMP) 28
+1 Opal Acrolith (USG) 22
+2 Paladin en-Vec (EXO) 12
+3 Pariah (USG) 28
+4 Pestilence (USG) 147
+2 Plains (USG) 331
+2 Plains (USG) 332
+2 Plains (USG) 333
+1 Plains (USG) 334
+2 Polluted Mire (USG) 323
+4 Reflecting Pool (TMP) 322
+1 Sanctum Guardian (USG) 43
+1 Spirit Mirror (TMP) 48
+1 Standing Troops (EXO) 22
+2 Swamp (USG) 339
+2 Swamp (USG) 340
+2 Swamp (USG) 341
+2 Swamp (USG) 342
+2 Voice of Grace (USG) 54
+2 Wall of Essence (STH) 22
+2 Wall of Junk (USG) 315
+1 Wall of Nets (EXO) 24
+1 Worship (USG) 57
+SB: 2 Circle of Protection: Red (TMP) 11
+SB: 3 Disenchant (USG) 12
+SB: 2 Light of Day (TMP) 27
+SB: 3 Perish (TMP) 147
+SB: 2 Persecute (USG) 146
+SB: 1 Warmth (TMP) 51
+SB: 2 Yawgmoth's Edict (USG) 170

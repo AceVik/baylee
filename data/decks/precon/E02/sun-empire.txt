@@ -1,0 +1,49 @@
+# baylee deck export v1
+# name: Sun Empire
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SunEmpire_E02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: E02
+# released: 2017-11-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aggravated Assault (E02) 25
+1 Ancient Brontodon (XLN) 175
+1 Bellowing Aegisaur (XLN) 4
+2 Borderland Ranger (E02) 31
+1 Burning Sun's Avatar (XLN) 135
+1 Charging Monstrosaur (XLN) 138
+1 Dinosaur Stampede (XLN) 140
+1 Disaster Radius (E02) 26
+2 Drover of the Mighty (XLN) 187
+3 Forest (XLN) 276
+2 Forest (XLN) 277
+2 Forest (XLN) 278
+2 Forest (XLN) 279
+1 Frenzied Raptor (XLN) 146
+1 Hunter's Prowess (E02) 33
+2 Imperial Aerosaur (XLN) 14
+4 Jungle Shrine (E02) 46
+1 Lightning Helix (E02) 39
+2 Mountain (XLN) 272
+2 Mountain (XLN) 273
+2 Mountain (XLN) 274
+1 Mountain (XLN) 275
+2 Nest Robber (XLN) 152
+1 Path to Exile (E02) 3
+2 Plains (XLN) 260
+2 Plains (XLN) 261
+1 Plains (XLN) 262
+1 Plains (XLN) 263
+1 Prey Upon (E02) 34
+2 Prismatic Lens (E02) 43
+1 Quicksilver Amulet (E02) 44
+1 Raging Swordtooth (XLN) 226
+2 Raptor Companion (XLN) 31
+1 Raptor Hatchling (XLN) 155
+1 Ravenous Daggertooth (XLN) 202
+1 Regisaur Alpha (XLN) 227
+1 Savage Stomp (XLN) 205
+2 Sheltering Light (XLN) 35
+1 Thundering Spineback (XLN) 210
+1 Vow of Wildness (E02) 37

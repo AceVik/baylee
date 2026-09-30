@@ -1,0 +1,24 @@
+# baylee deck export v1
+# name: Amonkhet Welcome Deck - White
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AmonkhetWelcomeDeckWhite_W17.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: W17
+# released: 2017-04-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bastion Enforcer (AER) 8
+1 Dawnfeather Eagle (AER) 14†
+1 Divine Verdict (W17) 1
+2 Glory Seeker (W17) 2
+2 Graceful Cat (AKH) 273
+2 Impeccable Timing (AKH) 18
+2 Inspired Charge (KLD) 20
+1 Mighty Leap (AKH) 20
+5 Plains (AKH) 255
+4 Plains (AKH) 256
+4 Plains (AKH) 257
+1 Serra Angel (W17) 3
+2 Standing Troops (W17) 4
+1 Stormfront Pegasus (W17) 5
+1 Victory's Herald (W17) 6

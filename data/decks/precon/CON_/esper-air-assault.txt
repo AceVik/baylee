@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Esper Air Assault
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EsperAirAssault_CON.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: CON
+# released: 2009-02-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Arcane Sanctum (ALA) 220
+2 Court Homunculus (CON) 6
+1 Darklit Gargoyle (CON) 7
+1 Dehydration (10E) 78
+1 Esper Cormorants (CON) 105
+1 Esperzoa (CON) 25
+1 Executioner's Capsule (ALA) 75
+1 Faerie Mechanist (CON) 27
+1 Inkwell Leviathan (CON) 30
+2 Island (ALA) 234
+2 Island (ALA) 235
+2 Island (ALA) 236
+1 Island (ALA) 237
+1 Magister Sphinx (CON) 116 *F*
+2 Parasitic Strix (CON) 32
+1 Plains (ALA) 230
+1 Plains (ALA) 231
+1 Plains (ALA) 232
+1 Remove Soul (10E) 100
+1 Rod of Ruin (10E) 341
+1 Salvage Slasher (CON) 52
+1 Scornful Aether-Lich (CON) 34
+1 Sludge Strider (CON) 126
+1 Swamp (ALA) 238
+1 Swamp (ALA) 239
+1 Swamp (ALA) 240
+2 Terramorphic Expanse (10E) 360
+1 Tidehollow Sculler (ALA) 202
+2 Traumatic Visions (CON) 36
+1 Vectis Agents (CON) 131
+2 Vedalken Outlander (CON) 132
+1 Windwright Mage (ALA) 208

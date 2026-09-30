@@ -757,6 +757,7 @@ mod tests {
             sleeve: None,
             playmat: None,
             updated_at: 0,
+            offered: true,
         }
     }
 

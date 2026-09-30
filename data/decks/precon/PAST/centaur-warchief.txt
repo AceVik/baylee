@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Centaur Warchief
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CentaurWarchief_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ali Baba (ARN) 35
+2 Cave People (DRK) 60
+2 Colossus of Sardia (ATQ) 46
+2 Dragon Whelp (3ED) 143
+2 Eternal Warrior (LEG) 144
+2 Healing Salve (3ED) 22
+3 Kismet (LEG) 25
+1 Land Tax (LEG) 26
+2 Lightning Bolt (3ED) 162
+12 Mountain (ARN) 77
+4 Plains (3ED) 292
+4 Plains (3ED) 293
+4 Plains (3ED) 294
+2 Savannah Lions (3ED) 39
+4 Serra Angel (3ED) 40
+3 Smoke (3ED) 178
+3 Swords to Plowshares (3ED) 41
+2 Wall of Swords (3ED) 43
+4 Yotian Soldier (ATQ) 79
+SB: 2 Kormus Bell (3ED) 260
+SB: 2 Magnetic Mountain (ARN) 41

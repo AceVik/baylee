@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: War of Attrition
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WarOfAttrition_NPH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: NPH
+# released: 2011-06-10
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Apostle's Blessing (NPH) 2
+1 Bonehoard (MBS) 100
+1 Darksteel Axe (SOM) 149
+2 Dread Statuary (WWK) 135
+4 Elite Vanguard (M11) 13
+4 Flayer Husk (MBS) 107
+4 Journey to Nowhere (ZEN) 14
+1 Kemba, Kha Regent (SOM) 12
+2 Kor Duelist (ZEN) 19
+4 Leonin Relic-Warder (MBS) 10
+4 Leonin Skyhunter (MBS) 11
+1 Mirran Crusader (MBS) 14
+11 Plains (NPH) 166
+10 Plains (NPH) 167
+4 Porcelain Legionnaire (NPH) 19
+1 Puresteel Paladin (NPH) 20
+1 Sickleslicer (NPH) 157
+1 Skinwing (MBS) 133
+2 Stoneforge Mystic (WWK) 20
+1 Sword of Vengeance (M11) 216
+SB: 1 Apostle's Blessing (NPH) 2
+SB: 2 Arrest (SOM) 2
+SB: 3 Celestial Purge (M11) 9
+SB: 1 Kor Duelist (ZEN) 19
+SB: 4 Kor Firewalker (WWK) 11
+SB: 4 Revoke Existence (SOM) 18

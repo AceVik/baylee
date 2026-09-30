@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Mono-Red Aggro
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MonoRedAggro_Q05.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q05
+# released: 2021-04-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Akoum Hellhound (ZNR) 133
+4 Anax, Hardened in the Forge (THB) 125
+4 Bonecrusher Giant // Stomp (ELD) 115
+2 Castle Embereth (ELD) 239
+1 Embercleave (ELD) 120
+4 Fervent Champion (ELD) 124
+4 Kargan Intimidator (ZNR) 145
+16 Mountain (KHM) 397
+4 Rimrock Knight // Boulder Rush (ELD) 137
+4 Roil Eruption (ZNR) 155
+2 Shatterskull Smashing // Shatterskull, the Hammer Pass (ZNR) 161
+4 Shock (M21) 159
+4 Spikefield Hazard // Spikefield Cave (ZNR) 166
+3 Torbran, Thane of Red Fell (ELD) 147
+SB: 4 Redcap Melee (ELD) 135
+SB: 2 Relic Robber (ZNR) 153
+SB: 2 Roiling Vortex (ZNR) 156
+SB: 2 Soul Sear (M21) 160
+SB: 2 Soul-Guide Lantern (THB) 237
+SB: 3 Thundering Rebuke (ZNR) 170

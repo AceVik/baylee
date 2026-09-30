@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Booster Battle Pack: Boros
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BoosterBattlePackBoros_GTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: GTC
+# released: 2013-02-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aerial Maneuver (GTC) 1
+1 Assault Griffin (GTC) 4
+1 Bomber Corps (GTC) 86
+1 Boros Elite (GTC) 7
+1 Boros Guildgate (GTC) 239
+1 Ember Beast (GTC) 89
+1 Fortress Cyclops (GTC) 164
+1 Massive Raid (GTC) 100
+1 Mountain (RTR) 265
+1 Mountain (RTR) 266
+1 Mountain (RTR) 267
+1 Mountain (RTR) 268
+1 Mountain (RTR) 269
+1 Nav Squad Commandos (GTC) 22
+1 Plains (RTR) 250
+1 Plains (RTR) 251
+1 Plains (RTR) 252
+1 Plains (RTR) 253
+1 Plains (RTR) 254
+1 Shattering Blow (GTC) 225
+1 Skyknight Legionnaire (GTC) 197
+1 Structural Collapse (GTC) 107

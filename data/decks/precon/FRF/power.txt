@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Power
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Power_FRF.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Clash Pack
+# set: FRF
+# released: 2015-01-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Annul (THS) 38
+1 Dead Drop (KTK) 67
+1 Despise (KTK) 69
+2 Dismal Backwater (FRF) 168
+2 Evolving Wilds (M15) 243
+5 Forest (KTK) 269
+1 Gurmag Angler (FRF) 72
+1 Herald of Torment (BNG) 75
+1 Hero's Downfall (CP2) 2 *F*
+5 Island (KTK) 257
+1 Merciless Executioner (FRF) 76
+1 Monastery Siege (FRF) 43
+2 Murderous Cut (KTK) 81
+1 Naturalize (KTK) 142
+2 Necromancer's Assistant (M15) 107
+1 Necropolis Fiend (CP2) 1 *F*
+1 Neutralizing Blast (FRF) 44
+4 Opulent Palace (KTK) 238
+1 Returned Centaur (THS) 103
+4 Satyr Wayfinder (M15) 198
+1 Scuttling Doom Engine (M15) 229
+1 Set Adrift (KTK) 54
+1 Sultai Ascendancy (CP2) 3 *F*
+1 Sultai Banner (KTK) 225
+2 Sultai Charm (KTK) 204
+2 Sultai Scavenger (KTK) 91
+1 Sultai Skullkeeper (FRF) 53
+2 Sultai Soothsayer (KTK) 205
+7 Swamp (FRF) 181
+2 Taigam's Scheming (KTK) 57
+1 Treasure Cruise (KTK) 59
+1 Typhoid Rats (FRF) 89

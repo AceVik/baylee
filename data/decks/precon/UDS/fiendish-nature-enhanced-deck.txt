@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Fiendish Nature - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FiendishNatureEnhancedDeck_UDS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: UDS
+# released: 1999-06-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Ancient Silverback (UDS) 101
+1 Cradle Guard (USG) 245
+2 Elvish Lyrist (USG) 248
+4 Engineered Plague (ULG) 51
+4 Forest (USG) 347
+3 Forest (USG) 348
+3 Forest (USG) 349
+3 Forest (USG) 350
+2 Gamekeeper (UDS) 106
+2 Giant Growth (6ED) 233
+4 Llanowar Elves (6ED) 239
+2 Pattern of Rebirth (UDS) 115
+3 Plague Dogs (UDS) 66
+1 Polluted Mire (USG) 323
+2 Rancor (ULG) 110
+3 Recurring Nightmare (EXO) 72
+2 Slippery Karst (USG) 327
+2 Swamp (USG) 339
+2 Swamp (USG) 340
+1 Swamp (USG) 341
+1 Swamp (USG) 342
+1 Symbiosis (USG) 275
+2 Uktabi Orangutan (6ED) 260
+1 Verdant Force (TMP) 263
+4 Wall of Blossoms (STH) 125
+2 Yavimaya Elder (UDS) 124
+SB: 1 Choke (TMP) 219
+SB: 4 Dread of Night (6ED) 122
+SB: 2 Eradicate (UDS) 60
+SB: 1 Living Death (TMP) 142
+SB: 3 Scragnoth (TMP) 253
+SB: 1 Splinter (UDS) 121
+SB: 2 Stronghold Taskmaster (STH) 72
+SB: 1 Terror (6ED) 160

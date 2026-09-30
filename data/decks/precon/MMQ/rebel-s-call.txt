@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Rebel's Call
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RebelSCall_MMQ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: MMQ
+# released: 1999-10-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Afterlife (MMQ) 1
+2 Arrest (MMQ) 4
+2 Ballista Squad (MMQ) 5
+2 Charm Peddler (MMQ) 6
+2 Cho-Manno's Blessing (MMQ) 12
+1 Cho-Manno, Revolutionary (MMQ) 11
+2 Devout Witness (MMQ) 17
+2 Disenchant (MMQ) 18
+1 Fountain of Cho (MMQ) 317
+2 Jhovall Rider (MMQ) 26
+1 Moonlit Wake (MMQ) 29
+2 Nightwind Glider (MMQ) 31
+2 Pious Warrior (MMQ) 34
+5 Plains (MMQ) 331
+5 Plains (MMQ) 332
+5 Plains (MMQ) 333
+5 Plains (MMQ) 334
+2 Ramosian Captain (MMQ) 35
+2 Ramosian Commander (MMQ) 36
+2 Ramosian Lieutenant (MMQ) 37
+2 Ramosian Rally (MMQ) 38
+3 Ramosian Sergeant (MMQ) 39
+1 Ramosian Sky Marshal (MMQ) 40
+2 Steadfast Guard (MMQ) 50
+2 Task Force (MMQ) 52
+2 Thermal Glider (MMQ) 53

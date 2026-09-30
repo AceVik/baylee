@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Inspiring Heroics
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, InspiringHeroics_THS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: THS
+# released: 2013-10-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ascended Lawmage (DGM) 53
+4 Azorius Guildgate (DGM) 146
+2 Banisher Priest (M14) 7
+3 Battlewise Hoplite (THS) 189
+2 Dauntless Onslaught (THS) 6
+2 Detention Sphere (RTR) 155
+3 Dryad Militant (RTR) 214
+1 Fabled Hero (THS) 12
+1 Frontline Medic (GTC) 12
+2 Gods Willing (THS) 16
+1 Hallowed Fountain (RTR) 241
+3 Hopeful Eidolon (THS) 19
+2 Imposing Sovereign (M14) 22
+2 Island (THS) 234
+1 Island (THS) 235
+1 Island (THS) 236
+1 Island (THS) 237
+1 Lavinia of the Tenth (DGM) 80
+3 Lyev Skyknight (RTR) 179
+1 New Prahv Guildmage (RTR) 181
+1 Ordeal of Heliod (THS) 25
+2 Ordeal of Thassa (THS) 58
+2 Pacifism (M14) 25
+4 Plains (THS) 230
+4 Plains (THS) 231
+3 Plains (THS) 232
+3 Plains (THS) 233
+1 Precinct Captain (RTR) 17
+1 Skymark Roc (RTR) 196
+1 Soldier of the Pantheon (THS) 32
+SB: 2 Arrest (RTR) 3
+SB: 2 Gainsay (THS) 49
+SB: 2 Gift of Orzhova (GTC) 219
+SB: 2 Glare of Heresy (THS) 15
+SB: 2 Negate (M14) 64
+SB: 3 Solemn Offering (M14) 36
+SB: 2 Triton Tactics (THS) 71
