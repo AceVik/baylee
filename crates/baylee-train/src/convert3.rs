@@ -60,6 +60,9 @@ pub struct Converted {
     pub inputs: u64,
     /// Answers not read as options, by question kind and why.
     pub unmatched: BTreeMap<(i16, &'static str), u64>,
+    /// Where the first few of them are: the input's number, the question's
+    /// kind and why, so a report can name the game and the move.
+    pub unmatched_at: Vec<(u64, i16, &'static str)>,
 }
 
 impl Converted {
@@ -176,6 +179,7 @@ pub fn convert(record: &[u8], keep: Keep) -> Result<Converted, Refused> {
     let mut inputs = 0;
     let mut winners = None;
     let mut unmatched: BTreeMap<(i16, &'static str), u64> = BTreeMap::new();
+    let mut unmatched_at = Vec::new();
     for line in lines {
         match line? {
             Line::Header { .. } => return Err(Refused::Unreadable("a second header".into())),
@@ -205,6 +209,9 @@ pub fn convert(record: &[u8], keep: Keep) -> Result<Converted, Refused> {
                             let (steps, why) = decision(&view, &pending, &action, &table, base);
                             if let Some(why) = why {
                                 *unmatched.entry((kind, why)).or_default() += 1;
+                                if unmatched_at.len() < 4 {
+                                    unmatched_at.push((n, kind, why));
+                                }
                             }
                             let omni = omniscient(&engine, player, &decks);
                             let turn = engine.state().turn.number;
@@ -251,6 +258,7 @@ pub fn convert(record: &[u8], keep: Keep) -> Result<Converted, Refused> {
         final_turn: engine.state().turn.number,
         inputs,
         unmatched,
+        unmatched_at,
     })
 }
 

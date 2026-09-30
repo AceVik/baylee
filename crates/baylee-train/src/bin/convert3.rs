@@ -108,6 +108,7 @@ struct Report {
     samples: usize,
     refused: Option<String>,
     unmatched: std::collections::BTreeMap<(i16, &'static str), u64>,
+    unmatched_at: Vec<(u64, i16, &'static str)>,
     offered_dropped: u64,
 }
 
@@ -448,6 +449,7 @@ fn main() -> anyhow::Result<()> {
                                 .map(|s| s.actor.offered_dropped as u64)
                                 .sum(),
                             unmatched: converted.unmatched,
+                            unmatched_at: converted.unmatched_at,
                         }
                     }
                     Err(why) => Report {
@@ -458,6 +460,7 @@ fn main() -> anyhow::Result<()> {
                             other => format!("{other:?}"),
                         }),
                         unmatched: std::collections::BTreeMap::new(),
+                        unmatched_at: Vec::new(),
                         offered_dropped: 0,
                     },
                 };
@@ -477,6 +480,9 @@ fn main() -> anyhow::Result<()> {
     let mut samples = 0_usize;
     let mut refused = std::collections::BTreeMap::<String, u64>::new();
     let mut unmatched = std::collections::BTreeMap::<String, u64>::new();
+    // The first answers not read as options, by the dataset's game id (its
+    // `games.jsonl` names the run and game) and the input's number.
+    let mut unmatched_examples: Vec<serde_json::Value> = Vec::new();
     let mut offered_dropped = 0_u64;
     loop {
         match rx.recv_timeout(Duration::from_secs(1)) {
@@ -490,6 +496,14 @@ fn main() -> anyhow::Result<()> {
                 for ((kind, why), n) in &report.unmatched {
                     let kind = PENDING_KINDS.get(*kind as usize).copied().unwrap_or("?");
                     *unmatched.entry(format!("{kind}/{why}")).or_default() += n;
+                }
+                for (n, kind, why) in &report.unmatched_at {
+                    if unmatched_examples.len() < 50 {
+                        let kind = PENDING_KINDS.get(*kind as usize).copied().unwrap_or("?");
+                        unmatched_examples.push(
+                            serde_json::json!({"game": report.id, "input": n, "answer": format!("{kind}/{why}")}),
+                        );
+                    }
                 }
                 let id = report.id as usize;
                 reports[id] = Some(report);
@@ -574,6 +588,7 @@ fn main() -> anyhow::Result<()> {
         "samples": samples,
         "left_out": {"stopped": unfinished, "refused": refused},
         "unmatched_answers": unmatched,
+        "unmatched_examples": unmatched_examples,
         "offered_objects_dropped": offered_dropped,
         "profiles": PROFILES,
         "options": {
