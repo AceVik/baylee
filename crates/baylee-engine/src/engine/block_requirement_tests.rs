@@ -367,7 +367,7 @@ fn a_creature_that_blocks_one_more_blocks_two_and_not_three() {
     );
     refused(
         declare(&mut engine, &[(giant, me[0]), (giant, me[0])]),
-        "duplicate block",
+        "one choice named twice",
     );
     declare(&mut engine, &[(giant, me[0]), (giant, me[1])]).unwrap();
     assert_eq!(
@@ -448,7 +448,7 @@ fn a_menace_attacker_it_must_block_takes_a_second_blocker() {
             &mut engine,
             &[(blazed, me[0]), (blazed, me[1]), (blazed, me[2])],
         ),
-        "menace requires two blockers",
+        "too few blockers for that attacker",
     );
     obeying_is_accepted(engine, &question);
 }

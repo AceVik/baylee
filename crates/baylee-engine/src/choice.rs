@@ -184,7 +184,8 @@ pub enum AnswerFault {
     NotOffered,
     /// One thing named twice in a list the question reads as a set: two
     /// targets for one instance of "target" (CR 115.3), a card delved or
-    /// crewed twice, a creature declared as an attacker or a blocker twice.
+    /// crewed twice, a creature declared as an attacker twice, a blocker
+    /// paired with one attacker twice.
     Repeated,
     /// Fewer things named than the question's `min` (or its exact count).
     TooFew,
@@ -196,6 +197,9 @@ pub enum AnswerFault {
     TotalTooLow,
     /// The chosen cards add up to more than [`CardTotal::at_most`].
     TotalTooHigh,
+    /// A blocker paired with more attackers than it may block: one, or
+    /// what its [`BlockCapacity`] says (CR 509.1a).
+    OverCapacity,
     /// An attacker blocked by fewer creatures than its
     /// [`AttackerBound::min_blockers`], and by more than none.
     TooFewBlockers,
@@ -223,6 +227,7 @@ impl AnswerFault {
             Self::OutOfRange => "number outside the offered range",
             Self::TotalTooLow => "the chosen total is too low",
             Self::TotalTooHigh => "the chosen total is too high",
+            Self::OverCapacity => "creature cannot block that many attackers",
             Self::TooFewBlockers => "too few blockers for that attacker",
             Self::TooManyBlockers => "too many blockers for that attacker",
             Self::NoFurtherMulligan => {
@@ -1124,10 +1129,13 @@ impl Pending {
             ) => attack_fault(attackers, defenders, declared),
             (
                 Self::ChooseBlockers {
-                    blockers, bounds, ..
+                    blockers,
+                    capacity,
+                    bounds,
+                    ..
                 },
                 A::DeclareBlockers { blockers: declared },
-            ) => block_fault(blockers, bounds, declared),
+            ) => block_fault(blockers, capacity, bounds, declared),
             (Self::LegendChoice { options, .. }, A::ChooseObjects { objects }) => {
                 counted(objects.len(), 1, 1).or_else(|| not_offered(options, objects))
             }
@@ -1298,9 +1306,12 @@ fn attack_fault(
     })
 }
 
-/// A declaration of blockers against the pairings and the counts offered.
+/// A declaration of blockers against the pairings and the counts offered:
+/// each pair named once, and each blocker on no more attackers than its
+/// [`BlockCapacity`] allows (one where none is stated, CR 509.1a).
 fn block_fault(
     options: &[BlockOption],
+    capacity: &[BlockCapacity],
     bounds: &[AttackerBound],
     declared: &[(ObjectId, ObjectId)],
 ) -> Option<AnswerFault> {
@@ -1308,11 +1319,23 @@ fn block_fault(
         .iter()
         .map(|o| (o.blocker, o.attackers.as_slice()))
         .collect();
+    let most = |blocker: ObjectId| {
+        capacity
+            .iter()
+            .find(|c| c.blocker == blocker)
+            .map_or(Some(1), |c| c.most.map(u32::from))
+    };
     let mut seen = std::collections::BTreeSet::new();
+    let mut blocks: std::collections::BTreeMap<ObjectId, u32> = std::collections::BTreeMap::new();
     let mut counts: std::collections::BTreeMap<ObjectId, u32> = std::collections::BTreeMap::new();
     for (blocker, attacker) in declared {
-        if !seen.insert(*blocker) {
+        if !seen.insert((*blocker, *attacker)) {
             return Some(AnswerFault::Repeated);
+        }
+        let named = blocks.entry(*blocker).or_default();
+        *named += 1;
+        if most(*blocker).is_some_and(|most| *named > most) {
+            return Some(AnswerFault::OverCapacity);
         }
         if !offered
             .get(blocker)
@@ -2647,8 +2670,13 @@ mod fit_to_options_tests {
         );
         assert_eq!(
             question.answer_fault(&declare(&[(10, runner), (10, other)])),
-            Some(AnswerFault::Repeated),
+            Some(AnswerFault::OverCapacity),
             "one creature blocks one attacker"
+        );
+        assert_eq!(
+            question.answer_fault(&declare(&[(10, runner), (10, runner)])),
+            Some(AnswerFault::Repeated),
+            "one pair named twice"
         );
     }
 }
