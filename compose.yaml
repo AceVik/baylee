@@ -67,8 +67,16 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale-provider=builtin --builtin-locale=C.UTF-8"
     ports:
       - "5432:5432"
+    # PostgreSQL 18 images keep the cluster in `/var/lib/postgresql/18/docker`
+    # and declare the volume at `/var/lib/postgresql`. The first 18 images
+    # carried a `data -> .` symlink, so the old mount point `…/data` landed
+    # on `/var/lib/postgresql` without anyone noticing; newer ones refuse a
+    # mount at `…/data` and `docker compose up` exits 1 (a fresh Linux box,
+    # 30.09.2026). Mounting at the parent is what both kinds already did, so
+    # an existing volume starts the same cluster (checked on a copy: no
+    # initdb, every table there).
     volumes:
-      - catalog-data:/var/lib/postgresql/data
+      - catalog-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U baylee -d baylee"]
       interval: 5s
