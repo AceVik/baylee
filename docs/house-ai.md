@@ -333,14 +333,18 @@ offer (`LegalActions::suspendable`: Ancestral Vision, Profane Tutor), and
 Raffine's Tower's cycling is a card in hand, which `activate::printed` does
 not reach. The planner is the next slice.
 
-**Inspirit, Flagship Vessel is a card finding, not an agent one.** Station
+**Inspirit, Flagship Vessel was a card finding, not an agent one.** Station
 is "tap another untapped creature you control" as a cost (CR 702.184a). The
-card writes the tap as an effect, `TapTarget` under `Cost::FREE`, and its
-target filter (`ANOTHER_CREATURE_YOU_CONTROL`) does not say untapped. A free
+card wrote the tap as an effect, `TapTarget` under `Cost::FREE`, and its
+target filter (`ANOTHER_CREATURE_YOU_CONTROL`) did not say untapped. A free
 cost with no parts is the one shape `activate` refuses outright, since the
-same offer returns unchanged, so the agent never stations; and the engine
-lets an already tapped creature be named again, which a real station cost
-would not.
+same offer returns unchanged, so the agent never stationed; and the engine
+let an already tapped creature be named again, which a real station cost
+would not. It and U.S.S. Enterprise-D now write the cost the rule spells
+(`CostPart::TapOther`, `Amount::TappedPower`), which `consumes` counts as
+consuming, and `lints::every_station_is_the_ability_its_keyword_spells` holds
+every printed station to that shape. Whether the agent now stations well is
+unmeasured.
 
 **An attacker the view cannot describe is unknown, not absent.** `Fighter::of`
 is three `?` in a row — the object, its power, its toughness — and every
@@ -496,6 +500,24 @@ it, so the single-blocker scene arrives from no real table. It is kept, and
 its comment says why — `choose_blocks` computes an answer to that shape
 whether or not anything presents it, and a pass tested only on offers the
 engine has already filtered is a pass nothing tests.
+
+**Every answer is held to its question before it is given** (`held`). A
+question states every reason the engine refuses an answer to it
+(`Pending::answer_fault`, `docs/pending-constraints.md`), so the agent checks
+its own answer against it, and an answer that breaks one is a defect in the
+picker that built it: "up to four" targets answered with eleven (Meloku's
+Illusions, found by the fuzzer, seeds 486 and 1931 on 50050ff3) was one. Such
+an answer is refitted to the nearest one the question takes — the picker's own
+choices in its order, less repeats and what was not offered, cut to the
+maximum and made up to the minimum, an opponent's first; else the answer that
+does nothing; else the least offered — so no answer outside what its
+question states reaches the engine (a refusal for a reason the question does
+not state still can, and is counted as before). It is never silent: the agent logs a warning with
+the answer, the fault and the question, and counts it
+(`HeuristicAgent::fallbacks`, `Tally::fallbacks`). The self-play sweeps
+(acceptance decks, multi-seat tables, AI deck matches, every implemented
+card's game) assert that count and the engine's refusals both stay at zero,
+so a picker that breaks a bound fails a test instead of being papered over.
 
 **A modal card in hand is what either of its faces can be.** A
 `CardIdentity` in hand names the face that is *up*, which for a modal

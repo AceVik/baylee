@@ -8,7 +8,11 @@ what it states.** `Pending::answer_fault(&PlayerAction) -> Option<AnswerFault>`
 is that statement as one pure function: `apply` runs it first and refuses
 with its reason (`EngineError::IllegalAction(fault.reason())`, or
 `MismatchedAction` for an answer of the wrong kind), and a client, the house
-AI and a trained agent can run it before they send.
+AI and a trained agent can run it before they send. Only the seat comes
+before it: a seat the question does not ask is refused with
+`MismatchedAction` whatever it answered, since a search's options are
+cards in a hidden library and a refusal naming a fault in them would tell
+a bystander which of its guesses were there.
 
 The defect that started it: the trained AI's fuzzer (2000 games, main
 f7390913) answers inside what `Pending` states and was refused 38 crew

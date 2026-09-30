@@ -15,6 +15,7 @@ pub mod combat;
 mod copying;
 mod fight;
 mod filter;
+mod held;
 pub mod intelligence;
 mod policy;
 mod redirect;
@@ -41,6 +42,11 @@ pub struct HeuristicAgent {
     teams: std::sync::Arc<[Option<u8>]>,
     seed: u64,
     strategy: intelligence::Strategy,
+    /// How many of this agent's answers broke the question they answered
+    /// and were refitted to it ([`Self::fallbacks`]). Shared by every clone,
+    /// so the agent a host seats and the copies it answers through count
+    /// into the one number the host reads. It changes no answer.
+    fallbacks: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl HeuristicAgent {
@@ -52,7 +58,50 @@ impl HeuristicAgent {
             teams: std::sync::Arc::default(),
             seed: 0,
             strategy: intelligence::Strategy::default(),
+            fallbacks: std::sync::Arc::default(),
         }
+    }
+
+    /// How many answers this agent and its clones built that broke the
+    /// question they answered (`Pending::answer_fault`), each refitted to
+    /// the nearest answer inside it before it was given (`held::refit`) and
+    /// logged as a warning.
+    ///
+    /// Every one is a defect in the picker that built it. The self-play
+    /// sweeps assert that this stays at zero: an answer the engine never
+    /// refuses because the agent caught it first would otherwise be a
+    /// defect nothing reports.
+    #[must_use]
+    pub fn fallbacks(&self) -> usize {
+        self.fallbacks.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// `proposal`, if `pending` takes it, and otherwise the nearest answer
+    /// the question takes, counted and logged (`held`).
+    fn held_to(
+        &self,
+        view: &PlayerView,
+        pending: &Pending,
+        proposal: PlayerAction,
+    ) -> PlayerAction {
+        let Some(fault) = pending.answer_fault(&proposal) else {
+            return proposal;
+        };
+        self.fallbacks
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let refit = held::refit(view, pending, &proposal, &|seat| {
+            self.hostile(seat, view.seat)
+        });
+        let question: String = match pending {
+            // The offer lists every legal action, a page of text.
+            Pending::Priority { player, .. } => format!("Priority {{ player: {player:?}, .. }}"),
+            other => format!("{other:?}").chars().take(300).collect(),
+        };
+        log::warn!(
+            "house answer {proposal:?} broke its question ({fault:?}) {question}; \
+             answering {refit:?} instead"
+        );
+        refit.unwrap_or(proposal)
     }
 
     /// Tells the agent which side each seat plays for, in seat order.
@@ -128,14 +177,9 @@ impl HeuristicAgent {
     /// Picks an action for the pending choice addressed to `view.seat`.
     #[must_use]
     pub fn act(&self, view: &PlayerView, pending: &Pending) -> PlayerAction {
-        // Most questions are priority. Borrow its potentially large offer
-        // instead of allocating a duplicate box and every legal-action list.
-        if let Pending::Priority { legal, .. } = pending {
-            return self.priority(view, legal);
-        }
-        self.choice(
+        self.act_with_context(
             view,
-            pending.clone(),
+            pending,
             &baylee_engine::engine::DecisionContext::default(),
         )
     }
@@ -148,10 +192,14 @@ impl HeuristicAgent {
         pending: &Pending,
         context: &baylee_engine::engine::DecisionContext<'_>,
     ) -> PlayerAction {
-        if let Pending::Priority { legal, .. } = pending {
-            return self.priority(view, legal);
-        }
-        self.choice(view, pending.clone(), context)
+        // Most questions are priority. Borrow its potentially large offer
+        // instead of allocating a duplicate box and every legal-action list.
+        let proposal = if let Pending::Priority { legal, .. } = pending {
+            self.priority(view, legal)
+        } else {
+            self.choice(view, pending.clone(), context)
+        };
+        self.held_to(view, pending, proposal)
     }
 
     fn priority(
@@ -440,14 +488,17 @@ impl HeuristicAgent {
                 // turn 34: the engine put the cast back, the board was
                 // unchanged, so the agent cast the same spell again and the
                 // harness's loop detector ended the game. A spell was cast to
-                // do something, so an unbounded choice takes every enemy it
-                // was offered, and never fewer than one.
+                // do something, so an open choice takes every enemy it was
+                // offered, never fewer than one and never more than `max`:
+                // "up to four" over eleven enemy Illusions named all eleven,
+                // and the engine refused the answer as too many (the
+                // trained AI's fuzzer, main 50050ff3, seeds 486 and 1931).
                 let n = if max <= 2 {
-                    max as usize
+                    usize::from(max)
                 } else if min == 0 {
-                    enemies.max(1)
+                    enemies.clamp(1, usize::from(max))
                 } else {
-                    min as usize
+                    usize::from(min)
                 };
                 let objects = ordered[..n.min(ordered.len())].to_vec();
                 // "Any target" with nothing on the battlefield worth hitting
@@ -1206,6 +1257,127 @@ mod tests {
             aim(vec![permanent(obj(4), me, 1), permanent(obj(1), them, 5)]),
             chosen(vec![obj(1)])
         );
+    }
+
+    /// "Up to four targets" with nothing in the context to rank them by,
+    /// over eleven enemy creatures and one of this seat's. The fallback
+    /// takes every enemy it was offered, and it named all eleven where the
+    /// question allows four: the engine refused the answer as too many
+    /// (the trained AI's fuzzer on main 50050ff3, seeds 486 and 1931, with
+    /// Flying Men, Meloku and its Illusions across the table). Four
+    /// enemies, and never the seat's own creature.
+    #[test]
+    fn an_open_count_of_targets_is_held_to_its_maximum() {
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut battlefield: Vec<PublicObject> =
+            (1..=11).map(|slot| permanent(obj(slot), them, 1)).collect();
+        battlefield.push(permanent(obj(12), me, 2));
+        let v = view(0, &[20, 20], battlefield);
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: v.battlefield.iter().map(|o| o.id).collect(),
+            player_options: vec![],
+            min: 0,
+            max: 4,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        let action = agent.act(&v, &pending);
+        assert_eq!(pending.answer_fault(&action), None, "{action:?}");
+        assert_eq!(
+            agent.fallbacks(),
+            0,
+            "the picker's own answer, and not one refitted after it"
+        );
+        let PlayerAction::ChooseTargets { objects, players } = action else {
+            panic!("a target question answered with targets")
+        };
+        assert_eq!(objects.len(), 4, "as many as the question allows");
+        assert!(players.is_empty(), "no player was offered");
+        assert!(!objects.contains(&obj(12)), "and none of the seat's own");
+    }
+
+    /// An answer that breaks its question is refitted to the nearest one
+    /// inside it, and counted. Each proposal below is one a picker could
+    /// build and the engine refuses (`Pending::answer_fault`); the refit
+    /// keeps the proposal's own choices in its own order and makes up a
+    /// shortfall from what the question offers, an opponent's first. The
+    /// count is shared with a clone, which is how a host that answers
+    /// through a copy of its seat's agent reads it.
+    #[test]
+    fn an_answer_that_breaks_its_question_is_refitted_and_counted() {
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), them, 1),
+                permanent(obj(2), me, 1),
+                permanent(obj(3), them, 1),
+                permanent(obj(4), them, 1),
+            ],
+        );
+        let targets = |min, max| Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(1), obj(2), obj(3), obj(4)],
+            player_options: vec![me, them],
+            min,
+            max,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let chosen = |objects: Vec<ObjectId>, players: Vec<PlayerId>| PlayerAction::ChooseTargets {
+            objects,
+            players,
+        };
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        let seated = agent.clone();
+        let cases = [
+            (
+                targets(0, 2),
+                chosen(vec![obj(4), obj(1), obj(3)], vec![them]),
+                chosen(vec![obj(4), obj(1)], vec![]),
+                "too many: the first two it ranked",
+            ),
+            (
+                targets(3, 3),
+                chosen(vec![obj(9), obj(3), obj(3)], vec![]),
+                chosen(vec![obj(3), obj(1), obj(4)], vec![]),
+                "one not offered, one named twice, and made up with the opponent's",
+            ),
+            (
+                targets(4, 4),
+                chosen(vec![], vec![]),
+                chosen(vec![obj(1), obj(3), obj(4), obj(2)], vec![]),
+                "the seat's own only once the opponent's are all named",
+            ),
+            (
+                Pending::ChooseNumber {
+                    player: v.seat,
+                    min: 1,
+                    max: 3,
+                    reason: baylee_engine::choice::NumberPrompt::X,
+                },
+                PlayerAction::ChooseNumber(7),
+                PlayerAction::ChooseNumber(3),
+                "a number held to its range",
+            ),
+            (
+                targets(1, 1),
+                PlayerAction::YesNo(true),
+                chosen(vec![obj(1)], vec![]),
+                "an answer of the wrong kind: the least the question offers",
+            ),
+        ];
+        for (at, (pending, proposal, expected, why)) in cases.into_iter().enumerate() {
+            assert!(pending.answer_fault(&proposal).is_some(), "{why}: a fault");
+            let answer = seated.held_to(&v, &pending, proposal);
+            assert_eq!(answer, expected, "{why}");
+            assert_eq!(pending.answer_fault(&answer), None, "{why}: taken");
+            assert_eq!(agent.fallbacks(), at + 1, "{why}: counted, and shared");
+        }
+        let fine = chosen(vec![obj(3)], vec![]);
+        assert_eq!(seated.held_to(&v, &targets(1, 1), fine.clone()), fine);
+        assert_eq!(agent.fallbacks(), 5, "an answer inside its question is not");
     }
 
     #[test]

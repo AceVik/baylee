@@ -108,6 +108,15 @@ fn implemented_tribal_artifact_control_and_graveyard_lists_finish() {
                 "{name}, seed {seed}: {:?}",
                 report.trail
             );
+            // And none the agents had to refit to its question before the
+            // engine saw it (`HeuristicAgent::fallbacks`), which the engine
+            // therefore never refused.
+            assert_eq!(
+                report.tally.iter().map(|t| t.fallbacks).sum::<usize>(),
+                0,
+                "{name}, seed {seed}: answers refitted to their questions: {:?}",
+                report.trail
+            );
         }
     }
 }

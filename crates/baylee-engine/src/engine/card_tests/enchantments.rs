@@ -2117,6 +2117,7 @@ fn twists_and_turns_transforms_on_your_seventh_land_and_not_on_the_tables() {
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
     let enchantment = on_battlefield(&engine, p0, twists_and_turns()).expect("it is out");
+    let enchantment_was = identity(&engine, enchantment);
     assert!(
         types(&engine, enchantment).contains(TypeSet::ENCHANTMENT),
         "it starts as the face it prints"
@@ -2141,6 +2142,11 @@ fn twists_and_turns_transforms_on_your_seventh_land_and_not_on_the_tables() {
 
     let transformed = on_battlefield(&engine, p0, twists_and_turns())
         .expect("the card is still on the battlefield, as Mycoid Maze");
+    assert_eq!(
+        identity(&engine, transformed),
+        enchantment_was,
+        "the same object, turned over: a transform changes no zone (CR 712.18)"
+    );
     assert!(
         types(&engine, transformed).contains(TypeSet::LAND),
         "the seventh land turns it over: Mycoid Maze is a Land — Cave"
@@ -2157,6 +2163,82 @@ fn twists_and_turns_transforms_on_your_seventh_land_and_not_on_the_tables() {
         1,
         "Mycoid Maze's own {{T}}: Add {{G}}, which is the back face's ability \
          and not the front's"
+    );
+}
+
+/// Two lands entering at once trigger Twists and Turns twice, and the first
+/// to resolve turns it over. The second is an ability of the permanent that
+/// tries to transform it after it has transformed since the ability was put
+/// on the stack, so it is ignored (CR 701.27f): Mycoid Maze stays Mycoid
+/// Maze. Blighted Woodland's sacrifice leaves six lands and its two Forests
+/// make eight, so "if you control seven or more lands" holds for both.
+#[test]
+fn twists_and_turns_triggered_twice_at_once_transforms_once() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                twists_and_turns(),
+                blighted_woodland(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let enchantment = on_battlefield(&engine, p0, twists_and_turns()).expect("it is out");
+    let enchantment_was = identity(&engine, enchantment);
+    let woodland = on_battlefield(&engine, p0, blighted_woodland()).expect("the Woodland");
+
+    tap_mana_except(&mut engine, p0, woodland);
+    activate(&mut engine, p0, blighted_woodland(), 1);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched");
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0], options[1]],
+            },
+        )
+        .expect("two Forests");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert_eq!(
+        engine
+            .state()
+            .object(enchantment)
+            .map(|o| (o.zone, o.face_index)),
+        Some((crate::zone::Zone::Battlefield, 1)),
+        "turned over once, and the second trigger did not turn it back"
+    );
+    assert_eq!(
+        identity(&engine, enchantment),
+        enchantment_was,
+        "the same object, turned over: a transform changes no zone (CR 712.18)"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .journal
+            .entries()
+            .iter()
+            .filter(
+                |e| matches!(e.event, GameEvent::Transformed { object, .. } if object == enchantment)
+            )
+            .count(),
+        1,
+        "one transform"
     );
 }
 
@@ -4019,6 +4101,8 @@ fn growing_rites_of_itlimoc_transforms_at_four_creatures_and_taps_for_creature_c
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    let rites = on_battlefield(&engine, p0, growing_rites_of_itlimoc()).expect("the Rites");
+    let rites_was = identity(&engine, rites);
 
     pass_until(&mut engine, |e| {
         matches!(e.state().turn.phase, Phase::Ending)
@@ -4031,6 +4115,11 @@ fn growing_rites_of_itlimoc_transforms_at_four_creatures_and_taps_for_creature_c
         engine.state().object(itlimoc).map(|o| o.face_index),
         Some(1),
         "Growing Rites of Itlimoc transformed to face 1"
+    );
+    assert_eq!(
+        identity(&engine, itlimoc),
+        rites_was,
+        "the same object, turned over: a transform changes no zone (CR 712.18)"
     );
 
     let t = types(&engine, itlimoc);
@@ -4541,9 +4630,8 @@ fn sidequest_catch_a_fish_casts_and_enters_as_enchantment_without_upkeep_trigger
 /// Controlling five artifacts satisfies the end-step transform condition. The test sets up five
 /// `quiet_artifact()`s, advances to the end step where the transform trigger resolves, verifies
 /// `Storm the Vault` becomes the legendary land `Vault of Catlacan` on face 1, and activates its
-/// second mana ability to produce blue mana equal to the artifact count. `Coverage::Partial`
-/// because it gets there by exile and return, a new object entering, and not by transforming
-/// in place (#206).
+/// second mana ability to produce blue mana equal to the artifact count. It is the same
+/// permanent, turned over (CR 712.18), and not a new object that entered.
 #[test]
 fn storm_the_vault_transforms_at_five_artifacts_and_taps_for_artifact_count() {
     let p0 = PlayerId::new(0);
@@ -4562,6 +4650,8 @@ fn storm_the_vault_transforms_at_five_artifacts_and_taps_for_artifact_count() {
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    let storm = on_battlefield(&engine, p0, storm_the_vault()).expect("Storm the Vault");
+    let storm_was = identity(&engine, storm);
 
     pass_until(&mut engine, |e| {
         matches!(e.state().turn.phase, Phase::Ending)
@@ -4574,6 +4664,11 @@ fn storm_the_vault_transforms_at_five_artifacts_and_taps_for_artifact_count() {
         engine.state().object(vault).map(|o| o.face_index),
         Some(1),
         "Storm the Vault transformed to face 1"
+    );
+    assert_eq!(
+        identity(&engine, vault),
+        storm_was,
+        "the same object, turned over: a transform changes no zone (CR 712.18)"
     );
 
     let t = types(&engine, vault);
@@ -4613,6 +4708,8 @@ fn vance_s_blasting_cannons_transforms_on_third_spell_and_taps_for_red() {
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    let cannons = on_battlefield(&engine, p0, vance_s_blasting_cannons()).expect("the Cannons");
+    let cannons_was = identity(&engine, cannons);
 
     // Spell 1
     cast_from_hand(&mut engine, p0, dark_ritual());
@@ -4642,6 +4739,11 @@ fn vance_s_blasting_cannons_transforms_on_third_spell_and_taps_for_red() {
         engine.state().object(bastion).map(|o| o.face_index),
         Some(1),
         "Vance's Blasting Cannons transformed to face 1"
+    );
+    assert_eq!(
+        identity(&engine, bastion),
+        cannons_was,
+        "the same object, turned over: a transform changes no zone (CR 712.18)"
     );
 
     let t = types(&engine, bastion);

@@ -13416,16 +13416,12 @@ fn ojer_pakpatiq_dies_and_comes_back_as_the_land_on_its_other_face() {
     );
 }
 
-/// Temple of Cyclical Time's "{2}{U}, {T}: Transform this land" is the
-/// activator's ability (CR 602.2a), and a transform keeps its controller
-/// (CR 712.18), so the stand-in that exiles the land and returns the god
-/// (#206) returns it under the activator. Seat 1's god dies and comes back
-/// as its Temple under seat 1, its owner; seat 0 steals the Temple and turns
-/// it over. The god is seat 0's by default and still seat 1's card
-/// (CR 108.3). The stand-in returned every card under its owner's control,
-/// which gave seat 1 its god back off seat 0's activation.
-#[test]
-fn a_stolen_temple_of_cyclical_time_turns_back_into_the_god_under_the_thief() {
+/// Seat 1's god dies and comes back as its Temple under seat 1, its owner;
+/// seat 0 steals the Temple for `duration` and turns it over with its
+/// "{2}{U}, {T}: Transform this land". Hands back the table and the Temple.
+fn a_temple_stolen_and_turned_over(
+    duration: baylee_cards_dsl::Duration,
+) -> (Engine<RegistryLookup>, ObjectId) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
         .battlefield(
@@ -13477,6 +13473,7 @@ fn a_stolen_temple_of_cyclical_time_turns_back_into_the_god_under_the_thief() {
         Some((1, p1, p1)),
         "\"…under its owner's control\": the Temple, seat 1's"
     );
+    let temple_was = identity(&engine, temple);
 
     {
         let state = engine
@@ -13491,7 +13488,7 @@ fn a_stolen_temple_of_cyclical_time_turns_back_into_the_god_under_the_thief() {
             origin: crate::effects::EffectOrigin::Resolution,
             layer: baylee_cards_dsl::Layer::Control,
             timestamp,
-            duration: baylee_cards_dsl::Duration::Indefinitely,
+            duration,
             filter,
             modifier: baylee_cards_dsl::Modifier::GainControl,
         });
@@ -13513,9 +13510,66 @@ fn a_stolen_temple_of_cyclical_time_turns_back_into_the_god_under_the_thief() {
         "turned over into the god"
     );
     assert_eq!(
-        (back.owner, back.controller, back.base_controller),
-        (p1, p0, p0),
-        "under the activator, by default, and still seat 1's card"
+        identity(&engine, temple),
+        temple_was,
+        "the same object, turned over: a transform changes no zone (CR 712.18)"
+    );
+    (engine, temple)
+}
+
+/// Temple of Cyclical Time's "{2}{U}, {T}: Transform this land" turns the
+/// same permanent over (CR 701.27a), and a permanent that transforms is not
+/// a new object: every effect that applied to it goes on applying
+/// (CR 712.18). So the god seat 0 turned its stolen Temple into is still
+/// seat 0's by the steal that held the Temple, still seat 1's by default and
+/// still seat 1's card (CR 108.3), and still tapped from the activation.
+///
+/// The stand-in that exiled the land and returned the god (#206) gave back a
+/// new object whose own default was the activator, which kept it with the
+/// thief after the steal had ended (the next test).
+#[test]
+fn a_stolen_temple_of_cyclical_time_turns_back_into_the_god_under_the_thief() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (engine, temple) =
+        a_temple_stolen_and_turned_over(baylee_cards_dsl::Duration::Indefinitely);
+    let god = engine
+        .state()
+        .object(temple)
+        .expect("the same arena handle");
+    assert_eq!(
+        (god.owner, god.controller, god.base_controller),
+        (p1, p0, p1),
+        "stolen by the same effect, seat 1's by default, and seat 1's card"
+    );
+    assert!(
+        is_tapped(&engine, temple),
+        "tapped for the activation, and turning over is not entering"
+    );
+}
+
+/// A steal "until end of turn" ends in the cleanup step (CR 514.2) whatever
+/// face the stolen permanent shows by then. Seat 0 turns the Temple it stole
+/// for the turn into the god, and seat 1 has its god back once the turn is
+/// over. The stand-in's god was a new object that the steal no longer held,
+/// under seat 0 by default, so it stayed with the thief.
+#[test]
+fn a_temple_stolen_until_end_of_turn_goes_home_as_the_god_it_became() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, temple) =
+        a_temple_stolen_and_turned_over(baylee_cards_dsl::Duration::UntilEndOfTurn);
+    assert_eq!(
+        engine.state().object(temple).map(|o| o.controller),
+        Some(p0),
+        "seat 0's for the rest of the turn"
+    );
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        engine
+            .state()
+            .object(temple)
+            .map(|o| (o.zone, o.face_index, o.controller)),
+        Some((crate::zone::Zone::Battlefield, 0, p1)),
+        "the steal ended with the turn, and the god went home"
     );
 }
 
@@ -90983,6 +91037,63 @@ fn ojer_kaslem_has_trample_and_deals_combat_damage() {
         engine.state().players[1].life,
         14,
         "deals 6 unblocked combat damage to opponent"
+    );
+}
+
+/// Temple of Cultivation's "{2}{G}, {T}: Transform this land. Activate only
+/// if you control ten or more permanents and only as a sorcery." The land is
+/// placed on its back face (its dies trigger, the other way there, is not
+/// written) beside nine Forests: ten permanents. It turns over into Ojer
+/// Kaslem where it stands (CR 701.27a) and is the same permanent (CR 712.18):
+/// still tapped from the activation, and no newcomer to its controller, so it
+/// is not summoning sick (CR 302.6). The stand-in (#206) returned a new,
+/// untapped, summoning-sick god.
+#[test]
+fn temple_of_cultivation_turns_back_into_ojer_kaslem_where_it_stands() {
+    let p0 = PlayerId::new(0);
+    let def = baylee_cards::by_index(ojer_kaslem_deepest_growth()).expect("in the pool");
+    let mut board = vec![ojer_kaslem_deepest_growth()];
+    board.extend([forest(); 9]);
+    let mut engine = Duel::new(SEED, forest()).battlefield(0, &board).start();
+    let temple = on_battlefield(&engine, p0, ojer_kaslem_deepest_growth()).expect("the card");
+    assert!(
+        engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up")
+            .transform(temple, def, 1),
+        "placed on its back face"
+    );
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    assert!(
+        types(&engine, temple).contains(TypeSet::LAND),
+        "Temple of Cultivation"
+    );
+    let temple_was = identity(&engine, temple);
+
+    tap_mana_except(&mut engine, p0, temple);
+    activate(&mut engine, p0, ojer_kaslem_deepest_growth(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        on_battlefield(&engine, p0, ojer_kaslem_deepest_growth()).map(|id| identity(&engine, id)),
+        Some(temple_was),
+        "the same object, turned over: a transform changes no zone (CR 712.18)"
+    );
+    assert_eq!(
+        engine.state().object(temple).map(|o| o.face_index),
+        Some(0),
+        "Ojer Kaslem again"
+    );
+    assert_eq!(pt(&engine, temple), (6, 5), "the god's own 6/5");
+    assert!(
+        is_tapped(&engine, temple),
+        "tapped for the activation: turning over is not entering"
+    );
+    let god = engine.state().object(temple).expect("the god");
+    assert!(
+        !crate::combat::summoning_sick(engine.state(), god),
+        "under p0's control since the turn began"
     );
 }
 

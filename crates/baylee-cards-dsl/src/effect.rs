@@ -1458,7 +1458,10 @@ pub enum Effect {
     /// "Transform this creature" (CR 701.27a): the source turns over to its
     /// other face where it stands. Only a permanent represented by a
     /// transforming double-faced card does (CR 701.27c) — a token copy or a
-    /// clone of one turns over nothing.
+    /// clone of one turns over nothing. It is the same object, and every
+    /// effect on it goes on applying (CR 712.18). An ability that finds its
+    /// source already transformed since it was put on the stack does nothing
+    /// (CR 701.27f).
     TransformSource,
     /// "Transform [this] at the beginning of the next upkeep" (Archangel
     /// Avacyn): a delayed trigger that fires in the next upkeep whoever's
@@ -1466,9 +1469,9 @@ pub enum Effect {
     /// transformed since it was created (CR 701.27f).
     TransformSourceAtNextUpkeep,
     /// Exile the source, then return it to the battlefield as the given face
-    /// (Sheoldred's flip, the Ojers' dies triggers, saga final chapters), and
-    /// the stand-in for "transform this" until a permanent can turn over in
-    /// place (#206).
+    /// (Sheoldred's flip, the Ojers' dies triggers, saga final chapters). Not
+    /// "transform this", which is [`Effect::TransformSource`]: the same
+    /// permanent turning over, where this is a new object that enters.
     ExileSelfReturnAsFace {
         /// The face to return as (0 = front).
         face: u8,
@@ -1486,16 +1489,6 @@ pub enum Effect {
         /// The True Scriptures III, whose "return it to the battlefield"
         /// names nobody: the player the effect instructs puts it there
         /// (CR 110.2a), the Saga's controller (CR 603.3a).
-        ///
-        /// The transform stand-ins take `false` as well, and are right only
-        /// at the moment of return. A permanent that transforms is the same
-        /// object and every effect on it goes on applying (CR 712.18), so a
-        /// stolen one stays stolen and goes home when the steal ends. The
-        /// stand-in brings back a new object whose own default is the
-        /// ability's controller (its source's controller, CR 602.2a,
-        /// CR 603.3a), which keeps it with the thief after an "until end of
-        /// turn" steal would have ended. `true` would be wrong sooner: at
-        /// once.
         ///
         /// Only control is chosen here. The owner never changes (CR 108.3).
         owner_control: bool,

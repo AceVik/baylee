@@ -3,11 +3,10 @@
 //! Oracle: Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 7+.)
 //! Oracle: 7+ | Flying, vigilance
 //! Set: TRK #273 — Star Trek | Scryfall ID: 057a4413-6a17-491e-bfd7-6cd427b1a442 | Oracle ID: d95af032-3efd-40c7-8229-ade9d974934f
-// PARTIAL — station (tap another creature you control, put its power in
-// charge counters on this Spacecraft, only as a sorcery), the artifact
-// creature at 7+, and the 7+ flying and vigilance: the mode the card is
-// played for, written the way Inspirit, Flagship Vessel writes the same
-// keyword one file over.
+// PARTIAL — station (tap another creature you control as the cost, put its
+// power in charge counters on this Spacecraft, only as a sorcery), the
+// artifact creature at 7+, and the 7+ flying and vigilance: the mode the
+// card is played for, written as CR 702.184a spells the keyword.
 // NOT SUPPORTED: "Whenever one or more charge counters are put on
 // U.S.S. Enterprise-D for the first time each turn, exile the top card of
 // your library. You may play that card this turn." Two gaps, either of
@@ -42,19 +41,16 @@ card!(
     ),],
     coverage = Coverage::Partial("the charge-counter trigger is not written"),
     abilities = &[
-        // Station: tap another creature you control, put charge counters
-        // equal to its power on this Spacecraft, only as a sorcery.
+        // Station (CR 702.184a): "Tap another untapped creature you
+        // control: Put a number of charge counters on this permanent equal
+        // to the tapped creature's power. Activate only as a sorcery." The
+        // creature is a cost, not a target, and CR 118.3 is "untapped".
         activated!(
-            Cost::FREE,
-            &[
-                Effect::TapTarget,
-                Effect::AddCounterFilter {
-                    filter: &Filter::This,
-                    kind: CounterKind::Charge,
-                    amount: Amount::TargetPower,
-                },
-            ],
-            target = Some(TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL)),
+            cost!(TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)),
+            &[Effect::AddCounter {
+                kind: CounterKind::Charge,
+                amount: Amount::TappedPower,
+            }],
             timing = ActivationTiming::SorcerySpeed
         ),
         // "It's an artifact creature at 7+."

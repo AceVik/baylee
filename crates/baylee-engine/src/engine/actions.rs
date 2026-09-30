@@ -90,13 +90,23 @@ impl<L: CardLookup> Engine<L> {
             }
             other => other,
         };
-        // The question's own constraints, all of them, before anything else
-        // reads the answer: an answer is refused for a reason its question
-        // states (`Pending::answer_fault`) and taken otherwise. The checks
-        // below this line are the engine's and never the answer's: a
+        // Who answers comes first, and a bystander is refused in one way
+        // whatever it said. The question's constraints are about what it
+        // holds, and a search's options are cards in the searcher's hidden
+        // library: checked first, they told a bystander which of its
+        // guesses were among them (a card not offered was refused as not
+        // offered, one offered as a mismatch, by the seat guard below).
+        // Every arm below guards on the seat `asked` names, so this refuses
+        // nothing the arms took.
+        if self.pending.asked() != Some(player) {
+            return Err(EngineError::MismatchedAction);
+        }
+        // Then the question's own constraints, all of them, before anything
+        // else reads the answer: an answer is refused for a reason its
+        // question states (`Pending::answer_fault`) and taken otherwise. The
+        // checks below this line are the engine's and never the answer's: a
         // continuation that cannot go on is reversed and the answer still
-        // taken (`reverse_activation`, `continue_cast_wizard`). A bystander
-        // answering is refused by the arms' seat guards.
+        // taken (`reverse_activation`, `continue_cast_wizard`).
         if let Some(fault) = self.pending.answer_fault(&action) {
             return Err(fault.into());
         }
