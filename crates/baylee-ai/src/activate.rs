@@ -13,7 +13,14 @@
 //! spends mana changes the state [`LegalActions`] is computed from, so the
 //! same handle is either gone or unaffordable the next time the seat has
 //! priority. Only a cost that is free *and* has no parts leaves the offer
-//! exactly as it was, and that is the one shape refused outright.
+//! exactly as it was, and that is the one shape refused outright — a
+//! printed `{0}` among them ([`pays_mana`]), with two shapes excepted
+//! whose worth runs out on its own ([`settles`]).
+//!
+//! The next time the seat has priority is after the ability resolves only
+//! if the seat lets it: an activation still on the stack has changed
+//! nothing the view shows, so the same ability is never taken again while
+//! it waits there ([`on_the_stack`]).
 //!
 //! What is *worth* activating is [`crate::worth`]'s question: the ability's
 //! effects at their best target, less what its cost gives up, on this
@@ -24,12 +31,12 @@
 //! read it leaves alone, as the whitelist did, so a new mechanic is inert
 //! rather than misplayed.
 
-use baylee_cards_dsl::{AbilityDef, Cost, CostPart, Effect};
+use baylee_cards_dsl::{AbilityDef, Cost, CostPart, Duration, Effect, Filter};
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::LegalActions;
-use baylee_view::{PlayerView, PublicObject};
+use baylee_view::{PlayerView, PublicObject, StackItem};
 
 use crate::worth::{Origin, THRESHOLD};
 
@@ -72,13 +79,16 @@ fn best(
         .iter()
         .copied()
         .filter_map(|(source, index)| {
+            if on_the_stack(view, source, index) {
+                return None;
+            }
             let def = printed(view, source, index)?;
             let floor = match def {
                 AbilityDef::Loyalty { .. } if agent.profile.lookahead == 0 => return None,
                 AbilityDef::Loyalty { .. } => 0,
                 _ => {
-                    let (cost, _) = activated(def)?;
-                    if !consumes(cost) {
+                    let (cost, effects) = activated(def)?;
+                    if !consumes(cost) && !settles(effects) {
                         return None;
                     }
                     THRESHOLD
@@ -89,6 +99,77 @@ fn best(
         })
         .max_by_key(|(worth, handle)| (*worth, std::cmp::Reverse(*handle)))
         .map(|(_, handle)| handle)
+}
+
+/// Whether an earlier activation of this very ability — the same source,
+/// the same index — is still on the stack, waiting to resolve.
+///
+/// The agent judges an ability on the board the view shows, and the view
+/// does not show an effect before it resolves. So while one activation
+/// waits, the next one is judged on the same board as the first, is worth
+/// just as much, and is taken again: Hopping Automaton and Flowstone
+/// Hellion put their `{0}` ability on the stack thousands of times in one
+/// priority round, and the game never moved (self-play mac-d001). Passing
+/// instead lets it resolve, and the next activation is judged on the board
+/// the first one left.
+///
+/// Nothing is lost by it. After the ability resolves the active player gets
+/// priority again (CR 117.3b), and whatever it was answering is still on
+/// the stack below it, so a second activation in response to the same spell
+/// is only one round of passes later. The one play it gives up is stacking
+/// several activations before anybody can answer the first, which the
+/// agent has no reason to want yet. Mana abilities need no exception: they
+/// never use the stack (CR 605.3b), and they are tapped by the payment
+/// paths, never here. An ability whose source has no card names no
+/// [`AbilityRef`](baylee_core::ids::AbilityRef) on the stack, and there any
+/// ability of the same source counts, which errs toward passing.
+pub(crate) fn on_the_stack(view: &PlayerView, source: ObjectId, index: u32) -> bool {
+    view.stack.iter().any(|o| match o.stack_item {
+        Some(StackItem::Ability {
+            source: from,
+            ability,
+            ..
+        }) => from == source && ability.is_none_or(|a| a.index == index),
+        _ => false,
+    })
+}
+
+/// Whether taking a free ability again and again must come to rest: the
+/// two shapes whose worth runs out by itself, so that a free cost is taken
+/// for them where it is refused for everything else.
+///
+/// **An equip.** Moving an equipment is worth what it gives where it goes
+/// less what it gave where it hung ([`crate::worth`]'s `attach`), a
+/// difference, so a move back is the move there with its sign turned and
+/// only one of the two can clear [`THRESHOLD`]. Shuko went back and forth
+/// between two creatures for ever while that difference counted the attack
+/// the creature it went to could make and not the one the creature it left
+/// could make just as well.
+///
+/// **A pump of the source itself until end of turn.** It is worth the
+/// damage it adds to this turn's attack, and with [`on_the_stack`] each one
+/// is judged on the board the last one left: the damage has to grow every
+/// time, and it cannot grow past the defender's life, while a pump that
+/// takes the toughness to nothing is worth losing the creature.
+///
+/// Anything else free is refused, because nothing bounds it: an effect the
+/// view does not show (a scry) is worth exactly as much after it resolves.
+fn settles(effects: &[Effect]) -> bool {
+    !effects.is_empty()
+        && (effects
+            .iter()
+            .all(|e| matches!(e, Effect::AttachSelf { .. }))
+            || effects.iter().all(|e| {
+                matches!(
+                    e,
+                    Effect::PumpFilter {
+                        filter: Filter::This,
+                        controlled_by: None,
+                        duration: Duration::UntilEndOfTurn,
+                        ..
+                    }
+                )
+            }))
 }
 
 /// The [`AbilityDef`] an offered handle names, when a card prints one.
@@ -171,7 +252,7 @@ fn activated(def: &'static AbilityDef) -> Option<(&'static Cost, &'static [Effec
 /// land with it for as long as the card existed. A positive list answers a
 /// new variant with silence; a `match` answers it with a compile error.
 fn consumes(cost: &Cost) -> bool {
-    cost.mana != ManaCost::ZERO
+    pays_mana(&cost.mana)
         || cost.parts.iter().any(|part| match part {
             CostPart::TapSelf
             | CostPart::UntapSelf
@@ -211,6 +292,20 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::ExileFromGraveyard(_) => true,
             CostPart::PayLifeX => false,
         })
+}
+
+/// Whether a mana cost asks for any mana.
+///
+/// Not `!= ManaCost::ZERO`, which is what this was: a printed `{0}` is a
+/// cost with one generic symbol of zero, which is not the same data as a
+/// cost with no symbols at all (Lightning Greaves says why it is written
+/// the other way). So every `{0}:` ability — Hopping Automaton, Flowstone
+/// Hellion, Shuko's equip — passed for a cost that spends something, and
+/// nothing bounded how often it was taken ([`settles`] now does for those
+/// three). An `{X}` is still counted as mana, as it was: the agent names
+/// the largest X the pool pays.
+fn pays_mana(mana: &ManaCost) -> bool {
+    mana.cmc() > 0 || mana.has_variable()
 }
 
 /// Whether the life this cost asks for is life the seat can spare.
@@ -308,6 +403,13 @@ mod tests {
     #[test]
     fn only_a_free_cost_can_repeat() {
         assert!(!consumes(&Cost::FREE), "a free ability was taken");
+        assert!(
+            !consumes(&Cost {
+                mana: ManaCost::parse("{0}"),
+                parts: &[],
+            }),
+            "a printed {{0}} is one generic symbol of nothing, and pays nothing"
+        );
         assert!(consumes(&Cost::TAP), "a tap ability was refused");
         assert!(
             consumes(&Cost {

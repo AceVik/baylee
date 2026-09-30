@@ -726,16 +726,22 @@ impl HeuristicAgent {
         if equipment.attached_to == Some(c.id) || c.controller != view.seat || !creature(c) {
             return 0;
         }
-        let here = self.equipped(view, equipment, c);
-        let there = equipment
+        let holder = equipment
             .attached_to
             .and_then(|id| view.object(id))
-            .filter(|w| w.controller == view.seat && creature(w))
-            .map_or(0, |w| self.equipped(view, equipment, w));
-        let swings = view.active == view.seat
-            && matches!(view.phase, Phase::Beginning | Phase::FirstMain)
-            && can_attack(c);
-        here - there + if swings { 50 } else { 0 }
+            .filter(|w| w.controller == view.seat && creature(w));
+        let early =
+            view.active == view.seat && matches!(view.phase, Phase::Beginning | Phase::FirstMain);
+        // Worth where it goes less worth where it hangs, the swing
+        // included on both sides: a move back is then this move with its
+        // sign turned, and the two can never both be taken. Counting the
+        // swing only where it goes made every move between two creatures
+        // that could attack worth the swing, and Shuko's free equip went
+        // back and forth for ever (self-play mac-d001).
+        let worn = |w: &PublicObject| {
+            self.equipped(view, equipment, w) + if early && can_attack(w) { 50 } else { 0 }
+        };
+        worn(c) - holder.map_or(0, worn)
     }
 
     /// Prevention on a creature in combat: damage `o` deals (`from`) or is
@@ -827,6 +833,7 @@ impl HeuristicAgent {
         }
         let mut before = Vec::new();
         let mut after = Vec::new();
+        let mut lost = 0;
         for o in view.battlefield_of(me) {
             let Some(mut f) = Fighter::from_object(o) else {
                 continue;
@@ -839,6 +846,16 @@ impl HeuristicAgent {
                 f.power += p;
                 f.toughness += t;
                 f.keywords |= k;
+                // A change that leaves no toughness is the creature, not
+                // an attack (CR 704.5f, and 704.5g for the damage it has
+                // already taken). Flowstone Hellion's `+1/-1`, taken one
+                // resolution at a time, walked a 3/3 into a 6/0.
+                let lethal = i32::from(o.toughness.unwrap_or(0)) + t <= 0
+                    || f.toughness <= 0 && !has(o, KeywordSet::INDESTRUCTIBLE);
+                if t < 0 && lethal {
+                    lost += self.removal(view, o);
+                    continue;
+                }
             }
             if f.power > 0 && can_attack(o) {
                 after.push(f);
@@ -854,6 +871,7 @@ impl HeuristicAgent {
             })
             .max()
             .unwrap_or(0)
+            + lost
     }
 
     /// Power, toughness and keywords given to `objects` for `duration`.

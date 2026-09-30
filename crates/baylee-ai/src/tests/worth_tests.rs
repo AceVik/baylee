@@ -842,3 +842,118 @@ fn a_clause_in_a_sequence_or_behind_a_price_is_read() {
         "a draw this seat may have to take from a one-card library is not a gain"
     );
 }
+
+// --- Loops the house must not make (self-play mac-d001) --------------------
+
+/// A creature of the pool on this seat's side, at `power`/`toughness`.
+fn body(id: u32, name: &str, power: i16, toughness: i16) -> PublicObject {
+    let mut object = card(id, ME, name, TypeSet::CREATURE);
+    object.power = Some(power);
+    object.toughness = Some(toughness);
+    object
+}
+
+/// Ability `index` of the permanent `source`, waiting on the stack.
+fn waiting(id: u32, source: &PublicObject, index: u32) -> PublicObject {
+    let mut ability = permanent(obj(id), source.controller, 0);
+    ability.types = TypeSet::EMPTY;
+    ability.power = None;
+    ability.toughness = None;
+    ability.stack_item = Some(baylee_view::StackItem::Ability {
+        source: source.id,
+        ability: source
+            .rules
+            .map(|r| baylee_core::ids::AbilityRef::new(r.card, index)),
+        text: None,
+        rules: source.rules,
+    });
+    ability
+}
+
+/// Flowstone Hellion's `{0}: +1/+0 -1/-0` is the lethal attack on an
+/// empty stack. With one activation already waiting it is passed: the view
+/// shows nothing of an ability before it resolves, so a second one would
+/// be judged on the same board and taken again, and again — thousands of
+/// times in one priority round, until the game ran into its cap.
+#[test]
+fn an_ability_waiting_on_the_stack_is_not_activated_again() {
+    let hellion = body(1, "Flowstone Hellion", 3, 3);
+    let mut v = view(0, &[20, 4], vec![hellion.clone()]);
+    main_phase(&mut v);
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 0)])),
+        activates(1, 0),
+        "one pump makes the attack lethal"
+    );
+
+    v.stack.push(waiting(5, &hellion, 0));
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 0)])),
+        PlayerAction::PassPriority,
+        "the pump already on the stack resolves first"
+    );
+}
+
+/// Taken one resolution at a time, the Hellion's pump stops where the next
+/// one would take its toughness to nothing: a 6/0 attacks nobody.
+#[test]
+fn a_free_pump_stops_before_it_kills_its_own_creature() {
+    let mut v = view(0, &[20, 6], vec![body(1, "Flowstone Hellion", 5, 1)]);
+    main_phase(&mut v);
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 0)])),
+        PlayerAction::PassPriority
+    );
+}
+
+/// Shuko's `{0}` equip on one of two creatures that can both attack: moving
+/// it is worth nothing, since the creature it leaves could have swung with
+/// it as well. Counting only where it went, the house moved it back and
+/// forth between the two for ever. Onto a bare creature it still goes.
+#[test]
+fn a_free_equip_does_not_move_between_two_creatures_as_good() {
+    let mut shuko = card(1, ME, "Shuko", TypeSet::ARTIFACT);
+    shuko.attached_to = Some(obj(2));
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![shuko, permanent(obj(2), ME, 2), permanent(obj(3), ME, 2)],
+    );
+    main_phase(&mut v);
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 0)])),
+        PlayerAction::PassPriority
+    );
+
+    v.battlefield[0].attached_to = None;
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 0)])),
+        activates(1, 0),
+        "an unattached Shuko is still worn"
+    );
+}
+
+/// Shifting Wall with no mana to spend is a 0/0 at the only X the seat can
+/// pay, and dies as it arrives (CR 704.5f); cast again every time it came
+/// back, it held a game in one main phase. With mana it is a wall.
+#[test]
+fn an_x_creature_is_not_cast_for_an_x_of_nothing() {
+    let mut v = view(0, &[20, 20], vec![]);
+    main_phase(&mut v);
+    v.hand.push(crate::tests::hand_card(1, "Shifting Wall"));
+    let castable = || Pending::Priority {
+        player: ME,
+        legal: Box::new(baylee_engine::choice::LegalActions {
+            can_pass: true,
+            castable: vec![obj(1)],
+            ..Default::default()
+        }),
+    };
+    assert_eq!(agent().act(&v, &castable()), PlayerAction::PassPriority);
+
+    v.seats[0].mana_pool.colorless = 3;
+    assert_eq!(
+        agent().act(&v, &castable()),
+        PlayerAction::CastSpell { card: obj(1) }
+    );
+}
