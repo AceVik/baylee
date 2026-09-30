@@ -4825,8 +4825,8 @@ fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
     use baylee_cards::dsl::Coverage;
     use baylee_core::deckrow;
 
-    let working = baylee_train::working::Working::scan(root)
-        .context("reading the engine's test code")?;
+    let working =
+        baylee_train::working::Working::scan(root).context("reading the engine's test code")?;
     // Each working card of the deck, with how and where a test names it.
     let mut tested_by: Vec<String> = Vec::new();
     let path = if file.is_absolute() {
