@@ -2238,3 +2238,9 @@ land type"; both are convention tests that fire on a first try.
 - **An attacker keeps attacking a planeswalker that left** (CR 506.4c), so
   "defending player" still names that planeswalker's controller. A count
   that read `None` there made an attacking Gaea's Liege a 0/0.
+- **An activation offer reads the floating pool, not the lands.**
+  `Engine::can_pay_mana` asks the player's mana pool (plus the restricted
+  mana the ability may spend), never the untapped sources. A test that
+  reads "not offered" with the mana still in the lands proves only that
+  the pool was empty; float the cost first, then read the offer, as Rock
+  Hydra's upkeep-only test does in three steps.
