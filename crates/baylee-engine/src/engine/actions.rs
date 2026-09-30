@@ -1915,6 +1915,11 @@ impl<L: CardLookup> Engine<L> {
         // stack "before the active player gets priority").
         if let Some(next) = self.next_defending_player(Some(defending)) {
             self.combat_declared = CombatDeclared::BlockersBy(defending);
+            // "A player knows the choices made by the previous players"
+            // (CR 101.4b): what the next one may block with, and how many,
+            // is read from the board with these blocks on it.
+            self.sync_static_effects();
+            self.state.refresh_characteristics();
             self.ask_blockers(next);
             return Ok(());
         }

@@ -520,3 +520,54 @@ fn each_defending_player_blocks_only_what_attacks_them_in_apnap_order() {
     assert_eq!(combat.blockers_of(at_one), [b1]);
     assert_eq!(combat.blockers_of(at_two), [b2]);
 }
+
+/// A defending player who has declared and then leaves does not end the
+/// declarations: "The first defending player declares all their blocks,
+/// then the second defending player, and so on" (CR 802.4). The next one
+/// is found by turn order from the one who left, so seat 2 is still asked
+/// after seat 1 declares and concedes (CR 104.3a). Seat 1 once dropped out
+/// of the order it was looked up in, and the step read that as "everyone
+/// has declared".
+#[test]
+fn a_defender_who_declared_and_left_does_not_end_the_declarations() {
+    let c = creature();
+    let mut engine = table_with(&[None, None, None, None], &[&[c, c], &[c], &[c], &[c]], 13);
+    let seat = PlayerId::new;
+    let attackers = until_attack(&mut engine, seat(0));
+    let [at_one, at_two] = attackers[..] else {
+        panic!("both creatures may attack: {attackers:?}")
+    };
+    engine
+        .apply(
+            seat(0),
+            PlayerAction::DeclareAttackers {
+                attackers: vec![
+                    (at_one, baylee_core::ids::Defender::Player(seat(1))),
+                    (at_two, baylee_core::ids::Defender::Player(seat(2))),
+                ],
+            },
+        )
+        .expect("the split attack is legal");
+    let b1 = theirs(&engine, seat(1), c);
+    let first = until_blocks(&mut engine);
+    assert!(
+        matches!(first, Pending::ChooseBlockers { player, .. } if player == seat(1)),
+        "{first:?}"
+    );
+    engine
+        .apply(
+            seat(1),
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(b1, at_one)],
+            },
+        )
+        .expect("seat 1 blocks what attacks it");
+    engine
+        .apply(seat(1), PlayerAction::Concede)
+        .expect("a player may concede at any time");
+    assert!(
+        matches!(engine.pending(), Pending::ChooseBlockers { player, .. } if *player == seat(2)),
+        "seat 2 is still asked for its blocks: {:?}",
+        engine.pending()
+    );
+}

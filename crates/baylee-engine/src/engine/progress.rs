@@ -585,6 +585,11 @@ impl<L: CardLookup> Engine<L> {
     /// nonactive players in turn order" (CR 101.4). A player nothing
     /// attacks has no creature it could block with (802.4a) and is not
     /// asked.
+    ///
+    /// Where `after` sits is read off the seats, not off the players still
+    /// in the game: a defending player who declared and then left the game
+    /// (CR 800.4a) still stands between those who declared before them and
+    /// those who have yet to, and is not a sign that everyone has.
     pub(crate) fn next_defending_player(&self, after: Option<PlayerId>) -> Option<PlayerId> {
         let n = u8::try_from(self.state.players.len()).unwrap_or(u8::MAX);
         let active = self.state.turn.active.get();
@@ -595,18 +600,11 @@ impl<L: CardLookup> Engine<L> {
                 .iter()
                 .any(|a| combat::blocking_player(&self.state, a.defending) == Some(seat))
         };
-        let order: Vec<PlayerId> = (1..n)
+        let from = after.map_or(1, |seat| (seat.get() + n - active) % n + 1);
+        (from..n)
             .map(|offset| PlayerId::new((active + offset) % n))
             .filter(|seat| !self.state.players[usize::from(seat.get())].has_lost())
-            .filter(|seat| attacked(*seat))
-            .collect();
-        let start = after.map_or(0, |seat| {
-            order
-                .iter()
-                .position(|s| *s == seat)
-                .map_or(order.len(), |at| at + 1)
-        });
-        order.get(start).copied()
+            .find(|seat| attacked(*seat))
     }
 
     /// Asks `defending` for its blocks (CR 509.1): each creature it may
