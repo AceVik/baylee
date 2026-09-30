@@ -12511,6 +12511,7 @@ fn partial_sorceries_with_no_text_written_resolve_doing_nothing() {
             island(),
         ),
     ] {
+        still_partial(card);
         assert_eq!(
             cast_saying_nothing(card, land, 2),
             Zone::Graveyard,

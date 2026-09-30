@@ -18980,6 +18980,7 @@ fn partial_enchantments_with_no_text_written_sit_doing_nothing() {
             2,
         ),
     ] {
+        still_partial(card);
         assert_eq!(
             cast_saying_nothing(card, land, lands),
             Zone::Battlefield,
@@ -18993,12 +18994,10 @@ fn partial_enchantments_with_no_text_written_sit_doing_nothing() {
 /// nothing and is put into its owner's graveyard (CR 704.5m).
 #[test]
 fn animate_dead_with_nothing_written_enchants_nothing() {
+    let animate_dead = card_index("c0d8fef4-65f4-4769-982d-b397d2b7e977");
+    still_partial(animate_dead);
     assert_eq!(
-        cast_saying_nothing(
-            card_index("c0d8fef4-65f4-4769-982d-b397d2b7e977"),
-            swamp(),
-            2
-        ),
+        cast_saying_nothing(animate_dead, swamp(), 2),
         Zone::Graveyard
     );
 }
@@ -21961,10 +21960,6 @@ fn lure_attaches_only_to_a_creature() {
 
 fn grizzly_bears() -> CardIndex {
     card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
-}
-
-fn gray_ogre() -> CardIndex {
-    card_index("83c8a3a6-2e1a-4e26-8847-6d066f42d906")
 }
 
 fn hurloon_minotaur() -> CardIndex {

@@ -21518,6 +21518,7 @@ fn partial_instants_with_no_text_written_resolve_doing_nothing() {
             1,
         ),
     ] {
+        still_partial(card);
         assert_eq!(
             cast_saying_nothing(card, land, lands),
             Zone::Graveyard,
@@ -23951,10 +23952,6 @@ fn siren_s_call_ignores_a_creature_taken_this_turn_but_reaches_one_held_since_an
 
 fn blaze_of_glory() -> CardIndex {
     card_index("b330ac89-790e-4cc9-96a5-532c48252088")
-}
-
-fn gray_ogre() -> CardIndex {
-    card_index("83c8a3a6-2e1a-4e26-8847-6d066f42d906")
 }
 
 fn scathe_zombies() -> CardIndex {
