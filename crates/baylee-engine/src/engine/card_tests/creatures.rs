@@ -98870,3 +98870,572 @@ fn gaea_s_lieges_second_ability_turns_a_land_into_a_forest_until_it_leaves() {
         "the effect ending returns it to its own printed type, a Swamp"
     );
 }
+
+// ---------------------------------------------------------------------
+// Alpha batch D: banding — Benalish Hero, Timber Wolves, Mesa Pegasus
+// (CR 702.22).
+// ---------------------------------------------------------------------
+
+fn benalish_hero() -> CardIndex {
+    card_index("4c81cfb7-8765-4e28-ae33-4287fa9a86cc")
+}
+
+fn timber_wolves() -> CardIndex {
+    card_index("35d07ac9-b184-4b5f-8192-34b1db042f69")
+}
+
+fn mesa_pegasus() -> CardIndex {
+    card_index("8161f5b8-6aab-4133-ba2c-2e7b5774153e")
+}
+
+/// Declares `attackers`, each aimed at `p1`, once the engine asks for them.
+#[track_caller]
+fn declare_band_attack(
+    engine: &mut Engine<RegistryLookup>,
+    p0: PlayerId,
+    p1: PlayerId,
+    attackers: &[ObjectId],
+) {
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: attackers
+                    .iter()
+                    .map(|a| (*a, Defender::Player(p1)))
+                    .collect(),
+            },
+        )
+        .expect("the attack is legal");
+}
+
+/// Answers the one banding question a single leader with banding raises
+/// (CR 508.1e) with `band`, and passes on to the declare-blockers question.
+#[track_caller]
+fn answer_band_and_reach_blockers(
+    engine: &mut Engine<RegistryLookup>,
+    p0: PlayerId,
+    band: Vec<ObjectId>,
+) {
+    assert!(
+        matches!(
+            engine.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::Band { .. },
+                ..
+            }
+        ),
+        "expected the band question, got {:?}",
+        engine.pending()
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: band })
+        .expect("the band answer is legal");
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+}
+
+/// Declares `pairs` as blocks.
+#[track_caller]
+fn declare_band_blocks(
+    engine: &mut Engine<RegistryLookup>,
+    p1: PlayerId,
+    pairs: &[(ObjectId, ObjectId)],
+) {
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: pairs.to_vec(),
+            },
+        )
+        .expect("the block is legal");
+}
+
+/// Passes priority until something other than priority is asked, or combat
+/// ends — the division question banding raises stands here, before the
+/// damage step deals anything (CR 510.1, then 510.2).
+#[track_caller]
+fn next_combat_question(engine: &mut Engine<RegistryLookup>) -> Pending {
+    for _ in 0..40 {
+        match engine.pending().clone() {
+            Pending::Priority { player, .. }
+                if engine.state().turn.step != crate::turn::Step::CombatEnd =>
+            {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => return other,
+        }
+    }
+    panic!("combat never reached a division or its end")
+}
+
+/// Benalish Hero — "Banding": a band forms with an ally at the attack
+/// declaration (CR 508.1e, 702.22c), and once formed, a block declared on
+/// only the ally blocks the Hero too — "Bands are blocked as a group"
+/// (CR 702.22h). Unbanded, the same declared block never touches the Hero.
+#[test]
+fn benalish_hero_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for banded in [false, true] {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[benalish_hero(), savannah_lions()])
+            .battlefield(1, &[gray_ogre()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let hero = on_battlefield(&engine, p0, benalish_hero()).expect("seated");
+        let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+        let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+
+        declare_band_attack(&mut engine, p0, p1, &[hero, lions]);
+        let Pending::ChooseCards {
+            player,
+            options,
+            min,
+            prompt,
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected the band question, got {:?}", engine.pending())
+        };
+        assert_eq!(player, p0, "the attacking player announces the band");
+        assert_eq!(prompt, ChoicePrompt::Band { with: hero });
+        assert_eq!(min, 0, "attacking without a band is a legal answer");
+        assert_eq!(options, vec![lions], "the only other attacker on offer");
+
+        let band = if banded { vec![lions] } else { vec![] };
+        answer_band_and_reach_blockers(&mut engine, p0, band);
+        assert_eq!(
+            engine.state().combat.band_of(hero).is_some(),
+            banded,
+            "the Hero joined a band only when one was named"
+        );
+
+        declare_band_blocks(&mut engine, p1, &[(ogre, lions)]);
+        assert!(
+            engine.state().combat.is_blocked(lions),
+            "the declared block always lands on the ally"
+        );
+        assert_eq!(
+            engine.state().combat.is_blocked(hero),
+            banded,
+            "\"bands are blocked as a group\": the Hero is blocked only in a band"
+        );
+        assert_eq!(
+            engine.state().combat.blockers_of(hero).contains(&ogre),
+            banded,
+            "the ogre never declared a block against the Hero: only banding put it there"
+        );
+    }
+}
+
+/// Benalish Hero's reminder text: "you divide that creature's combat
+/// damage, not its controller, among any of the creatures it's being
+/// blocked by or is blocking" (CR 702.22k). Banded with an ally, a single
+/// blocker ends up blocking both (CR 702.22h), and its damage is divided by
+/// the *active* player — the Hero's own controller — not by the blocker's
+/// own controller, who would ordinarily be the one dividing a blocker's
+/// damage (CR 510.1d). The active player puts it all on the Hero and none
+/// on the ally: the *opposite* of what the engine's own fallback would do
+/// with no division recorded at all (put everything on the first-declared
+/// recipient, the ally), so the answer given is the one that actually
+/// landed. Unbanded, the same block touches only the ally and nothing is
+/// ever divided.
+#[test]
+#[allow(clippy::too_many_lines)] // one loop, both branches of the division read out in full
+fn benalish_heros_band_divides_a_blockers_damage_by_the_active_player() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for banded in [false, true] {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[benalish_hero(), savannah_lions()])
+            .battlefield(1, &[gray_ogre()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let hero = on_battlefield(&engine, p0, benalish_hero()).expect("seated");
+        let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+        let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+        assert_eq!(pt(&engine, ogre), (2, 2), "two power to divide");
+
+        declare_band_attack(&mut engine, p0, p1, &[hero, lions]);
+        let band = if banded { vec![lions] } else { vec![] };
+        answer_band_and_reach_blockers(&mut engine, p0, band);
+        declare_band_blocks(&mut engine, p1, &[(ogre, lions)]);
+
+        let question = next_combat_question(&mut engine);
+        if banded {
+            let Pending::ChooseNumber {
+                player,
+                min,
+                max,
+                reason,
+            } = question
+            else {
+                panic!("expected the division, got {question:?}")
+            };
+            assert_eq!(
+                player, p0,
+                "CR 702.22k: the active player divides, not the blocker's own controller"
+            );
+            assert_eq!((min, max), (0, 2), "the ogre's power, any of it");
+            assert_eq!(
+                reason,
+                crate::choice::NumberPrompt::CombatDamage {
+                    source: ogre,
+                    recipient: lions,
+                    index: 0,
+                    of: 2,
+                    left: 2,
+                },
+                "the declared block's recipient asked first, the band's after it"
+            );
+            engine.apply(p0, PlayerAction::ChooseNumber(0)).unwrap();
+
+            assert!(
+                on_battlefield(&engine, p0, savannah_lions()).is_some(),
+                "the active player put none of it on the ally, sparing it"
+            );
+            assert_eq!(
+                engine.state().object(lions).map(|o| o.damage),
+                Some(0),
+                "not even a fraction reached the ally"
+            );
+            assert!(
+                on_battlefield(&engine, p0, benalish_hero()).is_none(),
+                "and put both points on the Hero instead — the reverse of the \
+                 engine's own fallback, which would have spared the Hero and \
+                 killed the ally"
+            );
+        } else {
+            assert!(
+                !matches!(question, Pending::ChooseNumber { .. }),
+                "unbanded, the ogre blocks only the ally: no division is asked, got {question:?}"
+            );
+            assert!(
+                on_battlefield(&engine, p0, savannah_lions()).is_none(),
+                "the whole of the ogre's power landed on the only creature it blocks"
+            );
+            assert!(
+                on_battlefield(&engine, p0, benalish_hero()).is_some(),
+                "unblocked, the Hero was never in reach of it"
+            );
+        }
+    }
+}
+
+/// Timber Wolves — the same band-and-block-spread contract as Benalish
+/// Hero (CR 508.1e, 702.22c, 702.22h), played on a different board so the
+/// assertions are not simply the Hero's copied over.
+#[test]
+fn timber_wolves_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for banded in [false, true] {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[timber_wolves(), hurloon_minotaur()])
+            .battlefield(1, &[craw_wurm()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let wolves = on_battlefield(&engine, p0, timber_wolves()).expect("seated");
+        let minotaur = on_battlefield(&engine, p0, hurloon_minotaur()).expect("seated");
+        let wurm = on_battlefield(&engine, p1, craw_wurm()).expect("seated");
+
+        declare_band_attack(&mut engine, p0, p1, &[wolves, minotaur]);
+        let Pending::ChooseCards {
+            player,
+            options,
+            prompt,
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected the band question, got {:?}", engine.pending())
+        };
+        assert_eq!(player, p0, "the attacking player announces the band");
+        assert_eq!(prompt, ChoicePrompt::Band { with: wolves });
+        assert_eq!(options, vec![minotaur], "the only other attacker on offer");
+
+        let band = if banded { vec![minotaur] } else { vec![] };
+        answer_band_and_reach_blockers(&mut engine, p0, band);
+        declare_band_blocks(&mut engine, p1, &[(wurm, minotaur)]);
+
+        assert!(
+            engine.state().combat.is_blocked(minotaur),
+            "the declared block always lands on the ally"
+        );
+        assert_eq!(
+            engine.state().combat.is_blocked(wolves),
+            banded,
+            "\"bands are blocked as a group\": Timber Wolves is blocked only in a band"
+        );
+        assert_eq!(
+            engine.state().combat.blockers_of(wolves).contains(&wurm),
+            banded,
+            "the Wurm never declared a block against Timber Wolves: only banding put it there"
+        );
+    }
+}
+
+/// Timber Wolves — the reminder text's other clause: "you divide that
+/// creature's combat damage ... among any of the creatures it's being
+/// blocked by" (CR 702.22j). No band is needed for this half: a creature
+/// with banding *blocking* alongside another creature is enough. The
+/// attacker's damage is then divided by Timber Wolves' own controller —
+/// the *defending* player — not by the attacker's own controller, who
+/// ordinarily divides a multiply-blocked attacker's damage (CR 510.1c) and
+/// would have no reason to spare a creature on the other side of the
+/// table. Without a banding blocker in the mix, the same double block asks
+/// nobody at all.
+#[test]
+#[allow(clippy::too_many_lines)] // the banding case and its vanilla counter-check, in full
+fn timber_wolves_blocking_divides_the_attackers_damage_for_its_own_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+
+    {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[craw_wurm()])
+            .battlefield(1, &[timber_wolves(), gray_ogre()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let wurm = on_battlefield(&engine, p0, craw_wurm()).expect("seated");
+        let wolves = on_battlefield(&engine, p1, timber_wolves()).expect("seated");
+        assert_eq!(pt(&engine, wurm), (6, 4), "six power to divide");
+
+        declare_band_attack(&mut engine, p0, p1, &[wurm]);
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseBlockers { .. })
+        });
+        let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+        declare_band_blocks(&mut engine, p1, &[(wolves, wurm), (ogre, wurm)]);
+
+        let Pending::ChooseNumber {
+            player,
+            min,
+            max,
+            reason,
+        } = next_combat_question(&mut engine)
+        else {
+            panic!("expected the division, got {:?}", engine.pending())
+        };
+        assert_eq!(
+            player, p1,
+            "CR 702.22j: the defending player divides, not the Wurm's own controller"
+        );
+        assert_eq!((min, max), (0, 6), "the Wurm's whole power, any of it");
+        assert_eq!(
+            reason,
+            crate::choice::NumberPrompt::CombatDamage {
+                source: wurm,
+                recipient: wolves,
+                index: 0,
+                of: 2,
+                left: 6,
+            },
+            "the first-declared blocker asked first"
+        );
+        engine.apply(p1, PlayerAction::ChooseNumber(0)).unwrap();
+
+        assert_eq!(
+            engine.state().object(wolves).map(|o| o.damage),
+            Some(0),
+            "the defending player spared its own banding creature"
+        );
+        assert!(
+            on_battlefield(&engine, p1, gray_ogre()).is_none(),
+            "and put the whole six on the ogre instead — which the Wurm's own \
+             controller had no reason to do"
+        );
+    }
+
+    {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[craw_wurm()])
+            .battlefield(1, &[pearled_unicorn(), gray_ogre()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let wurm = on_battlefield(&engine, p0, craw_wurm()).expect("seated");
+
+        declare_band_attack(&mut engine, p0, p1, &[wurm]);
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseBlockers { .. })
+        });
+        let unicorn = on_battlefield(&engine, p1, pearled_unicorn()).expect("seated");
+        let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+        declare_band_blocks(&mut engine, p1, &[(unicorn, wurm), (ogre, wurm)]);
+
+        let question = next_combat_question(&mut engine);
+        assert!(
+            !matches!(question, Pending::ChooseNumber { .. }),
+            "no banding anywhere in this block: nobody is asked, got {question:?}"
+        );
+        assert!(
+            on_battlefield(&engine, p1, pearled_unicorn()).is_none(),
+            "the whole of it went to the blocker declared first"
+        );
+        assert_eq!(
+            engine.state().object(ogre).map(|o| o.damage),
+            Some(0),
+            "and none to the second"
+        );
+    }
+}
+
+/// Mesa Pegasus — banded with a grounded ally, a grounded blocker (no
+/// flying or reach) ends up blocking the Pegasus too, exactly CR 702.22h's
+/// own example: a flier in a band with a creature it never could have
+/// blocked alone. Unbanded, the same declared block never touches the
+/// flier, which the offer itself never lets a grounded creature block on
+/// its own.
+#[test]
+#[allow(clippy::too_many_lines)] // the offer check plus the banded/unbanded contrast, in full
+fn mesa_pegasus_bands_with_a_grounded_ally_so_a_grounded_blocker_ends_up_blocking_the_flier() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for banded in [false, true] {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[mesa_pegasus(), savannah_lions()])
+            .battlefield(1, &[gray_ogre()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let pegasus = on_battlefield(&engine, p0, mesa_pegasus()).expect("seated");
+        let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+        let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+        assert!(keywords(&engine, pegasus).contains(KeywordSet::FLYING));
+        assert!(!keywords(&engine, ogre).contains(KeywordSet::FLYING));
+        assert!(!keywords(&engine, ogre).contains(KeywordSet::REACH));
+
+        declare_band_attack(&mut engine, p0, p1, &[pegasus, lions]);
+        let band = if banded { vec![lions] } else { vec![] };
+        answer_band_and_reach_blockers(&mut engine, p0, band);
+
+        // The offer itself: a grounded ogre is only ever paired with the
+        // grounded ally, band or no band — the enumeration reads flying off
+        // the board, not off what the ogre eventually ends up blocking.
+        let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+            panic!("expected the block offer, got {:?}", engine.pending())
+        };
+        let pairing = blockers
+            .iter()
+            .find(|b| b.blocker == ogre)
+            .expect("the ogre may block something");
+        assert!(pairing.attackers.contains(&lions), "the grounded ally");
+        assert!(
+            !pairing.attackers.contains(&pegasus),
+            "flying: a grounded creature was never offered the Pegasus"
+        );
+
+        declare_band_blocks(&mut engine, p1, &[(ogre, lions)]);
+        assert!(
+            engine.state().combat.is_blocked(lions),
+            "the declared block always lands on the ally"
+        );
+        assert_eq!(
+            engine.state().combat.is_blocked(pegasus),
+            banded,
+            "the Pegasus is blocked only in a band — the ogre was never \
+             offered it on its own"
+        );
+        assert_eq!(
+            engine.state().combat.blockers_of(pegasus).contains(&ogre),
+            banded,
+            "banding put a creature there that flying alone would have kept out"
+        );
+    }
+}
+
+/// Mesa Pegasus attacking alone: flying keeps a creature without flying or
+/// reach from blocking it at all, while a flier is offered normally — the
+/// half of the card banding never touches.
+#[test]
+fn mesa_pegasus_flying_keeps_a_grounded_creature_from_blocking_it_alone() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mesa_pegasus()])
+        .battlefield(1, &[gray_ogre(), wild_griffin()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let pegasus = on_battlefield(&engine, p0, mesa_pegasus()).expect("seated");
+    let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+    let griffin = on_battlefield(&engine, p1, wild_griffin()).expect("seated");
+
+    let blockers = attack_and_collect_blocks(&mut engine, pegasus, p1);
+    assert!(
+        !blockers.iter().any(|b| b.blocker == ogre),
+        "no flying, no reach: the ogre is offered nothing at all: {blockers:?}"
+    );
+    assert!(
+        blockers
+            .iter()
+            .any(|b| b.blocker == griffin && b.attackers.contains(&pegasus)),
+        "a flier may still block it: {blockers:?}"
+    );
+}
+
+/// Mesa Pegasus — the same CR 702.22k division as Benalish Hero, played
+/// through the flier: banded with a grounded ally, the ogre that blocks
+/// only the ally ends up dividing its damage between both, and it is the
+/// *active* player who chooses — not the ogre's own controller. The active
+/// player puts it all on the flier and none on the ally: the opposite of
+/// the engine's own fallback with no division recorded (everything on the
+/// first-declared recipient, the ally), so what dies is proof the answer
+/// given is the one that landed.
+#[test]
+fn mesa_pegasus_bands_damage_division_is_chosen_by_the_active_player() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mesa_pegasus(), savannah_lions()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let pegasus = on_battlefield(&engine, p0, mesa_pegasus()).expect("seated");
+    let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+    let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+
+    declare_band_attack(&mut engine, p0, p1, &[pegasus, lions]);
+    answer_band_and_reach_blockers(&mut engine, p0, vec![lions]);
+    declare_band_blocks(&mut engine, p1, &[(ogre, lions)]);
+
+    let Pending::ChooseNumber { player, reason, .. } = next_combat_question(&mut engine) else {
+        panic!("expected the division, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player, p0,
+        "CR 702.22k: the active player divides, not the ogre's own controller"
+    );
+    assert!(matches!(
+        reason,
+        crate::choice::NumberPrompt::CombatDamage { source, recipient, .. }
+            if source == ogre && recipient == lions
+    ));
+    engine.apply(p0, PlayerAction::ChooseNumber(0)).unwrap();
+
+    assert!(
+        on_battlefield(&engine, p0, savannah_lions()).is_some(),
+        "the active player put none of it on the ally, sparing it"
+    );
+    assert_eq!(
+        engine.state().object(lions).map(|o| o.damage),
+        Some(0),
+        "not even a fraction reached the ally"
+    );
+    assert!(
+        on_battlefield(&engine, p0, mesa_pegasus()).is_none(),
+        "and put both points on the flier instead — the reverse of the \
+         engine's own fallback, which would have spared the flier and \
+         killed the ally"
+    );
+}
