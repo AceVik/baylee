@@ -364,6 +364,31 @@ mod on_disk {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// Nothing is saved that loading would refuse: a key pasted into a
+    /// model's name, or a profile named like a key, never reaches the disk,
+    /// and the refusal does not repeat the key.
+    #[test]
+    fn a_key_is_never_saved() {
+        let dir = scratch("save-key");
+        let path = dir.join(FILE);
+        let settings = SeatSettings::parse(FULL).unwrap();
+        let pasted = "sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFF";
+        let mut in_the_model = settings.clone();
+        in_the_model.profiles.get_mut("sonnet").unwrap().model = pasted.into();
+        let mut named_like_one = settings;
+        let profile = named_like_one.profiles.remove("deepseek").unwrap();
+        named_like_one.profiles.insert("api_key".into(), profile);
+        for broken in [in_the_model, named_like_one] {
+            let refused = broken.check().unwrap_err();
+            assert!(refused.contains("key_env"), "{refused}");
+            let refused = store::save(&path, &broken).unwrap_err();
+            assert!(refused.contains("key_env"), "{refused}");
+            assert!(!refused.contains("AAAABBBB"), "{refused}");
+            assert!(!path.exists(), "nothing written");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn the_file_is_in_the_client_s_config_directory() {
         let env = |key: &str| (key == "HOME").then(|| std::ffi::OsString::from("/home/ada"));

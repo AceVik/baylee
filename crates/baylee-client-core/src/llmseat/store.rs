@@ -36,13 +36,18 @@ pub fn load(path: &Path) -> Result<Option<SeatSettings>, String> {
         .map_err(|why| format!("the settings file {}: {why}", path.display()))
 }
 
-/// Writes `settings` to `path` whole, once [`SeatSettings::check`] passes.
+/// Writes `settings` to `path` whole: the text [`SeatSettings::to_json`]
+/// makes, once [`SeatSettings::parse`] reads it back as `settings`, so
+/// that no file is written that [`load`] would refuse (a key among them).
 ///
 /// # Errors
-/// What `check` refuses, or why the file could not be written.
+/// What `parse` refuses of the text, or why the file could not be written.
 pub fn save(path: &Path, settings: &SeatSettings) -> Result<(), String> {
-    settings.check()?;
-    write_whole(path, settings.to_json().as_bytes()).map_err(|e| {
+    let text = settings.to_json();
+    if SeatSettings::parse(&text)? != *settings {
+        return Err("the settings do not read back as they were written".into());
+    }
+    write_whole(path, text.as_bytes()).map_err(|e| {
         format!(
             "the settings file {} cannot be written: {e}",
             path.display()

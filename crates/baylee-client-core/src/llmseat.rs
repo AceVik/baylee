@@ -472,13 +472,21 @@ impl SeatSettings {
         text
     }
 
-    /// Whether the settings hold together.
+    /// Whether the settings hold together, and hold no key: everything
+    /// [`SeatSettings::parse`] refuses of a file, so that nothing it would
+    /// refuse is ever written (a key pasted into a model's name, a profile
+    /// called `api_key`).
     ///
     /// # Errors
-    /// A sentence naming the profile or the field: a default that names no
-    /// profile, a name a command line cannot carry, a profile's
-    /// [`Profile::fault`], a cap that is not an amount.
+    /// A sentence naming the profile or the field: a field named like a key
+    /// or a value shaped like one, a default that names no profile, a name
+    /// a command line cannot carry, a profile's [`Profile::fault`], a cap
+    /// that is not an amount.
     pub fn check(&self) -> Result<(), String> {
+        let value = serde_json::to_value(self).map_err(|e| e.to_string())?;
+        if let Some(why) = key_in(&value, "") {
+            return Err(why);
+        }
         if let Some(default) = &self.default
             && !self.profiles.contains_key(default)
         {

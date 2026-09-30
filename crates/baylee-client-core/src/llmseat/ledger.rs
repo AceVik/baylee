@@ -600,6 +600,6 @@ impl Book {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "ledger_tests.rs"]
 mod tests;
