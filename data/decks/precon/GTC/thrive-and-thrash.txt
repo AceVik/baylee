@@ -1,0 +1,45 @@
+# baylee deck export v1
+# name: Thrive and Thrash
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ThriveAndThrash_GTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: GTC
+# released: 2013-02-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Acidic Slime (M13) 159
+4 Arbor Elf (M13) 160
+3 Borderland Ranger (AVR) 169
+1 Bramblecrush (ISD) 172
+1 Deadeye Navigator (AVR) 47
+1 Dungeon Geists (DKA) 36
+2 Evolving Wilds (M13) 224
+4 Farseek (M13) 170
+2 Fog Bank (M13) 52
+2 Forest (RTR) 270
+2 Forest (RTR) 271
+2 Forest (RTR) 272
+2 Forest (RTR) 273
+2 Forest (RTR) 274
+2 Ground Assault (GTC) 168
+1 Gruul Ragebeast (GTC) 170
+2 Island (RTR) 255
+1 Island (RTR) 256
+1 Island (RTR) 257
+1 Island (RTR) 258
+1 Island (RTR) 259
+2 Mist Raven (AVR) 67
+1 Mountain (RTR) 265
+4 Simic Guildgate (GTC) 246
+1 Sphinx of Uthuun (M13) 69
+3 Strangleroot Geist (DKA) 127
+1 Thragtusk (M13) 193
+3 Urban Evolution (GTC) 204
+4 Verdant Haven (GTC) 138
+1 Wolfir Silverheart (AVR) 206
+1 Yeva, Nature's Herald (M13) 197
+SB: 4 Dissipate (ISD) 53
+SB: 4 Flames of the Firebrand (M13) 132
+SB: 2 Naturalize (GTC) 127
+SB: 2 Negate (M13) 62
+SB: 3 Rancor (M13) 185

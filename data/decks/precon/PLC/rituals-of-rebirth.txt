@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Rituals of Rebirth
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RitualsOfRebirth_PLC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PLC
+# released: 2007-02-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bog Serpent (PLC) 84
+3 Dread Return (TSP) 104
+2 Essence Warden (PLC) 145
+3 Evolution Charm (PLC) 127
+3 Fa'adiyah Seer (PLC) 146
+3 Forest (TSP) 298
+3 Forest (TSP) 299
+3 Forest (TSP) 300
+2 Forest (TSP) 301
+2 Greenseeker (TSP) 198
+2 Harmonize (PLC) 149
+2 Havenwood Wurm (TSP) 199
+2 Icatian Crier (TSP) 23
+1 Jedit Ojanen of Efrava (PLC) 131
+2 Jedit's Dragoons (TSP) 25
+3 Phantasmagorian (PLC) 77
+1 Plains (TSP) 282
+1 Plains (TSP) 283
+1 Plains (TSP) 284
+1 Plains (TSP) 285
+2 Rebuff the Wicked (PLC) 12
+1 Resurrection (TSB) 12
+2 Search for Tomorrow (TSP) 216
+1 Sengir Autocrat (TSB) 45
+1 Spike Feeder (TSB) 84
+2 Swamp (TSP) 290
+2 Swamp (TSP) 291
+2 Swamp (TSP) 292
+1 Swamp (TSP) 293
+1 Teneb, the Harvester (PLC) 163
+2 Terramorphic Expanse (TSP) 279
+1 Twisted Abomination (TSB) 50
+1 Wall of Roots (TSB) 89

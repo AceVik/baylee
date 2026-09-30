@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Boros
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Boros_GK1.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Guild Kit
+# set: GK1
+# released: 2018-11-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Agrus Kos, Wojek Veteran (GK1) 83
+1 Aurelia, the Warleader (GK1) 77 *F*
+1 Blade Instructor (GRN) 1
+1 Bomber Corps (GK1) 80
+1 Boros Charm (GK1) 84
+1 Boros Elite (GK1) 78
+4 Boros Garrison (GK1) 98
+2 Boros Guildgate (GRN) 243
+2 Boros Guildgate (GRN) 244
+1 Boros Keyrune (GK1) 96
+1 Boros Reckoner (GK1) 85
+2 Boros Signet (GK1) 97
+2 Boros Swiftblade (GK1) 86
+1 Brightflame (GK1) 87
+1 Daring Skyjek (GK1) 79
+1 Firemane Angel (GK1) 88
+1 Firemane Avenger (GK1) 89
+1 Frenzied Goblin (GK1) 81
+1 Gird for Battle (GRN) 12
+1 Hammer Dropper (GRN) 176
+1 Legion Loyalist (GK1) 82
+1 Legion Warboss (GRN) 109
+1 Light of the Legion (GRN) 19
+1 Lightning Helix (GK1) 90
+1 Martial Glory (GK1) 91
+1 Master Warcraft (GK1) 92
+8 Mountain (GK1) 101
+8 Plains (GK1) 100
+1 Razia, Boros Archangel (GK1) 93
+2 Skyknight Legionnaire (GRN) 198
+1 Spark Trooper (GK1) 94
+2 Sunhome Guildmage (GK1) 95
+1 Sunhome Stalwart (GRN) 26
+1 Sunhome, Fortress of the Legion (GK1) 99
+1 Swiftblade Vindicator (GRN) 203
+1 Sworn Companions (GRN) 27
+1 Wojek Bodyguard (GRN) 120

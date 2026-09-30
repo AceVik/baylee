@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Dimir Control
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DimirControl_Q08.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Pioneer Challenger Deck
+# set: Q08
+# released: 2022-11-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Censor (AKH) 46
+4 Consider (MID) 44
+3 Dig Through Time (KTK) 36
+2 Drown in the Loch (ELD) 188
+2 Drowned Catacomb (XLN) 253
+2 Extinction Event (IKO) 88
+4 Fatal Push (AER) 57
+4 Field of Ruin (MID) 262
+2 Heartless Act (IKO) 91
+3 Island (DMU) 265
+2 Island (DMU) 266
+2 Island (DMU) 267
+2 Murderous Rider // Swift End (ELD) 97
+1 Mystical Dispute (ELD) 58
+2 Narset, Parter of Veils (WAR) 61
+2 Negate (DMU) 58
+1 Shark Typhoon (IKO) 67
+3 Sinister Sabotage (GRN) 54
+3 Swamp (DMU) 268
+3 Swamp (DMU) 269
+2 Swamp (DMU) 270
+4 Temple of Deceit (THB) 245
+2 Torrential Gearhulk (KLD) 67
+1 Watery Grave (GRN) 259
+SB: 2 Cling to Dust (THB) 87
+SB: 2 Cry of the Carnarium (RNA) 70
+SB: 3 Duress (MID) 98
+SB: 2 Go Blank (STX) 72
+SB: 2 Languish (ORI) 105
+SB: 2 Mystical Dispute (ELD) 58
+SB: 2 Test of Talents (STX) 59

@@ -30,6 +30,7 @@ fn deck_named(cards: &[&str], commander: Option<&str>) -> store::Deck {
         sleeve: None,
         playmat: None,
         updated_at: 0,
+        offered: true,
     }
 }
 
@@ -253,6 +254,18 @@ fn the_port_file_says_the_port_and_nothing_else() {
         .collect();
     assert_eq!(left, [std::ffi::OsString::from("gateway.port")]);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A connection the gateway accepts sends with Nagle's algorithm off: the
+/// listener `main` serves from is the one asked here.
+#[tokio::test]
+async fn every_connection_the_gateway_accepts_sends_at_once() {
+    let (mut listener, port) = listen(0).await;
+    let _peer = tokio::net::TcpStream::connect(("127.0.0.1", port))
+        .await
+        .unwrap();
+    let (accepted, _) = axum::serve::Listener::accept(&mut listener).await;
+    assert!(accepted.nodelay().unwrap());
 }
 
 /// The guest cap (#269): a thousand when unset, none for `0`, and a

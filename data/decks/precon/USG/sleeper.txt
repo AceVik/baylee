@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Sleeper
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Sleeper_USG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: USG
+# released: 1998-10-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Angelic Page (USG) 4
+1 Barrin's Codex (USG) 286
+4 Brilliant Halo (USG) 5
+2 Clear (USG) 7
+1 Disciple of Grace (USG) 10
+1 Disciple of Law (USG) 11
+1 Disenchant (USG) 12
+2 Dragon Blood (USG) 293
+4 Drifting Meadow (USG) 320
+1 Endoskeleton (USG) 294
+2 Humble (USG) 18
+1 Monk Idealist (USG) 20
+2 Monk Realist (USG) 21
+2 Opal Caryatid (USG) 24
+3 Opal Gargoyle (USG) 25
+1 Opal Titan (USG) 26
+2 Pacifism (USG) 27
+3 Pegasus Charger (USG) 30
+5 Plains (USG) 331
+5 Plains (USG) 332
+4 Plains (USG) 333
+4 Plains (USG) 334
+1 Sanctum Custodian (USG) 42
+1 Serra's Embrace (USG) 47
+2 Songstitcher (USG) 52
+1 Voice of Grace (USG) 54
+1 Waylay (USG) 56

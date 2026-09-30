@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Enchanter - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EnchanterEnhancedDeck_UDS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: UDS
+# released: 1999-06-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Adarkar Wastes (6ED) 319
+3 Brilliant Halo (USG) 5
+4 Counterspell (6ED) 61
+3 Disenchant (USG) 12
+2 Drifting Meadow (USG) 320
+1 Ertai, Wizard Adept (EXO) 33
+2 Forbid (EXO) 35
+5 Island (USG) 335
+5 Island (USG) 336
+4 Island (USG) 337
+4 Island (USG) 338
+3 Metathran Elite (UDS) 38
+3 Miscalculation (ULG) 36
+4 Mother of Runes (ULG) 14
+1 Plains (USG) 331
+1 Rayne, Academy Chancellor (UDS) 43
+2 Thieving Magpie (UDS) 49
+1 Time Spiral (USG) 103
+3 Tradewind Rider (TMP) 98
+3 Whispers of the Muse (TMP) 103
+1 Wrath of God (6ED) 54
+2 Zephid's Embrace (USG) 114
+SB: 2 Chill (6ED) 60
+SB: 2 Clear (USG) 7
+SB: 1 Disenchant (USG) 12
+SB: 1 Douse (USG) 70
+SB: 2 Light of Day (6ED) 29
+SB: 1 Miscalculation (ULG) 36
+SB: 1 Oath of Lieges (EXO) 11
+SB: 2 Sacred Ground (STH) 12
+SB: 2 Wasteland (TMP) 330
+SB: 1 Wrath of God (6ED) 54

@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Oko, the Trickster
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, OkoTheTrickster_ELD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: ELD
+# released: 2019-10-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Beanstalk Giant // Fertile Footsteps (ELD) 149
+3 Bramblefort Fink (ELD) 311
+3 Charmed Sleep (ELD) 40
+2 Faerie Vandal (ELD) 45
+3 Forest (ELD) 266
+3 Forest (ELD) 267
+3 Forest (ELD) 268
+2 Forest (ELD) 269
+3 Frogify (ELD) 47
+3 Garenbrig Carver // Shield's Might (ELD) 156
+3 Island (ELD) 254
+3 Island (ELD) 255
+2 Island (ELD) 256
+2 Island (ELD) 257
+2 Keeper of Fables (ELD) 163
+3 Maraleaf Pixie (ELD) 196
+2 Mistford River Turtle (ELD) 56
+4 Oko's Accomplices (ELD) 310
+2 Oko's Hospitality (ELD) 312
+1 Oko, the Trickster (ELD) 309 *F*
+1 Return of the Wildspeaker (ELD) 172
+4 Thornwood Falls (ELD) 313
+3 Tome Raider (ELD) 68
+1 Tuinvale Treefolk // Oaken Boon (ELD) 180
+1 Wildborn Preserver (ELD) 182

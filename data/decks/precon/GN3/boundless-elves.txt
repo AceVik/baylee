@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Boundless Elves
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BoundlessElves_GN3.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Game Night Deck
+# set: GN3
+# released: 2022-10-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Beast Whisperer (GN3) 89
+1 Broken Wings (GN3) 90
+2 Dwynen's Elite (GN3) 91
+1 Elven Ambush (GN3) 92
+1 Elvish Archdruid (GN3) 93
+2 Elvish Rejuvenator (GN3) 94
+1 Elvish Skysweeper (GN3) 95
+3 Elvish Visionary (GN3) 96
+1 End-Raze Forerunners (GN3) 97
+8 Forest (GN3) 134
+8 Forest (GN3) 135
+8 Forest (GN3) 136
+1 Howling Golem (GN3) 117
+1 Imaryll, Elfhame Elite (GN3) 5 *F*
+1 Immaculate Magistrate (GN3) 98
+2 Invigorate (GN3) 99
+1 Joraga Visionary (GN3) 100
+3 Llanowar Elves (GN3) 101
+2 Llanowar Tribe (GN3) 102
+1 Overrun (GN3) 103
+1 Rabid Bite (GN3) 104
+1 Ram Through (GN3) 105
+1 Regrowth (GN3) 106
+2 Sylvan Messenger (GN3) 107
+1 Taunting Elf (GN3) 108
+1 Thorn Lieutenant (GN3) 109
+2 Thornweald Archer (GN3) 110
+1 Vow of Wildness (GN3) 111
+1 Wirewood Pride (GN3) 112

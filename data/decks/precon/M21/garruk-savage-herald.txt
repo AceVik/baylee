@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Garruk, Savage Herald
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GarrukSavageHerald_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: M21
+# released: 2020-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Almighty Brushwagg (IKO) 143
+3 Drowsing Tyrannodon (M21) 178
+8 Forest (M21) 272
+8 Forest (M21) 273
+8 Forest (M21) 274
+1 Forest (M21) 313
+1 Garruk's Harbinger (M21) 185
+2 Garruk's Uprising (M21) 186
+2 Garruk's Warsteed (M21) 337
+1 Garruk, Savage Herald (M21) 336 *F*
+2 Ilysian Caryatid (THB) 174
+3 Nessian Hornbeetle (THB) 182
+2 Ornery Dilophosaur (M21) 194
+3 Predatory Wurm (M21) 338
+3 Pridemalkin (M21) 196
+1 Primal Might (M21) 197
+2 Ram Through (IKO) 170
+3 Titanic Growth (M21) 210
+4 Wildwood Patrol (M21) 339

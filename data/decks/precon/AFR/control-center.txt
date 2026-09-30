@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Control Center
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ControlCenter_AFR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: AFR
+# released: 2021-09-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Baleful Mastery (STX) 64
+1 Black Dragon (AFR) 90
+1 Blue Dragon (AFR) 49
+1 Callous Bloodmage (STX) 66
+1 Clearwater Pathway // Murkwater Pathway (ZNR) 260
+2 Contact Other Plane (AFR) 52
+2 Curate (STX) 40
+1 Dragon Turtle (AFR) 56
+3 Elderfang Disciple (KHM) 93
+3 Flunk (STX) 71
+1 Gelatinous Cube (AFR) 105
+4 Ice Tunnel (KHM) 262
+3 Island (AFR) 266
+3 Island (AFR) 267
+2 Island (AFR) 268
+2 Island (AFR) 269
+1 Iymrith, Desert Doom (AFR) 62
+1 Mind Flayer (AFR) 63
+3 Poison the Cup (KHM) 103
+1 Port of Karfell (KHM) 265
+2 Reject (STX) 50
+3 Skull Raid (KHM) 111
+3 Swamp (AFR) 270
+3 Swamp (AFR) 271
+2 Swamp (AFR) 272
+2 Swamp (AFR) 273
+3 Tazeem Roilmage (ZNR) 84
+1 Undersea Invader (KHM) 78
+2 Vampire Spawn (AFR) 123
+2 You Find the Villains' Lair (AFR) 84

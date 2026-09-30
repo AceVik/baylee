@@ -400,6 +400,7 @@ pub(super) fn create_token_copies(
                 let mut obj =
                     GameObject::new_bare(oid, controller, ObjectKind::Permanent, base.clone());
                 obj.timestamp = ts;
+                obj.controlled_since = ts;
                 if let Some(own) = own {
                     obj.take_abilities(own);
                 }
@@ -475,6 +476,7 @@ fn create_token(
     let id = state.arena.insert_with(|id| {
         let mut obj = GameObject::new_bare(id, controller, ObjectKind::Permanent, base);
         obj.timestamp = ts;
+        obj.controlled_since = ts;
         // What makes this a Treasure rather than a blank artifact: the
         // definition is where the token's abilities live, and it is the only
         // record of which token this is once the characteristics are copied

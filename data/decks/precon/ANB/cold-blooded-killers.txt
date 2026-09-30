@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Cold-Blooded Killers
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ColdBloodedKillers_ANB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: ANB
+# released: 2020-08-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bad Deal (ANB) 45
+4 Compound Fracture (ANB) 46
+1 Cruel Cut (ANB) 47
+2 Demon of Loathing (ANB) 48
+1 Eternal Thirst (ANB) 49
+3 Malakir Cullblade (ANB) 51
+2 Mardu Outrider (ANB) 52
+3 Murder (ANB) 53
+1 Nightmare (ANB) 54
+2 Sanitarium Skeleton (ANB) 57
+3 Savage Gorger (ANB) 58
+2 Sengir Vampire (ANB) 60
+2 Skeleton Archer (ANB) 61
+1 Soulhunter Rakshasa (ANB) 62
+25 Swamp (ANB) 116
+2 Typhoid Rats (ANB) 63
+3 Unlikely Aid (ANB) 64
+2 Vampire Opportunist (ANB) 65
+SB: 2 Krovikan Scoundrel (ANB) 50
+SB: 3 Raise Dead (ANB) 56
+SB: 4 Scathe Zombies (ANB) 59

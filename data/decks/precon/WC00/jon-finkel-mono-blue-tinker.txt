@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Jon Finkel - Mono-Blue Tinker
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, JonFinkelMonoBlueTinker_WC00.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC00
+# released: 2000-08-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Brainstorm (WC00) jf61
+1 Crumbling Sanctuary (WC00) jf292
+4 Crystal Vein (WC00) jf322
+4 Grim Monolith (WC00) jf126
+9 Island (WC00) jf335
+4 Masticore (WC00) jf134
+4 Metalworker (WC00) jf135
+1 Mishra's Helix (WC00) jf302
+1 Phyrexian Colossus (WC00) jf305
+4 Phyrexian Processor (WC00) jf306b
+4 Rishadan Port (WC00) jf324
+4 Saprazzan Skerry (WC00) jf328
+4 Tangle Wire (WC00) jf139a
+4 Thran Dynamo (WC00) jf139b
+4 Tinker (WC00) jf45
+4 Voltaic Key (WC00) jf314
+SB: 4 Annul (WC00) jf59sb
+SB: 4 Chill (WC00) jf60sb
+SB: 4 Miscalculation (WC00) jf36sb
+SB: 1 Mishra's Helix (WC00) jf302sb
+SB: 2 Rising Waters (WC00) jf38sb

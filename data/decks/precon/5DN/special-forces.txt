@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Special Forces
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SpecialForces_5DN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 5DN
+# released: 2004-06-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Acquire (5DN) 21
+1 Annul (MRD) 29
+2 Arachnoid (5DN) 102
+2 Consume Spirit (MRD) 60
+2 Devour in Shadow (5DN) 46
+3 Dross Crocodile (5DN) 47
+1 Ebon Drake (5DN) 48
+2 Emissary of Despair (DST) 42
+1 Ensouled Scimitar (5DN) 119
+2 Island (MRD) 291
+2 Island (MRD) 292
+2 Island (MRD) 293
+2 Island (MRD) 294
+3 Leaden Myr (MRD) 191
+1 Loxodon Warhammer (MRD) 201
+1 Murderous Spoils (DST) 48
+2 Myr Quadropod (5DN) 138
+1 Pewter Golem (MRD) 227
+2 Plasma Elemental (5DN) 34
+1 Plunge into Darkness (5DN) 57
+1 Shattered Dreams (5DN) 59
+1 Silver Myr (MRD) 241
+1 Slagwurm Armor (MRD) 243
+1 Steel Wall (MRD) 248
+4 Swamp (MRD) 295
+4 Swamp (MRD) 296
+4 Swamp (MRD) 297
+4 Swamp (MRD) 298
+1 Vulshok Gauntlets (MRD) 273
+1 Whispersilk Cloak (DST) 160
+1 Wizard Replica (MRD) 275
+3 Yotian Soldier (MRD) 277

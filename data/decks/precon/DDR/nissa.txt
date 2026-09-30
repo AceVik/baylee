@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Nissa
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Nissa_DDR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDR
+# released: 2016-09-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abundance (DDR) 2
+2 Briarhorn (DDR) 3
+2 Citanul Woodreaders (DDR) 4
+2 Civic Wayfinder (DDR) 5
+1 Cloudthresher (DDR) 6
+1 Crop Rotation (DDR) 7
+2 Elvish Visionary (DDR) 8
+2 Fertile Thicket (DDR) 27
+1 Fertilid (DDR) 9
+4 Forest (DDR) 31
+4 Forest (DDR) 32
+4 Forest (DDR) 33
+3 Forest (DDR) 34
+3 Forest (DDR) 35
+1 Gaea's Blessing (DDR) 10
+2 Gilt-Leaf Seer (DDR) 11
+2 Jaddi Lifestrider (DDR) 12
+2 Khalni Garden (DDR) 28
+1 Mosswort Bridge (DDR) 29
+1 Natural Connection (DDR) 13
+1 Nissa's Chosen (DDR) 14
+1 Nissa, Voice of Zendikar (DDR) 1 *F*
+1 Oakgnarl Warrior (DDR) 15
+1 Oran-Rief Hydra (DDR) 16
+1 Oran-Rief Invoker (DDR) 17
+1 Saddleback Lagac (DDR) 18
+2 Scythe Leopard (DDR) 19
+1 Seek the Horizon (DDR) 20
+1 Thicket Elemental (DDR) 21
+2 Thornweald Archer (DDR) 22
+1 Treetop Village (DDR) 30
+2 Vines of the Recluse (DDR) 23
+1 Walker of the Grove (DDR) 24
+1 Wood Elves (DDR) 25
+2 Woodborn Behemoth (DDR) 26

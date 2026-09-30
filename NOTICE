@@ -50,6 +50,34 @@ cannot grant what its author does not hold. So the licence here is clean and
 the symbol is used on sufferance. docs/legal.md §2 is where that is reasoned
 out.
 
+The preconstructed deck lists in data/decks/precon/ are taken from MTGJSON
+(https://mtgjson.com, https://mtgjson.com/license/), card lines only, and
+are used under its MIT License:
+
+    Copyright © 2018 – Present, Zach Halpern
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the
+    "Software"), to deal in the Software without restriction, including
+    without limitation the rights to use, copy, modify, merge, publish,
+    distribute, sublicense, and/or sell copies of the Software, and to
+    permit persons to whom the Software is furnished to do so, subject to
+    the following conditions:
+
+    The above copyright notice and this permission notice shall be included
+    in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+The card lists are Wizards of the Coast's products; the card names in them
+are Wizards' material on the footing of the first paragraph.
+
 baylee source code is licensed under the GNU Affero General Public License
 v3.0 only (see LICENSE). The project is free and non-commercial; no feature
 will ever be placed behind payment.

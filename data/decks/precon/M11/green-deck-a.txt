@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Green Deck A
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GreenDeckA_M11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M11
+# released: 2010-07-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arbor Elf (WWK) 95
+1 Awakener Druid (M11) 163
+1 Baloth Woodcrasher (ZEN) 157
+1 Fog (M11) 173
+3 Forest (M11) 246
+3 Forest (M11) 247
+3 Forest (M11) 248
+3 Forest (M11) 249
+1 Giant Spider (M11) 179
+2 Grazing Gladehart (ZEN) 163
+1 Harrow (ZEN) 165
+1 Naturalize (M11) 186
+1 Ondu Giant (ROE) 202
+2 Primal Bellow (ZEN) 176
+2 Sylvan Ranger (M11) 198
+2 Timbermaw Larva (ZEN) 189
+1 Vastwood Gorger (ZEN) 192
+1 Vastwood Zendikon (WWK) 117

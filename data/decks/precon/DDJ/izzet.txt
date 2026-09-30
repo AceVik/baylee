@@ -1,0 +1,53 @@
+# baylee deck export v1
+# name: Izzet
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Izzet_DDJ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDJ
+# released: 2012-09-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Brainstorm (DDJ) 13
+1 Call to Heel (DDJ) 18
+1 Dissipate (DDJ) 25
+1 Djinn Illuminatus (DDJ) 12
+1 Fire // Ice (DDJ) 32
+1 Force Spike (DDJ) 14
+1 Forgotten Cave (DDJ) 33
+1 Galvanoth (DDJ) 10
+1 Gelectrode (DDJ) 5
+1 Goblin Electromancer (DDJ) 3
+1 Invoke the Firemind (DDJ) 31
+3 Island (DDJ) 37
+3 Island (DDJ) 38
+2 Island (DDJ) 39
+2 Island (DDJ) 40
+1 Isochron Scepter (DDJ) 16
+2 Izzet Boilerworks (DDJ) 34
+1 Izzet Charm (DDJ) 21
+1 Izzet Chronarch (DDJ) 11
+1 Izzet Guildmage (DDJ) 4
+1 Izzet Signet (DDJ) 17
+2 Kiln Fiend (DDJ) 2
+1 Lonely Sandbar (DDJ) 35
+1 Magma Spray (DDJ) 15
+3 Mountain (DDJ) 41
+2 Mountain (DDJ) 42
+2 Mountain (DDJ) 43
+2 Mountain (DDJ) 44
+1 Niv-Mizzet, the Firemind (DDJ) 1 *F*
+1 Nivix, Aerie of the Firemind (DDJ) 36
+1 Ogre Savant (DDJ) 9
+1 Overwhelming Intellect (DDJ) 28
+1 Prophetic Bolt (DDJ) 27
+2 Pyromatics (DDJ) 20
+1 Quicksilver Dagger (DDJ) 26
+1 Reminisce (DDJ) 22
+2 Shrewd Hatchling (DDJ) 8
+1 Sphinx-Bone Wand (DDJ) 29
+1 Steamcore Weird (DDJ) 7
+1 Street Spasm (DDJ) 30
+1 Thunderheads (DDJ) 23
+1 Train of Thought (DDJ) 19
+1 Vacuumelt (DDJ) 24
+2 Wee Dragonauts (DDJ) 6

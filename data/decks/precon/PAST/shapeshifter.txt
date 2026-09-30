@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Shapeshifter
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Shapeshifter_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Apprentice Wizard (DRK) 21
+2 Backfire (LEG) 47
+2 Fellwar Stone (DRK) 102
+4 Hurkyl's Recall (ATQ) 10
+7 Island (3ED) 295
+7 Island (3ED) 296
+6 Island (3ED) 297
+1 Ivory Tower (ATQ) 53
+3 Mana Vault (3ED) 263
+4 Mishra's Factory (ATQ) 80a
+2 Power Struggle (PAST) 7
+4 Primal Clay (ATQ) 61
+3 Shapeshifter (ATQ) 64
+3 Triskelion (ATQ) 73
+4 Unstable Mutation (ARN) 22
+4 Unsummon (3ED) 87
+3 Urza's Avenger (ATQ) 74

@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Jakub Šlemr - Mono-Black Control
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, JakubŠlemrMonoBlackControl_WC99.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC99
+# released: 1999-08-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bottle Gnomes (WC99) js278
+2 Corpse Dance (WC99) js116
+3 Cursed Scroll (WC99) js281
+4 Dark Ritual (WC99) js127
+4 Diabolic Edict (WC99) js128
+4 Duress (WC99) js132
+1 Phyrexian Negator (WC99) js65
+3 Phyrexian Plaguelord (WC99) js62
+4 Powder Keg (WC99) js136a
+1 Rapid Decay (WC99) js67
+3 Ravenous Rats (WC99) js68
+2 Spawning Pool (WC99) js142
+2 Stupor (WC99) js158
+5 Swamp (WC99) js339
+5 Swamp (WC99) js340a
+5 Swamp (WC99) js340b
+2 Ticking Gnomes (WC99) js136b
+1 Vampiric Tutor (WC99) js161
+1 Volrath's Stronghold (WC99) js143
+4 Wasteland (WC99) js330
+3 Yawgmoth's Will (WC99) js171
+SB: 1 Bottle Gnomes (WC99) js278sb
+SB: 2 Carrion Beetles (WC99) js122sb
+SB: 1 Evincar's Justice (WC99) js134sb
+SB: 1 Hatred (WC99) js64sb
+SB: 2 Perish (WC99) js147sb
+SB: 1 Persecute (WC99) js146sb
+SB: 2 Phyrexian Negator (WC99) js65sb
+SB: 3 Rapid Decay (WC99) js67sb
+SB: 1 Sphere of Resistance (WC99) js139sb
+SB: 1 Stromgald Cabal (WC99) js157sb

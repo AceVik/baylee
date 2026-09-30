@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Gideon
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Gideon_E01.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Archenemy Deck
+# set: E01
+# released: 2017-06-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aegis Angel (E01) 1
+2 Aerial Responder (E01) 2
+2 Anointer of Champions (E01) 3
+1 Doomed Traveler (E01) 4
+2 Excoriate (E01) 5
+2 Expedition Raptor (E01) 6
+1 Fencing Ace (E01) 7
+1 Fiendslayer Paladin (E01) 8
+1 Flickerwisp (E01) 9
+1 Gideon Jura (E01) 10
+2 Gideon's Lawkeeper (E01) 11
+1 Grand Abolisher (E01) 12
+1 Grasp of the Hieromancer (E01) 13
+1 Lightwielder Paladin (E01) 14
+1 Mentor of the Meek (E01) 15
+2 Moment of Heroism (E01) 16
+1 Odric, Master Tactician (E01) 17
+6 Plains (AKH) 255
+6 Plains (AKH) 256
+7 Plains (AKH) 257
+3 Plains (E01) 102
+3 Plains (E01) 97
+1 Precinct Captain (E01) 18
+2 Relief Captain (E01) 19
+2 Shoulder to Shoulder (E01) 20
+1 Sparring Mummy (AKH) 29
+1 Sun Titan (E01) 21
+2 Those Who Serve (AKH) 32
+2 Vizier of Deferment (AKH) 37
+1 Youthful Knight (E01) 22

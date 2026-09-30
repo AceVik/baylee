@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Totem Power
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TotemPower_ROE.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ROE
+# released: 2010-04-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angel's Mercy (M10) 2
+1 Boar Umbra (ROE) 179
+1 Cudgel Troll (M10) 174
+1 Daggerback Basilisk (ROE) 182
+1 Eland Umbra (ROE) 19
+2 Elvish Visionary (M10) 178
+3 Forest (ROE) 245
+2 Forest (ROE) 246
+2 Forest (ROE) 247
+2 Forest (ROE) 248
+1 Gigantomancer (ROE) 184 *F*
+1 Harmless Assault (ROE) 24
+1 Kor Spiritdancer (ROE) 31
+1 Mammoth Umbra (ROE) 37
+1 Nema Siltlurker (ROE) 200
+1 Ornithopter (M10) 216
+2 Pacifism (M10) 22
+1 Pelakka Wurm (ROE) 204
+3 Plains (ROE) 229
+2 Plains (ROE) 230
+2 Plains (ROE) 231
+2 Plains (ROE) 232
+1 Prized Unicorn (M10) 199
+1 Righteousness (M10) 27
+1 Soul's Attendant (ROE) 44
+1 Spider Umbra (ROE) 208
+2 Sporecap Spider (ROE) 209
+1 Stomper Cub (ROE) 210

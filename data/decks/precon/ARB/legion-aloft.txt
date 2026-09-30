@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Legion Aloft
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LegionAloft_ARB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ARB
+# released: 2009-04-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Arsenal Thresher (ARB) 131
+1 Aven Mimeomancer (ARB) 2
+1 Bottle Gnomes (10E) 312
+1 Esper Cormorants (CON) 105
+2 Ethercaste Knight (ARB) 3
+1 Etherium Sculptor (ALA) 42
+1 Filigree Angel (ARB) 6 *F*
+2 Glassdust Hulk (ARB) 7
+2 Island (ALA) 234
+2 Island (ALA) 235
+2 Island (ALA) 236
+2 Island (ALA) 237
+1 Kiss of the Amesha (ALA) 177
+1 Metallurgeon (ALA) 19
+1 Offering to Asha (ARB) 9
+2 Pacifism (10E) 31
+1 Path to Exile (CON) 15
+2 Plains (ALA) 230
+2 Plains (ALA) 231
+2 Plains (ALA) 232
+2 Plains (ALA) 233
+1 Protomatter Powder (ALA) 53
+2 Sanctum Plowbeast (ARB) 10
+1 Stormcaller's Boon (ARB) 13
+2 Terramorphic Expanse (10E) 360
+1 Wall of Denial (ARB) 16
+1 Whispersilk Cloak (10E) 345

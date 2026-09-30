@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Tom van de Logt - Machine Head
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TomVanDeLogtMachineHead_WC01.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC01
+# released: 2001-08-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Blazing Specter (WC01) tvdl236
+2 Crypt Angel (WC01) tvdl97
+4 Dark Ritual (WC01) tvdl129
+4 Duress (WC01) tvdl131
+2 Flametongue Kavu (WC01) tvdl60
+2 Mountain (WC01) tvdl337
+2 Mountain (WC01) tvdl343
+2 Mountain (WC01) tvdl343b
+3 Phyrexian Scuta (WC01) tvdl51
+4 Plague Spitter (WC01) tvdl119
+4 Rishadan Port (WC01) tvdl324
+3 Skizzik (WC01) tvdl169
+4 Sulfurous Springs (WC01) tvdl345
+1 Swamp (WC01) tvdl339
+1 Swamp (WC01) tvdl339a
+1 Swamp (WC01) tvdl341
+1 Swamp (WC01) tvdl342
+1 Swamp (WC01) tvdl347
+1 Swamp (WC01) tvdl348
+4 Terminate (WC01) tvdl128
+4 Urborg Volcano (WC01) tvdl330
+3 Urza's Rage (WC01) tvdl178
+3 Vendetta (WC01) tvdl170
+SB: 3 Addle (WC01) tvdl91sb
+SB: 1 Crypt Angel (WC01) tvdl97sb
+SB: 1 Flametongue Kavu (WC01) tvdl60sb
+SB: 2 Persecute (WC01) tvdl154sb
+SB: 3 Phyrexian Arena (WC01) tvdl47sb
+SB: 1 Pyroclasm (WC01) tvdl209sb
+SB: 4 Scoria Cat (WC01) tvdl101sb

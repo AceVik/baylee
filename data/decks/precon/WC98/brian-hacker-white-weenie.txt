@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Brian Hacker - White Weenie
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BrianHackerWhiteWeenie_WC98.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC98
+# released: 1998-08-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aura of Silence (WC98) bh7b
+4 Cataclysm (WC98) bh3
+3 Disenchant (WC98) bh16
+4 Empyrial Armor (WC98) bh13
+3 Nomads en-Kor (WC98) bh9
+3 Paladin en-Vec (WC98) bh12
+5 Plains (WC98) bh331
+4 Plains (WC98) bh332
+4 Plains (WC98) bh333
+4 Plains (WC98) bh334
+4 Soltari Monk (WC98) bh45
+4 Soltari Priest (WC98) bh46
+1 Soltari Visionary (WC98) bh20
+4 Soul Warden (WC98) bh21
+4 Tithe (WC98) bh23a
+4 Warrior en-Kor (WC98) bh23b
+4 White Knight (WC98) bh68
+SB: 3 Abeyance (WC98) bh1sb
+SB: 2 Armageddon (WC98) bh7asb
+SB: 3 Aura of Silence (WC98) bh7bsb
+SB: 3 Cursed Scroll (WC98) bh281sb
+SB: 1 Disenchant (WC98) bh16sb
+SB: 3 Spirit Link (WC98) bh64sb

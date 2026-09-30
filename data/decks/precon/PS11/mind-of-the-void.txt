@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Mind of the Void
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MindOfTheVoid_PS11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PS11
+# released: 2011-01-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Air Elemental (PS11) 26 [es]
+1 Angel's Feather (PS11) 184 [es]
+3 Cancel (PS11) 28 [es]
+2 Condemn (PS11) 4 [es]
+1 Deft Duelist (PS11) 170 [es]
+2 Dispeller's Capsule (PS11) 5 [es]
+3 Divination (PS11) 33 [es]
+2 Dream Fracture (PS11) 34 [es]
+2 Essence Scatter (PS11) 35 [es]
+1 Griffin Sentinel (PS11) 8 [es]
+4 Island (PS11) 209 [es]
+4 Island (PS11) 210 [es]
+3 Island (PS11) 211 [es]
+3 Island (PS11) 212 [es]
+1 Isleback Spawn (PS11) 40 [es]
+1 Jayemdae Tome (PS11) 191 [es]
+1 Kiss of the Amesha (PS11) 172 [es]
+1 Kraken's Eye (PS11) 192 [es]
+1 Memory Erosion (PS11) 44 [es]
+2 Mind Control (PS11) 45 [es]
+2 Pacifism (PS11) 15 [es]
+3 Plains (PS11) 205 [es]
+3 Plains (PS11) 206 [es]
+2 Plains (PS11) 207 [es]
+2 Plains (PS11) 208 [es]
+2 Reckless Scholar (PS11) 50 [es]
+2 Sky Ruin Drake (PS11) 53 [es]
+1 Sphinx of Jwar Isle (PS11) 55 [es]
+3 Tome Scour (PS11) 57 [es]
+1 Traumatize (PS11) 58 [es]

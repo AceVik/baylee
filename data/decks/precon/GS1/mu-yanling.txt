@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Mu Yanling
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MuYanling_GS1.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: GS1
+# released: 2018-06-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ancestor Dragon (GS1) 12
+2 Armored Whirl Turtle (GS1) 7
+2 Brilliant Plan (GS1) 17
+1 Cloak of Mists (GS1) 13
+2 Colorful Feiyi Sparrow (GS1) 2
+3 Dragon's Presence (GS1) 16
+2 Drown in Shapelessness (GS1) 15
+2 Earth-Origin Yak (GS1) 9
+2 Heavenly Qilin (GS1) 6
+12 Island (GS1) 21
+4 Meandering River (GS1) 19
+3 Moon-Eating Dog (GS1) 10
+1 Mu Yanling (GS1) 1 *F*
+2 Nine-Tail White Fox (GS1) 8
+9 Plains (GS1) 20
+2 Purple-Crystal Crab (GS1) 3
+2 Qilin's Blessing (GS1) 14
+2 Rhythmic Water Vortex (GS1) 18
+2 Stormcloud Spirit (GS1) 11
+2 Vivid Flying Fish (GS1) 4
+2 Welkin Tern (GS1) 5

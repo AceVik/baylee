@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Ninjutsu
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Ninjutsu_BOK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: BOK
+# released: 2005-02-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Field of Reality (CHK) 60
+2 Genju of the Falls (BOK) 35
+1 Higure, the Still Wind (BOK) 37
+1 Hinder (CHK) 65
+6 Island (CHK) 291
+6 Island (CHK) 292
+6 Island (CHK) 293
+6 Island (CHK) 294
+2 Kaijin of the Vanishing Touch (BOK) 39
+1 Lifted by Clouds (CHK) 73
+2 Minamo Sightbender (BOK) 41
+1 Minamo's Meddling (BOK) 42
+3 Mistblade Shinobi (BOK) 43
+3 Mystic Restraints (CHK) 76
+3 Ninja of the Deep Hours (BOK) 44
+2 Phantom Wings (BOK) 46
+3 River Kaijin (CHK) 83
+2 Ronin Warclub (BOK) 158
+1 Shuriken (BOK) 160
+2 Soratami Cloudskater (CHK) 86
+1 Soratami Mirror-Guard (CHK) 87
+2 Student of Elements // Tobita, Master of Winds (CHK) 93
+1 Teardrop Kami (BOK) 55
+1 Tomorrow, Azami's Familiar (BOK) 58
+1 Walker of Secret Ways (BOK) 60

@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Rakdos Bloodsport
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RakdosBloodsport_DIS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: DIS
+# released: 2006-05-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Cackling Flames (DIS) 59
+2 Demon's Jester (DIS) 42
+1 Douse in Gloom (GPT) 49
+2 Drekavac (DIS) 43
+3 Gobhobbler Rats (DIS) 111
+2 Ignorant Bliss (DIS) 64
+1 Lyzolda, the Blood Witch (DIS) 117
+3 Mountain (RAV) 299
+3 Mountain (RAV) 300
+3 Mountain (RAV) 301
+2 Mountain (RAV) 302
+1 Nihilistic Glee (DIS) 50
+2 Ragamuffyn (DIS) 51
+1 Rakdos Guildmage (DIS) 145
+1 Rakdos Ickspitter (DIS) 128
+2 Rakdos Signet (DIS) 165
+1 Rix Maadi, Dungeon Palace (DIS) 179
+2 Sadistic Augermage (RAV) 103
+2 Scorched Rusalka (GPT) 74
+3 Seal of Fire (DIS) 71
+1 Slaughterhouse Bouncer (DIS) 54
+2 Slithering Shade (DIS) 55
+3 Swamp (RAV) 295
+3 Swamp (RAV) 296
+3 Swamp (RAV) 297
+3 Swamp (RAV) 298
+2 Taste for Mayhem (DIS) 75
+2 Torpid Moloch (RAV) 147
+1 Twinstrike (DIS) 134
+1 Wrecking Ball (DIS) 139

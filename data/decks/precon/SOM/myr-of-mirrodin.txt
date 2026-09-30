@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Myr of Mirrodin
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MyrOfMirrodin_SOM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: SOM
+# released: 2010-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Arrest (SOM) 2
+1 Auriok Edgewright (SOM) 3
+2 Darksteel Myr (SOM) 151
+1 Darksteel Sentinel (SOM) 152
+1 Dispense Justice (SOM) 5
+2 Ghalma's Warden (SOM) 8
+3 Gold Myr (SOM) 157
+2 Inspired Charge (M11) 19
+2 Kemba's Skyguard (SOM) 13
+1 Myr Battlesphere (SOM) 180
+2 Myr Galvanizer (SOM) 181
+2 Myrsmith (SOM) 16
+3 Origin Spellbomb (SOM) 189
+2 Palladium Myr (SOM) 190
+2 Perilous Myr (SOM) 192
+6 Plains (SOM) 230
+6 Plains (SOM) 231
+6 Plains (SOM) 232
+6 Plains (SOM) 233
+1 Razor Hippogriff (SOM) 17
+3 Revoke Existence (SOM) 18
+2 Seize the Initiative (SOM) 20
+1 Sunblast Angel (SOM) 22 *F*

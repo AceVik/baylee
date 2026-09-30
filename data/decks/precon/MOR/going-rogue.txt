@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Going Rogue
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GoingRogue_MOR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: MOR
+# released: 2008-02-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Auntie's Snitch (MOR) 57
+1 Cloak and Dagger (MOR) 141
+1 Dewdrop Spy (MOR) 30
+1 Ego Erasure (LRW) 59
+2 Familiar's Ruse (LRW) 64
+3 Frogtosser Banneret (MOR) 64
+2 Ghostly Changeling (LRW) 116
+1 Hoarder's Greed (LRW) 117
+3 Island (LRW) 286
+3 Island (LRW) 287
+2 Island (LRW) 288
+2 Island (LRW) 289
+2 Latchkey Faerie (MOR) 39
+1 Marsh Flitter (LRW) 125
+2 Morsel Theft (MOR) 68
+1 Mothdust Changeling (MOR) 42
+1 Nameless Inversion (LRW) 128
+1 Nightshade Stinger (LRW) 132
+1 Notorious Throng (MOR) 45
+2 Oona's Blackguard (MOR) 72
+1 Paperfin Rascal (LRW) 77
+2 Peppersmoke (LRW) 134
+2 Pestermite (LRW) 78
+2 Prickly Boggart (MOR) 74
+1 Protective Bubble (LRW) 80
+1 Stinkdrinker Bandit (MOR) 80
+4 Swamp (LRW) 290
+3 Swamp (LRW) 291
+3 Swamp (LRW) 292
+3 Swamp (LRW) 293
+2 Thieves' Fortune (MOR) 54
+2 Violet Pall (MOR) 81
+1 Whirlpool Whelm (LRW) 96

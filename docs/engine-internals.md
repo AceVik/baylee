@@ -33,6 +33,38 @@ one mask OR, not a scan), and the ids in it are **append-only** since #43:
 list rather than a range, because a new creature type no longer sits next to
 the old ones. `docs/card-identity.md` §"`SubtypeId`" is normative.
 
+**An object keeps two clocks, and a transform moves only one.** Both read
+the game's one counter (`GameState::next_timestamp`).
+`GameObject::timestamp` is the timestamp of CR 613.7: taken as the object
+enters a zone (613.7d) and again each time the permanent transforms
+(613.7g, `GameState::transform`). The effects of its static abilities take
+it when `sync_static_effects` registers them (613.7a), and `transform` drops
+the old face's effects first, so the new face's statics are registered with
+the new stamp and apply after anything created while the other face was up.
+A daybound card entering at night enters with its back face up
+(CR 702.145b, 712.14a), and that is not a transform: nothing was turned
+over (701.27a transforms a permanent). So the entry scan calls
+`GameState::turn_over`, the half of `transform` that drops the statics of
+the face going down and switches faces. It adds no stamp, since the arrival
+already took one (613.7d), and journals no `Transformed`, which a "transforms
+into" trigger (701.27e) and the log's "transformed" line read
+(`a_werewolf_that_enters_at_night_has_not_transformed`, and in gamehost
+`a_werewolf_entering_at_night_is_not_logged_as_transformed`).
+`GameObject::controlled_since` is the moment its controller took it: taken
+on arrival and again at every change of control
+(`restart_summoning_sickness`). Summoning sickness (`combat::summoning_sick`,
+CR 302.6) reads only this field, because a permanent that transforms is the
+same object under the same controller (CR 712.18). The two used to be one
+field, and that is why a transform could not take its timestamp without
+making the permanent summoning-sick. Two of the events CR 613.7 lists are
+not implemented: an Aura, Equipment or Fortification becoming attached
+(613.7e), and turning face up or face down (613.7f). A Saga taking a lore
+counter restamps `timestamp` (`progress.rs`, both lore sites) with no rule
+behind it, because CR 613.7c stamps the counter and not the object; since
+the split it no longer makes a Saga creature summoning-sick. Tests:
+`mechanics_tests::transforms` covers the ordering and the sickness,
+`mechanics_tests::tokens` both token writers.
+
 **A `Pending` is published from a settled board, and the machine is what
 settles it — including after an action.** The invalidation half has always
 been right: `move_object` marks the projection stale in both directions for
@@ -72,6 +104,46 @@ battlefield's static abilities apply to the board every seat keeps its hand
 beside (CR 604.2), and the statics of a player who concedes in the window
 leave with their permanents (CR 800.4a) before anybody is asked again
 (`a_starting_battlefield_s_statics_apply_while_the_mulligans_are_open`).
+
+Inside the machine, one step publishes a question after it has moved the
+board behind step 0a: 0b, `apply_enter_modifiers`, which asks as-it-enters
+choices (a colour, a creature type, a shockland's life, a clone's choice).
+Before its first question it has applied every arrival's replacements that
+ask nobody (below), so it may already have put a daybound permanent entering
+at night back face up (CR 702.145b), and `GameState::turn_over` drops the
+statics of the face going down and leaves the new face's to the next scan.
+It may also have given a Room its door, or put counters on an arrival. So
+when 0b leaves a question out, the machine does what `Engine::new` does, a
+sync and a refresh, before it returns. Every other flip leads back to 0a
+before a question: a resolution's transform (`apply_pending_face_changes`, at
+the end of `finish_resolution`) is followed by the machine or by
+`run_until_choice`, a delayed transform (3b) and daybound's own fixpoint
+(2c) both `continue`
+(`mechanics_tests::transforms::a_question_asked_as_permanents_enter_sees_the_face_that_entered`).
+
+**Permanents that enter together get all their replacements before anyone
+is asked.** They are one event, and each one's own replacements modify how
+it enters (CR 614.12, 614.12a). So 0b walks every arrival since
+`entry_scan_seq` first and applies what needs no answer: entering tapped,
+counters, a planeswalker's loyalty (CR 306.5b), a Saga's lore counter
+(CR 714.3a), daybound's back face, a Room's door. What asks (an
+`EnterModifier` that chooses, or a clone's copy choice, `EntryAsk`) is
+queued in `Engine::entry_questions` and asked one at a time: the active
+player's first, then in turn order (CR 101.4), and one player's in the order
+the permanents entered. CR 101.4c would let that player choose the order;
+that is not offered. Each question is asked when its turn comes, so a
+shockland is asked against the life the ones before it left, and one its
+controller can no longer pay for enters tapped without a question
+(CR 614.12b). The scan used to publish the first question from the middle of
+its loop with the cursor already past every arrival, so every arrival behind
+it got nothing: a Urza's Saga fetched beside Steam Vents had no lore counter,
+and a planeswalker behind a shockland entered with no loyalty and died
+(CR 704.5i). Tests: in `enter_tests`,
+`a_saga_fetched_beside_a_shockland_enters_with_its_lore_counter`,
+`a_planeswalker_entering_behind_a_shockland_enters_with_its_loyalty`,
+`a_second_shockland_is_asked_against_the_life_the_first_one_left` and
+`shocklands_of_two_players_entering_together_are_asked_in_apnap_order`;
+`mechanics_tests::transforms::a_question_asked_as_permanents_enter_waits_for_the_ones_behind_it`.
 
 A projection reads the *board*, and there are two ways for it to read a
 stale one. `recompute_with` walks **one object through all the layers**, so
@@ -135,8 +207,9 @@ timestamps, so a later taker wins (CR 613.7) and an earlier one's control
 returns when the later one ends. `sync_static_effects` drops an indefinite
 effect whose object has moved on, since it names an object that no longer
 exists (CR 400.7). When the controller moves in either direction the
-object's timestamp is bumped, because CR 302.6 wants control held
-*continuously* since the turn began.
+object's `controlled_since` is restarted, because CR 302.6 wants control
+held *continuously* since the turn began. Its timestamp stays: a change of
+control is not one of the events CR 613.7 gives an object a new one for.
 
 **A static ability's "you" is whoever controls its source now** (CR 109.5,
 611.3a); an effect a resolving spell or ability made keeps the player who
@@ -212,6 +285,26 @@ Proposed events are rewritten by applicable replacement effects (each at
 most once per event, CR 614.5), applied, journaled; matching triggers are
 collected and stacked APNAP (per-player ordering via ChoiceRequest).
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
+
+### Attachments (CR 704.5m, 704.5n, 704.5p)
+`sba::run_attachment_sbas` asks the first sentence of CR 704.5p before
+anything else: a battle or creature attached to an object or player becomes
+unattached and stays on the battlefield, whatever else it is. That is how an
+Equipment an effect animates (Karn, the Great Creator's +1) comes off the
+creature it equips; an Equipment's own host rule (CR 301.5b, 704.5n) is
+satisfied by that creature and would keep it on. Only then are an Aura's host
+(its enchant filter, CR 303.4c; illegal or missing → graveyard, 704.5m) and an
+Equipment's (a creature; illegal → unattached, 704.5n) asked, and the second
+sentence of 704.5p takes any other noncreature, nonbattle permanent off what
+it is attached to. Reconfigure keeps its Equipment on because it stops being a
+creature while attached (CR 702.151b), which the card states as a static
+conditioned on `Filter::IsAttached`. An Aura creature with no host stays on
+the battlefield as the stand-in for an unattached bestowed Aura (CR 702.103f);
+there is no bestow yet, and any other Aura creature belongs in the graveyard
+(CR 303.4d). A Fortification's host is not read at all: the second sentence
+of 704.5p spares it and the host check asks only Auras and Equipment, so one
+attached to a nonland (CR 301.6) stays attached, where 704.5n would unattach
+it. No pool card is a Fortification.
 
 ### A delayed trigger that watches an object (CR 603.7)
 Earthbend (CR 701.66a) leaves "when that land dies or is put into exile,

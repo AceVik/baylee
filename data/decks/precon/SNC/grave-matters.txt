@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Grave Matters
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GraveMatters_SNC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: SNC
+# released: 2022-09-09
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Bloodsworn Squire // Bloodsworn Knight (VOW) 97
+3 Deathbonnet Sprout // Deathbonnet Hulk (MID) 181
+1 Deathcap Glade (VOW) 261
+2 Doomed Dissenter (VOW) 106
+2 Eaten Alive (MID) 99
+3 Fell Stinger (VOW) 112
+5 Forest (SNC) 270
+5 Forest (SNC) 271
+1 Ghoulcaller's Harvest (MID) 225
+2 Gloomshrieker (NEO) 219
+2 Gravelighter (NEO) 98
+2 Infernal Grasp (MID) 107
+4 Jungle Hollow (NEO) 269
+2 Moldgraf Millipede (VOW) 209
+3 Mulch (VOW) 210
+1 Old Rutstein (VOW) 244
+1 Old Stickfingers (MID) 234
+2 Reclusive Taxidermist (VOW) 214
+1 Shigeki, Jukai Visionary (NEO) 206
+1 Spring-Leaf Avenger (NEO) 208
+5 Swamp (SNC) 266
+5 Swamp (SNC) 267
+1 Tenacious Underdog (SNC) 97
+3 Undead Butler (VOW) 133

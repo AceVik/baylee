@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Massive Menagerie
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MassiveMenagerie_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M21
+# released: 2021-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Almighty Brushwagg (IKO) 143
+3 Beanstalk Giant // Fertile Footsteps (ELD) 149
+2 Cultivate (M21) 177
+1 Elder Gargaroth (M21) 179
+4 Forest (M21) 272
+4 Forest (M21) 273
+3 Forest (M21) 274
+3 Fully Grown (IKO) 154
+4 Island (M21) 263
+3 Island (M21) 264
+3 Island (M21) 265
+2 Keeper of Fables (ELD) 163
+1 Kogla, the Titan Ape (IKO) 162
+2 Llanowar Visionary (M21) 193
+3 Maraleaf Pixie (ELD) 196
+1 Pursued Whale (M21) 60
+3 Ram Through (IKO) 170
+1 Serpent of Yawning Depths (THB) 291
+1 Sublime Epiphany (M21) 74
+1 Temple of Mystery (M21) 254
+1 Thorn Mammoth (ELD) 323
+4 Thornwood Falls (M21) 257
+3 Thunderous Snapper (ELD) 215
+2 Witching Well (ELD) 74
+3 Wolfwillow Haven (THB) 205

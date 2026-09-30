@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Unnatural Forces
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, UnnaturalForces_VIS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: VIS
+# released: 2006-04-10
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Boomerang (MIR) 56
+2 Brood of Cockroaches (VIS) 53
+2 Coercion (VIS) 54
+1 Coral Fighters (MIR) 59
+2 Enfeeblement (MIR) 121
+2 Ether Well (MIR) 65
+2 Fetid Horror (MIR) 123
+1 Flooded Shoreline (VIS) 32
+1 Funeral Charm (VIS) 61
+2 Impulse (VIS) 34
+2 Inspiration (VIS) 35
+3 Island (MIR) 335
+3 Island (MIR) 336
+3 Island (MIR) 337
+3 Island (MIR) 338
+2 Kukemssa Serpent (MIR) 72
+2 Man-o'-War (VIS) 37
+2 Necromancy (VIS) 64
+1 Necrosavant (VIS) 65
+1 Nekrataal (VIS) 66
+1 Ray of Command (MIR) 86
+2 Restless Dead (MIR) 138
+2 Sealed Fate (MIR) 282
+1 Shrieking Drake (VIS) 43
+3 Swamp (MIR) 339
+3 Swamp (MIR) 340
+3 Swamp (MIR) 341
+3 Swamp (MIR) 342
+1 Vision Charm (VIS) 49
+2 Waterspout Djinn (VIS) 50
+1 Zombie Mob (MIR) 153

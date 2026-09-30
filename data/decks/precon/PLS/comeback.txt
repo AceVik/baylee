@@ -1,0 +1,51 @@
+# baylee deck export v1
+# name: Comeback
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Comeback_PLS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PLS
+# released: 2001-02-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ancient Spring (INV) 319
+1 Arctic Merfolk (PLS) 21
+3 Cavern Harpy (PLS) 97
+1 Coastal Tower (INV) 321
+1 Confound (PLS) 22
+2 Dromar's Cavern (PLS) 138
+1 Dromar's Charm (PLS) 105
+1 Faerie Squadron (INV) 58
+1 Galina's Knight (INV) 248
+1 Guard Dogs (PLS) 5
+1 Honorable Scout (PLS) 8
+2 Hunting Drake (PLS) 27
+2 Island (INV) 335
+2 Island (INV) 336
+2 Island (INV) 337
+1 Island (INV) 338
+1 Mana Cylix (PLS) 132
+2 Marsh Crocodile (PLS) 115
+1 Nightscape Familiar (PLS) 48
+2 Phyrexian Bloodstock (PLS) 50
+1 Plains (INV) 331
+1 Plains (INV) 332
+1 Plains (INV) 333
+1 Plains (INV) 334
+1 Planeswalker's Scorn (PLS) 52
+2 Ravenous Rats (INV) 120
+1 Salt Marsh (INV) 326
+1 Sawtooth Loon (PLS) 123
+2 Silver Drake (PLS) 125
+2 Sisay's Ingenuity (PLS) 33
+1 Slay (PLS) 55
+1 Stormscape Apprentice (INV) 75
+1 Stormscape Battlemage (PLS) 35
+3 Stormscape Familiar (PLS) 36
+2 Swamp (INV) 339
+2 Swamp (INV) 340
+1 Swamp (INV) 341
+1 Swamp (INV) 342
+1 Terminal Moraine (PLS) 142
+3 Tidal Visionary (INV) 80
+1 Vodalian Merchant (INV) 85
+1 Waterspout Elemental (PLS) 38

@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Priestess
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Priestess_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Animate Wall (3ED) 1
+2 Benalish Hero (3ED) 4
+2 Blessing (3ED) 6
+2 Castle (3ED) 8
+1 Disenchant (3ED) 17
+2 Elder Land Wurm (LEG) 11
+2 Fortified Area (LEG) 14
+3 Healing Salve (3ED) 22
+3 Ivory Cup (3ED) 253
+2 Mesa Pegasus (3ED) 28
+2 Pikemen (DRK) 15
+8 Plains (3ED) 292
+8 Plains (3ED) 293
+7 Plains (3ED) 294
+2 Reverse Damage (3ED) 35
+3 Spirit Link (LEG) 37
+2 Swords to Plowshares (3ED) 41
+4 Wall of Spears (ATQ) 77
+4 Wall of Swords (3ED) 43
+SB: 1 Circle of Protection: Black (3ED) 9
+SB: 1 Circle of Protection: Blue (3ED) 10
+SB: 1 Circle of Protection: Green (3ED) 11
+SB: 1 Circle of Protection: Red (3ED) 12
+SB: 1 Circle of Protection: White (3ED) 13

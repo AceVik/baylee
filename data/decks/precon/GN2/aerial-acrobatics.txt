@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Aerial Acrobatics
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AerialAcrobatics_GN2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Game Night Deck
+# set: GN2
+# released: 2019-11-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Agent of Treachery (M20) 43
+2 Air Elemental (M20) 44
+2 Aven Wind Mage (GN2) 16
+1 Brineborn Cutthroat (M20) 50
+1 Captivating Gyre (M20) 51
+1 Claustrophobia (GN2) 17
+2 Cloudkin Seer (M20) 54
+2 Cryptic Serpent (GN2) 18
+2 Decision Paralysis (GN2) 19
+1 Dramatic Reversal (GN2) 20
+1 Dungeon Geists (M20) 57
+1 Engulf the Shore (GN2) 21
+2 Frost Lynx (M20) 62
+2 Galestrike (GN2) 22
+1 Howling Golem (GN2) 54
+13 Island (GN2) 57
+13 Island (GN2) 58
+2 Moat Piranhas (M20) 67
+1 Rise from the Tides (GN2) 23
+1 River's Rebuke (GN2) 24
+2 Salvager of Secrets (GN2) 25
+1 Sphinx of Enlightenment (GN2) 2 *F*
+1 Unsummon (M20) 78
+2 Warden of Evos Isle (M20) 79
+2 Winged Words (M20) 80

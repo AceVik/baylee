@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: Preston Poulter, Semifinalist
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PrestonPoulterSemifinalist_PTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Pro Tour Deck
+# set: PTC
+# released: 1996-05-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aeolipile (PTC) pp81
+2 Armageddon (PTC) pp5
+2 Autumn Willow (PTC) pp83
+1 Balance (PTC) pp6
+4 Brushland (PTC) pp352
+3 Disenchant (PTC) pp22
+3 Elvish Archers (PTC) pp243
+4 Erhnam Djinn (PTC) pp64
+2 Fellwar Stone (PTC) pp319
+2 Forest (PTC) pp376
+1 Forest (PTC) pp377
+1 Forest (PTC) pp378
+2 Havenwood Battleground (PTC) pp96
+2 Hurricane (PTC) pp251
+2 Icy Manipulator (PTC) pp322
+3 Land Tax (PTC) pp34
+4 Mishra's Factory (PTC) pp361
+1 Nevinyrral's Disk (PTC) pp338
+3 Plains (PTC) pp364
+3 Plains (PTC) pp365
+2 Plains (PTC) pp366
+1 Ruins of Trokair (PTC) pp100
+1 Spectral Bears (PTC) pp98
+2 Strip Mine (PTC) pp363
+4 Swords to Plowshares (PTC) pp52
+1 Sylvan Library (PTC) pp273
+1 Wrath of God (PTC) pp58
+1 Zuran Orb (PTC) pp350
+SB: 1 Armageddon (PTC) pp5sb
+SB: 1 Autumn Willow (PTC) pp83sb
+SB: 1 Disenchant (PTC) pp22sb
+SB: 2 Divine Offering (PTC) pp6sb
+SB: 2 Essence Filter (PTC) pp233sb
+SB: 1 Fellwar Stone (PTC) pp319sb
+SB: 1 Ivory Tower (PTC) pp328sb
+SB: 2 Karma (PTC) pp32sb
+SB: 1 Land Tax (PTC) pp34sb
+SB: 2 Reverse Damage (PTC) pp45sb
+SB: 1 Serrated Arrows (PTC) pp110sb

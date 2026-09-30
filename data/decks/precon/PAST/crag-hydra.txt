@@ -1,0 +1,23 @@
+# baylee deck export v1
+# name: Crag Hydra
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CragHydra_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Detonate (ATQ) 24
+4 Disintegrate (3ED) 142
+4 Fireball (3ED) 150
+4 Inferno (DRK) 71
+2 Lightning Bolt (3ED) 162
+4 Mana Flare (3ED) 164
+22 Mountain (ARN) 77
+4 Onulet (ATQ) 59
+4 Power Surge (3ED) 170
+2 Shivan Dragon (3ED) 177
+2 Soul Net (3ED) 275
+3 The Hive (3ED) 277
+4 Wall of Fire (3ED) 183
+SB: 1 Red Elemental Blast (3ED) 171

@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Take to the Sky
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TakeToTheSky_ORI.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ORI
+# released: 2015-07-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Alhammarret, High Arbiter (PORI) 43 *F*
+1 Aven Battle Priest (ORI) 6
+1 Celestial Flare (ORI) 8
+2 Charging Griffin (ORI) 9
+2 Claustrophobia (ORI) 50
+1 Evolving Wilds (ORI) 246
+3 Faerie Miscreant (ORI) 57
+2 Healing Hands (ORI) 17
+2 Hydrolash (ORI) 59
+4 Island (ORI) 257
+4 Island (ORI) 258
+3 Island (ORI) 259
+3 Island (ORI) 260
+1 Murder Investigation (ORI) 27
+1 Negate (ORI) 65
+2 Nivix Barrier (ORI) 66
+3 Plains (ORI) 253
+3 Plains (ORI) 254
+2 Plains (ORI) 255
+2 Plains (ORI) 256
+2 Sigiled Starfish (ORI) 73
+1 Soulblade Djinn (ORI) 75
+1 Stratus Walk (ORI) 77
+2 Suppression Bonds (ORI) 34
+2 Thunderclap Wyvern (ORI) 218
+2 Totem-Guide Hartebeest (ORI) 37
+2 Tower Geist (ORI) 80
+1 Turn to Frog (ORI) 81
+2 Watercourser (ORI) 82
+2 Yoked Ox (ORI) 42

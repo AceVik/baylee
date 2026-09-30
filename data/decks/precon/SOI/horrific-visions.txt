@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Horrific Visions
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, HorrificVisions_SOI.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: SOI
+# released: 2016-04-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Crawling Sensation (SOI) 199
+1 Crow of Dark Tidings (SOI) 105
+2 Dead Weight (SOI) 106
+2 Explosive Apparatus (SOI) 255
+4 Forest (SOI) 295
+4 Forest (SOI) 296
+4 Forest (SOI) 297
+1 Fork in the Road (SOI) 205
+1 Foul Orchard (SOI) 275
+1 Ghoulsteed (SOI) 113
+2 Groundskeeper (SOI) 208
+1 Hound of the Farbogs (SOI) 117
+1 Inexorable Blob (SOI) 212
+1 Kessig Dire Swine (SOI) 214
+1 Liliana's Indignation (SOI) 120
+1 Loam Dryad (SOI) 216
+1 Merciless Resolve (SOI) 123
+1 Might Beyond Reason (SOI) 217
+3 Moldgraf Scavenger (SOI) 218
+1 Morkrut Necropod (SOI) 125
+2 Obsessive Skinner (SOI) 220
+1 Rabid Bite (SOI) 223
+1 Soul Swallower (PSOI) 230 *F*
+2 Stallion of Ashmouth (SOI) 136
+4 Swamp (SOI) 289
+4 Swamp (SOI) 290
+3 Swamp (SOI) 291
+1 Throttle (SOI) 138
+2 Tooth Collector (SOI) 140
+2 Vessel of Nascency (SOI) 237
+1 Warped Landscape (SOI) 280
+2 Wicker Witch (SOI) 268
+1 Wild-Field Scarecrow (SOI) 269

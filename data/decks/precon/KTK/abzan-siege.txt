@@ -1,0 +1,49 @@
+# baylee deck export v1
+# name: Abzan Siege
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AbzanSiege_KTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: KTK
+# released: 2014-09-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Abzan Banner (KTK) 215
+1 Abzan Battle Priest (KTK) 1
+1 Abzan Charm (KTK) 161
+2 Abzan Falconer (KTK) 2
+3 Ainok Bond-Kin (KTK) 3
+1 Armament Corps (KTK) 165
+1 Blossoming Sands (KTK) 231
+1 Carnivorous Moss-Beast (M15) 170
+2 Child of Night (M15) 90
+2 Disowned Ancestor (KTK) 70
+1 Dragonscale Boon (KTK) 131
+1 Eternal Thirst (M15) 95
+1 Flesh to Dust (M15) 98
+2 Forest (KTK) 266
+2 Forest (KTK) 267
+1 Forest (KTK) 268
+1 Forest (KTK) 269
+1 High Sentinels of Arashin (KTK) 13
+1 Hunt the Weak (M15) 179
+1 Incremental Growth (KTK) 138
+1 Ivorytusk Fortress (PKTK) 179 *F*
+1 Jungle Hollow (KTK) 235
+2 Kill Shot (KTK) 15
+2 Longshot Squad (KTK) 140
+1 Mer-Ek Nightblade (KTK) 79
+2 Plains (KTK) 250
+2 Plains (KTK) 251
+2 Plains (KTK) 252
+2 Plains (KTK) 253
+1 Razorfoot Griffin (M15) 27
+2 Salt Road Patrol (KTK) 21
+2 Sandsteppe Citadel (KTK) 241
+1 Scoured Barrens (KTK) 242
+1 Sungrace Pegasus (M15) 38
+1 Suspension Field (KTK) 25
+2 Swamp (KTK) 258
+2 Swamp (KTK) 259
+2 Swamp (KTK) 260
+1 Swamp (KTK) 261
+2 Tuskguard Captain (KTK) 156

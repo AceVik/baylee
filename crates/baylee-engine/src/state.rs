@@ -1582,6 +1582,7 @@ impl GameState {
         let id = self.arena.insert_with(|id| {
             let mut obj = GameObject::new_card(id, owner, card, base);
             obj.timestamp = ts;
+            obj.controlled_since = ts;
             obj
         });
         if let Some(modifier) = printed_pt_cda(def) {
@@ -1607,6 +1608,7 @@ impl GameState {
         let id = self.arena.insert_with(|id| {
             let mut obj = GameObject::new_bare(id, owner, kind, base);
             obj.timestamp = ts;
+            obj.controlled_since = ts;
             obj
         });
         self.zones.insert(
@@ -1630,7 +1632,11 @@ impl GameState {
         id
     }
 
-    /// Monotonic timestamp (effects ordering, summoning sickness).
+    /// The game's one clock, monotonic: every object timestamp
+    /// ([`GameObject::timestamp`], CR 613.7), every continuous effect's, and
+    /// the moments [`GameObject::controlled_since`] and
+    /// [`Player::turn_start_timestamp`] compare for summoning sickness
+    /// (CR 302.6) are read off it.
     pub fn next_timestamp(&mut self) -> u64 {
         self.timestamp += 1;
         self.timestamp
@@ -1640,10 +1646,14 @@ impl GameState {
     /// its controller's most recent turn began, so *any* control change
     /// makes it summoning-sick again — including the one at end of turn
     /// that hands a stolen creature back.
+    ///
+    /// Only [`GameObject::controlled_since`] moves. A change of control is
+    /// not one of the events CR 613.7 gives an object a new timestamp for,
+    /// so the order its static abilities' effects apply in stays as it was.
     pub(crate) fn restart_summoning_sickness(&mut self, id: ObjectId) {
         let ts = self.next_timestamp();
         if let Some(obj) = self.object_mut(id) {
-            obj.timestamp = ts;
+            obj.controlled_since = ts;
         }
     }
 
@@ -1670,7 +1680,47 @@ impl GameState {
     /// what the new face prints, as [`Self::set_doors`] has it for a Room.
     /// Without this, Dowsing Dagger's "equipped creature gets +2/+1" went
     /// on applying from Lost Vale.
+    ///
+    /// The other face coming up without the game action is
+    /// [`Self::turn_over`], which this is built on.
     pub fn transform(&mut self, id: ObjectId, def: &CardDef, face: usize) -> bool {
+        let face = face.min(def.faces.len() - 1);
+        if !self.turn_over(id, def, face) {
+            return false;
+        }
+        // CR 613.7g: a new timestamp, which the new face's static abilities
+        // take as the next scan registers them (CR 613.7a), so they apply
+        // after every effect created while the other face was up. Who
+        // controls it has not changed (CR 712.18), so `controlled_since`
+        // stays and it is no more summoning-sick than it was (CR 302.6).
+        let ts = self.next_timestamp();
+        if let Some(obj) = self.object_mut(id) {
+            obj.timestamp = ts;
+        }
+        self.journal.record(GameEvent::Transformed {
+            object: id,
+            face: face as u8,
+        });
+        true
+    }
+
+    /// Puts face `face` of a permanent up in place of the one it shows, and
+    /// ends what the face turning away did: the continuous effects of its
+    /// static abilities and its replacement effects, which the next scan
+    /// (`Engine::sync_static_effects`) registers for the new face (CR 604.2).
+    /// Returns whether the face changed.
+    ///
+    /// This is not the game action of transforming, and it records nothing
+    /// and stamps nothing. Two things need it bare: [`Self::transform`],
+    /// which adds the stamp and the journal entry, and a permanent that
+    /// enters with its back face up (CR 712.14a, daybound at night,
+    /// CR 702.145b). Such a permanent was never turned over (CR 701.27a
+    /// transforms a *permanent*), so it has not transformed: a "transforms
+    /// into" trigger (CR 701.27e) must not see it, the log must not say it
+    /// did, and its timestamp is the one it took as it entered (CR 613.7d).
+    /// It still has the front face's statics to lose, because the engine
+    /// registers them for every arrival before the scan that turns it over.
+    pub fn turn_over(&mut self, id: ObjectId, def: &CardDef, face: usize) -> bool {
         let face = face.min(def.faces.len() - 1);
         if self
             .object(id)
@@ -1683,10 +1733,6 @@ impl GameState {
         });
         self.replacement_rules.retain(|r| r.source != id);
         self.switch_face(id, def, face);
-        self.journal.record(GameEvent::Transformed {
-            object: id,
-            face: face as u8,
-        });
         true
     }
 
@@ -2643,6 +2689,7 @@ impl GameState {
             obj.zone = to.zone();
             obj.zone_owner = to.player();
             obj.timestamp = ts;
+            obj.controlled_since = ts;
             obj.version = obj.version.wrapping_add(1);
             // CR 400.7: it becomes a new object. The old projection must
             // not survive the move — the refresh pass only revisits the
@@ -3854,6 +3901,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         status,
         attached_to,
         timestamp,
+        controlled_since,
         version,
         riders,
         targets,
@@ -3911,6 +3959,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     status.hash(h);
     attached_to.hash(h);
     timestamp.hash(h);
+    controlled_since.hash(h);
     version.hash(h);
     // Exile riders.
     h.usize(riders.len());
@@ -4013,6 +4062,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
 /// the two moments it flips at — a permanent arriving, a turn beginning —
 /// both invalidate for their own reasons already. The day a static prints it,
 /// this is the list it joins and the turn boundary is what needs the door.
+///
+/// `Filter::IsAttached` is not here for a plainer reason: every write of
+/// `attached_to` invalidates the projection itself — the attach in
+/// `resolve`, the unattach in `sba`, and the zone move that clears it.
 pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> bool {
     use baylee_cards_dsl::Filter;
     match filter {
@@ -4106,6 +4159,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::Attacking => h.u8(19),
         F::MatchesChosenTypeOfSource => h.u8(20),
         F::AttachedToBySource => h.u8(25),
+        F::IsAttached => h.u8(38),
         F::SharesSubtypeWithCommander => h.u8(27),
         F::ToughnessAtMost(n) => {
             h.u8(26);
@@ -5092,6 +5146,13 @@ mod tests {
             }),
             ("tried_empty_draw", |s, _| {
                 s.players[0].tried_empty_draw = true;
+            }),
+            // Two facts that were one field: the order the object's statics
+            // apply in (CR 613.7) and whether it is summoning-sick
+            // (CR 302.6). Either one alone decides a later board.
+            ("timestamp", |s, id| fixture_object(s, id).timestamp += 7),
+            ("controlled_since", |s, id| {
+                fixture_object(s, id).controlled_since += 7;
             }),
             ("x_value", |s, id| fixture_object(s, id).x_value = 3),
             ("kicked", |s, id| fixture_object(s, id).kicked = true),

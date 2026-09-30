@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Chandra, Flame's Fury
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ChandraFlameSFury_M20.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: M20
+# released: 2019-07-29
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Chandra's Flame Wave (M20) 295
+3 Chandra's Outrage (M20) 130
+4 Chandra's Spitfire (M20) 132
+1 Chandra, Flame's Fury (M20) 294 *F*
+1 Drakuseth, Maw of Flames (M20) 136
+3 Ember Hauler (M20) 137
+2 Infuriate (M20) 145
+7 Mountain (M20) 273
+6 Mountain (M20) 274
+6 Mountain (M20) 275
+6 Mountain (M20) 276
+4 Pack Mastiff (M20) 152
+3 Pyroclastic Elemental (M20) 296
+3 Scorch Spitter (M20) 159
+1 Shivan Dragon (M20) 335
+4 Shock (M20) 160
+4 Wildfire Elemental (M20) 297

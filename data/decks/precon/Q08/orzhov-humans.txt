@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Orzhov Humans
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, OrzhovHumans_Q08.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Pioneer Challenger Deck
+# set: Q08
+# released: 2022-11-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Bloodchief's Thirst (ZNR) 94
+4 Bloodsoaked Champion (KTK) 66
+4 Caves of Koilos (DMU) 244
+4 Concealed Courtyard (KLD) 245
+4 Dauntless Bodyguard (DOM) 14
+2 Dire Tactics (IKO) 183
+2 Giant Killer // Chop Down (ELD) 14
+1 Godless Shrine (RNA) 248
+4 Kitesail Freebooter (XLN) 110
+4 Luminarch Aspirant (ZNR) 24
+2 Mutavault (CLB) 903
+1 Plains (DMU) 262
+1 Plains (DMU) 263
+1 Plains (DMU) 264
+4 Rally the Ranks (KHM) 20
+4 Secluded Courtyard (NEO) 275
+4 Thalia's Lieutenant (SOI) 43
+4 Thalia, Guardian of Thraben (VOW) 38
+4 Thraben Inspector (SOI) 44
+4 Unclaimed Territory (XLN) 258
+SB: 2 Containment Priest (M21) 13
+SB: 3 Duress (M21) 96
+SB: 1 Giant Killer // Chop Down (ELD) 14
+SB: 3 Portable Hole (AFR) 33
+SB: 2 Sungold Sentinel (MID) 37
+SB: 4 Sunset Revelry (MID) 38

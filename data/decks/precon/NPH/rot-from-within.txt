@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Rot from Within
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RotFromWithin_NPH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: NPH
+# released: 2011-06-10
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blight Mamba (SOM) 112
+4 Carrion Call (SOM) 115
+1 Contagion Clasp (SOM) 144
+11 Forest (NPH) 174
+11 Forest (NPH) 175
+4 Glistener Elf (NPH) 111
+1 Green Sun's Zenith (MBS) 81
+4 Groundswell (WWK) 104
+2 Ichorclaw Myr (SOM) 166
+1 Inkmoth Nexus (MBS) 145
+4 Mutagenic Growth (NPH) 116
+4 Overgrown Battlement (ROE) 203
+4 Primal Bellow (ZEN) 176
+2 Putrefax (SOM) 126
+3 Rot Wolf (MBS) 90
+3 Viridian Corrupter (MBS) 94
+SB: 3 Contagion Clasp (SOM) 144
+SB: 1 Melira, Sylvok Outcast (NPH) 115
+SB: 2 Obstinate Baloth (M11) 188
+SB: 1 Pistus Strike (MBS) 86
+SB: 3 Trigon of Infestation (SOM) 214
+SB: 2 Unnatural Predation (MBS) 93
+SB: 2 Vines of Vastwood (ZEN) 193
+SB: 1 Viridian Corrupter (MBS) 94

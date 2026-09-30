@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Trounce-O-Matic
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TrounceOMatic_ODY.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ODY
+# released: 2001-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Careful Study (ODY) 70
+2 Cephalid Looter (ODY) 72
+2 Crashing Centaur (ODY) 235
+1 Deluge (ODY) 80
+2 Diligent Farmhand (ODY) 237
+4 Forest (ODY) 347
+3 Forest (ODY) 348
+3 Forest (ODY) 349
+3 Forest (ODY) 350
+3 Island (ODY) 335
+2 Island (ODY) 336
+2 Island (ODY) 337
+2 Island (ODY) 338
+1 Ivy Elemental (ODY) 245
+2 Krosan Avenger (ODY) 247
+2 Metamorphic Wurm (ODY) 250
+2 Muscle Burst (ODY) 252
+2 Nimble Mongoose (ODY) 258
+1 Overrun (ODY) 260
+2 Peek (ODY) 91
+2 Predict (ODY) 94
+2 Repel (ODY) 98
+1 Roar of the Wurm (ODY) 266
+1 Seafloor Debris (ODY) 325
+1 Seton's Desire (ODY) 268
+2 Springing Tiger (ODY) 272
+1 Stone-Tongue Basilisk (ODY) 276
+1 Sylvan Might (ODY) 277
+1 Timberland Ruins (ODY) 330
+1 Twigwalker (ODY) 279
+2 Werebear (ODY) 282
+2 Wild Mongrel (ODY) 283

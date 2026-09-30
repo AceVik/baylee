@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Aerial Domination
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AerialDomination_ANB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: ANB
+# released: 2020-08-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Cloudkin Seer (ANB) 25
+1 Frilled Sea Serpent (ANB) 27
+2 Glint (ANB) 28
+25 Island (ANB) 113
+2 Octoprophet (ANB) 29
+1 Overflowing Insight (ANB) 30
+2 Riddlemaster Sphinx (ANB) 31
+1 Sleep (ANB) 33
+2 Soulblade Djinn (ANB) 34
+2 Sworn Guardian (ANB) 35
+3 Unsummon (ANB) 36
+2 Wall of Runes (ANB) 37
+3 Warden of Evos Isle (ANB) 38
+3 Waterkin Shaman (ANB) 39
+3 Waterknot (ANB) 40
+1 Windreader Sphinx (ANB) 41
+2 Windstorm Drake (ANB) 42
+2 Winged Words (ANB) 43
+SB: 3 Armored Whirl Turtle (ANB) 24
+SB: 2 River's Favor (ANB) 32
+SB: 4 Zephyr Gull (ANB) 44

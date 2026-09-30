@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Unraveling Mind
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, UnravelingMind_PLC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PLC
+# released: 2007-02-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Big Game Hunter (PLC) 63
+2 Brain Gorgers (PLC) 65
+1 Browbeat (TSB) 56
+1 Dark Withering (TSP) 101
+1 Dauthi Slayer (TSB) 41
+1 Disintegrate (TSB) 58
+1 Fiery Temper (TSB) 62
+2 Gorgon Recluse (TSP) 111
+1 Kor Dirge (PLC) 87
+2 Lightning Axe (TSP) 168
+1 Magus of the Arena (PLC) 104
+4 Mindlash Sliver (TSP) 118
+1 Mirri the Cursed (PLC) 75
+2 Mountain (TSP) 294
+2 Mountain (TSP) 295
+2 Mountain (TSP) 296
+1 Mountain (TSP) 297
+2 Muck Drubb (PLC) 76
+2 Nightshade Assassin (TSP) 121
+2 Phantasmagorian (PLC) 77
+2 Reckless Wurm (PLC) 120
+1 Ridged Kusite (PLC) 78
+4 Swamp (TSP) 290
+4 Swamp (TSP) 291
+3 Swamp (TSP) 292
+3 Swamp (TSP) 293
+3 Terramorphic Expanse (TSP) 279
+1 Treacherous Urge (PLC) 82
+3 Trespasser il-Vec (TSP) 138
+3 Undertaker (TSB) 53

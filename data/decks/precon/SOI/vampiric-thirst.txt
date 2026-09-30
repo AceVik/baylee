@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Vampiric Thirst
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, VampiricThirst_SOI.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: SOI
+# released: 2016-04-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Alms of the Vein (SOI) 98
+2 Bloodmad Vampire (SOI) 146
+1 Burn from Within (SOI) 148
+1 Creeping Dread (SOI) 104
+2 Fiery Temper (SOI) 156
+2 Incorrigible Youths (SOI) 166
+2 Indulgent Aristocrat (SOI) 118
+1 Macabre Waltz (SOI) 121
+1 Mad Prophet (SOI) 171
+2 Malevolent Whispers (SOI) 173
+1 Markov Dreadknight (PSOI) 122 *F*
+4 Mountain (SOI) 292
+4 Mountain (SOI) 293
+4 Mountain (SOI) 294
+1 Murderous Compulsion (SOI) 126
+1 Olivia's Bloodsworn (SOI) 127
+2 Ravenous Bloodseeker (SOI) 175
+2 Sanguinary Mage (SOI) 178
+1 Senseless Rage (SOI) 180
+1 Sinister Concoction (SOI) 135
+2 Stromkirk Mentor (SOI) 137
+5 Swamp (SOI) 289
+4 Swamp (SOI) 290
+4 Swamp (SOI) 291
+2 Tormenting Voice (SOI) 186
+2 Twins of Maurer Estate (SOI) 142
+2 Vampire Noble (SOI) 143
+2 Voldaren Duelist (SOI) 191

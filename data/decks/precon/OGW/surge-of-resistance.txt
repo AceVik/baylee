@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Surge of Resistance
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SurgeOfResistance_OGW.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: OGW
+# released: 2016-01-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Anticipate (BFZ) 69
+1 Blighted Gorge (BFZ) 231
+1 Boulder Salvo (OGW) 102
+2 Cloud Manta (BFZ) 71
+2 Comparative Analysis (OGW) 51
+2 Containment Membrane (OGW) 52
+1 Cyclone Sire (OGW) 54
+1 Evolving Wilds (BFZ) 236
+2 Expedite (OGW) 108
+3 Goblin Freerunner (OGW) 111
+1 Grip of the Roil (OGW) 56
+3 Island (BFZ) 255a
+2 Island (BFZ) 256a
+2 Island (BFZ) 257a
+2 Island (BFZ) 258a
+2 Island (BFZ) 259a
+2 Jwar Isle Avenger (OGW) 58
+3 Lavastep Raider (BFZ) 147
+3 Mountain (BFZ) 265a
+3 Mountain (BFZ) 266a
+2 Mountain (BFZ) 267a
+2 Mountain (BFZ) 268a
+2 Mountain (BFZ) 269a
+2 Pyromancer's Assault (OGW) 115
+2 Reckless Bushwhacker (OGW) 116
+1 Roiling Waters (OGW) 62
+1 Rolling Thunder (BFZ) 154
+2 Stormchaser Mage (OGW) 159
+1 Tyrant of Valakut (POGW) 119 *F*
+1 Ugin's Insight (BFZ) 87
+3 Umara Entangler (OGW) 65
+1 Windrider Patrol (BFZ) 89

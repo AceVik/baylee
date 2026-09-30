@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Whirlpool
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Whirlpool_APC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: APC
+# released: 2001-06-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Bloodfire Dwarf (APC) 56
+1 Bloodfire Infusion (APC) 57
+2 Bloodfire Kavu (APC) 58
+2 Chromatic Sphere (INV) 299
+1 Coastal Drake (APC) 22
+1 Confound (PLS) 22
+1 Dwarven Patrol (APC) 61
+1 Exclude (INV) 56
+2 Faerie Squadron (INV) 58
+1 Fire // Ice (APC) 128
+1 Flametongue Kavu (PLS) 60
+3 Island (INV) 335
+3 Island (INV) 336
+3 Island (INV) 337
+3 Island (INV) 338
+2 Jilt (APC) 27
+1 Metathran Transport (INV) 62
+2 Minotaur Illusionist (APC) 111
+3 Mountain (INV) 343
+3 Mountain (INV) 344
+3 Mountain (INV) 345
+3 Mountain (INV) 346
+1 Opt (INV) 64
+2 Quicksilver Dagger (APC) 118
+1 Rainbow Crow (INV) 69
+2 Razorfin Hunter (APC) 119
+1 Scorching Lava (INV) 164
+2 Stun (INV) 172
+1 Suffocating Blast (APC) 124
+2 Whirlpool Drake (APC) 34
+3 Whirlpool Rider (APC) 35
+1 Whirlpool Warrior (APC) 36

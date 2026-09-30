@@ -7,8 +7,8 @@
 //! replayable on a fresh engine, so a change to what the trainer reads from a
 //! game never means playing the games again.
 //!
-//! Nothing that ships links this crate; `xtask` does, so the card agents'
-//! `deck-check --tested` asks the same question the trainer does.
+//! Nothing that ships links this crate; `xtask` does, so `deck-check` and the
+//! precon status (`decks-status`) ask the same question the trainer does.
 
 pub mod cardwalk;
 #[cfg(feature = "play")]

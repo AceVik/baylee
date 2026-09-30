@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Dungeon Delving
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DungeonDelving_AFR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: AFR
+# released: 2021-09-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Acererak the Archlich (AFR) 87
+3 Barrowin of Clan Undurr (AFR) 218
+1 Brightclimb Pathway // Grimclimb Pathway (ZNR) 259
+3 Cloister Gargoyle (AFR) 7
+3 Closing Statement (STX) 169
+2 Demonic Gifts (KHM) 84
+2 Gloom Stalker (AFR) 16
+3 Malakir Blood-Priest (ZNR) 110
+1 Nadaar, Selfless Paladin (AFR) 27
+1 Nullpriest of Oblivion (ZNR) 118
+3 Plains (AFR) 262
+2 Plains (AFR) 263
+2 Plains (AFR) 264
+2 Plains (AFR) 265
+2 Precipitous Drop (AFR) 115
+3 Ranger's Hawk (AFR) 37
+1 Silverquill Command (STX) 232
+4 Snowfield Sinkhole (KHM) 269
+3 Swamp (AFR) 270
+3 Swamp (AFR) 271
+2 Swamp (AFR) 272
+2 Swamp (AFR) 273
+3 Thunderous Orator (STX) 35
+1 Triumphant Adventurer (AFR) 237
+1 Vanishing Verse (STX) 244
+3 Veteran Dungeoneer (AFR) 40
+3 Yuan-Ti Fang-Blade (AFR) 128

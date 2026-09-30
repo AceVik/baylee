@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Awakening Earth
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AwakeningEarth_Q03.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q03
+# released: 2019-11-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Breeding Pool (RNA) 246
+4 Chemister's Insight (GRN) 32
+2 Forest (ELD) 266
+2 Forest (ELD) 267
+2 Forest (ELD) 268
+2 Forest (ELD) 269
+4 Frilled Mystic (RNA) 174
+4 Growth Spiral (RNA) 178
+1 Hydroid Krasis (RNA) 183
+2 Incubation Druid (RNA) 131
+3 Island (ELD) 254
+2 Island (ELD) 255
+2 Island (ELD) 256
+2 Island (ELD) 257
+4 Maraleaf Pixie (ELD) 196
+4 Mass Manipulation (RNA) 42
+3 Nissa, Who Shakes the World (WAR) 169
+4 Paradise Druid (WAR) 171
+4 Temple of Mystery (M20) 255
+4 Thornwood Falls (ELD) 313
+4 Voracious Hydra (M20) 200
+SB: 3 Aether Gust (M20) 42
+SB: 3 Cerulean Drake (M20) 53
+SB: 2 Disdainful Stroke (GRN) 37
+SB: 2 Healer of the Glade (M20) 176
+SB: 2 Negate (M20) 69
+SB: 3 Veil of Summer (M20) 198

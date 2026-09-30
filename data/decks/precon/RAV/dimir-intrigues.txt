@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Dimir Intrigues
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DimirIntrigues_RAV.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: RAV
+# released: 2005-10-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Belltower Sphinx (RAV) 38
+1 Clutch of the Undercity (RAV) 197
+3 Consult the Necrosages (RAV) 199
+2 Dimir Aqueduct (RAV) 276
+1 Dimir Guildmage (RAV) 245
+2 Dimir House Guard (RAV) 83
+2 Dimir Infiltrator (RAV) 203
+1 Dimir Signet (RAV) 260
+2 Disembowel (RAV) 85
+1 Dream Leash (RAV) 45
+1 Duskmantle, House of Shadow (RAV) 277
+2 Induce Paranoia (RAV) 56
+3 Island (RAV) 291
+3 Island (RAV) 292
+3 Island (RAV) 293
+2 Island (RAV) 294
+2 Last Gasp (RAV) 93
+2 Lore Broker (RAV) 57
+3 Lurking Informant (RAV) 249
+1 Mausoleum Turnkey (RAV) 94
+2 Psychic Drain (RAV) 220
+1 Ribbons of Night (RAV) 101
+2 Sewerdreg (RAV) 104
+3 Swamp (RAV) 295
+3 Swamp (RAV) 296
+2 Swamp (RAV) 297
+2 Swamp (RAV) 298
+1 Szadek, Lord of Secrets (RAV) 234
+3 Vedalken Entrancer (RAV) 74
+2 Wizened Snitches (RAV) 75

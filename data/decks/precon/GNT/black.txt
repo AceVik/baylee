@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Black
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Black_GNT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Game Night Deck
+# set: GNT
+# released: 2018-11-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Blood Divination (M19) 86
+1 Bone Splinters (GNT) 27
+2 Cruel Revival (GNT) 28
+1 Death Baron (M19) 90
+2 Doomed Dissenter (M19) 93
+2 Filigree Familiar (GNT) 52
+1 Fleshbag Marauder (GNT) 29
+1 Gravedigger (M19) 98
+1 Graveyard Marshal (M19) 99
+1 Gruesome Fate (GNT) 30
+2 Infectious Horror (M19) 101
+1 Languish (GNT) 31
+1 Liliana's Mastery (GNT) 32
+2 Lord of the Accursed (GNT) 33
+3 Murder (M19) 110
+1 Open the Graves (M19) 112
+2 Reassembling Skeleton (M19) 116
+1 Rot Hulk (GNT) 3
+2 Stitcher's Supplier (M19) 121
+13 Swamp (GNT) 63
+12 Swamp (GNT) 64
+2 Tattered Mummy (GNT) 34
+2 Thallid Soothsayer (GNT) 35
+2 Zulaport Cutthroat (GNT) 36

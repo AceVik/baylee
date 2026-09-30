@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Matt Linde - Mono-Green Stompy
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MattLindeMonoGreenStompy_WC99.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC99
+# released: 1999-08-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Albino Troll (WC99) ml231
+4 Cursed Scroll (WC99) ml281
+4 Elvish Lyrist (WC99) ml248
+5 Forest (WC99) ml347a
+5 Forest (WC99) ml347b
+4 Forest (WC99) ml349
+4 Gaea's Cradle (WC99) ml321
+4 Giant Growth (WC99) ml233
+4 Llanowar Elves (WC99) ml239
+4 Pouncing Jaguar (WC99) ml269
+4 Rancor (WC99) ml110
+4 River Boa (WC99) ml249
+4 Treetop Village (WC99) ml143
+2 Uktabi Orangutan (WC99) ml260
+4 Wild Dogs (WC99) ml284
+SB: 3 Choke (WC99) ml219sb
+SB: 2 Constant Mists (WC99) ml104sb
+SB: 1 Hurricane (WC99) ml237sb
+SB: 2 Overrun (WC99) ml243sb
+SB: 3 Thran Foundry (WC99) ml140sb
+SB: 2 Uktabi Orangutan (WC99) ml260sb
+SB: 2 Weatherseed Treefolk (WC99) ml116sb

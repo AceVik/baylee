@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: White Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteDeck_W16.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: W16
+# released: 2016-04-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aegis Angel (W16) 1
+1 Affa Protector (OGW) 14
+1 Angel of Renewal (BFZ) 18
+1 Blighted Steppe (BFZ) 232
+1 Cliffside Lookout (BFZ) 20
+1 Courier Griffin (BFZ) 21
+2 Devilthorn Fox (SOI) 14
+1 Ethereal Guidance (SOI) 18
+1 Gideon's Reproach (BFZ) 30
+1 Inspiring Captain (SOI) 25
+1 Makindi Aeronaut (OGW) 27
+1 Marked by Honor (W16) 2
+2 Mighty Leap (OGW) 28
+4 Plains (SOI) 283
+4 Plains (SOI) 284
+4 Plains (SOI) 285
+1 Serra Angel (W16) 3
+1 Silverstrike (SOI) 37
+1 Smite the Monstrous (BFZ) 49

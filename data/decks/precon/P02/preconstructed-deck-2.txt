@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Preconstructed deck 2
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PreconstructedDeck2_P02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: P02
+# released: 1998-06-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Alaborn Trooper (P02) 4
+1 Angel of Mercy (P02) 8
+1 Bear Cub (P02) 123
+1 Bee Sting (P02) 124
+1 Forest (P02) 163
+1 Forest (P02) 164
+1 Forest (P02) 165
+1 Golden Bear (P02) 127
+2 Island (P02) 154
+2 Island (P02) 155
+1 Island (P02) 156
+1 Path of Peace (P02) 18
+2 Plains (P02) 151
+2 Plains (P02) 152
+1 Plains (P02) 153
+1 Screeching Drake (P02) 44
+1 Talas Air Ship (P02) 48
+1 Talas Explorer (P02) 49
+1 Talas Merchant (P02) 50
+1 Talas Scout (P02) 52
+1 Temple Acolyte (P02) 23
+1 Theft of Dreams (P02) 55
+1 Time Ebb (P02) 57
+1 Trokin High Guard (P02) 26
+1 Volunteer Militia (P02) 28
+1 Wild Griffin (P02) 30

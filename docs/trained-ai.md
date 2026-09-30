@@ -16,7 +16,7 @@ selfplay ──records──▶ convert ──columns──▶ train_value / tra
 
 1. **Which cards.** Only cards that work 100 % are dealt: `Coverage::Implemented`
    *and* named in the engine's test code (`card_index("…")`, an oracle-id literal
-   or an `index::` constant; `baylee_train::working`). `xtask deck-check --tested`
+   or an `index::` constant; `baylee_train::working`). `xtask deck-check`
    holds a deck to the same rule. The set's SHA-256 stamps every run; a deck with
    a card outside it plays only with `--working-only`, which puts the deck's own
    basics in those cards' places.

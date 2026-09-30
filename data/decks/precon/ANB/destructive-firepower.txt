@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Destructive Firepower
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DestructiveFirepower_ANB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: ANB
+# released: 2020-03-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Chandra's Outrage (M20) 130
+1 Chandra's Pyrohelix (WAR) 120
+3 Chandra's Spitfire (M20) 132
+2 Drakuseth, Maw of Flames (M20) 136
+1 Dreadhorde Arcanist (WAR) 125
+3 Ember Hauler (M20) 137
+1 Erratic Cyclops (GRN) 98
+1 Fire Urchin (GRN) 101
+2 Inescapable Blaze (ANB) 76
+3 Infuriate (THB) 141
+25 Mountain (ANB) 114
+4 Pack Mastiff (M20) 152
+2 Scorch Spitter (M20) 159
+2 Shivan Dragon (M20) 335
+4 Shock (ANB) 84
+3 Spellgorger Weird (WAR) 145

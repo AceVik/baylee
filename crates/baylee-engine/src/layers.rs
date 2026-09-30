@@ -519,6 +519,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::PutIntoGraveyardThisTurn
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
+        | Filter::IsAttached
         | Filter::CmcAtMost(_)
         | Filter::CmcAtMostX
         | Filter::CmcAtMostColorsSpent

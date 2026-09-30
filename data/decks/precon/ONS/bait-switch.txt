@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Bait & Switch
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BaitSwitch_ONS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ONS
+# released: 2002-10-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Barren Moor (ONS) 312
+2 Boneknitter (ONS) 128
+2 Cabal Slaver (ONS) 131
+1 Crown of Suspicion (ONS) 134
+1 Endemic Plague (ONS) 142
+1 Fallen Cleric (ONS) 145
+1 Feeding Frenzy (ONS) 147
+1 Frightshroud Courier (ONS) 149
+1 Ghosthelm Courier (ONS) 85
+4 Imagecrafter (ONS) 87
+1 Information Dealer (ONS) 88
+3 Island (ONS) 335
+3 Island (ONS) 336
+3 Island (ONS) 337
+2 Island (ONS) 338
+1 Ixidor's Will (ONS) 90
+2 Lonely Sandbar (ONS) 320
+1 Mage's Guile (ONS) 91
+1 Misery Charm (ONS) 158
+3 Mistform Dreamer (ONS) 93
+1 Mistform Mutant (ONS) 95
+2 Mistform Shrieker (ONS) 96
+2 Mistform Stalker (ONS) 98
+4 Mistform Wall (ONS) 99
+1 Peer Pressure (ONS) 101
+1 Smother (ONS) 170
+3 Swamp (ONS) 339
+2 Swamp (ONS) 340
+2 Swamp (ONS) 341
+2 Swamp (ONS) 342
+3 Swat (ONS) 174
+1 Trickery Charm (ONS) 119

@@ -52,10 +52,12 @@ transcode-report [--stubs]
 cross-read
 cr-check
 pool-dump --out <path>            # refactor diffs
-dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2]
+decks-import [--archive <path>] [--refresh]   # MTGJSON precons → data/decks/precon (docs/precons.md)
+decks-status [--check]            # STATUS.tsv + the gateway's playable list; rerun when a precon unlocks or is withdrawn (the xtask test says so)
+dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2] [--bridge house|scripted|anthropic[:<model>]|openai:<model>|profile:<name>]
 ```
 
-- `dev-table` skips only sign-in and deck-pick (username `dev`, gateway HTTP, sends `ready`/`start`, real sockets). `--teams`: sides in seat order (`0` = alone), three chairs minimum.
+- `dev-table` skips only sign-in and deck-pick (username `dev`, gateway HTTP, sends `ready`/`start`, real sockets). `--teams`: sides in seat order (`0` = alone), three chairs minimum. `--bridge profile:<name>` seats `baylee-seat join --profile <name>`: that profile of the seat's settings file, under its caps (`docs/llm-seat.md`).
 - `codegen`/`explain`/`card-batch` read the external GPL card-script reference (`NOTICE`): `--scripts`, `BAYLEE_CARD_SCRIPTS`, or a `cardsfolder` within four levels of the repo's parent. Never copy it in.
 - `cr-check` finds the Comprehensive Rules the same three ways (`--rules`, `BAYLEE_COMP_RULES`, `MagicCompRules*.txt`); none = no check. Never vendor it (`docs/legal.md`). A line using a heading word must cite under it (keyword action `701.N`, keyword ability `702.N`). Sections renumber: look numbers up, never recall them. Record an old wrong citation without `CR`.
 - Scryfall: `fetch_named` answers cached payloads from disk, else fetches one card. Fill a cold cache in bulk (`scryfall::fill_from_bulk`, `oracle_cards`), matched on ledger `oracle_id`, never name. Bulk never fails; gaps fetch singly.
@@ -114,6 +116,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - Feedback service (`baylee-feedback`, `docs/feedback.md`): `FEEDBACK_DATABASE_URL` (required, its own database), `FEEDBACK_GATEWAY_TOKENS` (`name=token,…`), `FEEDBACK_READ_TOKEN`, `FEEDBACK_ADMIN_TOKEN` (each ≥ 16 characters, none twice), `FEEDBACK_BIND` (`127.0.0.1:28780`), `FEEDBACK_POOL` (4), `FEEDBACK_WEB_DIR` (the built `web/feedback` UI; unset = `/` is 404), `FEEDBACK_TRUSTED_PROXIES` (for the sign-in limiter). The UI (#311) signs in admins made only by `baylee-feedback admin add|remove|list` and talks to `/ui/api/…` with a session cookie (the service's own origin; the gateway's no-cookie rule stays); the token routes are unchanged. `cargo` never needs node: CI's `web-feedback` job and `baylee-deploy` build the UI.
 - Engine: `--attach/--game/--token` or `BAYLEE_ATTACH_URL`/`BAYLEE_GAME`/`BAYLEE_ENGINE_TOKEN`; none = listening dev harness (`PORT`, `0` and `BAYLEE_PORT_FILE` as on the gateway; `BAYLEE_BIND`). Never bind it publicly: unauthenticated, every hand leaks.
 - Client: `BAYLEE_GATEWAY` + `BAYLEE_GAME`, `BAYLEE_SEAT_TOKEN`, optional `BAYLEE_SEAT`; browser `?game=…&token=…`.
+- Seat bridge (`baylee-seat`, `docs/llm-seat.md`): `BAYLEE_SEAT_CONFIG` (the settings file: model profiles and daily/monthly caps; `--config` wins; unset = `llm-seat.json` in the client's config directory; a named file must exist, none at all = no caps, as before). Keys only from the variable a profile names (`key_env`), never in the file (refused). Under a file each game reserves in `llm-spend.json` beside it (`--ledger`) before it sits down and settles after; a killed bridge's reservation counts in full. Tests pass temp paths, never the real config directory.
 
 ## Architecture
 

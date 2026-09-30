@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Strength Of Selesnya
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, StrengthOfSelesnya_DGM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: DGM
+# released: 2013-05-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Advent of the Wurm (DGM) 51
+4 Call of the Conclave (RTR) 146
+1 Champion of Lambholt (AVR) 171
+2 Doomed Traveler (ISD) 11
+4 Evolving Wilds (M13) 224
+2 Forest (RTR) 270
+1 Forest (RTR) 271
+1 Forest (RTR) 272
+1 Forest (RTR) 273
+1 Forest (RTR) 274
+1 Geist-Honored Monk (ISD) 17
+1 Godless Shrine (GTC) 242
+1 Grove of the Guardian (RTR) 240
+1 Growing Ranks (RTR) 217
+1 Increasing Devotion (DKA) 11
+4 Intangible Virtue (ISD) 19
+3 Lingering Souls (DKA) 12
+1 Odric, Master Tactician (M13) 23
+1 Parallel Lives (ISD) 199
+2 Plains (RTR) 250
+2 Plains (RTR) 251
+1 Plains (RTR) 252
+1 Plains (RTR) 253
+1 Plains (RTR) 254
+2 Rancor (M13) 185
+3 Rootborn Defenses (RTR) 19
+4 Selesnya Charm (RTR) 194
+4 Selesnya Guildgate (DGM) 155
+1 Swamp (RTR) 260
+2 Vitu-Ghazi Guildmage (RTR) 207
+4 Wake the Reflections (DGM) 10
+1 Wayfaring Temple (RTR) 209
+SB: 4 Centaur Healer (RTR) 148
+SB: 3 Druid's Deliverance (RTR) 123
+SB: 4 Pacifism (M13) 24
+SB: 1 Rogue's Passage (RTR) 245
+SB: 3 Sundering Growth (RTR) 223

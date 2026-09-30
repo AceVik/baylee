@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Sliver Shivers
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SliverShivers_LGN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: LGN
+# released: 2003-02-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Akroma's Blessing (ONS) 1
+1 Brood Sliver (LGN) 120
+1 Crown of Vigor (ONS) 253
+1 Essence Sliver (LGN) 13
+2 Explosive Vegetation (ONS) 263
+2 Forest (ONS) 347
+2 Forest (ONS) 348
+2 Forest (ONS) 349
+1 Forest (ONS) 350
+2 Island (ONS) 335
+1 Island (ONS) 336
+1 Island (ONS) 337
+1 Island (ONS) 338
+2 Lonely Sandbar (ONS) 320
+2 Mage's Guile (ONS) 91
+3 Mistform Dreamer (ONS) 93
+4 Pacifism (ONS) 47
+3 Plains (ONS) 331
+2 Plains (ONS) 332
+2 Plains (ONS) 333
+2 Plains (ONS) 334
+4 Plated Sliver (LGN) 19
+4 Quick Sliver (LGN) 136
+1 Root Sliver (LGN) 137
+4 Secluded Steppe (ONS) 324
+3 Shifting Sliver (LGN) 52
+2 Tribal Unity (ONS) 294
+3 Ward Sliver (LGN) 25

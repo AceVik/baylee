@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Kjeldoran Cunning
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, KjeldoranCunning_CSP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: CSP
+# released: 2006-07-21
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Binding Grasp (CST) 60
+2 Boreal Shelf (CSP) 144
+3 Brainstorm (CST) 61
+1 Darien, King of Kjeldor (CSP) 4
+1 Disenchant (CST) 20
+1 Field Marshal (CSP) 5
+4 Island (CST) 372
+4 Island (CST) 373
+3 Island (CST) 374
+1 Jötun Grunt (CSP) 8
+1 Jötun Owl Keeper (CSP) 9
+2 Kjeldoran Elite Guard (CST) 34
+1 Kjeldoran Gargoyle (CSP) 10
+1 Kjeldoran Home Guard (CST) 8
+3 Kjeldoran Outrider (CSP) 12
+1 Kjeldoran Pride (CST) 9b
+2 Lat-Nam's Legacy (CST) 30b
+4 Plains (CST) 369
+4 Plains (CST) 370
+3 Plains (CST) 371
+2 Portent (CST) 90
+1 Reinforcements (CST) 12b
+1 Scars of the Veteran (CST) 16
+4 Surging Aether (CSP) 47
+4 Surging Sentinels (CSP) 20
+1 Swords to Plowshares (CST) 54
+2 Wings of Aesthir (CST) 305
+2 Zuran Spellcaster (CST) 112

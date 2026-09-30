@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Goblins
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Goblins_EVG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: EVG
+# released: 2014-12-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Akki Coalflinger (EVG) 33
+2 Boggart Shenanigans (EVG) 54
+1 Clickslither (EVG) 34
+3 Emberwilde Augur (EVG) 35
+1 Flamewave Invoker (EVG) 36
+1 Forgotten Cave (EVG) 57
+1 Gempalm Incinerator (EVG) 37
+1 Goblin Burrows (EVG) 58
+3 Goblin Cohort (EVG) 38
+1 Goblin Matron (EVG) 39
+1 Goblin Ringleader (EVG) 40
+1 Goblin Sledder (EVG) 41
+1 Goblin Warchief (EVG) 42
+1 Ib Halfheart, Goblin Tactician (EVG) 43
+1 Mogg Fanatic (EVG) 44
+2 Mogg War Marshal (EVG) 45
+6 Mountain (EVG) 59
+6 Mountain (EVG) 60
+5 Mountain (EVG) 61
+5 Mountain (EVG) 62
+2 Mudbutton Torchrunner (EVG) 46
+2 Raging Goblin (EVG) 47
+1 Reckless One (EVG) 48
+1 Siege-Gang Commander (EVG) 32 *F*
+2 Skirk Drill Sergeant (EVG) 49
+1 Skirk Fire Marshal (EVG) 50
+1 Skirk Prospector (EVG) 51
+1 Skirk Shaman (EVG) 52
+1 Spitting Earth (EVG) 55
+1 Tar Pitcher (EVG) 53
+3 Tarfire (EVG) 56

@@ -1,0 +1,54 @@
+# baylee deck export v1
+# name: Aerodoom
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Aerodoom_BTD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: BTD
+# released: 2000-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Air Elemental (BTD) 1
+1 Blizzard Elemental (BTD) 2
+1 Bone Harvest (BTD) 19
+1 Brainstorm (BTD) 3
+1 Clockwork Avian (BTD) 69
+1 Cloud Djinn (BTD) 4
+1 Cloud Elemental (BTD) 5
+1 Coercion (BTD) 20
+1 Counterspell (BTD) 6
+1 Dark Ritual (BTD) 21
+1 Death Stroke (BTD) 22
+1 Diabolic Edict (BTD) 23
+1 Diabolic Vision (BTD) 67
+1 Drain Life (BTD) 24
+1 Ebon Stronghold (BTD) 72
+1 Fallen Angel (BTD) 25
+1 Feral Shadow (BTD) 26
+1 Fog Elemental (BTD) 7
+1 Gaseous Form (BTD) 8
+1 Giant Crab (BTD) 9
+1 Gravedigger (BTD) 27
+1 Hollow Dogs (BTD) 28
+1 Impulse (BTD) 10
+4 Island (BTD) 79
+4 Island (BTD) 80
+3 Island (BTD) 81
+1 Killer Whale (BTD) 11
+1 Leviathan (BTD) 12
+1 Mahamoti Djinn (BTD) 13
+1 Polluted Mire (BTD) 74
+1 Power Sink (BTD) 14
+1 Remote Isle (BTD) 75
+1 Sengir Vampire (BTD) 29 *F*
+1 Skittering Horror (BTD) 30
+1 Skittering Skirge (BTD) 31
+1 Snapping Drake (BTD) 15
+1 Svyelunite Temple (BTD) 78
+4 Swamp (BTD) 82
+4 Swamp (BTD) 83
+3 Swamp (BTD) 84
+1 Tar Pit Warrior (BTD) 32
+1 Terror (BTD) 33
+1 Tolarian Winds (BTD) 16
+1 Vigilant Drake (BTD) 17
+1 Wayward Soul (BTD) 18

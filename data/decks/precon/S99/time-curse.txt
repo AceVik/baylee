@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Time Curse
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TimeCurse_S99.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: S99
+# released: 1999-07-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Air Elemental (S99) 32
+2 Counterspell (S99) 34
+1 Exhaustion (S99) 36
+2 Extinguish (S99) 37
+2 Giant Octopus (S99) 39
+3 Ingenious Thief (S99) 40
+5 Island (S99) 158
+4 Island (S99) 159
+4 Island (S99) 160
+4 Island (S99) 161
+1 Ransack (S99) 47
+3 Remove Soul (S99) 49
+1 Time Warp (S99) 56
+2 Touch of Brilliance (S99) 57
+1 Undo (S99) 58
+3 Wind Drake (S99) 61

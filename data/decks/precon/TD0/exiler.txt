@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Exiler
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Exiler_TD0.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: TD0
+# released: 2010-11-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Aether Vial (TD0) B27
+4 Benevolent Bodyguard (TD0) B2
+1 Bonesplitter (TD0) B28
+3 Ethersworn Canonist (TD0) B3
+3 Flagstones of Trokair (TD0) B31
+4 Flickerwisp (TD0) B4
+3 Jötun Grunt (TD0) B5
+3 Karakas (TD0) B32
+4 Mangara of Corondor (TD0) B7
+2 Mishra's Factory (TD0) B33
+3 Oblivion Ring (TD0) B8
+4 Plains (TD0) B34
+4 Plains (TD0) B35
+3 Plains (TD0) B36
+3 Plains (TD0) B37
+3 Serra Avenger (TD0) B9
+3 Stoneforge Mystic (TD0) B11
+4 Swords to Plowshares (TD0) B12
+1 Umezawa's Jitte (TD0) B30
+1 Weathered Wayfarer (TD0) B13
+SB: 2 Aura of Silence (TD0) B1
+SB: 1 Ethersworn Canonist (TD0) B3
+SB: 4 Kor Firewalker (TD0) B6
+SB: 1 Oblivion Ring (TD0) B8
+SB: 4 Relic of Progenitus (TD0) B29
+SB: 3 Silence (TD0) B10

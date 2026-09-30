@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Spirit Flames
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SpiritFlames_SOK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: SOK
+# released: 2005-06-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arashi, the Sky Asunder (SOK) 121
+1 Briarknit Kami (SOK) 124
+2 Burr Grafter (CHK) 203
+2 Crushing Pain (CHK) 162
+1 Devouring Rage (CHK) 164
+2 Elder Pine of Jukai (SOK) 128
+4 Forest (CHK) 303
+3 Forest (CHK) 304
+3 Forest (CHK) 305
+3 Forest (CHK) 306
+2 Forked-Branch Garami (BOK) 125
+1 Frostling (BOK) 103
+2 Ghost-Lit Nourisher (SOK) 131
+2 Ghost-Lit Raider (SOK) 99
+1 Glacial Ray (CHK) 168
+1 Glitterfang (SOK) 100
+1 Hana Kami (CHK) 211
+2 Inner Calm, Outer Strength (SOK) 133
+1 Jiwari, the Earth Aflame (SOK) 107
+2 Kami of the Tended Garden (SOK) 134
+1 Kodama's Might (CHK) 224
+3 Mountain (CHK) 299
+3 Mountain (CHK) 300
+3 Mountain (CHK) 301
+2 Mountain (CHK) 302
+2 Petalmane Baku (BOK) 139
+3 Promised Kannushi (SOK) 141
+1 Rending Vines (SOK) 143
+1 Shinen of Life's Roar (SOK) 149
+1 Strength of Cedars (CHK) 245
+2 Unchecked Growth (BOK) 148
+1 Venerable Kumo (CHK) 248

@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Player A's deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PlayerASDeck_S00.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: S00
+# released: 2000-04-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bog Imp (6ED) 116
+1 Coercion (6ED) 119
+1 Durkwood Boars (S00) 38
+1 Forest (6ED) 347
+1 Forest (6ED) 348
+1 Forest (6ED) 349
+1 Goblin Hero (6ED) 184
+1 Hand of Death (S00) 25
+1 Lava Axe (S00) 31
+1 Mons's Goblin Raiders (S00) 32
+1 Monstrous Growth (S00) 41
+1 Moon Sprite (S00) 42
+1 Mountain (6ED) 343
+1 Mountain (6ED) 344
+1 Mountain (6ED) 345
+1 Ogre Warrior (S00) 33
+1 Scathe Zombies (6ED) 154
+1 Swamp (6ED) 339
+1 Swamp (6ED) 340
+1 Swamp (6ED) 341
+1 Trained Orgg (S00) 37
+1 Willow Elf (S00) 45

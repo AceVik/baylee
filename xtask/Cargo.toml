@@ -14,9 +14,11 @@ baylee-cards.workspace = true
 baylee-core.workspace = true
 baylee-cards-codegen.workspace = true
 baylee-cards-index.workspace = true
+# The Baylee-text reader a precon file is written for (`decks-status`).
+baylee-deckio.workspace = true
 baylee-update.workspace = true
-# The card rule only (`deck-check --tested`), not the self-play that needs
-# an engine.
+# The card rule only (`deck-check`, `decks-status`, `verify`), not the
+# self-play that needs an engine.
 baylee-train = { workspace = true, default-features = false }
 anyhow.workspace = true
 clap.workspace = true
@@ -24,3 +26,6 @@ proc-macro2.workspace = true
 serde_json.workspace = true
 syn.workspace = true
 ureq.workspace = true
+# MTGJSON's deck archive is a .tar.gz (`decks-import`).
+flate2.workspace = true
+tar.workspace = true

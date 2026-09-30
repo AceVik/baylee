@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Blue Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlueDeck_M20.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: M20
+# released: 2019-07-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Air Elemental (M20) 44
+1 Befuddle (M20) 47
+1 Captivating Gyre (M20) 51
+1 Cloudkin Seer (M20) 54
+2 Coral Merfolk (M20) 315
+1 Fortress Crab (M20) 60
+1 Frost Lynx (M20) 62
+4 Island (M20) 265
+3 Island (M20) 266
+3 Island (M20) 267
+3 Island (M20) 268
+1 Moat Piranhas (M20) 67
+1 Octoprophet (M20) 70
+1 Phantom Warrior (M20) 316
+1 Riddlemaster Sphinx (M20) 317
+1 Sleep Paralysis (M20) 75
+2 Snapping Drake (M20) 318
+1 Unsummon (M20) 78
+1 Winged Words (M20) 80

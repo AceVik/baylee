@@ -1,0 +1,54 @@
+# baylee deck export v1
+# name: Jeskai Monks
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, JeskaiMonks_KTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: KTK
+# released: 2014-09-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Alabaster Kirin (KTK) 4
+2 Bloodfire Expert (KTK) 101
+1 Bloodfire Mentor (KTK) 102
+1 Crippling Chill (KTK) 35
+1 Divination (M15) 52
+1 Flying Crane Technique (KTK) 176
+1 Highspire Mantis (KTK) 177
+2 Island (KTK) 254
+2 Island (KTK) 255
+2 Island (KTK) 256
+2 Island (KTK) 257
+2 Jeskai Banner (KTK) 222
+1 Jeskai Charm (KTK) 181
+2 Jeskai Elder (KTK) 43
+1 Jeskai Student (KTK) 14
+2 Jeskai Windscout (KTK) 44
+1 Lava Axe (M15) 154
+1 Leaping Master (KTK) 114
+1 Lightning Strike (M15) 155
+1 Monastery Swiftspear (KTK) 118
+2 Mountain (KTK) 262
+2 Mountain (KTK) 263
+1 Mountain (KTK) 264
+1 Mountain (KTK) 265
+2 Mystic Monastery (KTK) 236
+1 Oppressive Rays (M15) 21
+2 Plains (KTK) 250
+2 Plains (KTK) 251
+2 Plains (KTK) 252
+1 Plains (KTK) 253
+1 Riverwheel Aerialists (KTK) 51
+1 Sage of the Inward Eye (PKTK) 195 *F*
+2 Seeker of the Way (KTK) 22
+1 Serra Angel (M15) 273
+1 Smite the Monstrous (KTK) 24
+1 Solemn Offering (M15) 33
+1 Swiftwater Cliffs (KTK) 243
+1 Tireless Missionaries (M15) 39
+1 Tranquil Cove (KTK) 246
+1 Void Snare (M15) 82
+1 Warden of the Eye (KTK) 212
+1 Weave Fate (KTK) 61
+1 Whirlwind Adept (KTK) 63
+1 Wind-Scarred Crag (KTK) 247
+1 Winterflame (KTK) 213

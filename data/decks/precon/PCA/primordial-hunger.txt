@@ -1,0 +1,53 @@
+# baylee deck export v1
+# name: Primordial Hunger
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PrimordialHunger_PCA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planechase Deck
+# set: PCA
+# released: 2016-11-25
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Awakening Zone (PCA) 56
+2 Beetleback Chief (PCA) 40
+2 Brindle Shoat (PCA) 60
+1 Dragonlair Spider (PCA) 87
+1 Fiery Conclusion (PCA) 42
+1 Fires of Yavimaya (PCA) 92
+2 Flayer Husk (PCA) 110
+1 Fling (PCA) 44
+2 Forest (PCA) 151
+2 Forest (PCA) 152
+2 Forest (PCA) 153
+2 Forest (PCA) 154
+2 Forest (PCA) 155
+1 Forest (PCA) 156
+1 Fractured Powerstone (PCA) 111
+1 Gluttonous Slime (PCA) 65
+2 Gruul Turf (PCA) 119
+1 Hellion Eruption (PCA) 45
+1 Hellkite Hatchling (PCA) 95
+1 Hissing Iguanar (PCA) 46
+2 Kazandu Refuge (PCA) 121
+1 Khalni Garden (PCA) 122
+1 Mark of Mutiny (PCA) 47
+1 Mitotic Slime (PCA) 67
+2 Mountain (PCA) 147
+2 Mountain (PCA) 148
+1 Mountain (PCA) 149
+1 Mountain (PCA) 150
+2 Mudbutton Torchrunner (PCA) 49
+1 Mycoloth (PCA) 68
+1 Nest Invader (PCA) 69
+1 Nullmage Advocate (PCA) 70
+1 Overrun (PCA) 72
+1 Penumbra Spider (PCA) 73
+1 Preyseizer Dragon (PCA) 50
+1 Skarrg, the Rage Pits (PCA) 127
+1 Terramorphic Expanse (PCA) 129
+1 Thorn-Thrash Viashino (PCA) 52
+1 Thromok the Insatiable (PCA) 106
+2 Thunder-Thrash Elder (PCA) 53
+2 Tukatongue Thallid (PCA) 79
+2 Viridian Emissary (PCA) 80
+1 Wall of Blossoms (PCA) 81
+1 Warstorm Surge (PCA) 54

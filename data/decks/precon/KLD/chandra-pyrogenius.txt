@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Chandra, Pyrogenius
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ChandraPyrogenius_KLD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: KLD
+# released: 2016-09-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aerial Responder (KLD) 2
+1 Bomat Bazaar Barge (KLD) 198
+1 Brazen Scourge (KLD) 107
+2 Built to Last (KLD) 7
+1 Cathartic Reunion (KLD) 109
+1 Chandra, Pyrogenius (KLD) 265 *F*
+1 Fateful Showdown (KLD) 114
+4 Flame Lash (KLD) 266
+1 Fleetwheel Cruiser (KLD) 214
+1 Gearshift Ace (KLD) 16
+2 Liberating Combustion (KLD) 267
+4 Mountain (KLD) 259
+4 Mountain (KLD) 260
+3 Mountain (KLD) 261
+1 Ovalchase Dragster (KLD) 225
+4 Plains (KLD) 250
+3 Plains (KLD) 251
+3 Plains (KLD) 252
+3 Renegade Firebrand (KLD) 268
+2 Renegade Freighter (KLD) 230
+2 Sky Skiff (KLD) 233
+1 Skyswirl Harrier (KLD) 28
+1 Snare Thopter (KLD) 236
+1 Speedway Fanatic (KLD) 132
+2 Spireside Infiltrator (KLD) 133
+4 Stone Quarry (KLD) 269
+2 Trusty Companion (KLD) 33
+2 Veteran Motorist (KLD) 188
+1 Weldfast Monitor (KLD) 238

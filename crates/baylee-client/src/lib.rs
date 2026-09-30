@@ -85,6 +85,7 @@ pub mod platemat;
 pub mod prefs;
 pub mod report;
 pub mod rowbar;
+pub mod seatpanel;
 pub mod settings;
 pub mod settingsui;
 pub mod sheen;

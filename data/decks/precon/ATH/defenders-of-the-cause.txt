@@ -1,0 +1,52 @@
+# baylee deck export v1
+# name: Defenders of the Cause
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DefendersOfTheCause_ATH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ATH
+# released: 1998-11-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Armageddon (ATH) 1
+1 Armored Pegasus (ATH) 2
+1 Benalish Knight (ATH) 3
+1 Brushland (ATH) 71
+1 Canopy Spider (ATH) 52
+1 Carnivorous Plant (ATH) 53
+1 Combat Medic (ATH) 4
+1 Disenchant (ATH) 5
+1 Drifting Meadow (ATH) 72
+1 Erhnam Djinn (ATH) 54
+5 Forest (ATH) 84
+5 Forest (ATH) 85
+1 Freewind Falcon (ATH) 6
+1 Giant Growth (ATH) 55
+1 Giant Spider (ATH) 56
+1 Gorilla Chieftain (ATH) 57
+1 Hurricane (ATH) 58
+1 Icatian Javelineers (ATH) 7
+1 Infantry Veteran (ATH) 8
+1 Jalum Tome (ATH) 68
+1 Llanowar Elves (ATH) 59
+1 Mirri, Cat Warrior (ATH) 60
+1 Order of the White Shield (ATH) 9
+1 Overrun (ATH) 61
+1 Pacifism (ATH) 10
+1 Pegasus Charger (ATH) 11
+1 Pegasus Stampede (ATH) 12
+1 Pendelhaven (ATH) 73
+6 Plains (ATH) 78
+5 Plains (ATH) 79
+1 Ranger en-Vec (ATH) 66
+1 Sacred Mesa (ATH) 13
+1 Samite Healer (ATH) 14
+1 Scavenger Folk (ATH) 62
+1 Serra Angel (ATH) 15
+1 Serrated Arrows (ATH) 70
+1 Slippery Karst (ATH) 75
+1 Spectral Bears (ATH) 63
+1 Swords to Plowshares (ATH) 16
+1 Warrior's Honor (ATH) 17
+1 White Knight (ATH) 18
+1 Woolly Spider (ATH) 64
+1 Youthful Knight (ATH) 19

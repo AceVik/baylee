@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Lord of Fate
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LordOfFate_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Castle (3ED) 8
+2 Dark Ritual (3ED) 99
+2 Divine Transformation (LEG) 10
+3 Drudge Skeletons (3ED) 107
+3 Healing Salve (3ED) 22
+3 Holy Strength (3ED) 24
+2 Necropolis of Azar (PAST) 5
+3 Ornithopter (ATQ) 60
+3 Osai Vultures (LEG) 29
+3 Pestilence (3ED) 122
+4 Plains (3ED) 292
+4 Plains (3ED) 293
+3 Plains (3ED) 294
+4 Serra Angel (3ED) 40
+4 Swamp (3ED) 298
+4 Swamp (3ED) 299
+3 Swamp (3ED) 300
+3 Unholy Strength (3ED) 133
+4 Yotian Soldier (ATQ) 79
+SB: 3 Amulet of Kroog (ATQ) 36
+SB: 3 Animate Dead (3ED) 93
+SB: 3 Brass Man (ARN) 59

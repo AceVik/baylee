@@ -10601,9 +10601,17 @@ fn rabbit_battery() -> CardIndex {
 /// to and never its own source. Reconfiguring is pressed rather than read,
 /// because "target creature you control" is a question the engine asks, and the
 /// {R} that pays for it is the red the three Mountains left floating one spell
-/// earlier; the unattach mode and "while attached, this isn't a creature" are
-/// the `Coverage::Partial` gap and are deliberately left alone.
+/// earlier; the unattach mode is the `Coverage::Partial` gap and is
+/// deliberately left alone.
+///
+/// "While attached, this isn't a creature" (CR 702.151b) is read last, once
+/// the state-based actions have had their look: a creature attached to
+/// anything becomes unattached (CR 704.5p), so a Battery that stayed a
+/// creature would fall straight off the Elves. It was a creature there until
+/// the engine read that sentence, and stayed on only because the
+/// state-based action read the second sentence of CR 704.5p and not the first.
 #[test]
+#[allow(clippy::too_many_lines)] // one game, from the cast to the settled attachment
 fn rabbit_battery_reconfigures_onto_the_elves_and_hands_it_a_bonus_and_haste() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(4211, mountain())
@@ -10702,6 +10710,26 @@ fn rabbit_battery_reconfigures_onto_the_elves_and_hands_it_a_bonus_and_haste() {
         pt(&engine, battery),
         (1, 1),
         "and the grant belongs to the creature it is attached to, not to its own source"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "the board has settled, state-based actions and all: {:?}",
+        engine.pending()
+    );
+    let worn = engine.state().object(battery).expect("still on the table");
+    assert!(
+        !worn.characteristics().types.contains(TypeSet::CREATURE),
+        "\"While attached, this isn't a creature\" (CR 702.151b)"
+    );
+    assert!(
+        worn.characteristics().types.contains(TypeSet::ARTIFACT),
+        "and an artifact still — only the creature type goes"
+    );
+    assert_eq!(
+        worn.attached_to,
+        Some(elves),
+        "so the state-based action that takes a creature off what it is \
+         attached to (CR 704.5p) leaves it on the Elves"
     );
 }
 

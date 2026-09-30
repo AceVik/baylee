@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: White
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, White_GNT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Game Night Deck
+# set: GNT
+# released: 2018-11-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aerial Responder (GNT) 6
+1 Always Watching (GNT) 7
+1 Benalish Marshal (GNT) 8
+2 Bright Reprisal (GNT) 9
+2 Call the Cavalry (GNT) 10
+1 Cleansing Nova (M19) 9
+2 Dwarven Priest (M19) 11
+1 Everdawn Champion (GNT) 11
+2 Fan Bearer (GNT) 12
+2 Gallant Cavalry (M19) 12
+1 Hieromancer's Cage (M19) 14
+1 Inspired Charge (GNT) 13
+1 Inspiring Captain (GNT) 14
+2 Knightly Valor (M19) 20
+2 Luminous Bonds (M19) 25
+1 Mentor of the Meek (M19) 27
+2 Mesa Unicorn (GNT) 15
+1 Militant Angel (GNT) 1
+3 Militia Bugler (M19) 29
+2 Pegasus Courser (M19) 32
+13 Plains (GNT) 59
+12 Plains (GNT) 60
+2 Serra Angel (GNT) 16
+1 Subjugator Angel (GNT) 17
+1 Valiant Knight (M19) 42

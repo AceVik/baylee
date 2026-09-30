@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Finkel
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Finkel_DKM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: DKM
+# released: 2001-12-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Abyssal Specter (DKM) 1
+1 Balduvian Horde (DKM) 10
+2 Contagion (DKM) 2
+2 Dark Banishing (DKM) 3
+2 Dark Ritual (DKM) 4
+2 Foul Familiar (DKM) 5
+2 Goblin Mutant (DKM) 12
+1 Guerrilla Tactics (DKM) 13a
+1 Guerrilla Tactics (DKM) 13b
+1 Icy Manipulator (DKM) 36
+1 Icy Manipulator (DKM) 36★ *F*
+2 Incinerate (DKM) 14
+2 Lava Burst (DKM) 16
+1 Lim-Dûl's High Guard (DKM) 6a
+1 Lim-Dûl's High Guard (DKM) 6b
+4 Mountain (DKM) 45
+4 Mountain (DKM) 46
+4 Mountain (DKM) 47
+1 Necropotence (DKM) 7 *F*
+2 Orcish Cannoneers (DKM) 17
+1 Phantasmal Fiend (DKM) 8a
+1 Phantasmal Fiend (DKM) 8b
+1 Phyrexian War Beast (DKM) 37a
+1 Phyrexian War Beast (DKM) 37b
+2 Pyroclasm (DKM) 19
+2 Soul Burn (DKM) 9
+1 Storm Shaman (DKM) 21a
+1 Storm Shaman (DKM) 21b
+1 Sulfurous Springs (DKM) 40
+4 Swamp (DKM) 42
+4 Swamp (DKM) 43
+4 Swamp (DKM) 44
+1 Underground River (DKM) 41

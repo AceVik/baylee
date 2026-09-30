@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Zakk's First Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ZakkSFirstDeck_ITP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ITP
+# released: 1996-12-31
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Alabaster Potion (ITP) 1
+2 Bog Imp (ITP) 16
+1 Bog Wraith (ITP) 17
+1 Durkwood Boars (ITP) 39
+1 Elven Riders (ITP) 40
+2 Forest (ITP) 65
+1 Forest (ITP) 66
+1 Forest (ITP) 67
+1 Grizzly Bears (ITP) 42
+2 Healing Salve (ITP) 4
+2 Pearled Unicorn (ITP) 6
+2 Plains (ITP) 53
+1 Plains (ITP) 54
+1 Plains (ITP) 55
+1 Raise Dead (ITP) 22
+2 Scryb Sprites (ITP) 43
+2 Swamp (ITP) 59
+1 Swamp (ITP) 60
+1 Swamp (ITP) 61
+2 Terror (ITP) 25
+1 Untamed Wilds (ITP) 44

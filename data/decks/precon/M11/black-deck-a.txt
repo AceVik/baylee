@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Black Deck A
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlackDeckA_M11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M11
+# released: 2010-07-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Corrupt (M11) 89
+2 Death Cultist (ROE) 105
+1 Diabolic Tutor (M11) 93
+2 Disfigure (ZEN) 87
+1 Doom Blade (M11) 95
+1 Giant Scorpion (ZEN) 90
+1 Gravedigger (M11) 98
+1 Liliana's Caress (M11) 103
+2 Liliana's Specter (M11) 104
+1 Mind Rot (M11) 105
+2 Nether Horror (M11) 108
+1 Nightwing Shade (M11) 109
+1 Reassembling Skeleton (M11) 112
+4 Swamp (M11) 238
+3 Swamp (M11) 239
+3 Swamp (M11) 240
+3 Swamp (M11) 241

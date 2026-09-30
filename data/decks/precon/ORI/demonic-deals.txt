@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Demonic Deals
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DemonicDeals_ORI.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ORI
+# released: 2015-07-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Act of Treason (ORI) 129
+2 Blazing Hellhound (ORI) 210
+1 Chandra's Fury (ORI) 136
+1 Chandra's Ignition (ORI) 137
+1 Cobblebrute (ORI) 138
+2 Cruel Revival (ORI) 88
+2 Enthralling Victor (ORI) 142
+1 Evolving Wilds (ORI) 246
+2 Fiery Impulse (ORI) 145
+1 Fleshbag Marauder (ORI) 98
+1 Kothophed, Soul Hoarder (PORI) 104 *F*
+2 Malakir Cullblade (ORI) 108
+3 Mountain (ORI) 265
+3 Mountain (ORI) 266
+2 Mountain (ORI) 267
+2 Mountain (ORI) 268
+3 Nantuko Husk (ORI) 109
+1 Necromantic Summons (ORI) 110
+1 Nightsnare (ORI) 111
+1 Ravaging Blaze (ORI) 159
+1 Reave Soul (ORI) 115
+2 Returned Centaur (ORI) 116
+1 Revenant (ORI) 117
+2 Shambling Ghoul (ORI) 119
+4 Swamp (ORI) 261
+4 Swamp (ORI) 262
+3 Swamp (ORI) 263
+3 Swamp (ORI) 264
+3 Undead Servant (ORI) 124
+1 Unholy Hunger (ORI) 125
+1 Weight of the Underworld (ORI) 126

@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: Nicol Bolas
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, NicolBolas_DDH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDH
+# released: 2011-09-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Agonizing Demise (DDH) 66
+1 Blazing Specter (DDH) 52
+1 Brackwater Elemental (DDH) 46
+1 Countersquall (DDH) 59
+1 Cruel Ultimatum (DDH) 69
+2 Crumbling Necropolis (DDH) 74
+1 Deep Analysis (DDH) 65
+1 Dimir Cutpurse (DDH) 49
+1 Elder Mastery (DDH) 68
+1 Fire-Field Ogre (DDH) 53
+1 Grixis Charm (DDH) 63
+2 Hellfire Mongrel (DDH) 48
+1 Icy Manipulator (DDH) 64
+1 Igneous Pouncer (DDH) 57
+7 Island (DDH) 79
+1 Jhessian Zombies (DDH) 56
+1 Morgue Toad (DDH) 47
+1 Moroii (DDH) 51
+5 Mountain (DDH) 80
+1 Nicol Bolas, Planeswalker (DDH) 42 *F*
+1 Nightscape Familiar (DDH) 44
+2 Obelisk of Grixis (DDH) 60
+1 Ogre Savant (DDH) 55
+1 Pain // Suffering (DDH) 72
+1 Profane Command (DDH) 70
+1 Recoil (DDH) 61
+1 Rise // Fall (DDH) 73
+1 Rupture Spire (DDH) 75
+1 Shriekmaw (DDH) 54
+1 Slave of Bolas (DDH) 67
+1 Slavering Nulls (DDH) 45
+1 Spite // Malice (DDH) 71
+1 Steamcore Weird (DDH) 50
+1 Surveilling Sprite (DDH) 43
+5 Swamp (DDH) 77
+4 Swamp (DDH) 78
+2 Terramorphic Expanse (DDH) 76
+1 Undermine (DDH) 62
+1 Vapor Snag (DDH) 58

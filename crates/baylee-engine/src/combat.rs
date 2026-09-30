@@ -267,6 +267,10 @@ pub fn defending_player(state: &GameState, defender: Defender) -> Option<PlayerI
 /// A Vehicle answers this the moment it is crewed and not before, because
 /// the type comes off the *projected* characteristics.
 ///
+/// It reads [`GameObject::controlled_since`], never the object's
+/// timestamp: CR 613.7g gives a permanent a new timestamp as it transforms,
+/// and it has been under its controller's control no less for that.
+///
 /// Measured against the controller's own turn clock, so the answer holds
 /// through an opponent's turn, and strictly, because
 /// [`Player::turn_start_timestamp`] holds the last stamp issued before the
@@ -286,7 +290,7 @@ pub fn summoning_sick(state: &GameState, obj: &GameObject) -> bool {
         .players
         .get(obj.controller.get() as usize)
         .map_or(0, |p| p.turn_start_timestamp);
-    obj.timestamp > began
+    obj.controlled_since > began
 }
 
 /// Whether `b` could block anything at all for `defending`: the half of

@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Red Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeck_SOS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: SOS
+# released: 2026-04-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Axgard Cavalry (FDN) 189
+1 Brazen Scourge (FDN) 191
+2 Burst Lightning (FDN) 192
+1 Carnelian Orb of Dragonkind (FDN) 759
+1 Cryptic Caves (FDN) 771
+2 Dragonlord's Servant (FDN) 536
+1 Drakuseth, Maw of Flames (FDN) 760
+1 Etali, Primal Storm (FDN) 194
+1 Fanatical Firebrand (FDN) 195
+2 Firespitter Whelp (FDN) 761
+2 Incinerating Blast (FDN) 90
+2 Kargan Dragonrider (FDN) 762
+17 Mountain (FDN) 278
+2 Scorching Dragonfire (FDN) 545
+1 Shivan Dragon (FDN) 763
+1 Skyraker Giant (FDN) 547
+1 Spitfire Lagac (FDN) 208
+1 Terror of Mount Velus (FDN) 764

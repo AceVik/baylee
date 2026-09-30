@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Zendikar's Rage
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ZendikarSRage_BFZ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: BFZ
+# released: 2015-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blighted Woodland (BFZ) 233
+2 Broodhunter Wurm (BFZ) 171
+3 Evolving Wilds (BFZ) 236
+2 Fertile Thicket (BFZ) 237
+2 Forest (BFZ) 270a
+2 Forest (BFZ) 271a
+2 Forest (BFZ) 272a
+2 Forest (BFZ) 273a
+2 Forest (BFZ) 274a
+1 Grove Rumbler (BFZ) 211
+2 Lavastep Raider (BFZ) 147
+1 Makindi Sliderunner (BFZ) 148
+2 Mountain (BFZ) 265a
+2 Mountain (BFZ) 266a
+2 Mountain (BFZ) 267a
+2 Mountain (BFZ) 268a
+2 Mountain (BFZ) 269a
+1 Murasa Ranger (BFZ) 178
+1 Natural Connection (BFZ) 179
+1 Nissa's Renewal (BFZ) 180
+1 Oran-Rief Hydra (PBFZ) 181 *F*
+2 Oran-Rief Invoker (BFZ) 182
+1 Reclaiming Vines (BFZ) 185
+1 Retreat to Kazandu (BFZ) 186
+1 Retreat to Valakut (BFZ) 153
+1 Rolling Thunder (BFZ) 154
+1 Rot Shambler (BFZ) 187
+1 Scythe Leopard (BFZ) 188
+2 Seek the Wilds (BFZ) 189
+2 Snapping Gnarlid (BFZ) 190
+1 Stonefury (BFZ) 156
+1 Sure Strike (BFZ) 157
+1 Swell of Growth (BFZ) 191
+2 Sylvan Scrying (BFZ) 192
+2 Territorial Baloth (BFZ) 196
+2 Tunneling Geopede (BFZ) 158
+2 Valakut Invoker (BFZ) 159
+1 Valakut Predator (BFZ) 160

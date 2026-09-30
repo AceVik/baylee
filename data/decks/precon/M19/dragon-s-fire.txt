@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Dragon's Fire
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DragonSFire_M19.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M19
+# released: 2018-09-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Burning Sun's Avatar (XLN) 135
+2 Charging Monstrosaur (XLN) 138
+1 Demanding Dragon (M19) 135
+2 Fiery Finish (M19) 140
+3 Goblin Instigator (M19) 142
+3 Havoc Devils (M19) 146
+3 Kargan Dragonrider (M19) 297
+1 Lathliss, Dragon Queen (M19) 149
+1 Meteor Golem (M19) 241
+7 Mountain (M19) 273
+6 Mountain (M19) 274
+6 Mountain (M19) 275
+6 Mountain (M19) 276
+2 Onakke Ogre (M19) 153
+3 Pyromantic Pilgrim (DOM) 278
+3 Shock (ANB) 84
+2 Sparktongue Dragon (M19) 159
+1 Spit Flame (M19) 160
+3 Sure Strike (M19) 161
+2 Viashino Pyromancer (M19) 166
+2 Volcanic Dragon (ANB) 88

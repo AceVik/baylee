@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Eruption
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Eruption_NEM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: NEM
+# released: 2000-02-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Alabaster Wall (MMQ) 2
+1 Arc Mage (NEM) 77
+1 Belbe's Armor (NEM) 126
+2 Chieftain en-Dal (NEM) 4
+1 Crenellated Wall (MMQ) 290
+1 Defender en-Vec (NEM) 5
+1 Disenchant (MMQ) 18
+1 Downhill Charge (NEM) 79
+1 Flaming Sword (MMQ) 190
+1 Flowstone Armor (NEM) 131
+2 Flowstone Crusher (NEM) 81
+1 Flowstone Overseer (NEM) 82
+1 Inviolability (MMQ) 23
+1 Iron Lance (MMQ) 300
+1 Kris Mage (MMQ) 195
+3 Laccolith Grunt (NEM) 87
+2 Laccolith Warrior (NEM) 90
+2 Laccolith Whelp (NEM) 91
+4 Mountain (MMQ) 343
+4 Mountain (MMQ) 344
+3 Mountain (MMQ) 345
+3 Mountain (MMQ) 346
+1 Oracle's Attendants (NEM) 16
+3 Plains (MMQ) 331
+3 Plains (MMQ) 332
+2 Plains (MMQ) 333
+2 Plains (MMQ) 334
+1 Ramosian Rally (MMQ) 38
+1 Seal of Cleansing (NEM) 18
+3 Seal of Fire (NEM) 98
+1 Sivvi's Ruse (NEM) 21
+1 Thunderclap (MMQ) 219
+2 Trap Runner (MMQ) 55
+1 Volcanic Wind (MMQ) 223

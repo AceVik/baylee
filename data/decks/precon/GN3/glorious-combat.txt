@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Glorious Combat
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GloriousCombat_GN3.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Game Night Deck
+# set: GN3
+# released: 2022-10-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ancestral Blade (GN3) 6
+1 Argentum Armor (GN3) 113
+2 Banisher Priest (GN3) 7
+1 Captain of the Watch (GN3) 8
+1 Colossus Hammer (GN3) 115
+1 Danitha Capashen, Paragon (GN3) 9
+1 Forbidding Spirit (GN3) 10
+1 Greatsword (GN3) 116
+1 Heavenly Blademaster (GN3) 11
+1 Howling Golem (GN3) 117
+2 Kitesail Apprentice (GN3) 12
+2 Kor Duelist (GN3) 13
+2 Kor Outfitter (GN3) 14
+1 Moonsilver Spear (GN3) 118
+1 Path to Exile (GN3) 15
+2 Pilgrim of the Ages (GN3) 16
+9 Plains (GN3) 122
+9 Plains (GN3) 123
+8 Plains (GN3) 124
+1 Ring of Thune (GN3) 119
+2 Serra Angel (GN3) 17
+1 Strength of Arms (GN3) 18
+1 Sword of Vengeance (GN3) 120
+1 Swords to Plowshares (GN3) 19
+2 Trusty Machete (GN3) 121
+2 Valorous Stance (GN3) 20
+1 Vow of Duty (GN3) 21
+1 Zamriel, Seraph of Steel (GN3) 1 *F*

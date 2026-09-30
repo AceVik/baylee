@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Mortals of Myth
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MortalsOfMyth_JOU.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: JOU
+# released: 2014-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ajani's Presence (JOU) 2
+2 Akroan Mastiff (JOU) 3
+1 Akroan Skyguard (BNG) 3
+2 Banishing Light (JOU) 5
+2 Colossal Heroics (JOU) 118
+1 Consign to Dust (JOU) 119
+1 Dawnbringer Charioteers (JOU) 6 *F*
+1 Elite Skirmisher (BNG) 8
+1 Font of Vigor (JOU) 11
+3 Forest (THS) 246
+3 Forest (THS) 247
+3 Forest (THS) 248
+2 Forest (THS) 249
+2 Golden Hind (JOU) 124
+2 Lagonna-Band Trailblazer (JOU) 14
+1 Nature's Panoply (JOU) 131
+2 Oppressive Rays (JOU) 19
+1 Oreskos Swiftclaw (JOU) 20
+1 Phalanx Formation (JOU) 21
+1 Phalanx Leader (THS) 26
+2 Pheres-Band Thunderhoof (JOU) 134
+4 Plains (THS) 230
+4 Plains (THS) 231
+4 Plains (THS) 232
+3 Plains (THS) 233
+1 Quarry Colossus (JOU) 22
+1 Raised by Wolves (BNG) 135
+1 Skyspear Cavalry (JOU) 26
+1 Solidarity of Heroes (JOU) 141
+1 Spear of Heliod (THS) 33
+2 Supply-Line Cranes (JOU) 28
+1 Vanguard of Brimaz (BNG) 29
+1 Wingsteed Rider (THS) 36

@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Gondor: Green-White
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GondorGreenWhite_LTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Kit
+# set: LTR
+# released: 2023-06-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aragorn and Arwen, Wed (LTR) 287 *F*
+2 Bag End Porter (LTR) 153
+2 Banishing Light (LTC) 161
+1 Bilbo's Ring (LTR) 298
+1 Butterbur, Bree Innkeeper (LTR) 197
+1 Dúnedain Blade (LTR) 6
+1 East-Mark Cavalier (LTR) 9
+1 Eastfarthing Farmer (LTR) 8
+6 Forest (LTR) 270
+5 Forest (LTR) 271
+1 Frodo, Determined Hero (LTR) 289
+1 Galadhrim Bow (LTR) 167
+1 Galadriel, Gift-Giver (LTR) 296
+1 Gandalf, White Rider (LTR) 290
+1 Generous Ent (LTR) 169
+2 Graypelt Refuge (LTC) 316
+3 Knight of the Keep (LTR) 291
+1 Landroval, Horizon Witness (LTR) 21
+2 Many Partings (LTR) 176
+1 Meriadoc Brandybuck (LTR) 177
+2 Mushroom Watchdogs (LTR) 180
+1 Peregrin Took (LTR) 181
+6 Plains (LTR) 262
+5 Plains (LTR) 263
+2 Protector of Gondor (LTR) 25
+1 Rosie Cotton of South Lane (LTR) 27
+1 Second Breakfast (LTR) 29
+2 Shire Terrace (LTR) 261
+1 Stew the Coneys (LTR) 189
+1 Westfold Rider (LTR) 37
+2 Wose Pathfinder (LTR) 190
+1 You Cannot Pass! (LTR) 38

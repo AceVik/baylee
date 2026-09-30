@@ -1,0 +1,67 @@
+# baylee deck export v1
+# name: Knights' Charge
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, KnightsCharge_ELD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Brawl Deck
+# set: ELD
+# released: 2019-10-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 Syr Gwyn, Hero of Ashvale (ELD) 330 *F*
+1 Ancestral Blade (M20) 3
+1 Arcane Signet (ELD) 331
+1 Belle of the Brawl (ELD) 78
+1 Bloodfell Caves (M20) 242
+1 Bond of Discipline (WAR) 6
+1 Boros Guildgate (GRN) 243
+1 Colossus Hammer (M20) 223
+1 Command Tower (ELD) 333
+1 Corpse Knight (M20) 206
+1 Crystal Slipper (ELD) 119
+1 Despark (WAR) 190
+1 Embereth Shieldbreaker // Battle Display (ELD) 122
+1 Embereth Skyblazer (ELD) 321
+1 Evolving Wilds (M20) 246
+1 Fireborn Knight (ELD) 210
+1 Foulmire Knight // Profane Insight (ELD) 90
+1 Godless Shrine (RNA) 248
+1 Icon of Ancestry (M20) 229
+1 Inspiring Veteran (ELD) 194
+1 Integrity // Intervention (GRN) 227
+1 Knight of the Ebon Legion (M20) 105
+1 Knights' Charge (ELD) 328
+1 Mace of the Valiant (ELD) 314
+1 Marauder's Axe (M20) 231
+1 Mask of Immolation (M20) 151
+1 Midnight Reaper (GRN) 77
+1 Mortify (RNA) 192
+2 Mountain (ELD) 262
+1 Mountain (ELD) 263
+1 Mountain (ELD) 264
+1 Mountain (ELD) 265
+1 Ob Nixilis's Cruelty (WAR) 101
+1 Order of Midnight // Alter Fate (ELD) 99
+1 Orzhov Guildgate (RNA) 253
+2 Plains (ELD) 250
+1 Plains (ELD) 251
+1 Plains (ELD) 252
+1 Plains (ELD) 253
+1 Rakdos Guildgate (RNA) 256
+1 Response // Resurgence (GRN) 229
+1 Scoured Barrens (M20) 251
+1 Shining Armor (ELD) 29
+1 Silverwing Squadron (ELD) 315
+1 Single Combat (WAR) 30
+1 Skyknight Legionnaire (GRN) 198
+1 Skyknight Vanguard (M20) 218
+1 Smitten Swordmaster // Curry Favor (ELD) 105
+1 Steelclaw Lance (ELD) 202
+1 Swamp (ELD) 258
+1 Swamp (ELD) 259
+1 Swamp (ELD) 260
+1 Syr Konrad, the Grim (ELD) 107
+1 Temple of Triumph (M20) 257
+1 Tournament Grounds (ELD) 248
+1 Venerable Knight (ELD) 35
+1 Wind-Scarred Crag (ELD) 308
+1 Wintermoor Commander (ELD) 205

@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Hope's Crusaders
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, HopeSCrusaders_TSP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TSP
+# released: 2006-10-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Benalish Cavalry (TSP) 4
+2 Brass Gnat (TSP) 249
+2 Cavalry Master (TSP) 6
+1 Celestial Crusader (TSP) 7
+1 Cloudchaser Kestrel (TSP) 10
+2 D'Avenant Healer (TSP) 11
+1 Divine Congregation (TSP) 13
+2 Errant Doomsayers (TSP) 15
+2 Foriysian Interceptor (TSP) 18
+1 Fortify (TSP) 19
+3 Gaze of Justice (TSP) 20
+1 Gustcloak Cavalier (TSP) 22
+1 Icatian Crier (TSP) 23
+3 Icatian Javelineers (TSB) 10
+1 Ivory Giant (TSP) 24
+3 Knight of the Holy Nimbus (TSP) 26
+2 Outrider en-Kor (TSP) 31
+1 Pentarch Paladin (TSP) 32
+6 Plains (TSP) 282
+6 Plains (TSP) 283
+6 Plains (TSP) 284
+5 Plains (TSP) 285
+1 Sarpadian Empires, Vol. VII (TSP) 263
+2 Thunder Totem (TSP) 265
+2 Zhalfirin Commander (TSB) 18

@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Paul McCabe - Red-Blue Aggro Control
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PaulMccabeRedBlueAggroControl_WC97.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC97
+# released: 1997-08-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Abduction (WC97) pm30
+2 City of Brass (WC97) pm413
+4 Cloud Elemental (WC97) pm29
+4 Counterspell (WC97) pm77
+1 Disintegrate (WC97) pm219
+2 Disrupt (WC97) pm37a
+4 Force of Will (WC97) pm28
+2 Frenetic Efreet (WC97) pm264
+4 Incinerate (WC97) pm242
+3 Island (WC97) pm434
+3 Island (WC97) pm435
+2 Island (WC97) pm436
+2 Island (WC97) pm437
+4 Man-o'-War (WC97) pm37b
+3 Mind Stone (WC97) pm153
+2 Mountain (WC97) pm442
+2 Mountain (WC97) pm443
+1 Mountain (WC97) pm444
+1 Mountain (WC97) pm445
+4 Ophidian (WC97) pm45
+2 Pyrokinesis (WC97) pm78
+3 Suq'Ata Lancer (WC97) pm96
+2 Undiscovered Paradise (WC97) pm167
+1 Wildfire Emissary (WC97) pm203
+SB: 1 Dissipate (WC97) pm61sb
+SB: 1 Hydroblast (WC97) pm94sb
+SB: 4 Knight of the Mists (WC97) pm36sb
+SB: 1 Nevinyrral's Disk (WC97) pm391sb
+SB: 1 Phyrexian Furnace (WC97) pm155sb
+SB: 3 Pillage (WC97) pm76sb
+SB: 2 Pyroblast (WC97) pm262sb
+SB: 1 Pyrokinesis (WC97) pm78sb
+SB: 1 Serrated Arrows (WC97) pm110sb

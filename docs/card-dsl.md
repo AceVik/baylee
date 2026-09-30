@@ -738,6 +738,15 @@ card — and answers it differently, because a host that stops being a creature
 leaves the Equipment unattached on the battlefield (CR 704.5n) where it
 destroys the Aura.
 
+A creature is never attached to anything (CR 704.5p, first sentence): an
+Equipment an effect animates comes off its creature and stays on the
+battlefield. Reconfigure's reminder text is what keeps its Equipment on:
+"While attached, this isn't a creature" (CR 702.151b) is
+`static_ability!(Filter::This, Modifier::RemoveType(TypeSet::CREATURE),
+condition = Some(Condition::SourceMatches(&Filter::IsAttached)))`, written
+beside the `equip!` that is reconfigure's attaching half. Without it the
+card attaches and falls off again at the next state-based check.
+
 `activated!` and `mana_ability!` reach `AbilityDef::ActivatedConditional`
 through one optional field, `condition = Some(Condition::…)`. That
 is the only difference between the twins, which is exactly what makes them

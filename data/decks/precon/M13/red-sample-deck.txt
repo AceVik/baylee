@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Red Sample Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedSampleDeck_M13.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M13
+# released: 2012-07-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bladetusk Boar (M13) 121
+1 Chandra's Fury (M13) 124
+1 Cleaver Riot (M13) 125
+1 Dragon Hatchling (M13) 128
+1 Fervent Cathar (AVR) 135
+1 Fire Elemental (M13) 130
+1 Flames of the Firebrand (M13) 132
+1 Furnace Whelp (M13) 133
+1 Goblin Arsonist (M13) 134
+1 Goblin Battle Jester (M13) 135
+1 Kindled Fury (M13) 137
+4 Mountain (M13) 242
+3 Mountain (M13) 243
+3 Mountain (M13) 244
+3 Mountain (M13) 245
+2 Riot Devils (ISD) 160
+1 Scalding Devil (AVR) 155
+2 Searing Spear (M13) 147
+1 Wild Guess (M13) 157

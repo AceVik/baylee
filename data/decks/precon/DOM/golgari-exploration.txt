@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Golgari Exploration
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GolgariExploration_DOM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: DOM
+# released: 2018-03-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Deadeye Tracker (XLN) 99
+1 Doomfall (HOU) 62
+1 Emperor's Vanguard (XLN) 189
+1 Enter the Unknown (RIX) 128
+1 Final Reward (AKH) 92
+3 Forest (DOM) 266
+3 Forest (DOM) 267
+2 Forest (DOM) 268
+2 Forest (DOM) 269
+4 Foul Orchard (RIX) 188
+1 Golden Demise (RIX) 73
+1 Hashep Oasis (HOU) 177
+1 Ifnir Deadlands (HOU) 179
+1 Impale (RIX) 76
+2 Ixalli's Diviner (XLN) 192
+1 Jungle Creeper (RIX) 161
+3 Lurking Chupacabra (XLN) 111
+1 Mausoleum Harpy (RIX) 78
+1 Merfolk Branchwalker (XLN) 197
+2 Moment of Craving (RIX) 79
+1 Path of Discovery (RIX) 142
+1 Ravenous Chupacabra (RIX) 82
+1 Reaver Ambush (RIX) 83
+1 Scaled Behemoth (AKH) 184
+2 Seekers' Squire (XLN) 121
+1 Shadowed Caravel (XLN) 246
+1 Sifter Wurm (HOU) 135
+3 Swamp (DOM) 258
+2 Swamp (DOM) 259
+2 Swamp (DOM) 260
+2 Swamp (DOM) 261
+1 Tendershoot Dryad (RIX) 147
+1 Thrashing Brontodon (RIX) 148
+2 Tishana's Wayfinder (XLN) 211
+1 Tomb Robber (RIX) 87
+1 Vizier of the Menagerie (AKH) 192
+1 Walk the Plank (XLN) 130
+3 Wildgrowth Walker (XLN) 216

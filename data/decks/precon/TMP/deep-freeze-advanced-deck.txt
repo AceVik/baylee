@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: Deep Freeze - Advanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeepFreezeAdvancedDeck_TMP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Advanced Deck
+# set: TMP
+# released: 1997-10-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Adarkar Wastes (5ED) 410
+1 Angelic Renewal (WTH) 4
+2 Avenging Angel (TMP) 7
+2 Binding Grasp (5ED) 74
+4 Counterspell (TMP) 57
+1 Desertion (VIS) 30
+2 Disenchant (TMP) 16
+2 Dismiss (TMP) 58
+1 Dissipate (MIR) 61
+4 Impulse (VIS) 34
+1 Inspiration (VIS) 35
+3 Island (TMP) 335
+3 Island (TMP) 336
+2 Island (TMP) 337
+2 Island (TMP) 338
+2 Man-o'-War (VIS) 37
+2 Plains (TMP) 331
+2 Plains (TMP) 332
+1 Plains (TMP) 333
+1 Plains (TMP) 334
+1 Portent (5ED) 110
+2 Quicksand (VIS) 166
+2 Rainbow Efreet (VIS) 41
+2 Sky Spirit (TMP) 271
+2 Suq'Ata Firewalker (MIR) 94
+1 Svyelunite Temple (5ED) 425
+3 Thalakos Lowlands (TMP) 328
+2 Whispers of the Muse (TMP) 103
+3 Wrath of God (5ED) 69
+SB: 2 Disenchant (TMP) 16
+SB: 1 Dissipate (MIR) 61
+SB: 1 Emmessi Tome (TMP) 284
+SB: 2 Hydroblast (5ED) 94
+SB: 1 Light of Day (TMP) 27
+SB: 2 Mangara's Blessing (MIR) 25
+SB: 2 Mind Harness (MIR) 78
+SB: 2 Quicksand (VIS) 166
+SB: 1 Wall of Air (5ED) 135
+SB: 1 Wrath of God (5ED) 69

@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Aura Mastery
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AuraMastery_SHM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: SHM
+# released: 2008-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Armored Ascension (SHM) 2
+1 Barrenton Medic (SHM) 4
+2 Curse of Chains (SHM) 139
+3 Glamer Spinners (SHM) 141
+3 Island (SHM) 286
+3 Island (SHM) 287
+2 Island (SHM) 288
+2 Island (SHM) 289
+1 Kithkin Rabble (SHM) 9
+1 Mine Excavation (SHM) 13
+1 Mistmeadow Witch (SHM) 144
+2 Niveous Wisps (SHM) 15
+2 Parapet Watchers (SHM) 45
+4 Plains (SHM) 282
+4 Plains (SHM) 283
+3 Plains (SHM) 284
+3 Plains (SHM) 285
+2 Prison Term (SHM) 18
+2 Puresight Merrow (SHM) 146
+1 Repel Intruders (SHM) 147
+1 Scrapbasket (SHM) 262
+1 Silkbind Faerie (SHM) 148
+2 Somnomancer (SHM) 149
+3 Steel of the Godhead (SHM) 150
+2 Thistledown Duo (SHM) 152
+1 Thistledown Liege (SHM) 153
+2 Thoughtweft Gambit (SHM) 154
+1 Twilight Shepherd (SHM) 25
+1 Watchwing Scarecrow (SHM) 268
+3 Zealous Guardian (SHM) 157

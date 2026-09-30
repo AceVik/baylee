@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Preconstructed deck 2
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PreconstructedDeck2_S99.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: S99
+# released: 1999-07-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Angelic Blessing (S99) 3
+2 Breath of Life (S99) 10
+2 Eager Cadet (S99) 15
+2 Eye Spy (S99) 38
+1 Giant Octopus (S99) 39
+2 Island (S99) 158
+2 Island (S99) 159
+2 Island (S99) 160
+2 Island (S99) 161
+2 Knight Errant (S99) 19
+2 Merfolk of the Pearl Trident (S99) 42
+2 Plains (S99) 154
+2 Plains (S99) 155
+2 Plains (S99) 156
+2 Plains (S99) 157
+2 Royal Falcon (S99) 24
+2 Sea Eagle (S99) 50
+2 Time Ebb (S99) 55
+1 Vizzerdrix (S99) 59
+2 Wild Griffin (S99) 31
+2 Wind Drake (S99) 61

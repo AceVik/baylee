@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Snowscape
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Snowscape_CSP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: CSP
+# released: 2006-07-21
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arcum's Weathervane (CST) 310
+1 Balduvian Frostwaker (CSP) 28
+1 Blizzard Specter (CSP) 126
+1 Browse (CST) 25
+1 Chill to the Bone (CSP) 52
+1 Chilling Shade (CSP) 53
+1 Coldsteel Heart (CSP) 136
+2 Drift of the Dead (CST) 123
+2 Essence Flare (CST) 69
+1 Frost Marsh (CSP) 146
+2 Frost Raptor (CSP) 34
+1 Gangrenous Zombies (CST) 127
+1 Heidar, Rimewind Master (CSP) 36
+1 Iceberg (CST) 73
+2 Legions of Lim-Dûl (CST) 142
+2 Mistfolk (CST) 84
+1 Phantasmal Fiend (CST) 57a
+3 Rimebound Dead (CSP) 69
+1 Rimefeather Owl (CSP) 42
+2 Rimewind Cryomancer (CSP) 43
+3 Rimewind Taskmage (CSP) 44
+2 Snow Devil (CST) 100
+12 Snow-Covered Island (CSP) 152
+11 Snow-Covered Swamp (CSP) 153
+1 Storm Elemental (CST) 37
+1 Viscerid Drone (CST) 42
+2 Zombie Musher (CSP) 75

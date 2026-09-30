@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Saltrem Tor
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SaltremTor_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Birds of Paradise (3ED) 187
+2 Control Magic (3ED) 52
+3 Crimson Manticore (LEG) 140
+2 Eternal Warrior (LEG) 144
+2 Fireball (3ED) 150
+4 Forest (3ED) 304
+4 Forest (3ED) 305
+3 Forest (3ED) 306
+2 Fungusaur (3ED) 197
+3 Giant Strength (LEG) 149
+2 Giant Tortoise (ARN) 15
+2 Island (3ED) 295
+2 Island (3ED) 296
+2 Island (3ED) 297
+6 Mountain (ARN) 77
+3 Prodigal Sorcerer (3ED) 75
+2 Regeneration (3ED) 213
+2 Siren's Call (3ED) 80
+2 Timber Wolves (3ED) 219
+3 Unstable Mutation (ARN) 22
+2 Verduran Enchantress (3ED) 223
+2 Web (3ED) 229
+2 Whirling Dervish (LEG) 211

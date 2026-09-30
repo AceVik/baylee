@@ -1,0 +1,24 @@
+# baylee deck export v1
+# name: Amonkhet Welcome Deck - Black
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AmonkhetWelcomeDeckBlack_W17.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: W17
+# released: 2017-04-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Alley Strangler (AER) 52†
+2 Bloodhunter Bat (W17) 15
+2 Certain Death (W17) 16
+1 Cursed Minotaur (AKH) 85
+1 Dune Beetle (AKH) 89
+2 Essence Extraction (KLD) 80
+1 Gravedigger (AKH) 93
+1 Nightmare (W17) 17
+1 Raise Dead (W17) 18
+1 Sengir Vampire (W17) 19
+5 Swamp (AKH) 261
+4 Swamp (AKH) 262
+4 Swamp (AKH) 263
+2 Tattered Mummy (AKH) 278
+2 Untamed Hunger (W17) 20

@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Winged Stallion
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WingedStallion_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Conversion (3ED) 14
+2 Counterspell (3ED) 54
+2 Dancing Scimitar (ARN) 61
+1 Disenchant (3ED) 17
+3 Holy Armor (3ED) 23
+3 Holy Strength (3ED) 24
+3 Howling Mine (3ED) 251
+4 Island (3ED) 295
+4 Island (3ED) 296
+4 Island (3ED) 297
+3 Island Sanctuary (3ED) 25
+2 Karma (3ED) 26
+2 Lifetap (3ED) 63
+4 Magical Hack (3ED) 65
+4 Mesa Pegasus (3ED) 28
+2 Phantasmal Forces (3ED) 69
+4 Plains (3ED) 292
+4 Plains (3ED) 293
+4 Plains (3ED) 294
+4 Psionic Entity (LEG) 67
+2 Segovian Leviathan (LEG) 76
+2 Serra Angel (3ED) 40
+SB: 2 Conversion (3ED) 14
+SB: 2 Counterspell (3ED) 54

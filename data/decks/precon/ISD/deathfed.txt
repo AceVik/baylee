@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Deathfed
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Deathfed_ISD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: ISD
+# released: 2011-10-28
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Acidic Slime (M12) 161
+4 Armored Skaab (ISD) 43
+1 Birds of Paradise (M12) 165
+2 Bonehoard (MBS) 100
+4 Boneyard Wurm (ISD) 171
+4 Forbidden Alchemy (ISD) 55
+5 Forest (ISD) 262
+4 Forest (ISD) 263
+4 Forest (ISD) 264
+1 Gnaw to the Bone (ISD) 183
+1 Green Sun's Zenith (MBS) 81
+1 Hinterland Harbor (ISD) 241
+3 Island (ISD) 253
+2 Island (ISD) 254
+2 Island (ISD) 255
+4 Llanowar Elves (M12) 182
+2 Merfolk Looter (M12) 65
+4 Mulch (ISD) 196
+1 Ratchet Bomb (SOM) 196
+2 Spider Spawning (ISD) 203
+1 Splinterfright (ISD) 205
+1 Swamp (ISD) 256
+1 Swamp (ISD) 257
+1 Swamp (ISD) 258
+3 Viridian Emissary (MBS) 95
+SB: 4 Flashfreeze (M12) 52
+SB: 2 Gnaw to the Bone (ISD) 183
+SB: 2 Mind Control (M12) 67
+SB: 3 Naturalize (ISD) 197
+SB: 4 Negate (M12) 69

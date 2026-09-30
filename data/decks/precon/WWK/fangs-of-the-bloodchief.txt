@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Fangs of the Bloodchief
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FangsOfTheBloodchief_WWK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: WWK
+# released: 2010-02-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Anowon, the Ruin Sage (WWK) 49
+1 Bloodhusk Ritualist (WWK) 50
+1 Brink of Disaster (WWK) 52
+1 Butcher of Malakir (WWK) 53 *F*
+2 Child of Night (M10) 88
+1 Consume Spirit (M10) 89
+1 Dead Reckoning (WWK) 56
+1 Diabolic Tutor (M10) 91
+1 Feast of Blood (ZEN) 88
+1 Hideous End (ZEN) 98
+1 Jagwasp Swarm (WWK) 58
+2 Mire's Toll (WWK) 60
+2 Piranha Marsh (ZEN) 222
+2 Pulse Tracker (WWK) 62
+1 Rise from the Grave (M10) 109
+2 Ruthless Cullblade (WWK) 65
+4 Swamp (ZEN) 238a
+4 Swamp (ZEN) 239a
+4 Swamp (ZEN) 240a
+4 Swamp (ZEN) 241a
+1 Urge to Feed (WWK) 70
+1 Vampire Aristocrat (M10) 117
+1 Vampire Nighthawk (ZEN) 116
+1 Zombie Goliath (M10) 123

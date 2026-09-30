@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Mercenaries - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MercenariesEnhancedDeck_NEM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: NEM
+# released: 2000-02-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Cateran Brute (MMQ) 120
+1 Cateran Enforcer (MMQ) 121
+1 Cateran Kidnappers (MMQ) 122
+2 Cateran Persuader (MMQ) 124
+3 Cateran Summons (MMQ) 126
+1 Contamination (USG) 123
+4 Dark Ritual (MMQ) 129
+2 Duress (USG) 132
+1 Highway Robber (MMQ) 139
+2 Phyrexian Driver (NEM) 64
+2 Polluted Mire (USG) 323
+1 Primeval Shambler (MMQ) 152
+2 Rathi Fiend (NEM) 68
+2 Seal of Doom (NEM) 70
+2 Silent Assassin (MMQ) 160
+4 Spineless Thug (NEM) 71
+2 Strongarm Thug (MMQ) 165
+5 Swamp (MMQ) 339
+5 Swamp (MMQ) 340
+5 Swamp (MMQ) 341
+5 Swamp (MMQ) 342
+2 Vicious Hunger (NEM) 74
+2 Yawgmoth's Will (USG) 171

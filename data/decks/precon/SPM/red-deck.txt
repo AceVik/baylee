@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Red Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeck_SPM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: SPM
+# released: 2025-09-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Angry Rabble (SPM) 75
+1 Double Trouble (SPE) 13
+1 Electro's Bolt (SPM) 77
+1 Ghost-Spider, Gwen Stacy (SPE) 14
+1 Masked Meower (SPM) 82
+1 Mountain (SPM) 192
+11 Mountain (SPM) 197
+2 Rampaging Classmate (SPE) 16
+1 Romantic Rendezvous (SPM) 86
+2 Shock (SPM) 88
+1 Shocker, Unshakable (SPM) 89
+1 Spider-Bot (SPM) 173
+1 Spider-Gwen, Free Spirit (SPM) 90
+1 Spider-Islanders (SPM) 91
+1 Stegron the Dinosaur Man (SPM) 95
+1 Taxi Driver (SPM) 97
+1 The Mary Janes (SPE) 15

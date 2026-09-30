@@ -1,0 +1,50 @@
+# baylee deck export v1
+# name: New Phyrexia
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, NewPhyrexia_TD2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Duel Deck
+# set: TD2
+# released: 2013-01-11
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Barter in Blood (TD2) 76
+1 Black Sun's Zenith (TD2) 81
+1 Contagion Clasp (TD2) 67
+1 Desecration Elemental (TD2) 57
+1 Diabolic Servitude (TD2) 75
+1 Drooling Groodion (TD2) 64
+1 Exhume (TD2) 70
+1 Flesh-Eater Imp (TD2) 58
+4 Forest (TD2) 86
+3 Forest (TD2) 87
+3 Forest (TD2) 88
+1 Fume Spitter (TD2) 49
+1 Grafted Exoskeleton (TD2) 74
+1 Innocent Blood (TD2) 66
+1 Mitotic Slime (TD2) 61
+1 Morbid Plunder (TD2) 72
+1 Mortarpod (TD2) 68
+1 Myr Sire (TD2) 50
+1 Necroskitter (TD2) 55
+1 One Dozen Eyes (TD2) 80
+1 Phyrexian Altar (TD2) 71
+1 Phyrexian Ghoul (TD2) 53
+1 Phyrexian Juggernaut (TD2) 63
+1 Phyrexian Plaguelord (TD2) 48
+1 Plague Myr (TD2) 51
+1 Plaguemaw Beast (TD2) 62
+1 Protean Hulk (TD2) 65
+1 Putrefy (TD2) 73
+1 Reprocess (TD2) 77
+1 Rot Wolf (TD2) 54
+1 Soul Snuffers (TD2) 60
+1 Spawning Pit (TD2) 69
+1 Spread the Sickness (TD2) 79
+5 Swamp (TD2) 83
+5 Swamp (TD2) 84
+4 Swamp (TD2) 85
+1 Symbiotic Elf (TD2) 59
+1 Tainted Wood (TD2) 82
+1 Triumph of the Hordes (TD2) 78
+1 Viridian Corrupter (TD2) 56
+2 Viridian Emissary (TD2) 52

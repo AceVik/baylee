@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Deadly Instinct
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeadlyInstinct_S99.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: S99
+# released: 1999-07-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ancient Craving (S99) 64
+2 Chorus of Woe (S99) 68
+1 Dakmor Lancer (S99) 71
+1 Dakmor Plague (S99) 72
+2 Dakmor Scorpion (S99) 73
+2 Feral Shadow (S99) 77
+2 Gravedigger (S99) 78
+3 Hand of Death (S99) 80
+2 Hollow Dogs (S99) 81
+2 Mind Rot (S99) 83
+2 Ravenous Rats (S99) 86
+2 Serpent Warrior (S99) 88
+1 Soul Feast (S99) 90
+5 Swamp (S99) 162
+4 Swamp (S99) 163
+4 Swamp (S99) 164
+4 Swamp (S99) 165

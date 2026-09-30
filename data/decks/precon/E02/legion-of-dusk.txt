@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Legion of Dusk
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LegionOfDusk_E02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: E02
+# released: 2017-11-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Anointed Deacon (XLN) 89
+1 Beacon of Immortality (E02) 1
+1 Bishop of the Bloodstained (XLN) 91
+2 Bloodbond Vampire (E02) 15
+1 Bloodcrazed Paladin (XLN) 93
+2 Child of Night (E02) 16
+1 Day of Judgment (E02) 2
+1 Deathless Ancient (XLN) 100
+1 Duskborne Skymarcher (XLN) 9
+2 Mortify (E02) 40
+1 Necropolis Regent (E02) 20
+2 Paladin of the Bloodstained (XLN) 25
+3 Plains (XLN) 260
+2 Plains (XLN) 261
+2 Plains (XLN) 262
+2 Plains (XLN) 263
+2 Prismatic Lens (E02) 43
+2 Queen's Bay Soldier (XLN) 115
+1 Shielded by Faith (E02) 4
+2 Skymarch Bloodletter (XLN) 124
+4 Swamp (XLN) 268
+3 Swamp (XLN) 269
+3 Swamp (XLN) 270
+3 Swamp (XLN) 271
+4 Tainted Field (E02) 47
+1 Urge to Feed (E02) 21
+2 Vampire Interloper (E02) 22
+1 Vampire Nighthawk (E02) 23
+2 Vampire Noble (E02) 24
+1 Vanquisher's Banner (XLN) 251
+2 Veteran's Reflexes (E02) 5
+1 Vow of Duty (E02) 6
+1 Zealous Persecution (E02) 41

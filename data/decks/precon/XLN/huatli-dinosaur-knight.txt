@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Huatli, Dinosaur Knight
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, HuatliDinosaurKnight_XLN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: XLN
+# released: 2017-09-29
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Bonded Horncrest (XLN) 133
+1 Burning Sun's Avatar (XLN) 135
+2 Frenzied Raptor (XLN) 146
+1 Goring Ceratops (XLN) 13
+4 Huatli's Snubhorn (XLN) 286
+3 Huatli's Spurring (XLN) 287
+1 Huatli, Dinosaur Knight (XLN) 285 *F*
+2 Kinjalli's Caller (XLN) 18
+2 Lightning Strike (XLN) 149
+3 Mountain (XLN) 272
+3 Mountain (XLN) 273
+3 Mountain (XLN) 274
+2 Mountain (XLN) 275
+3 Plains (XLN) 260
+3 Plains (XLN) 261
+3 Plains (XLN) 262
+2 Plains (XLN) 263
+2 Pterodon Knight (XLN) 28
+2 Rallying Roar (XLN) 30
+2 Raptor Companion (XLN) 31
+2 Shining Aerosaur (XLN) 36
+2 Slash of Talons (XLN) 38
+4 Stone Quarry (XLN) 289
+2 Sun-Blessed Mount (XLN) 288
+2 Territorial Hammerskull (XLN) 41
+2 Tilonalli's Knight (XLN) 169

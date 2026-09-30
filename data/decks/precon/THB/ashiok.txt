@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Ashiok
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Ashiok_THB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: THB
+# released: 2020-01-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ashiok's Forerunner (THB) 277
+1 Ashiok, Sculptor of Fears (THB) 274 *F*
+2 Devourer of Memory (THB) 213
+2 Elite Instructor (THB) 49
+2 Final Death (THB) 95
+2 Funeral Rites (THB) 97
+2 Glimpse of Freedom (THB) 50
+1 Gravebreaker Lamia (THB) 98
+6 Island (THB) 280
+5 Island (THB) 281
+4 Mindwrack Harpy (THB) 276
+2 Mire's Grasp (THB) 106
+2 Pharika's Spawn (THB) 112
+3 Sleep of the Dead (THB) 66
+6 Swamp (THB) 282
+6 Swamp (THB) 283
+3 Swimmer in Nightmares (THB) 275
+3 Towering-Wave Mystic (THB) 77
+1 Tymaret, Chosen from Death (THB) 119
+3 Underworld Charger (THB) 120
+2 Unknown Shores (THB) 249

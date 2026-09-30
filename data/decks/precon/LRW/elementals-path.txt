@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Elementals' Path
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ElementalsPath_LRW.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: LRW
+# released: 2007-10-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aethersnipe (LRW) 50
+1 Briarhorn (LRW) 199
+2 Ceaseless Searblades (LRW) 158
+2 Changeling Berserker (LRW) 160
+1 Changeling Titan (LRW) 200
+3 Consuming Bonfire (LRW) 161
+1 Dawnfluke (LRW) 12
+1 Faultgrinder (LRW) 163
+1 Flamekin Bladewhirl (LRW) 165
+2 Flamekin Brawler (LRW) 166
+2 Flamekin Harbinger (LRW) 167
+1 Forest (LRW) 298
+1 Horde of Notions (LRW) 249
+1 Incandescent Soulstoke (LRW) 178
+1 Inner-Flame Acolyte (LRW) 181
+2 Inner-Flame Igniter (LRW) 182
+1 Island (LRW) 286
+1 Island (LRW) 287
+3 Mountain (LRW) 294
+3 Mountain (LRW) 295
+3 Mountain (LRW) 296
+3 Mountain (LRW) 297
+2 Mournwhelk (LRW) 127
+1 Mulldrifter (LRW) 76
+1 Plains (LRW) 282
+2 Shimmering Grotto (LRW) 273
+1 Shriekmaw (LRW) 139
+3 Smokebraider (LRW) 189
+3 Soulbright Flamekin (LRW) 190
+2 Springleaf Drum (LRW) 261
+1 Swamp (LRW) 290
+1 Swamp (LRW) 291
+1 Vivid Crag (LRW) 275
+3 Wanderer's Twig (LRW) 265
+1 Wispmare (LRW) 48

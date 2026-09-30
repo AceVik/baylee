@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Battle Blitz
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BattleBlitz_EVE.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: EVE
+# released: 2008-07-25
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Balefire Liege (EVE) 132
+2 Ballynock Cohort (SHM) 3
+2 Ballynock Trapper (EVE) 2
+2 Battlegate Mimic (EVE) 133
+2 Belligerent Hatchling (EVE) 134
+2 Duergar Assailant (EVE) 136
+3 Duergar Mine-Captain (EVE) 138
+1 Hatchet Bully (EVE) 54
+1 Hateflayer (EVE) 55
+3 Hearthfire Hobgoblin (EVE) 141
+2 Kithkin Spellduster (EVE) 8
+4 Mountain (SHM) 294
+3 Mountain (SHM) 295
+3 Mountain (SHM) 296
+3 Mountain (SHM) 297
+2 Niveous Wisps (SHM) 15
+2 Outrage Shaman (EVE) 59
+1 Patrol Signaler (EVE) 12
+3 Plains (SHM) 282
+3 Plains (SHM) 283
+3 Plains (SHM) 284
+2 Plains (SHM) 285
+2 Power of Fire (SHM) 101
+2 Puncture Blast (EVE) 60
+2 Puncture Bolt (SHM) 102
+1 Revelsong Horn (SHM) 261
+1 Safehold Sentry (SHM) 22
+2 Scourge of the Nobilis (EVE) 146

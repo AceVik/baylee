@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Fate
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Fate_M15.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Clash Pack
+# set: M15
+# released: 2014-07-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aetherspouts (M15) 44
+1 Curse of the Swine (THS) 46
+2 Divination (M15) 52
+2 Forest (M15) 266
+2 Forest (M15) 267
+2 Forest (M15) 268
+1 Forest (M15) 269
+2 Frost Lynx (M15) 55
+2 Griptide (THS) 50
+3 Horizon Chimera (THS) 194
+1 Hypnotic Siren (JOU) 42
+5 Island (M15) 254
+4 Island (M15) 255
+4 Island (M15) 256
+4 Island (M15) 257
+2 Jace's Ingenuity (M15) 63
+3 Kiora's Follower (BNG) 150
+2 Leafcrown Dryad (THS) 161
+2 Negate (M15) 71
+2 Nimbus Naiad (THS) 56
+2 Omenspeaker (THS) 57
+2 Pin to the Earth (JOU) 45
+1 Prognostic Sphinx (CP1) 1 *F*
+1 Prophet of Kruphix (CP1) 5 *F*
+1 Temple of Mystery (CP1) 6 *F*
+2 Thassa's Emissary (THS) 68
+3 Vaporkin (THS) 72
+1 Voyage's End (THS) 73

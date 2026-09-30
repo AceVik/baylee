@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Bound by Strength
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BoundByStrength_AVR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: AVR
+# released: 2012-05-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Acidic Slime (M12) 161
+1 Deadeye Navigator (AVR) 47
+2 Druid's Familiar (AVR) 175
+2 Elgaud Shieldmate (AVR) 50
+2 Flowering Lumberknot (AVR) 178
+5 Forest (AVR) 242
+4 Forest (AVR) 243
+4 Forest (AVR) 244
+1 Geist Trappers (AVR) 179
+1 Ice Cage (M12) 57
+4 Island (AVR) 233
+4 Island (AVR) 234
+4 Island (AVR) 235
+2 Joint Assault (AVR) 183
+2 Lair Delve (AVR) 184
+2 Latch Seeker (AVR) 63
+2 Llanowar Elves (M12) 182
+1 Nephalia Smuggler (AVR) 69
+2 Nightshade Peddler (AVR) 187
+1 Overrun (M12) 186
+1 Pathbreaker Wurm (AVR) 188
+1 Runeclaw Bear (M12) 193
+2 Tandem Lookout (AVR) 80
+3 Trusted Forcemage (AVR) 199
+2 Vorstclaw (AVR) 201
+2 Wingcrafter (AVR) 83
+1 Wolfir Avenger (AVR) 205
+1 Wolfir Silverheart (AVR) 206 *F*

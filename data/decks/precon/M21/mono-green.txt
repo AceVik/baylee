@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Mono Green
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MonoGreen_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Kit
+# set: M21
+# released: 2020-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Almighty Brushwagg (IKO) 143
+3 Bristling Boar (IKO) 146
+2 Colossal Dreadmaw (M21) 176
+1 Colossification (IKO) 148
+9 Forest (M21) 272
+9 Forest (M21) 273
+9 Forest (M21) 274
+2 Honey Mammoth (IKO) 158
+2 Humble Naturalist (IKO) 160
+3 Hyrax Tower Scout (THB) 173
+1 Ironscale Hydra (THB) 296
+3 Llanowar Visionary (M21) 193
+2 Plummet (THB) 194
+3 Ram Through (IKO) 170
+2 Snarespinner (M21) 207
+4 Titanic Growth (M21) 210
+1 Treeshaker Chimera (THB) 297
+1 Yorvo, Lord of Garenbrig (ELD) 185
+SB: 1 Kogla, the Titan Ape (IKO) 162 *F*

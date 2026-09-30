@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Battalion
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Battalion_MOR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: MOR
+# released: 2008-02-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ballyrush Banneret (MOR) 1
+2 Burrenton Bombardier (MOR) 3
+1 Burrenton Shield-Bearers (MOR) 4
+3 Cenn's Tactician (MOR) 5
+1 Disperse (MOR) 31
+1 Ego Erasure (LRW) 59
+2 Fencer Clique (MOR) 33
+2 Inkfathom Divers (LRW) 70
+3 Island (LRW) 286
+2 Island (LRW) 287
+2 Island (LRW) 288
+2 Island (LRW) 289
+2 Kinsbaile Skirmisher (LRW) 24
+3 Kithkin Zephyrnaut (MOR) 16
+1 Mosquito Guard (MOR) 18
+2 Mothdust Changeling (MOR) 42
+2 Oblivion Ring (LRW) 34
+3 Plains (LRW) 282
+3 Plains (LRW) 283
+3 Plains (LRW) 284
+3 Plains (LRW) 285
+1 Preeminent Captain (MOR) 20
+1 Redeem the Lost (MOR) 21
+1 Reveillark (MOR) 22
+2 Sentinels of Glen Elendra (LRW) 84
+2 Swell of Courage (MOR) 26
+1 Turtleshell Changeling (LRW) 94
+1 Veteran of the Depths (LRW) 46
+2 Veteran's Armaments (MOR) 146
+1 Vivid Creek (LRW) 276
+1 Vivid Meadow (LRW) 279
+1 Wanderer's Twig (LRW) 265
+1 Weight of Conscience (MOR) 28

@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Preconstructed deck 2
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PreconstructedDeck2_POR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: POR
+# released: 1997-05-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Cloak of Feathers (POR) 44
+1 Command of Unsummoning (POR) 48
+1 Coral Eel (POR) 49
+1 Craven Knight (POR) 85
+1 Elite Cat Warrior (POR) 163†
+1 Feral Shadow (POR) 93
+1 Forest (POR) 212
+1 Forest (POR) 213
+1 Forest (POR) 214
+1 Gravedigger (POR) 95
+1 Hand of Death (POR) 96†
+1 Ingenious Thief (POR) 58
+2 Island (POR) 200
+2 Island (POR) 201
+1 Island (POR) 202
+1 Island (POR) 203
+1 Mind Rot (POR) 101
+1 Monstrous Growth (POR) 173†
+1 Muck Rats (POR) 102
+1 Panther Warriors (POR) 180
+1 Rowan Treefolk (POR) 184
+1 Skeletal Crocodile (POR) 110
+1 Snapping Drake (POR) 67
+1 Storm Crow (POR) 69
+2 Swamp (POR) 204
+2 Swamp (POR) 205
+1 Swamp (POR) 206
+1 Swamp (POR) 207
+1 Time Ebb (POR) 75
+1 Touch of Brilliance (POR) 76
+1 Vampiric Touch (POR) 115

@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Beyond The Grave
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BeyondTheGrave_CSP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: CSP
+# released: 2006-07-21
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ashen Ghoul (CST) 114
+2 Balduvian Dead (CST) 43
+2 Barbed Sextant (CST) 312
+2 Casting of Bones (CST) 44b
+1 Coldsteel Heart (CSP) 136
+2 Dark Banishing (CST) 119
+1 Dark Ritual (CST) 120
+2 Death Spark (CST) 70
+1 Deepfire Elemental (CSP) 127
+2 Disciple of Tevesh Szat (CSP) 55
+1 Forest (CST) 381
+1 Forest (CST) 382
+1 Forest (CST) 383
+3 Grim Harvest (CSP) 58
+2 Gristle Grinner (CSP) 59
+3 Gutless Ghoul (CSP) 60
+2 Insidious Bookworms (CST) 51a
+1 Kjeldoran Dead (CST) 137
+2 Krovikan Rot (CSP) 63
+3 Mountain (CST) 378
+3 Mountain (CST) 379
+3 Mountain (CST) 380
+2 Orcish Bloodpainter (CSP) 94
+1 Orcish Healer (CST) 208
+1 Sek'Kuar, Deathkeeper (CSP) 131
+1 Skull Catapult (CST) 336
+1 Soul Burn (CST) 161
+4 Swamp (CST) 375
+4 Swamp (CST) 376
+4 Swamp (CST) 377
+1 Void Maw (CSP) 74

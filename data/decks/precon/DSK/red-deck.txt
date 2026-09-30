@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Red Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeck_DSK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: DSK
+# released: 2024-09-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Antagonize (PLST) SNC-100
+1 Chandra's Magmutt (PLST) M21-303
+1 Demanding Dragon (PLST) AFC-120
+1 Dragon Mantle (PLST) CMR-174
+1 Dragon Whelp (PLST) DMR-116
+1 Flame Spill (PLST) IKO-117
+2 Goblin Trailblazer (PLST) CMR-182
+1 Kolaghan Warmonger (PLST) MAT-67
+1 Lava Coil (PLST) GRN-108
+4 Mountain (PLST) LCI-400
+5 Mountain (PLST) WOE-273
+4 Mountain (PLST) WOE-274
+1 Mugging (PLST) GTC-102
+1 Onakke Ogre (PLST) M19-153
+2 Scorch Spitter (PLST) M20-159
+1 Subira, Tulzidi Caravanner (PLST) M21-162
+1 Volcanic Dragon (PLST) M20-336
+1 Voldaren Duelist (PLST) SOI-191

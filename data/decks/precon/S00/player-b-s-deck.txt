@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Player B's deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PlayerBSDeck_S00.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: S00
+# released: 2000-04-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angelic Blessing (S00) 1
+1 Breath of Life (S00) 3
+2 Eager Cadet (S00) 5
+1 Giant Octopus (S00) 14
+1 Island (6ED) 335
+1 Island (6ED) 336
+1 Island (6ED) 337
+1 Island (6ED) 338
+1 Knight Errant (S00) 7
+1 Merfolk of the Pearl Trident (6ED) 82
+2 Plains (6ED) 331
+1 Plains (6ED) 332
+1 Plains (6ED) 333
+1 Plains (6ED) 334
+1 Royal Falcon (S00) 8
+1 Sea Eagle (S00) 18
+1 Time Ebb (S00) 19
+1 Vizzerdrix (S00) 20
+1 Wild Griffin (S00) 11
+1 Wind Drake (6ED) 106

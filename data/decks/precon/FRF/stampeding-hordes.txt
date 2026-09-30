@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Stampeding Hordes
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, StampedingHordes_FRF.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: FRF
+# released: 2015-01-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Act of Treason (KTK) 95
+1 Bathe in Dragonfire (FRF) 92
+1 Collateral Damage (FRF) 95
+1 Deflecting Palm (KTK) 173
+1 Dragonrage (FRF) 97
+2 Firehoof Cavalry (KTK) 11
+1 Flamerush Rider (PFRF) 99 *F*
+1 Geist of the Moors (M15) 13
+2 Goblin Heelcutter (FRF) 102
+2 Goblin Roughrider (M15) 146
+2 Heat Ray (M15) 148
+2 Highspire Mantis (KTK) 177
+2 Leaping Master (KTK) 114
+2 Mardu Scout (FRF) 108
+7 Mountain (FRF) 182
+6 Mountain (FRF) 183
+5 Plains (FRF) 176
+4 Plains (FRF) 177
+1 Pyrotechnics (FRF) 111
+1 Razorfoot Griffin (M15) 27
+1 Ride Down (KTK) 194
+2 Sandsteppe Outcast (FRF) 25
+1 Thundering Giant (M15) 165
+2 Valley Dasher (KTK) 125
+2 Vaultbreaker (FRF) 117
+2 Wandering Champion (FRF) 29
+2 War Flare (FRF) 158
+3 Wind-Scarred Crag (FRF) 175

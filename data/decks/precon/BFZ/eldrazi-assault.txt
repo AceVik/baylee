@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Eldrazi Assault
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EldraziAssault_BFZ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: BFZ
+# released: 2015-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Barrage Tyrant (PBFZ) 127 *F*
+1 Blighted Fen (BFZ) 230
+1 Complete Disregard (BFZ) 90
+3 Culling Drone (BFZ) 91
+2 Dominator Drone (BFZ) 92
+2 Evolving Wilds (BFZ) 236
+2 Forerunner of Slaughter (BFZ) 204
+1 Grip of Desolation (BFZ) 94
+2 Kozilek's Sentinel (BFZ) 129
+2 Looming Spires (BFZ) 238
+2 Mind Raker (BFZ) 95
+2 Molten Nursery (BFZ) 130
+2 Mountain (BFZ) 265a
+2 Mountain (BFZ) 266a
+2 Mountain (BFZ) 267a
+2 Mountain (BFZ) 268a
+2 Mountain (BFZ) 269a
+2 Nettle Drone (BFZ) 131
+2 Processor Assault (BFZ) 132
+1 Serpentine Spike (BFZ) 133
+1 Silent Skimmer (BFZ) 96
+2 Sludge Crawler (BFZ) 98
+2 Swamp (BFZ) 260a
+2 Swamp (BFZ) 261a
+2 Swamp (BFZ) 262a
+2 Swamp (BFZ) 263a
+2 Swamp (BFZ) 264a
+2 Swarm Surge (BFZ) 100
+2 Touch of the Void (BFZ) 134
+2 Transgress the Mind (BFZ) 101
+3 Vestige of Emrakul (BFZ) 136
+2 Vile Aggregate (BFZ) 137

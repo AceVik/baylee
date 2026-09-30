@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Blazing Beasts of Myth
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlazingBeastsOfMyth_THS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: THS
+# released: 2013-09-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Artisan's Sorrow (THS) 151
+2 Borderland Minotaur (THS) 114
+1 Destructive Revelry (THS) 192
+1 Dragon Mantle (THS) 119
+1 Ember Swallower (THS) 120 *F*
+3 Forest (THS) 246
+3 Forest (THS) 247
+3 Forest (THS) 248
+2 Forest (THS) 249
+1 Ill-Tempered Cyclops (THS) 125
+2 Lightning Strike (THS) 127
+2 Magma Jet (THS) 128
+2 Minotaur Skullcleaver (THS) 130
+4 Mountain (THS) 242
+4 Mountain (THS) 243
+3 Mountain (THS) 244
+3 Mountain (THS) 245
+2 Nemesis of Mortals (THS) 163
+2 Nessian Asp (THS) 164
+1 Nessian Courser (THS) 165
+1 Polis Crusher (THS) 198
+1 Portent of Betrayal (THS) 133
+2 Rage of Purphoros (THS) 137
+1 Rootwalla (M14) 192
+2 Satyr Hedonist (THS) 174
+1 Satyr Piper (THS) 175
+2 Satyr Rambler (THS) 139
+2 Stoneshock Giant (THS) 142
+2 Volcanic Geyser (M14) 160
+2 Voyaging Satyr (THS) 182
+1 Windstorm (M14) 201

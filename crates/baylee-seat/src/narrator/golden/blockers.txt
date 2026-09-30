@@ -1,0 +1,41 @@
+DECISION q12 · turn 7, P2's turn · declare blockers step · answer within 25 s (table clock 88 s)
+
+You (P1): 17 life · library 45 · hand 4 · graveyard 1 · pool empty
+P2 (opponent): 14 life · library 44 · hand 3 · graveyard 1 · pool empty
+
+Your battlefield:
+  lands: Forest #21, Forest #22, Mountain #23
+  #30 Llanowar Elves · Creature — Elf Druid · 1/1
+  #31 Prodigal Sorcerer · Creature — Human Wizard Sorcerer · 1/1
+P2's battlefield:
+  lands: Plains #40, Plains #41 (tapped), Island #42
+  #45 Serra Angel · Creature — Angel · 4/4 · flying, vigilance · attacking you
+  #46 face-down card · Creature · 2/2
+Stack: empty
+Your hand:
+  #50 Lightning Bolt {R} · Instant
+  #51 Giant Growth {G} · Instant
+  #52 Mountain · Basic Land — Mountain
+  #53 Rampant Growth {1}{G} · Sorcery
+Your graveyard (1): Shock #60
+P2's graveyard (1): Counterspell #61
+Combat:
+  Serra Angel #45 attacks you
+
+New cards (full text once; later by name):
+  Plains · Basic Land — Plains
+    ({T}: Add {W}.)
+  Island · Basic Land — Island
+    ({T}: Add {U}.)
+  Serra Angel {3}{W}{W} · Creature — Angel · 4/4
+    Flying
+    Vigilance (Attacking doesn't cause this creature to tap.)
+  Counterspell {U}{U} · Instant
+    Counter target spell.
+
+QUESTION: Declare blockers against P2's attack.
+Attacking:
+  #45 Serra Angel · Creature — Angel · 4/4 · flying, vigilance · attacking you
+Your creatures that can block, and what each may block:
+  #31 Prodigal Sorcerer 1/1 can block #45
+Answer with decide: ask="q12", blocks=[{"blocker": id, "attacker": id}, …]; blocks=[] blocks nothing. Each blocker blocks one attacker

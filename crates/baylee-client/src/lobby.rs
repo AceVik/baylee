@@ -101,7 +101,7 @@ impl Plugin for LobbyPlugin {
                     localization::update,
                     watch,
                     softkeys,
-                    keyboard,
+                    (crate::seatpanel::poll, keyboard).chain(),
                     // A press asks the clipboard or the disk; the ask is
                     // answered in the same frame.
                     (clicks, crate::buildui::transfer::act).chain(),
@@ -242,6 +242,9 @@ pub struct LobbyState {
     pub(crate) room_card_edit: Option<(u8, usize)>,
     /// Whether the settings screen is up, and what it is waiting for.
     settings: SettingsPane,
+    /// The language-model seat's panel on the settings screen, opened the
+    /// first time the screen is up (`crate::seatpanel`).
+    pub(crate) seat: crate::seatpanel::SeatDesk,
     /// Offline play, once the player has asked for it.
     ///
     /// `Some` is the whole of "this client has no gateway": every request
@@ -304,6 +307,12 @@ pub(crate) enum Hub {
 }
 
 impl LobbyState {
+    /// Whether the settings screen is up.
+    #[must_use]
+    pub(crate) fn settings_open(&self) -> bool {
+        self.settings.is_open()
+    }
+
     /// A signed-out lobby pointed at the configured gateway.
     #[must_use]
     pub fn new() -> Self {
@@ -392,6 +401,7 @@ impl LobbyState {
             room_deck_seat: None,
             room_card_edit: None,
             settings: SettingsPane::Closed,
+            seat: crate::seatpanel::SeatDesk::default(),
             offline: None,
         }
     }

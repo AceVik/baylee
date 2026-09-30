@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Crusher
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Crusher_ULG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ULG
+# released: 1999-02-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Argothian Swine (USG) 235
+1 Cradle Guard (USG) 245
+1 Crosswinds (USG) 246
+1 Defense of the Heart (ULG) 100
+2 Disenchant (USG) 12
+3 Drifting Meadow (USG) 320
+1 Elvish Herder (USG) 247
+1 Erase (ULG) 7
+5 Forest (USG) 347
+4 Forest (USG) 348
+4 Forest (USG) 349
+4 Forest (USG) 350
+1 Gaea's Bounty (USG) 254
+1 Gaea's Embrace (USG) 255
+1 Gang of Elk (ULG) 102
+2 Humble (USG) 18
+1 Lone Wolf (ULG) 105
+2 Mother of Runes (ULG) 14
+2 Pacifism (USG) 27
+1 Plains (USG) 331
+1 Plains (USG) 332
+1 Plains (USG) 333
+1 Plains (USG) 334
+1 Radiant's Judgment (ULG) 22
+1 Rancor (ULG) 110
+1 Silk Net (ULG) 112
+3 Simian Grunts (ULG) 113
+1 Symbiosis (USG) 275
+1 Ticking Gnomes (ULG) 136
+1 Treetop Village (ULG) 143
+1 Weatherseed Treefolk (ULG) 116
+1 Wing Snare (ULG) 117
+2 Yavimaya Granger (ULG) 118
+2 Yavimaya Scion (ULG) 119
+3 Yavimaya Wurm (ULG) 120

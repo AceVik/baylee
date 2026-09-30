@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Death's Beginning
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeathSBeginning_BNG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: BNG
+# released: 2014-02-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Archetype of Finality (BNG) 58
+2 Asphyxiate (BNG) 60
+2 Commune with the Gods (THS) 155
+1 Cutthroat Maneuver (THS) 82
+1 Eater of Hope (BNG) 66 *F*
+2 Felhide Brawler (BNG) 70
+1 Felhide Minotaur (THS) 87
+3 Forest (THS) 246
+3 Forest (THS) 247
+3 Forest (THS) 248
+2 Forest (THS) 249
+2 Forsaken Drifters (BNG) 72
+2 Graverobber Spider (BNG) 122
+1 Keepsake Gorgon (THS) 93
+1 Loathsome Catoblepas (THS) 95
+1 March of the Returned (THS) 96
+2 Mortal's Resolve (BNG) 127
+2 Nemesis of Mortals (THS) 163
+1 Nighthowler (THS) 98
+1 Pharika's Mender (THS) 197
+1 Pheres-Band Centaurs (THS) 171
+1 Raised by Wolves (BNG) 135
+1 Rescue from the Underworld (THS) 102
+2 Returned Centaur (THS) 103
+1 Satyr Piper (THS) 175
+2 Satyr Wayfinder (BNG) 136
+4 Swamp (THS) 238
+4 Swamp (THS) 239
+4 Swamp (THS) 240
+3 Swamp (THS) 241
+1 Unravel the Aether (BNG) 143
+2 Weight of the Underworld (BNG) 86

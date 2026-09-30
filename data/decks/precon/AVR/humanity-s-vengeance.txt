@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Humanity's Vengeance
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, HumanitySVengeance_AVR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: AVR
+# released: 2012-05-25
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blade Splicer (NPH) 4
+2 Dismember (NPH) 57
+1 Divine Deflection (AVR) 18
+4 Fiend Hunter (ISD) 15
+4 Gideon's Lawkeeper (M12) 18
+2 Glacial Fortress (M12) 227
+3 Island (AVR) 233
+3 Island (AVR) 234
+3 Island (AVR) 235
+2 Mental Misstep (NPH) 38
+1 Mirran Crusader (MBS) 14
+1 Moorland Haunt (ISD) 244
+3 Nearheath Pilgrim (AVR) 31
+2 Nephalia Smuggler (AVR) 69
+3 Oblivion Ring (M12) 27
+1 Phyrexian Metamorph (NPH) 42
+4 Plains (AVR) 230
+4 Plains (AVR) 231
+4 Plains (AVR) 232
+4 Porcelain Legionnaire (NPH) 19
+3 Righteous Blow (AVR) 34
+3 Tandem Lookout (AVR) 80
+2 Wingcrafter (AVR) 83
+SB: 3 Cathedral Sanctifier (AVR) 11
+SB: 2 Cloudshift (AVR) 12
+SB: 2 Inquisitor Exarch (NPH) 12
+SB: 4 Mana Leak (M12) 63
+SB: 3 Negate (M12) 69
+SB: 1 Pacifism (M12) 28

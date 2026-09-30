@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Blue Deck A
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlueDeckA_M11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M11
+# released: 2010-07-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Diminish (M11) 52
+1 Guard Gomazoa (ROE) 70
+1 Harbor Serpent (M11) 56
+1 Hedron Crab (ZEN) 47
+3 Island (M11) 234
+3 Island (M11) 235
+3 Island (M11) 236
+3 Island (M11) 237
+1 Jace's Erasure (M11) 59
+1 Jace's Ingenuity (M11) 60
+1 Merfolk Observer (ROE) 76
+2 Negate (M11) 68
+2 Paralyzing Grasp (ZEN) 58
+2 Preordain (M11) 70
+1 Reckless Scholar (ZEN) 60
+2 Sea Gate Oracle (ROE) 85
+1 Tome Scour (M11) 76
+1 Wall of Frost (M11) 79

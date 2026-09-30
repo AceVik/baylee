@@ -1,0 +1,45 @@
+# baylee deck export v1
+# name: Barrage
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Barrage_PLS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PLS
+# released: 2001-02-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Alpha Kavu (PLS) 77
+1 Amphibious Kavu (PLS) 78
+1 Assault // Battery (INV) 295
+1 Caldera Kavu (PLS) 58
+1 Explosive Growth (INV) 187
+2 Fertile Ground (INV) 188
+1 Fires of Yavimaya (INV) 246
+2 Flametongue Kavu (PLS) 60
+3 Forest (INV) 347
+3 Forest (INV) 348
+3 Forest (INV) 349
+3 Forest (INV) 350
+1 Gaea's Herald (PLS) 80
+2 Horned Kavu (PLS) 110
+1 Implode (PLS) 62
+1 Kavu Recluse (PLS) 64
+1 Llanowar Elite (INV) 196
+1 Magma Burst (PLS) 66
+2 Mogg Jailer (PLS) 68
+1 Mogg Sentry (PLS) 69
+3 Mountain (INV) 343
+3 Mountain (INV) 344
+3 Mountain (INV) 345
+2 Mountain (INV) 346
+2 Nomadic Elf (INV) 200
+1 Root Greevil (PLS) 91
+1 Scorching Lava (INV) 164
+1 Serpentine Kavu (INV) 211
+1 Simoon (INV) 272
+1 Singe (PLS) 71
+2 Sparkcaster (PLS) 126
+1 Thornscape Apprentice (INV) 215
+3 Thornscape Familiar (PLS) 95
+1 Thunderscape Apprentice (INV) 174
+1 Thunderscape Battlemage (PLS) 75
+1 Thunderscape Familiar (PLS) 76

@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Suspended Sentence
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SuspendedSentence_FUT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: FUT
+# released: 2007-05-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Augur of Skulls (FUT) 63
+2 Clockspinning (TSP) 53
+1 Deadly Grub (PLC) 69
+1 Death Rattle (FUT) 82
+1 Deathspore Thallid (TSP) 102
+2 Dream Stalker (TSP) 58
+2 Festering March (FUT) 65
+3 Ichor Slick (FUT) 68
+4 Infiltrator il-Kor (FUT) 37
+3 Island (TSP) 286
+3 Island (TSP) 287
+2 Island (TSP) 288
+2 Island (TSP) 289
+1 Lost Hours (FUT) 69
+2 Mindstab (TSP) 119
+1 Nihilith (FUT) 72
+3 Paradox Haze (TSP) 71
+1 Phthisis (TSP) 122
+3 Reality Acid (PLC) 45
+2 Reality Strobe (FUT) 43
+1 Riftwing Cloudskate (TSP) 73
+1 Shimian Specter (FUT) 76
+3 Swamp (TSP) 290
+2 Swamp (TSP) 291
+2 Swamp (TSP) 292
+2 Swamp (TSP) 293
+3 Terramorphic Expanse (TSP) 279
+2 Timebender (PLC) 50
+1 Unblinking Bleb (FUT) 45
+2 Zoetic Cavern (FUT) 180

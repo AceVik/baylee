@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Grave Danger
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GraveDanger_TOR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TOR
+# released: 2002-02-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Afflict (ODY) 115
+3 Aquamoeba (TOR) 24
+1 Balshan Collaborator (TOR) 25
+1 Breakthrough (TOR) 26
+2 Careful Study (ODY) 70
+1 Cephalid Aristocrat (TOR) 27
+1 Cephalid Broker (ODY) 71
+1 Cephalid Illusionist (TOR) 28
+2 Cephalid Looter (ODY) 72
+1 Cephalid Vandal (TOR) 31
+2 Chainer's Edict (TOR) 57
+2 Churning Eddy (TOR) 32
+2 Compulsion (TOR) 34
+2 Crypt Creeper (ODY) 125
+1 False Memories (TOR) 37
+3 Island (ODY) 335
+3 Island (ODY) 336
+3 Island (ODY) 337
+2 Island (ODY) 338
+1 Morgue Theft (ODY) 151
+2 Obsessive Search (TOR) 43
+4 Organ Grinder (TOR) 75
+1 Painbringer (ODY) 155
+2 Psychatog (ODY) 292
+1 Skywing Aven (TOR) 47
+3 Swamp (ODY) 339
+3 Swamp (ODY) 340
+3 Swamp (ODY) 341
+2 Swamp (ODY) 342
+2 Tainted Isle (TOR) 141
+1 Zombie Assassin (ODY) 168

@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Devouring Skies
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DevouringSkies_NPH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: NPH
+# released: 2011-05-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Argentum Armor (SOM) 137
+2 Augury Owl (M11) 45
+2 Blind Zealot (NPH) 52
+2 Brass Squire (MBS) 101
+2 Copper Carapace (MBS) 102
+1 Darkslick Drake (SOM) 30
+2 Dementia Bat (NPH) 55
+1 Doom Blade (M11) 95
+3 Hovermyr (NPH) 138
+2 Impaler Shrike (NPH) 36
+7 Island (NPH) 168
+6 Island (NPH) 169
+1 Kiln Walker (NPH) 142
+2 Mortis Dogs (NPH) 66
+1 Necrogen Scudder (SOM) 71
+1 Necropouncer (NPH) 147
+1 Neurok Invisimancer (SOM) 37
+1 Phyrexian Ingester (NPH) 41 *F*
+2 Sickleslicer (NPH) 157
+1 Silver Myr (SOM) 202
+2 Spire Monitor (NPH) 46
+6 Swamp (NPH) 170
+5 Swamp (NPH) 171
+2 Vapor Snag (NPH) 48
+2 Viridian Claw (MBS) 143
+2 Warlord's Axe (M11) 220

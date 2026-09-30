@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Gleeful Flames
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GleefulFlames_DKA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: DKA
+# released: 2012-02-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Artillerize (NPH) 79
+4 Brimstone Volley (ISD) 132
+1 Curse of Stalked Prey (ISD) 136
+2 Faithless Looting (DKA) 87
+4 Forge Devil (DKA) 91
+4 Goblin Arsonist (M12) 136
+4 Goblin Fireslinger (M12) 139
+4 Goblin Gaveleer (SOM) 92
+4 Goblin Grenade (M12) 140
+3 Haunted Fengraf (DKA) 157
+1 Hellrider (DKA) 93
+3 Infiltration Lens (SOM) 167
+2 Inkmoth Nexus (MBS) 145
+6 Mountain (ISD) 259
+6 Mountain (ISD) 260
+5 Mountain (ISD) 261
+3 Torch Fiend (DKA) 106
+SB: 2 Act of Treason (M12) 121
+SB: 4 Arc Trail (SOM) 81
+SB: 1 Dismember (NPH) 57
+SB: 2 Gut Shot (NPH) 86
+SB: 3 Into the Core (MBS) 67
+SB: 3 Torpor Orb (NPH) 162

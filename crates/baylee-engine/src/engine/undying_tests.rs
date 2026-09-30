@@ -219,8 +219,9 @@ fn a_card_exiled_in_response_to_the_trigger_does_not_come_back() {
 /// This engine reuses the `ObjectId` across a zone change rather than minting
 /// a fresh one — the arena entry is moved, which is how `Blink` is written
 /// too — so "a new object" (CR 400.7) is a claim about *memory* here and not
-/// about the handle: what has to be reset is the entered-the-zone timestamp
-/// the sickness check reads, and the returned Wolf is the one permanent on
+/// about the handle: what has to be reset is the moment its controller took
+/// it (`GameObject::controlled_since`, set as it enters the zone), which the
+/// sickness check reads, and the returned Wolf is the one permanent on
 /// the board for which that could have been missed.
 ///
 /// The Elf beside it is the control: it was seated the same way, was never

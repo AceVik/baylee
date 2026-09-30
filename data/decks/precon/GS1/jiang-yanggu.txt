@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Jiang Yanggu
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, JiangYanggu_GS1.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: GS1
+# released: 2018-06-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aggressive Instinct (GS1) 34
+2 Breath of Fire (GS1) 33
+2 Cleansing Screech (GS1) 37
+2 Confidence from Strength (GS1) 35
+2 Earthshaking Si (GS1) 31
+3 Feiyi Snake (GS1) 24
+3 Ferocious Zheng (GS1) 28
+2 Fire-Omen Crane (GS1) 29
+12 Forest (GS1) 40
+2 Giant Spider (GS1) 27
+2 Hardened-Scale Armor (GS1) 32
+1 Jiang Yanggu (GS1) 22 *F*
+2 Journey for the Elixir (GS1) 36
+2 Leopard-Spotted Jiao (GS1) 23
+9 Mountain (GS1) 39
+4 Reckless Pangolin (GS1) 26
+3 Sacred White Deer (GS1) 25
+1 Screeching Phoenix (GS1) 30
+4 Timber Gorge (GS1) 38

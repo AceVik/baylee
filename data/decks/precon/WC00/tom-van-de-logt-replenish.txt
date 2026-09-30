@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Tom van de Logt - Replenish
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TomVanDeLogtReplenish_WC00.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC00
+# released: 2000-08-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Adarkar Wastes (WC00) tvdl319
+4 Attunement (WC00) tvdl61
+3 Counterspell (WC00) tvdl61b
+1 Energy Field (WC00) tvdl73
+3 Enlightened Tutor (WC00) tvdl19
+4 Frantic Search (WC00) tvdl32
+9 Island (WC00) tvdl335
+1 Mystical Tutor (WC00) tvdl83
+4 Opalescence (WC00) tvdl13
+3 Parallax Tide (WC00) tvdl37
+4 Parallax Wave (WC00) tvdl17
+8 Plains (WC00) tvdl331
+4 Replenish (WC00) tvdl15
+4 Rishadan Port (WC00) tvdl324
+1 Seal of Cleansing (WC00) tvdl18
+1 Seal of Removal (WC00) tvdl42
+1 Sky Diamond (WC00) tvdl311
+1 Wrath of God (WC00) tvdl54
+SB: 1 Chill (WC00) tvdl60sb
+SB: 1 Circle of Protection: Black (WC00) tvdl8sb
+SB: 1 Cursed Totem (WC00) tvdl278sb
+SB: 2 Daze (WC00) tvdl30sb
+SB: 3 Erase (WC00) tvdl7sb
+SB: 2 Lilting Refrain (WC00) tvdl83sb
+SB: 1 Seal of Cleansing (WC00) tvdl18sb
+SB: 2 Submerge (WC00) tvdl48sb
+SB: 2 Wrath of God (WC00) tvdl54sb

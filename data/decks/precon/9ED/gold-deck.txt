@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Gold Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GoldDeck_9ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: 9ED
+# released: 2005-08-09
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Enormous Baloth (9ED) S9
+2 Forest (9ED) 347
+2 Forest (9ED) 348
+2 Forest (9ED) 349
+1 Forest (9ED) 350
+2 Goblin Raider (9ED) S8
+2 Grizzly Bears (9ED) 246
+2 Hill Giant (9ED) 197
+2 Lava Axe (9ED) 200
+2 Mountain (9ED) 343
+2 Mountain (9ED) 344
+2 Mountain (9ED) 345
+2 Mountain (9ED) 346
+2 Norwood Ranger (9ED) 260
+1 Ogre Taskmaster (9ED) 205
+1 Rampant Growth (9ED) 263
+1 Spined Wurm (9ED) S10
+1 Stone Rain (9ED) 221
+2 Volcanic Hammer (9ED) 226

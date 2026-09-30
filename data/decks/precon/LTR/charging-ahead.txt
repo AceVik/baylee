@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Charging Ahead
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ChargingAhead_LTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: LTR
+# released: 2023-06-20
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Colossal Growth (DMU) 158
+1 Copperline Gorge (ONE) 249
+3 Cosmic Hunger (MOM) 182
+2 Dragon Whelp (DMU) 120
+3 Epic Confrontation (BRO) 176
+1 Feldon, Ronom Excavator (BRO) 135
+4 Forest (LTR) 270
+4 Forest (LTR) 271
+2 Furnace Strider (ONE) 133
+3 Ilysian Caryatid (ANB) 98
+2 Kolaghan Warmonger (MAT) 17
+1 Migloz, Maze Crusher (ONE) 210
+4 Mountain (LTR) 268
+4 Mountain (LTR) 269
+1 Ogre Battledriver (ANB) 80
+1 Rampaging Raptor (MOM) 160
+2 Ravenous Sailback (MOM) 202
+4 Rugged Highlands (MOM) 271
+1 Samut, Vizier of Naktamun (MAT) 45
+2 Shivan Branch-Burner (MOM) 165
+2 Sprouting Goblin (DMU) 145
+1 Surrak and Goreclaw (MOM) 337
+1 Tomakul Phoenix (YBRO) 11
+3 Viashino Branchrider (DMU) 150
+2 Volcanic Dragon (ANB) 88
+4 Wooded Ridgeline (DMU) 260

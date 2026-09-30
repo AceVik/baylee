@@ -2693,6 +2693,7 @@ fn copy_target_ability(
         copy.controller = you;
         copy.base_controller = you;
         copy.timestamp = timestamp;
+        copy.controlled_since = timestamp;
         copy.cache = crate::object::CachedChar::default();
         copy
     });
@@ -2756,6 +2757,7 @@ fn copy_spell(
     let id = state.arena.insert_with(|oid| {
         let mut obj = GameObject::new_bare(oid, you, ObjectKind::Spell, base);
         obj.timestamp = ts;
+        obj.controlled_since = ts;
         obj
     });
     {

@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Red Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeck_M19.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: M19
+# released: 2018-07-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Electrify (M19) 139
+1 Fiery Finish (M19) 140
+1 Fire Elemental (M19) 141
+1 Goblin Motivator (M19) 143
+2 Hostile Minotaur (M19) 147
+2 Kargan Dragonrider (M19) 297
+1 Lightning Strike (M19) 152
+4 Mountain (M19) 273
+3 Mountain (M19) 274
+3 Mountain (M19) 275
+3 Mountain (M19) 276
+2 Onakke Ogre (M19) 153
+1 Radiating Lightning (M19) 313
+1 Shivan Dragon (M19) 300
+1 Shock (M19) 156
+1 Sparktongue Dragon (M19) 159
+1 Trumpet Blast (M19) 165
+1 Volcanic Dragon (M19) 167

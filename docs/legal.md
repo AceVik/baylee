@@ -347,6 +347,38 @@ Urheber- und Medienrecht.
     Faustina notices state: “This Font Software is licensed under the SIL
     Open Font License, Version 1.1.” Those fonts remain unmodified; the
     generated logo does not bundle a new font. No policy exception is needed.
+11. **Preconstructed deck lists (MTGJSON, 30.09.2026).**
+    `data/decks/precon/` holds the card lists of Wizards' retail decks
+    (theme, intro, commander, duel decks and the rest `docs/precons.md`
+    names), written by `xtask decks-import` from MTGJSON's deck archive.
+    MTGJSON's licence page, read on 30.09.2026
+    (https://mtgjson.com/license/): “By using this website and its content
+    you agree to the following License: Copyright © 2018 – Present, Zach
+    Halpern Permission is hereby granted, free of charge, to any person
+    obtaining a copy of this software and associated documentation files
+    […] to deal in the Software without restriction, including without
+    limitation the rights to use, copy, modify, merge, publish, distribute
+    […] subject to the following conditions: The above copyright notice and
+    this permission notice shall be included in all copies or substantial
+    portions of the Software.” So the notice and the permission text are in
+    `NOTICE`, and every file's header names the source, the licence and
+    `NOTICE`.
+    What is kept is the least the lists need: a count, the ledger's card
+    name, the printing (set and collector number, language, foil) and, per
+    file, the product's name, type, set code and release date. No price,
+    image, rules text, flavour text or any other MTGJSON field is kept, and
+    the 260 MB archive is a gitignored cache (`data/mtgjson-cache/`, the
+    same footing as clause 8). The card names are Wizards' material on
+    clause 2a's footing, exactly as a card file's header is.
+    `https://mtgjson.com/robots.txt` says `Disallow: /api/v5/*.json` to
+    every agent, so neither `DeckList.json` nor any per-deck `.json` is
+    fetched: the importer downloads the one archive
+    (`AllDeckFiles.tar.gz`), which that line does not cover. Some product
+    names are people's names — the World Championship and 1996 Pro Tour
+    decks are sold under their players' names — and are kept as the product
+    titles Wizards printed; no user or author of any deck site is stored.
+    Community sources are researched, not imported (`docs/precons.md`
+    §"Community decks").
 
 
 The table UI icon map (`baylee-client-core/src/tableicons.rs`) was checked on

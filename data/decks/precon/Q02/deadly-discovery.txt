@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Deadly Discovery
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeadlyDiscovery_Q02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q02
+# released: 2019-04-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Cast Down (DOM) 81
+2 District Guide (GRN) 128
+2 Find // Finality (GRN) 225
+4 Forest (XLN) 276
+4 Forest (XLN) 277
+3 Golgari Findbroker (GRN) 175
+4 Golgari Guildgate (GRN) 248
+2 Jadelight Ranger (RIX) 136
+4 Llanowar Elves (DOM) 168
+2 Memorial to Folly (DOM) 242
+4 Merfolk Branchwalker (XLN) 197
+1 Overgrown Tomb (GRN) 253
+1 Plaguecrafter (GRN) 82
+3 Ravenous Chupacabra (RIX) 82
+4 Seekers' Squire (XLN) 121
+4 Swamp (XLN) 268
+2 Swamp (XLN) 269
+3 The Eldest Reborn (DOM) 90
+1 Vraska, Relic Seeker (XLN) 232
+4 Wildgrowth Walker (XLN) 216
+2 Woodland Cemetery (DOM) 248
+SB: 2 Arguel's Blood Fast // Temple of Aclazotz (XLN) 90
+SB: 4 Duress (M19) 94
+SB: 3 Golden Demise (RIX) 73
+SB: 2 Kraul Harpooner (GRN) 136
+SB: 2 Murder (M19) 110
+SB: 2 Reclamation Sage (M19) 196

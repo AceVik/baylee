@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: Radiant's Revenge - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RadiantSRevengeEnhancedDeck_ULG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: ULG
+# released: 1999-02-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Adarkar Wastes (5ED) 410
+1 Catalog (USG) 64
+2 Cessation (ULG) 4
+2 Clear (USG) 7
+4 Counterspell (TMP) 57
+3 Disenchant (USG) 12
+2 Dismiss (TMP) 58
+2 Dream Cache (TMP) 59
+2 Drifting Meadow (USG) 320
+1 Faerie Conclave (ULG) 139
+2 Forbidding Watchtower (ULG) 140
+1 Force Spike (5ED) 88
+1 Fountain of Youth (5ED) 372
+2 Island (USG) 335
+2 Island (USG) 336
+2 Island (USG) 337
+1 Island (USG) 338
+1 Mana Leak (STH) 36
+2 Miscalculation (ULG) 36
+2 Opportunity (ULG) 37
+1 Pacifism (USG) 27
+2 Palinchron (ULG) 38
+1 Plains (USG) 331
+1 Plains (USG) 332
+1 Plains (USG) 333
+1 Portent (5ED) 110
+1 Power Sink (USG) 89
+2 Reflecting Pool (TMP) 322
+2 Remote Isle (USG) 324
+3 Thalakos Lowlands (TMP) 328
+2 Whispers of the Muse (TMP) 103
+4 Wrath of God (5ED) 69
+SB: 1 Clear (USG) 7
+SB: 4 Dandân (5ED) 79
+SB: 1 Disenchant (USG) 12
+SB: 2 Dismiss (TMP) 58
+SB: 4 Hydroblast (5ED) 94
+SB: 1 Mana Leak (STH) 36
+SB: 2 Pacifism (USG) 27

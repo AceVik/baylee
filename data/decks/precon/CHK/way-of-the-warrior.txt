@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Way of the Warrior
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WayOfTheWarrior_CHK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: CHK
+# released: 2004-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blessed Breath (CHK) 1
+1 Bushi Tenderfoot // Kenzo the Hardhearted (CHK) 2
+2 Cage of Hands (CHK) 3
+2 Call to Glory (CHK) 4
+1 Candles' Glow (CHK) 5
+4 Devoted Retainer (CHK) 7
+1 Hold the Line (CHK) 13
+2 Indomitable Will (CHK) 17
+4 Kitsune Blademaster (CHK) 25
+3 Konda's Hatamoto (CHK) 31
+4 Mothrider Samurai (CHK) 34
+1 Nagao, Bound by Honor (CHK) 36
+2 No-Dachi (CHK) 264
+1 Otherworldly Journey (CHK) 37
+6 Plains (CHK) 287
+6 Plains (CHK) 288
+6 Plains (CHK) 289
+6 Plains (CHK) 290
+2 Reciprocate (CHK) 40
+2 Samurai Enforcers (CHK) 42
+1 Takeno, Samurai General (CHK) 46
+2 Vigilance (CHK) 49

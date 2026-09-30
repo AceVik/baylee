@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Reign of Vampirism
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ReignOfVampirism_M11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M11
+# released: 2010-07-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Barony Vampire (M11) 82
+3 Bloodthrone Vampire (M11) 85
+1 Captivating Vampire (M11) 87 *F*
+3 Child of Night (M11) 88
+2 Corrupt (M11) 89
+1 Cultivate (M11) 168
+2 Diabolic Tutor (M11) 93
+2 Doom Blade (M11) 95
+3 Forest (M11) 246
+2 Forest (M11) 247
+2 Forest (M11) 248
+2 Forest (M11) 249
+1 Giant Growth (M11) 178
+1 Giant Spider (M11) 179
+2 Howling Banshee (M11) 100
+1 Naturalize (M11) 186
+1 Nature's Spiral (M11) 187
+2 Quag Sickness (M11) 111
+2 Reassembling Skeleton (M11) 112
+2 Rise from the Grave (M11) 114
+1 Royal Assassin (M11) 116
+1 Sorcerer's Strongbox (M11) 213
+1 Spined Wurm (M11) 197
+4 Swamp (M11) 238
+4 Swamp (M11) 239
+4 Swamp (M11) 240
+4 Swamp (M11) 241
+3 Viscera Seer (M11) 120

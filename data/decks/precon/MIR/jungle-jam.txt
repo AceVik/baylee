@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Jungle Jam
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, JungleJam_MIR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: MIR
+# released: 2006-12-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Afterlife (MIR) 1
+2 Armor of Thorns (MIR) 206
+1 Benevolent Unicorn (MIR) 4
+1 Disenchant (MIR) 10
+2 Ekundu Griffin (MIR) 13
+2 Foratog (MIR) 217
+3 Forest (MIR) 347
+3 Forest (MIR) 348
+2 Forest (MIR) 349
+2 Forest (MIR) 350
+3 Gibbering Hyenas (MIR) 219
+1 Grasslands (MIR) 327
+1 Ivory Charm (MIR) 23
+3 Jolrael's Centaur (MIR) 222
+1 Mountain (MIR) 343
+1 Mountain Valley (MIR) 328
+2 Mtenda Griffin (MIR) 28
+2 Nettletooth Djinn (MIR) 232
+2 Pacifism (MIR) 32
+3 Plains (MIR) 331
+3 Plains (MIR) 332
+2 Plains (MIR) 333
+2 Plains (MIR) 334
+3 Quirion Elves (MIR) 234
+3 Rampant Growth (MIR) 235
+1 Ritual of Steel (MIR) 36
+1 Sawback Manticore (MIR) 281
+2 Teremko Griffin (MIR) 43
+2 Unyaro Griffin (MIR) 44
+1 Vitalizing Cascade (MIR) 286
+1 Worldly Tutor (MIR) 255
+1 Zuberi, Golden Feather (MIR) 51

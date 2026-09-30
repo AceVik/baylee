@@ -174,7 +174,7 @@ step test-support \
     cargo clippy -p baylee-client-core --features test-support --lib -- -D warnings
 
 # The other direction: a default feature switched *off*. `xtask` links
-# `baylee-train` without `play` (the card rule for `deck-check --tested`, no
+# `baylee-train` without `play` (the card rule for `deck-check`, no
 # engine), so that is the build every `cargo run -p xtask` makes, and the
 # workspace build never makes it: there the crate's own default turns `play`
 # on for everyone. An import only `play` code uses fails here first.

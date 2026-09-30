@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Sorceress
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Sorceress_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Ball Lightning (DRK) 57
+4 Bird Maiden (ARN) 37
+4 Blood Lust (LEG) 135
+2 Dragon Whelp (3ED) 143
+4 Dwarven Warriors (3ED) 144
+4 Firebreathing (3ED) 151
+2 Hurloon Minotaur (3ED) 159
+4 Hurr Jackal (ARN) 39
+3 Iron Star (3ED) 252
+2 Meekstone (3ED) 264
+23 Mountain (ARN) 77
+2 Shatter (3ED) 175
+3 The Brute (LEG) 167
+SB: 1 Red Elemental Blast (3ED) 171
+SB: 1 Sunglasses of Urza (3ED) 276
+SB: 2 The Brute (LEG) 167

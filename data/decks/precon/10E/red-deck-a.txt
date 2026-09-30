@@ -1,0 +1,24 @@
+# baylee deck export v1
+# name: Red Deck A
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeckA_10E.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: 10E
+# released: 2008-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Boggart Forager (LRW) 154
+1 Ember Gale (SHM) 91
+1 Fists of the Anvil (10E) 201
+2 Goblin Piker (10E) 209
+2 Goblin Sky Raider (10E) 210
+1 Horde of Boggarts (SHM) 94
+3 Mountain (10E) 376
+3 Mountain (10E) 377
+3 Mountain (10E) 378
+3 Mountain (10E) 379
+2 Mudbrawler Cohort (SHM) 100
+2 Mudbutton Torchrunner (LRW) 185
+2 Raging Goblin (10E) 224
+2 Spitting Earth (10E) 238
+1 Tar Pitcher (LRW) 193

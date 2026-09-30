@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Breakdown
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Breakdown_NEM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: NEM
+# released: 2000-02-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Accumulated Knowledge (NEM) 26
+2 Blastoderm (NEM) 102
+4 Cloudskate (NEM) 29
+1 Dehydration (MMQ) 73
+2 Ensnare (NEM) 32
+1 False Demise (MMQ) 80
+3 Forest (MMQ) 347
+3 Forest (MMQ) 348
+2 Forest (MMQ) 349
+2 Forest (MMQ) 350
+2 Hickory Woodlot (MMQ) 319
+3 Island (MMQ) 335
+3 Island (MMQ) 336
+2 Island (MMQ) 337
+2 Island (MMQ) 338
+1 Parallax Inhibitor (NEM) 134
+1 Puffer Extract (MMQ) 310
+2 Revive (MMQ) 262
+2 Rusting Golem (NEM) 138
+2 Saprazzan Skerry (MMQ) 328
+1 Seal of Removal (NEM) 42
+1 Seal of Strength (NEM) 115
+1 Skyshroud Behemoth (NEM) 116
+4 Skyshroud Ridgeback (NEM) 120
+2 Stronghold Zeppelin (NEM) 47
+1 Vine Trellis (MMQ) 285
+1 War Tax (MMQ) 113
+3 Waterfront Bouncer (MMQ) 114
+2 Woodripper (NEM) 125

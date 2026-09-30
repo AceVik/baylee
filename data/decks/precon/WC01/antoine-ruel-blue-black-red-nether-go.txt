@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Antoine Ruel - Blue-Black-Red Nether-Go
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AntoineRuelBlueBlackRedNetherGo_WC01.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC01
+# released: 2001-08-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Accumulated Knowledge (WC01) ar26
+2 Counterspell (WC01) ar67
+2 Counterspell (WC01) ar69
+2 Crosis's Charm (WC01) ar99
+2 Duress (WC01) ar131
+3 Fact or Fiction (WC01) ar57
+4 Fire // Ice (WC01) ar128
+1 Island (WC01) ar334
+1 Island (WC01) ar335
+1 Island (WC01) ar335a
+1 Island (WC01) ar335b
+1 Island (WC01) ar336
+1 Island (WC01) ar336a
+1 Island (WC01) ar337
+1 Island (WC01) ar338
+3 Nether Spirit (WC01) ar149
+3 Opt (WC01) ar64
+4 Salt Marsh (WC01) ar326
+3 Shivan Reef (WC01) ar142
+2 Spite // Malice (WC01) ar293
+1 Sulfurous Springs (WC01) ar345
+2 Tsabo's Decree (WC01) ar129
+2 Tsabo's Web (WC01) ar317
+4 Underground River (WC01) ar350
+4 Undermine (WC01) ar282
+3 Urborg Volcano (WC01) ar330
+2 Urza's Rage (WC01) ar178
+SB: 2 Duress (WC01) ar131sb
+SB: 2 Engineered Plague (WC01) ar133sb
+SB: 2 Lobotomy (WC01) ar255sb
+SB: 3 Meekstone (WC01) ar307sb
+SB: 2 Pyroclasm (WC01) ar209sb
+SB: 1 Teferi's Response (WC01) ar78sb
+SB: 3 Tsabo's Assassin (WC01) ar128sb

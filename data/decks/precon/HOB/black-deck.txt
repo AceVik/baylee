@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Black Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlackDeck_HOB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: HOB
+# released: 2026-08-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Bilbo's Deadly Slice (HOB) 62
+1 Bitter Downfall (HOC) 185
+1 Crude Bent Blade (HOB) 63
+1 Desolation Prowler (HOB) 64
+1 Dreaded Bat-Cloud (HOB) 66
+2 Front Porch Sentries (HOB) 67
+1 Gnashing of Teeth (HOB) 69
+1 Gollum the Abandoned (HOB) 72
+2 Gollum, Silent Slinker // Meager Meal (HOB) 71
+1 Great Fierce Bee (HOB) 73
+1 Haunt of the Dead Marshes (HOC) 186
+1 Languish (HOC) 187
+1 Merciless Executioner (HOC) 188
+1 Night's Whisper (HOC) 189
+1 Ravening Warg (HOB) 80
+1 Reverent Howl (HOB) 81
+1 Rogue's Passage (HOC) 212
+1 Shadow of the Enemy (HOC) 190
+1 Stir Up Trouble (HOB) 84
+1 Stony-Voiced Goblins (HOB) 85
+16 Swamp (HOB) 191
+1 Troll of Khazad-dûm (HOC) 191

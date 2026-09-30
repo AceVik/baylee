@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Prismat
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Prismat_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Black Lotus (2ED) 233
+2 Detonate (ATQ) 24
+2 Disenchant (3ED) 17
+4 Earthquake (3ED) 148
+2 Fellwar Stone (DRK) 102
+2 Forest (3ED) 304
+2 Forest (3ED) 305
+2 Forest (3ED) 306
+4 Healing Salve (3ED) 22
+4 Hurricane (3ED) 202
+4 Inferno (DRK) 71
+1 Ivory Tower (ATQ) 53
+4 Living Artifact (3ED) 209
+7 Mountain (ARN) 77
+1 Mox Emerald (2ED) 262
+1 Mox Pearl (2ED) 264
+1 Mox Ruby (2ED) 265
+4 Onulet (ATQ) 59
+2 Plains (3ED) 292
+2 Plains (3ED) 293
+2 Plains (3ED) 294
+2 Reverse Damage (3ED) 35
+1 Sol Ring (3ED) 274
+3 Stream of Life (3ED) 217
+2 Wrath of God (3ED) 46

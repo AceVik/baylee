@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Turnaround
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Turnaround_PCY.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PCY
+# released: 2000-06-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Chieftain en-Dal (NEM) 4
+1 Crossbow Infantry (MMQ) 16
+1 Daze (NEM) 30
+1 Defiant Vanguard (NEM) 7
+1 Disenchant (MMQ) 18
+2 Diving Griffin (PCY) 6
+1 Foil (PCY) 34
+2 Glittering Lion (PCY) 10
+1 Heightened Awareness (PCY) 37
+3 Island (MMQ) 335
+3 Island (MMQ) 336
+2 Island (MMQ) 337
+2 Island (MMQ) 338
+1 Mageta the Lion (PCY) 13
+2 Mine Bearer (PCY) 16
+4 Plains (MMQ) 331
+4 Plains (MMQ) 332
+3 Plains (MMQ) 333
+3 Plains (MMQ) 334
+1 Rethink (PCY) 42
+1 Reveille Squad (PCY) 18
+1 Rhystic Circle (PCY) 19
+1 Rhystic Shield (PCY) 20
+1 Rhystic Study (PCY) 45
+3 Ribbon Snake (PCY) 46
+1 Seal of Cleansing (NEM) 18
+3 Shield Dancer (PCY) 23
+3 Spiketail Hatchling (PCY) 49
+1 Stronghold Machinist (NEM) 46
+1 Sword Dancer (PCY) 25
+1 Topple (NEM) 24
+2 Trap Runner (MMQ) 55
+2 Waterfront Bouncer (MMQ) 114

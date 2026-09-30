@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Elves
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Elves_EVG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: EVG
+# released: 2014-12-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Allosaurus Rider (EVG) 2
+1 Ambush Commander (EVG) 1 *F*
+2 Elvish Eulogist (EVG) 3
+1 Elvish Harbinger (EVG) 4
+1 Elvish Promenade (EVG) 20
+3 Elvish Warrior (EVG) 5
+5 Forest (EVG) 28
+5 Forest (EVG) 29
+5 Forest (EVG) 30
+4 Forest (EVG) 31
+2 Gempalm Strider (EVG) 6
+2 Giant Growth (EVG) 21
+1 Harmonize (EVG) 22
+1 Heedless One (EVG) 7
+2 Imperious Perfect (EVG) 8
+3 Llanowar Elves (EVG) 9
+2 Lys Alana Huntmaster (EVG) 10
+3 Moonglove Extract (EVG) 24
+1 Slate of Ancestry (EVG) 25
+1 Stonewood Invoker (EVG) 11
+1 Sylvan Messenger (EVG) 12
+1 Timberwatch Elf (EVG) 13
+2 Tranquil Thicket (EVG) 26
+1 Voice of the Woods (EVG) 14
+2 Wellwisher (EVG) 15
+1 Wildsize (EVG) 23
+1 Wirewood Herald (EVG) 16
+1 Wirewood Lodge (EVG) 27
+1 Wirewood Symbiote (EVG) 17
+2 Wood Elves (EVG) 18
+1 Wren's Run Vanquisher (EVG) 19

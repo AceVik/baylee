@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Concerted Effort
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ConcertedEffort_OGW.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: OGW
+# released: 2016-01-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Allied Reinforcements (OGW) 15
+1 Angel of Renewal (BFZ) 18
+2 Cliffside Lookout (BFZ) 20
+1 Evolving Wilds (BFZ) 236
+2 Expedition Envoy (BFZ) 24
+2 Expedition Raptor (OGW) 18
+2 Forest (BFZ) 270a
+2 Forest (BFZ) 271a
+1 Forest (BFZ) 272a
+1 Forest (BFZ) 273a
+1 Forest (BFZ) 274a
+1 Gladehart Cavalry (POGW) 132 *F*
+1 Immolating Glare (OGW) 20
+1 Iona's Blessing (OGW) 21
+2 Isolation Zone (OGW) 22
+2 Joraga Auxiliary (OGW) 154
+2 Kitesail Scout (BFZ) 33
+2 Kor Castigator (BFZ) 35
+2 Kor Sky Climber (OGW) 24
+2 Lead by Example (OGW) 134
+2 Makindi Aeronaut (OGW) 27
+1 Mighty Leap (OGW) 28
+1 Oran-Rief Invoker (BFZ) 182
+3 Plains (BFZ) 250a
+3 Plains (BFZ) 251a
+3 Plains (BFZ) 252a
+3 Plains (BFZ) 253a
+3 Plains (BFZ) 254a
+2 Relief Captain (OGW) 32
+1 Saddleback Lagac (OGW) 142
+2 Shadow Glider (BFZ) 47
+2 Shoulder to Shoulder (OGW) 34
+1 Steppe Glider (OGW) 36
+1 Tranquil Expanse (OGW) 180
+1 Veteran Warleader (BFZ) 221

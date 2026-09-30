@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: Phyrexian Assault - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PhyrexianAssaultEnhancedDeck_ULG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: ULG
+# released: 1999-02-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Avalanche Riders (ULG) 74
+3 Bone Shredder (ULG) 49
+3 Cinder Marsh (TMP) 317
+3 City of Brass (5ED) 413
+2 Expunge (USG) 135
+3 Fireslinger (TMP) 173
+1 Ghitu Encampment (ULG) 141
+3 Ghitu Slinger (ULG) 77
+2 Goblin Medics (ULG) 79
+1 Lightning Blast (TMP) 185
+1 Molten Hydra (ULG) 85
+2 Mountain (USG) 343
+2 Mountain (USG) 344
+1 Mountain (USG) 345
+1 Mountain (USG) 346
+2 Phyrexian Broodlings (ULG) 58
+3 Phyrexian Debaser (ULG) 59
+3 Phyrexian Defiler (ULG) 60
+2 Phyrexian Plaguelord (ULG) 62
+2 Phyrexian Reclamation (ULG) 63
+1 Polluted Mire (USG) 323
+1 Price of Progress (EXO) 95
+3 Reflecting Pool (TMP) 322
+2 Shock (STH) 98
+1 Smoldering Crater (USG) 328
+1 Spawning Pool (ULG) 142
+2 Swamp (USG) 339
+2 Swamp (USG) 340
+2 Swamp (USG) 341
+1 Swamp (USG) 342
+1 Viashino Cutthroat (ULG) 94
+1 Viashino Heretic (ULG) 95
+SB: 2 Coercion (TMP) 113
+SB: 2 Dread of Night (TMP) 130
+SB: 2 Engineered Plague (ULG) 51
+SB: 2 Gloom (5ED) 165
+SB: 2 Oath of Ghouls (EXO) 69
+SB: 2 Perish (TMP) 147
+SB: 3 Pyroblast (5ED) 262

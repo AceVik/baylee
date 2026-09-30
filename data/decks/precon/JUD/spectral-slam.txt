@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Spectral Slam
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SpectralSlam_JUD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: JUD
+# released: 2002-05-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Battlewise Aven (JUD) 4
+2 Benevolent Bodyguard (JUD) 5
+2 Blessed Orator (ODY) 12
+2 Elephant Guide (JUD) 111
+1 Exoskeletal Armor (JUD) 114
+1 Forcemage Advocate (JUD) 116
+3 Forest (ODY) 347
+3 Forest (ODY) 348
+3 Forest (ODY) 349
+3 Forest (ODY) 350
+1 Guided Strike (JUD) 13
+2 Hallowed Healer (ODY) 25
+2 Ironshell Beetle (JUD) 121
+1 Krosan Verge (JUD) 141
+1 Mirari's Wake (JUD) 139
+1 Nantuko Monastery (JUD) 142
+1 Patrol Hound (ODY) 38
+2 Phantom Centaur (JUD) 127
+2 Phantom Flock (JUD) 16
+1 Phantom Nantuko (JUD) 128
+4 Phantom Nomad (JUD) 17
+3 Phantom Tiger (JUD) 129
+3 Plains (ODY) 331
+3 Plains (ODY) 332
+3 Plains (ODY) 333
+3 Plains (ODY) 334
+2 Second Thoughts (ODY) 45
+2 Seton's Desire (ODY) 268
+1 Spirit Flare (TOR) 15
+1 Strength of Isolation (TOR) 17

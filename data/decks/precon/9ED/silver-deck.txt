@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Silver Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SilverDeck_9ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: 9ED
+# released: 2005-08-09
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Coral Eel (9ED) S3
+1 Eager Cadet (9ED) S1
+1 Fugitive Wizard (9ED) 80
+3 Giant Octopus (9ED) S4
+4 Glory Seeker (9ED) 17
+1 Index (9ED) S5
+2 Island (9ED) 335
+2 Island (9ED) 336
+2 Island (9ED) 337
+1 Island (9ED) 338
+2 Plains (9ED) 331
+2 Plains (9ED) 332
+2 Plains (9ED) 333
+2 Plains (9ED) 334
+2 Sacred Nectar (9ED) 38
+2 Vengeance (9ED) S2
+2 Vizzerdrix (9ED) S7

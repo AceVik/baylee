@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Ixidor's Legacy
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, IxidorSLegacy_PLC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PLC
+# released: 2007-02-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aeon Chronicler (PLC) 32
+2 Aquamorph Entity (PLC) 33
+1 Brine Elemental (TSP) 50
+2 Coral Trickster (TSP) 54
+1 Crookclaw Transmuter (TSP) 55
+1 Desert (TSB) 118
+2 Dream Stalker (TSP) 58
+2 Erratic Mutation (PLC) 41
+3 Fathom Seer (TSP) 62
+2 Fledgling Mawcor (TSP) 63
+6 Island (TSP) 286
+6 Island (TSP) 287
+6 Island (TSP) 288
+5 Island (TSP) 289
+1 Jodah's Avenger (PLC) 42
+1 Merfolk Thaumaturgist (PLC) 56
+2 Ovinize (PLC) 57
+1 Ovinomancer (TSB) 27
+1 Piracy Charm (PLC) 58
+1 Pongify (PLC) 44
+2 Primal Plasma (PLC) 59
+2 Riptide Pilferer (PLC) 60
+1 Serendib Sorcerer (PLC) 61
+2 Shaper Parasite (PLC) 46
+1 Slipstream Serpent (TSP) 77
+2 Tidewalker (PLC) 49
+2 Unstable Mutation (TSB) 33
+1 Willbender (TSB) 36

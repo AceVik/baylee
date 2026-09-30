@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Swarming Instinct
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SwarmingInstinct_BFZ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: BFZ
+# released: 2015-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Adverse Conditions (BFZ) 54
+1 Bane of Bala Ged (BFZ) 1
+1 Blighted Cataract (BFZ) 229
+3 Blisterpod (BFZ) 163
+2 Breaker of Armies (BFZ) 3
+1 Brood Monitor (BFZ) 164
+3 Call the Scions (BFZ) 165
+1 Desolation Twin (BFZ) 6
+1 Drowner of Hope (PBFZ) 57 *F*
+3 Eldrazi Skyspawner (BFZ) 58
+2 Evolving Wilds (BFZ) 236
+2 Eyeless Watcher (BFZ) 166
+3 Forest (BFZ) 270a
+2 Forest (BFZ) 271a
+2 Forest (BFZ) 272a
+2 Forest (BFZ) 273a
+2 Forest (BFZ) 274a
+2 Hedron Archive (BFZ) 223
+3 Incubator Drone (BFZ) 60
+2 Island (BFZ) 255a
+2 Island (BFZ) 256a
+2 Island (BFZ) 257a
+2 Island (BFZ) 258a
+2 Island (BFZ) 259a
+2 Kozilek's Channeler (BFZ) 10
+1 Pilgrim's Eye (BFZ) 226
+2 Scour from Existence (BFZ) 13
+2 Skyline Cascade (BFZ) 246
+2 Spell Shrivel (BFZ) 66
+2 Tide Drifter (BFZ) 67
+1 Titan's Presence (BFZ) 14
+1 Unnatural Aggression (BFZ) 168

@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Ob Nixilis
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ObNixilis_DDR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDR
+# released: 2016-09-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Altar's Reap (DDR) 37
+1 Ambition's Cost (DDR) 38
+1 Bala Ged Scorpion (DDR) 39
+2 Blistergrub (DDR) 40
+1 Cadaver Imp (DDR) 41
+2 Carrier Thrall (DDR) 42
+1 Demon's Grasp (DDR) 43
+1 Desecration Demon (DDR) 44
+1 Despoiler of Souls (DDR) 45
+1 Disfigure (DDR) 46
+2 Doom Blade (DDR) 47
+2 Fetid Imp (DDR) 48
+1 Foul Imp (DDR) 49
+1 Giant Scorpion (DDR) 50
+2 Grim Discovery (DDR) 51
+1 Hideous End (DDR) 52
+1 Indulgent Tormentor (DDR) 53
+1 Innocent Blood (DDR) 54
+2 Leechridden Swamp (DDR) 65
+1 Mire's Toll (DDR) 55
+1 Ob Nixilis Reignited (DDR) 36 *F*
+1 Pestilence Demon (DDR) 56
+1 Priest of the Blood Rite (DDR) 57
+2 Quest for the Gravelord (DDR) 58
+1 Renegade Demon (DDR) 59
+1 Shadows of the Past (DDR) 60
+2 Smallpox (DDR) 61
+1 Squelching Leeches (DDR) 62
+5 Swamp (DDR) 66
+5 Swamp (DDR) 67
+4 Swamp (DDR) 68
+4 Swamp (DDR) 69
+4 Swamp (DDR) 70
+1 Tendrils of Corruption (DDR) 63
+1 Unhallowed Pact (DDR) 64

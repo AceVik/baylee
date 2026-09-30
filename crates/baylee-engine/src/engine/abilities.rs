@@ -1228,6 +1228,7 @@ impl<L: CardLookup> Engine<L> {
         let id = self.state.arena.insert_with(|oid| {
             let mut obj = GameObject::new_bare(oid, player, ObjectKind::Spell, base);
             obj.timestamp = ts;
+            obj.controlled_since = ts;
             obj.cast_from_hand = false;
             // A fresh object starts in its owner's library, and putting it
             // somewhere with `Zones::insert` does not say otherwise —

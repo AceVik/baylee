@@ -12,7 +12,7 @@ workspace = true
 
 # Nothing that ships depends on this crate: it plays games offline and writes
 # files for the trainer under `tools/trainer/`. Only `xtask` links it, without
-# `play`, so the card agents' `deck-check --tested` and the trainer read one
+# `play`, so `deck-check`, the precon status and the trainer read one
 # rule and xtask does not build an engine for it.
 [features]
 default = ["play"]

@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Witch
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Witch_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Clay Statue (ATQ) 44
+2 Dark Ritual (3ED) 99
+3 Diabolic Machine (DRK) 101
+2 Drain Life (3ED) 106
+4 Drudge Skeletons (3ED) 107
+2 Greed (LEG) 101
+4 Nevinyrral's Disk (3ED) 267
+3 Scavenging Ghoul (3ED) 128
+8 Swamp (3ED) 298
+8 Swamp (3ED) 299
+7 Swamp (3ED) 300
+3 Throne of Bone (3ED) 279
+4 Unholy Strength (3ED) 133
+2 Wall of Bone (3ED) 134
+3 Weakness (3ED) 136
+4 Will-o'-the-Wisp (3ED) 137
+SB: 1 Gloom (3ED) 113

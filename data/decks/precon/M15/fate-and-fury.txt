@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Fate and Fury
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FateAndFury_M15.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Clash Pack
+# set: M15
+# released: 2014-07-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aetherspouts (M15) 44
+1 Arbor Colossus (THS) 150
+1 Courser of Kruphix (BNG) 119
+1 Curse of the Swine (THS) 46
+2 Divination (M15) 52
+4 Elvish Mystic (M15) 173
+1 Fated Intervention (CP1) 2 *F*
+1 Font of Fertility (CP1) 3 *F*
+4 Forest (M15) 266
+4 Forest (M15) 267
+4 Forest (M15) 268
+4 Forest (M15) 269
+1 Genesis Hydra (M15) 176
+2 Horizon Chimera (THS) 194
+1 Hydra Broodmaster (CP1) 4 *F*
+1 Hypnotic Siren (JOU) 42
+2 Island (M15) 254
+2 Island (M15) 255
+2 Island (M15) 256
+1 Island (M15) 257
+2 Jace's Ingenuity (M15) 63
+3 Karametra's Acolyte (THS) 160
+3 Kiora's Follower (BNG) 150
+2 Nemesis of Mortals (THS) 163
+1 Nessian Courser (THS) 165
+3 Nessian Game Warden (JOU) 132
+1 Nykthos, Shrine to Nyx (THS) 223
+1 Prognostic Sphinx (CP1) 1 *F*
+1 Prophet of Kruphix (CP1) 5 *F*
+1 Temple of Mystery (CP1) 6 *F*
+2 Voyaging Satyr (THS) 182
+SB: 2 Griptide (THS) 50
+SB: 2 Negate (M15) 71
+SB: 3 Nylea's Disciple (THS) 167
+SB: 2 Omenspeaker (THS) 57
+SB: 2 Pin to the Earth (JOU) 45
+SB: 2 Plummet (M15) 192
+SB: 2 Reclamation Sage (M15) 194

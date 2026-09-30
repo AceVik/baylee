@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Sweet Revenge
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SweetRevenge_M13.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: M13
+# released: 2012-08-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Armored Skaab (ISD) 43
+4 Burning Vengeance (ISD) 133
+1 Darkslick Shores (SOM) 226
+1 Desolate Lighthouse (AVR) 227
+4 Desperate Ravings (ISD) 139
+4 Evolving Wilds (M13) 224
+4 Faithless Looting (DKA) 87
+4 Fettergeist (AVR) 52
+1 Firewing Phoenix (M13) 131
+3 Forbidden Alchemy (ISD) 55
+2 Geistflame (ISD) 144
+2 Island (M13) 234
+2 Island (M13) 235
+2 Island (M13) 236
+1 Island (M13) 237
+3 Mountain (M13) 242
+2 Mountain (M13) 243
+2 Mountain (M13) 244
+2 Mountain (M13) 245
+3 Pillar of Flame (AVR) 149
+1 Red Sun's Zenith (MBS) 74
+1 Rolling Temblor (ISD) 161
+1 Silent Departure (ISD) 75
+2 Slagstorm (MBS) 75
+1 Sulfur Falls (ISD) 248
+1 Swamp (M13) 238
+4 Think Twice (ISD) 83
+SB: 2 Arc Trail (SOM) 81
+SB: 4 Bloodcrazed Neonate (ISD) 131
+SB: 2 Dismember (NPH) 57
+SB: 4 Screeching Skaab (DKA) 47
+SB: 3 Secrets of the Dead (DKA) 48

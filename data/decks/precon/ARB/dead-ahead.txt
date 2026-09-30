@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Dead Ahead
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeadAhead_ARB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ARB
+# released: 2009-04-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bituminous Blast (ARB) 34
+1 Blightning (ALA) 156
+1 Blister Beetle (ALA) 66
+1 Blood Cultist (ALA) 157
+1 Bog Wraith (10E) 130
+1 Breath of Malfegor (ARB) 35
+1 Cruel Edict (10E) 133
+1 Deathbringer Thoctar (ARB) 36 *F*
+1 Dreg Reaver (ALA) 73
+2 Dregscape Zombie (ALA) 74
+2 Igneous Pouncer (ARB) 40
+1 Leonin Scimitar (10E) 331
+1 Lightning Reaver (ARB) 42
+1 Monstrous Carabid (ARB) 43
+2 Mountain (ALA) 242
+2 Mountain (ALA) 243
+2 Mountain (ALA) 244
+2 Mountain (ALA) 245
+2 Sanity Gnawers (ARB) 44
+1 Singe-Mind Ogre (ARB) 45
+2 Swamp (ALA) 238
+2 Swamp (ALA) 239
+2 Swamp (ALA) 240
+2 Swamp (ALA) 241
+2 Terminate (ARB) 46
+2 Terramorphic Expanse (10E) 360
+1 Viashino Skeleton (ALA) 118
+1 Viscera Dragger (ALA) 92

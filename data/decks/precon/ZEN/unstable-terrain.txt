@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Unstable Terrain
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, UnstableTerrain_ZEN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ZEN
+# released: 2009-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Baloth Woodcrasher (ZEN) 157
+1 Coral Merfolk (M10) 47
+2 Forest (ZEN) 246a
+2 Forest (ZEN) 247a
+2 Forest (ZEN) 248a
+1 Forest (ZEN) 249a
+1 Frontier Guide (ZEN) 161
+1 Giant Growth (M10) 184
+1 Gomazoa (ZEN) 46
+1 Grazing Gladehart (ZEN) 163
+1 Harrow (ZEN) 165
+2 Ior Ruin Expedition (ZEN) 49
+3 Island (ZEN) 234a
+3 Island (ZEN) 235a
+2 Island (ZEN) 236a
+2 Island (ZEN) 237a
+1 Living Tsunami (ZEN) 52
+1 Merfolk Wayfinder (ZEN) 56
+1 Mind Control (M10) 63
+2 Paralyzing Grasp (ZEN) 58
+1 Roil Elemental (ZEN) 62
+2 Sage Owl (M10) 69
+1 Sphinx of Jwar Isle (ZEN) 68 *F*
+1 Terramorphic Expanse (M10) 229
+1 Territorial Baloth (ZEN) 188
+1 Turntimber Basilisk (ZEN) 190
+1 Unsummon (M10) 79
+2 Windrider Eel (ZEN) 78

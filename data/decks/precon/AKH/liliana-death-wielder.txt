@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Liliana, Death Wielder
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LilianaDeathWielder_AKH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: AKH
+# released: 2017-04-28
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Baleful Ammit (AKH) 79
+2 Cartouche of Ambition (AKH) 83
+2 Cartouche of Strength (AKH) 158
+1 Channeler Initiate (AKH) 160
+1 Crocodile of the Crossing (AKH) 162
+2 Decimator Beetle (AKH) 197
+3 Desiccated Naga (AKH) 276
+2 Dune Beetle (AKH) 89
+1 Edifice of Authority (AKH) 226
+1 Festering Mummy (AKH) 91
+3 Forest (AKH) 267
+3 Forest (AKH) 268
+3 Forest (AKH) 269
+4 Foul Orchard (AKH) 279
+2 Giant Spider (AKH) 166
+1 Gift of Paradise (AKH) 167
+1 Grasping Dunes (AKH) 244
+2 Gravedigger (AKH) 93
+2 Liliana's Influence (AKH) 277
+1 Liliana, Death Wielder (AKH) 275 *F*
+1 Luxa River Shrine (AKH) 232
+1 Oracle's Vault (AKH) 234
+2 Splendid Agony (AKH) 109
+4 Swamp (AKH) 261
+4 Swamp (AKH) 262
+3 Swamp (AKH) 263
+4 Tattered Mummy (AKH) 278
+2 Trial of Ambition (AKH) 113

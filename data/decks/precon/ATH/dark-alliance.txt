@@ -1,0 +1,51 @@
+# baylee deck export v1
+# name: Dark Alliance
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DarkAlliance_ATH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ATH
+# released: 1998-11-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aesthir Glider (ATH) 67
+1 Black Knight (ATH) 20
+1 Cuombajj Witches (ATH) 21
+1 Feast of the Unicorn (ATH) 22
+1 Fireball (ATH) 29
+1 Goblin Balloon Brigade (ATH) 30
+1 Goblin Digging Team (ATH) 31
+1 Goblin Grenade (ATH) 32
+1 Goblin Hero (ATH) 33
+1 Goblin King (ATH) 34
+1 Goblin Matron (ATH) 35
+1 Goblin Mutant (ATH) 36
+1 Goblin Offensive (ATH) 37
+1 Goblin Recruiter (ATH) 38
+1 Goblin Snowman (ATH) 39
+1 Goblin Tinkerer (ATH) 40
+1 Goblin Vandal (ATH) 41
+1 Goblin Warrens (ATH) 42
+1 Hymn to Tourach (ATH) 23
+1 Hypnotic Specter (ATH) 24
+1 Ihsan's Shade (ATH) 25
+1 Knight of Stromgald (ATH) 26
+1 Lady Orca (ATH) 65
+1 Lightning Bolt (ATH) 43
+1 Mogg Fanatic (ATH) 44
+1 Mogg Flunkies (ATH) 45
+1 Mogg Raider (ATH) 46
+6 Mountain (ATH) 82
+6 Mountain (ATH) 83
+1 Nevinyrral's Disk (ATH) 69
+1 Polluted Mire (ATH) 74
+1 Pyrokinesis (ATH) 47
+1 Pyrotechnics (ATH) 48
+1 Raging Goblin (ATH) 49
+1 Smoldering Crater (ATH) 76
+1 Strip Mine (ATH) 77
+5 Swamp (ATH) 80
+5 Swamp (ATH) 81
+1 Terror (ATH) 27
+1 Unholy Strength (ATH) 28
+1 Uthden Troll (ATH) 50
+1 Volcanic Dragon (ATH) 51

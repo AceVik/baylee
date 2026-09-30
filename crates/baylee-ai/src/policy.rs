@@ -966,7 +966,7 @@ fn one_more(mut pool: baylee_view::ManaPoolView, color: ManaColor) -> baylee_vie
 /// default, which is the direction that cannot go quiet. `{Q}` is not on the
 /// free side either — untapping a permanent is a different button from
 /// tapping it, whatever mana comes out.
-fn priced(cost: &baylee_cards_dsl::Cost) -> bool {
+pub(crate) fn priced(cost: &baylee_cards_dsl::Cost) -> bool {
     cost.parts
         .iter()
         .any(|part| !matches!(part, baylee_cards_dsl::CostPart::TapSelf))
@@ -994,7 +994,7 @@ fn priced(cost: &baylee_cards_dsl::Cost) -> bool {
 ///
 /// Restricted taps are left out: what their mana may pay for is a question
 /// about one spell, which [`HeuristicAgent::paying_for`] asks.
-fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
+pub(crate) fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     usable(split_restricted(offers(view, legal)).1)
 }
 

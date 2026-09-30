@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Chandra, Flame's Catalyst
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ChandraFlameSCatalyst_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: M21
+# released: 2020-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Blisterspit Gremlin (IKO) 108
+2 Chandra's Firemaw (M21) 333
+1 Chandra's Incinerator (M21) 136
+3 Chandra's Pyreling (M21) 138
+1 Chandra, Flame's Catalyst (M21) 332 *F*
+1 Double Vision (M21) 142
+3 Heartfire Immolator (M21) 150
+2 Infuriate (THB) 141
+3 Keral Keep Disciples (M21) 334
+8 Mountain (M21) 269
+8 Mountain (M21) 270
+8 Mountain (M21) 271
+1 Mountain (M21) 312
+2 Pyroceratops (IKO) 130
+3 Shock (M21) 159
+2 Slaying Fire (ELD) 143
+2 Spellgorger Weird (M21) 161
+4 Storm Caller (M21) 335
+2 Sure Strike (M21) 163
+2 Unleash Fury (M21) 170

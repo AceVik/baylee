@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Rally and Rout
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RallyAndRout_GTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: GTC
+# released: 2013-02-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ash Zealot (RTR) 86
+2 Boros Charm (GTC) 148
+4 Boros Elite (GTC) 7
+3 Boros Guildgate (GTC) 239
+1 Champion of the Parish (ISD) 6
+1 Clifftop Retreat (ISD) 238
+4 Doomed Traveler (ISD) 11
+2 Firefist Striker (GTC) 90
+4 Gather the Townsfolk (DKA) 8
+2 Lightning Mauler (AVR) 144
+2 Mountain (RTR) 265
+2 Mountain (RTR) 266
+2 Mountain (RTR) 267
+1 Mountain (RTR) 268
+1 Mountain (RTR) 269
+4 Pillar of Flame (AVR) 149
+2 Plains (RTR) 250
+2 Plains (RTR) 251
+2 Plains (RTR) 252
+2 Plains (RTR) 253
+2 Plains (RTR) 254
+3 Searing Spear (M13) 147
+1 Silverblade Paladin (AVR) 36
+3 Skyknight Legionnaire (GTC) 197
+1 Slayers' Stronghold (AVR) 229
+1 Spark Trooper (GTC) 199
+2 Sunhome Guildmage (GTC) 200
+1 Thalia, Guardian of Thraben (DKA) 24
+2 Truefire Paladin (GTC) 202
+SB: 3 Bonds of Faith (ISD) 5
+SB: 3 Electrickery (RTR) 93
+SB: 2 Oblivion Ring (M13) 22
+SB: 2 Skullcrack (GTC) 106
+SB: 2 Thunderous Wrath (AVR) 160
+SB: 3 War Priest of Thune (M13) 39

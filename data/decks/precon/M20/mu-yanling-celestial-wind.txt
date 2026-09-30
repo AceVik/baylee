@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Mu Yanling, Celestial Wind
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MuYanlingCelestialWind_M20.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: M20
+# released: 2019-07-29
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Air Elemental (M20) 44
+3 Brineborn Cutthroat (M20) 50
+4 Celestial Messenger (M20) 287
+3 Cloudkin Seer (M20) 54
+1 Dungeon Geists (M20) 57
+2 Frost Lynx (M20) 62
+7 Island (M20) 265
+6 Island (M20) 266
+6 Island (M20) 267
+6 Island (M20) 268
+1 Mu Yanling, Celestial Wind (M20) 286 *F*
+1 Riddlemaster Sphinx (M20) 317
+3 Spectral Sailor (M20) 76
+4 Unsummon (M20) 78
+3 Warden of Evos Isle (M20) 79
+3 Waterkin Shaman (M20) 288
+3 Winged Words (M20) 80
+2 Yanling's Harbinger (M20) 289

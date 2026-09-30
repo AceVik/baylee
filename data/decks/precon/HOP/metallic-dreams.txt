@@ -1,0 +1,55 @@
+# baylee deck export v1
+# name: Metallic Dreams
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MetallicDreams_HOP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planechase Deck
+# set: HOP
+# released: 2009-09-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ancient Den (HOP) 130
+1 Arcbound Crusher (HOP) 105
+1 Arcbound Slith (HOP) 106
+1 Arsenal Thresher (HOP) 96
+1 Bosh, Iron Golem (HOP) 108
+1 Broodstar (HOP) 8
+1 Copper Myr (HOP) 109
+1 Cranial Plating (HOP) 110
+1 Darksteel Forge (HOP) 111
+1 Door to Nothingness (HOP) 112
+2 Etched Oracle (HOP) 113
+1 Fabricate (HOP) 9
+1 Forest (HOP) 169
+1 Gold Myr (HOP) 114
+1 Great Furnace (HOP) 133
+1 Iron Myr (HOP) 115
+2 Island (HOP) 147
+2 Island (HOP) 148
+2 Island (HOP) 149
+2 Island (HOP) 150
+1 Keep Watch (HOP) 10
+1 Leaden Myr (HOP) 116
+1 Lodestone Myr (HOP) 117
+1 Loxodon Warhammer (HOP) 118
+1 Master of Etherium (HOP) 11
+2 Mountain (HOP) 160
+2 Myr Enforcer (HOP) 120
+1 Nuisance Engine (HOP) 121
+2 Pentad Prism (HOP) 122
+1 Pentavus (HOP) 123
+3 Plains (HOP) 142
+1 Qumulox (HOP) 12
+1 Sarcomite Myr (HOP) 13
+2 Seat of the Synod (HOP) 136
+1 Serum Tank (HOP) 125
+1 Silver Myr (HOP) 126
+2 Skeleton Shard (HOP) 127
+1 Sludge Strider (HOP) 95
+1 Suntouched Myr (HOP) 128
+3 Swamp (HOP) 151
+1 Thirst for Knowledge (HOP) 14
+1 Tree of Tales (HOP) 140
+1 Vault of Whispers (HOP) 141
+1 Vedalken Engineer (HOP) 15
+1 Whiplash Trap (HOP) 16
+1 Wizard Replica (HOP) 129

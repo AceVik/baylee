@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Simic Domination
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SimicDomination_DGM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: DGM
+# released: 2013-05-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Archweaver (RTR) 114
+2 Battering Krasis (DGM) 41
+2 Beetleform Mage (DGM) 54
+2 Bred for the Hunt (DGM) 59
+3 Centaur Courser (M13) 164
+2 Cloudfin Raptor (GTC) 32
+1 Crocanura (GTC) 116
+1 Crowned Ceratok (GTC) 117
+2 Elusive Krasis (GTC) 160
+2 Forest (RTR) 270
+2 Forest (RTR) 271
+2 Forest (RTR) 272
+2 Forest (RTR) 273
+2 Forest (RTR) 274
+1 Give // Take (DGM) 129
+1 Gyre Sage (GTC) 123
+1 Hindervines (GTC) 124
+3 Island (RTR) 255
+3 Island (RTR) 256
+2 Island (RTR) 257
+2 Island (RTR) 258
+2 Island (RTR) 259
+1 Krasis Incubation (DGM) 79
+1 Murmuring Phantasm (DGM) 15
+2 Mutant's Prey (DGM) 45
+2 Opal Lake Gatekeepers (DGM) 16
+1 Phytoburst (DGM) 46
+2 Runner's Bane (DGM) 17
+1 Sapphire Drake (GTC) 47
+2 Simic Cluestone (DGM) 145
+4 Simic Guildgate (DGM) 156
+2 Species Gorger (DGM) 105
+1 Vorel of the Hull Clade (DGM) 115 *F*

@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Bait and Bludgeon
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BaitAndBludgeon_MRD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: MRD
+# released: 2003-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aether Spellbomb (MRD) 141
+2 Assert Authority (MRD) 30
+2 Bottle Gnomes (MRD) 148
+1 Broodstar (MRD) 31
+3 Frogmite (MRD) 172
+2 Irradiate (MRD) 67
+3 Island (MRD) 291
+3 Island (MRD) 292
+3 Island (MRD) 293
+2 Island (MRD) 294
+2 Leaden Myr (MRD) 191
+1 Lodestone Myr (MRD) 200
+3 Myr Enforcer (MRD) 211
+2 Myr Retriever (MRD) 215
+2 Nim Shrieker (MRD) 73
+1 Scale of Chiss-Goria (MRD) 236
+4 Seat of the Synod (MRD) 283
+1 Serum Tank (MRD) 240
+2 Silver Myr (MRD) 241
+2 Somber Hoverguard (MRD) 51
+2 Steel Wall (MRD) 248
+1 Swamp (MRD) 295
+1 Swamp (MRD) 296
+1 Swamp (MRD) 297
+4 Talisman of Dominance (MRD) 253
+2 Thirst for Knowledge (MRD) 53
+1 Thoughtcast (MRD) 54
+1 Tooth of Chiss-Goria (MRD) 264
+4 Vault of Whispers (MRD) 286

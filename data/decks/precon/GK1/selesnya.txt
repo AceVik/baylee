@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Selesnya
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Selesnya_GK1.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Guild Kit
+# set: GK1
+# released: 2018-11-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Advent of the Wurm (GK1) 107
+1 Armada Wurm (GK1) 108
+1 Bounty of Might (GRN) 124
+1 Call of the Conclave (GK1) 109
+1 Camaraderie (GRN) 157
+1 Centaur Healer (GK1) 110
+1 Conclave Cavalier (GRN) 161
+1 Conclave Tribunal (GRN) 6
+2 Devouring Light (GK1) 103
+1 Dryad Militant (GK1) 111
+8 Forest (GK1) 127
+1 Gather Courage (GK1) 105
+1 Glare of Subdual (GK1) 112
+1 Grove of the Guardian (GK1) 124
+1 Growing Ranks (GK1) 113
+1 Hour of Reckoning (GK1) 104
+1 Loxodon Hierarch (GK1) 114
+8 Plains (GK1) 126
+1 Pollenbright Wings (GK1) 115
+1 Privileged Position (GK1) 116
+2 Scatter the Seeds (GK1) 106
+1 Selesnya Charm (GK1) 117
+2 Selesnya Evangel (GK1) 118
+2 Selesnya Guildgate (GRN) 255
+2 Selesnya Guildgate (GRN) 256
+2 Selesnya Guildmage (GK1) 119
+4 Selesnya Sanctuary (GK1) 125
+2 Selesnya Signet (GK1) 123
+1 Siege Wurm (GRN) 144
+1 Sundering Growth (GK1) 120
+1 Tolsimir Wolfblood (GK1) 121
+1 Trostani, Selesnya's Voice (GK1) 102 *F*
+1 Venerated Loxodon (GRN) 30
+1 Vernadi Shieldmate (GRN) 219
+2 Watchwolf (GK1) 122

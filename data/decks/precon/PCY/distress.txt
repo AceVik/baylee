@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Distress
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Distress_PCY.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PCY
+# released: 2000-06-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Afterlife (MMQ) 1
+1 Agent of Shauku (PCY) 55
+1 Angelic Favor (NEM) 1
+1 Avatar of Woe (PCY) 56
+1 Ballista Squad (MMQ) 5
+1 Belbe's Percher (NEM) 53
+1 Chilling Apparition (PCY) 59
+2 Dark Ritual (MMQ) 129
+1 Death Charmer (PCY) 61
+3 Despoil (PCY) 62
+1 Disenchant (MMQ) 18
+2 Excise (PCY) 8
+2 Fresh Volunteers (MMQ) 20
+3 Glittering Lion (PCY) 10
+2 Glittering Lynx (PCY) 11
+1 Maggot Therapy (MMQ) 145
+1 Nakaya Shade (PCY) 69
+1 Peat Bog (MMQ) 322
+1 Plague Fiend (PCY) 73
+3 Plains (MMQ) 331
+2 Plains (MMQ) 332
+2 Plains (MMQ) 333
+2 Plains (MMQ) 334
+2 Rain of Tears (MMQ) 155
+2 Rhystic Syphon (PCY) 76
+1 Rhystic Tutor (PCY) 77
+1 Seal of Cleansing (NEM) 18
+1 Seal of Doom (NEM) 70
+1 Shield Dancer (PCY) 23
+2 Skulking Fugitive (MMQ) 161
+1 Snuff Out (MMQ) 162
+1 Spineless Thug (NEM) 71
+1 Steal Strength (PCY) 79
+3 Swamp (MMQ) 339
+3 Swamp (MMQ) 340
+3 Swamp (MMQ) 341
+2 Swamp (MMQ) 342

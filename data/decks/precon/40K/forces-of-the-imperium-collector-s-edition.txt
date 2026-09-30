@@ -1,0 +1,92 @@
+# baylee deck export v1
+# name: Forces of the Imperium Collector's Edition
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ForcesOfTheImperiumCollectorSEdition_40K.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Commander Deck
+# set: 40K
+# released: 2022-10-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 Inquisitor Greyfax (40K) 3 *F*
+1 And They Shall Know No Fear (40K) 9★ *F*
+1 Arcane Sanctum (40K) 264★ *F*
+1 Arcane Signet (40K) 229★ *F*
+1 Arco-Flagellant (40K) 29★ *F*
+1 Ash Barrens (40K) 265★ *F*
+1 Assault Intercessor (40K) 104★ *F*
+1 Bastion Protector (40K) 182★ *F*
+1 Belisarius Cawl (40K) 106★ *F*
+1 Birth of the Imperium (40K) 107★ *F*
+1 Callidus Assassin (40K) 109★ *F*
+1 Celestine, the Living Saint (40K) 10★ *F*
+1 Choked Estuary (40K) 268★ *F*
+1 Collective Effort (40K) 183★ *F*
+1 Command Tower (40K) 272★ *F*
+1 Commander's Sphere (40K) 233★ *F*
+1 Commissar Severina Raine (40K) 112★ *F*
+1 Company Commander (40K) 113★ *F*
+1 Cybernetica Datasmith (40K) 114★ *F*
+1 Darkwater Catacombs (40K) 274★ *F*
+1 Defenders of Humanity (40K) 11★ *F*
+1 Deny the Witch (40K) 116★ *F*
+1 Deploy to the Front (40K) 184★ *F*
+1 Dismal Backwater (40K) 276★ *F*
+1 Entrapment Maneuver (40K) 185★ *F*
+1 Epistolary Librarian (40K) 118★ *F*
+1 Everflowing Chalice (40K) 238★ *F*
+1 Evolving Wilds (40K) 277★ *F*
+1 Exotic Orchard (40K) 278★ *F*
+1 Exterminatus (40K) 120★ *F*
+1 Fell the Mighty (40K) 186★ *F*
+1 For the Emperor! (40K) 12★ *F*
+1 Grey Knight Paragon (40K) 13★ *F*
+1 Hour of Reckoning (40K) 187★ *F*
+1 Inquisitor Eisenhorn (40K) 127★ *F*
+1 Inquisitorial Rosette (40K) 159★ *F*
+5 Island (40K) 307★ *F*
+1 Knight Paladin (40K) 160★ *F*
+1 Launch the Fleet (40K) 188★ *F*
+1 Marneus Calgar (40K) 8 *F*
+1 Martial Coup (40K) 189★ *F*
+1 Memorial to Glory (40K) 283★ *F*
+1 Mind Stone (40K) 244★ *F*
+1 Mortify (40K) 225★ *F*
+1 Neyam Shai Murad (40K) 135★ *F*
+1 Path of Ancestry (40K) 287★ *F*
+8 Plains (40K) 306★ *F*
+1 Port Town (40K) 289★ *F*
+1 Prairie Stream (40K) 290★ *F*
+1 Primaris Chaplain (40K) 137★ *F*
+1 Primaris Eliminator (40K) 50★ *F*
+1 Reaver Titan (40K) 163★ *F*
+1 Reconnaissance Mission (40K) 193★ *F*
+1 Redemptor Dreadnought (40K) 164★ *F*
+1 Sanguinary Priest (40K) 53★ *F*
+1 Scoured Barrens (40K) 293★ *F*
+1 Sicarian Infiltrator (40K) 25★ *F*
+1 Sister Hospitaller (40K) 141★ *F*
+1 Sister Repentia (40K) 142★ *F*
+1 Sister of Silence (40K) 26★ *F*
+1 Skullclamp (40K) 248★ *F*
+1 Skycloud Expanse (40K) 294★ *F*
+1 Sol Ring (40K) 251★ *F*
+1 Space Marine Devastator (40K) 14★ *F*
+1 Space Marine Scout (40K) 15★ *F*
+1 Sunken Hollow (40K) 295★ *F*
+7 Swamp (40K) 314★ *F*
+1 Swords to Plowshares (40K) 190★ *F*
+1 Talisman of Dominance (40K) 254★ *F*
+1 Talisman of Hierarchy (40K) 256★ *F*
+1 Talisman of Progress (40K) 258★ *F*
+1 Terramorphic Expanse (40K) 301★ *F*
+1 The Flesh Is Weak (40K) 122★ *F*
+1 The Golden Throne (40K) 157★ *F*
+1 Thunderhawk Gunship (40K) 167★ *F*
+1 Thunderwolf Cavalry (40K) 16★ *F*
+1 Tranquil Cove (40K) 303★ *F*
+1 Triumph of Saint Katherine (40K) 17★ *F*
+1 Ultramarines Honour Guard (40K) 18★ *F*
+1 Utter End (40K) 226★ *F*
+1 Vanguard Suppressor (40K) 27★ *F*
+1 Vexilus Praetor (40K) 19★ *F*
+1 Zephyrim (40K) 20★ *F*

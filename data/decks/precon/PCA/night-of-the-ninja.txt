@@ -1,0 +1,52 @@
+# baylee deck export v1
+# name: Night Of The Ninja
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, NightOfTheNinja_PCA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planechase Deck
+# set: PCA
+# released: 2016-11-25
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Assassinate (PCA) 30
+2 Augury Owl (PCA) 14
+2 Baleful Strix (PCA) 82
+1 Cadaver Imp (PCA) 31
+1 Cancel (PCA) 15
+1 Concentrate (PCA) 16
+1 Dark Hatchling (PCA) 32
+2 Dimir Aqueduct (PCA) 116
+2 Dimir Infiltrator (PCA) 86
+1 Farsight Mask (PCA) 109
+1 Fractured Powerstone (PCA) 111
+1 Glen Elendra Liege (PCA) 94
+1 Higure, the Still Wind (PCA) 18
+1 Ink-Eyes, Servant of Oni (PCA) 33
+1 Inkfathom Witch (PCA) 97
+2 Island (PCA) 137
+2 Island (PCA) 138
+2 Island (PCA) 139
+2 Island (PCA) 140
+1 Island (PCA) 141
+2 Jwar Isle Refuge (PCA) 120
+1 Liliana's Specter (PCA) 34
+1 Mistblade Shinobi (PCA) 20
+2 Ninja of the Deep Hours (PCA) 21
+1 Okiba-Gang Shinobi (PCA) 35
+1 Quietus Spike (PCA) 112
+2 Sai of the Shinobi (PCA) 113
+1 Sakashima's Student (PCA) 24
+1 Silent-Blade Oni (PCA) 105
+1 Skullsnatcher (PCA) 36
+2 Swamp (PCA) 142
+2 Swamp (PCA) 143
+2 Swamp (PCA) 144
+2 Swamp (PCA) 145
+1 Swamp (PCA) 146
+1 Tainted Isle (PCA) 128
+1 Terramorphic Expanse (PCA) 129
+1 Throat Slitter (PCA) 37
+2 Tormented Soul (PCA) 38
+1 Vela the Night-Clad (PCA) 107
+1 Walker of Secret Ways (PCA) 27
+1 Wall of Frost (PCA) 28
+1 Whispersilk Cloak (PCA) 115

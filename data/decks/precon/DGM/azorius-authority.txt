@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Azorius Authority
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AzoriusAuthority_DGM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: DGM
+# released: 2013-05-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arrest (RTR) 3
+2 Ascended Lawmage (DGM) 53
+2 Avenging Arrow (RTR) 4
+2 Azorius Arrester (RTR) 5
+2 Azorius Cluestone (DGM) 136
+4 Azorius Guildgate (DGM) 146
+1 Azorius Justiciar (RTR) 6
+2 Haazda Snare Squad (DGM) 2
+2 Island (RTR) 255
+2 Island (RTR) 256
+2 Island (RTR) 257
+2 Island (RTR) 258
+2 Island (RTR) 259
+2 Jelenn Sphinx (DGM) 77
+1 Lavinia of the Tenth (DGM) 80 *F*
+2 Lyev Decree (DGM) 3
+1 Lyev Skyknight (RTR) 179
+1 Martial Law (RTR) 14
+3 Plains (RTR) 250
+3 Plains (RTR) 251
+2 Plains (RTR) 252
+2 Plains (RTR) 253
+2 Plains (RTR) 254
+1 Protect // Serve (DGM) 131
+1 Restore the Peace (DGM) 97
+2 Righteous Charge (GTC) 23
+3 Silvercoat Lion (M13) 35
+1 Soulsworn Spirit (RTR) 51
+2 Stealer of Secrets (RTR) 53
+2 Sunspire Gatekeepers (DGM) 9
+3 Wind Drake (DGM) 20

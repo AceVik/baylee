@@ -10,6 +10,9 @@
 # committed. CI restores it with `.github/actions/scryfall-cache` and
 # `xtask` refetches whatever is missing, so nothing depends on it existing.
 /data/scryfall-cache/
+# MTGJSON's deck archive (`xtask decks-import`): 260 MB of which the import
+# keeps only the card lines, as `data/decks/precon/` (docs/precons.md).
+/data/mtgjson-cache/
 .idea/
 # trunk default output (browser build of baylee-client)
 dist/

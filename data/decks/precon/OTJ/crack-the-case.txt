@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Crack the Case
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CrackTheCase_OTJ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: OTJ
+# released: 2024-07-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Agency Outfitter (MKM) 38
+1 Alquist Proft, Master Sleuth (MKM) 185
+2 Cold Case Cracker (MKM) 46
+1 Ezrim, Agency Chief (MKM) 202
+1 Forensic Gadgeteer (MKM) 57
+2 Granite Witness (MKM) 206
+2 Griffnaut Tracker (MKM) 17
+2 Hotshot Investigators (MKM) 60
+10 Island (LTR) 264
+3 Jaded Analyst (MKM) 62
+4 Lonely Arroyo (OTJ) 260
+2 Magnifying Glass (MKM) 255
+1 Meticulous Archive (MKM) 264
+1 No Witnesses (MKM) 27
+3 Novice Inspector (MKM) 29
+1 Officious Interrogation (MKM) 222
+2 Perimeter Enforcer (MKM) 31
+10 Plains (OTJ) 278
+2 Private Eye (MKM) 223
+1 Proft's Eidetic Memory (MKM) 67
+2 Projektor Inspector (MKM) 68
+2 Seasoned Consultant (MKM) 33
+1 Steamcore Scholar (MKM) 71
+2 Thinking Cap (MKM) 257
+1 Unyielding Gatekeeper (MKM) 35

@@ -336,6 +336,8 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
             .attackers
             .iter()
             .any(|attacker| attacker.creature == object.id),
+        // The view names what every public object is attached to.
+        Filter::IsAttached => object.attached_to.is_some(),
         Filter::CmcAtMost(n) => object.mana_value <= *n,
         Filter::CmcAtLeast(n) => object.mana_value >= *n,
         Filter::ToughnessAtMost(n) => object.toughness.is_some_and(|t| t <= *n),

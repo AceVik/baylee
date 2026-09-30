@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: Bring About The Undead Apocalypse
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BringAboutTheUndeadApocalypse_ARC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Archenemy Deck
+# set: ARC
+# released: 2010-06-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Artisan of Kozilek (ARC) 123
+1 Avatar of Discord (ARC) 79
+1 Avatar of Woe (ARC) 9
+2 Barren Moor (ARC) 124
+1 Beacon of Unrest (ARC) 10
+1 Bituminous Blast (ARC) 81
+1 Bog Witch (ARC) 11
+1 Cemetery Reaper (ARC) 12
+1 Corpse Connoisseur (ARC) 13
+1 Dregscape Zombie (ARC) 14
+1 Extractor Demon (ARC) 15
+1 Festering Goblin (ARC) 16
+1 Incremental Blight (ARC) 17
+2 Infectious Horror (ARC) 18
+1 Inferno Trap (ARC) 43
+1 Infest (ARC) 19
+1 Kaervek the Merciless (ARC) 88
+1 Makeshift Mannequin (ARC) 20
+3 Mountain (ARC) 145
+2 Mountain (ARC) 146
+2 Mountain (ARC) 147
+2 Rakdos Carnarium (ARC) 132
+1 Rakdos Guildmage (ARC) 92
+2 Rakdos Signet (ARC) 114
+1 Reanimate (ARC) 21
+1 Reassembling Skeleton (ARC) 22
+1 Scion of Darkness (ARC) 23
+1 Shriekmaw (ARC) 24
+2 Sign in Blood (ARC) 25
+5 Swamp (ARC) 142
+4 Swamp (ARC) 143
+4 Swamp (ARC) 144
+2 Terminate (ARC) 95
+1 Torrent of Souls (ARC) 96
+2 Twisted Abomination (ARC) 26
+1 Urborg Syphon-Mage (ARC) 27
+1 Vampiric Dragon (ARC) 99
+1 Zombie Infestation (ARC) 28
+1 Zombify (ARC) 29

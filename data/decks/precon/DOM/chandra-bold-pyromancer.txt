@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Chandra, Bold Pyromancer
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ChandraBoldPyromancer_DOM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: DOM
+# released: 2018-04-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Baloth Gorger (DOM) 156
+2 Chandra's Outburst (DOM) 276
+1 Chandra, Bold Pyromancer (DOM) 275 *F*
+3 Elfhame Druid (DOM) 159
+1 Fiery Intervention (DOM) 118
+1 Fight with Fire (DOM) 119
+3 Fire Elemental (DOM) 120
+3 Forest (DOM) 266
+3 Forest (DOM) 267
+3 Forest (DOM) 268
+2 Forest (DOM) 269
+1 Gaea's Protector (DOM) 162
+1 Ghitu Chronicler (DOM) 125
+2 Gift of Growth (DOM) 163
+1 Gilded Lotus (DOM) 215
+1 Grunn, the Lonely King (DOM) 165
+3 Karplusan Hound (DOM) 277
+1 Krosan Druid (DOM) 167
+2 Llanowar Elves (DOM) 168
+1 Marwyn, the Nurturer (DOM) 172
+3 Mountain (DOM) 262
+3 Mountain (DOM) 263
+3 Mountain (DOM) 264
+2 Mountain (DOM) 265
+1 Pierce the Sky (DOM) 176
+1 Primordial Wurm (DOM) 177
+4 Pyromantic Pilgrim (DOM) 278
+2 Shivan Fire (DOM) 142
+4 Timber Gorge (DOM) 279

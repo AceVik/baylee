@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Primal Fury
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PrimalFury_M19.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M19
+# released: 2018-09-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Banefire (M19) 130
+1 Carnage Tyrant (XLN) 179
+2 Charging Monstrosaur (XLN) 138
+2 Charging Tuskodon (RIX) 97
+2 Colossal Majesty (M19) 173
+3 Draconic Disciple (M19) 215
+2 Druid of the Cowl (M19) 177
+3 Elvish Rejuvenator (M19) 180
+1 Etali, Primal Storm (RIX) 100
+3 Forest (M19) 277
+3 Forest (M19) 278
+2 Forest (M19) 279
+2 Forest (M19) 280
+2 Frenzied Raptor (XLN) 146
+1 Goreclaw, Terror of Qal Sisma (M19) 186
+2 Knight of the Stampede (RIX) 138
+3 Lightning Strike (M19) 152
+3 Llanowar Elves (M19) 314
+3 Mountain (M19) 273
+2 Mountain (M19) 274
+2 Mountain (M19) 275
+2 Mountain (M19) 276
+1 Needletooth Raptor (RIX) 107
+1 Pelakka Wurm (M19) 192
+2 Raptor Hatchling (XLN) 155
+1 Rootbound Crag (XLN) 256
+3 Shock (M19) 156
+1 Silverclad Ferocidons (RIX) 115
+4 Timber Gorge (M19) 258

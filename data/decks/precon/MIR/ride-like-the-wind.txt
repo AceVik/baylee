@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Ride Like the Wind
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RideLikeTheWind_MIR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: MIR
+# released: 2006-12-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Agility (MIR) 154
+1 Alarum (MIR) 2
+2 Aleatory (MIR) 155
+2 Blistering Barrier (MIR) 159
+3 Burning Shield Askari (MIR) 162
+1 Crimson Roc (MIR) 168
+2 Favorable Destiny (MIR) 16
+3 Femeref Knight (MIR) 18
+1 Iron Tusk Elephant (MIR) 22
+1 Melesse Spirit (MIR) 27
+3 Mountain (MIR) 343
+3 Mountain (MIR) 344
+3 Mountain (MIR) 345
+3 Mountain (MIR) 346
+3 Mtenda Herder (MIR) 29
+3 Plains (MIR) 331
+3 Plains (MIR) 332
+3 Plains (MIR) 333
+3 Plains (MIR) 334
+3 Searing Spear Askari (MIR) 191
+1 Shadowbane (MIR) 38
+1 Sidar Jabari (MIR) 39
+2 Spitting Earth (MIR) 193
+1 Telim'Tor (MIR) 197
+2 Telim'Tor's Darts (MIR) 321
+1 Vigilant Martyr (MIR) 45
+2 Zhalfirin Commander (MIR) 49
+3 Zhalfirin Knight (MIR) 50

@@ -965,9 +965,23 @@ pub struct GameObject {
     pub status: Status,
     /// What this object is attached to (auras/equipment).
     pub attached_to: Option<ObjectId>,
-    /// Entered-the-current-zone timestamp (effects ordering, summoning
-    /// sickness evaluation).
+    /// The object's timestamp in the sense of CR 613.7: what orders the
+    /// continuous effects of its static abilities against other effects in
+    /// the same layer (CR 613.7a). It is taken as the object enters a zone
+    /// (CR 613.7d) and again each time the permanent transforms
+    /// (CR 613.7g). It says nothing about summoning sickness; that is
+    /// [`Self::controlled_since`].
     pub timestamp: u64,
+    /// The moment the object's current controller began controlling it
+    /// without a break, on the same clock as [`Self::timestamp`]: the
+    /// object's arrival in its zone, and again at every change of control.
+    /// This is what CR 302.6 asks about (read by
+    /// [`crate::combat::summoning_sick`] against
+    /// [`crate::state::Player::turn_start_timestamp`]). A transform does not
+    /// move it, because the permanent stays the same object under the same
+    /// controller (CR 712.18); the two fields used to be one, which is why a
+    /// transform could not take the timestamp CR 613.7g gives it.
+    pub controlled_since: u64,
     /// Identity version; bumped on every zone change (CR 400.7).
     pub version: u32,
     /// Exile riders.
@@ -1171,6 +1185,7 @@ impl GameObject {
             status: Status::NONE,
             attached_to: None,
             timestamp: 0,
+            controlled_since: 0,
             version: 0,
             riders: RiderSet::new(),
             targets: SmallVec::new(),

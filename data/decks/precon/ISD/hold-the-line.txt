@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Hold The Line
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, HoldTheLine_ISD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: ISD
+# released: 2011-10-28
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Accorder Paladin (MBS) 1
+4 Bonds of Faith (ISD) 5
+2 Butcher's Cleaver (ISD) 217
+1 Champion of the Parish (ISD) 6
+4 Doomed Traveler (ISD) 11
+1 Elite Inquisitor (ISD) 13
+2 Elite Vanguard (M12) 15
+4 Fiend Hunter (ISD) 15
+4 Gideon's Lawkeeper (M12) 18
+2 Honor of the Pure (M12) 23
+2 Mirran Crusader (MBS) 14
+4 Oblivion Ring (M12) 27
+8 Plains (ISD) 250
+8 Plains (ISD) 251
+8 Plains (ISD) 252
+2 Silver-Inlaid Dagger (ISD) 233
+SB: 4 Celestial Purge (M12) 11
+SB: 4 Leonin Relic-Warder (MBS) 10
+SB: 1 Nevermore (ISD) 25
+SB: 3 Nihil Spellbomb (SOM) 187
+SB: 3 Suture Priest (NPH) 25

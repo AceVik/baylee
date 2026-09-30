@@ -1,0 +1,49 @@
+# baylee deck export v1
+# name: Cunning
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Cunning_DDN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDN
+# released: 2014-09-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aquamorph Entity (DDN) 54
+1 Arcanis the Omnipotent (DDN) 42 *F*
+1 Arrow Volley Trap (DDN) 71
+2 Coral Trickster (DDN) 44
+1 Echo Tracer (DDN) 51
+2 Faerie Impostor (DDN) 43
+1 Faerie Invaders (DDN) 57
+2 Fathom Seer (DDN) 45
+1 Fleeting Distraction (DDN) 60
+1 Hold the Line (DDN) 66
+1 Hussar Patrol (DDN) 55
+1 Impulse (DDN) 63
+1 Inferno Trap (DDN) 67
+4 Island (DDN) 75
+3 Island (DDN) 76
+3 Island (DDN) 77
+1 Jeskai Elder (DDN) 46
+1 Kor Hookmaster (DDN) 52
+1 Lightning Angel (DDN) 56
+1 Lightning Helix (DDN) 65
+1 Lone Missionary (DDN) 49
+1 Mana Leak (DDN) 64
+1 Master Decoy (DDN) 50
+3 Mountain (DDN) 78
+2 Mystic Monastery (DDN) 73
+3 Plains (DDN) 79
+2 Plains (DDN) 80
+2 Plains (DDN) 81
+1 Repeal (DDN) 72
+1 Sparkmage Apprentice (DDN) 48
+1 Sphinx of Uthuun (DDN) 59
+1 Stave Off (DDN) 61
+1 Steam Augury (DDN) 68
+1 Stonecloaker (DDN) 53
+1 Swift Justice (DDN) 62
+2 Terramorphic Expanse (DDN) 74
+1 Thousand Winds (DDN) 58
+2 Traumatic Visions (DDN) 69
+1 Whiplash Trap (DDN) 70
+1 Willbender (DDN) 47
