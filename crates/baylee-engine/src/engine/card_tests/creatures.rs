@@ -97374,40 +97374,59 @@ fn scathe_zombies_is_a_two_two_zombie_for_2b() {
     assert_eq!(pt(&engine, id), (2, 2));
 }
 
-/// Scavenging Ghoul — "At the beginning of each end step, put a corpse
-/// counter on this creature for each creature that died this turn." /
+/// Scavenging Ghoul — "At the beginning of **each** end step, put a corpse
+/// counter on this creature **for each** creature that died this turn." /
 /// "Remove a corpse counter from this creature: Regenerate this creature."
+/// Both italicized words get their own witness here: the two creatures
+/// that die are the opponent's, killed on the opponent's own turn (p1's),
+/// not the Ghoul controller's (p0's) — so the counter must still land, and
+/// it must land as 2, not 1.
 #[test]
 fn scavenging_ghoul_gathers_a_corpse_counter_and_spends_it_to_regenerate() {
-    let p0 = PlayerId::new(0);
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
         .battlefield(
             0,
             &[
                 scavenging_ghoul(),
-                pearled_unicorn(),
+                swamp(),
+                swamp(),
+                swamp(),
                 swamp(),
                 swamp(),
                 swamp(),
             ],
         )
-        .hand(0, &[hero_s_downfall()])
+        .battlefield(1, &[pearled_unicorn(), llanowar_elves()])
+        .hand(0, &[hero_s_downfall(), hero_s_downfall()])
         .start();
     keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
     let ghoul = on_battlefield(&engine, p0, scavenging_ghoul()).expect("seated");
-    let unicorn = on_battlefield(&engine, p0, pearled_unicorn()).expect("seated");
     assert_eq!(
         counters_on(&engine, ghoul, baylee_cards_dsl::counters::CORPSE),
         0
     );
 
-    cast_from_hand(&mut engine, p0, hero_s_downfall());
+    // p0's lands stand untapped through the whole of turn 1 (p0's own
+    // turn): nothing is cast there, so both copies of Hero's Downfall wait
+    // for p1's turn, cast at instant speed after the active player passes.
+    reach_their_main_phase(&mut engine, p1);
+    let unicorn = on_battlefield(&engine, p1, pearled_unicorn()).expect("seated");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, hero_s_downfall());
     let _ = aim_at(&mut engine, p0, unicorn);
+    cast_with_floating(&mut engine, p0, hero_s_downfall());
+    let _ = aim_at(&mut engine, p0, elf);
     pass_until(&mut engine, stack_is_empty);
     assert!(
-        in_graveyard(&engine, p0, pearled_unicorn()).is_some(),
-        "destroyed: it died this turn"
+        in_graveyard(&engine, p1, pearled_unicorn()).is_some(),
+        "destroyed on p1's turn, not p0's"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "a second creature destroyed the same turn"
     );
 
     pass_until(&mut engine, |e| {
@@ -97417,8 +97436,9 @@ fn scavenging_ghoul_gathers_a_corpse_counter_and_spends_it_to_regenerate() {
     });
     assert_eq!(
         counters_on(&engine, ghoul, baylee_cards_dsl::counters::CORPSE),
-        1,
-        "one creature died during the turn, one corpse counter at end step"
+        2,
+        "two creatures died on p1's turn; \"each end step\" fired on p1's turn too, \
+         and \"for each\" counted both"
     );
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
@@ -97438,8 +97458,8 @@ fn scavenging_ghoul_gathers_a_corpse_counter_and_spends_it_to_regenerate() {
     );
     assert_eq!(
         counters_on(&engine, ghoul, baylee_cards_dsl::counters::CORPSE),
-        0,
-        "and the counter it spent is gone"
+        1,
+        "one of the two counters spent, one left"
     );
 }
 
@@ -97880,20 +97900,22 @@ fn wall_of_fire_pumps_for_r_until_end_of_turn_and_cannot_attack() {
 }
 
 /// Cockatrice — Flying; "Whenever this creature blocks or becomes blocked
-/// by a non-Wall creature, destroy that creature at end of combat." Here,
-/// blocking a non-Wall attacker.
+/// by a non-Wall creature, destroy that creature at end of combat." The
+/// attacker is a 2/3 Hurloon Minotaur, not the 2/2 Pearled Unicorn: it
+/// survives the Cockatrice's 2 combat damage on its own, so only the
+/// delayed trigger — not the fight — can be what kills it.
 #[test]
 fn cockatrice_destroys_a_non_wall_creature_it_blocks_at_end_of_combat() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[cockatrice()])
-        .battlefield(1, &[pearled_unicorn()])
+        .battlefield(1, &[hurloon_minotaur()])
         .start();
     keep_mulligans(&mut engine);
     let bird = on_battlefield(&engine, p0, cockatrice()).expect("seated");
     assert!(keywords(&engine, bird).contains(KeywordSet::FLYING));
     reach_their_main_phase(&mut engine, p1);
-    let attacker = on_battlefield(&engine, p1, pearled_unicorn()).expect("seated");
+    let attacker = on_battlefield(&engine, p1, hurloon_minotaur()).expect("seated");
 
     let blocks = attack_and_collect_blocks(&mut engine, attacker, p0);
     let pairing = blocks
@@ -97910,11 +97932,19 @@ fn cockatrice_destroys_a_non_wall_creature_it_blocks_at_end_of_combat() {
         )
         .expect("the pairing came out of the list that offered it");
     pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatEnd
+    });
+    assert_eq!(
+        engine.state().object(attacker).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "2 damage to a 2/3: the fight itself did not kill it"
+    );
+    pass_until(&mut engine, |e| {
         matches!(e.state().turn.phase, Phase::SecondMain)
     });
     assert!(
-        in_graveyard(&engine, p1, pearled_unicorn()).is_some(),
-        "destroyed at end of combat for having been blocked by the Cockatrice"
+        in_graveyard(&engine, p1, hurloon_minotaur()).is_some(),
+        "destroyed at end of combat for having been blocked by the Cockatrice, not by the fight"
     );
     assert!(
         on_battlefield(&engine, p0, cockatrice()).is_some(),
@@ -97968,7 +97998,10 @@ fn force_of_nature_deals_8_to_its_controller_unless_gggg_is_paid() {
 }
 
 /// Force of Nature, the other branch: paying the `{G}{G}{G}{G}` spares its
-/// controller the damage.
+/// controller the damage. Life alone at 20 would also hold for a cost of
+/// `{G}` or free, so the pool is checked too: exactly four Forests stand
+/// here, and the payment window leaves the pool empty — not merely
+/// nonzero — showing the full `{G}{G}{G}{G}` was what left it.
 #[test]
 fn force_of_nature_paying_gggg_spares_its_controller_the_damage() {
     let p0 = PlayerId::new(0);
@@ -97989,8 +98022,19 @@ fn force_of_nature_paying_gggg_spares_its_controller_the_damage() {
         )
     });
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
-    tap_all_mana(&mut engine, p0);
+    let made = tap_all_mana(&mut engine, p0);
+    assert_eq!(made, 4, "all four Forests, and no more, stand here");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four green floating, matching the printed cost exactly"
+    );
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the payment window spent every last one of the four: not {{G}}, not free"
+    );
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
         engine.state().players[0].life,
@@ -98108,24 +98152,27 @@ fn shanodin_dryads_is_blockable_without_a_forest_to_walk_over() {
 
 /// Thicket Basilisk — "Whenever this creature blocks or becomes blocked by
 /// a non-Wall creature, destroy that creature at end of combat." Here, the
-/// "becomes blocked" direction, and its one printed exception: a Wall.
+/// "becomes blocked" direction, and its one printed exception: a Wall. The
+/// blocker is a 2/3 Hurloon Minotaur, not the 2/2 Pearled Unicorn: it
+/// survives the Basilisk's 2 combat damage on its own, so only the delayed
+/// trigger — not the fight — can be what kills it.
 #[test]
 fn thicket_basilisk_destroys_a_non_wall_creature_that_blocks_it() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[thicket_basilisk()])
-        .battlefield(1, &[pearled_unicorn()])
+        .battlefield(1, &[hurloon_minotaur()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let basilisk = on_battlefield(&engine, p0, thicket_basilisk()).expect("seated");
-    let blocker = on_battlefield(&engine, p1, pearled_unicorn()).expect("seated");
+    let blocker = on_battlefield(&engine, p1, hurloon_minotaur()).expect("seated");
 
     let blocks = attack_and_collect_blocks(&mut engine, basilisk, p1);
     let pairing = blocks
         .iter()
         .find(|b| b.blocker == blocker)
-        .unwrap_or_else(|| panic!("the Unicorn may block the Basilisk: {blocks:?}"));
+        .unwrap_or_else(|| panic!("the Minotaur may block the Basilisk: {blocks:?}"));
     assert!(pairing.attackers.contains(&basilisk));
     engine
         .apply(
@@ -98136,11 +98183,19 @@ fn thicket_basilisk_destroys_a_non_wall_creature_that_blocks_it() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatEnd
+    });
+    assert_eq!(
+        engine.state().object(blocker).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "2 damage to a 2/3: the fight itself did not kill it"
+    );
+    pass_until(&mut engine, |e| {
         matches!(e.state().turn.phase, Phase::SecondMain)
     });
     assert!(
-        in_graveyard(&engine, p1, pearled_unicorn()).is_some(),
-        "destroyed at end of combat for blocking the Basilisk"
+        in_graveyard(&engine, p1, hurloon_minotaur()).is_some(),
+        "destroyed at end of combat for blocking the Basilisk, not by the fight"
     );
     assert!(on_battlefield(&engine, p0, thicket_basilisk()).is_some());
 }
