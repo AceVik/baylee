@@ -163,27 +163,41 @@ impl Price {
     }
 }
 
-/// What a model costs, for the models this build knows; `None` for any
-/// other, which then plays only with a price given ([`Price::per_million`])
-/// or a token budget as its limit. A snapshot: the provider's price list is
-/// the authority.
-#[must_use]
-pub fn price(model: &str) -> Option<Price> {
-    match model {
-        "claude-sonnet-5-5" | "claude-sonnet-5" => Some(Price {
-            input: 2.0,
-            output: 10.0,
-            cache_write: 2.5,
-            cache_read: 0.2,
-        }),
-        "claude-opus-5-5" => Some(Price {
+/// Sonnet's price.
+const SONNET: Price = Price {
+    input: 2.0,
+    output: 10.0,
+    cache_write: 2.5,
+    cache_read: 0.2,
+};
+
+/// The models this build knows a price for, with their provider: the one
+/// table [`price`] reads, and the models a settings panel suggests. A
+/// snapshot: the provider's price list is the authority.
+pub const PRICED: &[(Provider, &str, Price)] = &[
+    (Provider::Anthropic, "claude-sonnet-5-5", SONNET),
+    (Provider::Anthropic, "claude-sonnet-5", SONNET),
+    (
+        Provider::Anthropic,
+        "claude-opus-5-5",
+        Price {
             input: 4.0,
             output: 20.0,
             cache_write: 5.0,
             cache_read: 0.2,
-        }),
-        _ => None,
-    }
+        },
+    ),
+];
+
+/// What a model costs, for the models this build knows ([`PRICED`]);
+/// `None` for any other, which then plays only with a price given
+/// ([`Price::per_million`]) or a token budget as its limit.
+#[must_use]
+pub fn price(model: &str) -> Option<Price> {
+    PRICED
+        .iter()
+        .find(|(_, known, _)| *known == model)
+        .map(|(_, _, price)| *price)
 }
 
 /// Tokens a provider may add to a request of its own, over the bytes sent:
@@ -315,62 +329,329 @@ impl Profile {
             .unwrap_or_else(|| self.provider.default_key_env())
     }
 
-    /// What is wrong with it, in one sentence, or `None`.
+    /// What is wrong with it, in one sentence, or `None`: the first of
+    /// [`Self::faults`].
     #[must_use]
     pub fn fault(&self) -> Option<String> {
-        if let Some(why) = model_fault(&self.model) {
-            return Some(why);
+        self.faults().into_iter().next().map(|fault| fault.sentence)
+    }
+
+    /// Everything wrong with it, by field, each in the sentence
+    /// [`Self::fault`] would say it with, in the order it looks.
+    #[must_use]
+    pub fn faults(&self) -> Vec<FieldFault> {
+        let mut out = Vec::new();
+        let mut say = |field, why, sentence: String| {
+            out.push(FieldFault {
+                field,
+                why,
+                sentence,
+            });
+        };
+        if let Some(sentence) = model_fault(&self.model) {
+            say(Field::Model, Why::NotAModelId, sentence);
         }
         if let Some(effort) = &self.effort
             && !effort_is_a_word(effort)
         {
-            return Some("an effort is a word such as low, medium or high".into());
+            say(
+                Field::Effort,
+                Why::NotAWord,
+                "an effort is a word such as low, medium or high".into(),
+            );
         }
         if self.answer == Some(AnswerMode::Json) && self.provider != Provider::OpenAi {
-            return Some(
+            say(
+                Field::Answer,
+                Why::JsonNeedsOpenAi,
                 "answer json is for an OpenAI-compatible endpoint; Anthropic's models answer \
                  with tools"
                     .into(),
             );
         }
         if self.max_tokens == Some(0) {
-            return Some("max_tokens is the most one reply may take: at least 1".into());
-        }
-        if let Some(given) = self.price
-            && !(usd_is_an_amount(given.input) && usd_is_an_amount(given.output))
-        {
-            return Some(
-                "a price is two amounts of US dollars per million tokens, input and output".into(),
+            say(
+                Field::MaxTokens,
+                Why::Zero,
+                "max_tokens is the most one reply may take: at least 1".into(),
             );
+        }
+        if let Some(given) = self.price {
+            for (field, usd) in [
+                (Field::PriceInput, given.input),
+                (Field::PriceOutput, given.output),
+            ] {
+                if !usd_is_an_amount(usd) {
+                    say(
+                        field,
+                        Why::NotAnAmount,
+                        "a price is two amounts of US dollars per million tokens, input and \
+                         output"
+                            .into(),
+                    );
+                }
+            }
         }
         if let Some(usd) = self.game_usd {
             if !usd_is_an_amount(usd) {
-                return Some("game_usd is an amount of US dollars, such as 2.5".into());
-            }
-            if self.price().is_none() {
-                return Some(format!(
-                    "this build has no price for «{}», so game_usd cannot be held: give the \
-                     profile a price, or make game_tokens its limit",
-                    self.model
-                ));
+                say(
+                    Field::GameUsd,
+                    Why::NotAnAmount,
+                    "game_usd is an amount of US dollars, such as 2.5".into(),
+                );
+            } else if self.price().is_none() {
+                say(
+                    Field::GameUsd,
+                    Why::Unpriced,
+                    format!(
+                        "this build has no price for «{}», so game_usd cannot be held: give the \
+                         profile a price, or make game_tokens its limit",
+                        blank_key_shapes(&self.model)
+                    ),
+                );
             }
         }
         if self.think_secs == Some(0) {
-            return Some("think_secs is the longest one answer may take: at least 1".into());
+            say(
+                Field::ThinkSecs,
+                Why::Zero,
+                "think_secs is the longest one answer may take: at least 1".into(),
+            );
         }
         if let Some(name) = &self.key_env
             && !env_name_is_a_name(name)
         {
-            return Some(format!(
-                "key_env names an environment variable, such as {}, and never holds the key",
-                self.provider.default_key_env()
-            ));
+            say(
+                Field::KeyEnv,
+                Why::NotAVariable,
+                format!(
+                    "key_env names an environment variable, such as {}, and never holds the key",
+                    self.provider.default_key_env()
+                ),
+            );
         }
-        if let Some(base) = &self.base_url {
-            return address_fault(base, "base_url");
+        if let Some(sentence) = self
+            .base_url
+            .as_deref()
+            .and_then(|base| address_fault(base, "base_url"))
+        {
+            say(Field::BaseUrl, Why::NotSecure, sentence);
         }
-        None
+        out
     }
+}
+
+/// A field of a profile, as the file spells it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Field {
+    /// `provider`.
+    Provider,
+    /// `model`.
+    Model,
+    /// `effort`.
+    Effort,
+    /// `answer`.
+    Answer,
+    /// `max_tokens`.
+    MaxTokens,
+    /// `price.input`.
+    PriceInput,
+    /// `price.output`.
+    PriceOutput,
+    /// `game_usd`.
+    GameUsd,
+    /// `game_tokens`.
+    GameTokens,
+    /// `think_secs`.
+    ThinkSecs,
+    /// `key_env`.
+    KeyEnv,
+    /// `base_url`.
+    BaseUrl,
+}
+
+impl Field {
+    /// Every field, in the order a profile writes them.
+    pub const ALL: [Self; 12] = [
+        Self::Provider,
+        Self::Model,
+        Self::Effort,
+        Self::Answer,
+        Self::MaxTokens,
+        Self::PriceInput,
+        Self::PriceOutput,
+        Self::GameUsd,
+        Self::GameTokens,
+        Self::ThinkSecs,
+        Self::KeyEnv,
+        Self::BaseUrl,
+    ];
+
+    /// Its path in a profile, as the file spells it: a price's two amounts
+    /// are a step below `price`.
+    #[must_use]
+    pub const fn path(self) -> &'static [&'static str] {
+        match self {
+            Self::Provider => &["provider"],
+            Self::Model => &["model"],
+            Self::Effort => &["effort"],
+            Self::Answer => &["answer"],
+            Self::MaxTokens => &["max_tokens"],
+            Self::PriceInput => &["price", "input"],
+            Self::PriceOutput => &["price", "output"],
+            Self::GameUsd => &["game_usd"],
+            Self::GameTokens => &["game_tokens"],
+            Self::ThinkSecs => &["think_secs"],
+            Self::KeyEnv => &["key_env"],
+            Self::BaseUrl => &["base_url"],
+        }
+    }
+
+    /// The field at `path` in a profile, if it is one.
+    fn at(path: &[String]) -> Option<Self> {
+        Self::ALL.into_iter().find(|field| {
+            field
+                .path()
+                .iter()
+                .copied()
+                .eq(path.iter().map(String::as_str))
+        })
+    }
+}
+
+/// One of the [`Caps`], as the file spells it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CapField {
+    /// `day_usd`.
+    DayUsd,
+    /// `month_usd`.
+    MonthUsd,
+    /// `day_tokens`.
+    DayTokens,
+    /// `month_tokens`.
+    MonthTokens,
+}
+
+impl CapField {
+    /// Every cap, in the order the file writes them.
+    pub const ALL: [Self; 4] = [
+        Self::DayUsd,
+        Self::MonthUsd,
+        Self::DayTokens,
+        Self::MonthTokens,
+    ];
+
+    /// Its name in the file.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::DayUsd => "day_usd",
+            Self::MonthUsd => "month_usd",
+            Self::DayTokens => "day_tokens",
+            Self::MonthTokens => "month_tokens",
+        }
+    }
+
+    /// The cap of that name.
+    fn named(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|cap| cap.name() == name)
+    }
+}
+
+/// A calendar period the [`Caps`] count over.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Period {
+    /// A calendar day.
+    Day,
+    /// A calendar month.
+    Month,
+}
+
+/// Where in the settings a [`Fault`] is.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Place {
+    /// The name of the default profile.
+    Default,
+    /// The name of a profile.
+    Name(String),
+    /// A field of the profile of that name.
+    Profile(String, Field),
+    /// A cap.
+    Cap(CapField),
+    /// Anywhere else, by its path in the file: a field the file does not
+    /// have, which only a text can hold and a [`SeatSettings`] never does.
+    Elsewhere(String),
+}
+
+impl Place {
+    /// The place at `steps` in the file, which the file spells `path`.
+    fn at(steps: &[String], path: &str) -> Self {
+        let elsewhere = || Self::Elsewhere(clip(path));
+        match steps {
+            [top] if top == "default" => Self::Default,
+            [top, name] if top == "profiles" => Self::Name(name.clone()),
+            [top, name, rest @ ..] if top == "profiles" => {
+                Field::at(rest).map_or_else(elsewhere, |field| Self::Profile(name.clone(), field))
+            }
+            [top, cap] if top == "caps" => CapField::named(cap).map_or_else(elsewhere, Self::Cap),
+            _ => elsewhere(),
+        }
+    }
+}
+
+/// What is wrong, as a [`Fault`] says it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Why {
+    /// A field named like a key.
+    KeyNamed,
+    /// A value, or a name, shaped like a key.
+    KeyShaped,
+    /// The default names no profile.
+    NoSuchProfile,
+    /// A profile's name that a command line cannot carry.
+    NotAName,
+    /// A model id no provider writes.
+    NotAModelId,
+    /// An effort that is not one word.
+    NotAWord,
+    /// JSON answers asked of Anthropic's models.
+    JsonNeedsOpenAi,
+    /// A most of zero: `max_tokens` or `think_secs`.
+    Zero,
+    /// Dollars that are not an amount: below zero, or not finite.
+    NotAnAmount,
+    /// A game's dollar budget for a model with no price.
+    Unpriced,
+    /// A key variable that is not a variable's name.
+    NotAVariable,
+    /// An address a key may not be sent to.
+    NotSecure,
+    /// Settings that cannot be written as JSON at all.
+    Unwritable,
+}
+
+/// One thing the settings may not hold: where it is, what it is, and the
+/// sentence [`SeatSettings::check`] refuses it with. A panel puts each
+/// beside its field in the player's language; the bridge says the sentence.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Fault {
+    /// Where.
+    pub place: Place,
+    /// What.
+    pub why: Why,
+    /// The refusal, in one sentence.
+    pub sentence: String,
+}
+
+/// One thing a [`Profile`] may not hold, by field.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FieldFault {
+    /// The field.
+    pub field: Field,
+    /// What.
+    pub why: Why,
+    /// The refusal, in one sentence, without the profile's name.
+    pub sentence: String,
 }
 
 /// The most a player's games may spend together, per calendar day and per
@@ -406,13 +687,11 @@ impl Caps {
     /// spend would go uncounted in it.
     #[must_use]
     pub fn unpriced_fault(&self, model: &str) -> Option<String> {
-        let missing = [
-            (self.day_usd, self.day_tokens, "day", "day_tokens"),
-            (self.month_usd, self.month_tokens, "month", "month_tokens"),
-        ]
-        .into_iter()
-        .find(|(usd, tokens, _, _)| usd.is_some() && tokens.is_none());
-        missing.map(|(_, _, period, field)| {
+        self.unpriced_period().map(|period| {
+            let (period, field) = match period {
+                Period::Day => ("day", "day_tokens"),
+                Period::Month => ("month", "month_tokens"),
+            };
             format!(
                 "the settings file caps dollars a {period}, and this build has no price for \
                  «{model}», so its spend cannot be counted in dollars: give its profile a price, \
@@ -421,12 +700,32 @@ impl Caps {
         })
     }
 
-    fn fault(&self) -> Option<String> {
-        [self.day_usd, self.month_usd]
-            .into_iter()
-            .flatten()
-            .any(|usd| !usd_is_an_amount(usd))
-            .then(|| "a cap in dollars is an amount of US dollars, such as 20".to_string())
+    /// The first period capped in dollars and not in tokens, in which a
+    /// model with no price could not be counted ([`Self::unpriced_fault`]).
+    #[must_use]
+    pub fn unpriced_period(&self) -> Option<Period> {
+        [
+            (self.day_usd, self.day_tokens, Period::Day),
+            (self.month_usd, self.month_tokens, Period::Month),
+        ]
+        .into_iter()
+        .find(|(usd, tokens, _)| usd.is_some() && tokens.is_none())
+        .map(|(_, _, period)| period)
+    }
+
+    /// The caps in dollars that are not an amount.
+    fn faults(&self) -> impl Iterator<Item = Fault> {
+        [
+            (CapField::DayUsd, self.day_usd),
+            (CapField::MonthUsd, self.month_usd),
+        ]
+        .into_iter()
+        .filter(|(_, usd)| usd.is_some_and(|usd| !usd_is_an_amount(usd)))
+        .map(|(cap, _)| Fault {
+            place: Place::Cap(cap),
+            why: Why::NotAnAmount,
+            sentence: "a cap in dollars is an amount of US dollars, such as 20".into(),
+        })
     }
 }
 
@@ -451,12 +750,12 @@ impl SeatSettings {
     /// # Errors
     /// In one sentence: for text that is not the file's JSON, a field it
     /// does not have (every unknown field is refused), a field named like
-    /// a key or a value shaped like one (said without the value), and for
-    /// what [`Self::check`] refuses.
+    /// a key or a name or value shaped like one (said without the value),
+    /// and for what [`Self::check`] refuses.
     pub fn parse(text: &str) -> Result<Self, String> {
         let value: Value = serde_json::from_str(text).map_err(|e| format!("not JSON: {e}"))?;
-        if let Some(why) = key_in(&value, "") {
-            return Err(why);
+        if let Some(fault) = keys_in(&value).into_iter().next() {
+            return Err(fault.sentence);
         }
         let settings: Self = serde_json::from_value(value).map_err(|e| e.to_string())?;
         settings.check()?;
@@ -478,40 +777,64 @@ impl SeatSettings {
     /// called `api_key`).
     ///
     /// # Errors
-    /// A sentence naming the profile or the field: a field named like a key
-    /// or a value shaped like one, a default that names no profile, a name
-    /// a command line cannot carry, a profile's [`Profile::fault`], a cap
-    /// that is not an amount.
+    /// A sentence naming the profile or the field, the first of
+    /// [`Self::faults`]: a field named like a key or a name or value shaped
+    /// like one, a default that names no profile, a name a command line
+    /// cannot carry, a profile's [`Profile::fault`], a cap that is not an
+    /// amount.
     pub fn check(&self) -> Result<(), String> {
-        let value = serde_json::to_value(self).map_err(|e| e.to_string())?;
-        if let Some(why) = key_in(&value, "") {
-            return Err(why);
+        match self.faults().into_iter().next() {
+            Some(fault) => Err(fault.sentence),
+            None => Ok(()),
         }
+    }
+
+    /// Everything [`Self::check`] refuses, each where it is and in the
+    /// sentence `check` says it with, in the order it looks: keys first,
+    /// then the default, each profile's name and fields, and the caps.
+    #[must_use]
+    pub fn faults(&self) -> Vec<Fault> {
+        let mut out = match serde_json::to_value(self) {
+            Ok(value) => keys_in(&value),
+            Err(e) => vec![Fault {
+                place: Place::Elsewhere(String::new()),
+                why: Why::Unwritable,
+                sentence: e.to_string(),
+            }],
+        };
         if let Some(default) = &self.default
             && !self.profiles.contains_key(default)
         {
-            return Err(format!(
-                "the default profile «{}» is not among the profiles{}",
-                clip(default),
-                self.known()
-            ));
+            out.push(Fault {
+                place: Place::Default,
+                why: Why::NoSuchProfile,
+                sentence: format!(
+                    "the default profile «{}» is not among the profiles{}",
+                    clip(default),
+                    self.known()
+                ),
+            });
         }
         for (name, profile) in &self.profiles {
             if !profile_name_is_a_name(name) {
-                return Err(format!(
-                    "«{}» is not a profile name: up to 32 letters, digits, - and _, starting \
-                     with a letter or digit",
-                    clip(name)
-                ));
+                out.push(Fault {
+                    place: Place::Name(name.clone()),
+                    why: Why::NotAName,
+                    sentence: format!(
+                        "«{}» is not a profile name: up to 32 letters, digits, - and _, starting \
+                         with a letter or digit",
+                        clip(name)
+                    ),
+                });
             }
-            if let Some(why) = profile.fault() {
-                return Err(format!("profile «{name}»: {why}"));
-            }
+            out.extend(profile.faults().into_iter().map(|fault| Fault {
+                place: Place::Profile(name.clone(), fault.field),
+                why: fault.why,
+                sentence: format!("profile «{}»: {}", clip(name), fault.sentence),
+            }));
         }
-        if let Some(why) = self.caps.fault() {
-            return Err(why);
-        }
-        Ok(())
+        out.extend(self.caps.faults());
+        out
     }
 
     /// The profile called `name`.
@@ -527,7 +850,7 @@ impl SeatSettings {
         if self.profiles.is_empty() {
             "; it has none".into()
         } else {
-            let names: Vec<&str> = self.profiles.keys().map(String::as_str).collect();
+            let names: Vec<String> = self.profiles.keys().map(|name| clip(name)).collect();
             format!(": it has {}", names.join(", "))
         }
     }
@@ -558,30 +881,63 @@ fn key_like(name: &str) -> bool {
     ) || name.ends_with("api_key")
 }
 
-/// The first field named like a key, or value shaped like one, in `value`
-/// at `path`, as the sentence that refuses it.
-fn key_in(value: &Value, path: &str) -> Option<String> {
+/// Every field named like a key, and every name or value shaped like one,
+/// in `value`, in the order they stand, as the faults that refuse them.
+fn keys_in(value: &Value) -> Vec<Fault> {
+    let mut out = Vec::new();
+    keys_below(value, &mut Vec::new(), "", &mut out);
+    out
+}
+
+/// [`keys_in`] below `steps`, which the file spells `path`. A field named
+/// like a key is refused whole: what it holds is not looked into.
+fn keys_below(value: &Value, steps: &mut Vec<String>, path: &str, out: &mut Vec<Fault>) {
+    let refuse = |steps: &[String], path: &str, why| {
+        let sentence = match why {
+            Why::KeyNamed => format!("«{}» in the settings file: {KEYS_GO}", clip(path)),
+            _ => format!(
+                "{} in the settings file looks like an API key: {KEYS_GO}",
+                clip(path)
+            ),
+        };
+        Fault {
+            place: Place::at(steps, path),
+            why,
+            sentence,
+        }
+    };
     match value {
-        Value::Object(fields) => fields.iter().find_map(|(name, inner)| {
-            let here = if path.is_empty() {
-                name.clone()
-            } else {
-                format!("{path}.{name}")
-            };
-            if key_like(name) {
-                return Some(format!("«{}» in the settings file: {KEYS_GO}", clip(&here)));
+        Value::Object(fields) => {
+            for (name, inner) in fields {
+                let here = if path.is_empty() {
+                    name.clone()
+                } else {
+                    format!("{path}.{name}")
+                };
+                steps.push(name.clone());
+                if key_like(name) {
+                    out.push(refuse(steps, &here, Why::KeyNamed));
+                } else if shaped_like_a_key(name) {
+                    // A name is written to the file as surely as a value:
+                    // a profile called by a key would carry it there.
+                    out.push(refuse(steps, &here, Why::KeyShaped));
+                } else {
+                    keys_below(inner, steps, &here, out);
+                }
+                steps.pop();
             }
-            key_in(inner, &here)
-        }),
-        Value::Array(items) => items
-            .iter()
-            .enumerate()
-            .find_map(|(at, inner)| key_in(inner, &format!("{path}[{at}]"))),
-        Value::String(text) if shaped_like_a_key(text) => Some(format!(
-            "{} in the settings file looks like an API key: {KEYS_GO}",
-            clip(path)
-        )),
-        _ => None,
+        }
+        Value::Array(items) => {
+            for (at, inner) in items.iter().enumerate() {
+                steps.push(format!("[{at}]"));
+                keys_below(inner, steps, &format!("{path}[{at}]"), out);
+                steps.pop();
+            }
+        }
+        Value::String(text) if shaped_like_a_key(text) => {
+            out.push(refuse(steps, path, Why::KeyShaped));
+        }
+        _ => {}
     }
 }
 

@@ -80,18 +80,22 @@ impl Moment {
     /// or "UTC".
     #[must_use]
     pub fn zone(self) -> String {
-        match self.offset {
-            Some(secs) => {
-                let sign = if secs < 0 { '-' } else { '+' };
-                let secs = secs.unsigned_abs();
-                format!(
-                    "local time, UTC{sign}{:02}:{:02}",
-                    secs / 3600,
-                    secs / 60 % 60
-                )
-            }
+        match self.utc_offset() {
+            Some(offset) => format!("local time, {offset}"),
             None => "UTC".into(),
         }
+    }
+
+    /// The clock's offset as "UTC+02:00", or `None` where the platform
+    /// would not say and days are UTC's: [`Self::zone`] without its words,
+    /// for a sentence in another language.
+    #[must_use]
+    pub fn utc_offset(self) -> Option<String> {
+        self.offset.map(|secs| {
+            let sign = if secs < 0 { '-' } else { '+' };
+            let secs = secs.unsigned_abs();
+            format!("UTC{sign}{:02}:{:02}", secs / 3600, secs / 60 % 60)
+        })
     }
 }
 

@@ -63,6 +63,8 @@ fn a_moment_falls_in_the_player_s_own_day() {
         "local time, UTC-09:30"
     );
     assert_eq!(at(NOON, None).zone(), "UTC");
+    assert_eq!(at(NOON, CEST).utc_offset().as_deref(), Some("UTC+02:00"));
+    assert_eq!(at(NOON, None).utc_offset(), None);
     // An offset no clock has is UTC's day.
     assert_eq!(at(late, Some(200_000)).day(), "2026-09-30");
 }

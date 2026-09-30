@@ -317,6 +317,292 @@ fn key_shapes_are_blanked_and_words_are_not() {
     assert!(address_fault("http://example.com", "BAYLEE_LLM_BASE_URL").is_some());
 }
 
+/// Settings with one profile, `p`, as `edit` leaves it.
+fn one_profile(edit: impl FnOnce(&mut Profile)) -> SeatSettings {
+    let mut profile = Profile::new(Provider::OpenAi, "m-1");
+    edit(&mut profile);
+    SeatSettings {
+        profiles: BTreeMap::from([("p".to_string(), profile)]),
+        ..SeatSettings::default()
+    }
+}
+
+/// Every refusal of `check` is a fault that says where it is, and `check`
+/// says the first of them in the very sentence the fault carries: one
+/// predicate, printed for the bridge and placed for a panel.
+#[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one case per fault, read top to bottom"
+)]
+fn every_refusal_is_a_fault_with_a_place() {
+    let profile = |field| Place::Profile("p".into(), field);
+    let cases: Vec<(SeatSettings, Place, Why)> = vec![
+        (
+            one_profile(|p| p.model = "sk-ant-api03-AAAABBBBCCCCDDDDEEEE".into()),
+            profile(Field::Model),
+            Why::KeyShaped,
+        ),
+        (
+            one_profile(|p| p.key_env = Some("sk-ant-api03-AAAABBBBCCCCDDDDEEEE".into())),
+            profile(Field::KeyEnv),
+            Why::KeyShaped,
+        ),
+        (
+            {
+                let mut settings = one_profile(|_| {});
+                let p = settings.profiles.remove("p").unwrap();
+                settings.profiles.insert("api_key".into(), p);
+                settings
+            },
+            Place::Name("api_key".into()),
+            Why::KeyNamed,
+        ),
+        (
+            SeatSettings {
+                default: Some("opus".into()),
+                ..one_profile(|_| {})
+            },
+            Place::Default,
+            Why::NoSuchProfile,
+        ),
+        (
+            {
+                let mut settings = one_profile(|_| {});
+                let p = settings.profiles.remove("p").unwrap();
+                settings.profiles.insert("two words".into(), p);
+                settings
+            },
+            Place::Name("two words".into()),
+            Why::NotAName,
+        ),
+        (
+            one_profile(|p| p.model = "no spaces".into()),
+            profile(Field::Model),
+            Why::NotAModelId,
+        ),
+        (
+            one_profile(|p| p.effort = Some("Very High".into())),
+            profile(Field::Effort),
+            Why::NotAWord,
+        ),
+        (
+            one_profile(|p| {
+                p.provider = Provider::Anthropic;
+                p.answer = Some(AnswerMode::Json);
+            }),
+            profile(Field::Answer),
+            Why::JsonNeedsOpenAi,
+        ),
+        (
+            one_profile(|p| p.max_tokens = Some(0)),
+            profile(Field::MaxTokens),
+            Why::Zero,
+        ),
+        (
+            one_profile(|p| {
+                p.price = Some(GivenPrice {
+                    input: 1.0,
+                    output: -2.0,
+                });
+            }),
+            profile(Field::PriceOutput),
+            Why::NotAnAmount,
+        ),
+        (
+            one_profile(|p| p.game_usd = Some(f64::INFINITY)),
+            profile(Field::GameUsd),
+            Why::NotAnAmount,
+        ),
+        (
+            one_profile(|p| p.game_usd = Some(2.0)),
+            profile(Field::GameUsd),
+            Why::Unpriced,
+        ),
+        (
+            one_profile(|p| p.think_secs = Some(0)),
+            profile(Field::ThinkSecs),
+            Why::Zero,
+        ),
+        (
+            one_profile(|p| p.key_env = Some("my key".into())),
+            profile(Field::KeyEnv),
+            Why::NotAVariable,
+        ),
+        (
+            one_profile(|p| p.base_url = Some("http://api.example.com".into())),
+            profile(Field::BaseUrl),
+            Why::NotSecure,
+        ),
+        (
+            SeatSettings {
+                caps: Caps {
+                    month_usd: Some(-1.0),
+                    ..Caps::default()
+                },
+                ..SeatSettings::default()
+            },
+            Place::Cap(CapField::MonthUsd),
+            Why::NotAnAmount,
+        ),
+    ];
+    for (settings, place, why) in cases {
+        let faults = settings.faults();
+        let first = faults
+            .first()
+            .unwrap_or_else(|| panic!("{place:?}: no fault"));
+        assert_eq!((&first.place, first.why), (&place, why), "{faults:?}");
+        assert_eq!(settings.check(), Err(first.sentence.clone()));
+        assert!(!first.sentence.contains("AAAABBBB"), "{}", first.sentence);
+    }
+    // Every fault is listed, not only the first.
+    let settings = one_profile(|p| {
+        p.max_tokens = Some(0);
+        p.think_secs = Some(0);
+        p.base_url = Some("ftp://x".into());
+    });
+    let fields: Vec<Place> = settings.faults().into_iter().map(|f| f.place).collect();
+    assert_eq!(
+        fields,
+        [Field::MaxTokens, Field::ThinkSecs, Field::BaseUrl].map(profile)
+    );
+    assert_eq!(one_profile(|_| {}).faults(), []);
+    assert_eq!(one_profile(|_| {}).check(), Ok(()));
+}
+
+/// A profile's name is written to the file as surely as its model, so a
+/// name shaped like a key is refused like one.
+#[test]
+fn a_profile_named_by_a_key_is_refused() {
+    let key = "sk-ant-api03-AAAABBBBCCCC";
+    assert!(profile_name_is_a_name(key), "a word a command line carries");
+    let mut settings = one_profile(|_| {});
+    let p = settings.profiles.remove("p").unwrap();
+    settings.profiles.insert(key.into(), p);
+    let refused = settings.check().unwrap_err();
+    assert!(refused.contains("looks like an API key"), "{refused}");
+    assert!(!refused.contains("AAAABBBB"), "{refused}");
+    assert_eq!(settings.faults()[0].place, Place::Name(key.into()));
+    let text = format!(r#"{{"profiles": {{"{key}": {{"provider": "anthropic", "model": "m"}}}}}}"#);
+    assert!(SeatSettings::parse(&text).is_err());
+}
+
+/// A key fault's place is read off the file's own spelling of each field,
+/// so the table of spellings has to be the file's: every field a profile
+/// writes, and nothing else.
+#[test]
+fn the_field_paths_are_the_file_s_own() {
+    fn leaves(value: &Value, path: &mut Vec<String>, out: &mut Vec<Vec<String>>) {
+        match value {
+            Value::Object(fields) => {
+                for (name, inner) in fields {
+                    path.push(name.clone());
+                    leaves(inner, path, out);
+                    path.pop();
+                }
+            }
+            _ => out.push(path.clone()),
+        }
+    }
+    let full = Profile {
+        effort: Some("high".into()),
+        answer: Some(AnswerMode::Tools),
+        max_tokens: Some(1),
+        price: Some(GivenPrice {
+            input: 1.0,
+            output: 2.0,
+        }),
+        game_usd: Some(1.0),
+        game_tokens: Some(1),
+        think_secs: Some(1),
+        key_env: Some("K".into()),
+        base_url: Some("https://x".into()),
+        ..Profile::new(Provider::Anthropic, "m")
+    };
+    let mut written = Vec::new();
+    leaves(
+        &serde_json::to_value(&full).unwrap(),
+        &mut Vec::new(),
+        &mut written,
+    );
+    written.sort();
+    let mut table: Vec<Vec<String>> = Field::ALL
+        .iter()
+        .map(|field| field.path().iter().map(|s| (*s).to_string()).collect())
+        .collect();
+    table.sort();
+    assert_eq!(written, table);
+    for field in Field::ALL {
+        let steps: Vec<String> = ["profiles", "p"]
+            .iter()
+            .chain(field.path())
+            .map(|s| (*s).to_string())
+            .collect();
+        assert_eq!(
+            Place::at(&steps, "x"),
+            Place::Profile("p".into(), field),
+            "{field:?}"
+        );
+    }
+    let caps = serde_json::to_value(Caps {
+        day_usd: Some(1.0),
+        month_usd: Some(1.0),
+        day_tokens: Some(1),
+        month_tokens: Some(1),
+    })
+    .unwrap();
+    let names: Vec<&str> = caps
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    let mut table: Vec<&str> = CapField::ALL.iter().map(|cap| cap.name()).collect();
+    table.sort_unstable();
+    assert_eq!(names, table);
+}
+
+/// The models a panel suggests are the ones [`price`] knows, once each.
+#[test]
+fn the_priced_models_are_the_table_price_reads() {
+    for (at, (_, model, listed)) in PRICED.iter().enumerate() {
+        assert_eq!(price(model), Some(*listed), "{model}");
+        assert!(
+            PRICED[..at].iter().all(|(_, other, _)| other != model),
+            "{model} twice"
+        );
+        assert_eq!(model_fault(model), None, "{model}");
+    }
+    assert_eq!(price(DEFAULT_ANTHROPIC_MODEL).map(|p| p.input), Some(2.0));
+    assert_eq!(price("deepseek-chat"), None);
+}
+
+#[test]
+fn the_period_a_model_with_no_price_cannot_be_counted_in() {
+    let caps = Caps {
+        month_usd: Some(9.0),
+        day_tokens: Some(1),
+        ..Caps::default()
+    };
+    assert_eq!(caps.unpriced_period(), Some(Period::Month));
+    assert_eq!(
+        Caps {
+            day_usd: Some(1.0),
+            ..caps
+        }
+        .unpriced_period(),
+        Some(Period::Month)
+    );
+    assert_eq!(
+        Caps {
+            month_tokens: Some(1),
+            ..caps
+        }
+        .unpriced_period(),
+        None
+    );
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 mod on_disk {
     use super::*;
