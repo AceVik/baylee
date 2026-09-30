@@ -2104,6 +2104,24 @@ Filters, conditions, modifiers and durations:
   choosing it is declining. The yes or no is asked as the effect resolves,
   which is when the printed choice is made; a pair of modes would ask it on
   casting.
+- **`Effect::DiscardHand { who }`** is "each player discards their hand"
+  (Wheel of Fortune): every card of each named hand, nobody choosing, each
+  journaled as a discard of its own.
+- **`Effect::ShuffleIntoLibrary { who, hand, graveyard }`** moves each named
+  player's hand and/or graveyard into their own library, then each of them
+  shuffles (Timetwister's "each player shuffles their hand and graveyard
+  into their library"; "target player shuffles their graveyard into their
+  library" is `who: PlayerRel::Chosen, hand: false, graveyard: true`). A
+  commander among the cards is asked about first (CR 903.9b).
+  `ShuffleGraveyardIntoLibrary` is yours alone and older.
+- **`Effect::ShuffleLibrary { who }`** shuffles each named library: Natural
+  Selection's "you may have that player shuffle" is `MayDo { effects:
+  &[Effect::ShuffleLibrary { who: PlayerRel::Chosen }] }`.
+- **`Effect::ReorderTopLibraryOf { who, count }`** is `ReorderTopLibrary`
+  on another player's library: the ability's controller looks at the top
+  `count` cards of the first player `who` names and orders them (Natural
+  Selection). Seeing them is the question's entitlement, as for a scry of
+  another library.
 
 ## Worked examples
 

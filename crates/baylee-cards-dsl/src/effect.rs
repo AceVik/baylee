@@ -1481,6 +1481,13 @@ pub enum Effect {
         /// Which cards the controller may choose from the revealed hand.
         filter: &'static Filter,
     },
+    /// Each player in `who` discards their whole hand (Wheel of Fortune:
+    /// "each player discards their hand"). Nobody chooses: every card goes,
+    /// and each is a discard of its own (CR 701.9a), as the journal says.
+    DiscardHand {
+        /// Whose hands.
+        who: PlayerRel,
+    },
     /// Discard random cards, using the game's seeded RNG (Mind Twist).
     DiscardRandom {
         /// Players whose hands lose cards.
@@ -1600,6 +1607,25 @@ pub enum Effect {
     /// Shuffle your graveyard into your library (Spirit Water Revival's
     /// waterbend outcome).
     ShuffleGraveyardIntoLibrary,
+    /// Each player in `who` shuffles their hand, their graveyard, or both
+    /// into their library (Timetwister: "each player shuffles their hand
+    /// and graveyard into their library"). The cards move together, then
+    /// each of those players shuffles; a commander among them may go to
+    /// the command zone instead (CR 903.9b).
+    ShuffleIntoLibrary {
+        /// Whose cards, and whose library.
+        who: PlayerRel,
+        /// The hand goes in.
+        hand: bool,
+        /// The graveyard goes in.
+        graveyard: bool,
+    },
+    /// Each player in `who` shuffles their library ("you may have that
+    /// player shuffle", Natural Selection, inside a `MayDo`).
+    ShuffleLibrary {
+        /// Whose library.
+        who: PlayerRel,
+    },
     /// "You may …": the controller is asked, and `effects` run only on a
     /// yes — a choice an effect offers, announced while the effect is
     /// applied (CR 608.2d).
@@ -2235,6 +2261,16 @@ pub enum Effect {
     /// Look at the top N cards of your library and put them back in any
     /// order.
     ReorderTopLibrary {
+        /// How many.
+        count: u8,
+    },
+    /// Look at the top N cards of a player's library and put them back in
+    /// any order (Natural Selection: "target player's library"). The
+    /// ability's controller looks and orders; the first player `who`
+    /// names is the library.
+    ReorderTopLibraryOf {
+        /// Whose library.
+        who: PlayerRel,
         /// How many.
         count: u8,
     },
@@ -3235,6 +3271,7 @@ impl Effect {
             | Effect::DestroyChosenForPlayers { .. }
             | Effect::DiscardForPlayers { .. }
             | Effect::DiscardRandom { .. }
+            | Effect::DiscardHand { .. }
             | Effect::RevealHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
             | Effect::GraveyardAllToHand { .. }
@@ -3249,6 +3286,8 @@ impl Effect {
             | Effect::UntapChosen { .. }
             | Effect::DrainAllCountersIntoSelf
             | Effect::ShuffleGraveyardIntoLibrary
+            | Effect::ShuffleIntoLibrary { .. }
+            | Effect::ShuffleLibrary { .. }
             | Effect::BecomePrepared
             | Effect::GainLifeDoubleX
             | Effect::SearchLibrary { .. }
@@ -3291,6 +3330,7 @@ impl Effect {
             | Effect::CopyThisSpell
             | Effect::AttachSelf { .. }
             | Effect::ReorderTopLibrary { .. }
+            | Effect::ReorderTopLibraryOf { .. }
             | Effect::PayLifeOrEnterTapped { .. }
             | Effect::CreateContinuousEffect { .. }
             | Effect::ChangeController { .. }

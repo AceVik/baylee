@@ -1428,6 +1428,14 @@ impl Tx<'_> {
             // "Target player discards a card": the discarding player
             // chooses, which is what discarding means unless the effect
             // says otherwise (CR 701.9b).
+            // "Each player discards their hand" (Wheel of Fortune): every
+            // card, nobody choosing.
+            "Discard" if p.peek("Mode") == Some("Hand") => {
+                p.take("Mode");
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                vec![format!("Effect::DiscardHand {{ who: {who} }}")]
+            }
             "Discard" if p.peek("Mode") == Some("TgtChoose") => {
                 p.take("Mode");
                 let n = p
@@ -1649,6 +1657,29 @@ impl Tx<'_> {
             "Pump" => self.pump_effect(p, aimed)?,
             "Effect" => self.static_effect(p, target)?,
             "ChangeZone" => self.change_zone(p, target)?,
+            "ChangeZoneAll" => self.shuffle_into_library(p, target, targets_a_player)?,
+            // "Look at the top three cards of target player's library and
+            // put them back in any order. You may have that player shuffle"
+            // (Natural Selection). The ability's controller looks and
+            // decides; a count the player announced is refused.
+            "RearrangeTopOfLibrary" => {
+                let count: u8 = p.take("NumCards")?.parse().ok()?;
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let mut effects = vec![if who == "PlayerRel::You" {
+                    format!("Effect::ReorderTopLibrary {{ count: {count} }}")
+                } else {
+                    format!("Effect::ReorderTopLibraryOf {{ who: {who}, count: {count} }}")
+                }];
+                match p.take("MayShuffle").as_deref() {
+                    None => {}
+                    Some("True") => effects.push(format!(
+                        "Effect::MayDo {{ effects: &[Effect::ShuffleLibrary {{ who: {who} }}] }}"
+                    )),
+                    Some(_) => return None,
+                }
+                effects
+            }
             "Sacrifice" => self.sacrifice_effect(p)?,
             // "Tap enchanted creature" (Paralyze): the host, and not a
             // target.
@@ -2187,6 +2218,55 @@ impl Tx<'_> {
         } else {
             effect
         }])
+    }
+
+    /// `ChangeZoneAll` into a library with a shuffle, from hands and
+    /// graveyards: Timetwister's "each player shuffles their hand and
+    /// graveyard into their library", and "target player shuffles their
+    /// graveyard into their library".
+    ///
+    /// Whose cards: `ChangeType$ Card` with no player named is every
+    /// player's, each into their own library; `Card.YouOwn` is yours; a
+    /// `Defined$` or a player target names them. Every other change —
+    /// battlefield, exile, a library position, a random pick, a type other
+    /// than any card — is refused.
+    fn shuffle_into_library(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        if p.take("Destination").as_deref() != Some("Library")
+            || p.take("Shuffle").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let origin = p.take("Origin")?;
+        let (hand, graveyard) = match origin.as_str() {
+            "Hand" => (true, false),
+            "Graveyard" => (false, true),
+            "Hand,Graveyard" | "Graveyard,Hand" => (true, true),
+            _ => return None,
+        };
+        // The reference's "from every zone listed" rather than one of them:
+        // what two origins mean on a card.
+        if hand && graveyard {
+            p.take("UseAllOriginZones");
+        }
+        let defined = p.take("Defined");
+        let who = match p.take("ChangeType").as_deref() {
+            Some("Card.YouOwn") if defined.is_none() && target.is_none() => {
+                "PlayerRel::You".to_string()
+            }
+            Some("Card") | None if defined.is_some() || targets_a_player => self
+                .player_of_line(defined.as_deref(), target, targets_a_player)?
+                .to_string(),
+            Some("Card") if target.is_none() => "PlayerRel::EachPlayer".to_string(),
+            _ => return None,
+        };
+        Some(vec![format!(
+            "Effect::ShuffleIntoLibrary {{ who: {who}, hand: {hand}, graveyard: {graveyard} }}"
+        )])
     }
 
     /// "Target creature can't be blocked this turn" (Dwarven Warriors,
@@ -5225,6 +5305,8 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Sacrifice",
     "Pump",
     "ChangeZone",
+    "ChangeZoneAll",
+    "RearrangeTopOfLibrary",
     "Token",
     "Investigate",
 ];
@@ -7165,6 +7247,87 @@ SVar:X:Count$xPaid",
              StaticAbilities$ NoRegen | IsCurse$ True\n\
              SVar:NoRegen:Mode$ CantRegenerate | ValidCard$ Card.IsRemembered"
         ));
+    }
+
+    /// Wheel of Fortune, Timetwister and Natural Selection: whose hand,
+    /// whose graveyard, whose library. A library position, a random pick
+    /// and a count the player announced are refused.
+    #[test]
+    fn whole_hands_graveyards_and_another_players_library_read_whose() {
+        let wheel = read(
+            "Name:X\nTypes:Sorcery\n\
+             A:SP$ Discard | Mode$ Hand | Defined$ Player | SubAbility$ D\n\
+             SVar:D:DB$ Draw | Defined$ Player | NumCards$ 7",
+        );
+        let a = wheel.abilities.join("");
+        assert!(
+            a.contains("Effect::DiscardHand { who: PlayerRel::EachPlayer }"),
+            "{a}"
+        );
+        let twister = read(
+            "Name:X\nTypes:Sorcery\n\
+             A:SP$ ChangeZoneAll | ChangeType$ Card | Origin$ Hand,Graveyard | \
+             Destination$ Library | Shuffle$ True | UseAllOriginZones$ True",
+        );
+        let a = twister.abilities.join("");
+        assert!(
+            a.contains(
+                "Effect::ShuffleIntoLibrary { who: PlayerRel::EachPlayer, hand: true, \
+                 graveyard: true }"
+            ),
+            "{a}"
+        );
+        let feldon = read(
+            "Name:X\nTypes:Sorcery\n\
+             A:SP$ ChangeZoneAll | ValidTgts$ Player | ChangeType$ Card | Origin$ Graveyard | \
+             Destination$ Library | Shuffle$ True",
+        );
+        let a = feldon.abilities.join("");
+        assert!(
+            a.contains(
+                "Effect::ShuffleIntoLibrary { who: PlayerRel::Chosen, hand: false, \
+                 graveyard: true }"
+            ),
+            "{a}"
+        );
+        let selection = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ RearrangeTopOfLibrary | ValidTgts$ Player | NumCards$ 3 | MayShuffle$ True",
+        );
+        let a = selection.abilities.join("");
+        assert!(
+            a.contains("Effect::ReorderTopLibraryOf { who: PlayerRel::Chosen, count: 3 }"),
+            "{a}"
+        );
+        assert!(
+            a.contains(
+                "Effect::MayDo { effects: &[Effect::ShuffleLibrary { who: PlayerRel::Chosen }] }"
+            ),
+            "{a}"
+        );
+        let mine = read(
+            "Name:X\nTypes:Artifact\n\
+             A:AB$ RearrangeTopOfLibrary | Cost$ 1 | Defined$ You | NumCards$ 3",
+        );
+        assert!(
+            mine.abilities
+                .join("")
+                .contains("Effect::ReorderTopLibrary { count: 3 }"),
+            "{:?}",
+            mine.abilities
+        );
+        for refused_line in [
+            "A:SP$ ChangeZoneAll | ChangeType$ Card | Origin$ Hand,Graveyard | \
+             Destination$ Library | Shuffle$ True | Random$ True",
+            "A:SP$ ChangeZoneAll | ChangeType$ Creature | Origin$ Battlefield | \
+             Destination$ Library | LibraryPosition$ -1",
+            "A:SP$ RearrangeTopOfLibrary | Defined$ You | NumCards$ X",
+        ] {
+            assert!(
+                refused(&format!("Name:X\nTypes:Sorcery\n{refused_line}")),
+                "{refused_line}"
+            );
+        }
     }
 
     /// Hypnotic Specter and Fungusaur: damage to an opponent in or out of

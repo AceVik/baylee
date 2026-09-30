@@ -958,6 +958,65 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 prompt: ChoicePrompt::Generic,
             })
         }
+        Effect::DiscardHand { who } => {
+            for player in players_of(who, state, you, res) {
+                let hand = state.zones.list(ZoneLocation::Hand(player)).clone();
+                for card in hand {
+                    state.journal.record(GameEvent::Discarded {
+                        object: card,
+                        player,
+                    });
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Graveyard(player),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+            }
+            None
+        }
+        Effect::ShuffleIntoLibrary {
+            who,
+            hand,
+            graveyard,
+        } => {
+            let players = players_of(who, state, you, res);
+            let mut moves: Vec<(ObjectId, ZoneLocation)> = Vec::new();
+            for &player in &players {
+                let zones = [
+                    (hand, ZoneLocation::Hand(player)),
+                    (graveyard, ZoneLocation::Graveyard(player)),
+                ];
+                for (_, zone) in zones.into_iter().filter(|(on, _)| *on) {
+                    moves.extend(
+                        state
+                            .zones
+                            .list(zone)
+                            .iter()
+                            .map(|&card| (card, ZoneLocation::Library(player))),
+                    );
+                }
+            }
+            // CR 903.9b, before anything moves: the last answer re-enters
+            // this arm.
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            for (card, to) in moves {
+                let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
+            }
+            for player in players {
+                state.shuffle_library(player);
+            }
+            None
+        }
+        Effect::ShuffleLibrary { who } => {
+            for player in players_of(who, state, you, res) {
+                state.shuffle_library(player);
+            }
+            None
+        }
         Effect::DiscardRandom { who, count } => {
             let count = amount2(&count, state, you, res) as usize;
             if count == 0 {

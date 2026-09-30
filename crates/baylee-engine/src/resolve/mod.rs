@@ -412,8 +412,12 @@ pub enum AwaitingOp {
         /// The effect to run when they don't pay.
         effect: &'static Effect,
     },
-    /// Top-of-library reorder (Sensei's Divining Top).
-    ReorderTopLibrary,
+    /// Top-of-library reorder (Sensei's Divining Top), of `player`'s
+    /// library (Natural Selection looks at another player's).
+    ReorderTopLibrary {
+        /// Whose library.
+        player: PlayerId,
+    },
     /// A relative player bottoms a card from their hand (Vendilion Clique).
     BottomFromHand {
         /// Whose hand.
@@ -1543,10 +1547,12 @@ pub fn resume_arranged(
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     let library = ZoneLocation::Library(res.controller);
     match (awaiting, piles) {
-        (AwaitingOp::ReorderTopLibrary, [top]) => {
+        (AwaitingOp::ReorderTopLibrary { player }, [top]) => {
             // The first card listed is the new top card, so the list goes on
             // from its bottom end: each card put on top covers the one
-            // listed after it.
+            // listed after it. The library is the one looked at, which for
+            // Natural Selection is not the controller's.
+            let library = ZoneLocation::Library(player);
             for &card in top.iter().rev() {
                 let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);
             }
@@ -2568,7 +2574,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 });
             }
         }
-        AwaitingOp::ReorderTopLibrary
+        AwaitingOp::ReorderTopLibrary { .. }
         | AwaitingOp::DigBottom
         | AwaitingOp::Scry { .. }
         | AwaitingOp::Surveil => {
@@ -2837,6 +2843,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::ReorderTopLibrary { .. }
+        | Effect::ReorderTopLibraryOf { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
         | Effect::MayDoOnceEachTurn { .. }
@@ -3212,10 +3219,17 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 prompt: cost_wizard::prompt(cost),
             })
         }
-        Effect::ReorderTopLibrary { count } => {
+        Effect::ReorderTopLibrary { .. } | Effect::ReorderTopLibraryOf { .. } => {
+            let (library, count) = match op {
+                Effect::ReorderTopLibraryOf { who, count } => {
+                    (players_of(who, state, you, res).first().copied()?, count)
+                }
+                Effect::ReorderTopLibrary { count } => (you, count),
+                _ => unreachable!("the arm's two variants"),
+            };
             let options: Vec<ObjectId> = state
                 .zones
-                .list(ZoneLocation::Library(you))
+                .list(ZoneLocation::Library(library))
                 .iter()
                 .rev()
                 .take(count as usize)
@@ -3228,7 +3242,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             if options.is_empty() {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::ReorderTopLibrary);
+            res.awaiting = Some(AwaitingOp::ReorderTopLibrary { player: library });
             let n = u32::try_from(options.len()).unwrap_or(u32::MAX);
             Some(Pending::Arrange {
                 player: you,
@@ -3551,6 +3565,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::DestroyChosenForPlayers { .. }
         | Effect::DiscardForPlayers { .. }
         | Effect::DiscardRandom { .. }
+        | Effect::DiscardHand { .. }
+        | Effect::ShuffleIntoLibrary { .. }
+        | Effect::ShuffleLibrary { .. }
         | Effect::RevealHandDiscard { .. }
         | Effect::SacrificeFilter { .. }
         | Effect::ReturnChosenToHand { .. }
@@ -4720,6 +4737,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::ReorderTopLibrary { .. }
+        | Effect::ReorderTopLibraryOf { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
         | Effect::MayDoOnceEachTurn { .. }
@@ -5092,6 +5110,171 @@ mod no_regeneration_tests {
             state.object(troll).map(|o| o.zone),
             Some(crate::zone::Zone::Battlefield),
             "the shield stands and is not applied"
+        );
+    }
+}
+
+/// Wheel of Fortune, Timetwister and Natural Selection: whole hands and
+/// graveyards moved for each player named, and another player's library
+/// looked at and ordered by the ability's controller.
+#[cfg(test)]
+mod whole_zone_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_core::ids::SeatSet;
+
+    static WHEEL: &[Effect] = &[Effect::DiscardHand {
+        who: PlayerRel::EachPlayer,
+    }];
+    static TWISTER: &[Effect] = &[Effect::ShuffleIntoLibrary {
+        who: PlayerRel::EachPlayer,
+        hand: true,
+        graveyard: true,
+    }];
+    static SELECTION: &[Effect] = &[Effect::ReorderTopLibraryOf {
+        who: PlayerRel::Chosen,
+        count: 3,
+    }];
+
+    fn resolution(spell: ObjectId, effects: &[Effect], them: PlayerId) -> Resolution {
+        Resolution {
+            source: spell,
+            on_stack: spell,
+            controller: PlayerId::new(0),
+            effects: effects.to_vec(),
+            pc: 0,
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: Some(them),
+            target_players: SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: true,
+            mana_ability: false,
+            countered_source: None,
+            target_lki: None,
+            retarget_left: None,
+        }
+    }
+
+    /// Two cards in each player's hand and one in each graveyard.
+    fn table() -> (GameState, ObjectId) {
+        let mut state = GameState::from_preset(&preset(23, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        for seat in 0..2 {
+            let p = PlayerId::new(seat);
+            for zone in [
+                ZoneLocation::Hand(p),
+                ZoneLocation::Hand(p),
+                ZoneLocation::Graveyard(p),
+            ] {
+                let name = state.names.intern("Card");
+                state.create_bare(p, ObjectKind::Card, name, zone);
+            }
+        }
+        let name = state.names.intern("Spell");
+        let spell = state.create_bare(
+            PlayerId::new(0),
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        (state, spell)
+    }
+
+    fn count(state: &GameState, zone: ZoneLocation) -> usize {
+        state.zones.list(zone).len()
+    }
+
+    #[test]
+    fn each_player_discards_every_card_in_their_hand() {
+        let (mut state, spell) = table();
+        let mut res = resolution(spell, WHEEL, PlayerId::new(1));
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        for seat in 0..2 {
+            let p = PlayerId::new(seat);
+            assert_eq!(
+                count(&state, ZoneLocation::Hand(p)),
+                0,
+                "seat {seat}'s hand"
+            );
+            assert_eq!(
+                count(&state, ZoneLocation::Graveyard(p)),
+                3,
+                "seat {seat}'s graveyard"
+            );
+        }
+        let discards = state
+            .journal
+            .entries()
+            .iter()
+            .filter(|e| matches!(e.event, GameEvent::Discarded { .. }))
+            .count();
+        assert_eq!(discards, 4, "each card is a discard of its own");
+    }
+
+    #[test]
+    fn each_player_shuffles_hand_and_graveyard_into_their_own_library() {
+        let (mut state, spell) = table();
+        let before: Vec<usize> = (0..2)
+            .map(|s| count(&state, ZoneLocation::Library(PlayerId::new(s))))
+            .collect();
+        let mut res = resolution(spell, TWISTER, PlayerId::new(1));
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        for seat in 0..2u8 {
+            let p = PlayerId::new(seat);
+            assert_eq!(count(&state, ZoneLocation::Hand(p)), 0);
+            assert_eq!(count(&state, ZoneLocation::Graveyard(p)), 0);
+            assert_eq!(
+                count(&state, ZoneLocation::Library(p)),
+                before[usize::from(seat)] + 3,
+                "seat {seat}'s three cards went into their own library"
+            );
+        }
+    }
+
+    #[test]
+    fn the_controller_orders_the_top_of_the_chosen_players_library() {
+        let (mut state, spell) = table();
+        let them = PlayerId::new(1);
+        for _ in 0..4 {
+            let name = state.names.intern("Library card");
+            state.create_bare(them, ObjectKind::Card, name, ZoneLocation::Library(them));
+        }
+        let top3: Vec<ObjectId> = state
+            .zones
+            .list(ZoneLocation::Library(them))
+            .iter()
+            .rev()
+            .take(3)
+            .copied()
+            .collect();
+        let mut res = resolution(spell, SELECTION, them);
+        let Flow::Wait(Pending::Arrange { player, cards, .. }) = run(&mut state, &mut res) else {
+            panic!("the controller is asked to order the cards");
+        };
+        assert_eq!(player, PlayerId::new(0), "the controller orders");
+        assert_eq!(
+            cards, top3,
+            "the chosen player's top three, not the controller's"
+        );
+        let reversed: Vec<ObjectId> = top3.iter().rev().copied().collect();
+        assert!(matches!(
+            resume_arranged(&mut state, &mut res, std::slice::from_ref(&reversed)),
+            Flow::Complete
+        ));
+        let now: Vec<ObjectId> = state
+            .zones
+            .list(ZoneLocation::Library(them))
+            .iter()
+            .rev()
+            .take(3)
+            .copied()
+            .collect();
+        assert_eq!(
+            now, reversed,
+            "put back in the order given, in their library"
         );
     }
 }

@@ -2044,3 +2044,7 @@ land type"; both are convention tests that fire on a first try.
   is a record for the turn (`CantBeRegeneratedThisTurn`), because the
   destruction it stops is lethal damage checked after the spell is gone,
   and the shield it ignores may have been made before it (CR 701.19c).
+- **A card test that passes on an empty hand says nothing about a
+  discard.** Wheel of Fortune's test drew seven into hands the testkit had
+  left empty, so the missing "discards their hand" was invisible to it; the
+  test now puts a card in each hand and asks where it went.
