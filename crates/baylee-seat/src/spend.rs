@@ -5,8 +5,10 @@
 //!
 //! [`Booked`] settles when it is dropped, so the game's end, an error on
 //! the way out, a panic and a stopped process (the bridge drops it on
-//! ctrl-c) all settle the one way. A bridge killed outright never settles,
-//! and its reservation counts in full.
+//! ctrl-c and SIGTERM, and on Windows when its console closes or the
+//! session ends) all settle the one way. A bridge killed outright (SIGKILL,
+//! or SIGHUP when its terminal closes) never settles, and its reservation
+//! counts in full.
 
 use crate::llm::{Settings, Tally};
 use baylee_client_core::llmseat::ledger::{Ask, Book, Budget, Grant, Moment};
@@ -14,8 +16,13 @@ use baylee_client_core::llmseat::{Caps, FIRST_CALL_BYTES};
 use std::sync::{Arc, Mutex, PoisonError};
 
 /// The player's clock now: the Unix time, and its offset from UTC where
-/// the platform says (on unix, the zone the process started in). The one
-/// place the spend book's time is read.
+/// the platform says. The one place the spend book's time is read. `time`
+/// reads the offset with `localtime_r` whatever the number of threads (its
+/// soundness guard is on `refresh_tz` alone, which is not called), so the
+/// bridge's runtime threads do not make it UTC, though a zone changed while
+/// the process runs may not be seen. The bridge says at sit-down which
+/// clock it was ([`Booked::sat_down`]; `tests/stopped.rs` asserts local
+/// time from the real binary).
 #[must_use]
 pub fn now() -> Moment {
     let unix = std::time::SystemTime::now()
@@ -38,6 +45,8 @@ pub struct Booked {
     priced: bool,
     tally: Option<Arc<Mutex<Tally>>>,
     settled: bool,
+    /// When it was reserved.
+    at: Moment,
 }
 
 /// Reserves in `book` what the game `settings` plays may spend under
@@ -95,6 +104,7 @@ pub fn reserve(
         priced,
         tally: None,
         settled: false,
+        at: now,
     })
 }
 
@@ -103,6 +113,22 @@ impl Booked {
     #[must_use]
     pub const fn grant(&self) -> Grant {
         self.grant
+    }
+
+    /// What the player is told as the game sits down: what it reserved,
+    /// where, and the day it counts in, in the local time or in UTC.
+    #[must_use]
+    pub fn sat_down(&self) -> String {
+        let budget = match self.grant.budget {
+            Budget::Usd(usd) => format!("${usd:.2}"),
+            Budget::Tokens(tokens) => format!("{tokens} tokens"),
+        };
+        format!(
+            "reserved {budget} for this game in the spend book {}, counted in {} ({})",
+            self.book.path().display(),
+            self.at.day(),
+            self.at.zone()
+        )
     }
 
     /// Settles with what `tally` counts, once the mind that keeps it plays.

@@ -361,8 +361,17 @@ fn no_key_in(
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
+    let runtime = tokio::runtime::Runtime::new()?;
+    let done = runtime.block_on(run());
+    // A stopped game has settled by now (`stopped`). A request still out,
+    // such as a lobby call waiting on its timeout, is not waited for: a
+    // process that was asked to stop stops.
+    runtime.shutdown_timeout(Duration::from_secs(1));
+    done
+}
+
+async fn run() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .with_writer(std::io::stderr)
@@ -375,13 +384,75 @@ async fn main() -> anyhow::Result<()> {
     no_key_in(&args, &env, &[])?;
     match Cli::parse().command {
         Command::Join(join) => {
-            // Stopped with ctrl-c, the game is dropped where it stands, and
-            // its reservation settles with what it spent (`spend::Booked`).
+            // Stopped, the game is dropped where it stands, and its
+            // reservation settles with what it spent (`spend::Booked`).
             tokio::select! {
                 done = join_and_play(&join, &args, &env) => done,
-                _ = tokio::signal::ctrl_c() => bail!("stopped before the game was over"),
+                by = stopped() => bail!("stopped by {by} before the game was over"),
             }
         }
+    }
+}
+
+/// The first request to stop that a process can answer: ctrl-c; on unix
+/// also SIGTERM (`kill`, `docker stop`, a service manager); on Windows also
+/// ctrl-break, its console closing, and the user logging off or the machine
+/// shutting down, where the system waits a few seconds for the process to
+/// finish. A signal that cannot be listened for is not waited on. SIGHUP
+/// keeps its own meaning (a bridge under `nohup` plays on), and SIGKILL
+/// can never be answered: a bridge stopped by either counts its
+/// reservation in full.
+async fn stopped() -> &'static str {
+    /// Waits for `signal`, or forever if it cannot be listened for.
+    async fn on<T>(
+        signal: impl Future<Output = std::io::Result<T>>,
+        name: &'static str,
+    ) -> &'static str {
+        match signal.await {
+            Ok(_) => name,
+            Err(_) => std::future::pending().await,
+        }
+    }
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        let kind = |kind: SignalKind| async move {
+            match signal(kind) {
+                Ok(mut listener) => {
+                    listener.recv().await;
+                    Ok(())
+                }
+                Err(e) => Err(e),
+            }
+        };
+        tokio::select! {
+            by = on(tokio::signal::ctrl_c(), "ctrl-c") => by,
+            by = on(kind(SignalKind::terminate()), "SIGTERM") => by,
+        }
+    }
+    #[cfg(windows)]
+    {
+        use tokio::signal::windows::{ctrl_break, ctrl_close, ctrl_logoff, ctrl_shutdown};
+        macro_rules! event {
+            ($listen:ident) => {
+                async {
+                    let mut listener = $listen()?;
+                    listener.recv().await;
+                    Ok::<(), std::io::Error>(())
+                }
+            };
+        }
+        tokio::select! {
+            by = on(tokio::signal::ctrl_c(), "ctrl-c") => by,
+            by = on(event!(ctrl_break), "ctrl-break") => by,
+            by = on(event!(ctrl_close), "the console closing") => by,
+            by = on(event!(ctrl_logoff), "the user logging off") => by,
+            by = on(event!(ctrl_shutdown), "the machine shutting down") => by,
+        }
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        on(tokio::signal::ctrl_c(), "ctrl-c").await
     }
 }
 
@@ -457,6 +528,9 @@ async fn sit_down(
     } = choose(join, args, env, profile, spend::now())?;
     if let Some(note) = note {
         println!("{note}");
+    }
+    if let Some(booked) = &booked {
+        println!("{}", booked.sat_down());
     }
     let display_name = display_name(join.name.as_deref(), &label, &*mind)?;
     let deck = match (&join.deck, &join.acceptance) {

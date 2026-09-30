@@ -152,3 +152,30 @@ fn now_is_the_machine_s_time() {
     assert!(moment.unix > NOW.unix - 86_400, "{moment:?}");
     assert_eq!(moment.day().len(), 10);
 }
+
+/// At sit-down the player is told what was reserved, where, and the day
+/// it counts in, in the clock that counted it: local time where the
+/// platform said its offset, else UTC.
+#[test]
+fn the_sit_down_line_names_the_clock_the_game_counts_in() {
+    let dir = scratch("sat");
+    let book = Book::new(dir.join("llm-spend.json"));
+    let local = reserve(&book, &Caps::default(), &mut sonnet(), None, NOW).unwrap();
+    let said = local.sat_down();
+    assert!(said.starts_with("reserved $5.00 for this game"), "{said}");
+    assert!(said.contains(&book.path().display().to_string()), "{said}");
+    assert!(
+        said.ends_with("counted in 2026-09-30 (local time, UTC+02:00)"),
+        "{said}"
+    );
+    let utc = Moment {
+        offset: None,
+        ..NOW
+    };
+    let said = reserve(&book, &Caps::default(), &mut sonnet(), None, utc)
+        .unwrap()
+        .sat_down();
+    assert!(said.ends_with("counted in 2026-09-30 (UTC)"), "{said}");
+    drop(local);
+    let _ = std::fs::remove_dir_all(&dir);
+}

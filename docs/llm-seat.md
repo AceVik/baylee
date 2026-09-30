@@ -132,15 +132,23 @@ language model is in the book, and a house or scripted game never is.
   could pass the budget is never sent. A call whose bill is unknown (a
   timeout, a reply that could not be read) counts at its worst.
 - **Settle.** When the game ends, however it ends (its end, an error,
-  ctrl-c), it settles with what it spent, rounded up. A bridge that was
-  killed never settles, and its reservation counts in full: the book errs
-  high and never lower than the bill.
+  ctrl-c, SIGTERM from `kill`, `docker stop` or a service manager; on
+  Windows ctrl-break, its console closing, logging off, shutting down), it
+  settles with what it spent, rounded up. A bridge killed outright
+  (SIGKILL, or SIGHUP when its terminal closes, which keeps its meaning so
+  that `nohup` still works) never settles, and its reservation counts in
+  full: the book errs high and never lower than the bill.
 - **At once.** Bridges that reserve at the same time take turns under an
-  exclusive lock on a file beside the book (`llm-spend.lock`), and the book is rewritten whole
-  through a temporary file, so no two games take the same money.
+  exclusive lock on a file beside the book (`llm-spend.lock`), and the
+  book is rewritten whole through a temporary file, so no two games take
+  the same money.
 - **Periods.** A game counts in the calendar day it reserved in, and that
   day's month: the player's local day where the system says its offset,
-  UTC where it does not. A refusal names which.
+  UTC where it does not. The bridge says which as the game sits down
+  (`reserved $3.00 for this game in the spend book …, counted in
+  2026-09-30 (local time, UTC+02:00)`), and so does a refusal. On unix the
+  offset is read whatever the number of threads; a zone changed while a
+  bridge runs may not be seen until it starts again.
 - **What it holds.** Per game: an id, the time, the day and offset, the
   profile and model, what was reserved and what was spent, and when it
   settled; never anything of the game itself. A book that cannot be read
