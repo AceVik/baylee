@@ -301,6 +301,29 @@ impl EffectTable {
         }
     }
 
+    /// CR 400.7a: an effect from a spell or ability that changed a
+    /// permanent spell on the stack goes on applying to the permanent that
+    /// spell becomes. The permanent is a new object (CR 400.7), so the
+    /// effect named the spell's `version` and would reach nothing once it
+    /// resolved: Purelace cast at a creature spell made a white spell and a
+    /// creature of its old colour. Only [`EffectOrigin::Resolution`] effects
+    /// move, and only those that named the spell as it was.
+    pub(crate) fn follow_into_permanent(&mut self, id: ObjectId, spell: u32, permanent: u32) {
+        let mut moved = false;
+        for fx in &mut self.effects {
+            if fx.origin == EffectOrigin::Resolution
+                && matches!(fx.filter, EffectFilter::ObjectIs(object, version)
+                    if object == id && version == spell)
+            {
+                fx.filter = EffectFilter::ObjectIs(id, permanent);
+                moved = true;
+            }
+        }
+        if moved {
+            self.generation += 1;
+        }
+    }
+
     /// Number of registered effects.
     #[must_use]
     pub fn len(&self) -> usize {

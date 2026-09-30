@@ -952,6 +952,14 @@ impl Tx<'_> {
         })
     }
 
+    /// "Target spell or permanent": `TargetSpec::StackOrBattlefield` over the
+    /// valid-string's filter.
+    fn spell_or_permanent_target(&mut self, valid: &str) -> Option<String> {
+        let expr = self.filter_expr(valid)?;
+        let name = self.body.filter_static("TARGET", &expr);
+        Some(format!("TargetSpec::StackOrBattlefield(&{name})"))
+    }
+
     /// "Target creature card in your graveyard": a `CardInGraveyard` spec,
     /// whose player is whose graveyard. In a graveyard the reference's
     /// `YouCtrl` means "yours" (a card there is controlled by nobody, and
@@ -1042,7 +1050,17 @@ impl Tx<'_> {
             let spec = if api == "ChangeZone" && p.peek("Origin") == Some("Graveyard") {
                 self.graveyard_target(&valid)
             } else {
-                self.target_spec(&valid, &api)
+                // "Target spell or permanent" (the Laces): the stack is a
+                // zone a target may be chosen in only where the line says
+                // so. The battlefield alone is what every target already
+                // is.
+                match p.take("TgtZone").as_deref() {
+                    None | Some("Battlefield") => self.target_spec(&valid, &api),
+                    Some("Stack,Battlefield" | "Battlefield,Stack") => {
+                        self.spell_or_permanent_target(&valid)
+                    }
+                    Some(zone) => return self.deny(format!("a target in `TgtZone$ {zone}`")),
+                }
             };
             let Some(spec) = spec else {
                 return self.deny(format!("target `{valid}`"));
@@ -1149,6 +1167,9 @@ impl Tx<'_> {
         });
         let payer = match payer.as_deref() {
             Some("You") => "PlayerRel::You",
+            // Paralyze's "that player may pay {4}": the enchanted
+            // creature's controller (CR 303.4e names the Aura's host).
+            Some("EnchantedController") => "PlayerRel::ControllerOfAttached",
             None | Some("TargetedController") if targets_a_controlled_object => {
                 "PlayerRel::ControllerOfTarget"
             }
@@ -1763,19 +1784,36 @@ impl Tx<'_> {
     /// *added* rather than set — an animated Colonnade that stopped being a
     /// land would stop making mana.
     ///
-    /// Only `Defined$ Self` is read, and only when the chain targets
-    /// nothing: `Filter::This` binds to the first target when there is one
-    /// and to the source when there is not, so a chain with both would
-    /// animate the wrong permanent.
+    /// Two objects are read, each the one `Filter::This` binds to: the
+    /// source (`Defined$ Self`) on a chain that targets nothing, and the
+    /// target on a line that names no `Defined$` — the Laces' "target spell
+    /// or permanent becomes red". `Filter::This` binds to the first target
+    /// when there is one and to the source when there is not, so a chain
+    /// with both would animate the wrong permanent, and is refused.
+    ///
+    /// `Duration$ Permanent` is "for the rest of the game"
+    /// (`Duration::Indefinitely`); without one it is until end of turn.
     fn animate_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
-        if p.take("Defined").as_deref() != Some("Self") || target.is_some() {
-            self.note("`Animate` of something other than the source".to_string());
-            return None;
+        match (p.take("Defined").as_deref(), target) {
+            (Some("Self"), None) | (None, Some(_)) => {}
+            _ => {
+                self.note("`Animate` of something other than the source".to_string());
+                return None;
+            }
         }
+        let duration = match p.take("Duration").as_deref() {
+            None => "Duration::UntilEndOfTurn",
+            Some("Permanent") => "Duration::Indefinitely",
+            Some(other) => {
+                self.note(format!("`Animate` lasting `{other}`"));
+                return None;
+            }
+        };
         let mut out = Vec::new();
         // Layer 4: the types it becomes. A word is either a card type or a
         // subtype, and the corpus writes both in one list.
-        for word in p.take("Types")?.split(',') {
+        let types = p.take("Types").unwrap_or_default();
+        for word in types.split(',').filter(|w| !w.trim().is_empty()) {
             let word = word.trim();
             let modifier = if let Some(types) = card_type_const(word) {
                 format!("Modifier::AddType({types})")
@@ -1786,7 +1824,7 @@ impl Tx<'_> {
                 };
                 format!("Modifier::AddSubtype({path})")
             };
-            out.push(Self::animate_expr(&modifier));
+            out.push(Self::animate_expr(&modifier, duration));
         }
         // Layer 5: colour. Without `OverwriteColors$ True` the card keeps
         // the colours it had, which is `AddColor` (CR 105.3).
@@ -1798,10 +1836,13 @@ impl Tx<'_> {
                 return None;
             };
             let which = if overwrite { "SetColor" } else { "AddColor" };
-            out.push(Self::animate_expr(&format!(
-                "Modifier::{which}(ColorSet::from_slice(&[{}]))",
-                colors.join(", ")
-            )));
+            out.push(Self::animate_expr(
+                &format!(
+                    "Modifier::{which}(ColorSet::from_slice(&[{}]))",
+                    colors.join(", ")
+                ),
+                duration,
+            ));
         }
         // Layer 6: keywords it gains.
         if let Some(raw) = p.take("Keywords") {
@@ -1812,9 +1853,10 @@ impl Tx<'_> {
             };
             let joined =
                 each.join(".union(") + &")".repeat(raw.split('&').count().saturating_sub(1));
-            out.push(Self::animate_expr(&format!(
-                "Modifier::AddKeyword({joined})"
-            )));
+            out.push(Self::animate_expr(
+                &format!("Modifier::AddKeyword({joined})"),
+                duration,
+            ));
         }
         // Layer 7b: the printed P/T it takes on. Both halves or neither —
         // `SetPT` sets both, and half a set would invent the other.
@@ -1822,9 +1864,10 @@ impl Tx<'_> {
             (Some(power), Some(toughness)) => {
                 let power: i16 = power.parse().ok()?;
                 let toughness: i16 = toughness.parse().ok()?;
-                out.push(Self::animate_expr(&format!(
-                    "Modifier::SetPT({power}, {toughness})"
-                )));
+                out.push(Self::animate_expr(
+                    &format!("Modifier::SetPT({power}, {toughness})"),
+                    duration,
+                ));
             }
             (None, None) => {}
             _ => {
@@ -1844,8 +1887,8 @@ impl Tx<'_> {
     /// No layer is passed in because none is written out: `Effect::continuous`
     /// derives it from the modifier the way CR 613.1 does, so the emitter
     /// cannot name a layer that disagrees with what it is applying.
-    fn animate_expr(modifier: &str) -> String {
-        format!("Effect::continuous(&Filter::This, {modifier}, Duration::UntilEndOfTurn)")
+    fn animate_expr(modifier: &str, duration: &str) -> String {
+        format!("Effect::continuous(&Filter::This, {modifier}, {duration})")
     }
 
     /// One side of a pump, refused by what its value resolves *through*.
@@ -6066,6 +6109,34 @@ SVar:X:Count$xPaid",
             refusal_reason(&script, &cats(), None).as_deref(),
             Some("`Animate` of something other than the source")
         );
+
+        // The Laces: the target is what `Filter::This` binds to, the stack
+        // is a zone it may be in, and "becomes" lasts the game.
+        let lace = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Animate | Colors$ Red | OverwriteColors$ True | ValidTgts$ Card \
+             | TgtZone$ Stack,Battlefield | Duration$ Permanent",
+        );
+        let a = lace.abilities.join("");
+        assert!(
+            a.contains(
+                "Effect::continuous(&Filter::This, Modifier::SetColor(ColorSet::from_slice(\
+                 &[Color::Red])), Duration::Indefinitely)"
+            ),
+            "{a}"
+        );
+        assert!(
+            a.contains("TargetSpec::StackOrBattlefield(&Filter::Any)"),
+            "{a}"
+        );
+        let exiled = parse(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Animate | Colors$ Red | ValidTgts$ Card | TgtZone$ Exile",
+        );
+        assert_eq!(
+            refusal_reason(&exiled, &cats(), None).as_deref(),
+            Some("a target in `TgtZone$ Exile`")
+        );
     }
 
     /// The bounce land's sentence: nobody is targeted, the ability's
@@ -8156,10 +8227,10 @@ SVar:X:Count$xPaid",
         // named the first API *it* did not recognise — for a land whose
         // only unread line was `DB$ Discard`, that was the `R:Event$ Moved`
         // the transcoder had read perfectly well.
-        let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Animate | Defined$ Self");
+        let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Bogus | Defined$ Self");
         assert_eq!(
             refusal_reason(&script, &cats(), None).as_deref(),
-            Some("effect `Animate`")
+            Some("effect `Bogus`")
         );
 
         // A rule that exists but met a value it cannot say says so.

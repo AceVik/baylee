@@ -222,6 +222,17 @@ checks only that the card is in a graveyard or in exile (CR 603.7c); a card
 moved from the graveyard into exile in response would come back from exile,
 because a synthetic trigger carries no version.
 
+### A permanent spell keeps what was done to it (CR 400.7a)
+An effect a resolution registers on one object names it by id and version
+(`EffectFilter::ObjectIs`), and the permanent a spell becomes is a new object
+(CR 400.7). The one exception is CR 400.7a: an effect from a spell or ability
+that changed a permanent spell on the stack goes on applying to the
+permanent. `GameState::move_object` re-points those effects, the
+`EffectOrigin::Resolution` ones naming the spell's version, on the move from
+the stack to the battlefield (`EffectTable::follow_into_permanent`), and no
+other move. A Lace cast at a creature spell makes a creature of the new
+colour.
+
 ### A triggered mana ability resolves as it triggers (CR 605.4a)
 "Whenever you tap a creature for mana, add an additional {G}" is a mana
 ability (CR 605.1b: no target, triggers from a mana ability, could add mana;

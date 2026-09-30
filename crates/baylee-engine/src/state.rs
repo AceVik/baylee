@@ -2625,6 +2625,7 @@ impl GameState {
         // counting across a blink — Omnath returned by Ephemerate took its
         // second landfall for the second time this turn, not the first.
         self.ability_fires.retain(|(object, _), _| *object != id);
+        let spell_version = self.object(id).map(|o| o.version);
         {
             let obj = self.object_mut(id).expect("checked above");
             obj.zone = to.zone();
@@ -2747,6 +2748,16 @@ impl GameState {
                 // and a lie in the meantime.
                 obj.own_abilities_until_eot = false;
             }
+        }
+        // CR 400.7a, the exception to the new object above: what a spell or
+        // ability did to a permanent spell, it goes on doing to the
+        // permanent (`EffectTable::follow_into_permanent`).
+        if from_zone == Zone::Stack
+            && to.zone() == Zone::Battlefield
+            && let (Some(spell), Some(permanent)) =
+                (spell_version, self.object(id).map(|o| o.version))
+        {
+            self.effects.follow_into_permanent(id, spell, permanent);
         }
         let projectable = self
             .object(id)
