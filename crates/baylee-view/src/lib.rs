@@ -3361,7 +3361,7 @@ mod tests {
     /// only where it moves one of the three subtypes they name.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (43, 0x0a8b_74cb_94a0_bb5d);
+        const RECORDED: (u32, u64) = (44, 0xd9d7_7e4a_2c16_ee7d);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =
