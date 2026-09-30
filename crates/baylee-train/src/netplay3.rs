@@ -89,6 +89,13 @@ impl Tables {
     }
 }
 
+/// How often a net may be asked in one game state before the house answers
+/// for it. A fourth time is a loop of its own answers: a cast it cannot pay
+/// for is undone, and at temperature 0 it starts the same cast again. No
+/// finished game of a 1,500-game arena asked the net in one state more than
+/// three times, and every game that looped to its cap did six times or more.
+pub const STALL_VISITS: u32 = 3;
+
 /// A v3 net on ONNX Runtime.
 pub struct NetPlayer3 {
     session: Session,

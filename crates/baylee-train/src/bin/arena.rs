@@ -170,6 +170,9 @@ struct Played {
     turn: u32,
     net_answers: u64,
     house_fallbacks: u64,
+    /// Questions the house answered because the net was asked again in a
+    /// game state it had been asked in: a loop of its own answers.
+    stalls: u64,
     refused: u64,
     net_ms: f64,
     record: Vec<u8>,
@@ -356,6 +359,7 @@ fn main() -> anyhow::Result<()> {
                         let (mut net_answers, mut fallbacks, mut refused, mut net_time) =
                             (0, 0, 0, Duration::ZERO);
                         let mut refusals = Vec::new();
+                        let (mut asked_in, mut stalls) = (BTreeMap::<u64, u32>::new(), 0_u64);
                         let outcome = loop {
                             if let Pending::GameOver(result) = session.pending() {
                                 let winners = session.winning_seats(*result);
@@ -376,8 +380,19 @@ fn main() -> anyhow::Result<()> {
                                 continue;
                             }
                             if let Some((pending, view)) = session.view_for(me) {
+                                // Asked too often in one state, the net has gone
+                                // round a loop of its own answers: the house
+                                // answers there (`netplay3::STALL_VISITS`).
+                                let visits = asked_in.entry(session.snapshot_hash()).or_default();
+                                *visits += 1;
+                                let again = *visits > baylee_train::netplay3::STALL_VISITS;
+                                stalls += u64::from(again);
                                 let t = Instant::now();
-                                let answer = net.answer(&view, &pending, &seat_table)?;
+                                let answer = if again {
+                                    None
+                                } else {
+                                    net.answer(&view, &pending, &seat_table)?
+                                };
                                 net_time += t.elapsed();
                                 let action = if let Some(a) = answer {
                                     net_answers += 1;
@@ -423,6 +438,7 @@ fn main() -> anyhow::Result<()> {
                             turn: session.state().turn.number,
                             net_answers,
                             house_fallbacks: fallbacks,
+                            stalls,
                             refused,
                             net_ms: net_time.as_secs_f64() * 1e3,
                             record: session.take_record(),
@@ -451,6 +467,7 @@ fn main() -> anyhow::Result<()> {
                         turn: 0,
                         net_answers: 0,
                         house_fallbacks: 0,
+                        stalls: 0,
                         refused: 0,
                         net_ms: 0.0,
                         record: Vec::new(),
@@ -479,6 +496,7 @@ fn main() -> anyhow::Result<()> {
     // Per deal, [net, house] by seat: the watched seat's outcome.
     let mut deals: BTreeMap<u64, [[Option<&'static str>; 2]; 2]> = BTreeMap::new();
     let (mut answers, mut fallbacks, mut refused, mut net_ms) = (0_u64, 0_u64, 0_u64, 0.0_f64);
+    let mut stalls = 0_u64;
     let started = Instant::now();
     let mut done = 0_u64;
     let mut last = Instant::now();
@@ -500,6 +518,7 @@ fn main() -> anyhow::Result<()> {
         }
         answers += p.net_answers;
         fallbacks += p.house_fallbacks;
+        stalls += p.stalls;
         refused += p.refused;
         net_ms += p.net_ms;
         records.write_all(&p.record)?;
@@ -515,7 +534,7 @@ fn main() -> anyhow::Result<()> {
             json!({"i": p.i, "deal": p.deal, "role": if net { "net" } else { "house" },
                    "deck": decks[deal_setup(p.deal, args.against.len()).1[usize::from(p.net_seat)]].key,
                    "against": args.against[p.against], "net_seat": p.net_seat, "outcome": p.outcome,
-                   "turn": p.turn, "net_answers": p.net_answers, "house_fallbacks": p.house_fallbacks,
+                   "turn": p.turn, "net_answers": p.net_answers, "house_fallbacks": p.house_fallbacks, "stalls": p.stalls,
                    "refused": p.refused, "net_ms": p.net_ms})
         )?;
         if last.elapsed() >= Duration::from_secs(5) || done == total {
@@ -552,7 +571,7 @@ fn main() -> anyhow::Result<()> {
         "model": args.model, "as_profile": args.as_profile, "name": run, "deals": args.deals,
         "games": done, "results": results, "duplicate": duplicate,
         "caps": {"decisions": args.max_decisions, "secs": args.max_secs},
-        "net_answers": answers, "house_fallbacks": fallbacks, "refused": refused,
+        "net_answers": answers, "house_fallbacks": fallbacks, "stalls": stalls, "refused": refused,
         "refused_by_kind": refusal_kinds.iter().map(|(k, [not_enumerated, enumerated])| (k.clone(), json!({"enumerated": enumerated, "not_enumerated": not_enumerated}))).collect::<BTreeMap<_, _>>(),
         "ms_per_answer": net_ms / answers.max(1) as f64, "seconds": started.elapsed().as_secs_f64(),
         "build": baylee_build::short(), "working_hash": working.hash(),

@@ -287,7 +287,10 @@ fn play_one(
     let deck_them = deck_list(&preset.seats[usize::from(other)]);
     let started = Instant::now();
     let wall = Duration::from_secs(args.max_secs);
-    let (mut refused, mut fallbacks) = (0_u64, 0_u64);
+    let (mut refused, mut fallbacks, mut stalls) = (0_u64, 0_u64, 0_u64);
+    // Per seat, how often it has been asked in each game state (only looked
+    // up).
+    let mut asked_in: [BTreeMap<u64, u32>; 2] = Default::default();
     let outcome = loop {
         if let Pending::GameOver(result) = session.pending() {
             let reason = format!("{:?}", result.reason);
@@ -332,7 +335,21 @@ fn play_one(
                 teams: &teams,
                 deck,
             };
-            let action = if let Some(a) = player.answer(&view, &pending, &seat_table)? {
+            // Asked too often in one game state, a net has gone round a loop
+            // of its own answers: the house answers there
+            // (`netplay3::STALL_VISITS`).
+            let visits = asked_in[usize::from(seat.get())]
+                .entry(session.snapshot_hash())
+                .or_default();
+            *visits += 1;
+            let again = *visits > baylee_train::netplay3::STALL_VISITS;
+            stalls += u64::from(again);
+            let answered = if again {
+                None
+            } else {
+                player.answer(&view, &pending, &seat_table)?
+            };
+            let action = if let Some(a) = answered {
                 a.action
             } else {
                 fallbacks += 1;
@@ -382,6 +399,7 @@ fn play_one(
             "ms": started.elapsed().as_millis() as u64,
             "refused": refused,
             "house_fallbacks": fallbacks,
+            "stalls": stalls,
         }),
         record: session.take_record(),
         learner_won,
