@@ -442,7 +442,7 @@ async fn a_language_model_seat_plays_a_game_through_real_sockets() {
     let spec = Spec::parse("anthropic").expect("a spec").expect("a spec");
     let mut settings = Settings::new(&spec);
     // The budget has its own test; here the game is.
-    settings.spend_usd = 1000.0;
+    settings.spend_usd = Some(1000.0);
     settings.spend_tokens = u64::MAX;
     let transcripts = std::env::temp_dir().join(format!(
         "baylee-e2e-seat-llm-{}-{}",

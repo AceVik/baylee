@@ -37,7 +37,9 @@
 //! with the same history, so the next question starts a new conversation,
 //! as a new turn does. Past the
 //! game's budget in tokens or dollars (§8) every question is declined and
-//! the house finishes the game.
+//! the house finishes the game. A dollar budget needs the model's price, so
+//! a model with none sits down only with a token budget stated as its
+//! limit ([`Settings::budget`]).
 //!
 //! # The key
 //!
@@ -206,8 +208,12 @@ pub struct Settings {
     pub answer: AnswerMode,
     /// The most tokens one reply may take, thinking included.
     pub max_tokens: u32,
-    /// The game's budget in US dollars, where the model's price is known.
-    pub spend_usd: f64,
+    /// What the model costs: this build's price for it ([`price`]) or one
+    /// given ([`Settings::budget`]); `None` when neither is known.
+    pub price: Option<Price>,
+    /// The game's budget in US dollars. Only with a price: without one no
+    /// dollar is counted, and the token budget is the limit.
+    pub spend_usd: Option<f64>,
     /// The game's budget in tokens, input and output together.
     pub spend_tokens: u64,
     /// How long a turn's conversation may grow, in estimated tokens, before
@@ -222,10 +228,11 @@ pub struct Settings {
 
 impl Settings {
     /// The defaults for `spec`: medium effort on Anthropic, the provider's
-    /// own default elsewhere; tools; five dollars and five million tokens a
-    /// game.
+    /// own default elsewhere; tools; five million tokens a game, and five
+    /// dollars where this build knows the model's price.
     #[must_use]
     pub fn new(spec: &Spec) -> Self {
+        let price = price(&spec.model);
         Self {
             provider: spec.provider,
             model: spec.model.clone(),
@@ -235,13 +242,61 @@ impl Settings {
                 Provider::Anthropic => 16_000,
                 Provider::OpenAi => 8_000,
             },
-            spend_usd: 5.0,
-            spend_tokens: 5_000_000,
+            price,
+            spend_usd: price.map(|_| DEFAULT_SPEND_USD),
+            spend_tokens: DEFAULT_SPEND_TOKENS,
             conversation_tokens: 100_000,
             transcripts: None,
         }
     }
+
+    /// The price and the budget a command line states: `price`, where one
+    /// is given, over this build's; the dollar and token budgets where
+    /// given, else the defaults.
+    ///
+    /// # Errors
+    /// A dollar budget cannot be held without a price, so a model that has
+    /// none sits down only with a token budget stated as its limit, and
+    /// never with a dollar budget.
+    pub fn budget(
+        &mut self,
+        price: Option<Price>,
+        spend_usd: Option<f64>,
+        spend_tokens: Option<u64>,
+    ) -> Result<(), String> {
+        if price.is_some() {
+            self.price = price;
+        }
+        if self.price.is_some() {
+            self.spend_usd = Some(spend_usd.unwrap_or(DEFAULT_SPEND_USD));
+            self.spend_tokens = spend_tokens.unwrap_or(DEFAULT_SPEND_TOKENS);
+            return Ok(());
+        }
+        let model = &self.model;
+        if spend_usd.is_some() {
+            return Err(format!(
+                "this build has no price for «{model}», so --spend-usd cannot be held: give its \
+                 price with --price-in and --price-out (US dollars per million tokens)"
+            ));
+        }
+        let Some(tokens) = spend_tokens else {
+            return Err(format!(
+                "this build has no price for «{model}», so no dollar budget can be held: give its \
+                 price with --price-in and --price-out (US dollars per million tokens), or make \
+                 a token budget the limit with --spend-tokens N"
+            ));
+        };
+        self.spend_usd = None;
+        self.spend_tokens = tokens;
+        Ok(())
+    }
 }
+
+/// A game's dollar budget when none is given, for a model with a price.
+pub const DEFAULT_SPEND_USD: f64 = 5.0;
+
+/// A game's token budget when none is given, for a model with a price.
+pub const DEFAULT_SPEND_TOKENS: u64 = 5_000_000;
 
 /// Where the API is and the key it takes.
 #[derive(Clone, Debug)]
@@ -312,9 +367,27 @@ pub struct Price {
     pub cache_read: f64,
 }
 
+impl Price {
+    /// A price given as input and output, in US dollars per million
+    /// tokens, for a model this build has no price for. The cache is
+    /// counted so that the bill errs high: a write at 1.25 times the input
+    /// price, the ratio of both rows of [`price`], and a read at the full
+    /// input price rather than a guessed discount.
+    #[must_use]
+    pub fn per_million(input: f64, output: f64) -> Self {
+        Self {
+            input,
+            output,
+            cache_write: input * 1.25,
+            cache_read: input,
+        }
+    }
+}
+
 /// What a model costs, for the models this build knows; `None` for any
-/// other, whose spend is then held to its token budget alone. A snapshot:
-/// the provider's price list is the authority.
+/// other, which then plays only with a price given ([`Price::per_million`])
+/// or a token budget as its limit ([`Settings::budget`]). A snapshot: the
+/// provider's price list is the authority.
 #[must_use]
 pub fn price(model: &str) -> Option<Price> {
     match model {
@@ -576,11 +649,10 @@ impl ApiMind {
                 "the game's budget of {} tokens is spent",
                 self.settings.spend_tokens
             )
-        } else if usd >= self.settings.spend_usd {
-            format!(
-                "the game's budget of ${:.2} is spent (${usd:.2})",
-                self.settings.spend_usd
-            )
+        } else if let Some(budget) = self.settings.spend_usd
+            && usd >= budget
+        {
+            format!("the game's budget of ${budget:.2} is spent (${usd:.2})")
         } else {
             return None;
         };
@@ -625,7 +697,7 @@ impl ApiMind {
         let headers = self.headers();
         let agent = self.agent.clone();
         let tally = Arc::clone(&self.tally);
-        let price = price(&self.settings.model);
+        let price = self.settings.price;
         let provider = self.settings.provider;
         let mode = self.settings.answer;
         let key = self.credentials.key.clone();

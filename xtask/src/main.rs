@@ -487,7 +487,9 @@ enum Cmd {
         /// the bridge reads from this environment) under the name its mind
         /// discloses (`HOUSE-house`, `TEST-scripted`, `LLM-sonnet-5`), with
         /// the other acceptance deck. Its transcripts go to
-        /// `target/seat-transcripts/`.
+        /// `target/seat-transcripts/`. A model the bridge has no price for
+        /// does not sit down here: seat it with `baylee-seat join` and its
+        /// price or a token budget (`baylee-seat join --help`).
         #[arg(long, value_name = "MIND")]
         bridge: Option<String>,
     },

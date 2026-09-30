@@ -27,7 +27,7 @@ use baylee_seat::bridge::{self, PlayOptions};
 use baylee_seat::deck::Deck;
 use baylee_seat::link::SeatLink;
 use baylee_seat::llm::{
-    AnswerMode, ApiMind, Provider, Secret, Settings, Spec, Tally, credentials, scrub,
+    AnswerMode, ApiMind, Price, Provider, Secret, Settings, Spec, Tally, credentials, scrub,
 };
 use baylee_seat::lobby::{Chair, GuestSignIn, Lobby, Session, seat_name};
 use baylee_seat::seat::{BLITZ_SECS, Outcome};
@@ -77,13 +77,27 @@ struct Join {
     /// JSON object, for a server without tools.
     #[arg(long, value_enum, default_value_t = Answering::Tools)]
     answer: Answering,
-    /// The most a language model may spend on one game, in US dollars; past
-    /// it the house finishes the game.
-    #[arg(long, default_value_t = 5.0)]
-    spend_usd: f64,
-    /// The most tokens a language model may spend on one game.
-    #[arg(long, default_value_t = 5_000_000)]
-    spend_tokens: u64,
+    /// The most a language model may spend on one game, in US dollars
+    /// [default: 5]; past it the house finishes the game. It needs the
+    /// model's price: this build's, or --price-in and --price-out. A model
+    /// with no price is refused unless --spend-tokens states its limit.
+    #[arg(long, value_parser = usd)]
+    spend_usd: Option<f64>,
+    /// The most tokens a language model may spend on one game, in and out
+    /// together [default: 5000000]; the only limit, and required, for a
+    /// model this build has no price for and none is given.
+    #[arg(long)]
+    spend_tokens: Option<u64>,
+    /// The model's input price in US dollars per million tokens, with
+    /// --price-out: for a model this build has no price for, or over its
+    /// own. Cache writes count at 1.25 times it and cache reads at all of
+    /// it, so the dollar budget errs high.
+    #[arg(long, requires = "price_out", value_parser = usd)]
+    price_in: Option<f64>,
+    /// The model's output price (thinking included) in US dollars per
+    /// million tokens, with --price-in.
+    #[arg(long, requires = "price_in", value_parser = usd)]
+    price_out: Option<f64>,
     /// Print every decision on the terminal, for any mind (a language
     /// model's always are).
     #[arg(long)]
@@ -199,8 +213,13 @@ impl MindKind {
                     );
                     settings.answer = AnswerMode::Json;
                 }
-                settings.spend_usd = join.spend_usd;
-                settings.spend_tokens = join.spend_tokens;
+                let price = join
+                    .price_in
+                    .zip(join.price_out)
+                    .map(|(input, output)| Price::per_million(input, output));
+                settings
+                    .budget(price, join.spend_usd, join.spend_tokens)
+                    .map_err(|why| anyhow::anyhow!(why))?;
                 settings.transcripts.clone_from(&join.transcripts);
                 let credentials =
                     credentials(spec.provider, env).map_err(|why| anyhow::anyhow!(why))?;
@@ -221,6 +240,14 @@ impl MindKind {
             Self::Llm(spec) => spec.tag(),
         }
     }
+}
+
+/// An amount of US dollars: a number, finite and not below zero.
+fn usd(text: &str) -> Result<f64, String> {
+    text.parse::<f64>()
+        .ok()
+        .filter(|usd| usd.is_finite() && *usd >= 0.0)
+        .ok_or_else(|| "an amount of US dollars, such as 2.5".to_string())
 }
 
 /// Refuses a command line that carries an API key: a key belongs in the
@@ -464,11 +491,15 @@ mod tests {
     /// the house signs in as the house and a script as a test, never as a
     /// language model, and the seat holds the table to that same name.
     fn join(mind: &str) -> Join {
-        Cli::try_parse_from(["baylee-seat", "join", "TEST-room", "--mind", mind])
-            .map(|cli| match cli.command {
-                Command::Join(join) => join,
-            })
-            .expect("a command line")
+        join_with(mind, &[]).expect("a command line")
+    }
+
+    /// `join` with more arguments after `--mind`.
+    fn join_with(mind: &str, more: &[&str]) -> Result<Join, clap::Error> {
+        let head = ["baylee-seat", "join", "TEST-room", "--mind", mind];
+        Cli::try_parse_from(head.iter().chain(more)).map(|cli| match cli.command {
+            Command::Join(join) => join,
+        })
     }
 
     /// A placeholder key, so a language-model mind can be built without
@@ -489,7 +520,8 @@ mod tests {
             ("openai:deepseek-chat", "LLM-deepseek", "LLM-"),
         ];
         for (spec, named, prefix) in minds {
-            let join = join(spec);
+            // A model with no price sits down only with a token budget.
+            let join = join_with(spec, &["--spend-tokens", "100000"]).unwrap();
             let kind = &join.mind;
             let chosen_mind = kind
                 .mind(AIProfile::default(), &join, &placeholder)
@@ -525,5 +557,79 @@ mod tests {
         let join = join("anthropic");
         let missing = join.mind.mind(AIProfile::default(), &join, &|_| None);
         assert!(missing.is_err());
+    }
+
+    /// A model this build has no price for does not sit down under a
+    /// dollar budget nobody can hold: it states its price, or a token
+    /// budget as its limit, and `--help` says so.
+    #[test]
+    fn a_model_with_no_price_states_its_price_or_its_token_limit() {
+        let sits = |mind: &str, more: &[&str]| {
+            let join = join_with(mind, more).expect("a command line");
+            join.mind
+                .mind(AIProfile::default(), &join, &placeholder)
+                .map(|_| ())
+                .map_err(|e| e.to_string())
+        };
+        let unpriced = "openai:deepseek-chat";
+        let refused = sits(unpriced, &[]).unwrap_err();
+        for named in [
+            "deepseek-chat",
+            "--price-in",
+            "--price-out",
+            "--spend-tokens",
+        ] {
+            assert!(refused.contains(named), "{refused}");
+        }
+        assert_eq!(refused.lines().count(), 1, "one sentence: {refused}");
+        // A dollar budget for it is refused, token budget or not.
+        for more in [
+            &["--spend-usd", "3"][..],
+            &["--spend-usd", "3", "--spend-tokens", "9"],
+        ] {
+            let refused = sits(unpriced, more).unwrap_err();
+            assert!(refused.contains("--price-in"), "{refused}");
+        }
+        // The accepted forms: a token limit, a price (with or without a
+        // budget of its own), and a model this build has a price for.
+        sits(unpriced, &["--spend-tokens", "200000"]).unwrap();
+        sits(unpriced, &["--price-in", "0.3", "--price-out", "1.2"]).unwrap();
+        let priced = [
+            "--price-in",
+            "0.3",
+            "--price-out",
+            "1.2",
+            "--spend-usd",
+            "2",
+        ];
+        sits(unpriced, &priced).unwrap();
+        sits("anthropic", &[]).unwrap();
+        sits("anthropic:claude-opus-5-5", &["--spend-usd", "1"]).unwrap();
+        // A price is both halves, and an amount of dollars.
+        assert!(join_with(unpriced, &["--price-in", "0.3"]).is_err());
+        assert!(join_with(unpriced, &["--price-out", "1.2"]).is_err());
+        for bad in ["-1", "NaN", "inf", "a"] {
+            let price_in = format!("--price-in={bad}");
+            let more = [price_in.as_str(), "--price-out", "1"];
+            assert!(join_with(unpriced, &more).is_err(), "{bad}");
+            let spend = format!("--spend-usd={bad}");
+            assert!(join_with("anthropic", &[&spend]).is_err(), "{bad}");
+        }
+        // What `join --help` says about it.
+        let mut cli = <Cli as clap::CommandFactory>::command();
+        let help = cli
+            .find_subcommand_mut("join")
+            .expect("join")
+            .render_long_help()
+            .to_string();
+        let help = help.split_whitespace().collect::<Vec<_>>().join(" ");
+        for said in [
+            "A model with no price is refused unless --spend-tokens states its limit",
+            "required, for a model this build has no price for",
+            "--price-in",
+            "--price-out",
+        ] {
+            assert!(help.contains(said), "--help lacks «{said}»:\n{help}");
+        }
     }
 }

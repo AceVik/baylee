@@ -598,6 +598,96 @@ async fn past_the_budget_the_house_finishes() {
     assert!(lock(&mind.tally()).spent);
 }
 
+/// A dollar budget is held only where the price is known: this build's, or
+/// one given. A model with neither plays only under a token budget stated
+/// as its limit.
+#[test]
+fn a_dollar_budget_is_held_only_with_a_price() {
+    let spec = |provider, model: &str| Spec {
+        provider,
+        model: model.into(),
+    };
+    let known = Settings::new(&spec(Provider::Anthropic, "claude-sonnet-5"));
+    assert_eq!(known.price, price("claude-sonnet-5"));
+    assert_eq!(known.spend_usd, Some(DEFAULT_SPEND_USD));
+    let mut defaults = known.clone();
+    defaults.budget(None, None, None).expect("a priced model");
+    assert_eq!(
+        (defaults.spend_usd, defaults.spend_tokens),
+        (Some(DEFAULT_SPEND_USD), DEFAULT_SPEND_TOKENS)
+    );
+
+    let unknown = Settings::new(&spec(Provider::OpenAi, "TEST-model"));
+    assert_eq!((unknown.price, unknown.spend_usd), (None, None));
+    let refused = unknown.clone().budget(None, None, None).unwrap_err();
+    for named in ["TEST-model", "--price-in", "--price-out", "--spend-tokens"] {
+        assert!(refused.contains(named), "{refused}");
+    }
+    for tokens in [None, Some(1_000)] {
+        let refused = unknown.clone().budget(None, Some(3.0), tokens).unwrap_err();
+        assert!(refused.contains("--spend-usd cannot be held"), "{refused}");
+    }
+    let mut tokens_only = unknown.clone();
+    tokens_only
+        .budget(None, None, Some(1_000))
+        .expect("a token limit");
+    assert_eq!(
+        (
+            tokens_only.price,
+            tokens_only.spend_usd,
+            tokens_only.spend_tokens
+        ),
+        (None, None, 1_000)
+    );
+    let mut priced = unknown;
+    let given = Price::per_million(0.3, 1.2);
+    priced.budget(Some(given), None, None).expect("a price");
+    assert_eq!(
+        (priced.price, priced.spend_usd, priced.spend_tokens),
+        (Some(given), Some(DEFAULT_SPEND_USD), DEFAULT_SPEND_TOKENS)
+    );
+
+    // A given price errs high on the cache: a write at this build's ratio,
+    // a read at no discount.
+    for model in ["claude-sonnet-5", "claude-opus-5-5"] {
+        let table = price(model).expect("a price");
+        let given = Price::per_million(table.input, table.output);
+        assert!(
+            (given.cache_write - table.cache_write).abs() < 1e-9,
+            "{model}"
+        );
+        assert!(given.cache_read >= table.cache_read, "{model}");
+    }
+}
+
+/// A price given for a model is the one its dollars are counted at, and
+/// past its dollar budget the house finishes.
+#[tokio::test]
+async fn a_given_price_is_counted_and_its_budget_held() {
+    let (base, provider) = stand_in().await;
+    provider.script(Scripted::ok(claude(&[(
+        "toolu_1",
+        "decide",
+        json!({"ask": "q12", "pick": ["a1"]}),
+    )])));
+    // 3,500 tokens at $1,000 a million each way: some dollars, over one.
+    let mind = mind(&base, Provider::Anthropic, |s| {
+        s.budget(Some(Price::per_million(1000.0, 1000.0)), Some(1.0), None)
+            .expect("a price");
+    });
+    mind.decide(a_priority()).await.expect("the first answer");
+    let usd = lock(&mind.tally()).usd.expect("a price");
+    assert!(usd > 1.0, "{usd}");
+    let mut next = a_priority();
+    next.log = empty_log();
+    let spent = mind.decide(next).await.expect_err("spent");
+    assert!(
+        matches!(&spent, MindError::Declined(why) if why.contains("$1.00")),
+        "{spent:?}"
+    );
+    assert_eq!(provider.seen().len(), 1);
+}
+
 /// A new turn starts a new conversation, carrying the model's own notes.
 #[tokio::test]
 async fn a_new_turn_starts_a_new_conversation_with_the_notes() {
