@@ -371,9 +371,14 @@ fn serve_unix(path: &std::path::Path, app: Router) {
     });
 }
 
+/// The gateway's TCP listener: every connection it accepts sends with
+/// Nagle's algorithm off ([`send_at_once`]).
+type Listening = axum::serve::TapIo<tokio::net::TcpListener, fn(&mut tokio::net::TcpStream)>;
+
 /// Binds the gateway's port, and answers which port that is: the one asked
 /// for, or with `PORT=0` the one the kernel chose.
-async fn listen(port: u16) -> (tokio::net::TcpListener, u16) {
+async fn listen(port: u16) -> (Listening, u16) {
+    use axum::serve::ListenerExt as _;
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
         .await
         .expect("bind gateway port");
@@ -381,7 +386,21 @@ async fn listen(port: u16) -> (tokio::net::TcpListener, u16) {
         .local_addr()
         .expect("a bound listener has an address")
         .port();
-    (listener, port)
+    (listener.tap_io(send_at_once as fn(&mut _)), port)
+}
+
+/// Turns Nagle's algorithm off on an accepted connection (`TCP_NODELAY`).
+///
+/// The gateway relays frames that are small and follow each other closely:
+/// an engine's view and then the question about it, forwarded to a seat. With
+/// Nagle on, the second waits until the peer acknowledges the first, and
+/// Linux holds an acknowledgement back for up to 40 ms: in a Linux container
+/// the language-model seat's test game (`e2e_seat_llm`) took 49 ms an action
+/// with Nagle on and 5 ms with it off (30.09.2026).
+fn send_at_once(stream: &mut tokio::net::TcpStream) {
+    if let Err(e) = stream.set_nodelay(true) {
+        tracing::debug!(error = %e, "TCP_NODELAY was not set on a connection");
+    }
 }
 
 /// Says the gateway is about to serve, and where: in the log, and to
