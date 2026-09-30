@@ -98400,16 +98400,20 @@ fn pirate_ship_taps_to_deal_one_damage_to_a_creature() {
 /// (CR 508.1c): with none on the defending side it is not offered and a
 /// declaration naming it is refused — even though its own controller's
 /// Island is what keeps the ship itself from being sacrificed, which does
-/// not count for the opponent's side.
+/// not count for the opponent's side. A vanilla Savannah Lions, on the
+/// battlefield since the game began like the ship, is offered in the same
+/// question: this board can offer an attacker, so the ship's absence is
+/// its restriction at work, not a question that offers nothing at all.
 #[test]
 fn pirate_ship_cannot_attack_when_the_defending_player_controls_no_island() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[pirate_ship(), island()])
+        .battlefield(0, &[pirate_ship(), island(), savannah_lions()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let ship = on_battlefield(&engine, p0, pirate_ship()).expect("seated");
+    let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
 
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })
@@ -98417,6 +98421,11 @@ fn pirate_ship_cannot_attack_when_the_defending_player_controls_no_island() {
     let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
         unreachable!("the pass waited for exactly this")
     };
+    assert!(
+        attackers.contains(&lions),
+        "a vanilla creature on the same board is offered: this question can \
+         offer an attacker at all: {attackers:?}"
+    );
     assert!(
         !attackers.contains(&ship),
         "no Island on the defending side, and its own controller's Island \
@@ -98646,16 +98655,21 @@ fn sea_serpent() -> CardIndex {
 /// (CR 508.1c): with none on the defending side it is not offered and a
 /// declaration naming it is refused — even though its own controller's
 /// Island is what keeps the Serpent from being sacrificed, which does not
-/// count for the opponent's side.
+/// count for the opponent's side. A vanilla Savannah Lions, on the
+/// battlefield since the game began like the Serpent, is offered in the
+/// same question: this board can offer an attacker, so the Serpent's
+/// absence is its restriction at work, not a question that offers nothing
+/// at all.
 #[test]
 fn sea_serpent_cannot_attack_when_the_defending_player_controls_no_island() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[sea_serpent(), island()])
+        .battlefield(0, &[sea_serpent(), island(), savannah_lions()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let serpent = on_battlefield(&engine, p0, sea_serpent()).expect("seated");
+    let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
 
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })
@@ -98663,6 +98677,11 @@ fn sea_serpent_cannot_attack_when_the_defending_player_controls_no_island() {
     let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
         unreachable!("the pass waited for exactly this")
     };
+    assert!(
+        attackers.contains(&lions),
+        "a vanilla creature on the same board is offered: this question can \
+         offer an attacker at all: {attackers:?}"
+    );
     assert!(
         !attackers.contains(&serpent),
         "no Island on the defending side, and its own controller's Island \
@@ -99474,8 +99493,15 @@ fn next_combat_question(engine: &mut Engine<RegistryLookup>) -> Pending {
 /// A third attacker (no banding of its own) rides along so the "up to one"
 /// cap (CR 702.22c) is a live board fact: naming both non-banding attackers
 /// as the band is refused and the question stands, while naming just one
-/// of them is accepted.
+/// of them is accepted. The question's own `max` is asserted too — it
+/// offers both, uncapped — so that refusal is shown to be CR 702.22c's
+/// count of non-banding members, not this question's ordinary limit. A
+/// second scenario is the stronger proof: a second banding creature
+/// (Timber Wolves) rides in the same band as the Hero and one non-banding
+/// ally, and is accepted outright, since only the ally counts against the
+/// cap.
 #[test]
+#[allow(clippy::too_many_lines)] // the banded/unbanded loop plus the stronger-proof scenario, in full
 fn benalish_hero_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for banded in [false, true] {
@@ -99496,6 +99522,7 @@ fn benalish_hero_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() 
             player,
             options,
             min,
+            max,
             prompt,
             ..
         } = engine.pending().clone()
@@ -99509,6 +99536,12 @@ fn benalish_hero_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() 
             options,
             vec![lions, minotaur],
             "both other attackers are on offer, neither of them banding"
+        );
+        assert_eq!(
+            max, 2,
+            "the menu itself offers both — it is not capped at one pick, so \
+             the refusal below is CR 702.22c's own count of non-banding \
+             members, not this question's ordinary maximum"
         );
 
         let refused = engine.apply(
@@ -99558,6 +99591,49 @@ fn benalish_hero_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() 
             "the ogre never declared a block against the Hero: only banding put it there"
         );
     }
+
+    // The stronger proof: the cap counts non-banding members, not band
+    // size. Timber Wolves also has banding, so a band of the Hero, Timber
+    // Wolves and one non-banding ally (Savannah Lions) holds only one
+    // creature without banding and is accepted outright.
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[benalish_hero(), timber_wolves(), savannah_lions()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hero = on_battlefield(&engine, p0, benalish_hero()).expect("seated");
+    let wolves = on_battlefield(&engine, p0, timber_wolves()).expect("seated");
+    let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+
+    declare_band_attack(&mut engine, p0, p1, &[hero, wolves, lions]);
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected the band question, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![wolves, lions],
+        "both other attackers on offer, one of them also banding"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wolves, lions],
+            },
+        )
+        .expect(
+            "CR 702.22c: \"one or more attacking creatures with banding and \
+             up to one attacking creature without banding\" — Timber Wolves' \
+             own banding does not count against the cap, and Lions is the \
+             only one that does",
+        );
+    let mates = engine.state().combat.band_mates(hero);
+    assert!(
+        mates.contains(&wolves) && mates.contains(&lions),
+        "the band formed with both, not just one of them: {mates:?}"
+    );
 }
 
 /// Benalish Hero's reminder text: "you divide that creature's combat
@@ -99813,12 +99889,15 @@ fn timber_wolves_blocking_divides_the_attackers_damage_for_its_own_controller() 
 
 /// Trample into a banding blocker. Two-Headed Giant of Foriys — trample —
 /// attacks, blocked together by Timber Wolves and Gray Ogre. Timber
-/// Wolves' own reminder text is the rule in play here: "you divide that
-/// creature's combat damage ... among any of the creatures it's being
-/// blocked by" (CR 702.22j) — among the blockers, and nowhere else. Timber
-/// Wolves' 1 toughness plus Gray Ogre's 2 add up to one less than the
-/// Giant's 4 power, so a division free to reach the player would leave a
-/// point unaccounted for; here none of it reaches p1's life at all.
+/// Wolves' own reminder text is the rule in play here: the defending
+/// player divides the Giant's combat damage "among any creatures blocking
+/// it" (CR 702.22j) — the blockers only; that division names no player, so
+/// trample's own excess-to-the-player clause (CR 702.19b) is never on
+/// offer here. Timber Wolves' 1 toughness plus Gray Ogre's 2 is one short
+/// of the Giant's 4 power — 1 + 2 is one short of 4, so an ordinary
+/// trample assignment (CR 702.19b) would put that point on p1 once both
+/// blockers had lethal damage — but here it does not: the whole 4 stays
+/// on the blockers, however p1 divides it.
 #[test]
 fn trample_into_a_banding_blocker_divides_among_the_blockers_and_none_tramples_over() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -99873,10 +99952,25 @@ fn trample_into_a_banding_blocker_divides_among_the_blockers_and_none_tramples_o
     engine.apply(p1, PlayerAction::ChooseNumber(0)).unwrap();
 
     assert_eq!(
+        engine.state().object(wolves).map(|o| o.damage),
+        Some(0),
+        "the division answered — 0 to Timber Wolves — landed exactly: a \
+         lethal-first assignment would have put 1 on it regardless"
+    );
+    assert!(
+        on_battlefield(&engine, p1, timber_wolves()).is_some(),
+        "0 damage, and 1 toughness: Timber Wolves survives"
+    );
+    assert!(
+        on_battlefield(&engine, p1, gray_ogre()).is_none(),
+        "the rest of the division — all 4 — landed on the Ogre instead, \
+         which closes the case of a recorded division the Giant never dealt"
+    );
+    assert_eq!(
         engine.state().players[1].life,
         20,
         "nothing tramples past a banding division: it only ever reaches the \
-         blockers, and their combined toughness is one short of the Giant's power"
+         blockers, however p1 divides it"
     );
 }
 
@@ -100037,5 +100131,84 @@ fn mesa_pegasus_blocking_divides_the_attackers_damage_for_its_own_controller() {
         on_battlefield(&engine, p1, gray_ogre()).is_none(),
         "and put the whole six on the ogre instead — which the Wurm's own \
          controller had no reason to do"
+    );
+}
+
+/// Mesa Pegasus — the CR 702.22k clause, played from the attacker's side:
+/// banded with a grounded ally, a single grounded block declared on the
+/// ally alone ends up blocking the Pegasus too (CR 702.22h, "bands are
+/// blocked as a group"), and the blocker's own damage is then divided by
+/// the *active* player — the Pegasus' own controller — among the whole
+/// band, not by the blocker's own controller, who would ordinarily divide
+/// a blocker's damage among multiple creatures it blocks (CR 510.1d). The
+/// active player puts it all on the Pegasus and none on the ally: the
+/// *opposite* of what the engine's own fallback would do with no division
+/// recorded at all (put everything on the first-declared recipient, the
+/// ally), so the answer given is the one that actually landed.
+#[test]
+fn mesa_pegasus_bands_attacking_so_a_single_blocker_divides_for_the_active_player() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mesa_pegasus(), savannah_lions()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let pegasus = on_battlefield(&engine, p0, mesa_pegasus()).expect("seated");
+    let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+    let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+    assert_eq!(pt(&engine, ogre), (2, 2), "two power to divide");
+
+    declare_band_attack(&mut engine, p0, p1, &[pegasus, lions]);
+    answer_band_and_reach_blockers(&mut engine, p0, vec![lions]);
+    declare_band_blocks(&mut engine, p1, &[(ogre, lions)]);
+    assert!(
+        engine.state().combat.is_blocked(pegasus),
+        "grounded and alone, the ogre could only ever have been declared \
+         against the ally — the band is what put it on the flier too"
+    );
+
+    let Pending::ChooseNumber {
+        player,
+        min,
+        max,
+        reason,
+    } = next_combat_question(&mut engine)
+    else {
+        panic!("expected the division, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player, p0,
+        "CR 702.22k: the active player divides, not the Ogre's own controller"
+    );
+    assert_eq!((min, max), (0, 2), "the ogre's power, any of it");
+    assert_eq!(
+        reason,
+        crate::choice::NumberPrompt::CombatDamage {
+            source: ogre,
+            recipient: lions,
+            index: 0,
+            of: 2,
+            left: 2,
+        },
+        "the declared block's recipient asked first, the band's after it"
+    );
+    engine.apply(p0, PlayerAction::ChooseNumber(0)).unwrap();
+
+    assert!(
+        on_battlefield(&engine, p0, savannah_lions()).is_some(),
+        "the active player put none of it on the ally, sparing it"
+    );
+    assert_eq!(
+        engine.state().object(lions).map(|o| o.damage),
+        Some(0),
+        "not even a fraction reached the ally"
+    );
+    assert!(
+        on_battlefield(&engine, p0, mesa_pegasus()).is_none(),
+        "and put both points on the Pegasus instead — the reverse of the \
+         engine's own fallback, which would have spared the flier and \
+         killed the ally"
     );
 }
