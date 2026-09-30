@@ -372,6 +372,14 @@ fn main() -> anyhow::Result<()> {
 }
 
 async fn run() -> anyhow::Result<()> {
+    // Armed before anything else: a stop signal meets the operating
+    // system's default disposition (the process ends where it stands, its
+    // reservation uncounted) until something registers a listener for it.
+    // `Stoppers::arm` does that first, synchronously, so every one of them
+    // stands before `choose` ever reserves a game's budget (`spend::reserve`,
+    // printed as "reserved $…"); building `Chosen` no longer races the
+    // listeners that catch a signal after it.
+    let mut stoppers = Stoppers::arm();
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .with_writer(std::io::stderr)
@@ -386,78 +394,137 @@ async fn run() -> anyhow::Result<()> {
         Command::Join(join) => {
             // Stopped, the game is dropped where it stands, and its
             // reservation settles with what it spent (`spend::Booked`).
-            // Biased, so `stopped` is polled first and its listeners stand
-            // before the game reserves: polled second, a SIGTERM sent once
-            // "reserved" was printed could find none and kill the process
-            // unsettled.
             tokio::select! {
                 biased;
-                by = stopped() => bail!("stopped by {by} before the game was over"),
+                by = stoppers.stopped() => bail!("stopped by {by} before the game was over"),
                 done = join_and_play(&join, &args, &env) => done,
             }
         }
     }
 }
 
-/// The first request to stop that a process can answer: ctrl-c; on unix
-/// also SIGTERM (`kill`, `docker stop`, a service manager); on Windows also
-/// ctrl-break, its console closing, and the user logging off or the machine
-/// shutting down, where the system waits a few seconds for the process to
-/// finish. A signal that cannot be listened for is not waited on. SIGHUP
-/// keeps its own meaning (a bridge under `nohup` plays on), and SIGKILL
-/// can never be answered: a bridge stopped by either counts its
-/// reservation in full.
-async fn stopped() -> &'static str {
-    /// Waits for `signal`, or forever if it cannot be listened for.
-    async fn on<T>(
-        signal: impl Future<Output = std::io::Result<T>>,
-        name: &'static str,
-    ) -> &'static str {
-        match signal.await {
-            Ok(_) => name,
-            Err(_) => std::future::pending().await,
-        }
-    }
+/// Every signal a process can be asked to stop by, registered with the
+/// operating system the moment this is built (`arm`), well before anything
+/// reserves a game's budget: ctrl-c; on unix also SIGTERM (`kill`,
+/// `docker stop`, a service manager); on Windows also ctrl-break, its
+/// console closing, and the user logging off or the machine shutting down,
+/// where the system waits a few seconds for the process to finish. One
+/// that cannot be registered (rare: an operating-system limit) is simply
+/// never answered, as before. SIGHUP keeps its own meaning (a bridge under
+/// `nohup` plays on), and SIGKILL can never be answered: a bridge stopped
+/// by either counts its reservation in full.
+struct Stoppers {
     #[cfg(unix)]
-    {
-        use tokio::signal::unix::{SignalKind, signal};
-        let kind = |kind: SignalKind| async move {
-            match signal(kind) {
-                Ok(mut listener) => {
-                    listener.recv().await;
-                    Ok(())
-                }
-                Err(e) => Err(e),
-            }
-        };
-        tokio::select! {
-            by = on(tokio::signal::ctrl_c(), "ctrl-c") => by,
-            by = on(kind(SignalKind::terminate()), "SIGTERM") => by,
-        }
-    }
+    interrupt: Option<tokio::signal::unix::Signal>,
+    #[cfg(unix)]
+    terminate: Option<tokio::signal::unix::Signal>,
     #[cfg(windows)]
-    {
-        use tokio::signal::windows::{ctrl_break, ctrl_close, ctrl_logoff, ctrl_shutdown};
-        macro_rules! event {
-            ($listen:ident) => {
-                async {
-                    let mut listener = $listen()?;
-                    listener.recv().await;
-                    Ok::<(), std::io::Error>(())
-                }
+    ctrl_c: Option<tokio::signal::windows::CtrlC>,
+    #[cfg(windows)]
+    ctrl_break: Option<tokio::signal::windows::CtrlBreak>,
+    #[cfg(windows)]
+    ctrl_close: Option<tokio::signal::windows::CtrlClose>,
+    #[cfg(windows)]
+    ctrl_logoff: Option<tokio::signal::windows::CtrlLogoff>,
+    #[cfg(windows)]
+    ctrl_shutdown: Option<tokio::signal::windows::CtrlShutdown>,
+}
+
+impl Stoppers {
+    /// Registers every listener now, synchronously (each constructor here
+    /// installs the operating system's own hook before returning); `None`
+    /// only where that failed.
+    fn arm() -> Self {
+        #[cfg(unix)]
+        {
+            use tokio::signal::unix::{SignalKind, signal};
+            Self {
+                interrupt: signal(SignalKind::interrupt()).ok(),
+                terminate: signal(SignalKind::terminate()).ok(),
+            }
+        }
+        #[cfg(windows)]
+        {
+            use tokio::signal::windows::{
+                ctrl_break, ctrl_c, ctrl_close, ctrl_logoff, ctrl_shutdown,
             };
+            Self {
+                ctrl_c: ctrl_c().ok(),
+                ctrl_break: ctrl_break().ok(),
+                ctrl_close: ctrl_close().ok(),
+                ctrl_logoff: ctrl_logoff().ok(),
+                ctrl_shutdown: ctrl_shutdown().ok(),
+            }
         }
-        tokio::select! {
-            by = on(tokio::signal::ctrl_c(), "ctrl-c") => by,
-            by = on(event!(ctrl_break), "ctrl-break") => by,
-            by = on(event!(ctrl_close), "the console closing") => by,
-            by = on(event!(ctrl_logoff), "the user logging off") => by,
-            by = on(event!(ctrl_shutdown), "the machine shutting down") => by,
-        }
+        #[cfg(not(any(unix, windows)))]
+        Self {}
     }
-    #[cfg(not(any(unix, windows)))]
-    {
-        on(tokio::signal::ctrl_c(), "ctrl-c").await
+
+    /// The first of these already-armed listeners to fire; forever on one
+    /// that was never armed.
+    async fn stopped(&mut self) -> &'static str {
+        #[cfg(unix)]
+        {
+            /// Waits on an armed listener, or forever if it was never
+            /// armed (`arm` failed to register it).
+            async fn on(
+                listener: &mut Option<tokio::signal::unix::Signal>,
+                name: &'static str,
+            ) -> &'static str {
+                match listener {
+                    Some(listener) => {
+                        listener.recv().await;
+                        name
+                    }
+                    None => std::future::pending().await,
+                }
+            }
+            let Self {
+                interrupt,
+                terminate,
+            } = self;
+            tokio::select! {
+                by = on(interrupt, "ctrl-c") => by,
+                by = on(terminate, "SIGTERM") => by,
+            }
+        }
+        #[cfg(windows)]
+        {
+            let Self {
+                ctrl_c,
+                ctrl_break,
+                ctrl_close,
+                ctrl_logoff,
+                ctrl_shutdown,
+            } = self;
+            macro_rules! on {
+                ($listener:expr, $name:expr) => {
+                    async {
+                        match $listener {
+                            Some(listener) => {
+                                listener.recv().await;
+                                $name
+                            }
+                            None => std::future::pending().await,
+                        }
+                    }
+                };
+            }
+            tokio::select! {
+                by = on!(ctrl_c, "ctrl-c") => by,
+                by = on!(ctrl_break, "ctrl-break") => by,
+                by = on!(ctrl_close, "the console closing") => by,
+                by = on!(ctrl_logoff, "the user logging off") => by,
+                by = on!(ctrl_shutdown, "the machine shutting down") => by,
+            }
+        }
+        #[cfg(not(any(unix, windows)))]
+        {
+            match tokio::signal::ctrl_c().await {
+                Ok(_) => "ctrl-c",
+                Err(_) => std::future::pending().await,
+            }
+        }
     }
 }
 
