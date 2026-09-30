@@ -19042,3 +19042,1535 @@ fn kudzu_and_power_leak_enchant_what_they_name() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Alpha cards played by their Oracle text (31 cards, `docs/mechanics-roadmap.md`
+// §E8). Each card gets its own `fn <name>() -> CardIndex` naming its oracle
+// id, immediately beside the test(s) that play it.
+// ---------------------------------------------------------------------------
+
+fn black_ward() -> CardIndex {
+    card_index("7861ac9b-3024-4935-804c-2ca4c5a46bf4")
+}
+
+fn blue_ward() -> CardIndex {
+    card_index("fc0bf1d0-46a2-4305-ab2e-466d79d60ab2")
+}
+
+fn green_ward() -> CardIndex {
+    card_index("727ab7f2-741e-4442-b5cb-e3032549fa87")
+}
+
+fn red_ward() -> CardIndex {
+    card_index("73f84440-425f-4cf5-b01a-3ae89f1f6e37")
+}
+
+/// Black Ward: "Enchanted creature has protection from black. This effect
+/// doesn't remove this Aura." A black removal spell cannot target the
+/// warded creature (CR 702.16b); an untouched second creature proves the
+/// spell had a legal target at all, so the exclusion is the Ward and not an
+/// empty menu.
+#[test]
+fn black_ward_protects_the_creature_it_enchants_from_black_spells() {
+    let p0 = PlayerId::new(0);
+    let ward = black_ward();
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                swamp(),
+                swamp(),
+                swamp(),
+                quiet_creature(),
+                festering_goblin(),
+            ],
+        )
+        .hand(0, &[ward, hero_s_downfall()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p0, quiet_creature()).expect("the warded creature");
+    let bystander = on_battlefield(&engine, p0, festering_goblin()).expect("a second creature");
+
+    let plains_id = on_battlefield(&engine, p0, plains()).expect("the Plains");
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: plains_id })
+        .unwrap();
+    cast_with_floating(&mut engine, p0, ward);
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+    let attached = on_battlefield(&engine, p0, ward).expect("the Ward stays on the battlefield");
+    assert_eq!(
+        engine.state().object(attached).and_then(|o| o.attached_to),
+        Some(creature)
+    );
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, hero_s_downfall());
+    let offered = match engine.pending() {
+        Pending::ChooseTargets { options, .. } => options.clone(),
+        other => panic!("Hero's Downfall asks for a target: {other:?}"),
+    };
+    assert!(
+        offered.contains(&bystander),
+        "the spell has a legal target: {offered:?}"
+    );
+    assert!(
+        !offered.contains(&creature),
+        "a black spell cannot target the warded creature: {offered:?}"
+    );
+}
+
+/// Blue Ward: "Enchanted creature has protection from blue." Unsummon,
+/// a blue spell, cannot target the warded creature.
+#[test]
+fn blue_ward_protects_the_creature_it_enchants_from_blue_spells() {
+    let p0 = PlayerId::new(0);
+    let ward = blue_ward();
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[plains(), island(), quiet_creature(), festering_goblin()],
+        )
+        .hand(0, &[ward, unsummon()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p0, quiet_creature()).expect("the warded creature");
+    let bystander = on_battlefield(&engine, p0, festering_goblin()).expect("a second creature");
+
+    let plains_id = on_battlefield(&engine, p0, plains()).expect("the Plains");
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: plains_id })
+        .unwrap();
+    cast_with_floating(&mut engine, p0, ward);
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, unsummon());
+    let offered = match engine.pending() {
+        Pending::ChooseTargets { options, .. } => options.clone(),
+        other => panic!("Unsummon asks for a target: {other:?}"),
+    };
+    assert!(offered.contains(&bystander), "{offered:?}");
+    assert!(
+        !offered.contains(&creature),
+        "a blue spell cannot target the warded creature: {offered:?}"
+    );
+}
+
+/// Green Ward: "Enchanted creature has protection from green." Giant
+/// Growth, a green spell, cannot target the warded creature even though its
+/// effect would help it.
+#[test]
+fn green_ward_protects_the_creature_it_enchants_from_green_spells() {
+    let p0 = PlayerId::new(0);
+    let ward = green_ward();
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[plains(), forest(), quiet_creature(), festering_goblin()],
+        )
+        .hand(0, &[ward, giant_growth()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p0, quiet_creature()).expect("the warded creature");
+    let bystander = on_battlefield(&engine, p0, festering_goblin()).expect("a second creature");
+
+    let plains_id = on_battlefield(&engine, p0, plains()).expect("the Plains");
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: plains_id })
+        .unwrap();
+    cast_with_floating(&mut engine, p0, ward);
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, giant_growth());
+    let offered = match engine.pending() {
+        Pending::ChooseTargets { options, .. } => options.clone(),
+        other => panic!("Giant Growth asks for a target: {other:?}"),
+    };
+    assert!(offered.contains(&bystander), "{offered:?}");
+    assert!(
+        !offered.contains(&creature),
+        "a green spell cannot target the warded creature, helpful or not: {offered:?}"
+    );
+}
+
+/// Red Ward: "Enchanted creature has protection from red." Lightning Bolt,
+/// a red spell, cannot target the warded creature.
+#[test]
+fn red_ward_protects_the_creature_it_enchants_from_red_spells() {
+    let p0 = PlayerId::new(0);
+    let ward = red_ward();
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[plains(), mountain(), quiet_creature(), festering_goblin()],
+        )
+        .hand(0, &[ward, lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p0, quiet_creature()).expect("the warded creature");
+    let bystander = on_battlefield(&engine, p0, festering_goblin()).expect("a second creature");
+
+    let plains_id = on_battlefield(&engine, p0, plains()).expect("the Plains");
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: plains_id })
+        .unwrap();
+    cast_with_floating(&mut engine, p0, ward);
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, lightning_bolt());
+    let offered = match engine.pending() {
+        Pending::ChooseTargets { options, .. } => options.clone(),
+        other => panic!("Lightning Bolt asks for a target: {other:?}"),
+    };
+    assert!(offered.contains(&bystander), "{offered:?}");
+    assert!(
+        !offered.contains(&creature),
+        "a red spell cannot target the warded creature: {offered:?}"
+    );
+}
+
+fn blessing() -> CardIndex {
+    card_index("5c84d8da-2bfb-4618-89a0-7d9ed604e854")
+}
+
+/// Blessing: "Enchant creature" / "{W}: Enchanted creature gets +1/+1 until
+/// end of turn." Attaching grants no static bonus by itself; each activation
+/// of the printed ability adds +1/+1 until end of turn.
+#[test]
+fn blessing_pumps_the_enchanted_creature_when_activated() {
+    let p0 = PlayerId::new(0);
+    let blessing = blessing();
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), plains(), quiet_creature()])
+        .hand(0, &[blessing])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p0, quiet_creature()).expect("creature seated");
+
+    let plains_ids = all_on_battlefield(&engine, p0, plains());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateManaAbility {
+                source: plains_ids[0],
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateManaAbility {
+                source: plains_ids[1],
+            },
+        )
+        .unwrap();
+    cast_with_floating(&mut engine, p0, blessing);
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, creature),
+        (1, 1),
+        "Blessing grants no static bonus by itself"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateManaAbility {
+                source: plains_ids[2],
+            },
+        )
+        .unwrap();
+    activate(&mut engine, p0, blessing, 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, creature), (2, 2), "+1/+1 until end of turn");
+}
+
+fn holy_armor() -> CardIndex {
+    card_index("912164c2-b4d4-42e3-a10e-903b8c7b2e6d")
+}
+
+/// Holy Armor: "Enchant creature" / "Enchanted creature gets +0/+2." /
+/// "{W}: Enchanted creature gets +0/+1 until end of turn." The static
+/// bonus applies the instant it attaches; the activated ability stacks on
+/// top of it.
+#[test]
+fn holy_armor_grants_a_static_boost_and_can_be_pumped_further() {
+    let p0 = PlayerId::new(0);
+    let holy_armor = holy_armor();
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), quiet_creature()])
+        .hand(0, &[holy_armor])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p0, quiet_creature()).expect("creature seated");
+    assert_eq!(pt(&engine, creature), (1, 1));
+
+    let plains_ids = all_on_battlefield(&engine, p0, plains());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateManaAbility {
+                source: plains_ids[0],
+            },
+        )
+        .unwrap();
+    cast_with_floating(&mut engine, p0, holy_armor);
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, creature), (1, 3), "static +0/+2");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateManaAbility {
+                source: plains_ids[1],
+            },
+        )
+        .unwrap();
+    activate(&mut engine, p0, holy_armor, 2);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, creature),
+        (1, 4),
+        "plus +0/+1 until end of turn"
+    );
+}
+
+fn firebreathing() -> CardIndex {
+    card_index("8603bf74-faab-4910-8e45-0f2e3b318efb")
+}
+
+/// Firebreathing: "Enchant creature" / "{R}: Enchanted creature gets +1/+0
+/// until end of turn." Attaching alone changes nothing; each activation adds
+/// +1/+0 until end of turn.
+#[test]
+fn firebreathing_pumps_power_when_activated() {
+    let p0 = PlayerId::new(0);
+    let firebreathing = firebreathing();
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), quiet_creature()])
+        .hand(0, &[firebreathing])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p0, quiet_creature()).expect("creature seated");
+
+    let mountain_ids = all_on_battlefield(&engine, p0, mountain());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateManaAbility {
+                source: mountain_ids[0],
+            },
+        )
+        .unwrap();
+    cast_with_floating(&mut engine, p0, firebreathing);
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, creature),
+        (1, 1),
+        "attaching alone changes nothing"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateManaAbility {
+                source: mountain_ids[1],
+            },
+        )
+        .unwrap();
+    activate(&mut engine, p0, firebreathing, 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, creature), (2, 1), "+1/+0 until end of turn");
+}
+
+fn circle_of_protection_blue() -> CardIndex {
+    card_index("d7572f17-f85d-45c0-ac64-43aac760eafe")
+}
+
+/// Circle of Protection: Blue: "{1}: The next time a blue source of your
+/// choice would deal damage to you this turn, prevent that damage." Baleful
+/// Strix, a blue attacker, is the only blue source on the board, and its
+/// combat damage is fully prevented once chosen.
+#[test]
+fn circle_of_protection_blue_prevents_damage_from_a_chosen_blue_attacker() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let cop = circle_of_protection_blue();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[cop, forest()])
+        .battlefield(1, &[baleful_strix()])
+        .start();
+    keep_mulligans(&mut engine);
+    let strix = on_battlefield(&engine, p1, baleful_strix()).expect("their Strix");
+    reach_their_main_phase(&mut engine, p1);
+
+    let blockers = attack_and_collect_blocks(&mut engine, strix, p0);
+    assert!(blockers.is_empty(), "p0 has nothing to block with");
+    engine
+        .apply(p0, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, cop, 0);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options, vec![strix], "the only blue source on the board");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![strix],
+            },
+        )
+        .expect("off the list");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "the Strix's combat damage was prevented"
+    );
+    assert_eq!(engine.state().players[1].life, 20);
+}
+
+fn circle_of_protection_green() -> CardIndex {
+    card_index("41b0f347-1398-4778-bf3f-4007d8a77162")
+}
+
+/// Circle of Protection: Green, played the same way against a green
+/// attacker (Llanowar Elves).
+#[test]
+fn circle_of_protection_green_prevents_damage_from_a_chosen_green_attacker() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let cop = circle_of_protection_green();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[cop, forest()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves");
+    reach_their_main_phase(&mut engine, p1);
+
+    let blockers = attack_and_collect_blocks(&mut engine, elf, p0);
+    assert!(blockers.is_empty(), "p0 has nothing to block with");
+    engine
+        .apply(p0, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, cop, 0);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options, vec![elf], "the only green source on the board");
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("off the list");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "the Elves' combat damage was prevented"
+    );
+}
+
+fn circle_of_protection_white() -> CardIndex {
+    card_index("5f46f86a-9779-4ed3-99cb-76a03d380598")
+}
+
+/// Circle of Protection: White, played the same way against a white
+/// attacker (Ondu Cleric).
+#[test]
+fn circle_of_protection_white_prevents_damage_from_a_chosen_white_attacker() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let cop = circle_of_protection_white();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[cop, forest()])
+        .battlefield(1, &[ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    let cleric = on_battlefield(&engine, p1, ondu_cleric()).expect("their Cleric");
+    reach_their_main_phase(&mut engine, p1);
+
+    let blockers = attack_and_collect_blocks(&mut engine, cleric, p0);
+    assert!(blockers.is_empty(), "p0 has nothing to block with");
+    engine
+        .apply(p0, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, cop, 0);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0);
+    // Circle of Protection: White is itself a white permanent ({1}{W}), so
+    // it is also a legal (if useless) choice of "white source"; the Cleric
+    // is the one that matters.
+    assert!(
+        options.contains(&cleric),
+        "the Cleric is an offered white source: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![cleric],
+            },
+        )
+        .expect("off the list");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "the Cleric's combat damage was prevented"
+    );
+}
+
+fn crusade() -> CardIndex {
+    card_index("4692740f-be90-459f-8d90-c4ae71771595")
+}
+
+/// Crusade: "White creatures get +1/+1." A white creature grows and a
+/// non-white creature stays exactly as printed.
+#[test]
+fn crusade_pumps_white_creatures_and_leaves_others_alone() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let crusade = crusade();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[crusade, ondu_cleric()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let cleric = on_battlefield(&engine, p0, ondu_cleric()).expect("white creature seated");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("green creature seated");
+    assert_eq!(pt(&engine, cleric), (2, 2), "white creature gets +1/+1");
+    assert_eq!(pt(&engine, elf), (1, 1), "non-white creature is unaffected");
+}
+
+fn bad_moon() -> CardIndex {
+    card_index("fc5d3341-cbce-49e5-93cc-8add92479dca")
+}
+
+/// Bad Moon: "Black creatures get +1/+1." A black creature grows and a
+/// non-black creature stays exactly as printed.
+#[test]
+fn bad_moon_pumps_black_creatures_and_leaves_others_alone() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let bad_moon = bad_moon();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[bad_moon, festering_goblin()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let goblin = on_battlefield(&engine, p0, festering_goblin()).expect("black creature seated");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("green creature seated");
+    assert_eq!(pt(&engine, goblin), (2, 2), "black creature gets +1/+1");
+    assert_eq!(pt(&engine, elf), (1, 1), "non-black creature is unaffected");
+}
+
+fn karma() -> CardIndex {
+    card_index("fac4da47-f0b2-4b57-9703-e0ed100d3499")
+}
+
+/// Karma: "At the beginning of each player's upkeep, this enchantment deals
+/// damage to that player equal to the number of Swamps they control." p0
+/// controls none and takes none; p1 controls three and takes three, at
+/// their own upkeep.
+#[test]
+fn karma_deals_upkeep_damage_equal_to_swamps_controlled() {
+    let (_p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let karma = karma();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[karma])
+        .battlefield(1, &[swamp(), swamp(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+
+    assert_eq!(engine.state().players[0].life, 20, "p0 controls no Swamps");
+    assert_eq!(
+        engine.state().players[1].life,
+        17,
+        "p1's three Swamps hit them at their own upkeep"
+    );
+}
+
+fn control_magic() -> CardIndex {
+    card_index("cd0d7141-46d2-4aa3-bc77-6b3b4513803e")
+}
+
+/// Control Magic: "Enchant creature" / "You control enchanted creature."
+/// Control moves to the caster while attached and reverts once the Aura is
+/// gone (a layer-2 effect over its source, `Modifier::GainControl`).
+#[test]
+fn control_magic_takes_the_creature_and_gives_it_back_when_it_leaves() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let control_magic = control_magic();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .battlefield(1, &[quiet_creature()])
+        .hand(0, &[control_magic])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p1, quiet_creature()).expect("their creature");
+
+    cast_from_hand(&mut engine, p0, control_magic);
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+    let controller = |e: &Engine<RegistryLookup>| e.state().object(creature).unwrap().controller;
+    assert_eq!(controller(&engine), p0, "you control enchanted creature");
+
+    let aura = on_battlefield(&engine, p0, control_magic).expect("Control Magic is attached");
+    kill(&mut engine, aura);
+    assert_eq!(
+        controller(&engine),
+        p1,
+        "with the Aura gone, the creature goes home"
+    );
+}
+
+fn steal_artifact() -> CardIndex {
+    card_index("cd8ae9f2-edac-473a-8846-c08219e617c3")
+}
+
+/// Steal Artifact: "Enchant artifact" / "You control enchanted artifact."
+/// Same shape as Control Magic, over an artifact instead of a creature.
+#[test]
+fn steal_artifact_takes_the_artifact_and_gives_it_back_when_it_leaves() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let steal_artifact = steal_artifact();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .battlefield(1, &[sol_ring()])
+        .hand(0, &[steal_artifact])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ring = on_battlefield(&engine, p1, sol_ring()).expect("their Sol Ring");
+
+    cast_from_hand(&mut engine, p0, steal_artifact);
+    aim_at(&mut engine, p0, ring);
+    pass_until(&mut engine, stack_is_empty);
+    let controller = |e: &Engine<RegistryLookup>| e.state().object(ring).unwrap().controller;
+    assert_eq!(controller(&engine), p0, "you control enchanted artifact");
+
+    let aura = on_battlefield(&engine, p0, steal_artifact).expect("Steal Artifact is attached");
+    kill(&mut engine, aura);
+    assert_eq!(
+        controller(&engine),
+        p1,
+        "with the Aura gone, the artifact goes home"
+    );
+}
+
+fn copy_artifact() -> CardIndex {
+    card_index("80bc56a9-40e0-48da-ae86-190e39c8a4a3")
+}
+
+/// Copy Artifact: "You may have this enchantment enter as a copy of any
+/// artifact on the battlefield, except it's an enchantment in addition to
+/// its other types." Copying Sol Ring, it enters as both an artifact and an
+/// enchantment, and its own ability array is Sol Ring's: index 0 is Sol
+/// Ring's `{T}: Add {C}{C}` (there is no separate "except it has" clause
+/// here, so nothing rides the `GRANTED_ABILITY` slot).
+#[test]
+fn copy_artifact_enters_as_an_artifact_and_enchantment_copy_of_sol_ring() {
+    let p0 = PlayerId::new(0);
+    let copy_artifact = copy_artifact();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), sol_ring()])
+        .hand(0, &[copy_artifact])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ring = on_battlefield(&engine, p0, sol_ring()).expect("Sol Ring seated");
+
+    // Tap only the Islands (not Sol Ring, which must stay put as the copy
+    // target and whose own mana would otherwise float unspent, muddying the
+    // {C}{C} the activated copy produces later).
+    let islands = all_on_battlefield(&engine, p0, island());
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: islands[0] })
+        .unwrap();
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: islands[1] })
+        .unwrap();
+    cast_with_floating(&mut engine, p0, copy_artifact);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected ChooseTargets prompt for CopyOnEnter, got {:?}",
+            engine.pending()
+        );
+    };
+    assert!(
+        options.contains(&ring),
+        "Sol Ring is an offered copy target"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ring],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let copy = on_battlefield(&engine, p0, copy_artifact).expect("Copy Artifact resolved");
+    assert_ne!(copy, ring, "a new object, not the original Sol Ring");
+    let chars = engine.state().object(copy).unwrap().characteristics();
+    assert!(chars.types.contains(TypeSet::ARTIFACT), "it is an artifact");
+    assert!(
+        chars.types.contains(TypeSet::ENCHANTMENT),
+        "and, as printed, also an enchantment"
+    );
+
+    activate(&mut engine, p0, copy_artifact, 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        2,
+        "Sol Ring's copied {{T}}: Add {{C}}{{C}}"
+    );
+}
+
+fn feedback() -> CardIndex {
+    card_index("2ff92886-5c17-47a4-a02b-a97432d9203e")
+}
+
+/// Feedback: "Enchant enchantment" / "At the beginning of the upkeep of
+/// enchanted enchantment's controller, this Aura deals 1 damage to that
+/// player." Attached to the opponent's Bad Moon, it hits only them, at
+/// their own upkeep.
+#[test]
+fn feedback_deals_damage_at_the_enchanted_enchantments_controllers_upkeep() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let feedback = feedback();
+    let bad_moon = bad_moon();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island()])
+        .battlefield(1, &[bad_moon])
+        .hand(0, &[feedback])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let enchantment = on_battlefield(&engine, p1, bad_moon).expect("their enchantment");
+
+    cast_from_hand(&mut engine, p0, feedback);
+    aim_at(&mut engine, p0, enchantment);
+    pass_until(&mut engine, stack_is_empty);
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "1 damage at its controller's upkeep"
+    );
+    assert_eq!(engine.state().players[0].life, 20);
+
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "not at Feedback's own controller's upkeep, only the enchanted enchantment's"
+    );
+    assert_eq!(engine.state().players[1].life, 19);
+}
+
+fn invisibility() -> CardIndex {
+    card_index("de26b0c6-dfb7-45a8-9d7f-f8d45522d675")
+}
+
+fn wall_of_roots() -> CardIndex {
+    card_index("3a21a6ae-b2f2-4f0c-acfd-5f3e8d63fd2f")
+}
+
+/// Invisibility: "Enchant creature" / "Enchanted creature can't be blocked
+/// except by Walls." A Wall may still be assigned to block it; a
+/// non-Wall creature may not.
+#[test]
+fn invisibility_cannot_be_blocked_except_by_walls() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let invisibility = invisibility();
+    let wall = wall_of_roots();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), quiet_creature()])
+        .battlefield(1, &[wall, festering_goblin()])
+        .hand(0, &[invisibility])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let attacker = on_battlefield(&engine, p0, quiet_creature()).expect("attacker seated");
+
+    // Tap only the Islands (not the Elves, which are meant to attack): the
+    // Elves also carry a mana ability, and `cast_from_hand` would tap
+    // everything that can pay, tapping the attacker along with the lands.
+    let islands = all_on_battlefield(&engine, p0, island());
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: islands[0] })
+        .unwrap();
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: islands[1] })
+        .unwrap();
+    cast_with_floating(&mut engine, p0, invisibility);
+    aim_at(&mut engine, p0, attacker);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !is_tapped(&engine, attacker),
+        "the attacker stayed untapped"
+    );
+
+    let blockers = attack_and_collect_blocks(&mut engine, attacker, p1);
+    let wall_id = on_battlefield(&engine, p1, wall).expect("Wall of Roots seated");
+    let goblin_id = on_battlefield(&engine, p1, festering_goblin()).expect("goblin seated");
+    let wall_option = blockers.iter().find(|b| b.blocker == wall_id);
+    assert!(
+        wall_option.is_some_and(|b| b.attackers.contains(&attacker)),
+        "a Wall may still block it: {blockers:?}"
+    );
+    let goblin_option = blockers.iter().find(|b| b.blocker == goblin_id);
+    assert!(
+        goblin_option.is_none_or(|b| !b.attackers.contains(&attacker)),
+        "a non-Wall creature may not: {blockers:?}"
+    );
+}
+
+fn lifetap() -> CardIndex {
+    card_index("52ac09af-2aa7-4d80-be26-3e6a6efd5c23")
+}
+
+/// Lifetap: "Whenever a Forest an opponent controls becomes tapped, you
+/// gain 1 life." Tapping the opponent's Forest for mana gains a life; the
+/// same seat tapping its own Forest does not.
+#[test]
+fn lifetap_gains_life_when_an_opponents_forest_becomes_tapped() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let lifetap = lifetap();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[lifetap, island(), forest()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let their_land = on_battlefield(&engine, p1, forest()).expect("their Forest");
+
+    let before = engine.state().players[0].life;
+    engine
+        .apply(p1, PlayerAction::ActivateManaAbility { source: their_land })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        before + 1,
+        "gained 1 life off the opponent's Forest"
+    );
+
+    reach_their_main_phase(&mut engine, p0);
+    let own_land = on_battlefield(&engine, p0, forest()).expect("p0's own Forest");
+    let before = engine.state().players[0].life;
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: own_land })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        before,
+        "not the caster's own Forest"
+    );
+}
+
+fn psychic_venom() -> CardIndex {
+    card_index("a60422e8-f2f4-4c37-a0f4-eedad27eb08c")
+}
+
+/// Psychic Venom: "Enchant land" / "Whenever enchanted land becomes tapped,
+/// this Aura deals 2 damage to that land's controller." Tapping the
+/// enchanted land for mana costs its controller 2 life.
+#[test]
+fn psychic_venom_deals_two_damage_when_the_enchanted_land_becomes_tapped() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let venom = psychic_venom();
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island()])
+        .battlefield(1, &[forest()])
+        .hand(0, &[venom])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let land = on_battlefield(&engine, p1, forest()).expect("their land");
+
+    cast_from_hand(&mut engine, p0, venom);
+    aim_at(&mut engine, p0, land);
+    pass_until(&mut engine, stack_is_empty);
+
+    reach_their_main_phase(&mut engine, p1);
+    engine
+        .apply(p1, PlayerAction::ActivateManaAbility { source: land })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "2 damage when the enchanted land became tapped"
+    );
+    assert_eq!(engine.state().players[0].life, 20);
+}
+
+fn cursed_land() -> CardIndex {
+    card_index("0d61239f-28e4-4adb-8f6e-b56e9c8699af")
+}
+
+/// Cursed Land: "Enchant land" / "At the beginning of the upkeep of
+/// enchanted land's controller, this Aura deals 1 damage to that player."
+#[test]
+fn cursed_land_deals_upkeep_damage_to_the_enchanted_lands_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let cursed_land = cursed_land();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp()])
+        .battlefield(1, &[forest()])
+        .hand(0, &[cursed_land])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let land = on_battlefield(&engine, p1, forest()).expect("their land");
+
+    cast_from_hand(&mut engine, p0, cursed_land);
+    aim_at(&mut engine, p0, land);
+    pass_until(&mut engine, stack_is_empty);
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "1 damage at its controller's upkeep"
+    );
+    assert_eq!(engine.state().players[0].life, 20);
+
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "not at Cursed Land's own controller's upkeep, only the enchanted land's"
+    );
+    assert_eq!(engine.state().players[1].life, 19);
+}
+
+fn deathgrip() -> CardIndex {
+    card_index("20ae75a7-14ca-4366-af0a-3f3f02159f3f")
+}
+
+/// Deathgrip: "{B}{B}: Counter target green spell." Cast on the active
+/// player's own turn (creature spells are sorcery-speed), it is countered
+/// in response and never reaches the battlefield.
+#[test]
+fn deathgrip_counters_a_target_green_spell() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let deathgrip = deathgrip();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[deathgrip, swamp(), swamp()])
+        .battlefield(1, &[forest()])
+        .hand(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, llanowar_elves());
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, deathgrip, 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"counter target green spell\" asks for one, got {:?}",
+            engine.pending()
+        )
+    };
+    let elf_spell = on_stack(&engine, llanowar_elves()).expect("the Elves are on the stack");
+    assert_eq!(options, vec![elf_spell], "the only green spell up");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elf_spell],
+            },
+        )
+        .expect("the target was one of the options");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_none(),
+        "the Elves never resolved"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "countered spells go to their owner's graveyard"
+    );
+}
+
+fn fear() -> CardIndex {
+    card_index("355bbe9b-59bf-470f-8600-410af4c7fe18")
+}
+
+/// Fear: "Enchanted creature has fear." A black creature may still block
+/// it; a non-black, non-artifact creature may not.
+#[test]
+fn fear_cannot_be_blocked_except_by_artifact_or_black_creatures() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let fear = fear();
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), aurochs()])
+        .battlefield(1, &[llanowar_elves(), festering_goblin()])
+        .hand(0, &[fear])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let attacker = on_battlefield(&engine, p0, aurochs()).expect("attacker seated");
+
+    cast_from_hand(&mut engine, p0, fear);
+    aim_at(&mut engine, p0, attacker);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(keywords(&engine, attacker).contains(KeywordSet::FEAR));
+
+    let blockers = attack_and_collect_blocks(&mut engine, attacker, p1);
+    let elf_id = on_battlefield(&engine, p1, llanowar_elves()).expect("green elf seated");
+    let goblin_id = on_battlefield(&engine, p1, festering_goblin()).expect("black goblin seated");
+    let elf_option = blockers.iter().find(|b| b.blocker == elf_id);
+    assert!(
+        elf_option.is_none_or(|b| !b.attackers.contains(&attacker)),
+        "a green, non-artifact creature may not block it: {blockers:?}"
+    );
+    let goblin_option = blockers.iter().find(|b| b.blocker == goblin_id);
+    assert!(
+        goblin_option.is_some_and(|b| b.attackers.contains(&attacker)),
+        "a black creature may still block it: {blockers:?}"
+    );
+}
+
+fn paralyze() -> CardIndex {
+    card_index("e9b4e857-39e5-4a06-89ad-3dd94b3f252a")
+}
+
+/// Paralyze: "When this Aura enters, tap enchanted creature." / "Enchanted
+/// creature doesn't untap during its controller's untap step." / "At the
+/// beginning of the upkeep of enchanted creature's controller, that player
+/// may pay {4}. If the player does, untap the creature." Declined, the
+/// creature stays tapped through its controller's own untap step.
+#[test]
+fn paralyze_taps_the_creature_on_etb_and_it_stays_tapped_if_the_controller_declines_to_pay() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let paralyze = paralyze();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp()])
+        .battlefield(1, &[quiet_creature()])
+        .hand(0, &[paralyze])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p1, quiet_creature()).expect("their creature");
+    assert!(!is_tapped(&engine, creature));
+
+    cast_from_hand(&mut engine, p0, paralyze);
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(is_tapped(&engine, creature), "tapped as the Aura enters");
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    assert!(
+        is_tapped(&engine, creature),
+        "its controller's untap step passed without untapping it"
+    );
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p1, "the enchanted creature's controller is asked");
+    assert_eq!(prompt, YesNoPrompt::PayTax { mana: 4 });
+    engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(is_tapped(&engine, creature), "declined, so still tapped");
+}
+
+/// Paralyze's other answer: paying {4} at the upkeep untaps the creature.
+#[test]
+fn paralyze_untaps_the_creature_when_its_controller_pays_four() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let paralyze = paralyze();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp()])
+        .battlefield(
+            1,
+            &[quiet_creature(), forest(), forest(), forest(), forest()],
+        )
+        .hand(0, &[paralyze])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p1, quiet_creature()).expect("their creature");
+
+    cast_from_hand(&mut engine, p0, paralyze);
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(is_tapped(&engine, creature));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
+    tap_all_mana(&mut engine, p1);
+    if engine.payment_window().is_some() {
+        engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    }
+    pass_until(&mut engine, stack_is_empty);
+    assert!(!is_tapped(&engine, creature), "paid {{4}}, so it untapped");
+}
+
+fn pestilence() -> CardIndex {
+    card_index("dafe63ef-f3d6-45e7-877a-573da92ba85e")
+}
+
+/// Pestilence: "{B}: This enchantment deals 1 damage to each creature and
+/// each player." Everyone and everything takes the 1, including the
+/// controller's own side: a 1-toughness creature dies, and a 3-toughness
+/// one merely takes the damage.
+#[test]
+fn pestilence_deals_one_damage_to_each_creature_and_each_player() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let pestilence = pestilence();
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[pestilence, swamp(), llanowar_elves()])
+        .battlefield(1, &[wretched_anurid()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("p0's creature");
+    let anurid = on_battlefield(&engine, p1, wretched_anurid()).expect("p1's creature");
+    assert_eq!(pt(&engine, elf), (1, 1));
+    assert_eq!(pt(&engine, anurid), (3, 3));
+
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, pestilence, 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(engine.state().players[0].life, 19, "the controller too");
+    assert_eq!(engine.state().players[1].life, 19);
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "1 damage killed the 1-toughness Elves"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(anurid)
+            .expect("the Anurid survives")
+            .damage,
+        1,
+        "and marked 1 damage on the 3-toughness Anurid, which stands"
+    );
+}
+
+/// Pestilence's other printed line: "At the beginning of the end step, if
+/// no creatures are on the battlefield, sacrifice this enchantment." With
+/// none around, it is gone by the following turn.
+#[test]
+fn pestilence_sacrifices_itself_at_the_end_step_with_no_creatures_on_the_battlefield() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let pestilence = pestilence();
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[pestilence])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        in_graveyard(&engine, p0, pestilence).is_some(),
+        "no creatures anywhere, so it sacrificed itself at the end step"
+    );
+}
+
+fn warp_artifact() -> CardIndex {
+    card_index("f4b18451-1f40-48bd-8ca9-eec784ad5dd7")
+}
+
+/// Warp Artifact: "Enchant artifact" / "At the beginning of the upkeep of
+/// enchanted artifact's controller, this Aura deals 1 damage to that
+/// player."
+#[test]
+fn warp_artifact_deals_upkeep_damage_to_the_enchanted_artifacts_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let warp_artifact = warp_artifact();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp()])
+        .battlefield(1, &[sol_ring()])
+        .hand(0, &[warp_artifact])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ring = on_battlefield(&engine, p1, sol_ring()).expect("their Sol Ring");
+
+    cast_from_hand(&mut engine, p0, warp_artifact);
+    aim_at(&mut engine, p0, ring);
+    pass_until(&mut engine, stack_is_empty);
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "1 damage at its controller's upkeep"
+    );
+    assert_eq!(engine.state().players[0].life, 20);
+
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "not at Warp Artifact's own controller's upkeep, only the enchanted artifact's"
+    );
+    assert_eq!(engine.state().players[1].life, 19);
+}
+
+fn burrowing() -> CardIndex {
+    card_index("d6b9b88b-e31b-4b88-9d53-3df5687804ba")
+}
+
+/// Burrowing: "Enchanted creature has mountainwalk." With the defending
+/// player controlling a Mountain, the enchanted creature cannot be blocked
+/// at all (CR 702.14c).
+#[test]
+fn burrowing_grants_mountainwalk_and_the_attacker_is_unblockable_against_a_mountain() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let burrowing = burrowing();
+    // Two boards, differing only in whether the defender controls a
+    // Mountain: the control proves `attack_and_collect_blocks` actually
+    // offers the Elves as a blocker when mountainwalk doesn't apply, so the
+    // Mountain board's empty offer is the landwalk and not a quirk of the
+    // harness.
+    for (land_name, defender_land, can_be_blocked) in
+        [("Mountain", mountain(), false), ("Forest", forest(), true)]
+    {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[mountain(), quiet_creature()])
+            .battlefield(1, &[defender_land, quiet_creature()])
+            .hand(0, &[burrowing])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let attacker = on_battlefield(&engine, p0, quiet_creature()).expect("attacker seated");
+
+        // Tap only the Mountain: the Elves also carry a mana ability, and
+        // `cast_from_hand` would tap everything that can pay, tapping the
+        // attacker along with the land.
+        let mountain_id = on_battlefield(&engine, p0, mountain()).expect("the Mountain");
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateManaAbility {
+                    source: mountain_id,
+                },
+            )
+            .unwrap();
+        cast_with_floating(&mut engine, p0, burrowing);
+        aim_at(&mut engine, p0, attacker);
+        pass_until(&mut engine, stack_is_empty);
+        assert!(keywords(&engine, attacker).contains(KeywordSet::MOUNTAINWALK));
+        assert!(
+            !is_tapped(&engine, attacker),
+            "the attacker stayed untapped"
+        );
+
+        let blockers = attack_and_collect_blocks(&mut engine, attacker, p1);
+        assert_eq!(
+            blockers.iter().any(|b| b.attackers.contains(&attacker)),
+            can_be_blocked,
+            "defender's land is a {land_name}, blockers: {blockers:?}"
+        );
+    }
+}
+
+fn lifeforce() -> CardIndex {
+    card_index("07ae1fe5-5c3e-4d94-b809-8defd2ef44e3")
+}
+
+/// Lifeforce: "{G}{G}: Counter target black spell." The mirror of
+/// Deathgrip, over black spells.
+#[test]
+fn lifeforce_counters_a_target_black_spell() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let lifeforce = lifeforce();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[lifeforce, forest(), forest()])
+        .battlefield(1, &[swamp()])
+        .hand(1, &[festering_goblin()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, festering_goblin());
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, lifeforce, 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"counter target black spell\" asks for one, got {:?}",
+            engine.pending()
+        )
+    };
+    let goblin_spell = on_stack(&engine, festering_goblin()).expect("the Goblin is on the stack");
+    assert_eq!(options, vec![goblin_spell], "the only black spell up");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![goblin_spell],
+            },
+        )
+        .expect("the target was one of the options");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, festering_goblin()).is_none(),
+        "the Goblin never resolved"
+    );
+    assert!(
+        in_graveyard(&engine, p1, festering_goblin()).is_some(),
+        "countered spells go to their owner's graveyard"
+    );
+}
+
+fn regeneration() -> CardIndex {
+    card_index("89390a33-b289-4edd-a114-6616e49a49c2")
+}
+
+/// Regeneration: "Enchant creature" / "{G}: Regenerate enchanted
+/// creature." A shield bought off the Aura's own ability stands over the
+/// creature it enchants and saves it from a destroy effect.
+#[test]
+fn regeneration_shields_the_enchanted_creature_from_being_destroyed() {
+    let p0 = PlayerId::new(0);
+    let regeneration = regeneration();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest(), quiet_creature()])
+        .hand(0, &[regeneration])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p0, quiet_creature()).expect("creature seated");
+
+    let forests = all_on_battlefield(&engine, p0, forest());
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: forests[0] })
+        .unwrap();
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: forests[1] })
+        .unwrap();
+    cast_with_floating(&mut engine, p0, regeneration);
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+    let aura = on_battlefield(&engine, p0, regeneration).expect("Regeneration is attached");
+    assert_eq!(
+        engine.state().object(aura).and_then(|o| o.attached_to),
+        Some(creature)
+    );
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: forests[2] })
+        .unwrap();
+    activate(&mut engine, p0, regeneration, 1);
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(
+        engine
+            .state()
+            .object(creature)
+            .expect("the creature is still there")
+            .regeneration_shields,
+        1,
+        "one shield, standing over the creature it enchants"
+    );
+
+    kill(&mut engine, creature);
+    assert_eq!(
+        engine.state().object(creature).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "regenerated instead of dying"
+    );
+    assert!(
+        is_tapped(&engine, creature),
+        "regeneration taps the creature"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(creature)
+            .unwrap()
+            .regeneration_shields,
+        0,
+        "the shield was used"
+    );
+}
+
+fn wanderlust() -> CardIndex {
+    card_index("73bddfdb-d1fb-4038-b676-201f6b82beb0")
+}
+
+/// Wanderlust: "Enchant creature" / "At the beginning of the upkeep of
+/// enchanted creature's controller, this Aura deals 1 damage to that
+/// player."
+#[test]
+fn wanderlust_deals_upkeep_damage_to_the_enchanted_creatures_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let wanderlust = wanderlust();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .battlefield(1, &[quiet_creature()])
+        .hand(0, &[wanderlust])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let creature = on_battlefield(&engine, p1, quiet_creature()).expect("their creature");
+
+    cast_from_hand(&mut engine, p0, wanderlust);
+    aim_at(&mut engine, p0, creature);
+    pass_until(&mut engine, stack_is_empty);
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "1 damage at its controller's upkeep"
+    );
+    assert_eq!(engine.state().players[0].life, 20);
+
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "not at Wanderlust's own controller's upkeep, only the enchanted creature's"
+    );
+    assert_eq!(engine.state().players[1].life, 19);
+}
+
+fn wild_growth() -> CardIndex {
+    card_index("706ae742-1807-44b7-a4fa-f2e26f61519a")
+}
+
+/// Wild Growth: "Enchant land" / "Whenever enchanted land is tapped for
+/// mana, its controller adds an additional {G}." Tapping the enchanted
+/// Plains for mana makes its own {W} plus one extra {G}.
+#[test]
+fn wild_growth_adds_an_additional_green_when_the_enchanted_land_taps_for_mana() {
+    let p0 = PlayerId::new(0);
+    let wild_growth = wild_growth();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), plains()])
+        .hand(0, &[wild_growth])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let plains_id = on_battlefield(&engine, p0, plains()).expect("the Plains");
+    let forest_id = on_battlefield(&engine, p0, forest()).expect("the Forest");
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: forest_id })
+        .unwrap();
+    cast_with_floating(&mut engine, p0, wild_growth);
+    aim_at(&mut engine, p0, plains_id);
+    pass_until(&mut engine, stack_is_empty);
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: plains_id })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::White), 1, "the Plains' own mana");
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        1,
+        "Wild Growth's additional {{G}}"
+    );
+}
