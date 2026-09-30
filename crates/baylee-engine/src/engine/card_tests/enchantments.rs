@@ -21152,3 +21152,755 @@ fn instill_energy_s_untap_ability_is_once_per_turn_and_only_on_your_turn() {
         legal.abilities
     );
 }
+
+fn evil_presence() -> CardIndex {
+    card_index("3d8ac41c-0566-48b2-a744-39db2f72272c")
+}
+
+/// Evil Presence: "Enchanted land is a Swamp." The enchanted Forest loses
+/// its own land type, taps for {B} instead of {G}, and keeps being a land
+/// and a basic land by supertype. A second Forest beside it, never
+/// targeted, still taps for {G} — the pool that tells the two apart.
+#[test]
+fn evil_presence_turns_a_forest_into_a_swamp_and_nothing_else() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), forest(), forest()])
+        .hand(0, &[evil_presence()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let forests = all_on_battlefield(&engine, p0, forest());
+    assert_eq!(forests.len(), 2, "two Forests are seated");
+    let (target, bystander) = (forests[0], forests[1]);
+
+    tap_all_mana_but(&mut engine, p0, Some(forest()));
+    cast_with_floating(&mut engine, p0, evil_presence());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Enchant land asks for a target, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&target));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![target],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let mut swamp_only = baylee_core::types::SubtypeSet::EMPTY;
+    swamp_only.insert(baylee_core::generated::subtypes::land::SWAMP);
+    assert_eq!(
+        engine
+            .state()
+            .object(target)
+            .unwrap()
+            .characteristics()
+            .subtypes,
+        swamp_only,
+        "a Swamp, and no longer a Forest"
+    );
+    assert!(
+        engine
+            .state()
+            .object(target)
+            .unwrap()
+            .characteristics()
+            .supertypes
+            .contains(SupertypeSet::BASIC),
+        "still a basic land by supertype"
+    );
+    assert!(
+        engine
+            .state()
+            .object(target)
+            .unwrap()
+            .characteristics()
+            .types
+            .contains(TypeSet::LAND),
+        "still a land"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: target })
+        .unwrap();
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: bystander })
+        .unwrap();
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the enchanted land taps for {{B}}"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        1,
+        "only the untouched Forest still taps for {{G}}"
+    );
+}
+
+fn darksteel_citadel() -> CardIndex {
+    card_index("8dc067bf-f78f-4ac4-b6e7-b305c42cf0bc")
+}
+
+/// Evil Presence: "Enchanted land is a Swamp." Cast on Darksteel Citadel —
+/// an Artifact Land with a printed keyword (indestructible) and its own
+/// printed mana ability — it keeps neither afterward: nothing is left to
+/// activate but the new type's own mana, and it is destructible again. It
+/// stays a land, and an artifact.
+#[test]
+fn evil_presence_strips_a_nonbasic_lands_printed_keyword_and_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), darksteel_citadel()])
+        .hand(0, &[evil_presence()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let citadel = on_battlefield(&engine, p0, darksteel_citadel()).expect("the Citadel is seated");
+    assert!(
+        keywords(&engine, citadel).contains(KeywordSet::INDESTRUCTIBLE),
+        "indestructible, as printed, before anything enchants it"
+    );
+    let before = priority_offer(&engine);
+    assert!(
+        before.abilities.contains(&(citadel, 0)),
+        "its printed {{T}}: Add {{C}} is offered"
+    );
+    assert!(
+        !before.mana_abilities.contains(&citadel),
+        "no basic land type yet, so the CR 305.6 shortcut is not"
+    );
+
+    tap_all_mana_but(&mut engine, p0, Some(darksteel_citadel()));
+    cast_with_floating(&mut engine, p0, evil_presence());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Enchant land asks for a target, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&citadel));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![citadel],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !keywords(&engine, citadel).contains(KeywordSet::INDESTRUCTIBLE),
+        "the printed keyword is gone"
+    );
+    assert!(
+        engine
+            .state()
+            .object(citadel)
+            .unwrap()
+            .abilities(&engine.lookup)
+            .is_empty(),
+        "no ability its text prints is left"
+    );
+    let after_types = engine
+        .state()
+        .object(citadel)
+        .unwrap()
+        .characteristics()
+        .types;
+    assert!(
+        after_types.contains(TypeSet::LAND) && after_types.contains(TypeSet::ARTIFACT),
+        "still an Artifact Land: {after_types:?}"
+    );
+    let after = priority_offer(&engine);
+    assert!(
+        !after.abilities.contains(&(citadel, 0)),
+        "the printed {{T}}: Add {{C}} is no longer offered"
+    );
+    assert!(
+        after.mana_abilities.contains(&citadel),
+        "the Swamp's own mana is offered instead"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: citadel })
+        .unwrap();
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Black), 1, "it taps for {{B}}");
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
+        0,
+        "not its printed {{C}} any more"
+    );
+}
+
+fn conversion() -> CardIndex {
+    card_index("a24e05fb-dffb-4400-b4ca-22fdde45e7a7")
+}
+
+/// Conversion: "All Mountains are Plains." Every player's Mountain becomes
+/// one and taps for {W}; a Forest beside it, never a Mountain, is
+/// untouched.
+#[test]
+fn conversion_makes_every_players_mountains_plains() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), plains(), mountain(), forest()],
+        )
+        .battlefield(1, &[mountain()])
+        .hand(0, &[conversion()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let p0_mountain = on_battlefield(&engine, p0, mountain()).expect("p0's Mountain is seated");
+    let p0_forest = on_battlefield(&engine, p0, forest()).expect("p0's Forest is seated");
+    let p1_mountain = on_battlefield(&engine, p1, mountain()).expect("p1's Mountain is seated");
+
+    let plains_ids = all_on_battlefield(&engine, p0, plains());
+    assert_eq!(plains_ids.len(), 4, "four Plains pay for Conversion");
+    tap_mana_where(&mut engine, p0, |id| plains_ids.contains(&id));
+    cast_with_floating(&mut engine, p0, conversion());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, conversion()).is_some()
+    });
+
+    let mountain_subtype = baylee_core::generated::subtypes::land::MOUNTAIN;
+    let plains_subtype = baylee_core::generated::subtypes::land::PLAINS;
+    let forest_subtype = baylee_core::generated::subtypes::land::FOREST;
+
+    let p0_mountain_now = engine
+        .state()
+        .object(p0_mountain)
+        .unwrap()
+        .characteristics()
+        .subtypes;
+    assert!(
+        p0_mountain_now.contains(plains_subtype),
+        "p0's own Mountain is a Plains now"
+    );
+    assert!(
+        !p0_mountain_now.contains(mountain_subtype),
+        "and no longer a Mountain"
+    );
+
+    let p1_mountain_now = engine
+        .state()
+        .object(p1_mountain)
+        .unwrap()
+        .characteristics()
+        .subtypes;
+    assert!(
+        p1_mountain_now.contains(plains_subtype),
+        "\"All Mountains\": the opponent's too, not just the caster's own"
+    );
+    assert!(!p1_mountain_now.contains(mountain_subtype));
+
+    let p0_forest_now = engine
+        .state()
+        .object(p0_forest)
+        .unwrap()
+        .characteristics()
+        .subtypes;
+    assert!(
+        p0_forest_now.contains(forest_subtype),
+        "a Forest, never a Mountain, is untouched"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateManaAbility {
+                source: p0_mountain,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: p0_forest })
+        .unwrap();
+    let pool0 = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool0.available(ManaColor::White),
+        1,
+        "the converted Mountain taps for {{W}}"
+    );
+    assert_eq!(pool0.available(ManaColor::Red), 0, "not {{R}} any more");
+    assert_eq!(
+        pool0.available(ManaColor::Green),
+        1,
+        "the Forest still taps for {{G}}"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateManaAbility {
+                source: p1_mountain,
+            },
+        )
+        .unwrap();
+    let pool1 = &engine.state().players[1].mana_pool;
+    assert_eq!(
+        pool1.available(ManaColor::White),
+        1,
+        "the opponent's converted Mountain also taps for {{W}}"
+    );
+    assert_eq!(pool1.available(ManaColor::Red), 0);
+}
+
+/// Conversion: "At the beginning of your upkeep, sacrifice this
+/// enchantment unless you pay {W}{W}." Paying keeps it; declining
+/// sacrifices it; the question is never asked at the opponent's upkeep.
+#[test]
+fn conversion_upkeep_trigger_pays_ww_or_sacrifices_itself() {
+    let p0 = PlayerId::new(0);
+
+    // Paying {W}{W} keeps Conversion.
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), plains(), plains(), plains()],
+        )
+        .hand(0, &[conversion()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let all_plains = all_on_battlefield(&engine, p0, plains());
+    assert_eq!(all_plains.len(), 6, "six Plains are seated");
+    let reserved: Vec<_> = all_plains[..2].to_vec();
+    tap_mana_where(&mut engine, p0, |id| !reserved.contains(&id));
+    cast_with_floating(&mut engine, p0, conversion());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, conversion()).is_some()
+    });
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayMana { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on the question")
+    };
+    assert_eq!(engine.state().turn.active, p0, "p1's upkeep asked nothing");
+    assert_eq!(
+        player, p0,
+        "\"your upkeep\" asks Conversion's own controller"
+    );
+    assert_eq!(
+        prompt,
+        YesNoPrompt::PayMana {
+            cost: baylee_core::mana!("{W}{W}")
+        }
+    );
+
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    tap_all_mana(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(
+        on_battlefield(&engine, p0, conversion()).is_some(),
+        "paying {{W}}{{W}} keeps Conversion on the battlefield"
+    );
+
+    // Declining sacrifices it.
+    let mut decline = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .hand(0, &[conversion()])
+        .start();
+    keep_mulligans(&mut decline);
+    reach_main_phase(&mut decline, p0);
+    cast_from_hand(&mut decline, p0, conversion());
+    pass_until(&mut decline, |e| {
+        on_battlefield(e, p0, conversion()).is_some()
+    });
+    pass_until(&mut decline, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayMana { .. },
+                ..
+            }
+        )
+    });
+    decline.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    assert!(
+        on_battlefield(&decline, p0, conversion()).is_none(),
+        "declining sacrifices Conversion"
+    );
+    assert!(
+        in_graveyard(&decline, p0, conversion()).is_some(),
+        "sacrificed means the graveyard, not gone from the game"
+    );
+}
+
+fn phantasmal_terrain() -> CardIndex {
+    card_index("7dcbce46-2973-4a9f-93df-95ac41ce668a")
+}
+
+/// Phantasmal Terrain: "As this Aura enters, choose a basic land type."
+/// Offers exactly the five basic land types, and refuses a nonbasic one.
+#[test]
+fn phantasmal_terrain_offers_only_the_five_basic_land_types() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), forest(), forest()])
+        .hand(0, &[phantasmal_terrain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let forests = all_on_battlefield(&engine, p0, forest());
+    let target = forests[0];
+
+    tap_all_mana_but(&mut engine, p0, Some(forest()));
+    cast_with_floating(&mut engine, p0, phantasmal_terrain());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Enchant land asks for a target, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&target));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![target],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseSubtype { .. })
+    });
+
+    let Pending::ChooseSubtype { player, options } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on the question")
+    };
+    assert_eq!(player, p0, "the enchanted land's controller chooses");
+    assert_eq!(
+        options,
+        [
+            baylee_core::generated::subtypes::land::PLAINS,
+            baylee_core::generated::subtypes::land::ISLAND,
+            baylee_core::generated::subtypes::land::SWAMP,
+            baylee_core::generated::subtypes::land::MOUNTAIN,
+            baylee_core::generated::subtypes::land::FOREST,
+        ],
+        "the five basic land types and nothing else"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseSubtype(baylee_core::generated::subtypes::land::DESERT)
+            )
+            .is_err(),
+        "a nonbasic land type is refused"
+    );
+}
+
+/// Phantasmal Terrain: "Enchanted land is the chosen type." Choosing Swamp
+/// turns the enchanted Forest into one, tapping for {B}; a second Forest
+/// beside it, never chosen, still taps for {G}.
+#[test]
+fn phantasmal_terrain_makes_the_enchanted_land_the_chosen_type() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), forest(), forest()])
+        .hand(0, &[phantasmal_terrain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let forests = all_on_battlefield(&engine, p0, forest());
+    let (target, bystander) = (forests[0], forests[1]);
+
+    tap_all_mana_but(&mut engine, p0, Some(forest()));
+    cast_with_floating(&mut engine, p0, phantasmal_terrain());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![target],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseSubtype { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseSubtype(baylee_core::generated::subtypes::land::SWAMP),
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let aura = on_battlefield(&engine, p0, phantasmal_terrain()).expect("the Aura resolved");
+    assert_eq!(
+        engine.state().object(aura).and_then(|o| o.attached_to),
+        Some(target)
+    );
+
+    let mut swamp_only = baylee_core::types::SubtypeSet::EMPTY;
+    swamp_only.insert(baylee_core::generated::subtypes::land::SWAMP);
+    assert_eq!(
+        engine
+            .state()
+            .object(target)
+            .unwrap()
+            .characteristics()
+            .subtypes,
+        swamp_only,
+        "a Swamp, and no longer a Forest"
+    );
+    assert!(
+        engine
+            .state()
+            .object(bystander)
+            .unwrap()
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::land::FOREST),
+        "the untouched Forest is still one"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: target })
+        .unwrap();
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: bystander })
+        .unwrap();
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the enchanted land taps for {{B}}"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        1,
+        "the untouched Forest still taps for {{G}}"
+    );
+}
+
+/// Casts `aura` off an open board, asserting that `wrong_kind` — a
+/// permanent the Enchant line's kind excludes — is never among the
+/// offered targets while `target` is, then resolves it onto `target` and
+/// returns the Aura's own object once it is attached.
+///
+/// Shared by every Aura this batch reports as attaching and doing nothing
+/// else: all of them share exactly this shape.
+#[track_caller]
+fn attaches_only_to(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    aura: CardIndex,
+    target: ObjectId,
+    wrong_kind: ObjectId,
+) -> ObjectId {
+    cast_from_hand(engine, seat, aura);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&target),
+        "the Enchant line's own kind is offered: {options:?}"
+    );
+    assert!(
+        !options.contains(&wrong_kind),
+        "the wrong kind is never offered: {options:?}"
+    );
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: vec![target],
+            },
+        )
+        .unwrap();
+    pass_until(engine, stack_is_empty);
+    let object = on_battlefield(engine, seat, aura).expect("the Aura resolved");
+    assert_eq!(
+        engine.state().object(object).and_then(|o| o.attached_to),
+        Some(target),
+        "ends attached to the chosen permanent"
+    );
+    object
+}
+
+fn consecrate_land() -> CardIndex {
+    card_index("4627691c-4ed4-4add-9cc3-2e019be2f9fd")
+}
+
+/// Consecrate Land — PARTIAL: refusing other Auras is not modeled;
+/// "Enchant land. Enchanted land has indestructible" is. Offered only a
+/// land, never the Elves; the land it attaches to gains indestructible,
+/// and a bystander land beside it does not.
+#[test]
+fn consecrate_land_attaches_to_a_land_and_grants_it_indestructible() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), forest(), llanowar_elves()])
+        .hand(0, &[consecrate_land()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let target = on_battlefield(&engine, p0, forest()).expect("the Forest is seated");
+    let bystander = on_battlefield(&engine, p0, plains()).expect("the Plains is seated");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves is seated");
+
+    attaches_only_to(&mut engine, p0, consecrate_land(), target, elf);
+    assert!(
+        keywords(&engine, target).contains(KeywordSet::INDESTRUCTIBLE),
+        "the enchanted land has indestructible"
+    );
+    assert!(
+        !keywords(&engine, bystander).contains(KeywordSet::INDESTRUCTIBLE),
+        "a bystander land beside it does not"
+    );
+}
+
+fn animate_artifact() -> CardIndex {
+    card_index("2dd7a4dc-902a-4e85-8a3b-c96a898fba86")
+}
+
+/// Animate Artifact — PARTIAL: only "Enchant artifact" is modeled; the
+/// power/toughness clause is not. Offered only an artifact, never the
+/// Elves, and ends attached to Sol Ring.
+#[test]
+fn animate_artifact_attaches_only_to_an_artifact() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                sol_ring(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[animate_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let rock = on_battlefield(&engine, p0, sol_ring()).expect("Sol Ring is seated");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves is seated");
+    attaches_only_to(&mut engine, p0, animate_artifact(), rock, elf);
+}
+
+fn creature_bond() -> CardIndex {
+    card_index("70492e32-ba4d-4314-b016-892fb15f7a23")
+}
+
+/// Creature Bond — PARTIAL: only "Enchant creature" is modeled; the damage
+/// trigger on the enchanted creature's death is not. Offered only a
+/// creature, never Sol Ring, and ends attached to the Elves.
+#[test]
+fn creature_bond_attaches_only_to_a_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), llanowar_elves(), sol_ring()])
+        .hand(0, &[creature_bond()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves is seated");
+    let rock = on_battlefield(&engine, p0, sol_ring()).expect("Sol Ring is seated");
+    attaches_only_to(&mut engine, p0, creature_bond(), elf, rock);
+}
+
+fn earthbind() -> CardIndex {
+    card_index("e8e35b49-8cfb-4fb5-89aa-8050f15b11bf")
+}
+
+/// Earthbind — PARTIAL: only "Enchant creature" is modeled; the enter
+/// trigger that damages a flier and strips its flying is not. Offered
+/// only a creature, never Sol Ring, and ends attached to the Elves.
+#[test]
+fn earthbind_attaches_only_to_a_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain(), llanowar_elves(), sol_ring()])
+        .hand(0, &[earthbind()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves is seated");
+    let rock = on_battlefield(&engine, p0, sol_ring()).expect("Sol Ring is seated");
+    attaches_only_to(&mut engine, p0, earthbind(), elf, rock);
+}
+
+fn aspect_of_wolf() -> CardIndex {
+    card_index("77b7277d-90a1-4774-a998-8c35c3f94e4a")
+}
+
+/// Aspect of Wolf — PARTIAL: only "Enchant creature" is modeled; the
+/// +X/+Y from half the Forests you control is not. Offered only a
+/// creature, never Sol Ring, and ends attached to the Elves.
+#[test]
+fn aspect_of_wolf_attaches_only_to_a_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), llanowar_elves(), sol_ring()])
+        .hand(0, &[aspect_of_wolf()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves is seated");
+    let rock = on_battlefield(&engine, p0, sol_ring()).expect("Sol Ring is seated");
+    attaches_only_to(&mut engine, p0, aspect_of_wolf(), elf, rock);
+}
+
+fn living_artifact() -> CardIndex {
+    card_index("4ff9af56-ac18-4966-9e48-183e1ca1c2d0")
+}
+
+/// Living Artifact — PARTIAL: only "Enchant artifact" is modeled; the
+/// vitality-counter triggers are not. Offered only an artifact, never the
+/// Elves, and ends attached to Sol Ring.
+#[test]
+fn living_artifact_attaches_only_to_an_artifact() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), sol_ring(), llanowar_elves()])
+        .hand(0, &[living_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let rock = on_battlefield(&engine, p0, sol_ring()).expect("Sol Ring is seated");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves is seated");
+    attaches_only_to(&mut engine, p0, living_artifact(), rock, elf);
+}
+
+fn lure() -> CardIndex {
+    card_index("7a7425ba-4478-4bc4-855f-abf947ea4fa2")
+}
+
+/// Lure — PARTIAL: only "Enchant creature" is modeled; the forced-block
+/// clause is not. Offered only a creature, never Sol Ring, and ends
+/// attached to the Elves.
+#[test]
+fn lure_attaches_only_to_a_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), llanowar_elves(), sol_ring()],
+        )
+        .hand(0, &[lure()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves is seated");
+    let rock = on_battlefield(&engine, p0, sol_ring()).expect("Sol Ring is seated");
+    attaches_only_to(&mut engine, p0, lure(), elf, rock);
+}
