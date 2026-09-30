@@ -320,6 +320,19 @@ pub enum DelayedAction {
         /// What it does.
         effects: &'static [baylee_cards_dsl::Effect],
     },
+    /// [`Self::Trigger`] about one object (`Effect::AtNextEndStep`): its
+    /// event object is `object` while that is still the object it was at
+    /// `version`, and nothing once it has left its zone (CR 603.7c, 400.7).
+    TriggerAbout {
+        /// The source of the ability that created it.
+        source: ObjectId,
+        /// What it does.
+        effects: &'static [baylee_cards_dsl::Effect],
+        /// The object "that creature" names.
+        object: ObjectId,
+        /// Its identity when this was created.
+        version: u32,
+    },
 }
 
 /// Per-turn counters for conditional triggers (reset at every turn start).
@@ -4196,6 +4209,8 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         // only in *where* the number comes from are different filters.
         F::CmcAtMostX => h.u8(28),
         F::CmcAtMostColorsSpent => h.u8(37),
+        F::PowerLessThanSourcePower => h.u8(42),
+        F::ToughnessLessThanSourcePower => h.u8(43),
         F::CmcAtMost(n) | F::CmcAtLeast(n) => {
             h.u8(if matches!(f, F::CmcAtMost(_)) { 22 } else { 23 });
             h.u32(*n);

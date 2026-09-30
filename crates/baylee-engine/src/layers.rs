@@ -473,7 +473,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         Filter::ToughnessAtMost(_)
         | Filter::ToughnessAtLeast(_)
         | Filter::PowerAtLeast(_)
-        | Filter::PowerAtMost(_) => matches!(
+        | Filter::PowerAtMost(_)
+        | Filter::PowerLessThanSourcePower
+        | Filter::ToughnessLessThanSourcePower => matches!(
             modifier,
             Modifier::ModifyPT(..)
                 | Modifier::SetPT(..)

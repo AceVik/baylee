@@ -1145,6 +1145,10 @@ impl Tx<'_> {
             Some(defined) => Some(self.exile_if_dies(&defined, target.as_deref())?),
             None => None,
         };
+        let at_end = match p.take("AtEOT") {
+            Some(what) => Some(self.at_next_end_step(&api, &what, target.as_deref())?),
+            None => None,
+        };
 
         let Some(mut effects) = self.effect_of(&api, &mut p, target.as_deref(), targets_a_player)
         else {
@@ -1165,6 +1169,7 @@ impl Tx<'_> {
             return None;
         }
         effects.extend(dying);
+        effects.extend(at_end);
         let effects = match unless {
             Some(unless) => vec![self.unless_wrap(unless, &effects)?],
             None => effects,
@@ -1211,6 +1216,30 @@ impl Tx<'_> {
             )),
             other => self.deny(format!("`ReplaceDyingDefined$ {other}`")),
         }
+    }
+
+    /// `AtEOT$` on a line that pumps its target — "destroy that creature at
+    /// the beginning of the next end step" (Stone Giant): a delayed trigger
+    /// about the target, `Effect::AtNextEndStep`.
+    ///
+    /// Only `Destroy` on a targeted `Pump`. A token's or a copy's "sacrifice
+    /// it" is about the object the line made, not a target, and "exile it",
+    /// "return it to your hand" and the upkeep spellings are other
+    /// sentences; each is refused by name.
+    fn at_next_end_step(&mut self, api: &str, what: &str, target: Option<&str>) -> Option<String> {
+        let aimed = target.is_some_and(|t| {
+            !matches!(
+                t,
+                "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
+            )
+        });
+        if api != "Pump" || !aimed || what != "Destroy" {
+            return self.deny(format!("`AtEOT$ {what}` on `{api}`"));
+        }
+        Some(
+            "Effect::AtNextEndStep { effects: &[Effect::destroy(TargetSpec::EventObject)] }"
+                .to_string(),
+        )
     }
 
     /// The "unless" of a line: `UnlessCost$` with the keys that qualify it.
@@ -2809,9 +2838,8 @@ impl Tx<'_> {
     ///
     /// - a name ("creatures named Plague Rats", [`named_atom`]);
     /// - a number the printed words compare against ("power 2 or less",
-    ///   [`stat_atom`]). Only a fixed number: "toughness less than this
-    ///   creature's power" is a comparison with another object, and is
-    ///   refused;
+    ///   [`stat_atom`]), or "less than this creature's power" where `X` is
+    ///   the source's power ([`Self::source_power_atom`]);
     /// - a mana value against a number or the announced X
     ///   ([`Self::cmc_atom`]);
     /// - "each creature with flying", "each creature without flying"
@@ -2823,8 +2851,24 @@ impl Tx<'_> {
             return Some(format!("Filter::Named({name:?})"));
         }
         stat_atom(atom)
+            .or_else(|| self.source_power_atom(atom))
             .or_else(|| self.cmc_atom(atom))
             .or_else(|| keyword_atom(atom))
+    }
+
+    /// `powerLTX` and `toughnessLTX` where `X` is `Count$CardPower`, the
+    /// source's own power: "with power less than this creature's power",
+    /// Stone Giant's "with toughness less than Stone Giant's power". Any
+    /// other comparison or `X` is refused.
+    fn source_power_atom(&self, atom: &str) -> Option<String> {
+        if self.svars.get("X").map(|x| x.trim()) != Some("Count$CardPower") {
+            return None;
+        }
+        match atom {
+            "powerLTX" => Some("Filter::PowerLessThanSourcePower".to_string()),
+            "toughnessLTX" => Some("Filter::ToughnessLessThanSourcePower".to_string()),
+            _ => None,
+        }
     }
 
     /// `cmcLE2`, `cmcGE4`, `cmcEQX`: a mana value against a fixed number,
@@ -7326,6 +7370,46 @@ SVar:X:Count$xPaid",
             assert!(
                 refused(&format!("Name:X\nTypes:Sorcery\n{refused_line}")),
                 "{refused_line}"
+            );
+        }
+    }
+
+    /// Stone Giant: "toughness less than this creature's power" only where
+    /// `X` is the source's power, and "destroy that creature at the
+    /// beginning of the next end step" only on a targeted pump.
+    #[test]
+    fn a_comparison_with_the_sources_power_and_a_destroy_at_the_next_end_step() {
+        let giant = read(
+            "Name:X\nTypes:Creature\nPT:3/4\n\
+             A:AB$ Pump | Cost$ T | ValidTgts$ Creature.YouCtrl+toughnessLTX | KW$ Flying | \
+             AtEOT$ Destroy\n\
+             SVar:X:Count$CardPower",
+        );
+        let a = giant.abilities.join("");
+        assert!(
+            a.contains(
+                "Effect::AtNextEndStep { effects: &[Effect::destroy(TargetSpec::EventObject)] }"
+            ),
+            "{a}"
+        );
+        assert!(
+            giant
+                .statics
+                .contains("Filter::ToughnessLessThanSourcePower"),
+            "{}",
+            giant.statics
+        );
+        for refused_card in [
+            // `X` is not the source's power.
+            "A:AB$ Pump | Cost$ T | ValidTgts$ Creature.toughnessLTX | KW$ Flying\n\
+             SVar:X:Count$Valid Island.YouCtrl",
+            // Another delayed sentence, and a delayed one about no target.
+            "A:AB$ Pump | Cost$ T | ValidTgts$ Creature | KW$ Haste | AtEOT$ Sacrifice",
+            "A:AB$ Pump | Cost$ R | Defined$ Self | NumAtt$ +1 | AtEOT$ Destroy",
+        ] {
+            assert!(
+                refused(&format!("Name:X\nTypes:Creature\nPT:3/4\n{refused_card}")),
+                "{refused_card}"
             );
         }
     }

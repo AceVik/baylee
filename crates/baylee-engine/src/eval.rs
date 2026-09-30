@@ -28,6 +28,7 @@ pub fn matches(
 /// characteristics as modified by every *earlier* layer — a value that
 /// exists only mid-projection and is not yet in the object's cache.
 #[must_use]
+#[allow(clippy::too_many_lines)] // one arm per `Filter` variant, and no wildcard
 pub fn matches_projected(
     filter: &Filter,
     state: &GameState,
@@ -164,6 +165,8 @@ pub fn matches_projected(
         // way and for the same reason.
         Filter::PowerAtLeast(n) => chars.power.is_some_and(|p| p >= *n),
         Filter::PowerAtMost(n) => chars.power.is_some_and(|p| p <= *n),
+        Filter::PowerLessThanSourcePower => below_source_power(chars.power, state, this),
+        Filter::ToughnessLessThanSourcePower => below_source_power(chars.toughness, state, this),
         Filter::InZone(z) => {
             use baylee_cards_dsl::ZoneRef;
             match z {
@@ -847,6 +850,14 @@ fn opponents_objects(
 /// it; 0 for a source that is gone or announced none.
 fn announced_x(state: &GameState, this: ObjectId) -> u32 {
     state.object(this).map_or(0, |o| o.x_value)
+}
+
+/// Whether `stat` is less than the source's projected power. A source with
+/// no power, or none at all, bounds nothing in, and neither does an object
+/// with no such number.
+fn below_source_power(stat: Option<i16>, state: &GameState, this: ObjectId) -> bool {
+    let bound = state.object(this).and_then(|o| o.characteristics().power);
+    stat.zip(bound).is_some_and(|(stat, bound)| stat < bound)
 }
 
 /// Whether `filter` reads the X announced for its source
@@ -1658,6 +1669,55 @@ mod tests {
         assert!(
             !ask(&state, &Filter::PowerAtMost(3), c),
             "and the creature has grown out of the other card's restriction"
+        );
+    }
+
+    /// "Toughness less than Stone Giant's power": compared with the
+    /// source's projected power, strictly, and a source with no power
+    /// bounds nothing in.
+    #[test]
+    fn a_comparison_with_the_sources_power_is_strict_and_reads_the_source() {
+        let mut state = empty_state();
+        let giant = creature(&mut state, P0, KeywordSet::EMPTY);
+        let small = creature(&mut state, P0, KeywordSet::EMPTY);
+        let land = land(&mut state, P0, &[]);
+        {
+            let b = state.object_mut(giant).expect("seated").base_mut();
+            b.power = Some(3);
+            b.toughness = Some(4);
+        }
+        {
+            let b = state.object_mut(small).expect("seated").base_mut();
+            b.power = Some(3);
+            b.toughness = Some(2);
+        }
+        state.invalidate_projections();
+        let ask = |state: &GameState, f: &Filter, id: ObjectId, source: ObjectId| {
+            matches(f, state, state.object(id).expect("still here"), P0, source)
+        };
+        assert!(ask(
+            &state,
+            &Filter::ToughnessLessThanSourcePower,
+            small,
+            giant
+        ));
+        assert!(
+            !ask(&state, &Filter::PowerLessThanSourcePower, small, giant),
+            "3 is not less than 3"
+        );
+        assert!(
+            !ask(&state, &Filter::ToughnessLessThanSourcePower, giant, giant),
+            "the giant's own 4 is not less than its 3"
+        );
+        assert!(
+            !ask(&state, &Filter::ToughnessLessThanSourcePower, small, land),
+            "a source with no power bounds nothing in"
+        );
+        state.object_mut(giant).expect("seated").base_mut().power = Some(2);
+        state.invalidate_projections();
+        assert!(
+            !ask(&state, &Filter::ToughnessLessThanSourcePower, small, giant),
+            "the source's power as it is now"
         );
     }
 

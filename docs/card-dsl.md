@@ -1868,6 +1868,20 @@ hashes, layers and does nothing. This paragraph said THREE until
 - **`Modifier::CantBeBlockedBy(filter)`** is "can't be blocked by [filter]".
   Examples: Questing Beast (`PowerAtMost(2)`) and Delney (`PowerAtLeast(3)`).
   `combat::can_block` enforces it.
+- **`Filter::PowerLessThanSourcePower`** and
+  **`Filter::ToughnessLessThanSourcePower`** compare with the source's
+  projected power, strictly: Stone Giant's "target creature you control
+  with toughness less than this creature's power". A source with no power
+  bounds nothing in. The reader writes them from `powerLTX` and
+  `toughnessLTX` only where `X` is `Count$CardPower`.
+- **`Effect::AtNextEndStep { effects }`** is "[effects] at the beginning of
+  the next end step", a delayed trigger (CR 603.7) with this ability's
+  source and controller that uses the stack. "That creature" in `effects`
+  is `TargetSpec::EventObject`, the first target as the object it was when
+  this resolved; one that has left its zone since is a new object and is
+  not affected (CR 603.7c, 400.7). Stone Giant: `AtNextEndStep { effects:
+  &[Effect::destroy(TargetSpec::EventObject)] }` after its pump. The reader
+  reads `AtEOT$ Destroy` on a targeted `Pump` only.
 - **`Modifier::CombatDamageCantBePrevented`** makes combat damage dealt by the
   matching creatures unpreventable. It overrides prevention effects and
   protection's prevention (CR 615.12, 702.16e).

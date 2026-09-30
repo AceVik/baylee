@@ -1346,6 +1346,21 @@ pub enum Effect {
     /// Exile each target; return it to the battlefield under its owner's
     /// control at the beginning of the next end step (Venser +2).
     ExileAndReturnAtEndStep,
+    /// "[Effects] at the beginning of the next end step": a delayed
+    /// triggered ability (CR 603.7) created as this resolves, with this
+    /// ability's source and controller (CR 603.7d, 603.7e). It triggers
+    /// once (CR 603.7b) and uses the stack.
+    ///
+    /// "That creature" in `effects` is [`TargetSpec::EventObject`]: the
+    /// first target of the ability that created it, as the object it was
+    /// then. One that has left its zone since — and so is a new object even
+    /// if it came back (CR 400.7) — is not affected (CR 603.7c): Stone
+    /// Giant's "destroy that creature at the beginning of the next end
+    /// step".
+    AtNextEndStep {
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
     /// "Its owner puts it on their choice of the top or bottom of their
     /// library" (Subtlety). The target leaves the stack or the battlefield
     /// for its owner's library, and the **owner** picks the end, whoever
@@ -3164,7 +3179,9 @@ impl Effect {
                 player: _,
                 cost: _,
                 effects,
-            } => (effects, NONE),
+            }
+            // What the delayed trigger will do.
+            | Effect::AtNextEndStep { effects } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::ChooseYoursThen { filter: _, then }
             | Effect::IfTargetMatches { filter: _, then }

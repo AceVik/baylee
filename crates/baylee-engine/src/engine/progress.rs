@@ -4469,7 +4469,23 @@ impl<L: CardLookup> Engine<L> {
             // journal (`trigger::watch_triggers`) and never reaches this
             // queue; no step-timed one exists yet.
             crate::state::DelayedAction::Trigger { source, effects } => {
-                self.queue_delayed_trigger(controller, source, effects);
+                self.queue_delayed_trigger(controller, source, effects, None);
+                false
+            }
+            // "That creature" while it is still that object (CR 603.7c):
+            // one that has left the battlefield, even to come back, is a
+            // new object and the trigger is about nothing (CR 400.7).
+            crate::state::DelayedAction::TriggerAbout {
+                source,
+                effects,
+                object,
+                version,
+            } => {
+                let still = self
+                    .state
+                    .object(object)
+                    .is_some_and(|o| o.version == version);
+                self.queue_delayed_trigger(controller, source, effects, still.then_some(object));
                 false
             }
         }
@@ -4482,6 +4498,7 @@ impl<L: CardLookup> Engine<L> {
         controller: PlayerId,
         source: ObjectId,
         effects: &'static [baylee_cards_dsl::Effect],
+        event_object: Option<ObjectId>,
     ) {
         self.trigger_queue
             .push_back(crate::trigger::PendingTrigger {
@@ -4492,7 +4509,7 @@ impl<L: CardLookup> Engine<L> {
                 abilities: None,
                 controller,
                 timestamp: self.state.object(source).map_or(0, |o| o.timestamp),
-                event_object: None,
+                event_object,
                 implicit_target: None,
                 synthetic_effects: Some(effects),
                 once_per_turn: false,

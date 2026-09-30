@@ -2048,3 +2048,10 @@ land type"; both are convention tests that fire on a first try.
   discard.** Wheel of Fortune's test drew seven into hands the testkit had
   left empty, so the missing "discards their hand" was invisible to it; the
   test now puts a card in each hand and asks where it went.
+
+- **"Destroy" is only ever of a permanent.** `sba::destroy` moved whatever
+  id it was handed into a graveyard, so a delayed "destroy that creature"
+  whose creature had gone back to its hand would have discarded the card.
+  Every targeted destroy was safe only because CR 608.2b had dropped the
+  target first; an effect about an object it does not target has no such
+  check, and the door now asks for the battlefield itself (CR 701.8a).

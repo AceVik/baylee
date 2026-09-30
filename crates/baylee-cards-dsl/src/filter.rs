@@ -184,6 +184,14 @@ pub enum Filter {
     /// Power at most N (Access Tunnel, Escape Tunnel — "target creature with
     /// power 3 or less can't be blocked this turn").
     PowerAtMost(i16),
+    /// Power less than the source's power ("target creature with power less
+    /// than this creature's power"). Both are projected; a source with no
+    /// power, or gone, bounds nothing in.
+    PowerLessThanSourcePower,
+    /// Toughness less than the source's power (Stone Giant: "target creature
+    /// you control with toughness less than Stone Giant's power"), read as
+    /// [`Self::PowerLessThanSourcePower`] is.
+    ToughnessLessThanSourcePower,
     /// Is in the given zone (cross-zone effects like Maskwood Nexus).
     InZone(ZoneRef),
 }

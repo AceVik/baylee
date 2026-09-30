@@ -3813,6 +3813,32 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        // The delayed trigger is about the first target as it is now; with
+        // none, it is about nothing.
+        Effect::AtNextEndStep { effects } => {
+            let action = match res
+                .targets
+                .first()
+                .and_then(|&t| state.object(t).map(|o| (t, o.version)))
+            {
+                Some((object, version)) => crate::state::DelayedAction::TriggerAbout {
+                    source: res.source,
+                    effects,
+                    object,
+                    version,
+                },
+                None => crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    effects,
+                },
+            };
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::NextEndStep,
+                action,
+            });
+            None
+        }
         Effect::CantBeRegeneratedThisTurn { target } => {
             for id in zones::spec_objects(res, target) {
                 if let Some(obj) = state.object(id)

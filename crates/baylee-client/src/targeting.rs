@@ -392,6 +392,10 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // Bounded by what the source's payment spent, which no view carries
         // either.
         | Filter::CmcAtMostColorsSpent
+        // Against the source's power, and the source here is a card that
+        // has not been cast.
+        | Filter::PowerLessThanSourcePower
+        | Filter::ToughnessLessThanSourcePower
         // When a permanent arrived is history, and a view carries no
         // journal — the same refusal as the rest of this list.
         | Filter::EnteredThisTurn

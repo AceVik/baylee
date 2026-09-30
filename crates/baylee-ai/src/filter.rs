@@ -39,6 +39,9 @@
 //!   is the same refusal for the same reason: its bound is what the source's
 //!   payment spent, which the engine keeps on the source and no view
 //!   carries.
+//! - [`Filter::PowerLessThanSourcePower`] and
+//!   [`Filter::ToughnessLessThanSourcePower`] compare with the source's
+//!   power, and this reader is handed the candidate and not the source.
 //!
 //! - [`Filter::EnteredThisTurn`] is history rather than a characteristic: the
 //!   engine keeps its own per-turn record of arrivals, and a view carries
@@ -208,6 +211,8 @@ impl HeuristicAgent {
             | Filter::CmcAtMostX
             | Filter::CmcExactlyX
             | Filter::CmcAtMostColorsSpent
+            | Filter::PowerLessThanSourcePower
+            | Filter::ToughnessLessThanSourcePower
             | Filter::EnteredThisTurn
             | Filter::PutIntoGraveyardThisTurn
             | Filter::SharesSubtypeWithCommander
