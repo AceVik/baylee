@@ -55,6 +55,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        // Only ever the head of a `MayDo` whose question was asked because
+        // the source had them (`may_clause_possible`), so the door's
+        // saturation never bites; it is the cost of "if you do" (CR 118.12).
+        Effect::RemoveCounterSelf { kind, n } => {
+            crate::replacement::remove_counters(state, res.source, kind, n);
+            None
+        }
         Effect::AddCounterFilter {
             filter,
             kind,

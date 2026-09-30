@@ -415,6 +415,12 @@ pub fn amount(
             .map_or(0, |p| p.mana_spent),
         Amount::TappedPower => tapped_power(state, this),
         Amount::CreaturesDiedThisTurn => state.per_turn.creatures_died,
+        Amount::DamageDealtToYouThisTurn => state
+            .per_turn
+            .damage_dealt_to
+            .get(you.get() as usize)
+            .copied()
+            .unwrap_or(0),
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
                 ZoneSel::Battlefield => state.zones.list(ZoneLocation::Battlefield).clone(),

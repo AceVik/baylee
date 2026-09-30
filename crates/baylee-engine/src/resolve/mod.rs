@@ -3450,7 +3450,17 @@ pub fn resolving_ability(
 /// its own effect checks, and any other "may" is asked as before.
 fn may_clause_possible(state: &GameState, res: &Resolution, effects: &[Effect]) -> bool {
     match effects {
-        [Effect::SacrificeSelf] => zones::can_sacrifice_self(state, res),
+        // The head of the list, not the whole of it: "you may sacrifice
+        // this. If you do, …" is the cost and then what it buys (CR 118.12),
+        // and a yes that cannot pay must not buy the rest. Safe Haven
+        // destroyed in response to its upkeep trigger returned everything
+        // exiled with it while the list was matched whole.
+        [Effect::SacrificeSelf, ..] => zones::can_sacrifice_self(state, res),
+        [Effect::RemoveCounterSelf { kind, n }, ..] => state.object(res.source).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Battlefield
+                && !o.status.contains(crate::object::Status::PHASED_OUT)
+                && o.counters.get(*kind) >= *n
+        }),
         [
             Effect::GraveyardToBattlefield {
                 target: TargetSpec::EventObject,
@@ -3603,6 +3613,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             mana::exec(state, res, op)
         }
         Effect::AddCounter { .. }
+        | Effect::RemoveCounterSelf { .. }
         | Effect::AddCounterFilter { .. }
         | Effect::DoubleCountersFilter { .. }
         | Effect::DrainAllCountersIntoSelf

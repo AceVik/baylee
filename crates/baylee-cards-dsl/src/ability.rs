@@ -381,6 +381,16 @@ pub enum Trigger {
     /// Damage that was prevented was not dealt, and triggers nothing
     /// (CR 603.2g).
     DealtDamage(&'static Filter),
+    /// A player the relation names is dealt damage (Living Artifact and
+    /// Lich: "whenever you're dealt damage"). The player's sibling of
+    /// [`Self::DealtDamage`], one event the same way: all combat damage in
+    /// a step is dealt at once (CR 510.2), so two attackers unblocked are
+    /// one event and trigger it once (CR 603.2c), and "that many" is the
+    /// step's total to that player, not the first creature's share. Every
+    /// other damage event triggers it once, for its own amount. Damage that
+    /// was prevented was not dealt (CR 603.2g). The relation is asked of the
+    /// state alone, as [`Self::TappedForMana`]'s is.
+    PlayerDealtDamage(crate::effect::PlayerRel),
     /// A permanent matching the filter becomes tapped, for any reason:
     /// City of Brass's own (`Filter::This`), Lifetap's "a Forest an
     /// opponent controls", Psychic Venom's enchanted land. The permanent is

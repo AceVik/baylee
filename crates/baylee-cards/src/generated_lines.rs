@@ -947,8 +947,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Living Artifact
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[None],
+        stackable: 2,
+        lines: &[None, Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -1436,7 +1436,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Simulacrum
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Sinkhole
     &[FaceLines {
         sentences: 1,

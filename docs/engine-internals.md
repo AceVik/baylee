@@ -201,7 +201,24 @@ required creatures and nothing else, each at the first defender it may
 attack; the house AI keeps its own choice and adds what the rules make it
 (`combat::obey_attack_rules`).
 
-### What must block, and how many (CR 509.1a, 509.1c)
+### Damage dealt to a player
+
+`GameState::damage_player` is the door for damage that reaches a player, as
+`change_life` is for life: combat damage (`combat::deal_damage_to_player`)
+and an effect's (`resolve::life::deal_to_player`) both come through it once
+the prevention shields have had their say. It loses the life (CR 120.3a),
+adds to `PerTurn::damage_dealt_to` and journals `DamageDealt`. The tally is
+kept here and not in `change_life`, because it counts damage and not life:
+a payment is no damage, and a player whose life can't change is still dealt
+it. `Amount::DamageDealtToYouThisTurn` reads it.
+
+`Trigger::PlayerDealtDamage` fires once for all the combat damage of a step
+to one player (CR 510.2, 603.2c), on the first of its journal entries, and
+its event amount is the step's total to that player (`trigger::event_damage_of`
+takes the trigger for that reason). A source's trigger in the same batch
+(`DealsCombatDamageToOpponent`) keeps its own share.
+
+## What must block, and how many (CR 509.1a, 509.1c)
 Four rules modifiers change a declaration of blockers, statics or
 until-end-of-turn effects on `Layer::Text` like the attack ones:
 

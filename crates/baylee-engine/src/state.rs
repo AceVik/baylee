@@ -361,6 +361,10 @@ pub struct PerTurn {
     /// Whether each player lost life this turn (Luminarch Ascension).
     /// Written by [`GameState::change_life`] and nothing else.
     pub life_lost: Vec<bool>,
+    /// The damage dealt to each player this turn, per seat ("the damage
+    /// dealt to you this turn", Simulacrum). Written by
+    /// [`GameState::damage_player`] and nothing else.
+    pub damage_dealt_to: Vec<u32>,
     /// Creatures that died this turn, all players (Emeritus of Woe's
     /// re-prepare condition).
     pub creatures_died: u32,
@@ -477,6 +481,7 @@ impl PerTurn {
             spells_cast: vec![0; players],
             no_more_spells: vec![false; players],
             life_lost: vec![false; players],
+            damage_dealt_to: vec![0; players],
             creatures_died: 0,
             draws: vec![0; players],
             drew_in_draw_step: false,
@@ -539,6 +544,7 @@ impl PerTurn {
         self.spells_cast.iter_mut().for_each(|v| *v = 0);
         self.no_more_spells.iter_mut().for_each(|v| *v = false);
         self.life_lost.iter_mut().for_each(|v| *v = false);
+        self.damage_dealt_to.iter_mut().for_each(|v| *v = 0);
         self.creatures_died = 0;
         self.entered_battlefield.clear();
         self.drawn.clear();
@@ -1895,6 +1901,43 @@ impl GameState {
             old,
             new,
             cause,
+        });
+    }
+
+    /// Damage dealt to a player, after prevention: the life it costs
+    /// (CR 120.3a), the turn's tally and the [`GameEvent::DamageDealt`]
+    /// record. **The** door for damage to a player, as
+    /// [`Self::change_life`] is for life: combat damage
+    /// (`combat::deal_damage_to_player`) and an effect's
+    /// (`resolve::life::deal_to_player`) both come through here, so "the
+    /// damage dealt to you this turn" (Simulacrum) reads one tally that
+    /// neither of them can forget to write.
+    ///
+    /// The tally counts damage dealt, not life lost, so it is not kept in
+    /// `change_life`: a payment loses life and is no damage, and a player
+    /// whose life can't change is still dealt the damage (`change_life`
+    /// refuses the loss, this records the damage). Nothing is dealt below
+    /// one point; the caller has already prevented what it prevents.
+    pub fn damage_player(
+        &mut self,
+        source: ObjectId,
+        player: PlayerId,
+        amount: u16,
+        is_combat: bool,
+        cause: Cause,
+    ) {
+        if amount == 0 {
+            return;
+        }
+        self.change_life(player, -i32::from(amount), cause);
+        if let Some(tally) = self.per_turn.damage_dealt_to.get_mut(player.get() as usize) {
+            *tally = tally.saturating_add(u32::from(amount));
+        }
+        self.journal.record(GameEvent::DamageDealt {
+            source: Some(source),
+            target: crate::event::DamageTarget::Player(player),
+            amount,
+            is_combat,
         });
     }
 
@@ -5031,6 +5074,9 @@ mod tests {
         let mutations: &[Mutation] = &[
             ("per_turn", |s, _| s.per_turn.creatures_died += 1),
             ("per_turn.life_lost", |s, _| s.per_turn.life_lost[0] = true),
+            ("per_turn.damage_dealt_to", |s, _| {
+                s.per_turn.damage_dealt_to[0] = 3;
+            }),
             ("per_turn.no_more_spells", |s, _| {
                 s.per_turn.no_more_spells[0] = true;
             }),

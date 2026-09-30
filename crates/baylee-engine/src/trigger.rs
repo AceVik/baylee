@@ -158,7 +158,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                     if hit > 0 {
                         let times = trigger_count(state, trigger, emblem, obj.controller) * hit;
                         let event_object = event_object_for(trigger, &entry.event, emblem);
-                        let event_damage = event_damage_of(&entry.event);
+                        let event_damage = event_damage_of(trigger, &entry.event, events);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
                                 event_mana_value: None,
@@ -461,15 +461,16 @@ fn first_mana_of_a_tap(
 }
 
 /// Whether a combat `DamageDealt` is the first of its combat damage step to
-/// reach `object`. All combat damage in a step is dealt at once (CR 510.2),
-/// so however many creatures dealt it, `object` was dealt damage in one
-/// event, and "whenever this creature is dealt damage" triggers once
-/// (CR 603.2c). One step's damage is one batch: nothing is scanned between
-/// its events, and first strike's damage is another step.
+/// reach `dealt` — a permanent or a player. All combat damage in a step is
+/// dealt at once (CR 510.2), so however many creatures dealt it, `dealt`
+/// was dealt damage in one event, and "whenever this creature is dealt
+/// damage" or "whenever you're dealt damage" triggers once (CR 603.2c).
+/// One step's damage is one batch: nothing is scanned between its events,
+/// and first strike's damage is another step.
 fn first_combat_damage_to(
     event: &GameEvent,
     batch: &[crate::event::JournalEntry],
-    object: ObjectId,
+    dealt: crate::event::DamageTarget,
 ) -> bool {
     let Some(at) = batch
         .iter()
@@ -481,13 +482,30 @@ fn first_combat_damage_to(
         matches!(
             entry.event,
             GameEvent::DamageDealt {
-                target: crate::event::DamageTarget::Object(dealt),
+                target,
                 amount,
                 is_combat: true,
                 ..
-            } if dealt == object && amount > 0
+            } if target == dealt && amount > 0
         )
     })
+}
+
+/// All the combat damage a batch dealt to `player`: the one event
+/// [`first_combat_damage_to`] fires on, as an amount (CR 510.2).
+fn combat_damage_in_batch(batch: &[crate::event::JournalEntry], player: PlayerId) -> u16 {
+    batch
+        .iter()
+        .filter_map(|entry| match entry.event {
+            GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Player(to),
+                amount,
+                is_combat: true,
+                ..
+            } if to == player => Some(amount),
+            _ => None,
+        })
+        .fold(0u16, u16::saturating_add)
 }
 
 /// The monarch is read once for the whole batch. A batch is what happened
@@ -627,9 +645,27 @@ static WARD_PAY_OR_COUNTER: [[baylee_cards_dsl::Effect; 1]; 11] = [
 pub(crate) const WARD_CEILING: usize = WARD_PAY_OR_COUNTER.len() - 1;
 
 /// The player a damage event dealt damage to and the amount, if it is one
-/// dealt to a player.
-fn event_damage_of(event: &GameEvent) -> Option<(PlayerId, u16)> {
+/// dealt to a player, as `trigger` reads it.
+///
+/// Per entry, except where the trigger is about the player rather than the
+/// source: [`Trigger::PlayerDealtDamage`] fires once for a step's combat
+/// damage (CR 510.2, 603.2c), and "that many" is all of it, so its amount
+/// is the batch's total to that player. A source's trigger
+/// (`DealsCombatDamageToOpponent`) keeps its own share: two creatures are
+/// two sources, each dealing its own damage.
+fn event_damage_of(
+    trigger: &Trigger,
+    event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
+) -> Option<(PlayerId, u16)> {
     match event {
+        GameEvent::DamageDealt {
+            target: crate::event::DamageTarget::Player(player),
+            is_combat: true,
+            ..
+        } if matches!(trigger, Trigger::PlayerDealtDamage(_)) => {
+            Some((*player, combat_damage_in_batch(batch, *player)))
+        }
         GameEvent::DamageDealt {
             target: crate::event::DamageTarget::Player(player),
             amount,
@@ -1239,7 +1275,7 @@ fn collect_for_objects(
                 if hit > 0 {
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     let event_object = event_object_for(trigger, &entry.event, permanent);
-                    let event_damage = event_damage_of(&entry.event);
+                    let event_damage = event_damage_of(trigger, &entry.event, events);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             event_mana_value: None,
@@ -1500,10 +1536,30 @@ fn matches(
             },
         ) => {
             *amount > 0
-                && (!*is_combat || first_combat_damage_to(event, batch, *dealt))
+                && (!*is_combat
+                    || first_combat_damage_to(
+                        event,
+                        batch,
+                        crate::event::DamageTarget::Object(*dealt),
+                    ))
                 && state
                     .object(*dealt)
                     .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
+        // The player's side of the arm above: once for a step's combat
+        // damage to that player, once for every other damage event.
+        (
+            Trigger::PlayerDealtDamage(rel),
+            GameEvent::DamageDealt {
+                target: target @ crate::event::DamageTarget::Player(player),
+                amount,
+                is_combat,
+                ..
+            },
+        ) => {
+            *amount > 0
+                && eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
+                && (!*is_combat || first_combat_damage_to(event, batch, *target))
         }
         // CR 714.2b's window, "was less than N and became at least N",
         // asked of the source's own counters.
@@ -1924,6 +1980,80 @@ mod tests {
         assert_eq!(fired(&prevented, 0), 0, "prevented damage was not dealt");
         let elsewhere = vec![entry(1, dealt(one, DamageTarget::Object(two), 1, false))];
         assert_eq!(fired(&elsewhere, 0), 0, "another creature's damage");
+    }
+
+    /// "Whenever you're dealt damage, put that many …" (Living Artifact):
+    /// two unblocked attackers are one event (CR 510.2, 603.2c), so the
+    /// ability triggers on the first of their entries only, and "that many"
+    /// is both creatures' damage. A source's trigger in the same batch keeps
+    /// its own share. Out of combat, each damage event triggers it once for
+    /// its own amount; damage to somebody else, and damage prevented to
+    /// nothing (CR 603.2g), trigger nothing.
+    #[test]
+    fn being_dealt_damage_is_one_event_per_combat_step_and_counts_all_of_it() {
+        use crate::event::{DamageTarget, JournalEntry};
+        let mut state = state();
+        let aura = permanent(&mut state, me(), "Living Artifact");
+        let (bear, ogre) = (
+            permanent(&mut state, them(), "Bear"),
+            permanent(&mut state, them(), "Ogre"),
+        );
+        let dealt = |source, player, amount, is_combat| GameEvent::DamageDealt {
+            source: Some(source),
+            target: DamageTarget::Player(player),
+            amount,
+            is_combat,
+        };
+        let entry = |seq, event| JournalEntry { seq, event };
+        let you = Trigger::PlayerDealtDamage(PlayerRel::You);
+        let fired = |batch: &[JournalEntry], at: usize| {
+            hits(&you, &batch[at].event, batch, &state, aura, me())
+        };
+
+        let combat = vec![
+            entry(1, dealt(bear, them(), 1, true)),
+            entry(2, dealt(bear, me(), 2, true)),
+            entry(3, dealt(ogre, me(), 3, true)),
+        ];
+        assert_eq!(fired(&combat, 0), 0, "somebody else's damage");
+        assert_eq!(fired(&combat, 1), 1, "the step's first to me");
+        assert_eq!(
+            fired(&combat, 2),
+            0,
+            "the second attacker's is the same event"
+        );
+        assert_eq!(
+            event_damage_of(&you, &combat[1].event, &combat),
+            Some((me(), 5)),
+            "that many: all of the step's damage to me"
+        );
+        assert_eq!(
+            event_damage_of(
+                &Trigger::DealsCombatDamageToOpponent(&Filter::This),
+                &combat[2].event,
+                &combat
+            ),
+            Some((me(), 3)),
+            "a source's trigger counts its own damage"
+        );
+
+        let burned = vec![
+            entry(1, dealt(bear, me(), 2, false)),
+            entry(2, dealt(ogre, me(), 3, false)),
+        ];
+        assert_eq!(fired(&burned, 0) + fired(&burned, 1), 2, "two events");
+        assert_eq!(
+            event_damage_of(&you, &burned[1].event, &burned),
+            Some((me(), 3))
+        );
+        let prevented = vec![entry(1, dealt(bear, me(), 0, false))];
+        assert_eq!(fired(&prevented, 0), 0, "prevented damage was not dealt");
+        let opponents = Trigger::PlayerDealtDamage(PlayerRel::EachOpponent);
+        assert_eq!(
+            hits(&opponents, &combat[0].event, &combat, &state, aura, me()),
+            1,
+            "the relation is the trigger's"
+        );
     }
 
     /// "Except the first one they draw in each of their draw steps" skips

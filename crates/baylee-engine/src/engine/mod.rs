@@ -1546,6 +1546,8 @@ mod pact_payment_tests;
 #[cfg(test)]
 mod phasing_tests;
 #[cfg(test)]
+mod player_damage_tests;
+#[cfg(test)]
 mod printed_tests;
 #[cfg(test)]
 mod priority_tests;

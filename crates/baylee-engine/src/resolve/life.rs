@@ -465,13 +465,7 @@ pub(super) fn deal_to_player(state: &mut GameState, source: ObjectId, player: Pl
     if n <= 0 {
         return;
     }
-    state.change_life(player, -i32::from(n), Cause::Effect);
-    state.journal.record(GameEvent::DamageDealt {
-        source: Some(source),
-        target: DamageTarget::Player(player),
-        amount: n as u16,
-        is_combat: false,
-    });
+    state.damage_player(source, player, n as u16, false, Cause::Effect);
 }
 
 #[cfg(test)]
@@ -713,6 +707,76 @@ mod tests {
             !state.can_pay_life(me(), 1) && state.can_pay_life(me(), 0),
             "nor can life be paid, except none at all (CR 119.8, CR 119.4b)"
         );
+    }
+
+    /// "The damage dealt to you this turn" (Simulacrum) is damage and only
+    /// damage: what reached the player past the shields (CR 615.1), whether
+    /// or not it cost life, and not a payment of life or a gain after it.
+    /// The turn's reset starts it again. On the old doors nothing counted it,
+    /// and `Amount::DamageDealtToYouThisTurn` reads what this door counts.
+    #[test]
+    fn the_damage_dealt_to_a_player_this_turn_is_counted_where_it_is_dealt() {
+        let mut state = state();
+        let source = permanent(&mut state, "Shock");
+        let seat = me().get() as usize;
+        let dealt = |state: &GameState| {
+            crate::eval::amount(
+                &baylee_cards_dsl::Amount::DamageDealtToYouThisTurn,
+                state,
+                me(),
+                source,
+                None,
+            )
+        };
+
+        deal_to_player(&mut state, source, me(), 3);
+        assert_eq!(state.per_turn.damage_dealt_to[seat], 3);
+        assert_eq!(dealt(&state), 3, "the amount reads the tally");
+        gain_life(&mut state, me(), 1);
+        state.change_life(me(), -2, Cause::Cost);
+        assert_eq!(dealt(&state), 3, "a gain and a payment are no damage");
+
+        state.shields.push(Shield {
+            protects: Shielded::Player(me()),
+            kind: ShieldKind::Next(1),
+            controller: me(),
+        });
+        deal_to_player(&mut state, source, me(), 2);
+        assert_eq!(dealt(&state), 4, "what the shield let through");
+        state.shields.push(Shield {
+            protects: Shielded::Player(me()),
+            kind: ShieldKind::Next(5),
+            controller: me(),
+        });
+        deal_to_player(&mut state, source, me(), 2);
+        assert_eq!(dealt(&state), 4, "prevented in full, never dealt");
+        state.shields.clear(); // three of the five are left
+
+        let modifier = Modifier::CantLoseLife {
+            who: baylee_cards_dsl::PlayerRel::EachPlayer,
+        };
+        state.effects.register(ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: me(),
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp: 1,
+            duration: Duration::UntilEndOfTurn,
+            filter: EffectFilter::Dsl(&Filter::Any),
+            modifier,
+        });
+        let before = life(&state, me());
+        deal_to_player(&mut state, source, me(), 2);
+        assert_eq!(life(&state, me()), before, "no life moved");
+        assert_eq!(dealt(&state), 6, "and the damage was still dealt");
+
+        assert_eq!(
+            state.per_turn.damage_dealt_to[1], 0,
+            "the other seat's is its own"
+        );
+        state.per_turn.reset();
+        assert_eq!(dealt(&state), 0, "a new turn counts from nothing");
     }
 
     /// A point of damage and a point of life gained back leave the total

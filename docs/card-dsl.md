@@ -439,6 +439,13 @@ express at all yet.
   left, read as the effect applies (CR 608.2h). The reader writes it for
   `Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature` wherever it
   reads an amount, an `etbCounter` included.
+- `Amount::DamageDealtToYouThisTurn` — "the damage dealt to you this turn"
+  (Simulacrum): every point dealt to the ability's controller since the turn
+  began, combat or not, counted where the damage is dealt
+  (`GameState::damage_player`). Damage, not life lost: a payment is not in
+  it, a gain does not take it back, and a player whose life can't change is
+  still dealt it; prevented damage never was. The reader writes it for
+  `PlayerCountPropertyYou$DamageThisTurn`.
 - `cost!("{1}{G}", TapSelf, SacrificeSelf)` — a cost, read left to right the
   way the card prints it: the mana string first (omitted when there is none),
   then the parts. A part is named without its `CostPart::` prefix, which on a
@@ -1577,6 +1584,14 @@ player lose life" is a `TargetReq` with a minimum of zero, "you may pay 2
 life" as a land enters is an `EnterModifier`, and "you may play those cards"
 is a permission with nothing to ask. `xtask validate` holds every card
 printing "you may" against that list and says which construct it accepted.
+"You may [pay]. If you do, [effect]" makes the action a cost paid as the
+ability resolves (CR 118.12): write the action as the **head** of the list
+and what it buys after it — `MayDo { effects: &[SacrificeSelf, …] }` (Safe
+Haven), `MayDo { effects: &[RemoveCounterSelf { kind, n }, …] }` (Living
+Artifact). The engine reads the head and does not ask while the payment is
+impossible (CR 608.2d): the source gone, or too few counters on it. A head
+it has no rule for is asked unconditionally, so check `may_clause_possible`
+before writing a new one.
 Reflexive: `Reflexive { when, effects, target }` — "When you do, …"
 (CR 603.12). It is written as the **last** op of the list, directly after
 the action it waits for:
@@ -2125,6 +2140,11 @@ Triggers, reflexive events and amounts:
   damage" (Fungusaur). All combat damage in a step is dealt at once
   (CR 510.2), so a creature blocked by three triggers it once (CR 603.2c);
   every other damage event triggers it once, and prevented damage never.
+- **`Trigger::PlayerDealtDamage(rel)`** is "whenever you're dealt damage"
+  (Living Artifact, Lich), the player's side of `DealtDamage`: once for a
+  step's combat damage to that player and once for every other damage
+  event. "That many" is `Amount::EventAmount`, which for combat is the
+  step's whole total to that player, not the first attacker's share.
 - **`ReflexiveEvent::ExiledThis`** is "You may exile it. When you do, …"
   (The Balrog of Moria). The action is `Effect::ExileSource`.
 

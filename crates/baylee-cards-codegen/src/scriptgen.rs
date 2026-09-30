@@ -338,6 +338,11 @@ fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -> Option<St
     {
         return Some("Amount::CreaturesDiedThisTurn".to_string());
     }
+    // "The damage dealt to you this turn" (Simulacrum, Discordant Spirit),
+    // under the same letter and asked before it for the same reason.
+    if svars.get(raw).map(|def| def.trim()) == Some("PlayerCountPropertyYou$DamageThisTurn") {
+        return Some("Amount::DamageDealtToYouThisTurn".to_string());
+    }
     if raw == "X" {
         return (has_x && svars.get("X").map(String::as_str) == Some("Count$xPaid"))
             .then(|| "Amount::X".to_string());
@@ -10897,6 +10902,31 @@ SVar:X:Count$xPaid",
             ),
             "the description is not a condition, and reading past it would \
              have taken the X beside it for the spell's"
+        );
+    }
+
+    /// Simulacrum: "you gain life equal to the damage dealt to you this
+    /// turn", the reference's `X` defined as that count; the same `X` for
+    /// the announced number is still the spell's.
+    #[test]
+    fn the_damage_dealt_to_you_this_turn_is_a_count() {
+        let simulacrum = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ GainLife | Defined$ You | LifeAmount$ X\n\
+             SVar:X:PlayerCountPropertyYou$DamageThisTurn",
+        );
+        let a = simulacrum.abilities.join("\n");
+        assert!(
+            a.contains("Effect::GainLife { amount: Amount::DamageDealtToYouThisTurn }"),
+            "{a}"
+        );
+        assert!(
+            refused(
+                "Name:X\nTypes:Instant\n\
+                 A:SP$ GainLife | Defined$ You | LifeAmount$ X\n\
+                 SVar:X:PlayerCountPropertyYou$DamageToOppsThisTurn"
+            ),
+            "the damage dealt to opponents is another count"
         );
     }
 

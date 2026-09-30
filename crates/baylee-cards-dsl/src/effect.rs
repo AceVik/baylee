@@ -294,6 +294,13 @@ pub enum Amount {
     /// a creature if it was one as it left, not if the card in the graveyard
     /// is one. It is counted once, as the effect applies (CR 608.2h).
     CreaturesDiedThisTurn,
+    /// "The damage dealt to you this turn" (Simulacrum): every point of
+    /// damage dealt to the ability's controller since the turn began,
+    /// combat and not, from any source. Damage dealt, not life lost: a
+    /// player whose life can't change is still dealt it, and life gained
+    /// back since takes none of it away. Prevented damage was never dealt
+    /// (CR 615.1). Read as the effect applies (CR 608.2h).
+    DamageDealtToYouThisTurn,
     /// "The number of Mountains put into a graveyard this way" (Volcanic
     /// Eruption): how many of the resolving ability's targets a graveyard
     /// now holds as new objects, read after the effect that moved them. A
@@ -2035,6 +2042,24 @@ pub enum Effect {
         /// How many.
         amount: Amount,
     },
+    /// Take `n` counters of `kind` off the source (Living Artifact: "you
+    /// may remove a vitality counter from this Aura. If you do, you gain 1
+    /// life").
+    ///
+    /// The instruction [`crate::CostPart::RemoveCounterSelf`] is as a cost,
+    /// for the sentence that pays it as the ability resolves: "you may
+    /// [do something]. If you do, [effect]" makes the action a cost paid on
+    /// resolution (CR 118.12), so it is written as the head of an
+    /// [`Self::MayDo`] list, with what "if you do" gives after it. A player
+    /// can't choose an impossible option (CR 608.2d), so the question is
+    /// asked only while the source is on the battlefield with `n` of them;
+    /// a yes always removes them.
+    RemoveCounterSelf {
+        /// Counter kind.
+        kind: CounterKind,
+        /// How many.
+        n: u16,
+    },
     /// Put counters on every object matching a filter (Kazandu
     /// Blademaster's rally).
     AddCounterFilter {
@@ -3395,6 +3420,7 @@ impl Effect {
             | Effect::AddManaFor { .. }
             | Effect::GrantSubtype { .. }
             | Effect::AddCounter { .. }
+            | Effect::RemoveCounterSelf { .. }
             | Effect::AddCounterFilter { .. }
             | Effect::DoubleCountersFilter { .. }
             | Effect::ReturnToHand { .. }

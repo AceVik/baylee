@@ -592,6 +592,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         | T::DealsCombatDamageToOpponent(_)
         | T::DealsDamageToOpponent(_)
         | T::DealtDamage(_) => &["damage"],
+        // Living Artifact and Lich, "Whenever you're dealt damage".
+        T::PlayerDealtDamage(_) => &["dealt damage"],
         T::BecomesTapped(_) => &["tap"],
         // Badgermole Cub, "Whenever you tap a creature for mana".
         T::TappedForMana { .. } => &["for mana"],
@@ -691,6 +693,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::DrawsExceptFirst(rel)
         | Trigger::PlaysLand(rel)
         | Trigger::FirstNoncreatureSpellCast(rel)
+        | Trigger::PlayerDealtDamage(rel)
         | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),
             PlayerRel::Opponent | PlayerRel::EachOpponent => lower.contains("opponent"),

@@ -2189,3 +2189,17 @@ land type"; both are convention tests that fire on a first try.
   blocker named twice was CR 509.1a's one-attacker-each, written as a set.
   A creature that may block two attackers needs the set to hold pairs and
   the limit to be counted apart, or the refusal names the wrong reason.
+- **"That many" after combat is the step's total.** A trigger that fires
+  once for a step's combat damage (CR 510.2, 603.2c) and read the amount off
+  the entry it fired on counted the first attacker only. A trigger about
+  the player dealt damage sums the batch; a trigger about a source keeps
+  that source's share. Test with two unblocked attackers of different power.
+- **A "may" guard that matches a list whole misses the list with a tail.**
+  `may_clause_possible` asked about `[SacrificeSelf]` alone, so "you may
+  sacrifice this. If you do, …" with a consequence after it was always
+  asked, and a yes paid nothing and bought the rest (Safe Haven). Match the
+  head: the action is the cost (CR 118.12).
+- **Taking an object away with a dev move clears its counters.** A test
+  that wants a departed card *with* counters (what an effect resolving after
+  it left can leave behind) sets them after the move, or the zone check
+  under test is never reached.

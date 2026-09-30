@@ -1298,13 +1298,13 @@ fn deal_damage_to_player(
     if amount <= 0 {
         return 0;
     }
-    state.change_life(player, -i32::from(amount), crate::event::Cause::Spell);
-    state.journal.record(GameEvent::DamageDealt {
-        source: Some(source),
-        target: DamageTarget::Player(player),
-        amount: amount as u16,
+    state.damage_player(
+        source,
+        player,
+        amount as u16,
         is_combat,
-    });
+        crate::event::Cause::Spell,
+    );
     // Commander damage (CR 903.10a). Combat damage only — a commander's
     // *ability* pinging for twenty-one is not this rule — and it counts by
     // the commander, not by whoever is swinging it: a commander stolen with
