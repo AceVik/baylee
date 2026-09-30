@@ -946,3 +946,107 @@ fn a_spec_names_a_provider_and_a_model() {
         "Qwen3-5-32B"
     );
 }
+
+/// Under a hard limit (a reservation in the spend book) a call is held at
+/// the most it can cost before it is sent, and one that could pass the
+/// game's budget is not sent at all.
+#[tokio::test]
+async fn under_a_hard_limit_no_call_is_sent_that_could_pass_the_budget() {
+    let (base, provider) = stand_in().await;
+    // A reply of 16,000 tokens at $10 a million is $0.16 on its own.
+    let tight = mind(&base, Provider::Anthropic, |s| {
+        s.hard_limit = true;
+        s.spend_usd = Some(0.10);
+    });
+    let refused = tight.decide(a_priority()).await.expect_err("could pass it");
+    assert!(
+        matches!(&refused, MindError::Declined(why) if why.contains("budget of $0.10 cannot hold")),
+        "{refused:?}"
+    );
+    assert!(provider.seen().is_empty(), "nothing was sent");
+    let tally = lock(&tight.tally()).clone();
+    assert!(tally.spent && tally.calls == 0 && tally.held == Worst::default());
+
+    // The same budget in tokens.
+    let tokens = mind(&base, Provider::Anthropic, |s| {
+        s.hard_limit = true;
+        s.spend_tokens = 17_000;
+    });
+    let refused = tokens
+        .decide(a_priority())
+        .await
+        .expect_err("could pass it");
+    assert!(
+        matches!(&refused, MindError::Declined(why) if why.contains("17000 tokens cannot hold")),
+        "{refused:?}"
+    );
+    assert!(provider.seen().is_empty());
+
+    // With room for it, the call goes, and what was held comes back as the
+    // bill.
+    provider.script(Scripted::ok(claude(&[(
+        "toolu_1",
+        "decide",
+        json!({"ask": "q12", "pick": ["a1"]}),
+    )])));
+    let roomy = mind(&base, Provider::Anthropic, |s| {
+        s.hard_limit = true;
+        s.spend_usd = Some(1.0);
+    });
+    roomy.decide(a_priority()).await.expect("an answer");
+    let tally = lock(&roomy.tally()).clone();
+    assert_eq!((tally.calls, tally.held.tokens), (1, 0));
+    assert_eq!(tally.spend_tokens(), tally.usage.total());
+    let sent = serde_json::to_vec(&provider.seen()[0].body).unwrap().len();
+    let worst = roomy.settings().worst(sent);
+    assert!(worst.tokens >= tally.usage.total(), "{worst:?} {tally:?}");
+    assert!(
+        worst.usd.unwrap() >= tally.usd.unwrap(),
+        "{worst:?} {tally:?}"
+    );
+}
+
+/// A call whose bill nobody knows (it timed out after it was sent) counts
+/// at its worst in what the game may have spent; one the provider answered
+/// with an error counts nothing.
+#[tokio::test]
+async fn a_call_whose_bill_is_unknown_counts_at_its_worst() {
+    let (base, provider) = stand_in().await;
+    provider.script(
+        Scripted::ok(claude(&[(
+            "toolu_1",
+            "decide",
+            json!({"ask": "q12", "pick": ["a1"]}),
+        )]))
+        .slow(Duration::from_secs(3)),
+    );
+    let mind = mind(&base, Provider::Anthropic, |s| s.hard_limit = true);
+    let mut hurried = a_priority();
+    hurried.budget = Duration::from_secs(2);
+    let error = mind.decide(hurried).await.expect_err("too slow");
+    assert!(matches!(error, MindError::Unavailable(_)), "{error:?}");
+    let tally = lock(&mind.tally()).clone();
+    assert_eq!((tally.calls, tally.failed, tally.usage.total()), (1, 1, 0));
+    assert!(tally.unsure.tokens > 16_000, "{tally:?}");
+    assert_eq!(tally.spend_tokens(), tally.unsure.tokens);
+    assert_eq!(tally.spend_usd(), tally.unsure.usd);
+    assert!(tally.spend_usd().unwrap() > 0.16, "{tally:?}");
+
+    provider.script(Scripted {
+        status: 500,
+        body: json!({"error": {"type": "api_error", "message": "overloaded"}}),
+        delay: Duration::ZERO,
+    });
+    let mut next = a_priority();
+    next.question = 13;
+    next.log = empty_log();
+    let error = mind.decide(next).await.expect_err("an error");
+    assert!(matches!(error, MindError::Unavailable(_)), "{error:?}");
+    let after = lock(&mind.tally()).clone();
+    assert_eq!(after.failed, 2);
+    assert_eq!(
+        after.unsure, tally.unsure,
+        "an error answered is not billed"
+    );
+    assert_eq!(after.held, Worst::default());
+}

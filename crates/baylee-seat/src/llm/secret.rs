@@ -6,6 +6,8 @@
 //! [`scrub`] first, which blanks the key and anything shaped like one,
 //! because a provider or a proxy may echo a header back in an error body.
 
+use baylee_client_core::llmseat::blank_key_shapes;
+
 /// An API key. `Debug` and `Display` say `[redacted]`.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Secret(String);
@@ -40,45 +42,15 @@ impl std::fmt::Display for Secret {
 /// `text` with `secret` and anything shaped like an API key blanked:
 /// `sk-` followed by sixteen or more key characters (Anthropic's `sk-ant-…`,
 /// `OpenAI`'s and `DeepSeek`'s `sk-…`), and whatever follows `Bearer ` or
-/// `x-api-key` up to the next space or quote.
+/// `x-api-key` up to the next space or quote. The shapes are the ones the
+/// settings file is refused for ([`blank_key_shapes`]).
 #[must_use]
 pub fn scrub(text: &str, secret: Option<&Secret>) -> String {
-    let mut out = match secret {
+    let out = match secret {
         Some(secret) if secret.0.len() >= 4 => text.replace(&secret.0, "[redacted]"),
         _ => text.to_string(),
     };
-    out = blank_after(&out, "sk-", 16);
-    for marker in ["Bearer ", "bearer ", "x-api-key: ", "x-api-key\":\""] {
-        out = blank_after(&out, marker, 1);
-    }
-    out
-}
-
-/// Blanks each run of key characters that follows `marker`, when the run is
-/// at least `least` long. The marker itself stays, so a reader still sees
-/// what was there.
-fn blank_after(text: &str, marker: &str, least: usize) -> String {
-    let key_char = |c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.';
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some(at) = rest.find(marker) {
-        let (before, after) = rest.split_at(at);
-        out.push_str(before);
-        out.push_str(marker);
-        let tail = &after[marker.len()..];
-        let run = tail
-            .char_indices()
-            .find(|(_, c)| !key_char(*c))
-            .map_or(tail.len(), |(i, _)| i);
-        if run >= least {
-            out.push_str("[redacted]");
-        } else {
-            out.push_str(&tail[..run]);
-        }
-        rest = &tail[run..];
-    }
-    out.push_str(rest);
-    out
+    blank_key_shapes(&out)
 }
 
 #[cfg(test)]

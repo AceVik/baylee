@@ -59,6 +59,9 @@ pub use secret::{Secret, scrub};
 use crate::mind::{Answer, Disclosure, Mind, MindError, Readiness, Request, Thinking};
 use crate::narrator::{self, Act, Decision, Hint, Menu, Narrator};
 use crate::transcript::Transcript;
+use baylee_client_core::llmseat::{
+    address_fault, is_loopback, model_fault, worst_tokens, worst_usd,
+};
 use baylee_client_core::manaplan;
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::ManaColor;
@@ -72,15 +75,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
-/// The Anthropic model a bare `anthropic` names.
-pub const DEFAULT_ANTHROPIC_MODEL: &str = "claude-sonnet-5-5";
-
-/// Where the Anthropic API is, unless `ANTHROPIC_BASE_URL` says otherwise.
-const ANTHROPIC_BASE: &str = "https://api.anthropic.com";
-
-/// Where an OpenAI-compatible endpoint is, unless `BAYLEE_LLM_BASE_URL`
-/// says otherwise.
-const OPENAI_BASE: &str = "https://api.openai.com/v1";
+/// The model's price and the build's defaults live beside the settings
+/// file's types, so the client's panel shows what the bridge plays with.
+pub use baylee_client_core::llmseat::{
+    AnswerMode, DEFAULT_ANTHROPIC_MODEL, DEFAULT_SPEND_TOKENS, DEFAULT_SPEND_USD, Price, Provider,
+    price,
+};
 
 /// The least time worth a second call after an unreadable answer.
 const RETRY_FLOOR: Duration = Duration::from_secs(5);
@@ -91,26 +91,6 @@ const MARGIN: Duration = Duration::from_secs(1);
 
 /// The most earlier notes a new turn's conversation carries.
 const SAYS: usize = 8;
-
-/// Which API a model is behind.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Provider {
-    /// The Anthropic Messages API.
-    Anthropic,
-    /// An OpenAI-compatible chat endpoint.
-    OpenAi,
-}
-
-/// How the model answers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AnswerMode {
-    /// By calling the `decide` or `concede` tool.
-    Tools,
-    /// With one JSON object, for an endpoint without tools.
-    Json,
-}
 
 /// A model, as `--mind` names it: `anthropic`, `anthropic:<model>` or
 /// `openai:<model>`.
@@ -146,16 +126,8 @@ impl Spec {
             }
             (_, Some(model)) => model.trim().to_string(),
         };
-        let valid = !model.is_empty()
-            && model.len() <= 100
-            && model
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || "-_.:/@".contains(c));
-        if !valid {
-            return Some(Err(format!(
-                "«{}» is not a model id",
-                scrub(&model, None).chars().take(40).collect::<String>()
-            )));
+        if let Some(why) = model_fault(&model) {
+            return Some(Err(why));
         }
         Some(Ok(Self { provider, model }))
     }
@@ -224,6 +196,13 @@ pub struct Settings {
     /// A directory for the mind's own transcript: every message it sent and
     /// every reply, one JSON line each.
     pub transcripts: Option<PathBuf>,
+    /// Whether the game's budgets are a hard limit, as they are under a
+    /// reservation in the spend book ([`crate::spend`]): every call is held
+    /// at the most it can cost ([`Settings::worst`]) before it is sent, and
+    /// not sent when that could pass a budget, so a game never spends more
+    /// than it reserved. Without it, as with no settings file, the budget
+    /// is checked before each question and one call may pass it.
+    pub hard_limit: bool,
 }
 
 impl Settings {
@@ -236,17 +215,29 @@ impl Settings {
         Self {
             provider: spec.provider,
             model: spec.model.clone(),
-            effort: (spec.provider == Provider::Anthropic).then(|| "medium".to_string()),
+            effort: spec.provider.default_effort().map(str::to_string),
             answer: AnswerMode::Tools,
-            max_tokens: match spec.provider {
-                Provider::Anthropic => 16_000,
-                Provider::OpenAi => 8_000,
-            },
+            max_tokens: spec.provider.default_max_tokens(),
             price,
             spend_usd: price.map(|_| DEFAULT_SPEND_USD),
             spend_tokens: DEFAULT_SPEND_TOKENS,
             conversation_tokens: 100_000,
             transcripts: None,
+            hard_limit: false,
+        }
+    }
+
+    /// The most one call with a request of `bytes` can use: every byte as
+    /// an input token at the dearest rate, the provider's own allowance,
+    /// and a whole reply of [`Self::max_tokens`].
+    #[must_use]
+    pub fn worst(&self, bytes: usize) -> Worst {
+        let bytes = bytes as u64;
+        Worst {
+            tokens: worst_tokens(bytes, self.max_tokens),
+            usd: self
+                .price
+                .map(|price| worst_usd(bytes, self.max_tokens, price)),
         }
     }
 
@@ -292,12 +283,6 @@ impl Settings {
     }
 }
 
-/// A game's dollar budget when none is given, for a model with a price.
-pub const DEFAULT_SPEND_USD: f64 = 5.0;
-
-/// A game's token budget when none is given, for a model with a price.
-pub const DEFAULT_SPEND_TOKENS: u64 = 5_000_000;
-
 /// Where the API is and the key it takes.
 #[derive(Clone, Debug)]
 pub struct Credentials {
@@ -316,95 +301,44 @@ pub fn credentials(
     provider: Provider,
     env: &dyn Fn(&str) -> Option<String>,
 ) -> Result<Credentials, String> {
-    let (key_var, base_var, default) = match provider {
-        Provider::Anthropic => ("ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", ANTHROPIC_BASE),
-        Provider::OpenAi => ("BAYLEE_LLM_API_KEY", "BAYLEE_LLM_BASE_URL", OPENAI_BASE),
+    credentials_at(provider, provider.default_key_env(), None, env)
+}
+
+/// The key in the environment variable `key_env`, for the address `base`
+/// where a profile names one, else the provider's variable
+/// ([`Provider::base_env`]), else the provider's own address. A key named
+/// beside an address goes to that address and no other, so a profile's
+/// `base_url` wins over the variable.
+///
+/// # Errors
+/// As [`credentials`].
+pub fn credentials_at(
+    provider: Provider,
+    key_env: &str,
+    base: Option<&str>,
+    env: &dyn Fn(&str) -> Option<String>,
+) -> Result<Credentials, String> {
+    let key = env(key_env).as_deref().and_then(Secret::new);
+    let tidy = |b: &str| b.trim().trim_end_matches('/').to_string();
+    let (base, named) = match base {
+        Some(base) => (tidy(base), "base_url"),
+        None => (
+            env(provider.base_env())
+                .map(|b| tidy(&b))
+                .filter(|b| !b.is_empty())
+                .unwrap_or_else(|| provider.default_base().to_string()),
+            provider.base_env(),
+        ),
     };
-    let key = env(key_var).as_deref().and_then(Secret::new);
-    let base = env(base_var)
-        .map(|b| b.trim().trim_end_matches('/').to_string())
-        .filter(|b| !b.is_empty())
-        .unwrap_or_else(|| default.to_string());
-    let local = loopback(&base);
-    if !(base.starts_with("https://") || (local && base.starts_with("http://"))) {
-        return Err(format!(
-            "{base_var} must be an https:// address (http:// only on this machine)"
-        ));
+    if let Some(why) = address_fault(&base, named) {
+        return Err(why);
     }
-    if key.is_none() && !(provider == Provider::OpenAi && local) {
+    if key.is_none() && !(provider == Provider::OpenAi && is_loopback(&base)) {
         return Err(format!(
-            "set {key_var} in the environment (never on the command line)"
+            "set {key_env} in the environment (never on the command line)"
         ));
     }
     Ok(Credentials { key, base })
-}
-
-/// Whether `base` is this machine.
-fn loopback(base: &str) -> bool {
-    let host = base
-        .split_once("://")
-        .map_or(base, |(_, rest)| rest)
-        .split(['/', '?'])
-        .next()
-        .unwrap_or_default();
-    let host = host
-        .rsplit_once(':')
-        .filter(|(h, port)| !h.is_empty() && port.chars().all(|c| c.is_ascii_digit()))
-        .map_or(host, |(h, _)| h);
-    matches!(host, "localhost" | "127.0.0.1" | "[::1]")
-}
-
-/// A model's price per million tokens, in US dollars.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Price {
-    /// Input.
-    pub input: f64,
-    /// Output, thinking included.
-    pub output: f64,
-    /// Input written to the cache.
-    pub cache_write: f64,
-    /// Input read from the cache.
-    pub cache_read: f64,
-}
-
-impl Price {
-    /// A price given as input and output, in US dollars per million
-    /// tokens, for a model this build has no price for. The cache is
-    /// counted so that the bill errs high: a write at 1.25 times the input
-    /// price, the ratio of both rows of [`price`], and a read at the full
-    /// input price rather than a guessed discount.
-    #[must_use]
-    pub fn per_million(input: f64, output: f64) -> Self {
-        Self {
-            input,
-            output,
-            cache_write: input * 1.25,
-            cache_read: input,
-        }
-    }
-}
-
-/// What a model costs, for the models this build knows; `None` for any
-/// other, which then plays only with a price given ([`Price::per_million`])
-/// or a token budget as its limit ([`Settings::budget`]). A snapshot: the
-/// provider's price list is the authority.
-#[must_use]
-pub fn price(model: &str) -> Option<Price> {
-    match model {
-        "claude-sonnet-5-5" | "claude-sonnet-5" => Some(Price {
-            input: 2.0,
-            output: 10.0,
-            cache_write: 2.5,
-            cache_read: 0.2,
-        }),
-        "claude-opus-5-5" => Some(Price {
-            input: 4.0,
-            output: 20.0,
-            cache_write: 5.0,
-            cache_read: 0.2,
-        }),
-        _ => None,
-    }
 }
 
 /// Tokens as a provider counted them for one reply.
@@ -452,9 +386,107 @@ pub struct Tally {
     pub usd: Option<f64>,
     /// Whether a game's budget ran out.
     pub spent: bool,
+    /// The most the calls still out may cost, held until they come back.
+    pub held: Worst,
+    /// The most the failed calls whose bill nobody knows may have cost: a
+    /// call that timed out, or whose reply could not be read, may still
+    /// have been billed in full.
+    pub unsure: Worst,
+}
+
+/// The most calls can cost: tokens, and dollars where the price is known.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct Worst {
+    /// Tokens, in and out.
+    pub tokens: u64,
+    /// US dollars.
+    pub usd: Option<f64>,
+}
+
+impl Worst {
+    fn add(&mut self, other: Self) {
+        self.tokens = self.tokens.saturating_add(other.tokens);
+        if let Some(usd) = other.usd {
+            *self.usd.get_or_insert(0.0) += usd;
+        }
+    }
+
+    fn sub(&mut self, other: Self) {
+        self.tokens = self.tokens.saturating_sub(other.tokens);
+        if let (Some(held), Some(usd)) = (&mut self.usd, other.usd) {
+            *held = (*held - usd).max(0.0);
+        }
+        // Every call holds some tokens, so none held is no call out, and
+        // what a float subtraction leaves over is not a dollar.
+        if self.tokens == 0 {
+            self.usd = None;
+        }
+    }
 }
 
 impl Tally {
+    /// The most the game may have cost in tokens: what the provider
+    /// counted, and at their worst the calls still out and the calls whose
+    /// bill is unknown. What the spend book settles with.
+    #[must_use]
+    pub const fn spend_tokens(&self) -> u64 {
+        self.usage
+            .total()
+            .saturating_add(self.held.tokens)
+            .saturating_add(self.unsure.tokens)
+    }
+
+    /// The same in dollars, where the price is known.
+    #[must_use]
+    pub fn spend_usd(&self) -> Option<f64> {
+        let parts = [self.usd, self.held.usd, self.unsure.usd];
+        parts
+            .iter()
+            .any(Option::is_some)
+            .then(|| parts.iter().flatten().sum())
+    }
+
+    /// Holds `worst` for a call about to be sent, unless it could pass the
+    /// game's hard limit ([`Settings::hard_limit`]); then the sentence why.
+    fn hold(&mut self, worst: Worst, settings: &Settings) -> Result<(), String> {
+        if settings.hard_limit {
+            if self.spend_tokens().saturating_add(worst.tokens) > settings.spend_tokens {
+                return Err(format!(
+                    "the game's budget of {} tokens cannot hold another call, which may take \
+                     up to {}",
+                    settings.spend_tokens, worst.tokens
+                ));
+            }
+            if let (Some(budget), Some(usd)) = (settings.spend_usd, worst.usd)
+                && self.spend_usd().unwrap_or(0.0) + usd > budget
+            {
+                return Err(format!(
+                    "the game's budget of ${budget:.2} cannot hold another call, which may cost \
+                     up to ${usd:.2}"
+                ));
+            }
+        }
+        self.held.add(worst);
+        Ok(())
+    }
+
+    /// Takes back what [`Self::hold`] held for a call that came back, and
+    /// counts how it came back: its tokens as the provider counted them, or
+    /// its worst when the bill is unknown.
+    fn back(&mut self, worst: Worst, billed: Result<Usage, bool>, price: Option<Price>) {
+        self.held.sub(worst);
+        self.calls += 1;
+        match billed {
+            Ok(usage) => self.add(usage, price),
+            Err(unknown) => {
+                self.failed += 1;
+                if unknown {
+                    self.unsure.add(worst);
+                }
+            }
+        }
+    }
+
     fn add(&mut self, usage: Usage, price: Option<Price>) {
         self.usage.input += usage.input;
         self.usage.output += usage.output;
@@ -578,7 +610,7 @@ impl ApiMind {
         let agent = ureq::Agent::config_builder()
             .http_status_as_error(false)
             .max_redirects(0)
-            .https_only(!loopback(&credentials.base))
+            .https_only(!is_loopback(&credentials.base))
             .timeout_global(Some(Duration::from_secs(600)))
             .build()
             .new_agent();
@@ -642,8 +674,13 @@ impl ApiMind {
     /// Why the game's budget is spent, if it is.
     fn spent(&self) -> Option<String> {
         let mut tally = lock(&self.tally);
-        let tokens = tally.usage.total();
-        let usd = tally.usd.unwrap_or(0.0);
+        // Under a hard limit, the calls still out and those whose bill is
+        // unknown count at their worst.
+        let (tokens, usd) = if self.settings.hard_limit {
+            (tally.spend_tokens(), tally.spend_usd().unwrap_or(0.0))
+        } else {
+            (tally.usage.total(), tally.usd.unwrap_or(0.0))
+        };
         let why = if tokens >= self.settings.spend_tokens {
             format!(
                 "the game's budget of {} tokens is spent",
@@ -701,16 +738,25 @@ impl ApiMind {
         let provider = self.settings.provider;
         let mode = self.settings.answer;
         let key = self.credentials.key.clone();
-        let result = tokio::task::spawn_blocking(move || {
-            let result = call(&agent, &url, &headers, &body, timeout, provider, mode);
-            {
-                let mut tally = lock(&tally);
-                tally.calls += 1;
-                match &result {
-                    Ok(reply) => tally.add(reply.usage, price),
-                    Err(_) => tally.failed += 1,
-                }
+        let bytes = serde_json::to_vec(&body)
+            .map_err(|e| MindError::Unavailable(format!("the request is not JSON: {e}")))?;
+        // Held until the call comes back, whenever that is: the blocking
+        // task below runs to its end even when the seat stops waiting.
+        let worst = self.settings.worst(bytes.len());
+        {
+            let mut tally = lock(&self.tally);
+            if let Err(why) = tally.hold(worst, &self.settings) {
+                tally.spent = true;
+                return Err(MindError::Declined(why));
             }
+        }
+        let result = tokio::task::spawn_blocking(move || {
+            let result = call(&agent, &url, &headers, &bytes, timeout, provider, mode);
+            let billed = match &result {
+                Ok(reply) => Ok(reply.usage),
+                Err(failed) => Err(failed.unknown_bill),
+            };
+            lock(&tally).back(worst, billed, price);
             if !alive.load(Ordering::SeqCst) && result.is_ok() {
                 lock(&seat).late = Some(question);
             }
@@ -929,28 +975,47 @@ struct Failed {
     /// The provider turned the request itself down (400, 413): the same
     /// conversation would be turned down again.
     turned_down: bool,
+    /// Nobody knows whether the provider billed it: the request may have
+    /// reached it (a timeout, a dropped connection) or it answered and the
+    /// answer could not be read. Such a call counts at its worst. A call
+    /// that never reached a server, or that the provider answered with an
+    /// error, is not billed.
+    unknown_bill: bool,
 }
 
 impl From<String> for Failed {
+    /// A failure after the provider answered: billed, as far as anybody
+    /// knows.
     fn from(why: String) -> Self {
         Self {
             why,
             turned_down: false,
+            unknown_bill: true,
         }
     }
 }
 
-/// One blocking call: the post, the status, the body.
+impl Failed {
+    /// A failure the provider does not bill.
+    fn unbilled(why: String) -> Self {
+        Self {
+            unknown_bill: false,
+            ..Self::from(why)
+        }
+    }
+}
+
+/// One blocking call of the request `bytes`: the post, the status, the
+/// body.
 fn call(
     agent: &ureq::Agent,
     url: &str,
     headers: &[(&'static str, String)],
-    body: &Value,
+    bytes: &[u8],
     timeout: Duration,
     provider: Provider,
     mode: AnswerMode,
 ) -> Result<Reply, Failed> {
-    let bytes = serde_json::to_vec(body).map_err(|e| e.to_string())?;
     let mut request = agent.post(url);
     for (name, value) in headers {
         request = request.header(*name, value);
@@ -959,32 +1024,57 @@ fn call(
         .config()
         .timeout_global(Some(timeout))
         .build()
-        .send(&bytes[..])
-        .map_err(|e| match e {
-            ureq::Error::Timeout(_) => format!("no reply within {} s", timeout.as_secs()),
-            other => format!("the call failed: {other}"),
+        .send(bytes)
+        .map_err(|e| {
+            // These fail before a byte of the request reaches a server.
+            let unsent = matches!(
+                e,
+                ureq::Error::HostNotFound
+                    | ureq::Error::ConnectionFailed
+                    | ureq::Error::BadUri(_)
+                    | ureq::Error::RequireHttpsOnly(_)
+                    | ureq::Error::InvalidProxyUrl
+                    | ureq::Error::TlsRequired
+            );
+            let why = match e {
+                ureq::Error::Timeout(_) => format!("no reply within {} s", timeout.as_secs()),
+                other => format!("the call failed: {other}"),
+            };
+            if unsent {
+                Failed::unbilled(why)
+            } else {
+                Failed::from(why)
+            }
         })?;
     let status = answer.status().as_u16();
+    let success = (200..300).contains(&status);
     if answer.status().is_redirection() {
         // Named by its status alone: where it pointed, and the body a proxy
         // may have written about it, are not read.
-        return Err(redirected(status).into());
+        return Err(Failed::unbilled(redirected(status)));
     }
     let body: Value = answer
         .body_mut()
         .with_config()
         .limit(8 * 1024 * 1024)
         .read_json()
-        .map_err(|e| format!("{status}: the reply is not JSON ({e})"))?;
-    if !(200..300).contains(&status) {
+        .map_err(|e| {
+            let why = format!("{status}: the reply is not JSON ({e})");
+            if success {
+                Failed::from(why)
+            } else {
+                Failed::unbilled(why)
+            }
+        })?;
+    if !success {
         let why = match provider {
             Provider::Anthropic => anthropic::error_message(&body),
             Provider::OpenAi => openai::error_message(&body),
         }
         .unwrap_or_else(|| "no reason given".into());
         return Err(Failed {
-            why: format!("{status}: {why}"),
             turned_down: matches!(status, 400 | 413),
+            ..Failed::unbilled(format!("{status}: {why}"))
         });
     }
     Ok(match provider {

@@ -1,5 +1,6 @@
 //! baylee-client-core — everything a duel client decides, with no renderer,
-//! no transport, and no I/O.
+//! no transport, and no I/O but one: the language-model seat's settings
+//! file and spend book ([`llmseat`]), on native targets only.
 //!
 //! # Why the brain is a separate crate
 //!
@@ -63,6 +64,7 @@ pub mod interaction;
 pub mod layout;
 pub mod ledge;
 pub mod lifeflash;
+pub mod llmseat;
 pub mod lobby;
 pub mod manapip;
 pub mod manaplan;
