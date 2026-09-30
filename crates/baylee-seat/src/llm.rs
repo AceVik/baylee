@@ -61,6 +61,7 @@ use baylee_client_core::manaplan;
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{LegalActions, Pending, PlayerAction, TargetPrompt};
+use baylee_view::{LogEvent, LogObject};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, VecDeque};
@@ -468,8 +469,9 @@ struct SeatState {
     late: Option<u64>,
     /// How many calls this seat has started, to tell a stale one.
     asked: u64,
-    /// The card this seat last answered a cast of, until the next priority
-    /// shows whether the cast happened ([`SeatState::undone`]).
+    /// The card this seat last answered a cast of, until the log or the
+    /// next priority shows whether the cast happened
+    /// ([`SeatState::undone`]).
     casting: Option<ObjectId>,
     transcript: Transcript,
 }
@@ -960,16 +962,38 @@ struct Prepared {
 
 impl SeatState {
     /// What to tell the model when the cast it last answered did not
-    /// happen: at the next priority its card is still in the hand, the
-    /// graveyard, exile or the command zone, not on the stack. The table
-    /// takes back a cast whose whole cost cannot be paid and gives priority
-    /// back (CR 601.2h, 732.1, 732.2), so without a word the model sees the
-    /// same question again and may answer it the same way, again.
+    /// happen. The table takes back a cast whose whole cost cannot be paid
+    /// and gives priority back (CR 601.2h, 732.1, 732.2) without a word, so
+    /// the model would see the same question again and may answer it the
+    /// same way, again.
+    ///
+    /// A cast that happened is in the log ([`LogEvent::Cast`]), which the
+    /// mind is handed whole, a line at a time: from the cast's answer on,
+    /// every request's lines are read for it. One that did not reach the
+    /// log by the next priority, with its card still in the hand or the
+    /// command zone, was taken back. The card's place alone would not say
+    /// so: an object keeps its handle across zones, so a spell that
+    /// resolved and came back to the hand stands where it was cast from.
+    /// A refused answer says why itself, and gets no second reason.
     fn undone(&mut self, request: &Request) -> Option<String> {
+        let card = self.casting?;
+        let cast = request.log.entries.iter().any(|entry| {
+            matches!(
+                &entry.event,
+                LogEvent::Cast { spell: LogObject::Known { id, .. }, .. } if *id == card
+            )
+        });
+        if cast {
+            self.casting = None;
+            return None;
+        }
         if !matches!(request.pending, Pending::Priority { .. }) {
             return None;
         }
-        let card = self.casting.take()?;
+        self.casting = None;
+        if request.retry.is_some() {
+            return None;
+        }
         let view = &request.view;
         let name = view
             .hand
@@ -977,11 +1001,9 @@ impl SeatState {
             .find(|c| c.id == card)
             .map(|c| c.name.clone())
             .or_else(|| {
-                view.graveyards
+                view.command
                     .iter()
                     .flatten()
-                    .chain(view.exile.iter().flatten())
-                    .chain(view.command.iter().flatten())
                     .find(|o| o.id == card)
                     .map(|o| o.name.clone())
             })?;

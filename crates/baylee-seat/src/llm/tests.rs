@@ -693,11 +693,31 @@ async fn a_cast_the_table_took_back_is_said() {
     let seen = provider.seen();
     assert!(!told(&seen[0]));
     assert!(told(&seen[1]), "{:?}", last_user(&seen[1]));
-    // Cast again, and this time the Bolt leaves the hand.
+    // Cast again, and this time the log says it was cast, though the Bolt
+    // is back in the hand (an object keeps its handle across zones, so its
+    // place alone would say the cast never happened).
     mind.decide(bolt()).await.expect("the cast again");
-    let mut gone = bolt();
-    gone.view.hand.retain(|c| c.id != id(50));
-    mind.decide(gone).await.expect("a pass");
+    let mut cast_and_back = bolt();
+    let from = u32::try_from(cast_and_back.log.entries.len()).expect("a short log");
+    cast_and_back.log = LogTail {
+        from,
+        entries: vec![baylee_view::LogEntry {
+            turn: 7,
+            repeat: 1,
+            at: 0,
+            event: LogEvent::Cast {
+                player: crate::narrator::tests::ME,
+                spell: LogObject::Known {
+                    id: id(50),
+                    card: None,
+                    token: None,
+                    name: "Lightning Bolt".into(),
+                },
+                from: None,
+            },
+        }],
+    };
+    mind.decide(cast_and_back).await.expect("a pass");
     assert!(!told(&provider.seen()[3]));
 }
 
