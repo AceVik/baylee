@@ -452,6 +452,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::RemoveType(_)
                 | Modifier::AddSubtype(_)
                 | Modifier::AllCreatureTypes
+                | Modifier::ReplaceCreatureTypes(_)
                 | Modifier::AllBasicLandTypes
                 | Modifier::BecomeType { .. }
                 | Modifier::AddTypeIfCountersAtLeast { .. }
@@ -737,6 +738,10 @@ fn apply(
         Modifier::RemoveType(t) => c.types = c.types.difference(*t),
         Modifier::AddSubtype(s) => c.subtypes.insert(*s),
         Modifier::AllCreatureTypes => c.subtypes = c.subtypes.union(SubtypeSet::ALL_CREATURE),
+        Modifier::ReplaceCreatureTypes(s) => {
+            c.subtypes = c.subtypes.difference(SubtypeSet::ALL_CREATURE);
+            c.subtypes.insert(*s);
+        }
         Modifier::BecomeType { types, subtype } => {
             let kept = c.types.intersection(baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY));
             c.types = types.union(kept);
@@ -1059,6 +1064,42 @@ mod tests {
         let obj = state.object(id).expect("in play");
         let c = recompute(state, obj).characteristics;
         (c.power, c.toughness)
+    }
+
+    /// CR 205.1b: "becomes a Golem artifact creature" replaces the creature
+    /// types it had and keeps every other type and subtype.
+    #[test]
+    fn a_new_creature_type_replaces_the_old_ones_and_keeps_the_rest() {
+        use baylee_core::generated::subtypes::{artifact, creature};
+        let mut state = fresh();
+        let statue = permanent(
+            &mut state,
+            "Statue",
+            TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+            Some((1, 1)),
+        );
+        {
+            let base = state.object_mut(statue).expect("in play").base_mut();
+            base.subtypes.insert(creature::HUMAN);
+            base.subtypes.insert(artifact::EQUIPMENT);
+        }
+        register(
+            &mut state,
+            1,
+            Modifier::ReplaceCreatureTypes(creature::GOLEM),
+        );
+        let obj = state.object(statue).expect("in play");
+        let c = recompute(&state, obj).characteristics;
+        assert!(c.subtypes.contains(creature::GOLEM));
+        assert!(
+            !c.subtypes.contains(creature::HUMAN),
+            "the old creature type goes"
+        );
+        assert!(
+            c.subtypes.contains(artifact::EQUIPMENT),
+            "an artifact type stays"
+        );
+        assert_eq!(c.types, TypeSet::ARTIFACT.union(TypeSet::CREATURE));
     }
 
     /// "A creature died" asks what the permanent was on the battlefield

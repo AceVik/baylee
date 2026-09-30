@@ -294,6 +294,12 @@ pub enum Amount {
     /// a creature if it was one as it left, not if the card in the graveyard
     /// is one. It is counted once, as the effect applies (CR 608.2h).
     CreaturesDiedThisTurn,
+    /// "The number of Mountains put into a graveyard this way" (Volcanic
+    /// Eruption): how many of the resolving ability's targets a graveyard
+    /// now holds as new objects, read after the effect that moved them. A
+    /// target that was regenerated, went somewhere else instead, or was
+    /// dropped as illegal (CR 608.2b) is not one. Outside a resolution, 0.
+    TargetsPutIntoGraveyard,
     /// Number of objects matching a filter in a zone.
     CountOf {
         /// What to count.

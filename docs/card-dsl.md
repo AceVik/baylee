@@ -428,6 +428,11 @@ express at all yet.
   mana cost, when there is one), and the spell is exiled afterwards.
   `validate` holds it against the printing. What the cast paid is
   `Amount::ManaSpentToCast` (Memory Deluge).
+- `Amount::TargetsPutIntoGraveyard` — "the number of Mountains put into a
+  graveyard this way" (Volcanic Eruption): the resolving ability's targets
+  that a graveyard holds as new objects since the resolution began, so a
+  regenerated target, one exiled instead, or one dropped as illegal is not
+  counted. Written after the effect that moves them.
 - `Amount::CreaturesDiedThisTurn` — "for each creature that died this turn"
   (Scavenging Ghoul): every player's creatures put into a graveyard from the
   battlefield this turn (CR 700.4), each counted if it was a creature as it
@@ -764,6 +769,9 @@ reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
 `CountersOnSelfBetween(kind, lo, hi)` read the permanent the ability is
 printed on, `SourceMatches(&filter)` points a
 filter back at that permanent — "if this land is tapped" —
+`DuringCombat` is "activate only during combat": the combat phase of any
+turn (CR 506.1); the reader writes it for `ActivationPhases$
+BeginCombat->EndCombat` and refuses the other phase spellings by name.
 `CanSacrifice(&filter)` is whether you control a permanent the filter
 matches with the source as its `This` (Lord of the Pit's "sacrifice a
 creature other than this creature. If you can't, …", an `IfCondition`
@@ -1591,7 +1599,8 @@ Modal/sequence: `Sequence(&[..])`.
 ### Modifiers (layer effects)
 
 `AddType`, `RemoveType`, `AddSubtype`, `AllCreatureTypes`,
-`AllBasicLandTypes`, `BecomeType { types, subtype }`, `AddColor`, `SetColor`,
+`ReplaceCreatureTypes(subtype)`, `AllBasicLandTypes`,
+`BecomeType { types, subtype }`, `AddColor`, `SetColor`,
 `AddKeyword`, `RemoveKeyword`, `LoseKeywords`, `LoseAllAbilities`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
 `CantActivateArtifacts`, `ChosenNameCantActivate`, `OpponentsCastAsSorcery`,
 `PlayersCantLose`,
@@ -1633,7 +1642,13 @@ abilities from nongreen sources your opponents control" is one filter.
 205.1a): the card types and subtypes are replaced, supertypes stay, so
 Oko's Elk is still legendary and no longer an artifact. A sentence that
 says "in addition to its other types" or "still a …" (CR 205.1b) is
-`AddType`/`AddSubtype` instead. `LoseAllAbilities` (CR 613.1f) takes
+`AddType`/`AddSubtype` instead. "Becomes a [creature type] artifact
+creature" (CR 205.1b's last sentence, Jade Statue's "3/6 Golem artifact
+creature") keeps every card type and subtype except the creature types,
+which `ReplaceCreatureTypes(subtype)` replaces; the card types it gains are
+`AddType` beside it. The reader writes it for `Animate`'s
+`RemoveCreatureTypes$ True`, and reads `Duration$ UntilEndOfCombat` as
+`Duration::UntilEndOfCombat`. `LoseAllAbilities` (CR 613.1f) takes
 keywords and printed abilities alike; a static of the object keeps only its
 parts in layers 1, 2, 4 and 5 (CR 613.6), and a grant with a later
 timestamp still lands (CR 613.7).

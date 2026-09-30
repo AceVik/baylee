@@ -71,6 +71,11 @@ pub enum Modifier {
     AddSubtype(SubtypeId),
     /// Affected creatures are every creature type (Maskwood Nexus).
     AllCreatureTypes,
+    /// "Becomes a [creature type] artifact creature" (CR 205.1b): the
+    /// creature types it had are replaced by this one, and every other card
+    /// type and subtype is kept (Jade Statue: "becomes a 3/6 Golem artifact
+    /// creature"). The card types it gains are `AddType` beside it.
+    ReplaceCreatureTypes(SubtypeId),
     /// "Becomes a [subtype] [types]" with nothing retained (CR 205.1a):
     /// `types` replace every card type (an instant or sorcery keeps its
     /// own) and `subtype` replaces every subtype, since those of the card
@@ -530,6 +535,7 @@ impl Modifier {
             | Self::RemoveType(_)
             | Self::AddSubtype(_)
             | Self::AllCreatureTypes
+            | Self::ReplaceCreatureTypes(_)
             | Self::AllBasicLandTypes
             | Self::BecomeType { .. }
             | Self::AddTypeIfCountersAtLeast { .. } => Layer::Type,
@@ -800,6 +806,10 @@ mod tests {
             (Modifier::RemoveType(TypeSet::CREATURE), Layer::Type),
             (Modifier::AddSubtype(SubtypeId::new(1)), Layer::Type),
             (Modifier::AllCreatureTypes, Layer::Type),
+            (
+                Modifier::ReplaceCreatureTypes(SubtypeId::new(1)),
+                Layer::Type,
+            ),
             (Modifier::AllBasicLandTypes, Layer::Type),
             (
                 Modifier::BecomeType {

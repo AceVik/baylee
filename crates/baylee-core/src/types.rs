@@ -466,6 +466,19 @@ impl SubtypeSet {
         Self(out)
     }
 
+    /// The subtypes of `self` that are not in `other`.
+    #[inline]
+    #[must_use]
+    pub const fn difference(self, other: Self) -> Self {
+        let mut out = [0u64; SUBTYPE_WORDS];
+        let mut i = 0;
+        while i < SUBTYPE_WORDS {
+            out[i] = self.0[i] & !other.0[i];
+            i += 1;
+        }
+        Self(out)
+    }
+
     /// Whether the two sets share at least one subtype.
     ///
     /// Word-wise: eight `AND`s instead of one probe per subtype id. The

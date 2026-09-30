@@ -238,6 +238,10 @@ pub enum Condition {
     /// Not `ControlCount(&f, 1)`: that one asks each permanent with itself
     /// as `This`, so `Filter::Another` never matches there.
     CanSacrifice(&'static Filter),
+    /// "Activate only during combat" (Jade Statue): the combat phase of any
+    /// player's turn, from the beginning of combat step to the end of combat
+    /// step (CR 506.1).
+    DuringCombat,
     /// At least one of these holds ("activate only if this land entered
     /// this turn **or** if you control a basic land" — the Gathering Place
     /// cycle).

@@ -94,6 +94,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RemoveType(_)
         | Modifier::AddSubtype(_)
         | Modifier::AllCreatureTypes
+        | Modifier::ReplaceCreatureTypes(_)
         | Modifier::AllBasicLandTypes
         | Modifier::BecomeType { .. }
         | Modifier::AddColor(_)
@@ -715,6 +716,7 @@ mod tests {
             Modifier::RemoveType(TypeSet::CREATURE),
             Modifier::AddSubtype(SubtypeId::new(1)),
             Modifier::AllCreatureTypes,
+            Modifier::ReplaceCreatureTypes(SubtypeId::new(1)),
             Modifier::AllBasicLandTypes,
             Modifier::BecomeType {
                 types: TypeSet::CREATURE,
@@ -838,7 +840,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            56,
+            57,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -889,7 +891,7 @@ mod tests {
     }
 
     /// The counts, so that a change which flips a modifier from one side to
-    /// the other is a failure and not a quiet re-balancing: twenty-seven
+    /// the other is a failure and not a quiet re-balancing: twenty-eight
     /// modifiers lock the objects they found, twenty-nine do not.
     ///
     /// The second number is counted off the list and not written as
@@ -898,10 +900,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_seven_modifiers_lock_a_set_and_twenty_nine_do_not() {
+    fn twenty_eight_modifiers_lock_a_set_and_twenty_nine_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (27, 29));
+        assert_eq!((locking, all.len() - locking), (28, 29));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

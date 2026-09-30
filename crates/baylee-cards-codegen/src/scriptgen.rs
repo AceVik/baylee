@@ -1970,7 +1970,12 @@ impl Tx<'_> {
     /// with both would animate the wrong permanent, and is refused.
     ///
     /// `Duration$ Permanent` is "for the rest of the game"
-    /// (`Duration::Indefinitely`); without one it is until end of turn.
+    /// (`Duration::Indefinitely`), `UntilEndOfCombat` is until end of combat;
+    /// without one it is until end of turn.
+    ///
+    /// `RemoveCreatureTypes$ True` is CR 205.1b's "becomes a [creature type]
+    /// artifact creature": the first creature type named replaces the ones it
+    /// had (`Modifier::ReplaceCreatureTypes`) and every other type is kept.
     fn animate_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
         match (p.take("Defined").as_deref(), target) {
             (Some("Self"), None) | (None, Some(_)) => {}
@@ -1982,11 +1987,18 @@ impl Tx<'_> {
         let duration = match p.take("Duration").as_deref() {
             None => "Duration::UntilEndOfTurn",
             Some("Permanent") => "Duration::Indefinitely",
+            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
             Some(other) => {
                 self.note(format!("`Animate` lasting `{other}`"));
                 return None;
             }
         };
+        let replace_creature_types = match p.take("RemoveCreatureTypes").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`RemoveCreatureTypes$ {other}`")),
+        };
+        let mut replaced = false;
         let mut out = Vec::new();
         // Layer 4: the types it becomes. A word is either a card type or a
         // subtype, and the corpus writes both in one list.
@@ -2000,9 +2012,21 @@ impl Tx<'_> {
                     self.note(format!("`Animate` into `{word}`"));
                     return None;
                 };
-                format!("Modifier::AddSubtype({path})")
+                let creature_type = self
+                    .cats
+                    .const_path_of(baylee_core::types::SubtypeKind::Creature, word)
+                    .is_some();
+                if replace_creature_types && creature_type && !replaced {
+                    replaced = true;
+                    format!("Modifier::ReplaceCreatureTypes({path})")
+                } else {
+                    format!("Modifier::AddSubtype({path})")
+                }
             };
             out.push(Self::animate_expr(&modifier, duration));
+        }
+        if replace_creature_types && !replaced {
+            return self.deny("`RemoveCreatureTypes$` naming no creature type".to_string());
         }
         // Layer 5: colour. Without `OverwriteColors$ True` the card keeps
         // the colours it had, which is `AddColor` (CR 105.3).
@@ -4428,6 +4452,40 @@ impl Tx<'_> {
         format!("static_ability!({filter}, {modifier})")
     }
 
+    /// When an ability may be activated, beyond its `IsPresent$` clause: a
+    /// restriction on activating (CR 602.5) that the `condition` field says,
+    /// and so only where no other clause already fills it. Hands back the
+    /// keys it claimed.
+    ///
+    /// - `PlayerTurn$ True`: "activate only during your turn" (Disrupting
+    ///   Scepter).
+    /// - `ActivationPhases$ BeginCombat->EndCombat`: "activate only during
+    ///   combat" (Jade Statue). The other spellings — an upkeep, a single
+    ///   combat step, "before blockers are declared" — are other sentences.
+    fn activation_restriction(
+        &mut self,
+        probe: &mut Params,
+        is_activated: bool,
+        condition: &mut String,
+    ) -> Option<Vec<&'static str>> {
+        let mut claimed = Vec::new();
+        if let Some(your_turn) = probe.take("PlayerTurn") {
+            if your_turn != "True" || !is_activated || !condition.is_empty() {
+                return self.deny(format!("`PlayerTurn$ {your_turn}` beside another clause"));
+            }
+            *condition = ", condition = Some(Condition::YourTurn)".to_string();
+            claimed.push("PlayerTurn$");
+        }
+        if let Some(phases) = probe.take("ActivationPhases") {
+            if phases != "BeginCombat->EndCombat" || !is_activated || !condition.is_empty() {
+                return self.deny(format!("`ActivationPhases$ {phases}`"));
+            }
+            *condition = ", condition = Some(Condition::DuringCombat)".to_string();
+            claimed.push("ActivationPhases$");
+        }
+        Some(claimed)
+    }
+
     fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
         let is_activated = spec.starts_with("AB$");
         if !is_activated && Params::parse(spec).is_some_and(|(api, _)| api == "Charm") {
@@ -4448,39 +4506,30 @@ impl Tx<'_> {
         // different key on a different line (1521 of them, all on `SVar:`),
         // and this reader claims neither it nor its family.
         let mut condition = self.condition(&mut probe)?;
-        // "Activate only during your turn" (Disrupting Scepter), a
-        // restriction on activating (CR 602.5) the same `condition` field
-        // says, and so only where no other clause already fills it.
-        let your_turn = probe.take("PlayerTurn");
-        match your_turn.as_deref() {
-            None => {}
-            Some("True") if is_activated && condition.is_empty() => {
-                condition = ", condition = Some(Condition::YourTurn)".to_string();
-            }
-            Some(other) => {
-                return self.deny(format!("`PlayerTurn$ {other}` beside another clause"));
-            }
-        }
+        // The `IsPresent$` family is claimed only where that clause was read,
+        // not where a restriction below filled `condition` instead.
+        let present_read = !condition.is_empty();
+        let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
         let mut chain = Chain::default();
         // The cost belongs to the ability, not to the effect chain, so it is
         // removed from the spec before the chain reads it. The clause's keys
         // go with it, but **only** once the clause was read: a line carrying
         // `PresentZone$` and no `IsPresent$` at all keeps it, and refuses one
         // level down as the unclaimed parameter it is.
-        let claimed: &[&str] = if condition.is_empty() {
-            &[]
-        } else {
+        let claimed: &[&str] = if present_read {
             &[
                 "IsPresent$",
                 "PresentZone$",
                 "PresentCompare$",
                 "PresentDefined$",
             ]
+        } else {
+            &[]
         };
         let stripped: Vec<&str> = spec
             .split(" | ")
             .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
-            .filter(|part| your_turn.is_none() || !part.starts_with("PlayerTurn$"))
+            .filter(|part| !restrictions.iter().any(|key| part.starts_with(key)))
             .filter(|part| !claimed.iter().any(|key| part.starts_with(key)))
             .collect();
         self.chain(&stripped.join(" | "), &mut chain)?;
@@ -9859,6 +9908,43 @@ SVar:X:Count$xPaid",
                     "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ {cost} | NumCards$ 1"
                 )),
                 "{cost}"
+            );
+        }
+    }
+
+    /// Jade Statue: "{2}: this becomes a 3/6 Golem artifact creature until
+    /// end of combat. Activate only during combat."
+    #[test]
+    fn a_creature_type_that_replaces_until_end_of_combat_only_during_combat() {
+        let statue = read(
+            "Name:X\nTypes:Artifact\n\
+             A:AB$ Animate | Cost$ 2 | Defined$ Self | Power$ 3 | Toughness$ 6 | \
+             Types$ Creature,Artifact,Goblin | RemoveCreatureTypes$ True | \
+             Duration$ UntilEndOfCombat | ActivationPhases$ BeginCombat->EndCombat",
+        );
+        let a = statue.abilities.join("\n");
+        for part in [
+            "Modifier::ReplaceCreatureTypes(subtypes::creature::GOBLIN), Duration::UntilEndOfCombat",
+            "Modifier::AddType(TypeSet::CREATURE), Duration::UntilEndOfCombat",
+            "Modifier::SetPT(3, 6), Duration::UntilEndOfCombat",
+            "condition = Some(Condition::DuringCombat)",
+        ] {
+            assert!(a.contains(part), "{part} in {a}");
+        }
+        for refused_line in [
+            // "Activate only during your upkeep" is another sentence.
+            "A:AB$ Animate | Cost$ 2 | Defined$ Self | Power$ 3 | Toughness$ 6 | \
+             Types$ Creature | ActivationPhases$ Upkeep",
+            // Replacing creature types with none named is losing them all.
+            "A:AB$ Animate | Cost$ 2 | Defined$ Self | Power$ 3 | Toughness$ 6 | \
+             Types$ Creature | RemoveCreatureTypes$ True",
+            // A restriction fills the condition, and the `IsPresent$` family
+            // beside it is still unread.
+            "A:AB$ Draw | Cost$ T | NumCards$ 1 | PlayerTurn$ True | PresentZone$ Graveyard",
+        ] {
+            assert!(
+                refused(&format!("Name:X\nTypes:Artifact\n{refused_line}")),
+                "{refused_line}"
             );
         }
     }

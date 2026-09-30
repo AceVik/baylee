@@ -383,7 +383,10 @@ pub fn amount(
             .object(this)
             .map_or(0, |o| u32::from(o.counters.get(*kind))),
         // Resolved in resolve.rs, which has the stack object these read.
-        Amount::TargetPower | Amount::TargetCmc | Amount::EventAmount => 0,
+        Amount::TargetPower
+        | Amount::TargetCmc
+        | Amount::EventAmount
+        | Amount::TargetsPutIntoGraveyard => 0,
         // The object the payment wrote it on. A resolution asks
         // `resolve::amount2`, which reads the stack object: an activated
         // ability's source is the permanent and its payment is on the
@@ -622,6 +625,7 @@ pub fn condition_holds(
         Condition::SourceMatches(filter) => state
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),
+        Condition::DuringCombat => state.turn.phase == crate::turn::Phase::Combat,
         Condition::CanSacrifice(filter) => {
             !controlled_matching(state, you, filter, you, source).is_empty()
         }
@@ -1701,6 +1705,32 @@ mod tests {
             !ask(&state, &Filter::PowerAtMost(3), c),
             "and the creature has grown out of the other card's restriction"
         );
+    }
+
+    /// "Activate only during combat" holds in each step of the combat phase
+    /// (CR 506.1), whoever's turn it is, and in no other phase.
+    #[test]
+    fn during_combat_is_the_combat_phase_of_any_turn() {
+        use crate::turn::{Phase, Step};
+        let mut state = empty_state();
+        let this = creature(&mut state, P0, KeywordSet::EMPTY);
+        let during = |state: &GameState| condition_holds(state, P0, this, Condition::DuringCombat);
+        for (phase, step, holds) in [
+            (Phase::FirstMain, Step::Main, false),
+            (Phase::Combat, Step::CombatBegin, true),
+            (Phase::Combat, Step::DeclareBlockers, true),
+            (Phase::Combat, Step::CombatEnd, true),
+            (Phase::SecondMain, Step::Main, false),
+            (Phase::Ending, Step::End, false),
+        ] {
+            state.turn.phase = phase;
+            state.turn.step = step;
+            assert_eq!(during(&state), holds, "{step:?}");
+        }
+        state.turn.phase = Phase::Combat;
+        state.turn.step = Step::DeclareAttackers;
+        state.turn.active = P1;
+        assert!(during(&state), "the opponent's combat too");
     }
 
     /// "For each creature that died this turn" reads the turn's tally, which

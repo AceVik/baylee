@@ -2060,3 +2060,8 @@ land type"; both are convention tests that fire on a first try.
   projection is gone: an animated land died uncounted. Anything that asks
   what a permanent *was* as it left reads it before `move_object` clears
   the cache, or reads the last-known record.
+- **A variable that two clauses fill cannot say which one did.** The
+  activation reader claimed the `IsPresent$` family whenever `condition` was
+  non-empty, and "your turn" filled it too, so a stray `PresentZone$` beside
+  `PlayerTurn$` was dropped unread. Record what was read at the moment it is
+  read (`present_read`), not afterwards from a shared result.

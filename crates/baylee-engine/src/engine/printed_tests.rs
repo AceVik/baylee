@@ -126,9 +126,10 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
         Modifier::BecomeCopyOf(_) => EVERYTHING,
         Modifier::AddType(_) | Modifier::RemoveType(_) => &[Field::Types],
         Modifier::BecomeType { .. } => &[Field::Types, Field::Subtypes],
-        Modifier::AddSubtype(_) | Modifier::AllCreatureTypes | Modifier::AllBasicLandTypes => {
-            &[Field::Subtypes]
-        }
+        Modifier::AddSubtype(_)
+        | Modifier::AllCreatureTypes
+        | Modifier::ReplaceCreatureTypes(_)
+        | Modifier::AllBasicLandTypes => &[Field::Subtypes],
         Modifier::AddColor(_) | Modifier::SetColor(_) => &[Field::Colors],
         Modifier::AddKeyword(_)
         | Modifier::RemoveKeyword(_)

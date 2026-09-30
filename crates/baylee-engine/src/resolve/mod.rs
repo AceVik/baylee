@@ -934,6 +934,20 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
         Amount::TappedPower => eval::tapped_power(state, res.on_stack),
+        // A target is a new object in a graveyard since the resolution began
+        // (its snapshot, CR 400.7): what this resolution put there.
+        Amount::TargetsPutIntoGraveyard => {
+            let Some(then) = res.target_lki.as_ref() else {
+                return 0;
+            };
+            let moved = res.targets.iter().filter(|&&t| {
+                let was = then.iter().find(|l| l.id == t).map(|l| l.version);
+                state.object(t).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Graveyard && was.is_some_and(|v| v != o.version)
+                })
+            });
+            u32::try_from(moved.count()).unwrap_or(u32::MAX)
+        }
         // A wrapper around one of the above has to reach it through this
         // reader and not through `eval::amount`, which has no stack object.
         Amount::Plus { base, offset } => amount2(base, state, you, res).saturating_add(*offset),
