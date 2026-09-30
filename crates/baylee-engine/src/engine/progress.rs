@@ -611,11 +611,7 @@ impl<L: CardLookup> Engine<L> {
         let mut attackers = Vec::new();
         let mut required = Vec::new();
         let mut limits = Vec::new();
-        for &id in self
-            .state
-            .zones
-            .list(crate::zone::ZoneLocation::Battlefield)
-        {
+        for id in self.state.battlefield_seen() {
             if !combat::can_attack(&self.state, attacker, id) {
                 continue;
             }
@@ -1162,29 +1158,21 @@ impl<L: CardLookup> Engine<L> {
     ) -> bool {
         use baylee_cards_dsl::EnterModifier;
         match modifier {
-            EnterModifier::ChooseSubtype => {
-                self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
-                self.pending = Pending::ChooseSubtype {
-                    player: controller,
-                    options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
+            EnterModifier::ChooseSubtype | EnterModifier::ChooseBasicLandType => {
+                use baylee_core::generated::subtypes::land::{
+                    FOREST, ISLAND, MOUNTAIN, PLAINS, SWAMP,
                 };
-                self.awaiting_answer = true;
-                true
-            }
-            EnterModifier::ChooseBasicLandType => {
-                // The five basic land types (CR 205.3i), in the order the
-                // rule names them, and nothing else.
-                use baylee_core::generated::subtypes::land;
+                // A basic land type is one of the five (CR 205.3i), in the
+                // order the rule names them, and nothing else.
+                let options = if matches!(modifier, EnterModifier::ChooseBasicLandType) {
+                    vec![PLAINS, ISLAND, SWAMP, MOUNTAIN, FOREST]
+                } else {
+                    (0..=349).map(baylee_core::ids::SubtypeId::new).collect()
+                };
                 self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
                 self.pending = Pending::ChooseSubtype {
                     player: controller,
-                    options: vec![
-                        land::PLAINS,
-                        land::ISLAND,
-                        land::SWAMP,
-                        land::MOUNTAIN,
-                        land::FOREST,
-                    ],
+                    options,
                 };
                 self.awaiting_answer = true;
                 true
