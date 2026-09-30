@@ -33,6 +33,29 @@ one mask OR, not a scan), and the ids in it are **append-only** since #43:
 list rather than a range, because a new creature type no longer sits next to
 the old ones. `docs/card-identity.md` §"`SubtypeId`" is normative.
 
+**An object keeps two clocks, and a transform moves only one.** Both read
+the game's one counter (`GameState::next_timestamp`).
+`GameObject::timestamp` is the timestamp of CR 613.7: taken as the object
+enters a zone (613.7d) and again each time the permanent transforms
+(613.7g, `GameState::transform`). The effects of its static abilities take
+it when `sync_static_effects` registers them (613.7a), and `transform` drops
+the old face's effects first, so the new face's statics are registered with
+the new stamp and apply after anything created while the other face was up.
+`GameObject::controlled_since` is the moment its controller took it: taken
+on arrival and again at every change of control
+(`restart_summoning_sickness`). Summoning sickness (`combat::summoning_sick`,
+CR 302.6) reads only this field, because a permanent that transforms is the
+same object under the same controller (CR 712.18). The two used to be one
+field, and that is why a transform could not take its timestamp without
+making the permanent summoning-sick. Two of the events CR 613.7 lists are
+not implemented: an Aura, Equipment or Fortification becoming attached
+(613.7e), and turning face up or face down (613.7f). A Saga taking a lore
+counter restamps `timestamp` (`progress.rs`, both lore sites) with no rule
+behind it, because CR 613.7c stamps the counter and not the object; since
+the split it no longer makes a Saga creature summoning-sick. Tests:
+`mechanics_tests::transforms` covers the ordering and the sickness,
+`mechanics_tests::tokens` both token writers.
+
 **A `Pending` is published from a settled board, and the machine is what
 settles it — including after an action.** The invalidation half has always
 been right: `move_object` marks the projection stale in both directions for
@@ -135,8 +158,9 @@ timestamps, so a later taker wins (CR 613.7) and an earlier one's control
 returns when the later one ends. `sync_static_effects` drops an indefinite
 effect whose object has moved on, since it names an object that no longer
 exists (CR 400.7). When the controller moves in either direction the
-object's timestamp is bumped, because CR 302.6 wants control held
-*continuously* since the turn began.
+object's `controlled_since` is restarted, because CR 302.6 wants control
+held *continuously* since the turn began. Its timestamp stays: a change of
+control is not one of the events CR 613.7 gives an object a new one for.
 
 **A static ability's "you" is whoever controls its source now** (CR 109.5,
 611.3a); an effect a resolving spell or ability made keeps the player who

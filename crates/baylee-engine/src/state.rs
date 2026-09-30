@@ -1582,6 +1582,7 @@ impl GameState {
         let id = self.arena.insert_with(|id| {
             let mut obj = GameObject::new_card(id, owner, card, base);
             obj.timestamp = ts;
+            obj.controlled_since = ts;
             obj
         });
         if let Some(modifier) = printed_pt_cda(def) {
@@ -1607,6 +1608,7 @@ impl GameState {
         let id = self.arena.insert_with(|id| {
             let mut obj = GameObject::new_bare(id, owner, kind, base);
             obj.timestamp = ts;
+            obj.controlled_since = ts;
             obj
         });
         self.zones.insert(
@@ -1630,7 +1632,11 @@ impl GameState {
         id
     }
 
-    /// Monotonic timestamp (effects ordering, summoning sickness).
+    /// The game's one clock, monotonic: every object timestamp
+    /// ([`GameObject::timestamp`], CR 613.7), every continuous effect's, and
+    /// the moments [`GameObject::controlled_since`] and
+    /// [`Player::turn_start_timestamp`] compare for summoning sickness
+    /// (CR 302.6) are read off it.
     pub fn next_timestamp(&mut self) -> u64 {
         self.timestamp += 1;
         self.timestamp
@@ -1640,10 +1646,14 @@ impl GameState {
     /// its controller's most recent turn began, so *any* control change
     /// makes it summoning-sick again — including the one at end of turn
     /// that hands a stolen creature back.
+    ///
+    /// Only [`GameObject::controlled_since`] moves. A change of control is
+    /// not one of the events CR 613.7 gives an object a new timestamp for,
+    /// so the order its static abilities' effects apply in stays as it was.
     pub(crate) fn restart_summoning_sickness(&mut self, id: ObjectId) {
         let ts = self.next_timestamp();
         if let Some(obj) = self.object_mut(id) {
-            obj.timestamp = ts;
+            obj.controlled_since = ts;
         }
     }
 
@@ -1683,6 +1693,15 @@ impl GameState {
         });
         self.replacement_rules.retain(|r| r.source != id);
         self.switch_face(id, def, face);
+        // CR 613.7g: a new timestamp, which the new face's static abilities
+        // take as the next scan registers them (CR 613.7a), so they apply
+        // after every effect created while the other face was up. Who
+        // controls it has not changed (CR 712.18), so `controlled_since`
+        // stays and it is no more summoning-sick than it was (CR 302.6).
+        let ts = self.next_timestamp();
+        if let Some(obj) = self.object_mut(id) {
+            obj.timestamp = ts;
+        }
         self.journal.record(GameEvent::Transformed {
             object: id,
             face: face as u8,
@@ -2643,6 +2662,7 @@ impl GameState {
             obj.zone = to.zone();
             obj.zone_owner = to.player();
             obj.timestamp = ts;
+            obj.controlled_since = ts;
             obj.version = obj.version.wrapping_add(1);
             // CR 400.7: it becomes a new object. The old projection must
             // not survive the move — the refresh pass only revisits the
@@ -3854,6 +3874,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         status,
         attached_to,
         timestamp,
+        controlled_since,
         version,
         riders,
         targets,
@@ -3911,6 +3932,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     status.hash(h);
     attached_to.hash(h);
     timestamp.hash(h);
+    controlled_since.hash(h);
     version.hash(h);
     // Exile riders.
     h.usize(riders.len());
@@ -5097,6 +5119,13 @@ mod tests {
             }),
             ("tried_empty_draw", |s, _| {
                 s.players[0].tried_empty_draw = true;
+            }),
+            // Two facts that were one field: the order the object's statics
+            // apply in (CR 613.7) and whether it is summoning-sick
+            // (CR 302.6). Either one alone decides a later board.
+            ("timestamp", |s, id| fixture_object(s, id).timestamp += 7),
+            ("controlled_since", |s, id| {
+                fixture_object(s, id).controlled_since += 7;
             }),
             ("x_value", |s, id| fixture_object(s, id).x_value = 3),
             ("kicked", |s, id| fixture_object(s, id).kicked = true),
