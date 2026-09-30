@@ -32,6 +32,7 @@ pub mod link;
 pub mod lobby;
 pub mod memory;
 pub mod mind;
+pub mod narrator;
 pub mod referee;
 pub mod scripted;
 pub mod seat;

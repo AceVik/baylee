@@ -58,8 +58,10 @@
 use baylee_client_core::automation::{
     self, AutoAnswer, PhaseOrders, RAIL_ROWS, RailPreset, RailRow, RailSide, Situation,
 };
+use baylee_client_core::manaplan::Plan;
 use baylee_client_core::prefs::AutoRules;
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::mana::ManaCost;
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::{LegalActions, Pending, PlayerAction};
 use baylee_view::{Phase, PlayerView, Step};
@@ -330,44 +332,93 @@ fn pool(view: &PlayerView) -> u32 {
         .map_or(0, |seat| seat.mana_pool.total())
 }
 
-/// Whether the seat could cast something by tapping what it has untapped:
-/// a card in hand the engine does not list yet (its mana is still in the
-/// lands) whose timing allows it now and whose printed cost the seat's
-/// sources pay, or a commander in the command zone with its tax.
+/// One card the seat could cast by tapping what it has untapped, and the
+/// taps that pay for it.
+///
+/// The one reader of "what could this seat cast from its lands": the
+/// standing orders count these ([`offering`]) and the narrator lists them,
+/// each with its taps, so a model is never woken to a menu that offers it
+/// nothing but passing, and never shown a cast the orders would have passed
+/// over.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reach {
+    /// The card, in hand or in the command zone.
+    pub object: ObjectId,
+    /// Its identity, as the view shows it.
+    pub card: baylee_view::CardIdentity,
+    /// Where it would be cast from.
+    pub from: ReachFrom,
+    /// The taps, in order, and the cost they pay: the printed cost with
+    /// `{X}` at 0, and a commander's tax (CR 903.8) added.
+    pub plan: Plan,
+}
+
+/// Where a [`Reach`] is cast from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReachFrom {
+    /// The seat's hand.
+    Hand,
+    /// The command zone: a commander, with its tax.
+    CommandZone,
+}
+
+/// Every card the seat could cast by tapping what it has untapped: a card
+/// in hand the engine does not list yet (its mana is still in the lands)
+/// whose timing allows it now and whose printed cost the seat's sources
+/// pay, and a commander in the command zone with its tax.
+///
+/// Cards the engine already lists as castable (the mana is floating) are
+/// not here: they need no taps.
 #[must_use]
-pub fn offering(view: &PlayerView, legal: &LegalActions) -> bool {
+pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     let sources = baylee_ai::mana_sources(view, legal);
     if sources.is_empty() {
-        return false;
+        return Vec::new();
     }
     let Some(pool) = view.seat(view.seat).map(|seat| seat.mana_pool) else {
-        return false;
+        return Vec::new();
     };
     // `{X}` at its least: the caster chooses it (CR 107.3a), the matcher
     // will not guess at it, and a spell castable with X = 0 is castable.
-    let payable = |cost: baylee_core::mana::ManaCost| {
-        cost.symbols().next().is_some()
-            && baylee_client_core::manaplan::plan(&cost.with_x(0), &pool, &sources).is_some()
+    let payable = |cost: ManaCost| {
+        cost.symbols().next()?;
+        baylee_client_core::manaplan::plan(&cost.with_x(0), &pool, &sources)
     };
-    let in_hand = view
+    let mut reach: Vec<Reach> = view
         .hand
         .iter()
         .filter(|card| !legal.castable.contains(&card.id) && !legal.lands.contains(&card.id))
         .filter(|card| !card.types.contains(TypeSet::LAND))
         .filter(|card| baylee_client_core::timing::allows(view, card.types, flash(card.card)))
-        .any(|card| printed_cost(card.card).is_some_and(payable));
-    in_hand || commander_offered(view, legal, &payable)
+        .filter_map(|card| {
+            Some(Reach {
+                object: card.id,
+                card: card.card,
+                from: ReachFrom::Hand,
+                plan: payable(printed_cost(card.card)?)?,
+            })
+        })
+        .collect();
+    reach.extend(commanders(view, legal, &payable));
+    reach
 }
 
-/// A commander standing in its owner's command zone, not yet castable,
+/// Whether the seat could cast something by tapping what it has untapped
+/// ([`reachable`]).
+#[must_use]
+pub fn offering(view: &PlayerView, legal: &LegalActions) -> bool {
+    !reachable(view, legal).is_empty()
+}
+
+/// Commanders standing in their owner's command zone, not yet castable,
 /// whose cost with its tax (CR 903.8) the seat's sources pay.
-fn commander_offered(
+fn commanders(
     view: &PlayerView,
     legal: &LegalActions,
-    payable: &dyn Fn(baylee_core::mana::ManaCost) -> bool,
-) -> bool {
+    payable: &dyn Fn(ManaCost) -> Option<Plan>,
+) -> Vec<Reach> {
     let Some(seat) = view.seat(view.seat) else {
-        return false;
+        return Vec::new();
     };
     let zone = view.command.get(usize::from(view.seat.get()));
     seat.commanders
@@ -377,16 +428,23 @@ fn commander_offered(
         .filter_map(|c| {
             let card = c.card?;
             let types = view.object(c.object).map_or(TypeSet::CREATURE, |o| o.types);
-            baylee_client_core::timing::allows(view, types, flash(card))
-                .then(|| printed_cost(card))
-                .flatten()
-                .map(|cost| cost.with_more_generic(c.casts.saturating_mul(2)))
+            if !baylee_client_core::timing::allows(view, types, flash(card)) {
+                return None;
+            }
+            let cost = printed_cost(card)?.with_more_generic(c.casts.saturating_mul(2));
+            Some(Reach {
+                object: c.object,
+                card,
+                from: ReachFrom::CommandZone,
+                plan: payable(cost)?,
+            })
         })
-        .any(payable)
+        .collect()
 }
 
 /// A card face's printed mana cost.
-fn printed_cost(card: baylee_view::CardIdentity) -> Option<baylee_core::mana::ManaCost> {
+#[must_use]
+pub fn printed_cost(card: baylee_view::CardIdentity) -> Option<ManaCost> {
     let def = baylee_cards::by_index(card.index)?;
     let face = def
         .faces
@@ -396,7 +454,8 @@ fn printed_cost(card: baylee_view::CardIdentity) -> Option<baylee_core::mana::Ma
 }
 
 /// Whether a card face has flash.
-fn flash(card: baylee_view::CardIdentity) -> bool {
+#[must_use]
+pub fn flash(card: baylee_view::CardIdentity) -> bool {
     baylee_cards::by_index(card.index).is_some_and(|def| {
         def.keywords_for_face(usize::from(card.face))
             .contains(baylee_cards_dsl::KeywordSet::FLASH)

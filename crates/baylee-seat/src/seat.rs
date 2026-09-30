@@ -632,6 +632,11 @@ impl SeatCore {
                 seat: statics.your_seat,
                 seats: u8::try_from(statics.seats.len()).unwrap_or(u8::MAX),
                 teams: statics.seats.iter().map(|seat| seat.team).collect(),
+                names: statics
+                    .seats
+                    .iter()
+                    .map(|seat| seat.display_name.clone())
+                    .collect(),
                 format: if commander {
                     FormatId::Commander
                 } else {
