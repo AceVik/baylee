@@ -98262,3 +98262,600 @@ fn wall_of_brambles_regenerates_for_g_and_cannot_attack() {
     };
     assert!(!attackers.contains(&wall), "Defender: it cannot attack");
 }
+
+// ---------------------------------------------------------------------
+// Alpha batch B: Pirate Ship, Demonic Hordes, Nether Shadow, Sengir
+// Vampire, Two-Headed Giant of Foriys, Gaea's Liege.
+// ---------------------------------------------------------------------
+
+fn pirate_ship() -> CardIndex {
+    card_index("c6b3f924-806d-47d3-b044-72b48470196c")
+}
+
+/// Pirate Ship — {4}{U} 4/3 Human Pirate. `Coverage::Partial`: the attack
+/// restriction and the sacrifice-when-you-control-no-Islands are not in the
+/// engine, but its `{T}: This creature deals 1 damage to any target` is.
+/// Aimed at the opponent, "any target" reaches a player: the life total
+/// moves by exactly one and the ship pays its own tap.
+#[test]
+fn pirate_ship_taps_to_deal_one_damage_to_a_player() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[pirate_ship()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ship = on_battlefield(&engine, p0, pirate_ship()).expect("seated");
+    assert_eq!(pt(&engine, ship), (4, 3), "the body the card prints");
+
+    activate(&mut engine, p0, pirate_ship(), 0);
+    let Pending::ChooseTargets {
+        player,
+        player_options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"any target\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert!(
+        player_options.contains(&p0) && player_options.contains(&p1),
+        "either player is a legal \"any target\": {player_options:?}"
+    );
+    assert!(
+        !is_tapped(&engine, ship),
+        "targets are chosen before the {{T}} cost is paid"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("a player is a legal target for \"any target\"");
+    assert!(is_tapped(&engine, ship), "the {{T}} was the price");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "\"deals 1 damage\" to the player \"any target\" named"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and the activating seat took none of it"
+    );
+}
+
+/// Pirate Ship, the other half of "any target": aimed at a creature
+/// instead of a player. The Minotaur's marked damage moves by exactly the
+/// ship's printed 1, on its printed 3 toughness, so it lives to say so.
+#[test]
+fn pirate_ship_taps_to_deal_one_damage_to_a_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[pirate_ship()])
+        .battlefield(1, &[hurloon_minotaur()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ship = on_battlefield(&engine, p0, pirate_ship()).expect("seated");
+    assert_eq!(pt(&engine, ship), (4, 3), "the body the card prints");
+    let minotaur = on_battlefield(&engine, p1, hurloon_minotaur()).expect("seated");
+
+    activate(&mut engine, p0, pirate_ship(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"any target\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&minotaur),
+        "a creature is a legal \"any target\": {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![minotaur],
+                players: vec![],
+            },
+        )
+        .expect("the Minotaur was among the options the ability enumerated");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(minotaur).map(|o| o.damage),
+        Some(1),
+        "\"deals 1 damage\" — one, marked on the creature it named"
+    );
+    assert!(
+        on_battlefield(&engine, p1, hurloon_minotaur()).is_some(),
+        "a 2/3 survives 1 damage"
+    );
+}
+
+fn demonic_hordes() -> CardIndex {
+    card_index("2847c8a0-f6aa-4e4a-a7b8-fc116436a264")
+}
+
+/// Demonic Hordes — {3}{B}{B}{B} 5/5 Demon. `Coverage::Partial`: the
+/// upkeep tax and the opponent's-choice land sacrifice are not in the
+/// engine, but its `{T}: Destroy target land` is. `Filter::LAND` names no
+/// side, so the menu holds a land from either seat and excludes the
+/// creature standing beside them.
+#[test]
+fn demonic_hordes_taps_to_destroy_a_targeted_land_of_either_seat() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[demonic_hordes(), swamp()])
+        .battlefield(1, &[forest(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hordes = on_battlefield(&engine, p0, demonic_hordes()).expect("seated");
+    assert_eq!(pt(&engine, hordes), (5, 5), "the body the card prints");
+    let my_swamp = on_battlefield(&engine, p0, swamp()).expect("seated");
+    let their_forest = on_battlefield(&engine, p1, forest()).expect("seated");
+    let their_elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+
+    activate(&mut engine, p0, demonic_hordes(), 0);
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target land\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1), "one land, and the ability asks once");
+    assert!(
+        options.contains(&my_swamp) && options.contains(&their_forest),
+        "\"target land\" is any land, on either side of the table: {options:?}"
+    );
+    assert!(
+        !options.contains(&their_elf),
+        "a creature is no land, whatever side it stands on: {options:?}"
+    );
+    assert!(
+        !is_tapped(&engine, hordes),
+        "targets are chosen before the {{T}} cost is paid"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![their_forest],
+                players: vec![],
+            },
+        )
+        .expect("the Forest was among the options the ability enumerated");
+    assert!(is_tapped(&engine, hordes), "the {{T}} was the price");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p1, forest()).is_some(),
+        "\"destroy target land\": the targeted Forest was destroyed"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_none(),
+        "and left the battlefield, which is what destroy means"
+    );
+    assert!(
+        on_battlefield(&engine, p0, swamp()).is_some(),
+        "the Swamp nobody targeted stands untouched"
+    );
+    assert!(
+        on_battlefield(&engine, p0, demonic_hordes()).is_some(),
+        "the activation cost Demonic Hordes nothing but its tap"
+    );
+}
+
+fn nether_shadow() -> CardIndex {
+    card_index("c358b9e2-524c-434b-b3fa-74d2aa6d1df7")
+}
+
+/// Nether Shadow — {B}{B} 1/1 Spirit with haste and nothing else the
+/// engine reads (its graveyard-return trigger is `Coverage::Partial` and
+/// not implemented). Haste (CR 702.10b) is the one permission a
+/// summoning-sick creature (CR 302.6) otherwise lacks: cast this turn and
+/// walked straight to combat, it may still attack, while an ordinary
+/// Llanowar Elves cast beside it off the same mana may not.
+#[test]
+fn nether_shadow_attacks_the_turn_it_is_cast_while_the_elf_beside_it_may_not() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), forest()])
+        .hand(0, &[nether_shadow(), llanowar_elves()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, nether_shadow());
+    pass_until(&mut engine, stack_is_empty);
+    cast_with_floating(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+
+    let shadow = on_battlefield(&engine, p0, nether_shadow()).expect("resolved");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("resolved");
+    assert_eq!(pt(&engine, shadow), (1, 1), "the body the card prints");
+    assert!(
+        keywords(&engine, shadow).contains(KeywordSet::HASTE),
+        "\"Haste\" is the printed line"
+    );
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::HASTE),
+        "and the Elf beside it, cast the same turn, has none"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        attackers,
+        defenders,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on the attack declaration")
+    };
+    assert!(
+        attackers.contains(&shadow),
+        "haste: still offered the very turn it arrived: {attackers:?}"
+    );
+    assert!(
+        !attackers.contains(&elf),
+        "the Elf arrived the same turn and has no such permission: {attackers:?}"
+    );
+
+    let defender = defenders.into_iter().next().expect("opponent is defender");
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(shadow, defender)],
+            },
+        )
+        .expect("haste lets it attack");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("no blocker was offered");
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "the attack connected: haste was real permission, not just an offer"
+    );
+}
+
+fn sengir_vampire() -> CardIndex {
+    card_index("749141aa-f6c4-4ad8-b146-406e68ae9b0b")
+}
+
+/// Sengir Vampire — {3}{B}{B} 4/4 Vampire. `Coverage::Partial`: the
+/// +1/+1-counter trigger on a creature it damaged this turn dying is not in
+/// the engine, but flying is. Attacking with it, the opponent's
+/// non-flying, non-reach Llanowar Elves cannot legally be assigned to
+/// block — while a flying Wall of Swords beside it still may, which is
+/// what says the menu reads flying and not "nothing may block it" — and
+/// the unblocked flier's 4 damage connects.
+#[test]
+fn sengir_vampire_cannot_be_blocked_by_a_creature_without_flying_or_reach() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[sengir_vampire()])
+        .battlefield(1, &[llanowar_elves(), wall_of_swords()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let vamp = on_battlefield(&engine, p0, sengir_vampire()).expect("seated");
+    assert_eq!(pt(&engine, vamp), (4, 4), "the body the card prints");
+    assert!(
+        keywords(&engine, vamp).contains(KeywordSet::FLYING),
+        "\"Flying\" is the printed line"
+    );
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+    let flying_wall = on_battlefield(&engine, p1, wall_of_swords()).expect("seated");
+
+    let blocks = attack_and_collect_blocks(&mut engine, vamp, p1);
+    assert!(
+        !blocks
+            .iter()
+            .any(|b| b.blocker == elf && b.attackers.contains(&vamp)),
+        "a non-flying, non-reach creature cannot legally block a flier: {blocks:?}"
+    );
+    assert!(
+        blocks
+            .iter()
+            .any(|b| b.blocker == flying_wall && b.attackers.contains(&vamp)),
+        "a flier beside it is still offered as a legal blocker: {blocks:?}"
+    );
+
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("declining every legal block still stands");
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "unblocked, all 4 of the flier's damage connects"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "nothing touched a creature that never blocked"
+    );
+}
+
+fn two_headed_giant_of_foriys() -> CardIndex {
+    card_index("38aa31bd-7145-43b9-9409-463d9ad6cd69")
+}
+
+/// Two-Headed Giant of Foriys — {4}{R} 4/4 Giant. `Coverage::Partial`:
+/// blocking an additional creature each combat is not in the engine, but
+/// trample is. Blocked by a 1-toughness Llanowar Elves, 1 of its 4 damage
+/// is lethal on the blocker and the remaining 3 tramples over to the
+/// defending player (CR 702.19b).
+#[test]
+fn two_headed_giant_of_foriys_tramples_excess_damage_over_its_blocker() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[two_headed_giant_of_foriys()])
+        .battlefield(1, &[llanowar_elves()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let giant = on_battlefield(&engine, p0, two_headed_giant_of_foriys()).expect("seated");
+    assert_eq!(pt(&engine, giant), (4, 4), "the body the card prints");
+    assert!(
+        keywords(&engine, giant).contains(KeywordSet::TRAMPLE),
+        "\"Trample\" is the printed line"
+    );
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(giant, Defender::Player(p1))],
+            },
+        )
+        .expect("the Giant declares");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(elf, giant)],
+            },
+        )
+        .expect("the Elf blocks");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "1 damage is lethal on a 1-toughness blocker"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        17,
+        "trample sent the remaining 3 damage through to the defending player"
+    );
+    assert!(
+        on_battlefield(&engine, p0, two_headed_giant_of_foriys()).is_some(),
+        "the Giant survives combat untouched"
+    );
+}
+
+fn gaea_s_liege() -> CardIndex {
+    card_index("8d134a60-e1e5-4163-8bdc-36af91567185")
+}
+
+/// Gaea's Liege — {3}{G}{G}{G}, printed 0/0. `Coverage::Partial`: while it
+/// is attacking its power and toughness are meant to count the *defending
+/// player's* Forests, which the engine does not read; only the "isn't
+/// attacking" half is tested here. Two Forests of its own, a Swamp beside
+/// them that must not count, and an opponent's Forest that must not count
+/// either — read once, and again after one of its own Forests leaves, so
+/// the characteristic is shown tracking the count rather than a value
+/// fixed once at entry.
+#[test]
+fn gaea_s_lieges_power_and_toughness_track_its_controllers_forests() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gaea_s_liege(), forest(), forest(), swamp()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let liege = on_battlefield(&engine, p0, gaea_s_liege()).expect("seated");
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_some(),
+        "the opponent has a Forest of their own, which must not count"
+    );
+    assert_eq!(
+        pt(&engine, liege),
+        (2, 2),
+        "two Forests of its own; the Swamp beside them and the opponent's \
+         Forest across the table do not count"
+    );
+
+    let one_of_mine = on_battlefield(&engine, p0, forest()).expect("seated");
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may rewrite the board");
+    state
+        .move_object(
+            one_of_mine,
+            crate::zone::ZoneLocation::Graveyard(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("the harness moves a card");
+    // The board was rewritten behind the engine's back: nothing
+    // re-projects characteristics through the layer system until
+    // something asks it to.
+    state.refresh_characteristics();
+    assert_eq!(
+        pt(&engine, liege),
+        (1, 1),
+        "one Forest left, and the printed characteristic followed the count down"
+    );
+}
+
+/// Gaea's Liege's second sentence: "{T}: Target land becomes a Forest
+/// until this creature leaves the battlefield." Aimed at a Swamp: it
+/// gains the Forest type (which the first sentence's count reads too), it
+/// can tap for {G} under the CR 305.6 shortcut a printed Swamp never had,
+/// and once Gaea's Liege itself leaves the battlefield the effect ends and
+/// the land is a Forest no longer.
+#[allow(clippy::too_many_lines)] // one target, one tap, one mana ability, one departure
+#[test]
+fn gaea_s_lieges_second_ability_turns_a_land_into_a_forest_until_it_leaves() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gaea_s_liege(), forest(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let liege = on_battlefield(&engine, p0, gaea_s_liege()).expect("seated");
+    let swamp_obj = on_battlefield(&engine, p0, swamp()).expect("seated");
+    assert_eq!(pt(&engine, liege), (1, 1), "one Forest so far");
+    assert!(
+        !engine
+            .state()
+            .object(swamp_obj)
+            .expect("on the table")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::land::FOREST),
+        "a Swamp is not a Forest before the ability resolves"
+    );
+
+    activate(&mut engine, p0, gaea_s_liege(), 1);
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target land\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert!(
+        options.contains(&swamp_obj),
+        "the Swamp is a legal \"target land\": {options:?}"
+    );
+    assert!(
+        !is_tapped(&engine, liege),
+        "targets are chosen before the {{T}} cost is paid"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![swamp_obj],
+                players: vec![],
+            },
+        )
+        .expect("the Swamp was among the options the ability enumerated");
+    assert!(is_tapped(&engine, liege), "the {{T}} was the price");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        engine
+            .state()
+            .object(swamp_obj)
+            .expect("still on the table")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::land::FOREST),
+        "\"becomes a Forest\": the target land now carries the type"
+    );
+    assert_eq!(
+        pt(&engine, liege),
+        (2, 2),
+        "two Forests now, and the first sentence's count followed the change"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: swamp_obj })
+        .expect("a Forest taps for green under CR 305.6, even one that used to be a Swamp");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "the mana it made was green"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "and nothing else floated"
+    );
+
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may rewrite the board")
+        .move_object(
+            liege,
+            crate::zone::ZoneLocation::Graveyard(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("the harness moves a card");
+    engine.sync_static_effects();
+    engine.refresh_offer();
+
+    assert!(
+        !engine
+            .state()
+            .object(swamp_obj)
+            .expect("the land itself did not leave")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::land::FOREST),
+        "\"until this creature leaves the battlefield\": Gaea's Liege is gone, \
+         and the land is a Forest no longer"
+    );
+}

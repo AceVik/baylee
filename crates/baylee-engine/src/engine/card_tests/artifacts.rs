@@ -18758,3 +18758,98 @@ fn a_tapped_winter_orb_lets_every_land_untap_with_no_question_asked() {
          untapped normally"
     );
 }
+
+// ---------------------------------------------------------------------
+// Alpha batch B: Clockwork Beast, Juggernaut.
+// ---------------------------------------------------------------------
+
+fn clockwork_beast() -> CardIndex {
+    card_index("eb97c8db-ac6c-476c-b14d-87785e9c82f0")
+}
+
+/// Clockwork Beast — {6} artifact creature, printed 0/4. `Coverage::Partial`:
+/// the end-of-combat counter removal and the capped upkeep ability are not
+/// in the engine, but "this creature enters with seven +1/+0 counters on
+/// it" is. Cast off six lands, it resolves carrying exactly seven counters
+/// of that kind and none of the other common kind, and its power reads
+/// seven higher than its printed 0 while its printed toughness of 4 is
+/// untouched.
+#[test]
+fn clockwork_beast_enters_with_seven_plus_one_plus_zero_counters() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), forest(), forest()],
+        )
+        .hand(0, &[clockwork_beast()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, clockwork_beast());
+    pass_until(&mut engine, stack_is_empty);
+    let beast = on_battlefield(&engine, p0, clockwork_beast()).expect("resolved");
+
+    assert_eq!(
+        counters_on(
+            &engine,
+            beast,
+            CounterKind::Plus {
+                power: 1,
+                toughness: 0
+            }
+        ),
+        7,
+        "\"enters with seven +1/+0 counters on it\""
+    );
+    assert_eq!(
+        counters_on(&engine, beast, CounterKind::P1P1),
+        0,
+        "and none of the +1/+1 kind — a different counter entirely"
+    );
+    assert_eq!(
+        pt(&engine, beast),
+        (7, 4),
+        "printed 0/4, plus seven +1/+0 counters: power moves, toughness does not"
+    );
+}
+
+fn juggernaut() -> CardIndex {
+    card_index("4ac9116f-36bc-4d71-b696-d6ee064e1d58")
+}
+
+/// Juggernaut — {4} 5/3 artifact creature. `Coverage::Partial`: "attacks
+/// each combat if able" is not in the engine, but "can't be blocked by
+/// Walls" is. A Wall standing beside an ordinary creature is the control:
+/// only the Wall has to be missing from the menu the attack offers, and
+/// the other creature beside it still may block.
+#[test]
+fn juggernaut_cannot_be_blocked_by_a_wall_but_any_other_creature_may() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[juggernaut()])
+        .battlefield(1, &[living_wall(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let jugg = on_battlefield(&engine, p0, juggernaut()).expect("seated");
+    assert_eq!(pt(&engine, jugg), (5, 3), "the body the card prints");
+    let wall = on_battlefield(&engine, p1, living_wall()).expect("seated");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+
+    let blocks = attack_and_collect_blocks(&mut engine, jugg, p1);
+    assert!(
+        !blocks
+            .iter()
+            .any(|b| b.blocker == wall && b.attackers.contains(&jugg)),
+        "\"can't be blocked by Walls\": the Wall is not offered as its blocker: {blocks:?}"
+    );
+    assert!(
+        blocks
+            .iter()
+            .any(|b| b.blocker == elf && b.attackers.contains(&jugg)),
+        "an ordinary creature beside it still may: {blocks:?}"
+    );
+}
