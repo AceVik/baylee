@@ -1626,6 +1626,12 @@ impl Tx<'_> {
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::LoseUnspentMana {{ who: {who} }}")]
             }
+            // "You may tap or untap target artifact, creature, or land"
+            // (Twiddle): one of the two choices always does nothing, so
+            // the choice is a yes or a no (`Effect::ToggleTapTarget`).
+            "TapOrUntap" if target.is_some() && p.take("Defined").is_none() => {
+                vec!["Effect::MayDo { effects: &[Effect::ToggleTapTarget] }".to_string()]
+            }
             "Tap" => match p.take("Defined").as_deref() {
                 None => vec!["Effect::TapTarget".to_string()],
                 Some("Enchanted" | "Equipped") if target.is_none() => {
@@ -4941,6 +4947,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Fog",
     "Regenerate",
     "Tap",
+    "TapOrUntap",
     "TapAll",
     "DrainMana",
     "Untap",
@@ -6831,6 +6838,19 @@ SVar:X:Count$xPaid",
                 .contains("Effect::LoseUnspentMana { who: PlayerRel::ControllerOfTarget }"),
             "{:?}",
             spell.abilities
+        );
+        // Twiddle: "tap or untap" is a yes or a no around the toggle.
+        let twiddle = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ TapOrUntap | ValidTgts$ Artifact,Creature,Land",
+        );
+        assert!(
+            twiddle
+                .abilities
+                .join("")
+                .contains("Effect::MayDo { effects: &[Effect::ToggleTapTarget] }"),
+            "{:?}",
+            twiddle.abilities
         );
         let all = read("Name:X\nTypes:Sorcery\nA:SP$ TapAll | ValidCards$ Creature");
         assert!(

@@ -2059,6 +2059,14 @@ Filters, conditions, modifiers and durations:
   (CR 106.4: "the player is said to lose this mana"), all of it, including
   mana an effect lets stay as steps end: the effect empties the pool, not
   the end of a step.
+- **`Effect::ToggleTapTarget`** taps each untapped target and untaps each
+  tapped one. "Tap or untap target permanent" is `MayDo { effects:
+  &[Effect::ToggleTapTarget] }` (Twiddle), with or without a printed "may":
+  only an untapped permanent can be tapped and only a tapped one untapped
+  (CR 701.26a, 701.26b), so one of the two choices always does nothing and
+  choosing it is declining. The yes or no is asked as the effect resolves,
+  which is when the printed choice is made; a pair of modes would ask it on
+  casting.
 
 ## Worked examples
 

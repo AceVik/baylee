@@ -1316,6 +1316,16 @@ pub enum Effect {
     TapTarget,
     /// Untap each target.
     UntapTarget,
+    /// The half of "tap or untap target permanent" that does something:
+    /// each target that is untapped becomes tapped and each that is tapped
+    /// becomes untapped. Only an untapped permanent can be tapped and only a
+    /// tapped one untapped (CR 701.26a, 701.26b), so of the two choices one
+    /// always does nothing, and choosing it is declining. The choice is
+    /// therefore the `MayDo` around this, asked as the effect resolves:
+    /// Twiddle's "you may tap or untap target artifact, creature, or land"
+    /// is `MayDo { effects: &[ToggleTapTarget] }`, and so is a "tap or
+    /// untap" printed without "may".
+    ToggleTapTarget,
     /// Untap the source permanent, which names no target and asks nobody
     /// anything (Basalt Monolith's `{3}: Untap this artifact`).
     ///
@@ -3169,6 +3179,7 @@ impl Effect {
             | Effect::TakeExtraTurn
             | Effect::ExileSource
             | Effect::TapTarget
+            | Effect::ToggleTapTarget
             | Effect::TapAll { .. }
             | Effect::TapAllOf { .. }
             | Effect::LoseUnspentMana { .. }

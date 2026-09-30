@@ -4480,6 +4480,15 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::ToggleTapTarget => {
+            for &target in &res.targets.clone() {
+                let tapped = state
+                    .object(target)
+                    .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED));
+                state.set_tapped(target, !tapped);
+            }
+            None
+        }
         // Cryptic Command's third mode. Nothing is targeted, and a
         // phased-out permanent is treated as though it doesn't exist (CR
         // 702.26b), which `battlefield_seen` is.
@@ -4880,6 +4889,59 @@ mod host_tests {
         let shields = |id| state.object(id).map(|o| o.regeneration_shields);
         assert_eq!(shields(host), Some(1));
         assert_eq!(shields(other), Some(0));
+    }
+}
+
+/// Twiddle's "tap or untap": a tapped target untaps and an untapped one taps.
+#[cfg(test)]
+mod toggle_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_core::ids::SeatSet;
+
+    #[test]
+    fn a_toggled_target_becomes_what_it_was_not() {
+        let me = PlayerId::new(0);
+        let mut state = GameState::from_preset(&preset(17, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let bare = |state: &mut GameState, label: &str| {
+            let name = state.names.intern(label);
+            state.create_bare(me, ObjectKind::Permanent, name, ZoneLocation::Battlefield)
+        };
+        let (up, down, spell) = (
+            bare(&mut state, "Up"),
+            bare(&mut state, "Down"),
+            bare(&mut state, "Twiddle"),
+        );
+        state.set_tapped(down, true);
+        let tapped = |state: &GameState, id| {
+            state
+                .object(id)
+                .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED))
+        };
+        for (target, was) in [(up, false), (down, true)] {
+            let mut res = Resolution {
+                source: spell,
+                on_stack: spell,
+                controller: me,
+                effects: vec![Effect::ToggleTapTarget],
+                pc: 0,
+                targets: SmallVec::from_slice(&[target]),
+                second_targets: SmallVec::new(),
+                x: None,
+                chosen_player: None,
+                target_players: SeatSet::new(),
+                event_object: None,
+                awaiting: None,
+                targeted: true,
+                mana_ability: false,
+                countered_source: None,
+                target_lki: None,
+                retarget_left: None,
+            };
+            assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+            assert_eq!(tapped(&state, target), !was);
+        }
     }
 }
 
