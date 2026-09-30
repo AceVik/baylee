@@ -359,6 +359,13 @@ impl<L: CardLookup> Engine<L> {
                 } else {
                     wizard.x = n;
                     wizard.stage = cast_wizard::WizardStage::Kicker;
+                    // X is announced before targets are chosen (CR 601.2b,
+                    // 601.2c), and a target filter that reads it
+                    // (`Filter::CmcExactlyX`) reads it off the card: so the
+                    // card carries it from here, not only once it is cast.
+                    if let Some(obj) = self.state.object_mut(wizard.card) {
+                        obj.x_value = n;
+                    }
                 }
                 self.cast_wizard = Some(wizard);
                 self.continue_cast_wizard();

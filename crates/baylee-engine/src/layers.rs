@@ -486,9 +486,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         ),
         // Layer 2 moves a permanent from one side of the table to the
         // other, which is the whole of what these two read.
-        Filter::ControlledByYou | Filter::ControlledByOpponent => {
-            matches!(modifier, Modifier::GainControl)
-        }
+        Filter::ControlledByYou
+        | Filter::ControlledByOpponent
+        | Filter::ControlledByActivePlayer => matches!(modifier, Modifier::GainControl),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| could_change_match(modifier, f))
         }
@@ -523,6 +523,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::AttachedToBySource
         | Filter::CmcAtMost(_)
         | Filter::CmcAtMostX
+        | Filter::CmcExactlyX
         | Filter::CmcAtMostColorsSpent
         | Filter::CmcAtLeast(_)
         | Filter::InZone(_) => false,

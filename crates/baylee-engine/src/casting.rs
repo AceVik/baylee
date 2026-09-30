@@ -539,9 +539,43 @@ pub(crate) fn requirement_is_reachable(
     // Derived rather than listed, for the same reason: a new `TargetSpec` is
     // counted by whichever of the two readers knows about it, and a spec
     // neither knows is unreachable, which is the honest answer.
-    let objects = crate::eval::target_options(&req.spec, state, player, card).len();
+    let objects = match x_bounded(req.spec) {
+        // "Target spell with mana value X" before any X is announced: a
+        // target for some X (`eval::matches_for_some_x`). Enumerated through
+        // the same reader with the filter widened, so what makes a spell or
+        // permanent targetable at all is still asked the one way.
+        Some((widened, filter)) => crate::eval::target_options(&widened, state, player, card)
+            .into_iter()
+            .filter(|id| {
+                state.object(*id).is_some_and(|o| {
+                    crate::eval::matches_for_some_x(filter, state, o, player, card)
+                })
+            })
+            .count(),
+        None => crate::eval::target_options(&req.spec, state, player, card).len(),
+    };
     let players = crate::eval::target_player_options(state, &req.spec, player).len();
     objects + players >= req.min as usize
+}
+
+/// A requirement whose filter reads the announced X, as the same spec over
+/// every object and the filter it widened away. `None` for every other
+/// requirement, and for the kinds no X-reading filter is printed on.
+fn x_bounded(
+    spec: baylee_cards_dsl::TargetSpec,
+) -> Option<(
+    baylee_cards_dsl::TargetSpec,
+    &'static baylee_cards_dsl::Filter,
+)> {
+    use baylee_cards_dsl::{Filter, TargetSpec};
+    static ANY: Filter = Filter::Any;
+    let (widened, filter) = match spec {
+        TargetSpec::Spell(f) => (TargetSpec::Spell(&ANY), f),
+        TargetSpec::Object(f) => (TargetSpec::Object(&ANY), f),
+        TargetSpec::StackOrBattlefield(f) => (TargetSpec::StackOrBattlefield(&ANY), f),
+        _ => return None,
+    };
+    crate::eval::reads_announced_x(filter).then_some((widened, filter))
 }
 
 /// Whether `pool` covers `cost`, honouring a mana-conversion effect.

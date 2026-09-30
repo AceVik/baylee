@@ -110,6 +110,15 @@ pub enum Condition {
     /// that never sacrifices itself and so is strictly stronger than the one
     /// printed.
     ControlCountAtMost(&'static Filter, u8),
+    /// At least N permanents on the battlefield match the filter, whoever
+    /// controls them — "if there are three or more creatures on the
+    /// battlefield". [`Self::ControlCount`] counts one player's side of the
+    /// table and this one all of it.
+    BattlefieldCount(&'static Filter, u8),
+    /// At most N permanents on the battlefield match the filter, whoever
+    /// controls them — Pestilence's "if no creatures are on the
+    /// battlefield" is at most none.
+    BattlefieldCountAtMost(&'static Filter, u8),
     /// You control permanents matching the filter with at least N
     /// **different names** among them — Field of the Dead's "if you
     /// control seven or more lands with different names".

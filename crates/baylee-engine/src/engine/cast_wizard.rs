@@ -1113,7 +1113,14 @@ impl<L: CardLookup> Engine<L> {
     /// Returns the game to the moment before a cast was proposed (CR 601.2,
     /// CR 732.1), once the cast has turned out to be illegal part-way.
     pub(crate) fn reverse_cast(&mut self, caster: Option<PlayerId>) {
-        self.cast_wizard = None;
+        // The X the card was given as it was announced goes with the rest
+        // of the cast: a card that never left its zone announced nothing.
+        if let Some(card) = self.cast_wizard.take().map(|w| w.card)
+            && let Some(obj) = self.state.object_mut(card)
+            && obj.zone != crate::zone::Zone::Stack
+        {
+            obj.x_value = 0;
+        }
         self.awaiting_answer = false;
         // CR 601.2h reverses the *whole* casting, so the game returns to
         // the moment before it began — and that includes whose priority

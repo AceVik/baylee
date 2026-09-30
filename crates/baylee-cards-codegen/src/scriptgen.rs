@@ -459,6 +459,24 @@ fn plain_number(raw: &str, svars: &BTreeMap<String, String>) -> Option<i64> {
         .or_else(|| svars.get(raw)?.trim().parse::<i64>().ok())
 }
 
+/// A `PresentCompare$` as the bound a count condition says: `GE2` is at least
+/// two, `EQ0` none ("if no creatures are on the battlefield"), `LT3` at most
+/// two. An exact count above zero is two bounds at once, which one
+/// `Condition` cannot say.
+fn count_bound(compare: &str) -> Option<Bound> {
+    let (cmp, number) = compare.split_at_checked(2)?;
+    let n: u16 = number.parse().ok()?;
+    let fits = |n: u16| u8::try_from(n).is_ok().then_some(n);
+    Some(match cmp {
+        "GE" => Bound::AtLeast(fits(n)?),
+        "GT" => Bound::AtLeast(fits(n.checked_add(1)?)?),
+        "LE" => Bound::AtMost(fits(n)?),
+        "LT" => Bound::AtMost(fits(n.checked_sub(1)?)?),
+        "EQ" if n == 0 => Bound::AtMost(0),
+        _ => return None,
+    })
+}
+
 /// Which side of a count an enters-tapped clause is on, once the reference's
 /// comparator has been read.
 ///
@@ -694,6 +712,7 @@ impl Tx<'_> {
                     }
                     "YouCtrl" => "Filter::ControlledByYou".to_string(),
                     "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
+                    "ActivePlayerCtrl" => "Filter::ControlledByActivePlayer".to_string(),
                     "YouOwn" => "Filter::OwnedByYou".to_string(),
                     "Other" => "Filter::Another".to_string(),
                     "Self" => "Filter::This".to_string(),
@@ -729,9 +748,6 @@ impl Tx<'_> {
                     "nonEnchantment" => "Filter::LacksType(TypeSet::ENCHANTMENT)".to_string(),
                     "Colorless" => "Filter::IsColorless".to_string(),
                     "" => continue,
-                    other if named_atom(other).is_some() => {
-                        format!("Filter::Named({:?})", named_atom(other)?)
-                    }
                     // A colour word (CR 105.2): "black creatures", "target
                     // green spell", "nonblack creature". A colour is not a
                     // subtype, so it is asked before the subtype arm below,
@@ -746,18 +762,7 @@ impl Tx<'_> {
                             has
                         }
                     }
-                    // A number the printed words compare against ("power 2
-                    // or less", "power 3 or greater"). Only a fixed number:
-                    // "toughness less than this creature's power" is a
-                    // comparison with another object, and is refused.
-                    other if stat_atom(other).is_some() => stat_atom(other).unwrap_or_default(),
-                    // "Each creature with flying", "each creature without
-                    // flying" (Hurricane, Earthquake): a keyword the engine
-                    // has a bit for. A keyword it has none for is a rule,
-                    // not a flag, and stays refused.
-                    other if keyword_atom(other).is_some() => {
-                        keyword_atom(other).unwrap_or_default()
-                    }
+                    other if self.worded_atom(other).is_some() => self.worded_atom(other)?,
                     // `Creature.Goblin` puts the subtype after the base, so
                     // an atom can name one too — and it is the commonest
                     // shape in the corpus, not a corner.
@@ -1102,7 +1107,7 @@ impl Tx<'_> {
         let aimed = target.unwrap_or("TargetSpec::AnyPlayer");
         Some(match api {
             "DealDamage" => {
-                let n = amount(&p.take("NumDmg")?, self.svars, self.has_x)?;
+                let n = self.amount_or_count(&p.take("NumDmg")?)?;
                 // "Deals 4 damage to any target and 2 damage to you"
                 // (Psionic Blast): the reference gathers both into one
                 // simultaneous event and deals it at `DamageResolve`. The
@@ -1128,7 +1133,7 @@ impl Tx<'_> {
             // questions of an `X`, so a count spelled with the same letter
             // is still refused.
             "GainLife" => {
-                let n = amount(&p.take("LifeAmount")?, self.svars, self.has_x)?;
+                let n = self.amount_or_count(&p.take("LifeAmount")?)?;
                 match (
                     self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?,
                     n.strip_prefix("Amount::Fixed(")
@@ -1140,7 +1145,7 @@ impl Tx<'_> {
                 }
             }
             "LoseLife" => {
-                let n = amount(&p.take("LifeAmount")?, self.svars, self.has_x)?;
+                let n = self.amount_or_count(&p.take("LifeAmount")?)?;
                 let who = self.player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
@@ -1333,6 +1338,9 @@ impl Tx<'_> {
                     return None;
                 }
                 let n = amount(&p.take("NumDmg")?, self.svars, self.has_x)?;
+                // The printed words for the two keys below ("each creature
+                // and each player"), which say nothing those keys do not.
+                p.take("ValidDescription");
                 let mut out = Vec::new();
                 if let Some(valid) = p.take("ValidCards") {
                     let filter = self.filter_expr(&valid)?;
@@ -1382,6 +1390,7 @@ impl Tx<'_> {
             "Investigate" => self.investigate_effect(p, targets_a_player)?,
             "Animate" => self.animate_effect(p, target)?,
             "Pump" => self.pump_effect(p, aimed)?,
+            "Effect" => self.unblockable_effect(p, target)?,
             "ChangeZone" => self.change_zone(p, target)?,
             "Sacrifice" => self.sacrifice_effect(p)?,
             // "Tap enchanted creature" (Paralyze): the host, and not a
@@ -1845,6 +1854,46 @@ impl Tx<'_> {
         })
     }
 
+    /// "Target creature can't be blocked this turn" (Dwarven Warriors,
+    /// Rogue's Passage, Infiltrate): an `Effect` whose one static says
+    /// nothing may block what it remembers, and which ends when that leaves
+    /// the battlefield. The engine's word for it is the keyword, granted for
+    /// the rest of the turn — to the targets, or to the source itself.
+    /// Every other `Effect` is its own sentence and stays refused.
+    fn unblockable_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
+        let statics = p.take("StaticAbilities")?;
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "CantBlockBy"
+            || st.take("ValidAttacker").as_deref() != Some("Card.IsRemembered")
+            || !st.exhausted()
+        {
+            return None;
+        }
+        let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
+        if ends.as_deref() != Some("Battlefield") || p.take("Duration").is_some() {
+            return None;
+        }
+        p.take("IsCurse");
+        let keywords = "KeywordSet::UNBLOCKABLE";
+        Some(match p.take("RememberObjects").as_deref() {
+            Some("Targeted") if target.is_some_and(|t| t != "TargetSpec::AnyPlayer") => {
+                vec![format!(
+                    "Effect::PumpTarget {{ power: Amount::Fixed(0), toughness: \
+                     Amount::Fixed(0), keywords: {keywords}, duration: \
+                     Duration::UntilEndOfTurn }}"
+                )]
+            }
+            Some("Self") if !self.on_a_spell => vec![format!(
+                "Effect::PumpFilter {{ filter: &Filter::This, controlled_by: None, \
+                 power: Amount::Fixed(0), toughness: Amount::Fixed(0), \
+                 keywords: {keywords}, duration: Duration::UntilEndOfTurn }}"
+            )],
+            _ => return None,
+        })
+    }
+
     /// `ChangeZone` for the zone pairs the engine has an effect for.
     ///
     /// The corpus writes every zone change with one API and two zone names; the
@@ -2302,6 +2351,66 @@ impl Tx<'_> {
         ))
     }
 
+    /// The atoms that are one word of printed text each, and the filter each
+    /// is:
+    ///
+    /// - a name ("creatures named Plague Rats", [`named_atom`]);
+    /// - a number the printed words compare against ("power 2 or less",
+    ///   [`stat_atom`]). Only a fixed number: "toughness less than this
+    ///   creature's power" is a comparison with another object, and is
+    ///   refused;
+    /// - a mana value against a number or the announced X
+    ///   ([`Self::cmc_atom`]);
+    /// - "each creature with flying", "each creature without flying"
+    ///   (Hurricane, Earthquake): a keyword the engine has a bit for
+    ///   ([`keyword_atom`]). A keyword it has none for is a rule, not a flag,
+    ///   and stays refused.
+    fn worded_atom(&self, atom: &str) -> Option<String> {
+        if let Some(name) = named_atom(atom) {
+            return Some(format!("Filter::Named({name:?})"));
+        }
+        stat_atom(atom)
+            .or_else(|| self.cmc_atom(atom))
+            .or_else(|| keyword_atom(atom))
+    }
+
+    /// `cmcLE2`, `cmcGE4`, `cmcEQX`: a mana value against a fixed number,
+    /// or against the X announced for this spell or ability — only where
+    /// `X` is that announcement ([`amount`] gives the reason), since the
+    /// filter reads it off the source and a trigger announced none.
+    fn cmc_atom(&self, atom: &str) -> Option<String> {
+        let (cmp, number) = atom.strip_prefix("cmc")?.split_at_checked(2)?;
+        if number == "X" {
+            let announced =
+                self.has_x && self.svars.get("X").map(String::as_str) == Some("Count$xPaid");
+            return match cmp {
+                "LE" if announced => Some("Filter::CmcAtMostX".to_string()),
+                "EQ" if announced => Some("Filter::CmcExactlyX".to_string()),
+                _ => None,
+            };
+        }
+        let n: u32 = number.parse().ok()?;
+        Some(match cmp {
+            "LE" => format!("Filter::CmcAtMost({n})"),
+            "LT" => format!("Filter::CmcAtMost({})", n.checked_sub(1)?),
+            "GE" => format!("Filter::CmcAtLeast({n})"),
+            "GT" => format!("Filter::CmcAtLeast({})", n.checked_add(1)?),
+            "EQ" => format!("Filter::And(&[Filter::CmcAtMost({n}), Filter::CmcAtLeast({n})])"),
+            _ => return None,
+        })
+    }
+
+    /// [`amount`], or else a count of permanents ([`Self::count_expr`]):
+    /// Karma's "damage equal to the number of Swamps they control". A count
+    /// is read as the ability resolves, like every other `Amount`.
+    fn amount_or_count(&mut self, raw: &str) -> Option<String> {
+        if let Some(n) = amount(raw, self.svars, self.has_x) {
+            return Some(n);
+        }
+        let def = self.svars.get(raw.trim())?.clone();
+        self.count_expr(&def)
+    }
+
     /// `RestrictValid$ Spell.Creature` — what produced mana may be spent on.
     ///
     /// Every alternative has to be a *spell*: `Activated.Hero` restricts an
@@ -2595,8 +2704,18 @@ impl Tx<'_> {
                     "End of Turn" => "StepKind::End",
                     other => return self.deny(format!("trigger at step `{other}`")),
                 };
+                // No player named is every player's step: "at the beginning
+                // of each upkeep" (Verdant Force), "at the beginning of the
+                // end step" (Pestilence). The reference writes `ValidPlayer$
+                // You` for "your", and reading its absence as "your" too made
+                // Verdant Force a card that made a Saproling on one upkeep in
+                // two.
                 let valid = p.take("ValidPlayer");
-                let Some(whose) = self.player_rel(valid.as_deref()) else {
+                let whose = match valid.as_deref() {
+                    None => Some("PlayerRel::EachPlayer"),
+                    Some(who) => self.player_rel(Some(who)),
+                };
+                let Some(whose) = whose else {
                     return self.deny(format!(
                         "trigger for player `{}`",
                         valid.unwrap_or_default()
@@ -3920,17 +4039,19 @@ impl Tx<'_> {
             }
             None
         } else {
-            let Some(n) = compare
-                .strip_prefix("GE")
-                .and_then(|n| n.parse::<u8>().ok())
-            else {
+            let Some(bound) = count_bound(&compare) else {
                 return self.deny(format!("`PresentCompare$ {compare}`"));
             };
-            if !valid
+            // Whose permanents: yours (`YouCtrl` in every alternative), or
+            // everybody's when no alternative names a controller or an
+            // owner at all ("if no creatures are on the battlefield").
+            let atoms = || valid.split(',').flat_map(|alt| alt.split(['.', '+']));
+            let yours = valid
                 .split(',')
-                .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"))
-            {
-                return self.deny(format!("`IsPresent$ {valid}`, a count with no player"));
+                .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+            let nobodys = !atoms().any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
+            if !yours && !nobodys {
+                return self.deny(format!("`IsPresent$ {valid}`, a count of somebody else's"));
             }
             // And a count says nothing about the card that states it.
             // `eval::condition_holds` walks a battlefield handing each
@@ -3939,15 +4060,21 @@ impl Tx<'_> {
             // would count nothing at all — 28 corpus lines write one, and
             // a trigger that can never fire is exactly the wrong card the
             // honest-stub rule exists to refuse.
+            // The attachment atoms are relative too: `AttachedToBySource`
+            // asks what *this* card is attached to.
             if valid.split(',').any(|alt| {
-                alt.split(['.', '+'])
-                    .any(|a| matches!(a.trim(), "Self" | "Other"))
+                alt.split(['.', '+']).any(|a| {
+                    matches!(
+                        a.trim(),
+                        "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy"
+                    )
+                })
             }) {
                 return self.deny(format!(
                     "`IsPresent$ {valid}`, a count relative to this card"
                 ));
             }
-            Some(n)
+            Some((yours, bound))
         };
         let expr = self.filter_expr(&valid)?;
         let clause = match count {
@@ -3957,11 +4084,17 @@ impl Tx<'_> {
                 format!("Condition::SourceMatches(&{name})")
             }
             // `ControlCount` counts one player's battlefield and nothing
-            // else, so the zone and the player are both already in the
-            // sentence it is.
-            Some(n) => {
+            // else, and `BattlefieldCount` all of it, so the zone and the
+            // player are both already in the sentence each is.
+            Some((yours, bound)) => {
                 let name = self.body.filter_static("CHECK", &expr);
-                format!("Condition::ControlCount(&{name}, {n})")
+                let (variant, n) = match (yours, bound) {
+                    (true, Bound::AtLeast(n)) => ("ControlCount", n),
+                    (true, Bound::AtMost(n)) => ("ControlCountAtMost", n),
+                    (false, Bound::AtLeast(n)) => ("BattlefieldCount", n),
+                    (false, Bound::AtMost(n)) => ("BattlefieldCountAtMost", n),
+                };
+                format!("Condition::{variant}(&{name}, {n})")
             }
         };
         Some(format!(", condition = Some({clause})"))
@@ -4523,6 +4656,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "DamageResolve",
     "PreventDamage",
     "AddTurn",
+    "Effect",
     "ChooseSource",
     "Fog",
     "Regenerate",
@@ -4763,7 +4897,13 @@ mod tests {
     }
 
     fn read(text: &str) -> CardBody {
-        transcode(&parse(text), &cats(), None).expect("should be read in full")
+        let parsed = parse(text);
+        transcode(&parsed, &cats(), None).unwrap_or_else(|| {
+            panic!(
+                "should be read in full, refused: {:?}",
+                refusal_reason(&parsed, &cats(), None)
+            )
+        })
     }
 
     fn refused(text: &str) -> bool {
@@ -5447,9 +5587,21 @@ SVar:X:Count$xPaid",
                  targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))"
             ]
         );
-        assert!(refused(
+        // A count is a count and not the announced X: read as one.
+        let counted = read(
             "Name:X\nManaCost:2 G\nTypes:Sorcery\n\
-             A:SP$ GainLife | LifeAmount$ X\nSVar:X:Count$Valid Creature.YouCtrl"
+             A:SP$ GainLife | LifeAmount$ X\nSVar:X:Count$Valid Creature.YouCtrl",
+        );
+        assert!(
+            counted.abilities[0].contains("Effect::GainLife { amount: Amount::CountOf"),
+            "{:?}",
+            counted.abilities
+        );
+        // And the announced X on a trigger is still refused.
+        assert!(refused(
+            "Name:X\nTypes:Creature\n\
+             T:Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | \
+             Execute$ G\nSVar:G:DB$ GainLife | LifeAmount$ X\nSVar:X:Count$xPaid"
         ));
     }
 
@@ -6261,6 +6413,83 @@ SVar:X:Count$xPaid",
         ));
     }
 
+    /// Pestilence, Karma, Spell Blast, Dwarven Warriors: counts of
+    /// everybody's permanents, the active player's permanents, a mana value
+    /// of exactly X, and a creature nobody can block this turn.
+    #[test]
+    fn counts_bounds_and_an_unblockable_target() {
+        let body = read(
+            "Name:X\nManaCost:B B\nTypes:Enchantment\n\
+             T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | \
+             IsPresent$ Creature | PresentCompare$ EQ0 | Execute$ S\nSVar:S:DB$ Sacrifice\n",
+        );
+        let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+        assert!(
+            text.contains("Condition::BattlefieldCountAtMost(&Filter::CREATURE, 0)"),
+            "{text}"
+        );
+        // "At the beginning of the end step": everybody's, not yours.
+        assert!(text.contains("whose: PlayerRel::EachPlayer"), "{text}");
+        // And Pestilence's ability, whose printed recipients are a key the
+        // rule reading the recipients claims.
+        let body = read(
+            "Name:X\nManaCost:B B\nTypes:Enchantment\n\
+             A:AB$ DamageAll | Cost$ B | NumDmg$ 1 | ValidCards$ Creature | \
+             ValidPlayers$ Player | ValidDescription$ each creature and each player.\n",
+        );
+        assert_eq!(body.abilities.len(), 1, "{:?}", body.abilities);
+        // Somebody's permanents, but not yours: still refused.
+        assert!(refused(
+            "Name:X\nTypes:Enchantment\nT:Mode$ Phase | Phase$ Upkeep | \
+             IsPresent$ Creature.OppCtrl | Execute$ S\nSVar:S:DB$ Sacrifice\n"
+        ));
+        // An exact count above zero is two bounds.
+        assert!(refused(
+            "Name:X\nTypes:Enchantment\nT:Mode$ Phase | Phase$ Upkeep | \
+             IsPresent$ Creature | PresentCompare$ EQ2 | Execute$ S\nSVar:S:DB$ Sacrifice\n"
+        ));
+
+        let body = read(
+            "Name:X\nManaCost:B B\nTypes:Enchantment\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | TriggerZones$ Battlefield | \
+             Execute$ D\nSVar:D:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ X\n\
+             SVar:X:Count$Valid Creature.ActivePlayerCtrl\n",
+        );
+        let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+        assert!(text.contains("Filter::ControlledByActivePlayer"), "{text}");
+        assert!(text.contains("amount: Amount::CountOf"), "{text}");
+
+        let body = read(
+            "Name:X\nManaCost:U\nTypes:Instant\n\
+             A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card.cmcEQX\nSVar:X:Count$xPaid\n",
+        );
+        let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+        assert!(text.contains("Filter::CmcExactlyX"), "{text}");
+        // X that counts something else is not the announcement.
+        assert!(refused(
+            "Name:X\nManaCost:U\nTypes:Instant\n\
+             A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card.cmcEQX\n\
+             SVar:X:Count$Valid Creature.YouCtrl\n"
+        ));
+
+        let body = read(
+            "Name:X\nManaCost:2 R\nTypes:Creature\n\
+             A:AB$ Effect | Cost$ T | ValidTgts$ Creature.powerLE2 | RememberObjects$ Targeted | \
+             ExileOnMoved$ Battlefield | StaticAbilities$ U\n\
+             SVar:U:Mode$ CantBlockBy | ValidAttacker$ Card.IsRemembered | Description$ No.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("keywords: KeywordSet::UNBLOCKABLE"), "{text}");
+        assert!(text.contains("Effect::PumpTarget"), "{text}");
+        // A blocker named is "can't be blocked by …", another sentence.
+        assert!(refused(
+            "Name:X\nTypes:Creature\n\
+             A:AB$ Effect | Cost$ T | ValidTgts$ Creature | RememberObjects$ Targeted | \
+             ExileOnMoved$ Battlefield | StaticAbilities$ U\n\
+             SVar:U:Mode$ CantBlockBy | ValidAttacker$ Card.IsRemembered | ValidBlocker$ Wall\n"
+        ));
+    }
+
     /// Keldon Warlord, Plague Rats, Time Walk, Regeneration: the sentences
     /// the DSL already had words for.
     #[test]
@@ -6667,9 +6896,8 @@ SVar:X:Count$xPaid",
     /// `Condition::ControlCount` is only the right reading while the
     /// valid-string says *whose* — the reference writes the controller into
     /// the filter, and a filter that does not name one is asking whether
-    /// such a permanent exists at all, which is a wider question than the
-    /// DSL has a sentence for. So the second half of this test is the same
-    /// clause with `YouCtrl` taken off, refused by name.
+    /// such a permanent exists at all: `Condition::BattlefieldCount`. A
+    /// filter naming somebody else's is a third question, refused by name.
     #[test]
     fn a_clause_that_counts_needs_the_filter_to_say_whose() {
         let script = "Name:X\nManaCost:G\nTypes:Creature Elf\nPT:1/1\n\
@@ -6686,11 +6914,17 @@ SVar:X:Count$xPaid",
             )]
         );
 
-        let anyone = parse(&script.replace("Creature.YouCtrl", "Creature"));
-        assert!(transcode(&anyone, &cats(), None).is_none());
+        let anyone = read(&script.replace("Creature.YouCtrl", "Creature"));
+        assert!(
+            anyone.abilities[0].contains("Condition::BattlefieldCount(&Filter::CREATURE, 2)"),
+            "{:?}",
+            anyone.abilities
+        );
+        let theirs = parse(&script.replace("Creature.YouCtrl", "Creature.OppCtrl"));
+        assert!(transcode(&theirs, &cats(), None).is_none());
         assert_eq!(
-            refusal_reason(&anyone, &cats(), None).as_deref(),
-            Some("`IsPresent$ Creature`, a count with no player")
+            refusal_reason(&theirs, &cats(), None).as_deref(),
+            Some("`IsPresent$ Creature.OppCtrl`, a count of somebody else's")
         );
 
         // The same trap one atom further in, and the one that would have
@@ -6726,7 +6960,7 @@ SVar:X:Count$xPaid",
             ("IsPresent2$ Card.Self | ", "a second `IsPresent2$` clause"),
             ("PresentPlayer$ You | ", "`PresentPlayer$ You`"),
             ("PresentZone$ Graveyard | ", "`PresentZone$ Graveyard`"),
-            ("PresentCompare$ EQ0 | ", "`PresentCompare$ EQ0`"),
+            ("PresentCompare$ EQ2 | ", "`PresentCompare$ EQ2`"),
             (
                 "PresentDefined$ Remembered | ",
                 "`PresentDefined$ Remembered`",
@@ -7572,7 +7806,7 @@ SVar:X:Count$xPaid",
         assert!(refused(
             "Name:X\nTypes:Creature\n\
              S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | \
-             IsPresent$ Island.YouCtrl | PresentCompare$ EQ0\n"
+             IsPresent$ Island.YouCtrl | PresentCompare$ EQ2\n"
         ));
         // A mode that is not Continuous is not this rule.
         assert!(refused(

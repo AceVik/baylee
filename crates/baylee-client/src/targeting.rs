@@ -332,6 +332,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // approximation for it either, because a `Not` around this arm turns
         // an over-count into an under-count and the proof being built is a
         // negative. With exactly two seats there is no third answer.
+        Filter::ControlledByActivePlayer => object.controller == view.active,
         Filter::ControlledByOpponent => {
             if view.seats.len() != 2 {
                 return None;
@@ -387,6 +388,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::AttachedToBySource
         | Filter::HasKeyword(_)
         | Filter::CmcAtMostX
+        | Filter::CmcExactlyX
         // Bounded by what the source's payment spent, which no view carries
         // either.
         | Filter::CmcAtMostColorsSpent

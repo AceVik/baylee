@@ -60,6 +60,7 @@ pub fn matches_projected(
         }
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
+        Filter::ControlledByActivePlayer => obj.controller == state.turn.active,
         Filter::OwnedByYou => obj.owner == you,
         Filter::Tapped => obj.status.contains(Status::TAPPED),
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
@@ -143,10 +144,8 @@ pub fn matches_projected(
         // layer up. A source that is gone, or that announced nothing, bounds
         // at 0 rather than at everything: an unreadable bound that found the
         // whole library would be a tutor with no price.
-        Filter::CmcAtMostX => {
-            let x = state.object(this).map_or(0, |o| o.x_value);
-            chars.mana_value() <= x
-        }
+        Filter::CmcAtMostX => chars.mana_value() <= announced_x(state, this),
+        Filter::CmcExactlyX => chars.mana_value() == announced_x(state, this),
         // Converge's number, off the source where the payment wrote it; no
         // record is no mana spent, and so no colors.
         Filter::CmcAtMostColorsSpent => {
@@ -508,6 +507,14 @@ pub fn condition_holds(
                 .count();
             count <= max as usize
         }
+        // The two walks above over the whole battlefield: nobody's side of
+        // the table in particular.
+        Condition::BattlefieldCount(filter, min) => {
+            battlefield_count(state, you, filter) >= min as usize
+        }
+        Condition::BattlefieldCountAtMost(filter, max) => {
+            battlefield_count(state, you, filter) <= max as usize
+        }
         Condition::ControlDistinctNames(filter, min) => {
             // A phased-out land is treated as though it does not exist
             // (CR 702.26b), so its name is not one of yours.
@@ -612,6 +619,23 @@ pub fn condition_holds(
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),
     }
+}
+
+/// The permanents on the battlefield `filter` matches, whoever controls them,
+/// each asked with its own id as the filter's object — the reading
+/// [`Condition::ControlCount`] gives one side of the table.
+///
+/// A phased-out permanent is treated as though it does not exist (CR
+/// 702.26b), so it is not on the battlefield this counts.
+fn battlefield_count(state: &GameState, you: PlayerId, filter: &Filter) -> usize {
+    state
+        .battlefield_seen()
+        .filter(|id| {
+            state
+                .object(*id)
+                .is_some_and(|o| matches(filter, state, o, you, *id))
+        })
+        .count()
 }
 
 /// The intervening-`if` clause of a triggered ability (CR 603.4), asked of
@@ -817,6 +841,55 @@ fn opponents_objects(
             .is_some_and(|o| state.is_opponent(o.controller, you))
     });
     all
+}
+
+/// The X announced for `this`, where `cast_wizard` and an activation write
+/// it; 0 for a source that is gone or announced none.
+fn announced_x(state: &GameState, this: ObjectId) -> u32 {
+    state.object(this).map_or(0, |o| o.x_value)
+}
+
+/// Whether `filter` reads the X announced for its source
+/// ([`Filter::CmcAtMostX`], [`Filter::CmcExactlyX`]).
+#[must_use]
+pub fn reads_announced_x(filter: &Filter) -> bool {
+    match filter {
+        Filter::CmcAtMostX | Filter::CmcExactlyX => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(reads_announced_x),
+        Filter::Not(f) => reads_announced_x(f),
+        _ => false,
+    }
+}
+
+/// Whether some announced X would let `obj` match `filter`: the question an
+/// offer asks of a spell like Spell Blast before its X exists. X is announced
+/// (CR 601.2b) before targets are chosen (CR 601.2c), and the offer comes
+/// before both, so "is there a target" can only mean "is there one for some
+/// X".
+///
+/// The X atoms answer yes and every other atom is [`matches`]. A negated X
+/// atom answers yes as well without being asked, which offers a spell whose
+/// cast may then find nothing — the direction a wizard can reverse (CR
+/// 601.2), where hiding a castable spell is not. No card negates one.
+#[must_use]
+pub fn matches_for_some_x(
+    filter: &Filter,
+    state: &GameState,
+    obj: &GameObject,
+    you: PlayerId,
+    this: ObjectId,
+) -> bool {
+    match filter {
+        Filter::CmcAtMostX | Filter::CmcExactlyX => true,
+        Filter::And(parts) => parts
+            .iter()
+            .all(|f| matches_for_some_x(f, state, obj, you, this)),
+        Filter::Or(parts) => parts
+            .iter()
+            .any(|f| matches_for_some_x(f, state, obj, you, this)),
+        Filter::Not(f) if reads_announced_x(f) => true,
+        other => matches(other, state, obj, you, this),
+    }
 }
 
 /// Legal target options for a [`TargetSpec`] (empty = cannot be chosen).
@@ -1586,6 +1659,66 @@ mod tests {
             !ask(&state, &Filter::PowerAtMost(3), c),
             "and the creature has grown out of the other card's restriction"
         );
+    }
+
+    /// "If no creatures are on the battlefield" (Pestilence) counts both
+    /// sides of the table, where "you control" counts one.
+    #[test]
+    fn a_battlefield_count_is_everybodys() {
+        let mut state = empty_state();
+        let theirs = creature(&mut state, P1, KeywordSet::EMPTY);
+
+        let none = Condition::BattlefieldCountAtMost(&ANY_CREATURE, 0);
+        let some = Condition::BattlefieldCount(&ANY_CREATURE, 1);
+        assert!(!condition_holds(&state, P0, theirs, none), "theirs counts");
+        assert!(condition_holds(&state, P0, theirs, some));
+        assert!(
+            condition_holds(
+                &state,
+                P0,
+                theirs,
+                Condition::ControlCountAtMost(&ANY_CREATURE, 0)
+            ),
+            "the control: P0 controls none of it"
+        );
+        let bare = empty_state();
+        assert!(condition_holds(&bare, P0, theirs, none));
+        assert!(!condition_holds(&bare, P0, theirs, some));
+    }
+
+    /// Karma's "Swamps they control" is the active player's, and Spell
+    /// Blast's "mana value X" is the X its own source announced.
+    #[test]
+    fn the_active_players_permanents_and_a_mana_value_of_exactly_x() {
+        static ACTIVES: Filter = Filter::ControlledByActivePlayer;
+        static EXACTLY_X: Filter = Filter::CmcExactlyX;
+        let mut state = empty_state();
+        let mine = creature(&mut state, P0, KeywordSet::EMPTY);
+        let theirs = creature(&mut state, P1, KeywordSet::EMPTY);
+        state.turn.active = P1;
+        let asks = |state: &GameState, id, filter: &Filter| {
+            state
+                .object(id)
+                .is_some_and(|o| matches(filter, state, o, P0, id))
+        };
+        assert!(asks(&state, theirs, &ACTIVES), "whoever `you` is");
+        assert!(!asks(&state, mine, &ACTIVES));
+        state.turn.active = P0;
+        assert!(asks(&state, mine, &ACTIVES));
+
+        let spell = creature(&mut state, P0, KeywordSet::EMPTY);
+        let value = state
+            .object(mine)
+            .map_or(0, |o| o.characteristics().mana_value());
+        let check = |state: &GameState| {
+            state
+                .object(mine)
+                .is_some_and(|o| matches(&EXACTLY_X, state, o, P0, spell))
+        };
+        state.object_mut(spell).expect("here").x_value = value;
+        assert!(check(&state));
+        state.object_mut(spell).expect("here").x_value = value + 1;
+        assert!(!check(&state), "at most X would have said yes");
     }
 
     /// "You control no artifacts" is not the negation of a minimum with the

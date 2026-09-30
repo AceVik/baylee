@@ -70,6 +70,12 @@ pub enum Filter {
     ControlledByYou,
     /// Controlled by an opponent of `you`.
     ControlledByOpponent,
+    /// Controlled by the active player, whose turn it is (CR 102.1): Karma's
+    /// "the number of Swamps **they** control", at the beginning of each
+    /// player's upkeep. Nobody's choice and nobody's relation to `you`, so
+    /// a filter of its own rather than a `PlayerRel` threaded through the
+    /// matcher.
+    ControlledByActivePlayer,
     /// Owned by `you`.
     OwnedByYou,
     /// Currently tapped.
@@ -141,6 +147,11 @@ pub enum Filter {
     /// [`crate::Amount::X`] does in the same position: a triggered ability
     /// has no announcement to read.
     CmcAtMostX,
+    /// Mana value exactly the X announced for the source (Spell Blast's
+    /// "counter target spell with mana value X"), read where
+    /// [`Self::CmcAtMostX`] reads it. X is announced before targets are
+    /// chosen (CR 601.2b, 601.2c), so the bound is there when the target is.
+    CmcExactlyX,
     /// Mana value at most the number of colors of mana spent to cast the
     /// source (the number converge counts, an ability word — CR 207.2c —
     /// with no rules of its own: Prismatic Ending). Read off

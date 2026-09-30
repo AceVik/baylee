@@ -5,6 +5,35 @@
 use super::*;
 use crate::choice::ChoicePrompt;
 
+/// Verdant Force — "At the beginning of **each** upkeep, create a 1/1 green
+/// Saproling creature token": the opponent's upkeep as well as its
+/// controller's. The reader read a phase trigger naming no player as "your
+/// upkeep", and the card made a Saproling on one upkeep in two.
+#[test]
+fn verdant_force_makes_a_saproling_on_every_players_upkeep() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let force = card_index("7a21ea22-3cd7-4c11-8895-5943c0d93a0d");
+    let mut engine = Duel::new(7, forest()).battlefield(0, &[force]).start();
+    keep_mulligans(&mut engine);
+    let saprolings = |e: &Engine<RegistryLookup>| {
+        e.state()
+            .battlefield_view()
+            .iter()
+            .filter(|id| {
+                e.state()
+                    .object(**id)
+                    .is_some_and(|o| o.card.is_none() && o.controller == p0)
+            })
+            .count()
+    };
+    reach_main_phase(&mut engine, p0);
+    let before = saprolings(&engine);
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(saprolings(&engine), before + 1, "the opponent's upkeep");
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(saprolings(&engine), before + 2, "and its controller's");
+}
+
 #[test]
 fn a_copied_rebound_spell_does_not_schedule_a_cast_of_a_vanished_copy() {
     let p0 = PlayerId::new(0);

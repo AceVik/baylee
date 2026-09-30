@@ -34,7 +34,8 @@
 //!   source (CR 107.3a), which the engine keeps on the source object and no
 //!   view carries. Answering `true` would let an agent plan a tutor for a
 //!   card the search may not legally find, which is exactly the
-//!   considered-looking wrong decision above. [`Filter::CmcAtMostColorsSpent`]
+//!   considered-looking wrong decision above. [`Filter::CmcExactlyX`] reads
+//!   the same number. [`Filter::CmcAtMostColorsSpent`]
 //!   is the same refusal for the same reason: its bound is what the source's
 //!   payment spent, which the engine keeps on the source and no view
 //!   carries.
@@ -157,6 +158,7 @@ impl HeuristicAgent {
             },
             Filter::ControlledByYou => Some(object.controller == view.seat),
             Filter::ControlledByOpponent => Some(self.hostile(object.controller, view.seat)),
+            Filter::ControlledByActivePlayer => Some(object.controller == view.active),
             Filter::OwnedByYou => Some(object.owner == view.seat),
             Filter::Tapped => Some(object.status.contains(ObjectStatus::TAPPED)),
             Filter::Untapped => Some(!object.status.contains(ObjectStatus::TAPPED)),
@@ -198,17 +200,18 @@ impl HeuristicAgent {
             // The view lists every instance's targets and every player on a
             // stack object, which is the count CR 115.9a asks for.
             Filter::WithSingleTarget => Some(object.targets.len() == 1),
-            // The six the view cannot answer. Named in this module's own
+            // The ones the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
             Filter::MatchesChosenTypeOfSource
             | Filter::AttachedToBySource
             | Filter::CmcAtMostX
+            | Filter::CmcExactlyX
             | Filter::CmcAtMostColorsSpent
             | Filter::EnteredThisTurn
             | Filter::PutIntoGraveyardThisTurn
             | Filter::SharesSubtypeWithCommander
-            // Not one of the six: a gap, and the header says why.
+            // Not one of those: a gap, and the header says why.
             | Filter::HasCounter(_) => None,
         }
     }
