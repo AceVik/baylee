@@ -99132,11 +99132,11 @@ fn two_headed_giant_of_foriys() -> CardIndex {
     card_index("38aa31bd-7145-43b9-9409-463d9ad6cd69")
 }
 
-/// Two-Headed Giant of Foriys — {4}{R} 4/4 Giant. `Coverage::Partial`:
-/// blocking an additional creature each combat is not in the engine, but
-/// trample is. Blocked by a 1-toughness Llanowar Elves, 1 of its 4 damage
-/// is lethal on the blocker and the remaining 3 tramples over to the
-/// defending player (CR 702.19b).
+/// Two-Headed Giant of Foriys — "Trample" (CR 702.19b): blocked by a
+/// 1-toughness Llanowar Elves, 1 of its 4 is lethal on the blocker and the
+/// excess 3 go to the defending player; the additional-block sentence is
+/// played in
+/// `two_headed_giant_of_foriys_blocks_an_additional_creature_and_divides_its_damage`.
 #[test]
 fn two_headed_giant_of_foriys_tramples_excess_damage_over_its_blocker() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -100717,5 +100717,113 @@ fn nettling_imp_destroys_a_creature_held_since_an_earlier_turn_when_it_could_not
         "held since long before turn 3 began, and it did not attack this \
          turn: the Imp's delayed destruction claims it exactly as it \
          would have on turn 1"
+    );
+}
+
+/// Two-Headed Giant of Foriys — "This creature can block an additional
+/// creature each combat": the declare-blockers question names it in
+/// `capacity` with `most: Some(2)`, blocking all three of the three
+/// attackers is refused, and a vanilla creature (Gray Ogre) beside it still
+/// blocks one at most. Blocking two is accepted, both are fully blocked (so
+/// neither reaches the Giant's own controller), and its 4 power is then
+/// divided between the two by that same controller (CR 510.1d).
+#[allow(clippy::too_many_lines)] // one capacity, two refusals, one accepted block, one division
+#[test]
+fn two_headed_giant_of_foriys_blocks_an_additional_creature_and_divides_its_damage() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[llanowar_elves(), llanowar_elves(), llanowar_elves()])
+        .battlefield(1, &[two_headed_giant_of_foriys(), gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elves = all_on_battlefield(&engine, p0, llanowar_elves());
+    assert_eq!(elves.len(), 3, "three Elves are seated");
+    let giant = on_battlefield(&engine, p1, two_headed_giant_of_foriys()).expect("seated");
+    let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+
+    declare_band_attack(&mut engine, p0, p1, &elves);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { capacity, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on exactly this")
+    };
+    assert_eq!(
+        capacity,
+        vec![crate::choice::BlockCapacity {
+            blocker: giant,
+            most: Some(2)
+        }],
+        "only the Giant may block more than one, and up to two: {capacity:?}"
+    );
+
+    match engine.apply(
+        p1,
+        PlayerAction::DeclareBlockers {
+            blockers: vec![(giant, elves[0]), (giant, elves[1]), (giant, elves[2])],
+        },
+    ) {
+        Err(EngineError::IllegalAction(message)) => {
+            assert_eq!(message, "creature cannot block that many attackers");
+        }
+        other => panic!("expected the capacity refusal, got {other:?}"),
+    }
+    match engine.apply(
+        p1,
+        PlayerAction::DeclareBlockers {
+            blockers: vec![(ogre, elves[0]), (ogre, elves[1])],
+        },
+    ) {
+        Err(EngineError::IllegalAction(message)) => {
+            assert_eq!(message, "creature cannot block that many attackers");
+        }
+        other => panic!("a vanilla creature still blocks one at most, got {other:?}"),
+    }
+
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(giant, elves[0]), (giant, elves[1]), (ogre, elves[2])],
+            },
+        )
+        .expect("the Giant's extra block and the Ogre's ordinary one are both legal");
+    assert_eq!(
+        engine.state().combat.blocked_by(giant),
+        vec![elves[0], elves[1]],
+        "it blocks both"
+    );
+    assert!(
+        engine.state().combat.is_blocked(elves[2]),
+        "the Ogre took the third"
+    );
+
+    let Pending::ChooseNumber {
+        player,
+        min,
+        reason: crate::choice::NumberPrompt::CombatDamage { source, .. },
+        ..
+    } = next_combat_question(&mut engine)
+    else {
+        panic!("expected the Giant's controller to divide its own damage")
+    };
+    assert_eq!(
+        (player, source),
+        (p1, giant),
+        "the Giant's own controller divides it, not the attackers'"
+    );
+    engine
+        .apply(player, PlayerAction::ChooseNumber(min))
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "every attacker was blocked, and the damage step kept it so"
     );
 }
